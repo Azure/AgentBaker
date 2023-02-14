@@ -468,6 +468,68 @@ function Exclude-ReservedUDPSourcePort()
     Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "add", "excludedportrange", "udp", "65330", "1", "persistent")
 }
 
+function Install-NvidiaGridDriver()
+{
+    # Installs Nvidia Grid Drivers. This will only succeed is run on a compatible SKU, see https://learn.microsoft.com/en-us/azure/virtual-machines/windows/n-series-driver-setup
+    Write-Log "Downloading and Installing Nvidia Grid Drivers"
+    Start-BitsTransfer -Source $sourceDriverUri -Destination $targetPathNvidiaDrivers
+
+    Write-Log "Downloaded driver from $sourceDriverUri to $targetPathNvidiaDrivers. Verifying Signature"
+
+    VerifySignature $targetPathNvidiaDrivers $nvidiaExpectedSubject
+    
+    Write-Log "Installing Nvidia Drivers"
+    $process = (Start-Process -FilePath $nvidiaDriversSetupPath -ArgumentList "-s Display.Driver" -Wait -PassThru)
+
+    if ($process.ExitCode -ne 0)
+    {
+        throw "There was a problem installing NVIDIA drivers. Exit code: $($process.ExitCode)"
+    }
+}
+
+# NVIDIA Driver adds additional auto start services
+# - NVWMI
+# - NVDisplay.ContainerLocalSystem
+# Per security requirement, manually deleting these services
+function Delete-ExtraNVIDIAServices
+{
+    Write-Log "DeleteExtraNVIDIAServices - Start"
+    $serviceNames = "NVWMI","NVDisplay.ContainerLocalSystem"
+
+    foreach($serviceName in $serviceNames)
+    {
+        if(ExistService $serviceName)
+        {
+            Set-Service -Name $serviceName -Status Stopped -StartupType Disabled
+            sc.exe delete $serviceName
+            if(ExistService $serviceName)
+            {
+                throw "There was a problem deleting service $serviceName"
+            }
+            
+            Write-Log "Service $serviceName was successful removed"
+        }
+        else
+        {
+            Write-Log "Service $serviceName doesn't exist"
+        }
+    }
+    Write-Log "DeleteExtraNVIDIAServices - End"
+}
+
+function ExistService([string] $serviceName)
+{
+    $result = $false
+    # Get-Service throws an error if the service doesn't exist.
+    # Thus, silenting the error action
+    if(Get-Service $serviceName -ErrorAction SilentlyContinue)
+    {
+        $result = $true
+    }
+    return $result
+}
+
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -492,6 +554,8 @@ try{
             } else {
                 Install-Docker
             }
+            Install-NvidiaGridDriver
+            Delete-ExtraNVIDIAServices
             Update-Registry
             Get-ContainerImages
             Get-FilesToCacheOnVHD
