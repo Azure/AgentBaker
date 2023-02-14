@@ -166,10 +166,16 @@ else {
 $res = Get-Command shimdiag.exe -ErrorAction SilentlyContinue
 if ($res) {
   Write-Host "Collecting logs of runhcs shim diagnostic tool"
-  foreach ($line in shimdiag.exe list) {
-    shimdiag.exe stacks $line > "$ENV:TEMP\$line.txt"
-    $paths += "$ENV:TEMP\$line.txt"
+  $tempShimdiagFile = Join-Path ([System.IO.Path]::GetTempPath()) ("shimdiag.txt")
+  $shimdiagList = shimdiag.exe list
+  Set-Content -Path $tempShimdiagFile -Value $shimdiagList
+  foreach ($line in $shimdiagList) {
+    $tempResult = shimdiag.exe stacks $line
+    Add-Content -Path $tempShimdiagFile -Value ""
+    Add-Content -Path $tempShimdiagFile -Value $line
+    Add-Content -Path $tempShimdiagFile -Value $tempResult
   }
+  $paths += $tempShimdiagFile
 }
 else {
   Write-Host "shimdiag.exe command not available"
@@ -181,6 +187,10 @@ if ($res) {
   Write-Host "Collecting logs of containerd info"
   & containerd.exe --v > "$ENV:TEMP\$timeStamp-containerd-info.txt"
   $paths += "$ENV:TEMP\$timeStamp-containerd-info.txt"
+
+  Write-Host "Collecting process info for Container Platform team"
+  Get-Process containerd-shim-runhcs-v1 > "$ENV:TEMP\process-containerd-shim-runhcs-v1.txt"
+  $paths += "$ENV:TEMP\process-containerd-shim-runhcs-v1.txt"
 }
 else {
   Write-Host "containerd.exe command not available"
@@ -229,9 +239,7 @@ $tempDiskUsageFile = Join-Path ([System.IO.Path]::GetTempPath()) ("disk-usage.tx
 Get-CimInstance -Class CIM_LogicalDisk | Select-Object @{Name="Size(GB)";Expression={$_.size/1gb}}, @{Name="Free Space(GB)";Expression={$_.freespace/1gb}}, @{Name="Free (%)";Expression={"{0,6:P0}" -f(($_.freespace/1gb) / ($_.size/1gb))}}, DeviceID, DriveType | Where-Object DriveType -EQ '3' > $tempDiskUsageFile
 $paths += $tempDiskUsageFile
 
-Write-Host "Collecting process info for Container Platform team"
-Get-Process containerd-shim-runhcs-v1 > "$ENV:TEMP\process-containerd-shim-runhcs-v1.txt"
-$paths += "$ENV:TEMP\process-containerd-shim-runhcs-v1.txt"
+# Collect process info
 Get-Process CExecSvc > "$ENV:TEMP\process-CExecSvc.txt"
 $paths += "$ENV:TEMP\process-CExecSvc.txt"
 Get-Process vmcompute > "$ENV:TEMP\process-vmcompute.txt"

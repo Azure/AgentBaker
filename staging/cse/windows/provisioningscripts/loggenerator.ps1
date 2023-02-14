@@ -133,32 +133,54 @@ Collect-OldLogFiles -Folder "C:\k\" -LogFilePattern azure-vnet-ipam.log.*
 
 # Collect running containers
 if ($global:ContainerRuntime -eq "containerd") {
-    Write-Host "Generating containerd-info.txt"
-    containerd.exe --v > (Join-Path $aksLogFolder "containerd-info.txt")
+    Write-Log "Generating process-containerd-shim-runhcs-v1.txt"
+    Get-Process containerd-shim-runhcs-v1 > (Join-Path $aksLogFolder "process-containerd-shim-runhcs-v1.txt")
+}
 
-    Write-Host "Generating containerd-containers.txt"
+$res = Get-Command containerd.exe -ErrorAction SilentlyContinue
+if ($res) {
+    Write-Log "Generating containerd-info.txt"
+    containerd.exe --v > (Join-Path $aksLogFolder "containerd-info.txt")
+}
+
+$res = Get-Command ctr.exe -ErrorAction SilentlyContinue
+if ($res) {
+    Write-Log "Generating containerd-containers.txt"
     ctr.exe -n k8s.io c ls > (Join-Path $aksLogFolder "containerd-containers.txt")
-  
-    Write-Host "Generating containerd-tasks.txt"
+
+    Write-Log "Generating containerd-tasks.txt"
     ctr.exe -n k8s.io t ls > (Join-Path $aksLogFolder "containerd-tasks.txt")
   
-    Write-Host "Generating containerd-snapshot.txt"
+    Write-Log "Generating containerd-snapshot.txt"
     ctr.exe -n k8s.io snapshot ls > (Join-Path $aksLogFolder "containerd-snapshot.txt")
-    
+}
+
+
+$res = Get-Command crictl.exe -ErrorAction SilentlyContinue
+if ($res) {
     Write-Log "Genearting cri-containerd-containers.txt"
     crictl.exe ps -a > (Join-Path $aksLogFolder "cri-containerd-containers.txt")
 
-    Write-Host "Generating cri-containerd-pods.txt"
+    Write-Log "Generating cri-containerd-pods.txt"
     crictl.exe pods > (Join-Path $aksLogFolder "cri-containerd-pods.txt")
 
-    Write-Host "Generating cri-containerd-images.txt"
+    Write-Log "Generating cri-containerd-images.txt"
     crictl.exe images > (Join-Path $aksLogFolder "cri-containerd-images.txt")
 }
 
 # Use runhcs shim diagnostic tool
-Write-Host "Collecting logs of runhcs shim diagnostic tool"
-foreach ($line in shimdiag.exe list) {
-    shimdiag.exe stacks $line > (Join-Path $aksLogFolder "$line.txt")
+$res = Get-Command shimdiag.exe -ErrorAction SilentlyContinue
+if ($res) {
+    Write-Log "Collecting logs of runhcs shim diagnostic tool"
+    $shimdiagFile = Join-Path $aksLogFolder ("shimdiag.txt")
+    $shimdiagList = shimdiag.exe list
+    Set-Content -Path $shimdiagFile -Value $shimdiagList
+    foreach ($line in $shimdiagList) {
+        $tempResult = shimdiag.exe stacks $line
+        Add-Content -Path $shimdiagFile -Value ""
+        Add-Content -Path $shimdiagFile -Value $line
+        Add-Content -Path $shimdiagFile -Value $tempResult
+    }
 }
 
 # Collect disk usage
@@ -172,8 +194,7 @@ $availableMemoryFile = Join-Path $aksLogFolder ("available-memory.txt")
 Get-Counter '\Memory\Available MBytes' > $availableMemoryFile
 
 # Collect process info
-Write-Host "Collecting process info for Container Platform team"
-Get-Process containerd-shim-runhcs-v1 > (Join-Path $aksLogFolder "process-containerd-shim-runhcs-v1.txt")
+Write-Log "Collecting process info"
 Get-Process CExecSvc > (Join-Path $aksLogFolder "process-CExecSvc.txt")
 Get-Process vmcompute > (Join-Path $aksLogFolder "process-vmcompute.txt")
 
