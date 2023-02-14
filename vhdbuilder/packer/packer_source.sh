@@ -88,7 +88,7 @@ copyPackerFiles() {
   KUBELET_SERVICE_SRC=/home/packer/kubelet.service
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
   VHD_CLEANUP_SCRIPT_SRC=/home/packer/cleanup-vhd.sh
-  VHD_CLEANUP_SCRIPT_DEST=/home/vhd-build-scripts/cleanup-vhd.sh
+  VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
   
   CSE_REDACT_SRC=/home/packer/cse_redact_cloud_config.py
   CSE_REDACT_DEST=/opt/azure/containers/provision_redact_cloud_config.py
@@ -251,11 +251,9 @@ copyPackerFiles() {
 
   cpAndMode $NOTICE_SRC $NOTICE_DEST 444
 
-  # If RUN_VHD_CLEANUP is set to false, this means that we are NOT running vhd-cleanup.sh
-  # as a part of this VHD build, thus we need to copy it to the VHD so it can be run later (SIG release)
-  if [[ "${RUN_VHD_CLEANUP,,}" == "false" ]]; then
-    cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644
-  fi
+  # Always copy the VHD cleanup script responsible for prepping the instance for first boot
+  # to disk so we can run it again if needed in subsequent builds/releases (prefetch during SIG release)
+  cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644
 }
 
 cpAndMode() {

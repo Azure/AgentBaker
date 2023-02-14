@@ -8,10 +8,6 @@ SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr 
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 
-if [[ "${MODE}" == "linuxVhdMode" ]] && [[ -z "${RUN_VHD_CLEANUP}" ]]; then
-	echo "RUN_VHD_CLEANUP needs to be set as a pipeline variable during Linux VHD builds" && exit 1
-fi
-
 # We use the provided SIG_IMAGE_VERSION if it's instantiated and we're running linuxVhdMode, otherwise we randomly generate one
 if [[ "${MODE}" == "linuxVhdMode" ]] && [[ -n "${SIG_IMAGE_VERSION}" ]]; then
 	CAPTURED_SIG_VERSION=${SIG_IMAGE_VERSION}

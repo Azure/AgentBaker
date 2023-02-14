@@ -66,7 +66,6 @@ steps:
         -e ARCHITECTURE=${ARCHITECTURE} \
         -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
         -e SGX_INSTALL=${SGX_INSTALL} \
-        -e RUN_VHD_CLEANUP=${RUN_VHD_CLEANUP} \
         ${CONTAINER_IMAGE} make -f packer.mk run-packer
     displayName: Building VHD
   - script: |
