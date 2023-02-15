@@ -471,6 +471,7 @@ function Exclude-ReservedUDPSourcePort()
 function Install-NvidiaGridDriver()
 {
     $DESTINATION_FOLDER = "D:\nvidia-driver"
+    New-Item -Path $DESTINATION_FOLDER -ItemType Directory
     $targetPathNvidiaDrivers = Join-Path -Path $DESTINATION_FOLDER -ChildPath '\setup.exe'
     $sourceDriverUri = "https://download.microsoft.com/download/4/6/0/4605339d-133c-4b7b-a750-90352df79aa6/527.41_grid_win10_win11_server2019_server2022_dch_64bit_international_azure_swl.exe"
     $nvidiaExpectedSubject = "CN=Nvidia Corporation, OU=IT-MIS, O=Nvidia Corporation, L=Santa Clara, S=California, C=US"
