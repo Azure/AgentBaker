@@ -477,7 +477,7 @@ function Install-NvidiaGridDriver()
     $nvidiaExpectedSubject = "CN=Nvidia Corporation, OU=IT-MIS, O=Nvidia Corporation, L=Santa Clara, S=California, C=US"
     # Installs Nvidia Grid Drivers. This will only succeed is run on a compatible SKU, see https://learn.microsoft.com/en-us/azure/virtual-machines/windows/n-series-driver-setup
     Write-Log "Downloading and Installing Nvidia Grid Drivers"
-    Start-BitsTransfer -Source $sourceDriverUri -Destination $targetPathNvidiaDrivers
+    DownloadFileWithRetry -URL $sourceDriverUri -Dest $targetPathNvidiaDrivers -redactUrl
 
     Write-Log "Downloaded driver from $sourceDriverUri to $targetPathNvidiaDrivers. Verifying Signature"
 
