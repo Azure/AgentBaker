@@ -7,10 +7,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/dashboard:*",
-      "amd64OnlyVersions": [
-        "v2.0.0",
-        "v2.0.0-rc7"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": []
     },
     {
@@ -353,9 +350,7 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:*",
       "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "1.4.8"
-      ]
+      "multiArchVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
