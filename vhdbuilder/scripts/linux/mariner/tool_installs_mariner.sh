@@ -72,21 +72,29 @@ listInstalledPackages() {
     rpm -qa
 }
 
-# By default the dnf-automatic is service is notify only in Mariner.
-# Enable the automatic install timer and the check-restart timer.
-enableDNFAutomatic() {
-    # Stop the notify only dnf timer since we've enabled the auto install one.
+# disable and mask all UU timers/services
+disableDNFAutomatic() {
+    # Make sure dnf-automatic is running with the notify timer rather than the auto install timer
+    systemctlEnableAndStart dnf-automatic-notifyonly.timer || exit $ERR_SYSTEMCTL_START_FAIL
+
+    # Ensure the automatic install timer is disabled. 
     # systemctlDisableAndStop adds .service to the end which doesn't work on timers.
-    systemctl disable dnf-automatic-notifyonly.timer
-    systemctl stop dnf-automatic-notifyonly.timer
-    # At 6:00:00 UTC (1 hour random fuzz) download and install package updates.
-    # Disable timer persistence so dnf-automatic-install doesnt run immediately on first boot.
-    sed -i 's/Persistent=true/Persistent=false/' /usr/lib/systemd/system/dnf-automatic-install.timer
-    systemctlEnableAndStart dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
-    # At 8:000:00 UTC check if a reboot-required package was installed
-    # Touch /var/run/reboot-required if a reboot required pacakge was installed.
-    # This helps avoid a Mariner specific reboot check command in kured.
-    systemctlEnableAndStart check-restart.timer || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctl disable dnf-automatic-install.service || exit 1
+    systemctl mask dnf-automatic-install.service || exit 1
+
+    systemctl stop dnf-automatic-install.timer || exit 1
+    systemctl disable dnf-automatic-install.timer || exit 1
+    systemctl mask dnf-automatic-install.timer || exit 1
+}
+
+# Regardless of UU mode, ensure check-restart is running
+enableCheckRestart() {
+  # Even if UU is disabled, we should still run check-restart so that kured
+  # will work as expected if it is installed.
+  # At 8:000:00 UTC check if a reboot-required package was installed
+  # Touch /var/run/reboot-required if a reboot required package was installed.
+  # This helps avoid a Mariner specific reboot check command in kured.
+  systemctlEnableAndStart check-restart.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 # There are several issues in default file permissions when trying to run AMA and ASA extensions.
