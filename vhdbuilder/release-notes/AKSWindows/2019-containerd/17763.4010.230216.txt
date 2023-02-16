@@ -1,10 +1,10 @@
-Build Number: 20230215.1_master_68703231
-Build Id:     68703231
+Build Number: 20230216.1_master_68760606
+Build Id:     68760606
 Build Repo:   https://github.com/Azure/AgentBaker
 Build Branch: master
-Commit:       7b09f357604074443215abe31ceb45b95fddb548
+Commit:       27840ba11e8754db6726767a7534affca4e8c672
 
-VHD ID:      38234a04-5394-45a1-bad3-278a01cdf6bd
+VHD ID:      1568adb6-fa2a-4806-92f1-e9c40f1cb48a
 
 System Info
 	OS Name        : Windows Server 2019 Datacenter
@@ -56,7 +56,7 @@ Installed QFEs
 
 Installed Updates
 	2023-02 Cumulative Update for .NET Framework 3.5, 4.7.2 and 4.8 for Windows Server 2019 for x64 (KB5022782)
-	Security Intelligence Update for Microsoft Defender Antivirus - KB2267602 (Version 1.381.3595.0)
+	Security Intelligence Update for Microsoft Defender Antivirus - KB2267602 (Version 1.383.51.0)
 
 Windows Update Registry Settings
 	https://docs.microsoft.com/en-us/windows/deployment/update/waas-wu-settings
