@@ -510,7 +510,7 @@ function Install-NvidiaGridDriver()
     VerifySignature $targetPathNvidiaDrivers $nvidiaExpectedSubject
     
     Write-Log "Installing Nvidia Drivers"
-    $process = (Start-Process -FilePath $nvidiaDriversSetupPath -ArgumentList "-s Display.Driver" -Wait -PassThru)
+    $process = (Start-Process -FilePath $targetPathNvidiaDrivers -ArgumentList "-s Display.Driver" -Wait -PassThru)
 
     if ($process.ExitCode -ne 0)
     {
