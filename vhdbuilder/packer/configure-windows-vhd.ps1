@@ -468,6 +468,32 @@ function Exclude-ReservedUDPSourcePort()
     Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "add", "excludedportrange", "udp", "65330", "1", "persistent")
 }
 
+function VerifySignature([string] $targetFile, [string] $expectedSubject)
+{
+    Write-Log "VerifySignature - Start"
+    Write-Log "Verifying signature for $targetFile"
+    $fileCertificate = Get-AuthenticodeSignature $targetFile
+    
+    if ($fileCertificate.Status -ne "Valid")
+    {
+        throw "Signature for $targetFile is not valid"
+    }
+    
+    if ($fileCertificate.SignerCertificate.Subject -ne $expectedSubject)
+    {
+        throw "Signer certificate's Subject for $targetFile does not match the expected Subject"
+    }
+    
+    if ($fileCertificate.SignerCertificate.Subject -eq $fileCertificate.SignerCertificate.Issuer)
+    {
+        throw "Signer certificate's Subject matches the Issuer: The certificate is self-signed"
+    }
+    
+    Write-Log "Signature for $targetFile is valid"
+    Write-Log "VerifySignature - End"
+}
+
+
 function Install-NvidiaGridDriver()
 {
     $DESTINATION_FOLDER = "D:\nvidia-driver"
