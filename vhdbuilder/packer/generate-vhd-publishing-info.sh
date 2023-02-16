@@ -57,6 +57,14 @@ if [ "$sas_token" == "" ]; then
 fi
 vhd_url="${STORAGE_ACCT_BLOB_URL}/${VHD_NAME}?$sas_token"
 
+echo "Testing whether the generated sas token works"
+vhd_size=$(curl -sI $vhd_url | grep -i Content-Length | awk '{print $2}')
+if [ "$vhd_size" == "" ]; then
+    echo "The genrated sas token does not work"
+    exit 1
+fi
+echo "The generated sas token works"
+
 # Do not log sas token
 echo "COPY ME ---> ${STORAGE_ACCT_BLOB_URL}/${VHD_NAME}?***"
 sku_name=$(echo $SKU_NAME | tr -d '.')
