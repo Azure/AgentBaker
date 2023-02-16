@@ -373,7 +373,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "location": "${AZURE_LOCATION}",
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
-  "vm_size": "Standard_NC6",
+  "vm_size": "Standard_ND6s",
   "create_time": "${CREATE_TIME}",
   "windows_image_publisher": "${WINDOWS_IMAGE_PUBLISHER}",
   "windows_image_offer": "${WINDOWS_IMAGE_OFFER}",
