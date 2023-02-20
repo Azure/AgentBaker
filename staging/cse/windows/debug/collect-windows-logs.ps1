@@ -187,10 +187,6 @@ if ($res) {
   Write-Host "Collecting logs of containerd info"
   & containerd.exe --v > "$ENV:TEMP\$timeStamp-containerd-info.txt"
   $paths += "$ENV:TEMP\$timeStamp-containerd-info.txt"
-
-  Write-Host "Collecting process info for Container Platform team"
-  Get-Process containerd-shim-runhcs-v1 > "$ENV:TEMP\process-containerd-shim-runhcs-v1.txt"
-  $paths += "$ENV:TEMP\process-containerd-shim-runhcs-v1.txt"
 }
 else {
   Write-Host "containerd.exe command not available"
@@ -240,10 +236,35 @@ Get-CimInstance -Class CIM_LogicalDisk | Select-Object @{Name="Size(GB)";Express
 $paths += $tempDiskUsageFile
 
 # Collect process info
-Get-Process CExecSvc > "$ENV:TEMP\process-CExecSvc.txt"
-$paths += "$ENV:TEMP\process-CExecSvc.txt"
-Get-Process vmcompute > "$ENV:TEMP\process-vmcompute.txt"
-$paths += "$ENV:TEMP\process-vmcompute.txt"
+$rest = Get-Process containerd-shim-runhcs-v1 -ErrorAction SilentlyContinue
+if ($res) {
+  Write-Host "Collecting process info for containerd-shim-runhcs-v1"
+  Get-Process containerd-shim-runhcs-v1 > "$ENV:TEMP\process-containerd-shim-runhcs-v1.txt"
+  $paths += "$ENV:TEMP\process-containerd-shim-runhcs-v1.txt"
+}
+else {
+  Write-Host "containerd-shim-runhcs-v1 process not available"
+}
+
+$res = Get-Process CExecSvc -ErrorAction SilentlyContinue
+if ($res) {
+  Write-Host "Collecting process info for CExecSvc"
+  Get-Process CExecSvc > "$ENV:TEMP\process-CExecSvc.txt"
+  $paths += "$ENV:TEMP\process-CExecSvc.txt"
+}
+else {
+  Write-Host "CExecSvc process not available"
+}
+
+$res = Get-Process vmcompute -ErrorAction SilentlyContinue
+if ($res) {
+  Write-Host "Collecting process info for vmcompute"
+  Get-Process vmcompute > "$ENV:TEMP\process-vmcompute.txt"
+  $paths += "$ENV:TEMP\process-vmcompute.txt"
+}
+else {
+  Write-Host "vmcompute process not availabel"
+}
 
 Write-Host "Compressing all logs to $zipName"
 $paths | Format-Table FullName, Length -AutoSize

@@ -132,11 +132,6 @@ Collect-OldLogFiles -Folder "C:\k\" -LogFilePattern azure-vnet.log.*
 Collect-OldLogFiles -Folder "C:\k\" -LogFilePattern azure-vnet-ipam.log.*
 
 # Collect running containers
-if ($global:ContainerRuntime -eq "containerd") {
-    Write-Log "Generating process-containerd-shim-runhcs-v1.txt"
-    Get-Process containerd-shim-runhcs-v1 > (Join-Path $aksLogFolder "process-containerd-shim-runhcs-v1.txt")
-}
-
 $res = Get-Command containerd.exe -ErrorAction SilentlyContinue
 if ($res) {
     Write-Log "Generating containerd-info.txt"
@@ -194,9 +189,24 @@ $availableMemoryFile = Join-Path $aksLogFolder ("available-memory.txt")
 Get-Counter '\Memory\Available MBytes' > $availableMemoryFile
 
 # Collect process info
-Write-Log "Collecting process info"
-Get-Process CExecSvc > (Join-Path $aksLogFolder "process-CExecSvc.txt")
-Get-Process vmcompute > (Join-Path $aksLogFolder "process-vmcompute.txt")
+$res = Get-Process containerd-shim-runhcs-v1 -ErrorAction SilentlyContinue
+if ($res) {
+    Write-Log "Generating process-containerd-shim-runhcs-v1.txt"
+    Get-Process containerd-shim-runhcs-v1 > (Join-Path $aksLogFolder "process-containerd-shim-runhcs-v1.txt")
+}
+
+$res = Get-Process CExecSvc -ErrorAction SilentlyContinue
+if ($res) {
+    Write-Log "Generating process-CExecSvc.txt"
+    Get-Process CExecSvc > (Join-Path $aksLogFolder "process-CExecSvc.txt")
+}
+
+$res = Get-Process vmcompute -ErrorAction SilentlyContinue
+if ($res) {
+    Write-Log "Generating process-vmcompute.txt"
+    Get-Process vmcompute > (Join-Path $aksLogFolder "process-vmcompute.txt")
+}
+
 
 # We only need to generate and upload the logs after the node is provisioned
 # WAWindowsAgent will generate and upload the logs every 15 minutes so we do not need to do it again
