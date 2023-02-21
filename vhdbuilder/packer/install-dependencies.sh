@@ -257,7 +257,7 @@ EOF
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 
-if [ "${CONTAINER_RUNTIME:=}" == "containerd" ] &&  ["${UBUNTU_RELEASE}" == "18.04"]; then
+if [[ "${CONTAINER_RUNTIME:=}" == "containerd"  && "${UBUNTU_RELEASE}" == "18.04" ]]; then
   downloadArtifactStreamingComponents 
 fi
 
@@ -265,11 +265,11 @@ downloadArtifactStreamingComponents() {
   pushd /tmp || exit $ERR_MIRROR_PROXY_INSTALL_ERR
   # download acr-mirror proxy
   MIRROR_PROXY_VERSION='0.1.0-dev-13'
-  MIRROR_PROXY_URL='https://github.com/juliusl/lifec_registry/releases/download/v${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_RELEASE}-v${MIRROR_PROXY_VERSION}.deb'
+  MIRROR_PROXY_URL="https://github.com/juliusl/lifec_registry/releases/download/v${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_RELEASE}-v${MIRROR_PROXY_VERSION}.deb"
   wget $MIRROR_PROXY_URL
-  apt_get_install 30 1 600 './acr-mirror-${UBUNTU_VERSION}-v${MIRROR_PROXY_VERSION}.deb' || exit $ERR_MIRROR_PROXY_DOWNLOAD_ERR
-  rm './acr-mirror-${UBUNTU_VERSION}-v${MIRROR_PROXY_VERSION}.deb'
-  popd
+  apt_get_install 30 1 600 "./acr-mirror-${UBUNTU_VERSION}-v${MIRROR_PROXY_VERSION}.deb" || exit $ERR_MIRROR_PROXY_DOWNLOAD_ERR
+  rm "./acr-mirror-${UBUNTU_VERSION}-v${MIRROR_PROXY_VERSION}.deb"
+  popd || exit $ERR_MIRROR_PROXY_INSTALL_ERR
 
   sudo apt install libnl-3-dev libnl-genl-3-dev -y
   sudo /opt/acr/tools/overlaybd/install.sh || exit $ERR_MIRROR_PROXY_INSTALL_ERR
