@@ -257,6 +257,31 @@ EOF
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 
+if [ "${CONTAINER_RUNTIME:=}" == "containerd" ] &&  ["${UBUNTU_RELEASE}" == "18.04"]; then
+  downloadArtifactStreamingComponents 
+fi
+
+downloadArtifactStreamingComponents() {
+  pushd /tmp || exit $ERR_MIRROR_PROXY_INSTALL_ERR
+  # download acr-mirror proxy
+  MIRROR_PROXY_VERSION='0.1.0-dev-13'
+  MIRROR_PROXY_URL='https://github.com/juliusl/lifec_registry/releases/download/v${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_RELEASE}-v${MIRROR_PROXY_VERSION}.deb'
+  wget $MIRROR_PROXY_URL
+  apt_get_install 30 1 600 './acr-mirror-${UBUNTU_VERSION}-v${MIRROR_PROXY_VERSION}.deb' || exit $ERR_MIRROR_PROXY_DOWNLOAD_ERR
+  rm './acr-mirror-${UBUNTU_VERSION}-v${MIRROR_PROXY_VERSION}.deb'
+  popd
+
+  sudo apt install libnl-3-dev libnl-genl-3-dev -y
+  sudo /opt/acr/tools/overlaybd/install.sh || exit $ERR_MIRROR_PROXY_INSTALL_ERR
+  sudo /opt/acr/tools/overlaybd/enable-http-auth.sh || exit $ERR_MIRROR_PROXY_INSTALL_ERR
+  modprobe target_core_user || exit $ERR_MIRROR_PROXY_INSTALL_ERR
+  
+}
+
+enableArtifactStreamingServices() {
+  sudo /opt/acr/tools/overlaybd/enable.sh || exit $ERR_MIRROR_PROXY_INSTALL_ERR
+}
+
 string_replace() {
   echo ${1//\*/$2}
 }
@@ -509,27 +534,6 @@ for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
 done
 
-if [ "${CONTAINER_RUNTIME:=}" == "containerd" ] &&  ["${UBUNTU_RELEASE}" == "18.04"]; then
-  downloadArtifactStreamingComponents
-fi
 
-downloadArtifactStreamingComponents() {
-  pushd /tmp || exit 1
-  # download acr-mirror proxy
-  MIRROR_PROXY_VERSION='0.1.0-dev-13'
-  MIRROR_PROXY_URL='https://github.com/juliusl/lifec_registry/releases/download/v${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_RELEASE}-v${MIRROR_PROXY_VERSION}.deb'
-  wget $MIRROR_PROXY_URL
-  apt_get_install 30 1 600 ./acr-mirror-${UBUNTU_VERSION}-v${MIRROR_PROXY_VERSION}.deb || exit 1
-  rm './acr-mirror-${UBUNTU_VERSION}-v${MIRROR_PROXY_VERSION}.deb'
-  popd
-
-  sudo apt install libnl-3-dev libnl-genl-3-dev -y
-  sudo /opt/acr/tools/overlaybd/install.sh || exit 1
-  sudo /opt/acr/tools/overlaybd/enable-http-auth.sh || exit 1
-  modprobe target_core_user || exit 1
-
-  sudo /opt/acr/tools/overlaybd/enable.sh || exit 1
-
-}
 
 echo "install-dependencies step completed successfully"
