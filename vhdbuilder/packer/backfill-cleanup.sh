@@ -60,7 +60,10 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
     else
       continue
     fi
+
     due_date=$(date +%y%m%d -d "7 days ago")
+    echo "create_date is ${create_date}"
+    echo "due_date is ${due_date}"
     # clean the entire SIG resources if it's one week ago
     if [[ $create_date < $due_date ]]; then
       echo "Deleting gallery ${gallery}"
