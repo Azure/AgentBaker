@@ -50,13 +50,13 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
   gallery_list=$(az sig list -g ${AZURE_RESOURCE_GROUP_NAME} | jq -r '.[] | select(.name != "AKSWindows") | .name')
   for gallery in $gallery_list; do
     if [[ "${gallery}" =~ WS2019Gallery* ]]; then
-      create_date=${gallery:13:12}
+      create_date=${gallery:13:6}
     elif [[ "${gallery_name}" =~ WS2019_containerdGallery* ]]; then
-      create_date=${gallery_name:24:12}
+      create_date=${gallery_name:24:6}
     elif [[ "${gallery_name}" =~ WS2022_containerdGallery* ]]; then
-      create_date=${gallery_name:24:12}
+      create_date=${gallery_name:24:6}
     elif [[ "${gallery_name}" =~ WS2022_containerd_gen2Gallery* ]]; then
-      create_date=${gallery_name:29:12}
+      create_date=${gallery_name:29:6}
     else
       continue
     fi
