@@ -49,27 +49,26 @@ fi
 if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
   gallery_list=$(az sig list -g ${AZURE_RESOURCE_GROUP_NAME} | jq -r '.[] | select(.name != "AKSWindows") | .name')
   for gallery in $gallery_list; do
-    # delete old Windows SIG image versions in gallery (image definitions must have .osType == "Windows")
-    image_defs=$(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${gallery} | jq -r '.[] | select(.osType == "Windows").name')
-    for image_definition in $image_defs; do
-        echo "Finding sig image versions associated with ${image_definition} in gallery ${gallery}"
-        old_image_versions=$(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${gallery} -i ${image_definition} | jq --arg dl $deadline -r '.[] | select(.tags.now < $dl).name')
-        for old_image_version in $old_image_versions; do
-            echo "Deleting sig image-version ${old_image_version} ${image_definition} from gallery ${gallery} rg ${AZURE_RESOURCE_GROUP_NAME}"
-            az sig image-version delete -e $old_image_version -i ${image_definition} -r ${gallery} -g ${AZURE_RESOURCE_GROUP_NAME}
-        done
-        cur_image_versions=$(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${gallery} -i ${image_definition})
-        # clean the image-definition if the current image versions are empty after cleaning older ones provided they exist
-        if [[ -n "${old_image_versions}" ]] && [[ "${cur_image_versions}" == "[]" ]]; then
-          echo "Deleting sig image-definition ${image_definition} from gallery ${gallery} rg ${AZURE_RESOURCE_GROUP_NAME}"
-          az sig image-definition delete --gallery-image-definition ${image_definition} -r ${gallery} -g ${AZURE_RESOURCE_GROUP_NAME}
-        fi
-    done
-    image_defs=$(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${gallery} | jq -r '.[] | select(.osType == "Windows").name')
-    # clean the gallery if ALL sig image-definitions have been deleted
-    if [[ -z $image_defs ]]; then
+    if [[ "${gallery}" =~ WS2019Gallery* ]]; then
+      create_date=${gallery:13:12}
+    elif [[ "${gallery_name}" =~ WS2019_containerdGallery* ]]; then
+      create_date=${gallery_name:24:12}
+    elif [[ "${gallery_name}" =~ WS2022_containerdGallery* ]]; then
+      create_date=${gallery_name:24:12}
+    elif [[ "${gallery_name}" =~ WS2022_containerd_gen2Gallery* ]]; then
+      create_date=${gallery_name:29:12}
+    else
+      continue
+    fi
+    due_date=$(date +%y%m%d -d "7 days ago")
+    # clean the entire SIG resources if it's one week ago
+    if [[ $create_date < $due_date ]]; then
       echo "Deleting gallery ${gallery}"
       az sig delete --gallery-name ${gallery} --resource-group ${AZURE_RESOURCE_GROUP_NAME}
+      image_defs=$(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${gallery} | jq -r '.[] | select(.osType == "Windows").name')
+      if [[ -n "${image_defs}" ]]; then 
+        echo "Still having SIG image-definitions"
+      fi
     fi
   done
 fi
