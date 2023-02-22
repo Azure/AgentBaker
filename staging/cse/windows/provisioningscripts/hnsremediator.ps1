@@ -31,6 +31,10 @@ if (Test-Path -Path $hnsPIDFilePath) {
 }
 
 $id = Get-WmiObject -Class Win32_Service -Filter "name='hns'" | Select-Object -ExpandProperty ProcessId
+if ([string]::IsNullOrEmpty($id)) {
+    Write-Log "Cannot get the PID of HNS service. Exit"
+    exit
+}
 if (!$isInitialized) {
     Write-Log "Initializing with creating $hnsPIDFilePath. PID of HNS service is $id"
     echo $id > $hnsPIDFilePath
