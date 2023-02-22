@@ -257,9 +257,6 @@ EOF
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 
-if [[ "${CONTAINER_RUNTIME:=}" == "containerd"  && "${UBUNTU_RELEASE}" == "18.04" ]]; then
-  downloadArtifactStreamingComponents 
-fi
 
 downloadArtifactStreamingComponents() {
   pushd /tmp || exit $ERR_MIRROR_PROXY_INSTALL_ERR
@@ -281,6 +278,10 @@ downloadArtifactStreamingComponents() {
 enableArtifactStreamingServices() {
   sudo /opt/acr/tools/overlaybd/enable.sh || exit $ERR_MIRROR_PROXY_INSTALL_ERR
 }
+
+if [[ "${CONTAINER_RUNTIME:=}" == "containerd"  && "${UBUNTU_RELEASE}" == "18.04" ]]; then
+  downloadArtifactStreamingComponents 
+fi
 
 string_replace() {
   echo ${1//\*/$2}
