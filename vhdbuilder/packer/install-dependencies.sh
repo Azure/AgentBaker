@@ -262,10 +262,10 @@ downloadArtifactStreamingComponents() {
   pushd /tmp || exit $ERR_MIRROR_PROXY_INSTALL_ERR
   # download acr-mirror proxy
   MIRROR_PROXY_VERSION='0.1.0-dev-19'
-  MIRROR_PROXY_URL="https://github.com/juliusl/lifec_registry/releases/download/v${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_RELEASE}-v${MIRROR_PROXY_VERSION}.deb"
+  MIRROR_PROXY_URL="https://github.com/juliusl/lifec_registry/releases/download/v${MIRROR_PROXY_VERSION}/acr-mirror-1804-v${MIRROR_PROXY_VERSION}.deb"
   wget $MIRROR_PROXY_URL
-  apt_get_install 30 1 600 "./acr-mirror-${UBUNTU_RELEASE}-v${MIRROR_PROXY_VERSION}.deb" || exit $ERR_MIRROR_PROXY_DOWNLOAD_ERR
-  rm "./acr-mirror-${UBUNTU_RELEASE}-v${MIRROR_PROXY_VERSION}.deb"
+  apt_get_install 30 1 600 "./acr-mirror-1804-v${MIRROR_PROXY_VERSION}.deb" || exit $ERR_MIRROR_PROXY_DOWNLOAD_ERR
+  rm "./acr-mirror-1804-v${MIRROR_PROXY_VERSION}.deb"
   popd || exit $ERR_MIRROR_PROXY_INSTALL_ERR
 
   sudo apt install libnl-3-dev libnl-genl-3-dev -y
