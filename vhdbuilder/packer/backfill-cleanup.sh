@@ -55,7 +55,6 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
         echo "Finding sig image versions associated with ${image_definition} in gallery ${gallery}"
         old_image_versions=$(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${gallery} -i ${image_definition} | jq --arg dl $deadline -r '.[] | select(.tags.now < $dl).name')
         for old_image_version in $old_image_versions; do
-            az sig image-version show -e $old_image_version -i ${image_definition} -r ${gallery} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id
             echo "Deleting sig image-version ${old_image_version} ${image_definition} from gallery ${gallery} rg ${AZURE_RESOURCE_GROUP_NAME}"
             az sig image-version delete -e $old_image_version -i ${image_definition} -r ${gallery} -g ${AZURE_RESOURCE_GROUP_NAME}
         done
