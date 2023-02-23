@@ -4,7 +4,7 @@
             "agentPoolProfiles": [
                 {
                     "name": "nodepool1",
-                    "vmSize": "Standard_NC6",
+                    "vmSize": "Standard_NC6s_v3",
                     "osType": "Linux",
                     "availabilityProfile": "VirtualMachineScaleSets",
                     "storageProfile": "ManagedDisks",
