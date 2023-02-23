@@ -101,6 +101,17 @@ function Write-KubeClusterConfig {
         };
     }
 
+    if ($global:IsDualStackEnabled) {
+        $addrs = @()
+        Write-Log "Getting IPs for dualstack cluster"
+        Get-NetIPAddress | ForEach-Object { if ($_.SuffixOrigin -eq "Dhcp") {$addrs += $_.IPAddress}}
+        $nodeIPArg = "--node-ip="
+        $nodeIPArg += $addrs -join ","
+        Write-Log "Writing node ip arg $nodeIPArg to kubeletconfig"
+        $global:KubeletConfigArgs += $nodeIPArg
+        Write-Log "KubeletConfig args now $global:KubeletConfigArgs"
+    }
+
     $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Kubernetes -Value @{
         Source       = @{
             Release = $global:KubeBinariesVersion;
