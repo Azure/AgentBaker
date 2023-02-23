@@ -228,6 +228,18 @@ try
         $global:CSEScriptsPackageUrl = $global:CSEScriptsPackageUrl + $WindowsCSEScriptsPackage
         Write-Log "CSEScriptsPackageUrl is set to $global:CSEScriptsPackageUrl"
     }
+
+    # add node-ips
+    if ($global:IsDualStackEnabled) {
+        $addrs = @()
+        Write-Log "Getting IPs for dualstack cluster"
+        Get-NetIPAddress | ForEach-Object { if ($_.SuffixOrigin -eq "Dhcp") {$addrs += $_.IPAddress}}
+        $nodeIPArg = "--node-ip="
+        $nodeIPArg += $addrs -join ","
+        Write-Log "Writing node ip arg $nodeIPArg to kubeletconfig"
+        $global:KubeletConfigArgs += $nodeIPArg
+        Write-Log "KubeletConfig args now $global:KubeletConfigArgs"
+    }
     # Download CSE function scripts
     Write-Log "Getting CSE scripts"
     $tempfile = 'c:\csescripts.zip'
