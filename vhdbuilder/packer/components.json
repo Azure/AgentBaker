@@ -129,6 +129,13 @@
       ]
     },
     {
+      "downloadURL": "mcr.microsoft.com/aks/msi/addon-token-adapter:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "master.221118.2"
+      ]
+    },
+    {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
