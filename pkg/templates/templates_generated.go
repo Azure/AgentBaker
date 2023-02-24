@@ -21,6 +21,7 @@
 // linux/cloud-init/artifacts/cis.sh
 // linux/cloud-init/artifacts/containerd-monitor.service
 // linux/cloud-init/artifacts/containerd-monitor.timer
+// linux/cloud-init/artifacts/containerd.service
 // linux/cloud-init/artifacts/containerd_exec_start.conf
 // linux/cloud-init/artifacts/crictl.yaml
 // linux/cloud-init/artifacts/cse_cmd.sh
@@ -774,6 +775,45 @@ func linuxCloudInitArtifactsContainerdMonitorTimer() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd-monitor.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsContainerdService = []byte(`# Explicitly configure containerd systemd service on Mariner AKS to maintain consistent
+# settings with the containerd.service file previously deployed during cloud-init.
+# Additionally set LimitNOFILE to the exact value "infinity" means on Ubuntu, eg "1048576".
+[Unit]
+Description=containerd daemon
+After=network.target
+[Service]
+ExecStartPre=/sbin/modprobe overlay
+ExecStart=/usr/bin/containerd
+Delegate=yes
+KillMode=process
+Restart=always
+# Explicitly set OOMScoreAdjust to make containerd unlikely to be oom killed
+OOMScoreAdjust=-999
+# Explicitly set LimitNOFILE to match what infinity means on Ubuntu AKS
+LimitNOFILE=1048576
+# Explicitly set LimitCORE, LimitNPROC, and TasksMax to infinity to match Ubuntu AKS
+LimitCORE=infinity
+TasksMax=infinity
+LimitNPROC=infinity
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsContainerdServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsContainerdService, nil
+}
+
+func linuxCloudInitArtifactsContainerdService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsContainerdServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -7354,6 +7394,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
 	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
 	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
+	"linux/cloud-init/artifacts/containerd.service":                        linuxCloudInitArtifactsContainerdService,
 	"linux/cloud-init/artifacts/containerd_exec_start.conf":                linuxCloudInitArtifactsContainerd_exec_startConf,
 	"linux/cloud-init/artifacts/crictl.yaml":                               linuxCloudInitArtifactsCrictlYaml,
 	"linux/cloud-init/artifacts/cse_cmd.sh":                                linuxCloudInitArtifactsCse_cmdSh,
@@ -7488,6 +7529,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
 				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
 				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
+				"containerd.service":                        &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},
 				"containerd_exec_start.conf":                &bintree{linuxCloudInitArtifactsContainerd_exec_startConf, map[string]*bintree{}},
 				"crictl.yaml":                               &bintree{linuxCloudInitArtifactsCrictlYaml, map[string]*bintree{}},
 				"cse_cmd.sh":                                &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
