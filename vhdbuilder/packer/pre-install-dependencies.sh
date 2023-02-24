@@ -45,6 +45,8 @@ systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 systemctlEnableAndStart logrotate.timer || exit 1
 rm -f /etc/cron.daily/logrotate
 
+systemctlEnableAndStart sync-container-logs.service || exit 1
+
 if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
   installFIPS
 elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
