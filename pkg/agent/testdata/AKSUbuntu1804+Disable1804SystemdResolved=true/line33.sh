@@ -215,9 +215,6 @@ else
     logs_to_events "AKS.CSE.ensureDocker" ensureDocker
 fi
 
-# Start the service to synchronize container logs so WALinuxAgent can pick them up
-logs_to_events "AKS.CSE.sync-container-logs" "systemctlEnableAndStart sync-container-logs"
-
 if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
     echo "${MESSAGE_OF_THE_DAY}" | base64 -d > /etc/motd
 fi

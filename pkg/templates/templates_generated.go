@@ -2652,9 +2652,6 @@ else
     logs_to_events "AKS.CSE.ensureDocker" ensureDocker
 fi
 
-# Start the service to synchronize container logs so WALinuxAgent can pick them up
-logs_to_events "AKS.CSE.sync-container-logs" "systemctlEnableAndStart sync-container-logs"
-
 if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
     echo "${MESSAGE_OF_THE_DAY}" | base64 -d > /etc/motd
 fi
@@ -6101,28 +6098,6 @@ write_files:
       }{{end}}{{if HasDataDir}},
       "data-root": "{{GetDataDir}}"{{- end}}
     }
-
-- path: /etc/systemd/system/sync-container-logs.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=Syncs AKS pod log symlinks so that WALinuxAgent can include kube-system pod logs in the hourly upload.
-    After=containerd.service
-
-    [Service]
-    ExecStart=/opt/azure/containers/sync-container-logs.sh
-    Restart=always
-
-    [Install]
-    WantedBy=multi-user.target
-
-- path: /opt/azure/containers/sync-container-logs.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "syncContainerLogsScript"}}
 
 - path: /etc/systemd/system/containerd.service.d/exec_start.conf
   permissions: "0644"
