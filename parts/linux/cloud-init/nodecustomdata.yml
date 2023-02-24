@@ -191,28 +191,6 @@ write_files:
       "data-root": "{{GetDataDir}}"{{- end}}
     }
 
-- path: /etc/systemd/system/sync-tunnel-logs.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=Syncs AKS pod log symlinks so that WALinuxAgent can include aks-link/konnectivity/tunnelfront logs.
-    After=containerd.service
-
-    [Service]
-    ExecStart=/opt/azure/containers/sync-tunnel-logs.sh
-    Restart=always
-
-    [Install]
-    WantedBy=multi-user.target
-
-- path: /opt/azure/containers/sync-tunnel-logs.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "syncTunnelLogsScript"}}
-
 - path: /etc/systemd/system/containerd.service.d/exec_start.conf
   permissions: "0644"
   owner: root
