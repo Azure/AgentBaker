@@ -190,8 +190,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 		 - apiServerCertificate
 		 - clientCertificate
 		 - clientPrivateKey
-		 - kubeConfigCertificate
-		 - kubeConfigPrivateKey
 		 - servicePrincipalClientSecret
 
 		 To refer to a keyvault secret, the value of the parameter in the api model file should be formatted as:
