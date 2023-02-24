@@ -49,7 +49,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"bindMountDropin":              getBase64EncodedGzippedCustomScript(bindMountDropin, config),
 			"httpProxyDropin":              getBase64EncodedGzippedCustomScript(httpProxyDropin, config),
 			"componentManifestFile":        getBase64EncodedGzippedCustomScript(componentManifestFile, config),
-			"syncTunnelLogsScript":         getBase64EncodedGzippedCustomScript(syncTunnelLogsScript, config),
+			"syncTunnelLogsScript":         getBase64EncodedGzippedCustomScript(syncContainerLogsScript, config),
 		},
 	}
 

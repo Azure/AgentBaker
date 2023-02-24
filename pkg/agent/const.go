@@ -61,7 +61,7 @@ const (
 	kubernetesContainerdMonitorSystemdTimer   = "linux/cloud-init/artifacts/containerd-monitor.timer"
 	kubernetesContainerdMonitorSystemdService = "linux/cloud-init/artifacts/containerd-monitor.service"
 	kubernetesCustomSearchDomainsScript       = "linux/cloud-init/artifacts/setup-custom-search-domains.sh"
-	syncTunnelLogsScript                      = "linux/cloud-init/artifacts/sync-tunnel-logs.sh"
+	syncContainerLogsScript                   = "linux/cloud-init/artifacts/sync-container-logs.sh"
 	kubeletSystemdService                     = "linux/cloud-init/artifacts/kubelet.service"
 	kmsSystemdService                         = "linux/cloud-init/artifacts/kms.service"
 	aptPreferences                            = "linux/cloud-init/artifacts/apt-preferences"

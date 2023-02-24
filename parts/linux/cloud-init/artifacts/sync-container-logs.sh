@@ -31,7 +31,7 @@ fi
 mkdir -p $DST
 
 # Start a background process to clean up logs from deleted pods that
-# haven't been modified in 2 hours. This allows us to retain tunnel pod
+# haven't been modified in 2 hours. This allows us to retain pod
 # logs after a restart.
 while true; do
   find /var/log/azure/aks/pods -type f -links 1 -mmin +120 -delete
@@ -39,9 +39,9 @@ while true; do
 done &
 
 # Manually sync all matching logs once
-for TUNNEL_LOG_FILE in $(compgen -G "$SRC/*_kube-system_*.log"); do
-   echo "Linking $TUNNEL_LOG_FILE"
-   /bin/ln -Lf $TUNNEL_LOG_FILE $DST/
+for CONTAINER_LOG_FILE in $(compgen -G "$SRC/*_kube-system_*.log"); do
+   echo "Linking $CONTAINER_LOG_FILE"
+   /bin/ln -Lf $CONTAINER_LOG_FILE $DST/
 done
 echo "Starting inotifywait..."
 
