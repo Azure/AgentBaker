@@ -373,8 +373,8 @@ for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-# IPv6 nftables, only Ubuntu for now
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
+# IPv6 nftables rules are only available on Ubuntu or Mariner v2
+if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) ]]; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
 
