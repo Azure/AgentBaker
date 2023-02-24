@@ -431,6 +431,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/containerd.service",
+      "destination": "/home/packer/containerd.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/pam-d-common-auth",
       "destination": "/home/packer/pam-d-common-auth"
     },
