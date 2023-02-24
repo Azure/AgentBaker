@@ -126,12 +126,12 @@ copyPackerFiles() {
   DHCP6_SVC_DEST=/etc/systemd/system/dhcpv6.service
   cpAndMode $DHCP6_SVC_SRC $DHCP6_SVC_DEST 600
 
-  SYNC_LOGS_SH_SRC=/home/packer/sync-tunnel-logs.sh
-  SYNC_LOGS_SH_DEST=/opt/azure/containers/sync-tunnel-logs.sh
+  SYNC_LOGS_SH_SRC=/home/packer/sync-container-logs.sh
+  SYNC_LOGS_SH_DEST=/opt/azure/containers/sync-container-logs.sh
   cpAndMode $SYNC_LOGS_SH_SRC $SYNC_LOGS_SH_DEST 0544
 
-  SYNC_LOGS_SVC_SRC=/home/packer/sync-tunnel-logs.service
-  SYNC_LOGS_SVC_DEST=/etc/systemd/system/sync-tunnel-logs.service
+  SYNC_LOGS_SVC_SRC=/home/packer/sync-container-logs.service
+  SYNC_LOGS_SVC_DEST=/etc/systemd/system/sync-container-logs.service
   cpAndMode $SYNC_LOGS_SVC_SRC $SYNC_LOGS_SVC_DEST 600
 
   CRICTL_SRC=/home/packer/crictl.yaml
