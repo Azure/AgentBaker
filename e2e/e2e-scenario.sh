@@ -3,7 +3,7 @@ set -euxo pipefail
 source e2e-helper.sh
 
 # If a custom SIG_VERSION_ID was not provided via the command line or pipeline vars, default to a locked 1804Gen2 image for now
-: "${SIG_VERSION_ID:="/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1677169694.31375"}"
+: "${SIG_VERSION_ID:="/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1666631350.18026"}"
 
 debug() {
     local retval
