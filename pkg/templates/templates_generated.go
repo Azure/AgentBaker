@@ -6293,6 +6293,13 @@ write_files:
     # for DNS.
     iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
 
+- path: /etc/kubernetes/certs/ca.crt
+  permissions: "0600"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetParameter "caCertificate"}}
+
 - path: {{GetCustomSearchDomainsCSEScriptFilepath}}
   permissions: "0744"
   encoding: gzip
