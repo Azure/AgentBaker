@@ -208,25 +208,26 @@ fi
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
   export NVIDIA_DRIVER_IMAGE_TAG="cuda-510.47.03-${NVIDIA_DRIVER_IMAGE_SHA}"
-  if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-    gpu_action="install"
-  fi
 
   mkdir -p /opt/{actions,gpu}
   if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
     ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh $gpu_action" 
-    ret=$?
-    if [[ "$ret" != "0" ]]; then
-      echo "Failed to install GPU driver, exiting..."
-      exit $ret
+    if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+      bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+      ret=$?
+      if [[ "$ret" != "0" ]]; then
+        echo "Failed to install GPU driver, exiting..."
+        exit $ret
+      fi
     fi
   else
-    bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG $gpu_action"
-    ret=$?
-    if [[ "$ret" != "0" ]]; then
-      echo "Failed to install GPU driver, exiting..."
-      exit $ret
+    if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+      bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG $gpu_action"
+      ret=$?
+      if [[ "$ret" != "0" ]]; then
+        echo "Failed to install GPU driver, exiting..."
+        exit $ret
+      fi
     fi
   fi
 fi
