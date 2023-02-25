@@ -10,6 +10,8 @@ CRICTL_BIN_DIR="/usr/local/bin"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
+ORAS_DOWNLOADS_DIR="/opt/oras/downloads"
+ORAS_BIN_DIR="/usr/local/bin"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
@@ -88,6 +90,12 @@ downloadAzureCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+}
+
+downloadOras() {
+    mkdir -p $ORAS_DOWNLOADS_DIR
+    ORAS_TGZ_TMP=${ORAS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    retrycmd_get_tarball 120 5 "$ORAS_DOWNLOADS_DIR/${ORAS_TGZ_TMP}" ${ORAS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
 downloadCrictl() {
