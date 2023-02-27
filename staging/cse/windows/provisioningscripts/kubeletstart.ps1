@@ -31,6 +31,16 @@ if ($global:ContainerRuntime -eq "containerd") {
 
 ipmo $global:HNSModule
 
+function
+Test-NodeIPArgExists($argList) {
+    foreach ($arg in $argList) {
+        if ($arg.ToLower() -like "--node-ip*") {
+            return $true
+        }
+    }
+    return $false
+}
+
 #TODO ksbrmnn refactor to be sensical instead of if if if ...
 
 # Calculate some local paths
@@ -64,6 +74,31 @@ if ($global:ContainerRuntime -eq "docker") {
 # Update args to use ContainerD if needed
 if ($global:ContainerRuntime -eq "containerd") {
     $KubeletArgList += @("--container-runtime=remote", "--container-runtime-endpoint=npipe://./pipe/containerd-containerd")
+}
+
+# Update args to get both IPs from IMDS if IsDualStack and the --node-ip argument
+# is not present in the existing kubelet arg list.
+if ($global:IsDualStackEnabled -and !(Test-NodeIPArgExists $KubeletArgList)) {
+    # todo(tylloyd) add retry?
+    $metadata = Invoke-RestMethod -Headers @{"Metadata"="true"} -Method GET -NoProxy -Uri "http://169.254.169.254/metadata/instance?api-version=2021-02-01"
+
+    $ipv4Addr = $null
+    $ipv6Addr = $null
+
+    if ($metadata.network.interface.ipv4.ipAddress.Length -gt 0) {
+        $ipv4Addr = $metadata.network.interface.ipv4.ipAddress[0].privateIpAddress
+    }
+
+    if ($metadata.network.interface.ipv6.ipAddress.Length -gt 0) {
+        $ipv6Addr = $metadata.network.interface.ipv6.ipAddress[0].privateIpAddress
+    }
+
+    if ($ipv4Addr -ne $null -and $ipv6Addr -ne $null) {
+        $KubeletArgList += @("--node-ip=$ipv4Addr,$ipv6Addr")
+    } else {
+        # error instead?
+        Write-Host "Either IPv4 or IPv6 were not found from IMDS but IsDualStackEnabled flag is set to true. IPv4=$ipv4Addr, IPv6=$ipv6Addr"
+    }
 }
 
 # Used in WinCNI version of kubeletstart.ps1
