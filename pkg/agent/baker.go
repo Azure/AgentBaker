@@ -905,7 +905,7 @@ func getGPUDriverVersion(size string) string {
 	if isStandardNCv1(size) {
 		return datamodel.Nvidia470CudaDriverVersion
 	}
-	return datamodel.Nvidia510CudaDriverVersion
+	return datamodel.Nvidia525CudaDriverVersion
 }
 
 func isStandardNCv1(size string) bool {

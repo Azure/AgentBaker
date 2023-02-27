@@ -63,13 +63,13 @@ ERR_CRICTL_DOWNLOAD_TIMEOUT=117 # Timeout waiting for crictl downloads
 ERR_CRICTL_OPERATION_ERROR=118 # Error executing a crictl operation
 ERR_CTR_OPERATION_ERROR=119 # Error executing a ctr containerd cli operation
 
-ERR_VHD_FILE_NOT_FOUND=124 # VHD log file not found on VM built from VHD distro
-ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
-
 # Azure Stack specific errors
 ERR_AZURE_STACK_GET_ARM_TOKEN=120 # Error generating a token to use with Azure Resource Manager
 ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 # Error fetching the network configuration for the node
 ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 # Error fetching the subnet address prefix for a subnet ID
+
+ERR_VHD_FILE_NOT_FOUND=124 # VHD log file not found on VM built from VHD distro
+ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
 
 ERR_SWAP_CREATE_FAIL=130 # Error allocating swap file
 ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 # Error insufficient disk space for swap file creation
@@ -102,7 +102,7 @@ export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
 NVIDIA_CONTAINER_RUNTIME_VERSION="3.6.0"
-export NVIDIA_DRIVER_IMAGE_SHA="sha-5262fa"
+export NVIDIA_DRIVER_IMAGE_SHA="sha-dc8c1a"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu"
 export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"

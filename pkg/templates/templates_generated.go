@@ -21,6 +21,7 @@
 // linux/cloud-init/artifacts/cis.sh
 // linux/cloud-init/artifacts/containerd-monitor.service
 // linux/cloud-init/artifacts/containerd-monitor.timer
+// linux/cloud-init/artifacts/containerd.service
 // linux/cloud-init/artifacts/containerd_exec_start.conf
 // linux/cloud-init/artifacts/crictl.yaml
 // linux/cloud-init/artifacts/cse_cmd.sh
@@ -74,8 +75,8 @@
 // linux/cloud-init/artifacts/sshd_config
 // linux/cloud-init/artifacts/sshd_config_1604
 // linux/cloud-init/artifacts/sshd_config_1804_fips
-// linux/cloud-init/artifacts/sync-tunnel-logs.service
-// linux/cloud-init/artifacts/sync-tunnel-logs.sh
+// linux/cloud-init/artifacts/sync-container-logs.service
+// linux/cloud-init/artifacts/sync-container-logs.sh
 // linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
 // linux/cloud-init/artifacts/teleportd.service
 // linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
@@ -778,6 +779,45 @@ func linuxCloudInitArtifactsContainerdMonitorTimer() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsContainerdService = []byte(`# Explicitly configure containerd systemd service on Mariner AKS to maintain consistent
+# settings with the containerd.service file previously deployed during cloud-init.
+# Additionally set LimitNOFILE to the exact value "infinity" means on Ubuntu, eg "1048576".
+[Unit]
+Description=containerd daemon
+After=network.target
+[Service]
+ExecStartPre=/sbin/modprobe overlay
+ExecStart=/usr/bin/containerd
+Delegate=yes
+KillMode=process
+Restart=always
+# Explicitly set OOMScoreAdjust to make containerd unlikely to be oom killed
+OOMScoreAdjust=-999
+# Explicitly set LimitNOFILE to match what infinity means on Ubuntu AKS
+LimitNOFILE=1048576
+# Explicitly set LimitCORE, LimitNPROC, and TasksMax to infinity to match Ubuntu AKS
+LimitCORE=infinity
+TasksMax=infinity
+LimitNPROC=infinity
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsContainerdServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsContainerdService, nil
+}
+
+func linuxCloudInitArtifactsContainerdService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsContainerdServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsContainerd_exec_startConf = []byte(`[Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 `)
@@ -1332,9 +1372,14 @@ ensureDHCPv6() {
 }
 
 ensureKubelet() {
+    # ensure cloud init completes
+    # avoids potential corruption of files written by cloud init and CSE concurrently.
+    # removes need for wait_for_file and EOF markers
+    cloud-init status --wait
     KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
     mkdir -p "$(dirname "${KUBE_CA_FILE}")"
     echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
+    chmod 0600 "${KUBE_CA_FILE}"
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
     echo "KUBELET_FLAGS=${KUBELET_FLAGS}" >> "${KUBELET_DEFAULT_FILE}"
@@ -1406,7 +1451,7 @@ EOF
     fi
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
- #!/bin/bash
+#!/bin/bash
 # Disallow container from reaching out to the special IP address 168.63.129.16
 # for TCP protocol (which http uses)
 #
@@ -1689,13 +1734,13 @@ ERR_CRICTL_DOWNLOAD_TIMEOUT=117 # Timeout waiting for crictl downloads
 ERR_CRICTL_OPERATION_ERROR=118 # Error executing a crictl operation
 ERR_CTR_OPERATION_ERROR=119 # Error executing a ctr containerd cli operation
 
-ERR_VHD_FILE_NOT_FOUND=124 # VHD log file not found on VM built from VHD distro
-ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
-
 # Azure Stack specific errors
 ERR_AZURE_STACK_GET_ARM_TOKEN=120 # Error generating a token to use with Azure Resource Manager
 ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 # Error fetching the network configuration for the node
 ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 # Error fetching the subnet address prefix for a subnet ID
+
+ERR_VHD_FILE_NOT_FOUND=124 # VHD log file not found on VM built from VHD distro
+ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
 
 ERR_SWAP_CREATE_FAIL=130 # Error allocating swap file
 ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 # Error insufficient disk space for swap file creation
@@ -1728,7 +1773,7 @@ export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
 NVIDIA_CONTAINER_RUNTIME_VERSION="3.6.0"
-export NVIDIA_DRIVER_IMAGE_SHA="sha-5262fa"
+export NVIDIA_DRIVER_IMAGE_SHA="sha-dc8c1a"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu"
 export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
@@ -2646,9 +2691,6 @@ if [ "${NEEDS_CONTAINERD}" == "true" ]; then
 else
     logs_to_events "AKS.CSE.ensureDocker" ensureDocker
 fi
-
-# Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
-logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
 
 if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
     echo "${MESSAGE_OF_THE_DAY}" | base64 -d > /etc/motd
@@ -4131,7 +4173,7 @@ installDeps() {
 
     # install additional apparmor deps for 2.0;
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in apparmor-parser libapparmor blobfuse2; do
+      for dnf_package in apparmor-parser libapparmor blobfuse2 nftables; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
@@ -5202,34 +5244,34 @@ func linuxCloudInitArtifactsSshd_config_1804_fips() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsSyncTunnelLogsService = []byte(`[Unit]
-Description=Syncs AKS pod log symlinks so that WALinuxAgent can include aks-link/konnectivity/tunnelfront logs.
+var _linuxCloudInitArtifactsSyncContainerLogsService = []byte(`[Unit]
+Description=Syncs AKS pod log symlinks so that WALinuxAgent can include kube-system pod logs in the hourly upload.
 After=containerd.service
 
 [Service]
-ExecStart=/opt/azure/containers/sync-tunnel-logs.sh
+ExecStart=/opt/azure/containers/sync-container-logs.sh
 Restart=always
 
 [Install]
 WantedBy=multi-user.target
 `)
 
-func linuxCloudInitArtifactsSyncTunnelLogsServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsSyncTunnelLogsService, nil
+func linuxCloudInitArtifactsSyncContainerLogsServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsSyncContainerLogsService, nil
 }
 
-func linuxCloudInitArtifactsSyncTunnelLogsService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsSyncTunnelLogsServiceBytes()
+func linuxCloudInitArtifactsSyncContainerLogsService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsSyncContainerLogsServiceBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sync-tunnel-logs.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sync-container-logs.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsSyncTunnelLogsSh = []byte(`#! /bin/bash
+var _linuxCloudInitArtifactsSyncContainerLogsSh = []byte(`#! /bin/bash
 
 SRC=/var/log/containers
 DST=/var/log/azure/aks/pods
@@ -5262,7 +5304,7 @@ fi
 mkdir -p $DST
 
 # Start a background process to clean up logs from deleted pods that
-# haven't been modified in 2 hours. This allows us to retain tunnel pod
+# haven't been modified in 2 hours. This allows us to retain pod
 # logs after a restart.
 while true; do
   find /var/log/azure/aks/pods -type f -links 1 -mmin +120 -delete
@@ -5270,16 +5312,16 @@ while true; do
 done &
 
 # Manually sync all matching logs once
-for TUNNEL_LOG_FILE in $(compgen -G "$SRC/@(aks-link|azure-cns|cilium|konnectivity|tunnelfront)-*_kube-system_*.log"); do
-   echo "Linking $TUNNEL_LOG_FILE"
-   /bin/ln -Lf $TUNNEL_LOG_FILE $DST/
+for CONTAINER_LOG_FILE in $(compgen -G "$SRC/*_kube-system_*.log"); do
+   echo "Linking $CONTAINER_LOG_FILE"
+   /bin/ln -Lf $CONTAINER_LOG_FILE $DST/
 done
 echo "Starting inotifywait..."
 
 # Monitor for changes
 inotifywait -q -m -r -e delete,create $SRC | while read DIRECTORY EVENT FILE; do
     case $FILE in
-        aks-link-*_kube-system_*.log | azure-cns-*_kube-system_*.log | cilium-*_kube-system_*.log | konnectivity-*_kube-system_*.log | tunnelfront-*_kube-system_*.log)
+        *_kube-system_*.log)
             case $EVENT in
                 CREATE*)
                     echo "Linking $FILE"
@@ -5290,17 +5332,17 @@ inotifywait -q -m -r -e delete,create $SRC | while read DIRECTORY EVENT FILE; do
 done
 `)
 
-func linuxCloudInitArtifactsSyncTunnelLogsShBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsSyncTunnelLogsSh, nil
+func linuxCloudInitArtifactsSyncContainerLogsShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsSyncContainerLogsSh, nil
 }
 
-func linuxCloudInitArtifactsSyncTunnelLogsSh() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsSyncTunnelLogsShBytes()
+func linuxCloudInitArtifactsSyncContainerLogsSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsSyncContainerLogsShBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sync-tunnel-logs.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sync-container-logs.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -6097,28 +6139,6 @@ write_files:
       "data-root": "{{GetDataDir}}"{{- end}}
     }
 
-- path: /etc/systemd/system/sync-tunnel-logs.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=Syncs AKS pod log symlinks so that WALinuxAgent can include aks-link/konnectivity/tunnelfront logs.
-    After=containerd.service
-
-    [Service]
-    ExecStart=/opt/azure/containers/sync-tunnel-logs.sh
-    Restart=always
-
-    [Install]
-    WantedBy=multi-user.target
-
-- path: /opt/azure/containers/sync-tunnel-logs.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "syncTunnelLogsScript"}}
-
 - path: /etc/systemd/system/containerd.service.d/exec_start.conf
   permissions: "0644"
   owner: root
@@ -6182,6 +6202,118 @@ write_files:
     ExecStartPost=/bin/sh -c "sleep 10 && systemctl restart kubelet"
     [Install]
     WantedBy=multi-user.target
+
+- path: /etc/default/kubelet
+  permissions: "0644"
+  owner: root
+  content: |
+    KUBELET_FLAGS={{GetKubeletConfigKeyVals}}
+    KUBELET_REGISTER_SCHEDULABLE=true
+    NETWORK_POLICY={{GetParameter "networkPolicy"}}
+{{- if not (IsKubernetesVersionGe "1.17.0")}}
+    KUBELET_IMAGE={{GetHyperkubeImageReference}}
+{{- end}}
+{{- if IsKubernetesVersionGe "1.16.0"}}
+    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . }}
+{{- else}}
+    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . }}
+{{- end}}
+{{- if IsAKSCustomCloud}}
+    AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
+{{- end}}
+
+{{ if IsKubeletClientTLSBootstrappingEnabled -}}
+- path: /var/lib/kubelet/bootstrap-kubeconfig
+  permissions: "0644"
+  owner: root
+  content: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - name: localcluster
+      cluster:
+        certificate-authority: /etc/kubernetes/certs/ca.crt
+        server: https://{{GetKubernetesEndpoint}}:443
+    users:
+    - name: kubelet-bootstrap
+      user:
+        token: "{{GetTLSBootstrapTokenForKubeConfig}}"
+    contexts:
+    - context:
+        cluster: localcluster
+        user: kubelet-bootstrap
+      name: bootstrap-context
+    current-context: bootstrap-context
+{{else -}}
+- path: /var/lib/kubelet/kubeconfig
+  permissions: "0644"
+  owner: root
+  content: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - name: localcluster
+      cluster:
+        certificate-authority: /etc/kubernetes/certs/ca.crt
+        server: https://{{GetKubernetesEndpoint}}:443
+    users:
+    - name: client
+      user:
+        client-certificate: /etc/kubernetes/certs/client.crt
+        client-key: /etc/kubernetes/certs/client.key
+    contexts:
+    - context:
+        cluster: localcluster
+        user: client
+      name: localclustercontext
+    current-context: localclustercontext
+{{- end}}
+
+- path: /etc/systemd/system/containerd.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=containerd daemon
+    After=network.target
+    [Service]
+    ExecStartPre=/sbin/modprobe overlay
+    ExecStart=/usr/bin/containerd
+    Delegate=yes
+    KillMode=process
+    Restart=always
+    OOMScoreAdjust=-999
+    # Having non-zero Limit*s causes performance problems due to accounting overhead
+    # in the kernel. We recommend using cgroups to do container-local accounting.
+    LimitNPROC=infinity
+    LimitCORE=infinity
+    LimitNOFILE=infinity
+    TasksMax=infinity
+    [Install]
+    WantedBy=multi-user.target
+
+- path: /opt/azure/containers/kubelet.sh
+  permissions: "0755"
+  owner: root
+  content: |
+    #!/bin/bash
+    # Disallow container from reaching out to the special IP address 168.63.129.16
+    # for TCP protocol (which http uses)
+    #
+    # 168.63.129.16 contains protected settings that have priviledged info.
+    #
+    # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
+    #
+    # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+    # for DNS.
+    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+
+- path: /etc/kubernetes/certs/ca.crt
+  permissions: "0600"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetParameter "caCertificate"}}
 
 - path: {{GetCustomSearchDomainsCSEScriptFilepath}}
   permissions: "0744"
@@ -7237,6 +7369,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
 	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
 	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
+	"linux/cloud-init/artifacts/containerd.service":                        linuxCloudInitArtifactsContainerdService,
 	"linux/cloud-init/artifacts/containerd_exec_start.conf":                linuxCloudInitArtifactsContainerd_exec_startConf,
 	"linux/cloud-init/artifacts/crictl.yaml":                               linuxCloudInitArtifactsCrictlYaml,
 	"linux/cloud-init/artifacts/cse_cmd.sh":                                linuxCloudInitArtifactsCse_cmdSh,
@@ -7290,8 +7423,8 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/sshd_config":                               linuxCloudInitArtifactsSshd_config,
 	"linux/cloud-init/artifacts/sshd_config_1604":                          linuxCloudInitArtifactsSshd_config_1604,
 	"linux/cloud-init/artifacts/sshd_config_1804_fips":                     linuxCloudInitArtifactsSshd_config_1804_fips,
-	"linux/cloud-init/artifacts/sync-tunnel-logs.service":                  linuxCloudInitArtifactsSyncTunnelLogsService,
-	"linux/cloud-init/artifacts/sync-tunnel-logs.sh":                       linuxCloudInitArtifactsSyncTunnelLogsSh,
+	"linux/cloud-init/artifacts/sync-container-logs.service":               linuxCloudInitArtifactsSyncContainerLogsService,
+	"linux/cloud-init/artifacts/sync-container-logs.sh":                    linuxCloudInitArtifactsSyncContainerLogsSh,
 	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
 	"linux/cloud-init/artifacts/teleportd.service":                         linuxCloudInitArtifactsTeleportdService,
 	"linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh,
@@ -7371,6 +7504,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
 				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
 				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
+				"containerd.service":                        &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},
 				"containerd_exec_start.conf":                &bintree{linuxCloudInitArtifactsContainerd_exec_startConf, map[string]*bintree{}},
 				"crictl.yaml":                               &bintree{linuxCloudInitArtifactsCrictlYaml, map[string]*bintree{}},
 				"cse_cmd.sh":                                &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
@@ -7426,8 +7560,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"sshd_config":                     &bintree{linuxCloudInitArtifactsSshd_config, map[string]*bintree{}},
 				"sshd_config_1604":                &bintree{linuxCloudInitArtifactsSshd_config_1604, map[string]*bintree{}},
 				"sshd_config_1804_fips":           &bintree{linuxCloudInitArtifactsSshd_config_1804_fips, map[string]*bintree{}},
-				"sync-tunnel-logs.service":        &bintree{linuxCloudInitArtifactsSyncTunnelLogsService, map[string]*bintree{}},
-				"sync-tunnel-logs.sh":             &bintree{linuxCloudInitArtifactsSyncTunnelLogsSh, map[string]*bintree{}},
+				"sync-container-logs.service":     &bintree{linuxCloudInitArtifactsSyncContainerLogsService, map[string]*bintree{}},
+				"sync-container-logs.sh":          &bintree{linuxCloudInitArtifactsSyncContainerLogsSh, map[string]*bintree{}},
 				"sysctl-d-60-CIS.conf":            &bintree{linuxCloudInitArtifactsSysctlD60CisConf, map[string]*bintree{}},
 				"teleportd.service":               &bintree{linuxCloudInitArtifactsTeleportdService, map[string]*bintree{}},
 				"ubuntu": &bintree{nil, map[string]*bintree{

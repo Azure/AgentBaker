@@ -207,26 +207,27 @@ fi
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
-  export NVIDIA_DRIVER_IMAGE_TAG="cuda-510.47.03-${NVIDIA_DRIVER_IMAGE_SHA}"
-  if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-    gpu_action="install"
-  fi
+  export NVIDIA_DRIVER_IMAGE_TAG="cuda-525.85.12-${NVIDIA_DRIVER_IMAGE_SHA}"
 
   mkdir -p /opt/{actions,gpu}
   if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
     ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh $gpu_action" 
-    ret=$?
-    if [[ "$ret" != "0" ]]; then
-      echo "Failed to install GPU driver, exiting..."
-      exit $ret
+    if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+      bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+      ret=$?
+      if [[ "$ret" != "0" ]]; then
+        echo "Failed to install GPU driver, exiting..."
+        exit $ret
+      fi
     fi
   else
-    bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG $gpu_action"
-    ret=$?
-    if [[ "$ret" != "0" ]]; then
-      echo "Failed to install GPU driver, exiting..."
-      exit $ret
+    if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+      bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG $gpu_action"
+      ret=$?
+      if [[ "$ret" != "0" ]]; then
+        echo "Failed to install GPU driver, exiting..."
+        exit $ret
+      fi
     fi
   fi
 fi
@@ -372,8 +373,8 @@ for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-# IPv6 nftables, only Ubuntu for now
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
+# IPv6 nftables rules are only available on Ubuntu or Mariner v2
+if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) ]]; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
 

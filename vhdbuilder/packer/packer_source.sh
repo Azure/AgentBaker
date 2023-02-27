@@ -43,6 +43,8 @@ copyPackerFiles() {
   CONTAINERD_MONITOR_SERVICE_DEST=/etc/systemd/system/containerd-monitor.service
   CONTAINERD_MONITOR_TIMER_SRC=/home/packer/containerd-monitor.timer
   CONTAINERD_MONITOR_TIMER_DEST=/etc/systemd/system/containerd-monitor.timer
+  CONTAINERD_SERVICE_SRC=/home/packer/containerd.service
+  CONTAINERD_SERVICE_DEST=/etc/systemd/system/containerd.service
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC=/home/packer/docker_clear_mount_propagation_flags.conf
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
   IPV6_NFTABLES_RULES_SRC=/home/packer/ipv6_nftables
@@ -126,12 +128,12 @@ copyPackerFiles() {
   DHCP6_SVC_DEST=/etc/systemd/system/dhcpv6.service
   cpAndMode $DHCP6_SVC_SRC $DHCP6_SVC_DEST 600
 
-  SYNC_LOGS_SH_SRC=/home/packer/sync-tunnel-logs.sh
-  SYNC_LOGS_SH_DEST=/opt/azure/containers/sync-tunnel-logs.sh
+  SYNC_LOGS_SH_SRC=/home/packer/sync-container-logs.sh
+  SYNC_LOGS_SH_DEST=/opt/azure/containers/sync-container-logs.sh
   cpAndMode $SYNC_LOGS_SH_SRC $SYNC_LOGS_SH_DEST 0544
 
-  SYNC_LOGS_SVC_SRC=/home/packer/sync-tunnel-logs.service
-  SYNC_LOGS_SVC_DEST=/etc/systemd/system/sync-tunnel-logs.service
+  SYNC_LOGS_SVC_SRC=/home/packer/sync-container-logs.service
+  SYNC_LOGS_SVC_DEST=/etc/systemd/system/sync-container-logs.service
   cpAndMode $SYNC_LOGS_SVC_SRC $SYNC_LOGS_SVC_DEST 600
 
   CRICTL_SRC=/home/packer/crictl.yaml
@@ -241,6 +243,9 @@ copyPackerFiles() {
     cpAndMode $DOCKER_MONITOR_TIMER_SRC $DOCKER_MONITOR_TIMER_DEST 644
     cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
     cpAndMode $NVIDIA_MODPROBE_SERVICE_SRC $NVIDIA_MODPROBE_SERVICE_DEST 644
+  fi
+  if [[ $OS == $MARINER_OS_NAME ]]; then
+    cpAndMode $CONTAINERD_SERVICE_SRC $CONTAINERD_SERVICE_DEST 644
   fi
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     cpAndMode $NVIDIA_DOCKER_DAEMON_SRC $NVIDIA_DOCKER_DAEMON_DEST 644

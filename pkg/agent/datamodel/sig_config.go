@@ -265,12 +265,6 @@ type sigVersion struct {
 //go:embed linux_sig_version.json
 var linuxVersionJSONContentsEmbedded string
 
-//go:embed 2204_sig_version.json
-var ubuntu2204JSONContentsEmbedded string
-
-//go:embed mariner_v2_gen2_sig_version.json
-var marinerV2Gen2JSONContentsEmbedded string
-
 //go:embed edge_zone_sig_version.json
 var edgeZoneJSONContentsEmbedded string
 
@@ -278,8 +272,6 @@ var edgeZoneJSONContentsEmbedded string
 var marinerV2KataGen2TLJSONContentsEmbedded string
 
 var LinuxSIGImageVersion = getSIGVersionFromEmbeddedString(linuxVersionJSONContentsEmbedded)
-var Ubuntu2204TLSIGImageVersion = getSIGVersionFromEmbeddedString(ubuntu2204JSONContentsEmbedded)
-var CBLMarinerV2Gen2TLSIGImageVersion = getSIGVersionFromEmbeddedString(marinerV2Gen2JSONContentsEmbedded)
 var EdgeZoneSIGImageVersion = getSIGVersionFromEmbeddedString(edgeZoneJSONContentsEmbedded)
 var CBLMarinerV2KataGen2TLSIGImageVersion = getSIGVersionFromEmbeddedString(marinerV2KataGen2TLJSONContentsEmbedded)
 
@@ -442,7 +434,7 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204gen2TLcontainerd",
-		Version:       Ubuntu2204TLSIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate = SigImageConfigTemplate{
@@ -491,7 +483,7 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2gen2TL",
-		Version:       CBLMarinerV2Gen2TLSIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2KataGen2TLImageConfigTemplate = SigImageConfigTemplate{
