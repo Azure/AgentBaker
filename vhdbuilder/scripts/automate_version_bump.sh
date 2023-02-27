@@ -42,8 +42,10 @@ create_image_bump_pr() {
 
 # This function cuts the official branch based off the commit ID that the builds were triggered from and tags it
 cut_official_branch() {
-    official_branch_name="official/v${new_image_version//.}"
-    official_tag="v${new_image_version//.}"
+    # official/vYYYYMMDD
+    official_branch_name="$(echo -n "official/v${new_image_version}" | head -c-1)"
+    # YYYYMM.DD.$REVISION
+    official_tag="v${new_image_version}"
     final_commit_hash=""
     for build_id in $build_ids; do
         current_build_commit_hash=$(az pipelines runs show --id $build_id | jq -r '.sourceVersion')
