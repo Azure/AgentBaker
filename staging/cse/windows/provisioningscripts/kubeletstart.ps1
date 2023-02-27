@@ -76,28 +76,20 @@ if ($global:ContainerRuntime -eq "containerd") {
     $KubeletArgList += @("--container-runtime=remote", "--container-runtime-endpoint=npipe://./pipe/containerd-containerd")
 }
 
-# Update args to get both IPs from IMDS if IsDualStack and the --node-ip argument
-# is not present in the existing kubelet arg list.
+# Update args to get both IPs from NIC using the default route 0.0.0.0/0 if IsDualStackEnabled
+# and the --node-ip argument is not present in the existing kubelet arg list.
 if ($global:IsDualStackEnabled -and !(Test-NodeIPArgExists $KubeletArgList)) {
-    # todo(tylloyd) add retry?
-    $metadata = Invoke-RestMethod -Headers @{"Metadata"="true"} -Method GET -NoProxy -Uri "http://169.254.169.254/metadata/instance?api-version=2021-02-01"
+    $defaultRouteIfIndex = (Get-NetRoute -DestinationPrefix 0.0.0.0/0).ifIndex
 
-    $ipv4Addr = $null
-    $ipv6Addr = $null
+    # filter out link-local addresses and sort by family so IPv4 is always first
+    $ipAddrs = (Get-NetIPAddress -InterfaceIndex $defaultRouteIfIndex | ? { -not ($_.SuffixOrigin -eq "Link") } | Sort-Object AddressFamily).IPAddress
 
-    if ($metadata.network.interface.ipv4.ipAddress.Length -gt 0) {
-        $ipv4Addr = $metadata.network.interface.ipv4.ipAddress[0].privateIpAddress
-    }
-
-    if ($metadata.network.interface.ipv6.ipAddress.Length -gt 0) {
-        $ipv6Addr = $metadata.network.interface.ipv6.ipAddress[0].privateIpAddress
-    }
-
-    if ($ipv4Addr -ne $null -and $ipv6Addr -ne $null) {
-        $KubeletArgList += @("--node-ip=$ipv4Addr,$ipv6Addr")
+    $ipAddrsFormatted = $ipAddrs -join ","
+    if ($ipAddrs.Length -eq 2) {
+        $KubeletArgList += @("--node-ip=$ipAddrsFormatted")
     } else {
         # error instead?
-        Write-Host "Either IPv4 or IPv6 were not found from IMDS but IsDualStackEnabled flag is set to true. IPv4=$ipv4Addr, IPv6=$ipv6Addr"
+        Write-Host "Either IPv4 or IPv6 were not found on the NIC but IsDualStackEnabled flag is set to true. IP addresses from interface $defaultRouteIfIndex: $ipAddrsFormatted"
     }
 }
 
