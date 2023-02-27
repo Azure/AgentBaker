@@ -81,15 +81,14 @@ if ($global:ContainerRuntime -eq "containerd") {
 if ($global:IsDualStackEnabled -and !(Test-NodeIPArgExists $KubeletArgList)) {
     $defaultRouteIfIndex = (Get-NetRoute -DestinationPrefix 0.0.0.0/0).ifIndex
 
-    # filter out link-local addresses and sort by family so IPv4 is always first
-    $ipAddrs = (Get-NetIPAddress -InterfaceIndex $defaultRouteIfIndex | ? { -not ($_.SuffixOrigin -eq "Link") } | Sort-Object AddressFamily).IPAddress
+    # use addresses from dhcp and sort by family so IPv4 is always first
+    $ipAddrs = (Get-NetIPAddress -InterfaceIndex $defaultRouteIfIndex | ? { $_.SuffixOrigin -eq "Dhcp" } | Sort-Object AddressFamily).IPAddress
 
-    $ipAddrsFormatted = $ipAddrs -join ","
     if ($ipAddrs.Length -eq 2) {
-        $KubeletArgList += @("--node-ip=$ipAddrsFormatted")
+        $KubeletArgList += @("--node-ip=$($ipAddrs -join ",")")
     } else {
         # error instead?
-        Write-Host "Either IPv4 or IPv6 were not found on the NIC but IsDualStackEnabled flag is set to true. IP addresses from interface $defaultRouteIfIndex: $ipAddrsFormatted"
+        Write-Host "Expected exactly 2 IPs for dual-stack, got $($ipAddrs.Length). IP addresses from interface ${defaultRouteIfIndex}: $($ipAddrs -join " ")"
     }
 }
 
