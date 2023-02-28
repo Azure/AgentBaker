@@ -264,7 +264,7 @@ installAndConfigureArtifactStreaming() {
   pushd /tmp || exit $ERR_MIRROR_PROXY_INSTALL_ERR
   # download acr-mirror proxy
   MIRROR_PROXY_VERSION='0.1.0-dev-20'
-  UBUNTU_VERSION_CLEANED="${UBUNTU_VERSION//.}"
+  UBUNTU_VERSION_CLEANED="${UBUNTU_RELEASE//.}"
   MIRROR_PROXY_URL="https://github.com/juliusl/lifec_registry/releases/download/v${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_VERSION_CLEANED}-v${MIRROR_PROXY_VERSION}.deb"
   wget $MIRROR_PROXY_URL || exit $ERR_MIRROR_PROXY_DOWNLOAD_ERR
   apt_get_install 30 1 600 "./acr-mirror-${UBUNTU_VERSION_CLEANED}-v${MIRROR_PROXY_VERSION}.deb" || exit $ERR_MIRROR_PROXY_INSTALL_ERR
