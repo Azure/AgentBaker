@@ -142,8 +142,9 @@
     "RuncPackageURL": "",
     "FIPSEnabled": false,
     "HTTPProxyConfig": {
-        "httpProxy": "http://69.243.253.67/",
-        "noProxy": ["localhost","127.0.0.1","mcr.microsoft.com"]
+        "httpProxy": "http://localhost:8888/",
+        "httpsProxy": "http://localhost:8888/",
+        "noProxy": ["localhost", "127.0.0.1", "168.63.129.16", "169.254.169.254", "10.0.0.0/16", "agentbaker-agentbaker-e2e-t-8ecadf-c82d8251.hcp.eastus.azmk8s.io"]
     },
     "KubeletConfig": {
         "--address": "0.0.0.0",

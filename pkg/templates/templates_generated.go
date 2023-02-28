@@ -2541,6 +2541,9 @@ if [[ "${DISABLE_SSH}" == "true" ]]; then
     disableSSH || exit $ERR_DISABLE_SSH
 fi
 
+apt update && apt install -yq tinyproxy
+sleep 5
+
 if [[ "${SHOULD_CONFIGURE_HTTP_PROXY}" == "true" ]]; then
     if [[ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" == "true" ]]; then
         configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
