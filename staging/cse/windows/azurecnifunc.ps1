@@ -389,6 +389,12 @@ function New-ExternalHnsNetwork
 
     # Fixme : use a smallest range possible, that will not collide with any pod space
     if ($IsDualStackEnabled) {
+        # validate host is configured with dual-stack IPs
+        $ipv6Addr = (Get-NetIPAddress -AddressFamily IPv6 -InterfaceIndex (Get-NetRoute -DestinationPrefix ::/0).ifIndex | ? { $_.SuffixOrigin -eq "Dhcp" } ).IPAddress
+        $ipv4Addr = (Get-NetIPAddress -AddressFamily IPv4 -InterfaceIndex (Get-NetRoute -DestinationPrefix 0.0.0.0/0).ifIndex | ? { $_.SuffixOrigin -eq "Dhcp" } ).IPAddress
+        if (($ipv4Addr -eq $null) -or ($ipv6Addr -eq $null)) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DUAL_STACK_NO_EXACT_TWO_IPS -ErrorMessage "Host does not have both IPv4 and IPv6 addresses"
+        }
         New-HNSNetwork -Type $global:NetworkMode -AddressPrefix @("192.168.255.0/30","192:168:255::0/127") -Gateway @("192.168.255.1","192:168:255::1") -AdapterName $adapterName -Name $externalNetwork -Verbose
     }
     else {
