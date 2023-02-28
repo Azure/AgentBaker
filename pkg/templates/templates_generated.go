@@ -1595,6 +1595,13 @@ configGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
+
+    # Noticed that NVIDIA driver version R515 and later versions will experience long loading time of nvidia-smi on 
+    # ND A100-v4 and NDm A100-v4 series. For now, use the workaround solution to enable NVIDIA persistence mode which 
+    # will accelerate the loading time of future nvidia-smi operations
+    if [[ $OS == $MARINER_OS_NAME ]]; then
+        retrycmd_if_failure 120 5 35 nvidia-smi -pm 1 || exit $ERR_GPU_DRIVERS_START_FAIL
+    fi
     retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     
@@ -4173,7 +4180,7 @@ installDeps() {
 
     # install additional apparmor deps for 2.0;
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in apparmor-parser libapparmor blobfuse2 nftables; do
+      for dnf_package in apparmor-parser libapparmor blobfuse2; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
@@ -4190,6 +4197,15 @@ downloadGPUDrivers() {
     if ! dnf_install 30 1 600 cuda-${CUDA_VERSION}; then
       exit $ERR_APT_INSTALL_TIMEOUT
     fi
+
+    # Check the NVIDIA driver version installed and install nvidia-fabric-manager
+    NVIDIA_DRIVER_VERSION=$(cut -d - -f 2 <<< "$(rpm -qa cuda)")
+    for nvidia_package in nvidia-fabric-manager-${NVIDIA_DRIVER_VERSION} nvidia-fabric-manager-devel-${NVIDIA_DRIVER_VERSION}; do
+      if ! dnf_install 30 1 600 $nvidia_package; then
+        exit $ERR_APT_INSTALL_TIMEOUT
+      fi
+    done
+}
 }
 
 installNvidiaContainerRuntime() {
