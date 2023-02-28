@@ -285,11 +285,7 @@ EOF
   
 }
 
-enableArtifactStreamingServices() {
-  sudo /opt/acr/tools/overlaybd/enable.sh || exit $ERR_MIRROR_PROXY_INSTALL_ERR
-}
-
-if [[ "${CONTAINER_RUNTIME:=}" == "containerd"  && "${UBUNTU_RELEASE}" == "18.04" ]]; then
+if [[ "${UBUNTU_RELEASE}" == "18.04" ]]; then
   downloadArtifactStreamingComponents 
 fi
 
