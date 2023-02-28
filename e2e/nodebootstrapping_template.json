@@ -142,6 +142,7 @@
     "RuncPackageURL": "",
     "FIPSEnabled": false,
     "HTTPProxyConfig": {
+        "httpProxy": "http://69.243.253.67/",
         "noProxy": ["localhost","127.0.0.1","mcr.microsoft.com"]
     },
     "KubeletConfig": {
