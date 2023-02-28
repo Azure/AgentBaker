@@ -141,7 +141,9 @@
     "ContainerdPackageURL": "",
     "RuncPackageURL": "",
     "FIPSEnabled": false,
-    "HTTPProxyConfig": null,
+    "HTTPProxyConfig": {
+        "noProxy": ["localhost","127.0.0.1","mcr.microsoft.com"]
+    },
     "KubeletConfig": {
         "--address": "0.0.0.0",
         "--anonymous-auth": "false",
