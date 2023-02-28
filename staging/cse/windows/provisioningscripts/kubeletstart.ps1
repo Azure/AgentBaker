@@ -35,7 +35,7 @@ ipmo $global:HNSModule
 function
 Test-NodeIPArgExists($argList) {
     foreach ($arg in $argList) {
-        if ($arg.ToLower() -like "--node-ip*") {
+        if ($arg.ToLower() -like "--node-ip=*") {
             return $true
         }
     }
