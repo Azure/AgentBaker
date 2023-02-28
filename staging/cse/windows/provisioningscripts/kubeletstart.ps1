@@ -12,6 +12,7 @@ $global:NetworkMode = "L2Bridge"
 $global:ExternalNetwork = "ext"
 $global:CNIConfig = "$CNIConfig"
 $global:NetworkPlugin = $Global:ClusterConfiguration.Cni.Name
+$global:KubeproxyFeatureGates = $Global:ClusterConfiguration.Kubernetes.Kubeproxy.FeatureGates
 $global:KubeletNodeLabels = $Global:ClusterConfiguration.Kubernetes.Kubelet.NodeLabels
 $global:ContainerRuntime = $Global:ClusterConfiguration.Cri.Name
 
@@ -78,7 +79,7 @@ if ($global:ContainerRuntime -eq "containerd") {
 
 # Update args to get both IPs from NIC using the default route 0.0.0.0/0 if IsDualStackEnabled
 # and the --node-ip argument is not present in the existing kubelet arg list.
-if ($global:IsDualStackEnabled -and !(Test-NodeIPArgExists $KubeletArgList)) {
+if (($global:KubeproxyFeatureGates -contains "IPv6DualStack=true") -and !(Test-NodeIPArgExists $KubeletArgList)) {
     $defaultRouteIfIndex = (Get-NetRoute -DestinationPrefix 0.0.0.0/0).ifIndex
 
     # use addresses from dhcp and sort by family so IPv4 is always first
