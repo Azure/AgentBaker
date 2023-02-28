@@ -125,7 +125,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntu2204TLGen2Containerd.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntu2204TLGen2Containerd.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntu2204TLGen2Containerd.Definition).To(Equal("2204gen2TLcontainerd"))
-		Expect(aksUbuntu2204TLGen2Containerd.Version).To(Equal("2022.10.13"))
+		Expect(aksUbuntu2204TLGen2Containerd.Version).To(Equal("2023.02.15"))
 
 		Expect(len(sigConfig.SigUbuntuEdgeZoneImageConfig)).To(Equal(2))
 
@@ -145,7 +145,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(marinerV2Gen2TL.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(marinerV2Gen2TL.Gallery).To(Equal("akscblmariner"))
 		Expect(marinerV2Gen2TL.Definition).To(Equal("V2gen2TL"))
-		Expect(marinerV2Gen2TL.Version).To(Equal(CBLMarinerV2Gen2TLSIGImageVersion))
+		Expect(marinerV2Gen2TL.Version).To(Equal(LinuxSIGImageVersion))
 
 		marinerV2KataGen2TL := sigConfig.SigCBLMarinerImageConfig[AKSCBLMarinerV2KataGen2TL]
 		Expect(marinerV2KataGen2TL.ResourceGroup).To(Equal("resourcegroup"))
