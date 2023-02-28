@@ -258,6 +258,7 @@ EOF
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 
 
+
 downloadArtifactStreamingComponents() {
   pushd /tmp || exit $ERR_MIRROR_PROXY_INSTALL_ERR
   # download acr-mirror proxy
@@ -265,10 +266,18 @@ downloadArtifactStreamingComponents() {
   MIRROR_PROXY_URL="https://github.com/juliusl/lifec_registry/releases/download/v${MIRROR_PROXY_VERSION}/acr-mirror-1804-v${MIRROR_PROXY_VERSION}.deb"
   wget $MIRROR_PROXY_URL
   apt_get_install 30 1 600 "./acr-mirror-1804-v${MIRROR_PROXY_VERSION}.deb" || exit $ERR_MIRROR_PROXY_DOWNLOAD_ERR
+
+  echo "  - [installed] acr mirror-proxy v${MIRROR_PROXY_VERSION}" >> ${VHD_LOGS_FILEPATH}
   rm "./acr-mirror-1804-v${MIRROR_PROXY_VERSION}.deb"
   popd || exit $ERR_MIRROR_PROXY_INSTALL_ERR
 
   sudo apt install libnl-3-dev libnl-genl-3-dev -y
+  
+  cat << EOF >> ${VHD_LOGS_FILEPATH}
+    - libnl-3-dev
+    - libnl-genl-3-dev
+EOF
+
   sudo /opt/acr/tools/overlaybd/install.sh || exit $ERR_MIRROR_PROXY_INSTALL_ERR
   sudo /opt/acr/tools/overlaybd/enable-http-auth.sh || exit $ERR_MIRROR_PROXY_INSTALL_ERR
   modprobe target_core_user || exit $ERR_MIRROR_PROXY_INSTALL_ERR
