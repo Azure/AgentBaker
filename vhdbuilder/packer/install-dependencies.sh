@@ -260,11 +260,11 @@ echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 
 
 
-downloadAndInstallArtifactStreamingComponents() {
+installAndConfigureArtifactStreaming() {
   pushd /tmp || exit $ERR_MIRROR_PROXY_INSTALL_ERR
   # download acr-mirror proxy
   MIRROR_PROXY_VERSION='0.1.0-dev-20'
-  UBUNTU_VERSION_CLEANED=$(echo "${UBUNTU_VERSION//.}")
+  UBUNTU_VERSION_CLEANED="${UBUNTU_VERSION//.}"
   MIRROR_PROXY_URL="https://github.com/juliusl/lifec_registry/releases/download/v${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_VERSION_CLEANED}-v${MIRROR_PROXY_VERSION}.deb"
   wget $MIRROR_PROXY_URL || exit $ERR_MIRROR_PROXY_DOWNLOAD_ERR
   apt_get_install 30 1 600 "./acr-mirror-${UBUNTU_VERSION_CLEANED}-v${MIRROR_PROXY_VERSION}.deb" || exit $ERR_MIRROR_PROXY_INSTALL_ERR
@@ -275,19 +275,14 @@ downloadAndInstallArtifactStreamingComponents() {
 
   sudo apt install libnl-3-dev libnl-genl-3-dev -y
   
-  cat << EOF >> ${VHD_LOGS_FILEPATH}
-    - libnl-3-dev
-    - libnl-genl-3-dev
-EOF
+  echo "  - [installed] libnl-3-dev & libnl-genl-3-dev"
 
   sudo /opt/acr/tools/overlaybd/install.sh || exit $ERR_MIRROR_PROXY_INSTALL_ERR
   sudo /opt/acr/tools/overlaybd/enable-http-auth.sh || exit $ERR_MIRROR_PROXY_INSTALL_ERR
-  modprobe target_core_user || exit $ERR_MIRROR_PROXY_INSTALL_ERR
-  
 }
 
 if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" ]]; then
-  downloadArtifactStreamingComponents || exit $ERR_MIRROR_PROXY_INSTALL_ERR
+  installAndConfigureArtifactStreaming || exit $ERR_MIRROR_PROXY_INSTALL_ERR
 fi
 
 string_replace() {
