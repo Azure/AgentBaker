@@ -152,7 +152,10 @@ var FabricManagerGPUSizes = map[string]bool{
 	"standard_nd96amsr_a100_v4":  true,
 	"standard_nd112amsr_a100_v4": true,
 	"standard_nd120amsr_a100_v4": true,
-	"standard_nd96ams_v4":        true,
+	// TODO(ace): one of these is probably dupe...
+	// confirm with HPC/SKU owners
+	"standard_nd96ams_a100_v4": true,
+	"standard_nd96ams_v4":      true,
 	// H100
 	"standard_nd46s_h100_v5":    true,
 	"standard_nd48s_h100_v5":    true,
