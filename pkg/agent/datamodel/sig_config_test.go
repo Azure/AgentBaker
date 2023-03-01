@@ -125,7 +125,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntu2204TLGen2Containerd.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntu2204TLGen2Containerd.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntu2204TLGen2Containerd.Definition).To(Equal("2204gen2TLcontainerd"))
-		Expect(aksUbuntu2204TLGen2Containerd.Version).To(Equal("2023.02.15"))
+		Expect(aksUbuntu2204TLGen2Containerd.Version).To(Equal("2023.02.28"))
 
 		Expect(len(sigConfig.SigUbuntuEdgeZoneImageConfig)).To(Equal(2))
 
