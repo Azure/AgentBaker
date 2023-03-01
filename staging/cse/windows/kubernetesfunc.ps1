@@ -129,7 +129,66 @@ function Write-KubeClusterConfig {
         Destination = "c:\k";
     }
 
+    Update-KubeletConfigArgsForDualStack -ClusterConfiguration $Global:ClusterConfiguration
+
     $Global:ClusterConfiguration | ConvertTo-Json -Depth 10 | Out-File -FilePath $global:KubeClusterConfigPath
+}
+
+# Update-KubeletConfigArgsForDualStack updates the $Global:ClusterConfiguration object
+# to append the --node-ip argument for kubelet if the cluster is dualstack and the
+# host is configured with an IPv4 and IPv6 on the interface using the default route.
+# If the host does not have both IPs it will raise erro WINDOWS_CSE_ERROR_DUAL_STACK_NO_EXACT_TWO_IPS
+function Update-KubeletConfigArgsForDualStack {
+    param(
+        [Parameter(Mandatory = $true)][PSCustomObject]
+        $ClusterConfiguration
+    )
+
+    # validate ClusterConfiguration is in expected format
+    if (($ClusterConfiguration.Kubernetes -eq $null) -or `
+        ($ClusterConfiguration.Kubernetes.Kubelet -eq $null)) {
+        return
+    }
+
+    # nothing to do if not a dualstack clsuter or the --node-ip is already in the arg list
+    if ((!$global:IsDualStackEnabled) -or `
+        (Test-NodeIPArgExists -Args $ClusterConfiguration.Kubernetes.Kubelet.ConfigArgs)) {
+        return
+    }
+
+    $defaultRouteIfIndex = (Get-NetRoute -DestinationPrefix 0.0.0.0/0).ifIndex
+
+    # use addresses from dhcp and sort by family so IPv4 is always first
+    $ipAddrs = (Get-NetIPAddress -InterfaceIndex $defaultRouteIfIndex | `
+        ? { $_.SuffixOrigin -eq "Dhcp" } | `
+        Sort-Object AddressFamily).IPAddress
+
+    if ($ipAddrs.Length -ne 2) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DUAL_STACK_NO_EXACT_TWO_IPS `
+            -ErrorMessage "IsDualStackEnabled but host does not have exactly 1 IPv4 and 1 IPv6 address"
+    }
+
+    if ($ClusterConfiguration.Kubernetes.Kubelet.ConfigArgs -eq $null) {
+        $ClusterConfiguration.Kubernetes.Kubelet.ConfigArgs = @()
+    }
+
+    $ClusterConfiguration.Kubernetes.Kubelet.ConfigArgs += @("--node-ip=$($ipAddrs -join ",")")
+}
+
+# Test-NodeIPArgExists will check if the kubelet arg --node-ip already exists
+# in the provided string list
+function Test-NodeIPArgExists {
+    param(
+        [Parameter(Mandatory = $false)][string[]]
+        $Args
+    )
+
+    foreach ($arg in $Args) {
+        if ($arg.ToLower() -like "--node-ip=*") {
+            return $true
+        }
+    }
+    return $false
 }
 
 function Update-DefenderPreferences {

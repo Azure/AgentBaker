@@ -32,16 +32,6 @@ if ($global:ContainerRuntime -eq "containerd") {
 
 ipmo $global:HNSModule
 
-function
-Test-NodeIPArgExists($argList) {
-    foreach ($arg in $argList) {
-        if ($arg.ToLower() -like "--node-ip=*") {
-            return $true
-        }
-    }
-    return $false
-}
-
 #TODO ksbrmnn refactor to be sensical instead of if if if ...
 
 # Calculate some local paths
@@ -75,22 +65,6 @@ if ($global:ContainerRuntime -eq "docker") {
 # Update args to use ContainerD if needed
 if ($global:ContainerRuntime -eq "containerd") {
     $KubeletArgList += @("--container-runtime=remote", "--container-runtime-endpoint=npipe://./pipe/containerd-containerd")
-}
-
-# Update args to get both IPs from NIC using the default route 0.0.0.0/0 if IsDualStackEnabled
-# and the --node-ip argument is not present in the existing kubelet arg list.
-if (($global:KubeproxyFeatureGates -contains "IPv6DualStack=true") -and !(Test-NodeIPArgExists $KubeletArgList)) {
-    $defaultRouteIfIndex = (Get-NetRoute -DestinationPrefix 0.0.0.0/0).ifIndex
-
-    # use addresses from dhcp and sort by family so IPv4 is always first
-    $ipAddrs = (Get-NetIPAddress -InterfaceIndex $defaultRouteIfIndex | ? { $_.SuffixOrigin -eq "Dhcp" } | Sort-Object AddressFamily).IPAddress
-
-    if ($ipAddrs.Length -eq 2) {
-        $KubeletArgList += @("--node-ip=$($ipAddrs -join ",")")
-    } else {
-        # error instead?
-        Write-Host "Expected exactly 2 IPs for dual-stack, got $($ipAddrs.Length). IP addresses from interface ${defaultRouteIfIndex}: $($ipAddrs -join " ")"
-    }
 }
 
 # Used in WinCNI version of kubeletstart.ps1
