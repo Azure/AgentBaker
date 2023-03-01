@@ -585,15 +585,6 @@
     ]
   },
   {
-    "id": "sha256:96df020f3d684cad767bea459d81e7c0a7acf550f94b4d2d369bb2cfe12892cd",
-    "repoTags": [
-      "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.9.0"
-    ],
-    "repoDigests": [
-      "sha256:364fbed4a7dbcee637e7143f42c17070c8a64058ec47c82a747b767e15ae8b78"
-    ]
-  },
-  {
     "id": "sha256:9b4202b8a09c8e7318517fd747b02b99b93d3b9ac55c551140ceeb9f99fae1f8",
     "repoTags": [
       "mcr.microsoft.com/aks/command/runtime:master.220211.1"
