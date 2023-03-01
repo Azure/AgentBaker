@@ -279,7 +279,7 @@ installAndConfigureArtifactStreaming() {
   sudo /opt/acr/tools/overlaybd/enable-http-auth.sh || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
 }
 
-if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" ]]; then
+if [[ ["${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04"] && [ "${CPU_ARCH}" == "amd64" ] ]]; then
   installAndConfigureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
 fi
 
