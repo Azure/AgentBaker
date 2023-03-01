@@ -1501,18 +1501,22 @@ type NodeBootstrappingConfiguration struct {
 	// When this feature is enabled, we skip kubelet kubeconfig generation and replace it with bootstrap kubeconfig.
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping
 	KubeletClientTLSBootstrapToken *string
-	FIPSEnabled                    bool
-	HTTPProxyConfig                *HTTPProxyConfig
-	KubeletConfig                  map[string]string
-	KubeproxyConfig                map[string]string
-	EnableRuncShimV2               bool
-	GPUInstanceProfile             string
-	PrimaryScaleSetName            string
-	SIGConfig                      SIGConfig
-	IsARM64                        bool
-	CustomCATrustConfig            *CustomCATrustConfig
-	DisableUnattendedUpgrades      bool
-	SSHStatus                      SSHStatus
+	// This enables the ability to fetch TLS bootstrap tokens dynamically
+	// from a service in control plane using attested data and MSI/SP.
+	// When true, KubeletClientTLSBootstrapToken is not required or used.
+	EnableSecureTLSBootstrapping bool
+	FIPSEnabled                  bool
+	HTTPProxyConfig              *HTTPProxyConfig
+	KubeletConfig                map[string]string
+	KubeproxyConfig              map[string]string
+	EnableRuncShimV2             bool
+	GPUInstanceProfile           string
+	PrimaryScaleSetName          string
+	SIGConfig                    SIGConfig
+	IsARM64                      bool
+	CustomCATrustConfig          *CustomCATrustConfig
+	DisableUnattendedUpgrades    bool
+	SSHStatus                    SSHStatus
 }
 
 type SSHStatus int

@@ -131,6 +131,8 @@ fi
 # By default, never reboot new nodes.
 REBOOTREQUIRED=false
 
+downloadKubeletExecPlugin
+
 echo $(date),$(hostname), "Start configuring GPU drivers"
 if [[ "${GPU_NODE}" = true ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers

@@ -465,6 +465,11 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
 		}),
 
+		Entry("AKSUbuntu1804 with secure kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+SecureTLSBootstrapping", "1.25.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
+			config.EnableSecureTLSBootstrapping = true
+		}),
+
 		Entry("Mariner v2 with kata", "MarinerV2+Kata", "1.23.8", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.OSSKU = "Mariner"
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSCBLMarinerV2Gen2Kata
