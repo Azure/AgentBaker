@@ -574,6 +574,7 @@ try{
             Disable-WindowsUpdates
             Set-WinRmServiceDelayedStart
             Update-DefenderSignatures
+            Install-NvidiaGridDriver
             Install-WindowsPatches
             Install-OpenSSH
             Update-WindowsFeatures
@@ -586,7 +587,6 @@ try{
             } else {
                 Install-Docker
             }
-            Install-NvidiaGridDriver
             Delete-ExtraNVIDIAServices
             Update-Registry
             Get-ContainerImages
