@@ -379,7 +379,7 @@ function Update-DefenderSignatures {
 
 function Update-WindowsFeatures {
     $featuresToEnable = @(
-        "Containers",
+        "Containers"#,
         #"Hyper-V",
         #"Hyper-V-PowerShell"
         )
