@@ -142,6 +142,17 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			configUpdator(config)
 		}
 
+		// CSE
+		cseCommand := baker.GetNodeBootstrappingCmd(config)
+		if generateTestData() {
+			ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
+		}
+		expectedCSECommand, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
+		if err != nil {
+			panic(err)
+		}
+		Expect(cseCommand).To(Equal(string(expectedCSECommand)))
+
 		// customData
 		base64EncodedCustomData := baker.GetNodeBootstrappingPayload(config)
 		customDataBytes, err := base64.StdEncoding.DecodeString(base64EncodedCustomData)
@@ -157,18 +168,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			panic(err)
 		}
 		Expect(customData).To(Equal(string(expectedCustomData)))
-
-		// CSE
-		cseCommand := baker.GetNodeBootstrappingCmd(config)
-		if generateTestData() {
-			ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
-		}
-		expectedCSECommand, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
-		if err != nil {
-			panic(err)
-		}
-		Expect(cseCommand).To(Equal(string(expectedCSECommand)))
-
 	}, Entry("AKSUbuntu1604 with k8s version less than 1.18", "AKSUbuntu1604+K8S115", "1.15.7", nil),
 		Entry("AKSUbuntu1604 with k8s version 1.18", "AKSUbuntu1604+K8S118", "1.18.2", nil),
 		Entry("AKSUbuntu1604 with k8s version 1.17", "AKSUbuntu1604+K8S117", "1.17.7", nil),
@@ -376,11 +375,11 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				"--feature-gates":                     "RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y",
 				"--system-reserved":                   "cpu=2,memory=1Gi",
 				"--kube-reserved":                     "cpu=100m,memory=1638Mi",
-				"--dynamic-config-dir":                "",
+				"--dynamic-config-dir":                "/var/lib/kubelet",
 			}
 		}),
 
-		Entry("AKSUbuntu1604 - dynamic-config-dir should always be removed", "AKSUbuntu1604+DynamicKubeletConfig", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu1604 - dynamic-config-dir should always be removed", "AKSUbuntu1604+DynamicKubeletConfig", "1.24.5", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.KubeletConfig = map[string]string{
 				"--address":                           "0.0.0.0",
 				"--pod-manifest-path":                 "/etc/kubernetes/manifests",
@@ -413,7 +412,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				"--feature-gates":                     "RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y",
 				"--system-reserved":                   "cpu=2,memory=1Gi",
 				"--kube-reserved":                     "cpu=100m,memory=1638Mi",
-				"--dynamic-config-dir":                "",
+				"--dynamic-config-dir":                "/var/lib/kubelet",
 			}
 		}),
 
