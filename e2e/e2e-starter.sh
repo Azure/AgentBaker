@@ -33,6 +33,17 @@ if [ -n "$out" ]; then
         clusterDeleteEndTime=$(date +%s)
         log "Deleted cluster $CLUSTER_NAME in $((clusterDeleteEndTime-clusterDeleteStartTime)) seconds"
         create_cluster="true"
+    elif [ "$provisioning_state" == "Creating" ]; then
+        # Other pipeline is creating this cluster
+        log "Cluster $CLUSTER_NAME is being created, waiting for ready"
+        az aks wait --name $CLUSTER_NAME --resource-group $RESOURCE_GROUP_NAME --created --interval 60 --timeout 1800
+        provisioning_state=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson | jq '.provisioningState' | tr -d "\"")
+        if [ "$provisioning_state" == "Succeeded" ]; then
+            log "Cluster created by other pipeline successfully"
+        else
+            err "Other pipeline failed to create the cluster"
+            exit 1
+        fi
     fi
 else
     create_cluster="true"
@@ -42,10 +53,24 @@ fi
 if [ "$create_cluster" == "true" ]; then
     log "Creating cluster $CLUSTER_NAME"
     clusterCreateStartTime=$(date +%s)
+    retval=0
     if [[ "$RESOURCE_GROUP_NAME" == *"windows"* ]]; then
-        az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure -ojson
+        az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure -ojson || retval=$?
     else
-        az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin kubenet -ojson
+        az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin kubenet -ojson || retval=$?
+    fi
+
+    if [ "$retval" -ne 0  ]; then
+        log "Other pipelines may be creating cluster $CLUSTER_NAME, waiting for ready"
+        create_cluster="false"
+        az aks wait --name $CLUSTER_NAME --resource-group $RESOURCE_GROUP_NAME --created --interval 60 --timeout 1800
+    fi
+    provisioning_state=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson | jq '.provisioningState' | tr -d "\"")
+    if [ "$provisioning_state" == "Succeeded" ]; then
+        log "Created cluster successfully"
+    else
+        err "Failed to create cluster"
+        exit 1
     fi
     clusterCreateEndTime=$(date +%s)
     log "Created cluster $CLUSTER_NAME in $((clusterCreateEndTime-clusterCreateStartTime)) seconds"
@@ -63,22 +88,30 @@ az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" 
 MC_VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
 CLUSTER_ID=$(echo $MC_VMSS_NAME | cut -d '-' -f3)
 
-# privileged ds with nsenter for host file exfiltration
-kubectl apply -f deploy.yaml
-kubectl rollout status deploy/debug
+if [[ "$RESOURCE_GROUP_NAME" == *"windows"*  ]]; then
+    if [ "$create_cluster" == "true" ]; then
+        create_storage_account
+        upload_linux_file_to_storage_account
+    fi
+    download_linux_file_from_storage_account
+else
+    # privileged ds with nsenter for host file exfiltration
+    kubectl apply -f deploy.yaml
+    kubectl rollout status deploy/debug
 
-# Retrieve the etc/kubernetes/azure.json file for cluster related info
-log "Retrieving cluster info"
-clusterInfoStartTime=$(date +%s)
+    # Retrieve the etc/kubernetes/azure.json file for cluster related info
+    log "Retrieving cluster info"
+    clusterInfoStartTime=$(date +%s)
 
-exec_on_host "cat /etc/kubernetes/azure.json" fields.json
-exec_on_host "cat /etc/kubernetes/certs/apiserver.crt | base64 -w 0" apiserver.crt
-exec_on_host "cat /etc/kubernetes/certs/ca.crt | base64 -w 0" ca.crt
-exec_on_host "cat /etc/kubernetes/certs/client.key | base64 -w 0" client.key
-exec_on_host "cat /var/lib/kubelet/bootstrap-kubeconfig" bootstrap-kubeconfig
+    exec_on_host "cat /etc/kubernetes/azure.json" fields.json
+    exec_on_host "cat /etc/kubernetes/certs/apiserver.crt | base64 -w 0" apiserver.crt
+    exec_on_host "cat /etc/kubernetes/certs/ca.crt | base64 -w 0" ca.crt
+    exec_on_host "cat /etc/kubernetes/certs/client.key | base64 -w 0" client.key
+    exec_on_host "cat /var/lib/kubelet/bootstrap-kubeconfig" bootstrap-kubeconfig
 
-clusterInfoEndTime=$(date +%s)
-log "Retrieved cluster info in $((clusterInfoEndTime-clusterInfoStartTime)) seconds"
+    clusterInfoEndTime=$(date +%s)
+    log "Retrieved cluster info in $((clusterInfoEndTime-clusterInfoStartTime)) seconds"
+fi
 
 set +x
 addJsonToFile "apiserverCrt" "$(cat apiserver.crt)"
