@@ -12,7 +12,6 @@ $global:NetworkMode = "L2Bridge"
 $global:ExternalNetwork = "ext"
 $global:CNIConfig = "$CNIConfig"
 $global:NetworkPlugin = $Global:ClusterConfiguration.Cni.Name
-$global:KubeproxyFeatureGates = $Global:ClusterConfiguration.Kubernetes.Kubeproxy.FeatureGates
 $global:KubeletNodeLabels = $Global:ClusterConfiguration.Kubernetes.Kubelet.NodeLabels
 $global:ContainerRuntime = $Global:ClusterConfiguration.Cri.Name
 
