@@ -54,6 +54,8 @@ $global:WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN=49 # Return this error code in csec
 $global:WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG=50 # Return this error code in csecmd.ps1 when C:\AzureData\CSEResult.log does not exist
 $global:WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS=51
 $global:WINDOWS_CSE_ERROR_DUAL_STACK_NO_EXACT_TWO_IPS=52
+$global:WINDOWS_CSE_ERROR_NETWORK_DEFAULT_ROUTE_NOT_EXIST=53
+$global:WINDOWS_CSE_ERROR_NETWORK_IP_ADDRESSES_NOT_EXIST=54
 
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.40.0" # Will change it to the correct version when we support new Windows containerd version

@@ -137,7 +137,7 @@ function Write-KubeClusterConfig {
 # Update-KubeletConfigArgsForDualStack updates the $Global:ClusterConfiguration object
 # to append the --node-ip argument for kubelet if the cluster is dualstack and the
 # host is configured with an IPv4 and IPv6 on the interface using the default route.
-# If the host does not have both IPs it will raise erro WINDOWS_CSE_ERROR_DUAL_STACK_NO_EXACT_TWO_IPS
+# If the host does not have both IPs it will raise error WINDOWS_CSE_ERROR_DUAL_STACK_NO_EXACT_TWO_IPS
 function Update-KubeletConfigArgsForDualStack {
     param(
         [Parameter(Mandatory = $true)][PSCustomObject]
@@ -156,12 +156,21 @@ function Update-KubeletConfigArgsForDualStack {
         return
     }
 
-    $defaultRouteIfIndex = (Get-NetRoute -DestinationPrefix 0.0.0.0/0).ifIndex
+    $defaultRoute = Get-NetRoute -DestinationPrefix 0.0.0.0/0
 
-    # use addresses from dhcp and sort by family so IPv4 is always first
-    $ipAddrs = (Get-NetIPAddress -InterfaceIndex $defaultRouteIfIndex | `
-        ? { $_.SuffixOrigin -eq "Dhcp" } | `
-        Sort-Object AddressFamily).IPAddress
+    if ($defaultRoute -eq $null) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_DEFAULT_ROUTE_NOT_EXIST `
+            -ErrorMessage "Default route to 0.0.0.0/0 does not exist on this host"
+    }
+
+    $ipConfig = Get-NetIPAddress -InterfaceIndex $defaultRoute.ifIndex
+
+    if ($ipConfig -eq $null) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_IP_ADDRESSES_NOT_EXIST `
+            -ErrorMessage "IP addresses at index $($defaultRoute.ifIndex) not found"
+    }
+
+    $ipAddrs = ($ipConfig | ? { $_.SuffixOrigin -ne "Link" } | Sort-Object AddressFamily).IPAddress
 
     if ($ipAddrs.Length -ne 2) {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DUAL_STACK_NO_EXACT_TWO_IPS `
