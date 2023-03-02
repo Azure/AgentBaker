@@ -2595,8 +2595,8 @@ else
     FULL_INSTALL_REQUIRED=true
 fi
 
-if [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
-    installDeps
+if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
+    logs_to_events "AKS.CSE.installDeps" installDeps
 else
     echo "Golden image; skipping dependencies installation"
 fi
@@ -4206,10 +4206,6 @@ downloadGPUDrivers() {
 
     # Check the NVIDIA driver version installed and install nvidia-fabric-manager
     NVIDIA_DRIVER_VERSION=$(cut -d - -f 2 <<< "$(rpm -qa cuda)")
-    if ! dnf_install 30 1 600 nvidia-fabric-manager-${NVIDIA_DRIVER_VERSION}; then
-      exit $ERR_APT_INSTALL_TIMEOUT
-    fi
-
     for nvidia_package in nvidia-fabric-manager-${NVIDIA_DRIVER_VERSION} nvidia-fabric-manager-devel-${NVIDIA_DRIVER_VERSION}; do
       if ! dnf_install 30 1 600 $nvidia_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
