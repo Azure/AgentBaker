@@ -76,6 +76,9 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
 fi
 
 if [[ -n "${OUTBOUND_COMMAND}" ]]; then
+    if [[ -n "${PROXY_VARS}" ]]; then
+        eval $PROXY_VARS
+    fi
     retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
 fi
 
@@ -109,8 +112,8 @@ else
     FULL_INSTALL_REQUIRED=true
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
-    logs_to_events "AKS.CSE.installDeps" installDeps
+if [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
+    installDeps
 else
     echo "Golden image; skipping dependencies installation"
 fi
@@ -329,6 +332,10 @@ if $REBOOTREQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         # logs_to_events should not be run on & commands
         aptmarkWALinuxAgent unhold &
+    fi
+    # Start the mig-partition.service for Mariner after rebooting to complete the rest ofd the cxonfigurations
+    if [[ $OS == $MARINER_OS_NAME ]]; then
+        systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
     fi
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
