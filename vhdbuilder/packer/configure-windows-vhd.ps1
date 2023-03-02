@@ -381,13 +381,14 @@ function Update-WindowsFeatures {
     $featuresToEnable = @(
         "Containers"#,
         #"Hyper-V",
-        #"Hyper-V-PowerShell"
+        "Hyper-V-PowerShell"
         )
 
     foreach ($feature in $featuresToEnable) {
         Write-Log "Enabling Windows feature: $feature"
         Install-WindowsFeature $feature
     }
+    add-windowsfeature rsat-hyper-v-tools
 }
 
 function Update-Registry {
@@ -583,11 +584,11 @@ try{
         "2" {
             Write-Log "Performing actions for provisioning phase 2 for container runtime '$containerRuntime'"
             Set-WinRmServiceAutoStart
-            #if ($containerRuntime -eq 'containerd') {
-            #    Install-ContainerD
-            #} else {
-            #    Install-Docker
-            #}
+            if ($containerRuntime -eq 'containerd') {
+                Install-ContainerD
+            } else {
+                Install-Docker
+            }
             Install-NvidiaGridDriver
             Delete-ExtraNVIDIAServices
             Update-Registry
