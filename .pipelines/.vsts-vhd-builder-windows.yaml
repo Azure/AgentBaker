@@ -17,7 +17,7 @@ parameters:
   displayName: Build 2022 containerd
   type: boolean
 - name: build2022containerdnvidiagpu
-  displayName: Build 2022 containerd
+  displayName: Build 2022 containerd Nvidia GRID
   type: boolean
   default: True
 - name: build2022containerdgen2
@@ -25,7 +25,7 @@ parameters:
   type: boolean
   default: True
 - name: build2022containerdgen2nvidiagpu
-  displayName: Build 2022 containerd Gen 2
+  displayName: Build 2022 containerd Gen 2 Nvidia GRID
   type: boolean
   default: True
 - name: vhddebug
