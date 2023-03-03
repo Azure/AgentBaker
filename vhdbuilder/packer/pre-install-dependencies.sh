@@ -49,8 +49,10 @@ systemctlEnableAndStart sync-container-logs.service || exit 1
 
 if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
   installFIPS
+elif [[ ${UBUNTU_RELEASE} == "20.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+  installFIPS
 elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
-  echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
+  echo "AKS enables FIPS on Ubuntu 18.04 or 20.04 only, exiting..."
   exit 1
 fi
 
