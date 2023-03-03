@@ -333,10 +333,6 @@ if $REBOOTREQUIRED; then
         # logs_to_events should not be run on & commands
         aptmarkWALinuxAgent unhold &
     fi
-    # Start the mig-partition.service for Mariner after rebooting to complete the rest ofd the cxonfigurations
-    if [[ $OS == $MARINER_OS_NAME ]]; then
-        systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
-    fi
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         # logs_to_events should not be run on & commands
