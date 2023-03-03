@@ -16,8 +16,15 @@ parameters:
 - name: build2022containerd
   displayName: Build 2022 containerd
   type: boolean
+- name: build2022containerdnvidiagpu
+  displayName: Build 2022 containerd
+  type: boolean
   default: True
 - name: build2022containerdgen2
+  displayName: Build 2022 containerd Gen 2
+  type: boolean
+  default: True
+- name: build2022containerdgen2nvidiagpu
   displayName: Build 2022 containerd Gen 2
   type: boolean
   default: True
@@ -76,7 +83,7 @@ stages:
 
   - stage: build_vhd_2022_containerd_NvidiaGPU
     dependsOn: []
-    condition: eq('${{ parameters.build2022containerd }}', True)
+    condition: eq('${{ parameters.build2022containerdnvidiagpu }}', True)
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -142,7 +149,7 @@ stages:
 
   - stage: build_vhd_2022_containerd_gen2_NvidiaGPU
     dependsOn: []
-    condition: eq('${{ parameters.build2022containerdgen2 }}', True)
+    condition: eq('${{ parameters.build2022containerdgen2nvidiagpu }}', True)
     jobs:
     - job: build
       timeoutInMinutes: 180
