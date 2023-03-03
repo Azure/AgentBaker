@@ -26,6 +26,7 @@ steps:
       -e PUBLISHER=${PUBLISHER} \
       -e OFFER=${OFFER} \
       -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME} \
+      -e INSTALL_GPU_DRIVER=$(INSTALL_GPU_DRIVER) \
       ${CONTAINER_IMAGE} ./vhdbuilder/publish/Marketplace/new-sku-and-add-image-version.sh
     displayName: Create a new marketplace SKU
   - script: |
