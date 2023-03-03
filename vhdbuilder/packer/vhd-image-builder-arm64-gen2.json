@@ -119,7 +119,6 @@
       "source": "parts/linux/cloud-init/artifacts/cse_start.sh",
       "destination": "/home/packer/provision_start.sh"
     },
-    
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/containerd_exec_start.conf",
@@ -289,6 +288,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sshd_config_1804_fips",
       "destination": "/home/packer/sshd_config_1804_fips"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/sshd_config_2004_fips",
+      "destination": "/home/packer/sshd_config_2004_fips"
     },
     {
       "type": "file",
