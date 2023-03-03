@@ -8,6 +8,12 @@ if (-not ($validContainerRuntimes -contains $containerRuntime)) {
     throw "Unsupported container runtime: $containerRuntime"
 }
 
+$global:installNvidiaDriver = $env:InstallnvidiaDriver
+$validNvidiaDrivers = @("grid", "cuda")
+if (-not ($validNvidiaDrivers -contains $installNvidiaDriver)) {
+    throw "Unsupported nvidia driver: $installNvidiaDriver"
+}
+
 $global:windowsSKU = $env:WindowsSKU
 $validSKU = @("2019", "2019-containerd", "2022-containerd", "2022-containerd-gen2")
 if (-not ($validSKU -contains $windowsSKU)) {
