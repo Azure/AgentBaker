@@ -89,11 +89,11 @@ parameters:
 - name: build2004fipscontainerd
   displayName: Build 2004 FIPS containerd
   type: boolean
-  default: true
+  default: false
 - name: build2004fipsgen2containerd
   displayName: Build 2004 FIPS Gen2 containerd
   type: boolean
-  default: true
+  default: false
 - name: build2204arm64gen2containerd
   displayName: Build 2204 ARM64 Gen2 containerd
   type: boolean
@@ -655,10 +655,10 @@ stages:
         - bash: |
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
-            echo '##vso[task.setvariable variable=OS_VERSION]18.04'
+            echo '##vso[task.setvariable variable=OS_VERSION]20.04'
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-            echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
-            echo '##vso[task.setvariable variable=IMG_SKU]18.04-LTS'
+            echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-focal'
+            echo '##vso[task.setvariable variable=IMG_SKU]20_04-lts'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
@@ -680,10 +680,10 @@ stages:
         - bash: |
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
-            echo '##vso[task.setvariable variable=OS_VERSION]18.04'
+            echo '##vso[task.setvariable variable=OS_VERSION]20.04'
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-            echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
-            echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
+            echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-focal'
+            echo '##vso[task.setvariable variable=IMG_SKU]20_04-lts-gen2'
             echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
