@@ -204,6 +204,7 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSCBLMarinerV2Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
 	AKSUbuntuFipsContainerd1804,
+	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsContainerd2004,
 	AKSUbuntuFipsContainerd2004Gen2,
 	AKSUbuntuFipsGPUContainerd1804,
