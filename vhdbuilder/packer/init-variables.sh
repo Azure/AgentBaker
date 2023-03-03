@@ -388,6 +388,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "os_disk_size_gb": "${os_disk_size_gb}",
   "nano_image_url": "${windows_nanoserver_image_url}",
   "core_image_url": "${windows_servercore_image_url}",
+  "install_gpu_driver": "${INSTALL_GPU_DRIVER}",
   "windows_sigmode_source_subscription_id": "${windows_sigmode_source_subscription_id}",
   "windows_sigmode_source_resource_group_name": "${windows_sigmode_source_resource_group_name}",
   "windows_sigmode_source_gallery_name": "${windows_sigmode_source_gallery_name}",
