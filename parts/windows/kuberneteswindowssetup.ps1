@@ -97,7 +97,7 @@ $global:DefaultContainerdWindowsSandboxIsolation = "{{GetParameter "defaultConta
 $global:ContainerdWindowsRuntimeHandlers = "{{GetParameter "containerdWindowsRuntimeHandlers"}}"
 
 ## GPU install
-$global:InstallGPUDriver = "{{GetParameter "containerRuntime"}}"
+$global:InstallGPUDriver = "{{GetParameter "installGpuDriver"}}"
 
 ## VM configuration passed by Azure
 $global:WindowsTelemetryGUID = "{{GetParameter "windowsTelemetryGUID"}}"
