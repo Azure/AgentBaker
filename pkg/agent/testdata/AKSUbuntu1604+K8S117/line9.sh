@@ -228,7 +228,7 @@ version_gte() {
 }
 
 systemctlEnableAndStart() {
-    systemctl_restart 100 5 30 $1
+    systemctl_restart 100 5 300 $1
     RESTART_STATUS=$?
     systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
     if [ $RESTART_STATUS -ne 0 ]; then

@@ -438,15 +438,7 @@ ensureMigPartition(){
 [Service]
 Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
 EOF
-    # Noticed on Mariner that "nvidia-smi -mig 1" does not always enable MIG mode successfully and
-    # requires a reboot to fully actiavte MIG mode. Thus, as a workaround, we'll only run the MIG enable
-    # operation here and do the rest of the GPU instances creation after the reboot
-    if [[ $OS == $MARINER_OS_NAME ]]; then
-        retrycmd_if_failure 24 5 120 nvidia-smi -mig 1 || exit $ERR_GPU_DRIVERS_START_FAIL
-        sed '6d' /etc/systemd/system/mig-partition.service
-    else
-        systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
-    fi
+    systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureSysctl() {

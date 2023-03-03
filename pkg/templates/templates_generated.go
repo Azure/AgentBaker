@@ -1464,15 +1464,7 @@ ensureMigPartition(){
 [Service]
 Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
 EOF
-    # Noticed on Mariner that "nvidia-smi -mig 1" does not always enable MIG mode successfully and
-    # requires a reboot to fully actiavte MIG mode. Thus, as a workaround, we'll only run the MIG enable
-    # operation here and do the rest of the GPU instances creation after the reboot
-    if [[ $OS == $MARINER_OS_NAME ]]; then
-        retrycmd_if_failure 24 5 120 nvidia-smi -mig 1 || exit $ERR_GPU_DRIVERS_START_FAIL
-        sed '6d' /etc/systemd/system/mig-partition.service
-    else
-        systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
-    fi
+    systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureSysctl() {
@@ -1905,7 +1897,7 @@ version_gte() {
 }
 
 systemctlEnableAndStart() {
-    systemctl_restart 100 5 30 $1
+    systemctl_restart 100 5 300 $1
     RESTART_STATUS=$?
     systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
     if [ $RESTART_STATUS -ne 0 ]; then
@@ -2644,6 +2636,9 @@ if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
     # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
     # ND96 seems to require fabric manager *even when not using mig partitions*
     # while it fails to install on NC24.
+    if [[ $OS == $MARINER_OS_NAME ]]; then
+        logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
+    fi
     logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
 fi
 
@@ -2815,10 +2810,6 @@ if $REBOOTREQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         # logs_to_events should not be run on & commands
         aptmarkWALinuxAgent unhold &
-    fi
-    # Start the mig-partition.service for Mariner after rebooting to complete the rest ofd the cxonfigurations
-    if [[ $OS == $MARINER_OS_NAME ]]; then
-        systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
     fi
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -4203,7 +4194,9 @@ downloadGPUDrivers() {
     if ! dnf_install 30 1 600 cuda-${CUDA_VERSION}; then
       exit $ERR_APT_INSTALL_TIMEOUT
     fi
+}
 
+installNvidiaFabricManager() {
     # Check the NVIDIA driver version installed and install nvidia-fabric-manager
     NVIDIA_DRIVER_VERSION=$(cut -d - -f 2 <<< "$(rpm -qa cuda)")
     for nvidia_package in nvidia-fabric-manager-${NVIDIA_DRIVER_VERSION} nvidia-fabric-manager-devel-${NVIDIA_DRIVER_VERSION}; do
@@ -4314,6 +4307,7 @@ Description=Apply MIG configuration on Nvidia A100 GPU
 
 [Service]
 Restart=on-failure
+TimeoutSec=300
 ExecStartPre=/usr/bin/nvidia-smi -mig 1
 ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh ${GPU_INSTANCE_PROFILE}
 
