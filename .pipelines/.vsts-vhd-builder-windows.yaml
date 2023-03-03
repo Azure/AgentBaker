@@ -101,7 +101,7 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template-windows.yaml
           parameters:
-            artifactName: 2022-containerd
+            artifactName: 2022-containerd-nvidiagpu
 
   - stage: build_vhd_2022_containerd
     dependsOn: []
@@ -167,4 +167,4 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template-windows.yaml
           parameters:
-            artifactName: 2022-containerd-gen2
+            artifactName: 2022-containerd-gen2-nvidiagpu
