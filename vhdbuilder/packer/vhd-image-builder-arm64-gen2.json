@@ -291,11 +291,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/sshd_config_2004_fips",
-      "destination": "/home/packer/sshd_config_2004_fips"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf",
       "destination": "/home/packer/rsyslog-d-60-CIS.conf"
     },
