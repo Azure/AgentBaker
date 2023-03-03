@@ -9,9 +9,9 @@ if (-not ($validContainerRuntimes -contains $containerRuntime)) {
 }
 
 $global:installGpuDriver = $env:InstallGpuDriver
-$validGpuDrivers = @("grid", "cuda", "")
+$validGpuDrivers = @("grid", "cuda", $null)
 if (-not ($validGpuDrivers -contains $installGpuDriver)) {
-    throw "Unsupported gpu driver: ($installGpuDriver)"
+    throw "Unsupported gpu driver: $installGpuDriver"
 }
 
 $global:windowsSKU = $env:WindowsSKU

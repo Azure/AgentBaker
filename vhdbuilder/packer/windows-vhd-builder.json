@@ -64,6 +64,7 @@
                 "ProvisioningPhase=1",
                 "WindowsSKU={{user `windows_sku`}}",
                 "ContainerRuntime={{user `container_runtime`}}",
+                "InstallGPUDriver={{user `install_gpu_driver`}}",
                 "CustomizedDiskSize={{user `os_disk_size_gb`}}"
             ],
             "type": "powershell",

@@ -589,7 +589,7 @@ try{
             } else {
                 Install-Docker
             }
-            if($installNvidiaDriver -eq 'grid') {
+            if($installGpuDriver -eq 'grid') {
                 Install-NvidiaGridDriver
                 Delete-ExtraNVIDIAServices
             }
