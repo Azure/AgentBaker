@@ -717,7 +717,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-            echo '##vso[task.setvariable variable=SGX_INSTALL]True'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]False'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
