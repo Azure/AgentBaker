@@ -1591,7 +1591,7 @@ configGPUDrivers() {
     # ND A100-v4 and NDm A100-v4 series. For now, use the workaround solution to enable NVIDIA persistence mode which 
     # will accelerate the loading time of future nvidia-smi operations
     if [[ $OS == $MARINER_OS_NAME ]]; then
-        retrycmd_if_failure 120 5 35 nvidia-smi -pm 1 || exit $ERR_GPU_DRIVERS_START_FAIL
+        retrycmd_if_failure 120 5 35 nvidia-persistenced --persistence-mode || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
     retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
