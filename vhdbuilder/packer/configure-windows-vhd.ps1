@@ -498,6 +498,7 @@ function VerifySignature([string] $targetFile, [string] $expectedSubject)
 
 function Install-NvidiaGridDriver()
 {
+    Write-Log "Installing GPU driver: '$installGpuDriver'"
     $DESTINATION_FOLDER = "D:\nvidia-driver"
     New-Item -Path $DESTINATION_FOLDER -ItemType Directory
     $targetPathNvidiaDrivers = Join-Path -Path $DESTINATION_FOLDER -ChildPath '\setup.exe'
@@ -589,10 +590,10 @@ try{
             } else {
                 Install-Docker
             }
-            if($installGpuDriver -eq 'grid') {
-                Install-NvidiaGridDriver
-                Delete-ExtraNVIDIAServices
-            }
+            #if($installGpuDriver -eq 'grid') {
+            Install-NvidiaGridDriver
+            Delete-ExtraNVIDIAServices
+            #}
             Update-Registry
             Get-ContainerImages
             Get-FilesToCacheOnVHD
