@@ -78,4 +78,4 @@ cut_official_branch() {
 set_git_config
 find_current_image_version "pkg/agent/datamodel/linux_sig_version.json"
 create_image_bump_pr
-#cut_official_branch
+cut_official_branch
