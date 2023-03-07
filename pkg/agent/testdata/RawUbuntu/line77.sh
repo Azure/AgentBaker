@@ -5,9 +5,9 @@
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/${UBUNTU_CODENAME}/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu${UBUNTU_RELEASE}u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [
             "1.4.13-3",
-            "1.6.17-1"
+            "1.6.18-1"
         ],
-        "edge": "1.6.17-1",
+        "edge": "1.6.18-1",
         "latest": "1.5.11-2",
         "stable": "1.4.13-3"
     },
@@ -48,9 +48,11 @@
             "1.24.3",
             "1.24.6",
             "1.24.9",
+            "1.24.10",
             "1.25.2-hotfix.20221006",
             "1.25.4",
             "1.25.5",
+            "1.25.6",
             "1.26.0",
             "1.26.1"
         ]

@@ -76,6 +76,9 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
 fi
 
 if [[ -n "${OUTBOUND_COMMAND}" ]]; then
+    if [[ -n "${PROXY_VARS}" ]]; then
+        eval $PROXY_VARS
+    fi
     retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
 fi
 
@@ -214,9 +217,6 @@ if [ "${NEEDS_CONTAINERD}" == "true" ]; then
 else
     logs_to_events "AKS.CSE.ensureDocker" ensureDocker
 fi
-
-# Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
-logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
 
 if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
     echo "${MESSAGE_OF_THE_DAY}" | base64 -d > /etc/motd
