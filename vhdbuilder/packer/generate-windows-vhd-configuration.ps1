@@ -119,7 +119,7 @@ if ($windowsSku -eq "2019") {
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01182023-095c864a",
             # NPM (Network Policy Manager). Owner: jaer-tsun (Jaeryn)
-            "mcr.microsoft.com/containernetworking/azure-npm:v1.4.29",
+            "mcr.microsoft.com/containernetworking/azure-npm:v1.4.45",
             "mcr.microsoft.com/containernetworking/azure-cns:v1.4.29")
 } else {
     throw "No valid windows SKU is specified $windowsSKU"
