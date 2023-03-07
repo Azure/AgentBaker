@@ -84,11 +84,12 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
       done
       image_defs=$(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${gallery} | jq -r '.[] | select(.osType == "Windows").name')
 
-      # clean the gallery if ALL sig image-definitions have been deleted
-      if [[ -z $image_defs ]]; then
-        echo "Deleting gallery ${gallery}"
-        az sig delete --gallery-name ${gallery} --resource-group ${AZURE_RESOURCE_GROUP_NAME}
+      if [[ -n $image_defs ]]; then
+        echo $image_defs
       fi
+      
+      echo "Deleting gallery ${gallery}"
+      az sig delete --gallery-name ${gallery} --resource-group ${AZURE_RESOURCE_GROUP_NAME}
     fi
   done
 fi
