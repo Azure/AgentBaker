@@ -92,7 +92,8 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.3", # for k8s 1.24.x
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01182023-095c864a")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01182023-095c864a",
+            "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44")
 } elseif ($windowsSku -eq "2022-containerd" -or $windowsSku -eq "2022-containerd-gen2") {
     $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2022",
