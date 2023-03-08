@@ -1381,16 +1381,6 @@ ensureKubelet() {
     mkdir -p "$(dirname "${KUBE_CA_FILE}")"
     echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
     chmod 0600 "${KUBE_CA_FILE}"
-    KUBELET_DEFAULT_FILE=/etc/default/kubelet
-    mkdir -p /etc/default
-    echo "KUBELET_FLAGS=${KUBELET_FLAGS}" >> "${KUBELET_DEFAULT_FILE}"
-    echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
-    echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
-    echo "KUBELET_IMAGE=${KUBELET_IMAGE}" >> "${KUBELET_DEFAULT_FILE}"
-    echo "KUBELET_NODE_LABELS=${KUBELET_NODE_LABELS}" >> "${KUBELET_DEFAULT_FILE}"
-    if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
-        echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
-    fi
     
     if [ "${CLIENT_TLS_BOOTSTRAPPING_ENABLED}" == "true" ]; then
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
@@ -4001,9 +3991,9 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/${UBUNTU_CODENAME}/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu${UBUNTU_RELEASE}u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [
             "1.4.13-3",
-            "1.6.17-1"
+            "1.6.18-1"
         ],
-        "edge": "1.6.17-1",
+        "edge": "1.6.18-1",
         "latest": "1.5.11-2",
         "stable": "1.4.13-3"
     },
@@ -4044,9 +4034,11 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
             "1.24.3",
             "1.24.6",
             "1.24.9",
+            "1.24.10",
             "1.25.2-hotfix.20221006",
             "1.25.4",
             "1.25.5",
+            "1.25.6",
             "1.26.0",
             "1.26.1"
         ]
@@ -5709,7 +5701,7 @@ installStandaloneContainerd() {
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.6.17"
+        CONTAINERD_VERSION="1.6.18"
         CONTAINERD_PATCH_VERSION="1"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
