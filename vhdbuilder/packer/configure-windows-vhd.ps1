@@ -527,9 +527,9 @@ function Install-NvidiaGridDriver()
 # - NVWMI
 # - NVDisplay.ContainerLocalSystem
 # Per security requirement, manually deleting these services
-function Delete-ExtraNVIDIAServices
+function Delete-ExtraNVIDIAGridServices
 {
-    Write-Log "DeleteExtraNVIDIAServices - Start"
+    Write-Log "DeleteExtraGridNVIDIAServices - Start"
     $serviceNames = "NVWMI","NVDisplay.ContainerLocalSystem"
 
     foreach($serviceName in $serviceNames)
@@ -590,10 +590,10 @@ try{
             } else {
                 Install-Docker
             }
-            #if($env:installGpuDriver -eq 'nvgrid') {
-            Install-NvidiaGridDriver
-            Delete-ExtraNVIDIAServices
-            #}
+            if($env:installGpuDriver -eq 'nvgrid') {
+                Install-NvidiaGridDriver
+                Delete-ExtraNVIDIAGridServices
+            }
             Update-Registry
             Get-ContainerImages
             Get-FilesToCacheOnVHD
