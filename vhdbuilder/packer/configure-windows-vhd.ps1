@@ -504,6 +504,8 @@ function Install-NvidiaDriver([string] $driverType)
     New-Item -Path $DESTINATION_FOLDER -ItemType Directory
     $targetPathNvidiaDrivers = Join-Path -Path $DESTINATION_FOLDER -ChildPath '\setup.exe'
 
+    $sourceDriverlUri = ""
+
     switch ($driverType) {
         "nvgrid" {
             $sourceDriverlUri = "https://go.microsoft.com/fwlink/?linkid=874179"
@@ -519,7 +521,7 @@ function Install-NvidiaDriver([string] $driverType)
     #$sourceDriverUri = "https://download.microsoft.com/download/4/6/0/4605339d-133c-4b7b-a750-90352df79aa6/527.41_grid_win10_win11_server2019_server2022_dch_64bit_international_azure_swl.exe"
     $nvidiaExpectedSubject = "CN=Nvidia Corporation, OU=IT-MIS, O=Nvidia Corporation, L=Santa Clara, S=California, C=US"
     # Installs Nvidia Grid Drivers. This will only succeed is run on a compatible SKU, see https://learn.microsoft.com/en-us/azure/virtual-machines/windows/n-series-driver-setup
-    Write-Log "Downloading and Installing Nvidia Grid Drivers"
+    Write-Log "Downloading and Installing Nvidia Grid Drivers from $sourceDriverlUri"
     DownloadFileWithRetry -URL $sourceDriverUri -Dest $targetPathNvidiaDrivers -redactUrl
 
     Write-Log "Downloaded driver from $sourceDriverUri to $targetPathNvidiaDrivers. Verifying Signature"
