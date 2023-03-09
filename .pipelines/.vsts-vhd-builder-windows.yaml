@@ -16,15 +16,18 @@ parameters:
 - name: build2022containerd
   displayName: Build 2022 containerd
   type: boolean
-- name: build2022containerdnvidiagpu
+- name: build2022containerdnvidiagrid
   displayName: Build 2022 containerd Nvidia GRID
+  type: boolean
+- name: build2022containerdnvidiacuda
+  displayName: Build 2022 containerd Nvidia CUDA
   type: boolean
   default: True
 - name: build2022containerdgen2
   displayName: Build 2022 containerd Gen 2
   type: boolean
   default: True
-- name: build2022containerdgen2nvidiagpu
+- name: build2022containerdgen2nvidiagrid
   displayName: Build 2022 containerd Gen 2 Nvidia GRID
   type: boolean
   default: True
@@ -105,7 +108,7 @@ stages:
 
   - stage: build_vhd_2022_containerd_NvidiaGRID
     dependsOn: []
-    condition: eq('${{ parameters.build2022containerdnvidiagpu }}', True)
+    condition: eq('${{ parameters.build2022containerdnvidiagrid }}', True)
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -124,11 +127,11 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template-windows.yaml
           parameters:
-            artifactName: 2022-containerd-nvidiagpu
+            artifactName: 2022-containerd-nvidiagrid
 
   - stage: build_vhd_2022_containerd_NvidiaCUDA
     dependsOn: []
-    condition: eq('${{ parameters.build2022containerdnvidiagpu }}', True)
+    condition: eq('${{ parameters.build2022containerdnvidiacuda }}', True)
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -147,7 +150,7 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template-windows.yaml
           parameters:
-            artifactName: 2022-containerd-nvidiagpu
+            artifactName: 2022-containerd-nvidiacuda
 
   - stage: build_vhd_2022_containerd_gen2
     dependsOn: []
