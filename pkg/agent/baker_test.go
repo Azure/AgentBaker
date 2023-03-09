@@ -631,7 +631,13 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
 				CustomCATrustCerts: []string{EncodedTestCert, EncodedTestCert, EncodedTestCert},
 			}
-		}, nil),
+		}, func(o *nodeBootstrappingOutput) {
+			Expect(o.vars["CUSTOM_CA_TRUST_COUNT"]).To(Equal("3"))
+			Expect(o.vars["SHOULD_CONFIGURE_CUSTOM_CA_TRUST"]).To(Equal("true"))
+			Expect(o.vars["CUSTOM_CA_CERT_0"]).To(Equal(EncodedTestCert))
+			_, err := getBase64DecodedValue([]byte(o.vars["CUSTOM_CA_CERT_0"]))
+			Expect(err).To(BeNil())
+		}),
 
 		Entry("AKSUbuntu1804 with containerd and runcshimv2", "AKSUbuntu1804+Containerd+runcshimv2", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableRuncShimV2 = true
