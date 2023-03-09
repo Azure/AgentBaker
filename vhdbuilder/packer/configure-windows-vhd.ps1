@@ -604,8 +604,11 @@ try{
                 Install-Docker
             }
             if( @("nvgrid", "nvcuda") -contains $env:installGpuDriver) {
+                Write-Log "Installing nvidia driver $env:installGpuDriver"
                 Install-NvidiaDriver($env:installGpuDriver)
                 Delete-ExtraNVIDIAGridServices
+            } else {
+                Write-Log "Unrecognized driver $env:installGpuDriver"
             }
             Update-Registry
             Get-ContainerImages
