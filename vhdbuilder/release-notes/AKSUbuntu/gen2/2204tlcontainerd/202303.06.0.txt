@@ -1,4 +1,4 @@
-Starting build on  Mon Mar 6 09:05:50 UTC 2023
+Starting build on  Mon Mar 6 09:06:35 UTC 2023
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - apt-transport-https
   - blobfuse=1.4.4
@@ -203,11 +203,11 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root     48021504 Jan 30 19:05 /usr/local/bin/kubectl-1.26.1
 -rwxr-xr-x 1 root root    114245720 Jan 30 19:05 /usr/local/bin/kubelet-1.25.6
 -rwxr-xr-x 1 root root     45027328 Jan 30 19:05 /usr/local/bin/kubectl-1.25.6
--r-xr--r-- 1 root root         2462 Mar  6 09:05 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root          705 Mar  6 09:05 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root     36014944 Mar  6 09:18 /usr/local/bin/containerd-shim-spin-v1
--rwxr-xr-x 1 root root     47622592 Mar  6 09:18 /usr/local/bin/containerd-shim-slight-v1
--rwxr-xr-x 1 root root     35384960 Mar  6 09:21 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root         2462 Mar  6 09:06 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root          705 Mar  6 09:06 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root     36014944 Mar  6 09:16 /usr/local/bin/containerd-shim-spin-v1
+-rwxr-xr-x 1 root root     47622592 Mar  6 09:16 /usr/local/bin/containerd-shim-slight-v1
+-rwxr-xr-x 1 root root     35384960 Mar  6 09:19 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 adduser/jammy,now 3.118ubuntu5 all [installed,automatic]
@@ -940,7 +940,7 @@ tmpfs           5.0M     0  5.0M   0% /run/lock
 tmpfs           796M     0  796M   0% /run/user/1000
 Using kernel:
 Linux version 5.15.0-1034-azure (buildd@lcy02-amd64-046) (gcc (Ubuntu 11.3.0-1ubuntu1~22.04) 11.3.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #41-Ubuntu SMP Fri Feb 10 19:59:45 UTC 2023
-Install completed successfully on  Mon Mar 6 09:51:26 UTC 2023
+Install completed successfully on  Mon Mar 6 09:56:28 UTC 2023
 VSTS Build NUMBER: 20230306.1_master_69639423
 VSTS Build ID: 69639423
 Commit: e6086d14d13e3acc1c1e87eae03706cb6a56c4bd
