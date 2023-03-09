@@ -11,7 +11,7 @@ if (-not ($validContainerRuntimes -contains $containerRuntime)) {
 $global:installGpuDriver = $env:InstallGPUDriver
 $validGpuDrivers = @("nvgrid", "nvcuda")
 if (-not ($validGpuDrivers -contains $installGpuDriver)) {
-    throw "Unsupported gpu driver: $installGpuDriver"
+    throw "Unsupported gpu driver: $installGpuDriver $env:InstallGPUDriver $global:installGpuDriver"
 }
 
 $global:windowsSKU = $env:WindowsSKU
