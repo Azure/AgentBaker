@@ -110,7 +110,7 @@ EOF
 
 configureHTTPProxyCA() {
     if [[ $OS == $MARINER_OS_NAME ]]; then
-        cert_dest="/usr/share/pki/ca-trust-source"
+        cert_dest="/usr/share/pki/ca-trust-source/anchors"
         update_cmd="update-ca-trust"
     else
         cert_dest="/usr/local/share/ca-certificates"
