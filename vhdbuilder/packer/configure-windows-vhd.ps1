@@ -25,6 +25,7 @@ function DownloadFileWithRetry {
         $retryDelay = 0,
         [Switch]$redactUrl = $false
     )
+    Write-Log "CURL on $URL targeting $Dest"
     curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
     if ($LASTEXITCODE) {
         $logURL = $URL
@@ -521,8 +522,8 @@ function Install-NvidiaDriver([string] $driverType)
     #$sourceDriverUri = "https://download.microsoft.com/download/4/6/0/4605339d-133c-4b7b-a750-90352df79aa6/527.41_grid_win10_win11_server2019_server2022_dch_64bit_international_azure_swl.exe"
     $nvidiaExpectedSubject = "CN=Nvidia Corporation, OU=IT-MIS, O=Nvidia Corporation, L=Santa Clara, S=California, C=US"
     # Installs Nvidia Grid Drivers. This will only succeed is run on a compatible SKU, see https://learn.microsoft.com/en-us/azure/virtual-machines/windows/n-series-driver-setup
-    Write-Log "Downloading and Installing Nvidia Grid Drivers from $sourceDriverlUri"
-    DownloadFileWithRetry -URL $sourceDriverUri -Dest $targetPathNvidiaDrivers -redactUrl
+    Write-Log "Downloading and Installing Nvidia Drivers from $sourceDriverlUri"
+    DownloadFileWithRetry -URL $sourceDriverUri -Dest $targetPathNvidiaDrivers
 
     Write-Log "Downloaded driver from $sourceDriverUri to $targetPathNvidiaDrivers. Verifying Signature"
 
