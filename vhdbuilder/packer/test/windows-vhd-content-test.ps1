@@ -212,6 +212,19 @@ function Test-PatchInstalled {
 }
 
 function Test-ImagesPulled {
+    Param(
+        [Switch]$isAzureChinaCloud = $false
+    )
+    Write-Output "Test-ImagesPulled for $containerRuntime. IsAzureChinaCloud: $isAzureChinaCloud"
+    $targetImagesToPull = $imagesToPull
+    $excludeMcrUrl="mcr.azk8s.cn*"
+    if ($isAzureChinaCloud) {
+        $excludeMcrUrl="mcr.microsoft.com*"
+        $targetImagesToPull = @()
+        foreach ($image in $imagesToPull) {
+            $targetImagesToPull += $image.Replace("mcr.microsoft.com", "mcr.azk8s.cn")
+        }
+    }
     if ($containerRuntime -eq 'containerd') {
         Start-Job-To-Expected-State -JobName containerd -ScriptBlock { containerd.exe }
         # NOTE:
@@ -220,18 +233,18 @@ function Test-ImagesPulled {
         #    https://github.com/containerd/containerd/blob/master/cmd/ctr/commands/images/images.go#L89
         # 2. As select-string with nomatch pattern returns additional line breaks, qurying MatchInfo's Line property keeps
         #    only image reference as a workaround
-        $pulledImages = (ctr.exe -n k8s.io image ls -q | Select-String -notmatch "sha256:.*" | % { $_.Line } )
+        $pulledImages = (ctr.exe -n k8s.io image ls -q | Select-String -notmatch "sha256:.*" | Select-String -notmatch $excludeMcrUrl | % { $_.Line } )
     }
     elseif ($containerRuntime -eq 'docker') {
         Start-Service docker
-        $pulledImages = docker images --format "{{.Repository}}:{{.Tag}}"
+        $pulledImages = (docker images --format "{{.Repository}}:{{.Tag}}" | Select-String -notmatch $excludeMcrUrl)
     }
     else {
         Write-ErrorWithTimestamp "unsupported container runtime $containerRuntime"
     }
 
-    if(Compare-Object $imagesToPull $pulledImages) {
-        Write-ErrorWithTimestamp "images to pull do not equal images cached $imagesToPull != $pulledImages"
+    if(Compare-Object $targetImagesToPull $pulledImages) {
+        Write-ErrorWithTimestamp "images to pull do not equal images cached $targetImagesToPull != $pulledImages. For AzureChinaCloud: $isAzureChinaCloud"
         exit 1
     }
 }
