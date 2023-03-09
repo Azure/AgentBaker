@@ -95,6 +95,8 @@ func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *datamodel.NodeBootst
 
 // getLinuxNodeCSECommand returns Linux node custom script extension execution command
 func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
+	// validate and fix input
+	validateAndSetLinuxNodeBootstrappingConfiguration(config)
 	// get parameters
 	parameters := getParameters(config, "", "")
 	// get variable
@@ -116,6 +118,8 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 
 // getWindowsNodeCSECommand returns Windows node custom script extension execution command
 func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
+	// TODO(ace): linux cleans the input here for CSE now.
+	// should we do the same for windows?
 	// get parameters
 	parameters := getParameters(config, "", "")
 	// get variable
