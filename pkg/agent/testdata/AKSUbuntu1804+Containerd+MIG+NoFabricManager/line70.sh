@@ -109,8 +109,13 @@ EOF
 }
 
 configureHTTPProxyCA() {
-    cert_dest="${1:-/usr/local/share/ca-certificates}"
-    update_cmd="${2:-update-ca-certificates}"
+    if [[ $OS == $MARINER_OS_NAME ]]; then
+        cert_dest="/usr/share/pki/ca-trust-source"
+        update_cmd="update-ca-trust"
+    else
+        cert_dest="/usr/local/share/ca-certificates"
+        update_cmd="update-ca-certificates"
+    fi
     echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.crt" || exit $ERR_UPDATE_CA_CERTS
     $update_cmd || exit $ERR_UPDATE_CA_CERTS
 }

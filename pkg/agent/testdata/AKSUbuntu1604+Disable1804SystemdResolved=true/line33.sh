@@ -65,11 +65,7 @@ fi
 
 if [[ "${SHOULD_CONFIGURE_HTTP_PROXY}" == "true" ]]; then
     if [[ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" == "true" ]]; then
-        if [[ $OS == $MARINER_OS_NAME ]]; then
-            configureHTTPProxyCA "/usr/share/pki/ca-trust-source" "update-ca-trust" || exit $ERR_UPDATE_CA_CERTS  
-        else
             configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
-        fi
     fi
     configureEtcEnvironment
 fi
