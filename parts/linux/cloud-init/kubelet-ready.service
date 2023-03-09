@@ -1,0 +1,15 @@
+[Unit]
+Description=A service to start during node join and wait until kubelet reports ready.
+Requires=kubelet.service
+After=kubelet.service
+BindsTo=kubelet.service
+ConditionPathExists=!/opt/azure/kubelet-first-ready
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c "timeout 600s grep -q 'NodeReady' <(journalctl -u kubelet -f --no-tail)"
+ExecStartPost=/usr/bin/touch /opt/azure/kubelet-first-ready
+RemainAfterExit=yes
+
+[Install]
+WantedBy=kubelet.service
