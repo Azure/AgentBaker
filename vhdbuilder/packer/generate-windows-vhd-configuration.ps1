@@ -8,7 +8,7 @@ if (-not ($validContainerRuntimes -contains $containerRuntime)) {
     throw "Unsupported container runtime: $containerRuntime"
 }
 
-$global:installGpuDriver = $env:InstallGpuDriver
+$global:installGpuDriver = $env:InstallGPUDriver
 $validGpuDrivers = @("nvgrid", "nvcuda")
 if (-not ($validGpuDrivers -contains $installGpuDriver)) {
     throw "Unsupported gpu driver: $installGpuDriver"
