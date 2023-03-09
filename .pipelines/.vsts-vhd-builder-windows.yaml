@@ -174,9 +174,9 @@ stages:
           parameters:
             artifactName: 2022-containerd-gen2
 
-  - stage: build_vhd_2022_containerd_gen2_NvidiaGPU
+  - stage: build_vhd_2022_containerd_gen2_NvidiaGrid
     dependsOn: []
-    condition: eq('${{ parameters.build2022containerdgen2nvidiagpu }}', True)
+    condition: eq('${{ parameters.build2022containerdgen2nvidiagrid }}', True)
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -195,4 +195,4 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template-windows.yaml
           parameters:
-            artifactName: 2022-containerd-gen2-nvidiagpu
+            artifactName: 2022-containerd-gen2-nvidiagrid
