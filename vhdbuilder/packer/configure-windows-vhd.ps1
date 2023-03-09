@@ -603,7 +603,7 @@ try{
             } else {
                 Install-Docker
             }
-            if($env:installGpuDriver in ['nvgrid', 'nvcuda']) {
+            if( @("nvgrid", "nvcuda") -contains $env:installGpuDriver) {
                 Install-NvidiaDriver($env:installGpuDriver)
                 Delete-ExtraNVIDIAGridServices
             }
