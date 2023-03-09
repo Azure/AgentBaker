@@ -509,7 +509,8 @@ function Install-NvidiaDriver([string] $driverType)
 
     switch ($driverType) {
         "nvgrid" {
-            $sourceDriverlUri = "https://go.microsoft.com/fwlink/?linkid=874179"
+            #$sourceDriverlUri = "https://go.microsoft.com/fwlink/?linkid=874179"
+            $sourceDriverUri = "https://download.microsoft.com/download/4/6/0/4605339d-133c-4b7b-a750-90352df79aa6/527.41_grid_win10_win11_server2019_server2022_dch_64bit_international_azure_swl.exe"
         }
         "nvcuda" {
             $sourceDriverlUri = "https://go.microsoft.com/fwlink/?linkid=874181"
