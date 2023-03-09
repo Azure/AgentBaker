@@ -603,8 +603,8 @@ try{
             } else {
                 Install-Docker
             }
-            if($env:installGpuDriver -eq 'nvgrid') {
-                Install-NvidiaGridDriver
+            if($env:installGpuDriver in ['nvgrid', 'nvcuda']) {
+                Install-NvidiaDriver($env:installGpuDriver)
                 Delete-ExtraNVIDIAGridServices
             }
             Update-Registry
