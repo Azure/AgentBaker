@@ -59,7 +59,7 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 // GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form
 // { "customData": "<customData string>" }
 func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
-	// validtae and fix input
+	// validate and fix input
 	validateAndSetWindowsNodeBootstrappingConfiguration(config)
 
 	cs := config.ContainerService
