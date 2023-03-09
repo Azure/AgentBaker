@@ -609,6 +609,8 @@ try{
                 Delete-ExtraNVIDIAGridServices
             } else {
                 Write-Log "Unrecognized driver $env:installGpuDriver"
+                Write-Log "Unrecognized driver $global:installGpuDriver"
+                Write-Log "Unrecognized driver $installGpuDriver"
             }
             Update-Registry
             Get-ContainerImages
