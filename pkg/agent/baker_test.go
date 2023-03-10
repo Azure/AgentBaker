@@ -3,8 +3,11 @@ package agent
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -631,7 +634,13 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
 				CustomCATrustCerts: []string{EncodedTestCert, EncodedTestCert, EncodedTestCert},
 			}
-		}, nil),
+		}, func(o *nodeBootstrappingOutput) {
+			Expect(o.vars["CUSTOM_CA_TRUST_COUNT"]).To(Equal("3"))
+			Expect(o.vars["SHOULD_CONFIGURE_CUSTOM_CA_TRUST"]).To(Equal("true"))
+			Expect(o.vars["CUSTOM_CA_CERT_0"]).To(Equal(EncodedTestCert))
+			err := verifyCertsEncoding(o.vars["CUSTOM_CA_CERT_0"])
+			Expect(err).To(BeNil())
+		}),
 
 		Entry("AKSUbuntu1804 with containerd and runcshimv2", "AKSUbuntu1804+Containerd+runcshimv2", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableRuncShimV2 = true
@@ -1076,6 +1085,24 @@ func getBase64DecodedValue(data []byte) (string, error) {
 	}
 
 	return string(decoded), nil
+}
+
+func verifyCertsEncoding(cert string) error {
+	certPEM, err := base64.StdEncoding.DecodeString(cert)
+	if err != nil {
+		return err
+	}
+
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		return errors.New("pem decode block is nil")
+	}
+
+	_, err = x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error) {

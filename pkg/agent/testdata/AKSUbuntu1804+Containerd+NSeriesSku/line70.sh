@@ -127,7 +127,7 @@ configureCustomCaCertificate() {
         # causes bad substitution errors in bash
         # dynamically declare and use `!` to add a layer of indirection
         declare varname=CUSTOM_CA_CERT_${i} 
-        echo "${!varname}" > /opt/certs/00000000000000cert${i}.crt
+        echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
     done
     # This will block until the service is considered active.
     # Update_certs.service is a oneshot type of unit that
