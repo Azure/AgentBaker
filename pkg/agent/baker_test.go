@@ -1095,7 +1095,7 @@ func verifyCertsEncoding(cert string) error {
 
 	block, _ := pem.Decode(certPEM)
 	if block == nil {
-		return errors.New("Pem decode block is nil")
+		return errors.New("pem decode block is nil")
 	}
 
 	_, err = x509.ParseCertificate(block.Bytes)
