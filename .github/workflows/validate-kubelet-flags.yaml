@@ -10,6 +10,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - run: |
+        set -x
         retrycmd_get_tarball() {
           tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
           echo "${tar_retries} retries"
@@ -24,7 +25,7 @@ jobs:
           done
         }
         
-        #K8S_VERSION=$1
+        K8S_VERSION=1.25.5
         #KUBE_BINARY_URL=$2
         K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
         KUBE_BINARY_URL="https://acs-mirror.azureedge.net/kubernetes/v1.25.5/binaries/kubernetes-node-linux-amd64.tar.gz"
