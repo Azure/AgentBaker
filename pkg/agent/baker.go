@@ -938,31 +938,46 @@ const sysctlTemplateString = `# This is a partial workaround to this upstream Ku
 net.ipv4.tcp_retries2=8
 net.core.message_burst=80
 net.core.message_cost=40
-{{- if .CustomLinuxOSConfig}}{{ if .CustomLinuxOSConfig.Sysctls}}{{ if .CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
+{{- if .CustomLinuxOSConfig}}{{ if .CustomLinuxOSConfig.Sysctls}}
+{{ if .CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn -}}
 net.core.somaxconn={{.CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
-{{end}}{{end}}{{- else}}
+{{- else}}
 net.core.somaxconn=16384
 {{- end}}
-{{- if .CustomLinuxOSConfig}}{{ if .CustomLinuxOSConfig.Sysctls}}{{ if .CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
+{{ if .CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
 net.ipv4.tcp_max_syn_backlog={{.CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
-{{end}}{{end}}{{- else}}
+{{- else}}
 net.ipv4.tcp_max_syn_backlog=16384
 {{- end}}
-{{- if .CustomLinuxOSConfig}}{{ if .CustomLinuxOSConfig.Sysctls}}{{ if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
+{{ if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
 net.ipv4.neigh.default.gc_thresh1={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
-{{end}}{{end}}{{- else}}
+{{- else}}
 net.ipv4.neigh.default.gc_thresh1=4096
 {{- end}}
-{{- if .CustomLinuxOSConfig}}{{ if .CustomLinuxOSConfig.Sysctls}}{{ if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
+{{ if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
 net.ipv4.neigh.default.gc_thresh2={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
-{{end}}{{end}}{{- else}}
+{{- else}}
 net.ipv4.neigh.default.gc_thresh2=8192
 {{- end}}
-{{- if .CustomLinuxOSConfig}}{{ if .CustomLinuxOSConfig.Sysctls}}{{ if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
+{{ if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
 net.ipv4.neigh.default.gc_thresh3={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
-{{end}}{{end}}{{- else}}
+{{- else}}
 net.ipv4.neigh.default.gc_thresh3=16384
 {{- end}}
+{{- else }}
+net.core.somaxconn=16384
+net.ipv4.tcp_max_syn_backlog=16384
+net.ipv4.neigh.default.gc_thresh1=4096
+net.ipv4.neigh.default.gc_thresh2=8192
+net.ipv4.neigh.default.gc_thresh3=16384
+{{- end}}
+{{- else }}
+net.core.somaxconn=16384
+net.ipv4.tcp_max_syn_backlog=16384
+net.ipv4.neigh.default.gc_thresh1=4096
+net.ipv4.neigh.default.gc_thresh2=8192
+net.ipv4.neigh.default.gc_thresh3=16384
+{{ end }}
 {{if .CustomLinuxOSConfig}}
 {{if .CustomLinuxOSConfig.Sysctls}}
 # The following are sysctl configs passed from API
