@@ -532,7 +532,7 @@ function Install-NvidiaDriver([string] $driverType)
         Write-Log "Installing Nvidia Drivers"
         $Arguments = "-s -n -log:$LogFolder -loglevel:6"
 
-        $process = (Start-Process -FilePath $targetPathNvidiaDrivers -ArgumentList $Arguments -PassThru
+        $p = Start-Process -FilePath $targetPathNvidiaDrivers -ArgumentList $Arguments -PassThru
         #"-s Display.Driver" -Wait -PassThru)
         
         # check if installation was successful
@@ -542,16 +542,16 @@ function Install-NvidiaDriver([string] $driverType)
         } 
         else 
         {
-            throw "There was a problem installing NVIDIA drivers. Exit code: $($process.ExitCode)"
+            throw "There was a problem installing NVIDIA drivers. Exit code: $($p.ExitCode)"
         }     
     }
     catch
     {
       $Message = $_.ToString()
-      Write-Log "Exception insstalling nvidia driver: $Message" # the status file may get over-written when the agent re-attempts this step
+      Write-Log "Exception installing nvidia driver: $Message" # the status file may get over-written when the agent re-attempts this step
       Get-ChildItem -Path $LogFolder | select -expand Name | ForEach-Object {
         Write-Log $_.Line
-        Write-Log $
+        Write-Log $_
       }
       throw
     }
