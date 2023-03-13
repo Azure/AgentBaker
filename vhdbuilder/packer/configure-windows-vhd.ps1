@@ -525,7 +525,7 @@ function Install-NvidiaDriver([string] $driverType)
 
     VerifySignature $targetPathNvidiaDrivers $nvidiaExpectedSubject
     
-    $LogFolder = "D:/NvidiaLogs"
+    $LogFolder = "D:\NvidiaLogs"
     try {
         New-Item -Path $LogFolder -ItemType Directory
 
@@ -542,6 +542,7 @@ function Install-NvidiaDriver([string] $driverType)
         } 
         else 
         {
+            Write-Log "There was a problem installing NVIDIA drivers. Exit code: $($p.ExitCode)"
             throw "There was a problem installing NVIDIA drivers. Exit code: $($p.ExitCode)"
         }     
     }
