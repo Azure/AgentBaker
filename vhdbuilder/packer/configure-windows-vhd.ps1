@@ -532,7 +532,7 @@ function Install-NvidiaDriver([string] $driverType)
         Write-Log "Installing Nvidia Drivers"
         $Arguments = "-s -n -log:$LogFolder -loglevel:6"
 
-        $p = Start-Process -FilePath $targetPathNvidiaDrivers -ArgumentList $Arguments -PassThru
+        $p = Start-Process -FilePath $targetPathNvidiaDrivers -ArgumentList $Arguments -Wait -PassThru
         #"-s Display.Driver" -Wait -PassThru)
         
         # check if installation was successful
@@ -542,7 +542,6 @@ function Install-NvidiaDriver([string] $driverType)
         } 
         else 
         {
-            Write-Log "There was a problem installing NVIDIA drivers. Exit code: $($p.ExitCode)"
             throw "There was a problem installing NVIDIA drivers. Exit code: $($p.ExitCode)"
         }     
     }
