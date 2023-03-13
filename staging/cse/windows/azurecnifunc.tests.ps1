@@ -126,6 +126,25 @@ Describe 'Set-AzureCNIConfig' {
             $diffence = Compare-Object $actualConfigJson $expectedConfigJson
             $diffence | Should -Be $null
         }
+
+        It "Should include cluster CIDRs and Vnet CIDRs included IPv6 in exceptionList" {
+            Set-Default-AzureCNI "AzureCNI.Default.Overlay.conflist"
+
+            $dualStackClusterCIDRs = "10.240.0.0/16,fd12:3456::/64"
+            $dualStackVNetCIDRs = "10.0.0.0/8,2001:abcd::/56"
+            Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
+                -KubeDnsSearchPath $kubeDnsSearchPath `
+                -KubeClusterCIDR $dualStackClusterCIDRs `
+                -KubeServiceCIDR $kubeServiceCIDR `
+                -VNetCIDR $dualStackVNetCIDRs `
+                -IsDualStackEnabled $true `
+                -IsAzureCNIOverlayEnabled $true
+
+            $actualConfigJson = Read-Format-Json $azureCNIConfigFile
+            $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.Overlay.conflist"))
+            $diffence = Compare-Object $actualConfigJson $expectedConfigJson
+            $diffence | Should -Be $null
+        }
     }
 
     Context 'SwiftCNI' {

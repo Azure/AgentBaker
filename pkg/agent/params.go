@@ -145,7 +145,7 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 				"cloudProviderRateLimitBucketWrite": kubernetesConfig.CloudProviderRateLimitBucketWrite,
 				"cloudProviderDisableOutboundSNAT":  kubernetesConfig.CloudProviderDisableOutboundSNAT,
 			})
-			addValue(parametersMap, "kubeClusterCidr", kubernetesConfig.ClusterSubnet)
+			addValue(parametersMap, "kubeClusterCidr", strings.Join(kubernetesConfig.GetAllClusterSubnets(), ","))
 			addValue(parametersMap, "dockerBridgeCidr", kubernetesConfig.DockerBridgeSubnet)
 			addValue(parametersMap, "networkPolicy", kubernetesConfig.NetworkPolicy)
 			addValue(parametersMap, "networkPlugin", kubernetesConfig.NetworkPlugin)
@@ -165,7 +165,7 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 				addValue(parametersMap, "kubeBinariesSASURL", k8sComponents.WindowsPackageURL)
 
 				addValue(parametersMap, "windowsContainerdURL", kubernetesConfig.WindowsContainerdURL)
-				addValue(parametersMap, "kubeServiceCidr", kubernetesConfig.ServiceCIDR)
+				addValue(parametersMap, "kubeServiceCidr", strings.Join(kubernetesConfig.GetAllServiceCIDRs(), ","))
 				addValue(parametersMap, "kubeBinariesVersion", k8sVersion)
 				addValue(parametersMap, "windowsTelemetryGUID", cloudSpecConfig.KubernetesSpecConfig.WindowsTelemetryGUID)
 				addValue(parametersMap, "windowsSdnPluginURL", kubernetesConfig.WindowsSdnPluginURL)
