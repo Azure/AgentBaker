@@ -519,21 +519,42 @@ function Install-NvidiaDriver([string] $driverType)
     }
     $nvidiaExpectedSubject = "CN=Nvidia Corporation, OU=IT-MIS, O=Nvidia Corporation, L=Santa Clara, S=California, C=US"
     # Installs Nvidia Grid Drivers. This will only succeed is run on a compatible SKU, see https://learn.microsoft.com/en-us/azure/virtual-machines/windows/n-series-driver-setup
-    Write-Log "Downloading and Installing Nvidia Drivers from $sourceDriverUri"
     DownloadFileWithRetry -URL $sourceDriverUri -Dest $targetPathNvidiaDrivers
 
     Write-Log "Downloaded driver from $sourceDriverUri to $targetPathNvidiaDrivers. Verifying Signature"
 
     VerifySignature $targetPathNvidiaDrivers $nvidiaExpectedSubject
     
-    Write-Log "Installing Nvidia Drivers"
-    $process = (Start-Process -FilePath $targetPathNvidiaDrivers -ArgumentList "-s Display.Driver" -Wait -PassThru)
-    Write-Log "Ran Install Nvidia Drivers"
-    if ($process.ExitCode -ne 0)
-    {
-        throw "There was a problem installing NVIDIA drivers. Exit code: $($process.ExitCode)"
+    $LogFolder = "D:/NvidiaLogs"
+    try {
+        New-Item -Path $LogFolder -ItemType Directory
+
+        Write-Log "Installing Nvidia Drivers"
+        $Arguments = "-s -n -log:$LogFolder -loglevel:6"
+
+        $process = (Start-Process -FilePath $targetPathNvidiaDrivers -ArgumentList $Arguments -PassThru
+        #"-s Display.Driver" -Wait -PassThru)
+        
+        # check if installation was successful
+        if ($p.ExitCode -eq 0 -or $p.ExitCode -eq 1) # 1 is issued when reboot is required after success
+        {
+            Write-Log "Installed Nvidia Drivers"
+        } 
+        else 
+        {
+            throw "There was a problem installing NVIDIA drivers. Exit code: $($process.ExitCode)"
+        }     
     }
-    Write-Log "Installed Nvidia Drivers"
+    catch
+    {
+      $Message = $_.ToString()
+      Write-Log "Exception insstalling nvidia driver: $Message" # the status file may get over-written when the agent re-attempts this step
+      Get-ChildItem -Path $LogFolder | select -expand Name | ForEach-Object {
+        Write-Log $_.Line
+        Write-Log $
+      }
+      throw
+    }
 }
 
 # NVIDIA Driver adds additional auto start services
