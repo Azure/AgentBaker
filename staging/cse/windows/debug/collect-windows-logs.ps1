@@ -11,7 +11,9 @@ $lockedFiles = @(
   "csi-proxy.log",
   "csi-proxy.err.log",
   "containerd.log",
-  "containerd.err.log"
+  "containerd.err.log",
+  "hosts-config-agent.err.log",
+  "hosts-config-agent.log"
 )
 
 $timeStamp = get-date -format 'yyyyMMdd-hhmmss'

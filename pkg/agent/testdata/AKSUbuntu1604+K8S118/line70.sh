@@ -109,8 +109,15 @@ EOF
 }
 
 configureHTTPProxyCA() {
-    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_UPDATE_CA_CERTS
-    update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
+    if [[ $OS == $MARINER_OS_NAME ]]; then
+        cert_dest="/usr/share/pki/ca-trust-source/anchors"
+        update_cmd="update-ca-trust"
+    else
+        cert_dest="/usr/local/share/ca-certificates"
+        update_cmd="update-ca-certificates"
+    fi
+    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.crt" || exit $ERR_UPDATE_CA_CERTS
+    $update_cmd || exit $ERR_UPDATE_CA_CERTS
 }
 
 configureCustomCaCertificate() {
@@ -120,7 +127,7 @@ configureCustomCaCertificate() {
         # causes bad substitution errors in bash
         # dynamically declare and use `!` to add a layer of indirection
         declare varname=CUSTOM_CA_CERT_${i} 
-        echo "${!varname}" > /opt/certs/00000000000000cert${i}.crt
+        echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
     done
     # This will block until the service is considered active.
     # Update_certs.service is a oneshot type of unit that
@@ -443,10 +450,7 @@ EOF
 
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
-    mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")"
-    touch "${SYSCTL_CONFIG_FILE}"
-    chmod 0644 "${SYSCTL_CONFIG_FILE}"
-    echo "${SYSCTL_CONTENT}" | base64 -d > "${SYSCTL_CONFIG_FILE}"
+    wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 

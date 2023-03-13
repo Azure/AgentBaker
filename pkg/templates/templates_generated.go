@@ -989,7 +989,6 @@ CUSTOM_SEARCH_REALM_PASSWORD="{{GetSearchDomainRealmPassword}}"
 MESSAGE_OF_THE_DAY="{{GetMessageOfTheDay}}"
 HAS_KUBELET_DISK_TYPE="{{HasKubeletDiskType}}"
 NEEDS_CGROUPV2="{{Is2204VHD}}"
-SYSCTL_CONTENT="{{GetSysctlContent}}"
 TLS_BOOTSTRAP_TOKEN="{{GetTLSBootstrapTokenForKubeConfig}}"
 KUBELET_FLAGS="{{GetKubeletConfigKeyVals}}"
 NETWORK_POLICY="{{GetParameter "networkPolicy"}}"
@@ -1135,8 +1134,15 @@ EOF
 }
 
 configureHTTPProxyCA() {
-    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_UPDATE_CA_CERTS
-    update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
+    if [[ $OS == $MARINER_OS_NAME ]]; then
+        cert_dest="/usr/share/pki/ca-trust-source/anchors"
+        update_cmd="update-ca-trust"
+    else
+        cert_dest="/usr/local/share/ca-certificates"
+        update_cmd="update-ca-certificates"
+    fi
+    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.crt" || exit $ERR_UPDATE_CA_CERTS
+    $update_cmd || exit $ERR_UPDATE_CA_CERTS
 }
 
 configureCustomCaCertificate() {
@@ -1146,7 +1152,7 @@ configureCustomCaCertificate() {
         # causes bad substitution errors in bash
         # dynamically declare and use `+"`"+`!`+"`"+` to add a layer of indirection
         declare varname=CUSTOM_CA_CERT_${i} 
-        echo "${!varname}" > /opt/certs/00000000000000cert${i}.crt
+        echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
     done
     # This will block until the service is considered active.
     # Update_certs.service is a oneshot type of unit that
@@ -1469,10 +1475,7 @@ EOF
 
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
-    mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")"
-    touch "${SYSCTL_CONFIG_FILE}"
-    chmod 0644 "${SYSCTL_CONFIG_FILE}"
-    echo "${SYSCTL_CONTENT}" | base64 -d > "${SYSCTL_CONFIG_FILE}"
+    wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 
@@ -6317,6 +6320,116 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
+
+
+- path: /etc/sysctl.d/999-sysctl-aks.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    # This is a partial workaround to this upstream Kubernetes issue:
+    # https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
+    net.ipv4.tcp_retries2=8
+    net.core.message_burst=80
+    net.core.message_cost=40
+{{- if GetCustomSysctlConfigByName "NetCoreSomaxconn"}}
+    net.core.somaxconn={{.CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
+{{- else}}
+    net.core.somaxconn=16384
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4TcpMaxSynBacklog"}}
+    net.ipv4.tcp_max_syn_backlog={{.CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
+{{- else}}
+    net.ipv4.tcp_max_syn_backlog=16384
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh1"}}
+    net.ipv4.neigh.default.gc_thresh1={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh1=4096
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh2"}}
+    net.ipv4.neigh.default.gc_thresh2={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh2=8192
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh3"}}
+    net.ipv4.neigh.default.gc_thresh3={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh3=16384
+{{- end}}
+{{if ShouldConfigCustomSysctl}}
+    # The following are sysctl configs passed from API
+{{- $s:=.CustomLinuxOSConfig.Sysctls}}
+{{- if $s.NetCoreNetdevMaxBacklog}}
+    net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
+{{- end}}
+{{- if $s.NetCoreRmemDefault}}
+    net.core.rmem_default={{$s.NetCoreRmemDefault}}
+{{- end}}
+{{- if $s.NetCoreRmemMax}}
+    net.core.rmem_max={{$s.NetCoreRmemMax}}
+{{- end}}
+{{- if $s.NetCoreWmemDefault}}
+    net.core.wmem_default={{$s.NetCoreWmemDefault}}
+{{- end}}
+{{- if $s.NetCoreWmemMax}}
+    net.core.wmem_max={{$s.NetCoreWmemMax}}
+{{- end}}
+{{- if $s.NetCoreOptmemMax}}
+    net.core.optmem_max={{$s.NetCoreOptmemMax}}
+{{- end}}
+{{- if $s.NetIpv4TcpMaxTwBuckets}}
+    net.ipv4.tcp_max_tw_buckets={{$s.NetIpv4TcpMaxTwBuckets}}
+{{- end}}
+{{- if $s.NetIpv4TcpFinTimeout}}
+    net.ipv4.tcp_fin_timeout={{$s.NetIpv4TcpFinTimeout}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveTime}}
+    net.ipv4.tcp_keepalive_time={{$s.NetIpv4TcpKeepaliveTime}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveProbes}}
+    net.ipv4.tcp_keepalive_probes={{$s.NetIpv4TcpKeepaliveProbes}}
+{{- end}}
+{{- if $s.NetIpv4TcpkeepaliveIntvl}}
+    net.ipv4.tcp_keepalive_intvl={{$s.NetIpv4TcpkeepaliveIntvl}}
+{{- end}}
+{{- if $s.NetIpv4TcpTwReuse}}
+    net.ipv4.tcp_tw_reuse={{BoolPtrToInt $s.NetIpv4TcpTwReuse}}
+{{- end}}
+{{- if $s.NetIpv4IpLocalPortRange}}
+    net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackMax}}
+    net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackBuckets}}
+    net.netfilter.nf_conntrack_buckets={{$s.NetNetfilterNfConntrackBuckets}}
+{{- end}}
+{{- if $s.FsInotifyMaxUserWatches}}
+    fs.inotify.max_user_watches={{$s.FsInotifyMaxUserWatches}}
+{{- end}}
+{{- if $s.FsFileMax}}
+    fs.file-max={{$s.FsFileMax}}
+{{- end}}
+{{- if $s.FsAioMaxNr}}
+    fs.aio-max-nr={{$s.FsAioMaxNr}}
+{{- end}}
+{{- if $s.FsNrOpen}}
+    fs.nr_open={{$s.FsNrOpen}}
+{{- end}}
+{{- if $s.KernelThreadsMax}}
+    kernel.threads-max={{$s.KernelThreadsMax}}
+{{- end}}
+{{- if $s.VMMaxMapCount}}
+    vm.max_map_count={{$s.VMMaxMapCount}}
+{{- end}}
+{{- if $s.VMSwappiness}}
+    vm.swappiness={{$s.VMSwappiness}}
+{{- end}}
+{{- if $s.VMVfsCachePressure}}
+    vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
+{{- end}}
+{{- end}}
+    #EOF
 `)
 
 func linuxCloudInitNodecustomdataYmlBytes() ([]byte, error) {
