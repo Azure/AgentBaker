@@ -526,6 +526,7 @@ function Install-NvidiaDriver([string] $driverType)
     VerifySignature $targetPathNvidiaDrivers $nvidiaExpectedSubject
     
     $LogFolder = "D:\NvidiaLogs"
+    $LogFile = Join-Path -Path $LogFolder -ChildPath "LOG.setup.exe.log"
     try {
         New-Item -Path $LogFolder -ItemType Directory
 
@@ -547,13 +548,17 @@ function Install-NvidiaDriver([string] $driverType)
     }
     catch
     {
-      $Message = $_.ToString()
-      Write-Log "Exception installing nvidia driver: $Message" # the status file may get over-written when the agent re-attempts this step
-      Get-ChildItem -Path $LogFolder | select -expand Name | ForEach-Object {
-        Write-Log $_.Line
-        Write-Log $_
-      }
-      throw
+        $Message = $_.ToString()
+        Write-Log "Exception installing nvidia driver: $Message" # the status file may get over-written when the agent re-attempts this step
+        Get-ChildItem -Path $LogFolder | select -expand Name | ForEach-Object {
+            Write-Log $_.Line
+        }
+        foreach($line in [System.IO.File]::ReadLines($LogFile))
+        {
+            Write-Log $line
+        }
+
+        throw
     }
 }
 
