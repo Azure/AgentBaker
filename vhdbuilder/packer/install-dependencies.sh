@@ -43,38 +43,6 @@ EOF
 fi
 
 installDeps
-cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - apt-transport-https
-  - blobfuse=1.4.4
-  - ca-certificates
-  - ceph-common
-  - cgroup-lite
-  - cifs-utils
-  - conntrack
-  - cracklib-runtime
-  - ebtables
-  - ethtool
-  - fuse
-  - git
-  - glusterfs-client
-  - init-system-helpers
-  - iproute2
-  - ipset
-  - iptables
-  - jq
-  - libpam-pwquality
-  - libpwquality-tools
-  - mount
-  - nfs-common
-  - nftables
-  - pigz socat
-  - traceroute
-  - util-linux
-  - xz-utils
-  - netcat
-  - dnsutils
-  - zip
-EOF
 
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
 Storage=persistent
@@ -241,13 +209,10 @@ fi
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
 installBpftrace
-echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
+echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
 cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - nvidia-docker2=${NVIDIA_DOCKER_VERSION}
-  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}
-  - nvidia-gpu-driver-version=${GPU_DV}
-  - nvidia-fabricmanager=${GPU_DV}
+  - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
 
 installBcc
