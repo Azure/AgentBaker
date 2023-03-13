@@ -163,21 +163,6 @@ if ($res) {
     crictl.exe images > (Join-Path $aksLogFolder "cri-containerd-images.txt")
 }
 
-# Use runhcs shim diagnostic tool
-$res = Get-Command shimdiag.exe -ErrorAction SilentlyContinue
-if ($res) {
-    Write-Log "Collecting logs of runhcs shim diagnostic tool"
-    $shimdiagFile = Join-Path $aksLogFolder ("shimdiag.txt")
-    $shimdiagList = shimdiag.exe list
-    Set-Content -Path $shimdiagFile -Value $shimdiagList
-    foreach ($line in $shimdiagList) {
-        $tempResult = shimdiag.exe stacks $line
-        Add-Content -Path $shimdiagFile -Value ""
-        Add-Content -Path $shimdiagFile -Value $line
-        Add-Content -Path $shimdiagFile -Value $tempResult
-    }
-}
-
 # Collect disk usage
 Write-Log "Genearting disk-usage.txt"
 $diskUsageFile = Join-Path $aksLogFolder ("disk-usage.txt")
