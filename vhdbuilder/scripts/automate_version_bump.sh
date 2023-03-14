@@ -46,7 +46,7 @@ cut_official_branch() {
     # Official branch format: official/vYYYYMMDD
     # Official tag format: v0.YYYYMMDD.patch
     parsed_image_version="$(echo -n "${new_image_version}" | head -c-1 | tr -d .)"
-    official_branch_name="v${parsed_image_version}"
+    official_branch_name="official/v${parsed_image_version}"
     official_tag="v0.${parsed_image_version}.0"
     final_commit_hash=""
     for build_id in $build_ids; do
