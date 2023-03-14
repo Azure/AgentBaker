@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euxo pipefail
 
-source vhdbuilder/scripts/automate_helpers.sh
+#source vhdbuilder/scripts/automate_helpers.sh
 
 echo "New image version: $1"
 
@@ -63,23 +63,23 @@ cut_official_branch() {
     echo "All builds are based off the same commit"
 
     # Checkout branch and commit the image bump file diff to official branch too
-    if [ `git branch -r | grep $official_branch_name` ]; then
-        git checkout $official_branch_name
-        git pull origin
-    else
-        git checkout -b $official_branch_name $final_commit_hash
-    fi
-    update_image_version
-    git add .
-    git commit -m"Update image version in official branch"
-    git push -u origin $official_branch_name
+    # if [ `git branch -r | grep $official_branch_name` ]; then
+    #     git checkout $official_branch_name
+    #     git pull origin
+    # else
+    #     git checkout -b $official_branch_name $final_commit_hash
+    # fi
+    # update_image_version
+    # git add .
+    # git commit -m"Update image version in official branch"
+    # git push -u origin $official_branch_name
 
-    git tag $official_tag
-    git push origin tag $official_tag -f
-    git checkout master
+    # git tag $official_tag
+    # git push origin tag $official_tag -f
+    # git checkout master
 }
 
-set_git_config
-find_current_image_version "linux_sig_version.json"
-create_image_bump_pr
+#set_git_config
+#find_current_image_version "linux_sig_version.json"
+#create_image_bump_pr
 cut_official_branch
