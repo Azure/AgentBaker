@@ -43,38 +43,6 @@ EOF
 fi
 
 installDeps
-cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - apt-transport-https
-  - blobfuse=1.4.4
-  - ca-certificates
-  - ceph-common
-  - cgroup-lite
-  - cifs-utils
-  - conntrack
-  - cracklib-runtime
-  - ebtables
-  - ethtool
-  - fuse
-  - git
-  - glusterfs-client
-  - init-system-helpers
-  - iproute2
-  - ipset
-  - iptables
-  - jq
-  - libpam-pwquality
-  - libpwquality-tools
-  - mount
-  - nfs-common
-  - nftables
-  - pigz socat
-  - traceroute
-  - util-linux
-  - xz-utils
-  - netcat
-  - dnsutils
-  - zip
-EOF
 
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
 Storage=persistent
@@ -127,10 +95,9 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     overrideNetworkConfig || exit 1
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
       enableMarinerKata
-    else
-      # Leave automatic package update disabled for the kata image
-      enableDNFAutomatic
     fi
+    disableDNFAutomatic
+    enableCheckRestart
 fi
 
 downloadContainerdWasmShims
@@ -208,26 +175,27 @@ fi
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
-  export NVIDIA_DRIVER_IMAGE_TAG="cuda-510.47.03-${NVIDIA_DRIVER_IMAGE_SHA}"
-  if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-    gpu_action="install"
-  fi
+  export NVIDIA_DRIVER_IMAGE_TAG="cuda-525.85.12-${NVIDIA_DRIVER_IMAGE_SHA}"
 
   mkdir -p /opt/{actions,gpu}
   if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
     ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh $gpu_action" 
-    ret=$?
-    if [[ "$ret" != "0" ]]; then
-      echo "Failed to install GPU driver, exiting..."
-      exit $ret
+    if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+      bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+      ret=$?
+      if [[ "$ret" != "0" ]]; then
+        echo "Failed to install GPU driver, exiting..."
+        exit $ret
+      fi
     fi
   else
-    bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG $gpu_action"
-    ret=$?
-    if [[ "$ret" != "0" ]]; then
-      echo "Failed to install GPU driver, exiting..."
-      exit $ret
+    if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+      bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG $gpu_action"
+      ret=$?
+      if [[ "$ret" != "0" ]]; then
+        echo "Failed to install GPU driver, exiting..."
+        exit $ret
+      fi
     fi
   fi
 fi
@@ -241,13 +209,10 @@ fi
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
 installBpftrace
-echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
+echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
 cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - nvidia-docker2=${NVIDIA_DOCKER_VERSION}
-  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}
-  - nvidia-gpu-driver-version=${GPU_DV}
-  - nvidia-fabricmanager=${GPU_DV}
+  - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
 
 installBcc
@@ -322,7 +287,7 @@ unpackAzureCNI() {
 
 #must be both amd64/arm64 images
 VNET_CNI_VERSIONS="
-1.4.32
+1.4.43
 1.4.35
 "
 
@@ -337,7 +302,7 @@ done
 #UNITE swift and overlay versions?
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 SWIFT_CNI_VERSIONS="
-1.4.32
+1.4.43
 1.4.35
 "
 
@@ -349,7 +314,7 @@ for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
 done
 
 OVERLAY_CNI_VERSIONS="
-1.4.32
+1.4.43
 1.4.35
 "
 
@@ -374,8 +339,8 @@ for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-# IPv6 nftables, only Ubuntu for now
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
+# IPv6 nftables rules are only available on Ubuntu or Mariner v2
+if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) ]]; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
 
@@ -445,14 +410,10 @@ if [[ ${installSGX} == "True" ]]; then
 fi
 fi
 
-NGINX_VERSIONS="1.13.12-alpine"
+NGINX_VERSIONS="1.21.6"
 for NGINX_VERSION in ${NGINX_VERSIONS}; do
-    if [[ $(isARM64) == 1 ]]; then
-        CONTAINER_IMAGE="docker.io/library/nginx:${NGINX_VERSION}"  # nginx in MCR is not 'multi-arch', pull it from docker.io now, upsteam team is building 'multi-arch' nginx for MCR
-    else
-        CONTAINER_IMAGE="mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}"
-    fi
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}"
+    pullContainerImage ${cliTool} mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 

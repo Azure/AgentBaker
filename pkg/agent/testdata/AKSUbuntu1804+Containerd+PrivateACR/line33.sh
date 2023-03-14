@@ -76,6 +76,9 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
 fi
 
 if [[ -n "${OUTBOUND_COMMAND}" ]]; then
+    if [[ -n "${PROXY_VARS}" ]]; then
+        eval $PROXY_VARS
+    fi
     retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
 fi
 
@@ -215,9 +218,6 @@ else
     logs_to_events "AKS.CSE.ensureDocker" ensureDocker
 fi
 
-# Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
-logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
-
 if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
     echo "${MESSAGE_OF_THE_DAY}" | base64 -d > /etc/motd
 fi
@@ -354,6 +354,26 @@ else
             
         fi
         aptmarkWALinuxAgent unhold &
+    elif [[ $OS == $MARINER_OS_NAME ]]; then
+        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
+            if [ "${IS_KATA}" == "true" ]; then
+                # Currently kata packages must be updated as a unit (including the kernel which requires a reboot). This can
+                # only be done reliably via image updates as of now so never enable automatic updates.
+                echo 'EnableUnattendedUpgrade is not supported by kata images, will not be enabled'
+            else
+                # By default the dnf-automatic is service is notify only in Mariner.
+                # Enable the automatic install timer and the check-restart timer.
+                # Stop the notify only dnf timer since we've enabled the auto install one.
+                # systemctlDisableAndStop adds .service to the end which doesn't work on timers.
+                systemctl disable dnf-automatic-notifyonly.timer
+                systemctl stop dnf-automatic-notifyonly.timer
+                # At 6:00:00 UTC (1 hour random fuzz) download and install package updates.
+                systemctl unmask dnf-automatic-install.service || exit $ERR_SYSTEMCTL_START_FAIL
+                systemctl unmask dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
+                systemctlEnableAndStart dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
+                # The check-restart service which will inform kured of required restarts should already be running
+            fi
+        fi
     fi
 fi
 

@@ -1,26 +1,65 @@
 package agent
 
 import (
+	"bytes"
+	"compress/gzip"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/barkimedes/go-deepcopy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 )
 
 func generateTestData() bool {
 	return os.Getenv("GENERATE_TEST_DATA") == "true"
 }
 
+// this regex looks for groups of the following forms, returning KEY and VALUE as submatches
+// - KEY=VALUE
+// - KEY="VALUE"
+// - KEY=
+// - KEY="VALUE WITH WHITSPACE"
+const cseRegexString = `([^=\s]+)=(\"[^\"]*\"|[^\s]*)`
+
+type nodeBootstrappingOutput struct {
+	customData string
+	cseCmd     string
+	files      map[string]*decodedValue
+	vars       map[string]string
+}
+
+type decodedValue struct {
+	encoding cseVariableEncoding
+	value    string
+}
+
+type cseVariableEncoding string
+
+const (
+	cseVariableEncodingBase64 cseVariableEncoding = "base64"
+	cseVariableEncodingGzip   cseVariableEncoding = "gzip"
+)
+
+type outputValidator func(*nodeBootstrappingOutput)
+
 var _ = Describe("Assert generated customData and cseCmd", func() {
-	DescribeTable("Generated customData and CSE", func(folder, k8sVersion string, configUpdator func(*datamodel.NodeBootstrappingConfiguration)) {
+	DescribeTable("Generated customData and CSE", func(folder, k8sVersion string, configUpdator func(*datamodel.NodeBootstrappingConfiguration), validator outputValidator) {
 		cs := &datamodel.ContainerService{
 			Location: "southcentralus",
 			Type:     "Microsoft.ContainerService/ManagedClusters",
@@ -142,8 +181,18 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			configUpdator(config)
 		}
 
+		// !!! WARNING !!!
+		// avoid mutation of the original config -- both functions mutate input.
+		// GetNodeBootstrappingPayload mutates the input so it's not the same as what gets passed to GetNodeBootstrappingCmd which causes bugs.
+		// unit tests should always rely on unmutated copies of the base config.
+		configCustomDataInput, err := deepcopy.Anything(config)
+		Expect(err).To(BeNil())
+
+		configCseInput, err := deepcopy.Anything(config)
+		Expect(err).To(BeNil())
+
 		// customData
-		base64EncodedCustomData := baker.GetNodeBootstrappingPayload(config)
+		base64EncodedCustomData := baker.GetNodeBootstrappingPayload(configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration))
 		customDataBytes, err := base64.StdEncoding.DecodeString(base64EncodedCustomData)
 		customData := string(customDataBytes)
 		Expect(err).To(BeNil())
@@ -153,25 +202,71 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		}
 
 		expectedCustomData, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CustomData", folder))
-		if err != nil {
-			panic(err)
-		}
+		Expect(err).To(BeNil())
 		Expect(customData).To(Equal(string(expectedCustomData)))
 
 		// CSE
-		cseCommand := baker.GetNodeBootstrappingCmd(config)
+		cseCommand := baker.GetNodeBootstrappingCmd(configCseInput.(*datamodel.NodeBootstrappingConfiguration))
 		if generateTestData() {
 			ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
 		}
 		expectedCSECommand, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
-		if err != nil {
-			panic(err)
-		}
+		Expect(err).To(BeNil())
 		Expect(cseCommand).To(Equal(string(expectedCSECommand)))
 
-	}, Entry("AKSUbuntu1604 with k8s version less than 1.18", "AKSUbuntu1604+K8S115", "1.15.7", nil),
-		Entry("AKSUbuntu1604 with k8s version 1.18", "AKSUbuntu1604+K8S118", "1.18.2", nil),
-		Entry("AKSUbuntu1604 with k8s version 1.17", "AKSUbuntu1604+K8S117", "1.17.7", nil),
+		files, err := getDecodedFilesFromCustomdata(customDataBytes)
+		Expect(err).To(BeNil())
+
+		vars, err := getDecodedVarsFromCseCmd([]byte(cseCommand))
+		Expect(err).To(BeNil())
+
+		result := &nodeBootstrappingOutput{
+			customData: customData,
+			cseCmd:     cseCommand,
+			files:      files,
+			vars:       vars,
+		}
+
+		if validator != nil {
+			validator(result)
+		}
+
+	}, Entry("AKSUbuntu1604 with k8s version less than 1.18", "AKSUbuntu1604+K8S115", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+		config.KubeletConfig["--dynamic-config-dir"] = "/var/lib/kubelet/"
+	}, func(o *nodeBootstrappingOutput) {
+		etcDefaultKubelet := o.files["/etc/default/kubelet"].value
+
+		Expect(o.vars["KUBELET_FLAGS"]).NotTo(BeEmpty())
+		Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "DynamicKubeletConfig")).To(BeTrue())
+		Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "DynamicKubeletConfig")).To(BeTrue())
+		Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--dynamic-config-dir")).To(BeFalse())
+		Expect(etcDefaultKubelet).NotTo(BeEmpty())
+		Expect(strings.Contains(etcDefaultKubelet, "DynamicKubeletConfig")).To(BeTrue())
+		Expect(strings.Contains(etcDefaultKubelet, "--dynamic-config-dir")).To(BeFalse())
+		Expect(strings.Contains(o.cseCmd, "DynamicKubeletConfig")).To(BeTrue())
+
+		// sanity check that no other files/variables set the flag
+		for _, f := range o.files {
+			Expect(strings.Contains(f.value, "--dynamic-config-dir")).To(BeFalse())
+		}
+		for _, v := range o.vars {
+			Expect(strings.Contains(v, "--dynamic-config-dir")).To(BeFalse())
+		}
+
+		kubeletConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["KUBELET_CONFIG_FILE_CONTENT"]))
+		Expect(err).To(BeNil())
+
+		var kubeletConfigFile datamodel.AKSKubeletConfiguration
+
+		err = json.Unmarshal([]byte(kubeletConfigFileContent), &kubeletConfigFile)
+		Expect(err).To(BeNil())
+
+		dynamicConfigFeatureGate, dynamicConfigFeatureGateExists := kubeletConfigFile.FeatureGates["DynamicKubeletConfig"]
+		Expect(dynamicConfigFeatureGateExists).To(Equal(true))
+		Expect(dynamicConfigFeatureGate).To(Equal(false))
+	}),
+		Entry("AKSUbuntu1604 with k8s version 1.18", "AKSUbuntu1604+K8S118", "1.18.2", nil, nil),
+		Entry("AKSUbuntu1604 with k8s version 1.17", "AKSUbuntu1604+K8S117", "1.17.7", nil, nil),
 		Entry("AKSUbuntu1604 with temp disk (toggle)", "AKSUbuntu1604+TempDiskToggle", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			// this tests prioritization of the new api property vs the old property i'd like to remove.
 			// ContainerRuntimeConfig should take priority until we remove it entirely
@@ -183,15 +278,15 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 
 			config.KubeletConfig = map[string]string{}
-		}),
+		}, nil),
 		Entry("AKSUbuntu1604 with temp disk (api field)", "AKSUbuntu1604+TempDiskExplicit", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			// also tests prioritization, but now the API property should take precedence
 			config.AgentPoolProfile.KubeletDiskType = datamodel.TempDisk
-		}),
+		}, nil),
 		Entry("AKSUbuntu1604 with OS disk", "AKSUbuntu1604+OSKubeletDisk", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			// also tests prioritization, but now the API property should take precedence
 			config.AgentPoolProfile.KubeletDiskType = datamodel.OSDisk
-		}),
+		}, nil),
 		Entry("AKSUbuntu1604 with Temp Disk and containerd", "AKSUbuntu1604+TempDisk+Containerd", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntimeConfig: map[string]string{
@@ -203,10 +298,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 
 			config.KubeletConfig = map[string]string{}
-		}),
+		}, nil),
 		Entry("AKSUbuntu1604 with RawUbuntu", "RawUbuntu", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.Ubuntu
-		}),
+		}, nil),
 		Entry("AKSUbuntu1604 EnablePrivateClusterHostsConfigAgent", "AKSUbuntu1604+EnablePrivateClusterHostsConfigAgent", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			cs := config.ContainerService
 			if cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster == nil {
@@ -214,17 +309,17 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			} else {
 				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent = to.BoolPtr(true)
 			}
-		}),
+		}, nil),
 		Entry("AKSUbuntu1804 with GPU dedicated VHD", "AKSUbuntu1604+GPUDedicatedVHD", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuGPU1804
 			config.AgentPoolProfile.VMSize = "Standard_NC6"
 			config.ConfigGPUDriverIfNeeded = false
 			config.EnableGPUDevicePluginIfNeeded = true
 			config.EnableNvidia = true
-		}),
+		}, nil),
 		Entry("AKSUbuntu1604 with KubeletConfigFile", "AKSUbuntu1604+KubeletConfigFile", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableKubeletConfigFile = true
-		}),
+		}, nil),
 
 		Entry("AKSUbuntu1804 with containerd and private ACR", "AKSUbuntu1804+Containerd+PrivateACR", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -241,7 +336,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				ClientID: "clientID",
 				Secret:   "clientSecret",
 			}
-		}),
+		}, nil),
 		Entry("AKSUbuntu1804 with containerd and GPU SKU", "AKSUbuntu1804+Containerd+NSeriesSku", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
@@ -249,14 +344,14 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
 			config.EnableNvidia = true
 			config.KubeletConfig = map[string]string{}
-		}),
+		}, nil),
 		Entry("AKSUbuntu1804 with containerd and kubenet cni", "AKSUbuntu1804+Containerd+Kubenet", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
 			}
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
 			config.KubeletConfig = map[string]string{}
-		}),
+		}, nil),
 		Entry("AKSUbuntu1804 with containerd and kubenet cni and calico policy", "AKSUbuntu1804+Containerd+Kubenet+Calico", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
@@ -264,7 +359,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy = NetworkPolicyCalico
 			config.KubeletConfig = map[string]string{}
-		}),
+		}, nil),
 		Entry("AKSUbuntu1804 with containerd and teleport enabled", "AKSUbuntu1804+Containerd+Teleport", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableACRTeleportPlugin = true
 			config.TeleportdPluginURL = "some url"
@@ -273,7 +368,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
 			config.KubeletConfig = map[string]string{}
-		}),
+		}, nil),
 
 		Entry("AKSUbuntu1804 with containerd and ipmasqagent enabled", "AKSUbuntu1804+Containerd+IPMasqAgent", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableACRTeleportPlugin = true
@@ -284,7 +379,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
 			config.ContainerService.Properties.HostedMasterProfile.IPMasqAgent = true
 			config.KubeletConfig = map[string]string{}
-		}),
+		}, nil),
 
 		Entry("AKSUbuntu1804 with containerd and version specified", "AKSUbuntu1804+Containerd+ContainerdVersion", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -292,7 +387,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 			config.ContainerdVersion = "1.4.4"
 			config.KubeletConfig = map[string]string{}
-		}),
+		}, nil),
 
 		Entry("AKSUbuntu1604 with custom kubeletConfig and osConfig", "AKSUbuntu1604+CustomKubeletConfig+CustomLinuxOSConfig", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableKubeletConfigFile = false
@@ -329,7 +424,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				TransparentHugePageDefrag:  "defer+madvise",
 				SwapFileSizeMB:             &swapFileSizeMB,
 			}
-		}),
+		}, nil),
 
 		Entry("AKSUbuntu1604 - dynamic-config-dir should always be removed with custom kubelet config", "AKSUbuntu1604+CustomKubeletConfig+DynamicKubeletConfig", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
@@ -378,7 +473,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 				"--dynamic-config-dir":                "",
 			}
-		}),
+		}, nil),
 
 		Entry("AKSUbuntu1604 - dynamic-config-dir should always be removed", "AKSUbuntu1604+DynamicKubeletConfig", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.KubeletConfig = map[string]string{
@@ -415,7 +510,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 				"--dynamic-config-dir":                "",
 			}
-		}),
+		}, nil),
 
 		Entry("RawUbuntu with Containerd", "RawUbuntuContainerd", "1.19.1", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.Ubuntu
@@ -423,7 +518,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				ContainerRuntime: datamodel.Containerd,
 			}
 			config.KubeletConfig = map[string]string{}
-		}),
+		}, nil),
 
 		Entry("AKSUbuntu1604 with Disable1804SystemdResolved=true", "AKSUbuntu1604+Disable1804SystemdResolved=true", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.Disable1804SystemdResolved = true
@@ -432,7 +527,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
 			config.KubeletConfig = map[string]string{}
-		}),
+		}, nil),
 
 		Entry("AKSUbuntu1604 with Disable1804SystemdResolved=false", "AKSUbuntu1604+Disable1804SystemdResolved=false", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.Disable1804SystemdResolved = false
@@ -441,7 +536,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
 			config.KubeletConfig = map[string]string{}
-		}),
+		}, nil),
 
 		Entry("AKSUbuntu1804 with Disable1804SystemdResolved=true", "AKSUbuntu1804+Disable1804SystemdResolved=true", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.Disable1804SystemdResolved = true
@@ -450,7 +545,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
 			config.KubeletConfig = map[string]string{}
-		}),
+		}, nil),
 
 		Entry("AKSUbuntu1804 with Disable1804SystemdResolved=false", "AKSUbuntu1804+Disable1804SystemdResolved=false", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.Disable1804SystemdResolved = false
@@ -459,11 +554,11 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
 			config.KubeletConfig = map[string]string{}
-		}),
+		}, nil),
 
 		Entry("AKSUbuntu1804 with kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+KubeletClientTLSBootstrapping", "1.18.3", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
-		}),
+		}, nil),
 
 		Entry("Mariner v2 with kata", "MarinerV2+Kata", "1.23.8", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.OSSKU = "Mariner"
@@ -471,7 +566,37 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
 			}
-		}),
+		}, nil),
+
+		Entry("Mariner v2 with DisableUnattendedUpgrades=true", "Marinerv2+DisableUnattendedUpgrades=true", "1.23.8", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = "Mariner"
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSCBLMarinerV2Gen2
+			config.DisableUnattendedUpgrades = true
+		}, nil),
+
+		Entry("Mariner v2 with DisableUnattendedUpgrades=false", "Marinerv2+DisableUnattendedUpgrades=false", "1.23.8", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = "Mariner"
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSCBLMarinerV2Gen2
+			config.DisableUnattendedUpgrades = false
+		}, nil),
+
+		Entry("Mariner v2 with kata and DisableUnattendedUpgrades=true", "Marinerv2+Kata+DisableUnattendedUpgrades=true", "1.23.8", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = "Mariner"
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSCBLMarinerV2Gen2Kata
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.DisableUnattendedUpgrades = true
+		}, nil),
+
+		Entry("Mariner v2 with kata and DisableUnattendedUpgrades=false", "Marinerv2+Kata+DisableUnattendedUpgrades=false", "1.23.8", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OSSKU = "Mariner"
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSCBLMarinerV2Gen2Kata
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.DisableUnattendedUpgrades = false
+		}, nil),
 
 		Entry("AKSUbuntu1804 with containerd and kubenet cni", "AKSUbuntu1804+Containerd+Kubenet+FIPSEnabled", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -480,7 +605,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
 			config.FIPSEnabled = true
 			config.KubeletConfig = map[string]string{}
-		}),
+		}, nil),
 
 		Entry("AKSUbuntu1804 with http proxy config", "AKSUbuntu1804+HTTPProxy", "1.18.14", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
@@ -492,21 +617,38 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				}),
 				TrustedCA: to.StringPtr(EncodedTestCert),
 			}
-		}),
+		},
+			func(o *nodeBootstrappingOutput) {
+				Expect(o.files["/opt/azure/containers/provision.sh"].encoding).To(Equal(cseVariableEncodingGzip))
+				cseMain := o.files["/opt/azure/containers/provision.sh"].value
+				httpProxyStr := "export http_proxy=\"http://myproxy.server.com:8080/\""
+				Expect(strings.Contains(cseMain, "eval $PROXY_VARS")).To(BeTrue())
+				Expect(strings.Contains(cseMain, "$OUTBOUND_COMMAND")).To(BeTrue())
+				// assert we eval exporting the proxy vars before checking outbound connectivity
+				Expect(strings.Index(cseMain, "eval $PROXY_VARS") < strings.Index(cseMain, "$OUTBOUND_COMMAND")).To(BeTrue())
+				Expect(strings.Contains(o.cseCmd, httpProxyStr)).To(BeTrue())
+			},
+		),
 
 		Entry("AKSUbuntu1804 with custom ca trust", "AKSUbuntu1804+CustomCATrust", "1.18.14", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
 				CustomCATrustCerts: []string{EncodedTestCert, EncodedTestCert, EncodedTestCert},
 			}
+		}, func(o *nodeBootstrappingOutput) {
+			Expect(o.vars["CUSTOM_CA_TRUST_COUNT"]).To(Equal("3"))
+			Expect(o.vars["SHOULD_CONFIGURE_CUSTOM_CA_TRUST"]).To(Equal("true"))
+			Expect(o.vars["CUSTOM_CA_CERT_0"]).To(Equal(EncodedTestCert))
+			err := verifyCertsEncoding(o.vars["CUSTOM_CA_CERT_0"])
+			Expect(err).To(BeNil())
 		}),
 
 		Entry("AKSUbuntu1804 with containerd and runcshimv2", "AKSUbuntu1804+Containerd+runcshimv2", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableRuncShimV2 = true
-		}),
+		}, nil),
 
 		Entry("AKSUbuntu1804 with containerd and motd", "AKSUbuntu1804+Containerd+MotD", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].MessageOfTheDay = "Zm9vYmFyDQo=" // foobar in b64
-		}),
+		}, nil),
 
 		Entry("AKSUbuntu1804containerd with custom runc verison", "AKSUbuntu1804Containerd+RuncVersion", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -514,7 +656,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 			config.RuncVersion = "1.0.0-rc96"
 			config.KubeletConfig = map[string]string{}
-		}),
+		}, nil),
 
 		Entry("AKSUbuntu1804 with containerd+gpu and runcshimv2", "AKSUbuntu1804+Containerd++GPU+runcshimv2", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -524,7 +666,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.EnableNvidia = true
 			config.EnableRuncShimV2 = true
 			config.KubeletConfig = map[string]string{}
-		}),
+		}, nil),
 
 		Entry("AKSUbuntu1804 containerd with multi-instance GPU", "AKSUbuntu1804+Containerd+MIG", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -534,7 +676,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.AgentPoolProfile.VMSize = "Standard_ND96asr_v4"
 			config.EnableNvidia = true
 			config.GPUInstanceProfile = "MIG7g"
-		}),
+		}, nil),
 
 		Entry("AKSUbuntu1804 containerd with multi-instance non-fabricmanager GPU", "AKSUbuntu1804+Containerd+MIG+NoFabricManager", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -544,7 +686,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.AgentPoolProfile.VMSize = "Standard_NC24ads_A100_v4"
 			config.EnableNvidia = true
 			config.GPUInstanceProfile = "MIG7g"
-		}),
+		}, nil),
 
 		Entry("AKSUbuntu1804 with krustlet", "AKSUbuntu1804+krustlet", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
@@ -555,18 +697,18 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				CaCertificate: "fooBarBaz",
 			}
 			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
-		}),
+		}, nil),
 		Entry("AKSUbuntu1804 with NoneCNI", "AKSUbuntu1804+NoneCNI", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
 			}
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = datamodel.NetworkPluginNone
-		}),
+		}, nil),
 		Entry("AKSUbuntu1804 with Containerd and certs.d", "AKSUbuntu1804+Containerd+Certsd", "1.22.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
 			}
-		}),
+		}, nil),
 		Entry("AKSUbuntu1804ARM64containerd with kubenet", "AKSUbuntu1804ARM64Containerd+NoCustomKubeImageandBinaries", "1.22.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
@@ -576,7 +718,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeProxyImage = "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.2"
 			config.IsARM64 = true
 			config.KubeletConfig = map[string]string{}
-		}),
+		}, nil),
 		Entry("AKSUbuntu1804ARM64containerd with kubenet", "AKSUbuntu1804ARM64Containerd+CustomKubeImageandBinaries", "1.22.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
@@ -586,34 +728,34 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeProxyImage = "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.2"
 			config.IsARM64 = true
 			config.KubeletConfig = map[string]string{}
-		}),
+		}, nil),
 		Entry("AKSUbuntu1804 with IPAddress and FQDN", "AKSUbuntu1804+Containerd+IPAddress+FQDN", "1.22.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.HostedMasterProfile.FQDN = "a.hcp.eastus.azmk8s.io"
 			config.ContainerService.Properties.HostedMasterProfile.IPAddress = "1.2.3.4"
-		}),
+		}, nil),
 		Entry("AKSUbuntu2204 VHD, cgroupv2", "AKSUbuntu2204+cgroupv2", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
-		}),
+		}, nil),
 		Entry("AKSUbuntu2204 DisableSSH with enabled ssh", "AKSUbuntu2204+SSHStatusOn", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.SSHStatus = datamodel.SSHOn
-		}),
+		}, nil),
 		Entry("AKSUbuntu2204 DisableSSH with disabled ssh", "AKSUbuntu2204+SSHStatusOff", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.SSHStatus = datamodel.SSHOff
-		}),
+		}, nil),
 		Entry("AKSUbuntu2204 in China", "AKSUbuntu2204+China", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
 				Name: "AzureChinaCloud",
 			}
 			config.ContainerService.Location = "chinaeast2"
-		}),
+		}, nil),
 		Entry("AKSUbuntu2204 custom cloud", "AKSUbuntu2204+CustomCloud", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
 				Name: "akscustom",
 			}
-		}))
+		}, nil))
 })
 
 var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
@@ -889,6 +1031,191 @@ func backfillCustomData(folder, customData string) {
 	Expect(err).To(BeNil())
 }
 
+func getDecodedVarsFromCseCmd(data []byte) (map[string]string, error) {
+	cseRegex, err := regexp.Compile(cseRegexString)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile regex: %s", err)
+	}
+
+	cseVariableList := cseRegex.FindAllStringSubmatch(string(data), -1)
+
+	vars := make(map[string]string)
+
+	for _, cseVar := range cseVariableList {
+		if len(cseVar) < 3 {
+			return nil, fmt.Errorf("expected 3 results (match, key, value) from regex, found %d, result %q", len(cseVar), cseVar)
+		}
+
+		key := cseVar[1]
+		val := getValueWithoutQuotes(cseVar[2])
+
+		vars[key] = val
+	}
+
+	return vars, nil
+}
+
+func getValueWithoutQuotes(value string) string {
+	if len(value) > 1 && value[0] == '"' && value[len(value)-1] == '"' {
+		return value[1 : len(value)-1]
+	}
+	return value
+}
+
+//lint:ignore U1000 this is used for test helpers in the future
+func getGzipDecodedValue(data []byte) (string, error) {
+	reader := bytes.NewReader(data)
+	gzipReader, err := gzip.NewReader(reader)
+	if err != nil {
+		return "", fmt.Errorf("failed to create gzip reader: %s", err)
+	}
+
+	output, err := ioutil.ReadAll(gzipReader)
+	if err != nil {
+		return "", fmt.Errorf("read from gzipped buffered string: %s", err)
+	}
+
+	return string(output), nil
+}
+
+func getBase64DecodedValue(data []byte) (string, error) {
+	decoded, err := base64.StdEncoding.DecodeString(string(data))
+	if err != nil {
+		return "", err
+	}
+
+	return string(decoded), nil
+}
+
+func verifyCertsEncoding(cert string) error {
+	certPEM, err := base64.StdEncoding.DecodeString(cert)
+	if err != nil {
+		return err
+	}
+
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		return errors.New("pem decode block is nil")
+	}
+
+	_, err = x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error) {
+	var customData cloudInit
+
+	if err := yaml.Unmarshal([]byte(data), &customData); err != nil {
+		return nil, err
+	}
+
+	var files = make(map[string]*decodedValue)
+
+	for _, val := range customData.WriteFiles {
+		var encoding cseVariableEncoding = ""
+		maybeEncodedValue := val.Content
+
+		if strings.Contains(val.Encoding, "gzip") {
+			if maybeEncodedValue != "" {
+				output, err := getGzipDecodedValue([]byte(maybeEncodedValue))
+				if err != nil {
+					return nil, fmt.Errorf("failed to decode gzip value: %q with error %q", maybeEncodedValue, err)
+				}
+				maybeEncodedValue = string(output)
+				encoding = cseVariableEncodingGzip
+			}
+		}
+
+		files[val.Path] = &decodedValue{
+			value:    maybeEncodedValue,
+			encoding: encoding,
+		}
+	}
+
+	return files, nil
+}
+
+// usage: replace
+// err := exec.Command("/bin/sh", "-c", fmt.Sprintf("./testdata/convert.sh testdata/%s", folder)).Run()
+// with
+// err := decodeCustomDataFiles(fmt.Sprintf("testdata/%s", folder))
+// a few lines above
+func decodeCustomDataFiles(dir string) error {
+	files, err := filepath.Glob(filepath.Join(dir, "*.sh"))
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		err = os.RemoveAll(file)
+		if err != nil {
+			return err
+		}
+	}
+
+	customDataFiles, err := filepath.Glob(filepath.Join(dir, "CustomData"))
+	if err != nil {
+		return err
+	}
+
+	if len(customDataFiles) != 1 {
+		return fmt.Errorf("expected 1 CustomData file, found %d", len(customDataFiles))
+	}
+
+	customDataFile := customDataFiles[0]
+
+	data, err := ioutil.ReadFile(customDataFile)
+	if err != nil {
+		return err
+	}
+
+	var customData cloudInit
+
+	err = yaml.Unmarshal([]byte(data), &customData)
+	if err != nil {
+		return err
+	}
+
+	for _, val := range customData.WriteFiles {
+		if strings.Contains(val.Encoding, "gzip") {
+			if val.Content == "" {
+				continue
+			}
+
+			reader := bytes.NewReader([]byte(val.Content))
+			gzipReader, err := gzip.NewReader(reader)
+			if err != nil {
+				return fmt.Errorf("failed to create gzip reader: %s", err)
+			}
+
+			output, err := ioutil.ReadAll(gzipReader)
+			if err != nil {
+				return fmt.Errorf("read from gzipped buffered string: %s", err)
+			}
+
+			err = ioutil.WriteFile(filepath.Join(dir, path.Base(val.Path)), output, 0644)
+			if err != nil {
+				return fmt.Errorf("failed to write file: %s", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+type cloudInit struct {
+	WriteFiles []struct {
+		Path        string `yaml:"path"`
+		Permissions string `yaml:"permissions"`
+		Encoding    string `yaml:"encoding,omitempty"`
+		Owner       string `yaml:"owner"`
+		Content     string `yaml:"content"`
+	} `yaml:"write_files"`
+}
+
 var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
 	It("should return the correct normalized resource group name", func() {
 		Expect(normalizeResourceGroupNameForLabel("hello")).To(Equal("hello"))
@@ -928,15 +1255,15 @@ var _ = Describe("getGPUDriverVersion", func() {
 	It("should use 470 with nc v1", func() {
 		Expect(getGPUDriverVersion("standard_nc6")).To(Equal("cuda-470.82.01"))
 	})
-	It("should use 510 cuda with nc v3", func() {
-		Expect(getGPUDriverVersion("standard_nc6_v3")).To(Equal("cuda-510.47.03"))
+	It("should use 525 cuda with nc v3", func() {
+		Expect(getGPUDriverVersion("standard_nc6_v3")).To(Equal("cuda-525.85.12"))
 	})
 	It("should use 510 grid with nv v5", func() {
 		Expect(getGPUDriverVersion("standard_nv6ads_a10_v5")).To(Equal("grid-510.73.08"))
 		Expect(getGPUDriverVersion("Standard_nv36adms_A10_V5")).To(Equal("grid-510.73.08"))
 	})
-	It("should use 510 cuda with nv v1 (although we don't know if that works)", func() {
-		Expect(getGPUDriverVersion("standard_nv6")).To(Equal("cuda-510.47.03"))
+	It("should use 525 cuda with nv v1 (although we don't know if that works)", func() {
+		Expect(getGPUDriverVersion("standard_nv6")).To(Equal("cuda-525.85.12"))
 	})
 })
 

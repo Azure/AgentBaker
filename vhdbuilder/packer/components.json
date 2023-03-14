@@ -55,7 +55,9 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.8.7",
-        "v1.9.3"
+        "v1.9.3",
+        "v1.9.4",
+        "v1.10.1"
       ]
     },
     {
@@ -109,8 +111,8 @@
       "multiArchVersions": [
         "v1.2.2.4",
         "v1.2.2.5",
-        "v1.3.0",
-        "v1.3.0.1"
+        "v1.3.0.1",
+        "v1.3.0.2"
       ]
     },
     {
@@ -129,11 +131,18 @@
       ]
     },
     {
+      "downloadURL": "mcr.microsoft.com/aks/msi/addon-token-adapter:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "master.221118.2"
+      ]
+    },
+    {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "6.1.0-main-01-11-2023-5bf41607",
-        "6.2.0-main-01-31-2023-e1e3858b"
+        "6.2.0-main-01-31-2023-e1e3858b",
+        "6.4.0-main-02-22-2023-3ee44b9e"
       ]
     },
     {
@@ -281,8 +290,8 @@
         "v1.2.2.5"
       ],
       "multiArchVersions": [
-        "v1.24.0.3",
-        "v1.26.2"
+        "v1.26.2.1",
+        "v1.27.0"
       ]
     },
     {
@@ -292,7 +301,7 @@
       ],
       "multiArchVersions": [
         "v1.24.0",
-        "v1.25.1"
+        "v1.26.1"
       ]
     },
     {
@@ -380,8 +389,8 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.8.13.1",
-        "v1.8.13.2"
+        "v1.8.13.2",
+        "v1.8.13.3"
       ]
     },
     {
@@ -413,7 +422,7 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.32",
+        "1.4.43",
         "1.4.35"
       ]
     },
@@ -422,7 +431,7 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.32",
+        "1.4.43",
         "1.4.35"
       ]
     },
@@ -431,7 +440,7 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.32",
+        "1.4.43",
         "1.4.35"
       ]
     },

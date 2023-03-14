@@ -153,6 +153,21 @@ function Disable-WindowsUpdates {
     Set-ItemProperty -Path $AutoUpdatePath -Name NoAutoUpdate -Value 1 | Out-Null
 }
 
+function Retag-ImageForAzureChinaCloud {
+    Param(
+        [string]
+        $imageUrl,
+        [Switch]$isDocker = $false
+    )
+    Write-Log "Retagging image $imageUrl for AzureChinaCloud"
+    $retagImageUrl=$image.replace('mcr.microsoft.com', 'mcr.azk8s.cn')
+    if ($isDocker) {
+        docker image tag $imageUrl $retagImageUrl
+    } else {
+        ctr.exe -n k8s.io image tag $imageUrl $retagImageUrl
+    }
+}
+
 function Get-ContainerImages {
     if ($containerRuntime -eq 'containerd') {
         Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
@@ -182,6 +197,8 @@ function Get-ContainerImages {
                 Retry-Command -ScriptBlock {
                     & crictl.exe pull $image
                 } -ErrorMessage "Failed to pull image $image"
+
+                Retag-ImageForAzureChinaCloud -imageUrl $image
             }
         }
         Stop-Job  -Name containerd
@@ -215,6 +232,8 @@ function Get-ContainerImages {
                 Retry-Command -ScriptBlock {
                     docker pull $image
                 } -ErrorMessage "Failed to pull image $image"
+
+                Retag-ImageForAzureChinaCloud -imageUrl $image -isDocker
             }
         }
     }

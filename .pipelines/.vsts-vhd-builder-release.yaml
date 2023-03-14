@@ -65,7 +65,7 @@ parameters:
 - name: buildMarinerV2gen2TrustedLaunch
   displayName: Build MarinerV2 Gen2 - Trusted Launch
   type: boolean
-  default: false
+  default: true
 - name: buildMarinerV2gen2kataTrustedLaunch
   displayName: Build MarinerV2 Gen2 Kata - Trusted Launch
   type: boolean
@@ -86,6 +86,14 @@ parameters:
   displayName: Build 1804 FIPS Gen2 GPU+containerd
   type: boolean
   default: true
+- name: build2004fipscontainerd
+  displayName: Build 2004 FIPS containerd
+  type: boolean
+  default: false
+- name: build2004fipsgen2containerd
+  displayName: Build 2004 FIPS Gen2 containerd
+  type: boolean
+  default: false
 - name: build2204arm64gen2containerd
   displayName: Build 2204 ARM64 Gen2 containerd
   type: boolean
@@ -105,7 +113,7 @@ parameters:
 - name: build2204tlgen2containerd
   displayName: Build 2204 TL Gen2 Containerd
   type: boolean
-  default: false
+  default: true
 - name: dryrun
   displayName: Dry run
   type: boolean
@@ -455,7 +463,7 @@ stages:
           echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
           echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
           echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-          echo '##vso[task.setvariable variable=SGX_INSTALL]True'
+          echo '##vso[task.setvariable variable=SGX_INSTALL]False'
         displayName: Setup Build Variables
       - template: ./templates/.builder-release-template.yaml
         parameters:
@@ -637,6 +645,57 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-fips-gen2-gpu-containerd
+  - stage: build_vhd_2004_fips_containerd
+    dependsOn: []
+    condition: eq('${{ parameters.build2004fipscontainerd }}', true)
+    jobs:
+    - job: build
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+            echo '##vso[task.setvariable variable=OS_VERSION]20.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-focal'
+            echo '##vso[task.setvariable variable=IMG_SKU]20_04-lts'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]False'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: 2004-fips-containerd
+  - stage: build_vhd_2004_fips_gen2_containerd
+    dependsOn: []
+    condition: eq('${{ parameters.build2004fipsgen2containerd }}', true)
+    jobs:
+    - job: build
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
+            echo '##vso[task.setvariable variable=OS_VERSION]20.04'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
+            echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-focal'
+            echo '##vso[task.setvariable variable=IMG_SKU]20_04-lts-gen2'
+            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]True'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: 2004-fips-gen2-containerd
   - stage: build_vhd_2204_arm64_gen2_containerd
     dependsOn: []
     condition: eq('${{ parameters.build2204arm64gen2containerd }}', true)
@@ -658,7 +717,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
             echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-            echo '##vso[task.setvariable variable=SGX_INSTALL]True'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]False'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:

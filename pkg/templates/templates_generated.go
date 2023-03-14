@@ -21,6 +21,7 @@
 // linux/cloud-init/artifacts/cis.sh
 // linux/cloud-init/artifacts/containerd-monitor.service
 // linux/cloud-init/artifacts/containerd-monitor.timer
+// linux/cloud-init/artifacts/containerd.service
 // linux/cloud-init/artifacts/containerd_exec_start.conf
 // linux/cloud-init/artifacts/crictl.yaml
 // linux/cloud-init/artifacts/cse_cmd.sh
@@ -74,8 +75,8 @@
 // linux/cloud-init/artifacts/sshd_config
 // linux/cloud-init/artifacts/sshd_config_1604
 // linux/cloud-init/artifacts/sshd_config_1804_fips
-// linux/cloud-init/artifacts/sync-tunnel-logs.service
-// linux/cloud-init/artifacts/sync-tunnel-logs.sh
+// linux/cloud-init/artifacts/sync-container-logs.service
+// linux/cloud-init/artifacts/sync-container-logs.sh
 // linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
 // linux/cloud-init/artifacts/teleportd.service
 // linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
@@ -778,6 +779,45 @@ func linuxCloudInitArtifactsContainerdMonitorTimer() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsContainerdService = []byte(`# Explicitly configure containerd systemd service on Mariner AKS to maintain consistent
+# settings with the containerd.service file previously deployed during cloud-init.
+# Additionally set LimitNOFILE to the exact value "infinity" means on Ubuntu, eg "1048576".
+[Unit]
+Description=containerd daemon
+After=network.target
+[Service]
+ExecStartPre=/sbin/modprobe overlay
+ExecStart=/usr/bin/containerd
+Delegate=yes
+KillMode=process
+Restart=always
+# Explicitly set OOMScoreAdjust to make containerd unlikely to be oom killed
+OOMScoreAdjust=-999
+# Explicitly set LimitNOFILE to match what infinity means on Ubuntu AKS
+LimitNOFILE=1048576
+# Explicitly set LimitCORE, LimitNPROC, and TasksMax to infinity to match Ubuntu AKS
+LimitCORE=infinity
+TasksMax=infinity
+LimitNPROC=infinity
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsContainerdServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsContainerdService, nil
+}
+
+func linuxCloudInitArtifactsContainerdService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsContainerdServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsContainerd_exec_startConf = []byte(`[Service]
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 `)
@@ -929,6 +969,7 @@ CUSTOM_SEARCH_DOMAIN_FILEPATH="{{GetCustomSearchDomainsCSEScriptFilepath}}"
 HTTP_PROXY_URLS="{{GetHTTPProxy}}"
 HTTPS_PROXY_URLS="{{GetHTTPSProxy}}"
 NO_PROXY_URLS="{{GetNoProxy}}"
+PROXY_VARS="{{GetProxyVariables}}"
 CLIENT_TLS_BOOTSTRAPPING_ENABLED="{{IsKubeletClientTLSBootstrappingEnabled}}"
 DHCPV6_SERVICE_FILEPATH="{{GetDHCPv6ServiceCSEScriptFilepath}}"
 DHCPV6_CONFIG_FILEPATH="{{GetDHCPv6ConfigCSEScriptFilepath}}"
@@ -948,7 +989,6 @@ CUSTOM_SEARCH_REALM_PASSWORD="{{GetSearchDomainRealmPassword}}"
 MESSAGE_OF_THE_DAY="{{GetMessageOfTheDay}}"
 HAS_KUBELET_DISK_TYPE="{{HasKubeletDiskType}}"
 NEEDS_CGROUPV2="{{Is2204VHD}}"
-SYSCTL_CONTENT="{{GetSysctlContent}}"
 TLS_BOOTSTRAP_TOKEN="{{GetTLSBootstrapTokenForKubeConfig}}"
 KUBELET_FLAGS="{{GetKubeletConfigKeyVals}}"
 NETWORK_POLICY="{{GetParameter "networkPolicy"}}"
@@ -964,6 +1004,7 @@ AZURE_ENVIRONMENT_FILEPATH="{{- if IsAKSCustomCloud}}/etc/kubernetes/{{GetTarget
 KUBE_CA_CRT="{{GetParameter "caCertificate"}}"
 KUBENET_TEMPLATE="{{GetKubenetTemplate}}"
 CONTAINERD_CONFIG_CONTENT="{{GetContainerdConfigContent}}"
+IS_KATA="{{IsKata}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
 
@@ -1093,8 +1134,15 @@ EOF
 }
 
 configureHTTPProxyCA() {
-    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_UPDATE_CA_CERTS
-    update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
+    if [[ $OS == $MARINER_OS_NAME ]]; then
+        cert_dest="/usr/share/pki/ca-trust-source/anchors"
+        update_cmd="update-ca-trust"
+    else
+        cert_dest="/usr/local/share/ca-certificates"
+        update_cmd="update-ca-certificates"
+    fi
+    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.crt" || exit $ERR_UPDATE_CA_CERTS
+    $update_cmd || exit $ERR_UPDATE_CA_CERTS
 }
 
 configureCustomCaCertificate() {
@@ -1104,7 +1152,7 @@ configureCustomCaCertificate() {
         # causes bad substitution errors in bash
         # dynamically declare and use `+"`"+`!`+"`"+` to add a layer of indirection
         declare varname=CUSTOM_CA_CERT_${i} 
-        echo "${!varname}" > /opt/certs/00000000000000cert${i}.crt
+        echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
     done
     # This will block until the service is considered active.
     # Update_certs.service is a oneshot type of unit that
@@ -1331,19 +1379,14 @@ ensureDHCPv6() {
 }
 
 ensureKubelet() {
+    # ensure cloud init completes
+    # avoids potential corruption of files written by cloud init and CSE concurrently.
+    # removes need for wait_for_file and EOF markers
+    cloud-init status --wait
     KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
     mkdir -p "$(dirname "${KUBE_CA_FILE}")"
     echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
-    KUBELET_DEFAULT_FILE=/etc/default/kubelet
-    mkdir -p /etc/default
-    echo "KUBELET_FLAGS=${KUBELET_FLAGS}" >> "${KUBELET_DEFAULT_FILE}"
-    echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
-    echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
-    echo "KUBELET_IMAGE=${KUBELET_IMAGE}" >> "${KUBELET_DEFAULT_FILE}"
-    echo "KUBELET_NODE_LABELS=${KUBELET_NODE_LABELS}" >> "${KUBELET_DEFAULT_FILE}"
-    if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
-        echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
-    fi
+    chmod 0600 "${KUBE_CA_FILE}"
     
     if [ "${CLIENT_TLS_BOOTSTRAPPING_ENABLED}" == "true" ]; then
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
@@ -1397,15 +1440,15 @@ users:
     client-key: /etc/kubernetes/certs/client.key
 contexts:
 - context:
-  cluster: localcluster
+    cluster: localcluster
     user: client
-    name: localclustercontext
+  name: localclustercontext
 current-context: localclustercontext
 EOF
     fi
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
- #!/bin/bash
+#!/bin/bash
 # Disallow container from reaching out to the special IP address 168.63.129.16
 # for TCP protocol (which http uses)
 #
@@ -1432,10 +1475,7 @@ EOF
 
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
-    mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")"
-    touch "${SYSCTL_CONFIG_FILE}"
-    chmod 0644 "${SYSCTL_CONFIG_FILE}"
-    echo "${SYSCTL_CONTENT}" | base64 -d > "${SYSCTL_CONFIG_FILE}"
+    wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 
@@ -1521,7 +1561,7 @@ configGPUDrivers() {
         mkdir -p /opt/{actions,gpu}
         if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
             ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-            bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+            retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
             ret=$?
             if [[ "$ret" != "0" ]]; then
                 echo "Failed to install GPU driver, exiting..."
@@ -1688,13 +1728,13 @@ ERR_CRICTL_DOWNLOAD_TIMEOUT=117 # Timeout waiting for crictl downloads
 ERR_CRICTL_OPERATION_ERROR=118 # Error executing a crictl operation
 ERR_CTR_OPERATION_ERROR=119 # Error executing a ctr containerd cli operation
 
-ERR_VHD_FILE_NOT_FOUND=124 # VHD log file not found on VM built from VHD distro
-ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
-
 # Azure Stack specific errors
 ERR_AZURE_STACK_GET_ARM_TOKEN=120 # Error generating a token to use with Azure Resource Manager
 ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 # Error fetching the network configuration for the node
 ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 # Error fetching the subnet address prefix for a subnet ID
+
+ERR_VHD_FILE_NOT_FOUND=124 # VHD log file not found on VM built from VHD distro
+ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
 
 ERR_SWAP_CREATE_FAIL=130 # Error allocating swap file
 ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 # Error insufficient disk space for swap file creation
@@ -1727,7 +1767,7 @@ export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
 NVIDIA_CONTAINER_RUNTIME_VERSION="3.6.0"
-export NVIDIA_DRIVER_IMAGE_SHA="sha-5262fa"
+export NVIDIA_DRIVER_IMAGE_SHA="sha-dc8c1a"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu"
 export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
@@ -1739,7 +1779,7 @@ EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
-        timeout $timeout ${@} && break || \
+        timeout $timeout "${@}" && break || \
         if [ $i -eq $retries ]; then
             echo Executed \"$@\" $i times;
             return 1
@@ -2507,6 +2547,9 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
 fi
 
 if [[ -n "${OUTBOUND_COMMAND}" ]]; then
+    if [[ -n "${PROXY_VARS}" ]]; then
+        eval $PROXY_VARS
+    fi
     retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
 fi
 
@@ -2646,9 +2689,6 @@ else
     logs_to_events "AKS.CSE.ensureDocker" ensureDocker
 fi
 
-# Start the service to synchronize tunnel logs so WALinuxAgent can pick them up
-logs_to_events "AKS.CSE.sync-tunnel-logs" "systemctlEnableAndStart sync-tunnel-logs"
-
 if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
     echo "${MESSAGE_OF_THE_DAY}" | base64 -d > /etc/motd
 fi
@@ -2785,6 +2825,26 @@ else
             
         fi
         aptmarkWALinuxAgent unhold &
+    elif [[ $OS == $MARINER_OS_NAME ]]; then
+        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
+            if [ "${IS_KATA}" == "true" ]; then
+                # Currently kata packages must be updated as a unit (including the kernel which requires a reboot). This can
+                # only be done reliably via image updates as of now so never enable automatic updates.
+                echo 'EnableUnattendedUpgrade is not supported by kata images, will not be enabled'
+            else
+                # By default the dnf-automatic is service is notify only in Mariner.
+                # Enable the automatic install timer and the check-restart timer.
+                # Stop the notify only dnf timer since we've enabled the auto install one.
+                # systemctlDisableAndStop adds .service to the end which doesn't work on timers.
+                systemctl disable dnf-automatic-notifyonly.timer
+                systemctl stop dnf-automatic-notifyonly.timer
+                # At 6:00:00 UTC (1 hour random fuzz) download and install package updates.
+                systemctl unmask dnf-automatic-install.service || exit $ERR_SYSTEMCTL_START_FAIL
+                systemctl unmask dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
+                systemctlEnableAndStart dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
+                # The check-restart service which will inform kured of required restarts should already be running
+            fi
+        fi
     fi
 fi
 
@@ -3933,9 +3993,9 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/${UBUNTU_CODENAME}/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu${UBUNTU_RELEASE}u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [
             "1.4.13-3",
-            "1.6.15-1"
+            "1.6.18-1"
         ],
-        "edge": "1.6.15-1",
+        "edge": "1.6.18-1",
         "latest": "1.5.11-2",
         "stable": "1.4.13-3"
     },
@@ -3976,9 +4036,11 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
             "1.24.3",
             "1.24.6",
             "1.24.9",
+            "1.24.10",
             "1.25.2-hotfix.20221006",
             "1.25.4",
             "1.25.5",
+            "1.25.6",
             "1.26.0",
             "1.26.1"
         ]
@@ -4110,7 +4172,7 @@ installDeps() {
 
     # install additional apparmor deps for 2.0;
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in apparmor-parser libapparmor blobfuse2; do
+      for dnf_package in apparmor-parser libapparmor blobfuse2 nftables; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
@@ -5181,34 +5243,34 @@ func linuxCloudInitArtifactsSshd_config_1804_fips() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsSyncTunnelLogsService = []byte(`[Unit]
-Description=Syncs AKS pod log symlinks so that WALinuxAgent can include aks-link/konnectivity/tunnelfront logs.
+var _linuxCloudInitArtifactsSyncContainerLogsService = []byte(`[Unit]
+Description=Syncs AKS pod log symlinks so that WALinuxAgent can include kube-system pod logs in the hourly upload.
 After=containerd.service
 
 [Service]
-ExecStart=/opt/azure/containers/sync-tunnel-logs.sh
+ExecStart=/opt/azure/containers/sync-container-logs.sh
 Restart=always
 
 [Install]
 WantedBy=multi-user.target
 `)
 
-func linuxCloudInitArtifactsSyncTunnelLogsServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsSyncTunnelLogsService, nil
+func linuxCloudInitArtifactsSyncContainerLogsServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsSyncContainerLogsService, nil
 }
 
-func linuxCloudInitArtifactsSyncTunnelLogsService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsSyncTunnelLogsServiceBytes()
+func linuxCloudInitArtifactsSyncContainerLogsService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsSyncContainerLogsServiceBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sync-tunnel-logs.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sync-container-logs.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsSyncTunnelLogsSh = []byte(`#! /bin/bash
+var _linuxCloudInitArtifactsSyncContainerLogsSh = []byte(`#! /bin/bash
 
 SRC=/var/log/containers
 DST=/var/log/azure/aks/pods
@@ -5241,7 +5303,7 @@ fi
 mkdir -p $DST
 
 # Start a background process to clean up logs from deleted pods that
-# haven't been modified in 2 hours. This allows us to retain tunnel pod
+# haven't been modified in 2 hours. This allows us to retain pod
 # logs after a restart.
 while true; do
   find /var/log/azure/aks/pods -type f -links 1 -mmin +120 -delete
@@ -5249,16 +5311,16 @@ while true; do
 done &
 
 # Manually sync all matching logs once
-for TUNNEL_LOG_FILE in $(compgen -G "$SRC/@(aks-link|azure-cns|cilium|konnectivity|tunnelfront)-*_kube-system_*.log"); do
-   echo "Linking $TUNNEL_LOG_FILE"
-   /bin/ln -Lf $TUNNEL_LOG_FILE $DST/
+for CONTAINER_LOG_FILE in $(compgen -G "$SRC/*_kube-system_*.log"); do
+   echo "Linking $CONTAINER_LOG_FILE"
+   /bin/ln -Lf $CONTAINER_LOG_FILE $DST/
 done
 echo "Starting inotifywait..."
 
 # Monitor for changes
 inotifywait -q -m -r -e delete,create $SRC | while read DIRECTORY EVENT FILE; do
     case $FILE in
-        aks-link-*_kube-system_*.log | azure-cns-*_kube-system_*.log | cilium-*_kube-system_*.log | konnectivity-*_kube-system_*.log | tunnelfront-*_kube-system_*.log)
+        *_kube-system_*.log)
             case $EVENT in
                 CREATE*)
                     echo "Linking $FILE"
@@ -5269,17 +5331,17 @@ inotifywait -q -m -r -e delete,create $SRC | while read DIRECTORY EVENT FILE; do
 done
 `)
 
-func linuxCloudInitArtifactsSyncTunnelLogsShBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsSyncTunnelLogsSh, nil
+func linuxCloudInitArtifactsSyncContainerLogsShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsSyncContainerLogsSh, nil
 }
 
-func linuxCloudInitArtifactsSyncTunnelLogsSh() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsSyncTunnelLogsShBytes()
+func linuxCloudInitArtifactsSyncContainerLogsSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsSyncContainerLogsShBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sync-tunnel-logs.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sync-container-logs.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -5641,7 +5703,7 @@ installStandaloneContainerd() {
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.6.15"
+        CONTAINERD_VERSION="1.6.18"
         CONTAINERD_PATCH_VERSION="1"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
@@ -6076,28 +6138,6 @@ write_files:
       "data-root": "{{GetDataDir}}"{{- end}}
     }
 
-- path: /etc/systemd/system/sync-tunnel-logs.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=Syncs AKS pod log symlinks so that WALinuxAgent can include aks-link/konnectivity/tunnelfront logs.
-    After=containerd.service
-
-    [Service]
-    ExecStart=/opt/azure/containers/sync-tunnel-logs.sh
-    Restart=always
-
-    [Install]
-    WantedBy=multi-user.target
-
-- path: /opt/azure/containers/sync-tunnel-logs.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "syncTunnelLogsScript"}}
-
 - path: /etc/systemd/system/containerd.service.d/exec_start.conf
   permissions: "0644"
   owner: root
@@ -6162,12 +6202,234 @@ write_files:
     [Install]
     WantedBy=multi-user.target
 
+- path: /etc/default/kubelet
+  permissions: "0644"
+  owner: root
+  content: |
+    KUBELET_FLAGS={{GetKubeletConfigKeyVals}}
+    KUBELET_REGISTER_SCHEDULABLE=true
+    NETWORK_POLICY={{GetParameter "networkPolicy"}}
+{{- if not (IsKubernetesVersionGe "1.17.0")}}
+    KUBELET_IMAGE={{GetHyperkubeImageReference}}
+{{- end}}
+{{- if IsKubernetesVersionGe "1.16.0"}}
+    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . }}
+{{- else}}
+    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . }}
+{{- end}}
+{{- if IsAKSCustomCloud}}
+    AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
+{{- end}}
+
+{{ if IsKubeletClientTLSBootstrappingEnabled -}}
+- path: /var/lib/kubelet/bootstrap-kubeconfig
+  permissions: "0644"
+  owner: root
+  content: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - name: localcluster
+      cluster:
+        certificate-authority: /etc/kubernetes/certs/ca.crt
+        server: https://{{GetKubernetesEndpoint}}:443
+    users:
+    - name: kubelet-bootstrap
+      user:
+        token: "{{GetTLSBootstrapTokenForKubeConfig}}"
+    contexts:
+    - context:
+        cluster: localcluster
+        user: kubelet-bootstrap
+      name: bootstrap-context
+    current-context: bootstrap-context
+{{else -}}
+- path: /var/lib/kubelet/kubeconfig
+  permissions: "0644"
+  owner: root
+  content: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - name: localcluster
+      cluster:
+        certificate-authority: /etc/kubernetes/certs/ca.crt
+        server: https://{{GetKubernetesEndpoint}}:443
+    users:
+    - name: client
+      user:
+        client-certificate: /etc/kubernetes/certs/client.crt
+        client-key: /etc/kubernetes/certs/client.key
+    contexts:
+    - context:
+        cluster: localcluster
+        user: client
+      name: localclustercontext
+    current-context: localclustercontext
+{{- end}}
+
+- path: /etc/systemd/system/containerd.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=containerd daemon
+    After=network.target
+    [Service]
+    ExecStartPre=/sbin/modprobe overlay
+    ExecStart=/usr/bin/containerd
+    Delegate=yes
+    KillMode=process
+    Restart=always
+    OOMScoreAdjust=-999
+    # Having non-zero Limit*s causes performance problems due to accounting overhead
+    # in the kernel. We recommend using cgroups to do container-local accounting.
+    LimitNPROC=infinity
+    LimitCORE=infinity
+    LimitNOFILE=infinity
+    TasksMax=infinity
+    [Install]
+    WantedBy=multi-user.target
+
+- path: /opt/azure/containers/kubelet.sh
+  permissions: "0755"
+  owner: root
+  content: |
+    #!/bin/bash
+    # Disallow container from reaching out to the special IP address 168.63.129.16
+    # for TCP protocol (which http uses)
+    #
+    # 168.63.129.16 contains protected settings that have priviledged info.
+    #
+    # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
+    #
+    # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+    # for DNS.
+    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+
+- path: /etc/kubernetes/certs/ca.crt
+  permissions: "0600"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetParameter "caCertificate"}}
+
 - path: {{GetCustomSearchDomainsCSEScriptFilepath}}
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
+
+
+- path: /etc/sysctl.d/999-sysctl-aks.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    # This is a partial workaround to this upstream Kubernetes issue:
+    # https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
+    net.ipv4.tcp_retries2=8
+    net.core.message_burst=80
+    net.core.message_cost=40
+{{- if GetCustomSysctlConfigByName "NetCoreSomaxconn"}}
+    net.core.somaxconn={{.CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
+{{- else}}
+    net.core.somaxconn=16384
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4TcpMaxSynBacklog"}}
+    net.ipv4.tcp_max_syn_backlog={{.CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
+{{- else}}
+    net.ipv4.tcp_max_syn_backlog=16384
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh1"}}
+    net.ipv4.neigh.default.gc_thresh1={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh1=4096
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh2"}}
+    net.ipv4.neigh.default.gc_thresh2={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh2=8192
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh3"}}
+    net.ipv4.neigh.default.gc_thresh3={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh3=16384
+{{- end}}
+{{if ShouldConfigCustomSysctl}}
+    # The following are sysctl configs passed from API
+{{- $s:=.CustomLinuxOSConfig.Sysctls}}
+{{- if $s.NetCoreNetdevMaxBacklog}}
+    net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
+{{- end}}
+{{- if $s.NetCoreRmemDefault}}
+    net.core.rmem_default={{$s.NetCoreRmemDefault}}
+{{- end}}
+{{- if $s.NetCoreRmemMax}}
+    net.core.rmem_max={{$s.NetCoreRmemMax}}
+{{- end}}
+{{- if $s.NetCoreWmemDefault}}
+    net.core.wmem_default={{$s.NetCoreWmemDefault}}
+{{- end}}
+{{- if $s.NetCoreWmemMax}}
+    net.core.wmem_max={{$s.NetCoreWmemMax}}
+{{- end}}
+{{- if $s.NetCoreOptmemMax}}
+    net.core.optmem_max={{$s.NetCoreOptmemMax}}
+{{- end}}
+{{- if $s.NetIpv4TcpMaxTwBuckets}}
+    net.ipv4.tcp_max_tw_buckets={{$s.NetIpv4TcpMaxTwBuckets}}
+{{- end}}
+{{- if $s.NetIpv4TcpFinTimeout}}
+    net.ipv4.tcp_fin_timeout={{$s.NetIpv4TcpFinTimeout}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveTime}}
+    net.ipv4.tcp_keepalive_time={{$s.NetIpv4TcpKeepaliveTime}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveProbes}}
+    net.ipv4.tcp_keepalive_probes={{$s.NetIpv4TcpKeepaliveProbes}}
+{{- end}}
+{{- if $s.NetIpv4TcpkeepaliveIntvl}}
+    net.ipv4.tcp_keepalive_intvl={{$s.NetIpv4TcpkeepaliveIntvl}}
+{{- end}}
+{{- if $s.NetIpv4TcpTwReuse}}
+    net.ipv4.tcp_tw_reuse={{BoolPtrToInt $s.NetIpv4TcpTwReuse}}
+{{- end}}
+{{- if $s.NetIpv4IpLocalPortRange}}
+    net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackMax}}
+    net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackBuckets}}
+    net.netfilter.nf_conntrack_buckets={{$s.NetNetfilterNfConntrackBuckets}}
+{{- end}}
+{{- if $s.FsInotifyMaxUserWatches}}
+    fs.inotify.max_user_watches={{$s.FsInotifyMaxUserWatches}}
+{{- end}}
+{{- if $s.FsFileMax}}
+    fs.file-max={{$s.FsFileMax}}
+{{- end}}
+{{- if $s.FsAioMaxNr}}
+    fs.aio-max-nr={{$s.FsAioMaxNr}}
+{{- end}}
+{{- if $s.FsNrOpen}}
+    fs.nr_open={{$s.FsNrOpen}}
+{{- end}}
+{{- if $s.KernelThreadsMax}}
+    kernel.threads-max={{$s.KernelThreadsMax}}
+{{- end}}
+{{- if $s.VMMaxMapCount}}
+    vm.max_map_count={{$s.VMMaxMapCount}}
+{{- end}}
+{{- if $s.VMSwappiness}}
+    vm.swappiness={{$s.VMSwappiness}}
+{{- end}}
+{{- if $s.VMVfsCachePressure}}
+    vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
+{{- end}}
+{{- end}}
+    #EOF
 `)
 
 func linuxCloudInitNodecustomdataYmlBytes() ([]byte, error) {
@@ -6407,8 +6669,6 @@ $global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
 
 # TLS Bootstrap Token
 $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
-
-$global:IsNotRebootWindowsNode = [System.Convert]::ToBoolean("{{GetVariable "isNotRebootWindowsNode" }}");
 
 # Disable OutBoundNAT in Azure CNI configuration
 $global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("{{GetVariable "isDisableWindowsOutboundNat" }}");
@@ -6716,28 +6976,22 @@ try
 
     Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes
 
-    if ($global:IsNotRebootWindowsNode) {
-        Write-Log "Setup Complete, starting NodeResetScriptTask to register Winodws node without reboot"
-        Start-ScheduledTask -TaskName "k8s-restart-job"
+    Write-Log "Setup Complete, starting NodeResetScriptTask to register Winodws node without reboot"
+    Start-ScheduledTask -TaskName "k8s-restart-job"
 
-        $timeout = 180 ##  seconds
-        $timer = [Diagnostics.Stopwatch]::StartNew()
-        while ((Get-ScheduledTask -TaskName 'k8s-restart-job').State -ne 'Ready') {
-            # The task `+"`"+`k8s-restart-job`+"`"+` needs ~8 seconds.
-            if ($timer.Elapsed.TotalSeconds -gt $timeout) {
-                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask is not finished after [$($timer.Elapsed.TotalSeconds)] seconds"
-            }
-
-            Write-Log -Message "Waiting on NodeResetScriptTask..."
-            Start-Sleep -Seconds 3
+    $timeout = 180 ##  seconds
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    while ((Get-ScheduledTask -TaskName 'k8s-restart-job').State -ne 'Ready') {
+        # The task `+"`"+`k8s-restart-job`+"`"+` needs ~8 seconds.
+        if ($timer.Elapsed.TotalSeconds -gt $timeout) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask is not finished after [$($timer.Elapsed.TotalSeconds)] seconds"
         }
-        $timer.Stop()
-        Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
-    } else {
-        # Postpone restart-computer so we can generate CSE response before restarting computer
-        Write-Log "Setup Complete, reboot computer"
-        Postpone-RestartComputer
+
+        Write-Log -Message "Waiting on NodeResetScriptTask..."
+        Start-Sleep -Seconds 3
     }
+    $timer.Stop()
+    Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
 }
 catch
 {
@@ -7224,6 +7478,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
 	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
 	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
+	"linux/cloud-init/artifacts/containerd.service":                        linuxCloudInitArtifactsContainerdService,
 	"linux/cloud-init/artifacts/containerd_exec_start.conf":                linuxCloudInitArtifactsContainerd_exec_startConf,
 	"linux/cloud-init/artifacts/crictl.yaml":                               linuxCloudInitArtifactsCrictlYaml,
 	"linux/cloud-init/artifacts/cse_cmd.sh":                                linuxCloudInitArtifactsCse_cmdSh,
@@ -7277,8 +7532,8 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/sshd_config":                               linuxCloudInitArtifactsSshd_config,
 	"linux/cloud-init/artifacts/sshd_config_1604":                          linuxCloudInitArtifactsSshd_config_1604,
 	"linux/cloud-init/artifacts/sshd_config_1804_fips":                     linuxCloudInitArtifactsSshd_config_1804_fips,
-	"linux/cloud-init/artifacts/sync-tunnel-logs.service":                  linuxCloudInitArtifactsSyncTunnelLogsService,
-	"linux/cloud-init/artifacts/sync-tunnel-logs.sh":                       linuxCloudInitArtifactsSyncTunnelLogsSh,
+	"linux/cloud-init/artifacts/sync-container-logs.service":               linuxCloudInitArtifactsSyncContainerLogsService,
+	"linux/cloud-init/artifacts/sync-container-logs.sh":                    linuxCloudInitArtifactsSyncContainerLogsSh,
 	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
 	"linux/cloud-init/artifacts/teleportd.service":                         linuxCloudInitArtifactsTeleportdService,
 	"linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh,
@@ -7358,6 +7613,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
 				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
 				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
+				"containerd.service":                        &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},
 				"containerd_exec_start.conf":                &bintree{linuxCloudInitArtifactsContainerd_exec_startConf, map[string]*bintree{}},
 				"crictl.yaml":                               &bintree{linuxCloudInitArtifactsCrictlYaml, map[string]*bintree{}},
 				"cse_cmd.sh":                                &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
@@ -7413,8 +7669,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"sshd_config":                     &bintree{linuxCloudInitArtifactsSshd_config, map[string]*bintree{}},
 				"sshd_config_1604":                &bintree{linuxCloudInitArtifactsSshd_config_1604, map[string]*bintree{}},
 				"sshd_config_1804_fips":           &bintree{linuxCloudInitArtifactsSshd_config_1804_fips, map[string]*bintree{}},
-				"sync-tunnel-logs.service":        &bintree{linuxCloudInitArtifactsSyncTunnelLogsService, map[string]*bintree{}},
-				"sync-tunnel-logs.sh":             &bintree{linuxCloudInitArtifactsSyncTunnelLogsSh, map[string]*bintree{}},
+				"sync-container-logs.service":     &bintree{linuxCloudInitArtifactsSyncContainerLogsService, map[string]*bintree{}},
+				"sync-container-logs.sh":          &bintree{linuxCloudInitArtifactsSyncContainerLogsSh, map[string]*bintree{}},
 				"sysctl-d-60-CIS.conf":            &bintree{linuxCloudInitArtifactsSysctlD60CisConf, map[string]*bintree{}},
 				"teleportd.service":               &bintree{linuxCloudInitArtifactsTeleportdService, map[string]*bintree{}},
 				"ubuntu": &bintree{nil, map[string]*bintree{

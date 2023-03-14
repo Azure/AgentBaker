@@ -191,13 +191,13 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/sync-tunnel-logs.sh",
-      "destination": "/home/packer/sync-tunnel-logs.sh"
+      "source": "parts/linux/cloud-init/artifacts/sync-container-logs.sh",
+      "destination": "/home/packer/sync-container-logs.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/sync-tunnel-logs.service",
-      "destination": "/home/packer/sync-tunnel-logs.service"
+      "source": "parts/linux/cloud-init/artifacts/sync-container-logs.service",
+      "destination": "/home/packer/sync-container-logs.service"
     },
     {
       "type": "file",
@@ -426,6 +426,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/containerd.service",
+      "destination": "/home/packer/containerd.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/pam-d-common-auth",
       "destination": "/home/packer/pam-d-common-auth"
     },
@@ -496,7 +501,7 @@
       "type": "shell",
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
-        "sudo /bin/bash -eux /home/packer/cleanup-vhd.sh",
+        "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
         "sudo /usr/bin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
     }

@@ -146,8 +146,11 @@ const (
 	AKSCBLMarinerV2Gen2                 Distro = "aks-cblmariner-v2-gen2"
 	AKSCBLMarinerV2Gen2Kata             Distro = "aks-cblmariner-v2-gen2-kata"
 	AKSCBLMarinerV2Gen2TL               Distro = "aks-cblmariner-v2-gen2-tl"
+	AKSCBLMarinerV2KataGen2TL           Distro = "aks-cblmariner-v2-kata-gen2-tl"
 	AKSUbuntuFipsContainerd1804         Distro = "aks-ubuntu-fips-containerd-18.04"
 	AKSUbuntuFipsContainerd1804Gen2     Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
+	AKSUbuntuFipsContainerd2004         Distro = "aks-ubuntu-fips-containerd-20.04"
+	AKSUbuntuFipsContainerd2004Gen2     Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
 	AKSUbuntuFipsGPUContainerd1804      Distro = "aks-ubuntu-fips-gpu-containerd-18.04"
 	AKSUbuntuFipsGPUContainerd1804Gen2  Distro = "aks-ubuntu-fips-gpu-containerd-18.04-gen2"
 	AKSUbuntuArm64Containerd1804Gen2    Distro = "aks-ubuntu-arm64-containerd-18.04-gen2"
@@ -199,8 +202,11 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSCBLMarinerV2Gen2,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
+	AKSCBLMarinerV2KataGen2TL,
 	AKSUbuntuFipsContainerd1804,
 	AKSUbuntuFipsContainerd1804Gen2,
+	AKSUbuntuFipsContainerd2004,
+	AKSUbuntuFipsContainerd2004Gen2,
 	AKSUbuntuFipsGPUContainerd1804,
 	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSUbuntuArm64Containerd1804Gen2,
@@ -1056,11 +1062,6 @@ func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidi
 		buf.WriteString(fmt.Sprintf(",%s=%s", key, a.CustomNodeLabels[key]))
 	}
 	return buf.String()
-}
-
-// IsNotRebootWindowsNode returns true if it does not need to reboot Windows node
-func (w *AgentPoolProfile) IsNotRebootWindowsNode() bool {
-	return w.NotRebootWindowsNode != nil && *w.NotRebootWindowsNode
 }
 
 // HasSecrets returns true if the customer specified secrets to install
