@@ -86,8 +86,6 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0",
             # Azure cloud node manager. Owner: nilo19 (Qi Ni)
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v0.7.21", # for k8s 1.20.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.0.18", # for k8s 1.21.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.14", # for k8s 1.22.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.3", # for k8s 1.24.x
@@ -176,12 +174,6 @@ $global:map = @{
     #    2. Keep 1.18.10, 1.18.14, 1.18.17, 1.18.18
     #    3. Keep v1.18.17-hotfix.20210322 when adding v1.18.17-hotfix.20210505
     "c:\akse-cache\win-k8s\"      = @(
-        "https://acs-mirror.azureedge.net/kubernetes/v1.21.1-hotfix.20211115/windowszip/v1.21.1-hotfix.20211115-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.21.2-hotfix.20211115/windowszip/v1.21.2-hotfix.20211115-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.21.7-hotfix.20220204/windowszip/v1.21.7-hotfix.20220204-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.21.9-hotfix.20220204/windowszip/v1.21.9-hotfix.20220204-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.21.13/windowszip/v1.21.13-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.21.14/windowszip/v1.21.14-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.1-hotfix.20211115/windowszip/v1.22.1-hotfix.20211115-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.4-hotfix.20220201/windowszip/v1.22.4-hotfix.20220201-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.22.6-hotfix.20220728/windowszip/v1.22.6-hotfix.20220728-1int.zip",
@@ -208,8 +200,6 @@ $global:map = @{
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.41/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.41.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.43/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.43.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.4.35.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35.zip"
     );
