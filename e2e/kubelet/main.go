@@ -19,7 +19,7 @@ func main() {
 func run() error {
 	r, w := io.Pipe()
 
-	c1 := exec.Command("timeout", "-k", "3", "--preserve-status", "1", "kubelet", "-v", "1", "--container-runtime-endpoint", "unix:///var/run/containerd/containerd.sock")
+	c1 := exec.Command("timeout", "-k", "3", "--preserve-status", "1", "kubelet-1.25.5", "-v", "1", "--container-runtime-endpoint", "unix:///var/run/containerd/containerd.sock")
 	fmt.Println(c1)
 	c1.Stdout = w
 	c1.Stderr = w
