@@ -37,6 +37,7 @@ jobs:
         rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
         #which kubelet
         ls /usr/local/bin
+        /usr/local/bin/kubelet-1.25.5 -v 1 --container-runtime-endpoint unix:///var/run/containerd/containerd.sock
         cd e2e/kubelet
         go run main.go
       name: Download kubelet binary
