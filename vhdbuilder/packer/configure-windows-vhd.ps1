@@ -507,10 +507,9 @@ function Install-NvidiaDriver([string] $driverType)
     switch ($driverType) {
         "nvgrid" {
             $sourceDriverUri = "https://go.microsoft.com/fwlink/?linkid=874179"
-            #$sourceDriverUri = "https://download.microsoft.com/download/7/3/6/7361d1b9-08c8-4571-87aa-18cf671e71a0/512.78_grid_win10_win11_server2016_server2019_server2022_64bit_azure_swl.exe"
-            #$sourceDriverUri = "https://download.microsoft.com/download/4/6/0/4605339d-133c-4b7b-a750-90352df79aa6/527.41_grid_win10_win11_server2019_server2022_dch_64bit_international_azure_swl.exe"
         }
         "nvcuda" {
+            #this should be used once a newer sku has quota
             #sourceDriverUri = "https://go.microsoft.com/fwlink/?linkid=874181"
             #older driver for nc6 
             $sourceDriverUri = "https://go.microsoft.com/fwlink/?linkid=874802"
@@ -542,6 +541,7 @@ function Install-NvidiaDriver([string] $driverType)
         if ($p.ExitCode -eq 0 -or $p.ExitCode -eq 1) # 1 is issued when reboot is required after success
         {
             Write-Log "Installed Nvidia Drivers"
+            Remove-Item $targetPathNvidiaDrivers
         } 
         else 
         {
