@@ -37,10 +37,11 @@ jobs:
 
         echo "Now installing containerd"
         wget https://github.com/containerd/containerd/releases/download/v1.6.19/containerd-1.6.19-linux-amd64.tar.gz
-        tar xvf containerd-1.6.19-linux-amd64.tar.gz -C /usr/local/bin
+        tar xvf containerd-1.6.19-linux-amd64.tar.gz
 
         ls /usr/local/bin
-        /usr/local/bin/containerd
+        ls bin
+        bin/containerd
         #sudo /usr/local/bin/kubelet-1.25.5 -v 1 --container-runtime-endpoint unix:///var/run/containerd/containerd.sock
         cd e2e/kubelet
         go run main.go
