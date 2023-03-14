@@ -483,7 +483,7 @@ function VerifySignature([string] $targetFile, [string] $expectedSubject)
     
     if ($fileCertificate.SignerCertificate.Subject -ne $expectedSubject)
     {
-        throw "Signer certificate's Subject for $targetFile does not match the expected Subject"
+        throw "Signer certificate's Subject $($fileCertificate.SignerCertificate.Subject) for $targetFile does not match the expected Subject $expectedSubject"
     }
     
     if ($fileCertificate.SignerCertificate.Subject -eq $fileCertificate.SignerCertificate.Issuer)
