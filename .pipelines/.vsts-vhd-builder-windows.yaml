@@ -21,9 +21,6 @@ parameters:
   displayName: Build 2019 containerd Nvidia CUDA
   type: boolean
   default: True
-- name: build2022containerdnvidiacuda
-  displayName: Build 2022 containerd Nvidia CUDA
-  type: boolean
 - name: build2022containerdnvidiagrid
   displayName: Build 2022 containerd Nvidia GRID
   type: boolean
