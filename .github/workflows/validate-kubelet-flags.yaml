@@ -41,7 +41,7 @@ jobs:
 
         ls /usr/local/bin
         ls bin
-        bin/containerd
+        sudo bin/containerd
         #sudo /usr/local/bin/kubelet-1.25.5 -v 1 --container-runtime-endpoint unix:///var/run/containerd/containerd.sock
         cd e2e/kubelet
         go run main.go
