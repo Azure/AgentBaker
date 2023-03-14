@@ -13,12 +13,12 @@ parameters:
   displayName: Build 2019 containerd
   type: boolean
   default: True
-- name: build2019containerd
-  displayName: Build 2019 containerd
+- name: build2019containerdnvidiagrid
+  displayName: Build 2019 containerd Nvidia GRID
   type: boolean
   default: True
-- name: build2019containerdnvidiagrid
-  displayName: Build 2019 containerd Nvidia Grid
+- name: build2019containerdnvidiacuda
+  displayName: Build 2019 containerd Nvidia CUDA
   type: boolean
   default: True
 - name: build2022containerdnvidiacuda
