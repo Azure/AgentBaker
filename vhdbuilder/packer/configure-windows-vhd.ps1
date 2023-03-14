@@ -233,7 +233,7 @@ function Get-ContainerImages {
                     docker pull $image
                 } -ErrorMessage "Failed to pull image $image"
 
-                Retag-ImageForAzureChinaCloud -imageUrl $image -isDocker:$true
+                Retag-ImageForAzureChinaCloud -imageUrl $image -isDocker
             }
         }
     }
