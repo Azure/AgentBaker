@@ -10,8 +10,20 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - run: |
+        #!/bin/bash
         set -x
+        if [ "$EUID" -ne 0 ]
+          then echo "Please run as root"
+        fi
+
         sudo -i
+
+        if (( $EUID != 0 )); then
+          echo "Please run as root"
+        else
+          echo "running as root"
+        fi
+        
         retrycmd_get_tarball() {
           tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
           echo "${tar_retries} retries"
@@ -38,7 +50,7 @@ jobs:
         rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
         #which kubelet
         ls /usr/local/bin
-        /usr/local/bin/kubelet-1.25.5 -v 1 --container-runtime-endpoint unix:///var/run/containerd/containerd.sock
+        sudo /usr/local/bin/kubelet-1.25.5 -v 1 --container-runtime-endpoint unix:///var/run/containerd/containerd.sock
         cd e2e/kubelet
         go run main.go
       name: Download kubelet binary
