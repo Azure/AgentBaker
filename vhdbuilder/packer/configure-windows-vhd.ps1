@@ -504,6 +504,7 @@ function Install-NvidiaDriver([string] $driverType)
     New-Item -Path $DESTINATION_FOLDER -ItemType Directory
     $targetPathNvidiaDrivers = Join-Path -Path $DESTINATION_FOLDER -ChildPath '\setup.exe'
 
+    $nvidiaExpectedSubject = "CN=Nvidia Corporation, OU=IT-MIS, O=Nvidia Corporation, L=Santa Clara, S=California, C=US"
     switch ($driverType) {
         "nvgrid" {
             $sourceDriverUri = "https://go.microsoft.com/fwlink/?linkid=874179"
@@ -513,12 +514,15 @@ function Install-NvidiaDriver([string] $driverType)
             #sourceDriverUri = "https://go.microsoft.com/fwlink/?linkid=874181"
             #older driver for nc6 
             $sourceDriverUri = "https://go.microsoft.com/fwlink/?linkid=874802"
+
+            #I think this will not be needed once we go to the newer drivers
+            $nvidiaExpectedSubject = "CN=NVIDIA Corporation, O=NVIDIA Corporation, L=SANTA CLARA, S=California, C=US"
         }
         default {
             throw "unrecognized nvidia driver type $driverType"
         }
     }
-    $nvidiaExpectedSubject = "CN=Nvidia Corporation, OU=IT-MIS, O=Nvidia Corporation, L=Santa Clara, S=California, C=US"
+    
     # Installs Nvidia Grid Drivers. This will only succeed is run on a compatible SKU, see https://learn.microsoft.com/en-us/azure/virtual-machines/windows/n-series-driver-setup
     DownloadFileWithRetry -URL $sourceDriverUri -Dest $targetPathNvidiaDrivers
 
