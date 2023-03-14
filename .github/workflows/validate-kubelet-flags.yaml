@@ -34,6 +34,13 @@ jobs:
         tar --transform="s|.*|&-${K8S_VERSION}|" --show-transformed-names -xzvf "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" \
             --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
         rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
+
+        echo "Now installing containerd"
+        wget https://github.com/containerd/containerd/releases/download/v1.6.19/containerd-1.6.19-linux-amd64.tar.gz
+        tar xvf containerd-1.6.19-linux-amd64.tar.gz -C /usr/local/bin
+
+        ls /usr/local/bin
+        /usr/local/bin/containerd
         #sudo /usr/local/bin/kubelet-1.25.5 -v 1 --container-runtime-endpoint unix:///var/run/containerd/containerd.sock
         cd e2e/kubelet
         go run main.go
