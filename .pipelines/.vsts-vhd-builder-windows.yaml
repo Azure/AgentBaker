@@ -13,12 +13,21 @@ parameters:
   displayName: Build 2019 containerd
   type: boolean
   default: True
-- name: build2022containerd
-  displayName: Build 2022 containerd
+- name: build2019containerd
+  displayName: Build 2019 containerd
+  type: boolean
+  default: True
+- name: build2019containerdnvidiagrid
+  displayName: Build 2019 containerd Nvidia Grid
+  type: boolean
+  default: True
+- name: build2022containerdnvidiacuda
+  displayName: Build 2022 containerd Nvidia CUDA
   type: boolean
 - name: build2022containerdnvidiagrid
   displayName: Build 2022 containerd Nvidia GRID
   type: boolean
+  default: True
 - name: build2022containerdnvidiacuda
   displayName: Build 2022 containerd Nvidia CUDA
   type: boolean
@@ -29,6 +38,10 @@ parameters:
   default: True
 - name: build2022containerdgen2nvidiagrid
   displayName: Build 2022 containerd Gen 2 Nvidia GRID
+  type: boolean
+  default: True
+- name: build2022containerdgen2nvidiacuda
+  displayName: Build 2022 containerd Gen 2 Nvidia CUDA
   type: boolean
   default: True
 - name: vhddebug
@@ -83,6 +96,52 @@ stages:
         - template: ./templates/.builder-release-template-windows.yaml
           parameters:
             artifactName: 2019-containerd
+
+  - stage: build_vhd_2019_containerd_nvidiagrid
+    dependsOn: []
+    condition: eq('${{ parameters.build2019containerdnvidiagrid }}', True)
+    jobs:
+    - job: build
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=DRY_RUN]True'
+            echo '##vso[task.setvariable variable=VHD_DEBUG]${{parameters.vhddebug}}'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NV12s_v3'
+            echo '##vso[task.setvariable variable=INSTALL_GPU_DRIVER]nvgrid'
+            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+            echo '##vso[task.setvariable variable=WINDOWS_SKU]2019-containerd'
+            echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_2019_BASE_IMAGE_URL)'
+            echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2019_NANO_IMAGE_URL)'
+            echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2019_CORE_IMAGE_URL)'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template-windows.yaml
+          parameters:
+            artifactName: 2019-containerd-nvidiagrid
+
+  - stage: build_vhd_2019_containerd_nvidiacuda
+    dependsOn: []
+    condition: eq('${{ parameters.build2019containerdnvidiacuda }}', True)
+    jobs:
+    - job: build
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=DRY_RUN]True'
+            echo '##vso[task.setvariable variable=VHD_DEBUG]${{parameters.vhddebug}}'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6'
+            echo '##vso[task.setvariable variable=INSTALL_GPU_DRIVER]nvcuda'
+            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+            echo '##vso[task.setvariable variable=WINDOWS_SKU]2019-containerd'
+            echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_2019_BASE_IMAGE_URL)'
+            echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2019_NANO_IMAGE_URL)'
+            echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2019_CORE_IMAGE_URL)'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template-windows.yaml
+          parameters:
+            artifactName: 2019-containerd-nvidiacuda
 
   - stage: build_vhd_2022_containerd
     dependsOn: []
@@ -196,3 +255,26 @@ stages:
         - template: ./templates/.builder-release-template-windows.yaml
           parameters:
             artifactName: 2022-containerd-gen2-nvidiagrid
+
+  - stage: build_vhd_2022_containerd_gen2_NvidiaCuda
+    dependsOn: []
+    condition: eq('${{ parameters.build2022containerdgen2nvidiacuda }}', True)
+    jobs:
+    - job: build
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=DRY_RUN]True'
+            echo '##vso[task.setvariable variable=VHD_DEBUG]${{parameters.vhddebug}}'            
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NV12s_v3'
+            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+            echo '##vso[task.setvariable variable=INSTALL_GPU_DRIVER]nvcuda'
+            echo '##vso[task.setvariable variable=WINDOWS_SKU]2022-containerd-gen2'
+            echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_2022_GEN2_BASE_IMAGE_URL)'
+            echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2022_NANO_IMAGE_URL)'
+            echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2022_CORE_IMAGE_URL)'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template-windows.yaml
+          parameters:
+            artifactName: 2022-containerd-gen2-nvidiacuda

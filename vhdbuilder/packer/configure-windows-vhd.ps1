@@ -511,7 +511,7 @@ function Install-NvidiaDriver([string] $driverType)
             #$sourceDriverUri = "https://download.microsoft.com/download/4/6/0/4605339d-133c-4b7b-a750-90352df79aa6/527.41_grid_win10_win11_server2019_server2022_dch_64bit_international_azure_swl.exe"
         }
         "nvcuda" {
-            $#sourceDriverUri = "https://go.microsoft.com/fwlink/?linkid=874181"
+            #sourceDriverUri = "https://go.microsoft.com/fwlink/?linkid=874181"
             #older driver for nc6 
             $sourceDriverUri = "https://go.microsoft.com/fwlink/?linkid=874802"
         }
