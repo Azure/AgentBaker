@@ -42,7 +42,7 @@ create_image_bump_pr() {
 cut_official_branch() {
     # Image version format: YYYYMM.DD.revision
     # Official branch format: official/vYYYYMMDD
-    # Official tag format: v0.YYYYMMDD.patch
+    # Official tag format: v0.YYYYMMDD.revision
     parsed_image_version="$(echo -n "${new_image_version}" | head -c-1 | tr -d .)"
     official_branch_name="official/v${parsed_image_version}"
     official_tag="v0.${parsed_image_version}.0"
