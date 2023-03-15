@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podname-kbduw6e
+  labels:
+    env: test
+spec:
+  containers:
+  - name: podname-kbduw6e
+    image: nginx
+    imagePullPolicy: IfNotPresent
+  nodeSelector:
+    kubernetes.io/hostname: abtes3b8b000001

@@ -1,0 +1,104 @@
+Thu Aug 4 23:47:39 UTC 2022,abtes3b8b000001
++ r=100
++ w=1
++ t=10
++ shift
++ shift
++ shift
+++ seq 1 100
++ for i in $(seq 1 $r)
++ timeout 10 curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying 204.79.197.219...
+* TCP_NODELAY set
+* Connected to mcr.microsoft.com (204.79.197.219) port 443 (#0)
+* ALPN, offering h2
+* ALPN, offering http/1.1
+* successfully set certificate verify locations:
+*   CAfile: /etc/ssl/certs/ca-certificates.crt
+  CApath: /etc/ssl/certs
+} [5 bytes data]
+* TLSv1.3 (OUT), TLS handshake, Client hello (1):
+} [512 bytes data]
+* TLSv1.3 (IN), TLS handshake, Server hello (2):
+{ [98 bytes data]
+* TLSv1.2 (IN), TLS handshake, Certificate (11):
+{ [3679 bytes data]
+* TLSv1.2 (IN), TLS handshake, Server key exchange (12):
+{ [365 bytes data]
+* TLSv1.2 (IN), TLS handshake, Server finished (14):
+{ [4 bytes data]
+* TLSv1.2 (OUT), TLS handshake, Client key exchange (16):
+} [102 bytes data]
+* TLSv1.2 (OUT), TLS change cipher, Client hello (1):
+} [1 bytes data]
+* TLSv1.2 (OUT), TLS handshake, Finished (20):
+} [16 bytes data]
+* TLSv1.2 (IN), TLS handshake, Finished (20):
+{ [16 bytes data]
+* SSL connection using TLSv1.2 / ECDHE-RSA-AES256-GCM-SHA384
+* ALPN, server accepted to use h2
+* Server certificate:
+*  subject: C=US; ST=WA; L=Redmond; O=Microsoft Corporation; CN=mcr.microsoft.com
+*  start date: Jul  5 02:20:21 2022 GMT
+*  expire date: Jun 30 02:20:21 2023 GMT
+*  issuer: C=US; O=Microsoft Corporation; CN=Microsoft Azure TLS Issuing CA 06
+*  SSL certificate verify ok.
+* Using HTTP2, server supports multi-use
+* Connection state changed (HTTP/2 confirmed)
+* Copying HTTP/2 data in stream buffer to connection buffer after upgrade: len=0
+} [5 bytes data]
+* Using Stream ID: 1 (easy handle 0x5589b04f8620)
+} [5 bytes data]
+> GET /v2/ HTTP/2
+> Host: mcr.microsoft.com
+> User-Agent: curl/7.58.0
+> Accept: */*
+> 
+{ [5 bytes data]
+* Connection state changed (MAX_CONCURRENT_STREAMS updated)!
+} [5 bytes data]
+< HTTP/2 200 
+< content-length: 2
+< content-type: application/json; charset=utf-8
+< access-control-expose-headers: Docker-Content-Digest
+< access-control-expose-headers: WWW-Authenticate
+< access-control-expose-headers: Link
+< access-control-expose-headers: X-Ms-Correlation-Request-Id
+< docker-distribution-api-version: registry/2.0
+< strict-transport-security: max-age=31536000; includeSubDomains
+< x-content-type-options: nosniff
+< x-ms-correlation-request-id: 0f869e1a-7a5f-48d1-b0a6-4bebe5d8cf32
+< strict-transport-security: max-age=31536000; includeSubDomains
+< x-cache: CONFIG_NOCACHE
+< x-mcr-env: prod
+< x-mcr-privacy: https://privacy.microsoft.com/en-us/privacystatement
+< x-msedge-ref: Ref A: 416789BAC45B4E9A88E834CD85FDFB90 Ref B: BLUEDGE1814 Ref C: 2022-08-04T23:47:39Z
+< date: Thu, 04 Aug 2022 23:47:38 GMT
+< 
+{ [2 bytes data]
+100     2  100     2    0     0     51      0 --:--:-- --:--:-- --:--:--    51
+* Connection #0 to host mcr.microsoft.com left intact
+{}+ '[' 0 -eq 0 ']'
++ break
+● kubelet.service - Kubelet
+   Loaded: loaded (/etc/systemd/system/kubelet.service; enabled; vendor preset: enabled)
+  Drop-In: /etc/systemd/system/kubelet.service.d
+           └─10-containerd.conf, 10-tlsbootstrap.conf
+   Active: active (running) since Thu 2022-08-04 23:48:24 UTC; 1s ago
+ Main PID: 3956 (kubelet)
+    Tasks: 15 (limit: 4915)
+   CGroup: /system.slice/kubelet.service
+           └─3956 /usr/local/bin/kubelet --enable-server --node-labels=kubernetes.azure.com/role=agent,agentpool=nodepool1,kubernetes.azure.com/agentpool=nodepool1,storageprofile=managed,storagetier=Premium_LRS,kubernetes.azure.com/storageprofile=managed,kubernetes.azure.com/storagetier=Premium_LRS,kubernetes.azure.com/cluster=MC_agentbaker-e2e-tests_agentbaker-e2e-test-cluster_eastus,kubernetes.azure.com/mode=system,kubernetes.azure.com/node-image-version=AKSUbuntu-1804gen2containerd-2022.01.19 --v=2 --volume-plugin-dir=/etc/kubernetes/volumeplugins --kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig --container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service --address=0.0.0.0 --anonymous-auth=false --authentication-token-webhook=true --authorization-mode=Webhook --azure-container-registry-config=/etc/kubernetes/azure.json --cgroups-per-qos=true --client-ca-file=/etc/kubernetes/certs/ca.crt --cloud-config=/etc/kubernetes/azure.json --cloud-provider=azure --cluster-dns=10.0.0.10 --cluster-domain=cluster.local --enforce-node-allocatable=pods --event-qps=0 --eviction-hard=memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5% --feature-gates=DisableAcceleratorUsageMetrics=false,RotateKubeletServerCertificate=true --image-gc-high-threshold=85 --image-gc-low-threshold=80 --keep-terminated-pod-volumes=false --kube-reserved=cpu=100m,memory=1638Mi --kubeconfig=/var/lib/kubelet/kubeconfig --max-pods=110 --node-status-update-frequency=10s --pod-infra-container-image=mcr.microsoft.com/oss/kubernetes/pause:3.5 --pod-manifest-path=/etc/kubernetes/manifests --pod-max-pids=-1 --protect-kernel-defaults=true --read-only-port=0 --resolv-conf=/run/systemd/resolve/resolv.conf --rotate-certificates=false --streaming-connection-idle-timeout=4h --tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256 --tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key
+
+Aug 04 23:48:25 abtes3b8b000001 kubelet[3956]: I0804 23:48:25.294171    3956 manager.go:610] "Failed to read data from checkpoint" checkpoint="kubelet_internal_checkpoint" err="checkpoint is not found"
+Aug 04 23:48:25 abtes3b8b000001 kubelet[3956]: I0804 23:48:25.294251    3956 manager.go:289] "Serving device plugin registration server on socket" path="/var/lib/kubelet/device-plugins/kubelet.sock"
+Aug 04 23:48:25 abtes3b8b000001 kubelet[3956]: I0804 23:48:25.296978    3956 plugin_watcher.go:52] "Plugin Watcher Start" path="/var/lib/kubelet/plugins_registry"
+Aug 04 23:48:25 abtes3b8b000001 kubelet[3956]: I0804 23:48:25.297050    3956 plugin_manager.go:112] "The desired_state_of_world populator (plugin watcher) starts"
+Aug 04 23:48:25 abtes3b8b000001 kubelet[3956]: I0804 23:48:25.297056    3956 plugin_manager.go:114] "Starting Kubelet Plugin Manager"
+Aug 04 23:48:25 abtes3b8b000001 kubelet[3956]: I0804 23:48:25.369180    3956 kubelet_network_linux.go:76] "Initialized protocol iptables rules." protocol=IPv6
+Aug 04 23:48:25 abtes3b8b000001 kubelet[3956]: I0804 23:48:25.369735    3956 status_manager.go:161] "Starting to sync pod status with apiserver"
+Aug 04 23:48:25 abtes3b8b000001 kubelet[3956]: I0804 23:48:25.369770    3956 kubelet.go:1974] "Starting kubelet main sync loop"
+Aug 04 23:48:25 abtes3b8b000001 kubelet[3956]: E0804 23:48:25.369816    3956 kubelet.go:1998] "Skipping pod synchronization" err="PLEG is not healthy: pleg has yet to be successful"
+Aug 04 23:48:25 abtes3b8b000001 kubelet[3956]: I0804 23:48:25.470304    3956 kubelet.go:2060] "SyncLoop ADD" source="file" pods=[]
