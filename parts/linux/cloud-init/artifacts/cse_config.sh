@@ -109,7 +109,7 @@ EOF
 }
 
 configureHTTPProxyCA() {
-    echo "test diff"
+    echo "test diff2"
     if [[ $OS == $MARINER_OS_NAME ]]; then
         cert_dest="/usr/share/pki/ca-trust-source/anchors"
         update_cmd="update-ca-trust"
