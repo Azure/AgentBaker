@@ -41,4 +41,4 @@ Coverage reports are on the gh-pages branch, published to https://alexeldeib.git
 The pipline definitions are defined in the following locations:
 - [batch](../.github/workflows/cflite_batch.yaml)
 - [build](../.github/workflows/cflite_build.yaml)
-- [prune/coverage](../.github/workflows/cflite_cron.yaml)
+- [prune/coverage](../.github/workflows/cflite_prune.yaml)
