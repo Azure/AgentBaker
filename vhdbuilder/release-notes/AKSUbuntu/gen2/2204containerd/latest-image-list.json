@@ -153,6 +153,15 @@
     ]
   },
   {
+    "id": "sha256:344ac3045dfd18d65abeded3e067ac8f42edb08027a5aa01cb1edd4cfed6cb98",
+    "repoTags": [
+      "mcr.microsoft.com/oss/kubernetes/coredns:v1.10.1"
+    ],
+    "repoDigests": [
+      "sha256:970ff0ff9e95db174effa6ec2db91f2bf21e3862a4924d533b2d7546d3439ecf"
+    ]
+  },
+  {
     "id": "sha256:37979945e821298973de884c61e65d7d0035db5700679603d5d63e4c9b6ecf24",
     "repoTags": [
       "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:ciprod01182023-095c864a"
@@ -294,6 +303,15 @@
     ],
     "repoDigests": [
       "sha256:b48f7189b854fd32898f3b8d7c228aaf9e761f4d6656dd5df1fe2eaaf8d39905"
+    ]
+  },
+  {
+    "id": "sha256:4973d030453ebba0706b29c636612e8dcb299d34500ac5466ce535e0c53b866f",
+    "repoTags": [
+      "mcr.microsoft.com/oss/kubernetes/coredns:v1.9.4"
+    ],
+    "repoDigests": [
+      "sha256:44c342f04bc1c875474c5bf10bcb9453a051c804c0205f1d7bf0a617abf6107a"
     ]
   },
   {
