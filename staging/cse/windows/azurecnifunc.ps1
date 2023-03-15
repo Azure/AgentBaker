@@ -408,6 +408,14 @@ function New-ExternalHnsNetwork
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST -ErrorMessage "Failed to find $managementIP after creating $externalNetwork network"
     }
     Write-Log "It took $($StopWatch.Elapsed.Seconds) seconds to create the $externalNetwork network."
+
+    Write-Log "Log network adapter info after creating $externalNetwork network"
+    Get-NetIPConfiguration -AllCompartments -ErrorAction Ignore
+
+    $dnsServers=Get-DnsClientServerAddress -ErrorAction Ignore
+    if ($dnsServers) {
+        Write-Log "DNS Servers are: $($dnsServers.ServerAddresses)"
+    }
 }
 
 function Get-HnsPsm1
