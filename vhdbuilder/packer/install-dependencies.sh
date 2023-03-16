@@ -409,14 +409,10 @@ if [[ ${installSGX} == "True" ]]; then
 fi
 fi
 
-NGINX_VERSIONS="1.13.12-alpine"
+NGINX_VERSIONS="1.21.6"
 for NGINX_VERSION in ${NGINX_VERSIONS}; do
-    if [[ $(isARM64) == 1 ]]; then
-        CONTAINER_IMAGE="docker.io/library/nginx:${NGINX_VERSION}"  # nginx in MCR is not 'multi-arch', pull it from docker.io now, upsteam team is building 'multi-arch' nginx for MCR
-    else
-        CONTAINER_IMAGE="mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}"
-    fi
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}"
+    pullContainerImage ${cliTool} mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 
