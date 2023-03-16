@@ -1,4 +1,5 @@
 # Agentbaker
+[![Coverage Status](https://coveralls.io/repos/github/UtheMan/AgentBaker/badge.svg?branch=master)](https://coveralls.io/github/UtheMan/AgentBaker?branch=master)
 
 Agentbaker is a collection of components used to provision Kubernetes nodes in Azure.
 
