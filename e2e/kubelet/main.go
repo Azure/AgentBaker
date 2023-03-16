@@ -21,8 +21,8 @@ func run() error {
 
 	c1 := exec.Command("sudo", "timeout", "-k", "3", "--preserve-status", "1", "/usr/local/bin/kubelet-1.25.5", "-v", "1", "--container-runtime-endpoint", "unix:///var/run/containerd/containerd.sock")
 	fmt.Println(c1)
-	// c1.Stdout = w
-	// c1.Stderr = w
+	c1.Stdout = w
+	c1.Stderr = w
 
 	c2 := exec.Command("grep", "FLAG")
 	c2.Stdin = r
@@ -36,9 +36,13 @@ func run() error {
 		return fmt.Errorf("failed to start grep pipeline: %q", err)
 	}
 
-	stdOutstdErr, err := c1.CombinedOutput()
-	fmt.Printf("printing here %s\n", stdOutstdErr)
-	if err != nil {
+	// stdOutstdErr, err := c1.CombinedOutput()
+	// fmt.Printf("printing here %s\n", stdOutstdErr)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to run kubelet: %q", err)
+	// }
+
+	if err := c1.Run(); err != nil {
 		return fmt.Errorf("failed to run kubelet: %q", err)
 	}
 
