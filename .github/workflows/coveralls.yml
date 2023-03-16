@@ -6,14 +6,13 @@ jobs:
   coveralls:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-go@v3
-      with:
-        go-version: '^1.19'
-        
+      - uses: actions/checkout@v3
 
-    - name: Unit tests
-      run: |
-            go test `go list ./... | grep -v e2e` -coverprofile coverage.out -covermode count
-    - name: Coveralls
-      uses: coverallsapp/github-action@v2
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.19'
+      - run: go test `go list ./... | grep -v e2e` -coverprofile profile.cov -covermode count
+
+      - uses: shogo82148/actions-goveralls@v1
+        with:
+          path-to-profile: profile.cov
