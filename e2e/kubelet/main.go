@@ -12,6 +12,7 @@ import (
 
 func main() {
 	if err := run(); err != nil {
+		fmt.Printf("logging here %v", err)
 		panic(err)
 	}
 }
@@ -23,9 +24,7 @@ func run() error {
 	fmt.Println(c1)
 	c1.Stdout = w
 	c1.Stderr = w
-	fmt.Println(c1.Stdout)
-	fmt.Println(c1.Stderr)
-	
+
 	c2 := exec.Command("grep", "FLAG")
 	c2.Stdin = r
 
