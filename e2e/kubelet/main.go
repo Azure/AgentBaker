@@ -21,8 +21,8 @@ func run() error {
 
 	c1 := exec.Command("timeout", "-k", "3", "--preserve-status", "1", "/usr/local/bin/kubelet-1.25.5", "-v", "1", "--container-runtime-endpoint", "unix:///var/run/containerd/containerd.sock")
 	fmt.Println(c1)
-	c1.Stdout = w
-	c1.Stderr = w
+	// c1.Stdout = w
+	// c1.Stderr = w
 
 	c2 := exec.Command("grep", "FLAG")
 	c2.Stdin = r
