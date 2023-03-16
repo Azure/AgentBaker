@@ -46,6 +46,7 @@ jobs:
         # ls bin
         # sudo bin/containerd
         ls /usr/local/bin
+        sudo swapoff -a
         sudo ctr version
         sudo systemctl status containerd
         #sudo /usr/local/bin/kubelet-1.25.5 -v 1 --container-runtime-endpoint unix:///var/run/containerd/containerd.sock
