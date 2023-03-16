@@ -12,7 +12,6 @@ import (
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Printf("logging here %v", err)
 		panic(err)
 	}
 }
@@ -37,7 +36,9 @@ func run() error {
 		return fmt.Errorf("failed to start grep pipeline: %q", err)
 	}
 
-	if err := c1.Run(); err != nil {
+	stdOutstdErr, err := c1.CombinedOutput()
+	fmt.Printf("%s\n", stdOutstdErr)
+	if err != nil {
 		return fmt.Errorf("failed to run kubelet: %q", err)
 	}
 
