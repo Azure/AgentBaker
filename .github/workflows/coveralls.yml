@@ -1,0 +1,19 @@
+
+on:
+  pull_request:
+      
+jobs:
+  check-coverage:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v3
+      with:
+        go-version: '^1.19'
+        
+
+    - name: Unit tests
+      run: |
+            go test `go list ./... | grep -v e2e` -coverprofile coverage.out -covermode count
+    - name: Coveralls
+      uses: coverallsapp/github-action@v2
