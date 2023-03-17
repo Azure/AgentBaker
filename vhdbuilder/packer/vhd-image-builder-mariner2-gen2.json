@@ -486,9 +486,20 @@
       "destination": "/home/packer/list-images.sh"
     },
     {
+      "type": "file",
+      "source": "vhdbuilder/packer/trivy-scan.sh",
+      "destination": "/home/packer/trivy-scan.sh"
+    },
+    {
       "type": "shell",
       "inline": [
-        "sudo BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} /bin/bash -ux /home/packer/list-images.sh"
+        "sudo CONTAINER_RUNTIME={{user `container_runtime`}} /bin/bash -ux /home/packer/list-images.sh"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo /bin/bash -ux /home/packer/trivy-scan.sh"
       ]
     },
     {
@@ -496,6 +507,12 @@
       "direction": "download",
       "source": "/opt/azure/containers/image-bom.json",
       "destination": "image-bom.json"
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/containers/trivy-report.json",
+      "destination": "trivy-report.json"
     },
     {
       "type": "file",
