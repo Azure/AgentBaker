@@ -83,19 +83,15 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, ku
 	for file, sourceCmd := range commandList {
 		mergedCmd := fmt.Sprintf("%s %s", sshCommand, sourceCmd)
 		cmd := append(nsenterCommandArray(), mergedCmd)
+
+		t.Logf("executing command on pod %s/%s: %q", defaultNamespace, podName, strings.Join(cmd, " "))
+
 		stdout, stderr, err := execOnPod(ctx, kube, defaultNamespace, podName, cmd)
 		if err != nil {
 			return nil, err
 		}
 
-		t.Log("----------------------------------- begin stdout -----------------------------------")
-		t.Log(stdout.String())
-		t.Log("------------------------------------ end stdout ------------------------------------")
-
-		t.Log("----------------------------------- begin stderr -----------------------------------")
-		t.Log(stderr.String())
-		t.Log("------------------------------------ end stderr ------------------------------------")
-
+		checkStdErr(stderr, t)
 		result[file] = stdout.String()
 	}
 
@@ -123,11 +119,15 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 	var result = map[string]string{}
 	for file, sourceCmd := range commandList {
 		cmd := append(nsenterCommandArray(), sourceCmd)
-		stdout, _, err := execOnPod(ctx, kube, defaultNamespace, podName, cmd)
+
+		t.Logf("executing command on pod %s/%s: %q", defaultNamespace, podName, strings.Join(cmd, " "))
+
+		stdout, stderr, err := execOnPod(ctx, kube, defaultNamespace, podName, cmd)
 		if err != nil {
 			return nil, err
 		}
 
+		checkStdErr(stderr, t)
 		result[file] = stdout.String()
 	}
 
@@ -257,6 +257,17 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 	}
 
 	return &stdout, &stderr, nil
+}
+
+func checkStdErr(stderr *bytes.Buffer, t *testing.T) {
+	stderrString := stderr.String()
+	if stderrString != "" {
+		t.Logf("%s\n%s\n%s\n%s",
+			"stderr is non-empty after executing last command:",
+			"----------------------------------- begin stderr -----------------------------------",
+			stderrString,
+			"------------------------------------ end stderr ------------------------------------")
+	}
 }
 
 func nsenterCommandArray() []string {

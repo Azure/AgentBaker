@@ -55,15 +55,11 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	dumpClusterParams := func() {
-		t.Logf("dumping cluster parameters to local directory: %s", clusterParamsDir)
-		if err := dumpFileMapToDir(clusterParamsDir, clusterParams); err != nil {
-			t.Log("error dumping cluster parameters")
-			t.Error(err)
-		}
+	t.Logf("dumping cluster parameters to local directory: %s", clusterParamsDir)
+	if err := dumpFileMapToDir(clusterParamsDir, clusterParams); err != nil {
+		t.Log("error dumping cluster parameters")
+		t.Error(err)
 	}
-
-	defer dumpClusterParams()
 
 	baseConfig, err := getBaseBootstrappingConfig(ctx, t, cloud, suiteConfig, clusterParams)
 	if err != nil {
