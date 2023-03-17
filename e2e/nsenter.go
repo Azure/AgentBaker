@@ -84,41 +84,16 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, ku
 	for file, sourceCmd := range commandList {
 		mergedCmd := fmt.Sprintf("%s %s", sshCommand, sourceCmd)
 		cmd := append(nsenterCommandArray(), mergedCmd)
-
-		req := kube.typed.CoreV1().RESTClient().Post().Resource("pods").Name(podName).Namespace(defaultNamespace).SubResource("exec")
-
-		option := &corev1.PodExecOptions{
-			Command: cmd,
-			Stdout:  true,
-			Stderr:  true,
-		}
-
-		req.VersionedParams(
-			option,
-			scheme.ParameterCodec,
-		)
-
-		exec, err := remotecommand.NewSPDYExecutor(kube.rest, "POST", req.URL())
+		stdout, stderr, err := execOnPod(ctx, kube, defaultNamespace, podName, cmd)
 		if err != nil {
 			return nil, err
 		}
-
-		var stdout, stderr bytes.Buffer
-
-		err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
-			Stdout: &stdout,
-			Stderr: &stderr,
-		})
 
 		t.Log("stdout")
 		t.Log(stdout.String())
 
 		t.Log("stderr")
 		t.Log(stderr.String())
-
-		if err != nil {
-			return nil, err
-		}
 
 		result[file] = stdout.String()
 	}
@@ -149,32 +124,7 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 	var result = map[string]string{}
 	for file, sourceCmd := range commandList {
 		cmd := append(nsenterCommandArray(), sourceCmd)
-
-		req := kube.typed.CoreV1().RESTClient().Post().Resource("pods").Name(podName).Namespace(defaultNamespace).SubResource("exec")
-
-		option := &corev1.PodExecOptions{
-			Command: cmd,
-			Stdout:  true,
-			Stderr:  true,
-		}
-
-		req.VersionedParams(
-			option,
-			scheme.ParameterCodec,
-		)
-
-		exec, err := remotecommand.NewSPDYExecutor(kube.rest, "POST", req.URL())
-		if err != nil {
-			return nil, err
-		}
-
-		var stdout, stderr bytes.Buffer
-
-		err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
-			Stdout: &stdout,
-			Stderr: &stderr,
-		})
-
+		stdout, _, err := execOnPod(ctx, kube, defaultNamespace, podName, cmd)
 		if err != nil {
 			return nil, err
 		}
@@ -276,6 +226,38 @@ func getBaseBootstrappingConfig(ctx context.Context, t *testing.T, cloud *azureC
 	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = fqdn
 
 	return nbc, nil
+}
+
+func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string, command []string) (*bytes.Buffer, *bytes.Buffer, error) {
+	req := kube.typed.CoreV1().RESTClient().Post().Resource("pods").Name(podName).Namespace(namespace).SubResource("exec")
+
+	option := &corev1.PodExecOptions{
+		Command: command,
+		Stdout:  true,
+		Stderr:  true,
+	}
+
+	req.VersionedParams(
+		option,
+		scheme.ParameterCodec,
+	)
+
+	exec, err := remotecommand.NewSPDYExecutor(kube.rest, "POST", req.URL())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var stdout, stderr *bytes.Buffer
+
+	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
+		Stdout: stdout,
+		Stderr: stderr,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return stdout, stderr, nil
 }
 
 func nsenterCommandArray() []string {

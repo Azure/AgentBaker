@@ -46,10 +46,24 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if err := createClusterParamsDir(); err != nil {
+		t.Fatal(err)
+	}
+
 	clusterParams, err := extractClusterParameters(ctx, t, kube)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	dumpClusterParams := func() {
+		t.Logf("dumping cluster parameters to local directory: %s", clusterParamsDir)
+		if err := dumpFileMapToDir(clusterParamsDir, clusterParams); err != nil {
+			t.Log("error dumping cluster parameters")
+			t.Error(err)
+		}
+	}
+
+	defer dumpClusterParams()
 
 	baseConfig, err := getBaseBootstrappingConfig(ctx, t, cloud, suiteConfig, clusterParams)
 	if err != nil {
@@ -57,6 +71,11 @@ func Test_All(t *testing.T) {
 	}
 
 	for name, tc := range cases {
+		caseLogsDir, err := createVMLogsDir(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		tc := tc
 		copied, err := deepcopy.Anything(baseConfig)
 		if err != nil {
@@ -104,10 +123,16 @@ func Test_All(t *testing.T) {
 			}
 
 			debug := func() {
-				t.Log(" extracting logs")
-				_, err = extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(sshPrivateKeyBytes))
+				t.Log(" extracting VM logs")
+				logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(sshPrivateKeyBytes))
 				if err != nil {
-					t.Log("error extracting logs")
+					t.Log("error extracting VM logs")
+					t.Error(err)
+				}
+
+				t.Logf("dumping VM logs to local directory: %s", caseLogsDir)
+				if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
+					t.Log("error dumping VM logs")
 					t.Error(err)
 				}
 			}
