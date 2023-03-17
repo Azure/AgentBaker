@@ -13,7 +13,7 @@ pool:
   name: nodesigtest-pool
 
 jobs:
-- job: Setup_Test_Cluster
+- job: Run_AgentBaker_E2E
   steps:
   - bash: |
       az login --identity
@@ -26,5 +26,12 @@ jobs:
       go version
       cd e2e
       go test -timeout 10m -v -run Test_All ./...
-    displayName: Setup Test Cluster
+    displayName: Run AgentBaker E2E
+  - publish: $(System.DefaultWorkingDirectory)/e2e/vm-logs
+    artifact: vm-logs
+    condition: always()
+  - publish: $(System.DefaultWorkingDirectory)/e2e/cluster-parameters
+    artifact: cluster-parameters
+    condition: always()
+ 
  
