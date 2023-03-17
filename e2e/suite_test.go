@@ -80,15 +80,19 @@ func Test_All(t *testing.T) {
 			t.Logf("vmss name: %q", vmssName)
 
 			cleanup := func() {
+				t.Log("deleting vmss", vmssName)
 				poller, err := cloud.vmssClient.BeginDelete(ctx, suiteConfig.resourceGroupName, vmssName, nil)
 				if err != nil {
+					t.Log("error deleting vmss", vmssName)
 					t.Error(err)
 					return
 				}
 				_, err = poller.PollUntilDone(ctx, nil)
 				if err != nil {
+					t.Log("error polling deleting vmss", vmssName)
 					t.Error(err)
 				}
+				t.Log("finished deleting vmss", vmssName)
 			}
 
 			defer cleanup()
@@ -100,8 +104,10 @@ func Test_All(t *testing.T) {
 			}
 
 			debug := func() {
-				_, err = extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, suiteConfig.resourceGroupName, suiteConfig.clusterName, vmssName, string(sshPrivateKeyBytes))
+				t.Log(" extracting logs")
+				_, err = extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(sshPrivateKeyBytes))
 				if err != nil {
+					t.Log("error extracting logs")
 					t.Error(err)
 				}
 			}
@@ -109,17 +115,20 @@ func Test_All(t *testing.T) {
 
 			nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
 			if err != nil {
+				t.Log("error waiting for node ready")
 				t.Fatal(err)
 				return
 			}
 
-			err = ensureTestNginxpod(ctx, kube, nodeName)
+			err = ensureTestNginxPod(ctx, kube, nodeName)
 			if err != nil {
+				t.Log("error waiting for pod ready")
 				t.Fatal(err)
 			}
 
 			err = ensurePodDeleted(ctx, kube, nodeName)
 			if err != nil {
+				t.Log("error waiting for pod deleted")
 				t.Error(err)
 			}
 		})
