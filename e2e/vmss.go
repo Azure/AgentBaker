@@ -13,7 +13,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func createVMSSWithPayload(ctx context.Context, r *mrand.Rand, cloud *azureClient, location, resourceGroupName, name, subnetID string, customData, cseCmd string, mutator func(*armcompute.VirtualMachineScaleSet)) (sshPrivateKey []byte, e error) {
+func createVMSSWithPayload(ctx context.Context, r *mrand.Rand, cloud *azureClient, location, name, subnetID string, customData, cseCmd string, mutator func(*armcompute.VirtualMachineScaleSet)) (sshPrivateKey []byte, e error) {
 	// Private Key generation
 	privateKey, err := rsa.GenerateKey(r, 4096)
 	if err != nil {
