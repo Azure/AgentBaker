@@ -14,7 +14,7 @@
       },
       "ipam": {
         "type": "azure-cns",
-        "mode": "v4overlay"
+        "mode": "dualStackOverlay"
       },
       "dns": {
         "Nameservers": [
