@@ -30,7 +30,7 @@ const (
 	listVMSSNetworkInterfaceURLTemplate = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
 )
 
-func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, kube *kubeclient, subscription, resourceGroupName, clusterName, vmssName, sshPrivateKey string) (map[string]string, error) {
+func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, kube *kubeclient, subscription, vmssName, sshPrivateKey string) (map[string]string, error) {
 	pl := cloud.coreClient.Pipeline()
 	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
 		subscription,
@@ -206,7 +206,7 @@ func ensureDebugDaemonset(ctx context.Context, kube *kubeclient, resourceGroupNa
 	return nil
 }
 
-func ensureTestNginxpod(ctx context.Context, kube *kubeclient, nodeName string) error {
+func ensureTestNginxPod(ctx context.Context, kube *kubeclient, nodeName string) error {
 	manifest := getNginxPodTemplate(nodeName)
 	var obj corev1.Pod
 
