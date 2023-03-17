@@ -81,7 +81,7 @@ func Test_All(t *testing.T) {
 
 			cleanup := func() {
 				t.Log("deleting vmss", vmssName)
-				poller, err := cloud.vmssClient.BeginDelete(ctx, suiteConfig.resourceGroupName, vmssName, nil)
+				poller, err := cloud.vmssClient.BeginDelete(ctx, agentbakerTestResourceGroupName, vmssName, nil)
 				if err != nil {
 					t.Log("error deleting vmss", vmssName)
 					t.Error(err)
@@ -97,7 +97,7 @@ func Test_All(t *testing.T) {
 
 			defer cleanup()
 
-			sshPrivateKeyBytes, err := createVMSSWithPayload(ctx, r, cloud, suiteConfig.location, suiteConfig.resourceGroupName, vmssName, subnetID, base64EncodedCustomData, cseCmd, tc.vmConfigMutator)
+			sshPrivateKeyBytes, err := createVMSSWithPayload(ctx, r, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, tc.vmConfigMutator)
 			if err != nil {
 				t.Error(err)
 				return
