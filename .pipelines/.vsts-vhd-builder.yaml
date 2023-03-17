@@ -107,6 +107,10 @@ stages:
           displayName: Run VHD Tests
         - task: PublishPipelineArtifact@0
           inputs:
+            artifactName: 'trivy-report'
+            targetPath: 'trivy-report.json'
+        - task: PublishPipelineArtifact@0
+          inputs:
             artifactName: 'vhd-release-notes'
             targetPath: 'release-notes.txt'
           displayName: publish release notes
