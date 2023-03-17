@@ -37,8 +37,11 @@ func writeToFile(fileName, content string) error {
 	defer outputFile.Close()
 
 	w := bufio.NewWriter(outputFile)
+	defer w.Flush()
 
-	if _, err := w.Write([]byte(content)); err != nil {
+	contentBytes := []byte(content)
+
+	if _, err := w.Write(contentBytes); err != nil {
 		return err
 	}
 
@@ -47,6 +50,7 @@ func writeToFile(fileName, content string) error {
 
 func dumpFileMapToDir(baseDir string, files map[string]string) error {
 	for path, contents := range files {
+		path = filepath.Base(path)
 		fullPath := filepath.Join(baseDir, path)
 		if err := writeToFile(fullPath, contents); err != nil {
 			return err

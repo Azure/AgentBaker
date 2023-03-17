@@ -46,12 +46,12 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := createClusterParamsDir(); err != nil {
+	clusterParams, err := extractClusterParameters(ctx, t, kube)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	clusterParams, err := extractClusterParameters(ctx, t, kube)
-	if err != nil {
+	if err := createClusterParamsDir(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -95,10 +95,9 @@ func Test_All(t *testing.T) {
 			cseCmd := baker.GetNodeBootstrappingCmd(nbc)
 
 			vmssName := fmt.Sprintf("abtest%s", randomLowercaseString(r, 4))
-
 			t.Logf("vmss name: %q", vmssName)
 
-			cleanup := func() {
+			cleanupVMSS := func() {
 				t.Log("deleting vmss", vmssName)
 				poller, err := cloud.vmssClient.BeginDelete(ctx, agentbakerTestResourceGroupName, vmssName, nil)
 				if err != nil {
@@ -114,7 +113,7 @@ func Test_All(t *testing.T) {
 				t.Log("finished deleting vmss", vmssName)
 			}
 
-			defer cleanup()
+			defer cleanupVMSS()
 
 			sshPrivateKeyBytes, err := createVMSSWithPayload(ctx, r, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, tc.vmConfigMutator)
 			if err != nil {

@@ -13,7 +13,6 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
-	"github.com/sanity-io/litter"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -89,16 +88,16 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, ku
 			return nil, err
 		}
 
-		t.Log("stdout")
+		t.Log("----------------------------------- begin stdout -----------------------------------")
 		t.Log(stdout.String())
+		t.Log("------------------------------------ end stdout ------------------------------------")
 
-		t.Log("stderr")
+		t.Log("----------------------------------- begin stderr -----------------------------------")
 		t.Log(stderr.String())
+		t.Log("------------------------------------ end stderr ------------------------------------")
 
 		result[file] = stdout.String()
 	}
-
-	litter.Dump(result)
 
 	return result, nil
 }
@@ -247,17 +246,17 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 		return nil, nil, err
 	}
 
-	var stdout, stderr *bytes.Buffer
+	var stdout, stderr bytes.Buffer
 
 	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
-		Stdout: stdout,
-		Stderr: stderr,
+		Stdout: &stdout,
+		Stderr: &stderr,
 	})
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return stdout, stderr, nil
+	return &stdout, &stderr, nil
 }
 
 func nsenterCommandArray() []string {
