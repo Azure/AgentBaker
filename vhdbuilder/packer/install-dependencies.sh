@@ -227,6 +227,26 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
+find_failed() {
+    want=$1
+    pidmap=$2
+    for word in $pidmap; do
+        found=$(echo $word | cut -d= -f1)
+        file=$(echo $word | cut -d= -f2)
+        if [ "$want" = "$found" ]; then
+            cat "$file"
+            break
+        fi
+    done
+}
+
+pids=""
+pidmap=""
+log=""
+WORK_DIR=`mktemp -d -p "/tmp"`
+
+trap 'rm -rf "${WORK_DIR}"' EXIT SIGINT SIGTERM
+
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for imageToBePulled in ${ContainerImages[*]}; do
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
@@ -250,10 +270,22 @@ for imageToBePulled in ${ContainerImages[*]}; do
 
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+    logfile="$(echo "${CONTAINER_IMAGE}" | tr '/' '-').txt"
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}  > "$logfile" 2>&1 &
+    pid=$!
+    pids="$pids $pid"
+    pidmap="$pidmap $pid=$logfile"
+    set +x
+    log="${log}\n- ${CONTAINER_IMAGE}"
+    set -x
   done
 done
+
+for pid in $pids; do
+  wait $pid || find_failed $pid $pidmap
+done
+
+echo "${log}" >> ${VHD_LOGS_FILEPATH}
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
 watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
