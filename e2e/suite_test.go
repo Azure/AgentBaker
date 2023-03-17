@@ -67,11 +67,6 @@ func Test_All(t *testing.T) {
 	}
 
 	for name, tc := range cases {
-		caseLogsDir, err := createVMLogsDir(name)
-		if err != nil {
-			t.Fatal(err)
-		}
-
 		tc := tc
 		copied, err := deepcopy.Anything(baseConfig)
 		if err != nil {
@@ -86,6 +81,12 @@ func Test_All(t *testing.T) {
 
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
+			caseLogsDir, err := createVMLogsDir(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			baker := agent.InitializeTemplateGenerator()
 			base64EncodedCustomData := baker.GetNodeBootstrappingPayload(nbc)
 			cseCmd := baker.GetNodeBootstrappingCmd(nbc)

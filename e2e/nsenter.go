@@ -87,11 +87,11 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, ku
 		t.Logf("executing command on pod %s/%s: %q", defaultNamespace, podName, strings.Join(cmd, " "))
 
 		stdout, stderr, err := execOnPod(ctx, kube, defaultNamespace, podName, cmd)
+		checkStdErr(stderr, t)
 		if err != nil {
 			return nil, err
 		}
 
-		checkStdErr(stderr, t)
 		result[file] = stdout.String()
 	}
 
@@ -123,11 +123,11 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 		t.Logf("executing command on pod %s/%s: %q", defaultNamespace, podName, strings.Join(cmd, " "))
 
 		stdout, stderr, err := execOnPod(ctx, kube, defaultNamespace, podName, cmd)
+		checkStdErr(stderr, t)
 		if err != nil {
 			return nil, err
 		}
 
-		checkStdErr(stderr, t)
 		result[file] = stdout.String()
 	}
 
