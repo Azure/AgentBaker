@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-GOLANG_VERSION="go1.18.9"
+GOLANG_VERSION="go1.19.7"
 echo "Downloading ${GOLANG_VERSION}"
 curl -O "https://dl.google.com/go/${GOLANG_VERSION}.linux-amd64.tar.gz"
 
@@ -15,3 +15,6 @@ rm "${GOLANG_VERSION}.linux-amd64.tar.gz"
 export PATH="/usr/local/go/bin:$PATH"
 GOPATH="/home/$(whoami)/go"
 export GOPATH
+
+go env
+go version
