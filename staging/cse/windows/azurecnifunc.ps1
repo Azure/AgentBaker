@@ -187,6 +187,9 @@ function Set-AzureCNIConfig
     $configJson.plugins[0].AdditionalArgs += $jsonContent
 
     $configJson | ConvertTo-Json -depth 20 | Out-File -encoding ASCII -filepath $fileName
+
+    Write-Log "TSQ: Set-AzureCNIConfig"
+    Get-Service -Name hns -ErrorAction Ignore
 }
 
 function GetBroadestRangesForEachAddress{
@@ -384,6 +387,9 @@ function New-ExternalHnsNetwork
     Write-Log "Using adapter $adapterName with IP address $managementIP"
     $mgmtIPAfterNetworkCreate
 
+    Write-Log "TSQ: New-HNSNetwork start"
+    Get-Service -Name hns -ErrorAction Ignore
+
     $stopWatch = New-Object System.Diagnostics.Stopwatch
     $stopWatch.Start()
 
@@ -404,6 +410,10 @@ function New-ExternalHnsNetwork
     }
 
     $stopWatch.Stop()
+
+    Write-Log "TSQ: New-HNSNetwork end"
+    Get-Service -Name hns -ErrorAction Ignore
+
     if (-not $mgmtIPAfterNetworkCreate) {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST -ErrorMessage "Failed to find $managementIP after creating $externalNetwork network"
     }
