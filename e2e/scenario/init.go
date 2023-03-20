@@ -10,8 +10,8 @@ func InitScenarioTable() ScenarioTable {
 }
 
 // Is called internally by the scenario package to get each scenario's respective config as one long slice.
-// To add a sceneario, implement a function called GetScenarioConfig_<scenario name>
-// and add a call to it in this functions return value.
+// To add a sceneario, implement a new function in a separate file that returns a *Scenario and add
+// its return value to the slice returned by this function.
 func scenarios() []*Scenario {
 	return []*Scenario{
 		base(),
