@@ -59,7 +59,7 @@ func Test_All(t *testing.T) {
 
 	t.Logf("dumping cluster parameters to local directory: %s", clusterParamsDir)
 	if err := dumpFileMapToDir(clusterParamsDir, clusterParams); err != nil {
-		t.Log("error dumping cluster parameters")
+		t.Log("error dumping cluster parameters:")
 		t.Error(err)
 	}
 
@@ -96,22 +96,22 @@ func Test_All(t *testing.T) {
 			cseCmd := baker.GetNodeBootstrappingCmd(nbc)
 
 			vmssName := fmt.Sprintf("abtest%s", randomLowercaseString(r, 4))
-			t.Logf("vmss name: %q", vmssName)
+			t.Logf("[scenario/%s] vmss name: %q", scenario.Name, vmssName)
 
 			cleanupVMSS := func() {
-				t.Log("deleting vmss", vmssName)
+				t.Logf("[scenario/%s] deleting vmss %q", scenario.Name, vmssName)
 				poller, err := cloud.vmssClient.BeginDelete(ctx, agentbakerTestResourceGroupName, vmssName, nil)
 				if err != nil {
-					t.Log("error deleting vmss", vmssName)
+					t.Logf("[scenario/%s] error deleting vmss %q", scenario.Name, vmssName)
 					t.Error(err)
 					return
 				}
 				_, err = poller.PollUntilDone(ctx, nil)
 				if err != nil {
-					t.Log("error polling deleting vmss", vmssName)
+					t.Logf("[scenario/%s] error polling deleting vmss %q", scenario.Name, vmssName)
 					t.Error(err)
 				}
-				t.Log("finished deleting vmss", vmssName)
+				t.Logf("[scenario/%s] finished deleting vmss %q", scenario.Name, vmssName)
 			}
 
 			defer cleanupVMSS()
@@ -123,16 +123,16 @@ func Test_All(t *testing.T) {
 			}
 
 			debug := func() {
-				t.Log(" extracting VM logs")
+				t.Logf("[scenario/%s] extracting VM logs", scenario.Name)
 				logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(sshPrivateKeyBytes))
 				if err != nil {
-					t.Log("error extracting VM logs")
+					t.Logf("[scenario/%s] error extracting VM logs:", scenario.Name)
 					t.Error(err)
 				}
 
 				t.Logf("dumping VM logs to local directory: %s", caseLogsDir)
 				if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
-					t.Log("error dumping VM logs")
+					t.Logf("[scenario/%s] error dumping VM logs:", scenario.Name)
 					t.Error(err)
 				}
 			}
@@ -140,20 +140,20 @@ func Test_All(t *testing.T) {
 
 			nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
 			if err != nil {
-				t.Log("error waiting for node ready")
+				t.Logf("[scenario/%s] error waiting for node ready:", scenario.Name)
 				t.Fatal(err)
 				return
 			}
 
 			err = ensureTestNginxPod(ctx, kube, nodeName)
 			if err != nil {
-				t.Log("error waiting for pod ready")
+				t.Logf("[scenario/%s] error waiting for pod ready:", scenario.Name)
 				t.Fatal(err)
 			}
 
 			err = ensurePodDeleted(ctx, kube, nodeName)
 			if err != nil {
-				t.Log("error waiting for pod deleted")
+				t.Logf("[scenario/%s] error waiting for pod deleted:", scenario.Name)
 				t.Error(err)
 			}
 		})
