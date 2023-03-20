@@ -51,6 +51,16 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if err := createClusterParamsDir(); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("dumping cluster parameters to local directory: %s", clusterParamsDir)
+	if err := dumpFileMapToDir(clusterParamsDir, clusterParams); err != nil {
+		t.Log("error dumping cluster parameters")
+		t.Error(err)
+	}
+
 	baseConfig, err := getBaseBootstrappingConfig(ctx, t, cloud, suiteConfig, clusterParams)
 	if err != nil {
 		t.Fatal(err)
@@ -71,15 +81,20 @@ func Test_All(t *testing.T) {
 
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
+			caseLogsDir, err := createVMLogsDir(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			baker := agent.InitializeTemplateGenerator()
 			base64EncodedCustomData := baker.GetNodeBootstrappingPayload(nbc)
 			cseCmd := baker.GetNodeBootstrappingCmd(nbc)
 
 			vmssName := fmt.Sprintf("abtest%s", randomLowercaseString(r, 4))
-
 			t.Logf("vmss name: %q", vmssName)
 
-			cleanup := func() {
+			cleanupVMSS := func() {
 				t.Log("deleting vmss", vmssName)
 				poller, err := cloud.vmssClient.BeginDelete(ctx, agentbakerTestResourceGroupName, vmssName, nil)
 				if err != nil {
@@ -95,7 +110,7 @@ func Test_All(t *testing.T) {
 				t.Log("finished deleting vmss", vmssName)
 			}
 
-			defer cleanup()
+			defer cleanupVMSS()
 
 			sshPrivateKeyBytes, err := createVMSSWithPayload(ctx, r, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, tc.vmConfigMutator)
 			if err != nil {
@@ -104,10 +119,16 @@ func Test_All(t *testing.T) {
 			}
 
 			debug := func() {
-				t.Log(" extracting logs")
-				_, err = extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(sshPrivateKeyBytes))
+				t.Log(" extracting VM logs")
+				logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(sshPrivateKeyBytes))
 				if err != nil {
-					t.Log("error extracting logs")
+					t.Log("error extracting VM logs")
+					t.Error(err)
+				}
+
+				t.Logf("dumping VM logs to local directory: %s", caseLogsDir)
+				if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
+					t.Log("error dumping VM logs")
 					t.Error(err)
 				}
 			}

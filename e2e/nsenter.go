@@ -13,7 +13,6 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
-	"github.com/sanity-io/litter"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -85,45 +84,16 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, ku
 		mergedCmd := fmt.Sprintf("%s %s", sshCommand, sourceCmd)
 		cmd := append(nsenterCommandArray(), mergedCmd)
 
-		req := kube.typed.CoreV1().RESTClient().Post().Resource("pods").Name(podName).Namespace(defaultNamespace).SubResource("exec")
+		t.Logf("executing command on pod %s/%s: %q", defaultNamespace, podName, strings.Join(cmd, " "))
 
-		option := &corev1.PodExecOptions{
-			Command: cmd,
-			Stdout:  true,
-			Stderr:  true,
-		}
-
-		req.VersionedParams(
-			option,
-			scheme.ParameterCodec,
-		)
-
-		exec, err := remotecommand.NewSPDYExecutor(kube.rest, "POST", req.URL())
-		if err != nil {
-			return nil, err
-		}
-
-		var stdout, stderr bytes.Buffer
-
-		err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
-			Stdout: &stdout,
-			Stderr: &stderr,
-		})
-
-		t.Log("stdout")
-		t.Log(stdout.String())
-
-		t.Log("stderr")
-		t.Log(stderr.String())
-
+		stdout, stderr, err := execOnPod(ctx, kube, defaultNamespace, podName, cmd)
+		checkStdErr(stderr, t)
 		if err != nil {
 			return nil, err
 		}
 
 		result[file] = stdout.String()
 	}
-
-	litter.Dump(result)
 
 	return result, nil
 }
@@ -150,31 +120,10 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 	for file, sourceCmd := range commandList {
 		cmd := append(nsenterCommandArray(), sourceCmd)
 
-		req := kube.typed.CoreV1().RESTClient().Post().Resource("pods").Name(podName).Namespace(defaultNamespace).SubResource("exec")
+		t.Logf("executing command on pod %s/%s: %q", defaultNamespace, podName, strings.Join(cmd, " "))
 
-		option := &corev1.PodExecOptions{
-			Command: cmd,
-			Stdout:  true,
-			Stderr:  true,
-		}
-
-		req.VersionedParams(
-			option,
-			scheme.ParameterCodec,
-		)
-
-		exec, err := remotecommand.NewSPDYExecutor(kube.rest, "POST", req.URL())
-		if err != nil {
-			return nil, err
-		}
-
-		var stdout, stderr bytes.Buffer
-
-		err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
-			Stdout: &stdout,
-			Stderr: &stderr,
-		})
-
+		stdout, stderr, err := execOnPod(ctx, kube, defaultNamespace, podName, cmd)
+		checkStdErr(stderr, t)
 		if err != nil {
 			return nil, err
 		}
@@ -276,6 +225,49 @@ func getBaseBootstrappingConfig(ctx context.Context, t *testing.T, cloud *azureC
 	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = fqdn
 
 	return nbc, nil
+}
+
+func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string, command []string) (*bytes.Buffer, *bytes.Buffer, error) {
+	req := kube.typed.CoreV1().RESTClient().Post().Resource("pods").Name(podName).Namespace(namespace).SubResource("exec")
+
+	option := &corev1.PodExecOptions{
+		Command: command,
+		Stdout:  true,
+		Stderr:  true,
+	}
+
+	req.VersionedParams(
+		option,
+		scheme.ParameterCodec,
+	)
+
+	exec, err := remotecommand.NewSPDYExecutor(kube.rest, "POST", req.URL())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return &stdout, &stderr, nil
+}
+
+func checkStdErr(stderr *bytes.Buffer, t *testing.T) {
+	stderrString := stderr.String()
+	if stderrString != "" {
+		t.Logf("%s\n%s\n%s\n%s",
+			"stderr is non-empty after executing last command:",
+			"----------------------------------- begin stderr -----------------------------------",
+			stderrString,
+			"------------------------------------ end stderr ------------------------------------")
+	}
 }
 
 func nsenterCommandArray() []string {
