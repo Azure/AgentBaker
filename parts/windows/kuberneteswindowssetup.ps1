@@ -243,6 +243,9 @@ try
     . c:\AzureData\windows\kubeletfunc.ps1
     . c:\AzureData\windows\kubernetesfunc.ps1
 
+    Write-Log "TSQ: Start CSE"
+    Get-Service -Name hns -ErrorAction Ignore
+
     # Exit early if the script has been executed
     if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
         Write-Log "The script has been executed before, will exit without doing anything."

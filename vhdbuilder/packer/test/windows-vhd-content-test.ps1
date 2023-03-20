@@ -323,6 +323,9 @@ function Test-ExcludeUDPSourcePort {
     }
 }
 
+Write-Log "TSQ: TEST"
+Get-Service -Name hns -ErrorAction Ignore
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled

@@ -493,6 +493,8 @@ $ProgressPreference = 'SilentlyContinue'
 try{
     switch ($env:ProvisioningPhase) {
         "1" {
+            Write-Log "TSQ: 1"
+            Get-Service -Name hns -ErrorAction Ignore
             Write-Log "Performing actions for provisioning phase 1"
             Expand-OS-Partition
             Exclude-ReservedUDPSourcePort
@@ -504,6 +506,8 @@ try{
             Update-WindowsFeatures
         }
         "2" {
+            Write-Log "TSQ: 2 START"
+            Get-Service -Name hns -ErrorAction Ignore
             Write-Log "Performing actions for provisioning phase 2 for container runtime '$containerRuntime'"
             Set-WinRmServiceAutoStart
             if ($containerRuntime -eq 'containerd') {
@@ -516,6 +520,7 @@ try{
             Get-FilesToCacheOnVHD
             Remove-Item -Path c:\windows-vhd-configuration.ps1
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
+            Write-Log "TSQ: 2 END"
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"
