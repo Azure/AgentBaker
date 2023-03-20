@@ -9,10 +9,12 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/barkimedes/go-deepcopy"
 )
 
 func Test_All(t *testing.T) {
+	scenarioTable := scenario.InitScenarioTable()
 	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 	ctx := context.Background()
 
@@ -66,8 +68,8 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for name, tc := range cases {
-		tc := tc
+	for name, scenario := range scenarioTable {
+		scenario := scenario
 		copied, err := deepcopy.Anything(baseConfig)
 		if err != nil {
 			t.Error(err)
@@ -75,14 +77,16 @@ func Test_All(t *testing.T) {
 		}
 		nbc := copied.(*datamodel.NodeBootstrappingConfiguration)
 
-		if tc.bootstrapConfigMutator != nil {
-			tc.bootstrapConfigMutator(t, nbc)
+		if scenario.ScenarioConfig.BootstrapConfigMutator != nil {
+			scenario.ScenarioConfig.BootstrapConfigMutator(t, nbc)
 		}
 
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			caseLogsDir, err := createVMLogsDir(name)
+			t.Logf("Running scenario %q: %q", scenario.Name, scenario.Description)
+
+			caseLogsDir, err := createVMLogsDir(scenario.Name)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -112,7 +116,7 @@ func Test_All(t *testing.T) {
 
 			defer cleanupVMSS()
 
-			sshPrivateKeyBytes, err := createVMSSWithPayload(ctx, r, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, tc.vmConfigMutator)
+			sshPrivateKeyBytes, err := createVMSSWithPayload(ctx, r, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, scenario.ScenarioConfig.VMConfigMutator)
 			if err != nil {
 				t.Error(err)
 				return
