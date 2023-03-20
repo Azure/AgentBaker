@@ -497,13 +497,29 @@ try{
             Get-Service -Name hns -ErrorAction Ignore
             Write-Log "Performing actions for provisioning phase 1"
             Expand-OS-Partition
+            Write-Log "TSQ: after Expand-OS-Partition"
+            Get-Service -Name hns -ErrorAction Ignore
             Exclude-ReservedUDPSourcePort
+            Write-Log "TSQ: after Exclude-ReservedUDPSourcePort"
+            Get-Service -Name hns -ErrorAction Ignore
             Disable-WindowsUpdates
+            Write-Log "TSQ: after Disable-WindowsUpdates"
+            Get-Service -Name hns -ErrorAction Ignore
             Set-WinRmServiceDelayedStart
+            Write-Log "TSQ: after Set-WinRmServiceDelayedStart"
+            Get-Service -Name hns -ErrorAction Ignore
             Update-DefenderSignatures
+            Write-Log "TSQ: after Update-DefenderSignatures"
+            Get-Service -Name hns -ErrorAction Ignore
             Install-WindowsPatches
+            Write-Log "TSQ: after Install-WindowsPatches"
+            Get-Service -Name hns -ErrorAction Ignore
             Install-OpenSSH
+            Write-Log "TSQ: after Install-OpenSSH"
+            Get-Service -Name hns -ErrorAction Ignore
             Update-WindowsFeatures
+            Write-Log "TSQ: after Install-OpenSSH"
+            Get-Service -Name hns -ErrorAction Ignore
         }
         "2" {
             Write-Log "TSQ: 2 START"
