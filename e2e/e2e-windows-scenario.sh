@@ -60,7 +60,7 @@ echo "zip cse packages done"
 
 set +x
 expiryTime=$(date --date="2 day" +%Y-%m-%d)
-token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'wl' --expiry $expiryTime --name $STORAGE_PACKAGE_CONTAINER)
+token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwl' --expiry $expiryTime --name $STORAGE_PACKAGE_CONTAINER)
 tokenWithoutQuote=${token//\"}
 
 csePackageURL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
