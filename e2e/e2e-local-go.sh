@@ -15,4 +15,4 @@ export CLUSTER_NAME
 export AZURE_TENANT_ID
 
 go version
-go test -timeout 20m -v -run Test_All ./...
+go test -timeout 20m -v -run Test_All ./
