@@ -132,9 +132,35 @@ Collect-OldLogFiles -Folder "C:\k\" -LogFilePattern azure-vnet.log.*
 Collect-OldLogFiles -Folder "C:\k\" -LogFilePattern azure-vnet-ipam.log.*
 
 # Collect running containers
-if ($global:ContainerRuntime -eq "containerd") {
+$res = Get-Command containerd.exe -ErrorAction SilentlyContinue
+if ($res) {
+    Write-Log "Generating containerd-info.txt"
+    containerd.exe --v > (Join-Path $aksLogFolder "containerd-info.txt")
+}
+
+$res = Get-Command ctr.exe -ErrorAction SilentlyContinue
+if ($res) {
+    Write-Log "Generating containerd-containers.txt"
+    ctr.exe -n k8s.io c ls > (Join-Path $aksLogFolder "containerd-containers.txt")
+
+    Write-Log "Generating containerd-tasks.txt"
+    ctr.exe -n k8s.io t ls > (Join-Path $aksLogFolder "containerd-tasks.txt")
+  
+    Write-Log "Generating containerd-snapshot.txt"
+    ctr.exe -n k8s.io snapshot ls > (Join-Path $aksLogFolder "containerd-snapshot.txt")
+}
+
+
+$res = Get-Command crictl.exe -ErrorAction SilentlyContinue
+if ($res) {
     Write-Log "Genearting cri-containerd-containers.txt"
     crictl.exe ps -a > (Join-Path $aksLogFolder "cri-containerd-containers.txt")
+
+    Write-Log "Generating cri-containerd-pods.txt"
+    crictl.exe pods > (Join-Path $aksLogFolder "cri-containerd-pods.txt")
+
+    Write-Log "Generating cri-containerd-images.txt"
+    crictl.exe images > (Join-Path $aksLogFolder "cri-containerd-images.txt")
 }
 
 # Collect disk usage
@@ -146,6 +172,26 @@ Get-CimInstance -Class CIM_LogicalDisk | Select-Object @{Name="Size(GB)";Express
 Write-Log "Genearting available-memory.txt"
 $availableMemoryFile = Join-Path $aksLogFolder ("available-memory.txt")
 Get-Counter '\Memory\Available MBytes' > $availableMemoryFile
+
+# Collect process info
+$res = Get-Process containerd-shim-runhcs-v1 -ErrorAction SilentlyContinue
+if ($res) {
+    Write-Log "Generating process-containerd-shim-runhcs-v1.txt"
+    Get-Process containerd-shim-runhcs-v1 > (Join-Path $aksLogFolder "process-containerd-shim-runhcs-v1.txt")
+}
+
+$res = Get-Process CExecSvc -ErrorAction SilentlyContinue
+if ($res) {
+    Write-Log "Generating process-CExecSvc.txt"
+    Get-Process CExecSvc > (Join-Path $aksLogFolder "process-CExecSvc.txt")
+}
+
+$res = Get-Process vmcompute -ErrorAction SilentlyContinue
+if ($res) {
+    Write-Log "Generating process-vmcompute.txt"
+    Get-Process vmcompute > (Join-Path $aksLogFolder "process-vmcompute.txt")
+}
+
 
 # We only need to generate and upload the logs after the node is provisioned
 # WAWindowsAgent will generate and upload the logs every 15 minutes so we do not need to do it again

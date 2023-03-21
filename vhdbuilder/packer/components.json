@@ -111,8 +111,8 @@
       "multiArchVersions": [
         "v1.2.2.4",
         "v1.2.2.5",
-        "v1.3.0.1",
-        "v1.3.0.2"
+        "v1.3.0.2",
+        "v1.3.0.3"
       ]
     },
     {
@@ -291,6 +291,7 @@
       ],
       "multiArchVersions": [
         "v1.26.2.1",
+        "v1.26.2.2",
         "v1.27.0"
       ]
     },
@@ -389,8 +390,8 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.8.13.2",
-        "v1.8.13.3"
+        "v1.8.13.3",
+        "v1.8.13.4"
       ]
     },
     {

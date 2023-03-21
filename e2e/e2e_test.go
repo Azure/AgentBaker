@@ -1,4 +1,7 @@
-package e2e
+//go:build bash_e2e
+// +build bash_e2e
+
+package e2e_test
 
 import (
 	"encoding/base64"
@@ -115,5 +118,4 @@ func TestE2EWindows(t *testing.T) {
 	if err != nil {
 		fmt.Println("couldnt write to file", err)
 	}
-
 }
