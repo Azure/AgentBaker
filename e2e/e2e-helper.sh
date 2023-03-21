@@ -33,7 +33,7 @@ upload_linux_file_to_storage_account() {
     set +x
     expiryTime=$(date --date="2 day" +%Y-%m-%d)
     account_key=$(az storage account keys list --account-name $WINDOWS_E2E_STORAGE_ACCOUNT --query "[0].value")
-    token=$(az storage container generate-sas --account-name $WINDOWS_E2E_STORAGE_ACCOUNT --account-key $account_key --permissions 'rwacdl' --expiry $expiryTime --name "tmp")
+    token=$(az storage container generate-sas --account-name $WINDOWS_E2E_STORAGE_ACCOUNT --account-key $account_key --permissions 'w' --expiry $expiryTime --name "tmp")
     linuxFileURL="https://${WINDOWS_E2E_STORAGE_ACCOUNT}.blob.core.windows.net/tmp/${MC_VMSS_NAME}-linux-file.zip?${token}"
 
     az vmss run-command invoke --command-id RunShellScript \
@@ -76,7 +76,7 @@ download_linux_file_from_storage_account() {
         fi
         break;
     done
-    token=$(az storage container generate-sas --account-name $WINDOWS_E2E_STORAGE_ACCOUNT --account-key $account_key --permissions 'rwacdl' --expiry $expiryTime --name "tmp")
+    token=$(az storage container generate-sas --account-name $WINDOWS_E2E_STORAGE_ACCOUNT --account-key $account_key --permissions 'r' --expiry $expiryTime --name "tmp")
     tokenWithoutQuote=${token//\"}
     linuxFileURL="https://${WINDOWS_E2E_STORAGE_ACCOUNT}.blob.core.windows.net/tmp/${MC_VMSS_NAME}-linux-file.zip?${tokenWithoutQuote}"
 

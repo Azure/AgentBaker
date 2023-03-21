@@ -9,7 +9,7 @@ log "Starting e2e tests"
 # Create a resource group for the cluster
 log "Creating resource group"
 if [[ "$RESOURCE_GROUP_NAME" == *"windows"*  ]]; then
-    RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"-"$WINDOWS_E2E_IMAGE"
+    RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"-"$WINDOWS_E2E_IMAGE"-v2
 fi
 
 rgStartTime=$(date +%s)
