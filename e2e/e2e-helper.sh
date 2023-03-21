@@ -76,7 +76,7 @@ download_linux_file_from_storage_account() {
         fi
         break;
     done
-    token=$(az storage container generate-sas --account-name $WINDOWS_E2E_STORAGE_ACCOUNT --account-key $account_key --permissions 'r' --expiry $expiryTime --name "tmp")
+    token=$(az storage container generate-sas --account-name $WINDOWS_E2E_STORAGE_ACCOUNT --account-key $account_key --permissions 'rl' --expiry $expiryTime --name "tmp")
     tokenWithoutQuote=${token//\"}
     linuxFileURL="https://${WINDOWS_E2E_STORAGE_ACCOUNT}.blob.core.windows.net/tmp/${MC_VMSS_NAME}-linux-file.zip?${tokenWithoutQuote}"
 
