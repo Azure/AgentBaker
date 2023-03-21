@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euxo pipefail
 
-CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-containerd}"
+CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-docker}"
 
 TEMP_IMAGE_BOM_PATH=/opt/azure/containers/temp-image-bom.json
 IMAGE_BOM_PATH=/opt/azure/containers/image-bom.json
