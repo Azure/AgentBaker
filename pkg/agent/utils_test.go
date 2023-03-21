@@ -594,6 +594,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("When cse output exitcode is missing", func() {
+		//lint:ignore lll
 		testMessage := "{ \"ExitCode\": , \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": \"39\"}"
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
