@@ -63,7 +63,7 @@ func Test_All(t *testing.T) {
 		t.Error(err)
 	}
 
-	baseConfig, err := getBaseBootstrappingConfig(ctx, t, cloud, suiteConfig, clusterParams)
+	baseConfig, err := getBaseNodeBootstrappingConfiguration(ctx, t, cloud, suiteConfig, clusterParams)
 	if err != nil {
 		t.Fatal(err)
 	}

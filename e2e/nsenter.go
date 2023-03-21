@@ -194,7 +194,7 @@ func ensurePodDeleted(ctx context.Context, kube *kubeclient, podName string) err
 	})
 }
 
-func getBaseBootstrappingConfig(ctx context.Context, t *testing.T, cloud *azureClient, suiteConfig *suiteConfig, clusterParams map[string]string) (*datamodel.NodeBootstrappingConfiguration, error) {
+func getBaseNodeBootstrappingConfiguration(ctx context.Context, t *testing.T, cloud *azureClient, suiteConfig *suiteConfig, clusterParams map[string]string) (*datamodel.NodeBootstrappingConfiguration, error) {
 	nbc := baseTemplate()
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = clusterParams["/etc/kubernetes/certs/ca.crt"]
 
