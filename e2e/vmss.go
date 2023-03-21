@@ -7,31 +7,35 @@ import (
 	"encoding/pem"
 	"fmt"
 	mrand "math/rand"
+	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"golang.org/x/crypto/ssh"
 )
 
-func createVMSSWithPayload(ctx context.Context, r *mrand.Rand, cloud *azureClient, location, name, subnetID string, customData, cseCmd string, mutator func(*armcompute.VirtualMachineScaleSet)) (sshPrivateKey []byte, e error) {
-	// Private Key generation
+const (
+	vmExtensionProvisioningErrorCode = "VMExtensionProvisioningError"
+)
+
+// Returns a newly generated RSA public/private key pair with the private key in PEM format
+func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []byte, e error) {
 	privateKey, err := rsa.GenerateKey(r, 4096)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create rsa private key: %q", err)
+		return nil, nil, fmt.Errorf("failed to create rsa private key: %q", err)
 	}
 
-	// Validate Private Key
 	err = privateKey.Validate()
 	if err != nil {
-		return nil, fmt.Errorf("failed to validate private key: %q", err)
+		return nil, nil, fmt.Errorf("failed to validate rsa private key: %q", err)
 	}
 
 	publicRsaKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert private to public key: %q", err)
+		return nil, nil, fmt.Errorf("failed to convert private to public key: %q", err)
 	}
 
-	pubKeyBytes := ssh.MarshalAuthorizedKey(publicRsaKey)
+	publicKeyBytes = ssh.MarshalAuthorizedKey(publicRsaKey)
 
 	// Get ASN.1 DER format
 	privDER := x509.MarshalPKCS1PrivateKey(privateKey)
@@ -44,9 +48,13 @@ func createVMSSWithPayload(ctx context.Context, r *mrand.Rand, cloud *azureClien
 	}
 
 	// Private key in PEM format
-	privatePEM := pem.EncodeToMemory(&privBlock)
+	privatePEMBytes = pem.EncodeToMemory(&privBlock)
 
-	model := getBaseVMSSModel(name, location, subnetID, string(pubKeyBytes), customData, cseCmd)
+	return
+}
+
+func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *azureClient, location, name, subnetID, customData, cseCmd string, mutator func(*armcompute.VirtualMachineScaleSet)) error {
+	model := getBaseVMSSModel(name, location, subnetID, string(publicKeyBytes), customData, cseCmd)
 
 	if mutator != nil {
 		mutator(&model)
@@ -60,17 +68,17 @@ func createVMSSWithPayload(ctx context.Context, r *mrand.Rand, cloud *azureClien
 		nil,
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	res, err := pollerResp.PollUntilDone(ctx, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	_ = res
 
-	return privatePEM, nil
+	return nil
 }
 
 func getBaseVMSSModel(name, location, subnetID, sshPublicKey, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
@@ -161,4 +169,8 @@ func getBaseVMSSModel(name, location, subnetID, sshPublicKey, customData, cseCmd
 			},
 		},
 	}
+}
+
+func isVMExtensionProvisioningError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), vmExtensionProvisioningErrorCode)
 }
