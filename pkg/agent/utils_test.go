@@ -566,7 +566,8 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 
 var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", func() {
 	It("When cse output format is correct", func() {
-		testMessage := "{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": \"39\"}"
+		testMessage := `{ "ExitCode": "51", "Output": "test",
+		"Error": "", "ExecDuration": "39"}`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
 		Expect(err).To(BeNil())
@@ -578,7 +579,10 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 
 	It("When cse output format is correct and contains call known fields", func() {
 		//lint:ignore lll
-		testMessage := "{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": \"39\", \"KernelStartTime\": \"kernel start time\", \"SystemdSummary\": \"systemd summary\", \"CSEStartTime\": \"cse start time\", \"GuestAgentStartTime\": \"guest agent start time\", \"BootDatapoints\": {\"dp1\": \"1\"}}"
+		testMessage := `{"ExitCode": "51", "Output": "test", "Error": "",
+		"ExecDuration": "39", "KernelStartTime": "kernel start time", 
+		"SystemdSummary": "systemd summary", "CSEStartTime": "cse start time",
+		"GuestAgentStartTime": "guest agent start time", "BootDatapoints": {"dp1": "1"}}`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
 		Expect(err).To(BeNil())
@@ -595,88 +599,88 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("When cse output exitcode is missing", func() {
-		//lint:ignore lll
-		testMessage := "{ \"ExitCode\": , \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": \"39\"}"
+		testMessage := `{ "ExitCode": , "Output": "test",
+		"Error": "", "ExecDuration": "39"}`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
 		Expect(err).NotTo(BeNil())
 	})
 
 	It("When ExecDuration is missing", func() {
-		//lint:ignore lll
-		testMessage := "{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": }"
+		testMessage := `{ "ExitCode": "51", "Output": "test",
+		"Error": "", "ExecDuration": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
 		Expect(err).ToNot(BeNil())
 	})
 
 	It("When Output is missing", func() {
-		//lint:ignore lll
-		testMessage := "{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": \"39\", \"Output\": }"
+		testMessage := `{ "ExitCode": "51", "Output": "test",
+		"Error": "", "ExecDuration": "39", "Output": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
 		Expect(err).NotTo(BeNil())
 	})
 
 	It("When Error is missing", func() {
-		//lint:ignore lll
-		testMessage := "{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": \"39\", \"Error\": }"
+		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		"Error": "", "ExecDuration": "39", "Error": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
 		Expect(err).NotTo(BeNil())
 	})
 
 	It("When KernelStartTime is missing", func() {
-		//lint:ignore lll
-		testMessage := "{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": \"39\", \"KernelStartTime\": }"
+		testMessage := `{ "ExitCode": "51", "Output": "test",
+		"Error": "", "ExecDuration": "39", "KernelStartTime": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
 		Expect(err).NotTo(BeNil())
 	})
 
 	It("When SystemdSummary is missing", func() {
-		//lint:ignore lll
-		testMessage := "{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": \"39\", \"SystemdSummary\": }"
+		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		"Error": "", "ExecDuration": "39", "SystemdSummary": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
 		Expect(err).NotTo(BeNil())
 	})
 
 	It("When CSEStartTime is missing", func() {
-		//lint:ignore lll
-		testMessage := "{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": \"39\", \"CSEStartTime\": }"
+		testMessage := `{ "ExitCode": "51", "Output": "test",
+		"Error": "", "ExecDuration": "39", "CSEStartTime": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
 		Expect(err).NotTo(BeNil())
 	})
 
 	It("When GuestAgentStartTime is missing", func() {
-		//lint:ignore lll
-		testMessage := "{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": \"39\", \"GuestAgentStartTime\": }"
+		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		"Error": "", "ExecDuration": "39", "GuestAgentStartTime": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
 		Expect(err).NotTo(BeNil())
 	})
 
 	It("When BootDatapoints is missing", func() {
-		//lint:ignore lll
-		testMessage := "{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": \"39\", \"BootDatapoints\": }"
+		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		"Error": "", "ExecDuration": "39", "BootDatapoints": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
 		Expect(err).NotTo(BeNil())
 	})
 
 	It("When BootDatapoints is malformed", func() {
-		//lint:ignore lll
-		testMessage := "{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": \"39\", \"BootDatapoints\": {datapoint:1}}"
+		testMessage := `{ "ExitCode": "51", "Output": "test",
+		"Error": "", "ExecDuration": "39", "BootDatapoints": {datapoint:1}}`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
 		Expect(err).NotTo(BeNil())
 	})
 
 	It("when ExecDuration is an integer", func() {
-		//lint:ignore lll
-		testMessage := "{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": 39}"
+		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		"Error": "", "ExecDuration": 39}`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
 		Expect(err).NotTo(BeNil())
