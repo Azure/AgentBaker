@@ -54,7 +54,7 @@ parameters:
   displayName: Build MarinerV2 Gen2
   type: boolean
   default: true
-  - name: buildMarinerV2fipsgen1
+- name: buildMarinerV2fipsgen1
   displayName: Build MarinerV2 FIPS Gen1
   type: boolean
   default: true
