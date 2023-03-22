@@ -46,7 +46,7 @@ kubectl rollout status deploy/debug
 echo "Scenario is $SCENARIO_NAME"
 jq -s '.[0] * .[1]' nodebootstrapping_config.json scenarios/$SCENARIO_NAME/property-$SCENARIO_NAME.json > scenarios/$SCENARIO_NAME/nbc-$SCENARIO_NAME.json
 
-go test -run TestE2EBasic
+go test -tags=bash_e2e -run TestE2EBasic
 
 set +x
 if [ ! -f ~/.ssh/id_rsa ]; then
