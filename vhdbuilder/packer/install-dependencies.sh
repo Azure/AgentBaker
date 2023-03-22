@@ -215,6 +215,9 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
 
+echo "Dumping nvidia driver version here"
+echo "  - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}" >> ${VHD_LOGS_FILEPATH}
+
 installBcc
 cat << EOF >> ${VHD_LOGS_FILEPATH}
   - bcc-tools
