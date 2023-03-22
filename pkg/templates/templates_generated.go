@@ -1589,7 +1589,7 @@ configGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
-    retrycmd_if_failure 120 5 60 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     
     # reload containerd/dockerd
@@ -1609,9 +1609,9 @@ validateGPUDrivers() {
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
     which nvidia-smi
     if [[ $? == 0 ]]; then
-        SMI_RESULT=$(retrycmd_if_failure 24 5 60 nvidia-smi)
+        SMI_RESULT=$(retrycmd_if_failure 24 5 300 nvidia-smi)
     else
-        SMI_RESULT=$(retrycmd_if_failure 24 5 60 $GPU_DEST/bin/nvidia-smi)
+        SMI_RESULT=$(retrycmd_if_failure 24 5 300 $GPU_DEST/bin/nvidia-smi)
     fi
     SMI_STATUS=$?
     if [[ $SMI_STATUS != 0 ]]; then
