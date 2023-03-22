@@ -450,7 +450,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen2
-    - stage: build_vhd_marinerv2_fips_gen1
+  - stage: build_vhd_marinerv2_fips_gen1
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2fipsgen1 }}', true)
     jobs:
