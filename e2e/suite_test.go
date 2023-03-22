@@ -57,8 +57,7 @@ func Test_All(t *testing.T) {
 
 	t.Logf("dumping cluster parameters to local directory: %s", clusterParamsDir)
 	if err := dumpFileMapToDir(clusterParamsDir, clusterParams); err != nil {
-		t.Log("error dumping cluster parameters")
-		t.Error(err)
+		t.Error("error dumping cluster parameters", err)
 	}
 
 	baseConfig, err := getBaseBootstrappingConfig(ctx, t, cloud, suiteConfig, clusterParams)
@@ -68,6 +67,7 @@ func Test_All(t *testing.T) {
 
 	for name, tc := range cases {
 		tc := tc
+		caseName := name
 		copied, err := deepcopy.Anything(baseConfig)
 		if err != nil {
 			t.Error(err)
@@ -79,10 +79,10 @@ func Test_All(t *testing.T) {
 			tc.bootstrapConfigMutator(t, nbc)
 		}
 
-		t.Run(name, func(t *testing.T) {
+		t.Run(caseName, func(t *testing.T) {
 			t.Parallel()
 
-			caseLogsDir, err := createVMLogsDir(name)
+			caseLogsDir, err := createVMLogsDir(caseName)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -98,59 +98,72 @@ func Test_All(t *testing.T) {
 				t.Log("deleting vmss", vmssName)
 				poller, err := cloud.vmssClient.BeginDelete(ctx, agentbakerTestResourceGroupName, vmssName, nil)
 				if err != nil {
-					t.Log("error deleting vmss", vmssName)
-					t.Error(err)
+					t.Error("error deleting vmss", vmssName, err)
 					return
 				}
 				_, err = poller.PollUntilDone(ctx, nil)
 				if err != nil {
-					t.Log("error polling deleting vmss", vmssName)
-					t.Error(err)
+					t.Error("error polling deleting vmss", vmssName, err)
 				}
 				t.Log("finished deleting vmss", vmssName)
 			}
 
 			defer cleanupVMSS()
 
-			sshPrivateKeyBytes, err := createVMSSWithPayload(ctx, r, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, tc.vmConfigMutator)
+			privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair(r)
 			if err != nil {
 				t.Error(err)
 				return
 			}
 
-			debug := func() {
-				t.Log(" extracting VM logs")
-				logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(sshPrivateKeyBytes))
+			err = createVMSSWithPayload(ctx, publicKeyBytes, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, tc.vmConfigMutator)
+			isCSEError := isVMExtensionProvisioningError(err)
+			vmssSucceeded := true
+			if err != nil {
+				vmssSucceeded = false
+				if isCSEError {
+					t.Error("VM was unable to be provisioned due to a CSE error, will still atempt to extract provisioning logs...", err)
+				} else {
+					t.Fatal("Encountered an unknown error while creating VM", err)
+				}
+			}
+
+			// Perform posthoc log extraction when the VMSS creation succeeded, or failed due to a CSE error
+			if vmssSucceeded || isCSEError {
+				debug := func() {
+					t.Log("extracting VM logs")
+
+					logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(privateKeyBytes))
+					if err != nil {
+						t.Fatal("error extracting VM logs", err)
+					}
+
+					t.Logf("dumping VM logs to local directory: %s", caseLogsDir)
+					if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
+						t.Fatal("error dumping VM logs", err)
+					}
+				}
+				defer debug()
+			}
+
+			// Only perform node readiness/pod-related checks when VMSS creation succeeded
+			if vmssSucceeded {
+				t.Log("VMSS creation succeded, proceeding with node readiness and pod checks...")
+
+				nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
 				if err != nil {
-					t.Log("error extracting VM logs")
-					t.Error(err)
+					t.Fatal("error waiting for node ready", err)
 				}
 
-				t.Logf("dumping VM logs to local directory: %s", caseLogsDir)
-				if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
-					t.Log("error dumping VM logs")
-					t.Error(err)
+				err = ensureTestNginxPod(ctx, kube, nodeName)
+				if err != nil {
+					t.Fatal("error waiting for pod ready", err)
 				}
-			}
-			defer debug()
 
-			nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
-			if err != nil {
-				t.Log("error waiting for node ready")
-				t.Fatal(err)
-				return
-			}
-
-			err = ensureTestNginxPod(ctx, kube, nodeName)
-			if err != nil {
-				t.Log("error waiting for pod ready")
-				t.Fatal(err)
-			}
-
-			err = ensurePodDeleted(ctx, kube, nodeName)
-			if err != nil {
-				t.Log("error waiting for pod deleted")
-				t.Error(err)
+				err = ensurePodDeleted(ctx, kube, nodeName)
+				if err != nil {
+					t.Fatal("error waiting for pod deleted", err)
+				}
 			}
 		})
 	}
