@@ -44,9 +44,9 @@ upload_linux_file_to_storage_account() {
     
     set -x
     if [ "$retval" -eq 0 ]; then
-        log "upload linux file successfully"
+        log "Upload linux file successfully"
     else
-        err "failed to upload linux file"
+        err "Failed to upload linux file. Error code is $retval."
     fi
 }
 
@@ -86,7 +86,7 @@ download_linux_file_from_storage_account() {
     for i in $(seq 1 20); do
         listResult=$(${array[0]}/azcopy list $linuxFileURL --running-tally)
         if [[ "$listResult" == *"$noExistStr"* ]]; then
-            log "linux file has not been uploaded, waiting..."
+            log "Linux file has not been uploaded, waiting..."
             sleep 10
             continue
         fi

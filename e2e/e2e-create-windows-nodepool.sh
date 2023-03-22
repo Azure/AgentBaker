@@ -35,6 +35,6 @@ provisioning_state=$(az aks nodepool show --cluster-name $CLUSTER_NAME -g $RESOU
 if [ "$provisioning_state" == "Succeeded" ]; then
     log "Windows nodepool is in succeed state"
 else
-    err "Windows nodepool is not in succeeded state"
+    err "Windows nodepool is not in succeeded state. Current state is $provisioning_state."
     exit 1
 fi

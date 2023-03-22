@@ -24,7 +24,7 @@ collect-logs() {
         --scripts @upload-cse-logs.ps1 \
         --parameters arg1=$STORAGE_ACCOUNT_NAME arg2=$STORAGE_LOG_CONTAINER arg3=$DEPLOYMENT_VMSS_NAME arg4=$token || retval=$?
     if [ "$retval" -ne 0 ]; then
-        err "failed in uploading cse logs"
+        err "Failed in uploading cse logs. Error code is $retval."
     fi
 
     tokenWithoutQuote=${token//\"}
@@ -32,12 +32,12 @@ collect-logs() {
     array=(azcopy_*)
     ${array[0]}/azcopy copy "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE-CustomDataSetupScript.log || retval=$?
     if [ "$retval" -ne 0 ]; then
-        err "failed in downloading cse logs"
+        err "Failed in downloading cse logs. Error code is $retval."
     else
-        echo "collect cse logs done"
+        log "Collect cse logs done"
         ${array[0]}/azcopy rm "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" || retval=$?
         if [ "$retval" -ne 0 ]; then
-            err "failed in deleting cse logs in remote storage"
+            err "Failed in deleting cse logs in remote storage. Error code is $retval."
         fi
     fi
     set -x
@@ -56,7 +56,7 @@ tar -xvf downloadazcopy-v10-linux
 timeStamp=$(date +%s)
 cd ../staging/cse/windows
 zip -r ../../../$WINDOWS_E2E_IMAGE/$WINDOWS_E2E_IMAGE-aks-windows-cse-scripts.zip ./* -x ./*.tests.ps1 -x "*azurecnifunc.tests.suites*" -x README -x provisioningscripts/*.md -x debug/update-scripts.ps1
-echo "zip cse packages done"
+log "Zip cse packages done"
 
 set +x
 expiryTime=$(date --date="2 day" +%Y-%m-%d)
@@ -74,7 +74,7 @@ listResult=$(${array[0]}/azcopy list $csePackageURL --running-tally)
 
 for i in $(seq 1 10); do
     if [[ "$listResult" != *"$noExistStr"* ]]; then
-        echo "Cse package with the same exists, retry $i to use new name..."
+        log "Cse package with the same exists, retry $i to use new name..."
         timeStamp=$(date +%s)
         csePackageURL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
         listResult=$(${array[0]}/azcopy list $csePackageURL --running-tally)
@@ -88,13 +88,13 @@ set -x
 
 listResult=$(${array[0]}/azcopy list $csePackageURL --running-tally)
 if [[ "$listResult" == *"$noExistStr"* ]]; then
-    err "failed to upload cse package"
+    err "Failed to upload cse package"
     exit 1
 fi
 
-echo "upload cse packages done"
+log "Upload cse packages done"
 
-echo "Scenario is $SCENARIO_NAME"
+log "Scenario is $SCENARIO_NAME"
 envsubst < scenarios/$SCENARIO_NAME/property-$SCENARIO_NAME-template.json > scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-property-$SCENARIO_NAME.json
 
 set +x
@@ -169,7 +169,7 @@ az deployment group create --resource-group $MC_RESOURCE_GROUP_NAME \
 set -e
 
 if [ "$retval" -ne 0 ]; then
-    err "failed to deploy windows vmss"
+    err "Failed to deploy windows vmss. Error code is $retval."
     exit 1
 fi
 
@@ -177,9 +177,9 @@ fi
 ${array[0]}/azcopy rm $csePackageURL || retval=$?
 
 if [ "$retval" -ne 0 ]; then
-    err "failed to delete cse package in storage account"
+    err "Failed to delete cse package in storage account. Error code is $retval."
 else
-    echo "delete cse package in storage account done"
+    log "Delete cse package in storage account done"
 fi
 
 log "Collect cse log"
@@ -203,7 +203,7 @@ for i in $(seq 1 10); do
     # pipefail interferes with conditional.
     # shellcheck disable=SC2143
     if [ -z "$(kubectl get nodes | grep $VMSS_INSTANCE_NAME | grep -v "NotReady")" ]; then
-        log "retrying attempt $i"
+        log "Retrying attempt $i"
         sleep 10
         continue
     fi
@@ -244,7 +244,7 @@ for i in $(seq 1 20); do
     retval=$?
     set -e
     if [ "$retval" -ne 0 ]; then
-        log "retrying attempt $i"
+        log "Retrying attempt $i"
         sleep 15
         continue
     fi
@@ -256,7 +256,7 @@ log "Waited $((waitForPodEndTime-waitForPodStartTime)) seconds for pod to come u
 if [ "$retval" -eq 0 ]; then
     ok "Pod ran successfully"
 else
-    err "Pod pending/not running"
+    err "Pod pending/not running. Error code is $retval."
     kubectl get pods -o wide | grep $POD_NAME
     kubectl describe pod $POD_NAME
     exit 1

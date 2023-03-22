@@ -41,7 +41,7 @@ if [ -n "$out" ]; then
         if [ "$provisioning_state" == "Succeeded" ]; then
             log "Cluster created by other pipeline successfully"
         else
-            err "Other pipeline failed to create the cluster"
+            err "Other pipeline failed to create the cluster. Current state of cluster is $provisioning_state."
             exit 1
         fi
     fi
@@ -69,7 +69,7 @@ if [ "$create_cluster" == "true" ]; then
     if [ "$provisioning_state" == "Succeeded" ]; then
         log "Created cluster successfully"
     else
-        err "Failed to create cluster"
+        err "Failed to create cluster. Current state is $provisioning_state."
         exit 1
     fi
     clusterCreateEndTime=$(date +%s)
