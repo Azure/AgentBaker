@@ -131,3 +131,34 @@ enableMarinerKata() {
     # dracut to generate an initrd for the nested VM using binaries from the Mariner host OS.
     systemctlEnableAndStart kata-osbuilder-generate
 }
+
+installFIPS() {
+
+    echo "Installing FIPS..."
+
+    # Install necessary rpm pacakages
+    if ! rpm -q --quiet "grubby" ; then
+        dnf install -y "grubby"
+    fi
+
+    if ! rpm -q --quiet "dracut-fips" ; then
+        dnf install -y "dracut-fips"
+    fi
+
+
+    # Add the boot= cmd line parameter if the boot dir is not the same as the main dir
+    boot_dev="$(df /boot/ | tail -1 | cut -d' ' -f1)"
+    root_dev="$(df / | tail -1 | cut -d' ' -f1)"
+    if [ ! "$root_dev" == "$boot_dev" ]; then
+        boot_uuid="UUID=$(blkid $boot_dev -s UUID -o value)"
+        
+        # Enable FIPS mode and modify boot directory
+        if grub2-editenv - list | grep -q kernelopts;then
+                grub2-editenv - set "$(grub2-editenv - list | grep kernelopts) fips=1 boot=$boot_uuid"
+        else
+                grubby --update-kernel=ALL --args="fips=1 boot=$boot_uuid"
+        fi
+    fi
+
+
+}
