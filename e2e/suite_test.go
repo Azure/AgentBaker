@@ -57,8 +57,7 @@ func Test_All(t *testing.T) {
 
 	t.Logf("dumping cluster parameters to local directory: %s", clusterParamsDir)
 	if err := dumpFileMapToDir(clusterParamsDir, clusterParams); err != nil {
-		t.Log("error dumping cluster parameters")
-		t.Error(err)
+		t.Error("error dumping cluster parameters", err)
 	}
 
 	baseConfig, err := getBaseBootstrappingConfig(ctx, t, cloud, suiteConfig, clusterParams)
@@ -99,14 +98,12 @@ func Test_All(t *testing.T) {
 				t.Log("deleting vmss", vmssName)
 				poller, err := cloud.vmssClient.BeginDelete(ctx, agentbakerTestResourceGroupName, vmssName, nil)
 				if err != nil {
-					t.Log("error deleting vmss", vmssName)
-					t.Error(err)
+					t.Error("error deleting vmss", vmssName, err)
 					return
 				}
 				_, err = poller.PollUntilDone(ctx, nil)
 				if err != nil {
-					t.Log("error polling deleting vmss", vmssName)
-					t.Error(err)
+					t.Error("error polling deleting vmss", vmssName, err)
 				}
 				t.Log("finished deleting vmss", vmssName)
 			}
@@ -125,28 +122,25 @@ func Test_All(t *testing.T) {
 			if err != nil {
 				vmssSucceeded = false
 				if isCSEError {
-					t.Error(err)
-					t.Logf("VM was unable to be provisioned due to a CSE error, will still attempt to extract provisioning logs...")
+					t.Error("VM was unable to be provisioned due to a CSE error, will still atempt to extract provisioning logs...", err)
 				} else {
-					t.Error(err)
-					return
+					t.Fatal("Encountered an unknown error while creating VM", err)
 				}
 			}
 
 			// Perform posthoc log extraction when the VMSS creation succeeded, or failed due to a CSE error
 			if vmssSucceeded || isCSEError {
 				debug := func() {
-					t.Log(" extracting VM logs")
+					t.Log("extracting VM logs")
+
 					logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(privateKeyBytes))
 					if err != nil {
-						t.Log("error extracting VM logs")
-						t.Error(err)
+						t.Fatal("error extracting VM logs", err)
 					}
 
 					t.Logf("dumping VM logs to local directory: %s", caseLogsDir)
 					if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
-						t.Log("error dumping VM logs")
-						t.Error(err)
+						t.Fatal("error dumping VM logs", err)
 					}
 				}
 				defer debug()
@@ -158,21 +152,17 @@ func Test_All(t *testing.T) {
 
 				nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
 				if err != nil {
-					t.Log("error waiting for node ready")
-					t.Fatal(err)
-					return
+					t.Fatal("error waiting for node ready", err)
 				}
 
 				err = ensureTestNginxPod(ctx, kube, nodeName)
 				if err != nil {
-					t.Log("error waiting for pod ready")
-					t.Fatal(err)
+					t.Fatal("error waiting for pod ready", err)
 				}
 
 				err = ensurePodDeleted(ctx, kube, nodeName)
 				if err != nil {
-					t.Log("error waiting for pod deleted")
-					t.Error(err)
+					t.Fatal("error waiting for pod deleted", err)
 				}
 			}
 		})

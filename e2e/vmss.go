@@ -71,12 +71,10 @@ func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *az
 		return err
 	}
 
-	res, err := pollerResp.PollUntilDone(ctx, nil)
+	_, err = pollerResp.PollUntilDone(ctx, nil)
 	if err != nil {
 		return err
 	}
-
-	_ = res
 
 	return nil
 }
