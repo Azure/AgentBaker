@@ -1,5 +1,7 @@
 # Agentbaker
 
+[![Coverage Status](https://coveralls.io/repos/github/Azure/AgentBaker/badge.svg?branch=master)](https://coveralls.io/github/Azure/AgentBaker?branch=master)
+
 Agentbaker is a collection of components used to provision Kubernetes nodes in Azure.
 
 Agentbaker has a few pieces
@@ -17,11 +19,29 @@ Developing agentbaker requires a few basic requisites:
 - Go (at least version 1.19)
 - Make
 
+Run `make -C hack/tools install` to install all development tools.
+
 If you change code or artifacts used to generate custom data or custom script extension payloads, you should run `make`.
 
 This re-runs code to embed static files in Go code, which is what will actually be used at runtime.
 
 This additionally runs unit tests (equivalent of `go test ./...`) and regenerates snapshot testdata.
+
+## Style
+
+We use [golangci-lint](https://golangci-lint.run/) to enforce style.
+
+Run `make -C hack/tools install` to install the linter.
+
+Run `./hack/tools/bin/golangci-lint run` to run the linter.
+
+We currently have many failures we hope to eliminate.
+
+We have [job to run golangci-lint on pull requests]().
+
+This job uses the linters "no-new-issues" feature.
+
+As long as PRs don't introduce net new issues, they should pass.
 
 ## Testing
 
