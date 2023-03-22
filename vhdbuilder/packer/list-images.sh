@@ -23,7 +23,7 @@ function generate_image_bom_for_containerd() {
 
     IFS=$IFS_backup
     bom="$(jq --slurpfile images $TEMP_IMAGE_BOM_PATH -n '$images | group_by(.id) | map({id:.[0].id, repoTags:[.[].repoTags] | add | unique, repoDigests:[.[].repoDigests] | add | unique})')"
-    jq --arg bom "$bom" --arg version "$IMAGE_VERSION" -n '{imageVersion:$version, imageBom:$bom}' > $IMAGE_BOM_PATH
+    jq --argjson bom "$bom" --arg version "$IMAGE_VERSION" -n '{imageVersion:$version, imageBom:$bom}' > $IMAGE_BOM_PATH
     rm -f $TEMP_IMAGE_BOM_PATH
 }
 
