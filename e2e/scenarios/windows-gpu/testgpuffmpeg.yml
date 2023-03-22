@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gputest
+spec:
+  template:
+    spec:
+      nodeSelector:
+        "kubernetes.io/os": windows
+      containers:
+      - name: ffmpeg-test
+        image: ------
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - mountPath: C:\Windows\System32\HostDriverStore
+          name: hostdriverstore
+      restartPolicy: OnFailure
+      volumes:
+      - name: hostdriverstore
+        hostPath:
+          path: C:\Windows\System32\DriverStore
