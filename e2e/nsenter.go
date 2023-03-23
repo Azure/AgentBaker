@@ -173,11 +173,11 @@ func ensureTestNginxPod(ctx context.Context, kube *kubeclient, nodeName string) 
 		return fmt.Errorf("failed to apply nginx test pod: %q", err)
 	}
 
-	return nil
+	return waitUntilPodRunning(ctx, kube, nodeName)
 }
 
 func waitUntilPodRunning(ctx context.Context, kube *kubeclient, podName string) error {
-	return wait.PollImmediateUntilWithContext(ctx, 5*time.Second, func(ctx context.Context) (bool, error) {
+	return wait.PollImmediateWithContext(ctx, 5*time.Second, 3*time.Minute, func(ctx context.Context) (bool, error) {
 		pod, err := kube.typed.CoreV1().Pods(defaultNamespace).Get(ctx, podName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
@@ -187,8 +187,8 @@ func waitUntilPodRunning(ctx context.Context, kube *kubeclient, podName string) 
 	})
 }
 
-func ensurePodDeleted(ctx context.Context, kube *kubeclient, podName string) error {
-	return wait.PollImmediateWithContext(ctx, 5*time.Second, 1*time.Minute, func(ctx context.Context) (bool, error) {
+func waitUntilPodDeleted(ctx context.Context, kube *kubeclient, podName string) error {
+	return wait.PollImmediateWithContext(ctx, 5*time.Second, 3*time.Minute, func(ctx context.Context) (bool, error) {
 		err := kube.typed.CoreV1().Pods(defaultNamespace).Delete(ctx, podName, metav1.DeleteOptions{})
 		return err == nil, err
 	})

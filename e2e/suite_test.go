@@ -175,7 +175,7 @@ func Test_All(t *testing.T) {
 					t.Fatal("error waiting for pod ready", err)
 				}
 
-				err = ensurePodDeleted(ctx, kube, nodeName)
+				err = waitUntilPodDeleted(ctx, kube, nodeName)
 				if err != nil {
 					t.Fatal("error waiting for pod deleted", err)
 				}
