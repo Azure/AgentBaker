@@ -261,7 +261,7 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 
 func checkStdErr(stderr *bytes.Buffer, t *testing.T) {
 	stderrString := stderr.String()
-	if stderrString != "" {
+	if stderrString != "" && stderrString != "<nil>" {
 		t.Logf("%s\n%s\n%s\n%s",
 			"stderr is non-empty after executing last command:",
 			"----------------------------------- begin stderr -----------------------------------",

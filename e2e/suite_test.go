@@ -46,7 +46,15 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	clusterParams, err := extractClusterParameters(ctx, t, kube)
+	var clusterParams map[string]string
+	err = doWithRetry(func() error {
+		params, err := extractClusterParameters(ctx, t, kube)
+		if err != nil {
+			return err
+		}
+		clusterParams = params
+		return nil
+	}, 10, 15*time.Second, t)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,16 +139,23 @@ func Test_All(t *testing.T) {
 			// Perform posthoc log extraction when the VMSS creation succeeded, or failed due to a CSE error
 			if vmssSucceeded || isCSEError {
 				debug := func() {
-					t.Log("extracting VM logs")
+					err := doWithRetry(func() error {
+						t.Log("attempting to extract VM logs")
 
-					logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(privateKeyBytes))
+						logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(privateKeyBytes))
+						if err != nil {
+							return fmt.Errorf("error extracting VM logs: %q", err)
+						}
+
+						t.Logf("dumping VM logs to local directory: %s", caseLogsDir)
+						if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
+							return fmt.Errorf("error dumping VM logs: %q", err)
+						}
+
+						return nil
+					}, 10, 15*time.Second, t)
 					if err != nil {
-						t.Fatal("error extracting VM logs", err)
-					}
-
-					t.Logf("dumping VM logs to local directory: %s", caseLogsDir)
-					if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
-						t.Fatal("error dumping VM logs", err)
+						t.Fatal(err)
 					}
 				}
 				defer debug()
