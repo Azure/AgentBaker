@@ -39,6 +39,9 @@ stages:
   - template: ./templates/e2e-windows-template.yaml
     parameters:
       windowsImage: 2019-containerd
+      windowsOSSKU: Windows2019
+      windowsVMSize: Standard_D2s_v3
+      storageAccount: akswinstore2019
 
 - stage: test_2022_containerd
   dependsOn: []
@@ -47,6 +50,9 @@ stages:
   - template: ./templates/e2e-windows-template.yaml
     parameters:
       windowsImage: 2022-containerd
+      windowsOSSKU: Windows2022
+      windowsVMSize: Standard_D2_v2
+      storageAccount: akswinstore2022
 
 - stage: test_2022_containerd_gen2
   dependsOn: []
@@ -55,3 +61,6 @@ stages:
   - template: ./templates/e2e-windows-template.yaml
     parameters:
       windowsImage: 2022-containerd-gen2
+      windowsOSSKU: Windows2022
+      windowsVMSize: Standard_DS2_v2
+      storageAccount: akswinstore2022gen2

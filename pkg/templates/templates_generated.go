@@ -1589,7 +1589,7 @@ configGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
-    retrycmd_if_failure 120 5 60 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     
     # reload containerd/dockerd
@@ -1609,9 +1609,9 @@ validateGPUDrivers() {
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
     which nvidia-smi
     if [[ $? == 0 ]]; then
-        SMI_RESULT=$(retrycmd_if_failure 24 5 60 nvidia-smi)
+        SMI_RESULT=$(retrycmd_if_failure 24 5 300 nvidia-smi)
     else
-        SMI_RESULT=$(retrycmd_if_failure 24 5 60 $GPU_DEST/bin/nvidia-smi)
+        SMI_RESULT=$(retrycmd_if_failure 24 5 300 $GPU_DEST/bin/nvidia-smi)
     fi
     SMI_STATUS=$?
     if [[ $SMI_STATUS != 0 ]]; then
@@ -5576,6 +5576,7 @@ installDeps() {
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
+    BLOBFUSE2_VERSION="2.0.2"
 
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
@@ -5586,7 +5587,7 @@ installDeps() {
         # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
         # for 22.04, fuse3 is installed. for all others, fuse is installed
         # for 16.04, installed blobfuse1.3.7, for all others except 22.04, installed blobfuse1.4.5
-        pkg_list+=(blobfuse2)
+        pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
         if [[ "${OSVERSION}" == "22.04" ]]; then
             pkg_list+=(fuse3)
         else
