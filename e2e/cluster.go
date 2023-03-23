@@ -23,7 +23,7 @@ func setupCluster(ctx context.Context, cloud *azureClient, location, resourceGro
 			ctx,
 			resourceGroupName,
 			armresources.ResourceGroup{
-				Location: to.Ptr("eastus"),
+				Location: to.Ptr(e2eTestLocation),
 				Name:     to.Ptr(resourceGroupName),
 			},
 			nil)
