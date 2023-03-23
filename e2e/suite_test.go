@@ -96,7 +96,7 @@ func Test_All(t *testing.T) {
 
 			cleanupVMSS := func() {
 				t.Log("deleting vmss", vmssName)
-				poller, err := cloud.vmssClient.BeginDelete(ctx, agentbakerTestResourceGroupName, vmssName, nil)
+				poller, err := cloud.vmssClient.BeginDelete(ctx, agentbakerTestClusterMCResourceGroupName, vmssName, nil)
 				if err != nil {
 					t.Error("error deleting vmss", vmssName, err)
 					return

@@ -33,7 +33,7 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, ku
 	pl := cloud.coreClient.Pipeline()
 	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
 		subscription,
-		agentbakerTestResourceGroupName,
+		agentbakerTestClusterMCResourceGroupName,
 		vmssName,
 		0,
 	)
