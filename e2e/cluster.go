@@ -12,12 +12,41 @@ import (
 func setupCluster(ctx context.Context, cloud *azureClient, location, resourceGroupName, clusterName string) error {
 	var needNewCluster bool
 
-	rgExistence, err := cloud.resourceGroupClient.CheckExistence(ctx, resourceGroupName, nil)
+	testRgExistence, err := cloud.resourceGroupClient.CheckExistence(ctx, resourceGroupName, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get AB E2E RG %q: %q", resourceGroupName, err)
 	}
 
-	if !rgExistence.Success {
+	if testRgExistence.Success {
+		aksCluster, err := cloud.aksClient.Get(ctx, resourceGroupName, clusterName, nil)
+		if err != nil {
+			if !isResourceNotFoundError(err) {
+				return fmt.Errorf("failed to get aks cluster %q: %q", clusterName, err)
+			}
+			needNewCluster = true
+		}
+
+		// We only need to check the MC resource group + cluster properties if the cluster resource itself exists
+		if !needNewCluster {
+			mcRgExistence, err := cloud.resourceGroupClient.CheckExistence(ctx, agentbakerTestClusterMCResourceGroupName, nil)
+			if err != nil {
+				return fmt.Errorf("failed to get test cluster MC RG %q: %q", agentbakerTestClusterMCResourceGroupName, err)
+			}
+
+			if !mcRgExistence.Success || aksCluster.Properties == nil || aksCluster.Properties.ProvisioningState == nil || *aksCluster.Properties.ProvisioningState == "Failed" {
+				needNewCluster = true
+				poller, err := cloud.aksClient.BeginDelete(ctx, resourceGroupName, clusterName, nil)
+				if err != nil {
+					return fmt.Errorf("failed to start aks cluster %q deletion: %q", clusterName, err)
+				}
+
+				_, err = poller.PollUntilDone(ctx, nil)
+				if err != nil {
+					return fmt.Errorf("failed to wait for aks cluster %q deletion: %q", clusterName, err)
+				}
+			}
+		}
+	} else {
 		needNewCluster = true
 		_, err := cloud.resourceGroupClient.CreateOrUpdate(
 			ctx,
@@ -30,36 +59,6 @@ func setupCluster(ctx context.Context, cloud *azureClient, location, resourceGro
 
 		if err != nil {
 			return fmt.Errorf("failed to create AB E2E RG %q: %q", resourceGroupName, err)
-		}
-	}
-
-	if !needNewCluster {
-		aksCluster, err := cloud.aksClient.Get(ctx, resourceGroupName, clusterName, nil)
-		if err != nil {
-			if !isResourceNotFoundError(err) {
-				return fmt.Errorf("failed to get aks cluster %q: %q", clusterName, err)
-			}
-			needNewCluster = true
-		}
-
-		if !needNewCluster {
-			rgExistence, err := cloud.resourceGroupClient.CheckExistence(ctx, agentbakerTestClusterMCResourceGroupName, nil)
-			if err != nil {
-				return fmt.Errorf("failed to get test cluster MC RG %q: %q", agentbakerTestClusterMCResourceGroupName, err)
-			}
-
-			if !rgExistence.Success || aksCluster.Properties == nil || aksCluster.Properties.ProvisioningState == nil || *aksCluster.Properties.ProvisioningState == "Failed" {
-				needNewCluster = true
-				poller, err := cloud.aksClient.BeginDelete(ctx, resourceGroupName, clusterName, nil)
-				if err != nil {
-					return fmt.Errorf("failed to start aks cluster %q deletion: %q", clusterName, err)
-				}
-
-				_, err = poller.PollUntilDone(ctx, nil)
-				if err != nil {
-					return fmt.Errorf("failed to wait for aks cluster %q deletion: %q", clusterName, err)
-				}
-			}
 		}
 	}
 

@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/barkimedes/go-deepcopy"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func Test_All(t *testing.T) {
@@ -47,14 +48,15 @@ func Test_All(t *testing.T) {
 	}
 
 	var clusterParams map[string]string
-	err = doWithRetry(func() error {
+	err = wait.PollImmediateWithContext(ctx, 15*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
 		params, err := extractClusterParameters(ctx, t, kube)
 		if err != nil {
-			return err
+			t.Logf("error extracting cluster parameters: %q", err)
+			return false, nil
 		}
 		clusterParams = params
-		return nil
-	}, 10, 15*time.Second, t)
+		return true, nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,21 +141,23 @@ func Test_All(t *testing.T) {
 			// Perform posthoc log extraction when the VMSS creation succeeded, or failed due to a CSE error
 			if vmssSucceeded || isCSEError {
 				debug := func() {
-					err := doWithRetry(func() error {
+					err := wait.PollImmediateWithContext(ctx, 15*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
 						t.Log("attempting to extract VM logs")
 
 						logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(privateKeyBytes))
 						if err != nil {
-							return fmt.Errorf("error extracting VM logs: %q", err)
+							t.Logf("error extracting VM logs: %q", err)
+							return false, nil
 						}
 
 						t.Logf("dumping VM logs to local directory: %s", caseLogsDir)
 						if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
-							return fmt.Errorf("error dumping VM logs: %q", err)
+							t.Logf("error extracting VM logs: %q", err)
+							return false, nil
 						}
 
-						return nil
-					}, 10, 15*time.Second, t)
+						return true, nil
+					})
 					if err != nil {
 						t.Fatal(err)
 					}
