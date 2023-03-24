@@ -161,4 +161,13 @@ installFIPS() {
     fi
 
 
+    echo "Versionlock related packages"
+    
+    if ! rpm -q --quiet "python3-dnf-plugin-versionlock" ; then
+        dnf install -y "python3-dnf-plugin-versionlock"
+    fi
+
+    dnf versionlock openssl-0:1.1.1k-21.cm2.x86_64  
+    dnf versionlock kernel-0:5.15.94.1-1.cm2.x86_64  
+    
 }
