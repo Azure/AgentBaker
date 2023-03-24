@@ -74,7 +74,7 @@ func setupCluster(ctx context.Context, cloud *azureClient, location, resourceGro
 					AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
 						{
 							Name:         to.Ptr("nodepool1"),
-							Count:        to.Ptr[int32](1),
+							Count:        to.Ptr[int32](2),
 							VMSize:       to.Ptr("Standard_DS2_v2"),
 							MaxPods:      to.Ptr[int32](110),
 							OSType:       to.Ptr(armcontainerservice.OSTypeLinux),
