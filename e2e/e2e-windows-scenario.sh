@@ -15,36 +15,35 @@ collect-logs() {
     VMSS_INSTANCE_ID="$(az vmss list-instances --name $DEPLOYMENT_VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
     set +x
     expiryTime=$(date --date="2 day" +%Y-%m-%d)
-    token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwacdl' --expiry $expiryTime --name $STORAGE_LOG_CONTAINER --https-only)
+    token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'w' --expiry $expiryTime --name $STORAGE_LOG_CONTAINER --https-only)
     # Use .ps1 file to run scripts since single quotes of parameters for --scripts would fail in check-shell
     az vmss run-command invoke --command-id RunPowerShellScript \
         --resource-group $MC_RESOURCE_GROUP_NAME \
         --name $DEPLOYMENT_VMSS_NAME \
         --instance-id $VMSS_INSTANCE_ID \
         --scripts @upload-cse-logs.ps1 \
-        --parameters arg1=$STORAGE_ACCOUNT_NAME arg2=$STORAGE_LOG_CONTAINER arg3=$DEPLOYMENT_VMSS_NAME arg4=$token
-    if [ "$retval" != "0" ]; then
-        echo "failed in uploading cse logs"
+        --parameters arg1=$STORAGE_ACCOUNT_NAME arg2=$STORAGE_LOG_CONTAINER arg3=$DEPLOYMENT_VMSS_NAME arg4=$token || retval=$?
+    if [ "$retval" -ne 0 ]; then
+        err "Failed in uploading cse logs. Error code is $retval."
     fi
 
     tokenWithoutQuote=${token//\"}
     # use array to pass shellcheck
     array=(azcopy_*)
-    ${array[0]}/azcopy copy "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" $SCENARIO_NAME-logs/CustomDataSetupScript.log
-    if [ "$retval" != "0" ]; then
-        echo "failed in downloading cse logs"
+    ${array[0]}/azcopy copy "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE-CustomDataSetupScript.log || retval=$?
+    if [ "$retval" -ne 0 ]; then
+        err "Failed in downloading cse logs. Error code is $retval."
     else
-        ${array[0]}/azcopy rm "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}"
-        if [ "$retval" != "0" ]; then
-            echo "failed in deleting cse logs in remote storage"
+        log "Collect cse logs done"
+        ${array[0]}/azcopy rm "https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" || retval=$?
+        if [ "$retval" -ne 0 ]; then
+            err "Failed in deleting cse logs in remote storage. Error code is $retval."
         fi
     fi
     set -x
-
-    echo "collect cse logs done"
 }
 
-RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"-"$WINDOWS_E2E_IMAGE"
+RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"-"$WINDOWS_E2E_IMAGE"-v2
 
 DEPLOYMENT_VMSS_NAME="$(mktemp -u winXXXXX | tr '[:upper:]' '[:lower:]')"
 export DEPLOYMENT_VMSS_NAME
@@ -56,18 +55,18 @@ tar -xvf downloadazcopy-v10-linux
 # zip and upload cse package
 timeStamp=$(date +%s)
 cd ../staging/cse/windows
-zip -r ../../../e2e/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip ./* -x ./*.tests.ps1 -x "*azurecnifunc.tests.suites*" -x README -x provisioningscripts/*.md -x debug/update-scripts.ps1
-echo "zip cse packages done"
+zip -r ../../../$WINDOWS_E2E_IMAGE/$WINDOWS_E2E_IMAGE-aks-windows-cse-scripts.zip ./* -x ./*.tests.ps1 -x "*azurecnifunc.tests.suites*" -x README -x provisioningscripts/*.md -x debug/update-scripts.ps1
+log "Zip cse packages done"
 
 set +x
 expiryTime=$(date --date="2 day" +%Y-%m-%d)
-token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwacdl' --expiry $expiryTime --name $STORAGE_PACKAGE_CONTAINER)
+token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwl' --expiry $expiryTime --name $STORAGE_PACKAGE_CONTAINER)
 tokenWithoutQuote=${token//\"}
 
 csePackageURL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
 export csePackageURL
 
-cd ../../../e2e
+cd ../../../$WINDOWS_E2E_IMAGE
 
 array=(azcopy_*)
 noExistStr="File count: 0"
@@ -75,12 +74,13 @@ listResult=$(${array[0]}/azcopy list $csePackageURL --running-tally)
 
 for i in $(seq 1 10); do
     if [[ "$listResult" != *"$noExistStr"* ]]; then
-        echo "Cse package with the same exists, retry $i to use new name..."
+        log "Cse package with the same exists, retry $i to use new name..."
         timeStamp=$(date +%s)
+        csePackageURL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
         listResult=$(${array[0]}/azcopy list $csePackageURL --running-tally)
         continue
     fi
-    ${array[0]}/azcopy copy ${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip $csePackageURL
+    ${array[0]}/azcopy copy $WINDOWS_E2E_IMAGE-aks-windows-cse-scripts.zip $csePackageURL
     break;
 done
 
@@ -88,22 +88,24 @@ set -x
 
 listResult=$(${array[0]}/azcopy list $csePackageURL --running-tally)
 if [[ "$listResult" == *"$noExistStr"* ]]; then
-    err "failed to upload cse package"
+    err "Failed to upload cse package"
     exit 1
 fi
 
-echo "upload cse packages done"
+log "Upload cse packages done"
 
-envsubst < scenarios/$SCENARIO_NAME/property-$SCENARIO_NAME-template.json > scenarios/$SCENARIO_NAME/property-$SCENARIO_NAME.json
+log "Scenario is $SCENARIO_NAME"
+envsubst < scenarios/$SCENARIO_NAME/property-$SCENARIO_NAME-template.json > scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-property-$SCENARIO_NAME.json
 
 set +x
 WINDOWS_PASSWORD=$({
     choose '0123456789'
     choose 'abcdefghijklmnopqrstuvwxyz'
     choose 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    choose '#@'
     for i in $(seq 1 16)
     do
-        choose '#*0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        choose '#@0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
     done
 } | sort -R | awk '{printf "%s", $1}')
 set -x
@@ -115,7 +117,6 @@ KUBECONFIG=$(pwd)/kubeconfig
 export KUBECONFIG
 
 clientCertificate=$(grep "client-certificate-data" $KUBECONFIG | awk '{print $2}')
-kubectl rollout status deploy/debug
 
 tee $SCENARIO_NAME-vmss.json > /dev/null <<EOF
 {
@@ -124,9 +125,8 @@ tee $SCENARIO_NAME-vmss.json > /dev/null <<EOF
 }
 EOF
 
-echo "Scenario is $SCENARIO_NAME"
-jq --arg clientCrt "$clientCertificate" --arg vmssName $DEPLOYMENT_VMSS_NAME 'del(.KubeletConfig."--pod-manifest-path") | del(.KubeletConfig."--pod-max-pids") | del(.KubeletConfig."--protect-kernel-defaults") | del(.KubeletConfig."--tls-cert-file") | del(.KubeletConfig."--tls-private-key-file") | .ContainerService.properties.certificateProfile += {"clientCertificate": $clientCrt} | .PrimaryScaleSetName=$vmssName' nodebootstrapping_config.json > nodebootstrapping_config_for_windows.json
-jq -s '.[0] * .[1]' nodebootstrapping_config_for_windows.json scenarios/$SCENARIO_NAME/property-$SCENARIO_NAME.json > scenarios/$SCENARIO_NAME/nbc-$SCENARIO_NAME.json
+jq --arg clientCrt "$clientCertificate" --arg vmssName $DEPLOYMENT_VMSS_NAME 'del(.KubeletConfig."--pod-manifest-path") | del(.KubeletConfig."--pod-max-pids") | del(.KubeletConfig."--protect-kernel-defaults") | del(.KubeletConfig."--tls-cert-file") | del(.KubeletConfig."--tls-private-key-file") | .ContainerService.properties.certificateProfile += {"clientCertificate": $clientCrt} | .PrimaryScaleSetName=$vmssName' nodebootstrapping_config.json > $WINDOWS_E2E_IMAGE-nodebootstrapping_config_for_windows.json
+jq -s '.[0] * .[1]' $WINDOWS_E2E_IMAGE-nodebootstrapping_config_for_windows.json scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-property-$SCENARIO_NAME.json > scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-nbc-$SCENARIO_NAME.json
 
 go test -tags bash_e2e -run TestE2EWindows
 
@@ -144,8 +144,8 @@ WINDOWS_IDENTITY=$(jq -c '.resources[0] | with_entries( select(.key|contains("id
 WINDOWS_SKU=$(jq -c '.resources[0] | with_entries( select(.key|contains("sku")))' test.json)
 WINDOWS_OSDISK=$(jq -c '.resources[0].properties.virtualMachineProfile.storageProfile | with_entries( select(.key|contains("osDisk")))' test.json)
 NETWORK_PROPERTIES=$(jq -c '.resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] | with_entries( select(.key|contains("properties")))' test.json)
-CUSTOM_DATA=$(cat scenarios/$SCENARIO_NAME/$SCENARIO_NAME-cloud-init.txt)
-CSE_CMD=$(cat scenarios/$SCENARIO_NAME/$SCENARIO_NAME-cseCmd)
+CUSTOM_DATA=$(cat scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-$SCENARIO_NAME-cloud-init.txt)
+CSE_CMD=$(cat scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-$SCENARIO_NAME-cseCmd)
 
 jq --argjson JsonForVnet "$WINDOWS_VNET" \
     --argjson JsonForLB "$WINDOWS_LOADBALANCER" \
@@ -162,29 +162,28 @@ jq --argjson JsonForVnet "$WINDOWS_VNET" \
     '.parameters += $JsonForVnet | .parameters += $JsonForLB | .parameters.galleries_AKSWindows_externalid.defaultValue=$ValueForImageExternalID | .resources[0] += $JsonForIdentity | .resources[0] += $JsonForSKU | .resources[0].properties.virtualMachineProfile.storageProfile+=$JsonForOSDisk | .resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] += $JsonForNetwork | .resources[0].properties.virtualMachineProfile.storageProfile.imageReference.id=$ValueForImageReference | .resources[0].properties.virtualMachineProfile.osProfile.adminPassword=$ValueForAdminPassword | .resources[0].properties.virtualMachineProfile.osProfile.customData=$ValueForCustomData | .resources[0].properties.virtualMachineProfile.extensionProfile.extensions[0].properties.settings.commandToExecute=$ValueForCSECmd | .parameters.virtualMachineScaleSets_akswin30_name.defaultValue=$ValueForVMSS' \
     windows_vmss_template.json > $DEPLOYMENT_VMSS_NAME-deployment.json
 
+retval=0
 set +e
 az deployment group create --resource-group $MC_RESOURCE_GROUP_NAME \
-         --template-file $DEPLOYMENT_VMSS_NAME-deployment.json
-retval=$?
+         --template-file $DEPLOYMENT_VMSS_NAME-deployment.json || retval=$?
 set -e
 
-# delete cse package in storage account
-${array[0]}/azcopy rm $csePackageURL
-retval=$?
+if [ "$retval" -ne 0 ]; then
+    err "Failed to deploy windows vmss. Error code is $retval."
+    exit 1
+fi
 
-if [[ "$retval" != "0" ]]; then
-    err "failed to delete cse package in storage account"
+# delete cse package in storage account
+${array[0]}/azcopy rm $csePackageURL || retval=$?
+
+if [ "$retval" -ne 0 ]; then
+    err "Failed to delete cse package in storage account. Error code is $retval."
 else
-    echo "delete cse package in storage account done"
+    log "Delete cse package in storage account done"
 fi
 
 log "Collect cse log"
-collect-logs
-
-if [[ "$retval" != "0" ]]; then
-    err "failed to deploy windows vmss"
-    exit 1
-fi
+collect-logs 
 
 cat $SCENARIO_NAME-vmss.json
 
@@ -204,7 +203,7 @@ for i in $(seq 1 10); do
     # pipefail interferes with conditional.
     # shellcheck disable=SC2143
     if [ -z "$(kubectl get nodes | grep $VMSS_INSTANCE_NAME | grep -v "NotReady")" ]; then
-        log "retrying attempt $i"
+        log "Retrying attempt $i"
         sleep 10
         continue
     fi
@@ -245,7 +244,7 @@ for i in $(seq 1 20); do
     retval=$?
     set -e
     if [ "$retval" -ne 0 ]; then
-        log "retrying attempt $i"
+        log "Retrying attempt $i"
         sleep 15
         continue
     fi
@@ -257,13 +256,13 @@ log "Waited $((waitForPodEndTime-waitForPodStartTime)) seconds for pod to come u
 if [ "$retval" -eq 0 ]; then
     ok "Pod ran successfully"
 else
-    err "Pod pending/not running"
+    err "Pod pending/not running. Error code is $retval."
     kubectl get pods -o wide | grep $POD_NAME
     kubectl describe pod $POD_NAME
     exit 1
 fi
 
-if [ "$FAILED" == "1" ] || [ "$retval" -eq 1 ]; then
+if [ "$FAILED" -ne 0  ] || [ "$retval" -ne 0 ]; then
     log "Reserve vmss and node for failed pipeline"
 else
     waitForDeleteStartTime=$(date +%s)

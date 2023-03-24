@@ -85,12 +85,13 @@ func TestE2EWindows(t *testing.T) {
 	fmt.Println(entry)
 
 	var scenario string = os.Getenv("SCENARIO_NAME")
-	fmt.Printf("Running for %s", scenario)
+	var image string = os.Getenv("WINDOWS_E2E_IMAGE")
+	fmt.Printf("Running for %s  %s", scenario, image)
 
-	createFile("../e2e/scenarios/" + scenario + "/" + scenario + "-cloud-init.txt")
-	createFile("../e2e/scenarios/" + scenario + "/" + scenario + "-cseCmd")
+	createFile("../e2e/scenarios/" + scenario + "/" + image + "-" + scenario + "-cloud-init.txt")
+	createFile("../e2e/scenarios/" + scenario + "/" + image + "-" + scenario + "-cseCmd")
 
-	nbc, _ := ioutil.ReadFile("scenarios/" + scenario + "/" + "nbc-" + scenario + ".json")
+	nbc, _ := ioutil.ReadFile("scenarios/" + scenario + "/" + image + "-nbc-" + scenario + ".json")
 	config := &datamodel.NodeBootstrappingConfiguration{}
 	json.Unmarshal([]byte(nbc), config)
 
@@ -106,7 +107,7 @@ func TestE2EWindows(t *testing.T) {
 	baker := agent.InitializeTemplateGenerator()
 	base64EncodedCustomData := baker.GetNodeBootstrappingPayload(config)
 	customData := string(base64EncodedCustomData)
-	err := ioutil.WriteFile("scenarios/"+scenario+"/"+scenario+"-cloud-init.txt", []byte(customData), 0644)
+	err := ioutil.WriteFile("scenarios/"+scenario+"/"+image+"-"+scenario+"-cloud-init.txt", []byte(customData), 0644)
 	if err != nil {
 		fmt.Println("couldnt write to file", err)
 	}
@@ -114,7 +115,7 @@ func TestE2EWindows(t *testing.T) {
 	fmt.Println("start get cseCmd")
 	// cseCmd
 	cseCommand := baker.GetNodeBootstrappingCmd(config)
-	err = ioutil.WriteFile("scenarios/"+scenario+"/"+scenario+"-cseCmd", []byte(cseCommand), 0644)
+	err = ioutil.WriteFile("scenarios/"+scenario+"/"+image+"-"+scenario+"-cseCmd", []byte(cseCommand), 0644)
 	if err != nil {
 		fmt.Println("couldnt write to file", err)
 	}
