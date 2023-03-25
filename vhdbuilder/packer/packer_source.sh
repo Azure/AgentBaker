@@ -190,6 +190,8 @@ copyPackerFiles() {
     SSHD_CONFIG_SRC=/home/packer/sshd_config_1604
   elif [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
     SSHD_CONFIG_SRC=/home/packer/sshd_config_1804_fips
+  elif [[ ${UBUNTU_RELEASE} == "20.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+    SSHD_CONFIG_SRC=/home/packer/sshd_config_2004_fips
   fi
 
   cpAndMode $AKS_LOGROTATE_CONF_SRC $AKS_LOGROTATE_CONF_DEST 644

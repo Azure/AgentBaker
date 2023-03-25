@@ -120,7 +120,6 @@
       "source": "parts/linux/cloud-init/artifacts/cse_start.sh",
       "destination": "/home/packer/provision_start.sh"
     },
-    
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/containerd_exec_start.conf",
