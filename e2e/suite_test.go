@@ -75,7 +75,20 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if suiteConfig.testsToRun != nil {
+		t.Logf("Will run the following Agentbaker E2E tests: ")
+		for testName := range suiteConfig.testsToRun {
+			t.Log(testName)
+		}
+	} else {
+		t.Logf("Running all Agentbaker E2E tests...")
+	}
+
 	for name, tc := range cases {
+		if suiteConfig.testsToRun != nil && !suiteConfig.testsToRun[name] {
+			continue
+		}
+
 		tc := tc
 		caseName := name
 		copied, err := deepcopy.Anything(baseConfig)
