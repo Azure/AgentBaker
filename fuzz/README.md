@@ -10,11 +10,10 @@ This makes it a prime candidate for fuzz testing.
 
 ## Fuzz targets
 
-We currently have two fuzz targets, one for each major agentbaker API:
-- `customdata` fuzzes `baker.GetNodeBootstrappingPayload` to test custom data generation.
-- `csecmd` fuzzes `baker.GetNodeBootstrappingCmd` to test custom script command generation.
+We currently have one fuzz target for the major agentbaker API:
+- `api` fuzzes `agent.GetNodeBootstrapping` to test both custom data generation and custom script command generation.
 
-Each target generates random data as input and attempts to decode it as JSON into `NodeBootstrappingConfiguration`.
+The target generates random data as input and attempts to decode it.
 
 If decode fails, we assume it is invalid and deprioritize the fuzz input.
 
