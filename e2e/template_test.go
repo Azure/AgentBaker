@@ -412,9 +412,26 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 		GPUInstanceProfile:  "",
 		PrimaryScaleSetName: "",
 		SIGConfig: datamodel.SIGConfig{
-			TenantID:       "",
-			SubscriptionID: "",
-			Galleries:      map[string]datamodel.SIGGalleryConfig(nil),
+			TenantID:       "tenantID",
+			SubscriptionID: "subID",
+			Galleries: map[string]datamodel.SIGGalleryConfig{
+				"AKSUbuntu": datamodel.SIGGalleryConfig{
+					GalleryName:   "aksubuntu",
+					ResourceGroup: "resourcegroup",
+				},
+				"AKSCBLMariner": datamodel.SIGGalleryConfig{
+					GalleryName:   "akscblmariner",
+					ResourceGroup: "resourcegroup",
+				},
+				"AKSWindows": datamodel.SIGGalleryConfig{
+					GalleryName:   "AKSWindows",
+					ResourceGroup: "AKS-Windows",
+				},
+				"AKSUbuntuEdgeZone": datamodel.SIGGalleryConfig{
+					GalleryName:   "AKSUbuntuEdgeZone",
+					ResourceGroup: "AKS-Ubuntu-EdgeZone",
+				},
+			},
 		},
 		IsARM64:                   false,
 		CustomCATrustConfig:       nil,

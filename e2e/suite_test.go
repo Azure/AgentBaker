@@ -87,9 +87,16 @@ func Test_All(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			baker := agent.InitializeTemplateGenerator()
-			base64EncodedCustomData := baker.GetNodeBootstrappingPayload(nbc)
-			cseCmd := baker.GetNodeBootstrappingCmd(nbc)
+			ab, err := agent.NewAgentBaker()
+			if err != nil {
+				t.Fatal(err)
+			}
+			nodeBootstrapping, err := ab.GetNodeBootstrapping(context.Background(), nbc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			base64EncodedCustomData := nodeBootstrapping.CustomData
+			cseCmd := nodeBootstrapping.CSE
 
 			vmssName := fmt.Sprintf("abtest%s", randomLowercaseString(r, 4))
 			t.Logf("vmss name: %q", vmssName)
