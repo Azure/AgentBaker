@@ -1,16 +1,6 @@
 {
   "ContainerImages": [
     {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/kubernetes-dashboard:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": []
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/dashboard:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": []
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/metrics-scraper:*",
       "amd64OnlyVersions": [
         "v1.0.4"
@@ -392,13 +382,6 @@
       "multiArchVersions": [
         "v1.8.13.3",
         "v1.8.13.4"
-      ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/aks/command/runtime:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "master.220211.1"
       ]
     },
     {
