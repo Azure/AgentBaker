@@ -20,14 +20,13 @@ func setupCluster(ctx context.Context, cloud *azureClient, location, resourceGro
 	if testRgExistence.Success {
 		aksCluster, err := cloud.aksClient.Get(ctx, resourceGroupName, clusterName, nil)
 		if err != nil {
-			if !isResourceNotFoundError(err) {
+			if isResourceNotFoundError(err) {
+				needNewCluster = true
+			} else {
 				return fmt.Errorf("failed to get aks cluster %q: %q", clusterName, err)
 			}
-			needNewCluster = true
-		}
-
-		// We only need to check the MC resource group + cluster properties if the cluster resource itself exists
-		if !needNewCluster {
+		} else {
+			// We only need to check the MC resource group + cluster properties if the cluster resource itself exists
 			mcRgExistence, err := cloud.resourceGroupClient.CheckExistence(ctx, agentbakerTestClusterMCResourceGroupName, nil)
 			if err != nil {
 				return fmt.Errorf("failed to get test cluster MC RG %q: %q", agentbakerTestClusterMCResourceGroupName, err)
@@ -62,6 +61,7 @@ func setupCluster(ctx context.Context, cloud *azureClient, location, resourceGro
 		}
 	}
 
+	// A new cluster is created if the test RG does not exist, the cluster itself does not exist, or if the cluster is in an unusable state
 	if needNewCluster {
 		pollerResp, err := cloud.aksClient.BeginCreateOrUpdate(
 			ctx,
@@ -88,7 +88,7 @@ func setupCluster(ctx context.Context, cloud *azureClient, location, resourceGro
 					},
 				},
 				Identity: &armcontainerservice.ManagedClusterIdentity{
-					Type: to.Ptr(armcontainerservice.ResourceIdentityType("SystemAssigned")),
+					Type: to.Ptr(armcontainerservice.ResourceIdentityTypeSystemAssigned),
 				},
 			},
 			nil,
