@@ -69,7 +69,7 @@
         "windowsOffer": "aks-windows",
         "windowsPublisher": "microsoft-aks",
         "windowsSku": "",
-        "windowsPauseImageURL": "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
+        "windowsPauseImageURL": "mcr.microsoft.com/oss/kubernetes/pause:3.9",
         "alwaysPullWindowsPauseImage": false
       }
     }
