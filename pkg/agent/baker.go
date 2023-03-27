@@ -27,7 +27,7 @@ func InitializeTemplateGenerator() *TemplateGenerator {
 }
 
 // getNodeBootstrappingPayload get node bootstrapping data
-// This function only can be called after the validation of the input
+// This function only can be called after the validation of the input.
 func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	var customData string
 	if config.AgentPoolProfile.IsWindows() {
@@ -81,7 +81,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }
 
-// getNodeBootstrappingCmd get node bootstrapping cmd
+// getNodeBootstrappingCmd get node bootstrapping cmd.
 func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
 		return t.getWindowsNodeCSECommand(config)

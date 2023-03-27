@@ -16,7 +16,8 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
-// TODO 1: How to get the most accurate url links/image links for the currently hardcoded ones for eg CustomKubeBinaryURL, Pause Image etc
+// TODO 1: How to get the most accurate url links/image links for the currently hardcoded ones
+//         for eg CustomKubeBinaryURL, Pause Image etc
 // TODO 2: Update --rotate-certificate (true for TLS enabled, false otherwise, small nit)
 // TODO 3: Seperate out the certificate encode/decode
 // TODO 4: Investigate CloudSpecConfig and its need. Without it, the bootstrapping struct breaks.
@@ -28,9 +29,9 @@ func decodeCert(cert string) string {
 
 func createFile(path string) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		f, err := os.Create(path)
-		if err != nil {
-			fmt.Println(err)
+		f, cerr := os.Create(path)
+		if cerr != nil {
+			fmt.Println(cerr)
 		}
 
 		defer f.Close()
@@ -45,7 +46,7 @@ func TestE2EBasic(t *testing.T) {
 	entry := "Generating CustomData and cseCmd"
 	fmt.Println(entry)
 
-	var scenario string = os.Getenv("SCENARIO_NAME")
+	var scenario = os.Getenv("SCENARIO_NAME")
 	fmt.Printf("Running for %s", scenario)
 
 	createFile("../e2e/scenarios/" + scenario + "/" + scenario + "-cloud-init.txt")
@@ -53,7 +54,10 @@ func TestE2EBasic(t *testing.T) {
 
 	nbc, _ := ioutil.ReadFile("scenarios/" + scenario + "/" + "nbc-" + scenario + ".json")
 	config := &datamodel.NodeBootstrappingConfiguration{}
-	json.Unmarshal([]byte(nbc), config)
+	err := json.Unmarshal(nbc, config)
+	if err != nil {
+		t.Fatalf("couldnt Unmarshal config: %s", err)
+	}
 
 	// Workaround for E2E test
 	config.SIGConfig = datamodel.SIGConfig{
@@ -79,30 +83,33 @@ func TestE2EBasic(t *testing.T) {
 		},
 	}
 
-	config.ContainerService.Properties.CertificateProfile.CaCertificate = decodeCert(config.ContainerService.Properties.CertificateProfile.CaCertificate)
-	config.ContainerService.Properties.CertificateProfile.APIServerCertificate = decodeCert(config.ContainerService.Properties.CertificateProfile.APIServerCertificate)
-	config.ContainerService.Properties.CertificateProfile.ClientPrivateKey = decodeCert(config.ContainerService.Properties.CertificateProfile.ClientPrivateKey)
+	config.ContainerService.Properties.CertificateProfile.CaCertificate =
+		decodeCert(config.ContainerService.Properties.CertificateProfile.CaCertificate)
+	config.ContainerService.Properties.CertificateProfile.APIServerCertificate =
+		decodeCert(config.ContainerService.Properties.CertificateProfile.APIServerCertificate)
+	config.ContainerService.Properties.CertificateProfile.ClientPrivateKey =
+		decodeCert(config.ContainerService.Properties.CertificateProfile.ClientPrivateKey)
 
 	ab, err := agent.NewAgentBaker()
 	if err != nil {
-		fmt.Println("couldnt create AgentBaker", err)
+		t.Fatalf("couldnt create AgentBaker: %s", err)
 	}
 	nodeBootstrapping, err := ab.GetNodeBootstrapping(context.Background(), config)
 	if err != nil {
-		fmt.Println("couldnt GetNodeBootstrapping", err)
+		t.Fatalf("couldnt GetNodeBootstrapping: %s", err)
 	}
 	// customData
 	customDataBytes, _ := base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
 	customData := string(customDataBytes)
-	err := ioutil.WriteFile("scenarios/"+scenario+"/"+scenario+"-cloud-init.txt", []byte(customData), 0644)
+	err = ioutil.WriteFile("scenarios/"+scenario+"/"+scenario+"-cloud-init.txt", []byte(customData), 0644)
 	if err != nil {
-		fmt.Println("couldnt write to file", err)
+		t.Fatalf("couldnt write to file: %s", err)
 	}
 
 	// cseCmd
 	err = ioutil.WriteFile("scenarios/"+scenario+"/"+scenario+"-cseCmd", []byte(nodeBootstrapping.CSE), 0644)
 	if err != nil {
-		fmt.Println("couldnt write to file", err)
+		t.Fatalf("couldnt write to file: %s", err)
 	}
 }
 
@@ -114,8 +121,8 @@ func TestE2EWindows(t *testing.T) {
 	entry := "Generating CustomData and cseCmd"
 	fmt.Println(entry)
 
-	var scenario string = os.Getenv("SCENARIO_NAME")
-	var image string = os.Getenv("WINDOWS_E2E_IMAGE")
+	var scenario = os.Getenv("SCENARIO_NAME")
+	var image = os.Getenv("WINDOWS_E2E_IMAGE")
 	fmt.Printf("Running for %s  %s", scenario, image)
 
 	createFile("../e2e/scenarios/" + scenario + "/" + image + "-" + scenario + "-cloud-init.txt")
@@ -123,7 +130,10 @@ func TestE2EWindows(t *testing.T) {
 
 	nbc, _ := ioutil.ReadFile("scenarios/" + scenario + "/" + image + "-nbc-" + scenario + ".json")
 	config := &datamodel.NodeBootstrappingConfiguration{}
-	json.Unmarshal([]byte(nbc), config)
+	err := json.Unmarshal(nbc, config)
+	if err != nil {
+		t.Fatalf("couldnt Unmarshal config: %s", err)
+	}
 
 	// Workaround for Windows E2E test
 	config.SIGConfig = datamodel.SIGConfig{
@@ -151,30 +161,34 @@ func TestE2EWindows(t *testing.T) {
 
 	fmt.Println("start decoding")
 
-	config.ContainerService.Properties.CertificateProfile.CaCertificate = decodeCert(config.ContainerService.Properties.CertificateProfile.CaCertificate)
-	config.ContainerService.Properties.CertificateProfile.APIServerCertificate = decodeCert(config.ContainerService.Properties.CertificateProfile.APIServerCertificate)
-	config.ContainerService.Properties.CertificateProfile.ClientPrivateKey = decodeCert(config.ContainerService.Properties.CertificateProfile.ClientPrivateKey)
-	config.ContainerService.Properties.CertificateProfile.ClientCertificate = decodeCert(config.ContainerService.Properties.CertificateProfile.ClientCertificate)
+	config.ContainerService.Properties.CertificateProfile.CaCertificate =
+		decodeCert(config.ContainerService.Properties.CertificateProfile.CaCertificate)
+	config.ContainerService.Properties.CertificateProfile.APIServerCertificate =
+		decodeCert(config.ContainerService.Properties.CertificateProfile.APIServerCertificate)
+	config.ContainerService.Properties.CertificateProfile.ClientPrivateKey =
+		decodeCert(config.ContainerService.Properties.CertificateProfile.ClientPrivateKey)
+	config.ContainerService.Properties.CertificateProfile.ClientCertificate =
+		decodeCert(config.ContainerService.Properties.CertificateProfile.ClientCertificate)
 
 	ab, err := agent.NewAgentBaker()
 	if err != nil {
-		fmt.Println("couldnt create AgentBaker", err)
+		t.Fatalf("couldnt create AgentBaker: %s", err)
 	}
 	nodeBootstrapping, err := ab.GetNodeBootstrapping(context.Background(), config)
 	if err != nil {
-		fmt.Println("couldnt GetNodeBootstrapping", err)
+		t.Fatalf("couldnt GetNodeBootstrapping: %s", err)
 	}
 	fmt.Println("start get customData")
 	// customData
 	err = ioutil.WriteFile("scenarios/"+scenario+"/"+image+"-"+scenario+"-cloud-init.txt", []byte(nodeBootstrapping.CustomData), 0644)
 	if err != nil {
-		fmt.Println("couldnt write to file", err)
+		t.Fatalf("couldnt write to file: %s", err)
 	}
 
 	fmt.Println("start get cseCmd")
 	// cseCmd
 	err = ioutil.WriteFile("scenarios/"+scenario+"/"+image+"-"+scenario+"-cseCmd", []byte(nodeBootstrapping.CSE), 0644)
 	if err != nil {
-		fmt.Println("couldnt write to file", err)
+		t.Fatalf("couldnt write to file: %s", err)
 	}
 }

@@ -205,7 +205,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 		// !!! WARNING !!!
 		// avoid mutation of the original config -- both functions mutate input.
-		// GetNodeBootstrapping mutates the input so it's not the same as what gets passed to GetNodeBootstrappingCmd which causes bugs.
+		// GetNodeBootstrapping mutates the input so it's not the same as
+		//   what gets passed to GetNodeBootstrappingCmd which causes bugs.
 		// unit tests should always rely on unmutated copies of the base config.
 		configCustomDataInput, err := deepcopy.Anything(config)
 		Expect(err).To(BeNil())
@@ -216,7 +217,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		// customData
 		ab, err := NewAgentBaker()
 		Expect(err).To(BeNil())
-		nodeBootstrapping, err := ab.GetNodeBootstrapping(context.Background(), configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration))
+		nodeBootstrapping, err := ab.GetNodeBootstrapping(
+			context.Background(),
+			configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration),
+		)
 		Expect(err).To(BeNil())
 		customDataBytes, err := base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
 		customData := string(customDataBytes)
@@ -233,11 +237,15 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		// CSE
 		ab, err = NewAgentBaker()
 		Expect(err).To(BeNil())
-		nodeBootstrapping, err = ab.GetNodeBootstrapping(context.Background(), configCseInput.(*datamodel.NodeBootstrappingConfiguration))
+		nodeBootstrapping, err = ab.GetNodeBootstrapping(
+			context.Background(),
+			configCseInput.(*datamodel.NodeBootstrappingConfiguration),
+		)
 		Expect(err).To(BeNil())
 		cseCommand := nodeBootstrapping.CSE
 		if generateTestData() {
-			ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
+			err = ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
+			Expect(err).To(BeNil())
 		}
 		expectedCSECommand, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
 		Expect(err).To(BeNil())
@@ -991,7 +999,8 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		Expect(err).To(BeNil())
 		cseCommand := nodeBootstrapping.CSE
 		if generateTestData() {
-			ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
+			err = ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
+			Expect(err).To(BeNil())
 		}
 		expectedCSECommand, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
 		if err != nil {
@@ -1059,23 +1068,40 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 				},
 			}
 		}),
-		Entry("AKSWindows2019 EnablePrivateClusterHostsConfigAgent", "AKSWindows2019+EnablePrivateClusterHostsConfigAgent", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
-			cs := config.ContainerService
-			if cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster == nil {
-				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &datamodel.PrivateCluster{EnableHostsConfigAgent: to.BoolPtr(true)}
-			} else {
-				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent = to.BoolPtr(true)
-			}
-		}),
-		Entry("AKSWindows2019 with kubelet client TLS bootstrapping enabled", "AKSWindows2019+KubeletClientTLSBootstrapping", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
-		}),
-		Entry("AKSWindows2019 with k8s version 1.19 + FIPS", "AKSWindows2019+K8S119+FIPS", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.FIPSEnabled = true
-		}),
-		Entry("--dynamic-config-dir with k8s version 1.24 +", "Windows+DynamicConfigDir+1.24", "1.24.0", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.KubeletConfig["--dynamic-config-dir"] = "fake-value"
-		}))
+		Entry("AKSWindows2019 EnablePrivateClusterHostsConfigAgent",
+			"AKSWindows2019+EnablePrivateClusterHostsConfigAgent",
+			"1.19.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				cs := config.ContainerService
+				if cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster == nil {
+					cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster =
+						&datamodel.PrivateCluster{EnableHostsConfigAgent: to.BoolPtr(true)}
+				} else {
+					cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent = to.BoolPtr(true)
+				}
+			},
+		),
+		Entry("AKSWindows2019 with kubelet client TLS bootstrapping enabled",
+			"AKSWindows2019+KubeletClientTLSBootstrapping",
+			"1.19.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
+			},
+		),
+		Entry("AKSWindows2019 with k8s version 1.19 + FIPS",
+			"AKSWindows2019+K8S119+FIPS",
+			"1.19.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.FIPSEnabled = true
+			}),
+		Entry("--dynamic-config-dir with k8s version 1.24 +",
+			"Windows+DynamicConfigDir+1.24",
+			"1.24.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.KubeletConfig["--dynamic-config-dir"] = "fake-value"
+			},
+		),
+	)
 })
 
 func backfillCustomData(folder, customData string) {
@@ -1094,7 +1120,7 @@ func backfillCustomData(folder, customData string) {
 func getDecodedVarsFromCseCmd(data []byte) (map[string]string, error) {
 	cseRegex, err := regexp.Compile(cseRegexString)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile regex: %s", err)
+		return nil, fmt.Errorf("failed to compile regex: %w", err)
 	}
 
 	cseVariableList := cseRegex.FindAllStringSubmatch(string(data), -1)
@@ -1168,7 +1194,7 @@ func verifyCertsEncoding(cert string) error {
 func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error) {
 	var customData cloudInit
 
-	if err := yaml.Unmarshal([]byte(data), &customData); err != nil {
+	if err := yaml.Unmarshal(data, &customData); err != nil {
 		return nil, err
 	}
 
@@ -1184,7 +1210,7 @@ func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error
 				if err != nil {
 					return nil, fmt.Errorf("failed to decode gzip value: %q with error %q", maybeEncodedValue, err)
 				}
-				maybeEncodedValue = string(output)
+				maybeEncodedValue = output
 				encoding = cseVariableEncodingGzip
 			}
 		}
@@ -1234,7 +1260,7 @@ func decodeCustomDataFiles(dir string) error {
 
 	var customData cloudInit
 
-	err = yaml.Unmarshal([]byte(data), &customData)
+	err = yaml.Unmarshal(data, &customData)
 	if err != nil {
 		return err
 	}
