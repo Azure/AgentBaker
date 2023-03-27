@@ -117,8 +117,8 @@ if ($windowsSku -eq "2019") {
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01182023-095c864a",
             # NPM (Network Policy Manager). Owner: jaer-tsun (Jaeryn)
-            "mcr.microsoft.com/containernetworking/azure-npm:v1.4.29",
-            "mcr.microsoft.com/containernetworking/azure-cns:v1.4.29")
+            "mcr.microsoft.com/containernetworking/azure-npm:v1.4.34",
+            "mcr.microsoft.com/containernetworking/azure-cns:v1.4.35")
 } else {
     throw "No valid windows SKU is specified $windowsSKU"
 }
@@ -196,7 +196,7 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.25.5/windowszip/v1.25.5-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.25.6/windowszip/v1.25.6-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.26.0/windowszip/v1.26.0-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.26.1/windowszip/v1.26.1-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.26.3/windowszip/v1.26.3-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",

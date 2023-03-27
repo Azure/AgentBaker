@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/barkimedes/go-deepcopy"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func Test_All(t *testing.T) {
@@ -46,7 +47,16 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	clusterParams, err := extractClusterParameters(ctx, t, kube)
+	var clusterParams map[string]string
+	err = wait.PollImmediateWithContext(ctx, 15*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
+		params, err := extractClusterParameters(ctx, t, kube)
+		if err != nil {
+			t.Logf("error extracting cluster parameters: %q", err)
+			return false, nil
+		}
+		clusterParams = params
+		return true, nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +106,7 @@ func Test_All(t *testing.T) {
 
 			cleanupVMSS := func() {
 				t.Log("deleting vmss", vmssName)
-				poller, err := cloud.vmssClient.BeginDelete(ctx, agentbakerTestResourceGroupName, vmssName, nil)
+				poller, err := cloud.vmssClient.BeginDelete(ctx, agentbakerTestClusterMCResourceGroupName, vmssName, nil)
 				if err != nil {
 					t.Error("error deleting vmss", vmssName, err)
 					return
@@ -131,16 +141,25 @@ func Test_All(t *testing.T) {
 			// Perform posthoc log extraction when the VMSS creation succeeded, or failed due to a CSE error
 			if vmssSucceeded || isCSEError {
 				debug := func() {
-					t.Log("extracting VM logs")
+					err := wait.PollImmediateWithContext(ctx, 15*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
+						t.Log("attempting to extract VM logs")
 
-					logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(privateKeyBytes))
+						logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(privateKeyBytes))
+						if err != nil {
+							t.Logf("error extracting VM logs: %q", err)
+							return false, nil
+						}
+
+						t.Logf("dumping VM logs to local directory: %s", caseLogsDir)
+						if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
+							t.Logf("error extracting VM logs: %q", err)
+							return false, nil
+						}
+
+						return true, nil
+					})
 					if err != nil {
-						t.Fatal("error extracting VM logs", err)
-					}
-
-					t.Logf("dumping VM logs to local directory: %s", caseLogsDir)
-					if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
-						t.Fatal("error dumping VM logs", err)
+						t.Fatal(err)
 					}
 				}
 				defer debug()
@@ -160,7 +179,7 @@ func Test_All(t *testing.T) {
 					t.Fatal("error waiting for pod ready", err)
 				}
 
-				err = ensurePodDeleted(ctx, kube, nodeName)
+				err = waitUntilPodDeleted(ctx, kube, nodeName)
 				if err != nil {
 					t.Fatal("error waiting for pod deleted", err)
 				}
