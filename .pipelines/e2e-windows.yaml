@@ -15,7 +15,7 @@ variables:
 - group: ab-e2e-windows
 
 pool:
-  name: 1ES-AKS-Elastic-DevInfra-Auto-TearDown-Pool
+  name: 1ES-AKS-DevInfra-Auto-TearDown-Pool-EastUS
 
 parameters:
 - name: test2019containerd
