@@ -24,10 +24,17 @@ type agentBakerImpl struct{}
 
 func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context,
 	config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
+	// validate and fix input before passing config to the template generator
+	if config.AgentPoolProfile.IsWindows() {
+		validateAndSetWindowsNodeBootstrappingConfiguration(config)
+	} else {
+		validateAndSetLinuxNodeBootstrappingConfiguration(config)
+	}
+
 	templateGenerator := InitializeTemplateGenerator()
 	nodeBootstrapping := &datamodel.NodeBootstrapping{
-		CustomData: templateGenerator.GetNodeBootstrappingPayload(config),
-		CSE:        templateGenerator.GetNodeBootstrappingCmd(config),
+		CustomData: templateGenerator.getNodeBootstrappingPayload(config),
+		CSE:        templateGenerator.getNodeBootstrappingCmd(config),
 	}
 
 	distro := config.AgentPoolProfile.Distro

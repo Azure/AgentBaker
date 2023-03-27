@@ -3,6 +3,7 @@ package agent
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -103,7 +104,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		}
 
 		agentPool := cs.Properties.AgentPoolProfiles[0]
-		baker := InitializeTemplateGenerator()
 
 		fullK8sComponentsMap := K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
 		pauseImage := cs.Properties.OrchestratorProfile.KubernetesConfig.MCRKubernetesImageBase + fullK8sComponentsMap["pause"]
@@ -175,6 +175,28 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			IsARM64:                       false,
 			DisableUnattendedUpgrades:     false,
 			SSHStatus:                     datamodel.SSHUnspecified,
+			SIGConfig: datamodel.SIGConfig{
+				TenantID:       "tenantID",
+				SubscriptionID: "subID",
+				Galleries: map[string]datamodel.SIGGalleryConfig{
+					"AKSUbuntu": datamodel.SIGGalleryConfig{
+						GalleryName:   "aksubuntu",
+						ResourceGroup: "resourcegroup",
+					},
+					"AKSCBLMariner": datamodel.SIGGalleryConfig{
+						GalleryName:   "akscblmariner",
+						ResourceGroup: "resourcegroup",
+					},
+					"AKSWindows": datamodel.SIGGalleryConfig{
+						GalleryName:   "AKSWindows",
+						ResourceGroup: "AKS-Windows",
+					},
+					"AKSUbuntuEdgeZone": datamodel.SIGGalleryConfig{
+						GalleryName:   "AKSUbuntuEdgeZone",
+						ResourceGroup: "AKS-Ubuntu-EdgeZone",
+					},
+				},
+			},
 		}
 
 		if configUpdator != nil {
@@ -183,7 +205,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 		// !!! WARNING !!!
 		// avoid mutation of the original config -- both functions mutate input.
-		// GetNodeBootstrappingPayload mutates the input so it's not the same as what gets passed to GetNodeBootstrappingCmd which causes bugs.
+		// GetNodeBootstrapping mutates the input so it's not the same as what gets passed to GetNodeBootstrappingCmd which causes bugs.
 		// unit tests should always rely on unmutated copies of the base config.
 		configCustomDataInput, err := deepcopy.Anything(config)
 		Expect(err).To(BeNil())
@@ -192,8 +214,11 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(err).To(BeNil())
 
 		// customData
-		base64EncodedCustomData := baker.GetNodeBootstrappingPayload(configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration))
-		customDataBytes, err := base64.StdEncoding.DecodeString(base64EncodedCustomData)
+		ab, err := NewAgentBaker()
+		Expect(err).To(BeNil())
+		nodeBootstrapping, err := ab.GetNodeBootstrapping(context.Background(), configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration))
+		Expect(err).To(BeNil())
+		customDataBytes, err := base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
 		customData := string(customDataBytes)
 		Expect(err).To(BeNil())
 
@@ -206,7 +231,11 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(customData).To(Equal(string(expectedCustomData)))
 
 		// CSE
-		cseCommand := baker.GetNodeBootstrappingCmd(configCseInput.(*datamodel.NodeBootstrappingConfiguration))
+		ab, err = NewAgentBaker()
+		Expect(err).To(BeNil())
+		nodeBootstrapping, err = ab.GetNodeBootstrapping(context.Background(), configCseInput.(*datamodel.NodeBootstrappingConfiguration))
+		Expect(err).To(BeNil())
+		cseCommand := nodeBootstrapping.CSE
 		if generateTestData() {
 			ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
 		}
@@ -840,7 +869,6 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		}
 
 		agentPool := cs.Properties.AgentPoolProfiles[0]
-		baker := InitializeTemplateGenerator()
 
 		fullK8sComponentsMap := K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
 		pauseImage := cs.Properties.OrchestratorProfile.KubernetesConfig.MCRKubernetesImageBase + fullK8sComponentsMap["pause"]
@@ -908,6 +936,28 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			EnableNvidia:                  false,
 			KubeletConfig:                 kubeletConfig,
 			PrimaryScaleSetName:           "akswpool2",
+			SIGConfig: datamodel.SIGConfig{
+				TenantID:       "tenantID",
+				SubscriptionID: "subID",
+				Galleries: map[string]datamodel.SIGGalleryConfig{
+					"AKSUbuntu": datamodel.SIGGalleryConfig{
+						GalleryName:   "aksubuntu",
+						ResourceGroup: "resourcegroup",
+					},
+					"AKSCBLMariner": datamodel.SIGGalleryConfig{
+						GalleryName:   "akscblmariner",
+						ResourceGroup: "resourcegroup",
+					},
+					"AKSWindows": datamodel.SIGGalleryConfig{
+						GalleryName:   "AKSWindows",
+						ResourceGroup: "AKS-Windows",
+					},
+					"AKSUbuntuEdgeZone": datamodel.SIGGalleryConfig{
+						GalleryName:   "AKSUbuntuEdgeZone",
+						ResourceGroup: "AKS-Ubuntu-EdgeZone",
+					},
+				},
+			},
 		}
 
 		if configUpdator != nil {
@@ -915,7 +965,11 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		}
 
 		// customData
-		base64EncodedCustomData := baker.GetNodeBootstrappingPayload(config)
+		ab, err := NewAgentBaker()
+		Expect(err).To(BeNil())
+		nodeBootstrapping, err := ab.GetNodeBootstrapping(context.Background(), config)
+		Expect(err).To(BeNil())
+		base64EncodedCustomData := nodeBootstrapping.CustomData
 		customDataBytes, err := base64.StdEncoding.DecodeString(base64EncodedCustomData)
 		customData := string(customDataBytes)
 		Expect(err).To(BeNil())
@@ -931,7 +985,11 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		Expect(customData).To(Equal(string(expectedCustomData)))
 
 		// CSE
-		cseCommand := baker.GetNodeBootstrappingCmd(config)
+		ab, err = NewAgentBaker()
+		Expect(err).To(BeNil())
+		nodeBootstrapping, err = ab.GetNodeBootstrapping(context.Background(), config)
+		Expect(err).To(BeNil())
+		cseCommand := nodeBootstrapping.CSE
 		if generateTestData() {
 			ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
 		}
@@ -1014,8 +1072,10 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		}),
 		Entry("AKSWindows2019 with k8s version 1.19 + FIPS", "AKSWindows2019+K8S119+FIPS", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.FIPSEnabled = true
+		}),
+		Entry("--dynamic-config-dir with k8s version 1.24 +", "Windows+DynamicConfigDir+1.24", "1.24.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.KubeletConfig["--dynamic-config-dir"] = "fake-value"
 		}))
-
 })
 
 func backfillCustomData(folder, customData string) {

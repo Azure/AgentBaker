@@ -173,6 +173,10 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		})
 
 		It("should return an error if cloud is not found", func() {
+			oldCloudName := config.CloudSpecConfig.CloudName
+			defer func() {
+				config.CloudSpecConfig.CloudName = oldCloudName
+			}()
 			config.CloudSpecConfig.CloudName = "UnknownCloud"
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
@@ -182,6 +186,10 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		})
 
 		It("should return an error if distro is neither found in PIR nor found in SIG", func() {
+			oldCloudName := config.CloudSpecConfig.CloudName
+			defer func() {
+				config.CloudSpecConfig.CloudName = oldCloudName
+			}()
 			config.AgentPoolProfile.Distro = "unknown"
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
