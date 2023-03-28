@@ -186,7 +186,7 @@ func Test_All(t *testing.T) {
 
 			// Only perform node readiness/pod-related checks when VMSS creation succeeded
 			if vmssSucceeded {
-				t.Log("VMSS creation succeded, proceeding with node readiness and pod checks...")
+				t.Log("vmss creation succeded, proceeding with node readiness and pod checks...")
 
 				nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
 				if err != nil {
@@ -202,6 +202,8 @@ func Test_All(t *testing.T) {
 				if err != nil {
 					t.Fatal("error waiting for pod deleted", err)
 				}
+
+				t.Log("node bootstrapping succeeded!")
 			}
 		})
 	}
