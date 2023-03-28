@@ -258,8 +258,9 @@ func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 		} else {
 			return truncated + "z"
 		}
+	} else {
+		return truncated
 	}
-	return truncated
 }
 
 func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {

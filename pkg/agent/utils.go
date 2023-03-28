@@ -22,7 +22,7 @@ import (
 )
 
 // TranslatedKubeletConfigFlags represents kubelet flags that will be translated into config file (if kubelet config file is enabled)
-var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
+var TranslatedKubeletConfigFlags = map[string]bool{
 	"--address":                           true,
 	"--anonymous-auth":                    true,
 	"--client-ca-file":                    true,

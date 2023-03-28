@@ -1184,7 +1184,7 @@ func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error
 	var files = make(map[string]*decodedValue)
 
 	for _, val := range customData.WriteFiles {
-		var encoding cseVariableEncoding = ""
+		var encoding cseVariableEncoding
 		maybeEncodedValue := val.Content
 
 		if strings.Contains(val.Encoding, "gzip") {

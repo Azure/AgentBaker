@@ -3,7 +3,7 @@
 
 package datamodel
 
-//AzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
+// AzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
 type AzureEnvironmentSpecConfig struct {
 	CloudName            string                        `json:"cloudName,omitempty"`
 	DockerSpecConfig     DockerSpecConfig              `json:"dockerSpecConfig,omitempty"`
@@ -12,13 +12,13 @@ type AzureEnvironmentSpecConfig struct {
 	OSImageConfig        map[Distro]AzureOSImageConfig `json:"osImageConfig,omitempty"`
 }
 
-//DockerSpecConfig is the configurations of docker
+// DockerSpecConfig is the configurations of docker
 type DockerSpecConfig struct {
 	DockerEngineRepo         string `json:"dockerEngineRepo,omitempty"`
 	DockerComposeDownloadURL string `json:"dockerComposeDownloadURL,omitempty"`
 }
 
-//KubernetesSpecConfig is the kubernetes container images used.
+// KubernetesSpecConfig is the kubernetes container images used.
 type KubernetesSpecConfig struct {
 	AzureTelemetryPID                    string `json:"azureTelemetryPID,omitempty"`
 	KubernetesImageBase                  string `json:"kubernetesImageBase,omitempty"`
@@ -44,12 +44,12 @@ type KubernetesSpecConfig struct {
 	VnetCNIARM64LinuxPluginsDownloadURL  string `json:"vnetCNIARM64LinuxPluginsDownloadURL,omitempty"`
 }
 
-//AzureEndpointConfig describes an Azure endpoint
+// AzureEndpointConfig describes an Azure endpoint
 type AzureEndpointConfig struct {
 	ResourceManagerVMDNSSuffix string `json:"resourceManagerVMDNSSuffix,omitempty"`
 }
 
-//AzureOSImageConfig describes an Azure OS image
+// AzureOSImageConfig describes an Azure OS image
 type AzureOSImageConfig struct {
 	ImageOffer     string `json:"imageOffer,omitempty"`
 	ImageSku       string `json:"imageSku,omitempty"`
