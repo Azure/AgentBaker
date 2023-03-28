@@ -7,15 +7,10 @@ import (
 	"encoding/pem"
 	"fmt"
 	mrand "math/rand"
-	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"golang.org/x/crypto/ssh"
-)
-
-const (
-	vmExtensionProvisioningErrorCode = "VMExtensionProvisioningError"
 )
 
 // Returns a newly generated RSA public/private key pair with the private key in PEM format
@@ -62,7 +57,7 @@ func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *az
 
 	pollerResp, err := cloud.vmssClient.BeginCreateOrUpdate(
 		ctx,
-		agentbakerTestResourceGroupName,
+		agentbakerTestClusterMCResourceGroupName,
 		name,
 		model,
 		nil,
@@ -167,8 +162,4 @@ func getBaseVMSSModel(name, location, subnetID, sshPublicKey, customData, cseCmd
 			},
 		},
 	}
-}
-
-func isVMExtensionProvisioningError(err error) bool {
-	return err != nil && strings.Contains(err.Error(), vmExtensionProvisioningErrorCode)
 }
