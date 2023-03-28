@@ -308,6 +308,7 @@ issues:
         - bodyclose
         - dupl
         - funlen
+        - gocognit
         - goconst
         - gosec
         - noctx
