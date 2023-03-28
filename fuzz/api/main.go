@@ -1,6 +1,7 @@
-package customdata
+package api
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/Azure/agentbaker/pkg/agent"
@@ -14,9 +15,15 @@ func Fuzz(data []byte) int {
 		return -1
 	}
 
-	// should not panic
-	baker := agent.InitializeTemplateGenerator()
-	baker.GetNodeBootstrappingPayload(&config)
+	baker, err := agent.NewAgentBaker()
+	if err != nil {
+		return -1
+	}
+
+	_, err = baker.GetNodeBootstrapping(context.Background(), &config)
+	if err != nil {
+		return -1
+	}
 
 	return 1
 }
