@@ -1808,7 +1808,7 @@ retrycmd_get_tarball() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            timeout 60 curl -fsSL $url -o $tarball
+            timeout 60 curl -fsSLv $url -o $tarball
             sleep $wait_sleep
         fi
     done
@@ -1821,7 +1821,7 @@ retrycmd_curl_file() {
         if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout $timeout curl -fsSL $url -o $filepath
+            timeout $timeout curl -fsSLv $url -o $filepath
             sleep $wait_sleep
         fi
     done
