@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/barkimedes/go-deepcopy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -105,19 +106,19 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		}
 
 		galleries := map[string]datamodel.SIGGalleryConfig{
-			"AKSUbuntu": datamodel.SIGGalleryConfig{
+			"AKSUbuntu": {
 				GalleryName:   "aksubuntu",
 				ResourceGroup: "resourcegroup",
 			},
-			"AKSCBLMariner": datamodel.SIGGalleryConfig{
+			"AKSCBLMariner": {
 				GalleryName:   "akscblmariner",
 				ResourceGroup: "resourcegroup",
 			},
-			"AKSWindows": datamodel.SIGGalleryConfig{
+			"AKSWindows": {
 				GalleryName:   "akswindows",
 				ResourceGroup: "resourcegroup",
 			},
-			"AKSUbuntuEdgeZone": datamodel.SIGGalleryConfig{
+			"AKSUbuntuEdgeZone": {
 				GalleryName:   "AKSUbuntuEdgeZone",
 				ResourceGroup: "AKS-Ubuntu-EdgeZone",
 			},
@@ -173,10 +174,15 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		})
 
 		It("should return an error if cloud is not found", func() {
+			// this CloudSpecConfig is shared across all AgentBaker UTs,
+			// thus we need to make and use a copy when performing mutations for mocking
+			cloudSpecConfigCopy, err := deepcopy.Anything(config.CloudSpecConfig)
+			Expect(err).To(BeNil())
+			config.CloudSpecConfig = cloudSpecConfigCopy.(*datamodel.AzureEnvironmentSpecConfig)
+
 			config.CloudSpecConfig.CloudName = "UnknownCloud"
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
-
 			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).To(HaveOccurred())
 		})
