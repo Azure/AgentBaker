@@ -59,8 +59,6 @@ var cases = map[string]scenarioConfig{
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 			// This needs to be set based on current CSE implementation...
 			nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
-			nbc.K8sComponents.PodInfraContainerImageURL = "mcr.microsoft.com/oss/kubernetes/pause:3.6"
-			nbc.KubeletConfig["--pod-infra-container-image"] = "mcr.microsoft.com/oss/kubernetes/pause:3.6"
 			nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 			nbc.AgentPoolProfile.Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 			nbc.IsARM64 = true
@@ -78,8 +76,6 @@ var cases = map[string]scenarioConfig{
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-arm64-gen2"
 			nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
-			nbc.K8sComponents.PodInfraContainerImageURL = "mcr.microsoft.com/oss/kubernetes/pause:3.6"
-			nbc.KubeletConfig["--pod-infra-container-image"] = "mcr.microsoft.com/oss/kubernetes/pause:3.6"
 			nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 			nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-arm64-gen2"
 			nbc.IsARM64 = true
