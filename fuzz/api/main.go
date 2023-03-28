@@ -17,13 +17,13 @@ func Fuzz(data []byte) int {
 
 	baker, err := agent.NewAgentBaker()
 	if err != nil {
-		return -2
+		return -1
 	}
 
 	_, err = baker.GetNodeBootstrapping(context.Background(), &config)
 	if err != nil {
-		return -3
+		return -1
 	}
 
-	return 0
+	return 1
 }
