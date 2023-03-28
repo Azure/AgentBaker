@@ -178,7 +178,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			// thus we need to make and use a copy when performing mutations for mocking
 			cloudSpecConfigCopy, err := deepcopy.Anything(config.CloudSpecConfig)
 			Expect(err).To(BeNil())
-			config.CloudSpecConfig = cloudSpecConfigCopy.(*datamodel.AzureEnvironmentSpecConfig)
+			cloudSpecConfig, ok := cloudSpecConfigCopy.(*datamodel.AzureEnvironmentSpecConfig)
+			Expect(ok).To(BeTrue())
+			config.CloudSpecConfig = cloudSpecConfig
 
 			config.CloudSpecConfig.CloudName = "UnknownCloud"
 			agentBaker, err := NewAgentBaker()
