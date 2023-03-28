@@ -27,7 +27,8 @@ func InitializeTemplateGenerator() *TemplateGenerator {
 }
 
 // GetNodeBootstrappingPayload get node bootstrapping data
-func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
+// This function only can be called after the validation of the input NodeBootstrappingConfiguration.
+func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	var customData string
 	if config.AgentPoolProfile.IsWindows() {
 		customData = getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(config))
@@ -40,8 +41,6 @@ func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *datamodel.NodeBo
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form
 // { "customData": "<customData string>" }
 func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
-	// validate and fix input
-	validateAndSetLinuxNodeBootstrappingConfiguration(config)
 	// get parameters
 	parameters := getParameters(config, "baker", "1.0")
 	// get variable cloudInit
@@ -59,9 +58,6 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 // GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form
 // { "customData": "<customData string>" }
 func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
-	// validate and fix input
-	validateAndSetWindowsNodeBootstrappingConfiguration(config)
-
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	// get parameters
@@ -86,7 +82,8 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 }
 
 // GetNodeBootstrappingCmd get node bootstrapping cmd
-func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *datamodel.NodeBootstrappingConfiguration) string {
+// This function only can be called after the validation of the input NodeBootstrappingConfiguration.
+func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
 		return t.getWindowsNodeCSECommand(config)
 	}
@@ -95,8 +92,6 @@ func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *datamodel.NodeBootst
 
 // getLinuxNodeCSECommand returns Linux node custom script extension execution command
 func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
-	// validate and fix input
-	validateAndSetLinuxNodeBootstrappingConfiguration(config)
 	// get parameters
 	parameters := getParameters(config, "", "")
 	// get variable
@@ -118,8 +113,6 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 
 // getWindowsNodeCSECommand returns Windows node custom script extension execution command
 func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
-	// TODO(ace): linux cleans the input here for CSE now.
-	// should we do the same for windows?
 	// get parameters
 	parameters := getParameters(config, "", "")
 	// get variable
