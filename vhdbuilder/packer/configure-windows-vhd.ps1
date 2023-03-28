@@ -568,6 +568,23 @@ function Install-NvidiaDriver([string] $driverType)
     }
 }
 
+# nvngx_update service makes remote calls to nvidia.com after the driver's installation succeeds.
+# this is a security concern, so we need to suppress the remote calls.
+# Note: Change the registry key before invoking installer
+function SuppressRemoteCalls()
+{
+    $NGXPath = "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\NVIDIA Corporation\Global\NGXCore"
+    $PropertyName = "EnableOTA"
+    if (!(Test-Path -Path $NGXPath))
+    {
+        Write-Log "Registry Path $NGXPath doesn't exist. Creating it..."
+        New-Item -Path $NGXPath -Force
+    }
+    Write-Log "Setting registry $path property $PropertyName to dword:00000000"
+    Set-ItemProperty -Path $NGXPath -Name $PropertyName -PropertyType DWord -Value 0
+}
+
+
 # NVIDIA Driver adds additional auto start services
 # - NVWMI
 # - NVDisplay.ContainerLocalSystem
@@ -637,6 +654,7 @@ try{
             }
             if( @("nvgrid", "nvcuda") -contains $env:installGpuDriver) {
                 Write-Log "Installing nvidia driver $env:installGpuDriver"
+                SuppressRemoteCalls
                 Install-NvidiaDriver($env:installGpuDriver)
                 Delete-ExtraNVIDIAGridServices
             } else {
