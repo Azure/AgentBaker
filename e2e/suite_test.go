@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	mrand "math/rand"
+	"strings"
 	"testing"
 	"time"
 
@@ -22,6 +23,20 @@ func Test_All(t *testing.T) {
 	suiteConfig, err := newSuiteConfig()
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	if suiteConfig.testsToRun != nil {
+		tests := []string{}
+		for testName := range suiteConfig.testsToRun {
+			if _, ok := cases[testName]; !ok {
+				t.Fatalf("unrecognized E2E test case: %q", testName)
+			} else {
+				tests = append(tests, testName)
+			}
+		}
+		t.Logf("Will run the following Agentbaker E2E tests: %s", strings.Join(tests, ", "))
+	} else {
+		t.Logf("Running all Agentbaker E2E tests...")
 	}
 
 	cloud, err := newAzureClient(suiteConfig.subscription)
@@ -73,15 +88,6 @@ func Test_All(t *testing.T) {
 	baseConfig, err := getBaseBootstrappingConfig(ctx, t, cloud, suiteConfig, clusterParams)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	if suiteConfig.testsToRun != nil {
-		t.Logf("Will run the following Agentbaker E2E tests: ")
-		for testName := range suiteConfig.testsToRun {
-			t.Log(testName)
-		}
-	} else {
-		t.Logf("Running all Agentbaker E2E tests...")
 	}
 
 	for name, tc := range cases {

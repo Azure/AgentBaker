@@ -61,8 +61,14 @@ var cases = map[string]scenarioConfig{
 		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
+			// This needs to be set based on current CSE implementation...
+			nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
+			nbc.K8sComponents.PodInfraContainerImageURL = "mcr.microsoft.com/oss/kubernetes/pause:3.6"
+			nbc.KubeletConfig["--pod-infra-container-image"] = "mcr.microsoft.com/oss/kubernetes/pause:3.6"
 			nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 			nbc.AgentPoolProfile.Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
+			nbc.IsARM64 = true
+
 		},
 		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
@@ -73,18 +79,22 @@ var cases = map[string]scenarioConfig{
 	},
 	"marinerv2-arm64": {
 		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D4pds_V5"
+			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].OSType = "Mariner"
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-arm64-gen2"
-			nbc.AgentPoolProfile.VMSize = "Standard_D4pds_V5"
+			nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
+			nbc.K8sComponents.PodInfraContainerImageURL = "mcr.microsoft.com/oss/kubernetes/pause:3.6"
+			nbc.KubeletConfig["--pod-infra-container-image"] = "mcr.microsoft.com/oss/kubernetes/pause:3.6"
+			nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 			nbc.AgentPoolProfile.OSType = "Mariner"
 			nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-arm64-gen2"
+			nbc.IsARM64 = true
 		},
 		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
 				ID: to.Ptr(defaultImageVersionIDs["marinerv2-arm64"]),
 			}
-			vmss.SKU.Name = to.Ptr("Standard_D4pds_V5")
+			vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 		},
 	},
 	"gpu": {
