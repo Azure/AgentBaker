@@ -9,7 +9,7 @@ log "Starting e2e tests"
 # Create a resource group for the cluster
 log "Creating resource group"
 if [[ "$RESOURCE_GROUP_NAME" == *"windows"*  ]]; then
-    RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"-"$WINDOWS_E2E_IMAGE"-v2
+    RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"-"$WINDOWS_E2E_IMAGE"-v3
 fi
 
 rgStartTime=$(date +%s)
@@ -88,13 +88,13 @@ az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" 
 MC_VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
 CLUSTER_ID=$(echo $MC_VMSS_NAME | cut -d '-' -f3)
 
-if [[ "$RESOURCE_GROUP_NAME" == *"windows"*  ]]; then
-    if [ "$create_cluster" == "true" ]; then
-        create_storage_account
-        upload_linux_file_to_storage_account
-    fi
-    download_linux_file_from_storage_account
-else
+# if [[ "$RESOURCE_GROUP_NAME" == *"windows"*  ]]; then
+#     if [ "$create_cluster" == "true" ]; then
+#         create_storage_account
+#         upload_linux_file_to_storage_account
+#     fi
+#     download_linux_file_from_storage_account
+# else
     # privileged ds with nsenter for host file exfiltration
     kubectl apply -f deploy.yaml
     kubectl rollout status deploy/debug
@@ -111,7 +111,7 @@ else
 
     clusterInfoEndTime=$(date +%s)
     log "Retrieved cluster info in $((clusterInfoEndTime-clusterInfoStartTime)) seconds"
-fi
+# fi
 
 set +x
 addJsonToFile "apiserverCrt" "$(cat apiserver.crt)"

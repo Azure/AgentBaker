@@ -43,7 +43,7 @@ collect-logs() {
     set -x
 }
 
-RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"-"$WINDOWS_E2E_IMAGE"-v2
+RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"-"$WINDOWS_E2E_IMAGE"-v3
 
 DEPLOYMENT_VMSS_NAME="$(mktemp -u winXXXXX | tr '[:upper:]' '[:lower:]')"
 export DEPLOYMENT_VMSS_NAME
