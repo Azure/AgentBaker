@@ -121,11 +121,7 @@ func getBaseVMSSModel(name, location, subnetID, sshPublicKey, customData, cseCmd
 				},
 				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
 					ImageReference: &armcompute.ImageReference{
-						ID: to.Ptr("/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1677169694.31375"),
-						// 	Offer:     to.Ptr("0001-com-ubuntu-server-jammy"),
-						// 	Publisher: to.Ptr("Canonical"),
-						// 	SKU:       to.Ptr("22_04-lts-gen2"),
-						// 	Version:   to.Ptr("latest"),
+						ID: to.Ptr(defaultImageVersionIDs["ubuntu1804"]),
 					},
 					OSDisk: &armcompute.VirtualMachineScaleSetOSDisk{
 						CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
