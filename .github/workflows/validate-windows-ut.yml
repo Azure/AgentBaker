@@ -1,0 +1,15 @@
+name: Windows Powershell Unit Test
+on: pull_request
+
+jobs:
+  pester-test:
+    name: Pester test
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v3
+      - name: Perform a Pester test from the tests.ps1 file
+        shell: powershell
+        run: |
+          Invoke-Pester parts/windows/*.tests.ps1 -Passthru
+          Invoke-Pester staging/cse/windows/*.tests.ps1 -Passthru
