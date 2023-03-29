@@ -11,6 +11,7 @@
     "build_id": "{{env `BUILD_ID`}}",
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
+    "image_version": "{{env `IMAGE_VERSION`}}",
     "os_version": "{{env `OS_VERSION`}}",
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
@@ -486,20 +487,9 @@
       "destination": "/home/packer/list-images.sh"
     },
     {
-      "type": "file",
-      "source": "vhdbuilder/packer/trivy-scan.sh",
-      "destination": "/home/packer/trivy-scan.sh"
-    },
-    {
       "type": "shell",
       "inline": [
-        "sudo CONTAINER_RUNTIME={{user `container_runtime`}} /bin/bash -ux /home/packer/list-images.sh"
-      ]
-    },
-    {
-      "type": "shell",
-      "inline": [
-        "sudo /bin/bash -ux /home/packer/trivy-scan.sh"
+        "sudo IMAGE_VERSION={{user `image_version`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} /bin/bash -ux /home/packer/list-images.sh"
       ]
     },
     {
@@ -507,12 +497,6 @@
       "direction": "download",
       "source": "/opt/azure/containers/image-bom.json",
       "destination": "image-bom.json"
-    },
-    {
-      "type": "file",
-      "direction": "download",
-      "source": "/opt/azure/containers/trivy-report.json",
-      "destination": "trivy-report.json"
     },
     {
       "type": "file",

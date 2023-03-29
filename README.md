@@ -13,7 +13,7 @@ The primary consumer of Agentbaker is Azure Kubernetes Service (AKS).
 
 AKS uses Agentbaker to provision Linux and Windows Kubernetes nodes.
 
-# Contributing
+## Contributing
 
 Developing agentbaker requires a few basic requisites:
 - Go (at least version 1.19)
@@ -42,6 +42,16 @@ We have [job to run golangci-lint on pull requests]().
 This job uses the linters "no-new-issues" feature.
 
 As long as PRs don't introduce net new issues, they should pass.
+
+We also have a linting job to enforce commit message style.
+
+We adhere to [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/).
+
+Prefer pull requests with single commits.
+
+To clean up in-progress commits, you can use `git rebase -i` to fixup commits.
+
+See the [git documentation](https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History#_squashing) for more details.
 
 ## Testing
 

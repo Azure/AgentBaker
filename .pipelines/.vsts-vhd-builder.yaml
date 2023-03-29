@@ -72,6 +72,7 @@ stages:
             -e ARCHITECTURE=${ARCHITECTURE} \
             -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
             -e SGX_INSTALL=${SGX_INSTALL} \
+            -e IMAGE_VERSION=${IMAGE_VERSION} \
             ${CONTAINER_IMAGE} make -f packer.mk run-packer
           displayName: Building VHD
         - script: |
@@ -104,10 +105,6 @@ stages:
             -e SGX_INSTALL=${SGX_INSTALL} \
             ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
           displayName: Run VHD Tests
-        - task: PublishPipelineArtifact@0
-          inputs:
-            artifactName: 'trivy-report'
-            targetPath: 'trivy-report.json'
         - task: PublishPipelineArtifact@0
           inputs:
             artifactName: 'vhd-release-notes'

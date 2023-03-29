@@ -1,32 +1,6 @@
 {
   "ContainerImages": [
     {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/kubernetes-dashboard:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": []
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/dashboard:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": []
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/metrics-scraper:*",
-      "amd64OnlyVersions": [
-        "v1.0.4"
-      ],
-      "multiArchVersions": [
-        "v1.0.7"
-      ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/exechealthz:*",
-      "amd64OnlyVersions": [
-        "1.2_v0.0.5"
-      ],
-      "multiArchVersions": []
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
       "amd64OnlyVersions": [
         "1.8.5"
@@ -84,26 +58,12 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/aks/hcp/hcp-tunnel-front:*",
-      "amd64OnlyVersions": [
-        "master.220527.2"
-      ],
-      "multiArchVersions": []
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v0.0.30",
         "v0.0.33-hotfix.20221110"
       ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/aks/hcp/tunnel-openvpn:*",
-      "amd64OnlyVersions": [
-        "master.220527.2"
-      ],
-      "multiArchVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
@@ -141,8 +101,8 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "6.2.0-main-01-31-2023-e1e3858b",
-        "6.4.0-main-02-22-2023-3ee44b9e"
+        "6.4.0-main-02-22-2023-3ee44b9e",
+        "6.5.0-main-03-24-2023-7eb3f5c7"
       ]
     },
     {
@@ -225,11 +185,6 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/appscode/guard:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": []
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
@@ -250,20 +205,6 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/k8s/flexvolume/blobfuse-flexvolume:*",
-      "amd64OnlyVersions": [
-        "1.0.15"
-      ],
-      "multiArchVersions": []
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/k8s/flexvolume/keyvault-flexvolume:*",
-      "amd64OnlyVersions": [
-        "v0.0.13"
-      ],
-      "multiArchVersions": []
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/ip-masq-agent:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
@@ -276,13 +217,6 @@
       "multiArchVersions": [
         "v0.1.5"
       ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/k8s/kms/keyvault:*",
-      "amd64OnlyVersions": [
-        "v0.0.9"
-      ],
-      "multiArchVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
@@ -392,13 +326,6 @@
       "multiArchVersions": [
         "v1.8.13.3",
         "v1.8.13.4"
-      ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/aks/command/runtime:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "master.220211.1"
       ]
     },
     {

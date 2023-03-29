@@ -33,7 +33,7 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, ku
 	pl := cloud.coreClient.Pipeline()
 	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
 		subscription,
-		agentbakerTestResourceGroupName,
+		agentbakerTestClusterMCResourceGroupName,
 		vmssName,
 		0,
 	)
@@ -66,18 +66,13 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, ku
 
 	commandList := map[string]string{
 		"/var/log/azure/cluster-provision.log": "cat /var/log/azure/cluster-provision.log",
+		"kubelet.log":                          "journalctl -u kubelet",
 	}
 
-	podList := corev1.PodList{}
-	if err := kube.dynamic.List(context.Background(), &podList, client.MatchingLabels{"app": "debug"}); err != nil {
-		return nil, fmt.Errorf("failed to list debug pod: %q", err)
+	podName, err := getDebugPodName(kube)
+	if err != nil {
+		return nil, err
 	}
-
-	if len(podList.Items) < 1 {
-		return nil, fmt.Errorf("failed to find debug pod, list by selector returned no results")
-	}
-
-	podName := podList.Items[0].ObjectMeta.Name
 
 	var result = map[string]string{}
 	for file, sourceCmd := range commandList {
@@ -105,16 +100,10 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 		"/var/lib/kubelet/bootstrap-kubeconfig": "cat /var/lib/kubelet/bootstrap-kubeconfig",
 	}
 
-	podList := corev1.PodList{}
-	if err := kube.dynamic.List(context.Background(), &podList, client.MatchingLabels{"app": "debug"}); err != nil {
-		return nil, fmt.Errorf("failed to list debug pod: %q", err)
+	podName, err := getDebugPodName(kube)
+	if err != nil {
+		return nil, err
 	}
-
-	if len(podList.Items) < 1 {
-		return nil, fmt.Errorf("failed to find debug pod, list by selector returned no results")
-	}
-
-	podName := podList.Items[0].ObjectMeta.Name
 
 	var result = map[string]string{}
 	for file, sourceCmd := range commandList {
@@ -132,6 +121,32 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 	}
 
 	return result, nil
+}
+
+// Returns the name of a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node
+func getDebugPodName(kube *kubeclient) (string, error) {
+	podList := corev1.PodList{}
+	if err := kube.dynamic.List(context.Background(), &podList, client.MatchingLabels{"app": "debug"}); err != nil {
+		return "", fmt.Errorf("failed to list debug pod: %q", err)
+	}
+
+	if len(podList.Items) < 1 {
+		return "", fmt.Errorf("failed to find debug pod, list by selector returned no results")
+	}
+
+	var podName string
+	for _, pod := range podList.Items {
+		if strings.Contains(pod.Spec.NodeName, "aks-nodepool") {
+			podName = pod.ObjectMeta.Name
+			break
+		}
+	}
+
+	if podName == "" {
+		return "", fmt.Errorf("expected to find at least one debug pod running on the original AKS nodepool")
+	}
+
+	return podName, nil
 }
 
 func ensureDebugDaemonset(ctx context.Context, kube *kubeclient, resourceGroupName, clusterName string) error {
@@ -173,11 +188,11 @@ func ensureTestNginxPod(ctx context.Context, kube *kubeclient, nodeName string) 
 		return fmt.Errorf("failed to apply nginx test pod: %q", err)
 	}
 
-	return nil
+	return waitUntilPodRunning(ctx, kube, nodeName)
 }
 
 func waitUntilPodRunning(ctx context.Context, kube *kubeclient, podName string) error {
-	return wait.PollImmediateUntilWithContext(ctx, 5*time.Second, func(ctx context.Context) (bool, error) {
+	return wait.PollImmediateWithContext(ctx, 5*time.Second, 3*time.Minute, func(ctx context.Context) (bool, error) {
 		pod, err := kube.typed.CoreV1().Pods(defaultNamespace).Get(ctx, podName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
@@ -187,8 +202,8 @@ func waitUntilPodRunning(ctx context.Context, kube *kubeclient, podName string) 
 	})
 }
 
-func ensurePodDeleted(ctx context.Context, kube *kubeclient, podName string) error {
-	return wait.PollImmediateWithContext(ctx, 5*time.Second, 1*time.Minute, func(ctx context.Context) (bool, error) {
+func waitUntilPodDeleted(ctx context.Context, kube *kubeclient, podName string) error {
+	return wait.PollImmediateWithContext(ctx, 5*time.Second, 3*time.Minute, func(ctx context.Context) (bool, error) {
 		err := kube.typed.CoreV1().Pods(defaultNamespace).Delete(ctx, podName, metav1.DeleteOptions{})
 		return err == nil, err
 	})
@@ -261,7 +276,7 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 
 func checkStdErr(stderr *bytes.Buffer, t *testing.T) {
 	stderrString := stderr.String()
-	if stderrString != "" {
+	if stderrString != "" && stderrString != "<nil>" {
 		t.Logf("%s\n%s\n%s\n%s",
 			"stderr is non-empty after executing last command:",
 			"----------------------------------- begin stderr -----------------------------------",

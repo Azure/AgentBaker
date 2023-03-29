@@ -1,8 +1,14 @@
 package e2e_test
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"strings"
+	"testing"
+
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 )
 
 type suiteConfig struct {
@@ -10,6 +16,7 @@ type suiteConfig struct {
 	location          string
 	resourceGroupName string
 	clusterName       string
+	scenariosToRun    map[string]bool
 }
 
 func newSuiteConfig() (*suiteConfig, error) {
@@ -33,5 +40,36 @@ func newSuiteConfig() (*suiteConfig, error) {
 		location:          environment["LOCATION"],
 		resourceGroupName: environment["RESOURCE_GROUP_NAME"],
 		clusterName:       environment["CLUSTER_NAME"],
+		scenariosToRun:    parseScenarioNames(os.Getenv("SCENARIOS_TO_RUN")),
 	}, nil
+}
+
+type scenarioConfig struct {
+	// bootstrapConfig          *datamodel.NodeBootstrappingConfiguration
+	bootstrapConfigMutator func(*testing.T, *datamodel.NodeBootstrappingConfiguration)
+	vmConfigMutator        func(*armcompute.VirtualMachineScaleSet)
+	validator              func(context.Context, *testing.T, *scenarioValidationInput) error
+}
+
+type scenarioValidationInput struct {
+	privateIP     string
+	sshPrivateKey string
+}
+
+func parseScenarioNames(testNames string) map[string]bool {
+	testNames = strings.ReplaceAll(testNames, " ", "")
+
+	if testNames == "" {
+		return nil
+	}
+
+	testParts := strings.SplitN(testNames, ",", -1)
+
+	tests := make(map[string]bool, len(testParts))
+
+	for _, tp := range testParts {
+		tests[tp] = true
+	}
+
+	return tests
 }

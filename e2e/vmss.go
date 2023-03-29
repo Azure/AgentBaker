@@ -8,30 +8,30 @@ import (
 	"fmt"
 	mrand "math/rand"
 
+	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"golang.org/x/crypto/ssh"
 )
 
-func createVMSSWithPayload(ctx context.Context, r *mrand.Rand, cloud *azureClient, location, name, subnetID string, customData, cseCmd string, mutator func(*armcompute.VirtualMachineScaleSet)) (sshPrivateKey []byte, e error) {
-	// Private Key generation
+// Returns a newly generated RSA public/private key pair with the private key in PEM format
+func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []byte, e error) {
 	privateKey, err := rsa.GenerateKey(r, 4096)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create rsa private key: %q", err)
+		return nil, nil, fmt.Errorf("failed to create rsa private key: %q", err)
 	}
 
-	// Validate Private Key
 	err = privateKey.Validate()
 	if err != nil {
-		return nil, fmt.Errorf("failed to validate private key: %q", err)
+		return nil, nil, fmt.Errorf("failed to validate rsa private key: %q", err)
 	}
 
 	publicRsaKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert private to public key: %q", err)
+		return nil, nil, fmt.Errorf("failed to convert private to public key: %q", err)
 	}
 
-	pubKeyBytes := ssh.MarshalAuthorizedKey(publicRsaKey)
+	publicKeyBytes = ssh.MarshalAuthorizedKey(publicRsaKey)
 
 	// Get ASN.1 DER format
 	privDER := x509.MarshalPKCS1PrivateKey(privateKey)
@@ -44,9 +44,13 @@ func createVMSSWithPayload(ctx context.Context, r *mrand.Rand, cloud *azureClien
 	}
 
 	// Private key in PEM format
-	privatePEM := pem.EncodeToMemory(&privBlock)
+	privatePEMBytes = pem.EncodeToMemory(&privBlock)
 
-	model := getBaseVMSSModel(name, location, subnetID, string(pubKeyBytes), customData, cseCmd)
+	return
+}
+
+func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *azureClient, location, name, subnetID, customData, cseCmd string, mutator func(*armcompute.VirtualMachineScaleSet)) error {
+	model := getBaseVMSSModel(name, location, subnetID, string(publicKeyBytes), customData, cseCmd)
 
 	if mutator != nil {
 		mutator(&model)
@@ -54,23 +58,21 @@ func createVMSSWithPayload(ctx context.Context, r *mrand.Rand, cloud *azureClien
 
 	pollerResp, err := cloud.vmssClient.BeginCreateOrUpdate(
 		ctx,
-		agentbakerTestResourceGroupName,
+		agentbakerTestClusterMCResourceGroupName,
 		name,
 		model,
 		nil,
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	res, err := pollerResp.PollUntilDone(ctx, nil)
+	_, err = pollerResp.PollUntilDone(ctx, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	_ = res
-
-	return privatePEM, nil
+	return nil
 }
 
 func getBaseVMSSModel(name, location, subnetID, sshPublicKey, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
@@ -120,11 +122,7 @@ func getBaseVMSSModel(name, location, subnetID, sshPublicKey, customData, cseCmd
 				},
 				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
 					ImageReference: &armcompute.ImageReference{
-						ID: to.Ptr("/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1677169694.31375"),
-						// 	Offer:     to.Ptr("0001-com-ubuntu-server-jammy"),
-						// 	Publisher: to.Ptr("Canonical"),
-						// 	SKU:       to.Ptr("22_04-lts-gen2"),
-						// 	Version:   to.Ptr("latest"),
+						ID: to.Ptr(scenario.DefaultImageVersionIDs["ubuntu1804"]),
 					},
 					OSDisk: &armcompute.VirtualMachineScaleSetOSDisk{
 						CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),

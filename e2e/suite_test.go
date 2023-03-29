@@ -11,10 +11,10 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/barkimedes/go-deepcopy"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func Test_All(t *testing.T) {
-	scenarioTable := scenario.InitScenarioTable()
 	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 	ctx := context.Background()
 
@@ -24,6 +24,8 @@ func Test_All(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	scenarioTable := scenario.InitScenarioTable(t, suiteConfig.scenariosToRun)
 
 	cloud, err := newAzureClient(suiteConfig.subscription)
 	if err != nil {
@@ -48,7 +50,16 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	clusterParams, err := extractClusterParameters(ctx, t, kube)
+	var clusterParams map[string]string
+	err = wait.PollImmediateWithContext(ctx, 15*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
+		params, err := extractClusterParameters(ctx, t, kube)
+		if err != nil {
+			t.Logf("error extracting cluster parameters: %q", err)
+			return false, nil
+		}
+		clusterParams = params
+		return true, nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,8 +70,7 @@ func Test_All(t *testing.T) {
 
 	t.Logf("dumping cluster parameters to local directory: %s", clusterParamsDir)
 	if err := dumpFileMapToDir(clusterParamsDir, clusterParams); err != nil {
-		t.Log("error dumping cluster parameters:")
-		t.Error(err)
+		t.Error("error dumping cluster parameters", err)
 	}
 
 	baseConfig, err := getBaseNodeBootstrappingConfiguration(ctx, t, cloud, suiteConfig, clusterParams)
@@ -68,7 +78,8 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for name, scenario := range scenarioTable {
+	for _, scenario := range scenarioTable {
+
 		scenario := scenario
 		copied, err := deepcopy.Anything(baseConfig)
 		if err != nil {
@@ -81,80 +92,109 @@ func Test_All(t *testing.T) {
 			scenario.ScenarioConfig.BootstrapConfigMutator(t, nbc)
 		}
 
-		t.Run(name, func(t *testing.T) {
+		t.Run(scenario.Name, func(t *testing.T) {
 			t.Parallel()
-
-			t.Logf("Running scenario %q: %q", scenario.Name, scenario.Description)
 
 			caseLogsDir, err := createVMLogsDir(scenario.Name)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			baker := agent.InitializeTemplateGenerator()
-			base64EncodedCustomData := baker.GetNodeBootstrappingPayload(nbc)
-			cseCmd := baker.GetNodeBootstrappingCmd(nbc)
+			ab, err := agent.NewAgentBaker()
+			if err != nil {
+				t.Fatal(err)
+			}
+			nodeBootstrapping, err := ab.GetNodeBootstrapping(context.Background(), nbc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			base64EncodedCustomData := nodeBootstrapping.CustomData
+			cseCmd := nodeBootstrapping.CSE
 
 			vmssName := fmt.Sprintf("abtest%s", randomLowercaseString(r, 4))
 			t.Logf("[scenario/%s] vmss name: %q", scenario.Name, vmssName)
 
 			cleanupVMSS := func() {
-				t.Logf("[scenario/%s] deleting vmss %q", scenario.Name, vmssName)
-				poller, err := cloud.vmssClient.BeginDelete(ctx, agentbakerTestResourceGroupName, vmssName, nil)
+				t.Log("deleting vmss", vmssName)
+				poller, err := cloud.vmssClient.BeginDelete(ctx, agentbakerTestClusterMCResourceGroupName, vmssName, nil)
 				if err != nil {
-					t.Logf("[scenario/%s] error deleting vmss %q", scenario.Name, vmssName)
-					t.Error(err)
+					t.Error("error deleting vmss", vmssName, err)
 					return
 				}
 				_, err = poller.PollUntilDone(ctx, nil)
 				if err != nil {
-					t.Logf("[scenario/%s] error polling deleting vmss %q", scenario.Name, vmssName)
-					t.Error(err)
+					t.Error("error polling deleting vmss", vmssName, err)
 				}
 				t.Logf("[scenario/%s] finished deleting vmss %q", scenario.Name, vmssName)
 			}
 
 			defer cleanupVMSS()
 
-			sshPrivateKeyBytes, err := createVMSSWithPayload(ctx, r, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, scenario.ScenarioConfig.VMConfigMutator)
+			privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair(r)
 			if err != nil {
 				t.Error(err)
 				return
 			}
 
-			debug := func() {
-				t.Logf("[scenario/%s] extracting VM logs", scenario.Name)
-				logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(sshPrivateKeyBytes))
+			err = createVMSSWithPayload(ctx, publicKeyBytes, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, scenario.VMConfigMutator)
+			isCSEError := isVMExtensionProvisioningError(err)
+			vmssSucceeded := true
+			if err != nil {
+				vmssSucceeded = false
+				if isCSEError {
+					t.Error("VM was unable to be provisioned due to a CSE error, will still atempt to extract provisioning logs...", err)
+				} else {
+					t.Fatal("Encountered an unknown error while creating VM", err)
+				}
+			}
+
+			// Perform posthoc log extraction when the VMSS creation succeeded, or failed due to a CSE error
+			if vmssSucceeded || isCSEError {
+				debug := func() {
+					err := wait.PollImmediateWithContext(ctx, 15*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
+						t.Log("attempting to extract VM logs")
+
+						logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(privateKeyBytes))
+						if err != nil {
+							t.Logf("error extracting VM logs: %q", err)
+							return false, nil
+						}
+
+						t.Logf("dumping VM logs to local directory: %s", caseLogsDir)
+						if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
+							t.Logf("error extracting VM logs: %q", err)
+							return false, nil
+						}
+
+						return true, nil
+					})
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				defer debug()
+			}
+
+			// Only perform node readiness/pod-related checks when VMSS creation succeeded
+			if vmssSucceeded {
+				t.Log("vmss creation succeded, proceeding with node readiness and pod checks...")
+
+				nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
 				if err != nil {
-					t.Logf("[scenario/%s] error extracting VM logs:", scenario.Name)
-					t.Error(err)
+					t.Fatal("error waiting for node ready", err)
 				}
 
-				t.Logf("dumping VM logs to local directory: %s", caseLogsDir)
-				if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
-					t.Logf("[scenario/%s] error dumping VM logs:", scenario.Name)
-					t.Error(err)
+				err = ensureTestNginxPod(ctx, kube, nodeName)
+				if err != nil {
+					t.Fatal("error waiting for pod ready", err)
 				}
-			}
-			defer debug()
 
-			nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
-			if err != nil {
-				t.Logf("[scenario/%s] error waiting for node ready:", scenario.Name)
-				t.Fatal(err)
-				return
-			}
+				err = waitUntilPodDeleted(ctx, kube, nodeName)
+				if err != nil {
+					t.Fatal("error waiting for pod deleted", err)
+				}
 
-			err = ensureTestNginxPod(ctx, kube, nodeName)
-			if err != nil {
-				t.Logf("[scenario/%s] error waiting for pod ready:", scenario.Name)
-				t.Fatal(err)
-			}
-
-			err = ensurePodDeleted(ctx, kube, nodeName)
-			if err != nil {
-				t.Logf("[scenario/%s] error waiting for pod deleted:", scenario.Name)
-				t.Error(err)
+				t.Log("node bootstrapping succeeded!")
 			}
 		})
 	}
