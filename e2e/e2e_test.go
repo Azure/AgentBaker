@@ -16,9 +16,10 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
-// TODO 1: How to get the most accurate url links/image links for the currently hardcoded ones for eg CustomKubeBinaryURL, Pause Image etc
-// TODO 2: Update --rotate-certificate (true for TLS enabled, false otherwise, small nit)
-// TODO 3: Seperate out the certificate encode/decode
+/* TODO 1: How to get the most accurate url links/image links for the currently hardcoded ones for eg
+CustomKubeBinaryURL, Pause Image etc. */
+// TODO 2: Update --rotate-certificate (true for TLS enabled, false otherwise, small nit).
+// TODO 3: Seperate out the certificate encode/decode.
 // TODO 4: Investigate CloudSpecConfig and its need. Without it, the bootstrapping struct breaks.
 
 func decodeCert(cert string) string {
