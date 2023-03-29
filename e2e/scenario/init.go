@@ -20,6 +20,11 @@ func InitScenarioTable(t *testing.T, scenariosToRun map[string]bool) ScenarioTab
 func scenarios() []*Scenario {
 	return []*Scenario{
 		base(),
+		ubuntu2204(),
+		marinerv1(),
+		marinerv2(),
+		ubuntu2204ARM64(),
+		marinerv2ARM64(),
 		gpu(),
 	}
 }
