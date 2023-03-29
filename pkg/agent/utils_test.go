@@ -136,7 +136,7 @@ func getExampleKcWithContainerLogMaxSize() map[string]string {
 	return kc
 }
 
-var expectedKubeletJSON = `{
+const expectedKubeletJSON = `{
     "kind": "KubeletConfiguration",
     "apiVersion": "kubelet.config.k8s.io/v1beta1",
     "staticPodPath": "/etc/kubernetes/manifests",
@@ -217,7 +217,7 @@ var expectedKubeletJSON = `{
     ]
 }`
 
-var expectedKubeletJSONWithNodeStatusReportFrequency = `{
+const expectedKubeletJSONWithNodeStatusReportFrequency = `{
     "kind": "KubeletConfiguration",
     "apiVersion": "kubelet.config.k8s.io/v1beta1",
     "staticPodPath": "/etc/kubernetes/manifests",
@@ -297,7 +297,7 @@ var expectedKubeletJSONWithNodeStatusReportFrequency = `{
     ]
 }`
 
-var expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags = `{
+const expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags = `{
     "kind": "KubeletConfiguration",
     "apiVersion": "kubelet.config.k8s.io/v1beta1",
     "staticPodPath": "/etc/kubernetes/manifests",
