@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-// Options holds the options for the api server
+// Options holds the options for the api server.
 type Options struct {
 	Addr string
 }
@@ -23,12 +23,12 @@ func (o *Options) validate() error {
 	return nil
 }
 
-// APIServer contains the connections details required to run the api
+// APIServer contains the connections details required to run the api.
 type APIServer struct {
 	Options *Options
 }
 
-// NewAPIServer creates an APIServer object with defaults
+// NewAPIServer creates an APIServer object with defaults.
 func NewAPIServer(o *Options) (*APIServer, error) {
 	if err := o.validate(); err != nil {
 		return nil, err
