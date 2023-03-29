@@ -11,9 +11,12 @@ import (
 )
 
 type AgentBaker interface {
-	GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
-	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, region string, distro datamodel.Distro) (*datamodel.SigImageConfig, error)
-	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, region string) (map[datamodel.Distro]datamodel.SigImageConfig, error)
+	GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (
+		*datamodel.NodeBootstrapping, error)
+	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, region string, distro datamodel.Distro) (
+		*datamodel.SigImageConfig, error)
+	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, region string) (
+		map[datamodel.Distro]datamodel.SigImageConfig, error)
 }
 
 func NewAgentBaker() (AgentBaker, error) {
@@ -51,7 +54,8 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context,
 		nodeBootstrapping.OSImageConfig = &osImageConfig
 	}
 
-	sigAzureEnvironmentSpecConfig, err := datamodel.GetSIGAzureCloudSpecConfig(config.SIGConfig, config.ContainerService.Location)
+	sigAzureEnvironmentSpecConfig, err := datamodel.GetSIGAzureCloudSpecConfig(config.SIGConfig,
+		config.ContainerService.Location)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +68,8 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context,
 	return nodeBootstrapping, nil
 }
 
-func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distro datamodel.Distro) *datamodel.SigImageConfig {
+func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig,
+	distro datamodel.Distro) *datamodel.SigImageConfig {
 	if imageConfig, ok := sigConfig.SigUbuntuImageConfig[distro]; ok {
 		return &imageConfig
 	}
@@ -95,7 +100,8 @@ func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(
 	return sigImageConfig, nil
 }
 
-func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, region string) (map[datamodel.Distro]datamodel.SigImageConfig, error) {
+func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, region string) (
+	map[datamodel.Distro]datamodel.SigImageConfig, error) {
 	allAzureSigConfig, err := datamodel.GetSIGAzureCloudSpecConfig(sigConfig, region)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sig image config: %v", err)

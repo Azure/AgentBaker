@@ -127,7 +127,7 @@ const (
 // installing vanilla cuda drivers will fail to install with opaque errors.
 // nvidia-bug-report.sh will is helpful, but usually it tells you
 // the pci card id is incompatible. That sends me to HPC folks.
-// see https://github.com/Azure/azhpc-extensions/blob/daaefd78df6f27012caf30f3b54c3bd6dc437652/NvidiaGPU/resources.json
+// see https://github.com/Azure/azhpc-extensions/blob/daaefd78df6f27012caf30f3b54c3bd6dc437652/NvidiaGPU/resources.json // this link is longer than max length (111)
 var ConvergedGPUDriverSizes = map[string]bool{
 	"standard_nv6ads_a10_v5":   true,
 	"standard_nv12ads_a10_v5":  true,

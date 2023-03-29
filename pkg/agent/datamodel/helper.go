@@ -22,7 +22,10 @@ func ValidateDNSPrefix(dnsName string) error {
 		return err
 	}
 	if !re.MatchString(dnsName) {
-		return errors.Errorf("DNSPrefix '%s' is invalid. The DNSPrefix must contain between 3 and 45 characters and can contain only letters, numbers, and hyphens.  It must start with a letter and must end with a letter or a number. (length was %d)", dnsName, len(dnsName))
+		return errors.Errorf("DNSPrefix '%s' is invalid. The DNSPrefix must contain between 3 and 45"+
+			" characters and can contain only letters, numbers, and hyphens."+
+			"  It must start with a letter and must end with a letter or a number. (length was %d)",
+			dnsName, len(dnsName))
 	}
 	return nil
 }

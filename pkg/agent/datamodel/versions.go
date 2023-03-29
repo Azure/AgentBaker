@@ -119,7 +119,7 @@ var AllKubernetesSupportedVersions = map[string]bool{
 	"1.13.9":         false,
 	"1.13.10":        false,
 	"1.13.11":        true,
-	"1.13.12":        true, // disabled because of https://github.com/Azure/aks-engine/issues/2312, enabled for aks with v1.13.12_f0.0.2
+	"1.13.12":        true, //nolint:lll // disabled because of https://github.com/Azure/aks-engine/issues/2312, enabled for aks with v1.13.12_f0.0.2
 	"1.14.0-alpha.1": false,
 	"1.14.0-alpha.2": false,
 	"1.14.0-beta.1":  false,
@@ -133,7 +133,7 @@ var AllKubernetesSupportedVersions = map[string]bool{
 	"1.14.5":         false,
 	"1.14.6":         false,
 	"1.14.7":         true,
-	"1.14.8":         true,  // disabled because of https://github.com/Azure/aks-engine/issues/2312, enabled for aks with v1.14.8_f0.0.4
+	"1.14.8":         true,  //nolint:lll // disabled because of https://github.com/Azure/aks-engine/issues/2312, enabled for aks with v1.14.8_f0.0.4
 	"1.14.10":        false, // disabled because of https://github.com/Azure/aks-engine/issues/2312
 	"1.15.0-alpha.1": false,
 	"1.15.0-alpha.2": false,
@@ -370,7 +370,7 @@ func GetSupportedVersions(orchType string, isUpdate, hasWindows bool) (versions 
 	}
 }
 
-//GetValidPatchVersion gets the current valid patch version for the minor version of the passed in version
+// GetValidPatchVersion gets the current valid patch version for the minor version of the passed in version
 func GetValidPatchVersion(orchType, orchVer string, isUpdate, hasWindows bool) string {
 	if orchVer == "" {
 		return RationalizeReleaseAndVersion(
@@ -407,7 +407,8 @@ func GetValidPatchVersion(orchType, orchVer string, isUpdate, hasWindows bool) s
 }
 
 // RationalizeReleaseAndVersion return a version when it can be rationalized from the input, otherwise ""
-func RationalizeReleaseAndVersion(orchType, orchRel, orchVer string, isUpdate, hasWindows bool) (version string) {
+func RationalizeReleaseAndVersion(orchType, orchRel, orchVer string, isUpdate,
+	hasWindows bool) (version string) {
 	// ignore "v" prefix in orchestrator version and release: "v1.8.0" is equivalent to "1.8.0", "v1.9" is equivalent to "1.9"
 	orchVer = strings.TrimPrefix(orchVer, "v")
 	orchRel = strings.TrimPrefix(orchRel, "v")
@@ -456,7 +457,9 @@ func IsValidMinVersion(orchType, orchRelease, orchVersion, minVersion string) (b
 		false,
 		false)
 	if version == "" {
-		return false, errors.Errorf("the following user supplied OrchestratorProfile configuration is not supported: OrchestratorType: %s, OrchestratorRelease: %s, OrchestratorVersion: %s. Please check supported Release or Version for this build of aks-engine",
+		return false, errors.Errorf("the following user supplied OrchestratorProfile configuration is not "+
+			"supported: OrchestratorType: %s, OrchestratorRelease: %s, OrchestratorVersion: %s. Please check "+
+			"supported Release or Version for this build of aks-engine",
 			orchType,
 			orchRelease,
 			orchVersion)

@@ -11,14 +11,16 @@ func Test_GetAllSupportedKubernetesVersions(t *testing.T) {
 	responseFromGetter := GetAllSupportedKubernetesVersions(true, false)
 
 	if len(AllKubernetesSupportedVersions) != len(responseFromGetter) {
-		t.Errorf("GetAllSupportedKubernetesVersions(true, false) returned %d items, expected %d", len(responseFromGetter), len(AllKubernetesSupportedVersions))
+		t.Errorf("GetAllSupportedKubernetesVersions(true, false) returned %d items, expected %d",
+			len(responseFromGetter), len(AllKubernetesSupportedVersions))
 	}
 
 	responseFromGetter = GetAllSupportedKubernetesVersions(false, false)
 
 	for _, version := range responseFromGetter {
 		if !AllKubernetesSupportedVersions[version] {
-			t.Errorf("GetAllSupportedKubernetesVersions(false, false) returned a version %s that was not in the definitive AllKubernetesSupportedVersions map", version)
+			t.Errorf("GetAllSupportedKubernetesVersions(false, false) returned a version %s that was not "+
+				"in the definitive AllKubernetesSupportedVersions map", version)
 		}
 	}
 }
@@ -28,26 +30,30 @@ func Test_GetSupportedKubernetesVersion(t *testing.T) {
 	for _, version := range versions {
 		supportedVersion := GetSupportedKubernetesVersion(version, false)
 		if supportedVersion != version {
-			t.Errorf("GetSupportedKubernetesVersion(%s) should return the same passed-in string, instead returned %s", version, supportedVersion)
+			t.Errorf("GetSupportedKubernetesVersion(%s) should return the same passed-in string, "+
+				"instead returned %s", version, supportedVersion)
 		}
 	}
 
 	defaultVersion := GetSupportedKubernetesVersion("", false)
 	if defaultVersion != GetDefaultKubernetesVersion(false) {
-		t.Errorf("GetSupportedKubernetesVersion(\"\") should return the default version %s, instead returned %s", GetDefaultKubernetesVersion(false), defaultVersion)
+		t.Errorf("GetSupportedKubernetesVersion(\"\") should return the default version %s, instead "+
+			"returned %s", GetDefaultKubernetesVersion(false), defaultVersion)
 	}
 
 	winVersions := GetAllSupportedKubernetesVersions(false, true)
 	for _, version := range winVersions {
 		supportedVersion := GetSupportedKubernetesVersion(version, true)
 		if supportedVersion != version {
-			t.Errorf("GetSupportedKubernetesVersion(%s) should return the same passed-in string, instead returned %s", version, supportedVersion)
+			t.Errorf("GetSupportedKubernetesVersion(%s) should return the same passed-in string, instead"+
+				" returned %s", version, supportedVersion)
 		}
 	}
 
 	defaultWinVersion := GetSupportedKubernetesVersion("", true)
 	if defaultWinVersion != GetDefaultKubernetesVersion(true) {
-		t.Errorf("GetSupportedKubernetesVersion(\"\") should return the default version for windows %s, instead returned %s", GetDefaultKubernetesVersion(true), defaultWinVersion)
+		t.Errorf("GetSupportedKubernetesVersion(\"\") should return the default version for windows %s, "+
+			"instead returned %s", GetDefaultKubernetesVersion(true), defaultWinVersion)
 	}
 }
 
@@ -571,7 +577,8 @@ func Test_IsSupportedKubernetesVersion(t *testing.T) {
 		for _, hasWindows := range []bool{true, false} {
 			for _, version := range GetAllSupportedKubernetesVersions(isUpdate, hasWindows) {
 				if !IsSupportedKubernetesVersion(version, isUpdate, hasWindows) {
-					t.Errorf("Expected version %s to be supported when isUpdate is %t and hasWindows is %t", version, isUpdate, hasWindows)
+					t.Errorf("Expected version %s to be supported when isUpdate is %t and hasWindows is %t",
+						version, isUpdate, hasWindows)
 				}
 			}
 		}

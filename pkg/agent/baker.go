@@ -28,7 +28,8 @@ func InitializeTemplateGenerator() *TemplateGenerator {
 
 // GetNodeBootstrappingPayload get node bootstrapping data
 // This function only can be called after the validation of the input NodeBootstrappingConfiguration.
-func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
+func (t *TemplateGenerator) getNodeBootstrappingPayload(
+	config *datamodel.NodeBootstrappingConfiguration) string {
 	var customData string
 	if config.AgentPoolProfile.IsWindows() {
 		customData = getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(config))
@@ -40,7 +41,8 @@ func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBo
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form
 // { "customData": "<customData string>" }
-func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
+func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(
+	config *datamodel.NodeBootstrappingConfiguration) string {
 	// get parameters
 	parameters := getParameters(config, "baker", "1.0")
 	// get variable cloudInit
@@ -57,7 +59,8 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 
 // GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form
 // { "customData": "<customData string>" }
-func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
+func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(
+	config *datamodel.NodeBootstrappingConfiguration) string {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	// get parameters
@@ -176,7 +179,8 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 }
 
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap
-func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
+func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration,
+	params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
 
 	funcMap["GetParameter"] = func(s string) interface{} {
@@ -270,23 +274,32 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 		kubeletFlags := config.KubeletConfig
 		delete(kubeletFlags, "--dynamic-config-dir")
 		delete(kubeletFlags, "--non-masquerade-cidr")
-		if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" && profile.KubernetesConfig.ContainerRuntime == "containerd" {
+		if profile != nil && profile.KubernetesConfig != nil &&
+			profile.KubernetesConfig.ContainerRuntime != "" &&
+			profile.KubernetesConfig.ContainerRuntime == "containerd" {
 			for _, flag := range dockerShimFlags {
 				delete(kubeletFlags, flag)
 			}
 		}
-		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
-			kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
-		} else if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
-			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
+		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+			"1.24.0") {
+			kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"],
+				"DynamicKubeletConfig")
+		} else if IsKubernetesVersionGe(
+			config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
+			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"],
+				"DynamicKubeletConfig", false)
 		}
 
 		// ContainerInsights depends on GPU accelerator Usage metrics from Kubelet cAdvisor endpoint but deprecation of this feature moved to beta which breaks the ContainerInsights customers with K8s version 1.20 or higher
 		// Until Container Insights move to new API adding this feature gate to get the GPU metrics continue to work
 		// Reference - https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1867-disable-accelerator-usage-metrics
-		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.20.0") &&
-			!IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
-			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
+		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+			"1.20.0") &&
+			!IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+				"1.25.0") {
+			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"],
+				"DisableAcceleratorUsageMetrics", false)
 		}
 	}
 }
@@ -304,10 +317,14 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 	if config.KubeletConfig != nil {
 		kubeletFlags := config.KubeletConfig
 		delete(kubeletFlags, "--dynamic-config-dir")
-		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
-			kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
-		} else if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
-			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
+		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion,
+			"1.24.0") {
+			kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"],
+				"DynamicKubeletConfig")
+		} else if IsKubernetesVersionGe(
+			config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
+			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"],
+				"DynamicKubeletConfig", false)
 		}
 	}
 }
@@ -332,7 +349,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.IsIPMasqAgentEnabled()
 		},
 		"IsKubernetesVersionGe": func(version string) bool {
-			return cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
+			return cs.Properties.OrchestratorProfile.IsKubernetes() &&
+				IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
 		},
 		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile) string {
 			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
@@ -352,7 +370,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)
 		},
 		"GetKubeletConfigFileContentBase64": func() string {
-			return base64.StdEncoding.EncodeToString([]byte(GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)))
+			return base64.StdEncoding.EncodeToString([]byte(
+				GetKubeletConfigFileContent(config.KubeletConfig, profile.CustomKubeletConfig)))
 		},
 		"IsKubeletConfigFileEnabled": func() bool {
 			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)
@@ -364,7 +383,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
 		},
 		"GetKubeletConfigKeyVals": func() string {
-			return GetOrderedKubeletConfigFlagString(config.KubeletConfig, cs, profile, config.EnableKubeletConfigFile)
+			return GetOrderedKubeletConfigFlagString(config.KubeletConfig, cs, profile,
+				config.EnableKubeletConfigFile)
 		},
 		"GetKubeletConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeletConfigStringForPowershell(profile.CustomKubeletConfig)
@@ -389,7 +409,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return nil
 		},
 		"ShouldConfigTransparentHugePage": func() bool {
-			return profile.CustomLinuxOSConfig != nil && (profile.CustomLinuxOSConfig.TransparentHugePageEnabled != "" || profile.CustomLinuxOSConfig.TransparentHugePageDefrag != "")
+			return profile.CustomLinuxOSConfig != nil &&
+				(profile.CustomLinuxOSConfig.TransparentHugePageEnabled != "" ||
+					profile.CustomLinuxOSConfig.TransparentHugePageDefrag != "")
 		},
 		"GetTransparentHugePageEnabled": func() string {
 			if profile.CustomLinuxOSConfig == nil {
@@ -405,8 +427,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"ShouldConfigSwapFile": func() bool {
 			// only configure swap file when FailSwapOn is false and SwapFileSizeMB is valid
-			return profile.CustomKubeletConfig != nil && profile.CustomKubeletConfig.FailSwapOn != nil && !*profile.CustomKubeletConfig.FailSwapOn &&
-				profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.SwapFileSizeMB != nil && *profile.CustomLinuxOSConfig.SwapFileSizeMB > 0
+			return profile.CustomKubeletConfig != nil && profile.CustomKubeletConfig.FailSwapOn != nil &&
+				!*profile.CustomKubeletConfig.FailSwapOn &&
+				profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.SwapFileSizeMB != nil &&
+				*profile.CustomLinuxOSConfig.SwapFileSizeMB > 0
 		},
 		"GetSwapFileSizeMB": func() int32 {
 			if profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.SwapFileSizeMB != nil {
@@ -442,7 +466,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"EnableHostsConfigAgent": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
 				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster != nil &&
-				to.Bool(cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent)
+				to.Bool(
+					cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent)
 		},
 		"UseManagedIdentity": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity
@@ -523,28 +548,36 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginFlannel
 		},
 		"HasKubeletClientKey": func() bool {
-			return cs.Properties.CertificateProfile != nil && cs.Properties.CertificateProfile.ClientPrivateKey != ""
+			return cs.Properties.CertificateProfile != nil &&
+				cs.Properties.CertificateProfile.ClientPrivateKey != ""
 		},
 		"GetKubeletClientKey": func() string {
-			if cs.Properties.CertificateProfile != nil && cs.Properties.CertificateProfile.ClientPrivateKey != "" {
-				encoded := base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientPrivateKey))
+			if cs.Properties.CertificateProfile != nil &&
+				cs.Properties.CertificateProfile.ClientPrivateKey != "" {
+				encoded := base64.StdEncoding.EncodeToString([]byte(
+					cs.Properties.CertificateProfile.ClientPrivateKey))
 				return encoded
 			}
 			return ""
 		},
 		"GetKubeletClientCert": func() string {
-			if cs.Properties.CertificateProfile != nil && cs.Properties.CertificateProfile.ClientCertificate != "" {
-				encoded := base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientCertificate))
+			if cs.Properties.CertificateProfile != nil &&
+				cs.Properties.CertificateProfile.ClientCertificate != "" {
+				encoded := base64.StdEncoding.EncodeToString([]byte(
+					cs.Properties.CertificateProfile.ClientCertificate))
 				return encoded
 			}
 			return ""
 		},
 		"HasServicePrincipalSecret": func() bool {
-			return cs.Properties.ServicePrincipalProfile != nil && cs.Properties.ServicePrincipalProfile.Secret != ""
+			return cs.Properties.ServicePrincipalProfile != nil &&
+				cs.Properties.ServicePrincipalProfile.Secret != ""
 		},
 		"GetServicePrincipalSecret": func() string {
-			if cs.Properties.ServicePrincipalProfile != nil && cs.Properties.ServicePrincipalProfile.Secret != "" {
-				encoded := base64.StdEncoding.EncodeToString([]byte(cs.Properties.ServicePrincipalProfile.Secret))
+			if cs.Properties.ServicePrincipalProfile != nil &&
+				cs.Properties.ServicePrincipalProfile.Secret != "" {
+				encoded := base64.StdEncoding.EncodeToString([]byte(
+					cs.Properties.ServicePrincipalProfile.Secret))
 				return encoded
 			}
 			return ""
@@ -572,7 +605,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginKubenet
 		},
 		"NeedsContainerd": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
+			if profile != nil && profile.KubernetesConfig != nil &&
+				profile.KubernetesConfig.ContainerRuntime != "" {
 				return profile.KubernetesConfig.NeedsContainerd()
 			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
@@ -581,37 +615,45 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.EnableRuncShimV2
 		},
 		"IsDockerContainerRuntime": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
+			if profile != nil && profile.KubernetesConfig != nil &&
+				profile.KubernetesConfig.ContainerRuntime != "" {
 				return profile.KubernetesConfig.ContainerRuntime == datamodel.Docker
 			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntime == datamodel.Docker
 		},
 		"RequiresDocker": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
+			if profile != nil && profile.KubernetesConfig != nil &&
+				profile.KubernetesConfig.ContainerRuntime != "" {
 				return profile.KubernetesConfig.RequiresDocker()
 			}
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.RequiresDocker()
 		},
 		"HasDataDir": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
+			if profile != nil && profile.KubernetesConfig != nil &&
+				profile.KubernetesConfig.ContainerRuntimeConfig != nil &&
+				profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
 				return true
 			}
 			if profile.KubeletDiskType == datamodel.TempDisk {
 				return true
 			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig != nil && cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != ""
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig != nil &&
+				cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" //nolint:lll
 		},
 		"GetDataDir": func() string {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
+			if profile != nil && profile.KubernetesConfig != nil &&
+				profile.KubernetesConfig.ContainerRuntimeConfig != nil &&
+				profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
 				return profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
 			}
 			if profile.KubeletDiskType == datamodel.TempDisk {
 				return datamodel.TempDiskContainerDataDir
 			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] //nolint:lll
 		},
 		"HasKubeletDiskType": func() bool {
-			return profile != nil && profile.KubeletDiskType != "" && profile.KubeletDiskType != datamodel.OSDisk
+			return profile != nil && profile.KubeletDiskType != "" &&
+				profile.KubeletDiskType != datamodel.OSDisk
 		},
 		"GetKubeletDiskType": func() string {
 			if profile != nil && profile.KubeletDiskType != "" && profile.KubeletDiskType != datamodel.OSDisk {
@@ -623,7 +665,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return strings.EqualFold(string(profile.WorkloadRuntime), string(datamodel.WasmWasi))
 		},
 		"GetBase64CertificateAuthorityData": func() string {
-			if cs != nil && cs.Properties != nil && cs.Properties.CertificateProfile != nil && cs.Properties.CertificateProfile.CaCertificate != "" {
+			if cs != nil && cs.Properties != nil && cs.Properties.CertificateProfile != nil &&
+				cs.Properties.CertificateProfile.CaCertificate != "" {
 				data := cs.Properties.CertificateProfile.CaCertificate
 				return base64.StdEncoding.EncodeToString([]byte(data))
 			}
@@ -636,7 +679,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			parameters := getParameters(config, "baker", "1.0")
 			// get variable cloudInit
 			variables := getCustomDataVariables(config)
-			containerdConfigTemplate := template.Must(template.New("kubenet").Funcs(getBakerFuncMap(config, parameters, variables)).Parse(containerdConfigTemplateString))
+			containerdConfigTemplate := template.Must(template.New("kubenet").Funcs(getBakerFuncMap(config,
+				parameters, variables)).Parse(containerdConfigTemplateString))
 			var b bytes.Buffer
 			if err := containerdConfigTemplate.Execute(&b, profile); err != nil {
 				panic(fmt.Errorf("failed to execute sysctl template: %s", err))
@@ -797,7 +841,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		// HTTP proxy related funcs
 		"ShouldConfigureHTTPProxy": func() bool {
-			return config.HTTPProxyConfig != nil && (config.HTTPProxyConfig.HTTPProxy != nil || config.HTTPProxyConfig.HTTPSProxy != nil)
+			return config.HTTPProxyConfig != nil && (config.HTTPProxyConfig.HTTPProxy != nil ||
+				config.HTTPProxyConfig.HTTPSProxy != nil)
 		},
 		"HasHTTPProxy": func() bool {
 			return config.HTTPProxyConfig != nil && config.HTTPProxyConfig.HTTPProxy != nil

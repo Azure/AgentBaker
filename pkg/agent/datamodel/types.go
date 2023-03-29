@@ -553,7 +553,7 @@ type KubernetesConfig struct {
 	ServiceCIDR                       string            `json:"serviceCidr,omitempty"`
 	UseManagedIdentity                bool              `json:"useManagedIdentity,omitempty"`
 	UserAssignedID                    string            `json:"userAssignedID,omitempty"`
-	UserAssignedClientID              string            `json:"userAssignedClientID,omitempty"` // Note: cannot be provided in config. Used *only* for transferring this to azure.json.
+	UserAssignedClientID              string            `json:"userAssignedClientID,omitempty"` //nolint:lll // Note: cannot be provided in config. Used *only* for transferring this to azure.json.
 	CustomHyperkubeImage              string            `json:"customHyperkubeImage,omitempty"`
 	CustomKubeProxyImage              string            `json:"customKubeProxyImage,omitempty"`
 	CustomKubeBinaryURL               string            `json:"customKubeBinaryURL,omitempty"`
@@ -964,7 +964,8 @@ func (p *Properties) GetPrimaryAvailabilitySetName() string {
 	return ""
 }
 
-func (p *Properties) GetComponentKubernetesConfiguration(component CustomConfigurationComponent) *ComponentConfiguration {
+func (p *Properties) GetComponentKubernetesConfiguration(
+	component CustomConfigurationComponent) *ComponentConfiguration {
 	if p.CustomConfiguration == nil {
 		return nil
 	}
@@ -978,7 +979,8 @@ func (p *Properties) GetComponentKubernetesConfiguration(component CustomConfigu
 	return nil
 }
 
-func (p *Properties) GetComponentWindowsKubernetesConfiguration(component CustomConfigurationComponent) *ComponentConfiguration {
+func (p *Properties) GetComponentWindowsKubernetesConfiguration(
+	component CustomConfigurationComponent) *ComponentConfiguration {
 	if p.CustomConfiguration == nil {
 		return nil
 	}
@@ -1048,7 +1050,8 @@ func (a *AgentPoolProfile) IsAvailabilitySets() bool {
 }
 
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile
-func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidiaEnabled bool, fipsEnabled bool, osSku string) string {
+func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidiaEnabled bool,
+	fipsEnabled bool, osSku string) string {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("agentpool=%s", a.Name))
 	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/agentpool=%s", a.Name))
@@ -1072,7 +1075,8 @@ func (l *LinuxProfile) HasSecrets() bool {
 // HasSearchDomain returns true if the customer specified secrets to install
 func (l *LinuxProfile) HasSearchDomain() bool {
 	if l.CustomSearchDomain != nil {
-		if l.CustomSearchDomain.Name != "" && l.CustomSearchDomain.RealmPassword != "" && l.CustomSearchDomain.RealmUser != "" {
+		if l.CustomSearchDomain.Name != "" && l.CustomSearchDomain.RealmPassword != "" &&
+			l.CustomSearchDomain.RealmUser != "" {
 			return true
 		}
 	}
@@ -1331,7 +1335,8 @@ func (k *KubernetesConfig) IsUsingNetworkPluginMode(mode string) bool {
 }
 
 // GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell script consumption
-func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell(customKc *CustomKubeletConfig) string {
+func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell(
+	customKc *CustomKubeletConfig) string {
 	kubeletConfig := config.KubeletConfig
 	if kubeletConfig == nil {
 		kubeletConfig = map[string]string{}
@@ -1339,7 +1344,8 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 
 	// override default kubelet configuration with customzied ones
 	if config.ContainerService != nil && config.ContainerService.Properties != nil {
-		kubeletCustomConfiguration := config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(Componentkubelet)
+		kubeletCustomConfiguration :=
+			config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(Componentkubelet)
 		if kubeletCustomConfiguration != nil {
 			config := kubeletCustomConfiguration.Config
 			for k, v := range config {
@@ -1400,7 +1406,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigStringFor
 	}
 
 	// override kube proxy configuration with the customzied ones.
-	kubeProxyCustomConfiguration := config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(ComponentkubeProxy)
+	kubeProxyCustomConfiguration := config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(ComponentkubeProxy) //nolint:lll
 	if kubeProxyCustomConfiguration != nil {
 		customConfig := kubeProxyCustomConfiguration.Config
 		for k, v := range customConfig {

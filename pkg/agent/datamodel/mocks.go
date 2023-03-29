@@ -9,7 +9,8 @@ import (
 )
 
 // CreateMockContainerService returns a mock container service for testing purposes
-func CreateMockContainerService(containerServiceName, orchestratorVersion string, masterCount, agentCount int, certs bool) *ContainerService {
+func CreateMockContainerService(containerServiceName, orchestratorVersion string, masterCount,
+	agentCount int, certs bool) *ContainerService {
 	cs := ContainerService{}
 	cs.ID = uuid.Must(uuid.NewRandom()).String()
 	cs.Location = "eastus"
@@ -176,15 +177,16 @@ func getMockAddon(name string) KubernetesAddon {
 	}
 }
 
+//lint:ignore lll do not want to inforce max line count 111 on links.
 var (
 	AzurePublicCloudSpecForTest = &AzureEnvironmentSpecConfig{
 		CloudName: "AzurePublicCloud",
-		//DockerSpecConfig specify the docker engine download repo
+		// DockerSpecConfig specify the docker engine download repo
 		DockerSpecConfig: DockerSpecConfig{
 			DockerEngineRepo:         "https://aptdocker.azureedge.net/repo",
 			DockerComposeDownloadURL: "https://github.com/docker/compose/releases/download",
 		},
-		//KubernetesSpecConfig is the default kubernetes container image url.
+		// KubernetesSpecConfig is the default kubernetes container image url.
 		KubernetesSpecConfig: KubernetesSpecConfig{
 			KubernetesImageBase:    "k8s.gcr.io/",
 			TillerImageBase:        "gcr.io/kubernetes-helm/",
@@ -196,17 +198,17 @@ var (
 
 			KubeBinariesSASURLBase:               "https://acs-mirror.azureedge.net/kubernetes/",
 			WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
-			CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",
-			VnetCNILinuxPluginsDownloadURL:       "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
-			VnetCNIWindowsPluginsDownloadURL:     "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip",
+			CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",                                                //nolint:lll
+			VnetCNILinuxPluginsDownloadURL:       "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",                 //nolint:lll
+			VnetCNIWindowsPluginsDownloadURL:     "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip", //nolint:lll
 			ContainerdDownloadURLBase:            "https://storage.googleapis.com/cri-containerd-release/",
-			CSIProxyDownloadURL:                  "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
-			WindowsProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.2.2.zip",
+			CSIProxyDownloadURL:                  "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",               //nolint:lll
+			WindowsProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.2.2.zip", //nolint:lll
 			WindowsPauseImageURL:                 "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
 			AlwaysPullWindowsPauseImage:          false,
-			CseScriptsPackageURL:                 "https://acs-mirror.azureedge.net/aks/windows/cse/csescripts-v0.0.1.zip",
-			CNIARM64PluginsDownloadURL:           "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz",
-			VnetCNIARM64LinuxPluginsDownloadURL:  "https://acs-mirror.azureedge.net/azure-cni/v1.4.13/binaries/azure-vnet-cni-linux-arm64-v1.4.14.tgz",
+			CseScriptsPackageURL:                 "https://acs-mirror.azureedge.net/aks/windows/cse/csescripts-v0.0.1.zip",                             //nolint:lll
+			CNIARM64PluginsDownloadURL:           "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz",    //nolint:lll
+			VnetCNIARM64LinuxPluginsDownloadURL:  "https://acs-mirror.azureedge.net/azure-cni/v1.4.13/binaries/azure-vnet-cni-linux-arm64-v1.4.14.tgz", //nolint:lll
 		},
 
 		EndpointConfig: AzureEndpointConfig{

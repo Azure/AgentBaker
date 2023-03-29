@@ -12,7 +12,8 @@ import (
 	"github.com/blang/semver"
 )
 
-var dockerShimFlags = []string{"--cni-bin-dir", "--cni-cache-dir", "--cni-conf-dir", "--docker-endpoint", "--image-pull-progress-deadline", "--network-plugin", "--network-plugin-mtu"}
+var dockerShimFlags = []string{"--cni-bin-dir", "--cni-cache-dir", "--cni-conf-dir", "--docker-endpoint",
+	"--image-pull-progress-deadline", "--network-plugin", "--network-plugin-mtu"}
 
 // getCustomDataVariables returns cloudinit data used by Linux
 func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
@@ -66,13 +67,20 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		cloudInitData["provisionCIS"] = getBase64EncodedGzippedCustomScript(kubernetesCISScript, config)
 		cloudInitData["kmsSystemdService"] = getBase64EncodedGzippedCustomScript(kmsSystemdService, config)
 		cloudInitData["aptPreferences"] = getBase64EncodedGzippedCustomScript(aptPreferences, config)
-		cloudInitData["healthMonitorScript"] = getBase64EncodedGzippedCustomScript(kubernetesHealthMonitorScript, config)
-		cloudInitData["kubeletMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesKubeletMonitorSystemdService, config)
-		cloudInitData["dockerMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesDockerMonitorSystemdService, config)
-		cloudInitData["dockerMonitorSystemdTimer"] = getBase64EncodedGzippedCustomScript(kubernetesDockerMonitorSystemdTimer, config)
-		cloudInitData["containerdMonitorSystemdService"] = getBase64EncodedGzippedCustomScript(kubernetesContainerdMonitorSystemdService, config)
-		cloudInitData["containerdMonitorSystemdTimer"] = getBase64EncodedGzippedCustomScript(kubernetesContainerdMonitorSystemdTimer, config)
-		cloudInitData["dockerClearMountPropagationFlags"] = getBase64EncodedGzippedCustomScript(dockerClearMountPropagationFlags, config)
+		cloudInitData["healthMonitorScript"] =
+			getBase64EncodedGzippedCustomScript(kubernetesHealthMonitorScript, config)
+		cloudInitData["kubeletMonitorSystemdService"] =
+			getBase64EncodedGzippedCustomScript(kubernetesKubeletMonitorSystemdService, config)
+		cloudInitData["dockerMonitorSystemdService"] =
+			getBase64EncodedGzippedCustomScript(kubernetesDockerMonitorSystemdService, config)
+		cloudInitData["dockerMonitorSystemdTimer"] =
+			getBase64EncodedGzippedCustomScript(kubernetesDockerMonitorSystemdTimer, config)
+		cloudInitData["containerdMonitorSystemdService"] =
+			getBase64EncodedGzippedCustomScript(kubernetesContainerdMonitorSystemdService, config)
+		cloudInitData["containerdMonitorSystemdTimer"] =
+			getBase64EncodedGzippedCustomScript(kubernetesContainerdMonitorSystemdTimer, config)
+		cloudInitData["dockerClearMountPropagationFlags"] =
+			getBase64EncodedGzippedCustomScript(dockerClearMountPropagationFlags, config)
 	}
 
 	return cloudInitFiles
@@ -97,18 +105,18 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"primaryScaleSetName":                  config.PrimaryScaleSetName,
 		"useManagedIdentityExtension":          useManagedIdentity(cs),
 		"useInstanceMetadata":                  useInstanceMetadata(cs),
-		"loadBalancerSku":                      cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
+		"loadBalancerSku":                      cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku, //nolint:lll
 		"excludeMasterFromStandardLB":          true,
 		"windowsEnableCSIProxy":                cs.Properties.WindowsProfile.IsCSIProxyEnabled(),
 		"windowsCSIProxyURL":                   cs.Properties.WindowsProfile.CSIProxyURL,
 		"windowsProvisioningScriptsPackageURL": cs.Properties.WindowsProfile.ProvisioningScriptsPackageURL,
 		"windowsPauseImageURL":                 cs.Properties.WindowsProfile.WindowsPauseImageURL,
-		"alwaysPullWindowsPauseImage":          strconv.FormatBool(cs.Properties.WindowsProfile.IsAlwaysPullWindowsPauseImage()),
+		"alwaysPullWindowsPauseImage":          strconv.FormatBool(cs.Properties.WindowsProfile.IsAlwaysPullWindowsPauseImage()), //nolint:lll
 		"windowsCalicoPackageURL":              cs.Properties.WindowsProfile.WindowsCalicoPackageURL,
 		"windowsSecureTlsEnabled":              cs.Properties.WindowsProfile.IsWindowsSecureTlsEnabled(),
 		"windowsGmsaPackageUrl":                cs.Properties.WindowsProfile.WindowsGmsaPackageUrl,
 		"windowsCSEScriptsPackageURL":          cs.Properties.WindowsProfile.CseScriptsPackageURL,
-		"isDisableWindowsOutboundNat":          strconv.FormatBool(config.AgentPoolProfile.IsDisableWindowsOutboundNat()),
+		"isDisableWindowsOutboundNat":          strconv.FormatBool(config.AgentPoolProfile.IsDisableWindowsOutboundNat()), //nolint:lll
 	}
 
 	return customData
@@ -171,7 +179,8 @@ func isVHD(profile *datamodel.AgentPoolProfile) string {
 	return strconv.FormatBool(profile.IsVHDDistro())
 }
 
-func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig) string {
+func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration,
+	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig) string {
 	cs := nbc.ContainerService
 	if cs.Properties.FeatureFlags.IsFeatureEnabled("BlockOutboundInternet") {
 		return ""

@@ -35,7 +35,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 						VMSize:              "Standard_DS1_v2",
 						StorageProfile:      "ManagedDisks",
 						OSType:              datamodel.Linux,
-						VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
+						VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1", //nolint:lll
 						AvailabilityProfile: datamodel.VirtualMachineScaleSets,
 						Distro:              datamodel.AKSUbuntu1604,
 					},
@@ -56,7 +56,8 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		agentPool := cs.Properties.AgentPoolProfiles[0]
 
 		fullK8sComponentsMap := K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
-		pauseImage := cs.Properties.OrchestratorProfile.KubernetesConfig.MCRKubernetesImageBase + fullK8sComponentsMap["pause"]
+		pauseImage := cs.Properties.OrchestratorProfile.KubernetesConfig.MCRKubernetesImageBase +
+			fullK8sComponentsMap["pause"]
 
 		hyperkubeImageBase := cs.Properties.OrchestratorProfile.KubernetesConfig.KubernetesImageBase
 		hyperkubeImage := hyperkubeImageBase + fullK8sComponentsMap["hyperkube"]
@@ -64,7 +65,8 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			hyperkubeImage = cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage
 		}
 
-		windowsPackage := datamodel.AzurePublicCloudSpecForTest.KubernetesSpecConfig.KubeBinariesSASURLBase + fullK8sComponentsMap["windowszip"]
+		windowsPackage := datamodel.AzurePublicCloudSpecForTest.KubernetesSpecConfig.KubeBinariesSASURLBase +
+			fullK8sComponentsMap["windowszip"]
 		k8sComponents := &datamodel.K8sComponents{
 			PodInfraContainerImageURL: pauseImage,
 			HyperkubeImageURL:         hyperkubeImage,
@@ -82,7 +84,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			"--cgroups-per-qos":                   "true",
 			"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
 			"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-			"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
+			"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
 			"--max-pods":                          "110",
 			"--node-status-update-frequency":      "10s",
 			"--image-gc-high-threshold":           "85",

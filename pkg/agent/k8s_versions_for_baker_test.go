@@ -25,9 +25,9 @@ const (
 	omsImageReference                                 string = "oms:ciprod01072020"
 	azureCNINetworkMonitorImageReference              string = "networkmonitor:v1.1.8_hotfix"
 	nvidiaDevicePluginImageReference                  string = "k8s-device-plugin:1.11"
-	blobfuseFlexVolumeImageReference                  string = "mcr.microsoft.com/k8s/flexvolume/blobfuse-flexvolume:1.0.8"
-	smbFlexVolumeImageReference                       string = "mcr.microsoft.com/k8s/flexvolume/smb-flexvolume:1.0.2"
-	keyvaultFlexVolumeImageReference                  string = "mcr.microsoft.com/k8s/flexvolume/keyvault-flexvolume:v0.0.13"
+	blobfuseFlexVolumeImageReference                  string = "mcr.microsoft.com/k8s/flexvolume/blobfuse-flexvolume:1.0.8"   //nolint:lll
+	smbFlexVolumeImageReference                       string = "mcr.microsoft.com/k8s/flexvolume/smb-flexvolume:1.0.2"        //nolint:lll
+	keyvaultFlexVolumeImageReference                  string = "mcr.microsoft.com/k8s/flexvolume/keyvault-flexvolume:v0.0.13" //nolint:lll
 	ipMasqAgentImageReference                         string = "ip-masq-agent-amd64:v2.5.0"
 	dnsAutoscalerImageReference                       string = "cluster-proportional-autoscaler-amd64:1.1.1"
 	calicoTyphaImageReference                         string = "typha:v3.8.0"
@@ -46,7 +46,7 @@ const (
 	azureNPMContainerImageReference                   string = "mcr.microsoft.com/containernetworking/azure-npm:v1.4.9"
 	aadPodIdentityNMIImageReference                   string = "mcr.microsoft.com/k8s/aad-pod-identity/nmi:1.2"
 	aadPodIdentityMICImageReference                   string = "mcr.microsoft.com/k8s/aad-pod-identity/mic:1.2"
-	azurePolicyImageReference                         string = "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20191011.1"
+	azurePolicyImageReference                         string = "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:prod_20191011.1" //nolint:lll
 	gatekeeperImageReference                          string = "quay.io/open-policy-agent/gatekeeper:v3.0.4-beta.2"
 	nodeProblemDetectorImageReference                 string = "k8s.gcr.io/node-problem-detector:v0.8.0"
 	csiProvisionerImageReference                      string = "oss/kubernetes-csi/csi-provisioner:v1.4.0"
@@ -243,11 +243,11 @@ func getK8sVersionComponents(version string, overrides map[string]string) map[st
 			"kube-rbac-proxy":                        KubeRBACProxyImageReference,
 			"manager":                                ScheduledMaintenanceManagerImageReference,
 			"backoffretries":                         strconv.Itoa(DefaultKubernetesCloudProviderBackoffRetries),
-			"backoffjitter":                          strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffJitter, 'f', -1, 64),
+			"backoffjitter":                          strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffJitter, 'f', -1, 64), //nolint:lll
 			"backoffduration":                        strconv.Itoa(DefaultKubernetesCloudProviderBackoffDuration),
-			"backoffexponent":                        strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffExponent, 'f', -1, 64),
-			"ratelimitqps":                           strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPS, 'f', -1, 64),
-			"ratelimitqpswrite":                      strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPSWrite, 'f', -1, 64),
+			"backoffexponent":                        strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffExponent, 'f', -1, 64),   //nolint:lll
+			"ratelimitqps":                           strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPS, 'f', -1, 64),      //nolint:lll
+			"ratelimitqpswrite":                      strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPSWrite, 'f', -1, 64), //nolint:lll
 			"ratelimitbucket":                        strconv.Itoa(DefaultKubernetesCloudProviderRateLimitBucket),
 			"ratelimitbucketwrite":                   strconv.Itoa(DefaultKubernetesCloudProviderRateLimitBucketWrite),
 			"nvidia-device-plugin":                   nvidiaDevicePluginImageReference,
@@ -316,11 +316,11 @@ func getK8sVersionComponents(version string, overrides map[string]string) map[st
 			"kube-rbac-proxy":                        KubeRBACProxyImageReference,
 			"manager":                                ScheduledMaintenanceManagerImageReference,
 			"backoffretries":                         strconv.Itoa(DefaultKubernetesCloudProviderBackoffRetries),
-			"backoffjitter":                          strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffJitter, 'f', -1, 64),
+			"backoffjitter":                          strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffJitter, 'f', -1, 64), //nolint:lll
 			"backoffduration":                        strconv.Itoa(DefaultKubernetesCloudProviderBackoffDuration),
-			"backoffexponent":                        strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffExponent, 'f', -1, 64),
-			"ratelimitqps":                           strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPS, 'f', -1, 64),
-			"ratelimitqpswrite":                      strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPSWrite, 'f', -1, 64),
+			"backoffexponent":                        strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffExponent, 'f', -1, 64),   //nolint:lll
+			"ratelimitqps":                           strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPS, 'f', -1, 64),      //nolint:lll
+			"ratelimitqpswrite":                      strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPSWrite, 'f', -1, 64), //nolint:lll
 			"ratelimitbucket":                        strconv.Itoa(DefaultKubernetesCloudProviderRateLimitBucket),
 			"ratelimitbucketwrite":                   strconv.Itoa(DefaultKubernetesCloudProviderRateLimitBucketWrite),
 			"nvidia-device-plugin":                   nvidiaDevicePluginImageReference,
@@ -389,11 +389,11 @@ func getK8sVersionComponents(version string, overrides map[string]string) map[st
 			"kube-rbac-proxy":                        KubeRBACProxyImageReference,
 			"manager":                                ScheduledMaintenanceManagerImageReference,
 			"backoffretries":                         strconv.Itoa(DefaultKubernetesCloudProviderBackoffRetries),
-			"backoffjitter":                          strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffJitter, 'f', -1, 64),
+			"backoffjitter":                          strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffJitter, 'f', -1, 64), //nolint:lll
 			"backoffduration":                        strconv.Itoa(DefaultKubernetesCloudProviderBackoffDuration),
-			"backoffexponent":                        strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffExponent, 'f', -1, 64),
-			"ratelimitqps":                           strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPS, 'f', -1, 64),
-			"ratelimitqpswrite":                      strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPSWrite, 'f', -1, 64),
+			"backoffexponent":                        strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffExponent, 'f', -1, 64),   //nolint:lll
+			"ratelimitqps":                           strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPS, 'f', -1, 64),      //nolint:lll
+			"ratelimitqpswrite":                      strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPSWrite, 'f', -1, 64), //nolint:lll
 			"ratelimitbucket":                        strconv.Itoa(DefaultKubernetesCloudProviderRateLimitBucket),
 			"ratelimitbucketwrite":                   strconv.Itoa(DefaultKubernetesCloudProviderRateLimitBucketWrite),
 			"nvidia-device-plugin":                   nvidiaDevicePluginImageReference,
@@ -460,11 +460,11 @@ func getK8sVersionComponents(version string, overrides map[string]string) map[st
 			"kube-rbac-proxy":                        KubeRBACProxyImageReference,
 			"manager":                                ScheduledMaintenanceManagerImageReference,
 			"backoffretries":                         strconv.Itoa(DefaultKubernetesCloudProviderBackoffRetries),
-			"backoffjitter":                          strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffJitter, 'f', -1, 64),
+			"backoffjitter":                          strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffJitter, 'f', -1, 64), //nolint:lll
 			"backoffduration":                        strconv.Itoa(DefaultKubernetesCloudProviderBackoffDuration),
-			"backoffexponent":                        strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffExponent, 'f', -1, 64),
-			"ratelimitqps":                           strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPS, 'f', -1, 64),
-			"ratelimitqpswrite":                      strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPSWrite, 'f', -1, 64),
+			"backoffexponent":                        strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffExponent, 'f', -1, 64),   //nolint:lll
+			"ratelimitqps":                           strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPS, 'f', -1, 64),      //nolint:lll
+			"ratelimitqpswrite":                      strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPSWrite, 'f', -1, 64), //nolint:lll
 			"ratelimitbucket":                        strconv.Itoa(DefaultKubernetesCloudProviderRateLimitBucket),
 			"ratelimitbucketwrite":                   strconv.Itoa(DefaultKubernetesCloudProviderRateLimitBucketWrite),
 			"nvidia-device-plugin":                   nvidiaDevicePluginImageReference,
@@ -530,11 +530,11 @@ func getK8sVersionComponents(version string, overrides map[string]string) map[st
 			"kube-rbac-proxy":                        KubeRBACProxyImageReference,
 			"manager":                                ScheduledMaintenanceManagerImageReference,
 			"backoffretries":                         strconv.Itoa(DefaultKubernetesCloudProviderBackoffRetries),
-			"backoffjitter":                          strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffJitter, 'f', -1, 64),
+			"backoffjitter":                          strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffJitter, 'f', -1, 64), //nolint:lll
 			"backoffduration":                        strconv.Itoa(DefaultKubernetesCloudProviderBackoffDuration),
-			"backoffexponent":                        strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffExponent, 'f', -1, 64),
-			"ratelimitqps":                           strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPS, 'f', -1, 64),
-			"ratelimitqpswrite":                      strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPSWrite, 'f', -1, 64),
+			"backoffexponent":                        strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffExponent, 'f', -1, 64),   //nolint:lll
+			"ratelimitqps":                           strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPS, 'f', -1, 64),      //nolint:lll
+			"ratelimitqpswrite":                      strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPSWrite, 'f', -1, 64), //nolint:lll
 			"ratelimitbucket":                        strconv.Itoa(DefaultKubernetesCloudProviderRateLimitBucket),
 			"ratelimitbucketwrite":                   strconv.Itoa(DefaultKubernetesCloudProviderRateLimitBucketWrite),
 			"nvidia-device-plugin":                   nvidiaDevicePluginImageReference,
@@ -587,11 +587,11 @@ func getK8sVersionComponents(version string, overrides map[string]string) map[st
 			"kube-rbac-proxy":                        KubeRBACProxyImageReference,
 			"manager":                                ScheduledMaintenanceManagerImageReference,
 			"backoffretries":                         strconv.Itoa(DefaultKubernetesCloudProviderBackoffRetries),
-			"backoffjitter":                          strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffJitter, 'f', -1, 64),
+			"backoffjitter":                          strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffJitter, 'f', -1, 64), //nolint:lll
 			"backoffduration":                        strconv.Itoa(DefaultKubernetesCloudProviderBackoffDuration),
-			"backoffexponent":                        strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffExponent, 'f', -1, 64),
-			"ratelimitqps":                           strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPS, 'f', -1, 64),
-			"ratelimitqpswrite":                      strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPSWrite, 'f', -1, 64),
+			"backoffexponent":                        strconv.FormatFloat(DefaultKubernetesCloudProviderBackoffExponent, 'f', -1, 64),   //nolint:lll
+			"ratelimitqps":                           strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPS, 'f', -1, 64),      //nolint:lll
+			"ratelimitqpswrite":                      strconv.FormatFloat(DefaultKubernetesCloudProviderRateLimitQPSWrite, 'f', -1, 64), //nolint:lll
 			"ratelimitbucket":                        strconv.Itoa(DefaultKubernetesCloudProviderRateLimitBucket),
 			"ratelimitbucketwrite":                   strconv.Itoa(DefaultKubernetesCloudProviderRateLimitBucketWrite),
 		}

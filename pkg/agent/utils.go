@@ -65,7 +65,7 @@ var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
 var keyvaultSecretPathRe *regexp.Regexp
 
 func init() {
-	keyvaultSecretPathRe = regexp.MustCompile(`^(/subscriptions/\S+/resourceGroups/\S+/providers/Microsoft.KeyVault/vaults/\S+)/secrets/([^/\s]+)(/(\S+))?$`)
+	keyvaultSecretPathRe = regexp.MustCompile(`^(/subscriptions/\S+/resourceGroups/\S+/providers/Microsoft.KeyVault/vaults/\S+)/secrets/([^/\s]+)(/(\S+))?$`) //nolint:lll
 }
 
 type paramsMap map[string]interface{}
@@ -106,7 +106,8 @@ func addSecret(m paramsMap, k string, v interface{}, encode bool) {
 	addKeyvaultReference(m, k, parts[1], parts[2], parts[4])
 }
 
-func makeAgentExtensionScriptCommands(cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile) string {
+func makeAgentExtensionScriptCommands(cs *datamodel.ContainerService,
+	profile *datamodel.AgentPoolProfile) string {
 	if profile.OSType == datamodel.Windows {
 		return makeWindowsExtensionScriptCommands(profile.PreprovisionExtension,
 			cs.Properties.ExtensionProfiles)
@@ -115,7 +116,8 @@ func makeAgentExtensionScriptCommands(cs *datamodel.ContainerService, profile *d
 		"", cs.Properties.ExtensionProfiles)
 }
 
-func makeExtensionScriptCommands(extension *datamodel.Extension, curlCaCertOpt string, extensionProfiles []*datamodel.ExtensionProfile) string {
+func makeExtensionScriptCommands(extension *datamodel.Extension, curlCaCertOpt string,
+	extensionProfiles []*datamodel.ExtensionProfile) string {
 	var extensionProfile *datamodel.ExtensionProfile
 	for _, eP := range extensionProfiles {
 		if strings.EqualFold(eP.Name, extension.Name) {
@@ -129,13 +131,18 @@ func makeExtensionScriptCommands(extension *datamodel.Extension, curlCaCertOpt s
 	}
 
 	extensionsParameterReference := fmt.Sprintf("parameters('%sParameters')", extensionProfile.Name)
-	scriptURL := getExtensionURL(extensionProfile.RootURL, extensionProfile.Name, extensionProfile.Version, extensionProfile.Script, extensionProfile.URLQuery)
-	scriptFilePath := fmt.Sprintf("/opt/azure/containers/extensions/%s/%s", extensionProfile.Name, extensionProfile.Script)
-	return fmt.Sprintf("- sudo /usr/bin/curl --retry 5 --retry-delay 10 --retry-max-time 30 -o %s --create-dirs %s \"%s\" \n- sudo /bin/chmod 744 %s \n- sudo %s ',%s,' > /var/log/%s-output.log",
-		scriptFilePath, curlCaCertOpt, scriptURL, scriptFilePath, scriptFilePath, extensionsParameterReference, extensionProfile.Name)
+	scriptURL := getExtensionURL(extensionProfile.RootURL, extensionProfile.Name, extensionProfile.Version,
+		extensionProfile.Script, extensionProfile.URLQuery)
+	scriptFilePath := fmt.Sprintf("/opt/azure/containers/extensions/%s/%s", extensionProfile.Name,
+		extensionProfile.Script)
+	return fmt.Sprintf(`- sudo /usr/bin/curl --retry 5 --retry-delay 10 --retry-max-time 30 -o %s
+	 --create-dirs %s \"%s\" \n- sudo /bin/chmod 744 %s \n- sudo %s ',%s,' > /var/log/%s-output.log`,
+		scriptFilePath, curlCaCertOpt, scriptURL, scriptFilePath, scriptFilePath, extensionsParameterReference,
+		extensionProfile.Name)
 }
 
-func makeWindowsExtensionScriptCommands(extension *datamodel.Extension, extensionProfiles []*datamodel.ExtensionProfile) string {
+func makeWindowsExtensionScriptCommands(extension *datamodel.Extension,
+	extensionProfiles []*datamodel.ExtensionProfile) string {
 	var extensionProfile *datamodel.ExtensionProfile
 	for _, eP := range extensionProfiles {
 		if strings.EqualFold(eP.Name, extension.Name) {
@@ -148,10 +155,14 @@ func makeWindowsExtensionScriptCommands(extension *datamodel.Extension, extensio
 		panic(fmt.Sprintf("%s extension referenced was not found in the extension profile", extension.Name))
 	}
 
-	scriptURL := getExtensionURL(extensionProfile.RootURL, extensionProfile.Name, extensionProfile.Version, extensionProfile.Script, extensionProfile.URLQuery)
+	scriptURL := getExtensionURL(extensionProfile.RootURL, extensionProfile.Name, extensionProfile.Version,
+		extensionProfile.Script, extensionProfile.URLQuery)
 	scriptFileDir := fmt.Sprintf("$env:SystemDrive:/AzureData/extensions/%s", extensionProfile.Name)
 	scriptFilePath := fmt.Sprintf("%s/%s", scriptFileDir, extensionProfile.Script)
-	return fmt.Sprintf("New-Item -ItemType Directory -Force -Path \"%s\" ; curl.exe --retry 5 --retry-delay 0 -L \"%s\" -o \"%s\" ; powershell \"%s `\"',parameters('%sParameters'),'`\"\"\n", scriptFileDir, scriptURL, scriptFilePath, scriptFilePath, extensionProfile.Name)
+	return fmt.Sprintf("New-Item -ItemType Directory -Force -Path \"%s\" ; curl.exe"+
+		" --retry 5 --retry-delay 0 -L \"%s\" -o \"%s\" ; powershell \"%s `\"',"+
+		"parameters('%sParameters'),'`\"\"\n", scriptFileDir, scriptURL, scriptFilePath,
+		scriptFilePath, extensionProfile.Name)
 }
 
 func escapeSingleLine(escapedStr string) string {
@@ -164,14 +175,16 @@ func escapeSingleLine(escapedStr string) string {
 }
 
 // getBase64EncodedGzippedCustomScript will return a base64 of the CSE
-func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.NodeBootstrappingConfiguration) string {
+func getBase64EncodedGzippedCustomScript(csFilename string,
+	config *datamodel.NodeBootstrappingConfiguration) string {
 	b, err := templates.Asset(csFilename)
 	if err != nil {
 		// this should never happen and this is a bug
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	// translate the parameters
-	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(getContainerServiceFuncMap(config))
+	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(
+		getContainerServiceFuncMap(config))
 	_, err = templ.Parse(string(b))
 	if err != nil {
 		// this should never happen and this is a bug
@@ -260,7 +273,8 @@ func getCustomDataFromJSON(jsonStr string) string {
 
 // GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs
 // copied from AKS-Engine and filter out flags that already translated to config file
-func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, kubeletConfigFileToggleEnabled bool) string {
+func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.ContainerService,
+	profile *datamodel.AgentPoolProfile, kubeletConfigFileToggleEnabled bool) string {
 	// NOTE(mainred): kubeConfigFile now relies on CustomKubeletConfig, while custom configuration is not compatible
 	// with CustomKubeletConfig. When custom configuration is set we want to override every configuration with the
 	// customized one.
@@ -290,7 +304,8 @@ func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.Contai
 	return buf.String()
 }
 
-func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defaultConfig map[string]string) string {
+func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig,
+	defaultConfig map[string]string) string {
 	config := customConfig
 
 	for k, v := range defaultConfig {
@@ -315,7 +330,8 @@ func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defa
 }
 
 func getKubeletCustomConfiguration(properties *datamodel.Properties) map[string]string {
-	if properties.CustomConfiguration == nil || properties.CustomConfiguration.KubernetesConfigurations == nil {
+	if properties.CustomConfiguration == nil ||
+		properties.CustomConfiguration.KubernetesConfigurations == nil {
 		return nil
 	}
 	kubeletConfigurations, ok := properties.CustomConfiguration.KubernetesConfigurations["kubelet"]
@@ -333,7 +349,8 @@ func getKubeletCustomConfiguration(properties *datamodel.Properties) map[string]
 }
 
 // IsKubeletConfigFileEnabled get if dynamic kubelet is supported in AKS and toggle is on
-func IsKubeletConfigFileEnabled(cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, kubeletConfigFileToggleEnabled bool) bool {
+func IsKubeletConfigFileEnabled(cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile,
+	kubeletConfigFileToggleEnabled bool) bool {
 	// TODO(bowa) remove toggle when backfill
 	// If customKubeletConfig or customLinuxOSConfig is used (API20201101 and later), use kubelet config file
 	return profile.CustomKubeletConfig != nil || profile.CustomLinuxOSConfig != nil ||

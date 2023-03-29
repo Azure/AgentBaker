@@ -11,7 +11,8 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
-func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCode string, bakerVersion string) paramsMap {
+func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCode string,
+	bakerVersion string) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	properties := cs.Properties
@@ -30,7 +31,8 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 		if properties.HostedMasterProfile.DNSPrefix != "" {
 			addValue(parametersMap, "masterEndpointDNSNamePrefix", properties.HostedMasterProfile.DNSPrefix)
 		} else if properties.HostedMasterProfile.FQDNSubdomain != "" {
-			addValue(parametersMap, "masterEndpointDNSNamePrefix", properties.HostedMasterProfile.FQDNSubdomain)
+			addValue(parametersMap, "masterEndpointDNSNamePrefix",
+				properties.HostedMasterProfile.FQDNSubdomain)
 		} else {
 			// should not happen but just in case, we fill in value "localcluster" just like linux
 			addValue(parametersMap, "masterEndpointDNSNamePrefix", "localcluster")
@@ -43,9 +45,11 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 
 	// Kubernetes Parameters
 	if properties.OrchestratorProfile.IsKubernetes() {
-		assignKubernetesParameters(properties, parametersMap, cloudSpecConfig, config.K8sComponents, generatorCode, config)
+		assignKubernetesParameters(properties, parametersMap, cloudSpecConfig,
+			config.K8sComponents, generatorCode, config)
 		if profile != nil {
-			assignKubernetesParametersFromAgentProfile(profile, parametersMap, cloudSpecConfig, generatorCode, config)
+			assignKubernetesParametersFromAgentProfile(profile, parametersMap,
+				cloudSpecConfig, generatorCode, config)
 		}
 	}
 
@@ -62,8 +66,10 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 		}
 	}
 
-	if properties.CustomConfiguration != nil && properties.CustomConfiguration.KubernetesConfigurations != nil {
-		if configuration, ok := properties.CustomConfiguration.KubernetesConfigurations["kubelet"]; ok && configuration.DownloadURL != nil {
+	if properties.CustomConfiguration != nil &&
+		properties.CustomConfiguration.KubernetesConfigurations != nil {
+		if configuration, ok := properties.CustomConfiguration.KubernetesConfigurations["kubelet"]; ok &&
+			configuration.DownloadURL != nil {
 			addValue(parametersMap, "customKubeBinaryURL", configuration.DownloadURL)
 		}
 	}
@@ -71,15 +77,18 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 	// Windows parameters
 	if properties.HasWindows() {
 		addValue(parametersMap, "windowsDockerVersion", properties.WindowsProfile.GetWindowsDockerVersion())
-		addValue(parametersMap, "defaultContainerdWindowsSandboxIsolation", properties.WindowsProfile.GetDefaultContainerdWindowsSandboxIsolation())
-		addValue(parametersMap, "containerdWindowsRuntimeHandlers", properties.WindowsProfile.GetContainerdWindowsRuntimeHandlers())
+		addValue(parametersMap, "defaultContainerdWindowsSandboxIsolation",
+			properties.WindowsProfile.GetDefaultContainerdWindowsSandboxIsolation())
+		addValue(parametersMap, "containerdWindowsRuntimeHandlers",
+			properties.WindowsProfile.GetContainerdWindowsRuntimeHandlers())
 	}
 
 	return parametersMap
 }
 
 func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProfile, parametersMap paramsMap,
-	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string, config *datamodel.NodeBootstrappingConfiguration) {
+	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string,
+	config *datamodel.NodeBootstrappingConfiguration) {
 	if config.RuncVersion != "" {
 		addValue(parametersMap, "runcVersion", config.RuncVersion)
 	}
@@ -133,15 +142,19 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 
 			addValue(parametersMap, "kubeDNSServiceIP", kubernetesConfig.DNSServiceIP)
 			addValue(parametersMap, "cloudproviderConfig", paramsMap{
-				"cloudProviderBackoffMode":          kubernetesConfig.CloudProviderBackoffMode,
-				"cloudProviderBackoff":              kubernetesConfig.CloudProviderBackoff,
-				"cloudProviderBackoffRetries":       kubernetesConfig.CloudProviderBackoffRetries,
-				"cloudProviderBackoffJitter":        strconv.FormatFloat(kubernetesConfig.CloudProviderBackoffJitter, 'f', -1, 64),
-				"cloudProviderBackoffDuration":      kubernetesConfig.CloudProviderBackoffDuration,
-				"cloudProviderBackoffExponent":      strconv.FormatFloat(kubernetesConfig.CloudProviderBackoffExponent, 'f', -1, 64),
-				"cloudProviderRateLimit":            kubernetesConfig.CloudProviderRateLimit,
-				"cloudProviderRateLimitQPS":         strconv.FormatFloat(kubernetesConfig.CloudProviderRateLimitQPS, 'f', -1, 64),
-				"cloudProviderRateLimitQPSWrite":    strconv.FormatFloat(kubernetesConfig.CloudProviderRateLimitQPSWrite, 'f', -1, 64),
+				"cloudProviderBackoffMode":    kubernetesConfig.CloudProviderBackoffMode,
+				"cloudProviderBackoff":        kubernetesConfig.CloudProviderBackoff,
+				"cloudProviderBackoffRetries": kubernetesConfig.CloudProviderBackoffRetries,
+				"cloudProviderBackoffJitter": strconv.FormatFloat(
+					kubernetesConfig.CloudProviderBackoffJitter, 'f', -1, 64),
+				"cloudProviderBackoffDuration": kubernetesConfig.CloudProviderBackoffDuration,
+				"cloudProviderBackoffExponent": strconv.FormatFloat(
+					kubernetesConfig.CloudProviderBackoffExponent, 'f', -1, 64),
+				"cloudProviderRateLimit": kubernetesConfig.CloudProviderRateLimit,
+				"cloudProviderRateLimitQPS": strconv.FormatFloat(
+					kubernetesConfig.CloudProviderRateLimitQPS, 'f', -1, 64),
+				"cloudProviderRateLimitQPSWrite": strconv.FormatFloat(
+					kubernetesConfig.CloudProviderRateLimitQPSWrite, 'f', -1, 64),
 				"cloudProviderRateLimitBucket":      kubernetesConfig.CloudProviderRateLimitBucket,
 				"cloudProviderRateLimitBucketWrite": kubernetesConfig.CloudProviderRateLimitBucketWrite,
 				"cloudProviderDisableOutboundSNAT":  kubernetesConfig.CloudProviderDisableOutboundSNAT,
@@ -178,7 +191,8 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 
 		if servicePrincipalProfile != nil {
 			addValue(parametersMap, "servicePrincipalClientId", servicePrincipalProfile.ClientID)
-			encodedServicePrincipalClientSecret := base64.StdEncoding.EncodeToString([]byte(servicePrincipalProfile.Secret))
+			encodedServicePrincipalClientSecret := base64.StdEncoding.EncodeToString([]byte(
+				servicePrincipalProfile.Secret))
 			addValue(parametersMap, "servicePrincipalClientSecret", servicePrincipalProfile.Secret)
 			// base64 encoding is to escape special characters like quotes in service principal
 			// reference: https://github.com/Azure/aks-engine/pull/1174

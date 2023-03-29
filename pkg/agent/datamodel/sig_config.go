@@ -590,15 +590,17 @@ func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 
 func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
-		AKSUbuntuEdgeZoneContainerd1804:     SIGUbuntuEdgeZoneContainerd1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuEdgeZoneContainerd1804Gen2: SIGUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuEdgeZoneContainerd1804:     SIGUbuntuEdgeZoneContainerd1804ImageConfigTemplate.WithOptions(opts...),     //nolint:lll
+		AKSUbuntuEdgeZoneContainerd1804Gen2: SIGUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...), //nolint:lll
 	}
 }
 
 // GetSIGAzureCloudSpecConfig get cloud specific sig config
 func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnvironmentSpecConfig, error) {
-	if sigConfig.Galleries == nil || strings.EqualFold(sigConfig.SubscriptionID, "") || strings.EqualFold(sigConfig.TenantID, "") {
-		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("acsConfig.rpConfig.sigConfig missing expected values - cannot generate sig env config")
+	if sigConfig.Galleries == nil || strings.EqualFold(sigConfig.SubscriptionID, "") ||
+		strings.EqualFold(sigConfig.TenantID, "") {
+		return SIGAzureEnvironmentSpecConfig{},
+			fmt.Errorf("acsConfig.rpConfig.sigConfig missing expected values - cannot generate sig env config")
 	}
 
 	c := new(SIGAzureEnvironmentSpecConfig)
@@ -608,19 +610,24 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 
 	fromACSUbuntu, err := withACSSIGConfig(sigConfig, "AKSUbuntu")
 	if err != nil {
-		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSUbuntu: %s", err)
+		return SIGAzureEnvironmentSpecConfig{},
+			fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSUbuntu: %s",
+				err)
 	}
 	c.SigUbuntuImageConfig = getSigUbuntuImageConfigMapWithOpts(fromACSUbuntu)
 
 	fromACSCBLMariner, err := withACSSIGConfig(sigConfig, "AKSCBLMariner")
 	if err != nil {
-		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSCBLMariner: %s", err)
+		return SIGAzureEnvironmentSpecConfig{},
+			fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSCBLMariner: %s",
+				err)
 	}
 	c.SigCBLMarinerImageConfig = getSigCBLMarinerImageConfigMapWithOpts(fromACSCBLMariner)
 
 	fromACSWindows, err := withACSSIGConfig(sigConfig, "AKSWindows")
 	if err != nil {
-		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for Windows: %s", err)
+		return SIGAzureEnvironmentSpecConfig{},
+			fmt.Errorf("unexpected error while constructing env-aware sig configuration for Windows: %s", err)
 	}
 	c.SigWindowsImageConfig = getSigWindowsImageConfigMapWithOpts(fromACSWindows)
 
@@ -635,10 +642,10 @@ func GetAzurePublicSIGConfigForTest() SIGAzureEnvironmentSpecConfig {
 		CloudName:                    AzurePublicCloud,
 		SigTenantID:                  AzurePublicCloudSigTenantID,
 		SubscriptionID:               AzurePublicCloudSigSubscription,
-		SigUbuntuImageConfig:         getSigUbuntuImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
-		SigCBLMarinerImageConfig:     getSigCBLMarinerImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
-		SigWindowsImageConfig:        getSigWindowsImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
-		SigUbuntuEdgeZoneImageConfig: getSigUbuntuEdgeZoneImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
+		SigUbuntuImageConfig:         getSigUbuntuImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),         //nolint:lll
+		SigCBLMarinerImageConfig:     getSigCBLMarinerImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),     //nolint:lll
+		SigWindowsImageConfig:        getSigWindowsImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),        //nolint:lll
+		SigUbuntuEdgeZoneImageConfig: getSigUbuntuEdgeZoneImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)), //nolint:lll
 	}
 }
 
