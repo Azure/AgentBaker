@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	mrand "math/rand"
+	"strings"
 	"testing"
 	"time"
 
@@ -22,6 +23,20 @@ func Test_All(t *testing.T) {
 	suiteConfig, err := newSuiteConfig()
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	if suiteConfig.testsToRun != nil {
+		tests := []string{}
+		for testName := range suiteConfig.testsToRun {
+			if _, ok := cases[testName]; !ok {
+				t.Fatalf("unrecognized E2E test case: %q", testName)
+			} else {
+				tests = append(tests, testName)
+			}
+		}
+		t.Logf("Will run the following Agentbaker E2E tests: %s", strings.Join(tests, ", "))
+	} else {
+		t.Logf("Running all Agentbaker E2E tests...")
 	}
 
 	cloud, err := newAzureClient(suiteConfig.subscription)
@@ -76,6 +91,10 @@ func Test_All(t *testing.T) {
 	}
 
 	for name, tc := range cases {
+		if suiteConfig.testsToRun != nil && !suiteConfig.testsToRun[name] {
+			continue
+		}
+
 		tc := tc
 		caseName := name
 		copied, err := deepcopy.Anything(baseConfig)
@@ -174,7 +193,7 @@ func Test_All(t *testing.T) {
 
 			// Only perform node readiness/pod-related checks when VMSS creation succeeded
 			if vmssSucceeded {
-				t.Log("VMSS creation succeded, proceeding with node readiness and pod checks...")
+				t.Log("vmss creation succeded, proceeding with node readiness and pod checks...")
 
 				nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
 				if err != nil {
@@ -190,6 +209,8 @@ func Test_All(t *testing.T) {
 				if err != nil {
 					t.Fatal("error waiting for pod deleted", err)
 				}
+
+				t.Log("node bootstrapping succeeded!")
 			}
 		})
 	}
