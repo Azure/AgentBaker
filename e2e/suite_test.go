@@ -44,7 +44,7 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := setupCluster(ctx, cloud, suiteConfig.location, suiteConfig.resourceGroupName, suiteConfig.clusterName); err != nil {
+	if err := setupCluster(ctx, t, cloud, suiteConfig.location, suiteConfig.resourceGroupName, suiteConfig.clusterName); err != nil {
 		t.Fatal(err)
 	}
 
