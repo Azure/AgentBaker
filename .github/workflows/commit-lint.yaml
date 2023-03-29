@@ -7,7 +7,7 @@ on:
       - 'official/*'
 
 jobs:
-  build:
+  commit-message-lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
