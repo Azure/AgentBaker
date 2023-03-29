@@ -5,6 +5,7 @@ source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 COMPONENTS_FILEPATH=/opt/azure/components.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
+VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 testFilesDownloaded() {
@@ -329,6 +330,17 @@ testCustomCATimerNotStarted() {
   echo "$test:Finish"
 }
 
+testVHDBuildLogsExist() {
+  test="testVHDBuildLogsExist"
+  if [ -f $VHD_LOGS_FILEPATH ]; then
+      echo "detected vhd logs file"
+  else
+      err $test "File $VHD_LOGS_FILEPATH not found"
+      exit $ERR_VHD_FILE_NOT_FOUND
+  fi
+  echo "$test:Finish"
+}
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -337,6 +349,7 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
+testVHDBuildLogsExist
 testCriticalTools
 testFilesDownloaded $1
 testImagesPulled $1 "$(cat $COMPONENTS_FILEPATH)"
