@@ -338,7 +338,7 @@ removeContainerImage() {
         docker image rm $CONTAINER_IMAGE_URL
     else
         # crictl should always be present
-        crictl rm $CONTAINER_IMAGE_URL
+        crictl rmi $CONTAINER_IMAGE_URL
     fi
 }
 

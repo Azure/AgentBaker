@@ -1,5 +1,95 @@
+# Agentbaker
 
-# Contributing
+[![Coverage Status](https://coveralls.io/repos/github/Azure/AgentBaker/badge.svg?branch=master)](https://coveralls.io/github/Azure/AgentBaker?branch=master)
+
+Agentbaker is a collection of components used to provision Kubernetes nodes in Azure.
+
+Agentbaker has a few pieces
+- Packer templates and scripts to build VM images.
+- A set of templates and a public API to render those templates given input config.
+- An API to retrieve the latest VM image version for new clusters.
+
+The primary consumer of Agentbaker is Azure Kubernetes Service (AKS).
+
+AKS uses Agentbaker to provision Linux and Windows Kubernetes nodes.
+
+## Contributing
+
+Developing agentbaker requires a few basic requisites:
+- Go (at least version 1.19)
+- Make
+
+Run `make -C hack/tools install` to install all development tools.
+
+If you change code or artifacts used to generate custom data or custom script extension payloads, you should run `make`.
+
+This re-runs code to embed static files in Go code, which is what will actually be used at runtime.
+
+This additionally runs unit tests (equivalent of `go test ./...`) and regenerates snapshot testdata.
+
+## Style
+
+We use [golangci-lint](https://golangci-lint.run/) to enforce style.
+
+Run `make -C hack/tools install` to install the linter.
+
+Run `./hack/tools/bin/golangci-lint run` to run the linter.
+
+We currently have many failures we hope to eliminate.
+
+We have [job to run golangci-lint on pull requests]().
+
+This job uses the linters "no-new-issues" feature.
+
+As long as PRs don't introduce net new issues, they should pass.
+
+We also have a linting job to enforce commit message style.
+
+We adhere to [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/).
+
+Prefer pull requests with single commits.
+
+To clean up in-progress commits, you can use `git rebase -i` to fixup commits.
+
+See the [git documentation](https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History#_squashing) for more details.
+
+## Testing
+
+Most code may be tested with vanilla Go unit tests.
+
+## Snapshot
+
+We also have snapshot data tests, which store the output of key APIs as files on disk.
+
+We can manually verify the snapshot content looks correct.
+
+We now have unit tests which can directly validate the content without leaving generated files on disk. 
+
+See `./pkg/agent/baker_test.go` for examples (search for `dynamic-config-dir` to see a validation sample.).
+
+### E2E
+
+We also have basic e2e tests which run a subset of the agentbaker API against a real Azure subscription.
+
+These tests join a standalone VM to an existing cluster. 
+
+They use a basic NodeBootstrappingConfiguration template, overriding it with per-scenario config.
+
+`./e2e/nodebootstrapping_template.json` defines the base configuration.
+
+Specific scenarios exist in `./e2e/scenarios/$SCENARIO_NAME`, for example `./e2e/vanilla-gpu` contains a GPU VM sku scenario to test driver provisioning.
+
+You can run these locally:
+
+```bash
+cd e2e
+# scenario name and VM size as args currently
+bash ./e2e-local.sh vanilla-aks Standard_D4ads_v5
+```
+
+This will generate many files in the current directory including an SSH key in case you need to debug the VM afterwards.
+
+## Contributor License Agreement (CLA)
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
@@ -22,3 +112,4 @@ Reference: https://docs.opensource.microsoft.com/tools/cg/cgmanifest.html
 
 Package:
 - Calico Windows: https://docs.projectcalico.org/release-notes/
+- 

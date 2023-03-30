@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -563,66 +564,125 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 	})
 })
 
-var _ = Describe("Assert ParseCSE", func() {
-	It("when cse output format is correct", func() {
-		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": \"39\"}\n\n[stderr]\n"
-		res, err := ParseCSEMessage(testMessage)
+var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", func() {
+	It("When cse output format is correct", func() {
+		testMessage := `{ "ExitCode": "51", "Output": "test",
+		"Error": "", "ExecDuration": "39"}`
+		var cseStatus datamodel.CSEStatus
+		err := json.Unmarshal([]byte(testMessage), &cseStatus)
 		Expect(err).To(BeNil())
-		Expect(res.ExitCode).To(Equal("51"))
-		Expect(res.Output).To(Equal("test"))
-		Expect(res.Error).To(Equal(""))
-		Expect(res.ExecDuration).To(Equal("39"))
+		Expect(cseStatus.ExitCode).To(Equal("51"))
+		Expect(cseStatus.Output).To(Equal("test"))
+		Expect(cseStatus.Error).To(Equal(""))
+		Expect(cseStatus.ExecDuration).To(Equal("39"))
 	})
 
-	It("when cse output format is incorrect", func() {
-		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n"
-		_, err := ParseCSEMessage(testMessage)
-		Expect(err).NotTo(BeNil())
-		Expect(err.Error()).To(ContainSubstring("InstanceErrorCode=InvalidCSEMessage"))
-	})
-
-	It("when cse output exitcode is empty", func() {
-		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n{ \"ExitCode\": \"\", \"Output\": \"test\", \"Error\": \"\"}\n\n[stderr]\n"
-		_, err := ParseCSEMessage(testMessage)
-		Expect(err).NotTo(BeNil())
-		Expect(err.Error()).To(ContainSubstring("InstanceErrorCode=CSEMessageExitCodeEmptyError"))
-	})
-
-	It("when cse output exitcode is empty", func() {
-		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n{ \"ExitCode\": , \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": \"39\"}\n\n[stderr]\n"
-		_, err := ParseCSEMessage(testMessage)
-		Expect(err).NotTo(BeNil())
-		Expect(err.Error()).To(ContainSubstring("InstanceErrorCode=CSEMessageUnmarshalError"))
-	})
-
-	It("when ExecDuration is integer", func() {
-		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Enable failed:\n[stdout]\n{ \"ExitCode\": \"51\", \"Output\": \"test\", \"Error\": \"\", \"ExecDuration\": 39}\n\n[stderr]\n"
-		_, err := ParseCSEMessage(testMessage)
-		Expect(err).NotTo(BeNil())
-		Expect(err.Error()).To(ContainSubstring("InstanceErrorCode=CSEMessageUnmarshalError"))
-	})
-
-	It("when Windows cse output is correct with exitcode is empty", func() {
-		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Command execution finished"
-		res, err := ParseCSEMessage(testMessage)
+	It("When cse output format is correct and contains call known fields", func() {
+		//lint:ignore lll
+		testMessage := `{"ExitCode": "51", "Output": "test", "Error": "",
+		"ExecDuration": "39", "KernelStartTime": "kernel start time", 
+		"SystemdSummary": "systemd summary", "CSEStartTime": "cse start time",
+		"GuestAgentStartTime": "guest agent start time", "BootDatapoints": {"dp1": "1"}}`
+		var cseStatus datamodel.CSEStatus
+		err := json.Unmarshal([]byte(testMessage), &cseStatus)
 		Expect(err).To(BeNil())
-		Expect(res.ExitCode).To(Equal("0"))
-		Expect(res.Output).To(Equal(testMessage))
+		Expect(cseStatus.ExitCode).To(Equal("51"))
+		Expect(cseStatus.Output).To(Equal("test"))
+		Expect(cseStatus.Error).To(Equal(""))
+		Expect(cseStatus.ExecDuration).To(Equal("39"))
+		Expect(cseStatus.KernelStartTime).To(Equal("kernel start time"))
+		Expect(cseStatus.SystemdSummary).To(Equal("systemd summary"))
+		Expect(cseStatus.CSEStartTime).To(Equal("cse start time"))
+		Expect(cseStatus.GuestAgentStartTime).To(Equal("guest agent start time"))
+		Expect(len(cseStatus.BootDatapoints)).To(Equal(1))
+		Expect(cseStatus.BootDatapoints["dp1"]).To(Equal("1"))
 	})
 
-	It("when Windows cse output is correct with exitcode is not empty", func() {
-		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Command execution finished, but failed because it returned a non-zero exit code of: '5'"
-		res, err := ParseCSEMessage(testMessage)
-		Expect(err).To(BeNil())
-		Expect(res.ExitCode).To(Equal("5"))
-		Expect(res.Output).To(Equal(testMessage))
-	})
-
-	It("when Windows cse output is incorrect", func() {
-		testMessage := "vmss aks-agentpool-test-vmss instance 0 vmssCSE message : Command execution succeeded"
-		_, err := ParseCSEMessage(testMessage)
+	It("When cse output exitcode is missing", func() {
+		testMessage := `{ "ExitCode": , "Output": "test",
+		"Error": "", "ExecDuration": "39"}`
+		var cseStatus datamodel.CSEStatus
+		err := json.Unmarshal([]byte(testMessage), &cseStatus)
 		Expect(err).NotTo(BeNil())
-		Expect(err.Error()).To(ContainSubstring("InstanceErrorCode=InvalidCSEMessage"))
-		Expect(err.Error()).To(ContainSubstring(testMessage))
+	})
+
+	It("When ExecDuration is missing", func() {
+		testMessage := `{ "ExitCode": "51", "Output": "test",
+		"Error": "", "ExecDuration": }`
+		var cseStatus datamodel.CSEStatus
+		err := json.Unmarshal([]byte(testMessage), &cseStatus)
+		Expect(err).ToNot(BeNil())
+	})
+
+	It("When Output is missing", func() {
+		testMessage := `{ "ExitCode": "51", "Output": "test",
+		"Error": "", "ExecDuration": "39", "Output": }`
+		var cseStatus datamodel.CSEStatus
+		err := json.Unmarshal([]byte(testMessage), &cseStatus)
+		Expect(err).NotTo(BeNil())
+	})
+
+	It("When Error is missing", func() {
+		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		"Error": "", "ExecDuration": "39", "Error": }`
+		var cseStatus datamodel.CSEStatus
+		err := json.Unmarshal([]byte(testMessage), &cseStatus)
+		Expect(err).NotTo(BeNil())
+	})
+
+	It("When KernelStartTime is missing", func() {
+		testMessage := `{ "ExitCode": "51", "Output": "test",
+		"Error": "", "ExecDuration": "39", "KernelStartTime": }`
+		var cseStatus datamodel.CSEStatus
+		err := json.Unmarshal([]byte(testMessage), &cseStatus)
+		Expect(err).NotTo(BeNil())
+	})
+
+	It("When SystemdSummary is missing", func() {
+		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		"Error": "", "ExecDuration": "39", "SystemdSummary": }`
+		var cseStatus datamodel.CSEStatus
+		err := json.Unmarshal([]byte(testMessage), &cseStatus)
+		Expect(err).NotTo(BeNil())
+	})
+
+	It("When CSEStartTime is missing", func() {
+		testMessage := `{ "ExitCode": "51", "Output": "test",
+		"Error": "", "ExecDuration": "39", "CSEStartTime": }`
+		var cseStatus datamodel.CSEStatus
+		err := json.Unmarshal([]byte(testMessage), &cseStatus)
+		Expect(err).NotTo(BeNil())
+	})
+
+	It("When GuestAgentStartTime is missing", func() {
+		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		"Error": "", "ExecDuration": "39", "GuestAgentStartTime": }`
+		var cseStatus datamodel.CSEStatus
+		err := json.Unmarshal([]byte(testMessage), &cseStatus)
+		Expect(err).NotTo(BeNil())
+	})
+
+	It("When BootDatapoints is missing", func() {
+		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		"Error": "", "ExecDuration": "39", "BootDatapoints": }`
+		var cseStatus datamodel.CSEStatus
+		err := json.Unmarshal([]byte(testMessage), &cseStatus)
+		Expect(err).NotTo(BeNil())
+	})
+
+	It("When BootDatapoints is malformed", func() {
+		testMessage := `{ "ExitCode": "51", "Output": "test",
+		"Error": "", "ExecDuration": "39", "BootDatapoints": {datapoint:1}}`
+		var cseStatus datamodel.CSEStatus
+		err := json.Unmarshal([]byte(testMessage), &cseStatus)
+		Expect(err).NotTo(BeNil())
+	})
+
+	It("when ExecDuration is an integer", func() {
+		testMessage := `{ "ExitCode": "51", "Output": "test", 
+		"Error": "", "ExecDuration": 39}`
+		var cseStatus datamodel.CSEStatus
+		err := json.Unmarshal([]byte(testMessage), &cseStatus)
+		Expect(err).NotTo(BeNil())
 	})
 })
