@@ -130,14 +130,15 @@ Describe 'Set-AzureCNIConfig' {
         It "Should include cluster CIDRs and Vnet CIDRs included IPv6 in exceptionList" {
             Set-Default-AzureCNI "AzureCNI.Default.OverlayDualStack.conflist"
 
-            $dualStackClusterCIDRs = "10.240.0.0/16,fd12:3456::/64"
-            $dualStackVNetCIDRs = "10.0.0.0/8,2001:abcd::/56"
+            $dualStackKubeClusterCIDR = "10.240.0.0/16"
+            $dualStackKubeClusterCIDRs = "10.240.0.0/16,fd12:3456::/64"
+            $dualStackvNetCIDR = "10.0.0.0/8,2001:abcd::/56"
             Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
                 -KubeDnsSearchPath $kubeDnsSearchPath `
-                -KubeClusterCIDR $dualStackClusterCIDRs `
-                -KubeClusterCIDRs $dualStackClusterCIDRs `
+                -KubeClusterCIDR $dualStackKubeClusterCIDR `
+                -KubeClusterCIDRs $dualStackKubeClusterCIDRs `
                 -KubeServiceCIDR $kubeServiceCIDR `
-                -VNetCIDR $dualStackVNetCIDRs `
+                -VNetCIDR $dualStackvNetCIDR `
                 -IsDualStackEnabled $true `
                 -IsAzureCNIOverlayEnabled $true
 
