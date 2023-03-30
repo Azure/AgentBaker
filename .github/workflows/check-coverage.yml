@@ -1,12 +1,13 @@
+name: "Test coverage"
 on:
   push:
     branches: ["master"]
   pull_request:
     branches: ["master"]
-name: "Test coverage"
+
 permissions:
-  id-token: read
-  contents: read
+      id-token: read
+      contents: read
 jobs:
   coveralls:
     runs-on: ubuntu-latest
