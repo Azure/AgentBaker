@@ -31,7 +31,7 @@
           "Value": {
             "Type": "OutBoundNAT",
             "ExceptionList": [
-              "10.224.0.0/12",
+              "10.240.0.0/16",
               "fd12:3456::/64"
             ]
           }
