@@ -139,14 +139,9 @@ installFIPS() {
     echo "Installing FIPS..."
 
     # Install necessary rpm pacakages
-    if ! rpm -q --quiet "grubby" ; then
-        dnf install -y "grubby"
-    fi
-
-    if ! rpm -q --quiet "dracut-fips" ; then
-        dnf install -y "dracut-fips"
-    fi
-
+    dnf_install 120 5 25 grubby || exit $ERR_BCC_INSTALL_TIMEOUT
+    dnf_install 120 5 25 dracut-fips || exit $ERR_BCC_INSTALL_TIMEOUT
+    dnf_install 120 5 25 python3-dnf-plugin-versionlock || exit $ERR_BCC_INSTALL_TIMEOUT
 
     # Add the boot= cmd line parameter if the boot dir is not the same as the root dir
     boot_dev="$(df /boot/ | tail -1 | cut -d' ' -f1)"
@@ -165,10 +160,7 @@ installFIPS() {
 
     echo "Versionlock FIPS-certified packages"
     
-    if ! rpm -q --quiet "python3-dnf-plugin-versionlock" ; then
-        dnf install -y "python3-dnf-plugin-versionlock"
-    fi
-
+    # Do not to change these values since these are the explicitly FIPS certified versions
     dnf versionlock openssl-0:1.1.1k-21.cm2.x86_64  
     dnf versionlock kernel-0:5.15.94.1-1.cm2.x86_64  
     
