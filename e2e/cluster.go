@@ -63,34 +63,13 @@ func setupCluster(ctx context.Context, cloud *azureClient, location, resourceGro
 
 	// A new cluster is created if the test RG does not exist, the cluster itself does not exist, or if the cluster is in an unusable state
 	if needNewCluster {
+		clusterModel := getBaseClusterModel(clusterName, location)
+
 		pollerResp, err := cloud.aksClient.BeginCreateOrUpdate(
 			ctx,
 			resourceGroupName,
 			clusterName,
-			armcontainerservice.ManagedCluster{
-				Location: to.Ptr(location),
-				Properties: &armcontainerservice.ManagedClusterProperties{
-					DNSPrefix: to.Ptr(clusterName),
-					AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
-						{
-							Name:         to.Ptr("nodepool1"),
-							Count:        to.Ptr[int32](2),
-							VMSize:       to.Ptr("Standard_DS2_v2"),
-							MaxPods:      to.Ptr[int32](110),
-							OSType:       to.Ptr(armcontainerservice.OSTypeLinux),
-							Type:         to.Ptr(armcontainerservice.AgentPoolTypeVirtualMachineScaleSets),
-							Mode:         to.Ptr(armcontainerservice.AgentPoolModeSystem),
-							OSDiskSizeGB: to.Ptr[int32](512),
-						},
-					},
-					NetworkProfile: &armcontainerservice.NetworkProfile{
-						NetworkPlugin: to.Ptr(armcontainerservice.NetworkPluginKubenet),
-					},
-				},
-				Identity: &armcontainerservice.ManagedClusterIdentity{
-					Type: to.Ptr(armcontainerservice.ResourceIdentityTypeSystemAssigned),
-				},
-			},
+			clusterModel,
 			nil,
 		)
 
@@ -124,4 +103,31 @@ func getClusterSubnetID(ctx context.Context, cloud *azureClient, location, resou
 	}
 
 	return "", fmt.Errorf("failed to find aks vnet")
+}
+
+func getBaseClusterModel(clusterName, location string) armcontainerservice.ManagedCluster {
+	return armcontainerservice.ManagedCluster{
+		Location: to.Ptr(location),
+		Properties: &armcontainerservice.ManagedClusterProperties{
+			DNSPrefix: to.Ptr(clusterName),
+			AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
+				{
+					Name:         to.Ptr("nodepool1"),
+					Count:        to.Ptr[int32](2),
+					VMSize:       to.Ptr("Standard_DS2_v2"),
+					MaxPods:      to.Ptr[int32](110),
+					OSType:       to.Ptr(armcontainerservice.OSTypeLinux),
+					Type:         to.Ptr(armcontainerservice.AgentPoolTypeVirtualMachineScaleSets),
+					Mode:         to.Ptr(armcontainerservice.AgentPoolModeSystem),
+					OSDiskSizeGB: to.Ptr[int32](512),
+				},
+			},
+			NetworkProfile: &armcontainerservice.NetworkProfile{
+				NetworkPlugin: to.Ptr(armcontainerservice.NetworkPluginKubenet),
+			},
+		},
+		Identity: &armcontainerservice.ManagedClusterIdentity{
+			Type: to.Ptr(armcontainerservice.ResourceIdentityTypeSystemAssigned),
+		},
+	}
 }
