@@ -502,6 +502,7 @@ var (
 		Definition:    "V2fipsgen2",
 		Version:       LinuxSIGImageVersion,
 	}
+	
 	SIGCBLMarinerV2KataImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
