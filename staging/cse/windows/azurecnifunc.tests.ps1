@@ -142,7 +142,7 @@ Describe 'Set-AzureCNIConfig' {
                 -IsAzureCNIOverlayEnabled $true
 
             $actualConfigJson = Read-Format-Json $azureCNIConfigFile
-            $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.Overlay.conflist"))
+            $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.OverlayDualStack.conflist"))
             $diffence = Compare-Object $actualConfigJson $expectedConfigJson
             $diffence | Should -Be $null
         }
