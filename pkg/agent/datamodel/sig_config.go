@@ -475,20 +475,6 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	SIGCBLMarinerV2FIPSGen1ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSCBLMarinerResourceGroup,
-		Gallery:       AKSCBLMarinerGalleryName,
-		Definition:    "V2fips",
-		Version:       LinuxSIGImageVersion,
-	}
-
-	SIGCBLMarinerV2FIPSGen2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSCBLMarinerResourceGroup,
-		Gallery:       AKSCBLMarinerGalleryName,
-		Definition:    "V2fipsgen2",
-		Version:       LinuxSIGImageVersion,
-	}
-
 	SIGCBLMarinerV2Gen1ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
@@ -503,6 +489,20 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGCBLMarinerV2FIPSGen1ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
+		Definition:    "V2fips",
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGCBLMarinerV2FIPSGen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
+		Definition:    "V2fipsgen2",
+		Version:       LinuxSIGImageVersion,
+	}
+	
 	SIGCBLMarinerV2KataImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
