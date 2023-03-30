@@ -135,6 +135,7 @@ Describe 'Set-AzureCNIConfig' {
             Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
                 -KubeDnsSearchPath $kubeDnsSearchPath `
                 -KubeClusterCIDR $dualStackClusterCIDRs `
+                -KubeClusterCIDRs $dualStackClusterCIDRs `
                 -KubeServiceCIDR $kubeServiceCIDR `
                 -VNetCIDR $dualStackVNetCIDRs `
                 -IsDualStackEnabled $true `
