@@ -146,7 +146,7 @@ installFIPS() {
     fi
 
 
-    # Add the boot= cmd line parameter if the boot dir is not the same as the main dir
+    # Add the boot= cmd line parameter if the boot dir is not the same as the root dir
     boot_dev="$(df /boot/ | tail -1 | cut -d' ' -f1)"
     root_dev="$(df / | tail -1 | cut -d' ' -f1)"
     if [ ! "$root_dev" == "$boot_dev" ]; then
@@ -161,7 +161,7 @@ installFIPS() {
     fi
 
 
-    echo "Versionlock related packages"
+    echo "Versionlock FIPS-certified packages"
     
     if ! rpm -q --quiet "python3-dnf-plugin-versionlock" ; then
         dnf install -y "python3-dnf-plugin-versionlock"
