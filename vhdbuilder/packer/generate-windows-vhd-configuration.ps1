@@ -60,9 +60,13 @@ if ($windowsSku -eq "2019") {
             # Azure cloud node manager. Owner: nilo19 (Qi Ni)
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.14", # for k8s 1.22.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.24", # for k8s 1.23.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.30", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.11", # for k8s 1.24.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.17", # for k8s 1.24.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.5", # for k8s 1.25.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.11", # for k8s 1.25.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.0", # for k8s 1.26.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.7", # for k8s 1.26.x
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01182023-095c864a")
 } elseif ($windowsSku -eq "2019-containerd") {
@@ -87,8 +91,14 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0",
             # Azure cloud node manager. Owner: nilo19 (Qi Ni)
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.14", # for k8s 1.22.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.3", # for k8s 1.24.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.24", # for k8s 1.23.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.30", # for k8s 1.23.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.11", # for k8s 1.24.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.17", # for k8s 1.24.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.5", # for k8s 1.25.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.11", # for k8s 1.25.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.0", # for k8s 1.26.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.7", # for k8s 1.26.x
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01182023-095c864a")
 } elseif ($windowsSku -eq "2022-containerd" -or $windowsSku -eq "2022-containerd-gen2") {
@@ -112,8 +122,15 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.2.0",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0",
             # Azure cloud node manager. Owner: nilo19 (Qi Ni)
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.11", # for k8s 1.23.x
-            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.3", # for k8s 1.24.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.1.14", # for k8s 1.22.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.24", # for k8s 1.23.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.30", # for k8s 1.23.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.11", # for k8s 1.24.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.17", # for k8s 1.24.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.5", # for k8s 1.25.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.11", # for k8s 1.25.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.0", # for k8s 1.26.x
+            "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.7", # for k8s 1.26.x
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
             "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01182023-095c864a",
             # NPM (Network Policy Manager). Owner: jaer-tsun (Jaeryn)
