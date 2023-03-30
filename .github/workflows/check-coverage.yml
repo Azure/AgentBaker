@@ -10,8 +10,6 @@ on:
 jobs:
   coveralls:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: read
     steps:
       - name: Install Go
         if: success()
