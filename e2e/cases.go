@@ -103,6 +103,7 @@ var cases = map[string]scenarioConfig{
 			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
 				ID: to.Ptr(defaultMarinerImageVersionIDs["v2gen2kata"]),
 			}
+			vmss.SKU.Name = to.Ptr("Standard_D4ads_v5")
 		},
 	},
 	"ubuntu2004-fips": {
@@ -111,11 +112,13 @@ var cases = map[string]scenarioConfig{
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
 			nbc.AgentPoolProfile.VMSize = "Standard_DS2_v2"
 			nbc.AgentPoolProfile.Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
+			nbc.FIPSEnabled = true
 		},
 		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
 				ID: to.Ptr(defaultUbuntuImageVersionIDs["2004gen2fips"]),
 			}
+			vmss.SKU.Name = to.Ptr("Standard_DS2_v2")
 		},
 	},
 	"gpu": {

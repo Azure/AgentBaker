@@ -3,13 +3,14 @@ package e2e_test
 import (
 	"context"
 	"fmt"
+	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 )
 
-func setupCluster(ctx context.Context, cloud *azureClient, location, resourceGroupName, clusterName string) error {
+func setupCluster(ctx context.Context, t *testing.T, cloud *azureClient, location, resourceGroupName, clusterName string) error {
 	var needNewCluster bool
 
 	testRgExistence, err := cloud.resourceGroupClient.CheckExistence(ctx, resourceGroupName, nil)
@@ -33,6 +34,8 @@ func setupCluster(ctx context.Context, cloud *azureClient, location, resourceGro
 			}
 
 			if !mcRgExistence.Success || aksCluster.Properties == nil || aksCluster.Properties.ProvisioningState == nil || *aksCluster.Properties.ProvisioningState == "Failed" {
+				t.Log("deleting E2E test cluster in bad state...")
+
 				needNewCluster = true
 				poller, err := cloud.aksClient.BeginDelete(ctx, resourceGroupName, clusterName, nil)
 				if err != nil {
@@ -46,6 +49,8 @@ func setupCluster(ctx context.Context, cloud *azureClient, location, resourceGro
 			}
 		}
 	} else {
+		t.Log("recreating E2E test resource group...")
+
 		needNewCluster = true
 		_, err := cloud.resourceGroupClient.CreateOrUpdate(
 			ctx,
@@ -63,6 +68,8 @@ func setupCluster(ctx context.Context, cloud *azureClient, location, resourceGro
 
 	// A new cluster is created if the test RG does not exist, the cluster itself does not exist, or if the cluster is in an unusable state
 	if needNewCluster {
+		t.Log("recreating E2E test cluster... ")
+
 		pollerResp, err := cloud.aksClient.BeginCreateOrUpdate(
 			ctx,
 			resourceGroupName,
