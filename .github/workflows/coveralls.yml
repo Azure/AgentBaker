@@ -1,7 +1,9 @@
-
+name: run coveralls coverage
 on:
   pull_request:
-      
+permissions:
+  id-token: read
+  contents: read
 jobs:
   coveralls:
     runs-on: ubuntu-latest
@@ -18,6 +20,16 @@ jobs:
       - name: Remove mocks.go lines
         run: |
           sed '/mocks.go/d' coverage_raw.out > coverage.out
+      - name: 'Az CLI login'
+          uses: azure/login@v1
+          with:
+            client-id: ${{ secrets.AZURE_CLIENT_ID }}
+            tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+            subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: 'Run az commands'
+        run: | 
+          az account show
+          az group list
       - name: Convert coverage to lcov
         uses: jandelgado/gcov2lcov-action@v1
       - name: Coveralls
