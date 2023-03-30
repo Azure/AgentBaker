@@ -38,81 +38,6 @@ func createFile(path string) {
 	}
 }
 
-func TestE2EBasic(t *testing.T) {
-	if os.Getenv("E2E_TEST") != "" {
-		t.Skip("This test needs e2e-script.sh to run first")
-	}
-
-	entry := "Generating CustomData and cseCmd"
-	fmt.Println(entry)
-
-	var scenario = os.Getenv("SCENARIO_NAME")
-	fmt.Printf("Running for %s", scenario)
-
-	createFile("../e2e/scenarios/" + scenario + "/" + scenario + "-cloud-init.txt")
-	createFile("../e2e/scenarios/" + scenario + "/" + scenario + "-cseCmd")
-
-	nbc, _ := ioutil.ReadFile("scenarios/" + scenario + "/" + "nbc-" + scenario + ".json")
-	config := &datamodel.NodeBootstrappingConfiguration{}
-	err := json.Unmarshal(nbc, config)
-	if err != nil {
-		t.Fatalf("couldnt Unmarshal config: %s", err)
-	}
-
-	// Workaround for E2E test
-	config.SIGConfig = datamodel.SIGConfig{
-		TenantID:       "tenantID",
-		SubscriptionID: "subID",
-		Galleries: map[string]datamodel.SIGGalleryConfig{
-			"AKSUbuntu": datamodel.SIGGalleryConfig{
-				GalleryName:   "aksubuntu",
-				ResourceGroup: "resourcegroup",
-			},
-			"AKSCBLMariner": datamodel.SIGGalleryConfig{
-				GalleryName:   "akscblmariner",
-				ResourceGroup: "resourcegroup",
-			},
-			"AKSWindows": datamodel.SIGGalleryConfig{
-				GalleryName:   "AKSWindows",
-				ResourceGroup: "AKS-Windows",
-			},
-			"AKSUbuntuEdgeZone": datamodel.SIGGalleryConfig{
-				GalleryName:   "AKSUbuntuEdgeZone",
-				ResourceGroup: "AKS-Ubuntu-EdgeZone",
-			},
-		},
-	}
-
-	config.ContainerService.Properties.CertificateProfile.CaCertificate =
-		decodeCert(config.ContainerService.Properties.CertificateProfile.CaCertificate)
-	config.ContainerService.Properties.CertificateProfile.APIServerCertificate =
-		decodeCert(config.ContainerService.Properties.CertificateProfile.APIServerCertificate)
-	config.ContainerService.Properties.CertificateProfile.ClientPrivateKey =
-		decodeCert(config.ContainerService.Properties.CertificateProfile.ClientPrivateKey)
-
-	ab, err := agent.NewAgentBaker()
-	if err != nil {
-		t.Fatalf("couldnt create AgentBaker: %s", err)
-	}
-	nodeBootstrapping, err := ab.GetNodeBootstrapping(context.Background(), config)
-	if err != nil {
-		t.Fatalf("couldnt GetNodeBootstrapping: %s", err)
-	}
-	// customData
-	customDataBytes, _ := base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
-	customData := string(customDataBytes)
-	err = ioutil.WriteFile("scenarios/"+scenario+"/"+scenario+"-cloud-init.txt", []byte(customData), 0644)
-	if err != nil {
-		t.Fatalf("couldnt write to file: %s", err)
-	}
-
-	// cseCmd
-	err = ioutil.WriteFile("scenarios/"+scenario+"/"+scenario+"-cseCmd", []byte(nodeBootstrapping.CSE), 0644)
-	if err != nil {
-		t.Fatalf("couldnt write to file: %s", err)
-	}
-}
-
 func TestE2EWindows(t *testing.T) {
 	if os.Getenv("E2E_TEST") != "" {
 		t.Skip("This test needs e2e-script.sh to run first")
@@ -125,17 +50,21 @@ func TestE2EWindows(t *testing.T) {
 	var image = os.Getenv("WINDOWS_E2E_IMAGE")
 	fmt.Printf("Running for %s  %s", scenario, image)
 
-	createFile("../e2e/scenarios/" + scenario + "/" + image + "-" + scenario + "-cloud-init.txt")
-	createFile("../e2e/scenarios/" + scenario + "/" + image + "-" + scenario + "-cseCmd")
+	createFile("scenarios/" + scenario + "/" + image + "-" + scenario + "-cloud-init.txt")
+	createFile("scenarios/" + scenario + "/" + image + "-" + scenario + "-cseCmd")
 
-	nbc, _ := ioutil.ReadFile("scenarios/" + scenario + "/" + image + "-nbc-" + scenario + ".json")
+	nbc, err := ioutil.ReadFile("scenarios/" + scenario + "/" + image + "-nbc-" + scenario + ".json")
+	if err != nil {
+		t.Fatalf("could not read nbc json: %s", err)
+	}
+
 	config := &datamodel.NodeBootstrappingConfiguration{}
-	err := json.Unmarshal(nbc, config)
+	err = json.Unmarshal(nbc, config)
 	if err != nil {
 		t.Fatalf("couldnt Unmarshal config: %s", err)
 	}
 
-	// Workaround for Windows E2E test
+	// Workaround for E2E test
 	config.SIGConfig = datamodel.SIGConfig{
 		TenantID:       "tenantID",
 		SubscriptionID: "subID",

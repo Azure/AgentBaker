@@ -8,7 +8,7 @@ pr:
   paths:
     include:
     - '.pipelines/*'
-    - 'e2e/*'
+    - 'e2e/windows/*'
     - 'parts/windows/*'
 
 variables:
