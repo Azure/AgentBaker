@@ -12,8 +12,7 @@ import (
 )
 
 //nolint:gocognit
-func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCode string,
-	bakerVersion string) paramsMap {
+func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCode string) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	properties := cs.Properties

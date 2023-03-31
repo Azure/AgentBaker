@@ -44,7 +44,7 @@ func (t *TemplateGenerator) getNodeBootstrappingPayload(
 func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(
 	config *datamodel.NodeBootstrappingConfiguration) string {
 	// get parameters
-	parameters := getParameters(config, "baker", "1.0")
+	parameters := getParameters(config, "baker")
 	// get variable cloudInit
 	variables := getCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml,
@@ -64,7 +64,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	// get parameters
-	parameters := getParameters(config, "", "")
+	parameters := getParameters(config, "")
 	// get variable custom data
 	variables := getWindowsCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
@@ -96,7 +96,7 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 // getLinuxNodeCSECommand returns Linux node custom script extension execution command
 func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
 	// get parameters
-	parameters := getParameters(config, "", "")
+	parameters := getParameters(config, "")
 	// get variable
 	variables := getCSECommandVariables(config)
 	// NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
@@ -117,7 +117,7 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 // getWindowsNodeCSECommand returns Windows node custom script extension execution command
 func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
 	// get parameters
-	parameters := getParameters(config, "", "")
+	parameters := getParameters(config, "")
 	// get variable
 	variables := getCSECommandVariables(config)
 
@@ -678,7 +678,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString([]byte(kubenetCniTemplate))
 		},
 		"GetContainerdConfigContent": func() string {
-			parameters := getParameters(config, "baker", "1.0")
+			parameters := getParameters(config, "baker")
 			// get variable cloudInit
 			variables := getCustomDataVariables(config)
 			containerdConfigTemplate := template.Must(template.New("kubenet").Funcs(getBakerFuncMap(config,
