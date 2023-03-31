@@ -115,7 +115,6 @@ $global:PrimaryAvailabilitySetName = ""
 $global:PrimaryScaleSetName = "akswpool2"
 
 $global:KubeClusterCIDR = "172.17.0.0/24"
-$global:KubeClusterCIDRs = "172.17.0.0/24"
 $global:KubeServiceCIDR = "172.17.255.0/24"
 $global:VNetCIDR = "172.17.0.0/16"
 
@@ -398,7 +397,6 @@ try
     Set-AzureCNIConfig -AzureCNIConfDir $global:AzureCNIConfDir `
         -KubeDnsSearchPath $global:KubeDnsSearchPath `
         -KubeClusterCIDR $global:KubeClusterCIDR `
-        -KubeClusterCIDRs $global:KubeClusterCIDRs `
         -KubeServiceCIDR $global:KubeServiceCIDR `
         -VNetCIDR $global:VNetCIDR `
         -IsDualStackEnabled $global:IsDualStackEnabled `
