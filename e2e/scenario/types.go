@@ -6,13 +6,15 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 )
 
 type ScenarioTable map[string]*Scenario
 
 type Scenario struct {
-	Name        string
-	Description string
+	Name                string
+	Description         string
+	ClusterConfigurator ClusterConfigurator
 	ScenarioConfig
 }
 
@@ -27,3 +29,5 @@ type ScenarioValidationInput struct {
 	PrivateIP     string
 	SSHPrivateKey string
 }
+
+type ClusterConfigurator func(*armcontainerservice.ManagedCluster, bool) bool
