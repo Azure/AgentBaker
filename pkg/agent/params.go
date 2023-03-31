@@ -48,8 +48,7 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 		assignKubernetesParameters(properties, parametersMap, cloudSpecConfig,
 			config.K8sComponents, generatorCode, config)
 		if profile != nil {
-			assignKubernetesParametersFromAgentProfile(profile, parametersMap,
-				cloudSpecConfig, generatorCode, config)
+			assignKubernetesParametersFromAgentProfile(profile, parametersMap, generatorCode, config)
 		}
 	}
 
@@ -87,7 +86,7 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 }
 
 func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProfile, parametersMap paramsMap,
-	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string,
+	generatorCode string,
 	config *datamodel.NodeBootstrappingConfiguration) {
 	if config.RuncVersion != "" {
 		addValue(parametersMap, "runcVersion", config.RuncVersion)
