@@ -166,12 +166,12 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 	// use go templates to process the text filename
 	templ := template.New("customdata template").Option("missingkey=zero").Funcs(funcMap)
 	if _, err = templ.New(textFilename).Parse(string(b)); err != nil {
-		return "", fmt.Errorf("error parsing file %s: %v", textFilename, err)
+		return "", fmt.Errorf("error parsing file %s: %w", textFilename, err)
 	}
 
 	var buffer bytes.Buffer
 	if err = templ.ExecuteTemplate(&buffer, textFilename, profile); err != nil {
-		return "", fmt.Errorf("error executing template for file %s: %v", textFilename, err)
+		return "", fmt.Errorf("error executing template for file %s: %w", textFilename, err)
 	}
 	expandedTemplate := buffer.String()
 
@@ -683,7 +683,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				parameters, variables)).Parse(containerdConfigTemplateString))
 			var b bytes.Buffer
 			if err := containerdConfigTemplate.Execute(&b, profile); err != nil {
-				panic(fmt.Errorf("failed to execute sysctl template: %s", err))
+				panic(fmt.Errorf("failed to execute sysctl template: %w", err))
 			}
 			return base64.StdEncoding.EncodeToString(b.Bytes())
 		},

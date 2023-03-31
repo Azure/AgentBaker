@@ -1248,7 +1248,7 @@ func backfillCustomData(folder, customData string) {
 func getDecodedVarsFromCseCmd(data []byte) (map[string]string, error) {
 	cseRegex, err := regexp.Compile(cseRegexString)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile regex: %s", err)
+		return nil, fmt.Errorf("failed to compile regex: %w", err)
 	}
 
 	cseVariableList := cseRegex.FindAllStringSubmatch(string(data), -1)
@@ -1282,12 +1282,12 @@ func getGzipDecodedValue(data []byte) (string, error) {
 	reader := bytes.NewReader(data)
 	gzipReader, err := gzip.NewReader(reader)
 	if err != nil {
-		return "", fmt.Errorf("failed to create gzip reader: %s", err)
+		return "", fmt.Errorf("failed to create gzip reader: %w", err)
 	}
 
 	output, err := ioutil.ReadAll(gzipReader)
 	if err != nil {
-		return "", fmt.Errorf("read from gzipped buffered string: %s", err)
+		return "", fmt.Errorf("read from gzipped buffered string: %w", err)
 	}
 
 	return string(output), nil
@@ -1337,7 +1337,7 @@ func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error
 			if maybeEncodedValue != "" {
 				output, err := getGzipDecodedValue([]byte(maybeEncodedValue))
 				if err != nil {
-					return nil, fmt.Errorf("failed to decode gzip value: %q with error %q",
+					return nil, fmt.Errorf("failed to decode gzip value: %q with error %w",
 						maybeEncodedValue, err)
 				}
 				maybeEncodedValue = string(output)
@@ -1404,17 +1404,17 @@ func decodeCustomDataFiles(dir string) error {
 			reader := bytes.NewReader([]byte(val.Content))
 			gzipReader, err := gzip.NewReader(reader)
 			if err != nil {
-				return fmt.Errorf("failed to create gzip reader: %s", err)
+				return fmt.Errorf("failed to create gzip reader: %w", err)
 			}
 
 			output, err := ioutil.ReadAll(gzipReader)
 			if err != nil {
-				return fmt.Errorf("read from gzipped buffered string: %s", err)
+				return fmt.Errorf("read from gzipped buffered string: %w", err)
 			}
 
 			err = ioutil.WriteFile(filepath.Join(dir, path.Base(val.Path)), output, 0644)
 			if err != nil {
-				return fmt.Errorf("failed to write file: %s", err)
+				return fmt.Errorf("failed to write file: %w", err)
 			}
 		}
 	}

@@ -611,7 +611,7 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 	fromACSUbuntu, err := withACSSIGConfig(sigConfig, "AKSUbuntu")
 	if err != nil {
 		return SIGAzureEnvironmentSpecConfig{},
-			fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSUbuntu: %s",
+			fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSUbuntu: %w",
 				err)
 	}
 	c.SigUbuntuImageConfig = getSigUbuntuImageConfigMapWithOpts(fromACSUbuntu)
@@ -619,7 +619,7 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 	fromACSCBLMariner, err := withACSSIGConfig(sigConfig, "AKSCBLMariner")
 	if err != nil {
 		return SIGAzureEnvironmentSpecConfig{},
-			fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSCBLMariner: %s",
+			fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSCBLMariner: %w",
 				err)
 	}
 	c.SigCBLMarinerImageConfig = getSigCBLMarinerImageConfigMapWithOpts(fromACSCBLMariner)
@@ -627,7 +627,7 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 	fromACSWindows, err := withACSSIGConfig(sigConfig, "AKSWindows")
 	if err != nil {
 		return SIGAzureEnvironmentSpecConfig{},
-			fmt.Errorf("unexpected error while constructing env-aware sig configuration for Windows: %s", err)
+			fmt.Errorf("unexpected error while constructing env-aware sig configuration for Windows: %w", err)
 	}
 	c.SigWindowsImageConfig = getSigWindowsImageConfigMapWithOpts(fromACSWindows)
 
