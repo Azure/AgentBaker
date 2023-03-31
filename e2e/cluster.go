@@ -87,6 +87,8 @@ func ensureCluster(ctx context.Context, t *testing.T, cloud *azureClient, locati
 			}
 		}
 	} else {
+		t.Log("recreating E2E test resource group...")
+
 		needNewCluster = true
 	}
 

@@ -12,11 +12,11 @@ import (
 )
 
 const (
-	// scaleSetPriorityRegular is the default ScaleSet Priority
+	// scaleSetPriorityRegular is the default ScaleSet Priority.
 	ScaleSetPriorityRegular = "Regular"
-	// ScaleSetPriorityLow means the ScaleSet will use Low-priority VMs
+	// ScaleSetPriorityLow means the ScaleSet will use Low-priority VMs.
 	ScaleSetPriorityLow = "Low"
-	// StorageAccount means that the nodes use raw storage accounts for their os and attached volumes
+	// StorageAccount means that the nodes use raw storage accounts for their os and attached volumes.
 	StorageAccount = "StorageAccount"
 	// Ephemeral means that the node's os disk is ephemeral. This is not compatible with attached volumes.
 	Ephemeral = "Ephemeral"
@@ -41,7 +41,6 @@ func TestHasAadProfile(t *testing.T) {
 }
 
 func TestGetCustomEnvironmentJSON(t *testing.T) {
-
 	properities := getMockProperitesWithCustomClouEnv()
 	expectedRet := `{"name":"AzureStackCloud","Name":"AzureStackCloud","mcrURL":"mcr.microsoft.fakecustomcloud","repoDepotEndpoint":"https://repodepot.azure.microsoft.fakecustomcloud/ubuntu","managementPortalURL":"https://portal.azure.microsoft.fakecustomcloud/","serviceManagementEndpoint":"https://management.core.microsoft.fakecustomcloud/","resourceManagerEndpoint":"https://management.azure.microsoft.fakecustomcloud/","activeDirectoryEndpoint":"https://login.microsoftonline.microsoft.fakecustomcloud/","keyVaultEndpoint":"https://vault.cloudapi.microsoft.fakecustomcloud/","graphEndpoint":"https://graph.cloudapi.microsoft.fakecustomcloud/","storageEndpointSuffix":"core.microsoft.fakecustomcloud","sqlDatabaseDNSSuffix":"database.cloudapi.microsoft.fakecustomcloud","keyVaultDNSSuffix":"vault.cloudapi.microsoft.fakecustomcloud","resourceManagerVMDNSSuffix":"cloudapp.azure.microsoft.fakecustomcloud/","containerRegistryDNSSuffix":".azurecr.microsoft.fakecustomcloud","cosmosDBDNSSuffix":"documents.core.microsoft.fakecustomcloud/","tokenAudience":"https://management.core.microsoft.fakecustomcloud/","resourceIdentifiers":{}}`
 	actual, err := properities.GetCustomEnvironmentJSON(false)
@@ -52,7 +51,6 @@ func TestGetCustomEnvironmentJSON(t *testing.T) {
 	if expectedRet != actual {
 		t.Errorf("Expected GetCustomEnvironmentJSON() to return %s, but got %s . ", expectedRet, actual)
 	}
-
 }
 
 func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
@@ -970,7 +968,6 @@ func TestIsCustomVNET(t *testing.T) {
 			t.Fatalf("expected IsCustomVnet() to return %t but instead returned %t", c.expectedAgent, c.p.AgentPoolProfiles[0].IsCustomVNET())
 		}
 	}
-
 }
 
 func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
