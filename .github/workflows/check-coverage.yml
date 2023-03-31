@@ -31,12 +31,12 @@ jobs:
           client-id: ${{ secrets.GO_E2E_CLIENT_ID }}
           tenant-id: ${{ secrets.GO_E2E_TENANT_ID }}
           subscription-id: ${{ secrets.GO_E2E_SUBSCRIPTION_ID }}
-     - name: 'Run Azure CLI commands'
-       run: |
+      - name: 'Run Azure CLI commands'
+        run: |
           az account show
           az group list
           pwd
-     - name: Convert coverage to lcov
+      - name: Convert coverage to lcov
         uses: jandelgado/gcov2lcov-action@v1
       - name: Coveralls
         uses: coverallsapp/github-action@v2
