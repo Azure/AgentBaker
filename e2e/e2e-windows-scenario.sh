@@ -15,7 +15,7 @@ collect-logs() {
     VMSS_INSTANCE_ID="$(az vmss list-instances --name $DEPLOYMENT_VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
     set +x
     expiryTime=$(date --date="2 day" +%Y-%m-%d)
-    token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'w' --expiry $expiryTime --name $STORAGE_LOG_CONTAINER --https-only)
+    token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwld' --expiry $expiryTime --name $STORAGE_LOG_CONTAINER --https-only)
     # Use .ps1 file to run scripts since single quotes of parameters for --scripts would fail in check-shell
     az vmss run-command invoke --command-id RunPowerShellScript \
         --resource-group $MC_RESOURCE_GROUP_NAME \
@@ -60,7 +60,7 @@ log "Zip cse packages done"
 
 set +x
 expiryTime=$(date --date="2 day" +%Y-%m-%d)
-token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwl' --expiry $expiryTime --name $STORAGE_PACKAGE_CONTAINER)
+token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwld' --expiry $expiryTime --name $STORAGE_PACKAGE_CONTAINER)
 tokenWithoutQuote=${token//\"}
 
 csePackageURL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
