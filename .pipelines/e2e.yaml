@@ -30,8 +30,5 @@ jobs:
   - publish: $(System.DefaultWorkingDirectory)/e2e/vm-logs
     artifact: vm-logs
     condition: always()
-  - publish: $(System.DefaultWorkingDirectory)/e2e/cluster-parameters
-    artifact: cluster-parameters
-    condition: always()
  
  
