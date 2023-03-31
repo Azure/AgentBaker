@@ -178,7 +178,9 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 	return expandedTemplate, nil
 }
 
-// getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap
+// getBakerFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
+//
+//nolint:gocognit
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration,
 	params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)

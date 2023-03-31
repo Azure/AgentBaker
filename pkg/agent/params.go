@@ -11,6 +11,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
+//nolint:gocognit
 func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCode string,
 	bakerVersion string) paramsMap {
 	cs := config.ContainerService
