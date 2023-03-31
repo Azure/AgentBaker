@@ -1334,9 +1334,8 @@ func (k *KubernetesConfig) IsUsingNetworkPluginMode(mode string) bool {
 	return strings.EqualFold(k.NetworkPluginMode, mode)
 }
 
-// GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell script consumption
-func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell(
-	customKc *CustomKubeletConfig) string {
+// GetKubeletConfig returns the kubelet configuration
+func (config *NodeBootstrappingConfiguration) GetKubeletConfig() map[string]string {
 	kubeletConfig := config.KubeletConfig
 	if kubeletConfig == nil {
 		kubeletConfig = map[string]string{}
@@ -1353,6 +1352,13 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 			}
 		}
 	}
+	return kubeletConfig
+}
+
+// GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell script consumption
+func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPowershell(
+	customKc *CustomKubeletConfig) string {
+	kubeletConfig := config.GetKubeletConfig()
 
 	// Settings from customKubeletConfig, only take if it's set
 	if customKc != nil {
