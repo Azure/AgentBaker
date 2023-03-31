@@ -12,8 +12,6 @@ import (
 	"github.com/blang/semver"
 )
 
-var dockerShimFlags = []string{"--cni-bin-dir", "--cni-cache-dir", "--cni-conf-dir", "--docker-endpoint", "--image-pull-progress-deadline", "--network-plugin", "--network-plugin-mtu"}
-
 // getCustomDataVariables returns cloudinit data used by Linux.
 func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
