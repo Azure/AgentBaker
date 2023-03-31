@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  SUBSCRIPTION_ID: "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8}"
+  SUBSCRIPTION_ID: "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"
   RESOURCE_GROUP_NAME: "agentbaker-e2e-tests"
   LOCATION: "eastus"
   CLUSTER_NAME: "agentbaker-e2e-test-cluster"
