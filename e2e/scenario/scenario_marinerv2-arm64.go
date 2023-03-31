@@ -13,6 +13,8 @@ func marinerv2ARM64() *Scenario {
 		Name:        "marinerv2-arm64",
 		Description: "Tests that a node using a MarinerV2 VHD on ARM64 architecture can be properly bootstrapped",
 		ScenarioConfig: ScenarioConfig{
+			ClusterSelector: NetworkPluginKubenetSelector,
+			ClusterMutator:  NetworkPluginKubenetMutator,
 			BootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-arm64-gen2"

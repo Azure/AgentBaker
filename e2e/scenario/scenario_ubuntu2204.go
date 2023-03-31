@@ -13,6 +13,8 @@ func ubuntu2204() *Scenario {
 		Name:        "ubuntu2204",
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
 		ScenarioConfig: ScenarioConfig{
+			ClusterSelector: NetworkPluginKubenetSelector,
+			ClusterMutator:  NetworkPluginKubenetMutator,
 			BootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"

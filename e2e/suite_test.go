@@ -11,7 +11,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/barkimedes/go-deepcopy"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func Test_All(t *testing.T) {
@@ -32,55 +31,61 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := setupCluster(ctx, cloud, suiteConfig.location, suiteConfig.resourceGroupName, suiteConfig.clusterName); err != nil {
+	if err := ensureResourceGroup(ctx, t, cloud, suiteConfig.resourceGroupName); err != nil {
 		t.Fatal(err)
 	}
 
-	subnetID, err := getClusterSubnetID(ctx, cloud, suiteConfig.location, suiteConfig.resourceGroupName, suiteConfig.clusterName)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	kube, err := getClusterKubeClient(ctx, cloud, suiteConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := ensureDebugDaemonset(ctx, kube, suiteConfig.resourceGroupName, suiteConfig.clusterName); err != nil {
-		t.Fatal(err)
-	}
-
-	var clusterParams map[string]string
-	err = wait.PollImmediateWithContext(ctx, 15*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
-		params, err := extractClusterParameters(ctx, t, kube)
-		if err != nil {
-			t.Logf("error extracting cluster parameters: %q", err)
-			return false, nil
-		}
-		clusterParams = params
-		return true, nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := createClusterParamsDir(); err != nil {
-		t.Fatal(err)
-	}
-
-	t.Logf("dumping cluster parameters to local directory: %s", clusterParamsDir)
-	if err := dumpFileMapToDir(clusterParamsDir, clusterParams); err != nil {
-		t.Error("error dumping cluster parameters", err)
-	}
-
-	baseConfig, err := getBaseNodeBootstrappingConfiguration(ctx, t, cloud, suiteConfig, clusterParams)
+	clusters, err := listClusters(ctx, t, cloud, suiteConfig.resourceGroupName)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for _, scenario := range scenarioTable {
-
 		scenario := scenario
+
+		chosenCluster := chooseCompatibleCluster(scenario, clusters)
+		chosenClusterExists := chosenCluster != nil
+		if !chosenClusterExists {
+			t.Logf("could not find test cluster able to run scenario %q, creating a new one...", scenario.Name)
+			newCluster := getBaseClusterModel(
+				fmt.Sprintf(testClusterNameTemplate, randomLowercaseString(r, 5)),
+				suiteConfig.location,
+			)
+			chosenCluster = &newCluster
+			scenario.ScenarioConfig.ClusterMutator(chosenCluster)
+		}
+
+		if err := ensureCluster(ctx, t, cloud, suiteConfig.location, suiteConfig.resourceGroupName, chosenCluster, !chosenClusterExists); err != nil {
+			t.Fatal(err)
+		}
+
+		clusterName := *chosenCluster.Name
+		t.Logf("chosen cluster name: %q", clusterName)
+
+		subnetID, err := getClusterSubnetID(ctx, cloud, suiteConfig.location, *chosenCluster.Properties.NodeResourceGroup, clusterName)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		kube, err := getClusterKubeClient(ctx, cloud, suiteConfig.resourceGroupName, clusterName)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if err := ensureDebugDaemonset(ctx, kube); err != nil {
+			t.Fatal(err)
+		}
+
+		clusterParams, err := pollExtractClusterParameters(ctx, t, kube)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		baseConfig, err := getBaseNodeBootstrappingConfiguration(ctx, t, cloud, suiteConfig, clusterParams)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		copied, err := deepcopy.Anything(baseConfig)
 		if err != nil {
 			t.Error(err)
@@ -112,11 +117,11 @@ func Test_All(t *testing.T) {
 			cseCmd := nodeBootstrapping.CSE
 
 			vmssName := fmt.Sprintf("abtest%s", randomLowercaseString(r, 4))
-			t.Logf("[scenario/%s] vmss name: %q", scenario.Name, vmssName)
+			t.Logf("vmss name: %q", vmssName)
 
 			cleanupVMSS := func() {
 				t.Log("deleting vmss", vmssName)
-				poller, err := cloud.vmssClient.BeginDelete(ctx, agentbakerTestClusterMCResourceGroupName, vmssName, nil)
+				poller, err := cloud.vmssClient.BeginDelete(ctx, *chosenCluster.Properties.NodeResourceGroup, vmssName, nil)
 				if err != nil {
 					t.Error("error deleting vmss", vmssName, err)
 					return
@@ -125,7 +130,7 @@ func Test_All(t *testing.T) {
 				if err != nil {
 					t.Error("error polling deleting vmss", vmssName, err)
 				}
-				t.Logf("[scenario/%s] finished deleting vmss %q", scenario.Name, vmssName)
+				t.Logf("finished deleting vmss %q", vmssName)
 			}
 
 			defer cleanupVMSS()
@@ -136,7 +141,7 @@ func Test_All(t *testing.T) {
 				return
 			}
 
-			err = createVMSSWithPayload(ctx, publicKeyBytes, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, scenario.VMConfigMutator)
+			err = createVMSSWithPayload(ctx, publicKeyBytes, cloud, suiteConfig.location, *chosenCluster.Properties.NodeResourceGroup, vmssName, subnetID, base64EncodedCustomData, cseCmd, scenario.VMConfigMutator)
 			isCSEError := isVMExtensionProvisioningError(err)
 			vmssSucceeded := true
 			if err != nil {
@@ -148,26 +153,10 @@ func Test_All(t *testing.T) {
 				}
 			}
 
-			// Perform posthoc log extraction when the VMSS creation succeeded, or failed due to a CSE error
+			// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
 			if vmssSucceeded || isCSEError {
 				debug := func() {
-					err := wait.PollImmediateWithContext(ctx, 15*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
-						t.Log("attempting to extract VM logs")
-
-						logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(privateKeyBytes))
-						if err != nil {
-							t.Logf("error extracting VM logs: %q", err)
-							return false, nil
-						}
-
-						t.Logf("dumping VM logs to local directory: %s", caseLogsDir)
-						if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
-							t.Logf("error extracting VM logs: %q", err)
-							return false, nil
-						}
-
-						return true, nil
-					})
+					err := pollExtractVMLogs(ctx, t, cloud, kube, suiteConfig, *chosenCluster.Properties.NodeResourceGroup, vmssName, caseLogsDir, privateKeyBytes)
 					if err != nil {
 						t.Fatal(err)
 					}

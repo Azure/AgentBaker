@@ -13,6 +13,8 @@ func ubuntu2204ARM64() *Scenario {
 		Name:        "ubuntu2204-arm64",
 		Description: "Tests that an Ubuntu 2204 Node using ARM64 architecture can be properly bootstrapped",
 		ScenarioConfig: ScenarioConfig{
+			ClusterSelector: NetworkPluginKubenetSelector,
+			ClusterMutator:  NetworkPluginKubenetMutator,
 			BootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"

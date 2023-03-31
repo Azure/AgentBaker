@@ -29,11 +29,11 @@ const (
 	listVMSSNetworkInterfaceURLTemplate = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
 )
 
-func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, kube *kubeclient, subscription, vmssName, sshPrivateKey string) (map[string]string, error) {
+func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, kube *kubeclient, subscription, mcResourceGroupName, vmssName, sshPrivateKey string) (map[string]string, error) {
 	pl := cloud.coreClient.Pipeline()
 	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
 		subscription,
-		agentbakerTestClusterMCResourceGroupName,
+		mcResourceGroupName,
 		vmssName,
 		0,
 	)
@@ -149,7 +149,7 @@ func getDebugPodName(kube *kubeclient) (string, error) {
 	return podName, nil
 }
 
-func ensureDebugDaemonset(ctx context.Context, kube *kubeclient, resourceGroupName, clusterName string) error {
+func ensureDebugDaemonset(ctx context.Context, kube *kubeclient) error {
 	manifest := getDebugDaemonset()
 	var ds appsv1.DaemonSet
 
