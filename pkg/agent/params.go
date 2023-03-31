@@ -146,7 +146,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 				"cloudProviderDisableOutboundSNAT":  kubernetesConfig.CloudProviderDisableOutboundSNAT,
 			})
 			addValue(parametersMap, "kubeClusterCidr", kubernetesConfig.ClusterSubnet)
-			addValue(parametersMap, "kubeClusterCidrs", strings.Join(kubernetesConfig.GetAllClusterSubnets(), ","))
 			addValue(parametersMap, "dockerBridgeCidr", kubernetesConfig.DockerBridgeSubnet)
 			addValue(parametersMap, "networkPolicy", kubernetesConfig.NetworkPolicy)
 			addValue(parametersMap, "networkPlugin", kubernetesConfig.NetworkPlugin)

@@ -6582,7 +6582,6 @@ $global:PrimaryAvailabilitySetName = "{{GetVariable "primaryAvailabilitySetName"
 $global:PrimaryScaleSetName = "{{GetVariable "primaryScaleSetName"}}"
 
 $global:KubeClusterCIDR = "{{GetParameter "kubeClusterCidr"}}"
-$global:KubeClusterCIDRs = "{{GetParameter "kubeClusterCidrs"}}"
 $global:KubeServiceCIDR = "{{GetParameter "kubeServiceCidr"}}"
 $global:VNetCIDR = "{{GetParameter "vnetCidr"}}"
 {{if IsKubernetesVersionGe "1.16.0"}}
@@ -6873,7 +6872,6 @@ try
     Set-AzureCNIConfig -AzureCNIConfDir $global:AzureCNIConfDir `+"`"+`
         -KubeDnsSearchPath $global:KubeDnsSearchPath `+"`"+`
         -KubeClusterCIDR $global:KubeClusterCIDR `+"`"+`
-        -KubeClusterCIDRs $global:KubeClusterCIDRs `+"`"+`
         -KubeServiceCIDR $global:KubeServiceCIDR `+"`"+`
         -VNetCIDR $global:VNetCIDR `+"`"+`
         -IsDualStackEnabled $global:IsDualStackEnabled `+"`"+`
