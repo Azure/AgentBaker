@@ -13,8 +13,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -1279,69 +1277,6 @@ func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error
 	}
 
 	return files, nil
-}
-
-func decodeCustomDataFiles(dir string) error {
-	files, err := filepath.Glob(filepath.Join(dir, "*.sh"))
-	if err != nil {
-		return err
-	}
-
-	for _, file := range files {
-		err = os.RemoveAll(file)
-		if err != nil {
-			return err
-		}
-	}
-
-	customDataFiles, err := filepath.Glob(filepath.Join(dir, "CustomData"))
-	if err != nil {
-		return err
-	}
-
-	if len(customDataFiles) != 1 {
-		return fmt.Errorf("expected 1 CustomData file, found %d", len(customDataFiles))
-	}
-
-	customDataFile := customDataFiles[0]
-
-	data, err := ioutil.ReadFile(customDataFile)
-	if err != nil {
-		return err
-	}
-
-	var customData cloudInit
-
-	err = yaml.Unmarshal([]byte(data), &customData)
-	if err != nil {
-		return err
-	}
-
-	for _, val := range customData.WriteFiles {
-		if strings.Contains(val.Encoding, "gzip") {
-			if val.Content == "" {
-				continue
-			}
-
-			reader := bytes.NewReader([]byte(val.Content))
-			gzipReader, err := gzip.NewReader(reader)
-			if err != nil {
-				return fmt.Errorf("failed to create gzip reader: %s", err)
-			}
-
-			output, err := ioutil.ReadAll(gzipReader)
-			if err != nil {
-				return fmt.Errorf("read from gzipped buffered string: %s", err)
-			}
-
-			err = ioutil.WriteFile(filepath.Join(dir, path.Base(val.Path)), output, 0644)
-			if err != nil {
-				return fmt.Errorf("failed to write file: %s", err)
-			}
-		}
-	}
-
-	return nil
 }
 
 type cloudInit struct {
