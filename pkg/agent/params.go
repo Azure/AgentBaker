@@ -11,7 +11,8 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
-func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCode string, bakerVersion string) paramsMap {
+//nolint:gocognit
+func getParameters(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	properties := cs.Properties
@@ -27,11 +28,13 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 	// required since linux uses static value for that.
 	if properties.HostedMasterProfile != nil {
 		// Agents only, use cluster DNS prefix
-		if properties.HostedMasterProfile.DNSPrefix != "" {
+		switch {
+		// Agents only, use cluster DNS prefix
+		case properties.HostedMasterProfile.DNSPrefix != "":
 			addValue(parametersMap, "masterEndpointDNSNamePrefix", properties.HostedMasterProfile.DNSPrefix)
-		} else if properties.HostedMasterProfile.FQDNSubdomain != "" {
+		case properties.HostedMasterProfile.FQDNSubdomain != "":
 			addValue(parametersMap, "masterEndpointDNSNamePrefix", properties.HostedMasterProfile.FQDNSubdomain)
-		} else {
+		default:
 			// should not happen but just in case, we fill in value "localcluster" just like linux
 			addValue(parametersMap, "masterEndpointDNSNamePrefix", "localcluster")
 		}
@@ -42,9 +45,9 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 
 	// Kubernetes Parameters
 	if properties.OrchestratorProfile.IsKubernetes() {
-		assignKubernetesParameters(properties, parametersMap, cloudSpecConfig, config.K8sComponents, generatorCode, config)
+		assignKubernetesParameters(properties, parametersMap, cloudSpecConfig, config.K8sComponents, config)
 		if profile != nil {
-			assignKubernetesParametersFromAgentProfile(profile, parametersMap, cloudSpecConfig, generatorCode, config)
+			assignKubernetesParametersFromAgentProfile(profile, parametersMap, config)
 		}
 	}
 
@@ -78,7 +81,7 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 }
 
 func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProfile, parametersMap paramsMap,
-	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, generatorCode string, config *datamodel.NodeBootstrappingConfiguration) {
+	config *datamodel.NodeBootstrappingConfiguration) {
 	if config.RuncVersion != "" {
 		addValue(parametersMap, "runcVersion", config.RuncVersion)
 	}
@@ -105,7 +108,6 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 func assignKubernetesParameters(properties *datamodel.Properties, parametersMap paramsMap,
 	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig,
 	k8sComponents *datamodel.K8sComponents,
-	generatorCode string,
 	config *datamodel.NodeBootstrappingConfiguration) {
 	orchestratorProfile := properties.OrchestratorProfile
 

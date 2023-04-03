@@ -92,6 +92,7 @@ func addKeyvaultReference(m paramsMap, k string, vaultID, secretName, secretVers
 	}
 }
 
+//nolint:unparam,nolintlint
 func addSecret(m paramsMap, k string, v interface{}, encode bool) {
 	str, ok := v.(string)
 	if !ok {
@@ -160,10 +161,10 @@ func makeWindowsExtensionScriptCommands(extension *datamodel.Extension, extensio
 
 func escapeSingleLine(escapedStr string) string {
 	// template.JSEscapeString leaves undesirable chars that don't work with pretty print.
-	escapedStr = strings.Replace(escapedStr, "\\", "\\\\", -1)
-	escapedStr = strings.Replace(escapedStr, "\r\n", "\\n", -1)
-	escapedStr = strings.Replace(escapedStr, "\n", "\\n", -1)
-	escapedStr = strings.Replace(escapedStr, "\"", "\\\"", -1)
+	escapedStr = strings.ReplaceAll(escapedStr, "\\", "\\\\")
+	escapedStr = strings.ReplaceAll(escapedStr, "\r\n", "\\n")
+	escapedStr = strings.ReplaceAll(escapedStr, "\n", "\\n")
+	escapedStr = strings.ReplaceAll(escapedStr, "\"", "\\\"")
 	return escapedStr
 }
 
@@ -184,7 +185,7 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 	var buffer bytes.Buffer
 	templ.Execute(&buffer, config.ContainerService)
 	csStr := buffer.String()
-	csStr = strings.Replace(csStr, "\r\n", "\n", -1)
+	csStr = strings.ReplaceAll(csStr, "\r\n", "\n")
 	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
 }
 
