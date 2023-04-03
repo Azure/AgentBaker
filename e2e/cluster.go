@@ -170,6 +170,16 @@ func chooseCompatibleCluster(scenario *scenario.Scenario, clusters []*armcontain
 	return nil
 }
 
+func getViableClusters(scenario *scenario.Scenario, clusters []*armcontainerservice.ManagedCluster) []*armcontainerservice.ManagedCluster {
+	viableClusters := []*armcontainerservice.ManagedCluster{}
+	for _, cluster := range clusters {
+		if scenario.ScenarioConfig.ClusterSelector(cluster) {
+			viableClusters = append(viableClusters, cluster)
+		}
+	}
+	return viableClusters
+}
+
 func getBaseClusterModel(clusterName, location string) armcontainerservice.ManagedCluster {
 	return armcontainerservice.ManagedCluster{
 		Location: to.Ptr(location),
