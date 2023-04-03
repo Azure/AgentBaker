@@ -207,6 +207,7 @@ func TestGetVersionsLt(t *testing.T) {
 	}
 }
 
+//nolint:gocognit
 func TestGetVersionsBetween(t *testing.T) {
 	versions := []string{"1.1.0", "1.2.0", "1.2.1"}
 	expected := []string{"1.2.0"}
