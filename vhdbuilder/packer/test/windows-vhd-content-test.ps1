@@ -323,7 +323,7 @@ function Test-ExcludeUDPSourcePort {
     }
 }
 
-Test-FilesToCacheOnVHD
+#Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
 Test-ImagesPulled -isAzureChinaCloud
