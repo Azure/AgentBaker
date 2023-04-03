@@ -373,12 +373,14 @@ func getAllKubernetesWindowsSupportedVersionsMap() map[string]bool {
 }
 
 // GetSupportedVersions get supported version list for a certain orchestrator.
-func GetSupportedVersions(orchType string, isUpdate, hasWindows bool) (versions []string, defaultVersion string) {
+func GetSupportedVersions(orchType string, isUpdate, hasWindows bool) ([]string, string) {
+	versions := []string{}
+	defaultVersion := ""
 	switch orchType {
 	case Kubernetes:
 		return GetAllSupportedKubernetesVersions(isUpdate, hasWindows), GetDefaultKubernetesVersion(hasWindows)
 	default:
-		return nil, ""
+		return versions, defaultVersion
 	}
 }
 
@@ -420,9 +422,10 @@ func GetValidPatchVersion(orchType, orchVer string, isUpdate, hasWindows bool) s
 }
 
 // RationalizeReleaseAndVersion return a version when it can be rationalized from the input, otherwise "".
-func RationalizeReleaseAndVersion(orchType, orchRel, orchVer string, isUpdate, hasWindows bool) (version string) {
+func RationalizeReleaseAndVersion(orchType, orchRel, orchVer string, isUpdate, hasWindows bool) string {
 	/* ignore "v" prefix in orchestrator version and release: "v1.8.0" is equivalent to "1.8.0", "v1.9"
 	is equivalent to "1.9". */
+	version := ""
 	orchVer = strings.TrimPrefix(orchVer, "v")
 	orchRel = strings.TrimPrefix(orchRel, "v")
 	supportedVersions, defaultVersion := GetSupportedVersions(orchType, isUpdate, hasWindows)
@@ -500,13 +503,13 @@ func IsKubernetesVersionGe(actualVersion, version string) bool {
 GetLatestPatchVersion gets the most recent patch version from a list of semver versions
 given a major.minor string.
 */
-func GetLatestPatchVersion(majorMinor string, versionsList []string) (version string) {
+func GetLatestPatchVersion(majorMinor string, versionsList []string) string {
 	// Try to get latest version matching the release.
-	version = ""
+	version := ""
 	for _, ver := range versionsList {
 		sv, err := semver.Make(ver)
 		if err != nil {
-			return
+			return ""
 		}
 		sr := fmt.Sprintf("%d.%d", sv.Major, sv.Minor)
 		if sr == majorMinor {
