@@ -177,11 +177,12 @@ func mustChooseCluster(
 	cloud *azureClient,
 	suiteConfig *suiteConfig,
 	scenario *scenario.Scenario,
-	clusters []*armcontainerservice.ManagedCluster) (*kubeclient, *armcontainerservice.ManagedCluster, string) {
+	clusters []*armcontainerservice.ManagedCluster) (*kubeclient, *armcontainerservice.ManagedCluster, map[string]string, string) {
 	var (
-		chosenKubeClient *kubeclient
-		chosenCluster    *armcontainerservice.ManagedCluster
-		chosenSubnetID   string
+		chosenKubeClient    *kubeclient
+		chosenCluster       *armcontainerservice.ManagedCluster
+		chosenClusterParams map[string]string
+		chosenSubnetID      string
 	)
 
 	viableClusters := getViableClusters(scenario, clusters)
@@ -221,9 +222,16 @@ func mustChooseCluster(
 				continue
 			}
 
+			clusterParams, err := pollExtractClusterParameters(ctx, t, kube)
+			if err != nil {
+				t.Logf("unable to extract cluster parameters from %q: %s", *cluster.Name, err)
+				continue
+			}
+
 			chosenKubeClient = kube
 			chosenCluster = cluster
 			chosenSubnetID = subnetID
+			chosenClusterParams = clusterParams
 			break
 		}
 	}
@@ -232,7 +240,7 @@ func mustChooseCluster(
 		t.Fatal("unable to choose test cluster from viable cluster set")
 	}
 
-	return chosenKubeClient, chosenCluster, chosenSubnetID
+	return chosenKubeClient, chosenCluster, chosenClusterParams, chosenSubnetID
 }
 
 func getBaseClusterModel(clusterName, location string) armcontainerservice.ManagedCluster {

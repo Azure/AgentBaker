@@ -44,14 +44,10 @@ func Test_All(t *testing.T) {
 	for _, scenario := range scenarioTable {
 		scenario := scenario
 
-		kube, cluster, subnetID := mustChooseCluster(ctx, t, r, cloud, suiteConfig, scenario, clusters)
+		kube, cluster, clusterParams, subnetID := mustChooseCluster(ctx, t, r, cloud, suiteConfig, scenario, clusters)
+
 		clusterName := *cluster.Name
 		t.Logf("chose cluster: %q", clusterName)
-
-		clusterParams, err := pollExtractClusterParameters(ctx, t, kube)
-		if err != nil {
-			t.Fatal(err)
-		}
 
 		baseConfig, err := getBaseNodeBootstrappingConfiguration(ctx, t, cloud, suiteConfig, clusterParams)
 		if err != nil {
