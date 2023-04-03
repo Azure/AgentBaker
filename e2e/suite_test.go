@@ -44,38 +44,9 @@ func Test_All(t *testing.T) {
 	for _, scenario := range scenarioTable {
 		scenario := scenario
 
-		chosenCluster := chooseCompatibleCluster(scenario, clusters)
-		chosenClusterExists := chosenCluster != nil
-		if !chosenClusterExists {
-			t.Logf("could not find test cluster able to run scenario %q, creating a new one...", scenario.Name)
-			newCluster := getBaseClusterModel(
-				fmt.Sprintf(testClusterNameTemplate, randomLowercaseString(r, 5)),
-				suiteConfig.location,
-			)
-			chosenCluster = &newCluster
-			scenario.ScenarioConfig.ClusterMutator(chosenCluster)
-		}
-
-		if err := ensureCluster(ctx, t, cloud, suiteConfig.location, suiteConfig.resourceGroupName, chosenCluster, !chosenClusterExists); err != nil {
-			t.Fatal(err)
-		}
-
-		clusterName := *chosenCluster.Name
-		t.Logf("chosen cluster name: %q", clusterName)
-
-		subnetID, err := getClusterSubnetID(ctx, cloud, suiteConfig.location, *chosenCluster.Properties.NodeResourceGroup, clusterName)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		kube, err := getClusterKubeClient(ctx, cloud, suiteConfig.resourceGroupName, clusterName)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if err := ensureDebugDaemonset(ctx, kube); err != nil {
-			t.Fatal(err)
-		}
+		kube, cluster, subnetID := mustChooseCluster(ctx, t, r, cloud, suiteConfig, scenario, clusters)
+		clusterName := *cluster.Name
+		t.Logf("chose cluster: %q", clusterName)
 
 		clusterParams, err := pollExtractClusterParameters(ctx, t, kube)
 		if err != nil {
@@ -106,7 +77,7 @@ func Test_All(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			runScenario(ctx, t, r, cloud, kube, suiteConfig, scenario, chosenCluster, nbc, subnetID, caseLogsDir)
+			runScenario(ctx, t, r, cloud, kube, suiteConfig, scenario, cluster, nbc, subnetID, caseLogsDir)
 		})
 	}
 }
