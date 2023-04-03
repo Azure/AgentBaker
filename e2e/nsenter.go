@@ -79,8 +79,6 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, ku
 		mergedCmd := fmt.Sprintf("%s %s", sshCommand, sourceCmd)
 		cmd := append(nsenterCommandArray(), mergedCmd)
 
-		t.Logf("executing command on pod %s/%s: %q", defaultNamespace, podName, strings.Join(cmd, " "))
-
 		stdout, stderr, err := execOnPod(ctx, kube, defaultNamespace, podName, cmd)
 		checkStdErr(stderr, t)
 		if err != nil {
