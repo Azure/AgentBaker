@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -x
 KUBE_VERSION="v1.24.9"
-CNI_PLUGINS_VERSION="v1.0.1"
-AZURE_CNI_VERSION="v1.4.12"
-RUNC_VERSION="v1.0.2"
-CONTAINERD_VERSION="1.5.5"
+CNI_PLUGINS_VERSION="v1.2.0"
+AZURE_CNI_VERSION="v1.4.45"
+RUNC_VERSION="v1.1.5"
+CONTAINERD_VERSION="1.6.20"
 
 NODE_NAME=$(hostname)
 ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
@@ -36,7 +36,7 @@ tar -xvzf cni-plugins-linux-amd64-${CNI_PLUGINS_VERSION}.tgz -C /opt/cni/bin/
 rm cni-plugins-linux-amd64-${CNI_PLUGINS_VERSION}.tgz
 
 curl -o runc -L https://github.com/opencontainers/runc/releases/download/${RUNC_VERSION}/runc.amd64
-install -m 0555 runc /usr/local/sbin/runc
+install -m 0555 runc /usr/bin/runc
 rm runc
 
 # containerd
