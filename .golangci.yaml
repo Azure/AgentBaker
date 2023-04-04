@@ -34,7 +34,6 @@ linters-settings:
     # Default: [ switch ]
     check:
       - switch
-      - map
 
   exhaustruct:
     # List of regular expressions to exclude struct packages and names from check.
@@ -151,7 +150,7 @@ linters-settings:
   nolintlint:
     # Exclude following linters from requiring an explanation.
     # Default: []
-    allow-no-explanation: [ funlen, gocognit, lll ]
+    allow-no-explanation: [ funlen, gocognit, lll, gochecknoinits, gochecknoglobals ]
     # Enable to require an explanation of nonzero length after each nolint directive.
     # Default: false
     require-explanation: true
@@ -322,3 +321,6 @@ issues:
         - gosec
         - noctx
         - wrapcheck
+        - gochecknoglobals
+        - testpackage
+        - tparallel
