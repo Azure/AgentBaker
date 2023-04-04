@@ -47,9 +47,11 @@ func newSuiteConfig() (*suiteConfig, error) {
 type scenarioConfig struct {
 	// bootstrapConfig          *datamodel.NodeBootstrappingConfiguration
 	bootstrapConfigMutator func(*testing.T, *datamodel.NodeBootstrappingConfiguration)
-	vmConfigMutator        func(*armcompute.VirtualMachineScaleSet)
+	vmConfigMutator        vmConfigMutatorFn
 	validator              func(context.Context, *testing.T, *scenarioValidationInput) error
 }
+
+type vmConfigMutatorFn func(*armcompute.VirtualMachineScaleSet, map[string]string)
 
 type scenarioValidationInput struct {
 	privateIP     string

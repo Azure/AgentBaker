@@ -1,6 +1,10 @@
 package e2e_test
 
 import (
+	_ "embed"
+	"encoding/base64"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -23,6 +27,9 @@ var defaultMarinerImageVersionIDs = map[string]string{
 	"v2gen2kata":  "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2kataGen2/versions/1.1679939567.7755",
 }
 
+//go:embed bootstrap.sh
+var bootstrapBytes []byte
+
 var cases = map[string]scenarioConfig{
 	"base": {},
 	"ubuntu2204": {
@@ -30,10 +37,31 @@ var cases = map[string]scenarioConfig{
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 			nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 		},
-		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
 			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
 				ID: to.Ptr(defaultUbuntuImageVersionIDs["2204gen2"]),
 			}
+		},
+	},
+	"ubuntu2204market": {
+		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+			nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+		},
+		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
+			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
+				Publisher: to.Ptr("Canonical"),
+				Offer:     to.Ptr("0001-com-ubuntu-server-jammy"),
+				SKU:       to.Ptr("22_04-lts-gen2"),
+				Version:   to.Ptr("latest"),
+			}
+
+			customData := strings.ReplaceAll(string(bootstrapBytes), "<<BOOTSTRAP_KUBECONFIG>>", clusterParams["/var/lib/kubelet/bootstrap-kubeconfig"])
+
+			fmt.Println(customData)
+
+			customDataEncoded := base64.StdEncoding.EncodeToString([]byte(customData))
+			vmss.Properties.VirtualMachineProfile.OSProfile.CustomData = to.Ptr(customDataEncoded)
 		},
 	},
 	"marinerv1": {
@@ -41,7 +69,7 @@ var cases = map[string]scenarioConfig{
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v1"
 			nbc.AgentPoolProfile.Distro = "aks-cblmariner-v1"
 		},
-		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
 			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
 				ID: to.Ptr(defaultMarinerImageVersionIDs["v1"]),
 			}
@@ -52,7 +80,7 @@ var cases = map[string]scenarioConfig{
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 			nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 		},
-		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
 			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
 				ID: to.Ptr(defaultMarinerImageVersionIDs["v2gen2"]),
 			}
@@ -69,7 +97,7 @@ var cases = map[string]scenarioConfig{
 			nbc.IsARM64 = true
 
 		},
-		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
 			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
 				ID: to.Ptr(defaultUbuntuImageVersionIDs["2204gen2arm64"]),
 			}
@@ -85,7 +113,7 @@ var cases = map[string]scenarioConfig{
 			nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-arm64-gen2"
 			nbc.IsARM64 = true
 		},
-		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
 			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
 				ID: to.Ptr(defaultMarinerImageVersionIDs["v2gen2arm64"]),
 			}
@@ -99,7 +127,7 @@ var cases = map[string]scenarioConfig{
 			nbc.AgentPoolProfile.VMSize = "Standard_D4ads_v5"
 			nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2-kata"
 		},
-		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
 			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
 				ID: to.Ptr(defaultMarinerImageVersionIDs["v2gen2kata"]),
 			}
@@ -114,7 +142,7 @@ var cases = map[string]scenarioConfig{
 			nbc.AgentPoolProfile.Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
 			nbc.FIPSEnabled = true
 		},
-		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
 			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
 				ID: to.Ptr(defaultUbuntuImageVersionIDs["2004gen2fips"]),
 			}
@@ -131,7 +159,7 @@ var cases = map[string]scenarioConfig{
 			nbc.EnableGPUDevicePluginIfNeeded = false
 			nbc.EnableNvidia = true
 		},
-		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
 			vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 		},
 	},

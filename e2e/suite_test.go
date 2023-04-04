@@ -152,7 +152,7 @@ func Test_All(t *testing.T) {
 				return
 			}
 
-			err = createVMSSWithPayload(ctx, publicKeyBytes, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, tc.vmConfigMutator)
+			err = createVMSSWithPayload(ctx, publicKeyBytes, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, tc.vmConfigMutator, clusterParams)
 			isCSEError := isVMExtensionProvisioningError(err)
 			vmssSucceeded := true
 			if err != nil {
