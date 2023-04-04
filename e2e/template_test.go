@@ -458,6 +458,8 @@ spec:
       labels:
         app: *name
     spec:
+	  nodeSelector:
+	    kubernetes.azure.com/agentpool: nodepool1
       hostNetwork: true
       hostPID: true
       containers:
