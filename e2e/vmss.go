@@ -48,7 +48,7 @@ func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []b
 	return
 }
 
-func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *azureClient, location, name, subnetID, customData, cseCmd string, mutator func(*armcompute.VirtualMachineScaleSet)) error {
+func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *azureClient, location, name, subnetID, customData, cseCmd string, mutator func(*armcompute.VirtualMachineScaleSet)) (*armcompute.VirtualMachineScaleSet, error) {
 	model := getBaseVMSSModel(name, location, subnetID, string(publicKeyBytes), customData, cseCmd)
 
 	if mutator != nil {
@@ -63,15 +63,15 @@ func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *az
 		nil,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	_, err = pollerResp.PollUntilDone(ctx, nil)
+	vmssResp, err := pollerResp.PollUntilDone(ctx, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &vmssResp.VirtualMachineScaleSet, nil
 }
 
 func getBaseVMSSModel(name, location, subnetID, sshPublicKey, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
