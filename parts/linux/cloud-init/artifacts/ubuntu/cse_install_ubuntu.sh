@@ -155,7 +155,7 @@ installStandaloneContainerd() {
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.6.18"
+        CONTAINERD_VERSION="1.7.1"
         CONTAINERD_PATCH_VERSION="1"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
@@ -246,7 +246,7 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.1.5+azure-ubuntu${UBUNTU_RELEASE}u1"
+        TARGET_VERSION="1.1.7+azure-ubuntu${UBUNTU_RELEASE}"
     fi
 
     if [[ $(isARM64) == 1 ]]; then
@@ -273,7 +273,7 @@ ensureRunc() {
             return 0
         fi
     fi
-    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION} --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
 #EOF

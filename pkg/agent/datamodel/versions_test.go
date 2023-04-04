@@ -368,7 +368,8 @@ func Test_GetValidPatchVersion(t *testing.T) {
 		t.Errorf("It is not the default Kubernetes version")
 	}
 
-	for version, enabled := range AllKubernetesWindowsSupportedVersions {
+	allKubernetesWindowsSupportedVersions := getAllKubernetesWindowsSupportedVersionsMap()
+	for version, enabled := range allKubernetesWindowsSupportedVersions {
 		if enabled {
 			v = GetValidPatchVersion(Kubernetes, version, false, true)
 			if v != version {
