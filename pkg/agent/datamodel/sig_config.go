@@ -58,111 +58,36 @@ func GetCloudTargetEnv(location string) string {
 	}
 }
 
-/*
-AvailableUbuntu1804Distros : TODO(amaheshwari): these vars are not consumed by Agentbaker but by RP. do a
-cleanup to remove these after 20.04 work.
-*/
-var AvailableUbuntu1804Distros []Distro = []Distro{
-	AKSUbuntu1804,
-	AKSUbuntu1804Gen2,
-	AKSUbuntuGPU1804,
-	AKSUbuntuGPU1804Gen2,
-	AKSUbuntuContainerd1804,
-	AKSUbuntuContainerd1804Gen2,
-	AKSUbuntuGPUContainerd1804,
-	AKSUbuntuGPUContainerd1804Gen2,
-	AKSUbuntuFipsContainerd1804,
-	AKSUbuntuFipsContainerd1804Gen2,
-	AKSUbuntuFipsGPUContainerd1804,
-	AKSUbuntuFipsGPUContainerd1804Gen2,
-	AKSUbuntuArm64Containerd1804Gen2,
-	AKSUbuntuEdgeZoneContainerd1804,
-	AKSUbuntuEdgeZoneContainerd1804Gen2,
-}
-
-var AvailableUbuntu2004Distros []Distro = []Distro{
-	AKSUbuntuContainerd2004CVMGen2,
-	AKSUbuntuFipsContainerd2004,
-	AKSUbuntuFipsContainerd2004Gen2,
-}
-
-var AvailableUbuntu2204Distros []Distro = []Distro{
-	AKSUbuntuContainerd2204,
-	AKSUbuntuContainerd2204Gen2,
-	AKSUbuntuArm64Containerd2204Gen2,
-	AKSUbuntuContainerd2204TLGen2,
-	AKSUbuntuEdgeZoneContainerd2204,
-	AKSUbuntuEdgeZoneContainerd2204Gen2,
-}
-
-var AvailableContainerdDistros []Distro = []Distro{
-	AKSUbuntuContainerd1804,
-	AKSUbuntuContainerd1804Gen2,
-	AKSUbuntuGPUContainerd1804,
-	AKSUbuntuGPUContainerd1804Gen2,
-	AKSUbuntuFipsContainerd1804,
-	AKSUbuntuFipsContainerd1804Gen2,
-	AKSUbuntuFipsContainerd2004,
-	AKSUbuntuFipsContainerd2004Gen2,
-	AKSUbuntuFipsGPUContainerd1804,
-	AKSUbuntuFipsGPUContainerd1804Gen2,
-	AKSUbuntuEdgeZoneContainerd1804,
-	AKSUbuntuEdgeZoneContainerd1804Gen2,
-	AKSCBLMarinerV1,
-	AKSCBLMarinerV2,
-	AKSCBLMarinerV2Gen2,
-	AKSCBLMarinerV2Gen2Kata,
-	AKSCBLMarinerV2Gen2TL,
-	AKSCBLMarinerV2KataGen2TL,
-	AKSUbuntuArm64Containerd1804Gen2,
-	AKSUbuntuArm64Containerd2204Gen2,
-	AKSUbuntuContainerd2204,
-	AKSUbuntuContainerd2204Gen2,
-	AKSUbuntuContainerd2004CVMGen2,
-	AKSUbuntuContainerd2204TLGen2,
-	AKSUbuntuEdgeZoneContainerd2204,
-	AKSUbuntuEdgeZoneContainerd2204Gen2,
-}
-
-var AvailableGPUDistros []Distro = []Distro{
-	AKSUbuntuGPU1804,
-	AKSUbuntuGPU1804Gen2,
-	AKSUbuntuGPUContainerd1804,
-	AKSUbuntuGPUContainerd1804Gen2,
-	AKSUbuntuFipsGPUContainerd1804,
-	AKSUbuntuFipsGPUContainerd1804Gen2,
-}
-
-var AvailableGen2Distros []Distro = []Distro{
-	AKSUbuntu1804Gen2,
-	AKSUbuntuGPU1804Gen2,
-	AKSUbuntuContainerd1804Gen2,
-	AKSUbuntuGPUContainerd1804Gen2,
-	AKSUbuntuFipsContainerd1804Gen2,
-	AKSUbuntuFipsContainerd2004Gen2,
-	AKSUbuntuFipsGPUContainerd1804Gen2,
-	AKSUbuntuEdgeZoneContainerd1804Gen2,
-	AKSUbuntuArm64Containerd1804Gen2,
-	AKSUbuntuArm64Containerd2204Gen2,
-	AKSUbuntuContainerd2204Gen2,
-	AKSUbuntuContainerd2004CVMGen2,
-	AKSUbuntuContainerd2204TLGen2,
-	AKSUbuntuEdgeZoneContainerd2204Gen2,
-}
-
-var AvailableCBLMarinerDistros []Distro = []Distro{
-	AKSCBLMarinerV1,
-	AKSCBLMarinerV2,
-	AKSCBLMarinerV2Gen2,
-	AKSCBLMarinerV2Gen2Kata,
-	AKSCBLMarinerV2Arm64Gen2,
-	AKSCBLMarinerV2Gen2TL,
-	AKSCBLMarinerV2KataGen2TL,
-}
-
 // IsContainerdSKU returns true if distro type is containerd-enabled.
 func (d Distro) IsContainerdDistro() bool {
-	for _, distro := range AvailableContainerdDistros {
+	availableContainerdDistros := []Distro{
+		AKSUbuntuContainerd1804,
+		AKSUbuntuContainerd1804Gen2,
+		AKSUbuntuGPUContainerd1804,
+		AKSUbuntuGPUContainerd1804Gen2,
+		AKSUbuntuFipsContainerd1804,
+		AKSUbuntuFipsContainerd1804Gen2,
+		AKSUbuntuFipsContainerd2004,
+		AKSUbuntuFipsContainerd2004Gen2,
+		AKSUbuntuFipsGPUContainerd1804,
+		AKSUbuntuFipsGPUContainerd1804Gen2,
+		AKSUbuntuEdgeZoneContainerd1804,
+		AKSUbuntuEdgeZoneContainerd1804Gen2,
+		AKSCBLMarinerV1,
+		AKSCBLMarinerV2,
+		AKSCBLMarinerV2Gen2,
+		AKSCBLMarinerV2Gen2Kata,
+		AKSCBLMarinerV2Gen2TL,
+		AKSCBLMarinerV2KataGen2TL,
+		AKSUbuntuArm64Containerd1804Gen2,
+		AKSUbuntuArm64Containerd2204Gen2,
+		AKSUbuntuContainerd2204,
+		AKSUbuntuContainerd2204Gen2,
+		AKSUbuntuContainerd2004CVMGen2,
+		AKSUbuntuContainerd2204TLGen2,
+	}
+
+	for _, distro := range availableContainerdDistros {
 		if d == distro {
 			return true
 		}
@@ -171,7 +96,16 @@ func (d Distro) IsContainerdDistro() bool {
 }
 
 func (d Distro) IsGPUDistro() bool {
-	for _, distro := range AvailableGPUDistros {
+	availableGPUDistros := []Distro{
+		AKSUbuntuGPU1804,
+		AKSUbuntuGPU1804Gen2,
+		AKSUbuntuGPUContainerd1804,
+		AKSUbuntuGPUContainerd1804Gen2,
+		AKSUbuntuFipsGPUContainerd1804,
+		AKSUbuntuFipsGPUContainerd1804Gen2,
+	}
+
+	for _, distro := range availableGPUDistros {
 		if d == distro {
 			return true
 		}
@@ -179,7 +113,23 @@ func (d Distro) IsGPUDistro() bool {
 	return false
 }
 func (d Distro) IsGen2Distro() bool {
-	for _, distro := range AvailableGen2Distros {
+	availableGen2Distros := []Distro{
+		AKSUbuntu1804Gen2,
+		AKSUbuntuGPU1804Gen2,
+		AKSUbuntuContainerd1804Gen2,
+		AKSUbuntuGPUContainerd1804Gen2,
+		AKSUbuntuFipsContainerd1804Gen2,
+		AKSUbuntuFipsContainerd2004Gen2,
+		AKSUbuntuFipsGPUContainerd1804Gen2,
+		AKSUbuntuEdgeZoneContainerd1804Gen2,
+		AKSUbuntuArm64Containerd1804Gen2,
+		AKSUbuntuArm64Containerd2204Gen2,
+		AKSUbuntuContainerd2204Gen2,
+		AKSUbuntuContainerd2004CVMGen2,
+		AKSUbuntuContainerd2204TLGen2,
+	}
+
+	for _, distro := range availableGen2Distros {
 		if d == distro {
 			return true
 		}
@@ -187,7 +137,17 @@ func (d Distro) IsGen2Distro() bool {
 	return false
 }
 func (d Distro) IsCBLMarinerDistro() bool {
-	for _, distro := range AvailableCBLMarinerDistros {
+	availableCBLMarinerDistros := []Distro{
+		AKSCBLMarinerV1,
+		AKSCBLMarinerV2,
+		AKSCBLMarinerV2Gen2,
+		AKSCBLMarinerV2Gen2Kata,
+		AKSCBLMarinerV2Arm64Gen2,
+		AKSCBLMarinerV2Gen2TL,
+		AKSCBLMarinerV2KataGen2TL,
+	}
+
+	for _, distro := range availableCBLMarinerDistros {
 		if d == distro {
 			return true
 		}
@@ -195,7 +155,15 @@ func (d Distro) IsCBLMarinerDistro() bool {
 	return false
 }
 func (d Distro) IsWindowsSIGDistro() bool {
-	for _, distro := range AvailableWindowsSIGDistros {
+	availableWindowsSIGDistros := []Distro{
+		AKSWindows2019,
+		AKSWindows2019Containerd,
+		AKSWindows2022Containerd,
+		AKSWindows2022ContainerdGen2,
+		CustomizedWindowsOSImage,
+	}
+
+	for _, distro := range availableWindowsSIGDistros {
 		if d == distro {
 			return true
 		}
@@ -204,7 +172,10 @@ func (d Distro) IsWindowsSIGDistro() bool {
 }
 
 func (d Distro) IsWindowsPIRDistro() bool {
-	for _, distro := range AvailableWindowsPIRDistros {
+	availableWindowsPIRDistros := []Distro{
+		AKSWindows2019PIR,
+	}
+	for _, distro := range availableWindowsPIRDistros {
 		if d == distro {
 			return true
 		}
@@ -213,6 +184,8 @@ func (d Distro) IsWindowsPIRDistro() bool {
 }
 
 // SigImageConfigTemplate represents the SIG image configuration template.
+//
+//nolint:musttag // tags can be added if deemed necessary
 type SigImageConfigTemplate struct {
 	ResourceGroup string
 	Gallery       string
@@ -235,18 +208,6 @@ func (template SigImageConfigTemplate) WithOptions(options ...SigImageConfigOpt)
 		opt(config)
 	}
 	return *config
-}
-
-var AvailableWindowsSIGDistros []Distro = []Distro{
-	AKSWindows2019,
-	AKSWindows2019Containerd,
-	AKSWindows2022Containerd,
-	AKSWindows2022ContainerdGen2,
-	CustomizedWindowsOSImage,
-}
-
-var AvailableWindowsPIRDistros []Distro = []Distro{
-	AKSWindows2019PIR,
 }
 
 // SIG const.
@@ -285,9 +246,9 @@ var edgeZoneJSONContentsEmbedded string
 //go:embed mariner_v2_kata_gen2_tl_sig_version.json
 var marinerV2KataGen2TLJSONContentsEmbedded string
 
-var LinuxSIGImageVersion = getSIGVersionFromEmbeddedString(linuxVersionJSONContentsEmbedded)
-var EdgeZoneSIGImageVersion = getSIGVersionFromEmbeddedString(edgeZoneJSONContentsEmbedded)
-var CBLMarinerV2KataGen2TLSIGImageVersion = getSIGVersionFromEmbeddedString(marinerV2KataGen2TLJSONContentsEmbedded)
+var LinuxSIGImageVersion = getSIGVersionFromEmbeddedString(linuxVersionJSONContentsEmbedded)                         //nolint:gochecknoglobals
+var EdgeZoneSIGImageVersion = getSIGVersionFromEmbeddedString(edgeZoneJSONContentsEmbedded)                          //nolint:gochecknoglobals
+var CBLMarinerV2KataGen2TLSIGImageVersion = getSIGVersionFromEmbeddedString(marinerV2KataGen2TLJSONContentsEmbedded) //nolint:gochecknoglobals
 
 func getSIGVersionFromEmbeddedString(contents string) string {
 	if len(contents) == 0 {
@@ -306,6 +267,8 @@ func getSIGVersionFromEmbeddedString(contents string) string {
 }
 
 // SIG config Template.
+//
+//nolint:gochecknoglobals
 var (
 	SIGUbuntu1604ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
