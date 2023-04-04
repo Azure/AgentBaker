@@ -11,11 +11,10 @@ import (
 // Returns config for the 'gpu' E2E scenario
 func gpu() *Scenario {
 	return &Scenario{
-		Name:        "gpu",
-		Description: "Tests that a GPU-enabled node using an Ubuntu 1804 VHD can be properly bootstrapped",
+		Name:                "gpu",
+		Description:         "Tests that a GPU-enabled node using an Ubuntu 1804 VHD can be properly bootstrapped",
+		ClusterConfigurator: NewNetworkPluginKubenetConfigurator(),
 		ScenarioConfig: ScenarioConfig{
-			ClusterSelector: NetworkPluginKubenetSelector,
-			ClusterMutator:  NetworkPluginKubenetMutator,
 			BootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-18.04-gen2"

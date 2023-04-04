@@ -14,10 +14,6 @@ import (
 	"github.com/barkimedes/go-deepcopy"
 )
 
-var (
-	clusterParameterCache map[string]map[string]string
-)
-
 func Test_All(t *testing.T) {
 	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 	ctx := context.Background()
@@ -48,29 +44,32 @@ func Test_All(t *testing.T) {
 	for _, scenario := range scenarioTable {
 		scenario := scenario
 
-		kube, cluster, clusterParams, subnetID := mustChooseCluster(ctx, t, r, cloud, suiteConfig, scenario, &clusters)
-
-		clusterName := *cluster.Name
-		t.Logf("chose cluster: %q", clusterName)
-
-		baseConfig, err := getBaseNodeBootstrappingConfiguration(ctx, t, cloud, suiteConfig, clusterParams)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		copied, err := deepcopy.Anything(baseConfig)
-		if err != nil {
-			t.Error(err)
-			continue
-		}
-		nbc := copied.(*datamodel.NodeBootstrappingConfiguration)
-
-		if scenario.ScenarioConfig.BootstrapConfigMutator != nil {
-			scenario.ScenarioConfig.BootstrapConfigMutator(t, nbc)
-		}
-
 		t.Run(scenario.Name, func(t *testing.T) {
 			t.Parallel()
+
+			kube, cluster, clusterParams, subnetID, err := pollChooseCluster(ctx, t, r, cloud, suiteConfig, scenario, &clusters)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			baseConfig, err := getBaseNodeBootstrappingConfiguration(ctx, t, cloud, suiteConfig, clusterParams)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			copied, err := deepcopy.Anything(baseConfig)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			nbc := copied.(*datamodel.NodeBootstrappingConfiguration)
+
+			if scenario.ScenarioConfig.BootstrapConfigMutator != nil {
+				scenario.ScenarioConfig.BootstrapConfigMutator(t, nbc)
+			}
+
+			clusterName := *cluster.Name
+			t.Logf("chose cluster: %q", clusterName)
 
 			caseLogsDir, err := createVMLogsDir(scenario.Name)
 			if err != nil {

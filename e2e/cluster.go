@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	managedClusterResourceType = "Microsoft.ContainerService/managedClusters"
+	managedClusterResourceType    = "Microsoft.ContainerService/managedClusters"
+	conflictErrorMessageSubstring = "409 Conflict"
 )
 
 func isExistingResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupName string) (bool, error) {
@@ -110,7 +111,7 @@ func ensureCluster(
 		)
 
 		if err != nil {
-			return nil, fmt.Errorf("failed to recreate aks cluster: %q", err)
+			return nil, fmt.Errorf("failed to begin cluster creation operation: %q", err)
 		}
 
 		clusterResp, err := pollerResp.PollUntilDone(ctx, nil)
@@ -174,21 +175,21 @@ func listClusters(ctx context.Context, t *testing.T, cloud *azureClient, resourc
 func getViableClusters(scenario *scenario.Scenario, clusters []*armcontainerservice.ManagedCluster) []*armcontainerservice.ManagedCluster {
 	viableClusters := []*armcontainerservice.ManagedCluster{}
 	for _, cluster := range clusters {
-		if scenario.ScenarioConfig.ClusterSelector(cluster) {
+		if scenario.ClusterConfigurator.Selector(cluster) {
 			viableClusters = append(viableClusters, cluster)
 		}
 	}
 	return viableClusters
 }
 
-func mustChooseCluster(
+func chooseCluster(
 	ctx context.Context,
 	t *testing.T,
 	r *mrand.Rand,
 	cloud *azureClient,
 	suiteConfig *suiteConfig,
 	scenario *scenario.Scenario,
-	clusters *[]*armcontainerservice.ManagedCluster) (*kubeclient, *armcontainerservice.ManagedCluster, map[string]string, string) {
+	clusters *[]*armcontainerservice.ManagedCluster) (*kubeclient, *armcontainerservice.ManagedCluster, map[string]string, string, error) {
 	var (
 		chosenKubeClient    *kubeclient
 		chosenCluster       *armcontainerservice.ManagedCluster
@@ -199,20 +200,17 @@ func mustChooseCluster(
 	viableClusters := getViableClusters(scenario, *clusters)
 	if len(viableClusters) == 0 {
 		t.Logf("unable to find viable test cluster for scenario %q, attempting to create a new one...", scenario.Name)
-		clusterBaseModel := getBaseClusterModel(
-			fmt.Sprintf(testClusterNameTemplate, randomLowercaseString(r, 5)),
-			suiteConfig.location,
-		)
-		scenario.ScenarioConfig.ClusterMutator(&clusterBaseModel)
+		clusterBaseModel := getBaseClusterModel(scenario.DesiredName, suiteConfig.location)
+		scenario.ClusterConfigurator.Mutator(&clusterBaseModel)
 
 		cluster, err := ensureCluster(ctx, t, cloud, suiteConfig.location, suiteConfig.resourceGroupName, &clusterBaseModel, true)
 		if err != nil {
-			t.Fatal(err)
+			return nil, nil, nil, "", fmt.Errorf("unable to ensure cluster: %s", err)
 		}
 
 		kube, subnetID, clusterParams, err := prepareClusterForTests(ctx, t, cloud, suiteConfig, cluster)
 		if err != nil {
-			t.Fatalf("unable to prepare new cluster for test: %s", err)
+			return nil, nil, nil, "", fmt.Errorf("unable to prepare new cluster for test: %s", err)
 		}
 
 		*clusters = append(*clusters, cluster)
@@ -243,10 +241,10 @@ func mustChooseCluster(
 	}
 
 	if chosenCluster == nil {
-		t.Fatal("unable to choose test cluster from viable cluster set")
+		return nil, nil, nil, "", fmt.Errorf("unable to choose test cluster from viable cluster set")
 	}
 
-	return chosenKubeClient, chosenCluster, chosenClusterParams, chosenSubnetID
+	return chosenKubeClient, chosenCluster, chosenClusterParams, chosenSubnetID, nil
 }
 
 func prepareClusterForTests(

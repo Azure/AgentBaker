@@ -14,13 +14,18 @@ type ScenarioTable map[string]*Scenario
 type Scenario struct {
 	Name        string
 	Description string
+	ClusterConfigurator
 	ScenarioConfig
+}
+
+type ClusterConfigurator struct {
+	DesiredName string
+	Selector    func(*armcontainerservice.ManagedCluster) bool
+	Mutator     func(*armcontainerservice.ManagedCluster)
 }
 
 type ScenarioConfig struct {
 	// BootstrapConfig          *datamodel.NodeBootstrappingConfiguration
-	ClusterSelector        func(*armcontainerservice.ManagedCluster) bool
-	ClusterMutator         func(*armcontainerservice.ManagedCluster)
 	BootstrapConfigMutator func(*testing.T, *datamodel.NodeBootstrappingConfiguration)
 	VMConfigMutator        func(*armcompute.VirtualMachineScaleSet)
 	Validator              func(context.Context, *testing.T, *ScenarioValidationInput) error
