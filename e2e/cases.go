@@ -58,6 +58,7 @@ var cases = map[string]scenarioConfig{
 			vmss.Properties.VirtualMachineProfile.ExtensionProfile = nil
 
 			customData := strings.ReplaceAll(string(bootstrapBytes), "<<BOOTSTRAP_KUBECONFIG>>", clusterParams["/var/lib/kubelet/bootstrap-kubeconfig"])
+			customData = strings.ReplaceAll(customData, "<<KUBE_CA_CERT>>", clusterParams["/etc/kubernetes/certs/ca.crt"])
 
 			fmt.Println(customData)
 

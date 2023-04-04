@@ -126,9 +126,39 @@ tee /etc/containerd/kubenet_template.conf > /dev/null <<'EOF'
 }
 EOF
 
+tee /etc/sysctl.d/999-sysctl-aks.conf > /dev/null <<EOF
+# container networking
+net.ipv4.ip_forward = 1
+net.ipv4.conf.all.forwarding = 1
+net.ipv6.conf.all.forwarding = 1
+net.bridge.bridge-nf-call-iptables = 1
+
+# refer to https://github.com/kubernetes/kubernetes/blob/75d45bdfc9eeda15fb550e00da662c12d7d37985/pkg/kubelet/cm/container_manager_linux.go#L359-L397
+vm.overcommit_memory = 1
+kernel.panic = 10
+kernel.panic_on_oops = 1
+# to ensure node stability, we set this to the PID_MAX_LIMIT on 64-bit systems: refer to https://kubernetes.io/docs/concepts/policy/pid-limiting/
+kernel.pid_max = 4194304
+# https://github.com/Azure/AKS/issues/772
+fs.inotify.max_user_watches = 1048576
+# Ubuntu 22.04 has inotify_max_user_instances set to 128, where as Ubuntu 18.04 had 1024. 
+fs.inotify.max_user_instances = 1024
+
+# This is a partial workaround to this upstream Kubernetes issue:
+# https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
+net.ipv4.tcp_retries2=8
+net.core.message_burst=80
+net.core.message_cost=40
+net.core.somaxconn=16384
+net.ipv4.tcp_max_syn_backlog=16384
+net.ipv4.neigh.default.gc_thresh1=4096
+net.ipv4.neigh.default.gc_thresh2=8192
+net.ipv4.neigh.default.gc_thresh3=16384
+EOF
+
 # adust flags as desired
 tee /etc/default/kubelet > /dev/null <<EOF
-KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=nodepool1,kubernetes.azure.com/mode=system"
+KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=nodepool1,kubernetes.azure.com/mode=system,kubernetes.azure.com/role=agent"
 KUBELET_FLAGS="--address=0.0.0.0 --anonymous-auth=false --authentication-token-webhook=true --authorization-mode=Webhook --cgroups-per-qos=true --client-ca-file=/etc/kubernetes/certs/ca.crt --cloud-config=/etc/kubernetes/azure.json --cloud-provider=external --cluster-dns=10.0.0.10 --cluster-domain=cluster.local --enforce-node-allocatable=pods --event-qps=0 --eviction-hard=memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5% --feature-gates=DisableAcceleratorUsageMetrics=false,RotateKubeletServerCertificate=true --image-gc-high-threshold=85 --image-gc-low-threshold=80 --keep-terminated-pod-volumes=false --kube-reserved=cpu=100m,memory=1638Mi --kubeconfig=/var/lib/kubelet/kubeconfig --max-pods=110 --node-status-update-frequency=10s --pod-infra-container-image=mcr.microsoft.com/oss/kubernetes/pause:3.6 --pod-manifest-path=/etc/kubernetes/manifests --pod-max-pids=-1 --protect-kernel-defaults=true --read-only-port=0 --resolv-conf=/run/systemd/resolve/resolv.conf --rotate-certificates=true --rotate-server-certificates=true  --streaming-connection-idle-timeout=4h --tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256 --tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key"
 EOF
 
@@ -174,6 +204,10 @@ tee /var/lib/kubelet/bootstrap-kubeconfig > /dev/null <<EOF
 <<BOOTSTRAP_KUBECONFIG>>
 EOF
 
+tee /etc/kubernetes/certs/ca.crt > /dev/null <<EOF
+<<KUBE_CA_CERT>>
+EOF
+
 AZURE_JSON_PATH="/etc/kubernetes/azure.json"
 touch "${AZURE_JSON_PATH}"
 chmod 0600 "${AZURE_JSON_PATH}"
@@ -182,8 +216,9 @@ chown root:root "${AZURE_JSON_PATH}"
 KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
 KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
 openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 4096
-openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}"
+openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=system:node:${NODE_NAME}"
 
+sysctl --system
 systemctl enable --now containerd
 systemctl enable --now kubelet
 
