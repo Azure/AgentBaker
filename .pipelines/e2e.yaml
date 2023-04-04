@@ -27,11 +27,22 @@ jobs:
       cd e2e
       go test -timeout 30m -v -run Test_All ./...
     displayName: Run AgentBaker E2E
-  - publish: $(System.DefaultWorkingDirectory)/e2e/vm-logs
-    artifact: vm-logs
+  - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
+    artifact: scenario-logs
     condition: always()
-  - publish: $(System.DefaultWorkingDirectory)/e2e/cluster-parameters
-    artifact: cluster-parameters
+  - bash: |
+      set -x
+
+      vmssResourceIds=""
+      for vmssModel in e2e/scenario-logs/*/vmssId.txt; do
+        resourceId=$(cat ${vmssModel})
+        vmssResourceIds="${vmssResourceIds} ${resourceId}"
+      done
+
+      if [ -n "${vmssResourceIds// }" ]; then
+        az resource delete --ids ${vmssResourceIds}
+      fi
+    displayName: ensure vmss deletion
     condition: always()
  
  
