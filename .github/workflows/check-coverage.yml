@@ -24,7 +24,7 @@ jobs:
         include:
           - test_command: go test `go list ./... | grep -v e2e` -coverprofile coverage_raw.out -covermode count
             test_number: 1
-          - test_command: cd e2e; go test -timeout 30m -v -run Test_All ./...
+          - test_command: cd e2e; go test -timeout 30m -v -run Test_All ./... -coverprofile coverage_raw.out -covermode count
             test_number: 2
     steps:
       - name: Install Go
