@@ -50,7 +50,7 @@ jobs:
       - name: Coveralls
         uses: coverallsapp/github-action@v2
         with:
-          parallels: true
+          parallel: true
           flag-name: run-$
           path-to-lcov: coverage.lcov
   finish:
