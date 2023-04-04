@@ -114,6 +114,7 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 		t.Logf("executing command on pod %s/%s: %q", defaultNamespace, podName, strings.Join(cmd, " "))
 
 		stdout, stderr, err := execOnPod(ctx, kube, defaultNamespace, podName, cmd)
+		checkStdErr(stdout, t)
 		checkStdErr(stderr, t)
 		if err != nil {
 			return nil, err

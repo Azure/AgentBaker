@@ -172,13 +172,13 @@ func Test_All(t *testing.T) {
 
 						logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(privateKeyBytes))
 						if err != nil {
-							t.Logf("error extracting VM logs: %q", err)
+							t.Logf("error extracting VM logs: %v", err)
 							return false, nil
 						}
 
 						t.Logf("dumping VM logs to local directory: %s", caseLogsDir)
 						if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
-							t.Logf("error extracting VM logs: %q", err)
+							t.Logf("error extracting VM logs: %v", err)
 							return false, nil
 						}
 
