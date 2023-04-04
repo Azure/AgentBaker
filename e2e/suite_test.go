@@ -14,6 +14,10 @@ import (
 	"github.com/barkimedes/go-deepcopy"
 )
 
+var (
+	clusterParameterCache map[string]map[string]string
+)
+
 func Test_All(t *testing.T) {
 	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 	ctx := context.Background()
@@ -44,7 +48,7 @@ func Test_All(t *testing.T) {
 	for _, scenario := range scenarioTable {
 		scenario := scenario
 
-		kube, cluster, clusterParams, subnetID := mustChooseCluster(ctx, t, r, cloud, suiteConfig, scenario, clusters)
+		kube, cluster, clusterParams, subnetID := mustChooseCluster(ctx, t, r, cloud, suiteConfig, scenario, &clusters)
 
 		clusterName := *cluster.Name
 		t.Logf("chose cluster: %q", clusterName)
@@ -88,8 +92,7 @@ func runScenario(
 	scenario *scenario.Scenario,
 	chosenCluster *armcontainerservice.ManagedCluster,
 	nbc *datamodel.NodeBootstrappingConfiguration,
-	subnetID,
-	caseLogsDir string) {
+	subnetID, caseLogsDir string) {
 	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair(r)
 	if err != nil {
 		t.Error(err)
@@ -105,7 +108,7 @@ func runScenario(
 		if isCSEError {
 			t.Error("VM was unable to be provisioned due to a CSE error, will still atempt to extract provisioning logs...", err)
 		} else {
-			t.Fatal("Encountered an unknown error while creating VM", err)
+			t.Fatal("Encountered an unknown error while creating VM:", err)
 		}
 	}
 

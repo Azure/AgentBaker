@@ -8,11 +8,16 @@ import (
 // Selectors
 
 func NetworkPluginKubenetSelector(cluster *armcontainerservice.ManagedCluster) bool {
-	return *cluster.Properties.NetworkProfile.NetworkPlugin == armcontainerservice.NetworkPluginKubenet
+	if cluster != nil && cluster.Properties != nil && cluster.Properties.NetworkProfile != nil {
+		return *cluster.Properties.NetworkProfile.NetworkPlugin == armcontainerservice.NetworkPluginKubenet
+	}
+	return false
 }
 
 // Mutators
 
 func NetworkPluginKubenetMutator(cluster *armcontainerservice.ManagedCluster) {
-	cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginKubenet)
+	if cluster != nil && cluster.Properties != nil && cluster.Properties.NetworkProfile != nil {
+		cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginKubenet)
+	}
 }

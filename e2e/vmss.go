@@ -50,7 +50,7 @@ func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []b
 }
 
 func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *azureClient, location, mcResourceGroupName, name, subnetID, customData, cseCmd string, mutator func(*armcompute.VirtualMachineScaleSet)) error {
-	model := getBaseVMSSModel(name, location, subnetID, string(publicKeyBytes), customData, cseCmd)
+	model := getBaseVMSSModel(name, location, mcResourceGroupName, subnetID, string(publicKeyBytes), customData, cseCmd)
 
 	if mutator != nil {
 		mutator(&model)
@@ -75,7 +75,7 @@ func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *az
 	return nil
 }
 
-func getBaseVMSSModel(name, location, subnetID, sshPublicKey, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
+func getBaseVMSSModel(name, location, mcResourceGroupName, subnetID, sshPublicKey, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(location),
 		SKU: &armcompute.SKU{
@@ -143,7 +143,12 @@ func getBaseVMSSModel(name, location, subnetID, sshPublicKey, customData, cseCmd
 										Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
 											LoadBalancerBackendAddressPools: []*armcompute.SubResource{
 												{
-													ID: to.Ptr("/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_agentbaker-e2e-tests_agentbaker-e2e-test-cluster_eastus/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"),
+													ID: to.Ptr(
+														fmt.Sprintf(
+															"/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool",
+															mcResourceGroupName,
+														),
+													),
 												},
 											},
 											Subnet: &armcompute.APIEntityReference{
