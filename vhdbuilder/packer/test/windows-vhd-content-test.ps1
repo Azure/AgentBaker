@@ -152,10 +152,10 @@ function Test-FilesToCacheOnVHD
             if ($URL.StartsWith("https://acs-mirror.azureedge.net/")) {
                 $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
                 try {
-                    DownloadFileWithRetry -URL $mcURL -Dest $tmpDest -redactUrl
-                    $remoteFileHash = (Get-FileHash  -Algorithm SHA256 -Path $tmpDest).Hash
-                    Remove-Item -Path $tmpDest
-                    if ($localFileHash -ne $remoteFileHash) {
+                    # It's too slow to download the file from the China Cloud. So we only compare the file size.
+                    $localFileSize = (Get-Item $dest).length
+                    $remoteFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
+                    if ($localFileSize -ne $remoteFileSize) {
                         $excludeHashComparisionListInAzureChinaCloud = @(
                             "calico-windows",
                             "azure-vnet-cni-singletenancy-windows-amd64",
@@ -178,7 +178,7 @@ function Test-FilesToCacheOnVHD
                             continue
                         }
 
-                        Write-ErrorWithTimestamp "$mcURL is valid but the file hash is different. Expect $localFileHash but remote file hash in AzureChinaCloud is $remoteFileHash"
+                        Write-ErrorWithTimestamp "$mcURL is valid but the file size is different. Expect $localFileSize but remote file size in AzureChinaCloud is $remoteFileSize"
                         $invalidFiles = $mcURL
                         continue
                     }
