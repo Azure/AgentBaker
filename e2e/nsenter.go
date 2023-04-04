@@ -66,6 +66,8 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, ku
 
 	commandList := map[string]string{
 		"/var/log/azure/cluster-provision.log": "cat /var/log/azure/cluster-provision.log",
+		"/etc/default/kubelet":                 "cat /etc/default/kubelet",
+		"/etc/containerd/config.toml":          "cat /etc/containerd/config.toml",
 		"kubelet.log":                          "journalctl -u kubelet",
 	}
 
