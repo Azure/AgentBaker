@@ -14,10 +14,6 @@ import (
 	"github.com/barkimedes/go-deepcopy"
 )
 
-var (
-	clusterParameterCache map[string]map[string]string
-)
-
 func Test_All(t *testing.T) {
 	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 	ctx := context.Background()
@@ -45,10 +41,12 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	paramCache := paramCache{}
+
 	for _, scenario := range scenarioTable {
 		scenario := scenario
 
-		kube, cluster, clusterParams, subnetID := mustChooseCluster(ctx, t, r, cloud, suiteConfig, scenario, &clusters)
+		kube, cluster, clusterParams, subnetID := mustChooseCluster(ctx, t, r, cloud, suiteConfig, scenario, &clusters, paramCache)
 
 		clusterName := *cluster.Name
 		t.Logf("chose cluster: %q", clusterName)

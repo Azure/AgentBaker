@@ -17,6 +17,8 @@ const (
 	managedClusterResourceType = "Microsoft.ContainerService/managedClusters"
 )
 
+type paramCache map[string]map[string]string
+
 func isExistingResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupName string) (bool, error) {
 	rgExistence, err := cloud.resourceGroupClient.CheckExistence(ctx, resourceGroupName, nil)
 	if err != nil {
@@ -188,7 +190,8 @@ func mustChooseCluster(
 	cloud *azureClient,
 	suiteConfig *suiteConfig,
 	scenario *scenario.Scenario,
-	clusters *[]*armcontainerservice.ManagedCluster) (*kubeclient, *armcontainerservice.ManagedCluster, map[string]string, string) {
+	clusters *[]*armcontainerservice.ManagedCluster,
+	paramCache paramCache) (*kubeclient, *armcontainerservice.ManagedCluster, map[string]string, string) {
 	var (
 		chosenKubeClient    *kubeclient
 		chosenCluster       *armcontainerservice.ManagedCluster
@@ -210,7 +213,7 @@ func mustChooseCluster(
 			t.Fatal(err)
 		}
 
-		kube, subnetID, clusterParams, err := prepareClusterForTests(ctx, t, cloud, suiteConfig, cluster)
+		kube, subnetID, clusterParams, err := prepareClusterForTests(ctx, t, cloud, suiteConfig, cluster, paramCache)
 		if err != nil {
 			t.Fatalf("unable to prepare new cluster for test: %s", err)
 		}
@@ -228,7 +231,7 @@ func mustChooseCluster(
 				continue
 			}
 
-			kube, subnetID, clusterParams, err := prepareClusterForTests(ctx, t, cloud, suiteConfig, cluster)
+			kube, subnetID, clusterParams, err := prepareClusterForTests(ctx, t, cloud, suiteConfig, cluster, paramCache)
 			if err != nil {
 				t.Logf("encountered an error while preparing existing cluster for test: %s", err)
 				continue
@@ -254,7 +257,8 @@ func prepareClusterForTests(
 	t *testing.T,
 	cloud *azureClient,
 	suiteConfig *suiteConfig,
-	cluster *armcontainerservice.ManagedCluster) (*kubeclient, string, map[string]string, error) {
+	cluster *armcontainerservice.ManagedCluster,
+	paramCache paramCache) (*kubeclient, string, map[string]string, error) {
 	subnetID, err := getClusterSubnetID(ctx, cloud, suiteConfig.location, *cluster.Properties.NodeResourceGroup, *cluster.Name)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("unable get subnet ID of cluster %q: %s", *cluster.Name, err)
@@ -269,12 +273,26 @@ func prepareClusterForTests(
 		return nil, "", nil, fmt.Errorf("unable to ensure debug damonset of viable cluster %q: %s", *cluster.Name, err)
 	}
 
-	clusterParams, err := pollExtractClusterParameters(ctx, t, kube)
+	clusterParams, err := getClusterParametersWithCache(ctx, t, kube, *cluster.Name, paramCache)
 	if err != nil {
-		return nil, "", nil, fmt.Errorf("unable to extract cluster parameters from %q: %s", *cluster.Name, err)
+		return nil, "", nil, fmt.Errorf("unable to get cluster paramters: %s", err)
 	}
 
 	return kube, subnetID, clusterParams, nil
+}
+
+func getClusterParametersWithCache(ctx context.Context, t *testing.T, kube *kubeclient, clusterName string, paramCache paramCache) (map[string]string, error) {
+	cachedParams, ok := paramCache[clusterName]
+	if !ok {
+		params, err := pollExtractClusterParameters(ctx, t, kube)
+		if err != nil {
+			return nil, fmt.Errorf("unable to extract cluster parameters from %q: %s", clusterName, err)
+		}
+		paramCache[clusterName] = params
+		return params, nil
+	} else {
+		return cachedParams, nil
+	}
 }
 
 func getBaseClusterModel(clusterName, location string) armcontainerservice.ManagedCluster {
