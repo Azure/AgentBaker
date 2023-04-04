@@ -91,6 +91,11 @@ func getBaseVMSSModel(name, location, subnetID, sshPublicKey, customData, cseCmd
 				Mode: to.Ptr(armcompute.UpgradeModeManual),
 			},
 			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
+				DiagnosticsProfile: &armcompute.DiagnosticsProfile{
+					BootDiagnostics: &armcompute.BootDiagnostics{
+						Enabled: to.Ptr(true),
+					},
+				},
 				ExtensionProfile: &armcompute.VirtualMachineScaleSetExtensionProfile{
 					Extensions: []*armcompute.VirtualMachineScaleSetExtension{
 						{

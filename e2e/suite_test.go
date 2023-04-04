@@ -167,7 +167,7 @@ func Test_All(t *testing.T) {
 			// Perform posthoc log extraction when the VMSS creation succeeded, or failed due to a CSE error
 			if vmssSucceeded || isCSEError {
 				debug := func() {
-					err := wait.PollImmediateWithContext(ctx, 15*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
+					err := wait.PollImmediateWithContext(ctx, 15*time.Second, 1*time.Minute, func(ctx context.Context) (bool, error) {
 						t.Log("attempting to extract VM logs")
 
 						logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(privateKeyBytes))
