@@ -224,7 +224,14 @@ contexts:
 current-context: bootstrap-context
 EOF
 
+AZURE_JSON_PATH="/etc/kubernetes/certs/ca.crt"
+touch "${AZURE_JSON_PATH}"
+chmod 0600 "${AZURE_JSON_PATH}"
+chown root:root "${AZURE_JSON_PATH}"
+echo 'KUBE_CA_CERT_PLACE_HOLDER'
 echo 'KUBE_CA_CERT_PLACE_HOLDER' | base64 -d > /etc/kubernetes/certs/ca.crt
+
+cat /etc/kubernetes/certs/ca.crt
 
 AZURE_JSON_PATH="/etc/kubernetes/azure.json"
 touch "${AZURE_JSON_PATH}"
