@@ -67,9 +67,7 @@
                     }
                 }
             ],
-            "windowsSettings": {
-                "enableLoopbackDSR": true
-            }
+            "windowsSettings": {}
         }
     ]
 }
