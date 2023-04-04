@@ -459,6 +459,8 @@ spec:
         app: *name
     spec:
       hostNetwork: true
+      nodeSelector:
+        kubernetes.azure.com/agentpool: nodepool1
       hostPID: true
       containers:
       - image: mcr.microsoft.com/mirror/docker/library/ubuntu:18.04
