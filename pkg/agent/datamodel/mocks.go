@@ -48,9 +48,9 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 		EnableSecureKubelet:     to.BoolPtr(true),
 		EnableRbac:              to.BoolPtr(true),
 		DockerBridgeSubnet:      "172.17.0.1/16",
-		GCLowThreshold:          80,
-		GCHighThreshold:         85,
-		MaxPods:                 30,
+		GCLowThreshold:          80, //nolint:gomnd // GCLowThreshold is 80
+		GCHighThreshold:         85, //nolint:gomnd // GCHighThreshold is 85
+		MaxPods:                 30, //nolint:gomnd // max pods is 30
 		ClusterSubnet:           "10.240.0.0/12",
 		ContainerRuntime:        Docker,
 		NetworkPlugin:           "kubenet",
@@ -175,6 +175,7 @@ func getMockAddon(name string) KubernetesAddon {
 	}
 }
 
+//nolint:gochecknoglobals
 var (
 	AzurePublicCloudSpecForTest = &AzureEnvironmentSpecConfig{
 		CloudName: "AzurePublicCloud",
