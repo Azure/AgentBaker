@@ -1,12 +1,10 @@
 package apiserver
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	agent "github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -19,10 +17,6 @@ const (
 
 // GetNodeBootstrapConfig endpoint for getting node bootstrapping data.
 func (api *APIServer) GetNodeBootstrapData(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second) //nolint:gomnd // variable for 30 is not needed.
-	defer cancel()
-
 	var config datamodel.NodeBootstrappingConfiguration
 
 	err := json.NewDecoder(r.Body).Decode(&config)
@@ -38,7 +32,7 @@ func (api *APIServer) GetNodeBootstrapData(w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(ctx, &config)
+	nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(&config)
 	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)

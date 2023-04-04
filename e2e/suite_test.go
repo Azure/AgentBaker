@@ -176,7 +176,7 @@ func getNodeBootstrapping(ctx context.Context, nbc *datamodel.NodeBootstrappingC
 	if err != nil {
 		return nil, err
 	}
-	nodeBootstrapping, err := ab.GetNodeBootstrapping(ctx, nbc)
+	nodeBootstrapping, err := ab.GetNodeBootstrapping(nbc)
 	if err != nil {
 		return nil, err
 	}

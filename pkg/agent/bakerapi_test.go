@@ -1,8 +1,6 @@
 package agent
 
 import (
-	"context"
-
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/barkimedes/go-deepcopy"
 	. "github.com/onsi/ginkgo"
@@ -154,7 +152,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
 
-			nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(context.Background(), config)
+			nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(config)
 			Expect(err).NotTo(HaveOccurred())
 
 			// baker_test.go tested the correctness of the generated Custom Data and CSE, so here
@@ -185,7 +183,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			config.CloudSpecConfig.CloudName = "UnknownCloud"
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
-			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
+			_, err = agentBaker.GetNodeBootstrapping(config)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -194,7 +192,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
+			_, err = agentBaker.GetNodeBootstrapping(config)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -203,7 +201,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
+			_, err = agentBaker.GetNodeBootstrapping(config)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -212,7 +210,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
+			_, err = agentBaker.GetNodeBootstrapping(config)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})

@@ -475,8 +475,8 @@ type WindowsProfile struct {
 	AlwaysPullWindowsPauseImage    *bool                      `json:"alwaysPullWindowsPauseImage,omitempty"`
 	ContainerdWindowsRuntimes      *ContainerdWindowsRuntimes `json:"containerdWindowsRuntimes,omitempty"`
 	WindowsCalicoPackageURL        string                     `json:"windowsCalicoPackageURL,omitempty"`
-	WindowsSecureTlsEnabled        *bool                      `json:"windowsSecureTlsEnabled,omitempty"`
-	WindowsGmsaPackageUrl          string                     `json:"windowsGmsaPackageUrl,omitempty"`
+	WindowsSecureTLSEnabled        *bool                      `json:"windowsSecureTlsEnabled,omitempty"`
+	WindowsGmsaPackageURL          string                     `json:"windowsGmsaPackageUrl,omitempty"`
 	CseScriptsPackageURL           string                     `json:"cseScriptsPackageURL,omitempty"`
 	HnsRemediatorIntervalInMinutes *uint32                    `json:"hnsRemediatorIntervalInMinutes,omitempty"`
 	LogGeneratorIntervalInMinutes  *uint32                    `json:"logGeneratorIntervalInMinutes,omitempty"`
@@ -1075,7 +1075,7 @@ func (a *AgentPoolProfile) IsAvailabilitySets() bool {
 }
 
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile.
-func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidiaEnabled bool, fipsEnabled bool, osSku string) string {
+func (a *AgentPoolProfile) GetKubernetesLabels() string {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("agentpool=%s", a.Name))
 	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/agentpool=%s", a.Name))
@@ -1204,10 +1204,10 @@ func (w *WindowsProfile) IsAlwaysPullWindowsPauseImage() bool {
 
 // IsWindowsSecureTLSEnabled returns true if secure TLS should be enabled for Windows nodes.
 func (w *WindowsProfile) IsWindowsSecureTLSEnabled() bool {
-	if w.WindowsSecureTlsEnabled != nil {
-		return *w.WindowsSecureTlsEnabled
+	if w.WindowsSecureTLSEnabled != nil {
+		return *w.WindowsSecureTLSEnabled
 	}
-	return DefaultWindowsSecureTlsEnabled
+	return DefaultWindowsSecureTLSEnabled
 }
 
 // GetHnsRemediatorIntervalInMinutes gets HnsRemediatorIntervalInMinutes specified or returns default value.
