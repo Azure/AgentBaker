@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/base64"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -57,8 +58,33 @@ var cases = map[string]scenarioConfig{
 			}
 			vmss.Properties.VirtualMachineProfile.ExtensionProfile = nil
 
-			customData := strings.ReplaceAll(string(bootstrapBytes), "<<BOOTSTRAP_KUBECONFIG>>", clusterParams["/var/lib/kubelet/bootstrap-kubeconfig"])
-			customData = strings.ReplaceAll(customData, "<<KUBE_CA_CERT>>", clusterParams["/etc/kubernetes/certs/ca.crt"])
+			caCert := base64.StdEncoding.EncodeToString([]byte(clusterParams["/etc/kubernetes/certs/ca.crt"]))
+
+			bootstrapKubeconfig := clusterParams["/var/lib/kubelet/bootstrap-kubeconfig"]
+
+			bootstrapToken, err := extractKeyValuePair("token", bootstrapKubeconfig)
+			if err != nil {
+				panic(fmt.Sprintf("failed to extract bootstrap token via regex: %q", err))
+			}
+
+			bootstrapToken, err = strconv.Unquote(bootstrapToken)
+			if err != nil {
+				panic(fmt.Sprintf("failed to unquote bootstrap token: %q", err))
+			}
+
+			server, err := extractKeyValuePair("server", bootstrapKubeconfig)
+			if err != nil {
+				panic(fmt.Sprintf("failed to extract fqdn via regex: %q", err))
+			}
+
+			tokens := strings.Split(server, ":")
+			if len(tokens) != 3 {
+				panic(fmt.Sprintf("expected 3 tokens from fqdn %q, got %d", server, len(tokens)))
+			}
+
+			customData := strings.ReplaceAll(string(bootstrapBytes), "KUBE_CA_CERT_PLACE_HOLDER", caCert)
+			customData = strings.ReplaceAll(customData, "TOKEN_PLACE_HOLDER", bootstrapToken)
+			customData = strings.ReplaceAll(customData, "FQDN_PLACE_HOLDER", server)
 
 			fmt.Println(customData)
 

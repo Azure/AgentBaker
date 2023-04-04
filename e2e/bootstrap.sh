@@ -200,13 +200,31 @@ WantedBy=multi-user.target
 EOF
 
 # only dynamic data?
+# tee /var/lib/kubelet/bootstrap-kubeconfig > /dev/null <<EOF
+# <<BOOTSTRAP_KUBECONFIG>>
+# EOF
+
 tee /var/lib/kubelet/bootstrap-kubeconfig > /dev/null <<EOF
-<<BOOTSTRAP_KUBECONFIG>>
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: "FQDN_PLACE_HOLDER"
+users:
+- name: kubelet-bootstrap
+  user:
+    token: "TOKEN_PLACE_HOLDER"
+contexts:
+- context:
+    cluster: localcluster
+    user: kubelet-bootstrap
+  name: bootstrap-context
+current-context: bootstrap-context
 EOF
 
-tee /etc/kubernetes/certs/ca.crt > /dev/null <<EOF
-<<KUBE_CA_CERT>>
-EOF
+echo 'KUBE_CA_CERT_PLACE_HOLDER' | base64 -d > /etc/kubernetes/certs/ca.crt > /dev/null
 
 AZURE_JSON_PATH="/etc/kubernetes/azure.json"
 touch "${AZURE_JSON_PATH}"
