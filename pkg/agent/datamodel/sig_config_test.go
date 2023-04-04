@@ -152,5 +152,17 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(marinerV2KataGen2TL.Gallery).To(Equal("akscblmariner"))
 		Expect(marinerV2KataGen2TL.Definition).To(Equal("V2katagen2TL"))
 		Expect(marinerV2KataGen2TL.Version).To(Equal(CBLMarinerV2KataGen2TLSIGImageVersion))
+
+		marinerV2FIPSGen1 := sigConfig.SigCBLMarinerImageConfig[AKSCBLMarinerV2FIPSGen1]
+		Expect(marinerV2Arm64.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(marinerV2Arm64.Gallery).To(Equal("akscblmariner"))
+		Expect(marinerV2Arm64.Definition).To(Equal("V2fips"))
+		Expect(marinerV2Arm64.Version).To(Equal(LinuxSIGImageVersion))
+
+		marinerV2FIPSGen2 := sigConfig.SigCBLMarinerImageConfig[AKSCBLMarinerV2FIPSGen1]
+		Expect(marinerV2Arm64.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(marinerV2Arm64.Gallery).To(Equal("akscblmariner"))
+		Expect(marinerV2Arm64.Definition).To(Equal("V2fipsgen2"))
+		Expect(marinerV2Arm64.Version).To(Equal(LinuxSIGImageVersion))
 	})
 })
