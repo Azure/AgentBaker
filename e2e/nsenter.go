@@ -66,6 +66,8 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, ku
 
 	commandList := map[string]string{
 		"/var/log/azure/cluster-provision.log": "cat /var/log/azure/cluster-provision.log",
+		"/etc/default/kubelet":                 "cat /etc/default/kubelet",
+		"/etc/containerd/config.toml":          "cat /etc/containerd/config.toml",
 		"kubelet.log":                          "journalctl -u kubelet",
 	}
 
@@ -112,6 +114,7 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 		t.Logf("executing command on pod %s/%s: %q", defaultNamespace, podName, strings.Join(cmd, " "))
 
 		stdout, stderr, err := execOnPod(ctx, kube, defaultNamespace, podName, cmd)
+		checkStdErr(stdout, t)
 		checkStdErr(stderr, t)
 		if err != nil {
 			return nil, err

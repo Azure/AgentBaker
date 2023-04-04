@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	mrand "math/rand"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
@@ -48,11 +49,11 @@ func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []b
 	return
 }
 
-func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *azureClient, location, name, subnetID, customData, cseCmd string, mutator func(*armcompute.VirtualMachineScaleSet)) error {
+func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *azureClient, location, name, subnetID, customData, cseCmd string, mutator vmConfigMutatorFn, clusterParams map[string]string) error {
 	model := getBaseVMSSModel(name, location, subnetID, string(publicKeyBytes), customData, cseCmd)
 
 	if mutator != nil {
-		mutator(&model)
+		mutator(&model, clusterParams)
 	}
 
 	pollerResp, err := cloud.vmssClient.BeginCreateOrUpdate(
@@ -66,7 +67,10 @@ func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *az
 		return err
 	}
 
-	_, err = pollerResp.PollUntilDone(ctx, nil)
+	vmssCtx, cancel := context.WithTimeout(ctx, time.Minute*5)
+	defer cancel()
+
+	_, err = pollerResp.PollUntilDone(vmssCtx, nil)
 	if err != nil {
 		return err
 	}
@@ -87,6 +91,11 @@ func getBaseVMSSModel(name, location, subnetID, sshPublicKey, customData, cseCmd
 				Mode: to.Ptr(armcompute.UpgradeModeManual),
 			},
 			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
+				DiagnosticsProfile: &armcompute.DiagnosticsProfile{
+					BootDiagnostics: &armcompute.BootDiagnostics{
+						Enabled: to.Ptr(true),
+					},
+				},
 				ExtensionProfile: &armcompute.VirtualMachineScaleSetExtensionProfile{
 					Extensions: []*armcompute.VirtualMachineScaleSetExtension{
 						{

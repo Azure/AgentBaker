@@ -14,8 +14,8 @@ spec:
       labels:
         app: *name
     spec:
-      # nodeSelector:
-      #   node.kubernetes.io/instance-type: Standard_NC12
+      nodeSelector:
+        kubernetes.azure.com/agentpool: nodepool1
       # tolerations:
       #   - key: "node-role.kubernetes.io/master"
       #     operator: "Exists"

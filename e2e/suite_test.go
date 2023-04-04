@@ -152,7 +152,7 @@ func Test_All(t *testing.T) {
 				return
 			}
 
-			err = createVMSSWithPayload(ctx, publicKeyBytes, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, tc.vmConfigMutator)
+			err = createVMSSWithPayload(ctx, publicKeyBytes, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, tc.vmConfigMutator, clusterParams)
 			isCSEError := isVMExtensionProvisioningError(err)
 			vmssSucceeded := true
 			if err != nil {
@@ -167,18 +167,18 @@ func Test_All(t *testing.T) {
 			// Perform posthoc log extraction when the VMSS creation succeeded, or failed due to a CSE error
 			if vmssSucceeded || isCSEError {
 				debug := func() {
-					err := wait.PollImmediateWithContext(ctx, 15*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
+					err := wait.PollImmediateWithContext(ctx, 15*time.Second, 1*time.Minute, func(ctx context.Context) (bool, error) {
 						t.Log("attempting to extract VM logs")
 
 						logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(privateKeyBytes))
 						if err != nil {
-							t.Logf("error extracting VM logs: %q", err)
+							t.Logf("error extracting VM logs: %v", err)
 							return false, nil
 						}
 
 						t.Logf("dumping VM logs to local directory: %s", caseLogsDir)
 						if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
-							t.Logf("error extracting VM logs: %q", err)
+							t.Logf("error extracting VM logs: %v", err)
 							return false, nil
 						}
 
