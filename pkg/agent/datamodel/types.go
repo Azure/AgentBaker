@@ -125,8 +125,9 @@ const (
 CommandLineOmittedKubeletConfigFlags are the flags set by RP that should NOT be included within the set of
 command line flags when configuring kubelet.
 */
-var CommandLineOmittedKubeletConfigFlags map[string]bool = map[string]bool{
-	"--node-status-report-frequency": true,
+func GetCommandLineOmittedKubeletConfigFlags() map[string]bool {
+	flags := map[string]bool{"--node-status-report-frequency": true}
+	return flags
 }
 
 // Distro represents Linux distro to use for Linux VMs.
@@ -192,7 +193,8 @@ const (
 	USSecCloud = "USSecCloud"
 )
 
-var AKSDistrosAvailableOnVHD []Distro = []Distro{
+//nolint:gochecknoglobals
+var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntu1604,
 	AKSUbuntu1804,
 	AKSUbuntu1804Gen2,
@@ -242,7 +244,14 @@ func (d Distro) IsVHDDistro() bool {
 }
 
 func (d Distro) Is2204VHDDistro() bool {
-	for _, distro := range AvailableUbuntu2204Distros {
+	availableUbuntu2204Distros := []Distro{
+		AKSUbuntuContainerd2204,
+		AKSUbuntuContainerd2204Gen2,
+		AKSUbuntuArm64Containerd2204Gen2,
+		AKSUbuntuContainerd2204TLGen2,
+	}
+
+	for _, distro := range availableUbuntu2204Distros {
 		if d == distro {
 			return true
 		}
@@ -818,7 +827,7 @@ func (p *Properties) GetClusterID() string {
 		} else if len(p.AgentPoolProfiles) > 0 {
 			h.Write([]byte(p.AgentPoolProfiles[0].Name))
 		}
-		r := rand.New(rand.NewSource(int64(h.Sum64())))
+		r := rand.New(rand.NewSource(int64(h.Sum64()))) //nolint:gosec // I think we want rand not rand not crypto/rand here
 		mutex.Lock()
 		p.ClusterID = fmt.Sprintf("%08d", r.Uint32())[:uniqueNameSuffixSize]
 		mutex.Unlock()
@@ -1189,8 +1198,8 @@ func (w *WindowsProfile) IsAlwaysPullWindowsPauseImage() bool {
 	return w.AlwaysPullWindowsPauseImage != nil && *w.AlwaysPullWindowsPauseImage
 }
 
-// IsWindowsSecureTlsEnabled returns true if secure TLS should be enabled for Windows nodes.
-func (w *WindowsProfile) IsWindowsSecureTlsEnabled() bool {
+// IsWindowsSecureTLSEnabled returns true if secure TLS should be enabled for Windows nodes.
+func (w *WindowsProfile) IsWindowsSecureTLSEnabled() bool {
 	if w.WindowsSecureTlsEnabled != nil {
 		return *w.WindowsSecureTlsEnabled
 	}
@@ -1395,7 +1404,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 
 	keys := []string{}
 	for key := range kubeletConfig {
-		if !CommandLineOmittedKubeletConfigFlags[key] {
+		if !GetCommandLineOmittedKubeletConfigFlags()[key] {
 			keys = append(keys, key)
 		}
 	}
@@ -1501,6 +1510,8 @@ type K8sComponents struct {
 
 // GetLatestSigImageConfigRequest describes the input for a GetLatestSigImageConfig HTTP request.
 // This is mostly a wrapper over existing types so RP doesn't have to manually construct JSON.
+//
+//nolint:musttag // tags can be added if deemed necessary
 type GetLatestSigImageConfigRequest struct {
 	SIGConfig SIGConfig
 	Region    string
@@ -1508,6 +1519,8 @@ type GetLatestSigImageConfigRequest struct {
 }
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
+//
+//nolint:musttag // tags can be added if deemed necessary
 type NodeBootstrappingConfiguration struct {
 	ContainerService              *ContainerService
 	CloudSpecConfig               *AzureEnvironmentSpecConfig
@@ -1560,6 +1573,8 @@ const (
 )
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
+//
+//nolint:musttag // tags can be added if deemed necessary
 type NodeBootstrapping struct {
 	CustomData     string
 	CSE            string
@@ -2021,8 +2036,8 @@ type AgentPoolWindowsProfile struct {
 }
 
 // IsDisableWindowsOutboundNat returns true if the Windows agent pool disable OutboundNAT.
-func (ap *AgentPoolProfile) IsDisableWindowsOutboundNat() bool {
-	return ap.AgentPoolWindowsProfile != nil &&
-		ap.AgentPoolWindowsProfile.DisableOutboundNat != nil &&
-		*ap.AgentPoolWindowsProfile.DisableOutboundNat
+func (a *AgentPoolProfile) IsDisableWindowsOutboundNat() bool {
+	return a.AgentPoolWindowsProfile != nil &&
+		a.AgentPoolWindowsProfile.DisableOutboundNat != nil &&
+		*a.AgentPoolWindowsProfile.DisableOutboundNat
 }

@@ -52,7 +52,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		},
 	}
 
-	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
+	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap) //nolint:errcheck // no error is actually here
 	if cs.IsAKSCustomCloud() {
 		// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner.
 		if config.AgentPoolProfile.Distro.IsCBLMarinerDistro() || isMariner(config.OSSKU) {
@@ -106,7 +106,7 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"windowsPauseImageURL":                 cs.Properties.WindowsProfile.WindowsPauseImageURL,
 		"alwaysPullWindowsPauseImage":          strconv.FormatBool(cs.Properties.WindowsProfile.IsAlwaysPullWindowsPauseImage()),
 		"windowsCalicoPackageURL":              cs.Properties.WindowsProfile.WindowsCalicoPackageURL,
-		"windowsSecureTlsEnabled":              cs.Properties.WindowsProfile.IsWindowsSecureTlsEnabled(),
+		"windowsSecureTlsEnabled":              cs.Properties.WindowsProfile.IsWindowsSecureTLSEnabled(),
 		"windowsGmsaPackageUrl":                cs.Properties.WindowsProfile.WindowsGmsaPackageUrl,
 		"windowsCSEScriptsPackageURL":          cs.Properties.WindowsProfile.CseScriptsPackageURL,
 		"isDisableWindowsOutboundNat":          strconv.FormatBool(config.AgentPoolProfile.IsDisableWindowsOutboundNat()),
@@ -177,7 +177,8 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 	if cs.Properties.FeatureFlags.IsFeatureEnabled("BlockOutboundInternet") {
 		return ""
 	}
-	registry := ""
+
+	var registry string
 	if cloudSpecConfig.CloudName == datamodel.AzureChinaCloud {
 		registry = `gcr.azk8s.cn`
 	} else if cs.IsAKSCustomCloud() {
@@ -195,7 +196,7 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 	clusterVersion, _ := semver.Make(cs.Properties.OrchestratorProfile.OrchestratorVersion)
 	minVersion, _ := semver.Make("1.18.0")
 
-	connectivityCheckCommand := ""
+	var connectivityCheckCommand string
 	if clusterVersion.GTE(minVersion) {
 		connectivityCheckCommand = `curl -v --insecure --proxy-insecure https://` + registry + `/v2/`
 	} else {

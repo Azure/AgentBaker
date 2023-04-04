@@ -26,7 +26,8 @@ import (
 
 (if kubelet config file is enabled).
 */
-var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
+//nolint:gochecknoglobals
+var TranslatedKubeletConfigFlags = map[string]bool{
 	"--address":                           true,
 	"--anonymous-auth":                    true,
 	"--client-ca-file":                    true,
@@ -66,12 +67,6 @@ var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
 	"--container-log-max-files":           true,
 }
 
-var keyvaultSecretPathRe *regexp.Regexp
-
-func init() {
-	keyvaultSecretPathRe = regexp.MustCompile(`^(/subscriptions/\S+/resourceGroups/\S+/providers/Microsoft.KeyVault/vaults/\S+)/secrets/([^/\s]+)(/(\S+))?$`)
-}
-
 type paramsMap map[string]interface{}
 
 func addValue(m paramsMap, k string, v interface{}) {
@@ -98,6 +93,7 @@ func addSecret(m paramsMap, k string, v interface{}, encode bool) {
 		addValue(m, k, v)
 		return
 	}
+	keyvaultSecretPathRe := regexp.MustCompile(`^(/subscriptions/\S+/resourceGroups/\S+/providers/Microsoft.KeyVault/vaults/\S+)/secrets/([^/\s]+)(/(\S+))?$`) //nolint:lll
 	parts := keyvaultSecretPathRe.FindStringSubmatch(str)
 	if parts == nil || len(parts) != 5 {
 		if encode {
@@ -182,7 +178,11 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	var buffer bytes.Buffer
-	templ.Execute(&buffer, config.ContainerService)
+	err = templ.Execute(&buffer, config.ContainerService)
+	if err != nil {
+		// this should never happen and this is a bug.
+		panic(fmt.Sprintf("BUG: %s", err.Error()))
+	}
 	csStr := buffer.String()
 	csStr = strings.Replace(csStr, "\r\n", "\n", -1)
 	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
@@ -192,7 +192,11 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 func getBase64EncodedGzippedCustomScriptFromStr(str string) string {
 	var gzipB bytes.Buffer
 	w := gzip.NewWriter(&gzipB)
-	w.Write([]byte(str))
+	_, err := w.Write([]byte(str))
+	if err != nil {
+		// this should never happen and this is a bug.
+		panic(fmt.Sprintf("BUG: %s", err.Error()))
+	}
 	w.Close()
 	return base64.StdEncoding.EncodeToString(gzipB.Bytes())
 }
@@ -281,7 +285,7 @@ func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.Contai
 	keys := []string{}
 	for key := range k {
 		if !kubeletConfigFileEnabled || !TranslatedKubeletConfigFlags[key] {
-			if !datamodel.CommandLineOmittedKubeletConfigFlags[key] {
+			if !datamodel.GetCommandLineOmittedKubeletConfigFlags()[key] {
 				keys = append(keys, key)
 			}
 		}
@@ -306,7 +310,7 @@ func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defa
 
 	keys := []string{}
 	for key := range config {
-		if !datamodel.CommandLineOmittedKubeletConfigFlags[key] {
+		if !datamodel.GetCommandLineOmittedKubeletConfigFlags()[key] {
 			keys = append(keys, key)
 		}
 	}
@@ -520,7 +524,7 @@ func strKeyValToMap(str string, strDelim string, pairDelim string) map[string]st
 	pairs := strings.Split(str, strDelim)
 	for _, pairRaw := range pairs {
 		pair := strings.Split(pairRaw, pairDelim)
-		if len(pair) == 2 {
+		if len(pair) == 2 { //nolint:gomnd // 2 is the number of elements in a pair
 			key := strings.TrimSpace(pair[0])
 			val := strings.TrimSpace(pair[1])
 			m[key] = val
@@ -534,7 +538,7 @@ func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[strin
 	pairs := strings.Split(str, strDelim)
 	for _, pairRaw := range pairs {
 		pair := strings.Split(pairRaw, pairDelim)
-		if len(pair) == 2 {
+		if len(pair) == 2 { //nolint:gomnd // 2 is the number of elements in a pair
 			key := strings.TrimSpace(pair[0])
 			val := strings.TrimSpace(pair[1])
 			m[key] = strToBool(val)

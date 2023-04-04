@@ -44,7 +44,7 @@ func IsMIGNode(GPUInstanceProfile string) bool {
 // GetStorageAccountType returns the support managed disk storage tier for a give VM size.
 func GetStorageAccountType(sizeName string) (string, error) {
 	spl := strings.Split(sizeName, "_")
-	if len(spl) < 2 {
+	if len(spl) < 2 { //nolint:gomnd // less than 2 is invalid size
 		return "", errors.Errorf("Invalid sizeName: %s", sizeName)
 	}
 	capability := spl[1]

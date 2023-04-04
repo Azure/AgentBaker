@@ -3,7 +3,6 @@ package starter
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -19,22 +18,26 @@ func Execute() {
 	startCmd.Flags().StringVar(&options.Addr, "addr", ":8080", "the addr to serve the api on")
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
 		os.Exit(1)
 	}
 }
 
 // rootCmd represents the base command when called without any subcommands.
+//
+//nolint:gochecknoglobals
 var rootCmd = &cobra.Command{
 	Use:   "agentbaker",
 	Short: "Agent baker is responsible for generating all the data necessary to allow Nodes to join an AKS cluster.",
 }
 
+//nolint:gochecknoglobals
 var (
 	options = &apiserver.Options{}
 )
 
 // startCmd represents the start command.
+//
+//nolint:gochecknoglobals
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Starts the server that hosts agentbaker",
