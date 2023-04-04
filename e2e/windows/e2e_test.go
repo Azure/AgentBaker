@@ -103,7 +103,7 @@ func TestE2EWindows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("couldnt create AgentBaker: %s", err)
 	}
-	nodeBootstrapping, err := ab.GetNodeBootstrapping(context.Background(), config)
+	nodeBootstrapping, err := ab.GetNodeBootstrapping(config)
 	if err != nil {
 		t.Fatalf("couldnt GetNodeBootstrapping: %s", err)
 	}

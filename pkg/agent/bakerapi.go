@@ -4,7 +4,6 @@
 package agent
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -12,7 +11,7 @@ import (
 
 //nolint:revive // Name does not need to be modified to baker
 type AgentBaker interface {
-	GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
+	GetNodeBootstrapping(config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
 	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, region string, distro datamodel.Distro) (*datamodel.SigImageConfig, error)
 	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, region string) (map[datamodel.Distro]datamodel.SigImageConfig, error)
 }
@@ -23,8 +22,7 @@ func NewAgentBaker() (AgentBaker, error) {
 
 type agentBakerImpl struct{}
 
-func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context,
-	config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
+func (agentBaker *agentBakerImpl) GetNodeBootstrapping(config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
 	// validate and fix input before passing config to the template generator.
 	if config.AgentPoolProfile.IsWindows() {
 		validateAndSetWindowsNodeBootstrappingConfiguration(config)

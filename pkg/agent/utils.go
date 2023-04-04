@@ -404,47 +404,48 @@ func GetAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfi
 	return kubeletConfig
 }
 
-//nolint:gocognit
 func SetCustomKubeletConfig(customKc *datamodel.CustomKubeletConfig,
 	kubeletConfig *datamodel.AKSKubeletConfiguration) {
-	if customKc != nil {
-		if customKc.CPUManagerPolicy != "" {
-			kubeletConfig.CPUManagerPolicy = customKc.CPUManagerPolicy
-		}
-		if customKc.CPUCfsQuota != nil {
-			kubeletConfig.CPUCFSQuota = customKc.CPUCfsQuota
-		}
-		if customKc.CPUCfsQuotaPeriod != "" {
-			kubeletConfig.CPUCFSQuotaPeriod = datamodel.Duration(customKc.CPUCfsQuotaPeriod)
-			// enable CustomCPUCFSQuotaPeriod feature gate is required for this configuration.
-			kubeletConfig.FeatureGates["CustomCPUCFSQuotaPeriod"] = true
-		}
-		if customKc.TopologyManagerPolicy != "" {
-			kubeletConfig.TopologyManagerPolicy = customKc.TopologyManagerPolicy
-			// enable TopologyManager feature gate is required for this configuration.
-			kubeletConfig.FeatureGates["TopologyManager"] = true
-		}
-		if customKc.ImageGcHighThreshold != nil {
-			kubeletConfig.ImageGCHighThresholdPercent = customKc.ImageGcHighThreshold
-		}
-		if customKc.ImageGcLowThreshold != nil {
-			kubeletConfig.ImageGCLowThresholdPercent = customKc.ImageGcLowThreshold
-		}
-		if customKc.AllowedUnsafeSysctls != nil {
-			kubeletConfig.AllowedUnsafeSysctls = *customKc.AllowedUnsafeSysctls
-		}
-		if customKc.FailSwapOn != nil {
-			kubeletConfig.FailSwapOn = customKc.FailSwapOn
-		}
-		if customKc.ContainerLogMaxSizeMB != nil {
-			kubeletConfig.ContainerLogMaxSize = fmt.Sprintf("%dM", *customKc.ContainerLogMaxSizeMB)
-		}
-		if customKc.ContainerLogMaxFiles != nil {
-			kubeletConfig.ContainerLogMaxFiles = customKc.ContainerLogMaxFiles
-		}
-		if customKc.PodMaxPids != nil {
-			kubeletConfig.PodPidsLimit = to.Int64Ptr(int64(*customKc.PodMaxPids))
-		}
+	if customKc == nil {
+		return
+	}
+
+	if customKc.CPUManagerPolicy != "" {
+		kubeletConfig.CPUManagerPolicy = customKc.CPUManagerPolicy
+	}
+	if customKc.CPUCfsQuota != nil {
+		kubeletConfig.CPUCFSQuota = customKc.CPUCfsQuota
+	}
+	if customKc.CPUCfsQuotaPeriod != "" {
+		kubeletConfig.CPUCFSQuotaPeriod = datamodel.Duration(customKc.CPUCfsQuotaPeriod)
+		// enable CustomCPUCFSQuotaPeriod feature gate is required for this configuration.
+		kubeletConfig.FeatureGates["CustomCPUCFSQuotaPeriod"] = true
+	}
+	if customKc.TopologyManagerPolicy != "" {
+		kubeletConfig.TopologyManagerPolicy = customKc.TopologyManagerPolicy
+		// enable TopologyManager feature gate is required for this configuration.
+		kubeletConfig.FeatureGates["TopologyManager"] = true
+	}
+	if customKc.ImageGcHighThreshold != nil {
+		kubeletConfig.ImageGCHighThresholdPercent = customKc.ImageGcHighThreshold
+	}
+	if customKc.ImageGcLowThreshold != nil {
+		kubeletConfig.ImageGCLowThresholdPercent = customKc.ImageGcLowThreshold
+	}
+	if customKc.AllowedUnsafeSysctls != nil {
+		kubeletConfig.AllowedUnsafeSysctls = *customKc.AllowedUnsafeSysctls
+	}
+	if customKc.FailSwapOn != nil {
+		kubeletConfig.FailSwapOn = customKc.FailSwapOn
+	}
+	if customKc.ContainerLogMaxSizeMB != nil {
+		kubeletConfig.ContainerLogMaxSize = fmt.Sprintf("%dM", *customKc.ContainerLogMaxSizeMB)
+	}
+	if customKc.ContainerLogMaxFiles != nil {
+		kubeletConfig.ContainerLogMaxFiles = customKc.ContainerLogMaxFiles
+	}
+	if customKc.PodMaxPids != nil {
+		kubeletConfig.PodPidsLimit = to.Int64Ptr(int64(*customKc.PodMaxPids))
 	}
 }
 

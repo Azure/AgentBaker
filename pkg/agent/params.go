@@ -109,11 +109,11 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 func assignKubernetesParametersfromKubernetesConfig(properties *datamodel.Properties, parametersMap paramsMap,
 	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig,
 	k8sComponents *datamodel.K8sComponents,
-	config *datamodel.NodeBootstrappingConfiguration) paramsMap {
+	config *datamodel.NodeBootstrappingConfiguration) {
 	orchestratorProfile := properties.OrchestratorProfile
 
 	if !orchestratorProfile.IsKubernetes() {
-		return parametersMap
+		return
 	}
 
 	k8sVersion := orchestratorProfile.OrchestratorVersion
@@ -175,7 +175,7 @@ func assignKubernetesParametersfromKubernetesConfig(properties *datamodel.Proper
 		addValue(parametersMap, "windowsTelemetryGUID", cloudSpecConfig.KubernetesSpecConfig.WindowsTelemetryGUID)
 		addValue(parametersMap, "windowsSdnPluginURL", kubernetesConfig.WindowsSdnPluginURL)
 	}
-	return parametersMap
+	return
 }
 
 func assignKubernetesParameters(properties *datamodel.Properties, parametersMap paramsMap,
@@ -188,7 +188,7 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 		k8sVersion := orchestratorProfile.OrchestratorVersion
 		addValue(parametersMap, "kubernetesVersion", k8sVersion)
 
-		parametersMap = assignKubernetesParametersfromKubernetesConfig(properties, parametersMap, cloudSpecConfig,
+		assignKubernetesParametersfromKubernetesConfig(properties, parametersMap, cloudSpecConfig,
 			k8sComponents, config)
 
 		servicePrincipalProfile := properties.ServicePrincipalProfile
