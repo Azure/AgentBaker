@@ -3,7 +3,6 @@ package agent
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -218,10 +217,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		// customData
 		ab, err := NewAgentBaker()
 		Expect(err).To(BeNil())
-		nodeBootstrapping, err := ab.GetNodeBootstrapping(
-			context.Background(),
-			configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration),
-		)
+		nodeBootstrapping, err := ab.GetNodeBootstrapping(configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration))
 		Expect(err).To(BeNil())
 		customDataBytes, err := base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
 		customData := string(customDataBytes)
@@ -238,10 +234,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		// CSE
 		ab, err = NewAgentBaker()
 		Expect(err).To(BeNil())
-		nodeBootstrapping, err = ab.GetNodeBootstrapping(
-			context.Background(),
-			configCseInput.(*datamodel.NodeBootstrappingConfiguration),
-		)
+		nodeBootstrapping, err = ab.GetNodeBootstrapping(configCseInput.(*datamodel.NodeBootstrappingConfiguration))
 		Expect(err).To(BeNil())
 		cseCommand := nodeBootstrapping.CSE
 
@@ -1010,7 +1003,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		// customData
 		ab, err := NewAgentBaker()
 		Expect(err).To(BeNil())
-		nodeBootstrapping, err := ab.GetNodeBootstrapping(context.Background(), config)
+		nodeBootstrapping, err := ab.GetNodeBootstrapping(config)
 		Expect(err).To(BeNil())
 		base64EncodedCustomData := nodeBootstrapping.CustomData
 		customDataBytes, err := base64.StdEncoding.DecodeString(base64EncodedCustomData)
@@ -1030,7 +1023,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		// CSE
 		ab, err = NewAgentBaker()
 		Expect(err).To(BeNil())
-		nodeBootstrapping, err = ab.GetNodeBootstrapping(context.Background(), config)
+		nodeBootstrapping, err = ab.GetNodeBootstrapping(config)
 		Expect(err).To(BeNil())
 		cseCommand := nodeBootstrapping.CSE
 

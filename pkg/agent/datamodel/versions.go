@@ -426,7 +426,7 @@ func GetValidPatchVersion(orchType, orchVer string, isUpdate, hasWindows bool) s
 func RationalizeReleaseAndVersion(orchType, orchRel, orchVer string, isUpdate, hasWindows bool) string {
 	/* ignore "v" prefix in orchestrator version and release: "v1.8.0" is equivalent to "1.8.0", "v1.9"
 	is equivalent to "1.9". */
-	version := ""
+	var version string
 	orchVer = strings.TrimPrefix(orchVer, "v")
 	orchRel = strings.TrimPrefix(orchRel, "v")
 	supportedVersions, defaultVersion := GetSupportedVersions(orchType, isUpdate, hasWindows)

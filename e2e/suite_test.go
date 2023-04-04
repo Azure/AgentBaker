@@ -116,7 +116,7 @@ func Test_All(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			nodeBootstrapping, err := ab.GetNodeBootstrapping(context.Background(), nbc)
+			nodeBootstrapping, err := ab.GetNodeBootstrapping(nbc)
 			if err != nil {
 				t.Fatal(err)
 			}

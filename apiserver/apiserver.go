@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 )
 
 // Options holds the options for the api server.
@@ -44,8 +45,11 @@ func NewAPIServer(o *Options) (*APIServer, error) {
 // ListenAndServe wraps http.Server and provides context-based cancelation.
 func (api *APIServer) ListenAndServe(ctx context.Context) error {
 	svr := http.Server{
-		Addr:    api.Options.Addr,
-		Handler: api.NewRouter(ctx),
+		Addr:         api.Options.Addr,
+		Handler:      api.NewRouter(ctx),
+		ReadTimeout:  5 * time.Second,   //nolint:gomnd // variable for 5 is not needed.
+		WriteTimeout: 10 * time.Second,  //nolint:gomnd // variable for 10 is not needed.
+		IdleTimeout:  100 * time.Second, //nolint:gomnd // variable for 100 is not needed.
 	}
 
 	errors := make(chan error)

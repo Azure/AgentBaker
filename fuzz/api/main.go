@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 
 	"github.com/Azure/agentbaker/pkg/agent"
@@ -20,7 +19,7 @@ func Fuzz(data []byte) int {
 		return -1
 	}
 
-	_, err = baker.GetNodeBootstrapping(context.Background(), &config)
+	_, err = baker.GetNodeBootstrapping(&config)
 	if err != nil {
 		return -1
 	}
