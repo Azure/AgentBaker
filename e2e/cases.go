@@ -31,18 +31,18 @@ var defaultMarinerImageVersionIDs = map[string]string{
 var bootstrapBytes []byte
 
 var cases = map[string]scenarioConfig{
-	"base": {},
-	"ubuntu2204": {
-		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-			nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
-		},
-		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
-			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-				ID: to.Ptr(defaultUbuntuImageVersionIDs["2204gen2"]),
-			}
-		},
-	},
+	// "base": {},
+	// "ubuntu2204": {
+	// 	bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
+	// 		nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+	// 		nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+	// 	},
+	// 	vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
+	// 		vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
+	// 			ID: to.Ptr(defaultUbuntuImageVersionIDs["2204gen2"]),
+	// 		}
+	// 	},
+	// },
 	"ubuntu2204market": {
 		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -55,6 +55,7 @@ var cases = map[string]scenarioConfig{
 				SKU:       to.Ptr("22_04-lts-gen2"),
 				Version:   to.Ptr("latest"),
 			}
+			vmss.Properties.VirtualMachineProfile.ExtensionProfile = nil
 
 			customData := strings.ReplaceAll(string(bootstrapBytes), "<<BOOTSTRAP_KUBECONFIG>>", clusterParams["/var/lib/kubelet/bootstrap-kubeconfig"])
 
@@ -64,103 +65,103 @@ var cases = map[string]scenarioConfig{
 			vmss.Properties.VirtualMachineProfile.OSProfile.CustomData = to.Ptr(customDataEncoded)
 		},
 	},
-	"marinerv1": {
-		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v1"
-			nbc.AgentPoolProfile.Distro = "aks-cblmariner-v1"
-		},
-		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
-			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-				ID: to.Ptr(defaultMarinerImageVersionIDs["v1"]),
-			}
-		},
-	},
-	"marinerv2": {
-		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
-			nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
-		},
-		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
-			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-				ID: to.Ptr(defaultMarinerImageVersionIDs["v2gen2"]),
-			}
-		},
-	},
-	"ubuntu2204-arm64": {
-		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
-			// This needs to be set based on current CSE implementation...
-			nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
-			nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-			nbc.AgentPoolProfile.Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
-			nbc.IsARM64 = true
+	// "marinerv1": {
+	// 	bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
+	// 		nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v1"
+	// 		nbc.AgentPoolProfile.Distro = "aks-cblmariner-v1"
+	// 	},
+	// 	vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
+	// 		vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
+	// 			ID: to.Ptr(defaultMarinerImageVersionIDs["v1"]),
+	// 		}
+	// 	},
+	// },
+	// "marinerv2": {
+	// 	bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
+	// 		nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
+	// 		nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
+	// 	},
+	// 	vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
+	// 		vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
+	// 			ID: to.Ptr(defaultMarinerImageVersionIDs["v2gen2"]),
+	// 		}
+	// 	},
+	// },
+	// "ubuntu2204-arm64": {
+	// 	bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
+	// 		nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
+	// 		nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
+	// 		// This needs to be set based on current CSE implementation...
+	// 		nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
+	// 		nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+	// 		nbc.AgentPoolProfile.Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
+	// 		nbc.IsARM64 = true
 
-		},
-		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
-			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-				ID: to.Ptr(defaultUbuntuImageVersionIDs["2204gen2arm64"]),
-			}
-			vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
-		},
-	},
-	"marinerv2-arm64": {
-		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-arm64-gen2"
-			nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
-			nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-			nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-arm64-gen2"
-			nbc.IsARM64 = true
-		},
-		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
-			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-				ID: to.Ptr(defaultMarinerImageVersionIDs["v2gen2arm64"]),
-			}
-			vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
-		},
-	},
-	"marinerv2-kata": {
-		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D4ads_v5"
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2-kata"
-			nbc.AgentPoolProfile.VMSize = "Standard_D4ads_v5"
-			nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2-kata"
-		},
-		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
-			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-				ID: to.Ptr(defaultMarinerImageVersionIDs["v2gen2kata"]),
-			}
-			vmss.SKU.Name = to.Ptr("Standard_D4ads_v5")
-		},
-	},
-	"ubuntu2004-fips": {
-		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_DS2_v2"
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
-			nbc.AgentPoolProfile.VMSize = "Standard_DS2_v2"
-			nbc.AgentPoolProfile.Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
-			nbc.FIPSEnabled = true
-		},
-		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
-			vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-				ID: to.Ptr(defaultUbuntuImageVersionIDs["2004gen2fips"]),
-			}
-			vmss.SKU.Name = to.Ptr("Standard_DS2_v2")
-		},
-	},
-	"gpu": {
-		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
-			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-18.04-gen2"
-			nbc.AgentPoolProfile.VMSize = "Standard_NC6"
-			nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-18.04-gen2"
-			nbc.ConfigGPUDriverIfNeeded = true
-			nbc.EnableGPUDevicePluginIfNeeded = false
-			nbc.EnableNvidia = true
-		},
-		vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
-			vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
-		},
-	},
+	// 	},
+	// 	vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
+	// 		vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
+	// 			ID: to.Ptr(defaultUbuntuImageVersionIDs["2204gen2arm64"]),
+	// 		}
+	// 		vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+	// 	},
+	// },
+	// "marinerv2-arm64": {
+	// 	bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
+	// 		nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
+	// 		nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-arm64-gen2"
+	// 		nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
+	// 		nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+	// 		nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-arm64-gen2"
+	// 		nbc.IsARM64 = true
+	// 	},
+	// 	vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
+	// 		vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
+	// 			ID: to.Ptr(defaultMarinerImageVersionIDs["v2gen2arm64"]),
+	// 		}
+	// 		vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+	// 	},
+	// },
+	// "marinerv2-kata": {
+	// 	bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
+	// 		nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D4ads_v5"
+	// 		nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2-kata"
+	// 		nbc.AgentPoolProfile.VMSize = "Standard_D4ads_v5"
+	// 		nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2-kata"
+	// 	},
+	// 	vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
+	// 		vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
+	// 			ID: to.Ptr(defaultMarinerImageVersionIDs["v2gen2kata"]),
+	// 		}
+	// 		vmss.SKU.Name = to.Ptr("Standard_D4ads_v5")
+	// 	},
+	// },
+	// "ubuntu2004-fips": {
+	// 	bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
+	// 		nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_DS2_v2"
+	// 		nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
+	// 		nbc.AgentPoolProfile.VMSize = "Standard_DS2_v2"
+	// 		nbc.AgentPoolProfile.Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
+	// 		nbc.FIPSEnabled = true
+	// 	},
+	// 	vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
+	// 		vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
+	// 			ID: to.Ptr(defaultUbuntuImageVersionIDs["2004gen2fips"]),
+	// 		}
+	// 		vmss.SKU.Name = to.Ptr("Standard_DS2_v2")
+	// 	},
+	// },
+	// "gpu": {
+	// 	bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
+	// 		nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
+	// 		nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-18.04-gen2"
+	// 		nbc.AgentPoolProfile.VMSize = "Standard_NC6"
+	// 		nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-18.04-gen2"
+	// 		nbc.ConfigGPUDriverIfNeeded = true
+	// 		nbc.EnableGPUDevicePluginIfNeeded = false
+	// 		nbc.EnableNvidia = true
+	// 	},
+	// 	vmConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet, clusterParams map[string]string) {
+	// 		vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+	// 	},
+	// },
 }

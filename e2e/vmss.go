@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	mrand "math/rand"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
@@ -66,7 +67,10 @@ func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *az
 		return err
 	}
 
-	_, err = pollerResp.PollUntilDone(ctx, nil)
+	vmssCtx, cancel := context.WithTimeout(ctx, time.Minute*5)
+	defer cancel()
+
+	_, err = pollerResp.PollUntilDone(vmssCtx, nil)
 	if err != nil {
 		return err
 	}

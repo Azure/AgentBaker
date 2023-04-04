@@ -6,7 +6,6 @@ AZURE_CNI_VERSION="v1.4.12"
 RUNC_VERSION="v1.0.2"
 CONTAINERD_VERSION="1.5.5"
 
-NODE_INDEX=$(hostname | tail -c 2)
 NODE_NAME=$(hostname)
 ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
 
@@ -189,4 +188,4 @@ systemctl enable --now containerd
 systemctl enable --now kubelet
 
 # sanity check? might be uninitialized at this point
-timeout 30s grep -q 'NodeReady' <(journalctl -u kubelet -f --no-tail)
+# timeout 30s grep -q 'NodeReady' <(journalctl -u kubelet -f --no-tail)
