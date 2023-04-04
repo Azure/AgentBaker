@@ -31,11 +31,11 @@ func generateTestData() bool {
 	return os.Getenv("GENERATE_TEST_DATA") == "true"
 }
 
-// this regex looks for groups of the following forms, returning KEY and VALUE as submatches
-// - KEY=VALUE
-// - KEY="VALUE"
-// - KEY=
-// - KEY="VALUE WITH WHITSPACE"
+// this regex looks for groups of the following forms, returning KEY and VALUE as submatches.
+/* - KEY=VALUE
+- KEY="VALUE"
+- KEY=
+- KEY="VALUE WITH WHITSPACE". */
 const cseRegexString = `([^=\s]+)=(\"[^\"]*\"|[^\s]*)`
 
 type nodeBootstrappingOutput struct {
@@ -1207,11 +1207,6 @@ func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error
 	return files, nil
 }
 
-// usage: replace
-// err := exec.Command("/bin/sh", "-c", fmt.Sprintf("./testdata/convert.sh testdata/%s", folder)).Run()
-// with
-// err := decodeCustomDataFiles(fmt.Sprintf("testdata/%s", folder))
-// a few lines above
 func decodeCustomDataFiles(dir string) error {
 	files, err := filepath.Glob(filepath.Join(dir, "*.sh"))
 	if err != nil {

@@ -5,11 +5,13 @@ import (
 	"regexp"
 )
 
-// this regex looks for groups of the following forms, returning KEY and VALUE as submatches
-// - KEY=VALUE
-// - KEY="VALUE"
-// - KEY=
-// - KEY="VALUE WITH WHITESPACE"
+/*
+this regex looks for groups of the following forms, returning KEY and VALUE as submatches
+- KEY=VALUE
+- KEY="VALUE"
+- KEY=
+- KEY="VALUE WITH WHITESPACE".
+*/
 const regexTemplate = `%s: (\"[^\"]*\"|[^\s]*)`
 
 func extractKeyValuePair(key string, data string) (string, error) {
