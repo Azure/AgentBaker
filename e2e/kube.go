@@ -78,22 +78,37 @@ func getClusterKubeconfigBytes(ctx context.Context, cloud *azureClient, resource
 
 func waitUntilNodeReady(ctx context.Context, kube *kubeclient, vmssName string) (string, error) {
 	var nodeName string
-	err := wait.PollImmediateWithContext(ctx, 5*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
+	err := wait.PollImmediateWithContext(ctx, 5*time.Second, 1*time.Minute, func(ctx context.Context) (bool, error) {
 		nodes, err := kube.typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return false, err
 		}
 
+		var nodeNames = []string{}
+		for _, node := range nodes.Items {
+			nodeNames = append(nodeNames, node.Name)
+		}
+
+		fmt.Printf("found nodes: '%s'\n", strings.Join(nodeNames, ","))
+
 		for _, node := range nodes.Items {
 			if strings.HasPrefix(node.Name, vmssName) {
+				fmt.Printf("found node %s\n", node.Name)
 				for _, cond := range node.Status.Conditions {
-					if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
-						nodeName = node.Name
-						return true, nil
+					if cond.Type == corev1.NodeReady {
+						if cond.Status == corev1.ConditionTrue {
+							nodeName = node.Name
+							return true, nil
+						} else {
+							fmt.Printf("node %s was not ready yet\n", node.Name)
+							fmt.Printf("Conditions\n '%#+v\n'\n", node.Status.Conditions)
+						}
 					}
 				}
 			}
 		}
+
+		fmt.Printf("failed to find node with prefix %s\n", vmssName)
 
 		return false, nil
 	})
