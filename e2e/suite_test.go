@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	mrand "math/rand"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -76,13 +77,8 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := createClusterParamsDir(); err != nil {
+	if err := createE2ELoggingDir(); err != nil {
 		t.Fatal(err)
-	}
-
-	t.Logf("dumping cluster parameters to local directory: %s", clusterParamsDir)
-	if err := dumpFileMapToDir(clusterParamsDir, clusterParams); err != nil {
-		t.Error("error dumping cluster parameters", err)
 	}
 
 	baseConfig, err := getBaseBootstrappingConfig(ctx, t, cloud, suiteConfig, clusterParams)
@@ -152,7 +148,7 @@ func Test_All(t *testing.T) {
 				return
 			}
 
-			err = createVMSSWithPayload(ctx, publicKeyBytes, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, tc.vmConfigMutator)
+			vmssModel, err := createVMSSWithPayload(ctx, publicKeyBytes, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, tc.vmConfigMutator)
 			isCSEError := isVMExtensionProvisioningError(err)
 			vmssSucceeded := true
 			if err != nil {
@@ -162,6 +158,10 @@ func Test_All(t *testing.T) {
 				} else {
 					t.Fatal("Encountered an unknown error while creating VM", err)
 				}
+			}
+
+			if err := writeToFile(filepath.Join(caseLogsDir, "vmssId.txt"), *vmssModel.ID); err != nil {
+				t.Fatal("failed to write vmss resource ID to disk", err)
 			}
 
 			// Perform posthoc log extraction when the VMSS creation succeeded, or failed due to a CSE error
