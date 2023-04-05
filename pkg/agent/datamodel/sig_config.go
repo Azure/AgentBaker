@@ -91,6 +91,8 @@ var AvailableUbuntu2204Distros []Distro = []Distro{
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuContainerd2204TLGen2,
+	AKSUbuntuEdgeZoneContainerd2204,
+	AKSUbuntuEdgeZoneContainerd2204Gen2,
 }
 
 var AvailableContainerdDistros []Distro = []Distro{
@@ -118,6 +120,8 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuContainerd2204TLGen2,
+	AKSUbuntuEdgeZoneContainerd2204,
+	AKSUbuntuEdgeZoneContainerd2204Gen2,
 }
 
 var AvailableGPUDistros []Distro = []Distro{
@@ -143,6 +147,7 @@ var AvailableGen2Distros []Distro = []Distro{
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuContainerd2204TLGen2,
+	AKSUbuntuEdgeZoneContainerd2204Gen2,
 }
 
 var AvailableCBLMarinerDistros []Distro = []Distro{
@@ -416,22 +421,6 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	// This image is using a specific resource group and gallery name for edge zone scenario.
-	SIGUbuntuEdgeZoneContainerd1804ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
-		Gallery:       AKSUbuntuEdgeZoneGalleryName,
-		Definition:    "1804containerd",
-		Version:       EdgeZoneSIGImageVersion,
-	}
-
-	// This image is using a specific resource group and gallery name for edge zone scenario.
-	SIGUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
-		Gallery:       AKSUbuntuEdgeZoneGalleryName,
-		Definition:    "1804gen2containerd",
-		Version:       EdgeZoneSIGImageVersion,
-	}
-
 	SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
@@ -592,9 +581,43 @@ func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 }
 
 func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
+	// This image is using a specific resource group and gallery name for edge zone scenario.
+	sigUbuntuEdgeZoneContainerd1804ImageConfigTemplate := SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
+		Gallery:       AKSUbuntuEdgeZoneGalleryName,
+		Definition:    "1804containerd",
+		Version:       EdgeZoneSIGImageVersion,
+	}
+
+	// This image is using a specific resource group and gallery name for edge zone scenario.
+	sigUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate := SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
+		Gallery:       AKSUbuntuEdgeZoneGalleryName,
+		Definition:    "1804gen2containerd",
+		Version:       EdgeZoneSIGImageVersion,
+	}
+
+	// This image is using a specific resource group and gallery name for edge zone scenario.
+	sigUbuntuEdgeZoneContainerd2204ImageConfigTemplate := SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
+		Gallery:       AKSUbuntuEdgeZoneGalleryName,
+		Definition:    "2204containerd",
+		Version:       EdgeZoneSIGImageVersion,
+	}
+
+	// This image is using a specific resource group and gallery name for edge zone scenario.
+	sigUbuntuEdgeZoneContainerd2204Gen2ImageConfigTemplate := SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
+		Gallery:       AKSUbuntuEdgeZoneGalleryName,
+		Definition:    "2204gen2containerd",
+		Version:       EdgeZoneSIGImageVersion,
+	}
+
 	return map[Distro]SigImageConfig{
-		AKSUbuntuEdgeZoneContainerd1804:     SIGUbuntuEdgeZoneContainerd1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuEdgeZoneContainerd1804Gen2: SIGUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuEdgeZoneContainerd1804:     sigUbuntuEdgeZoneContainerd1804ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuEdgeZoneContainerd1804Gen2: sigUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuEdgeZoneContainerd2204:     sigUbuntuEdgeZoneContainerd2204ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuEdgeZoneContainerd2204Gen2: sigUbuntuEdgeZoneContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
