@@ -163,6 +163,8 @@ const (
 	AKSUbuntuArm64Containerd1804Gen2    Distro = "aks-ubuntu-arm64-containerd-18.04-gen2"
 	AKSUbuntuEdgeZoneContainerd1804     Distro = "aks-ubuntu-edgezone-containerd-18.04"
 	AKSUbuntuEdgeZoneContainerd1804Gen2 Distro = "aks-ubuntu-edgezone-containerd-18.04-gen2"
+	AKSUbuntuEdgeZoneContainerd2204     Distro = "aks-ubuntu-edgezone-containerd-22.04"
+	AKSUbuntuEdgeZoneContainerd2204Gen2 Distro = "aks-ubuntu-edgezone-containerd-22.04-gen2"
 	AKSUbuntuContainerd2204             Distro = "aks-ubuntu-containerd-22.04"
 	AKSUbuntuContainerd2204Gen2         Distro = "aks-ubuntu-containerd-22.04-gen2"
 	AKSUbuntuContainerd2004CVMGen2      Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
@@ -221,6 +223,8 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuEdgeZoneContainerd1804,
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
+	AKSUbuntuEdgeZoneContainerd2204,
+	AKSUbuntuEdgeZoneContainerd2204Gen2,
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
