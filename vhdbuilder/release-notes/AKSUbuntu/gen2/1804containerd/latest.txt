@@ -1,4 +1,4 @@
-Starting build on  Wed Mar 22 19:04:50 UTC 2023
+Starting build on  Tue Mar 28 21:50:52 UTC 2023
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - krustlet v0.3.0
   - [installed] containerd v1.6.18-1
@@ -12,9 +12,6 @@ Components downloaded in this VHD build (some of the below components might get 
   - bcc-tools
   - libbcc-examples
 containerd images pre-pulled:
-  - mcr.microsoft.com/oss/kubernetes/metrics-scraper:v1.0.4
-  - mcr.microsoft.com/oss/kubernetes/metrics-scraper:v1.0.7
-  - mcr.microsoft.com/oss/kubernetes/exechealthz:1.2_v0.0.5
   - mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:1.8.5
   - mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:1.8.14
   - mcr.microsoft.com/oss/kubernetes/metrics-server:v0.5.2
@@ -29,10 +26,8 @@ containerd images pre-pulled:
   - mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.2
   - mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.4
   - mcr.microsoft.com/containernetworking/azure-npm:v1.4.32
-  - mcr.microsoft.com/aks/hcp/hcp-tunnel-front:master.220527.2
   - mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:v0.0.30
   - mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:v0.0.33-hotfix.20221110
-  - mcr.microsoft.com/aks/hcp/tunnel-openvpn:master.220527.2
   - mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.2.2.4
   - mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.2.2.5
   - mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0.2
@@ -71,11 +66,8 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.0
   - mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:1.8.3
   - mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:1.8.5
-  - mcr.microsoft.com/k8s/flexvolume/blobfuse-flexvolume:1.0.15
-  - mcr.microsoft.com/k8s/flexvolume/keyvault-flexvolume:v0.0.13
   - mcr.microsoft.com/oss/kubernetes/ip-masq-agent:v2.5.0.12
   - mcr.microsoft.com/aks/ip-masq-agent-v2:v0.1.5
-  - mcr.microsoft.com/k8s/kms/keyvault:v0.0.9
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.2.2.5
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2.1
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2.2
@@ -102,7 +94,6 @@ containerd images pre-pulled:
   - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:prod_20230208.1
   - mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.8.13.3
   - mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:v1.8.13.4
-  - mcr.microsoft.com/aks/command/runtime:master.220211.1
   - mcr.microsoft.com/aks/aks-node-ca-watcher:master.221011.1
   - Azure CNI version 1.4.43
   - Azure CNI version 1.4.35
@@ -140,7 +131,7 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.25.5-hotfix.20230208
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.25.6
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.0
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.1
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.3.2
 kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root 120865016 Jun 21  2022 /usr/local/bin/kubelet-1.22.11
 -rwxr-xr-x 1 root root  46923776 Jun 21  2022 /usr/local/bin/kubectl-1.22.11
@@ -149,12 +140,12 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root 116013432 Jul 15  2022 /usr/local/bin/kubelet-1.24.3
 -rwxr-xr-x 1 root root  45711360 Jul 15  2022 /usr/local/bin/kubectl-1.24.3
 -rwxr-xr-x 1 1001  121  50311268 Aug 26  2022 /usr/local/bin/crictl
--rwxr-xr-x 1 root root 116066776 Sep 21 22:10 /usr/local/bin/kubelet-1.24.6
--rwxr-xr-x 1 root root  45723648 Sep 21 22:10 /usr/local/bin/kubectl-1.24.6
--rwxr-xr-x 1 root root 120873336 Sep 21 22:11 /usr/local/bin/kubelet-1.22.15
--rwxr-xr-x 1 root root  46927872 Sep 21 22:11 /usr/local/bin/kubectl-1.22.15
--rwxr-xr-x 1 root root 124189824 Sep 21 22:11 /usr/local/bin/kubelet-1.23.12
--rwxr-xr-x 1 root root  46592000 Sep 21 22:11 /usr/local/bin/kubectl-1.23.12
+-rwxr-xr-x 1 root root 116066776 Sep 21  2022 /usr/local/bin/kubelet-1.24.6
+-rwxr-xr-x 1 root root  45723648 Sep 21  2022 /usr/local/bin/kubectl-1.24.6
+-rwxr-xr-x 1 root root 120873336 Sep 21  2022 /usr/local/bin/kubelet-1.22.15
+-rwxr-xr-x 1 root root  46927872 Sep 21  2022 /usr/local/bin/kubectl-1.22.15
+-rwxr-xr-x 1 root root 124189824 Sep 21  2022 /usr/local/bin/kubelet-1.23.12
+-rwxr-xr-x 1 root root  46592000 Sep 21  2022 /usr/local/bin/kubectl-1.23.12
 -rwxr-xr-x 1 root root 114229048 Oct  6 23:34 /usr/local/bin/kubelet-1.25.2
 -rwxr-xr-x 1 root root  45015040 Oct  6 23:34 /usr/local/bin/kubectl-1.25.2
 -rwxr-xr-x 1 root root 114237304 Nov 10 22:25 /usr/local/bin/kubelet-1.25.4
@@ -169,16 +160,16 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  46604288 Jan 16 04:29 /usr/local/bin/kubectl-1.23.15
 -rwxr-xr-x 1 root root 116628888 Jan 27 23:26 /usr/local/bin/kubelet-1.24.10
 -rwxr-xr-x 1 root root  46067712 Jan 27 23:26 /usr/local/bin/kubectl-1.24.10
--rwxr-xr-x 1 root root 121256024 Jan 30 19:05 /usr/local/bin/kubelet-1.26.1
--rwxr-xr-x 1 root root  48021504 Jan 30 19:05 /usr/local/bin/kubectl-1.26.1
 -rwxr-xr-x 1 root root 114245720 Jan 30 19:05 /usr/local/bin/kubelet-1.25.6
 -rwxr-xr-x 1 root root  45027328 Jan 30 19:05 /usr/local/bin/kubectl-1.25.6
--r-xr--r-- 1 root root       593 Mar 22 19:04 /usr/local/bin/logrotate.sh
--r-xr--r-- 1 root root      2462 Mar 22 19:04 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root       705 Mar 22 19:04 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root  36014944 Mar 22 19:10 /usr/local/bin/containerd-shim-spin-v1
--rwxr-xr-x 1 root root  47622592 Mar 22 19:10 /usr/local/bin/containerd-shim-slight-v1
--rwxr-xr-x 1 root root  35384960 Mar 22 19:11 /usr/local/bin/bpftrace
+-rwxr-xr-x 1 root root 121272408 Mar 21 00:57 /usr/local/bin/kubelet-1.26.3
+-rwxr-xr-x 1 root root  48037888 Mar 21 00:57 /usr/local/bin/kubectl-1.26.3
+-r-xr--r-- 1 root root       593 Mar 28 21:50 /usr/local/bin/logrotate.sh
+-r-xr--r-- 1 root root      2462 Mar 28 21:50 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root       705 Mar 28 21:50 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  36014944 Mar 28 21:57 /usr/local/bin/containerd-shim-spin-v1
+-rwxr-xr-x 1 root root  47622592 Mar 28 21:57 /usr/local/bin/containerd-shim-slight-v1
+-rwxr-xr-x 1 root root  35384960 Mar 28 21:58 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 accountsservice/bionic-updates,bionic-security,now 0.6.45-1ubuntu1.3 amd64 [installed,automatic]
@@ -598,25 +589,30 @@ libxmuu1/bionic,now 2:1.1.2-2 amd64 [installed,automatic]
 libxtables12/bionic,now 1.6.1-2ubuntu2 amd64 [installed,automatic]
 libyaml-0-2/bionic,now 0.1.7-2ubuntu3 amd64 [installed,automatic]
 libzstd1/bionic-updates,bionic-security,now 1.3.3+dfsg-2ubuntu1.2 amd64 [installed,automatic]
-linux-azure/bionic-updates,bionic-security,now 5.4.0.1104.77 amd64 [installed]
+linux-azure/bionic-updates,now 5.4.0.1105.78 amd64 [installed]
 linux-azure-5.4-cloud-tools-5.4.0-1104/bionic-updates,bionic-security,now 5.4.0-1104.110~18.04.1 amd64 [installed]
+linux-azure-5.4-cloud-tools-5.4.0-1105/bionic-updates,now 5.4.0-1105.111~18.04.1 amd64 [installed,automatic]
 linux-azure-5.4-headers-5.4.0-1104/bionic-updates,bionic-security,now 5.4.0-1104.110~18.04.1 all [installed]
+linux-azure-5.4-headers-5.4.0-1105/bionic-updates,now 5.4.0-1105.111~18.04.1 all [installed,automatic]
 linux-azure-5.4-tools-5.4.0-1104/bionic-updates,bionic-security,now 5.4.0-1104.110~18.04.1 amd64 [installed]
+linux-azure-5.4-tools-5.4.0-1105/bionic-updates,now 5.4.0-1105.111~18.04.1 amd64 [installed,automatic]
 linux-base/bionic-updates,now 4.5ubuntu1.7 all [installed,automatic]
 linux-base-sgx/bionic-updates,now 4.5ubuntu1.7 all [installed]
 linux-cloud-tools-5.4.0-1104-azure/bionic-updates,bionic-security,now 5.4.0-1104.110~18.04.1 amd64 [installed]
-linux-cloud-tools-azure/bionic-updates,bionic-security,now 5.4.0.1104.77 amd64 [installed]
-linux-cloud-tools-common/bionic-updates,bionic-security,now 4.15.0-206.217 all [installed]
-linux-headers-5.4.0-1104-azure/bionic-updates,bionic-security,now 5.4.0-1104.110~18.04.1 amd64 [installed]
-linux-headers-azure/bionic-updates,bionic-security,now 5.4.0.1104.77 amd64 [installed]
-linux-image-5.4.0-1104-azure/bionic-updates,bionic-security,now 5.4.0-1104.110~18.04.1 amd64 [installed]
-linux-image-azure/bionic-updates,bionic-security,now 5.4.0.1104.77 amd64 [installed]
-linux-libc-dev/bionic-updates,bionic-security,now 4.15.0-206.217 amd64 [installed,automatic]
-linux-modules-5.4.0-1104-azure/bionic-updates,bionic-security,now 5.4.0-1104.110~18.04.1 amd64 [installed]
-linux-modules-extra-5.4.0-1104-azure/bionic-updates,bionic-security,now 5.4.0-1104.110~18.04.1 amd64 [installed]
+linux-cloud-tools-5.4.0-1105-azure/bionic-updates,now 5.4.0-1105.111~18.04.1 amd64 [installed,automatic]
+linux-cloud-tools-azure/bionic-updates,now 5.4.0.1105.78 amd64 [installed]
+linux-cloud-tools-common/bionic-updates,now 4.15.0-208.220 all [installed]
+linux-headers-5.4.0-1105-azure/bionic-updates,now 5.4.0-1105.111~18.04.1 amd64 [installed,automatic]
+linux-headers-azure/bionic-updates,now 5.4.0.1105.78 amd64 [installed]
+linux-image-5.4.0-1105-azure/bionic-updates,now 5.4.0-1105.111~18.04.1 amd64 [installed,automatic]
+linux-image-azure/bionic-updates,now 5.4.0.1105.78 amd64 [installed]
+linux-libc-dev/bionic-updates,now 4.15.0-208.220 amd64 [installed,automatic]
+linux-modules-5.4.0-1105-azure/bionic-updates,now 5.4.0-1105.111~18.04.1 amd64 [installed,automatic]
+linux-modules-extra-5.4.0-1105-azure/bionic-updates,now 5.4.0-1105.111~18.04.1 amd64 [installed,automatic]
 linux-tools-5.4.0-1104-azure/bionic-updates,bionic-security,now 5.4.0-1104.110~18.04.1 amd64 [installed]
-linux-tools-azure/bionic-updates,bionic-security,now 5.4.0.1104.77 amd64 [installed]
-linux-tools-common/bionic-updates,bionic-security,now 4.15.0-206.217 all [installed]
+linux-tools-5.4.0-1105-azure/bionic-updates,now 5.4.0-1105.111~18.04.1 amd64 [installed,automatic]
+linux-tools-azure/bionic-updates,now 5.4.0.1105.78 amd64 [installed]
+linux-tools-common/bionic-updates,now 4.15.0-208.220 all [installed]
 locales/bionic-updates,now 2.27-3ubuntu1.6 all [installed,automatic]
 login/bionic-updates,bionic-security,now 1:4.5-1ubuntu2.5 amd64 [installed]
 logrotate/bionic,now 3.11.0-0.1ubuntu1 amd64 [installed,automatic]
@@ -844,7 +840,7 @@ Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
 udev            3.4G     0  3.4G   0% /dev
 tmpfs           695M  624K  695M   1% /run
-/dev/sda1        29G   26G  3.3G  89% /
+/dev/sda1        29G   25G  4.6G  85% /
 tmpfs           3.4G     0  3.4G   0% /dev/shm
 tmpfs           5.0M     0  5.0M   0% /run/lock
 tmpfs           3.4G     0  3.4G   0% /sys/fs/cgroup
@@ -852,11 +848,11 @@ tmpfs           3.4G     0  3.4G   0% /sys/fs/cgroup
 /dev/sdb1        14G   28K   13G   1% /mnt
 tmpfs           695M     0  695M   0% /run/user/1000
 Using kernel:
-Linux version 5.4.0-1104-azure (buildd@lcy02-amd64-102) (gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04)) #110~18.04.1-Ubuntu SMP Sat Feb 11 17:41:21 UTC 2023
-Install completed successfully on  Wed Mar 22 19:33:49 UTC 2023
-VSTS Build NUMBER: 20230322.5_master_70520099
-VSTS Build ID: 70520099
-Commit: 2f827c16762dd7e0e4a9e10422c0f62401f4bbf3
+Linux version 5.4.0-1105-azure (buildd@lcy02-amd64-082) (gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04)) #111~18.04.1-Ubuntu SMP Fri Mar 3 22:47:43 UTC 2023
+Install completed successfully on  Tue Mar 28 22:24:23 UTC 2023
+VSTS Build NUMBER: 20230328.1_master_70846216
+VSTS Build ID: 70846216
+Commit: 277fae35e8653c5ce893d7e566e44f1d9e0bc6c5
 Ubuntu version: 18.04
 Hyperv generation: V2
 Feature flags: None
