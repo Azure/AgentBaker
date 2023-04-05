@@ -29,11 +29,11 @@ const (
 	listVMSSNetworkInterfaceURLTemplate = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
 )
 
-func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, kube *kubeclient, subscription, vmssName, sshPrivateKey string) (map[string]string, error) {
-	pl := cloud.coreClient.Pipeline()
+func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName string, sshPrivateKey string, opts *scenarioRunOpts) (map[string]string, error) {
+	pl := opts.cloud.coreClient.Pipeline()
 	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
-		subscription,
-		agentbakerTestClusterMCResourceGroupName,
+		opts.suiteConfig.subscription,
+		*opts.chosenCluster.Properties.NodeResourceGroup,
 		vmssName,
 		0,
 	)
@@ -69,7 +69,7 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, ku
 		"kubelet.log":                          "journalctl -u kubelet",
 	}
 
-	podName, err := getDebugPodName(kube)
+	podName, err := getDebugPodName(opts.kube)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, ku
 
 		t.Logf("executing command on pod %s/%s: %q", defaultNamespace, podName, strings.Join(cmd, " "))
 
-		stdout, stderr, err := execOnPod(ctx, kube, defaultNamespace, podName, cmd)
+		stdout, stderr, err := execOnPod(ctx, opts.kube, defaultNamespace, podName, cmd)
 		checkStdErr(stderr, t)
 		if err != nil {
 			return nil, err
@@ -149,7 +149,7 @@ func getDebugPodName(kube *kubeclient) (string, error) {
 	return podName, nil
 }
 
-func ensureDebugDaemonset(ctx context.Context, kube *kubeclient, resourceGroupName, clusterName string) error {
+func ensureDebugDaemonset(ctx context.Context, kube *kubeclient) error {
 	manifest := getDebugDaemonset()
 	var ds appsv1.DaemonSet
 
@@ -209,7 +209,7 @@ func waitUntilPodDeleted(ctx context.Context, kube *kubeclient, podName string) 
 	})
 }
 
-func getBaseBootstrappingConfig(ctx context.Context, t *testing.T, cloud *azureClient, suiteConfig *suiteConfig, clusterParams map[string]string) (*datamodel.NodeBootstrappingConfiguration, error) {
+func getBaseNodeBootstrappingConfiguration(ctx context.Context, t *testing.T, cloud *azureClient, suiteConfig *suiteConfig, clusterParams map[string]string) (*datamodel.NodeBootstrappingConfiguration, error) {
 	nbc := baseTemplate()
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = clusterParams["/etc/kubernetes/certs/ca.crt"]
 
