@@ -47,8 +47,10 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
+            # azuredisk-csi:v1.27 is only for AKS 1.26+, v1.26 is for other AKS versions
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.3",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.1",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.1",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
@@ -65,7 +67,7 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.0", # for k8s 1.26.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.7", # for k8s 1.26.x
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01182023-095c864a")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.5")
 } elseif ($windowsSku -eq "2019-containerd") {
     $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2019",
@@ -76,8 +78,10 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
+            # azuredisk-csi:v1.27 is only for AKS 1.26+, v1.26 is for other AKS versions
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.3",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.1",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.1",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
@@ -94,7 +98,7 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.0", # for k8s 1.26.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.7", # for k8s 1.26.x
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01182023-095c864a")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.5")
 } elseif ($windowsSku -eq "2022-containerd" -or $windowsSku -eq "2022-containerd-gen2") {
     $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2022",
@@ -106,8 +110,10 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
+            # azuredisk-csi:v1.27 is only for AKS 1.26+, v1.26 is for other AKS versions
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2",
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.3",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.1",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.1",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
@@ -124,7 +130,7 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.0", # for k8s 1.26.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.7", # for k8s 1.26.x
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-ciprod01182023-095c864a",
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.5",
             # NPM (Network Policy Manager). Owner: jaer-tsun (Jaeryn)
             "mcr.microsoft.com/containernetworking/azure-npm:v1.4.34",
             "mcr.microsoft.com/containernetworking/azure-cns:v1.4.35")
