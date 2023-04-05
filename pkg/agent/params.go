@@ -105,6 +105,70 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 	}
 }
 
+func assignKubernetesParametersfromKubernetesConfig(kubernetesConfig *datamodel.KubernetesConfig, properties *datamodel.Properties,
+	parametersMap paramsMap, cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig, k8sComponents *datamodel.K8sComponents,
+	config *datamodel.NodeBootstrappingConfiguration, k8sVersion string) paramsMap {
+	if kubernetesConfig == nil {
+		return parametersMap
+	}
+
+	if kubernetesConfig.CustomKubeProxyImage != "" {
+		// kubernetesConfig.CustomKubeProxyImage is ap level property, AKS default CustomKubeProxyImage
+		// is 'multi-arch', no need to differentiate amd64/arm64 ap
+		addValue(parametersMap, "kubeProxySpec", kubernetesConfig.CustomKubeProxyImage)
+	}
+
+	if kubernetesConfig.CustomKubeBinaryURL != "" {
+		// kubernetesConfig.CustomKubeBinaryURL is ap level property, CustomKubeBinaryURL is
+		// set to different for amd64/arm64 ap in RP side.
+		addValue(parametersMap, "kubeBinaryURL", kubernetesConfig.CustomKubeBinaryURL)
+	}
+
+	addValue(parametersMap, "kubernetesHyperkubeSpec", k8sComponents.HyperkubeImageURL)
+
+	addValue(parametersMap, "kubeDNSServiceIP", kubernetesConfig.DNSServiceIP)
+	addValue(parametersMap, "cloudproviderConfig", paramsMap{
+		"cloudProviderBackoffMode":          kubernetesConfig.CloudProviderBackoffMode,
+		"cloudProviderBackoff":              kubernetesConfig.CloudProviderBackoff,
+		"cloudProviderBackoffRetries":       kubernetesConfig.CloudProviderBackoffRetries,
+		"cloudProviderBackoffJitter":        strconv.FormatFloat(kubernetesConfig.CloudProviderBackoffJitter, 'f', -1, 64),
+		"cloudProviderBackoffDuration":      kubernetesConfig.CloudProviderBackoffDuration,
+		"cloudProviderBackoffExponent":      strconv.FormatFloat(kubernetesConfig.CloudProviderBackoffExponent, 'f', -1, 64),
+		"cloudProviderRateLimit":            kubernetesConfig.CloudProviderRateLimit,
+		"cloudProviderRateLimitQPS":         strconv.FormatFloat(kubernetesConfig.CloudProviderRateLimitQPS, 'f', -1, 64),
+		"cloudProviderRateLimitQPSWrite":    strconv.FormatFloat(kubernetesConfig.CloudProviderRateLimitQPSWrite, 'f', -1, 64),
+		"cloudProviderRateLimitBucket":      kubernetesConfig.CloudProviderRateLimitBucket,
+		"cloudProviderRateLimitBucketWrite": kubernetesConfig.CloudProviderRateLimitBucketWrite,
+		"cloudProviderDisableOutboundSNAT":  kubernetesConfig.CloudProviderDisableOutboundSNAT,
+	})
+	addValue(parametersMap, "kubeClusterCidr", kubernetesConfig.ClusterSubnet)
+	addValue(parametersMap, "dockerBridgeCidr", kubernetesConfig.DockerBridgeSubnet)
+	addValue(parametersMap, "networkPolicy", kubernetesConfig.NetworkPolicy)
+	addValue(parametersMap, "networkPlugin", kubernetesConfig.NetworkPlugin)
+	addValue(parametersMap, "networkMode", kubernetesConfig.NetworkMode)
+	addValue(parametersMap, "containerRuntime", kubernetesConfig.ContainerRuntime)
+	addValue(parametersMap, "containerdDownloadURLBase", cloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase)
+	if config.IsARM64 {
+		addValue(parametersMap, "cniPluginsURL", cloudSpecConfig.KubernetesSpecConfig.CNIARM64PluginsDownloadURL)
+		addValue(parametersMap, "vnetCniLinuxPluginsURL", kubernetesConfig.GetAzureCNIURLARM64Linux(cloudSpecConfig))
+	} else {
+		addValue(parametersMap, "cniPluginsURL", cloudSpecConfig.KubernetesSpecConfig.CNIPluginsDownloadURL)
+		addValue(parametersMap, "vnetCniLinuxPluginsURL", kubernetesConfig.GetAzureCNIURLLinux(cloudSpecConfig))
+	}
+	addValue(parametersMap, "vnetCniWindowsPluginsURL", kubernetesConfig.GetAzureCNIURLWindows(cloudSpecConfig))
+
+	if properties.HasWindows() {
+		addValue(parametersMap, "kubeBinariesSASURL", k8sComponents.WindowsPackageURL)
+
+		addValue(parametersMap, "windowsContainerdURL", kubernetesConfig.WindowsContainerdURL)
+		addValue(parametersMap, "kubeServiceCidr", kubernetesConfig.ServiceCIDR)
+		addValue(parametersMap, "kubeBinariesVersion", k8sVersion)
+		addValue(parametersMap, "windowsTelemetryGUID", cloudSpecConfig.KubernetesSpecConfig.WindowsTelemetryGUID)
+		addValue(parametersMap, "windowsSdnPluginURL", kubernetesConfig.WindowsSdnPluginURL)
+	}
+	return parametersMap
+}
+
 func assignKubernetesParameters(properties *datamodel.Properties, parametersMap paramsMap,
 	cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig,
 	k8sComponents *datamodel.K8sComponents,
@@ -116,63 +180,8 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 		addValue(parametersMap, "kubernetesVersion", k8sVersion)
 
 		kubernetesConfig := orchestratorProfile.KubernetesConfig
-
-		if kubernetesConfig != nil {
-			if kubernetesConfig.CustomKubeProxyImage != "" {
-				// kubernetesConfig.CustomKubeProxyImage is ap level property, AKS default CustomKubeProxyImage
-				// is 'multi-arch', no need to differentiate amd64/arm64 ap
-				addValue(parametersMap, "kubeProxySpec", kubernetesConfig.CustomKubeProxyImage)
-			}
-
-			if kubernetesConfig.CustomKubeBinaryURL != "" {
-				// kubernetesConfig.CustomKubeBinaryURL is ap level property, CustomKubeBinaryURL is
-				// set to different for amd64/arm64 ap in RP side.
-				addValue(parametersMap, "kubeBinaryURL", kubernetesConfig.CustomKubeBinaryURL)
-			}
-
-			addValue(parametersMap, "kubernetesHyperkubeSpec", k8sComponents.HyperkubeImageURL)
-
-			addValue(parametersMap, "kubeDNSServiceIP", kubernetesConfig.DNSServiceIP)
-			addValue(parametersMap, "cloudproviderConfig", paramsMap{
-				"cloudProviderBackoffMode":          kubernetesConfig.CloudProviderBackoffMode,
-				"cloudProviderBackoff":              kubernetesConfig.CloudProviderBackoff,
-				"cloudProviderBackoffRetries":       kubernetesConfig.CloudProviderBackoffRetries,
-				"cloudProviderBackoffJitter":        strconv.FormatFloat(kubernetesConfig.CloudProviderBackoffJitter, 'f', -1, 64),
-				"cloudProviderBackoffDuration":      kubernetesConfig.CloudProviderBackoffDuration,
-				"cloudProviderBackoffExponent":      strconv.FormatFloat(kubernetesConfig.CloudProviderBackoffExponent, 'f', -1, 64),
-				"cloudProviderRateLimit":            kubernetesConfig.CloudProviderRateLimit,
-				"cloudProviderRateLimitQPS":         strconv.FormatFloat(kubernetesConfig.CloudProviderRateLimitQPS, 'f', -1, 64),
-				"cloudProviderRateLimitQPSWrite":    strconv.FormatFloat(kubernetesConfig.CloudProviderRateLimitQPSWrite, 'f', -1, 64),
-				"cloudProviderRateLimitBucket":      kubernetesConfig.CloudProviderRateLimitBucket,
-				"cloudProviderRateLimitBucketWrite": kubernetesConfig.CloudProviderRateLimitBucketWrite,
-				"cloudProviderDisableOutboundSNAT":  kubernetesConfig.CloudProviderDisableOutboundSNAT,
-			})
-			addValue(parametersMap, "kubeClusterCidr", kubernetesConfig.ClusterSubnet)
-			addValue(parametersMap, "dockerBridgeCidr", kubernetesConfig.DockerBridgeSubnet)
-			addValue(parametersMap, "networkPolicy", kubernetesConfig.NetworkPolicy)
-			addValue(parametersMap, "networkPlugin", kubernetesConfig.NetworkPlugin)
-			addValue(parametersMap, "networkMode", kubernetesConfig.NetworkMode)
-			addValue(parametersMap, "containerRuntime", kubernetesConfig.ContainerRuntime)
-			addValue(parametersMap, "containerdDownloadURLBase", cloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase)
-			if config.IsARM64 {
-				addValue(parametersMap, "cniPluginsURL", cloudSpecConfig.KubernetesSpecConfig.CNIARM64PluginsDownloadURL)
-				addValue(parametersMap, "vnetCniLinuxPluginsURL", kubernetesConfig.GetAzureCNIURLARM64Linux(cloudSpecConfig))
-			} else {
-				addValue(parametersMap, "cniPluginsURL", cloudSpecConfig.KubernetesSpecConfig.CNIPluginsDownloadURL)
-				addValue(parametersMap, "vnetCniLinuxPluginsURL", kubernetesConfig.GetAzureCNIURLLinux(cloudSpecConfig))
-			}
-			addValue(parametersMap, "vnetCniWindowsPluginsURL", kubernetesConfig.GetAzureCNIURLWindows(cloudSpecConfig))
-
-			if properties.HasWindows() {
-				addValue(parametersMap, "kubeBinariesSASURL", k8sComponents.WindowsPackageURL)
-
-				addValue(parametersMap, "windowsContainerdURL", kubernetesConfig.WindowsContainerdURL)
-				addValue(parametersMap, "kubeServiceCidr", kubernetesConfig.ServiceCIDR)
-				addValue(parametersMap, "kubeBinariesVersion", k8sVersion)
-				addValue(parametersMap, "windowsTelemetryGUID", cloudSpecConfig.KubernetesSpecConfig.WindowsTelemetryGUID)
-				addValue(parametersMap, "windowsSdnPluginURL", kubernetesConfig.WindowsSdnPluginURL)
-			}
-		}
+		parametersMap = assignKubernetesParametersfromKubernetesConfig(kubernetesConfig, properties, parametersMap, cloudSpecConfig,
+			k8sComponents, config, k8sVersion)
 
 		servicePrincipalProfile := properties.ServicePrincipalProfile
 
