@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	mrand "math/rand"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/scenario"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 	"github.com/barkimedes/go-deepcopy"
 )
@@ -22,6 +24,10 @@ func Test_All(t *testing.T) {
 
 	suiteConfig, err := newSuiteConfig()
 	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := createE2ELoggingDir(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -97,7 +103,7 @@ func runScenario(
 		return
 	}
 
-	vmssName, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, cloud, suiteConfig, scenario, chosenCluster, nbc, subnetID, publicKeyBytes)
+	vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, cloud, suiteConfig, scenario, chosenCluster, nbc, subnetID, publicKeyBytes)
 	defer cleanupVMSS()
 	isCSEError := isVMExtensionProvisioningError(err)
 	vmssSucceeded := true
@@ -110,10 +116,14 @@ func runScenario(
 		}
 	}
 
+	if err := writeToFile(filepath.Join(caseLogsDir, "vmssId.txt"), *vmssModel.ID); err != nil {
+		t.Fatal("failed to write vmss resource ID to disk", err)
+	}
+
 	// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
 	if vmssSucceeded || isCSEError {
 		debug := func() {
-			err := pollExtractVMLogs(ctx, t, cloud, kube, suiteConfig, *chosenCluster.Properties.NodeResourceGroup, vmssName, caseLogsDir, privateKeyBytes)
+			err := pollExtractVMLogs(ctx, t, cloud, kube, suiteConfig, *chosenCluster.Properties.NodeResourceGroup, *vmssModel.Name, caseLogsDir, privateKeyBytes)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -124,7 +134,7 @@ func runScenario(
 	// Only perform node readiness/pod-related checks when VMSS creation succeeded
 	if vmssSucceeded {
 		t.Log("vmss creation succeded, proceeding with node readiness and pod checks...")
-		if err = validateNodeHealth(ctx, t, kube, vmssName); err != nil {
+		if err = validateNodeHealth(ctx, t, kube, *vmssModel.Name); err != nil {
 			t.Fatal(err)
 		}
 		t.Log("node bootstrapping succeeded!")
@@ -141,7 +151,7 @@ func bootstrapVMSS(
 	chosenCluster *armcontainerservice.ManagedCluster,
 	nbc *datamodel.NodeBootstrappingConfiguration,
 	subnetID string,
-	publicKeyBytes []byte) (string, func(), error) {
+	publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
 	nodeBootstrapping := mustGetNodeBootstrapping(ctx, t, nbc)
 
 	vmssName := fmt.Sprintf("abtest%s", randomLowercaseString(r, 4))
@@ -161,7 +171,7 @@ func bootstrapVMSS(
 		t.Logf("finished deleting vmss %q", vmssName)
 	}
 
-	err := createVMSSWithPayload(
+	vmssModel, err := createVMSSWithPayload(
 		ctx,
 		publicKeyBytes,
 		cloud,
@@ -173,10 +183,10 @@ func bootstrapVMSS(
 		nodeBootstrapping.CSE,
 		scenario.VMConfigMutator)
 	if err != nil {
-		return "", nil, err
+		return nil, nil, err
 	}
 
-	return vmssName, cleanupVMSS, nil
+	return vmssModel, cleanupVMSS, nil
 }
 
 func mustGetNodeBootstrapping(ctx context.Context, t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) *datamodel.NodeBootstrapping {

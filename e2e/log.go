@@ -7,8 +7,7 @@ import (
 )
 
 const (
-	clusterParamsDir = "cluster-parameters"
-	vmLogsDir        = "vm-logs"
+	e2eLogsDir = "scenario-logs"
 )
 
 func createDirIfNeeded(dir string) error {
@@ -20,12 +19,12 @@ func createDirIfNeeded(dir string) error {
 	return nil
 }
 
-func createClusterParamsDir() error {
-	return createDirIfNeeded(clusterParamsDir)
+func createE2ELoggingDir() error {
+	return createDirIfNeeded(e2eLogsDir)
 }
 
 func createVMLogsDir(caseName string) (string, error) {
-	logDir := filepath.Join(vmLogsDir, caseName)
+	logDir := filepath.Join(e2eLogsDir, caseName)
 	return logDir, createDirIfNeeded(logDir)
 }
 
