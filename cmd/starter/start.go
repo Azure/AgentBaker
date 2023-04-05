@@ -1,4 +1,4 @@
-//This has been generated using akservice version: v0.0.1
+// This has been generated using akservice version: v0.0.1.
 package starter
 
 import (
@@ -24,7 +24,7 @@ func Execute() {
 	}
 }
 
-// rootCmd represents the base command when called without any subcommands
+// rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:   "agentbaker",
 	Short: "Agent baker is responsible for generating all the data necessary to allow Nodes to join an AKS cluster.",
@@ -34,7 +34,7 @@ var (
 	options = &apiserver.Options{}
 )
 
-// startCmd represents the start command
+// startCmd represents the start command.
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Starts the server that hosts agentbaker",

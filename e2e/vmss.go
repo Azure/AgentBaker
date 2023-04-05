@@ -13,7 +13,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// Returns a newly generated RSA public/private key pair with the private key in PEM format
+// Returns a newly generated RSA public/private key pair with the private key in PEM format.
 func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []byte, e error) {
 	privateKey, err := rsa.GenerateKey(r, 4096)
 	if err != nil {
@@ -48,7 +48,7 @@ func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []b
 	return
 }
 
-func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *azureClient, location, name, subnetID, customData, cseCmd string, mutator func(*armcompute.VirtualMachineScaleSet)) error {
+func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *azureClient, location, name, subnetID, customData, cseCmd string, mutator func(*armcompute.VirtualMachineScaleSet)) (*armcompute.VirtualMachineScaleSet, error) {
 	model := getBaseVMSSModel(name, location, subnetID, string(publicKeyBytes), customData, cseCmd)
 
 	if mutator != nil {
@@ -63,15 +63,15 @@ func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *az
 		nil,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	_, err = pollerResp.PollUntilDone(ctx, nil)
+	vmssResp, err := pollerResp.PollUntilDone(ctx, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &vmssResp.VirtualMachineScaleSet, nil
 }
 
 func getBaseVMSSModel(name, location, subnetID, sshPublicKey, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
@@ -121,7 +121,7 @@ func getBaseVMSSModel(name, location, subnetID, sshPublicKey, customData, cseCmd
 				},
 				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
 					ImageReference: &armcompute.ImageReference{
-						ID: to.Ptr(defaultImageVersionIDs["ubuntu1804"]),
+						ID: to.Ptr(defaultUbuntuImageVersionIDs["1804gen2"]),
 					},
 					OSDisk: &armcompute.VirtualMachineScaleSetOSDisk{
 						CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),

@@ -13,7 +13,8 @@ const (
 )
 
 // SIGAzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
-// TODO(tonyxu) merge this with AzureEnvironmentSpecConfig from aks-engine(pkg/api/azenvtypes.go) once it's moved into AKS RP
+/* TODO(tonyxu) merge this with AzureEnvironmentSpecConfig from aks-engine(pkg/api/azenvtypes.go) once
+it's moved into AKS RP. */
 type SIGAzureEnvironmentSpecConfig struct {
 	CloudName                    string                    `json:"cloudName,omitempty"`
 	SigTenantID                  string                    `json:"sigTenantID,omitempty"`
@@ -22,10 +23,10 @@ type SIGAzureEnvironmentSpecConfig struct {
 	SigCBLMarinerImageConfig     map[Distro]SigImageConfig `json:"sigCBLMarinerImageConfig,omitempty"`
 	SigWindowsImageConfig        map[Distro]SigImageConfig `json:"sigWindowsImageConfig,omitempty"`
 	SigUbuntuEdgeZoneImageConfig map[Distro]SigImageConfig `json:"sigUbuntuEdgeZoneImageConfig,omitempty"`
-	//TODO(adadilli) add PIR constants as well
+	// TODO(adadilli) add PIR constants as well
 }
 
-// SIGConfig is used to hold configuration parameters to access AKS VHDs stored in a SIG
+// SIGConfig is used to hold configuration parameters to access AKS VHDs stored in a SIG.
 type SIGConfig struct {
 	TenantID       string                      `json:"tenantID"`
 	SubscriptionID string                      `json:"subscriptionID"`
@@ -57,7 +58,10 @@ func GetCloudTargetEnv(location string) string {
 	}
 }
 
-// TODO(amaheshwari): these vars are not consumed by Agentbaker but by RP. do a cleanup to remove these after 20.04 work.
+/*
+AvailableUbuntu1804Distros : TODO(amaheshwari): these vars are not consumed by Agentbaker but by RP. do a
+cleanup to remove these after 20.04 work.
+*/
 var AvailableUbuntu1804Distros []Distro = []Distro{
 	AKSUbuntu1804,
 	AKSUbuntu1804Gen2,
@@ -87,6 +91,8 @@ var AvailableUbuntu2204Distros []Distro = []Distro{
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuContainerd2204TLGen2,
+	AKSUbuntuEdgeZoneContainerd2204,
+	AKSUbuntuEdgeZoneContainerd2204Gen2,
 }
 
 var AvailableContainerdDistros []Distro = []Distro{
@@ -116,6 +122,8 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuContainerd2204TLGen2,
+	AKSUbuntuEdgeZoneContainerd2204,
+	AKSUbuntuEdgeZoneContainerd2204Gen2,
 }
 
 var AvailableGPUDistros []Distro = []Distro{
@@ -141,6 +149,7 @@ var AvailableGen2Distros []Distro = []Distro{
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuContainerd2204TLGen2,
+	AKSUbuntuEdgeZoneContainerd2204Gen2,
 }
 
 var AvailableCBLMarinerDistros []Distro = []Distro{
@@ -155,7 +164,7 @@ var AvailableCBLMarinerDistros []Distro = []Distro{
 	AKSCBLMarinerV2KataGen2TL,
 }
 
-// IsContainerdSKU returns true if distro type is containerd-enabled
+// IsContainerdSKU returns true if distro type is containerd-enabled.
 func (d Distro) IsContainerdDistro() bool {
 	for _, distro := range AvailableContainerdDistros {
 		if d == distro {
@@ -207,7 +216,7 @@ func (d Distro) IsWindowsPIRDistro() bool {
 	return false
 }
 
-// SigImageConfigTemplate represents the SIG image configuration template
+// SigImageConfigTemplate represents the SIG image configuration template.
 type SigImageConfigTemplate struct {
 	ResourceGroup string
 	Gallery       string
@@ -215,13 +224,13 @@ type SigImageConfigTemplate struct {
 	Version       string
 }
 
-// SigImageConfig represents the SIG image configuration
+// SigImageConfig represents the SIG image configuration.
 type SigImageConfig struct {
 	SigImageConfigTemplate
 	SubscriptionID string
 }
 
-// WithOptions converts a SigImageConfigTemplate to SigImageConfig instance via function opts
+// WithOptions converts a SigImageConfigTemplate to SigImageConfig instance via function opts.
 func (template SigImageConfigTemplate) WithOptions(options ...SigImageConfigOpt) SigImageConfig {
 	config := &SigImageConfig{
 		SigImageConfigTemplate: template,
@@ -244,7 +253,7 @@ var AvailableWindowsPIRDistros []Distro = []Distro{
 	AKSWindows2019PIR,
 }
 
-// SIG const
+// SIG const.
 const (
 	AKSSIGImagePublisher           string = "microsoft-aks"
 	AKSWindowsGalleryName          string = "AKSWindows"
@@ -258,10 +267,10 @@ const (
 )
 
 const (
-	// DO NOT MODIFY: used for freezing linux images with docker
+	// DO NOT MODIFY: used for freezing linux images with docker.
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
-	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests
+	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
 	Windows2019SIGImageVersion string = "17763.2019.221114"
 	Windows2022SIGImageVersion string = "20348.2022.221114"
 )
@@ -285,7 +294,6 @@ var EdgeZoneSIGImageVersion = getSIGVersionFromEmbeddedString(edgeZoneJSONConten
 var CBLMarinerV2KataGen2TLSIGImageVersion = getSIGVersionFromEmbeddedString(marinerV2KataGen2TLJSONContentsEmbedded)
 
 func getSIGVersionFromEmbeddedString(contents string) string {
-
 	if len(contents) == 0 {
 		panic("SIG version is empty")
 	}
@@ -301,7 +309,7 @@ func getSIGVersionFromEmbeddedString(contents string) string {
 	return sigImageVersion
 }
 
-// SIG config Template
+// SIG config Template.
 var (
 	SIGUbuntu1604ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
@@ -373,7 +381,7 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	// not a typo, this image was generated on 2021.05.20 UTC and assigned this version
+	// not a typo, this image was generated on 2021.05.20 UTC and assigned this version.
 	SIGUbuntuFipsContainerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
@@ -402,7 +410,7 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	// not a typo, this image was generated on 2021.05.20 UTC and assigned this version
+	// not a typo, this image was generated on 2021.05.20 UTC and assigned this version.
 	SIGUbuntuFipsContainerd2004Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
@@ -415,22 +423,6 @@ var (
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2arm64containerd",
 		Version:       LinuxSIGImageVersion,
-	}
-
-	// This image is using a specific resource group and gallery name for edge zone scenario.
-	SIGUbuntuEdgeZoneContainerd1804ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
-		Gallery:       AKSUbuntuEdgeZoneGalleryName,
-		Definition:    "1804containerd",
-		Version:       EdgeZoneSIGImageVersion,
-	}
-
-	// This image is using a specific resource group and gallery name for edge zone scenario.
-	SIGUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
-		Gallery:       AKSUbuntuEdgeZoneGalleryName,
-		Definition:    "1804gen2containerd",
-		Version:       EdgeZoneSIGImageVersion,
 	}
 
 	SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
@@ -609,13 +601,47 @@ func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 }
 
 func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
+	// This image is using a specific resource group and gallery name for edge zone scenario.
+	sigUbuntuEdgeZoneContainerd1804ImageConfigTemplate := SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
+		Gallery:       AKSUbuntuEdgeZoneGalleryName,
+		Definition:    "1804containerd",
+		Version:       EdgeZoneSIGImageVersion,
+	}
+
+	// This image is using a specific resource group and gallery name for edge zone scenario.
+	sigUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate := SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
+		Gallery:       AKSUbuntuEdgeZoneGalleryName,
+		Definition:    "1804gen2containerd",
+		Version:       EdgeZoneSIGImageVersion,
+	}
+
+	// This image is using a specific resource group and gallery name for edge zone scenario.
+	sigUbuntuEdgeZoneContainerd2204ImageConfigTemplate := SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
+		Gallery:       AKSUbuntuEdgeZoneGalleryName,
+		Definition:    "2204containerd",
+		Version:       EdgeZoneSIGImageVersion,
+	}
+
+	// This image is using a specific resource group and gallery name for edge zone scenario.
+	sigUbuntuEdgeZoneContainerd2204Gen2ImageConfigTemplate := SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
+		Gallery:       AKSUbuntuEdgeZoneGalleryName,
+		Definition:    "2204gen2containerd",
+		Version:       EdgeZoneSIGImageVersion,
+	}
+
 	return map[Distro]SigImageConfig{
-		AKSUbuntuEdgeZoneContainerd1804:     SIGUbuntuEdgeZoneContainerd1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuEdgeZoneContainerd1804Gen2: SIGUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuEdgeZoneContainerd1804:     sigUbuntuEdgeZoneContainerd1804ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuEdgeZoneContainerd1804Gen2: sigUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuEdgeZoneContainerd2204:     sigUbuntuEdgeZoneContainerd2204ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuEdgeZoneContainerd2204Gen2: sigUbuntuEdgeZoneContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
-// GetSIGAzureCloudSpecConfig get cloud specific sig config
+// GetSIGAzureCloudSpecConfig get cloud specific sig config.
 func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnvironmentSpecConfig, error) {
 	if sigConfig.Galleries == nil || strings.EqualFold(sigConfig.SubscriptionID, "") || strings.EqualFold(sigConfig.TenantID, "") {
 		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("acsConfig.rpConfig.sigConfig missing expected values - cannot generate sig env config")
@@ -649,7 +675,10 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 	return *c, nil
 }
 
-// GetAzurePublicSIGConfigForTest returns a statically defined sigconfig. This should only be used for unit tests and e2es.
+/*
+GetAzurePublicSIGConfigForTest returns a statically defined sigconfig. This should only be used for
+unit tests and e2es.
+*/
 func GetAzurePublicSIGConfigForTest() SIGAzureEnvironmentSpecConfig {
 	return SIGAzureEnvironmentSpecConfig{
 		CloudName:                    AzurePublicCloud,

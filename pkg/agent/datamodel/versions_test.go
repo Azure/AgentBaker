@@ -161,7 +161,6 @@ func TestIsKubernetesVersionGe(t *testing.T) {
 				} else {
 					t.Errorf("Expected version %s to not be greater or equal than version %s", c.actualVersion, c.version)
 				}
-
 			}
 		})
 	}
