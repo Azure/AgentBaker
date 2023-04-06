@@ -3,7 +3,7 @@ module github.com/Azure/agentbakere2e
 go 1.18
 
 require (
-	github.com/Azure/agentbaker v0.0.0-00010101000000-000000000000
+	github.com/Azure/agentbaker v0.0.0-20230405183031-b28a7520d6ce
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.4.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.2.2
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute v1.0.0
@@ -12,7 +12,6 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.0.0
 	github.com/Azure/go-armbalancer v0.0.2
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
-	github.com/sanity-io/litter v1.5.5
 	golang.org/x/crypto v0.6.0
 	k8s.io/api v0.26.2
 	k8s.io/apimachinery v0.26.2
@@ -70,5 +69,3 @@ require (
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
-
-replace github.com/Azure/agentbaker => ../

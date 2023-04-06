@@ -23,7 +23,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	if suiteConfig.testsToRun != nil {
 		tests := []string{}
 		for testName := range suiteConfig.testsToRun {
@@ -34,10 +33,8 @@ func main() {
 			}
 		}
 		log.Printf("Will run the following Agentbaker E2E tests: %s", strings.Join(tests, ", "))
-		return
 	} else {
 		log.Printf("Running all Agentbaker E2E tests...")
-		return
 	}
 
 	cloud, err := newAzureClient(suiteConfig.subscription)
@@ -122,7 +119,6 @@ func main() {
 
 		vmssName := fmt.Sprintf("abtest%s", randomLowercaseString(r, 4))
 		log.Printf("vmss name: %q", vmssName)
-		return
 
 		cleanupVMSS := func() {
 			log.Printf("deleting vmss: %s", vmssName)
