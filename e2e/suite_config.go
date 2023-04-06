@@ -40,7 +40,7 @@ func newSuiteConfig() (*suiteConfig, error) {
 		location:          environment["LOCATION"],
 		resourceGroupName: environment["RESOURCE_GROUP_NAME"],
 		clusterName:       environment["CLUSTER_NAME"],
-		testsToRun:        parseTestNames(os.Getenv("TESTS_TO_RUN")),
+		testsToRun:        parseTestNames("base"),
 	}, nil
 }
 

@@ -66,6 +66,7 @@ jobs:
             GOCOVERDIR=covdatafiles ./e2e.exe
       - name: Generate coverage report
         run: |
+            ls
             go tool covdata textfmt -i=covdatafiles -o coverage.out
       - name: Convert coverage to lcov
         uses: jandelgado/gcov2lcov-action@v1
