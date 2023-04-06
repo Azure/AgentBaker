@@ -21,7 +21,11 @@ import (
 	"github.com/blang/semver"
 )
 
-// TranslatedKubeletConfigFlags represents kubelet flags that will be translated into config file (if kubelet config file is enabled)
+/*
+	TranslatedKubeletConfigFlags represents kubelet flags that will be translated into config file
+
+(if kubelet config file is enabled).
+*/
 var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
 	"--address":                           true,
 	"--anonymous-auth":                    true,
@@ -155,7 +159,7 @@ func makeWindowsExtensionScriptCommands(extension *datamodel.Extension, extensio
 }
 
 func escapeSingleLine(escapedStr string) string {
-	// template.JSEscapeString leaves undesirable chars that don't work with pretty print
+	// template.JSEscapeString leaves undesirable chars that don't work with pretty print.
 	escapedStr = strings.Replace(escapedStr, "\\", "\\\\", -1)
 	escapedStr = strings.Replace(escapedStr, "\r\n", "\\n", -1)
 	escapedStr = strings.Replace(escapedStr, "\n", "\\n", -1)
@@ -163,18 +167,18 @@ func escapeSingleLine(escapedStr string) string {
 	return escapedStr
 }
 
-// getBase64EncodedGzippedCustomScript will return a base64 of the CSE
+// getBase64EncodedGzippedCustomScript will return a base64 of the CSE.
 func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.NodeBootstrappingConfiguration) string {
 	b, err := templates.Asset(csFilename)
 	if err != nil {
-		// this should never happen and this is a bug
+		// this should never happen and this is a bug.
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
-	// translate the parameters
+	// translate the parameters.
 	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(getContainerServiceFuncMap(config))
 	_, err = templ.Parse(string(b))
 	if err != nil {
-		// this should never happen and this is a bug
+		// this should never happen and this is a bug.
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	var buffer bytes.Buffer
@@ -184,7 +188,7 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
 }
 
-// getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data
+// getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data.
 func getBase64EncodedGzippedCustomScriptFromStr(str string) string {
 	var gzipB bytes.Buffer
 	w := gzip.NewWriter(&gzipB)
@@ -216,7 +220,7 @@ func getSSHPublicKeysPowerShell(linuxProfile *datamodel.LinuxProfile) string {
 	return str
 }
 
-// IsSgxEnabledSKU determines if an VM SKU has SGX driver support
+// IsSgxEnabledSKU determines if an VM SKU has SGX driver support.
 func IsSgxEnabledSKU(vmSize string) bool {
 	switch vmSize {
 	case "Standard_DC2s", "Standard_DC4s":
@@ -225,9 +229,9 @@ func IsSgxEnabledSKU(vmSize string) bool {
 	return false
 }
 
-// GetCloudTargetEnv determines and returns whether the region is a sovereign cloud which
-// have their own data compliance regulations (China/Germany/USGov) or standard
-// Azure public cloud
+/* GetCloudTargetEnv determines and returns whether the region is a sovereign cloud which
+have their own data compliance regulations (China/Germany/USGov) or standard.  */
+// Azure public cloud.
 func GetCloudTargetEnv(location string) string {
 	loc := strings.ToLower(strings.Join(strings.Fields(location), ""))
 	switch {
@@ -242,7 +246,7 @@ func GetCloudTargetEnv(location string) string {
 	}
 }
 
-// IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version
+// IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.
 func IsKubernetesVersionGe(actualVersion, version string) bool {
 	v1, _ := semver.Make(actualVersion)
 	v2, _ := semver.Make(version)
@@ -258,12 +262,12 @@ func getCustomDataFromJSON(jsonStr string) string {
 	return customDataObj["customData"]
 }
 
-// GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs
-// copied from AKS-Engine and filter out flags that already translated to config file
+// GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs.
+// copied from AKS-Engine and filter out flags that already translated to config file.
 func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, kubeletConfigFileToggleEnabled bool) string {
-	// NOTE(mainred): kubeConfigFile now relies on CustomKubeletConfig, while custom configuration is not compatible
-	// with CustomKubeletConfig. When custom configuration is set we want to override every configuration with the
-	// customized one.
+	/* NOTE(mainred): kubeConfigFile now relies on CustomKubeletConfig, while custom configuration is not
+	compatible with CustomKubeletConfig. When custom configuration is set we want to override every
+	configuration with the customized one. */
 	kubeletCustomConfigurations := getKubeletCustomConfiguration(cs.Properties)
 	if kubeletCustomConfigurations != nil {
 		return getOrderedKubeletConfigFlagWithCustomConfigurationString(kubeletCustomConfigurations, k)
@@ -294,7 +298,7 @@ func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defa
 	config := customConfig
 
 	for k, v := range defaultConfig {
-		// add key-value only when the flag does not exist in custom config
+		// add key-value only when the flag does not exist in custom config.
 		if _, ok := config[k]; !ok {
 			config[k] = v
 		}
@@ -325,30 +329,29 @@ func getKubeletCustomConfiguration(properties *datamodel.Properties) map[string]
 	if kubeletConfigurations.Config == nil {
 		return nil
 	}
-	// empty config is treated as nil
+	// empty config is treated as nil.
 	if len(kubeletConfigurations.Config) == 0 {
 		return nil
 	}
 	return kubeletConfigurations.Config
 }
 
-// IsKubeletConfigFileEnabled get if dynamic kubelet is supported in AKS and toggle is on
+// IsKubeletConfigFileEnabled get if dynamic kubelet is supported in AKS and toggle is on.
 func IsKubeletConfigFileEnabled(cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, kubeletConfigFileToggleEnabled bool) bool {
-	// TODO(bowa) remove toggle when backfill
-	// If customKubeletConfig or customLinuxOSConfig is used (API20201101 and later), use kubelet config file
+	// TODO(bowa) remove toggle when backfill.
+	// If customKubeletConfig or customLinuxOSConfig is used (API20201101 and later), use kubelet config file.
 	return profile.CustomKubeletConfig != nil || profile.CustomLinuxOSConfig != nil ||
 		(kubeletConfigFileToggleEnabled && cs.Properties.OrchestratorProfile.IsKubernetes() &&
 			IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0"))
 }
 
-// IsKubeletClientTLSBootstrappingEnabled get if kubelet client TLS bootstrapping is enabled
+// IsKubeletClientTLSBootstrappingEnabled get if kubelet client TLS bootstrapping is enabled.
 func IsKubeletClientTLSBootstrappingEnabled(tlsBootstrapToken *string) bool {
 	return tlsBootstrapToken != nil
 }
 
 // GetTLSBootstrapTokenForKubeConfig returns the TLS bootstrap token for kubeconfig usage.
 // It returns empty string if TLS bootstrap token is not enabled.
-//
 // ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping/#kubelet-configuration
 func GetTLSBootstrapTokenForKubeConfig(tlsBootstrapToken *string) string {
 	if tlsBootstrapToken == nil {
@@ -359,12 +362,12 @@ func GetTLSBootstrapTokenForKubeConfig(tlsBootstrapToken *string) string {
 	return *tlsBootstrapToken
 }
 
-// GetKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content
+// GetKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content.
 func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.CustomKubeletConfig) string {
 	if kc == nil {
 		return ""
 	}
-	// translate simple values
+	// translate simple values.
 	kubeletConfig := &datamodel.AKSKubeletConfiguration{
 		APIVersion:    "kubelet.config.k8s.io/v1beta1",
 		Kind:          "KubeletConfiguration",
@@ -395,7 +398,7 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 		ContainerLogMaxSize:            kc["--container-log-max-size"],
 	}
 
-	// Authentication
+	// Authentication.
 	kubeletConfig.Authentication = datamodel.KubeletAuthentication{}
 	if ca := kc["--client-ca-file"]; ca != "" {
 		kubeletConfig.Authentication.X509 = datamodel.KubeletX509Authentication{
@@ -413,22 +416,22 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 		}
 	}
 
-	// EvictionHard
-	// default: "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%"
+	// EvictionHard.
+	// default: "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%".
 	if eh, ok := kc["--eviction-hard"]; ok && eh != "" {
 		kubeletConfig.EvictionHard = strKeyValToMap(eh, ",", "<")
 	}
 
-	// feature gates
-	// look like "f1=true,f2=true"
+	// feature gates.
+	// look like "f1=true,f2=true".
 	kubeletConfig.FeatureGates = strKeyValToMapBool(kc["--feature-gates"], ",", "=")
 
-	// system reserve and kube reserve
-	// looks like "cpu=100m,memory=1638Mi"
+	// system reserve and kube reserve.
+	// looks like "cpu=100m,memory=1638Mi".
 	kubeletConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], ",", "=")
 	kubeletConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], ",", "=")
 
-	// Settings from customKubeletConfig, only take if it's set
+	// Settings from customKubeletConfig, only take if it's set.
 	if customKc != nil {
 		if customKc.CPUManagerPolicy != "" {
 			kubeletConfig.CPUManagerPolicy = customKc.CPUManagerPolicy
@@ -438,12 +441,12 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 		}
 		if customKc.CPUCfsQuotaPeriod != "" {
 			kubeletConfig.CPUCFSQuotaPeriod = datamodel.Duration(customKc.CPUCfsQuotaPeriod)
-			// enable CustomCPUCFSQuotaPeriod feature gate is required for this configuration
+			// enable CustomCPUCFSQuotaPeriod feature gate is required for this configuration.
 			kubeletConfig.FeatureGates["CustomCPUCFSQuotaPeriod"] = true
 		}
 		if customKc.TopologyManagerPolicy != "" {
 			kubeletConfig.TopologyManagerPolicy = customKc.TopologyManagerPolicy
-			// enable TopologyManager feature gate is required for this configuration
+			// enable TopologyManager feature gate is required for this configuration.
 			kubeletConfig.FeatureGates["TopologyManager"] = true
 		}
 		if customKc.ImageGcHighThreshold != nil {

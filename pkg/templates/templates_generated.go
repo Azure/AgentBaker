@@ -1808,7 +1808,7 @@ retrycmd_get_tarball() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            timeout 60 curl -fsSL $url -o $tarball
+            timeout 60 curl -fsSLv $url -o $tarball
             sleep $wait_sleep
         fi
     done
@@ -1821,7 +1821,7 @@ retrycmd_curl_file() {
         if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout $timeout curl -fsSL $url -o $filepath
+            timeout $timeout curl -fsSLv $url -o $filepath
             sleep $wait_sleep
         fi
     done
@@ -6268,29 +6268,6 @@ write_files:
       name: localclustercontext
     current-context: localclustercontext
 {{- end}}
-
-- path: /etc/systemd/system/containerd.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=containerd daemon
-    After=network.target
-    [Service]
-    ExecStartPre=/sbin/modprobe overlay
-    ExecStart=/usr/bin/containerd
-    Delegate=yes
-    KillMode=process
-    Restart=always
-    OOMScoreAdjust=-999
-    # Having non-zero Limit*s causes performance problems due to accounting overhead
-    # in the kernel. We recommend using cgroups to do container-local accounting.
-    LimitNPROC=infinity
-    LimitCORE=infinity
-    LimitNOFILE=infinity
-    TasksMax=infinity
-    [Install]
-    WantedBy=multi-user.target
 
 - path: /opt/azure/containers/kubelet.sh
   permissions: "0755"

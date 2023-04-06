@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	mrand "math/rand"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,12 +26,26 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if suiteConfig.testsToRun != nil {
+		tests := []string{}
+		for testName := range suiteConfig.testsToRun {
+			if _, ok := cases[testName]; !ok {
+				t.Fatalf("unrecognized E2E test case: %q", testName)
+			} else {
+				tests = append(tests, testName)
+			}
+		}
+		t.Logf("Will run the following Agentbaker E2E tests: %s", strings.Join(tests, ", "))
+	} else {
+		t.Logf("Running all Agentbaker E2E tests...")
+	}
+
 	cloud, err := newAzureClient(suiteConfig.subscription)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := setupCluster(ctx, cloud, suiteConfig.location, suiteConfig.resourceGroupName, suiteConfig.clusterName); err != nil {
+	if err := setupCluster(ctx, t, cloud, suiteConfig.location, suiteConfig.resourceGroupName, suiteConfig.clusterName); err != nil {
 		t.Fatal(err)
 	}
 
@@ -61,13 +77,8 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := createClusterParamsDir(); err != nil {
+	if err := createE2ELoggingDir(); err != nil {
 		t.Fatal(err)
-	}
-
-	t.Logf("dumping cluster parameters to local directory: %s", clusterParamsDir)
-	if err := dumpFileMapToDir(clusterParamsDir, clusterParams); err != nil {
-		t.Error("error dumping cluster parameters", err)
 	}
 
 	baseConfig, err := getBaseBootstrappingConfig(ctx, t, cloud, suiteConfig, clusterParams)
@@ -76,6 +87,10 @@ func Test_All(t *testing.T) {
 	}
 
 	for name, tc := range cases {
+		if suiteConfig.testsToRun != nil && !suiteConfig.testsToRun[name] {
+			continue
+		}
+
 		tc := tc
 		caseName := name
 		copied, err := deepcopy.Anything(baseConfig)
@@ -97,9 +112,16 @@ func Test_All(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			baker := agent.InitializeTemplateGenerator()
-			base64EncodedCustomData := baker.GetNodeBootstrappingPayload(nbc)
-			cseCmd := baker.GetNodeBootstrappingCmd(nbc)
+			ab, err := agent.NewAgentBaker()
+			if err != nil {
+				t.Fatal(err)
+			}
+			nodeBootstrapping, err := ab.GetNodeBootstrapping(context.Background(), nbc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			base64EncodedCustomData := nodeBootstrapping.CustomData
+			cseCmd := nodeBootstrapping.CSE
 
 			vmssName := fmt.Sprintf("abtest%s", randomLowercaseString(r, 4))
 			t.Logf("vmss name: %q", vmssName)
@@ -126,7 +148,7 @@ func Test_All(t *testing.T) {
 				return
 			}
 
-			err = createVMSSWithPayload(ctx, publicKeyBytes, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, tc.vmConfigMutator)
+			vmssModel, err := createVMSSWithPayload(ctx, publicKeyBytes, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, tc.vmConfigMutator)
 			isCSEError := isVMExtensionProvisioningError(err)
 			vmssSucceeded := true
 			if err != nil {
@@ -136,6 +158,10 @@ func Test_All(t *testing.T) {
 				} else {
 					t.Fatal("Encountered an unknown error while creating VM", err)
 				}
+			}
+
+			if err := writeToFile(filepath.Join(caseLogsDir, "vmssId.txt"), *vmssModel.ID); err != nil {
+				t.Fatal("failed to write vmss resource ID to disk", err)
 			}
 
 			// Perform posthoc log extraction when the VMSS creation succeeded, or failed due to a CSE error
@@ -167,7 +193,7 @@ func Test_All(t *testing.T) {
 
 			// Only perform node readiness/pod-related checks when VMSS creation succeeded
 			if vmssSucceeded {
-				t.Log("VMSS creation succeded, proceeding with node readiness and pod checks...")
+				t.Log("vmss creation succeded, proceeding with node readiness and pod checks...")
 
 				nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
 				if err != nil {
@@ -183,6 +209,8 @@ func Test_All(t *testing.T) {
 				if err != nil {
 					t.Fatal("error waiting for pod deleted", err)
 				}
+
+				t.Log("node bootstrapping succeeded!")
 			}
 		})
 	}

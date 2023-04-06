@@ -20,14 +20,15 @@ import (
 // TemplateGenerator represents the object that performs the template generation.
 type TemplateGenerator struct{}
 
-// InitializeTemplateGenerator creates a new template generator object
+// InitializeTemplateGenerator creates a new template generator object.
 func InitializeTemplateGenerator() *TemplateGenerator {
 	t := &TemplateGenerator{}
 	return t
 }
 
-// GetNodeBootstrappingPayload get node bootstrapping data
-func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
+// GetNodeBootstrappingPayload get node bootstrapping data.
+// This function only can be called after the validation of the input NodeBootstrappingConfiguration.
+func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	var customData string
 	if config.AgentPoolProfile.IsWindows() {
 		customData = getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(config))
@@ -37,11 +38,9 @@ func (t *TemplateGenerator) GetNodeBootstrappingPayload(config *datamodel.NodeBo
 	return base64.StdEncoding.EncodeToString([]byte(customData))
 }
 
-// GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form
-// { "customData": "<customData string>" }
+// GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
+// { "customData": "<customData string>" }.
 func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
-	// validate and fix input
-	validateAndSetLinuxNodeBootstrappingConfiguration(config)
 	// get parameters
 	parameters := getParameters(config, "baker", "1.0")
 	// get variable cloudInit
@@ -56,12 +55,9 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }
 
-// GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form
-// { "customData": "<customData string>" }
+// GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form.
+// { "customData": "<customData string>" }.
 func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
-	// validate and fix input
-	validateAndSetWindowsNodeBootstrappingConfiguration(config)
-
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	// get parameters
@@ -85,18 +81,17 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }
 
-// GetNodeBootstrappingCmd get node bootstrapping cmd
-func (t *TemplateGenerator) GetNodeBootstrappingCmd(config *datamodel.NodeBootstrappingConfiguration) string {
+// GetNodeBootstrappingCmd get node bootstrapping cmd.
+// This function only can be called after the validation of the input NodeBootstrappingConfiguration.
+func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
 		return t.getWindowsNodeCSECommand(config)
 	}
 	return t.getLinuxNodeCSECommand(config)
 }
 
-// getLinuxNodeCSECommand returns Linux node custom script extension execution command
+// getLinuxNodeCSECommand returns Linux node custom script extension execution command.
 func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
-	// validate and fix input
-	validateAndSetLinuxNodeBootstrappingConfiguration(config)
 	// get parameters
 	parameters := getParameters(config, "", "")
 	// get variable
@@ -116,10 +111,8 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 	return strings.Replace(str, "\n", " ", -1)
 }
 
-// getWindowsNodeCSECommand returns Windows node custom script extension execution command
+// getWindowsNodeCSECommand returns Windows node custom script extension execution command.
 func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
-	// TODO(ace): linux cleans the input here for CSE now.
-	// should we do the same for windows?
 	// get parameters
 	parameters := getParameters(config, "", "")
 	// get variable
@@ -135,7 +128,8 @@ func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBoots
 	if e != nil {
 		panic(e)
 	}
-	// NOTE(qinahao): windows cse cmd uses esapced \" to quote Powershell command in [csecmd.p1](https://github.com/Azure/AgentBaker/blob/master/parts/windows/csecmd.ps1)
+	/* NOTE(qinahao): windows cse cmd uses esapced \" to quote Powershell command in
+	[csecmd.p1](https://github.com/Azure/AgentBaker/blob/master/parts/windows/csecmd.ps1). */
 	// to not break go template parsing. We switch \" back to " otherwise Azure ARM template will escape \ to be \\\"
 	str = strings.Replace(str, `\"`, `"`, -1)
 
@@ -144,7 +138,7 @@ func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBoots
 	return strings.Replace(str, "\n", " ", -1)
 }
 
-// getSingleLineForTemplate returns the file as a single line for embedding in an arm template
+// getSingleLineForTemplate returns the file as a single line for embedding in an arm template.
 func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, profile interface{},
 	funcMap template.FuncMap,
 ) (string, error) {
@@ -158,7 +152,7 @@ func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, profil
 	return textStr, nil
 }
 
-// getSingleLine returns the file as a single line
+// getSingleLine returns the file as a single line.
 func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface{},
 	funcMap template.FuncMap,
 ) (string, error) {
@@ -182,7 +176,7 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 	return expandedTemplate, nil
 }
 
-// getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap
+// getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
 
@@ -231,21 +225,24 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 	return funcMap
 }
 
-// normalizeResourceGroupNameForLabel normalizes resource group name to be used as a label,
-// similar to what the ARM template used to do.
-//
-// When ARM template was used, the following is used:
-//
-//	variables('labelResourceGroup')
-//
-// which is defined as:
-//
-//	[if(or(or(endsWith(variables('truncatedResourceGroup'), '-'), endsWith(variables('truncatedResourceGroup'), '_')), endsWith(variables('truncatedResourceGroup'), '.')), concat(take(variables('truncatedResourceGroup'), 62), 'z'), variables('truncatedResourceGroup'))]
-//
-// the "truncatedResourceGroup" is defined as:
-//
-//	[take(replace(replace(resourceGroup().name, '(', '-'), ')', '-'), 63)]
-//
+/* normalizeResourceGroupNameForLabel normalizes resource group name to be used as a label,
+similar to what the ARM template used to do.
+
+When ARM template was used, the following is used:
+
+variables('labelResourceGroup')
+
+which is defined as:
+
+[if(or(or(endsWith(variables('truncatedResourceGroup'), '-'),
+endsWith(variables('truncatedResourceGroup'), '_')),
+endsWith(variables('truncatedResourceGroup'), '.')),
+concat(take(variables('truncatedResourceGroup'), 62), 'z'), variables('truncatedResourceGroup'))]
+
+the "truncatedResourceGroup" is defined as:
+
+[take(replace(replace(resourceGroup().name, '(', '-'), ')', '-'), 63)]*/
+
 // This function does the same processing.
 func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 	truncated := resourceGroupName
@@ -259,7 +256,6 @@ func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 	if strings.HasSuffix(truncated, "-") ||
 		strings.HasSuffix(truncated, "_") ||
 		strings.HasSuffix(truncated, ".") {
-
 		if len(truncated) > 62 {
 			return truncated[0:len(truncated)-1] + "z"
 		} else {
@@ -288,9 +284,13 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
 		}
 
-		// ContainerInsights depends on GPU accelerator Usage metrics from Kubelet cAdvisor endpoint but deprecation of this feature moved to beta which breaks the ContainerInsights customers with K8s version 1.20 or higher
-		// Until Container Insights move to new API adding this feature gate to get the GPU metrics continue to work
-		// Reference - https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1867-disable-accelerator-usage-metrics
+		/* ContainerInsights depends on GPU accelerator Usage metrics from Kubelet cAdvisor endpoint but
+		deprecation of this feature moved to beta which breaks the ContainerInsights customers with K8s
+		 version 1.20 or higher */
+		/* Until Container Insights move to new API adding this feature gate to get the GPU metrics
+		continue to work */
+		/* Reference -
+		https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1867-disable-accelerator-usage-metrics */
 		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.20.0") &&
 			!IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
@@ -319,9 +319,9 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 	}
 }
 
-// getContainerServiceFuncMap returns all functions used in template generation
-// These funcs are a thin wrapper for template generation operations,
-// all business logic is implemented in the underlying func
+// getContainerServiceFuncMap returns all functions used in template generation.
+/* These funcs are a thin wrapper for template generation operations,
+all business logic is implemented in the underlying func. */
 func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration) template.FuncMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
@@ -887,10 +887,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 	}
 }
 
-// NV series GPUs target graphics workloads vs NC which targets compute
+// NV series GPUs target graphics workloads vs NC which targets compute.
 // they typically use GRID, not CUDA drivers, and will fail to install CUDA drivers.
 // NVv1 seems to run with CUDA, NVv5 requires GRID.
-// NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?)
+// NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?).
 func getGPUDriverVersion(size string) string {
 	if useGridDrivers(size) {
 		return datamodel.Nvidia510GridDriverVersion

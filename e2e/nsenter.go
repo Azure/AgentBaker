@@ -66,6 +66,7 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, ku
 
 	commandList := map[string]string{
 		"/var/log/azure/cluster-provision.log": "cat /var/log/azure/cluster-provision.log",
+		"kubelet.log":                          "journalctl -u kubelet",
 	}
 
 	podName, err := getDebugPodName(kube)
@@ -122,7 +123,7 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 	return result, nil
 }
 
-// Returns the name of a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node
+// Returns the name of a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node.
 func getDebugPodName(kube *kubeclient) (string, error) {
 	podList := corev1.PodList{}
 	if err := kube.dynamic.List(context.Background(), &podList, client.MatchingLabels{"app": "debug"}); err != nil {

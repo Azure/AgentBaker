@@ -6,9 +6,9 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
-// this is huge, but accurate, so leave it here
+// this is huge, but accurate, so leave it here.
 // TODO(ace): minimize the actual required defaults.
-// this is what we previously used for bash e2e from e2e/nodebootstrapping_template.json
+// this is what we previously used for bash e2e from e2e/nodebootstrapping_template.json.
 // which itself was extracted from baker_test.go logic, which was inherited from aks-engine.
 func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 	var (
@@ -254,7 +254,7 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 			OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig(nil),
 		},
 		K8sComponents: &datamodel.K8sComponents{
-			PodInfraContainerImageURL: "mcr.microsoft.com/oss/kubernetes/pause:3.5",
+			PodInfraContainerImageURL: "mcr.microsoft.com/oss/kubernetes/pause:3.6",
 			HyperkubeImageURL:         "mcr.microsoft.com/oss/kubernetes/",
 			WindowsPackageURL:         "windowspackage",
 		},
@@ -395,7 +395,7 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 			"--max-pods":                          "110",
 			"--network-plugin":                    "kubenet",
 			"--node-status-update-frequency":      "10s",
-			"--pod-infra-container-image":         "mcr.microsoft.com/oss/kubernetes/pause:3.5",
+			"--pod-infra-container-image":         "mcr.microsoft.com/oss/kubernetes/pause:3.6",
 			"--pod-manifest-path":                 "/etc/kubernetes/manifests",
 			"--pod-max-pids":                      "-1",
 			"--protect-kernel-defaults":           "true",
@@ -412,9 +412,26 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 		GPUInstanceProfile:  "",
 		PrimaryScaleSetName: "",
 		SIGConfig: datamodel.SIGConfig{
-			TenantID:       "",
-			SubscriptionID: "",
-			Galleries:      map[string]datamodel.SIGGalleryConfig(nil),
+			TenantID:       "tenantID",
+			SubscriptionID: "subID",
+			Galleries: map[string]datamodel.SIGGalleryConfig{
+				"AKSUbuntu": {
+					GalleryName:   "aksubuntu",
+					ResourceGroup: "resourcegroup",
+				},
+				"AKSCBLMariner": {
+					GalleryName:   "akscblmariner",
+					ResourceGroup: "resourcegroup",
+				},
+				"AKSWindows": {
+					GalleryName:   "AKSWindows",
+					ResourceGroup: "AKS-Windows",
+				},
+				"AKSUbuntuEdgeZone": {
+					GalleryName:   "AKSUbuntuEdgeZone",
+					ResourceGroup: "AKS-Ubuntu-EdgeZone",
+				},
+			},
 		},
 		IsARM64:                   false,
 		CustomCATrustConfig:       nil,
@@ -442,6 +459,8 @@ spec:
         app: *name
     spec:
       hostNetwork: true
+      nodeSelector:
+        kubernetes.azure.com/agentpool: nodepool1
       hostPID: true
       containers:
       - image: mcr.microsoft.com/mirror/docker/library/ubuntu:18.04
