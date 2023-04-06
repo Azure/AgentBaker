@@ -6,9 +6,9 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
-// this is huge, but accurate, so leave it here
+// this is huge, but accurate, so leave it here.
 // TODO(ace): minimize the actual required defaults.
-// this is what we previously used for bash e2e from e2e/nodebootstrapping_template.json
+// this is what we previously used for bash e2e from e2e/nodebootstrapping_template.json.
 // which itself was extracted from baker_test.go logic, which was inherited from aks-engine.
 func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 	var (
@@ -459,6 +459,8 @@ spec:
         app: *name
     spec:
       hostNetwork: true
+      nodeSelector:
+        kubernetes.azure.com/agentpool: nodepool1
       hostPID: true
       containers:
       - image: mcr.microsoft.com/mirror/docker/library/ubuntu:18.04

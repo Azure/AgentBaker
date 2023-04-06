@@ -8,9 +8,7 @@ log "Starting e2e tests"
 
 # Create a resource group for the cluster
 log "Creating resource group"
-if [[ "$RESOURCE_GROUP_NAME" == *"windows"*  ]]; then
-    RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"-"$WINDOWS_E2E_IMAGE"-v2
-fi
+RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"-"$WINDOWS_E2E_IMAGE"-v2
 
 rgStartTime=$(date +%s)
 az group create -l $LOCATION -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID -ojson
@@ -54,11 +52,8 @@ if [ "$create_cluster" == "true" ]; then
     log "Creating cluster $CLUSTER_NAME"
     clusterCreateStartTime=$(date +%s)
     retval=0
-    if [[ "$RESOURCE_GROUP_NAME" == *"windows"* ]]; then
-        az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure -ojson || retval=$?
-    else
-        az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin kubenet -ojson || retval=$?
-    fi
+    
+    az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure -ojson || retval=$?
 
     if [ "$retval" -ne 0  ]; then
         log "Other pipelines may be creating cluster $CLUSTER_NAME, waiting for ready"
@@ -88,30 +83,11 @@ az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" 
 MC_VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
 CLUSTER_ID=$(echo $MC_VMSS_NAME | cut -d '-' -f3)
 
-if [[ "$RESOURCE_GROUP_NAME" == *"windows"*  ]]; then
-    if [ "$create_cluster" == "true" ]; then
-        create_storage_account
-        upload_linux_file_to_storage_account
-    fi
-    download_linux_file_from_storage_account
-else
-    # privileged ds with nsenter for host file exfiltration
-    kubectl apply -f deploy.yaml
-    kubectl rollout status deploy/debug
-
-    # Retrieve the etc/kubernetes/azure.json file for cluster related info
-    log "Retrieving cluster info"
-    clusterInfoStartTime=$(date +%s)
-
-    exec_on_host "cat /etc/kubernetes/azure.json" fields.json
-    exec_on_host "cat /etc/kubernetes/certs/apiserver.crt | base64 -w 0" apiserver.crt
-    exec_on_host "cat /etc/kubernetes/certs/ca.crt | base64 -w 0" ca.crt
-    exec_on_host "cat /etc/kubernetes/certs/client.key | base64 -w 0" client.key
-    exec_on_host "cat /var/lib/kubelet/bootstrap-kubeconfig" bootstrap-kubeconfig
-
-    clusterInfoEndTime=$(date +%s)
-    log "Retrieved cluster info in $((clusterInfoEndTime-clusterInfoStartTime)) seconds"
+if [ "$create_cluster" == "true" ]; then
+    create_storage_account
+    upload_linux_file_to_storage_account
 fi
+download_linux_file_from_storage_account
 
 set +x
 addJsonToFile "apiserverCrt" "$(cat apiserver.crt)"
