@@ -12,6 +12,13 @@
 # AKS Windows CSE Scripts Package
 All files except *.test.ps1 and README will be published in AKS Windows CSE Scripts Package.
 
+## v0.0.23
+- fix: Remove all download steps in Windows debug scripts #2738
+- fix: Validate whether the PID of HNS service is valid #2781
+- fix: Add hosts config agent logs in lockedFiles #2846
+- chore: add more Container Platform logs to collect-windows-logs.ps1 and loggenerator.ps1 #2755
+- feat: use cluster subnets for dual-stack #2867
+
 ## v0.0.22
 - fix: Remove vfpOutput.txt before generating new logs #2566
 
