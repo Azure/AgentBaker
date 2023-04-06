@@ -59,12 +59,12 @@ jobs:
           subscription-id: ${{ secrets.GO_E2E_SUBSCRIPTION_ID }}
       - name: Run e2e tests
         run: | 
-        cd e2e
-        mkdir -p covdatafiles
-        go list -f '{{if not .Standard}}{{.ImportPath}}{{end}}' -deps .  | grep agent | tr '\n' ',' | sed 's/,$//' > packages.txt
-        go test -coverpkg=`cat packages.txt` -c -o e2e.exe -timeout 30m -covermode count
-        GOCOVERDIR=covdatafiles ./e2e.exe
-        go tool covdata textfmt -i=covdatafiles -o e2e.cov
+            cd e2e
+            mkdir -p covdatafiles
+            go list -f '{{if not .Standard}}{{.ImportPath}}{{end}}' -deps .  | grep agent | tr '\n' ',' | sed 's/,$//' > packages.txt
+            go test -coverpkg=`cat packages.txt` -c -o e2e.exe -timeout 30m -covermode count
+            GOCOVERDIR=covdatafiles ./e2e.exe
+            go tool covdata textfmt -i=covdatafiles -o e2e.cov
       - name: Generate coverage report
         run: |
             mkdir -p covdatafiles
