@@ -1,11 +1,10 @@
-package e2e_test
+package main
 
 import (
 	"context"
 	"fmt"
 	"os"
 	"strings"
-	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
@@ -46,9 +45,9 @@ func newSuiteConfig() (*suiteConfig, error) {
 
 type scenarioConfig struct {
 	// bootstrapConfig          *datamodel.NodeBootstrappingConfiguration
-	bootstrapConfigMutator func(*testing.T, *datamodel.NodeBootstrappingConfiguration)
+	bootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
 	vmConfigMutator        func(*armcompute.VirtualMachineScaleSet)
-	validator              func(context.Context, *testing.T, *scenarioValidationInput) error
+	validator              func(context.Context, *scenarioValidationInput) error
 }
 
 type scenarioValidationInput struct {

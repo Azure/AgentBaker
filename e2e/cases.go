@@ -1,8 +1,6 @@
-package e2e_test
+package main
 
 import (
-	"testing"
-
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
@@ -26,7 +24,7 @@ var defaultMarinerImageVersionIDs = map[string]string{
 var cases = map[string]scenarioConfig{
 	"base": {},
 	"ubuntu2204": {
-		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
+		bootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 			nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 		},
@@ -37,7 +35,7 @@ var cases = map[string]scenarioConfig{
 		},
 	},
 	"marinerv1": {
-		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
+		bootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v1"
 			nbc.AgentPoolProfile.Distro = "aks-cblmariner-v1"
 		},
@@ -48,7 +46,7 @@ var cases = map[string]scenarioConfig{
 		},
 	},
 	"marinerv2": {
-		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
+		bootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 			nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 		},
@@ -59,7 +57,7 @@ var cases = map[string]scenarioConfig{
 		},
 	},
 	"ubuntu2204-arm64": {
-		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
+		bootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 			// This needs to be set based on current CSE implementation...
@@ -77,7 +75,7 @@ var cases = map[string]scenarioConfig{
 		},
 	},
 	"marinerv2-arm64": {
-		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
+		bootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-arm64-gen2"
 			nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
@@ -93,7 +91,7 @@ var cases = map[string]scenarioConfig{
 		},
 	},
 	"marinerv2-kata": {
-		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
+		bootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D4ads_v5"
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2-kata"
 			nbc.AgentPoolProfile.VMSize = "Standard_D4ads_v5"
@@ -107,7 +105,7 @@ var cases = map[string]scenarioConfig{
 		},
 	},
 	"ubuntu2004-fips": {
-		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
+		bootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_DS2_v2"
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
 			nbc.AgentPoolProfile.VMSize = "Standard_DS2_v2"
@@ -122,7 +120,7 @@ var cases = map[string]scenarioConfig{
 		},
 	},
 	"gpu": {
-		bootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
+		bootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
 			nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-18.04-gen2"
 			nbc.AgentPoolProfile.VMSize = "Standard_NC6"

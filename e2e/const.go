@@ -1,4 +1,4 @@
-package e2e_test
+package main
 
 const (
 	agentbakerTestClusterMCResourceGroupName = "MC_agentbaker-e2e-tests_agentbaker-e2e-test-cluster_eastus"

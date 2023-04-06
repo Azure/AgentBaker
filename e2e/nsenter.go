@@ -1,4 +1,4 @@
-package e2e_test
+package main
 
 import (
 	"bytes"
@@ -6,9 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"strconv"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -29,7 +29,7 @@ const (
 	listVMSSNetworkInterfaceURLTemplate = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
 )
 
-func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, kube *kubeclient, subscription, vmssName, sshPrivateKey string) (map[string]string, error) {
+func extractLogsFromVM(ctx context.Context, cloud *azureClient, kube *kubeclient, subscription, vmssName, sshPrivateKey string) (map[string]string, error) {
 	pl := cloud.coreClient.Pipeline()
 	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
 		subscription,
@@ -79,10 +79,10 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, ku
 		mergedCmd := fmt.Sprintf("%s %s", sshCommand, sourceCmd)
 		cmd := append(nsenterCommandArray(), mergedCmd)
 
-		t.Logf("executing command on pod %s/%s: %q", defaultNamespace, podName, strings.Join(cmd, " "))
+		log.Printf("executing command on pod %s/%s: %q\n", defaultNamespace, podName, strings.Join(cmd, " "))
 
 		stdout, stderr, err := execOnPod(ctx, kube, defaultNamespace, podName, cmd)
-		checkStdErr(stderr, t)
+		checkStdErr(stderr)
 		if err != nil {
 			return nil, err
 		}
@@ -93,7 +93,7 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, ku
 	return result, nil
 }
 
-func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclient) (map[string]string, error) {
+func extractClusterParameters(ctx context.Context, kube *kubeclient) (map[string]string, error) {
 	commandList := map[string]string{
 		"/etc/kubernetes/azure.json":            "cat /etc/kubernetes/azure.json",
 		"/etc/kubernetes/certs/ca.crt":          "cat /etc/kubernetes/certs/ca.crt",
@@ -109,10 +109,10 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 	for file, sourceCmd := range commandList {
 		cmd := append(nsenterCommandArray(), sourceCmd)
 
-		t.Logf("executing command on pod %s/%s: %q", defaultNamespace, podName, strings.Join(cmd, " "))
+		log.Printf("executing command on pod %s/%s: %q\n", defaultNamespace, podName, strings.Join(cmd, " "))
 
 		stdout, stderr, err := execOnPod(ctx, kube, defaultNamespace, podName, cmd)
-		checkStdErr(stderr, t)
+		checkStdErr(stderr)
 		if err != nil {
 			return nil, err
 		}
@@ -209,7 +209,7 @@ func waitUntilPodDeleted(ctx context.Context, kube *kubeclient, podName string) 
 	})
 }
 
-func getBaseBootstrappingConfig(ctx context.Context, t *testing.T, cloud *azureClient, suiteConfig *suiteConfig, clusterParams map[string]string) (*datamodel.NodeBootstrappingConfiguration, error) {
+func getBaseBootstrappingConfig(ctx context.Context, cloud *azureClient, suiteConfig *suiteConfig, clusterParams map[string]string) (*datamodel.NodeBootstrappingConfiguration, error) {
 	nbc := baseTemplate()
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = clusterParams["/etc/kubernetes/certs/ca.crt"]
 
@@ -274,10 +274,10 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 	return &stdout, &stderr, nil
 }
 
-func checkStdErr(stderr *bytes.Buffer, t *testing.T) {
+func checkStdErr(stderr *bytes.Buffer) {
 	stderrString := stderr.String()
 	if stderrString != "" && stderrString != "<nil>" {
-		t.Logf("%s\n%s\n%s\n%s",
+		log.Printf("%s\n%s\n%s\n%s\n",
 			"stderr is non-empty after executing last command:",
 			"----------------------------------- begin stderr -----------------------------------",
 			stderrString,
