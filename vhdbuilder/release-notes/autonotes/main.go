@@ -40,7 +40,15 @@ func main() {
 	flag.StringVar(&fl.include, "include", "", "only include this list of VHD release notes.")
 	flag.StringVar(&fl.ignore, "ignore", "", "ignore release notes for these VHDs")
 	flag.StringVar(&fl.path, "path", defaultPath, "output path to root of VHD notes")
-	flag.StringVar(&fl.date, "date", defaultDate, "date of VHD build in format YYYY.MM.DD")
+	flag.StringVar(&fl.date, "date", defaultDate, "date of VHD build in format YYYYMMDD.version")
+
+	os.Exit(1)
+
+	// validate date to ensure it's in the correct format.
+	if _, err := time.Parse("20060102.15", fl.date); err == nil {
+		fmt.Printf("invalid date format, must be YYYYMMDD.version", err)
+		os.Exit(1)
+	}
 
 	flag.Parse()
 
@@ -209,7 +217,9 @@ type flags struct {
 }
 
 var defaultPath = filepath.Join("vhdbuilder", "release-notes")
-var defaultDate = strings.Split(time.Now().Format("2006.01.02 15:04:05"), " ")[0]
+
+// var defaultDate = strings.Split(time.Now().Format("2006.01.02 15:04:05"), " ")[0]
+var defaultDate = strings.Split(time.Now().Format("20060102.0 15:04:05"), " ")[0]
 
 var artifactToPath = map[string]string{
 	"1804-containerd":                   filepath.Join("AKSUbuntu", "gen1", "1804containerd"),
