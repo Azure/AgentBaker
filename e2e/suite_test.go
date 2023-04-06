@@ -135,8 +135,25 @@ func runScenario(
 	if vmssSucceeded {
 		t.Log("vmss creation succeded, proceeding with node readiness and pod checks...")
 		if err = validateNodeHealth(ctx, t, kube, *vmssModel.Name); err != nil {
-			t.Fatal(err)
+			t.Fatalf("node health validation vailed: %s", err)
 		}
+
+		t.Logf("node is healthy, proceeding with validation commands...")
+
+		commonValidationCommands := commonVMValidationCommands()
+		err := runVMValidationCommands(
+			ctx,
+			t,
+			cloud,
+			kube,
+			suiteConfig.subscription,
+			*chosenCluster.Properties.NodeResourceGroup,
+			*vmssModel.Name,
+			string(privateKeyBytes), commonValidationCommands)
+		if err != nil {
+			t.Fatalf("VM validation failed: %s", err)
+		}
+
 		t.Log("node bootstrapping succeeded!")
 	}
 }

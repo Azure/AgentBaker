@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -53,4 +55,22 @@ func pollExtractVMLogs(ctx context.Context, t *testing.T, cloud *azureClient, ku
 	}
 
 	return nil
+}
+
+func waitUntilPodRunning(ctx context.Context, kube *kubeclient, podName string) error {
+	return wait.PollImmediateWithContext(ctx, 5*time.Second, 3*time.Minute, func(ctx context.Context) (bool, error) {
+		pod, err := kube.typed.CoreV1().Pods(defaultNamespace).Get(ctx, podName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		return pod.Status.Phase == corev1.PodPhase("Running"), nil
+	})
+}
+
+func waitUntilPodDeleted(ctx context.Context, kube *kubeclient, podName string) error {
+	return wait.PollImmediateWithContext(ctx, 5*time.Second, 3*time.Minute, func(ctx context.Context) (bool, error) {
+		err := kube.typed.CoreV1().Pods(defaultNamespace).Delete(ctx, podName, metav1.DeleteOptions{})
+		return err == nil, err
+	})
 }
