@@ -18,31 +18,18 @@ env:
   TESTS_TO_RUN: "base"
 
 jobs:
-  coveralls:
+  unit_tests:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - test_command: go test `go list ./... | grep -v e2e` -coverprofile coverage_raw.out -covermode count
-            test_number: 1
-          - test_command: cd e2e; go test -timeout 30m -coverprofile coverage_raw.out -covermode count -v -run Test_All ./...
-            test_number: 2
     steps:
       - name: Install Go
         if: success()
         uses: actions/setup-go@v3
         with:
-          go-version: 1.18
+          go-version: 1.20
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Az CLI login
-        uses: azure/login@v1
-        with:
-          client-id: ${{ secrets.GO_E2E_CLIENT_ID }}
-          tenant-id: ${{ secrets.GO_E2E_TENANT_ID }}
-          subscription-id: ${{ secrets.GO_E2E_SUBSCRIPTION_ID }}
-      - name: Calc coverage
-        run: ${{ matrix.test_command }}
+      - name: Run unit tests
+        run: go test `go list ./... | grep -v e2e` -coverprofile coverage_raw.out -covermode count
       - name: Remove mocks.go lines
         run: |
            sed '/mocks.go/d' coverage_raw.out > coverage.out
@@ -52,10 +39,47 @@ jobs:
         uses: coverallsapp/github-action@v2
         with:
           parallel: true
-          flag-name: run-$
+          flag-name: run-1
+          path-to-lcov: coverage.lcov
+  e2e_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Go
+        if: success()
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.20
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Az CLI login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.GO_E2E_CLIENT_ID }}
+          tenant-id: ${{ secrets.GO_E2E_TENANT_ID }}
+          subscription-id: ${{ secrets.GO_E2E_SUBSCRIPTION_ID }}
+      - name: Run e2e tests
+        run: | 
+        cd e2e
+        mkdir -p covdatafiles
+        go list -f '{{if not .Standard}}{{.ImportPath}}{{end}}' -deps .  | grep agent | tr '\n' ',' | sed 's/,$//' > packages.txt
+        go test -coverpkg=`cat packages.txt` -c -o e2e.exe -timeout 30m -covermode count
+        GOCOVERDIR=covdatafiles ./e2e.exe
+        go tool covdata textfmt -i=covdatafiles -o e2e.cov
+      - name: Generate coverage report
+        run: |
+            mkdir -p covdatafiles
+            go tool covdata textfmt -i=covdatafiles -o=cov.txt
+            go tool cover -func=cov.txt
+      - name: Convert coverage to lcov
+        uses: jandelgado/gcov2lcov-action@v1
+      - name: Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          parallel: true
+          flag-name: run-2
           path-to-lcov: coverage.lcov
   finish:
-    needs: coveralls
+    needs: [unit_tests, e2e_tests]
     if: ${{ success() }}
     runs-on: ubuntu-latest
     steps:
