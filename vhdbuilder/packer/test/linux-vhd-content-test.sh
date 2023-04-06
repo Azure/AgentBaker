@@ -220,7 +220,7 @@ testFips() {
   os_version=$1
   enable_fips=$2
 
-  if [[ ( ${os_version} == "18.04" || ${os_version} == "20.04" ) && ${enable_fips,,} == "true" ]]; then
+  if [[ ( ${os_version} == "18.04" || ${os_version} == "20.04" || ${os_version} == "V2" ) && ${enable_fips,,} == "true" ]]; then
     kernel=$(uname -r)
     if [[ -f /proc/sys/crypto/fips_enabled ]]; then
         fips_enabled=$(cat /proc/sys/crypto/fips_enabled)
@@ -232,11 +232,13 @@ testFips() {
     else
         err $test "FIPS is not enabled."
     fi
-
-    if [[ -f /usr/src/linux-headers-${kernel}/Makefile ]]; then
-        echo "fips header files exist."
-    else
-        err $test "fips header files don't exist."
+    
+    if [[ ${os_version} == "18.04" || ${os_version} == "20.04" ]]; then
+        if [[ -f /usr/src/linux-headers-${kernel}/Makefile ]]; then
+            echo "fips header files exist."
+        else
+            err $test "fips header files don't exist."
+        fi
     fi
   fi
 

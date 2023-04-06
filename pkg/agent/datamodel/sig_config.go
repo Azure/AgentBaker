@@ -111,6 +111,8 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2FIPS,
+	AKSCBLMarinerV2FIPSGen2,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
@@ -154,6 +156,8 @@ var AvailableCBLMarinerDistros []Distro = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2FIPS,
+	AKSCBLMarinerV2FIPSGen2,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSCBLMarinerV2Gen2TL,
@@ -477,6 +481,20 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGCBLMarinerV2FIPSGen1ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
+		Definition:    "V2fips",
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGCBLMarinerV2FIPSGen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
+		Definition:    "V2fipsgen2",
+		Version:       LinuxSIGImageVersion,
+	}
+
 	SIGCBLMarinerV2KataImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
@@ -564,6 +582,8 @@ func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 		AKSCBLMarinerV1:           SIGCBLMarinerV1ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2:           SIGCBLMarinerV2Gen1ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2:       SIGCBLMarinerV2ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2FIPS:       SIGCBLMarinerV2FIPSGen1ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2FIPSGen2:   SIGCBLMarinerV2FIPSGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2Kata:   SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Arm64Gen2:  SIGCBLMarinerV2Arm64ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2TL:     SIGCBLMarinerV2TLImageConfigTemplate.WithOptions(opts...),
