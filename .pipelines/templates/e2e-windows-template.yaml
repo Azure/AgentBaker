@@ -8,12 +8,6 @@ parameters:
   - name: windowsVMSize
     type: string
     default: Standard_D2s_v3
-  - name: windowsDistro
-    type: string
-    default: aks-windows-2019-containerd
-  - name: windowsNodeImageVersion
-    type: string
-    default: AKSWindows-2019-containerd-test-2023.02.07
   - name: storageAccount
     type: string
     default: storewin19
@@ -67,8 +61,6 @@ jobs:
     - bash: |
         export SCENARIO_NAME
         export WINDOWS_E2E_IMAGE=${{ parameters.windowsImage }}
-        export WINDOWS_DISTRO=${{ parameters.windowsDistro }}
-        export WINDOWS_NODE_IMAGE_VERSION=${{ parameters.windowsNodeImageVersion }}
         mkdir -p $WINDOWS_E2E_IMAGE
         cp -a $(Pipeline.Workspace)/${{ parameters.windowsImage }}-clusterConfig/* $WINDOWS_E2E_IMAGE
         cd $WINDOWS_E2E_IMAGE

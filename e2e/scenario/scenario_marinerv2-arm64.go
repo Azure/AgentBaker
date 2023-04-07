@@ -12,7 +12,7 @@ func marinerv2ARM64() *Scenario {
 	return &Scenario{
 		Name:        "marinerv2-arm64",
 		Description: "Tests that a node using a MarinerV2 VHD on ARM64 architecture can be properly bootstrapped",
-		Config: Config{
+		ScenarioConfig: ScenarioConfig{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
 			BootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {

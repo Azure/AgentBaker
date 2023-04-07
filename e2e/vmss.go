@@ -4,11 +4,14 @@ import (
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	mrand "math/rand"
 
 	"github.com/Azure/agentbakere2e/scenario"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"golang.org/x/crypto/ssh"
@@ -49,17 +52,17 @@ func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []b
 	return
 }
 
-func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
-	model := getBaseVMSSModel(vmssName, opts.suiteConfig.location, *opts.chosenCluster.Properties.NodeResourceGroup, opts.subnetID, string(publicKeyBytes), customData, cseCmd)
+func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *azureClient, location, mcResourceGroupName, name, subnetID, customData, cseCmd string, mutator func(*armcompute.VirtualMachineScaleSet)) (*armcompute.VirtualMachineScaleSet, error) {
+	model := getBaseVMSSModel(name, location, mcResourceGroupName, subnetID, string(publicKeyBytes), customData, cseCmd)
 
-	if opts.scenario.VMConfigMutator != nil {
-		opts.scenario.VMConfigMutator(&model)
+	if mutator != nil {
+		mutator(&model)
 	}
 
-	pollerResp, err := opts.cloud.vmssClient.BeginCreateOrUpdate(
+	pollerResp, err := cloud.vmssClient.BeginCreateOrUpdate(
 		ctx,
-		*opts.chosenCluster.Properties.NodeResourceGroup,
-		vmssName,
+		mcResourceGroupName,
+		name,
 		model,
 		nil,
 	)
@@ -73,6 +76,41 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 	}
 
 	return &vmssResp.VirtualMachineScaleSet, nil
+}
+
+func getVMPrivateIPAddress(ctx context.Context, cloud *azureClient, subscription, mcResourceGroupName, vmssName string) (string, error) {
+	pl := cloud.coreClient.Pipeline()
+	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
+		subscription,
+		mcResourceGroupName,
+		vmssName,
+		0,
+	)
+	req, err := runtime.NewRequest(ctx, "GET", url)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := pl.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var instanceNICResult listVMSSVMNetworkInterfaceResult
+
+	if err := json.Unmarshal(respBytes, &instanceNICResult); err != nil {
+		return "", err
+	}
+
+	privateIP := instanceNICResult.Value[0].Properties.IPConfigurations[0].Properties.PrivateIPAddress
+	return privateIP, nil
 }
 
 func getBaseVMSSModel(name, location, mcResourceGroupName, subnetID, sshPublicKey, customData, cseCmd string) armcompute.VirtualMachineScaleSet {

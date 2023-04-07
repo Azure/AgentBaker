@@ -5,7 +5,6 @@ import "strings"
 const (
 	vmExtensionProvisioningErrorCode = "VMExtensionProvisioningError"
 	resourceNotFoundErrorCode        = "ResourceNotFound"
-	notFoundErrorCode                = "404 Not Found"
 )
 
 func isVMExtensionProvisioningError(err error) bool {
@@ -14,10 +13,6 @@ func isVMExtensionProvisioningError(err error) bool {
 
 func isResourceNotFoundError(err error) bool {
 	return errorHasSubstring(err, resourceNotFoundErrorCode)
-}
-
-func isNotFoundError(err error) bool {
-	return errorHasSubstring(err, notFoundErrorCode)
 }
 
 func errorHasSubstring(err error, substring string) bool {
