@@ -138,6 +138,14 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		if err = validateNodeHealth(ctx, t, opts.kube, vmssName); err != nil {
 			t.Fatal(err)
 		}
+
+		t.Logf("node is ready, proceeding with validation commands...")
+
+		err := runLiveVMValidators(ctx, t, *vmssModel.Name, string(privateKeyBytes), opts)
+		if err != nil {
+			t.Fatalf("VM validation failed: %s", err)
+		}
+
 		t.Log("node bootstrapping succeeded!")
 	}
 }
