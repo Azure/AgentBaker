@@ -14,7 +14,7 @@ func pollExtractClusterParameters(ctx context.Context, t *testing.T, kube *kubec
 	err := wait.PollImmediateWithContext(ctx, 15*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
 		params, err := extractClusterParameters(ctx, t, kube)
 		if err != nil {
-			t.Logf("error extracting cluster parameters: %q", err)
+			log.Printf("error extracting cluster parameters: %q", err)
 			return false, nil
 		}
 		clusterParams = params
@@ -35,13 +35,13 @@ func pollExtractVMLogs(ctx context.Context, t *testing.T, vmssName string, priva
 
 		logFiles, err := extractLogsFromVM(ctx, t, vmssName, string(privateKeyBytes), opts)
 		if err != nil {
-			t.Logf("error extracting VM logs: %q", err)
+			log.Printf("error extracting VM logs: %q", err)
 			return false, nil
 		}
 
-		t.Logf("dumping VM logs to local directory: %s", opts.loggingDir)
-		if err = dumpFileMapToDir(opts.loggingDir, logFiles); err != nil {
-			t.Logf("error extracting VM logs: %q", err)
+		log.Printf("dumping VM logs to local directory: %s", caseLogsDir)
+		if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
+			log.Printf("error extracting VM logs: %q", err)
 			return false, nil
 		}
 

@@ -30,7 +30,7 @@ func isExistingResourceGroup(ctx context.Context, cloud *azureClient, resourceGr
 }
 
 func ensureResourceGroup(ctx context.Context, t *testing.T, cloud *azureClient, resourceGroupName string) error {
-	t.Logf("ensuring resource group %q...", resourceGroupName)
+	log.Printf("ensuring resource group %q...", resourceGroupName)
 
 	rgExists, err := isExistingResourceGroup(ctx, cloud, resourceGroupName)
 	if err != nil {
@@ -67,7 +67,7 @@ func validateExistingClusterState(
 	cluster, err := cloud.aksClient.Get(ctx, resourceGroupName, clusterName, nil)
 	if err != nil {
 		if isResourceNotFoundError(err) {
-			t.Logf("received ResourceNotFound error when trying to GET test cluster %q", clusterName)
+			log.Printf("received ResourceNotFound error when trying to GET test cluster %q", clusterName)
 			needRecreate = true
 		} else {
 			return false, fmt.Errorf("failed to get aks cluster %q: %q", clusterName, err)
@@ -80,7 +80,7 @@ func validateExistingClusterState(
 		}
 
 		if !rgExists || cluster.Properties == nil || cluster.Properties.ProvisioningState == nil || *cluster.Properties.ProvisioningState == "Failed" {
-			t.Logf("deleting test cluster in bad state: %q", clusterName)
+			log.Printf("deleting test cluster in bad state: %q", clusterName)
 
 			needRecreate = true
 			if err := deleteExistingCluster(ctx, cloud, resourceGroupName, clusterName); err != nil {
@@ -173,7 +173,7 @@ func listClusters(ctx context.Context, t *testing.T, cloud *azureClient, resourc
 					return nil, fmt.Errorf("aks cluster properties were nil")
 				}
 
-				t.Logf("found agentbaker e2e cluster: %q", *cluster.Name)
+				log.Printf("found agentbaker e2e cluster: %q", *cluster.Name)
 				clusters = append(clusters, &cluster.ManagedCluster)
 			}
 		}
@@ -211,7 +211,7 @@ func mustChooseCluster(
 	viableClusters := getViableClusters(scenario, *clusters)
 
 	if len(viableClusters) == 0 {
-		t.Logf("unable to find viable test cluster for scenario %q, attempting to create a new one...", scenario.Name)
+		log.Printf("unable to find viable test cluster for scenario %q, attempting to create a new one...", scenario.Name)
 		clusterBaseModel := getBaseClusterModel(
 			fmt.Sprintf(testClusterNameTemplate, randomLowercaseString(r, 5)),
 			suiteConfig.location,
@@ -220,12 +220,12 @@ func mustChooseCluster(
 
 		cluster, err := createNewCluster(ctx, cloud, suiteConfig.resourceGroupName, &clusterBaseModel)
 		if err != nil {
-			t.Fatalf("unable to create new cluster: %s", err)
+			log.Fatalf("unable to create new cluster: %s", err)
 		}
 
 		kube, subnetID, clusterParams, err := prepareClusterForTests(ctx, t, cloud, suiteConfig, cluster, paramCache)
 		if err != nil {
-			t.Fatalf("unable to prepare new cluster for test: %s", err)
+			log.Fatalf("unable to prepare new cluster for test: %s", err)
 		}
 
 		*clusters = append(*clusters, cluster)
@@ -240,16 +240,16 @@ func mustChooseCluster(
 
 			needRecreate, err := validateExistingClusterState(ctx, t, cloud, suiteConfig.resourceGroupName, viableCluster)
 			if err != nil {
-				t.Logf("unable to validate state of viable cluster %q: %s", *viableCluster.Name, err)
+				log.Printf("unable to validate state of viable cluster %q: %s", *viableCluster.Name, err)
 				continue
 			}
 
 			if needRecreate {
-				t.Logf("viable cluster %q is in a bad state, attempting to recreate...", *viableCluster.Name)
+				log.Printf("viable cluster %q is in a bad state, attempting to recreate...", *viableCluster.Name)
 
 				newCluster, err := createNewCluster(ctx, cloud, suiteConfig.resourceGroupName, viableCluster)
 				if err != nil {
-					t.Logf("unable to recreate viable cluster %q: %s", *viableCluster.Name, err)
+					log.Printf("unable to recreate viable cluster %q: %s", *viableCluster.Name, err)
 					continue
 				}
 				cluster = newCluster
@@ -259,7 +259,7 @@ func mustChooseCluster(
 
 			kube, subnetID, clusterParams, err := prepareClusterForTests(ctx, t, cloud, suiteConfig, cluster, paramCache)
 			if err != nil {
-				t.Logf("unable to prepare viable cluster for testing: %s", err)
+				log.Printf("unable to prepare viable cluster for testing: %s", err)
 				continue
 			}
 
@@ -272,7 +272,7 @@ func mustChooseCluster(
 	}
 
 	if chosenCluster == nil {
-		t.Fatalf("unable to successfully choose a cluster for scenario %q", scenario.Name)
+		log.Fatalf("unable to successfully choose a cluster for scenario %q", scenario.Name)
 	}
 
 	return chosenKubeClient, chosenCluster, chosenClusterParams, chosenSubnetID
