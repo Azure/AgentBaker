@@ -103,7 +103,7 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		return
 	}
 
-	vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, opts, publicKeyBytes)
+	vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, publicKeyBytes, opts)
 	defer cleanupVMSS()
 	isCSEError := isVMExtensionProvisioningError(err)
 	vmssSucceeded := true
@@ -134,13 +134,22 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 	if vmssSucceeded {
 		t.Log("vmss creation succeded, proceeding with node readiness and pod checks...")
 		if err = validateNodeHealth(ctx, t, opts.kube, *vmssModel.Name); err != nil {
-			t.Fatal(err)
+			t.Fatalf("node health validation vailed: %s", err)
 		}
+
+		t.Logf("node is ready, proceeding with validation commands...")
+
+		commonValidationCommands := commonVMValidationCommands()
+		err := runVMValidationCommands(ctx, t, *vmssModel.Name, string(privateKeyBytes), commonValidationCommands, opts)
+		if err != nil {
+			t.Fatalf("VM validation failed: %s", err)
+		}
+
 		t.Log("node bootstrapping succeeded!")
 	}
 }
 
-func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
+func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, func(), error) {
 	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to get node bootstrapping: %s", err)
