@@ -28,19 +28,13 @@ type liveVMValidator struct {
 	outputAsserters []vmCommandOutputAsserterFn
 }
 
-func runVMValidationCommands(
-	ctx context.Context,
-	t *testing.T,
-	cloud *azureClient,
-	kube *kubeclient,
-	subscription, mcResourceGroupName, vmssName, sshPrivateKey string,
-	validators []*liveVMValidator) error {
-	privateIP, err := getVMPrivateIPAddress(ctx, cloud, subscription, mcResourceGroupName, vmssName)
+func runVMValidationCommands(ctx context.Context, t *testing.T, vmssName, sshPrivateKey string, validators []*liveVMValidator, opts *scenarioRunOpts) error {
+	privateIP, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.chosenCluster.Properties.NodeResourceGroup, vmssName)
 	if err != nil {
 		return fmt.Errorf("unable to get private IP address of VM on VMSS %q: %s", vmssName, err)
 	}
 
-	podName, err := getDebugPodName(kube)
+	podName, err := getDebugPodName(opts.kube)
 	if err != nil {
 		return fmt.Errorf("unable to get debug pod name: %s", err)
 	}
@@ -50,7 +44,7 @@ func runVMValidationCommands(
 		command := validator.command
 		t.Logf("running live VM validator %q, command: %q", name, command)
 
-		execResult, err := pollExecOnVM(ctx, kube, privateIP, podName, sshPrivateKey, command)
+		execResult, err := pollExecOnVM(ctx, opts.kube, privateIP, podName, sshPrivateKey, command)
 		if execResult != nil {
 			checkStdErr(execResult.stderr, t)
 		}
