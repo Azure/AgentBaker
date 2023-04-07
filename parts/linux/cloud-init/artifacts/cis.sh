@@ -64,8 +64,9 @@ assignFilePermissions() {
     touch /etc/cron.allow || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     chown root:root /etc/cron.allow || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     chmod 0640 /etc/cron.allow || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
-    if [[ -f /etc/cron.deny]]; then
-        chmod 06400 /etc/cron.deny || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+
+    if [[ -f /etc/cron.deny ]]; then
+        chmod 0640 /etc/cron.deny || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     fi
 
     for filepath in /etc/cron.hourly /etc/cron.daily /etc/cron.weekly /etc/cron.monthly /etc/cron.d; do
