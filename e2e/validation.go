@@ -50,7 +50,7 @@ func runVMValidationCommands(
 		command := validator.command
 		t.Logf("running live VM validator %q, command: %q", name, command)
 
-		execResult, err := execOnVM(ctx, kube, privateIP, podName, sshPrivateKey, command)
+		execResult, err := pollExecOnVM(ctx, kube, privateIP, podName, sshPrivateKey, command)
 		if execResult != nil {
 			checkStdErr(execResult.stderr, t)
 		}

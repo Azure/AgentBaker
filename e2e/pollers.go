@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -9,6 +10,33 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
+
+func pollExecOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey, command string) (*podExecResult, error) {
+	var execResult *podExecResult
+	err := wait.PollImmediateWithContext(ctx, 10*time.Second, 3*time.Minute, func(ctx context.Context) (bool, error) {
+		res, err := execOnVM(ctx, kube, vmPrivateIP, jumpboxPodName, sshPrivateKey, command)
+		if err != nil {
+			if strings.Contains(err.Error(), "error extracting exit code") {
+				return false, err
+			}
+			return false, nil
+		}
+
+		// this denotes a retriable SSH failure
+		if res.exitCode == "255" {
+			return false, nil
+		}
+
+		execResult = res
+		return true, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return execResult, nil
+}
 
 // Wraps extractClusterParameters in a poller with a 15-second wait interval and 5-minute timeout
 func pollExtractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclient) (map[string]string, error) {
