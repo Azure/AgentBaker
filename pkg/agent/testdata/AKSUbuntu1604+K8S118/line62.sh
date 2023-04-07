@@ -247,12 +247,12 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.0.3"
+        TARGET_VERSION="1.1.15"
 
         if [[ $(isARM64) == 1 ]]; then
             # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
             # so use different target version for different arch to avoid affecting each other during provisioning
-            TARGET_VERSION="1.0.3"
+            TARGET_VERSION="1.1.15"
         fi
     fi
 

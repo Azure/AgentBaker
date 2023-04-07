@@ -156,15 +156,13 @@ echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 ## for ubuntu-based images, cache multiple versions of runc
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   RUNC_VERSIONS="
-  1.0.0-rc92
-  1.0.0-rc95
-  1.0.3
+  1.1.15
   "
   if [[ $(isARM64) == 1 ]]; then
     # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
     # so use different version set for different arch to avoid affecting each other during VHD build
     RUNC_VERSIONS="
-    1.0.3
+    1.1.15
     "
   fi
   for RUNC_VERSION in $RUNC_VERSIONS; do
