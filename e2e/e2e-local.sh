@@ -13,6 +13,8 @@ export RESOURCE_GROUP_NAME
 export LOCATION
 export CLUSTER_NAME
 export AZURE_TENANT_ID
+export SCENARIOS_TO_RUN="base"
 
 go version
-go test -timeout 30m -v -run Test_All ./
+# go test -timeout 30m -v -run Test_All ./
+go test -cover -o e2e_test -timeout 30m -v

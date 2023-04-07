@@ -79,7 +79,7 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, cloud *azureClient, ku
 		mergedCmd := fmt.Sprintf("%s %s", sshCommand, sourceCmd)
 		cmd := append(nsenterCommandArray(), mergedCmd)
 
-		t.Logf("executing command on pod %s/%s: %q", defaultNamespace, podName, strings.Join(cmd, " "))
+		log.Printf("executing command on pod %s/%s: %q", defaultNamespace, podName, strings.Join(cmd, " "))
 
 		stdout, stderr, err := execOnPod(ctx, kube, defaultNamespace, podName, cmd)
 		checkStdErr(stderr, t)
@@ -109,7 +109,7 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 	for file, sourceCmd := range commandList {
 		cmd := append(nsenterCommandArray(), sourceCmd)
 
-		t.Logf("executing command on pod %s/%s: %q", defaultNamespace, podName, strings.Join(cmd, " "))
+		log.Printf("executing command on pod %s/%s: %q", defaultNamespace, podName, strings.Join(cmd, " "))
 
 		stdout, stderr, err := execOnPod(ctx, kube, defaultNamespace, podName, cmd)
 		checkStdErr(stderr, t)
@@ -277,7 +277,7 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 func checkStdErr(stderr *bytes.Buffer, t *testing.T) {
 	stderrString := stderr.String()
 	if stderrString != "" && stderrString != "<nil>" {
-		t.Logf("%s\n%s\n%s\n%s",
+		log.Printf("%s\n%s\n%s\n%s",
 			"stderr is non-empty after executing last command:",
 			"----------------------------------- begin stderr -----------------------------------",
 			stderrString,

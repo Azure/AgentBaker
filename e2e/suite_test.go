@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"context"
 	"fmt"
+	"log"
 	mrand "math/rand"
 	"path/filepath"
 	"testing"
@@ -24,27 +25,27 @@ func Test_All(t *testing.T) {
 
 	suiteConfig, err := newSuiteConfig()
 	if err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
 
 	if err := createE2ELoggingDir(); err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
 
-	scenarioTable := scenario.InitScenarioTable(t, suiteConfig.scenariosToRun)
+	scenarioTable := scenario.InitScenarioTable(suiteConfig.scenariosToRun)
 
 	cloud, err := newAzureClient(suiteConfig.subscription)
 	if err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
 
 	if err := ensureResourceGroup(ctx, t, cloud, suiteConfig.resourceGroupName); err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
 
 	clusters, err := listClusters(ctx, t, cloud, suiteConfig.resourceGroupName)
 	if err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
 
 	paramCache := paramCache{}
@@ -55,11 +56,11 @@ func Test_All(t *testing.T) {
 		kube, cluster, clusterParams, subnetID := mustChooseCluster(ctx, t, r, cloud, suiteConfig, scenario, &clusters, paramCache)
 
 		clusterName := *cluster.Name
-		t.Logf("chose cluster: %q", clusterName)
+		log.Printf("chose cluster: %q", clusterName)
 
 		baseConfig, err := getBaseNodeBootstrappingConfiguration(ctx, t, cloud, suiteConfig, clusterParams)
 		if err != nil {
-			t.Fatal(err)
+			log.Fatal(err)
 		}
 
 		copied, err := deepcopy.Anything(baseConfig)
@@ -78,7 +79,7 @@ func Test_All(t *testing.T) {
 
 			caseLogsDir, err := createVMLogsDir(scenario.Name)
 			if err != nil {
-				t.Fatal(err)
+				log.Fatal(err)
 			}
 
 			runScenario(ctx, t, r, cloud, kube, suiteConfig, scenario, cluster, nbc, subnetID, caseLogsDir)
@@ -112,12 +113,12 @@ func runScenario(
 		if isCSEError {
 			t.Error("VM was unable to be provisioned due to a CSE error, will still atempt to extract provisioning logs...", err)
 		} else {
-			t.Fatal("Encountered an unknown error while creating VM:", err)
+			log.Fatal("Encountered an unknown error while creating VM:", err)
 		}
 	}
 
 	if err := writeToFile(filepath.Join(caseLogsDir, "vmssId.txt"), *vmssModel.ID); err != nil {
-		t.Fatal("failed to write vmss resource ID to disk", err)
+		log.Fatal("failed to write vmss resource ID to disk", err)
 	}
 
 	// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
@@ -125,7 +126,7 @@ func runScenario(
 		debug := func() {
 			err := pollExtractVMLogs(ctx, t, cloud, kube, suiteConfig, *chosenCluster.Properties.NodeResourceGroup, *vmssModel.Name, caseLogsDir, privateKeyBytes)
 			if err != nil {
-				t.Fatal(err)
+				log.Fatal(err)
 			}
 		}
 		defer debug()
@@ -133,11 +134,11 @@ func runScenario(
 
 	// Only perform node readiness/pod-related checks when VMSS creation succeeded
 	if vmssSucceeded {
-		t.Log("vmss creation succeded, proceeding with node readiness and pod checks...")
+		log.Println("vmss creation succeded, proceeding with node readiness and pod checks...")
 		if err = validateNodeHealth(ctx, t, kube, *vmssModel.Name); err != nil {
-			t.Fatal(err)
+			log.Fatal(err)
 		}
-		t.Log("node bootstrapping succeeded!")
+		log.Println("node bootstrapping succeeded!")
 	}
 }
 
@@ -158,10 +159,10 @@ func bootstrapVMSS(
 	}
 
 	vmssName := fmt.Sprintf("abtest%s", randomLowercaseString(r, 4))
-	t.Logf("vmss name: %q", vmssName)
+	log.Printf("vmss name: %q", vmssName)
 
 	cleanupVMSS := func() {
-		t.Log("deleting vmss", vmssName)
+		log.Println("deleting vmss", vmssName)
 		poller, err := cloud.vmssClient.BeginDelete(ctx, *chosenCluster.Properties.NodeResourceGroup, vmssName, nil)
 		if err != nil {
 			t.Error("error deleting vmss", vmssName, err)
@@ -171,7 +172,7 @@ func bootstrapVMSS(
 		if err != nil {
 			t.Error("error polling deleting vmss", vmssName, err)
 		}
-		t.Logf("finished deleting vmss %q", vmssName)
+		log.Printf"finished deleting vmss %q", vmssName)
 	}
 
 	vmssModel, err := createVMSSWithPayload(
