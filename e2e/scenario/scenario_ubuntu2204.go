@@ -12,7 +12,7 @@ func ubuntu2204() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204",
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
-		ScenarioConfig: ScenarioConfig{
+		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
 			BootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {

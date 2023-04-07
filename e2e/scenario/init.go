@@ -3,8 +3,8 @@ package scenario
 import "testing"
 
 // Initializes and returns the set of scenarios comprising the E2E suite in table-form.
-func InitScenarioTable(t *testing.T, scenariosToRun map[string]bool) ScenarioTable {
-	table := ScenarioTable{}
+func InitScenarioTable(t *testing.T, scenariosToRun map[string]bool) Table {
+	table := Table{}
 	for _, scenario := range scenarios() {
 		if scenariosToRun == nil || scenariosToRun[scenario.Name] {
 			t.Logf("will run E2E scenario %q: %s", scenario.Name, scenario.Description)

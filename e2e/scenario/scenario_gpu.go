@@ -13,7 +13,7 @@ func gpu() *Scenario {
 	return &Scenario{
 		Name:        "gpu",
 		Description: "Tests that a GPU-enabled node using an Ubuntu 1804 VHD can be properly bootstrapped",
-		ScenarioConfig: ScenarioConfig{
+		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
 			BootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {

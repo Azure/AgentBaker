@@ -59,18 +59,18 @@ func pollExtractClusterParameters(ctx context.Context, t *testing.T, kube *kubec
 }
 
 // Wraps exctracLogsFromVM and dumpFileMapToDir in a poller with a 15-second wait interval and 5-minute timeout
-func pollExtractVMLogs(ctx context.Context, t *testing.T, cloud *azureClient, kube *kubeclient, suiteConfig *suiteConfig, mcResourceGroupName, vmssName, caseLogsDir string, privateKeyBytes []byte) error {
+func pollExtractVMLogs(ctx context.Context, t *testing.T, vmssName string, privateKeyBytes []byte, opts *scenarioRunOpts) error {
 	err := wait.PollImmediateWithContext(ctx, 15*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
 		t.Log("attempting to extract VM logs")
 
-		logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, mcResourceGroupName, vmssName, string(privateKeyBytes))
+		logFiles, err := extractLogsFromVM(ctx, t, vmssName, string(privateKeyBytes), opts)
 		if err != nil {
 			t.Logf("error extracting VM logs: %q", err)
 			return false, nil
 		}
 
-		t.Logf("dumping VM logs to local directory: %s", caseLogsDir)
-		if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
+		t.Logf("dumping VM logs to local directory: %s", opts.loggingDir)
+		if err = dumpFileMapToDir(opts.loggingDir, logFiles); err != nil {
 			t.Logf("error extracting VM logs: %q", err)
 			return false, nil
 		}

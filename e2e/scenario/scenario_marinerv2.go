@@ -12,7 +12,7 @@ func marinerv2() *Scenario {
 	return &Scenario{
 		Name:        "marinerv2",
 		Description: "Tests that a node using a MarinerV2 VHD can be properly bootstrapped",
-		ScenarioConfig: ScenarioConfig{
+		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
 			BootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {

@@ -5,7 +5,7 @@ func base() *Scenario {
 	return &Scenario{
 		Name:        "base",
 		Description: "Tests that a node using an Ubuntu 1804 VHD can be properly bootstrapped",
-		ScenarioConfig: ScenarioConfig{
+		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
 		},

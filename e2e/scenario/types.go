@@ -9,24 +9,24 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 )
 
-type ScenarioTable map[string]*Scenario
+type Table map[string]*Scenario
 
 type Scenario struct {
 	Name        string
 	Description string
-	ScenarioConfig
+	Config
 }
 
-type ScenarioConfig struct {
+type Config struct {
 	// BootstrapConfig          *datamodel.NodeBootstrappingConfiguration
 	ClusterSelector        func(*armcontainerservice.ManagedCluster) bool
 	ClusterMutator         func(*armcontainerservice.ManagedCluster)
 	BootstrapConfigMutator func(*testing.T, *datamodel.NodeBootstrappingConfiguration)
 	VMConfigMutator        func(*armcompute.VirtualMachineScaleSet)
-	Validator              func(context.Context, *testing.T, *ScenarioValidationInput) error
+	Validator              func(context.Context, *testing.T, *ValidationInput) error
 }
 
-type ScenarioValidationInput struct {
+type ValidationInput struct {
 	PrivateIP     string
 	SSHPrivateKey string
 }

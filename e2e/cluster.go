@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"context"
 	"fmt"
+	"log"
 	mrand "math/rand"
 	"strings"
 	"testing"
@@ -161,7 +162,12 @@ func listClusters(ctx context.Context, t *testing.T, cloud *azureClient, resourc
 			if strings.EqualFold(*resource.Type, managedClusterResourceType) {
 				cluster, err := cloud.aksClient.Get(ctx, resourceGroupName, *resource.Name, nil)
 				if err != nil {
-					return nil, fmt.Errorf("failed to get aks cluster: %q", err)
+					if isNotFoundError(err) {
+						log.Printf("get aks cluster %q returned 404 Not Found, continuing to list clusters...", *resource.Name)
+						continue
+					} else {
+						return nil, fmt.Errorf("failed to get aks cluster: %q", err)
+					}
 				}
 				if cluster.Properties == nil {
 					return nil, fmt.Errorf("aks cluster properties were nil")
@@ -179,7 +185,7 @@ func listClusters(ctx context.Context, t *testing.T, cloud *azureClient, resourc
 func getViableClusters(scenario *scenario.Scenario, clusters []*armcontainerservice.ManagedCluster) []*armcontainerservice.ManagedCluster {
 	viableClusters := []*armcontainerservice.ManagedCluster{}
 	for _, cluster := range clusters {
-		if scenario.ScenarioConfig.ClusterSelector(cluster) {
+		if scenario.Config.ClusterSelector(cluster) {
 			viableClusters = append(viableClusters, cluster)
 		}
 	}
@@ -210,7 +216,7 @@ func mustChooseCluster(
 			fmt.Sprintf(testClusterNameTemplate, randomLowercaseString(r, 5)),
 			suiteConfig.location,
 		)
-		scenario.ScenarioConfig.ClusterMutator(&clusterBaseModel)
+		scenario.Config.ClusterMutator(&clusterBaseModel)
 
 		cluster, err := createNewCluster(ctx, cloud, suiteConfig.resourceGroupName, &clusterBaseModel)
 		if err != nil {
