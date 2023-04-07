@@ -71,7 +71,7 @@
         "versions": [
         ],
         "installed": { 
-			"default": "1.1.15"
+			"default": "1.1.5"
 		}
     },
     "nvidia-container-runtime": {

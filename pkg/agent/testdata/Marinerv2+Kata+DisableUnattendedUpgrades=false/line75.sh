@@ -15,12 +15,9 @@
         "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",
         "downloadLocation": "/opt/runc/downloads",
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
-        "versions": [
-            "1.0.0-rc92",
-            "1.0.0-rc95"
-        ],
+        "versions": [],
         "installed": {
-            "default": "1.0.3"
+            "default": "1.1.5"
         }
     },
     "nvidia-container-runtime": {
