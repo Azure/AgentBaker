@@ -52,8 +52,6 @@ assignFilePermissions() {
     chmod 600 /etc/group- || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     chmod 600 /etc/gshadow- || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
 
-    chmod 700 /home/azureuser || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
-
     if [[ -f /etc/default/grub ]]; then
         chmod 644 /etc/default/grub || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     fi
@@ -192,6 +190,7 @@ applyCIS() {
   removeUnneededFiles
   replaceOrAppendLoginDefs UMASK 027
   disableCoreDumps
+  mv /etc/profile.d/umask.sh /etc/profile.d/50-umask.sh
 }
 
 applyCIS
