@@ -155,7 +155,7 @@ echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   
-  RUNC_VERSIONS="1.1.5+azure-ubuntu-${UBUNTU_VERSION_CLEANED}u1_${CPU_ARCH}"
+  RUNC_VERSIONS="1.1.5+azure-ubuntu-${UBUNTU_RELEASE}u1_${CPU_ARCH}"
   
   if [[ $(isARM64) == 1 ]]; then
     # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
