@@ -8,6 +8,7 @@ import (
 	"fmt"
 	mrand "math/rand"
 
+	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"golang.org/x/crypto/ssh"
@@ -48,17 +49,17 @@ func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []b
 	return
 }
 
-func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *azureClient, location, name, subnetID, customData, cseCmd string, mutator func(*armcompute.VirtualMachineScaleSet)) (*armcompute.VirtualMachineScaleSet, error) {
-	model := getBaseVMSSModel(name, location, subnetID, string(publicKeyBytes), customData, cseCmd)
+func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
+	model := getBaseVMSSModel(vmssName, opts.suiteConfig.location, *opts.chosenCluster.Properties.NodeResourceGroup, opts.subnetID, string(publicKeyBytes), customData, cseCmd)
 
-	if mutator != nil {
-		mutator(&model)
+	if opts.scenario.VMConfigMutator != nil {
+		opts.scenario.VMConfigMutator(&model)
 	}
 
-	pollerResp, err := cloud.vmssClient.BeginCreateOrUpdate(
+	pollerResp, err := opts.cloud.vmssClient.BeginCreateOrUpdate(
 		ctx,
-		agentbakerTestClusterMCResourceGroupName,
-		name,
+		*opts.chosenCluster.Properties.NodeResourceGroup,
+		vmssName,
 		model,
 		nil,
 	)
@@ -74,7 +75,7 @@ func createVMSSWithPayload(ctx context.Context, publicKeyBytes []byte, cloud *az
 	return &vmssResp.VirtualMachineScaleSet, nil
 }
 
-func getBaseVMSSModel(name, location, subnetID, sshPublicKey, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
+func getBaseVMSSModel(name, location, mcResourceGroupName, subnetID, sshPublicKey, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(location),
 		SKU: &armcompute.SKU{
@@ -121,7 +122,7 @@ func getBaseVMSSModel(name, location, subnetID, sshPublicKey, customData, cseCmd
 				},
 				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
 					ImageReference: &armcompute.ImageReference{
-						ID: to.Ptr(defaultUbuntuImageVersionIDs["1804gen2"]),
+						ID: to.Ptr(scenario.DefaultImageVersionIDs["ubuntu1804"]),
 					},
 					OSDisk: &armcompute.VirtualMachineScaleSetOSDisk{
 						CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
@@ -142,7 +143,12 @@ func getBaseVMSSModel(name, location, subnetID, sshPublicKey, customData, cseCmd
 										Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
 											LoadBalancerBackendAddressPools: []*armcompute.SubResource{
 												{
-													ID: to.Ptr("/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_agentbaker-e2e-tests_agentbaker-e2e-test-cluster_eastus/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"),
+													ID: to.Ptr(
+														fmt.Sprintf(
+															"/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool",
+															mcResourceGroupName,
+														),
+													),
 												},
 											},
 											Subnet: &armcompute.APIEntityReference{
