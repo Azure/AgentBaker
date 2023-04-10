@@ -38,9 +38,9 @@ create_pull_request() {
     git add .
     
     if [[ $4 == "ReleaseNotes" ]]; then
-        git commit -m "Release notes for release $1"
+        git commit -m "chore: release notes for release $1"
     else
-        git commit -m "Bumping image version to $1"
+        git commit -m "chore: bumping image version to $1"
     fi
 
     git push -u origin $3 -f
