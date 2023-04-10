@@ -953,67 +953,75 @@ const containerdConfigTemplateString = `version = 2
 oom_score = 0{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
-	sandbox_image = "{{GetPodInfraContainerSpec}}"
-	[plugins."io.containerd.grpc.v1.cri".containerd]
-		{{- if TeleportEnabled }}
-		snapshotter = "teleportd"
-		disable_snapshot_annotations = false
-		{{- end}}
-		{{- if IsNSeriesSKU }}
-		default_runtime_name = "nvidia-container-runtime"
-		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
-			runtime_type = "io.containerd.runc.v2"
-		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
-			BinaryName = "/usr/bin/nvidia-container-runtime"
-			{{- if Is2204VHD }}
-			SystemdCgroup = true
-			{{- end}}
-		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-			runtime_type = "io.containerd.runc.v2"
-		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
-			BinaryName = "/usr/bin/nvidia-container-runtime"
-		{{- else}}
-		default_runtime_name = "runc"
-		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-			runtime_type = "io.containerd.runc.v2"
-		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-			BinaryName = "/usr/bin/runc"
-			{{- if Is2204VHD }}
-			SystemdCgroup = true
-			{{- end}}
-		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-			runtime_type = "io.containerd.runc.v2"
-		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
-			BinaryName = "/usr/bin/runc"
-		{{- end}}
-		{{- if IsKata }}
-		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
-			runtime_type = "io.containerd.kata.v2"
-		{{- end}}
-		{{- if IsKrustlet }}
-		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
-			runtime_type = "io.containerd.spin.v1"
-		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
-			runtime_type = "io.containerd.slight.v1"
-		{{- end}}
-	{{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
-	[plugins."io.containerd.grpc.v1.cri".cni]
-		bin_dir = "/opt/cni/bin"
-		conf_dir = "/etc/cni/net.d"
-		conf_template = "/etc/containerd/kubenet_template.conf"
-	{{- end}}
-	{{- if IsKubernetesVersionGe "1.22.0"}}
-	[plugins."io.containerd.grpc.v1.cri".registry]
-		config_path = "/etc/containerd/certs.d"
-	{{- end}}
-	[plugins."io.containerd.grpc.v1.cri".registry.headers]
-		X-Meta-Source-Client = ["azure/aks"]
+  sandbox_image = "{{GetPodInfraContainerSpec}}"
+  [plugins."io.containerd.grpc.v1.cri".containerd]
+    {{- if TeleportEnabled }}
+    snapshotter = "teleportd"
+    disable_snapshot_annotations = false
+    {{- end}}
+    {{- if IsNSeriesSKU }}
+    default_runtime_name = "nvidia-container-runtime"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+      {{- if Is2204VHD }}
+      SystemdCgroup = true
+      {{- end}}
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+    {{- else}}
+    default_runtime_name = "runc"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      {{- if Is2204VHD }}
+      SystemdCgroup = true
+      {{- end}}
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+    {{- end}}
+    {{- if IsKata }}
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+      runtime_type = "io.containerd.kata.v2"
+    {{- end}}
+    {{- if IsKrustlet }}
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
+      runtime_type = "io.containerd.spin-v0-3-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
+      runtime_type = "io.containerd.slight-v0-3-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]
+      runtime_type = "io.containerd.spin-v0-3-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]
+      runtime_type = "io.containerd.slight-v0-3-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]
+      runtime_type = "io.containerd.spin-v0-5-1.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]
+      runtime_type = "io.containerd.slight-v0-5-1.v1"
+    {{- end}}
+  {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
+  [plugins."io.containerd.grpc.v1.cri".cni]
+    bin_dir = "/opt/cni/bin"
+    conf_dir = "/etc/cni/net.d"
+    conf_template = "/etc/containerd/kubenet_template.conf"
+  {{- end}}
+  {{- if IsKubernetesVersionGe "1.22.0"}}
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    config_path = "/etc/containerd/certs.d"
+  {{- end}}
+  [plugins."io.containerd.grpc.v1.cri".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
 [metrics]
-	address = "0.0.0.0:10257"
+  address = "0.0.0.0:10257"
 {{- if TeleportEnabled }}
 [proxy_plugins]
-	[proxy_plugins.teleportd]
-		type = "snapshot"
-		address = "/run/teleportd/snapshotter.sock"
+  [proxy_plugins.teleportd]
+    type = "snapshot"
+    address = "/run/teleportd/snapshotter.sock"
 {{- end}}
 `
