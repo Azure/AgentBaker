@@ -51,8 +51,10 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.3",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.1",
+            # azurefile-csi:v1.26 is only for AKS 1.26+, v1.24 is for other AKS versions
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.1",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.2",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0",
@@ -82,8 +84,10 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.3",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.1",
+            # azurefile-csi:v1.26 is only for AKS 1.26+, v1.24 is for other AKS versions
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.1",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.2",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0",
@@ -114,8 +118,10 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.3",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.1",
+            # azurefile-csi:v1.26 is only for AKS 1.26+, v1.24 is for other AKS versions
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.1",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.2",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
             "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0",
             "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0",
