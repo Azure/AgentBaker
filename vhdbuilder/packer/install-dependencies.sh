@@ -192,7 +192,7 @@ fi
 
 if [ "${CONTAINER_RUNTIME:=}" == "containerd" ]; then
     systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
-
+fi
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
 installBpftrace
@@ -256,7 +256,7 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 # can't use cliTool because crictl doesn't support retagging.
 if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
     retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
-
+fi
 # doing this at vhd allows CSE to be faster with just mv
 unpackAzureCNI() {
   local URL=$1
