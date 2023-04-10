@@ -28,6 +28,8 @@ jobs:
           done
         }
         
+        KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] parts/linux/cloud-init/artifacts/manifest.json)"
+        echo $KUBE_BINARY_VERSIONS
         K8S_VERSION=1.25.5
         K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
         KUBE_BINARY_URL="https://acs-mirror.azureedge.net/kubernetes/v1.25.5/binaries/kubernetes-node-linux-amd64.tar.gz"
