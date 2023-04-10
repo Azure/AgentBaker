@@ -24,6 +24,15 @@ type Config struct {
 	BootstrapConfigMutator func(*testing.T, *datamodel.NodeBootstrappingConfiguration)
 	VMConfigMutator        func(*armcompute.VirtualMachineScaleSet)
 	Validator              func(context.Context, *testing.T, *ValidationInput) error
+	LiveVMValidators       []*LiveVMValidator
+}
+
+type VMCommandOutputAsserterFn func(string, string) error
+
+type LiveVMValidator struct {
+	Description string
+	Command     string
+	Asserter    VMCommandOutputAsserterFn
 }
 
 type ValidationInput struct {

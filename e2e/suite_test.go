@@ -139,8 +139,7 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 
 		t.Logf("node is ready, proceeding with validation commands...")
 
-		commonValidationCommands := commonVMValidationCommands()
-		err := runVMValidationCommands(ctx, t, *vmssModel.Name, string(privateKeyBytes), commonValidationCommands, opts)
+		err := runLiveVMValidators(ctx, t, *vmssModel.Name, string(privateKeyBytes), opts)
 		if err != nil {
 			t.Fatalf("VM validation failed: %s", err)
 		}
