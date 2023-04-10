@@ -142,8 +142,10 @@ removeUnneededFiles() {
 
 disableCoreDumps() {
   rm -f /etc/systemd/coredump.conf
-  cat "Storage=none" >> /etc/systemd/coredump.conf
-  cat "ProcessSizeMax=0" >> /etc/systemd/coredump.conf
+  cat > /etc/systemd/coredump.conf << "EOF"
+Storage=none
+ProcessSizeMax=0
+EOF
 }
 
 replaceOrAppendChronyd() {
@@ -183,14 +185,29 @@ password  required    pam_unix.so       sha512 shadow try_first_pass
 EOF
 }
 
+fixUmask() {
+  replaceOrAppendLoginDefs UMASK 027
+
+  # fix order in which umask is applied. CIS should be last.
+  if [[ -f /etc/profile.d/umask.sh ]]; then 
+    mv /etc/profile.d/umask.sh /etc/profile.d/50-umask.sh
+  fi
+
+  if [[ -f /etc/profile.d/CIS.sh ]]; then
+    mv /etc/profile.d/CIS.sh /etc/profile.d/90-CIS.sh
+  fi
+
+  # delete the umask line from /etc/profile so we reduce conflicts
+  sed -E -i 'umask 027/d' /etc/profile
+}
+
 applyCIS() {
   setPWExpiration
   assignRootPW
   assignFilePermissions
   removeUnneededFiles
-  replaceOrAppendLoginDefs UMASK 027
   disableCoreDumps
-  mv /etc/profile.d/umask.sh /etc/profile.d/50-umask.sh
+  fixUmask
 }
 
 applyCIS
