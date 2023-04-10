@@ -142,12 +142,8 @@ if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   # also pre-download Teleportd plugin for containerd
   downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
 else
-  CONTAINER_RUNTIME="docker"
-  MOBY_VERSION="19.03.14"
-  installMoby
-  echo "VHD will be built with docker as container runtime"
-  echo "  - moby v${MOBY_VERSION}" >> ${VHD_LOGS_FILEPATH}
-  cliTool="docker"
+  echo "Unsupported container runtime"
+  exit 1
 fi
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
@@ -189,22 +185,13 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
       fi
     fi
   else
-    if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-      bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG $gpu_action"
-      ret=$?
-      if [[ "$ret" != "0" ]]; then
-        echo "Failed to install GPU driver, exiting..."
-        exit $ret
-      fi
-    fi
+    echo "Unsupported container runtime"
+    exit 1
   fi
 fi
 
 if [ "${CONTAINER_RUNTIME:=}" == "containerd" ]; then
     systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
-else
-    systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
-fi
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
@@ -269,9 +256,6 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 # can't use cliTool because crictl doesn't support retagging.
 if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
     retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
-else
-    retagContainerImage "docker" ${watcherFullImg} ${watcherStaticImg}
-fi
 
 # doing this at vhd allows CSE to be faster with just mv
 unpackAzureCNI() {
@@ -361,11 +345,7 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
 
   DEST="/usr/local/nvidia/bin"
   mkdir -p $DEST
-  if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-    ctr --namespace k8s.io run --rm --mount type=bind,src=${DEST},dst=${DEST},options=bind:rw --cwd ${DEST} "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.13.0.7" plugingextract /bin/sh -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
-  else
-    docker run --rm --entrypoint "" -v $DEST:$DEST "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.13.0.7" /bin/bash -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
-  fi
+  ctr --namespace k8s.io run --rm --mount type=bind,src=${DEST},dst=${DEST},options=bind:rw --cwd ${DEST} "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.13.0.7" plugingextract /bin/sh -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
   chmod a+x $DEST/nvidia-device-plugin
   echo "  - extracted nvidia-device-plugin..." >> ${VHD_LOGS_FILEPATH}
   ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
@@ -432,11 +412,8 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # use kube-proxy as well
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
   pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-  if [[ ${cliTool} == "docker" ]]; then
-      docker run --rm --entrypoint "" ${CONTAINER_IMAGE} /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
-  else
-      ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
-  fi
+  ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
+  
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
