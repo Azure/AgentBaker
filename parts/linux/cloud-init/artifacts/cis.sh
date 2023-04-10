@@ -198,7 +198,7 @@ fixUmask() {
   fi
 
   # delete the umask line from /etc/profile so we reduce conflicts
-  sed -E -i 'umask 027/d' /etc/profile
+  sed -E -i '/umask 027/d' /etc/profile
 }
 
 applyCIS() {
