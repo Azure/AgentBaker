@@ -1,6 +1,6 @@
 # Introduction of Windows E2E
 ## Summary 
-Windows E2E is used to validate the latest change of windows cse package automatically. We current support three versions of windows images: windows 2019 containerd, windows 2022 containerd gen1 and windows 2022 containerd gen2.
+Windows E2E is used to validate the latest change of windows cse package automatically. We currently support three versions of windows images: windows 2019 containerd, windows 2022 containerd gen1 and windows 2022 containerd gen2.
 
 ## Code Path
 ```bash
