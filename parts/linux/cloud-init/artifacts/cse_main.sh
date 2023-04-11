@@ -371,6 +371,9 @@ else
                 systemctl unmask dnf-automatic-install.service || exit $ERR_SYSTEMCTL_START_FAIL
                 systemctl unmask dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
                 systemctlEnableAndStart dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
+
+                # 2.2.18 Ensure nfs-utils is not installed or the nfs-server service is masked
+                systemctl --now mask nfs-server || exit $ERR_SYSTEMCTL_START_FAIL
                 # The check-restart service which will inform kured of required restarts should already be running
             fi
         fi
