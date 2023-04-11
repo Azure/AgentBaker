@@ -209,7 +209,7 @@ type flags struct {
 }
 
 var defaultPath = filepath.Join("vhdbuilder", "release-notes")
-var defaultDate = strings.Split(time.Now().Format("200601.02 15:04:05"), " ")[0]
+var defaultDate = strings.Split(time.Now().Format("200601.02"), " ")[0] + ".0"
 
 var artifactToPath = map[string]string{
 	"1804-containerd":                   filepath.Join("AKSUbuntu", "gen1", "1804containerd"),
