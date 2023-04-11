@@ -211,6 +211,7 @@ applyCIS() {
   assignFilePermissions
   removeUnneededFiles
   disableCoreDumps
+  fixChronyUser
   fixUmask
 }
 
