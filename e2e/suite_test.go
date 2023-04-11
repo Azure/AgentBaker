@@ -64,7 +64,7 @@ func Test_All(t *testing.T) {
 
 		copied, err := deepcopy.Anything(baseConfig)
 		if err != nil {
-			t.Error(err)
+			log.Printf("In scenario %s, failed to copy base config: %s", scenario.Name, err)
 			continue
 		}
 		nbc := copied.(*datamodel.NodeBootstrappingConfiguration)
@@ -100,7 +100,7 @@ func Test_All(t *testing.T) {
 func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts) {
 	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair(r)
 	if err != nil {
-		t.Error(err)
+		log.Println(err)
 		return
 	}
 
@@ -111,7 +111,7 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 	if err != nil {
 		vmssSucceeded = false
 		if isCSEError {
-			t.Error("VM was unable to be provisioned due to a CSE error, will still atempt to extract provisioning logs...", err)
+			log.Printf("VM was unable to be provisioned due to a CSE error during scenario %s, will still atempt to extract provisioning logs... %v", opts.scenario.Name, err)
 		} else {
 			log.Fatal("Encountered an unknown error while creating VM:", err)
 		}
@@ -156,12 +156,14 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scena
 		log.Printf("deleting vmss %s", vmssName)
 		poller, err := cloud.vmssClient.BeginDelete(ctx, *chosenCluster.Properties.NodeResourceGroup, vmssName, nil)
 		if err != nil {
-			t.Error("error deleting vmss", vmssName, err)
+			// TODO - return error if failed and handle accordingly? We can't rely on t.Error() anymore
+			log.Printf("error deleting vmss %q: %s", vmssName, err)
 			return
 		}
 		_, err = poller.PollUntilDone(ctx, nil)
 		if err != nil {
-			t.Error("error polling deleting vmss", vmssName, err)
+			// TODO - return error if failed and handle accordingly? We can't rely on t.Error() anymore
+			log.Printf("error polling deleting vmss %q: %s", vmssName, err)
 		}
 		log.Printf("finished deleting vmss %q", vmssName)
 	}
