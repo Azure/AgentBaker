@@ -211,6 +211,15 @@ function maskNfsServer() {
   systemctl --now mask nfs-server || exit 4
 }
 
+function fixRpFilter() {
+  # 3.3.7 Ensure Reverse Path Filtering is enabled
+  # Comment out rp_filter settings in /usr/lib/sysctl.d/50-default.conf and /lib/sysctl.d/50-default.conf
+  sed -E -i 's/^net.ipv4.conf.all.rp_filter/#net.ipv4.conf.all.rp_filter/g' /usr/lib/sysctl.d/50-default.conf
+  sed -E -i 's/^net.ipv4.conf.default.rp_filter/#net.ipv4.conf.default.rp_filter/g' /usr/lib/sysctl.d/50-default.conf
+  sed -E -i 's/^net.ipv4.conf.all.rp_filter/#net.ipv4.conf.all.rp_filter/g' /lib/sysctl.d/50-default.conf
+  sed -E -i 's/^net.ipv4.conf.default.rp_filter/#net.ipv4.conf.default.rp_filter/g' /lib/sysctl.d/50-default.conf
+}
+
 applyCIS() {
   setPWExpiration
   assignRootPW
@@ -219,6 +228,7 @@ applyCIS() {
   disableCoreDumps
   fixChronyUser
   fixUmask
+  fixRpFilter
 }
 
 applyCIS
