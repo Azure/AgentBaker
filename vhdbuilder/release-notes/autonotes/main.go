@@ -40,7 +40,7 @@ func main() {
 	flag.StringVar(&fl.include, "include", "", "only include this list of VHD release notes.")
 	flag.StringVar(&fl.ignore, "ignore", "", "ignore release notes for these VHDs")
 	flag.StringVar(&fl.path, "path", defaultPath, "output path to root of VHD notes")
-	flag.StringVar(&fl.date, "date", defaultDate, "date of VHD build in format YYYYMM.DD")
+	flag.StringVar(&fl.date, "date", defaultDate, "date of VHD build in format YYYYMM.DD.0")
 
 	flag.Parse()
 
