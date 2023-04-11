@@ -5798,8 +5798,10 @@ ensureRunc() {
 
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-    if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
-        echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
+    CLEANED_TARGET_VERSION=$(TARGET_VERSION%+*) # removes the +azure-ubuntu18.04u1 (or similar) suffix
+
+    if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
+        echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
         return
     fi
     # if on a vhd-built image, first check if we've cached the deb file
