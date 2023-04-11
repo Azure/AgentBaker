@@ -153,7 +153,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scena
 	log.Printf("vmss name: %q", vmssName)
 
 	cleanupVMSS := func() {
-		log.Println("deleting vmss", vmssName)
+		log.Printf("deleting vmss %s", vmssName)
 		poller, err := cloud.vmssClient.BeginDelete(ctx, *chosenCluster.Properties.NodeResourceGroup, vmssName, nil)
 		if err != nil {
 			t.Error("error deleting vmss", vmssName, err)
@@ -163,7 +163,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scena
 		if err != nil {
 			t.Error("error polling deleting vmss", vmssName, err)
 		}
-		log.Printf"finished deleting vmss %q", vmssName)
+		log.Printf("finished deleting vmss %q", vmssName)
 	}
 
 	vmssModel, err := createVMSSWithPayload(ctx, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
