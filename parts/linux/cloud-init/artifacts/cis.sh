@@ -149,7 +149,11 @@ EOF
 }
 
 replaceOrAppendChronyd() {
-    replaceOrAppendSetting "^#{0,1} {0,1}${1}=.*$" "${1}=${2}" /etc/sysconfig/chronyd
+    rm -f /etc/sysconfig/chronyd
+    cat > /etc/sysconfig/chronyd << "EOF"
+OPTIONS="-u chrony"
+EOF
+
 }
 
 fixChronyUser() {
