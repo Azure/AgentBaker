@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"context"
+	"log"
 	"testing"
 	"time"
 
