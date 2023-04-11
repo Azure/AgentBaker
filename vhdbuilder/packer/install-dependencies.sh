@@ -155,15 +155,8 @@ echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   
-  RUNC_VERSIONS="1.1.5+azure-ubuntu-${UBUNTU_RELEASE}u1_${CPU_ARCH}"
+  RUNC_VERSIONS="1.1.5+azure-ubuntu-${UBUNTU_RELEASE}u1_${CPU_ARCH}" 
   
-  if [[ $(isARM64) == 1 ]]; then
-    # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
-    # so use different version set for different arch to avoid affecting each other during VHD build
-    RUNC_VERSIONS="
-    1.0.3
-    "
-  fi
   for RUNC_VERSION in $RUNC_VERSIONS; do
     downloadDebPkgToFile "moby-runc" ${RUNC_VERSION/\-/\~} ${RUNC_DOWNLOADS_DIR}
     echo "  - [cached] runc ${RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
