@@ -1,25 +1,20 @@
 package scenario
 
 import (
-	"testing"
-
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-)
-
-const (
-	networkPluginAzure = "azure"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 )
 
 func base_azurecni() *Scenario {
 	return &Scenario{
 		Name:        "base-azurecni",
-		Description: "base scenario on cluster configured with NetworkPlugin 'Azure'",
+		Description: "base scenario on cluster configured with Azure CNI",
 		Config: Config{
 			ClusterSelector: NetworkPluginAzureSelector,
 			ClusterMutator:  NetworkPluginAzureMutator,
-			BootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = networkPluginAzure
-				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = networkPluginAzure
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 			},
 		},
 	}
