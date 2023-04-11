@@ -125,8 +125,16 @@ tee $SCENARIO_NAME-vmss.json > /dev/null <<EOF
 }
 EOF
 
-jq --arg clientCrt "$clientCertificate" --arg vmssName $DEPLOYMENT_VMSS_NAME 'del(.KubeletConfig."--pod-manifest-path") | del(.KubeletConfig."--pod-max-pids") | del(.KubeletConfig."--protect-kernel-defaults") | del(.KubeletConfig."--tls-cert-file") | del(.KubeletConfig."--tls-private-key-file") | .ContainerService.properties.certificateProfile += {"clientCertificate": $clientCrt} | .PrimaryScaleSetName=$vmssName' nodebootstrapping_config.json > $WINDOWS_E2E_IMAGE-nodebootstrapping_config_for_windows.json
+# Save $WINDOWS_E2E_IMAGE-nodebootstrapping_config_for_windows.json from the node bootstrapping config generated from e2e-starter.sh
+jq --arg clientCrt "$clientCertificate" --arg vmssName $DEPLOYMENT_VMSS_NAME \
+'del(.KubeletConfig."--pod-manifest-path") | del(.KubeletConfig."--pod-max-pids") | 
+del(.KubeletConfig."--protect-kernel-defaults") | del(.KubeletConfig."--tls-cert-file") | 
+del(.KubeletConfig."--tls-private-key-file") | .ContainerService.properties.certificateProfile += {"clientCertificate": $clientCrt} | 
+.PrimaryScaleSetName=$vmssName' nodebootstrapping_config.json > $WINDOWS_E2E_IMAGE-nodebootstrapping_config_for_windows.json
+cat "${WINDOWS_E2E_IMAGE}"-nodebootstrapping_config_for_windows.json
+
 jq -s '.[0] * .[1]' $WINDOWS_E2E_IMAGE-nodebootstrapping_config_for_windows.json scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-property-$SCENARIO_NAME.json > scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-nbc-$SCENARIO_NAME.json
+cat scenarios/"${SCENARIO_NAME}"/"${WINDOWS_E2E_IMAGE}"-nbc-"${SCENARIO_NAME}".json
 
 go test -tags bash_e2e -run TestE2EWindows
 
@@ -161,6 +169,7 @@ jq --argjson JsonForVnet "$WINDOWS_VNET" \
     --arg ValueForVMSS "$DEPLOYMENT_VMSS_NAME" \
     '.parameters += $JsonForVnet | .parameters += $JsonForLB | .parameters.galleries_AKSWindows_externalid.defaultValue=$ValueForImageExternalID | .resources[0] += $JsonForIdentity | .resources[0] += $JsonForSKU | .resources[0].properties.virtualMachineProfile.storageProfile+=$JsonForOSDisk | .resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] += $JsonForNetwork | .resources[0].properties.virtualMachineProfile.storageProfile.imageReference.id=$ValueForImageReference | .resources[0].properties.virtualMachineProfile.osProfile.adminPassword=$ValueForAdminPassword | .resources[0].properties.virtualMachineProfile.osProfile.customData=$ValueForCustomData | .resources[0].properties.virtualMachineProfile.extensionProfile.extensions[0].properties.settings.commandToExecute=$ValueForCSECmd | .parameters.virtualMachineScaleSets_akswin30_name.defaultValue=$ValueForVMSS' \
     windows_vmss_template.json > $DEPLOYMENT_VMSS_NAME-deployment.json
+cat "${DEPLOYMENT_VMSS_NAME}"-deployment.json
 
 retval=0
 set +e
@@ -199,6 +208,7 @@ waitForNodeStartTime=$(date +%s)
 for i in $(seq 1 10); do
     set +e
     kubectl get nodes | grep $VMSS_INSTANCE_NAME
+    echo "$(kubectl get nodes -o wide)"
     retval=$?
     # pipefail interferes with conditional.
     # shellcheck disable=SC2143
