@@ -5786,7 +5786,7 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.1.5+azure-ubuntu-${UBUNTU_RELEASE}u1_${CPU_ARCH}"
+        TARGET_VERSION="1.1.5+azure-ubuntu${UBUNTU_RELEASE}u1_${CPU_ARCH}"
 
         if [[ $(isARM64) == 1 ]]; then
             # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
