@@ -83,9 +83,11 @@ function Set-AzureCNIConfig
     } else {
         # Fill in DNS information for kubernetes.
         $exceptionAddresses = @()
-        if ($IsDualStackEnabled){
-            $subnetToPass = $KubeClusterCIDR -split ","
-            $exceptionAddresses += $subnetToPass[0]
+        if ($IsDualStackEnabled) {
+            $subnetsToPass = $KubeClusterCIDR -split ","
+            foreach ($subnet in $subnetsToPass) {
+                $exceptionAddresses += $subnet
+            }
         } else {
             $exceptionAddresses += $KubeClusterCIDR
         }

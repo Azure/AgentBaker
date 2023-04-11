@@ -20,5 +20,7 @@ module.exports = {
 				'test',
 			],
 		],
+		'footer-max-line-length': [1, 'always', 100], // allow long link refs
   },
+	parserPreset: { parserOpts: { noteKeywords: ['\\[.+\\]:'] } }, // allow long link refs
 }
