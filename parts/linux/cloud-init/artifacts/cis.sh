@@ -205,6 +205,12 @@ fixUmask() {
   sed -E -i '/umask 027/d' /etc/profile
 }
 
+function maskNfsServer() {
+    # 2.2.18 Ensure nfs-utils is not installed or the nfs-server service is masked
+    # 4 comes from the cse_ scripts
+  systemctl --now mask nfs-server || exit 4
+}
+
 applyCIS() {
   setPWExpiration
   assignRootPW
