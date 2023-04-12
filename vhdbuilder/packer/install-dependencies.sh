@@ -153,16 +153,6 @@ fi
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
-  
-  RUNC_VERSIONS="1.1.5+azure-ubuntu-${UBUNTU_RELEASE}u1_${CPU_ARCH}" 
-  
-  for RUNC_VERSION in $RUNC_VERSIONS; do
-    downloadDebPkgToFile "moby-runc" ${RUNC_VERSION/\-/\~} ${RUNC_DOWNLOADS_DIR}
-    echo "  - [cached] runc ${RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-  done
-fi
-
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
   export NVIDIA_DRIVER_IMAGE_TAG="cuda-525.85.12-${NVIDIA_DRIVER_IMAGE_SHA}"
