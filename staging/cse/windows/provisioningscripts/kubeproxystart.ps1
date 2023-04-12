@@ -1,6 +1,43 @@
 $Global:ClusterConfiguration = ConvertFrom-Json ((Get-Content "c:\k\kubeclusterconfig.json" -ErrorAction Stop) | out-string)
 $KubeproxyFeatureGates = $Global:ClusterConfiguration.Kubernetes.Kubeproxy.FeatureGates # This is the initial feature list passed in from aks-engine
+$KubernetesVersion = $Global:ClusterConfiguration.Kubernetes.Source.Release
 $ContainerRuntime = $Global:ClusterConfiguration.Cri.Name
+
+# comparison function for 2 semantic versions
+# returns 1 if Version1 > Version 2, -1 if Version1 < Version2, and 0 if equal
+function Compare-SemanticVersion {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true, Position=0)]
+        [string]$Version1,
+        [Parameter(Mandatory=$true, Position=1)]
+        [string]$Version2
+    )
+
+    $version1Parts = $Version1.Split(".")
+    $version2Parts = $Version2.Split(".")
+
+    $maxCount = 0
+    if ($version1Parts.Count > $version2Parts.Count) {
+        $maxCount = $version1Parts.Count
+    } else {
+        $maxCount = $version2Parts.Count
+    }
+
+    for ($i = 0; $i -lt $maxCount; $i++) {
+        $version1Part = if ($i -lt $version1Parts.Count) { [int]$version1Parts[$i] } else { 0 }
+        $version2Part = if ($i -lt $version2Parts.Count) { [int]$version2Parts[$i] } else { 0 }
+
+        if ($version1Part -lt $version2Part) {
+            return -1
+        }
+        elseif ($version1Part -gt $version2Part) {
+            return 1
+        }
+    }
+
+    return 0
+}
 
 $KubeNetwork = "azure"
 if ($Global:ClusterConfiguration.Cni.Name -eq "kubenet") {
@@ -33,8 +70,23 @@ if ($KubeproxyFeatureGates -contains "WinDSR=true") {
     $global:KubeproxyArgList += @("--enable-dsr=true")
 }
 
-if ($KubeproxyFeatureGates.Count -ne 0) {
-    $global:KubeproxyArgList += @("--feature-gates=" + ($KubeproxyFeatureGates -join ","))
+$featureGateArgs = ""
+foreach ($feature in $KubeproxyFeatureGates) {
+    # IPv6DualStack feature gate should not be passed to kube-proxy in >= 1.25.0
+    # https://github.com/kubernetes/kubernetes/blob/ef70d260f3d036fc22b30538576bbf6b36329995/pkg/features/kube_features.go#L945
+    if (($feature -like "IPv6DualStack=*") -and ((Compare-SemanticVersion -Version1 $KubernetesVersion -Version2 "1.25.0") -ge 0)) {
+        continue
+    }
+
+    if ($featureGateArgs -ne "") {
+        $featureGateArgs += ","
+    }
+
+    $featureGateArgs += $feature
+}
+
+if ($featureGateArgs -ne "") {
+    $global:KubeproxyArgList += @("--feature-gates=" + $featureGateArgs)
 }
 
 #
