@@ -261,6 +261,14 @@ testKubeBinariesPresent() {
     if [ ! -s $kubectlDownloadLocation ]; then
       err $test "Binary ${kubectlDownloadLocation} does not exist"
     fi
+
+    #Test whether the binaries extracted have same SHA256 as published by upstream
+    extractedSHA=$(sha256sum ${kubeletDownloadLocation} | awk '{print $1}')
+    upstreamSHA=$(curl https://kubernetesartifacts.azureedge.net/kubernetes/v${patchedK8sVersion}/provenance/provenance.json | jq -r '.subject[] | select(.name | contains("node/linux/amd64/kubelet")) | .digest.sha256')
+    if [ extractedSHA != upstreamSHA ]; then
+      err $test "SHA256 of binary ${kubeletDownloadLocation} does not match with the corresponding upstream SHA, check build logs"
+    fi
+
     #Test whether the installed binary version is indeed correct
     mv $kubeletDownloadLocation $kubeletInstallLocation
     mv $kubectlDownloadLocation $kubectlInstallLocation
@@ -275,6 +283,8 @@ testKubeBinariesPresent() {
     if [[ ! $kubeletLongVersion =~ $k8sVersion ]]; then
       err $test "The kubelet version is not correct: expected kubelet version $k8sVersion existing: $kubeletLongVersion"
     fi
+
+
   done
   echo "$test:Finish"
 }
