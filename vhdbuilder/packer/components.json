@@ -28,18 +28,18 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/coredns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
+        "v1.10.1",
         "v1.8.7",
         "v1.9.3",
-        "v1.9.4",
-        "v1.10.1"
+        "v1.9.4"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.35",
-        "v1.4.39"
+        "v1.4.39",
+        "v1.4.44"
       ]
     },
     {
@@ -172,8 +172,8 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.5",
-        "1.12.5.1"
+        "1.12.5.1",
+        "1.12.5.2"
       ]
     },
     {
@@ -194,8 +194,8 @@
         "v1.23.30",
         "v1.24.11",
         "v1.24.17",
-        "v1.25.5",
         "v1.25.11",
+        "v1.25.5",
         "v1.26.0",
         "v1.26.7"
       ]
@@ -241,7 +241,9 @@
       ],
       "multiArchVersions": [
         "v1.24.0",
-        "v1.26.1"
+        "v1.26.1",
+        "v1.26.1.1",
+        "v1.26.2"
       ]
     },
     {
