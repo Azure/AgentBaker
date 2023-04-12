@@ -2,13 +2,15 @@ package e2e_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	mrand "math/rand"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
@@ -171,14 +173,21 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scena
 	return vmssModel, cleanupVMSS, nil
 }
 
+// TODO - add second function, one for coverage tests that does curl, second for regular E2E runs that runs as before
 func getNodeBootstrapping(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
-	ab, err := agent.NewAgentBaker()
+	payload, err := json.Marshal(nbc)
 	if err != nil {
-		return nil, err
+		log.Fatalf("failed to marshal nbc, error: %s", err)
 	}
-	nodeBootstrapping, err := ab.GetNodeBootstrapping(ctx, nbc)
+	cmd := exec.Command("curl", "-X", "POST", "-d", string(payload), "localhost:8080/getnodebootstrapdata")
+	output, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		log.Fatalf("failed to retrieve node bootstrapping data, error: %s", err)
+	}
+	var nodeBootstrapping *datamodel.NodeBootstrapping
+	err = json.Unmarshal(output, &nodeBootstrapping)
+	if err != nil {
+		log.Fatalf("failed to unmarshal node bootstrapping data, error: %s", err)
 	}
 	return nodeBootstrapping, nil
 }
