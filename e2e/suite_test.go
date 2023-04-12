@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/Azure/agentbaker/pkg/agent"
 	"log"
 	mrand "math/rand"
 	"os/exec"
@@ -123,7 +122,7 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		return
 	}
 
-	vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, opts, publicKeyBytes, bootstrappingGetter)
+	vmssName, vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, opts, publicKeyBytes, bootstrappingGetter)
 	defer cleanupVMSS()
 	isCSEError := isVMExtensionProvisioningError(err)
 	vmssSucceeded := true
@@ -135,14 +134,16 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		t.Log("VM was unable to be provisioned due to a CSE error, will still atempt to extract provisioning logs...")
 	}
 
-	if err := writeToFile(filepath.Join(opts.loggingDir, "vmssId.txt"), *vmssModel.ID); err != nil {
-		t.Fatal("failed to write vmss resource ID to disk", err)
+	if vmssModel != nil {
+		if err := writeToFile(filepath.Join(opts.loggingDir, "vmssId.txt"), *vmssModel.ID); err != nil {
+			t.Fatal("failed to write vmss resource ID to disk", err)
+		}
 	}
 
 	// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
 	if vmssSucceeded || isCSEError {
 		debug := func() {
-			err := pollExtractVMLogs(ctx, t, *vmssModel.Name, privateKeyBytes, opts)
+			err := pollExtractVMLogs(ctx, t, vmssName, privateKeyBytes, opts)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -153,17 +154,17 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 	// Only perform node readiness/pod-related checks when VMSS creation succeeded
 	if vmssSucceeded {
 		t.Log("vmss creation succeded, proceeding with node readiness and pod checks...")
-		if err = validateNodeHealth(ctx, t, opts.kube, *vmssModel.Name); err != nil {
+		if err = validateNodeHealth(ctx, t, opts.kube, vmssName); err != nil {
 			t.Fatal(err)
 		}
 		t.Log("node bootstrapping succeeded!")
 	}
 }
 
-func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts, publicKeyBytes []byte, bootstrappingGetter getNodeBootstrapping) (*armcompute.VirtualMachineScaleSet, func(), error) {
+func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts, publicKeyBytes []byte, bootstrappingGetter getNodeBootstrapping) (string, *armcompute.VirtualMachineScaleSet, func(), error) {
 	nodeBootstrapping, err := bootstrappingGetter(ctx, opts.nbc)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to get node bootstrapping: %s", err)
+		return "", nil, nil, fmt.Errorf("unable to get node bootstrapping: %s", err)
 	}
 
 	vmssName := fmt.Sprintf("abtest%s", randomLowercaseString(r, 4))
@@ -185,10 +186,10 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scena
 
 	vmssModel, err := createVMSSWithPayload(ctx, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create VMSS with payload: %s", err)
+		return "", nil, nil, fmt.Errorf("unable to create VMSS with payload: %s", err)
 	}
 
-	return vmssModel, cleanupVMSS, nil
+	return vmssName, vmssModel, cleanupVMSS, nil
 }
 
 func getNodeBootstrappingForCoverage(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
