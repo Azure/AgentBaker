@@ -3,7 +3,9 @@ package e2e_test
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
+	"github.com/Azure/agentbaker/pkg/agent"
 	"log"
 	mrand "math/rand"
 	"os/exec"
@@ -17,10 +19,18 @@ import (
 	"github.com/barkimedes/go-deepcopy"
 )
 
+type getNodeBootstrapping func(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
+
+var e2eMode string
+
+func init() {
+	flag.StringVar(&e2eMode, "e2eMode", "", "specify mode for e2e tests - 'coverage' or 'validation' - default: 'validation'")
+}
+
 func Test_All(t *testing.T) {
 	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 	ctx := context.Background()
-
+	bootstrappingGetter := determineNodeBootstrappingGetter(e2eMode)
 	t.Parallel()
 
 	suiteConfig, err := newSuiteConfig()
@@ -93,19 +103,27 @@ func Test_All(t *testing.T) {
 				loggingDir:    caseLogsDir,
 			}
 
-			runScenario(ctx, t, r, opts)
+			runScenario(ctx, t, r, opts, bootstrappingGetter)
 		})
 	}
 }
 
-func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts) {
+func determineNodeBootstrappingGetter(mode string) getNodeBootstrapping {
+	if mode == "coverage" {
+		fmt.Println("using coverage mode")
+		return getNodeBootstrappingForCoverage
+	}
+	return getNodeBootstrappingForValidation
+}
+
+func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts, bootstrappingGetter getNodeBootstrapping) {
 	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair(r)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, opts, publicKeyBytes)
+	vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, opts, publicKeyBytes, bootstrappingGetter)
 	defer cleanupVMSS()
 	isCSEError := isVMExtensionProvisioningError(err)
 	vmssSucceeded := true
@@ -142,8 +160,8 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 	}
 }
 
-func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
-	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
+func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts, publicKeyBytes []byte, bootstrappingGetter getNodeBootstrapping) (*armcompute.VirtualMachineScaleSet, func(), error) {
+	nodeBootstrapping, err := bootstrappingGetter(ctx, opts.nbc)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to get node bootstrapping: %s", err)
 	}
@@ -173,8 +191,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scena
 	return vmssModel, cleanupVMSS, nil
 }
 
-// TODO - add second function, one for coverage tests that does curl, second for regular E2E runs that runs as before
-func getNodeBootstrapping(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
+func getNodeBootstrappingForCoverage(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
 	payload, err := json.Marshal(nbc)
 	if err != nil {
 		log.Fatalf("failed to marshal nbc, error: %s", err)
@@ -188,6 +205,18 @@ func getNodeBootstrapping(ctx context.Context, nbc *datamodel.NodeBootstrappingC
 	err = json.Unmarshal(output, &nodeBootstrapping)
 	if err != nil {
 		log.Fatalf("failed to unmarshal node bootstrapping data, error: %s", err)
+	}
+	return nodeBootstrapping, nil
+}
+
+func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
+	ab, err := agent.NewAgentBaker()
+	if err != nil {
+		return nil, err
+	}
+	nodeBootstrapping, err := ab.GetNodeBootstrapping(ctx, nbc)
+	if err != nil {
+		return nil, err
 	}
 	return nodeBootstrapping, nil
 }

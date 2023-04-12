@@ -63,12 +63,11 @@ jobs:
           mkdir -p covdatafiles
           go build -cover -o baker -covermode count 
           GOCOVERDIR=covdatafiles ./baker start &
-          export serverpid=$(pgrep baker)
       - name: Run e2e tests
         run: |
           echo "Running e2e tests"
           cd e2e
-          go test -timeout 30m -v -run Test_All ./
+          go test -e2eMode="coverage" -timeout 30m -v -run Test_All ./
       - name: Generate coverage report
         run: |
           kill $(pgrep baker)
