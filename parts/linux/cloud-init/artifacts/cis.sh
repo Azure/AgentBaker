@@ -160,18 +160,22 @@ fixChronyUser() {
   replaceOrAppendChronyd OPTIONS "-u chrony"
 }
 
-setPamdPasswordConf() {
+setPamConfiguration() {
   cat > /etc/pam.d/system-auth << "EOF"
 # Begin /etc/pam.d/system-auth
 
-auth      required    pam_unix.so
-
 # Security patch for msid: 5.3.2
 # Ensure lockout for failed password attempts is configured
-auth      required    pam_faillock.so deny=5 unlock_time=900
+auth      required      pam_faillock.so preauth silent audit deny=5 unlock_time=900
+auth      required      pam_unix.so try_first_pass
+auth      [default=die] pam_faillock.so authfail audit deny=5 unlock_time=900
 
-password  required    pam_pwhistory.so  remember=5
+account   required     pam_faillock.so
+
+password  requisite   pam_pwquality.so  retry=3
+password  required    pam_pwhistory.so  remember=5 use_authok
 password  sufficient  pam_unix.so       sha512 obscure use_authtok try_first_pass
+password  required    pam_deny.so
 
 # End /etc/pam.d/system-auth
 EOF
@@ -179,11 +183,18 @@ EOF
   cat > /etc/pam.d/system-password << "EOF"
 # Begin /etc/pam.d/system-password
 
+auth      required      pam_faillock.so preauth silent audit deny=5 unlock_time=900
+auth      required      pam_unix.so try_first_pass
+auth      [default=die] pam_faillock.so authfail audit deny=5 unlock_time=900
+
+account   required      pam_faillock.so
+
 # use sha512 hash for encryption, use shadow, and try to use any previously
 # defined authentication token (chosen password) set by any prior module
-password  requisite   pam_pwquality.so
-password  required    pam_pwhistory.so  remember=5
-password  required    pam_unix.so       sha512 shadow try_first_pass
+password  requisite   pam_pwquality.so  retry=3 try_first_pass
+password  required    pam_pwhistory.so  remember=5 use_authok
+password  sufficient  pam_unix.so       sha512 shadow try_first_pass use_authtok
+password  required    pam_deny.so
 
 # End /etc/pam.d/system-password
 EOF
@@ -230,6 +241,7 @@ applyCIS() {
   fixUmask
   fixRpFilter
   maskNfsServer
+  setPamConfiguration
 }
 
 applyCIS
