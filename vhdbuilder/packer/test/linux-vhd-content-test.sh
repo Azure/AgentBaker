@@ -264,9 +264,9 @@ testKubeBinariesPresent() {
 
     #Test whether the binaries extracted have same SHA256 as published by upstream
     extractedSHA=$(sha256sum ${kubeletDownloadLocation} | awk '{print $1}')
-    upstreamSHA=$(curl https://kubernetesartifacts.azureedge.net/kubernetes/v${patchedK8sVersion}/provenance/provenance.json | jq -r '.subject[] | select(.name | contains("node/linux/amd64/kubelet")) | .digest.sha256')
+    upstreamSHA=$(curl -s https://kubernetesartifacts.azureedge.net/kubernetes/v${k8sVersion}/provenance/provenance.json | jq -r '.subject[] | select(.name | contains("node/linux/amd64/kubelet")) | .digest.sha256')
     if [ "$extractedSHA" != "$upstreamSHA" ]; then
-      err $test "SHA256 of binary ${kubeletDownloadLocation} does not match with the corresponding upstream SHA, check build logs"
+      err $test "SHA of extracted binary ${kubeletDownloadLocation}: ${extractedSHA} not equal to upstream SHA: ${upstreamSHA}"
     fi
 
     #Test whether the installed binary version is indeed correct
