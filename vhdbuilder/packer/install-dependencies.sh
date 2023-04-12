@@ -98,6 +98,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     fi
     disableDNFAutomatic
     enableCheckRestart
+    activateNfConntrack
 fi
 
 downloadContainerdWasmShims
