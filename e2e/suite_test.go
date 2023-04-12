@@ -2,24 +2,18 @@ package e2e_test
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	mrand "math/rand"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/barkimedes/go-deepcopy"
 )
-
-type getNodeBootstrapping func(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
 
 var e2eMode string
 
@@ -30,7 +24,6 @@ func init() {
 func Test_All(t *testing.T) {
 	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 	ctx := context.Background()
-	bootstrappingGetter := determineNodeBootstrappingGetter(e2eMode)
 	t.Parallel()
 
 	suiteConfig, err := newSuiteConfig()
@@ -103,27 +96,19 @@ func Test_All(t *testing.T) {
 				loggingDir:    caseLogsDir,
 			}
 
-			runScenario(ctx, t, r, opts, bootstrappingGetter)
+			runScenario(ctx, t, r, opts)
 		})
 	}
 }
 
-func determineNodeBootstrappingGetter(mode string) getNodeBootstrapping {
-	if mode == "coverage" {
-		fmt.Println("using coverage mode")
-		return getNodeBootstrappingForCoverage
-	}
-	return getNodeBootstrappingForValidation
-}
-
-func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts, bootstrappingGetter getNodeBootstrapping) {
+func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts) {
 	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair(r)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	vmssName, vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, opts, publicKeyBytes, bootstrappingGetter)
+	vmssName, vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, opts, publicKeyBytes)
 	defer cleanupVMSS()
 	isCSEError := isVMExtensionProvisioningError(err)
 	vmssSucceeded := true
@@ -162,8 +147,9 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 	}
 }
 
-func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts, publicKeyBytes []byte, bootstrappingGetter getNodeBootstrapping) (string, *armcompute.VirtualMachineScaleSet, func(), error) {
-	nodeBootstrapping, err := bootstrappingGetter(ctx, opts.nbc)
+func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts, publicKeyBytes []byte) (string, *armcompute.VirtualMachineScaleSet, func(), error) {
+	nodeBootstrappingFn := getNodeBootstrapping(e2eMode)
+	nodeBootstrapping, err := nodeBootstrappingFn(ctx, opts.nbc)
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("unable to get node bootstrapping: %s", err)
 	}
@@ -191,36 +177,6 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scena
 	}
 
 	return vmssName, vmssModel, cleanupVMSS, nil
-}
-
-func getNodeBootstrappingForCoverage(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
-	payload, err := json.Marshal(nbc)
-	if err != nil {
-		log.Fatalf("failed to marshal nbc, error: %s", err)
-	}
-	cmd := exec.Command("curl", "-X", "POST", "-d", string(payload), "localhost:8080/getnodebootstrapdata")
-	output, err := cmd.Output()
-	if err != nil {
-		log.Fatalf("failed to retrieve node bootstrapping data, error: %s", err)
-	}
-	var nodeBootstrapping *datamodel.NodeBootstrapping
-	err = json.Unmarshal(output, &nodeBootstrapping)
-	if err != nil {
-		log.Fatalf("failed to unmarshal node bootstrapping data, error: %s", err)
-	}
-	return nodeBootstrapping, nil
-}
-
-func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
-	ab, err := agent.NewAgentBaker()
-	if err != nil {
-		return nil, err
-	}
-	nodeBootstrapping, err := ab.GetNodeBootstrapping(ctx, nbc)
-	if err != nil {
-		return nil, err
-	}
-	return nodeBootstrapping, nil
 }
 
 func validateNodeHealth(ctx context.Context, t *testing.T, kube *kubeclient, vmssName string) error {
