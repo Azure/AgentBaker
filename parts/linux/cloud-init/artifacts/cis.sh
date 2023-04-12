@@ -229,6 +229,7 @@ applyCIS() {
   fixChronyUser
   fixUmask
   fixRpFilter
+  maskNfsServer
 }
 
 applyCIS
