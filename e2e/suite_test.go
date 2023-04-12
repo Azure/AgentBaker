@@ -148,7 +148,7 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 }
 
 func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts, publicKeyBytes []byte) (string, *armcompute.VirtualMachineScaleSet, func(), error) {
-	nodeBootstrappingFn := getNodeBootstrapping(e2eMode)
+	nodeBootstrappingFn := getNodeBootstrappingFn(e2eMode)
 	nodeBootstrapping, err := nodeBootstrappingFn(ctx, opts.nbc)
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("unable to get node bootstrapping: %s", err)

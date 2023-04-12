@@ -9,9 +9,9 @@ import (
 	"os/exec"
 )
 
-type getNodeBootstrappingFn func(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
+type nodeBootstrappingFn func(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
 
-func getNodeBootstrapping(e2eMode string) getNodeBootstrappingFn {
+func getNodeBootstrappingFn(e2eMode string) nodeBootstrappingFn {
 	switch e2eMode {
 	case "coverage":
 		return getNodeBootstrappingForCoverage
