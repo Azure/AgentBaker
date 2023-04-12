@@ -27,7 +27,7 @@ type Config struct {
 	LiveVMValidators       []*LiveVMValidator
 }
 
-type VMCommandOutputAsserterFn func(string, string) error
+type VMCommandOutputAsserterFn func(stdout, stderr string) error
 
 type LiveVMValidator struct {
 	Description string

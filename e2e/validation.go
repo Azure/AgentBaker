@@ -91,5 +91,27 @@ func commonLiveVMValidators() []*scenario.LiveVMValidator {
 				return nil
 			},
 		},
+		{
+			Description: "assert /var/log/azure/aks was properly setup by CSE",
+			Command:     "ls -la /var/log/azure/aks",
+			Asserter: func(stdout, stderr string) error {
+				if !strings.Contains(stdout, "cluster-provision.log") {
+					return fmt.Errorf("expected to find cluster-provision.log within /var/log/azure/aks, but did not")
+				}
+				if !strings.Contains(stdout, "cluster-provision-cse-output.log") {
+					return fmt.Errorf("expected to find cluster-provision-cse-output.log within /var/log/azure/aks, but did not")
+				}
+				if !strings.Contains(stdout, "cloud-init-files.paved") {
+					return fmt.Errorf("expected to find cloud-init-files.paved within /var/log/azure/aks, but did not")
+				}
+				if !strings.Contains(stdout, "vhd-install.complete") {
+					return fmt.Errorf("expected to find vhd-install.complete within /var/log/azure/aks, but did not")
+				}
+				if !strings.Contains(stdout, "cloud-config.txt") {
+					return fmt.Errorf("expected to find cloud-config.txt within /var/log/azure/aks, but did not")
+				}
+				return nil
+			},
+		},
 	}
 }

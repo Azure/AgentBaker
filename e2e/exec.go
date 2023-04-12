@@ -71,7 +71,7 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 	for file, sourceCmd := range commandList {
 		t.Logf("executing privileged command on pod %s/%s: %q", defaultNamespace, podName, sourceCmd)
 
-		execResult, err := execPrivilegedOnPod(ctx, kube, defaultNamespace, podName, sourceCmd)
+		execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, sourceCmd)
 		if execResult != nil {
 			checkStdErr(execResult.stderr, t)
 		}
@@ -89,7 +89,7 @@ func execOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName
 	sshCommand := fmt.Sprintf(sshCommandTemplate, sshPrivateKey, vmPrivateIP)
 	commandToExecute := fmt.Sprintf("%s %s", sshCommand, command)
 
-	execResult, err := execPrivilegedOnPod(ctx, kube, defaultNamespace, jumpboxPodName, commandToExecute)
+	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, commandToExecute)
 	if err != nil {
 		return nil, fmt.Errorf("error executing command on pod: %s", err)
 	}
@@ -97,7 +97,7 @@ func execOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName
 	return execResult, nil
 }
 
-func execPrivilegedOnPod(ctx context.Context, kube *kubeclient, namespace, podName string, command string) (*podExecResult, error) {
+func execOnPrivilegedPod(ctx context.Context, kube *kubeclient, namespace, podName string, command string) (*podExecResult, error) {
 	privilegedCommand := append(nsenterCommandArray(), command)
 	return execOnPod(ctx, kube, namespace, podName, privilegedCommand)
 }
