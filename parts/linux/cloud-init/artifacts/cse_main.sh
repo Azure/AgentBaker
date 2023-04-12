@@ -355,6 +355,13 @@ else
         fi
         aptmarkWALinuxAgent unhold &
     elif [[ $OS == $MARINER_OS_NAME ]]; then
+        echo 'TOBIASB: masking nfs-server'
+        systemctl is-enabled nfs-server
+        # 2.2.18 Ensure nfs-utils is not installed or the nfs-server service is masked
+        systemctl --now mask nfs-server || exit $ERR_SYSTEMCTL_START_FAIL
+        echo 'TOBIASB: after masking nfs-server'
+        systemctl is-enabled nfs-server
+
         if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
             if [ "${IS_KATA}" == "true" ]; then
                 # Currently kata packages must be updated as a unit (including the kernel which requires a reboot). This can
