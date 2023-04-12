@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
