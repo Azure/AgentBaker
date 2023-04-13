@@ -12,6 +12,8 @@ import (
 )
 
 func main() {
+	k8s_version := os.Getenv("KUBE_BINARY_VERSION")
+	fmt.Println("k8s ver is:", k8s_version)
 	if err := run(); err != nil {
 		panic(err)
 	}
