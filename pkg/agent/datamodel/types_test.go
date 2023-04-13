@@ -1636,6 +1636,43 @@ func TestGetKubeProxyFeatureGatesWindowsArguments(t *testing.T) {
 			expectedFeatureGates: "\"IPv6DualStack=true\"",
 		},
 		{
+			name: "IPV6 enabled but version does not have feature gate (too old)",
+			properties: &Properties{
+				FeatureFlags: &FeatureFlags{
+					EnableIPv6DualStack: true,
+				},
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorVersion: "1.11.0",
+				},
+			},
+			expectedFeatureGates: "",
+		},
+		{
+			name: "IPV6 enabled but version does not have feature gate",
+			properties: &Properties{
+				FeatureFlags: &FeatureFlags{
+					EnableIPv6DualStack: true,
+				},
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorVersion: "1.25.0",
+				},
+			},
+			expectedFeatureGates: "",
+		},
+		{
+			name: "IPV6 enabled but version does not have feature gate",
+			properties: &Properties{
+				FeatureFlags: &FeatureFlags{
+					EnableIPv6DualStack: true,
+					EnableWinDSR:        true,
+				},
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorVersion: "1.25.0",
+				},
+			},
+			expectedFeatureGates: "\"WinDSR=true\", \"WinOverlay=false\"",
+		},
+		{
 			name: "WinDSR enabled",
 			properties: &Properties{
 				FeatureFlags: &FeatureFlags{
