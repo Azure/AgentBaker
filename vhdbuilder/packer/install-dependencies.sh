@@ -154,25 +154,18 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
   export NVIDIA_DRIVER_IMAGE_TAG="cuda-525.85.12-${NVIDIA_DRIVER_IMAGE_SHA}"
 
   mkdir -p /opt/{actions,gpu}
-  if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-    ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-    if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-      bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
-      ret=$?
-      if [[ "$ret" != "0" ]]; then
-        echo "Failed to install GPU driver, exiting..."
-        exit $ret
-      fi
-    fi
-  else
-    echo "Unsupported container runtime"
-    exit 1
-  fi
+  ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+  if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+    ret=$?
+    if [[ "$ret" != "0" ]]; then
+      echo "Failed to install GPU driver, exiting..."
+      exit $ret
+    fi    
 fi
 
-if [ "${CONTAINER_RUNTIME:=}" == "containerd" ]; then
-    systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
-fi
+systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
+
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
 installBpftrace
@@ -234,9 +227,8 @@ watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
 watcherStaticImg=${watcherBaseImg//\*/static}
 
 # can't use cliTool because crictl doesn't support retagging.
-if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-    retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
-fi
+retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
+
 # doing this at vhd allows CSE to be faster with just mv
 unpackAzureCNI() {
   local URL=$1
@@ -381,12 +373,8 @@ done
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 
 # kube-proxy regular versions >=v1.17.0  hotfixes versions >= 20211009 are 'multi-arch'. All versions in kube-proxy-images.json are 'multi-arch' version now.
-if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
-  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
-else
-  echo "Unsupported container runtime"
-  exit 1
-fi
+
+KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
 
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # use kube-proxy as well
