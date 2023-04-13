@@ -30,28 +30,24 @@ jobs:
         
         KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] parts/linux/cloud-init/artifacts/manifest.json)"
         echo $KUBE_BINARY_VERSIONS
-        K8S_VERSION=1.25.5
-        K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
-        KUBE_BINARY_URL="https://acs-mirror.azureedge.net/kubernetes/v1.25.5/binaries/kubernetes-node-linux-amd64.tar.gz"
-        mkdir -p ${K8S_DOWNLOADS_DIR}
-        K8S_TGZ_TMP=${KUBE_BINARY_URL##*/}
-        retrycmd_get_tarball 120 5 "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" ${KUBE_BINARY_URL} || exit 120
-        tar --transform="s|.*|&-${K8S_VERSION}|" --show-transformed-names -xzvf "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" \
-            --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
-        rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
 
-        # echo "Now installing containerd"
-        # wget https://github.com/containerd/containerd/releases/download/v1.6.19/containerd-1.6.19-linux-amd64.tar.gz
-        # tar xvf containerd-1.6.19-linux-amd64.tar.gz
-
-        # ls /usr/local/bin
-        # ls bin
-        # sudo bin/containerd
+        for KUBE_BINARY_VERSION in $KUBE_BINARY_VERSIONS; do
+          #K8S_VERSION=1.25.5
+          K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
+          KUBE_BINARY_URL="https://acs-mirror.azureedge.net/kubernetes/v${KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
+          mkdir -p ${K8S_DOWNLOADS_DIR}
+          K8S_TGZ_TMP=${KUBE_BINARY_URL##*/}
+          retrycmd_get_tarball 120 5 "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" ${KUBE_BINARY_URL} || exit 120
+          tar --transform="s|.*|&-${KUBE_BINARY_VERSION}|" --show-transformed-names -xzvf "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" \
+              --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
+          rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
+          #ls /usr/local/bin
+          sudo swapoff -a
+          sudo ctr version
+          sudo systemctl status containerd
+          #sudo /usr/local/bin/kubelet-1.25.5 -v 1 --container-runtime-endpoint unix:///var/run/containerd/containerd.sock
+          #cd e2e/kubelet
+          #go run main.go
+        done
         ls /usr/local/bin
-        sudo swapoff -a
-        sudo ctr version
-        sudo systemctl status containerd
-        #sudo /usr/local/bin/kubelet-1.25.5 -v 1 --container-runtime-endpoint unix:///var/run/containerd/containerd.sock
-        cd e2e/kubelet
-        go run main.go
       name: Download kubelet binary
