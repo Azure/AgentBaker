@@ -55,13 +55,13 @@ func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []b
 func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
 	model := getBaseVMSSModel(vmssName, opts.suiteConfig.location, *opts.chosenCluster.Properties.NodeResourceGroup, opts.subnetID, string(publicKeyBytes), customData, cseCmd)
 
-	isAzureCNI, err := opts.isAzureCNI()
+	isAzureCNI, err := opts.isChosenClusterAzureCNI()
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine whether chosen cluster uses Azure CNI from cluster model: %s", err)
 	}
 
 	if isAzureCNI {
-		maxPodsPerNode, err := opts.maxPodsPerNode()
+		maxPodsPerNode, err := opts.chosenClusterMaxPodsPerNode()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read agentpool MaxPods value from chosen cluster model: %s", err)
 		}

@@ -24,7 +24,7 @@ type scenarioRunOpts struct {
 }
 
 // Returns true if the scenario's chosen cluster is configured with Azure CNI
-func (opts *scenarioRunOpts) isAzureCNI() (bool, error) {
+func (opts *scenarioRunOpts) isChosenClusterAzureCNI() (bool, error) {
 	cluster := opts.chosenCluster
 	if cluster != nil && cluster.Properties != nil && cluster.Properties.NetworkProfile != nil {
 		return *cluster.Properties.NetworkProfile.NetworkPlugin == armcontainerservice.NetworkPluginAzure, nil
@@ -33,7 +33,7 @@ func (opts *scenarioRunOpts) isAzureCNI() (bool, error) {
 }
 
 // Returns the maximum number of pods per node of the chosen cluster's agentpool
-func (opts *scenarioRunOpts) maxPodsPerNode() (int, error) {
+func (opts *scenarioRunOpts) chosenClusterMaxPodsPerNode() (int, error) {
 	cluster := opts.chosenCluster
 	if cluster != nil && cluster.Properties != nil && cluster.Properties.AgentPoolProfiles != nil && len(cluster.Properties.AgentPoolProfiles) > 0 {
 		return int(*cluster.Properties.AgentPoolProfiles[0].MaxPods), nil
