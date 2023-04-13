@@ -104,7 +104,9 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 	}
 
 	vmssName, vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, opts, publicKeyBytes)
-	defer cleanupVMSS()
+	if cleanupVMSS != nil {
+		defer cleanupVMSS()
+	}
 	isCSEError := isVMExtensionProvisioningError(err)
 	vmssSucceeded := true
 	if err != nil {
