@@ -51,6 +51,11 @@ RuntimeMaxUse=1G
 ForwardToSyslog=yes
 EOF
 
+if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then
+  echo "Unsupported container runtime. Only containerd is supported for new VHD builds."
+  exit 1
+fi
+
 if [[ $(isARM64) == 1 ]]; then
   if [[ ${ENABLE_FIPS,,} == "true" ]]; then
     echo "No FIPS support on arm64, exiting..."
@@ -103,48 +108,43 @@ fi
 downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
 
-if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
-  echo "VHD will be built with containerd as the container runtime"
-  updateAptWithMicrosoftPkg
-  containerd_manifest="$(jq .containerd manifest.json)" || exit $?
-  installed_version="$(echo ${containerd_manifest} | jq -r '.edge')"
-  containerd_version="$(echo "$installed_version" | cut -d- -f1)"
-  containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
-  installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
-  echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
+echo "VHD will be built with containerd as the container runtime"
+updateAptWithMicrosoftPkg
+containerd_manifest="$(jq .containerd manifest.json)" || exit $?
+installed_version="$(echo ${containerd_manifest} | jq -r '.edge')"
+containerd_version="$(echo "$installed_version" | cut -d- -f1)"
+containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
+installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
+echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
 
-  DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-  for componentToDownload in ${DOWNLOAD_FILES[*]}; do
-    fileName=$(echo "${componentToDownload}" | jq .fileName -r)
-    if [ $fileName == "crictl-v*-linux-amd64.tar.gz" ]; then
-      CRICTL_VERSIONS_STR=$(echo "${componentToDownload}" | jq .versions -r)
-      CRICTL_VERSIONS=""
-      if [[ ${CRICTL_VERSIONS_STR} != null ]]; then
-        CRICTL_VERSIONS=$(echo "${CRICTL_VERSIONS_STR}" | jq -r ".[]")
-        CRICTL_VERSIONS=$(echo -e "$CRICTL_VERSIONS" | tail -n 2 | head -n 1 | tr -d ' ')
-      fi
-      break
+DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
+for componentToDownload in ${DOWNLOAD_FILES[*]}; do
+  fileName=$(echo "${componentToDownload}" | jq .fileName -r)
+  if [ $fileName == "crictl-v*-linux-amd64.tar.gz" ]; then
+    CRICTL_VERSIONS_STR=$(echo "${componentToDownload}" | jq .versions -r)
+    CRICTL_VERSIONS=""
+    if [[ ${CRICTL_VERSIONS_STR} != null ]]; then
+      CRICTL_VERSIONS=$(echo "${CRICTL_VERSIONS_STR}" | jq -r ".[]")
+      CRICTL_VERSIONS=$(echo -e "$CRICTL_VERSIONS" | tail -n 2 | head -n 1 | tr -d ' ')
     fi
-  done
-  echo $CRICTL_VERSIONS
+    break
+  fi
+done
+echo $CRICTL_VERSIONS
 
-  for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
-    downloadCrictl ${CRICTL_VERSION}
-    echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
-  done
-  
-  KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
+for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
+  downloadCrictl ${CRICTL_VERSION}
+  echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
 
-  # k8s will use images in the k8s.io namespaces - create it
-  ctr namespace create k8s.io
-  cliTool="ctr"
+KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
 
-  # also pre-download Teleportd plugin for containerd
-  downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
-else
-  echo "Unsupported container runtime"
-  exit 1
-fi
+# k8s will use images in the k8s.io namespaces - create it
+ctr namespace create k8s.io
+cliTool="ctr"
+
+# also pre-download Teleportd plugin for containerd
+downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
@@ -408,10 +408,6 @@ fi
 KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
 
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
-  if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
-    echo "Only need to store k8s components >= 1.19 for containerd VHDs"
-    continue
-  fi
   KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
   extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
 done
