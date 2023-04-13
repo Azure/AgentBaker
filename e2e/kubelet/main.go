@@ -12,19 +12,18 @@ import (
 )
 
 func main() {
-	k8s_version := os.Getenv("KUBE_BINARY_VERSION")
-	fmt.Println("k8s ver is:", k8s_version)
 	if err := run(); err != nil {
 		panic(err)
 	}
 }
 
 func run() error {
+	k8sVersion := os.Getenv("KUBE_BINARY_VERSION")
+	binaryPath := fmt.Sprintf("/usr/local/bin/kubelet-%s", k8sVersion)
+	fmt.Println("k8s version is:", k8sVersion)
+	
 	r, w := io.Pipe()
-	k8s_version := os.Getenv("KUBE_BINARY_VERSION")
-	fmt.Println("k8s ver is:", k8s_version)
-	binaryPath := fmt.Sprintf("/usr/local/bin/kubelet-%s", k8s_version)
-	fmt.Println(binaryPath)
+
 	c1 := exec.Command("sudo", "timeout", "-k", "3", "--preserve-status", "1", binaryPath, "-v", "1", "--container-runtime-endpoint", "unix:///var/run/containerd/containerd.sock")
 	fmt.Println(c1)
 	c1.Stdout = w
@@ -41,12 +40,6 @@ func run() error {
 	if err := c2.Start(); err != nil {
 		return fmt.Errorf("failed to start grep pipeline: %q", err)
 	}
-
-	// stdOutstdErr, err := c1.CombinedOutput()
-	// fmt.Printf("printing here %s\n", stdOutstdErr)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to run kubelet: %q", err)
-	// }
 
 	if err := c1.Run(); err != nil {
 		return fmt.Errorf("failed to run kubelet: %q", err)
