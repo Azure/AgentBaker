@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -54,17 +53,4 @@ type scenarioConfig struct {
 type scenarioValidationInput struct {
 	privateIP     string
 	sshPrivateKey string
-}
-
-func strToBoolMap(str string) map[string]bool {
-	str = strings.ReplaceAll(str, " ", "")
-	if str == "" {
-		return nil
-	}
-	parts := strings.SplitN(str, ",", -1)
-	m := make(map[string]bool, len(parts))
-	for _, p := range parts {
-		m[p] = true
-	}
-	return m
 }
