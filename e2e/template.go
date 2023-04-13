@@ -91,8 +91,8 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 					},
 				},
 				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
-					&datamodel.AgentPoolProfile{
-						Name:                "nodepool1",
+					{
+						Name:                "nodepool2",
 						VMSize:              "Standard_DS1_v2",
 						KubeletDiskType:     "",
 						WorkloadRuntime:     "",
@@ -179,7 +179,7 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 						PublicKeys []datamodel.PublicKey "json:\"publicKeys\""
 					}{
 						PublicKeys: []datamodel.PublicKey{
-							datamodel.PublicKey{
+							{
 								KeyData: "dummysshkey",
 							},
 						},
@@ -263,7 +263,7 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 			WindowsPackageURL:         "windowspackage",
 		},
 		AgentPoolProfile: &datamodel.AgentPoolProfile{
-			Name:                "nodepool1",
+			Name:                "nodepool2",
 			VMSize:              "Standard_DS1_v2",
 			KubeletDiskType:     "",
 			WorkloadRuntime:     "",

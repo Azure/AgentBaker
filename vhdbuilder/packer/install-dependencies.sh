@@ -153,26 +153,6 @@ fi
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
-## for ubuntu-based images, cache multiple versions of runc
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
-  RUNC_VERSIONS="
-  1.0.0-rc92
-  1.0.0-rc95
-  1.0.3
-  "
-  if [[ $(isARM64) == 1 ]]; then
-    # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
-    # so use different version set for different arch to avoid affecting each other during VHD build
-    RUNC_VERSIONS="
-    1.0.3
-    "
-  fi
-  for RUNC_VERSION in $RUNC_VERSIONS; do
-    downloadDebPkgToFile "moby-runc" ${RUNC_VERSION/\-/\~} ${RUNC_DOWNLOADS_DIR}
-    echo "  - [cached] runc ${RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-  done
-fi
-
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
   export NVIDIA_DRIVER_IMAGE_TAG="cuda-525.85.12-${NVIDIA_DRIVER_IMAGE_SHA}"
