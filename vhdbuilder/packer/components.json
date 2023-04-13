@@ -203,8 +203,6 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
       "amd64OnlyVersions": [
-        "1.7.1-hotfix.20200403",
-        "1.7.1-hotfix.20200403.1",
         "1.8.3"
       ],
       "multiArchVersions": [
@@ -302,9 +300,7 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:*",
       "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "1.4.8"
-      ]
+      "multiArchVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
