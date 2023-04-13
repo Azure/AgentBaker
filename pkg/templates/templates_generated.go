@@ -4003,15 +4003,12 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "stable": "1.4.13-3"
     },
     "runc": {
-        "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",
+        "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "downloadLocation": "/opt/runc/downloads",
-        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
-        "versions": [
-            "1.0.0-rc92",
-            "1.0.0-rc95"
-        ],
+        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
+        "versions": [],
         "installed": {
-            "default": "1.0.3"
+            "default": "1.1.5"
         }
     },
     "nvidia-container-runtime": {
@@ -5789,13 +5786,7 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.0.3"
-
-        if [[ $(isARM64) == 1 ]]; then
-            # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
-            # so use different target version for different arch to avoid affecting each other during provisioning
-            TARGET_VERSION="1.0.3"
-        fi
+        TARGET_VERSION="1.1.5+azure-ubuntu${UBUNTU_RELEASE}u1"
     fi
 
     if [[ $(isARM64) == 1 ]]; then
@@ -5807,20 +5798,22 @@ ensureRunc() {
 
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-    if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
-        echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
+    CLEANED_TARGET_VERSION=$(TARGET_VERSION%+*) # removes the +azure-ubuntu18.04u1 (or similar) suffix
+
+    if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
+        echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
         return
     fi
     # if on a vhd-built image, first check if we've cached the deb file
     if [ -f $VHD_LOGS_FILEPATH ]; then
-        RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_${CPU_ARCH}.deb"
+        RUNC_DEB_PATTERN="moby-runc_*.deb"
         RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
         if [[ -f "${RUNC_DEB_FILE}" ]]; then
             installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
             return 0
         fi
     fi
-    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION/-/\~}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION} --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
 #EOF
