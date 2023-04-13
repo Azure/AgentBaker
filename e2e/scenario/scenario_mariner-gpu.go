@@ -9,18 +9,18 @@ import (
 )
 
 // Returns config for the 'gpu' E2E scenario
-func gpu() *Scenario {
+func marinergpu() *Scenario {
 	return &Scenario{
-		Name:        "gpu",
-		Description: "Tests that a GPU-enabled node using an Ubuntu 1804 VHD can be properly bootstrapped",
+		Name:        "mariner-gpu",
+		Description: "Tests that a GPU-enabled node using a MarinerV2 VHD can be properly bootstrapped",
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
 			BootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6"
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-18.04-gen2"
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-18.04-gen2"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6_v3"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
+				nbc.AgentPoolProfile.VMSize = "Standard_NC6_v3"
+				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
