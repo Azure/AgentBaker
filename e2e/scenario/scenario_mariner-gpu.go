@@ -26,6 +26,9 @@ func marinergpu() *Scenario {
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
+					ID: to.Ptr(DefaultImageVersionIDs["marinerv2"]),
+				}
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
 		},
