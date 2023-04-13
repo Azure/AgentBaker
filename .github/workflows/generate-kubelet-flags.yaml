@@ -13,8 +13,8 @@ jobs:
       uses: crazy-max/ghaction-setup-containerd@v2
     - uses: actions/checkout@v3
     - run: |
-        set -x
         source parts/linux/cloud-init/artifacts/cse_helpers.sh
+        set -x
         # retrycmd_get_tarball() {
         #   tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
         #   echo "${tar_retries} retries"
