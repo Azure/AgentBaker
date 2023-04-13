@@ -1,12 +1,13 @@
 package e2e_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"log"
-	"os/exec"
+	"net/http"
 )
 
 type nodeBootstrappingFn func(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
@@ -25,16 +26,21 @@ func getNodeBootstrappingForCoverage(ctx context.Context, nbc *datamodel.NodeBoo
 	if err != nil {
 		log.Fatalf("failed to marshal nbc, error: %s", err)
 	}
-	cmd := exec.Command("curl", "-X", "POST", "-d", string(payload), "localhost:8080/getnodebootstrapdata")
-	output, err := cmd.Output()
+	res, err := http.Post("http://localhost:8080/getnodebootstrapdata", "application/json", bytes.NewBuffer(payload))
 	if err != nil {
 		log.Fatalf("failed to retrieve node bootstrapping data, error: %s", err)
 	}
+
+	if res.StatusCode != http.StatusOK {
+		log.Fatalf("failed to retrieve node bootstrapping data, status code: %d", res.StatusCode)
+	}
+
 	var nodeBootstrapping *datamodel.NodeBootstrapping
-	err = json.Unmarshal(output, &nodeBootstrapping)
+	err = json.NewDecoder(res.Body).Decode(&nodeBootstrapping)
 	if err != nil {
 		log.Fatalf("failed to unmarshal node bootstrapping data, error: %s", err)
 	}
+
 	return nodeBootstrapping, nil
 }
 
