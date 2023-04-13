@@ -66,13 +66,13 @@ endif
 build-packer-windows:
 ifeq (${MODE},windowsVhdMode)
 ifeq (${SIG_FOR_PRODUCTION},True)
-ifeq (${HYPERV_GENRATION},V1)
+ifeq (${HYPERV_GENERATION},V1)
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
 else
 	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Classic Storage Account"
 endif
 else
-ifeq (${HYPERV_GENRATION},V1)
+ifeq (${HYPERV_GENERATION},V1)
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Shared Image Gallery"
 else
 	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Shared Image Gallery"

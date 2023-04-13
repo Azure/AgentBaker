@@ -14,7 +14,7 @@ import (
 
 var dockerShimFlags = []string{"--cni-bin-dir", "--cni-cache-dir", "--cni-conf-dir", "--docker-endpoint", "--image-pull-progress-deadline", "--network-plugin", "--network-plugin-mtu"}
 
-// getCustomDataVariables returns cloudinit data used by Linux
+// getCustomDataVariables returns cloudinit data used by Linux.
 func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
 	cloudInitFiles := map[string]interface{}{
@@ -54,7 +54,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
 	if cs.IsAKSCustomCloud() {
-		// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner
+		// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner.
 		if config.AgentPoolProfile.Distro.IsCBLMarinerDistro() || isMariner(config.OSSKU) {
 			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudMarinerScript, config)
 		} else {
@@ -78,11 +78,12 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 	return cloudInitFiles
 }
 
-// getWindowsCustomDataVariables returns custom data for Windows
-// TODO(qinhao): combine this function with `getCSECommandVariables` after we support passing variables from cse command to customdata
+// getWindowsCustomDataVariables returns custom data for Windows.
+/* TODO(qinhao): combine this function with `getCSECommandVariables` after we support passing variables
+from cse command to customdata. */
 func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
-	// these variables is subet of
+	// these variables is subet of.
 	customData := map[string]interface{}{
 		"tenantID":                             config.TenantID,
 		"subscriptionId":                       config.SubscriptionID,
@@ -167,7 +168,7 @@ func getMaximumLoadBalancerRuleCount(cs *datamodel.ContainerService) int {
 }
 
 func isVHD(profile *datamodel.AgentPoolProfile) string {
-	//NOTE: update as new distro is introduced
+	//NOTE: update as new distro is introduced.
 	return strconv.FormatBool(profile.IsVHDDistro())
 }
 
@@ -189,8 +190,8 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 		return ""
 	}
 
-	// curl on Ubuntu 16.04 (shipped prior to AKS 1.18) doesn't support proxy TLS
-	// so we need to use nc for the connectivity check
+	// curl on Ubuntu 16.04 (shipped prior to AKS 1.18) doesn't support proxy TLS.
+	// so we need to use nc for the connectivity check.
 	clusterVersion, _ := semver.Make(cs.Properties.OrchestratorProfile.OrchestratorVersion)
 	minVersion, _ := semver.Make("1.18.0")
 
@@ -205,7 +206,7 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 }
 
 func getProxyVariables(nbc *datamodel.NodeBootstrappingConfiguration) string {
-	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy
+	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy.
 	proxyVars := ""
 	if nbc.HTTPProxyConfig != nil {
 		if nbc.HTTPProxyConfig.HTTPProxy != nil {

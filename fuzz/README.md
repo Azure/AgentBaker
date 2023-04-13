@@ -10,17 +10,16 @@ This makes it a prime candidate for fuzz testing.
 
 ## Fuzz targets
 
-We currently have two fuzz targets, one for each major agentbaker API:
-- `customdata` fuzzes `baker.GetNodeBootstrappingPayload` to test custom data generation.
-- `csecmd` fuzzes `baker.GetNodeBootstrappingCmd` to test custom script command generation.
+We currently have one fuzz target:
+- `api` fuzzes `baker.GetNodeBootstrapping` to test custom data generation.
 
-Each target generates random data as input and attempts to decode it as JSON into `NodeBootstrappingConfiguration`.
+It generates random data as input and attempts to decode it as JSON into `NodeBootstrappingConfiguration`.
 
 If decode fails, we assume it is invalid and deprioritize the fuzz input.
 
 If encode succeeds, we assume it is a valid input to Agentbaker.
 
-We then run the fuzz target function (`GetNodeBootstrapping(Payload|Cmd)`) on the input and check for panics.
+We then run the fuzz target function (`GetNodeBootstrapping`) on the input and check for panics.
 
 If it exits successfully, we assume the fuzz input is valid, and return 0 or 1 to tell the fuzzer so it may add it to the test corpus.
 
@@ -41,4 +40,4 @@ Coverage reports are on the gh-pages branch, published to https://alexeldeib.git
 The pipline definitions are defined in the following locations:
 - [batch](../.github/workflows/cflite_batch.yaml)
 - [build](../.github/workflows/cflite_build.yaml)
-- [prune/coverage](../.github/workflows/cflite_cron.yaml)
+- [prune/coverage](../.github/workflows/cflite_prune.yaml)

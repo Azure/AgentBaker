@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euxo pipefail
 
+IMAGE_VERSION="${IMAGE_VERSION:-$(date +%Y%m.%d.0)}"
+
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-docker}"
 
 TEMP_IMAGE_BOM_PATH=/opt/azure/containers/temp-image-bom.json
@@ -20,13 +22,16 @@ function generate_image_bom_for_containerd() {
     done
 
     IFS=$IFS_backup
-    jq --slurpfile images $TEMP_IMAGE_BOM_PATH -n '$images | group_by(.id) | map({id:.[0].id, repoTags:[.[].repoTags] | add | unique, repoDigests:[.[].repoDigests] | add | unique})' > $IMAGE_BOM_PATH
+    bom=$(jq --slurpfile images $TEMP_IMAGE_BOM_PATH -n '$images | group_by(.id) | map({id:.[0].id, repoTags:[.[].repoTags] | add | unique, repoDigests:[.[].repoDigests] | add | unique})')
+    jq --argjson bom "$bom" --arg version "$IMAGE_VERSION" -n '{imageVersion:$version, imageBom:$bom}' > $IMAGE_BOM_PATH
     rm -f $TEMP_IMAGE_BOM_PATH
 }
 
 function generate_image_bom_for_docker() {
     docker inspect $(docker images -aq) -f '{"id":"{{.ID}}","repoTags":{{json .RepoTags}},"repoDigests":{{json .RepoDigests}}}' | jq --slurp . | jq  'map({id:.id, repoTags:.repoTags, repoDigests:.repoDigests | map(split("@")[1])})' > $IMAGE_BOM_PATH
 }
+
+echo "Generating image-bom with IMAGE_VERSION=${IMAGE_VERSION}"
 
 if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
     generate_image_bom_for_containerd

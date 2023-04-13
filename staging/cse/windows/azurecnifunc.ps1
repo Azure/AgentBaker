@@ -83,9 +83,11 @@ function Set-AzureCNIConfig
     } else {
         # Fill in DNS information for kubernetes.
         $exceptionAddresses = @()
-        if ($IsDualStackEnabled){
-            $subnetToPass = $KubeClusterCIDR -split ","
-            $exceptionAddresses += $subnetToPass[0]
+        if ($IsDualStackEnabled) {
+            $subnetsToPass = $KubeClusterCIDR -split ","
+            foreach ($subnet in $subnetsToPass) {
+                $exceptionAddresses += $subnet
+            }
         } else {
             $exceptionAddresses += $KubeClusterCIDR
         }
@@ -408,6 +410,14 @@ function New-ExternalHnsNetwork
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST -ErrorMessage "Failed to find $managementIP after creating $externalNetwork network"
     }
     Write-Log "It took $($StopWatch.Elapsed.Seconds) seconds to create the $externalNetwork network."
+
+    Write-Log "Log network adapter info after creating $externalNetwork network"
+    Get-NetIPConfiguration -AllCompartments -ErrorAction Ignore
+
+    $dnsServers=Get-DnsClientServerAddress -ErrorAction Ignore
+    if ($dnsServers) {
+        Write-Log "DNS Servers are: $($dnsServers.ServerAddresses)"
+    }
 }
 
 function Get-HnsPsm1

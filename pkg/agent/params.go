@@ -1,4 +1,4 @@
-//"copyright (c) Microsoft Corporation. All rights reserved.
+// "copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT license.
 
 package agent
@@ -35,7 +35,6 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration, generatorCo
 			// should not happen but just in case, we fill in value "localcluster" just like linux
 			addValue(parametersMap, "masterEndpointDNSNamePrefix", "localcluster")
 		}
-
 	}
 	if properties.HostedMasterProfile != nil {
 		addValue(parametersMap, "vnetCidr", DefaultVNETCIDR)
@@ -170,7 +169,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 				addValue(parametersMap, "kubeBinariesVersion", k8sVersion)
 				addValue(parametersMap, "windowsTelemetryGUID", cloudSpecConfig.KubernetesSpecConfig.WindowsTelemetryGUID)
 				addValue(parametersMap, "windowsSdnPluginURL", kubernetesConfig.WindowsSdnPluginURL)
-
 			}
 		}
 
