@@ -45,20 +45,20 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, sshPrivate
 		log.Printf("running live VM validator: %q", desc)
 
 		execResult, err := pollExecOnVM(ctx, opts.kube, privateIP, podName, sshPrivateKey, command)
-		if execResult != nil {
-			checkStdErr(execResult.stderr, t)
-		}
 		if err != nil {
+			execResult.dumpAll()
 			return fmt.Errorf("unable to execute validator command %q: %s", command, err)
 		}
 
 		if execResult.exitCode != "0" {
+			execResult.dumpAll()
 			return fmt.Errorf("validator command %q terminated with exit code %s", command, execResult.exitCode)
 		}
 
 		if validator.Asserter != nil {
 			err := validator.Asserter(execResult.stdout.String(), execResult.stderr.String())
 			if err != nil {
+				execResult.dumpAll()
 				return fmt.Errorf("failed validator assertion: %s", err)
 			}
 		}
