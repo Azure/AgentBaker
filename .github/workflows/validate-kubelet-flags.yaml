@@ -48,7 +48,8 @@ jobs:
           #ls /usr/local/bin
           #sudo /usr/local/bin/kubelet-1.25.5 -v 1 --container-runtime-endpoint unix:///var/run/containerd/containerd.sock
           #go run main.go
-          go run -ldflags="-X main.KUBE_BINARY_VERSION=$KUBE_BINARY_VERSION" e2e/kubelet/main.go
+          export $KUBE_BINARY_VERSION
+          go run -ldflags="-X main.KUBE_BINARY_VERSION=${KUBE_BINARY_VERSION}" e2e/kubelet/main.go
         done
         ls /usr/local/bin
       name: Download kubelet binary
