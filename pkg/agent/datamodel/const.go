@@ -181,7 +181,7 @@ const (
 	OSSKUMariner    = "Mariner"
 )
 
-// Feature Flags
+// Feature Flags.
 const (
 	BlockOutboundInternet = "BlockOutboundInternet"
 	CSERunInBackground    = "CSERunInBackground"

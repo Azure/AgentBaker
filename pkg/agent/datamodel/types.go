@@ -1120,8 +1120,8 @@ func (o *OrchestratorProfile) VersionSupportsFeatureFlag(flag string) bool {
 	case EnableIPv6DualStack:
 		// unversioned will retrun true to maintain backwards compatibility
 		// IPv6DualStack flag was removed in 1.25.0 and is enabled by default
-		// since 1.21. It is supported between 1.15-1.24
-		// https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates-removed/
+		// since 1.21. It is supported between 1.15-1.24.
+		// https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates-removed/.
 		return o == nil || o.OrchestratorVersion == "" || o.VersionIs(">= 1.15.0 < 1.25.0")
 	default:
 		return false
@@ -1131,7 +1131,7 @@ func (o *OrchestratorProfile) VersionSupportsFeatureFlag(flag string) bool {
 // VersionIs takes a constraint expression to validate
 // the OrchestratorVersion meets this constraint. Examples
 // of expressions are `>= 1.24` or `!= 1.25.4`.
-// More info: https://github.com/Masterminds/semver#checking-version-constraints
+// More info: https://github.com/Masterminds/semver#checking-version-constraints.
 func (o *OrchestratorProfile) VersionIs(expr string) bool {
 	if o == nil || o.OrchestratorVersion == "" {
 		return false
