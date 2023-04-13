@@ -336,7 +336,7 @@ if [[ ${installSGX} == "True" ]]; then
     done
 
     SGX_PLUGIN_VERSIONS="
-    0.5
+    1.1
     "
     for SGX_PLUGIN_VERSION in ${SGX_PLUGIN_VERSIONS}; do
         CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-plugin:${SGX_PLUGIN_VERSION}"
