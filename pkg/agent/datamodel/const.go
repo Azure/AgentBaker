@@ -180,3 +180,12 @@ const (
 	OSSKUCBLMariner = "CBLMariner"
 	OSSKUMariner    = "Mariner"
 )
+
+// Feature Flags
+const (
+	BlockOutboundInternet = "BlockOutboundInternet"
+	CSERunInBackground    = "CSERunInBackground"
+	EnableIPv6DualStack   = "EnableIPv6DualStack"
+	EnableIPv6Only        = "EnableIPv6Only"
+	EnableWinDSR          = "EnableWinDSR"
+)
