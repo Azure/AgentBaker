@@ -28,6 +28,10 @@ jobs:
           done
         }
         
+        sudo swapoff -a
+        sudo ctr version
+        sudo systemctl status containerd
+
         KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] parts/linux/cloud-init/artifacts/manifest.json)"
         echo $KUBE_BINARY_VERSIONS
 
@@ -42,12 +46,10 @@ jobs:
               --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
           rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
           #ls /usr/local/bin
-          sudo swapoff -a
-          sudo ctr version
-          sudo systemctl status containerd
           #sudo /usr/local/bin/kubelet-1.25.5 -v 1 --container-runtime-endpoint unix:///var/run/containerd/containerd.sock
           #cd e2e/kubelet
           #go run main.go
+          go run -ldflags="-X main.KUBE_BINARY_VERSION=$KUBE_BINARY_VERSION" main.go
         done
         ls /usr/local/bin
       name: Download kubelet binary

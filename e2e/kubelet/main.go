@@ -1,10 +1,11 @@
 package main
 
 import (
-	"bytes"
+	//"bytes"
 	"fmt"
-	"io"
-	"os/exec"
+	//"io"
+	"os"
+	//"os/exec"
 	"regexp"
 
 	"github.com/sanity-io/litter"
@@ -17,47 +18,48 @@ func main() {
 }
 
 func run() error {
-	r, w := io.Pipe()
+	//r, w := io.Pipe()
+	k8s_version := os.Getenv("KUBE_BINARY_VERSION")
+	fmt.Println("k8s ver is:", k8s_version)
+	// c1 := exec.Command("sudo", "timeout", "-k", "3", "--preserve-status", "1", "/usr/local/bin/kubelet-1.25.5", "-v", "1", "--container-runtime-endpoint", "unix:///var/run/containerd/containerd.sock")
+	// fmt.Println(c1)
+	// c1.Stdout = w
+	// c1.Stderr = w
 
-	c1 := exec.Command("sudo", "timeout", "-k", "3", "--preserve-status", "1", "/usr/local/bin/kubelet-1.25.5", "-v", "1", "--container-runtime-endpoint", "unix:///var/run/containerd/containerd.sock")
-	fmt.Println(c1)
-	c1.Stdout = w
-	c1.Stderr = w
+	// c2 := exec.Command("grep", "FLAG")
+	// c2.Stdin = r
 
-	c2 := exec.Command("grep", "FLAG")
-	c2.Stdin = r
+	// var grepOut bytes.Buffer
 
-	var grepOut bytes.Buffer
+	// c2.Stdout = &grepOut
+	// c2.Stderr = &grepOut
 
-	c2.Stdout = &grepOut
-	c2.Stderr = &grepOut
+	// if err := c2.Start(); err != nil {
+	// 	return fmt.Errorf("failed to start grep pipeline: %q", err)
+	// }
 
-	if err := c2.Start(); err != nil {
-		return fmt.Errorf("failed to start grep pipeline: %q", err)
-	}
+	// // stdOutstdErr, err := c1.CombinedOutput()
+	// // fmt.Printf("printing here %s\n", stdOutstdErr)
+	// // if err != nil {
+	// // 	return fmt.Errorf("failed to run kubelet: %q", err)
+	// // }
 
-	// stdOutstdErr, err := c1.CombinedOutput()
-	// fmt.Printf("printing here %s\n", stdOutstdErr)
-	// if err != nil {
+	// if err := c1.Run(); err != nil {
 	// 	return fmt.Errorf("failed to run kubelet: %q", err)
 	// }
 
-	if err := c1.Run(); err != nil {
-		return fmt.Errorf("failed to run kubelet: %q", err)
-	}
+	// w.Close()
 
-	w.Close()
+	// if err := c2.Wait(); err != nil {
+	// 	fmt.Println(fmt.Errorf("failed to wait for grep to exit: %q", err))
+	// }
 
-	if err := c2.Wait(); err != nil {
-		fmt.Println(fmt.Errorf("failed to wait for grep to exit: %q", err))
-	}
+	// flags, err := extractKeyValuePairs(grepOut.Bytes())
+	// if err != nil {
+	// 	return fmt.Errorf("failed to extract key value pairs: %q", err)
+	// }
 
-	flags, err := extractKeyValuePairs(grepOut.Bytes())
-	if err != nil {
-		return fmt.Errorf("failed to extract key value pairs: %q", err)
-	}
-
-	litter.Dump(flags)
+	// litter.Dump(flags)
 
 	return nil
 }
