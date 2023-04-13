@@ -45,9 +45,6 @@ jobs:
           tar --transform="s|.*|&-${KUBE_BINARY_VERSION}|" --show-transformed-names -xzvf "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" \
               --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
           rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
-          #ls /usr/local/bin
-          #sudo /usr/local/bin/kubelet-1.25.5 -v 1 --container-runtime-endpoint unix:///var/run/containerd/containerd.sock
-          #go run main.go
           export KUBE_BINARY_VERSION
           go run -ldflags="-X main.KUBE_BINARY_VERSION=${KUBE_BINARY_VERSION}" e2e/kubelet/main.go
         done
