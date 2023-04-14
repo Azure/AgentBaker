@@ -106,7 +106,7 @@ func pollExtractVMLogs(ctx context.Context, t *testing.T, vmssName string, priva
 }
 
 func waitUntilPodRunning(ctx context.Context, kube *kubeclient, podName string) error {
-	return wait.PollImmediateWithContext(ctx, waitUntilPodRunningPollingTimeout, waitUntilPodRunningPollingTimeout, func(ctx context.Context) (bool, error) {
+	return wait.PollImmediateWithContext(ctx, waitUntilPodRunningPollInterval, waitUntilPodRunningPollingTimeout, func(ctx context.Context) (bool, error) {
 		pod, err := kube.typed.CoreV1().Pods(defaultNamespace).Get(ctx, podName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
