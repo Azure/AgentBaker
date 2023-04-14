@@ -1,8 +1,6 @@
 name: Generate valid Kubelet Flags per k8s version
 on:
-  push:
-    branches:
-      - amaheshwari/kubelettest  # for now
+  workflow_dispatch:
 
 jobs:
   generate-kubelet-flags:
@@ -14,7 +12,7 @@ jobs:
     - uses: actions/checkout@v3
     - run: |
         set -x
-        
+
         retrycmd_get_tarball() {
           tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
           echo "${tar_retries} retries"
@@ -34,8 +32,6 @@ jobs:
         sudo systemctl status containerd
 
         KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] parts/linux/cloud-init/artifacts/manifest.json)"
-        echo $KUBE_BINARY_VERSIONS
-
         for KUBE_BINARY_VERSION in $KUBE_BINARY_VERSIONS; do
           K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
           KUBE_BINARY_URL="https://acs-mirror.azureedge.net/kubernetes/v${KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
