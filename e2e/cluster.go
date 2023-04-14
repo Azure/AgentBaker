@@ -173,6 +173,10 @@ func listClusters(ctx context.Context, t *testing.T, cloud *azureClient, resourc
 					return nil, fmt.Errorf("aks cluster properties were nil")
 				}
 
+				if *cluster.Properties.ProvisioningState == "Deleting" {
+					continue
+				}
+
 				t.Logf("found agentbaker e2e cluster: %q", *cluster.Name)
 				clusters = append(clusters, &cluster.ManagedCluster)
 			}
@@ -321,6 +325,22 @@ func getClusterParametersWithCache(ctx context.Context, t *testing.T, kube *kube
 	} else {
 		return cachedParams, nil
 	}
+}
+
+func clusterModelHasProperties(cluster *armcontainerservice.ManagedCluster) bool {
+	return cluster != nil && cluster.Properties != nil
+}
+
+func clusterModelHasNetworkProfile(cluster *armcontainerservice.ManagedCluster) bool {
+	return clusterModelHasProperties(cluster) && cluster.Properties.NetworkProfile != nil
+}
+
+func clusterModelHasAgentPoolProfiles(cluster *armcontainerservice.ManagedCluster) bool {
+	if !clusterModelHasProperties(cluster) {
+		return false
+	}
+	apps := cluster.Properties.AgentPoolProfiles
+	return apps != nil && len(apps) > 0
 }
 
 func getBaseClusterModel(clusterName, location string) armcontainerservice.ManagedCluster {
