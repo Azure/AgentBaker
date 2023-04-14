@@ -110,7 +110,27 @@ function Set-AzureCNIConfig
             $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $processedExceptions
         }
         else {
-            $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $exceptionAddresses
+            if ($IsDualStackEnabled) {
+                for ($i = 0; $i -lt $exceptionAddresses.Length; $i++) {
+                    # evidentally we treat this first entry as an exceptionList and that it will
+                    # always just exist. Probably shouldn't do this in the future and just build
+                    # the exceptionList object in this loop.
+                    if ($i -eq 0 ) {
+                        $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = @($exceptionAddresses[0])
+                        continue
+                    }
+                    $outboundException = [PSCustomObject]@{
+                        Name = 'EndpointPolicy'
+                        Value = [PSCustomObject]@{
+                            Type = 'OutboundNAT'
+                            ExceptionList = @($exceptionAddresses[$i])
+                        }
+                    }
+                    $configJson.plugins[0].AdditionalArgs += $outboundException
+                }
+            } else {
+                $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $exceptionAddresses
+            }
         }
     }
 
