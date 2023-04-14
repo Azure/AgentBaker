@@ -111,23 +111,31 @@ function Set-AzureCNIConfig
         }
         else {
             if ($IsDualStackEnabled) {
-                for ($i = 0; $i -lt $exceptionAddresses.Length; $i++) {
-                    # evidentally we treat this first entry as an exceptionList and that it will
-                    # always just exist. Probably shouldn't do this in the future and just build
-                    # the exceptionList object in this loop.
-                    if ($i -eq 0 ) {
-                        $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = @($exceptionAddresses[0])
-                        continue
+                $ipv4Cidrs = @()
+                $ipv6Cidrs = @()
+                foreach ($cidr in $exceptionAddresses) {
+                    # this is the pwsh way of strings.Count(s, ":") >= 2
+                    if (($cidr -split ":").Count -ge 3) {
+                        $ipv6Cidrs += $cidr
+                    } else {
+                        $ipv4Cidrs += $cidr
                     }
-                    $outboundException = [PSCustomObject]@{
-                        Name = 'EndpointPolicy'
-                        Value = [PSCustomObject]@{
-                            Type = 'OutboundNAT'
-                            ExceptionList = @($exceptionAddresses[$i])
-                        }
-                    }
-                    $configJson.plugins[0].AdditionalArgs += $outboundException
                 }
+
+                # we just assume the first entry in additional Args is the exception
+                # list for IPv4 and then append a new EnpointPolicy for IPv6. We
+                # probably shouldn't hard code the first one like this and just build
+                # 2 EndpointPolicies and append to the AdditionalArgs.
+                $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $ipv4Cidrs
+
+                $outboundException = [PSCustomObject]@{
+                    Name = 'EndpointPolicy'
+                    Value = [PSCustomObject]@{
+                        Type = 'OutboundNAT'
+                        ExceptionList = $ipv6Cidrs
+                    }
+                }
+                $configJson.plugins[0].AdditionalArgs += $outboundException
             } else {
                 $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $exceptionAddresses
             }
