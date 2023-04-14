@@ -30,6 +30,7 @@ func scenarios() []*Scenario {
 		base_azurecni(),
 		marinerv1_azurecni(),
 		marinerv2_azurecni(),
-		gpu_azurecni(),
+		ubuntugpu_azurecni(),
+		marinergpu_azurecni(),
 	}
 }

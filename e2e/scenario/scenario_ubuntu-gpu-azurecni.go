@@ -7,10 +7,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 )
 
-func gpu_azurecni() *Scenario {
+func ubuntugpu_azurecni() *Scenario {
 	return &Scenario{
-		Name:        "gpu-azurecni",
-		Description: "gpu scenario on cluster configured with Azure CNI",
+		Name:        "ubuntu-gpu-azurecni",
+		Description: "Ubuntu gpu scenario on cluster configured with Azure CNI",
 		Config: Config{
 			ClusterSelector: NetworkPluginAzureSelector,
 			ClusterMutator:  NetworkPluginAzureMutator,
