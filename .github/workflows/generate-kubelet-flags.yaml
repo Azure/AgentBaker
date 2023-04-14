@@ -34,7 +34,7 @@ jobs:
         sudo systemctl status containerd
         
         sed '$ d' parts/linux/cloud-init/artifacts/manifest.json > temporary_manifest.json
-        KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] parts/linux/cloud-init/artifacts/manifest.json)"
+        KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] temporary_manifest.json)"
         for KUBE_BINARY_VERSION in $KUBE_BINARY_VERSIONS; do
           K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
           KUBE_BINARY_URL="https://acs-mirror.azureedge.net/kubernetes/v${KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-amd64.tar.gz"
