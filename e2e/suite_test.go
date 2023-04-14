@@ -2,23 +2,28 @@ package e2e_test
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	mrand "math/rand"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/barkimedes/go-deepcopy"
 )
 
+var e2eMode string
+
+func init() {
+	flag.StringVar(&e2eMode, "e2eMode", "", "specify mode for e2e tests - 'coverage' or 'validation' - default: 'validation'")
+}
+
 func Test_All(t *testing.T) {
 	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 	ctx := context.Background()
-
 	t.Parallel()
 
 	suiteConfig, err := newSuiteConfig()
@@ -69,7 +74,7 @@ func Test_All(t *testing.T) {
 		nbc := copied.(*datamodel.NodeBootstrappingConfiguration)
 
 		if scenario.Config.BootstrapConfigMutator != nil {
-			scenario.Config.BootstrapConfigMutator(t, nbc)
+			scenario.Config.BootstrapConfigMutator(nbc)
 		}
 
 		t.Run(scenario.Name, func(t *testing.T) {
@@ -104,7 +109,9 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 	}
 
 	vmssName, vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, opts, publicKeyBytes)
-	defer cleanupVMSS()
+	if cleanupVMSS != nil {
+		defer cleanupVMSS()
+	}
 	isCSEError := isVMExtensionProvisioningError(err)
 	vmssSucceeded := true
 	if err != nil {
@@ -151,7 +158,8 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 }
 
 func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts, publicKeyBytes []byte) (string, *armcompute.VirtualMachineScaleSet, func(), error) {
-	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
+	nodeBootstrappingFn := getNodeBootstrappingFn(e2eMode)
+	nodeBootstrapping, err := nodeBootstrappingFn(ctx, opts.nbc)
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("unable to get node bootstrapping: %s", err)
 	}
@@ -179,18 +187,6 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scena
 	}
 
 	return vmssName, vmssModel, cleanupVMSS, nil
-}
-
-func getNodeBootstrapping(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
-	ab, err := agent.NewAgentBaker()
-	if err != nil {
-		return nil, err
-	}
-	nodeBootstrapping, err := ab.GetNodeBootstrapping(ctx, nbc)
-	if err != nil {
-		return nil, err
-	}
-	return nodeBootstrapping, nil
 }
 
 func validateNodeHealth(ctx context.Context, t *testing.T, kube *kubeclient, vmssName string) error {

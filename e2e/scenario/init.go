@@ -27,5 +27,9 @@ func scenarios() []*Scenario {
 		marinerv2ARM64(),
 		gpu(),
 		marinerv1CustomSysctls(),
+		base_azurecni(),
+		marinerv1_azurecni(),
+		marinerv2_azurecni(),
+		gpu_azurecni(),
 	}
 }
