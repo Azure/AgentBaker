@@ -1,13 +1,15 @@
 name: Generate valid Kubelet Flags per k8s version
 on:
-  workflow_dispatch: {}
+  push:
+    branches:
+      - amaheshwari/kubelettest  # for now
+
 
 jobs:
   generate-kubelet-flags:
     runs-on: ubuntu-latest
     steps:
-    - 
-      name: Set up containerd
+    - name: Set up containerd
       uses: crazy-max/ghaction-setup-containerd@v2
     - uses: actions/checkout@v3
     - run: |
