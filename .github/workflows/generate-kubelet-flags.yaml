@@ -32,7 +32,8 @@ jobs:
         sudo swapoff -a
         sudo ctr version
         sudo systemctl status containerd
-
+        
+        sed '$ d' parts/linux/cloud-init/artifacts/manifest.json > temporary_manifest.json
         KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] parts/linux/cloud-init/artifacts/manifest.json)"
         for KUBE_BINARY_VERSION in $KUBE_BINARY_VERSIONS; do
           K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
@@ -46,4 +47,5 @@ jobs:
           export KUBE_BINARY_VERSION
           go run -ldflags="-X main.KUBE_BINARY_VERSION=${KUBE_BINARY_VERSION}" e2e/kubelet/main.go
         done
+        rm -f temporary_manifest.json
       name: Generate valid kubelet flags per supported k8s versions
