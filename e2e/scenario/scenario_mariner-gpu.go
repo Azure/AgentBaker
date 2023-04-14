@@ -28,7 +28,7 @@ func marinergpu() *Scenario {
 					ID: to.Ptr(DefaultImageVersionIDs["marinerv2"]),
 				}
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
-			},,
+			},
 		},
 	}
 }
