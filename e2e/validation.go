@@ -10,19 +10,6 @@ import (
 	"github.com/Azure/agentbakere2e/scenario"
 )
 
-var (
-	sysctlsAlwaysSet = []string{
-		"net.ipv4.tcp_retries2",
-		"net.core.message_burst",
-		"net.core.message_cost",
-		"net.core.somaxconn",
-		"net.ipv4.tcp_max_syn_backlog",
-		"net.ipv4.neigh.default.gc_thresh1",
-		"net.ipv4.neigh.default.gc_thresh2",
-		"net.ipv4.neigh.default.gc_thresh3",
-	}
-)
-
 func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, sshPrivateKey string, opts *scenarioRunOpts) error {
 	privateIP, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.chosenCluster.Properties.NodeResourceGroup, vmssName)
 	if err != nil {
@@ -83,7 +70,17 @@ func commonLiveVMValidators() []*scenario.LiveVMValidator {
 			Description: "assert sysctls set by customdata",
 			Command:     "sysctl -a",
 			Asserter: func(stdout, stderr string) error {
-				for _, sysctl := range sysctlsAlwaysSet {
+				defaultSysctlSettings := []string{
+					"net.ipv4.tcp_retries2 = 8",
+					"net.core.message_burst = 80",
+					"net.core.message_cost = 40",
+					"net.core.somaxconn = 16384",
+					"net.ipv4.tcp_max_syn_backlog = 16384",
+					"net.ipv4.neigh.default.gc_thresh1 = 4096",
+					"net.ipv4.neigh.default.gc_thresh2 = 8192",
+					"net.ipv4.neigh.default.gc_thresh3 = 16384",
+				}
+				for _, sysctl := range defaultSysctlSettings {
 					if !strings.Contains(stdout, sysctl) {
 						return fmt.Errorf("expected to find sysctl %q set on the live VM, but was not", sysctl)
 					}
