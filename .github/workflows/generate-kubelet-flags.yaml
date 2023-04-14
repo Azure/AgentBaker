@@ -1,8 +1,6 @@
 name: Generate valid Kubelet Flags per k8s version
 on:
-  push:
-    branches:
-      - amaheshwari/kubelettest  # for now
+  workflow_dispatch: {}
 
 
 jobs:
