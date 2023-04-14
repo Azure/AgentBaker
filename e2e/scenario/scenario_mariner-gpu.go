@@ -1,8 +1,6 @@
 package scenario
 
 import (
-	"testing"
-
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
@@ -17,9 +15,9 @@ func marinergpu() *Scenario {
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6_v3"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6_v3"
+				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
@@ -30,7 +28,7 @@ func marinergpu() *Scenario {
 					ID: to.Ptr(DefaultImageVersionIDs["marinerv2"]),
 				}
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
-			},
+			},,
 		},
 	}
 }
