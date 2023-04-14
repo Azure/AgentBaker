@@ -11,7 +11,9 @@ $lockedFiles = @(
   "csi-proxy.log",
   "csi-proxy.err.log",
   "containerd.log",
-  "containerd.err.log"
+  "containerd.err.log",
+  "hosts-config-agent.err.log",
+  "hosts-config-agent.log"
 )
 
 $timeStamp = get-date -format 'yyyyMMdd-hhmmss'
@@ -96,16 +98,26 @@ Write-Host "Collecting gMSAv2 related logs"
 $EventSession = [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession
 $EventProviderNames = $EventSession.GetProviderNames()
 if ($EventProviderNames -contains "Microsoft-Windows-Containers-CCG") {
-  cp "C:\\windows\\system32\\winevt\\Logs\\Microsoft-Windows-Containers-CCG%4Admin.evtx" "$ENV:TEMP\\Microsoft-Windows-Containers-CCG%4Admin.evtx"
-  $paths += "$ENV:TEMP\\Microsoft-Windows-Containers-CCG%4Admin.evtx"
+  if (Test-Path "C:\\windows\\system32\\winevt\\Logs\\Microsoft-Windows-Containers-CCG%4Admin.evtx" -PathType Leaf) {
+    cp "C:\\windows\\system32\\winevt\\Logs\\Microsoft-Windows-Containers-CCG%4Admin.evtx" "$ENV:TEMP\\Microsoft-Windows-Containers-CCG%4Admin.evtx"
+    $paths += "$ENV:TEMP\\Microsoft-Windows-Containers-CCG%4Admin.evtx"
+  }
+  else {
+    Write-Host "Microsoft-Windows-Containers-CCG%4Admin.evtx does not exist"
+  }
 }
 else {
   Write-Host "Microsoft-Windows-Containers-CCG events are not available"
 }
 # Introduced from CCGAKVPlugin v1.1.3
 if ($EventProviderNames -contains "Microsoft-AKSGMSAPlugin") {
-  cp "C:\\windows\\system32\\winevt\\Logs\\Microsoft-AKSGMSAPlugin%4Admin.evtx" "$ENV:TEMP\\Microsoft-AKSGMSAPlugin%4Admin.evtx"
-  $paths += "$ENV:TEMP\\Microsoft-AKSGMSAPlugin%4Admin.evtx"
+  if (Test-Path "C:\\windows\\system32\\winevt\\Logs\\Microsoft-AKSGMSAPlugin%4Admin.evtx" -PathType Leaf) {
+    cp "C:\\windows\\system32\\winevt\\Logs\\Microsoft-AKSGMSAPlugin%4Admin.evtx" "$ENV:TEMP\\Microsoft-AKSGMSAPlugin%4Admin.evtx"
+    $paths += "$ENV:TEMP\\Microsoft-AKSGMSAPlugin%4Admin.evtx"
+  }
+  else {
+    Write-Host "Microsoft-AKSGMSAPlugin%4Admin.evtx does not exist"
+  }
 }
 else {
   Write-Host "AKSGMSAPlugin events are not available"
@@ -132,20 +144,62 @@ if ($res) {
   Write-Host "Collecting Containerd running containers - tasks"
   & ctr.exe -n k8s.io t ls > "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
   $paths += "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
+
+  Write-Host "Collecting Containerd running containers - snapshot"
+  & ctr.exe -n k8s.io snapshot ls > "$ENV:TEMP\$timeStamp-containerd-snapshot.txt"
+  $paths += "$ENV:TEMP\$timeStamp-containerd-snapshot.txt"
 }
 else {
   Write-Host "ctr.exe command not available"
 }
 
-# log containers the CRI plugin is aware of, and their state.
-Write-Host "Collecting CRI plugin containers"
+# log containers, pods and images the CRI plugin is aware of, and their state.
 $res = Get-Command crictl.exe -ErrorAction SilentlyContinue
 if ($res) {
+  Write-Host "Collecting CRI plugin containers"
   & crictl.exe ps -a > "$ENV:TEMP\$timeStamp-cri-containerd-containers.txt"
   $paths += "$ENV:TEMP\$timeStamp-cri-containerd-containers.txt"
+
+  Write-Host "Collecting CRI plugin pods"
+  & crictl.exe pods > "$ENV:TEMP\$timeStamp-cri-containerd-pods.txt"
+  $paths += "$ENV:TEMP\$timeStamp-cri-containerd-pods.txt"
+
+  Write-Host "Collecting CRI plugin images"
+  & crictl.exe images > "$ENV:TEMP\$timeStamp-cri-containerd-images.txt"
+  $paths += "$ENV:TEMP\$timeStamp-cri-containerd-images.txt"
 }
 else {
   Write-Host "crictl.exe command not available"
+}
+
+# use runhcs shim diagnostic tool 
+$res = Get-Command shimdiag.exe -ErrorAction SilentlyContinue
+if ($res) {
+  Write-Host "Collecting logs of runhcs shim diagnostic tool"
+  $tempShimdiagFile = Join-Path ([System.IO.Path]::GetTempPath()) ("shimdiag.txt")
+  $shimdiagList = shimdiag.exe list
+  Set-Content -Path $tempShimdiagFile -Value $shimdiagList
+  foreach ($line in $shimdiagList) {
+    $tempResult = shimdiag.exe stacks $line
+    Add-Content -Path $tempShimdiagFile -Value ""
+    Add-Content -Path $tempShimdiagFile -Value $line
+    Add-Content -Path $tempShimdiagFile -Value $tempResult
+  }
+  $paths += $tempShimdiagFile
+}
+else {
+  Write-Host "shimdiag.exe command not available"
+}
+
+# log containerd info
+$res = Get-Command containerd.exe -ErrorAction SilentlyContinue
+if ($res) {
+  Write-Host "Collecting logs of containerd info"
+  & containerd.exe --v > "$ENV:TEMP\$timeStamp-containerd-info.txt"
+  $paths += "$ENV:TEMP\$timeStamp-containerd-info.txt"
+}
+else {
+  Write-Host "containerd.exe command not available"
 }
 
 # Containerd panic log is outside the c:\k folder
@@ -190,6 +244,37 @@ Write-Host "Collecting disk usage"
 $tempDiskUsageFile = Join-Path ([System.IO.Path]::GetTempPath()) ("disk-usage.txt")
 Get-CimInstance -Class CIM_LogicalDisk | Select-Object @{Name="Size(GB)";Expression={$_.size/1gb}}, @{Name="Free Space(GB)";Expression={$_.freespace/1gb}}, @{Name="Free (%)";Expression={"{0,6:P0}" -f(($_.freespace/1gb) / ($_.size/1gb))}}, DeviceID, DriveType | Where-Object DriveType -EQ '3' > $tempDiskUsageFile
 $paths += $tempDiskUsageFile
+
+# Collect process info
+$rest = Get-Process containerd-shim-runhcs-v1 -ErrorAction SilentlyContinue
+if ($res) {
+  Write-Host "Collecting process info for containerd-shim-runhcs-v1"
+  Get-Process containerd-shim-runhcs-v1 > "$ENV:TEMP\process-containerd-shim-runhcs-v1.txt"
+  $paths += "$ENV:TEMP\process-containerd-shim-runhcs-v1.txt"
+}
+else {
+  Write-Host "containerd-shim-runhcs-v1 process not available"
+}
+
+$res = Get-Process CExecSvc -ErrorAction SilentlyContinue
+if ($res) {
+  Write-Host "Collecting process info for CExecSvc"
+  Get-Process CExecSvc > "$ENV:TEMP\process-CExecSvc.txt"
+  $paths += "$ENV:TEMP\process-CExecSvc.txt"
+}
+else {
+  Write-Host "CExecSvc process not available"
+}
+
+$res = Get-Process vmcompute -ErrorAction SilentlyContinue
+if ($res) {
+  Write-Host "Collecting process info for vmcompute"
+  Get-Process vmcompute > "$ENV:TEMP\process-vmcompute.txt"
+  $paths += "$ENV:TEMP\process-vmcompute.txt"
+}
+else {
+  Write-Host "vmcompute process not availabel"
+}
 
 Write-Host "Compressing all logs to $zipName"
 $paths | Format-Table FullName, Length -AutoSize

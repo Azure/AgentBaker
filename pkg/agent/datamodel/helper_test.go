@@ -112,7 +112,10 @@ func getCSeriesVMCasesForTesting() []struct {
 	return cases
 }
 
-// GetDCSeriesVMCasesForTesting returns a struct w/ VM SKUs and whether or not we expect them to be SGX-enabled
+/*
+GetDCSeriesVMCasesForTesting returns a struct w/ VM SKUs and whether or not we expect them
+to be SGX-enabled.
+*/
 func GetDCSeriesVMCasesForTesting() []struct {
 	VMSKU    string
 	Expected bool

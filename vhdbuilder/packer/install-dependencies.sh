@@ -43,38 +43,6 @@ EOF
 fi
 
 installDeps
-cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - apt-transport-https
-  - blobfuse=1.4.4
-  - ca-certificates
-  - ceph-common
-  - cgroup-lite
-  - cifs-utils
-  - conntrack
-  - cracklib-runtime
-  - ebtables
-  - ethtool
-  - fuse
-  - git
-  - glusterfs-client
-  - init-system-helpers
-  - iproute2
-  - ipset
-  - iptables
-  - jq
-  - libpam-pwquality
-  - libpwquality-tools
-  - mount
-  - nfs-common
-  - nftables
-  - pigz socat
-  - traceroute
-  - util-linux
-  - xz-utils
-  - netcat
-  - dnsutils
-  - zip
-EOF
 
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
 Storage=persistent
@@ -133,7 +101,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
 fi
 
 downloadContainerdWasmShims
-echo "  - krustlet ${CONTAINERD_WASM_VERSION}" >> ${VHD_LOGS_FILEPATH}
+echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
   echo "VHD will be built with containerd as the container runtime"
@@ -185,26 +153,6 @@ fi
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
-## for ubuntu-based images, cache multiple versions of runc
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
-  RUNC_VERSIONS="
-  1.0.0-rc92
-  1.0.0-rc95
-  1.0.3
-  "
-  if [[ $(isARM64) == 1 ]]; then
-    # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
-    # so use different version set for different arch to avoid affecting each other during VHD build
-    RUNC_VERSIONS="
-    1.0.3
-    "
-  fi
-  for RUNC_VERSION in $RUNC_VERSIONS; do
-    downloadDebPkgToFile "moby-runc" ${RUNC_VERSION/\-/\~} ${RUNC_DOWNLOADS_DIR}
-    echo "  - [cached] runc ${RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-  done
-fi
-
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
   export NVIDIA_DRIVER_IMAGE_TAG="cuda-525.85.12-${NVIDIA_DRIVER_IMAGE_SHA}"
@@ -241,13 +189,10 @@ fi
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
 installBpftrace
-echo "  - bpftrace" >> ${VHD_LOGS_FILEPATH}
+echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
 cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - nvidia-docker2=${NVIDIA_DOCKER_VERSION}
-  - nvidia-container-runtime=${NVIDIA_CONTAINER_RUNTIME_VERSION}
-  - nvidia-gpu-driver-version=${GPU_DV}
-  - nvidia-fabricmanager=${GPU_DV}
+  - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
 
 installBcc
@@ -380,7 +325,7 @@ fi
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
-v0.9.0
+v0.13.0.7
 "
 for NVIDIA_DEVICE_PLUGIN_VERSION in ${NVIDIA_DEVICE_PLUGIN_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/nvidia/k8s-device-plugin:${NVIDIA_DEVICE_PLUGIN_VERSION}"
@@ -397,9 +342,9 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   DEST="/usr/local/nvidia/bin"
   mkdir -p $DEST
   if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-    ctr --namespace k8s.io run --rm --mount type=bind,src=${DEST},dst=${DEST},options=bind:rw --cwd ${DEST} "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.9.0" plugingextract /bin/sh -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
+    ctr --namespace k8s.io run --rm --mount type=bind,src=${DEST},dst=${DEST},options=bind:rw --cwd ${DEST} "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.13.0.7" plugingextract /bin/sh -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
   else
-    docker run --rm --entrypoint "" -v $DEST:$DEST "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.9.0" /bin/bash -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
+    docker run --rm --entrypoint "" -v $DEST:$DEST "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.13.0.7" /bin/bash -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
   fi
   chmod a+x $DEST/nvidia-device-plugin
   echo "  - extracted nvidia-device-plugin..." >> ${VHD_LOGS_FILEPATH}
@@ -444,14 +389,10 @@ if [[ ${installSGX} == "True" ]]; then
 fi
 fi
 
-NGINX_VERSIONS="1.13.12-alpine"
+NGINX_VERSIONS="1.21.6"
 for NGINX_VERSION in ${NGINX_VERSIONS}; do
-    if [[ $(isARM64) == 1 ]]; then
-        CONTAINER_IMAGE="docker.io/library/nginx:${NGINX_VERSION}"  # nginx in MCR is not 'multi-arch', pull it from docker.io now, upsteam team is building 'multi-arch' nginx for MCR
-    else
-        CONTAINER_IMAGE="mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}"
-    fi
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+    CONTAINER_IMAGE="mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}"
+    pullContainerImage ${cliTool} mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 

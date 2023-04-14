@@ -28,6 +28,7 @@ installDeps() {
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
+    BLOBFUSE2_VERSION="2.0.2"
 
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
@@ -38,7 +39,7 @@ installDeps() {
         # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
         # for 22.04, fuse3 is installed. for all others, fuse is installed
         # for 16.04, installed blobfuse1.3.7, for all others except 22.04, installed blobfuse1.4.5
-        pkg_list+=(blobfuse2)
+        pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
         if [[ "${OSVERSION}" == "22.04" ]]; then
             pkg_list+=(fuse3)
         else
@@ -246,13 +247,7 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.0.3"
-
-        if [[ $(isARM64) == 1 ]]; then
-            # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
-            # so use different target version for different arch to avoid affecting each other during provisioning
-            TARGET_VERSION="1.0.3"
-        fi
+        TARGET_VERSION="1.1.5+azure-ubuntu${UBUNTU_RELEASE}u1"
     fi
 
     if [[ $(isARM64) == 1 ]]; then
@@ -264,20 +259,22 @@ ensureRunc() {
 
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-    if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
-        echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
+    CLEANED_TARGET_VERSION=$(TARGET_VERSION%+*) # removes the +azure-ubuntu18.04u1 (or similar) suffix
+
+    if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
+        echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
         return
     fi
     # if on a vhd-built image, first check if we've cached the deb file
     if [ -f $VHD_LOGS_FILEPATH ]; then
-        RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_${CPU_ARCH}.deb"
+        RUNC_DEB_PATTERN="moby-runc_*.deb"
         RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
         if [[ -f "${RUNC_DEB_FILE}" ]]; then
             installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
             return 0
         fi
     fi
-    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION/-/\~}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION} --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
 #EOF
