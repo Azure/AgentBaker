@@ -74,7 +74,7 @@ func Test_All(t *testing.T) {
 		nbc := copied.(*datamodel.NodeBootstrappingConfiguration)
 
 		if scenario.Config.BootstrapConfigMutator != nil {
-			scenario.Config.BootstrapConfigMutator(t, nbc)
+			scenario.Config.BootstrapConfigMutator(nbc)
 		}
 
 		t.Run(scenario.Name, func(t *testing.T) {
