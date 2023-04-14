@@ -8,11 +8,11 @@
         "properties": {
             "orchestratorProfile": {
                 "orchestratorType": "Kubernetes",
-                "orchestratorVersion": "1.24.0",
+                "orchestratorVersion": "1.24.9",
                 "kubernetesConfig": {
                     "networkPlugin": "kubenet",
-                    "customKubeProxyImage": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.0.1",
-                    "customKubeBinaryURL": "https://acs-mirror.azureedge.net/kubernetes/v1.24.0/binaries/kubernetes-node-linux-amd64.tar.gz",
+                    "customKubeProxyImage": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.9.1",
+                    "customKubeBinaryURL": "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-amd64.tar.gz",
                     "useInstanceMetadata": true,
                     "cloudProviderBackoffMode": "v2",
                     "cloudProviderBackoff": true,
@@ -95,7 +95,7 @@
             "containerdDownloadURLBase": "https://storage.googleapis.com/cri-containerd-release/",
             "csiProxyDownloadURL": "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
             "windowsProvisioningScriptsPackageURL": "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.2.2.zip",
-            "windowsPauseImageURL": "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
+            "windowsPauseImageURL": "mcr.microsoft.com/oss/kubernetes/pause:3.9",
             "cseScriptsPackageURL": "https://acs-mirror.azureedge.net/aks/windows/cse/csescripts-v0.0.1.zip",
             "cniARM64PluginsDownloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz",
             "vnetCNIARM64LinuxPluginsDownloadURL": "https://acs-mirror.azureedge.net/azure-cni/v1.4.13/binaries/azure-vnet-cni-linux-arm64-v1.4.14.tgz"
@@ -105,7 +105,7 @@
         }
     },
     "K8sComponents": {
-        "PodInfraContainerImageURL": "mcr.microsoft.com/oss/kubernetes/pause:3.5",
+        "PodInfraContainerImageURL": "mcr.microsoft.com/oss/kubernetes/pause:3.9",
         "HyperkubeImageURL": "mcr.microsoft.com/oss/kubernetes/",
         "WindowsPackageURL": "windowspackage"
     },
@@ -168,7 +168,7 @@
         "--max-pods": "110",
         "--network-plugin": "kubenet",
         "--node-status-update-frequency": "10s",
-        "--pod-infra-container-image": "mcr.microsoft.com/oss/kubernetes/pause:3.5",
+        "--pod-infra-container-image": "mcr.microsoft.com/oss/kubernetes/pause:3.9",
         "--pod-manifest-path": "/etc/kubernetes/manifests",
         "--pod-max-pids": "-1",
         "--protect-kernel-defaults": "true",

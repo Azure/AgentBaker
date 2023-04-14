@@ -43,7 +43,8 @@ collect-logs() {
     set -x
 }
 
-RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"-"$WINDOWS_E2E_IMAGE"-v2
+K8S_VERSION=$(echo $KUBERNETES_VERSION | tr '.' '-')
+RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"-"$WINDOWS_E2E_IMAGE"-"$K8S_VERSION"
 
 DEPLOYMENT_VMSS_NAME="$(mktemp -u winXXXXX | tr '[:upper:]' '[:lower:]')"
 export DEPLOYMENT_VMSS_NAME
@@ -95,7 +96,11 @@ fi
 log "Upload cse packages done"
 
 log "Scenario is $SCENARIO_NAME"
+export orchestratorVersion=$KUBERNETES_VERSION
+
+# Generate vmss cse deployment config for windows nodepool testing
 envsubst < scenarios/$SCENARIO_NAME/property-$SCENARIO_NAME-template.json > scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-property-$SCENARIO_NAME.json
+cat scenarios/"$SCENARIO_NAME"/"$WINDOWS_E2E_IMAGE"-property-"$SCENARIO_NAME".json
 
 set +x
 WINDOWS_PASSWORD=$({
@@ -125,8 +130,23 @@ tee $SCENARIO_NAME-vmss.json > /dev/null <<EOF
 }
 EOF
 
-jq --arg clientCrt "$clientCertificate" --arg vmssName $DEPLOYMENT_VMSS_NAME 'del(.KubeletConfig."--pod-manifest-path") | del(.KubeletConfig."--pod-max-pids") | del(.KubeletConfig."--protect-kernel-defaults") | del(.KubeletConfig."--tls-cert-file") | del(.KubeletConfig."--tls-private-key-file") | .ContainerService.properties.certificateProfile += {"clientCertificate": $clientCrt} | .PrimaryScaleSetName=$vmssName' nodebootstrapping_config.json > $WINDOWS_E2E_IMAGE-nodebootstrapping_config_for_windows.json
-jq -s '.[0] * .[1]' $WINDOWS_E2E_IMAGE-nodebootstrapping_config_for_windows.json scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-property-$SCENARIO_NAME.json > scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-nbc-$SCENARIO_NAME.json
+# Save $WINDOWS_E2E_IMAGE-nodebootstrapping_config_for_windows.json from the node bootstrapping config generated from e2e-starter.sh
+# Removed the "network-plugin" tag o.w. kubelet error for 1.24.0+ contains "failed to parse kubelet flag: unknown flag: --network-plugin"
+# "network-plugin" works for 1.23.15 and below (won't see this parsing error in kubelet.err.log)
+jq --arg clientCrt "$clientCertificate" --arg vmssName $DEPLOYMENT_VMSS_NAME \
+'del(.KubeletConfig."--pod-manifest-path") | del(.KubeletConfig."--pod-max-pids") | 
+del(.KubeletConfig."--protect-kernel-defaults") | del(.KubeletConfig."--tls-cert-file") | 
+del(.KubeletConfig."--tls-private-key-file") | del(.KubeletConfig."--network-plugin") | 
+.ContainerService.properties.certificateProfile += {"clientCertificate": $clientCrt} | 
+.PrimaryScaleSetName=$vmssName' nodebootstrapping_config.json > $WINDOWS_E2E_IMAGE-nodebootstrapping_config_for_windows.json
+cat "${WINDOWS_E2E_IMAGE}"-nodebootstrapping_config_for_windows.json
+
+# Produce a finalized managed cluster config (nbc?) given 
+# 1. the node bootstrapping config from e2e-starter (kubeconfig)
+# 2. the vmss cse deployment config generated from this file (windows package \in k8s components)
+jq -s '.[0] * .[1]' $WINDOWS_E2E_IMAGE-nodebootstrapping_config_for_windows.json \
+ scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-property-$SCENARIO_NAME.json > scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-nbc-$SCENARIO_NAME.json
+cat scenarios/"${SCENARIO_NAME}"/"${WINDOWS_E2E_IMAGE}"-nbc-"${SCENARIO_NAME}".json
 
 go test -tags bash_e2e -run TestE2EWindows
 
@@ -147,6 +167,7 @@ NETWORK_PROPERTIES=$(jq -c '.resources[0].properties.virtualMachineProfile.netwo
 CUSTOM_DATA=$(cat scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-$SCENARIO_NAME-cloud-init.txt)
 CSE_CMD=$(cat scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-$SCENARIO_NAME-cseCmd)
 
+# Customize the windows vmss deployment given the template windows_vmss_template
 jq --argjson JsonForVnet "$WINDOWS_VNET" \
     --argjson JsonForLB "$WINDOWS_LOADBALANCER" \
     --argjson JsonForIdentity "$WINDOWS_IDENTITY" \
@@ -159,14 +180,25 @@ jq --argjson JsonForVnet "$WINDOWS_VNET" \
     --arg ValueForCustomData "$CUSTOM_DATA" \
     --arg ValueForCSECmd "$CSE_CMD" \
     --arg ValueForVMSS "$DEPLOYMENT_VMSS_NAME" \
-    '.parameters += $JsonForVnet | .parameters += $JsonForLB | .parameters.galleries_AKSWindows_externalid.defaultValue=$ValueForImageExternalID | .resources[0] += $JsonForIdentity | .resources[0] += $JsonForSKU | .resources[0].properties.virtualMachineProfile.storageProfile+=$JsonForOSDisk | .resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] += $JsonForNetwork | .resources[0].properties.virtualMachineProfile.storageProfile.imageReference.id=$ValueForImageReference | .resources[0].properties.virtualMachineProfile.osProfile.adminPassword=$ValueForAdminPassword | .resources[0].properties.virtualMachineProfile.osProfile.customData=$ValueForCustomData | .resources[0].properties.virtualMachineProfile.extensionProfile.extensions[0].properties.settings.commandToExecute=$ValueForCSECmd | .parameters.virtualMachineScaleSets_akswin30_name.defaultValue=$ValueForVMSS' \
-    windows_vmss_template.json > $DEPLOYMENT_VMSS_NAME-deployment.json
+    '.parameters += $JsonForVnet | .parameters += $JsonForLB | 
+    .parameters.galleries_AKSWindows_externalid.defaultValue=$ValueForImageExternalID | 
+    .resources[0] += $JsonForIdentity | .resources[0] += $JsonForSKU | 
+	.resources[0].properties.virtualMachineProfile.storageProfile+=$JsonForOSDisk | 
+    .resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] += $JsonForNetwork | 
+    .resources[0].properties.virtualMachineProfile.storageProfile.imageReference.id=$ValueForImageReference |
+    .resources[0].properties.virtualMachineProfile.osProfile.adminPassword=$ValueForAdminPassword | 
+    .resources[0].properties.virtualMachineProfile.osProfile.customData=$ValueForCustomData | 
+    .resources[0].properties.virtualMachineProfile.extensionProfile.extensions[0].properties.settings.commandToExecute=$ValueForCSECmd | 
+    .parameters.virtualMachineScaleSets_akswin30_name.defaultValue=$ValueForVMSS' \
+windows_vmss_template.json > $DEPLOYMENT_VMSS_NAME-deployment.json
+cat "${DEPLOYMENT_VMSS_NAME}"-deployment.json
 
 retval=0
 set +e
 az deployment group create --resource-group $MC_RESOURCE_GROUP_NAME \
          --template-file $DEPLOYMENT_VMSS_NAME-deployment.json || retval=$?
 set -e
+log "Group deployment creation completed"
 
 if [ "$retval" -ne 0 ]; then
     err "Failed to deploy windows vmss. Error code is $retval."
@@ -185,8 +217,6 @@ fi
 log "Collect cse log"
 collect-logs 
 
-cat $SCENARIO_NAME-vmss.json
-
 VMSS_INSTANCE_NAME=$(az vmss list-instances \
                     -n ${DEPLOYMENT_VMSS_NAME} \
                     -g $MC_RESOURCE_GROUP_NAME \
@@ -196,7 +226,8 @@ export VMSS_INSTANCE_NAME
 
 # Sleep to let the automatic upgrade of the VM finish
 waitForNodeStartTime=$(date +%s)
-for i in $(seq 1 10); do
+# change to 3 temporarily (previously: 10)
+for i in $(seq 1 3); do
     set +e
     kubectl get nodes | grep $VMSS_INSTANCE_NAME
     retval=$?
@@ -237,7 +268,8 @@ kubectl apply -f pod-windows.yaml
 
 # Sleep to let Pod Status=Running
 waitForPodStartTime=$(date +%s)
-for i in $(seq 1 20); do
+# change to 3 temporarily (previously: 20)
+for i in $(seq 1 3); do
     set +e
     kubectl get pods -o wide | grep $POD_NAME
     kubectl get pods -o wide | grep $POD_NAME | grep 'Running'
@@ -268,8 +300,8 @@ else
     waitForDeleteStartTime=$(date +%s)
 
     # Only delete node and vmss since we reuse the resource group and cluster now
-    kubectl delete node $VMSS_INSTANCE_NAME
-    az vmss delete -g $(jq -r .group $SCENARIO_NAME-vmss.json) -n $(jq -r .vmss $SCENARIO_NAME-vmss.json)
+    # kubectl delete node $VMSS_INSTANCE_NAME
+    # az vmss delete -g $(jq -r .group $SCENARIO_NAME-vmss.json) -n $(jq -r .vmss $SCENARIO_NAME-vmss.json)
 
     waitForDeleteEndTime=$(date +%s)
     log "Waited $((waitForDeleteEndTime-waitForDeleteStartTime)) seconds to delete VMSS and node"   

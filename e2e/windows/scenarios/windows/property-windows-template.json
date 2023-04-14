@@ -3,7 +3,7 @@
     "properties": {
       "orchestratorProfile": {
         "orchestratorType": "Kubernetes",
-        "orchestratorVersion": "1.23.12",
+        "orchestratorVersion": "${orchestratorVersion}",
         "kubernetesConfig": {
           "networkPlugin": "azure",
           "loadBalancerSku": "Standard",
@@ -44,7 +44,7 @@
       },
       "windowsProfile": {
         "cseScriptsPackageURL": "${csePackageURL}",
-        "csiProxyURL": "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
+        "csiProxyURL": "https://acs-mirror.azureedge.net/csi-proxy/v1.0.2/binaries/csi-proxy-v1.0.2.tar.gz",
         "enableAutomaticUpdates": false,
         "enableCSIProxy": true,
         "hnsRemediatorIntervalInMinutes": 1,
@@ -61,7 +61,7 @@
     }
   },
   "K8sComponents": {
-    "WindowsPackageURL": "https://acs-mirror.azureedge.net/kubernetes/v1.23.12/windowszip/v1.23.12-1int.zip"
+    "WindowsPackageURL": "https://acs-mirror.azureedge.net/kubernetes/v${orchestratorVersion}/windowszip/v${orchestratorVersion}-1int.zip"
   },
   "AgentPoolProfile": {
     "name": "winnp",
@@ -97,7 +97,6 @@
     "--kube-reserved": "cpu=100m,memory=3891Mi",
     "--kubeconfig": "c:\\k\\config",
     "--max-pods": "30",
-    "--network-plugin": "azure",
     "--pod-infra-container-image": "kubletwin/pause",
     "--resolv-conf": "\"\"\"\"",
     "--rotate-certificates": "true",
