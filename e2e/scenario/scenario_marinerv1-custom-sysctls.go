@@ -3,7 +3,6 @@ package scenario
 import (
 	"fmt"
 	"strings"
-	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -17,7 +16,7 @@ func marinerv1CustomSysctls() *Scenario {
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
-			BootstrapConfigMutator: func(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration) {
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
 						NetNetfilterNfConntrackMax:     to.Ptr[int32](300000),
