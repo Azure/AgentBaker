@@ -1,6 +1,6 @@
 name: Generate valid Kubelet Flags per k8s version
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 jobs:
   generate-kubelet-flags:
