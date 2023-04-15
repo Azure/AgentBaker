@@ -131,7 +131,7 @@ function Set-AzureCNIConfig
                 $outboundException = [PSCustomObject]@{
                     Name = 'EndpointPolicy'
                     Value = [PSCustomObject]@{
-                        Type = 'OutboundNAT'
+                        Type = 'OutBoundNAT'
                         ExceptionList = $ipv6Cidrs
                     }
                 }
