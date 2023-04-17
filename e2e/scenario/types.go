@@ -21,9 +21,18 @@ type Config struct {
 	// BootstrapConfig          *datamodel.NodeBootstrappingConfiguration
 	ClusterSelector        func(*armcontainerservice.ManagedCluster) bool
 	ClusterMutator         func(*armcontainerservice.ManagedCluster)
-	BootstrapConfigMutator func(*testing.T, *datamodel.NodeBootstrappingConfiguration)
+	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
 	VMConfigMutator        func(*armcompute.VirtualMachineScaleSet)
 	Validator              func(context.Context, *testing.T, *ValidationInput) error
+	LiveVMValidators       []*LiveVMValidator
+}
+
+type VMCommandOutputAsserterFn func(stdout, stderr string) error
+
+type LiveVMValidator struct {
+	Description string
+	Command     string
+	Asserter    VMCommandOutputAsserterFn
 }
 
 type ValidationInput struct {

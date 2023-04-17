@@ -4,11 +4,14 @@ import (
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	mrand "math/rand"
 
 	"github.com/Azure/agentbakere2e/scenario"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"golang.org/x/crypto/ssh"
@@ -52,6 +55,17 @@ func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []b
 func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
 	model := getBaseVMSSModel(vmssName, opts.suiteConfig.location, *opts.chosenCluster.Properties.NodeResourceGroup, opts.subnetID, string(publicKeyBytes), customData, cseCmd)
 
+	isAzureCNI, err := opts.isChosenClusterAzureCNI()
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine whether chosen cluster uses Azure CNI from cluster model: %s", err)
+	}
+
+	if isAzureCNI {
+		if err := addPodIPConfigsForAzureCNI(&model, vmssName, opts); err != nil {
+			return nil, fmt.Errorf("failed to create pod IP configs for azure CNI scenario: %s", err)
+		}
+	}
+
 	if opts.scenario.VMConfigMutator != nil {
 		opts.scenario.VMConfigMutator(&model)
 	}
@@ -73,6 +87,68 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 	}
 
 	return &vmssResp.VirtualMachineScaleSet, nil
+}
+
+// Adds additional IP configs to the passed in vmss model based on the chosen cluster's setting of "maxPodsPerNode",
+// as we need be able to allow AKS to allocate an additional IP config for each pod running on the given node.
+// Additional info: https://learn.microsoft.com/en-us/azure/aks/configure-azure-cni
+func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssName string, opts *scenarioRunOpts) error {
+	maxPodsPerNode, err := opts.chosenClusterMaxPodsPerNode()
+	if err != nil {
+		return fmt.Errorf("failed to read agentpool MaxPods value from chosen cluster model: %s", err)
+	}
+
+	var podIPConfigs []*armcompute.VirtualMachineScaleSetIPConfiguration
+	for i := 1; i <= maxPodsPerNode; i++ {
+		ipConfig := &armcompute.VirtualMachineScaleSetIPConfiguration{
+			Name: to.Ptr(fmt.Sprintf("%s%d", vmssName, i)),
+			Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
+				Subnet: &armcompute.APIEntityReference{
+					ID: to.Ptr(opts.subnetID),
+				},
+			},
+		}
+		podIPConfigs = append(podIPConfigs, ipConfig)
+	}
+	vmssNICConfig := vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0]
+	ipConfigs := append(vmssNICConfig.Properties.IPConfigurations, podIPConfigs...)
+	vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.IPConfigurations = ipConfigs
+	return nil
+}
+
+func getVMPrivateIPAddress(ctx context.Context, cloud *azureClient, subscription, mcResourceGroupName, vmssName string) (string, error) {
+	pl := cloud.coreClient.Pipeline()
+	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
+		subscription,
+		mcResourceGroupName,
+		vmssName,
+		0,
+	)
+	req, err := runtime.NewRequest(ctx, "GET", url)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := pl.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var instanceNICResult listVMSSVMNetworkInterfaceResult
+
+	if err := json.Unmarshal(respBytes, &instanceNICResult); err != nil {
+		return "", err
+	}
+
+	privateIP := instanceNICResult.Value[0].Properties.IPConfigurations[0].Properties.PrivateIPAddress
+	return privateIP, nil
 }
 
 func getBaseVMSSModel(name, location, mcResourceGroupName, subnetID, sshPublicKey, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
@@ -139,8 +215,9 @@ func getBaseVMSSModel(name, location, mcResourceGroupName, subnetID, sshPublicKe
 								EnableIPForwarding: to.Ptr(true),
 								IPConfigurations: []*armcompute.VirtualMachineScaleSetIPConfiguration{
 									{
-										Name: to.Ptr(name),
+										Name: to.Ptr(fmt.Sprintf("%s0", name)),
 										Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
+											Primary: to.Ptr(true),
 											LoadBalancerBackendAddressPools: []*armcompute.SubResource{
 												{
 													ID: to.Ptr(

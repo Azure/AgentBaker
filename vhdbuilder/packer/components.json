@@ -2,11 +2,9 @@
   "ContainerImages": [
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
-      "amd64OnlyVersions": [
-        "1.8.5"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.8.14"
+        "1.8.18"
       ]
     },
     {
@@ -87,8 +85,7 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "ciprod01182023-095c864a",
-        "3.1.4"
+        "3.1.6"
       ]
     },
     {
@@ -202,11 +199,9 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
-      "amd64OnlyVersions": [
-        "1.8.3"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.8.5"
+        "1.8.6"
       ]
     },
     {
