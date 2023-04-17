@@ -20,7 +20,7 @@ func main() {
 func run() error {
 	k8sVersion := os.Getenv("KUBE_BINARY_VERSION")
 	if k8sVersion == "" {
-		panic(fmt.Errorf("Environment variable KUBE_BINARY_VERSION is not set, check invocation script"))
+		return fmt.Errorf("Environment variable KUBE_BINARY_VERSION is not set, check invocation script")
 	}
 
 	fmt.Println("k8s version is:", k8sVersion)
