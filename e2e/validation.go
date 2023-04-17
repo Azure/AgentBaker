@@ -10,19 +10,6 @@ import (
 	"github.com/Azure/agentbakere2e/scenario"
 )
 
-var (
-	sysctlsAlwaysSet = []string{
-		"net.ipv4.tcp_retries2",
-		"net.core.message_burst",
-		"net.core.message_cost",
-		"net.core.somaxconn",
-		"net.ipv4.tcp_max_syn_backlog",
-		"net.ipv4.neigh.default.gc_thresh1",
-		"net.ipv4.neigh.default.gc_thresh2",
-		"net.ipv4.neigh.default.gc_thresh3",
-	}
-)
-
 func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, sshPrivateKey string, opts *scenarioRunOpts) error {
 	privateIP, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.chosenCluster.Properties.NodeResourceGroup, vmssName)
 	if err != nil {
@@ -45,20 +32,20 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, sshPrivate
 		log.Printf("running live VM validator: %q", desc)
 
 		execResult, err := pollExecOnVM(ctx, opts.kube, privateIP, podName, sshPrivateKey, command)
-		if execResult != nil {
-			checkStdErr(execResult.stderr, t)
-		}
 		if err != nil {
+			execResult.dumpAll()
 			return fmt.Errorf("unable to execute validator command %q: %s", command, err)
 		}
 
 		if execResult.exitCode != "0" {
+			execResult.dumpAll()
 			return fmt.Errorf("validator command %q terminated with exit code %s", command, execResult.exitCode)
 		}
 
 		if validator.Asserter != nil {
 			err := validator.Asserter(execResult.stdout.String(), execResult.stderr.String())
 			if err != nil {
+				execResult.dumpAll()
 				return fmt.Errorf("failed validator assertion: %s", err)
 			}
 		}
@@ -79,39 +66,27 @@ func commonLiveVMValidators() []*scenario.LiveVMValidator {
 				return nil
 			},
 		},
-		{
-			Description: "assert sysctls set by customdata",
-			Command:     "sysctl -a",
-			Asserter: func(stdout, stderr string) error {
-				for _, sysctl := range sysctlsAlwaysSet {
-					if !strings.Contains(stdout, sysctl) {
-						return fmt.Errorf("expected to find sysctl %q set on the live VM, but was not", sysctl)
-					}
-				}
-				return nil
+		scenario.SysctlConfigValidator(
+			map[string]int{
+				"net.ipv4.tcp_retries2":             8,
+				"net.core.message_burst":            80,
+				"net.core.message_cost":             40,
+				"net.core.somaxconn":                16384,
+				"net.ipv4.tcp_max_syn_backlog":      16384,
+				"net.ipv4.neigh.default.gc_thresh1": 4096,
+				"net.ipv4.neigh.default.gc_thresh2": 8192,
+				"net.ipv4.neigh.default.gc_thresh3": 16384,
 			},
-		},
-		{
-			Description: "assert /var/log/azure/aks was properly setup by CSE",
-			Command:     "ls -la /var/log/azure/aks",
-			Asserter: func(stdout, stderr string) error {
-				if !strings.Contains(stdout, "cluster-provision.log") {
-					return fmt.Errorf("expected to find cluster-provision.log within /var/log/azure/aks, but did not")
-				}
-				if !strings.Contains(stdout, "cluster-provision-cse-output.log") {
-					return fmt.Errorf("expected to find cluster-provision-cse-output.log within /var/log/azure/aks, but did not")
-				}
-				if !strings.Contains(stdout, "cloud-init-files.paved") {
-					return fmt.Errorf("expected to find cloud-init-files.paved within /var/log/azure/aks, but did not")
-				}
-				if !strings.Contains(stdout, "vhd-install.complete") {
-					return fmt.Errorf("expected to find vhd-install.complete within /var/log/azure/aks, but did not")
-				}
-				if !strings.Contains(stdout, "cloud-config.txt") {
-					return fmt.Errorf("expected to find cloud-config.txt within /var/log/azure/aks, but did not")
-				}
-				return nil
+		),
+		scenario.DirectoryValidator(
+			"/var/log/azure/aks",
+			[]string{
+				"cluster-provision.log",
+				"cluster-provision-cse-output.log",
+				"cloud-init-files.paved",
+				"vhd-install.complete",
+				"cloud-config.txt",
 			},
-		},
+		),
 	}
 }

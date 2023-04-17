@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"testing"
 
@@ -20,6 +21,38 @@ const (
 type podExecResult struct {
 	exitCode       string
 	stderr, stdout *bytes.Buffer
+}
+
+func (r *podExecResult) dumpAll() {
+	r.dumpStdout()
+	r.dumpStderr()
+}
+
+func (r *podExecResult) dumpStdout() {
+	if r.stdout != nil {
+		stdoutContent := r.stdout.String()
+		if stdoutContent != "" && stdoutContent != "<nil>" {
+			log.Printf("%s\n%s\n%s\n%s",
+				"dumping stdout:",
+				"----------------------------------- begin stdout -----------------------------------",
+				stdoutContent,
+				"------------------------------------ end stdout ------------------------------------")
+		}
+	}
+}
+
+func (r *podExecResult) dumpStderr() {
+	if r.stderr != nil {
+		stderrContent := r.stderr.String()
+		if stderrContent != "" && stderrContent != "<nil>" {
+			log.Printf("%s\n%s\n%s\n%s",
+				"dumping stderr:",
+				"----------------------------------- begin stderr -----------------------------------",
+				stderrContent,
+				"------------------------------------ end stderr ------------------------------------")
+		}
+
+	}
 }
 
 func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName string, sshPrivateKey string, opts *scenarioRunOpts) (map[string]string, error) {
