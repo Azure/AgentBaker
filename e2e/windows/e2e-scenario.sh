@@ -129,7 +129,9 @@ tee $SCENARIO_NAME-vmss.json > /dev/null <<EOF
 }
 EOF
 
-jq --arg clientCrt "$clientCertificate" --arg vmssName $DEPLOYMENT_VMSS_NAME 'del(.KubeletConfig."--pod-manifest-path") | del(.KubeletConfig."--pod-max-pids") | del(.KubeletConfig."--protect-kernel-defaults") | del(.KubeletConfig."--tls-cert-file") | del(.KubeletConfig."--tls-private-key-file") | .ContainerService.properties.certificateProfile += {"clientCertificate": $clientCrt} | .PrimaryScaleSetName=$vmssName' nodebootstrapping_config.json > $WINDOWS_E2E_IMAGE-nodebootstrapping_config_for_windows.json
+# Removed the "network-plugin" tag o.w. kubelet error for 1.24.0+ contains "failed to parse kubelet flag: unknown flag: --network-plugin"
+# "network-plugin" works for 1.23.15 and below (you won't see this parsing error in kubelet.err.log)
+jq --arg clientCrt "$clientCertificate" --arg vmssName $DEPLOYMENT_VMSS_NAME 'del(.KubeletConfig."--pod-manifest-path") | del(.KubeletConfig."--pod-max-pids") | del(.KubeletConfig."--protect-kernel-defaults") | del(.KubeletConfig."--tls-cert-file") | del(.KubeletConfig."--tls-private-key-file") | del(.KubeletConfig."--network-plugin") | .ContainerService.properties.certificateProfile += {"clientCertificate": $clientCrt} | .PrimaryScaleSetName=$vmssName' nodebootstrapping_config.json > $WINDOWS_E2E_IMAGE-nodebootstrapping_config_for_windows.json
 jq -s '.[0] * .[1]' $WINDOWS_E2E_IMAGE-nodebootstrapping_config_for_windows.json scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-property-$SCENARIO_NAME.json > scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-nbc-$SCENARIO_NAME.json
 
 go test -tags bash_e2e -run TestE2EWindows
@@ -189,8 +191,6 @@ fi
 
 log "Collect cse log"
 collect-logs
-
-cat $SCENARIO_NAME-vmss.json
 
 VMSS_INSTANCE_NAME=$(az vmss list-instances \
                     -n ${DEPLOYMENT_VMSS_NAME} \
