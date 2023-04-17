@@ -4,7 +4,6 @@ go 1.18
 
 require (
 	github.com/Azure/go-autorest/autorest/to v0.4.0
-	github.com/Masterminds/semver v1.5.0
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
 	github.com/blang/semver v3.5.1+incompatible
