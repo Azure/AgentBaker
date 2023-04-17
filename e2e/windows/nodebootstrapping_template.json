@@ -8,11 +8,11 @@
         "properties": {
             "orchestratorProfile": {
                 "orchestratorType": "Kubernetes",
-                "orchestratorVersion": "1.24.9",
+                "orchestratorVersion": "1.24.0",
                 "kubernetesConfig": {
                     "networkPlugin": "kubenet",
-                    "customKubeProxyImage": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.9.1",
-                    "customKubeBinaryURL": "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-amd64.tar.gz",
+                    "customKubeProxyImage": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.0.1",
+                    "customKubeBinaryURL": "https://acs-mirror.azureedge.net/kubernetes/v1.24.0/binaries/kubernetes-node-linux-amd64.tar.gz",
                     "useInstanceMetadata": true,
                     "cloudProviderBackoffMode": "v2",
                     "cloudProviderBackoff": true,
