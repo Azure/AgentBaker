@@ -19,7 +19,6 @@ sudo swapoff -a
 sudo ctr version
 sudo systemctl status containerd
 
-cd e2e/kubelet
 sed '$ d' parts/linux/cloud-init/artifacts/manifest.json > temporary_manifest.json
 KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] temporary_manifest.json)"
 for KUBE_BINARY_VERSION in $KUBE_BINARY_VERSIONS; do
@@ -32,6 +31,8 @@ for KUBE_BINARY_VERSION in $KUBE_BINARY_VERSIONS; do
         --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
     rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
     export KUBE_BINARY_VERSION
-    go run -ldflags="-X main.KUBE_BINARY_VERSION=${KUBE_BINARY_VERSION}" main.go
+    pushd e2e || exit 1
+    go run -ldflags="-X main.KUBE_BINARY_VERSION=${KUBE_BINARY_VERSION}" kubelet/main.go
+    popd e2e || exit 1
 done
 rm -f temporary_manifest.json
