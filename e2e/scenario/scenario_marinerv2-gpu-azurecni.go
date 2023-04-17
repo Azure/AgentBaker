@@ -7,9 +7,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 )
 
-func marinergpu_azurecni() *Scenario {
+func marinerv2gpu_azurecni() *Scenario {
 	return &Scenario{
-		Name:        "mariner-gpu-azurecni",
+		Name:        "marinerv2-gpu-azurecni",
 		Description: "MarinerV2 gpu scenario on cluster configured with Azure CNI",
 		Config: Config{
 			ClusterSelector: NetworkPluginAzureSelector,

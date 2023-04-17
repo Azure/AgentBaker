@@ -7,9 +7,9 @@ import (
 )
 
 // Returns config for the 'gpu' E2E scenario
-func marinergpu() *Scenario {
+func marinerv2gpu() *Scenario {
 	return &Scenario{
-		Name:        "mariner-gpu",
+		Name:        "marinerv2-gpu",
 		Description: "Tests that a GPU-enabled node using a MarinerV2 VHD can be properly bootstrapped",
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,

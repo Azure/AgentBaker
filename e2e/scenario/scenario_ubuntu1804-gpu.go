@@ -7,9 +7,9 @@ import (
 )
 
 // Returns config for the 'gpu' E2E scenario
-func ubuntugpu() *Scenario {
+func ubuntu1804gpu() *Scenario {
 	return &Scenario{
-		Name:        "ubuntu-gpu",
+		Name:        "ubuntu1804-gpu",
 		Description: "Tests that a GPU-enabled node using an Ubuntu 1804 VHD can be properly bootstrapped",
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
