@@ -1,8 +1,6 @@
 name: Generate valid kubelet flags per supported k8s version
 on:
-  push:
-    branches:
-      - amaheshwari/generateFlags  # for now
+  workflow_dispatch: {}
 
 jobs:
   generate-kubelet-flags:
