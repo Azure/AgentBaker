@@ -32,13 +32,15 @@ jobs:
         export WINDOWS_E2E_OSSKU=${{ parameters.windowsOSSKU }}
         export WINDOWS_E2E_VMSIZE=${{ parameters.windowsVMSize }}
         K=${KUBERNETES_VERSION//./}
-        export WINDOWS_E2E_STORAGE_ACCOUNT=${{ parameters.storageAccount }}$K
+        export WINDOWS_E2E_STORAGE_CONTAINER=${{ parameters.storageAccount }}-$K
         mkdir -p $WINDOWS_E2E_IMAGE
         cp -r e2e/windows/* $WINDOWS_E2E_IMAGE
         go version
         cd $WINDOWS_E2E_IMAGE
         bash ./e2e-starter.sh
         bash e2e-create-windows-nodepool.sh
+      env:
+        MAPPED_ACCOUNT_KEY: $(STORAGE_ACCOUNT_KEY)
       displayName: Setup Test Cluster
     - publish: $(System.DefaultWorkingDirectory)/${{ parameters.windowsImage }}
       artifact: ${{ parameters.windowsImage }}-clusterConfig

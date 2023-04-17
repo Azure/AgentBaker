@@ -16,11 +16,23 @@ exec_on_host() {
     kubectl exec $(kubectl get pod -l app=debug -o jsonpath="{.items[0].metadata.name}") -- bash -c "nsenter -t 1 -m bash -c \"$1\"" > $2
 }
 
-create_storage_account() {
+create_storage_container() {
     set +x
-    az storage account create -n $WINDOWS_E2E_STORAGE_ACCOUNT -g $RESOURCE_GROUP_NAME -l $LOCATION
-    account_key=$(az storage account keys list --account-name $WINDOWS_E2E_STORAGE_ACCOUNT --query "[0].value")
-    az storage container create -n "tmp" --account-name $WINDOWS_E2E_STORAGE_ACCOUNT --account-key $account_key
+    # check if the storage container exists and create one if not
+    exists=$(az storage container exists --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --name $WINDOWS_E2E_STORAGE_CONTAINER)
+    if [[ $exists == *false* ]]; then
+        az storage container create -n $WINDOWS_E2E_STORAGE_CONTAINER --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY
+        echo "Created storage container $WINDOWS_E2E_STORAGE_CONTAINER in $STORAGE_ACCOUNT_NAME"
+    else
+        # check if the storage container is empty and delete the blobs within one by one if not
+        blob_list=$(az storage blob list --account-name $STORAGE_ACCOUNT_NAME --container-name $WINDOWS_E2E_STORAGE_CONTAINER --account-key $MAPPED_ACCOUNT_KEY -o json | jq -r '.[] | .name')
+        if [[ -n $blob_list ]]; then
+            for blob in $blob_list; do
+                az storage blob delete --account-name $STORAGE_ACCOUNT_NAME --container-name $WINDOWS_E2E_STORAGE_CONTAINER --account-key $MAPPED_ACCOUNT_KEY --name $blob
+                echo "Deleted blob $blob from storage container $WINDOWS_E2E_STORAGE_CONTAINER in the storage account $STORAGE_ACCOUNT_NAME"
+            done
+        fi
+    fi
     set -x
 }
 
@@ -32,9 +44,8 @@ upload_linux_file_to_storage_account() {
 
     set +x
     expiryTime=$(date --date="2 day" +%Y-%m-%d)
-    account_key=$(az storage account keys list --account-name $WINDOWS_E2E_STORAGE_ACCOUNT --query "[0].value")
-    token=$(az storage container generate-sas --account-name $WINDOWS_E2E_STORAGE_ACCOUNT --account-key $account_key --permissions 'w' --expiry $expiryTime --name "tmp")
-    linuxFileURL="https://${WINDOWS_E2E_STORAGE_ACCOUNT}.blob.core.windows.net/tmp/${MC_VMSS_NAME}-linux-file.zip?${token}"
+    token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'w' --expiry $expiryTime --name $WINDOWS_E2E_STORAGE_CONTAINER)
+    linuxFileURL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${WINDOWS_E2E_STORAGE_CONTAINER}/${MC_VMSS_NAME}-linux-file.zip?${token}"
 
     az vmss run-command invoke --command-id RunShellScript \
         --resource-group $MC_RESOURCE_GROUP_NAME \
@@ -55,30 +66,12 @@ download_linux_file_from_storage_account() {
     tar -xvf downloadazcopy-v10-linux
 
     expiryTime=$(date --date="2 day" +%Y-%m-%d)
-    for i in $(seq 1 20); do
-        accountState=$(az storage account list -g $RESOURCE_GROUP_NAME | jq '.[0].provisioningState' | tr -d "\"")
-        if [ "$accountState" != "Succeeded" ]; then
-            log "Other pipeline may be creating the storage account, waiting..."
-            sleep 10
-            continue
-        fi
-        break;
-    done
 
     set +x
 
-    local retval=0
-    for i in $(seq 1 20); do
-        account_key=$(az storage account keys list --account-name $WINDOWS_E2E_STORAGE_ACCOUNT --query "[0].value") || retval=$?
-        if [ "$retval" -ne 0 ]; then
-            sleep 10
-            continue
-        fi
-        break;
-    done
-    token=$(az storage container generate-sas --account-name $WINDOWS_E2E_STORAGE_ACCOUNT --account-key $account_key --permissions 'rl' --expiry $expiryTime --name "tmp")
+    token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rl' --expiry $expiryTime --name $WINDOWS_E2E_STORAGE_CONTAINER)
     tokenWithoutQuote=${token//\"}
-    linuxFileURL="https://${WINDOWS_E2E_STORAGE_ACCOUNT}.blob.core.windows.net/tmp/${MC_VMSS_NAME}-linux-file.zip?${tokenWithoutQuote}"
+    linuxFileURL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${WINDOWS_E2E_STORAGE_CONTAINER}/${MC_VMSS_NAME}-linux-file.zip?${tokenWithoutQuote}"
 
     array=(azcopy_*)
     noExistStr="File count: 0"

@@ -61,7 +61,7 @@
     }
   },
   "K8sComponents": {
-    "WindowsPackageURL": "https://acs-mirror.azureedge.net/kubernetes/v${orchestratorVersion}/windowszip/v${orchestratorVersion}-1int.zip"
+    "WindowsPackageURL": "${windowsPackageURL}"
   },
   "AgentPoolProfile": {
     "name": "winnp",

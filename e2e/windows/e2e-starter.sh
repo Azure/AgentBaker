@@ -85,10 +85,11 @@ MC_VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(name,
 CLUSTER_ID=$(echo $MC_VMSS_NAME | cut -d '-' -f3)
 
 if [ "$create_cluster" == "true" ]; then
-    create_storage_account
+    create_storage_container
     upload_linux_file_to_storage_account
 fi
 download_linux_file_from_storage_account
+log "Download linux file from SA done"
 
 set +x
 addJsonToFile "apiserverCrt" "$(cat apiserver.crt)"
@@ -115,3 +116,4 @@ set +x
 $(jq -r 'keys[] as $k | "export \($k)=\(.[$k])"' fields.json)
 envsubst < percluster_template.json > percluster_config.json
 jq -s '.[0] * .[1]' nodebootstrapping_template.json percluster_config.json > nodebootstrapping_config.json
+log "Node bootstrapping config generated"

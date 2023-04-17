@@ -97,6 +97,10 @@ log "Upload cse packages done"
 
 log "Scenario is $SCENARIO_NAME"
 export orchestratorVersion=$KUBERNETES_VERSION
+export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${orchestratorVersion}/windowszip/v${orchestratorVersion}-1int.zip"
+if [[ -n "$WINDOWS_PACKAGE_URL" ]]; then
+    export windowsPackageURL="$WINDOWS_PACKAGE_URL"
+fi
 
 # Generate vmss cse deployment config for windows nodepool testing
 envsubst < scenarios/$SCENARIO_NAME/property-$SCENARIO_NAME-template.json > scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-property-$SCENARIO_NAME.json
@@ -190,7 +194,9 @@ else
 fi
 
 log "Collect cse log"
-collect-logs
+collect-logs 
+
+cat $SCENARIO_NAME-vmss.json
 
 VMSS_INSTANCE_NAME=$(az vmss list-instances \
                     -n ${DEPLOYMENT_VMSS_NAME} \
