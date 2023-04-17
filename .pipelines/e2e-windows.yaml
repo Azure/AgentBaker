@@ -70,3 +70,16 @@ stages:
       windowsDistro: aks-windows-2022-containerd-gen2
       windowsNodeImageVersion: AKSWindows-2022-containerd-gen2-test-2023.02.07
       storageAccount: akswinstore2022gen2
+
+- stage: backfill_cleanup_outdated_resources
+  dependsOn: []
+  condition: always()
+  jobs:
+  - job: build
+    timeoutInMinutes: 180
+    steps:
+      - bash: |
+          bash ./e2e/windows/cleanup.sh
+        env:
+          MAPPED_ACCOUNT_KEY: $(STORAGE_ACCOUNT_KEY)
+        displayName: Clean Up Outdated Resourcesi
