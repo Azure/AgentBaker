@@ -28,30 +28,31 @@ func run() error {
 	
 	r, w := io.Pipe()
 
-	c1 := exec.Command("sudo", "timeout", "-k", "3", "--preserve-status", "1", binaryPath, "-v", "1", "--container-runtime-endpoint", "unix:///var/run/containerd/containerd.sock")
-	fmt.Println(c1)
-	c1.Stdout = w
-	c1.Stderr = w
+	runKubelet := exec.Command("sudo", "timeout", "-k", "3", "--preserve-status", "1", binaryPath, "-v", "1", "--container-runtime-endpoint", "unix:///var/run/containerd/containerd.sock")
+	fmt.Println(runKubelet)
+	
+	runKubelet.Stdout = w
+	runKubelet.Stderr = w
 
-	c2 := exec.Command("grep", "FLAG")
-	c2.Stdin = r
+	parseFlags := exec.Command("grep", "FLAG")
+	parseFlags.Stdin = r
 
 	var grepOut bytes.Buffer
 
-	c2.Stdout = &grepOut
-	c2.Stderr = &grepOut
+	parseFlags.Stdout = &grepOut
+	parseFlags.Stderr = &grepOut
 
-	if err := c2.Start(); err != nil {
+	if err := parseFlags.Start(); err != nil {
 		return fmt.Errorf("failed to start grep pipeline: %q", err)
 	}
 
-	if err := c1.Run(); err != nil {
+	if err := runKubelet.Run(); err != nil {
 		return fmt.Errorf("failed to run kubelet: %q", err)
 	}
 
 	w.Close()
 
-	if err := c2.Wait(); err != nil {
+	if err := parseFlags.Wait(); err != nil {
 		fmt.Println(fmt.Errorf("failed to wait for grep to exit: %q", err))
 	}
 
