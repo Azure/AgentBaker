@@ -1,6 +1,6 @@
 # kubelet flag scraping
 
-This is a quick way to generate a list of valid flags for a give kubelet version.
+This is a quick way to generate a list of valid flags for a given kubelet version.
 
 When started with `-v=1 --container-runtime-endpoint=unix:///var/run/containerd/containerd.sock` kubelet will print out a list of valid flags and will run in "standalone mode" without an apiserver (i.e., it will not crash).
 
