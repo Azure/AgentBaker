@@ -32,7 +32,7 @@ jobs:
         export WINDOWS_E2E_OSSKU=${{ parameters.windowsOSSKU }}
         export WINDOWS_E2E_VMSIZE=${{ parameters.windowsVMSize }}
         K=${KUBERNETES_VERSION//./}
-        export WINDOWS_E2E_STORAGE_ACCOUNT=${{ parameters.storageAccount }}$K
+        export WINDOWS_E2E_STORAGE_CONTAINER=${{ parameters.storageAccount }}-$K
         mkdir -p $WINDOWS_E2E_IMAGE
         cp -r e2e/windows/* $WINDOWS_E2E_IMAGE
         go version
