@@ -23,14 +23,14 @@ func run() error {
 		panic(fmt.Errorf("Environment variable KUBE_BINARY_VERSION is not set, check invocation script"))
 	}
 
-	binaryPath := fmt.Sprintf("/usr/local/bin/kubelet-%s", k8sVersion)
 	fmt.Println("k8s version is:", k8sVersion)
+	binaryPath := fmt.Sprintf("/usr/local/bin/kubelet-%s", k8sVersion)
 	
 	r, w := io.Pipe()
 
 	runKubelet := exec.Command("sudo", "timeout", "-k", "3", "--preserve-status", "1", binaryPath, "-v", "1", "--container-runtime-endpoint", "unix:///var/run/containerd/containerd.sock")
 	fmt.Println(runKubelet)
-	
+
 	runKubelet.Stdout = w
 	runKubelet.Stderr = w
 
