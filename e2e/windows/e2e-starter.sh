@@ -117,5 +117,4 @@ set +x
 # shellcheck disable=SC2091
 $(jq -r 'keys[] as $k | "export \($k)=\(.[$k])"' fields.json)
 envsubst < percluster_template.json > percluster_config.json
-
 jq -s '.[0] * .[1]' nodebootstrapping_template.json percluster_config.json > nodebootstrapping_config.json

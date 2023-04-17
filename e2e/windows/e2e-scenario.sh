@@ -151,7 +151,6 @@ NETWORK_PROPERTIES=$(jq -c '.resources[0].properties.virtualMachineProfile.netwo
 CUSTOM_DATA=$(cat scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-$SCENARIO_NAME-cloud-init.txt)
 CSE_CMD=$(cat scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-$SCENARIO_NAME-cseCmd)
 
-# Customize the windows vmss deployment given the template windows_vmss_template
 jq --argjson JsonForVnet "$WINDOWS_VNET" \
     --argjson JsonForLB "$WINDOWS_LOADBALANCER" \
     --argjson JsonForIdentity "$WINDOWS_IDENTITY" \
