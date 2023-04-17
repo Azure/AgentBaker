@@ -302,9 +302,6 @@
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "prod_20220512.2",
-        "prod_20221215.1",
-        "prod_20230203.1",
         "prod_20230208.1"
       ]
     },
@@ -312,9 +309,6 @@
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "prod_20220512.2",
-        "prod_20221215.1",
-        "prod_20230203.1",
         "prod_20230208.1"
       ]
     },
