@@ -24,8 +24,10 @@ type podExecResult struct {
 }
 
 func (r *podExecResult) dumpAll() {
-	r.dumpStdout()
-	r.dumpStderr()
+	if r != nil {
+		r.dumpStdout()
+		r.dumpStderr()
+	}
 }
 
 func (r *podExecResult) dumpStdout() {
