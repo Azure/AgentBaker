@@ -20,7 +20,8 @@ $UseContainerD = ($global:ContainerRuntime -eq "containerd")
 # at least 3 groups (which means there are at least 2 ":") then we know there is an IPv6 CIDR
 # in the list. We cannot just rely on `ClusterCidr -like "*::*" because there are IPv6 CIDRs that
 # don't have "::", e.g. fe80:0:0:0:0:0:0:0/64
-$IsDualStackEnabled = ($Global:ClusterConfiguration.Kubernetes.Network.ClusterCidr -split ":").Count -ge 3
+$IsDualStackEnabled = ($Global:ClusterConfiguration.Kubernetes.Kubeproxy.FeatureGates -contains "IPv6DualStack=true") -Or `
+                        (($Global:ClusterConfiguration.Kubernetes.Network.ClusterCidr -split ":").Count -ge 3)
 
 $global:HNSModule = "c:\k\hns.psm1"
 if ($global:ContainerRuntime -eq "containerd") {
