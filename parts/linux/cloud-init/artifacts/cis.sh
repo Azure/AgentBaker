@@ -169,8 +169,11 @@ setPamConfiguration() {
 auth      required      pam_faillock.so preauth silent audit deny=5 unlock_time=900
 auth      required      pam_unix.so try_first_pass
 auth      [default=die] pam_faillock.so authfail audit deny=5 unlock_time=900
+auth      sufficient    pam_faillock.so authsucc audit deny=5 unlock_time=900
+auth      required      pam_deny.so
 
 account   required     pam_faillock.so
+account   include      system-account
 
 password  requisite   pam_pwquality.so  retry=3
 password  required    pam_pwhistory.so  remember=5 use_authok
@@ -186,8 +189,11 @@ EOF
 auth      required      pam_faillock.so preauth silent audit deny=5 unlock_time=900
 auth      required      pam_unix.so try_first_pass
 auth      [default=die] pam_faillock.so authfail audit deny=5 unlock_time=900
+auth      sufficient    pam_faillock.so authsucc audit deny=5 unlock_time=900
+auth      required      pam_deny.so
 
 account   required      pam_faillock.so
+account   include      system-account
 
 # use sha512 hash for encryption, use shadow, and try to use any previously
 # defined authentication token (chosen password) set by any prior module
