@@ -28,7 +28,7 @@ jobs:
       go test -timeout 30m -v -run Test_All ./
     displayName: Run AgentBaker E2E
   - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
-    artifact: scenario-logs
+    artifact: scenario-logs-$(Build.BuildNumber)
     condition: always()
   - bash: |
       set -x
