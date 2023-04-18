@@ -33,7 +33,7 @@ for KUBE_BINARY_VERSION in $KUBE_BINARY_VERSIONS; do
     export KUBE_BINARY_VERSION
     pushd e2e || exit 1
     go run -ldflags="-X main.KUBE_BINARY_VERSION=${KUBE_BINARY_VERSION}" kubelet/main.go
-    cat output.json
+    cat kubelet/${KUBE_BINARY_VERSION}-flags.json
     popd || exit 1
 done
 rm -f temporary_manifest.json
