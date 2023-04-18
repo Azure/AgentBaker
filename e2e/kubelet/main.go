@@ -74,16 +74,15 @@ func run() error {
 
     defer file.Close()
 
-    jsonBytes, err := json.Marshal(flags)
-    if err != nil {
-        return err
-    }
+    encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ") // optional pretty print
+	err = encoder.Encode(flags)
+	if err != nil {
+		fmt.Println("Error encoding data:", err)
+		return err
+	}
 
-	fmt.Println("json bytes are", jsonBytes)
-    _, err = file.Write(jsonBytes)
-    if err != nil {
-       return err
-    }
+	fmt.Println("Data written to output.json")
 
 	return nil
 }
