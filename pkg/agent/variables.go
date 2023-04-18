@@ -170,7 +170,7 @@ func isVHD(profile *datamodel.AgentPoolProfile) string {
 	return strconv.FormatBool(profile.IsVHDDistro())
 }
 
-func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig) string {
+func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig) string, error {
 	cs := nbc.ContainerService
 	if cs.Properties.FeatureFlags.IsFeatureEnabled("BlockOutboundInternet") {
 		return ""
@@ -190,8 +190,14 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 
 	// curl on Ubuntu 16.04 (shipped prior to AKS 1.18) doesn't support proxy TLS.
 	// so we need to use nc for the connectivity check.
-	clusterVersion, _ := semver.Make(cs.Properties.OrchestratorProfile.OrchestratorVersion)
-	minVersion, _ := semver.Make("1.18.0")
+	clusterVersion, err := semver.Make(cs.Properties.OrchestratorProfile.OrchestratorVersion)
+	if err != nil {
+		return nil, err
+	}
+	minVersion, err := semver.Make("1.18.0")
+	if err != nil {
+		return nil, err
+	}
 
 	connectivityCheckCommand := ""
 	if clusterVersion.GTE(minVersion) {
@@ -200,7 +206,7 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 		connectivityCheckCommand = `nc -vz ` + registry + ` 443`
 	}
 
-	return connectivityCheckCommand
+	return connectivityCheckCommand, nil
 }
 
 func getProxyVariables(nbc *datamodel.NodeBootstrappingConfiguration) string {
