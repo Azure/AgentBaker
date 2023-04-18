@@ -114,24 +114,24 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 	return result, nil
 }
 
-func execOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (podExecResult, error) {
+func execOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
 	sshCommand := fmt.Sprintf(sshCommandTemplate, sshPrivateKey, vmPrivateIP)
 	commandToExecute := fmt.Sprintf("%s %s", sshCommand, command)
 
 	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, commandToExecute)
 	if err != nil {
-		return podExecResult{}, fmt.Errorf("error executing command on pod: %s", err)
+		return nil, fmt.Errorf("error executing command on pod: %s", err)
 	}
 
 	return execResult, nil
 }
 
-func execOnPrivilegedPod(ctx context.Context, kube *kubeclient, namespace, podName string, command string) (podExecResult, error) {
+func execOnPrivilegedPod(ctx context.Context, kube *kubeclient, namespace, podName string, command string) (*podExecResult, error) {
 	privilegedCommand := append(nsenterCommandArray(), command)
 	return execOnPod(ctx, kube, namespace, podName, privilegedCommand)
 }
 
-func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string, command []string) (podExecResult, error) {
+func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string, command []string) (*podExecResult, error) {
 	req := kube.typed.CoreV1().RESTClient().Post().Resource("pods").Name(podName).Namespace(namespace).SubResource("exec")
 
 	option := &corev1.PodExecOptions{
@@ -147,7 +147,7 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 
 	exec, err := remotecommand.NewSPDYExecutor(kube.rest, "POST", req.URL())
 	if err != nil {
-		return podExecResult{}, fmt.Errorf("unable to create new SPDY executor for pod exec: %s", err)
+		return nil, fmt.Errorf("unable to create new SPDY executor for pod exec: %s", err)
 	}
 
 	var (
@@ -163,15 +163,15 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 		if strings.Contains(err.Error(), "command terminated with exit code") {
 			code, err := extractExitCode(err.Error())
 			if err != nil {
-				return podExecResult{}, fmt.Errorf("error extracing exit code from remote command execution error msg: %s", err)
+				return nil, fmt.Errorf("error extracing exit code from remote command execution error msg: %s", err)
 			}
 			exitCode = code
 		} else {
-			return podExecResult{}, fmt.Errorf("encountered unexpected error when executing command on pod: %s", err)
+			return nil, fmt.Errorf("encountered unexpected error when executing command on pod: %s", err)
 		}
 	}
 
-	return podExecResult{
+	return &podExecResult{
 		exitCode: exitCode,
 		stdout:   &stdout,
 		stderr:   &stderr,

@@ -28,8 +28,8 @@ const (
 	waitUntilPodDeletedPollingTimeout      = 1 * time.Minute
 )
 
-func pollExecOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey, command string) (podExecResult, error) {
-	var execResult podExecResult
+func pollExecOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey, command string) (*podExecResult, error) {
+	var execResult *podExecResult
 	err := wait.PollImmediateWithContext(ctx, execOnVMPollInterval, execOnVMPollingTimeout, func(ctx context.Context) (bool, error) {
 		res, err := execOnVM(ctx, kube, vmPrivateIP, jumpboxPodName, sshPrivateKey, command)
 		if err != nil {
@@ -52,7 +52,7 @@ func pollExecOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPod
 	})
 
 	if err != nil {
-		return podExecResult{}, err
+		return nil, err
 	}
 
 	return execResult, nil
