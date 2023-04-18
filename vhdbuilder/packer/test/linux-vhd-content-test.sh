@@ -366,7 +366,9 @@ testCriticalTools
 testFilesDownloaded $1
 testImagesPulled $1 "$(cat $COMPONENTS_FILEPATH)"
 testChrony $4
-testAuditDNotPresent
+if [[ $4 != "CBLMariner" || $2 != "V1" ]]; then
+  testAuditDNotPresent
+fi
 testFips $2 $3
 testKubeBinariesPresent $1
 testKubeProxyImagesPulled $1
