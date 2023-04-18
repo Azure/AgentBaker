@@ -13,12 +13,12 @@ import (
 func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, sshPrivateKey string, opts *scenarioRunOpts) error {
 	privateIP, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.chosenCluster.Properties.NodeResourceGroup, vmssName)
 	if err != nil {
-		return fmt.Errorf("unable to get private IP address of VM on VMSS %q: %s", vmssName, err)
+		return fmt.Errorf("unable to get private IP address of VM on VMSS %q: %w", vmssName, err)
 	}
 
 	podName, err := getDebugPodName(opts.kube)
 	if err != nil {
-		return fmt.Errorf("unable to get debug pod name: %s", err)
+		return fmt.Errorf("unable to get debug pod name: %w", err)
 	}
 
 	validators := commonLiveVMValidators()
@@ -33,7 +33,7 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, sshPrivate
 
 		execResult, err := pollExecOnVM(ctx, opts.kube, privateIP, podName, sshPrivateKey, command)
 		if err != nil {
-			return fmt.Errorf("unable to execute validator command %q: %s", command, err)
+			return fmt.Errorf("unable to execute validator command %q: %w", command, err)
 		}
 
 		if execResult.exitCode != "0" {
@@ -45,7 +45,7 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, sshPrivate
 			err := validator.Asserter(execResult.stdout.String(), execResult.stderr.String())
 			if err != nil {
 				execResult.dumpAll()
-				return fmt.Errorf("failed validator assertion: %s", err)
+				return fmt.Errorf("failed validator assertion: %w", err)
 			}
 		}
 	}

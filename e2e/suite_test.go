@@ -161,7 +161,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scena
 	nodeBootstrappingFn := getNodeBootstrappingFn(e2eMode)
 	nodeBootstrapping, err := nodeBootstrappingFn(ctx, opts.nbc)
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("unable to get node bootstrapping: %s", err)
+		return "", nil, nil, fmt.Errorf("unable to get node bootstrapping: %w", err)
 	}
 
 	vmssName := fmt.Sprintf("abtest%s", randomLowercaseString(r, 4))
@@ -183,7 +183,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scena
 
 	vmssModel, err := createVMSSWithPayload(ctx, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("unable to create VMSS with payload: %s", err)
+		return "", nil, nil, fmt.Errorf("unable to create VMSS with payload: %w", err)
 	}
 
 	return vmssName, vmssModel, cleanupVMSS, nil
@@ -192,17 +192,17 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scena
 func validateNodeHealth(ctx context.Context, t *testing.T, kube *kubeclient, vmssName string) error {
 	nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
 	if err != nil {
-		return fmt.Errorf("error waiting for node ready: %s", err)
+		return fmt.Errorf("error waiting for node ready: %w", err)
 	}
 
 	err = ensureTestNginxPod(ctx, kube, nodeName)
 	if err != nil {
-		return fmt.Errorf("error waiting for pod ready: %s", err)
+		return fmt.Errorf("error waiting for pod ready: %w", err)
 	}
 
 	err = waitUntilPodDeleted(ctx, kube, nodeName)
 	if err != nil {
-		return fmt.Errorf("error waiting pod deleted: %s", err)
+		return fmt.Errorf("error waiting pod deleted: %w", err)
 	}
 
 	return nil

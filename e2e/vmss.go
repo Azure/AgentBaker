@@ -21,17 +21,17 @@ import (
 func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []byte, e error) {
 	privateKey, err := rsa.GenerateKey(r, 4096)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create rsa private key: %q", err)
+		return nil, nil, fmt.Errorf("failed to create rsa private key: %w", err)
 	}
 
 	err = privateKey.Validate()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to validate rsa private key: %q", err)
+		return nil, nil, fmt.Errorf("failed to validate rsa private key: %w", err)
 	}
 
 	publicRsaKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to convert private to public key: %q", err)
+		return nil, nil, fmt.Errorf("failed to convert private to public key: %w", err)
 	}
 
 	publicKeyBytes = ssh.MarshalAuthorizedKey(publicRsaKey)
@@ -57,12 +57,12 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 
 	isAzureCNI, err := opts.isChosenClusterAzureCNI()
 	if err != nil {
-		return nil, fmt.Errorf("failed to determine whether chosen cluster uses Azure CNI from cluster model: %s", err)
+		return nil, fmt.Errorf("failed to determine whether chosen cluster uses Azure CNI from cluster model: %w", err)
 	}
 
 	if isAzureCNI {
 		if err := addPodIPConfigsForAzureCNI(&model, vmssName, opts); err != nil {
-			return nil, fmt.Errorf("failed to create pod IP configs for azure CNI scenario: %s", err)
+			return nil, fmt.Errorf("failed to create pod IP configs for azure CNI scenario: %w", err)
 		}
 	}
 
@@ -95,7 +95,7 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssName string, opts *scenarioRunOpts) error {
 	maxPodsPerNode, err := opts.chosenClusterMaxPodsPerNode()
 	if err != nil {
-		return fmt.Errorf("failed to read agentpool MaxPods value from chosen cluster model: %s", err)
+		return fmt.Errorf("failed to read agentpool MaxPods value from chosen cluster model: %w", err)
 	}
 
 	var podIPConfigs []*armcompute.VirtualMachineScaleSetIPConfiguration
@@ -110,9 +110,12 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 		}
 		podIPConfigs = append(podIPConfigs, ipConfig)
 	}
-	vmssNICConfig := vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0]
-	ipConfigs := append(vmssNICConfig.Properties.IPConfigurations, podIPConfigs...)
-	vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.IPConfigurations = ipConfigs
+	vmssNICConfig, err := getVMSSNICConfig(vmss)
+	if err != nil {
+		return fmt.Errorf("unable to get vmss nic: %w", err)
+	}
+	vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.IPConfigurations =
+		append(vmssNICConfig.Properties.IPConfigurations, podIPConfigs...)
 	return nil
 }
 
@@ -147,7 +150,11 @@ func getVMPrivateIPAddress(ctx context.Context, cloud *azureClient, subscription
 		return "", err
 	}
 
-	privateIP := instanceNICResult.Value[0].Properties.IPConfigurations[0].Properties.PrivateIPAddress
+	privateIP, err := extractPrivateIP(instanceNICResult)
+	if err != nil {
+		return "", err
+	}
+
 	return privateIP, nil
 }
 
@@ -241,4 +248,15 @@ func getBaseVMSSModel(name, location, mcResourceGroupName, subnetID, sshPublicKe
 			},
 		},
 	}
+}
+
+func getVMSSNICConfig(vmss *armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSetNetworkConfiguration, error) {
+	if vmss != nil && vmss.Properties != nil &&
+		vmss.Properties.VirtualMachineProfile != nil && vmss.Properties.VirtualMachineProfile.NetworkProfile != nil {
+		networkProfile := vmss.Properties.VirtualMachineProfile.NetworkProfile
+		if len(networkProfile.NetworkInterfaceConfigurations) > 0 {
+			return networkProfile.NetworkInterfaceConfigurations[0], nil
+		}
+	}
+	return nil, fmt.Errorf("unable to extract vmss nic info, vmss model or vmss model properties were nil/empty:\n%+v", vmss)
 }

@@ -58,7 +58,7 @@ func (r podExecResult) dumpStderr() {
 func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName string, sshPrivateKey string, opts *scenarioRunOpts) (map[string]string, error) {
 	privateIP, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.chosenCluster.Properties.NodeResourceGroup, vmssName)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get private IP address of VM on VMSS %q: %s", vmssName, err)
+		return nil, fmt.Errorf("unable to get private IP address of VM on VMSS %q: %w", vmssName, err)
 	}
 
 	commandList := map[string]string{
@@ -68,7 +68,7 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName string, sshPr
 
 	podName, err := getDebugPodName(opts.kube)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get debug pod name: %s", err)
+		return nil, fmt.Errorf("unable to get debug pod name: %w", err)
 	}
 
 	var result = map[string]string{}
@@ -124,7 +124,7 @@ func execOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName
 
 	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, commandToExecute)
 	if err != nil {
-		return nil, fmt.Errorf("error executing command on pod: %s", err)
+		return nil, fmt.Errorf("error executing command on pod: %w", err)
 	}
 
 	return execResult, nil
@@ -151,7 +151,7 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 
 	exec, err := remotecommand.NewSPDYExecutor(kube.rest, "POST", req.URL())
 	if err != nil {
-		return nil, fmt.Errorf("unable to create new SPDY executor for pod exec: %s", err)
+		return nil, fmt.Errorf("unable to create new SPDY executor for pod exec: %w", err)
 	}
 
 	var (
@@ -167,11 +167,11 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 		if strings.Contains(err.Error(), "command terminated with exit code") {
 			code, err := extractExitCode(err.Error())
 			if err != nil {
-				return nil, fmt.Errorf("error extracing exit code from remote command execution error msg: %s", err)
+				return nil, fmt.Errorf("error extracing exit code from remote command execution error msg: %w", err)
 			}
 			exitCode = code
 		} else {
-			return nil, fmt.Errorf("encountered unexpected error when executing command on pod: %s", err)
+			return nil, fmt.Errorf("encountered unexpected error when executing command on pod: %w", err)
 		}
 	}
 
