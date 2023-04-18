@@ -25,6 +25,9 @@ type agentBakerImpl struct{}
 func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context,
 	config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
 	// validate and fix input before passing config to the template generator.
+	if config.AgentPoolProfile == nil {
+		return nil, fmt.Errorf("config.AgentPoolProfile is nil")
+	}
 	if config.AgentPoolProfile.IsWindows() {
 		validateAndSetWindowsNodeBootstrappingConfiguration(config)
 	} else {
@@ -42,6 +45,9 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context,
 		return nodeBootstrapping, nil
 	}
 
+	if config.CloudSpecConfig == nil {
+		return nil, fmt.Errorf("config.CloudSpecConfig is nil")
+	}
 	osImageConfigMap, hasCloud := datamodel.AzureCloudToOSImageMap[config.CloudSpecConfig.CloudName]
 	if !hasCloud {
 		return nil, fmt.Errorf("don't have settings for cloud %s", config.CloudSpecConfig.CloudName)
