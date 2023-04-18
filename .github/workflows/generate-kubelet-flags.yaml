@@ -20,6 +20,8 @@ jobs:
         cd e2e/kubelet
         ls
         cd ../..
+        git config --global user.email "aleldeib@microsoft.com"
+        git config --global user.name "alexeldeib"
         git remote set-url origin https://alexeldeib:$github_token@github.com/Azure/AgentBaker.git
         git add .
         git commit -m"feat: generate kubelet flags for supported versions in manifest.json"
