@@ -95,7 +95,7 @@ if [ "$create_cluster" == "true" ]; then
     fi
 fi
 download_linux_file_from_storage_account
-log "Download linux file from SA done"
+log "Download of linux file from storage account completed"
 
 set +x
 addJsonToFile "apiserverCrt" "$(cat apiserver.crt)"
@@ -115,7 +115,6 @@ getMSIResourceID
 addJsonToFile "mcRGName" $MC_RESOURCE_GROUP_NAME
 addJsonToFile "clusterID" $CLUSTER_ID
 addJsonToFile "subID" $SUBSCRIPTION_ID
-addJsonToFile "orchestratorVersion" $KUBERNETES_VERSION
 
 set +x
 # shellcheck disable=SC2091
