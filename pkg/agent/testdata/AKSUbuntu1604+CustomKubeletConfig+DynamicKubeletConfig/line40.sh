@@ -343,12 +343,6 @@ cleanUpImages() {
     retrycmd_if_failure 10 5 120 bash -c cleanupImagesRun
 }
 
-cleanUpHyperkubeImages() {
-    echo $(date),$(hostname), cleanUpHyperkubeImages
-    cleanUpImages "hyperkube"
-    echo $(date),$(hostname), endCleanUpHyperkubeImages
-}
-
 cleanUpKubeProxyImages() {
     echo $(date),$(hostname), startCleanUpKubeProxyImages
     cleanUpImages "kube-proxy"
@@ -383,16 +377,13 @@ cleanupRetaggedImages() {
 }
 
 cleanUpContainerImages() {
-    # run cleanUpHyperkubeImages and cleanUpKubeProxyImages concurrently
     export KUBERNETES_VERSION
     export CLI_TOOL
     export -f retrycmd_if_failure
     export -f removeContainerImage
     export -f cleanUpImages
-    export -f cleanUpHyperkubeImages
     export -f cleanUpKubeProxyImages
-    bash -c cleanUpHyperkubeImages &
-    bash -c cleanUpKubeProxyImages &
+    bash -c cleanUpKubeProxyImages
 }
 
 cleanUpContainerd() {
