@@ -171,9 +171,20 @@ func isVHD(profile *datamodel.AgentPoolProfile) string {
 }
 
 func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConfig *datamodel.AzureEnvironmentSpecConfig) string {
+	if nbc.ContainerService == nil {
+		return "nbc.ContainerService is nil"
+	}
 	cs := nbc.ContainerService
+
+	if cs.Properties == nil {
+		return "cs.Properties is nil"
+	}
 	if cs.Properties.FeatureFlags.IsFeatureEnabled("BlockOutboundInternet") {
 		return ""
+	}
+
+	if cloudSpecConfig == nil {
+		return "cloudSpecConfig is nil"
 	}
 	registry := ""
 	if cloudSpecConfig.CloudName == datamodel.AzureChinaCloud {
@@ -190,8 +201,18 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 
 	// curl on Ubuntu 16.04 (shipped prior to AKS 1.18) doesn't support proxy TLS.
 	// so we need to use nc for the connectivity check.
-	clusterVersion, _ := semver.Make(cs.Properties.OrchestratorProfile.OrchestratorVersion)
-	minVersion, _ := semver.Make("1.18.0")
+	clusterVersion, err := semver.Make(cs.Properties.OrchestratorProfile.OrchestratorVersion)
+	if err != nil {
+		if err != nil {
+			return err.Error()
+		}
+	}
+	minVersion, err := semver.Make("1.18.0")
+	if err != nil {
+		if err != nil {
+			return err.Error()
+		}
+	}
 
 	connectivityCheckCommand := ""
 	if clusterVersion.GTE(minVersion) {
