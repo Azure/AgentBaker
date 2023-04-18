@@ -69,25 +69,7 @@ See `./pkg/agent/baker_test.go` for examples (search for `dynamic-config-dir` to
 
 ### E2E
 
-We also have basic e2e tests which run a subset of the agentbaker API against a real Azure subscription.
-
-These tests join a standalone VM to an existing cluster. 
-
-They use a basic NodeBootstrappingConfiguration template, overriding it with per-scenario config.
-
-`./e2e/nodebootstrapping_template.json` defines the base configuration.
-
-Specific scenarios exist in `./e2e/scenarios/$SCENARIO_NAME`, for example `./e2e/vanilla-gpu` contains a GPU VM sku scenario to test driver provisioning.
-
-You can run these locally:
-
-```bash
-cd e2e
-# scenario name and VM size as args currently
-bash ./e2e-local.sh vanilla-aks Standard_D4ads_v5
-```
-
-This will generate many files in the current directory including an SSH key in case you need to debug the VM afterwards.
+Checkout the [e2e directory](e2e/).
 
 ## Contributor License Agreement (CLA)
 

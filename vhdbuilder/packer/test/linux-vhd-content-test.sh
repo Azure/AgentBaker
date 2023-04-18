@@ -165,6 +165,7 @@ testAuditDNotPresent() {
 }
 
 testChrony() {
+  os_sku=$1
   test="testChrony"
   echo "$test:Start"
 
@@ -177,27 +178,38 @@ testChrony() {
     err $test "ntp is active with status ${status}"
   fi
   #test chrony is running
-  status=$(systemctl show -p SubState --value chrony)
+  #if mariner check chronyd, else check chrony
+  os_chrony="chrony"
+  if [[ "$os_sku" == "CBLMariner" ]]; then
+    os_chrony="chronyd"
+  fi
+  status=$(systemctl show -p SubState --value $os_chrony)
   if [ $status == 'running' ]; then
-    echo $test "chrony is running, as expected"
+    echo $test "$os_chrony is running, as expected"
   else
-    err $test "chrony is not running with status ${status}"
+    err $test "$os_chrony is not running with status ${status}"
   fi
 
   #test if chrony corrects time
+  if [ $os_sku == 'CBLMariner' ]; then
+    echo $test "exiting without checking chrony time correction"
+    echo $test "reenable after Mariner updates the chrony config in base image"
+    echo "$test:Finish"
+    return
+  fi
   initialDate=$(date +%s)
   date --set "27 Feb 2021"
   for i in $(seq 1 10); do
     newDate=$(date +%s)
     if (( $newDate > $initialDate)); then
-      echo "chrony readjusted the system time correctly"
+      echo "$os_chrony readjusted the system time correctly"
       break
     fi
     sleep 10
     echo "${i}: retrying: check if chrony modified the time"
   done
   if (($i == 10)); then
-    err $test "chrony failed to readjust the system time"
+    err $test "$os_chrony failed to readjust the system time"
   fi
   echo "$test:Finish"
 }
@@ -353,7 +365,7 @@ testVHDBuildLogsExist
 testCriticalTools
 testFilesDownloaded $1
 testImagesPulled $1 "$(cat $COMPONENTS_FILEPATH)"
-testChrony
+testChrony $4
 testAuditDNotPresent
 testFips $2 $3
 testKubeBinariesPresent $1

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -16,7 +15,7 @@ type suiteConfig struct {
 	location          string
 	resourceGroupName string
 	clusterName       string
-	testsToRun        map[string]bool
+	scenariosToRun    map[string]bool
 }
 
 func newSuiteConfig() (*suiteConfig, error) {
@@ -40,7 +39,7 @@ func newSuiteConfig() (*suiteConfig, error) {
 		location:          environment["LOCATION"],
 		resourceGroupName: environment["RESOURCE_GROUP_NAME"],
 		clusterName:       environment["CLUSTER_NAME"],
-		testsToRun:        parseTestNames(os.Getenv("TESTS_TO_RUN")),
+		scenariosToRun:    strToBoolMap(os.Getenv("SCENARIOS_TO_RUN")),
 	}, nil
 }
 
@@ -54,22 +53,4 @@ type scenarioConfig struct {
 type scenarioValidationInput struct {
 	privateIP     string
 	sshPrivateKey string
-}
-
-func parseTestNames(testNames string) map[string]bool {
-	testNames = strings.ReplaceAll(testNames, " ", "")
-
-	if testNames == "" {
-		return nil
-	}
-
-	testParts := strings.SplitN(testNames, ",", -1)
-
-	tests := make(map[string]bool, len(testParts))
-
-	for _, tp := range testParts {
-		tests[tp] = true
-	}
-
-	return tests
 }

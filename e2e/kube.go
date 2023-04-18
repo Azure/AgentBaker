@@ -44,8 +44,8 @@ func newKubeclient(config *rest.Config) (*kubeclient, error) {
 	}, nil
 }
 
-func getClusterKubeClient(ctx context.Context, cloud *azureClient, config *suiteConfig) (*kubeclient, error) {
-	data, err := getClusterKubeconfigBytes(ctx, cloud, config.resourceGroupName, config.clusterName)
+func getClusterKubeClient(ctx context.Context, cloud *azureClient, resourceGroupName, clusterName string) (*kubeclient, error) {
+	data, err := getClusterKubeconfigBytes(ctx, cloud, resourceGroupName, clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster kubeconfig bytes")
 	}
