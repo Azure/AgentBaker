@@ -44,7 +44,7 @@
       },
       "windowsProfile": {
         "cseScriptsPackageURL": "${csePackageURL}",
-        "csiProxyURL": "https://acs-mirror.azureedge.net/csi-proxy/v1.0.2/binaries/csi-proxy-v1.0.2.tar.gz",
+        "csiProxyURL": "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
         "enableAutomaticUpdates": false,
         "enableCSIProxy": true,
         "hnsRemediatorIntervalInMinutes": 1,
@@ -92,7 +92,7 @@
     "--cloud-provider": "external",
     "--enforce-node-allocatable": "\"\"\"\"",
     "--eviction-hard": "\"\"\"\"",
-    "--feature-gates": "CSIMigration=true,CSIMigrationAzureDisk=true,CSIMigrationAzureFile=true,DelegateFSGroupToCSIDriver=true,DynamicKubeletConfig=false",
+    "--feature-gates": "CSIMigration=true,CSIMigrationAzureDisk=true,CSIMigrationAzureFile=true,DelegateFSGroupToCSIDriver=true",
     "--hairpin-mode": "promiscuous-bridge",
     "--kube-reserved": "cpu=100m,memory=3891Mi",
     "--kubeconfig": "c:\\k\\config",

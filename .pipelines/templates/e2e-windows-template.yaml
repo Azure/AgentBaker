@@ -31,8 +31,13 @@ jobs:
         export WINDOWS_E2E_IMAGE=${{ parameters.windowsImage }}
         export WINDOWS_E2E_OSSKU=${{ parameters.windowsOSSKU }}
         export WINDOWS_E2E_VMSIZE=${{ parameters.windowsVMSize }}
-        K=${KUBERNETES_VERSION//./}
-        export WINDOWS_E2E_STORAGE_CONTAINER=${{ parameters.storageAccount }}-$K
+        export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
+        if [[ -n "$WINDOWS_PACKAGE_URL" ]]; then
+          export windowsPackageURL="$WINDOWS_PACKAGE_URL"
+        fi
+        export WINDOWS_PACKAGE_VERSION=$(echo $windowsPackageURL | grep -oP '(?<=/v)\d+\.\d+\.\d+' | head -1)
+        export K8S_VERSION=${WINDOWS_PACKAGE_VERSION//./}
+        export WINDOWS_E2E_STORAGE_CONTAINER=${{ parameters.storageAccount }}-$K8S_VERSION
         mkdir -p $WINDOWS_E2E_IMAGE
         cp -r e2e/windows/* $WINDOWS_E2E_IMAGE
         go version
@@ -72,6 +77,12 @@ jobs:
         export WINDOWS_E2E_IMAGE=${{ parameters.windowsImage }}
         export WINDOWS_DISTRO=${{ parameters.windowsDistro }}
         export WINDOWS_NODE_IMAGE_VERSION=${{ parameters.windowsNodeImageVersion }}
+        export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
+        if [[ -n "$WINDOWS_PACKAGE_URL" ]]; then
+          export windowsPackageURL="$WINDOWS_PACKAGE_URL"
+        fi
+        export WINDOWS_PACKAGE_VERSION=$(echo $windowsPackageURL | grep -oP '(?<=/v)\d+\.\d+\.\d+' | head -1)
+        export K8S_VERSION=${WINDOWS_PACKAGE_VERSION//./}
         mkdir -p $WINDOWS_E2E_IMAGE
         cp -a $(Pipeline.Workspace)/${{ parameters.windowsImage }}-clusterConfig/* $WINDOWS_E2E_IMAGE
         cd $WINDOWS_E2E_IMAGE

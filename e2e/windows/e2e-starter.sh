@@ -8,8 +8,11 @@ log "Starting e2e tests"
 
 # Create a resource group for the cluster
 log "Creating resource group"
-K8S_VERSION=$(echo $KUBERNETES_VERSION | tr '.' '-')
-RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"-"$WINDOWS_E2E_IMAGE"-"$K8S_VERSION"
+if echo "$windowsPackageURL" | grep -q "hotfix"; then
+    RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION-h"
+else
+    RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION"
+fi
 
 rgStartTime=$(date +%s)
 az group create -l $LOCATION -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID -ojson
@@ -54,7 +57,7 @@ if [ "$create_cluster" == "true" ]; then
     clusterCreateStartTime=$(date +%s)
     retval=0
     
-    az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure --kubernetes-version $KUBERNETES_VERSION -ojson || retval=$?
+    az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure -ojson || retval=$?
 
     if [ "$retval" -ne 0  ]; then
         log "Other pipelines may be creating cluster $CLUSTER_NAME, waiting for ready"

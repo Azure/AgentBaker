@@ -6,8 +6,11 @@ source e2e-helper.sh
 
 log "Starting to create windows nodepool"
 
-K8S_VERSION=$(echo $KUBERNETES_VERSION | tr '.' '-')
-RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"-"$WINDOWS_E2E_IMAGE"-"$K8S_VERSION"
+if echo "$windowsPackageURL" | grep -q "hotfix"; then
+    RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION-h"
+else
+    RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION"
+fi
 
 out=$(az aks nodepool list --cluster-name $CLUSTER_NAME -g $RESOURCE_GROUP_NAME | jq '.[].name')
 

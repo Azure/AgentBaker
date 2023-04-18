@@ -43,8 +43,11 @@ collect-logs() {
     set -x
 }
 
-K8S_VERSION=$(echo $KUBERNETES_VERSION | tr '.' '-')
-RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"-"$WINDOWS_E2E_IMAGE"-"$K8S_VERSION"
+if echo "$windowsPackageURL" | grep -q "hotfix"; then
+    RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION-h"
+else
+    RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION"
+fi
 
 DEPLOYMENT_VMSS_NAME="$(mktemp -u winXXXXX | tr '[:upper:]' '[:lower:]')"
 export DEPLOYMENT_VMSS_NAME
@@ -96,13 +99,11 @@ fi
 log "Upload cse packages done"
 
 log "Scenario is $SCENARIO_NAME"
-export orchestratorVersion=$KUBERNETES_VERSION
-export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${orchestratorVersion}/windowszip/v${orchestratorVersion}-1int.zip"
-if [[ -n "$WINDOWS_PACKAGE_URL" ]]; then
-    export windowsPackageURL="$WINDOWS_PACKAGE_URL"
-fi
+log "Windows package url is $windowsPackageURL"
+log "Windows package version is $WINDOWS_PACKAGE_VERSION"
 
 # Generate vmss cse deployment config for windows nodepool testing
+export orchestratorVersion=$WINDOWS_PACKAGE_VERSION
 envsubst < scenarios/$SCENARIO_NAME/property-$SCENARIO_NAME-template.json > scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-property-$SCENARIO_NAME.json
 
 set +x
@@ -136,7 +137,9 @@ EOF
 # Removed the "network-plugin" tag o.w. kubelet error for 1.24.0+ contains "failed to parse kubelet flag: unknown flag: --network-plugin"
 # "network-plugin" works for 1.23.15 and below (you won't see this parsing error in kubelet.err.log)
 jq --arg clientCrt "$clientCertificate" --arg vmssName $DEPLOYMENT_VMSS_NAME 'del(.KubeletConfig."--pod-manifest-path") | del(.KubeletConfig."--pod-max-pids") | del(.KubeletConfig."--protect-kernel-defaults") | del(.KubeletConfig."--tls-cert-file") | del(.KubeletConfig."--tls-private-key-file") | del(.KubeletConfig."--network-plugin") | .ContainerService.properties.certificateProfile += {"clientCertificate": $clientCrt} | .PrimaryScaleSetName=$vmssName' nodebootstrapping_config.json > $WINDOWS_E2E_IMAGE-nodebootstrapping_config_for_windows.json
+cat $WINDOWS_E2E_IMAGE-nodebootstrapping_config_for_windows.json
 jq -s '.[0] * .[1]' $WINDOWS_E2E_IMAGE-nodebootstrapping_config_for_windows.json scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-property-$SCENARIO_NAME.json > scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-nbc-$SCENARIO_NAME.json
+cat scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-nbc-$SCENARIO_NAME.json
 
 go test -tags bash_e2e -run TestE2EWindows
 
@@ -177,7 +180,7 @@ set +e
 az deployment group create --resource-group $MC_RESOURCE_GROUP_NAME \
          --template-file $DEPLOYMENT_VMSS_NAME-deployment.json || retval=$?
 set -e
-log "Group deployment creation completed"
+log "Deployment of windows vmss succeeded."
 
 if [ "$retval" -ne 0 ]; then
     err "Failed to deploy windows vmss. Error code is $retval."
@@ -279,8 +282,9 @@ else
     waitForDeleteStartTime=$(date +%s)
 
     # Only delete node and vmss since we reuse the resource group and cluster now
-    kubectl delete node $VMSS_INSTANCE_NAME
-    az vmss delete -g $(jq -r .group $SCENARIO_NAME-vmss.json) -n $(jq -r .vmss $SCENARIO_NAME-vmss.json)
+    # Commenting to check kubernetes version of the node
+    # kubectl delete node $VMSS_INSTANCE_NAME
+    # az vmss delete -g $(jq -r .group $SCENARIO_NAME-vmss.json) -n $(jq -r .vmss $SCENARIO_NAME-vmss.json)
 
     waitForDeleteEndTime=$(date +%s)
     log "Waited $((waitForDeleteEndTime-waitForDeleteStartTime)) seconds to delete VMSS and node"   
