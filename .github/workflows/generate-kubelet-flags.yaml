@@ -2,7 +2,7 @@ name: Generate valid kubelet flags per supported k8s version
 on:
   push:
     branches:
-      - amaheshwari/generateFlags  # for now
+      - amaheshwari/automateKubeletPR  # for now
 
 jobs:
   generate-kubelet-flags:
