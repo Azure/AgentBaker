@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"regexp"
 	"encoding/json"
+	"strings"
 
 	"github.com/sanity-io/litter"
 )
@@ -62,7 +63,7 @@ func run() error {
 		return fmt.Errorf("failed to extract key value pairs: %q", err)
 	}
 
-	//litter.Dump(flags)
+	litter.Dump(flags)
 
 	filePath := fmt.Sprintf("e2e/kubelet/%s-flags.json", k8sVersion)
 	fmt.Println("file is created with path:", filePath)
@@ -75,7 +76,7 @@ func run() error {
 
     jsonBytes, err := json.Marshal(flags)
     if err != nil {
-        panic(err)
+        return err
     }
 
 	fmt.Println("json bytes are", jsonBytes)
@@ -112,7 +113,7 @@ func extractKeyValuePairs(data []byte) (map[string]string, error) {
 		}
 
 		key := submatchGroup[1]
-		val := submatchGroup[2]
+		val := strings.ReplaceAll(submatchGroup[2], "\"", "")
 
 		resultKeyValuePairs[key] = val
 	}
