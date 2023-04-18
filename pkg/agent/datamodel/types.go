@@ -15,6 +15,7 @@ import (
 	"sync"
 
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Masterminds/semver/v3"
 )
 
 // TypeMeta describes an individual API model object.
@@ -561,7 +562,7 @@ type KubernetesConfig struct {
 	ServiceCIDR                       string            `json:"serviceCidr,omitempty"`
 	UseManagedIdentity                bool              `json:"useManagedIdentity,omitempty"`
 	UserAssignedID                    string            `json:"userAssignedID,omitempty"`
-	UserAssignedClientID              string            `json:"userAssignedClientID,omitempty"` // Note: cannot be provided in config. Used *only* for transferring this to azure.json.
+	UserAssignedClientID              string            `json:"userAssignedClientID,omitempty"` //nolint: lll // Note: cannot be provided in config. Used *only* for transferring this to azure.json.
 	CustomHyperkubeImage              string            `json:"customHyperkubeImage,omitempty"`
 	CustomKubeProxyImage              string            `json:"customKubeProxyImage,omitempty"`
 	CustomKubeBinaryURL               string            `json:"customKubeBinaryURL,omitempty"`
@@ -1014,10 +1015,11 @@ in Windows nodes.
 func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 	featureGates := map[string]bool{}
 
-	if p.FeatureFlags.IsFeatureEnabled("EnableIPv6DualStack") {
+	if p.FeatureFlags.IsFeatureEnabled(EnableIPv6DualStack) &&
+		p.OrchestratorProfile.VersionSupportsFeatureFlag(EnableIPv6DualStack) {
 		featureGates["IPv6DualStack"] = true
 	}
-	if p.FeatureFlags.IsFeatureEnabled("EnableWinDSR") {
+	if p.FeatureFlags.IsFeatureEnabled(EnableWinDSR) {
 		// WinOverlay must be set to false.
 		featureGates["WinDSR"] = true
 		featureGates["WinOverlay"] = false
@@ -1111,6 +1113,36 @@ func (o *OrchestratorProfile) IsNoneCNI() bool {
 		return strings.EqualFold(o.KubernetesConfig.NetworkPlugin, NetworkPluginNone)
 	}
 	return false
+}
+
+func (o *OrchestratorProfile) VersionSupportsFeatureFlag(flag string) bool {
+	switch flag {
+	case EnableIPv6DualStack:
+		// unversioned will retrun true to maintain backwards compatibility
+		// IPv6DualStack flag was removed in 1.25.0 and is enabled by default
+		// since 1.21. It is supported between 1.15-1.24.
+		// https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates-removed/.
+		return o == nil || o.OrchestratorVersion == "" || o.VersionIs(">= 1.15.0 < 1.25.0")
+	default:
+		return false
+	}
+}
+
+// VersionIs takes a constraint expression to validate
+// the OrchestratorVersion meets this constraint. Examples
+// of expressions are `>= 1.24` or `!= 1.25.4`.
+// More info: https://github.com/Masterminds/semver#checking-version-constraints.
+func (o *OrchestratorProfile) VersionIs(expr string) bool {
+	if o == nil || o.OrchestratorVersion == "" {
+		return false
+	}
+
+	version := semver.MustParse(o.OrchestratorVersion)
+	constraint, _ := semver.NewConstraint(expr)
+	if constraint == nil {
+		return false
+	}
+	return constraint.Check(version)
 }
 
 // IsCSIProxyEnabled returns true if csi proxy service should be enable for Windows nodes.
@@ -1226,15 +1258,15 @@ func (o *OrchestratorProfile) IsKubernetes() bool {
 func (f *FeatureFlags) IsFeatureEnabled(feature string) bool {
 	if f != nil {
 		switch feature {
-		case "CSERunInBackground":
+		case CSERunInBackground:
 			return f.EnableCSERunInBackground
-		case "BlockOutboundInternet":
+		case BlockOutboundInternet:
 			return f.BlockOutboundInternet
-		case "EnableIPv6DualStack":
+		case EnableIPv6DualStack:
 			return f.EnableIPv6DualStack
-		case "EnableIPv6Only":
+		case EnableIPv6Only:
 			return f.EnableIPv6Only
-		case "EnableWinDSR":
+		case EnableWinDSR:
 			return f.EnableWinDSR
 		default:
 			return false
