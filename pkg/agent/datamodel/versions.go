@@ -470,7 +470,9 @@ func IsValidMinVersion(orchType, orchRelease, orchVersion, minVersion string) (b
 		false,
 		false)
 	if version == "" {
-		return false, errors.Errorf("the following user supplied OrchestratorProfile configuration is not supported: OrchestratorType: %s, OrchestratorRelease: %s, OrchestratorVersion: %s. Please check supported Release or Version for this build of aks-engine",
+		return false, errors.Errorf("the following user supplied OrchestratorProfile configuration is not supported: "+
+			"OrchestratorType: %s, OrchestratorRelease: %s, OrchestratorVersion: %s. Please check supported Release or Version for this build"+
+			" of aks-engine",
 			orchType,
 			orchRelease,
 			orchVersion)
