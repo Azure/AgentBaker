@@ -14,17 +14,18 @@ jobs:
     - name: Set up branch for flag changes
       run: |
         TIMESTAMP=$(date -d "${{ github.event.head_commit.timestamp }}" +'%Y-%m-%d-%H-%M-%S')
-        echo "timestamp is $TIMESTAMP"
+        echo "::set-output name=timestamp::$TIMESTAMP"
         git checkout -b kubeletFlags/$TIMESTAMP
-    - run: |
+    - name: Generate valid kubelet flags per supported k8s versions
+      run: |
         make generate-kubelet-flags
-      name: Generate valid kubelet flags per supported k8s versions
-    - run: |
+    - name: Create PR for modified kubelet flag files
+      run: |
         git config --global user.email "aleldeib@microsoft.com"
         git config --global user.name "alexeldeib"
         git remote set-url origin https://alexeldeib:$github_token@github.com/Azure/AgentBaker.git
         git add .
         git commit -m"feat: generate kubelet flags for supported versions in manifest.json"
-      name: Create PR for modified kubelet flag files
+        echo "My variable is ${{ job.outputs.timestamp }}"
       env:
         github_token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
