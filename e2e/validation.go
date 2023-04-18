@@ -33,9 +33,6 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, sshPrivate
 
 		execResult, err := pollExecOnVM(ctx, opts.kube, privateIP, podName, sshPrivateKey, command)
 		if err != nil {
-			if execResult != nil {
-				execResult.dumpAll()
-			}
 			return fmt.Errorf("unable to execute validator command %q: %s", command, err)
 		}
 
