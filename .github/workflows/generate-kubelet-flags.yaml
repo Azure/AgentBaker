@@ -32,6 +32,7 @@ jobs:
           https://api.github.com/repos/Azure/AgentBaker/pulls \
           -d '{"head" : "kubeletFlags/$timestamp", "base" : "master", "title" : "bump: automated PR for updating kubelet flags files"}' \
           -u "alexeldeib:$github_token"
+        echo "PR created successfully"
       env:
         github_token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         timestamp: ${{ env.TIMESTAMP }}
