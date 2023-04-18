@@ -12,10 +12,17 @@ jobs:
       uses: crazy-max/ghaction-setup-containerd@v2
     - uses: actions/checkout@v3
     - run: |
+        git checkout -b kubelet/flags
         make generate-kubelet-flags
       name: Generate valid kubelet flags per supported k8s versions
     - run: |
         ls
         cd e2e/kubelet
         ls
+        cd ../..
+        git remote set-url origin https://alexeldeib:$github_token@github.com/Azure/AgentBaker.git
+        git add .
+        git commit -m"feat: generate kubelet flags for supported versions in manifest.json"
       name: Create PR for modified kubelet flag files
+      env:
+        github_token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
