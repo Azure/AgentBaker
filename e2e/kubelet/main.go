@@ -65,10 +65,11 @@ func run() error {
 
 	litter.Dump(flags)
 
-	filePath := fmt.Sprintf("e2e/kubelet/%s-flags.json", k8sVersion)
+	filePath := fmt.Sprintf("/e2e/kubelet/%s-flags.json", k8sVersion)
 	fmt.Println("file is created with path:", filePath)
 	file, err := os.Create(filePath)
     if err != nil {
+		fmt.Println("file not created")
         return err
     }
 
