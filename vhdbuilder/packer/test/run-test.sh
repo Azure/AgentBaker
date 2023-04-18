@@ -10,9 +10,11 @@ set +x
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
 
-if [ "$IMG_SKU" == "20_04-lts-cvm" ]; then
-  echo "Skipping tests for CVM 20.04"
-  exit 0
+if [ "$OS_TYPE" == "Linux" ]; then
+  if [ "$IMG_SKU" == "20_04-lts-cvm" ]; then
+    echo "Skipping tests for CVM 20.04"
+    exit 0
+  fi
 fi
 
 RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
