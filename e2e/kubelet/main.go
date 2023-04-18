@@ -63,13 +63,13 @@ func run() error {
 		return fmt.Errorf("failed to extract key value pairs: %q", err)
 	}
 
+	// pretty output in case we want to check it in GH Action
 	litter.Dump(flags)
 
 	filePath := fmt.Sprintf("kubelet/%s-flags.json", k8sVersion)
-	fmt.Println("file is created with path:", filePath)
 	file, err := os.Create(filePath)
     if err != nil {
-		fmt.Println("file not created")
+		fmt.Println("File not created")
         return err
     }
 
@@ -83,7 +83,7 @@ func run() error {
 		return err
 	}
 
-	fmt.Println("Data written to output.json")
+	fmt.Println("Data written to: ", filePath)
 
 	return nil
 }
@@ -113,6 +113,7 @@ func extractKeyValuePairs(data []byte) (map[string]string, error) {
 		}
 
 		key := submatchGroup[1]
+		// this strips the double quotes from the value, otherwise it is invalid JSON
 		val := strings.ReplaceAll(submatchGroup[2], "\"", "")
 
 		resultKeyValuePairs[key] = val

@@ -11,7 +11,7 @@ jobs:
     - name: Set up containerd
       uses: crazy-max/ghaction-setup-containerd@v2
     - uses: actions/checkout@v3
-    - name: Set up branch for flag changes
+    - name: Set up branch for kubelet flag changes
       run: |
         TIMESTAMP=$(date -d "${{ github.event.head_commit.timestamp }}" +'%Y-%m-%d-%H-%M-%S')
         echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
@@ -26,7 +26,12 @@ jobs:
         git remote set-url origin https://alexeldeib:$github_token@github.com/Azure/AgentBaker.git
         git add .
         git commit -m"feat: generate kubelet flags for supported versions in manifest.json"
-        echo "My variable is $timestamp"
+        git push -u origin kubeletFlags/$timestamp -f
+        curl \
+          -X POST \
+          https://api.github.com/repos/Azure/AgentBaker/pulls \
+          -d '{"head" : "kubeletFlags/$timestamp", "base" : "master", "title" : "bump: automated PR for updating kubelet flags files"}' \
+          -u "alexeldeib:$github_token"
       env:
         github_token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         timestamp: ${{ env.TIMESTAMP }}
