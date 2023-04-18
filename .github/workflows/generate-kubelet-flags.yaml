@@ -11,15 +11,15 @@ jobs:
     - name: Set up containerd
       uses: crazy-max/ghaction-setup-containerd@v2
     - uses: actions/checkout@v3
+    - name: Set up branch for flag changes
+      run: |
+        TIMESTAMP=$(date -d "${{ github.event.head_commit.timestamp }}" +'%Y-%m-%d-%H-%M-%S')
+        echo "timestamp is $TIMESTAMP"
+        git checkout -b kubeletFlags/$TIMESTAMP
     - run: |
-        git checkout -b kubelet/flags
         make generate-kubelet-flags
       name: Generate valid kubelet flags per supported k8s versions
     - run: |
-        ls
-        cd e2e/kubelet
-        ls
-        cd ../..
         git config --global user.email "aleldeib@microsoft.com"
         git config --global user.name "alexeldeib"
         git remote set-url origin https://alexeldeib:$github_token@github.com/Azure/AgentBaker.git
