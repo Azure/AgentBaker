@@ -76,7 +76,9 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName string, sshPr
 		t.Logf("executing command on remote VM at %s of VMSS %s: %q", privateIP, vmssName, sourceCmd)
 
 		execResult, err := execOnVM(ctx, opts.kube, privateIP, podName, sshPrivateKey, sourceCmd)
-		execResult.dumpStderr()
+		if execResult != nil {
+			execResult.dumpStderr()
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -103,7 +105,9 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 		t.Logf("executing privileged command on pod %s/%s: %q", defaultNamespace, podName, sourceCmd)
 
 		execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, sourceCmd)
-		execResult.dumpStderr()
+		if execResult != nil {
+			execResult.dumpStderr()
+		}
 		if err != nil {
 			return nil, err
 		}
