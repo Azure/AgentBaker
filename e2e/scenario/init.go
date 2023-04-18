@@ -19,7 +19,7 @@ func InitScenarioTable(t *testing.T, scenariosToRun map[string]bool) Table {
 // its return value to the slice returned by this function.
 func scenarios() []*Scenario {
 	return []*Scenario{
-		base(),
+		ubuntu1804(),
 		ubuntu2204(),
 		marinerv1(),
 		marinerv2(),
@@ -30,7 +30,7 @@ func scenarios() []*Scenario {
 		ubuntu2204CustomSysctls(),
 		marinerv1CustomSysctls(),
 		marinerv2CustomSysctls(),
-		base_azurecni(),
+		ubuntu1804_azurecni(),
 		marinerv1_azurecni(),
 		marinerv2_azurecni(),
 		ubuntu1804gpu_azurecni(),
