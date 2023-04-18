@@ -23,14 +23,12 @@ type podExecResult struct {
 	stderr, stdout *bytes.Buffer
 }
 
-func (r *podExecResult) dumpAll() {
-	if r != nil {
-		r.dumpStdout()
-		r.dumpStderr()
-	}
+func (r podExecResult) dumpAll() {
+	r.dumpStdout()
+	r.dumpStderr()
 }
 
-func (r *podExecResult) dumpStdout() {
+func (r podExecResult) dumpStdout() {
 	if r.stdout != nil {
 		stdoutContent := r.stdout.String()
 		if stdoutContent != "" && stdoutContent != "<nil>" {
@@ -43,7 +41,7 @@ func (r *podExecResult) dumpStdout() {
 	}
 }
 
-func (r *podExecResult) dumpStderr() {
+func (r podExecResult) dumpStderr() {
 	if r.stderr != nil {
 		stderrContent := r.stderr.String()
 		if stderrContent != "" && stderrContent != "<nil>" {
@@ -78,9 +76,7 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName string, sshPr
 		t.Logf("executing command on remote VM at %s of VMSS %s: %q", privateIP, vmssName, sourceCmd)
 
 		execResult, err := execOnVM(ctx, opts.kube, privateIP, podName, sshPrivateKey, sourceCmd)
-		if execResult != nil {
-			checkStdErr(execResult.stderr, t)
-		}
+		execResult.dumpStderr()
 		if err != nil {
 			return nil, err
 		}
@@ -107,9 +103,7 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 		t.Logf("executing privileged command on pod %s/%s: %q", defaultNamespace, podName, sourceCmd)
 
 		execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, sourceCmd)
-		if execResult != nil {
-			checkStdErr(execResult.stderr, t)
-		}
+		execResult.dumpStderr()
 		if err != nil {
 			return nil, err
 		}
@@ -120,24 +114,24 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 	return result, nil
 }
 
-func execOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
+func execOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (podExecResult, error) {
 	sshCommand := fmt.Sprintf(sshCommandTemplate, sshPrivateKey, vmPrivateIP)
 	commandToExecute := fmt.Sprintf("%s %s", sshCommand, command)
 
 	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, commandToExecute)
 	if err != nil {
-		return nil, fmt.Errorf("error executing command on pod: %s", err)
+		return podExecResult{}, fmt.Errorf("error executing command on pod: %s", err)
 	}
 
 	return execResult, nil
 }
 
-func execOnPrivilegedPod(ctx context.Context, kube *kubeclient, namespace, podName string, command string) (*podExecResult, error) {
+func execOnPrivilegedPod(ctx context.Context, kube *kubeclient, namespace, podName string, command string) (podExecResult, error) {
 	privilegedCommand := append(nsenterCommandArray(), command)
 	return execOnPod(ctx, kube, namespace, podName, privilegedCommand)
 }
 
-func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string, command []string) (*podExecResult, error) {
+func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string, command []string) (podExecResult, error) {
 	req := kube.typed.CoreV1().RESTClient().Post().Resource("pods").Name(podName).Namespace(namespace).SubResource("exec")
 
 	option := &corev1.PodExecOptions{
@@ -153,7 +147,7 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 
 	exec, err := remotecommand.NewSPDYExecutor(kube.rest, "POST", req.URL())
 	if err != nil {
-		return nil, fmt.Errorf("unable to create new SPDY executor for pod exec: %s", err)
+		return podExecResult{}, fmt.Errorf("unable to create new SPDY executor for pod exec: %s", err)
 	}
 
 	var (
@@ -169,30 +163,19 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 		if strings.Contains(err.Error(), "command terminated with exit code") {
 			code, err := extractExitCode(err.Error())
 			if err != nil {
-				return nil, fmt.Errorf("error extracing exit code from remote command execution error msg: %s", err)
+				return podExecResult{}, fmt.Errorf("error extracing exit code from remote command execution error msg: %s", err)
 			}
 			exitCode = code
 		} else {
-			return nil, fmt.Errorf("encountered unexpected error when executing command on pod: %s", err)
+			return podExecResult{}, fmt.Errorf("encountered unexpected error when executing command on pod: %s", err)
 		}
 	}
 
-	return &podExecResult{
+	return podExecResult{
 		exitCode: exitCode,
 		stdout:   &stdout,
 		stderr:   &stderr,
 	}, nil
-}
-
-func checkStdErr(stderr *bytes.Buffer, t *testing.T) {
-	stderrString := stderr.String()
-	if stderrString != "" && stderrString != "<nil>" {
-		t.Logf("%s\n%s\n%s\n%s",
-			"stderr is non-empty after executing last command:",
-			"----------------------------------- begin stderr -----------------------------------",
-			stderrString,
-			"------------------------------------ end stderr ------------------------------------")
-	}
 }
 
 func nsenterCommandArray() []string {
