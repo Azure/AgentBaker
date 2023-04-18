@@ -63,7 +63,9 @@ func run() error {
 	}
 
 	//litter.Dump(flags)
+
 	filePath := fmt.Sprintf("e2e/kubelet/%s-flags.json", k8sVersion)
+	fmt.Println("file is created with path:", filePath)
 	file, err := os.Create(filePath)
     if err != nil {
         return err
@@ -76,6 +78,7 @@ func run() error {
         panic(err)
     }
 
+	fmt.Println("json bytes are", jsonBytes)
     _, err = file.Write(jsonBytes)
     if err != nil {
        return err
