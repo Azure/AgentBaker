@@ -2,12 +2,12 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"regexp"
-	"encoding/json"
 	"strings"
 
 	"github.com/sanity-io/litter"
@@ -27,7 +27,7 @@ func run() error {
 
 	fmt.Println("k8s version is:", k8sVersion)
 	binaryPath := fmt.Sprintf("/usr/local/bin/kubelet-%s", k8sVersion)
-	
+
 	r, w := io.Pipe()
 
 	runKubelet := exec.Command("sudo", "timeout", "-k", "3", "--preserve-status", "1", binaryPath, "-v", "1", "--container-runtime-endpoint", "unix:///var/run/containerd/containerd.sock")
@@ -68,14 +68,14 @@ func run() error {
 
 	filePath := fmt.Sprintf("kubelet/%s-flags.json", k8sVersion)
 	file, err := os.Create(filePath)
-    if err != nil {
+	if err != nil {
 		fmt.Println("File not created")
-        return err
-    }
+		return err
+	}
 
-    defer file.Close()
+	defer file.Close()
 
-    encoder := json.NewEncoder(file)
+	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ") // optional pretty print
 	err = encoder.Encode(flags)
 	if err != nil {
