@@ -12,7 +12,6 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.0.0
 	github.com/Azure/go-armbalancer v0.0.2
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
-	github.com/sanity-io/litter v1.5.5
 	golang.org/x/crypto v0.6.0
 	k8s.io/api v0.26.2
 	k8s.io/apimachinery v0.26.2
@@ -26,6 +25,7 @@ require (
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v0.9.0 // indirect
+	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
