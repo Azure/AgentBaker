@@ -21,17 +21,17 @@ import (
 func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []byte, e error) {
 	privateKey, err := rsa.GenerateKey(r, 4096)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create rsa private key: %q", err)
+		return nil, nil, fmt.Errorf("failed to create rsa private key: %w", err)
 	}
 
 	err = privateKey.Validate()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to validate rsa private key: %q", err)
+		return nil, nil, fmt.Errorf("failed to validate rsa private key: %w", err)
 	}
 
 	publicRsaKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to convert private to public key: %q", err)
+		return nil, nil, fmt.Errorf("failed to convert private to public key: %w", err)
 	}
 
 	publicKeyBytes = ssh.MarshalAuthorizedKey(publicRsaKey)
@@ -57,12 +57,12 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 
 	isAzureCNI, err := opts.isChosenClusterAzureCNI()
 	if err != nil {
-		return nil, fmt.Errorf("failed to determine whether chosen cluster uses Azure CNI from cluster model: %s", err)
+		return nil, fmt.Errorf("failed to determine whether chosen cluster uses Azure CNI from cluster model: %w", err)
 	}
 
 	if isAzureCNI {
 		if err := addPodIPConfigsForAzureCNI(&model, vmssName, opts); err != nil {
-			return nil, fmt.Errorf("failed to create pod IP configs for azure CNI scenario: %s", err)
+			return nil, fmt.Errorf("failed to create pod IP configs for azure CNI scenario: %w", err)
 		}
 	}
 
@@ -95,7 +95,7 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssName string, opts *scenarioRunOpts) error {
 	maxPodsPerNode, err := opts.chosenClusterMaxPodsPerNode()
 	if err != nil {
-		return fmt.Errorf("failed to read agentpool MaxPods value from chosen cluster model: %s", err)
+		return fmt.Errorf("failed to read agentpool MaxPods value from chosen cluster model: %w", err)
 	}
 
 	var podIPConfigs []*armcompute.VirtualMachineScaleSetIPConfiguration
