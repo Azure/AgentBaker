@@ -92,7 +92,7 @@
     "--cloud-provider": "external",
     "--enforce-node-allocatable": "\"\"\"\"",
     "--eviction-hard": "\"\"\"\"",
-    "--feature-gates": "CSIMigration=true,CSIMigrationAzureDisk=true,CSIMigrationAzureFile=true,DelegateFSGroupToCSIDriver=true",
+    "--feature-gates": "CSIMigration=true,CSIMigrationAzureDisk=true,CSIMigrationAzureFile=true,DelegateFSGroupToCSIDriver=true,DynamicKubeletConfig=false",
     "--hairpin-mode": "promiscuous-bridge",
     "--kube-reserved": "cpu=100m,memory=3891Mi",
     "--kubeconfig": "c:\\k\\config",
