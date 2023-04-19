@@ -35,10 +35,13 @@
       "subscription_id": "{{user `subscription_id`}}",
       "os_type": "Linux",
       "os_disk_size_gb": 30,
-      "image_publisher": "{{user `img_publisher`}}",
-      "image_offer": "{{user `img_offer`}}",
-      "image_sku": "{{user `img_sku`}}",
-      "image_version": "latest",
+      "shared_image_gallery": {
+        "subscription": "{{user `subscription_id`}}",
+        "resource_group": "mitchzhutestSIGrg",
+        "gallery_name": "mitchzhutestSIG",
+        "image_name": "linuxtest",
+        "image_version": "1.0417.2221"
+      },
       "azure_tags": {
         "buildDefinitionName": "{{user `build_definition_name`}}",
         "buildNumber": "{{user `build_number`}}",

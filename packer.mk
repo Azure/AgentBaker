@@ -53,8 +53,8 @@ endif
 else ifeq (${OS_VERSION},V2kata)
 ifeq (${HYPERV_GENERATION},V2)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM for kata"
-	@echo "Using packer template file vhd-image-builder-mariner2-gen2-kata.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner2-gen2-kata.json
+	@echo "Using packer template file vhd-image-builder-mariner2-gen2.json"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner2-gen2.json
 endif
 else
 	$(error OS_VERSION was invalid ${OS_VERSION})
