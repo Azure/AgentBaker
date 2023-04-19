@@ -7,6 +7,10 @@ KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
+CONTAINER_RUNTIME="$1"
+OS_VERSION="$2"
+ENABLE_FIPS="$3"
+OS_SKU="$4"
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
@@ -363,13 +367,13 @@ string_replace() {
 
 testVHDBuildLogsExist
 testCriticalTools
-testFilesDownloaded $1
-testImagesPulled $1 "$(cat $COMPONENTS_FILEPATH)"
-testChrony $4
+testFilesDownloaded $CONTAINER_RUNTIME
+testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
+testChrony $OS_SKU
 testAuditDNotPresent
-testFips $2 $3
-testKubeBinariesPresent $1
-testKubeProxyImagesPulled $1
-testImagesRetagged $1
+testFips $OS_VERSION $ENABLE_FIPS
+testKubeBinariesPresent $CONTAINER_RUNTIME
+testKubeProxyImagesPulled $CONTAINER_RUNTIME
+testImagesRetagged $CONTAINER_RUNTIME
 testCustomCAScriptExecutable
 testCustomCATimerNotStarted
