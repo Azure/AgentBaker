@@ -3,7 +3,6 @@
     "properties": {
       "orchestratorProfile": {
         "orchestratorType": "Kubernetes",
-        "orchestratorVersion": "1.23.12",
         "kubernetesConfig": {
           "networkPlugin": "azure",
           "loadBalancerSku": "Standard",
