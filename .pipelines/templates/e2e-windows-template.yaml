@@ -31,11 +31,17 @@ jobs:
         export WINDOWS_E2E_IMAGE=${{ parameters.windowsImage }}
         export WINDOWS_E2E_OSSKU=${{ parameters.windowsOSSKU }}
         export WINDOWS_E2E_VMSIZE=${{ parameters.windowsVMSize }}
-        export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
-        if [[ -n "$WINDOWS_PACKAGE_URL" ]]; then
-          export windowsPackageURL="$WINDOWS_PACKAGE_URL"
+        if [[ -n "${WINDOWS_PACKAGE_URL}" ]]; then
+          export windowsPackageURL=$WINDOWS_PACKAGE_URL
+          export WINDOWS_PACKAGE_VERSION=$(echo $windowsPackageURL | grep -oP '(?<=/v)\d+\.\d+\.\d+' | head -1)
+          if [[ "${WINDOWS_PACKAGE_VERSION}" != "${KUBERNETES_VERSION}" ]]; then
+            echo "Windows package version $WINDOWS_PACKAGE_VERSION does not match with kubernetes version $KUBERNETES_VERSION. Invalid test scenario."
+            exit 1
+          fi
+        else
+          export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
+          export WINDOWS_PACKAGE_VERSION=$KUBERNETES_VERSION
         fi
-        export WINDOWS_PACKAGE_VERSION=$(echo $windowsPackageURL | grep -oP '(?<=/v)\d+\.\d+\.\d+' | head -1)
         export K8S_VERSION=${WINDOWS_PACKAGE_VERSION//./}
         export WINDOWS_E2E_STORAGE_CONTAINER=${{ parameters.storageAccount }}-$K8S_VERSION
         mkdir -p $WINDOWS_E2E_IMAGE
@@ -77,11 +83,17 @@ jobs:
         export WINDOWS_E2E_IMAGE=${{ parameters.windowsImage }}
         export WINDOWS_DISTRO=${{ parameters.windowsDistro }}
         export WINDOWS_NODE_IMAGE_VERSION=${{ parameters.windowsNodeImageVersion }}
-        export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
-        if [[ -n "$WINDOWS_PACKAGE_URL" ]]; then
-          export windowsPackageURL="$WINDOWS_PACKAGE_URL"
+        if [[ -n "${WINDOWS_PACKAGE_URL}" ]]; then
+          export windowsPackageURL=$WINDOWS_PACKAGE_URL
+          export WINDOWS_PACKAGE_VERSION=$(echo $windowsPackageURL | grep -oP '(?<=/v)\d+\.\d+\.\d+' | head -1)
+          if [[ "${WINDOWS_PACKAGE_VERSION}" != "${KUBERNETES_VERSION}" ]]; then
+            echo "Windows package version $WINDOWS_PACKAGE_VERSION does not match with kubernetes version $KUBERNETES_VERSION. Invalid test scenario."
+            exit 1
+          fi
+        else
+          export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
+          export WINDOWS_PACKAGE_VERSION=$KUBERNETES_VERSION
         fi
-        export WINDOWS_PACKAGE_VERSION=$(echo $windowsPackageURL | grep -oP '(?<=/v)\d+\.\d+\.\d+' | head -1)
         export K8S_VERSION=${WINDOWS_PACKAGE_VERSION//./}
         mkdir -p $WINDOWS_E2E_IMAGE
         cp -a $(Pipeline.Workspace)/${{ parameters.windowsImage }}-clusterConfig/* $WINDOWS_E2E_IMAGE
