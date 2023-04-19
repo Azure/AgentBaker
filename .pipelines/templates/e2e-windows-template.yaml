@@ -38,6 +38,8 @@ jobs:
         cd $WINDOWS_E2E_IMAGE
         bash ./e2e-starter.sh
         bash e2e-create-windows-nodepool.sh
+      env:
+        MAPPED_ACCOUNT_KEY: $(STORAGE_ACCOUNT_KEY)
       displayName: Setup Test Cluster
     - publish: $(System.DefaultWorkingDirectory)/${{ parameters.windowsImage }}
       artifact: ${{ parameters.windowsImage }}-clusterConfig
