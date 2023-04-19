@@ -156,6 +156,7 @@
         "--cloud-provider": "azure",
         "--cluster-dns": "10.0.0.10",
         "--cluster-domain": "cluster.local",
+        "--dynamic-config-dir": "/var/lib/kubelet",
         "--enforce-node-allocatable": "pods",
         "--event-qps": "0",
         "--eviction-hard": "memory.available\u003c750Mi,nodefs.available\u003c10%,nodefs.inodesFree\u003c5%",
