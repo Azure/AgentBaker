@@ -452,17 +452,17 @@ func getBaseNodeBootstrappingConfiguration(ctx context.Context, t *testing.T, cl
 
 	bootstrapToken, err := extractKeyValuePair("token", bootstrapKubeconfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract bootstrap token via regex: %q", err)
+		return nil, fmt.Errorf("failed to extract bootstrap token via regex: %w", err)
 	}
 
 	bootstrapToken, err = strconv.Unquote(bootstrapToken)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unquote bootstrap token: %q", err)
+		return nil, fmt.Errorf("failed to unquote bootstrap token: %w", err)
 	}
 
 	server, err := extractKeyValuePair("server", bootstrapKubeconfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract fqdn via regex: %q", err)
+		return nil, fmt.Errorf("failed to extract fqdn via regex: %w", err)
 	}
 	tokens := strings.Split(server, ":")
 	if len(tokens) != 3 {
