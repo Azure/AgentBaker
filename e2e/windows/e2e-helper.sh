@@ -137,8 +137,8 @@ getTenantID() {
 }
 
 cleanupOutdatedFiles() {
-    # delete blobs created 3 days ago
-    EXPIRATION_IN_HOURS=72
+    # delete blobs created 1 day ago
+    EXPIRATION_IN_HOURS=24
     (( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
     (( deadline=$(date +%s)-${expirationInSecs%.*} ))
     dateOfdeadline=$(date -d @${deadline} +"%Y-%m-%dT%H:%M:%S+00:00")
