@@ -2397,7 +2397,7 @@ cleanUpContainerImages() {
     export -f removeContainerImage
     export -f cleanUpImages
     export -f cleanUpKubeProxyImages
-    bash -c cleanUpKubeProxyImages
+    bash -c cleanUpKubeProxyImages &
 }
 
 cleanUpContainerd() {
