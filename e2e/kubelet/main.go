@@ -25,7 +25,7 @@ func run() error {
 
 	fmt.Println("k8s version is:", k8sVersion)
 	binaryPath := fmt.Sprintf("/usr/local/bin/kubelet-%s", k8sVersion)
-	
+
 	r, w := io.Pipe()
 
 	runKubelet := exec.Command("sudo", "timeout", "-k", "3", "--preserve-status", "1", binaryPath, "-v", "1", "--container-runtime-endpoint", "unix:///var/run/containerd/containerd.sock")
@@ -43,17 +43,17 @@ func run() error {
 	parseFlags.Stderr = &grepOut
 
 	if err := parseFlags.Start(); err != nil {
-		return fmt.Errorf("failed to start grep pipeline: %q", err)
+		return fmt.Errorf("failed to start grep pipeline: %w", err)
 	}
 
 	if err := runKubelet.Run(); err != nil {
-		return fmt.Errorf("failed to run kubelet: %q", err)
+		return fmt.Errorf("failed to run kubelet: %w", err)
 	}
 
 	w.Close()
 
 	if err := parseFlags.Wait(); err != nil {
-		fmt.Println(fmt.Errorf("failed to wait for grep to exit: %q", err))
+		fmt.Println(fmt.Errorf("failed to wait for grep to exit: %w", err))
 	}
 
 	flags, err := extractKeyValuePairs(grepOut.Bytes())
