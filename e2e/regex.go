@@ -24,7 +24,7 @@ func extractKeyValuePair(key string, data string) (string, error) {
 
 	r, err := regexp.Compile(regexString)
 	if err != nil {
-		return "", fmt.Errorf("failed to compile regex: %s", err)
+		return "", fmt.Errorf("failed to compile regex: %w", err)
 	}
 
 	matches := r.FindAllStringSubmatch(string(data), -1)
@@ -39,7 +39,7 @@ func extractKeyValuePair(key string, data string) (string, error) {
 func extractExitCode(errMsg string) (string, error) {
 	r, err := regexp.Compile(errMsgExitCodeRegex)
 	if err != nil {
-		return "", fmt.Errorf("failed to compile regex: %s", err)
+		return "", fmt.Errorf("failed to compile regex: %w", err)
 	}
 
 	matches := r.FindAllStringSubmatch(errMsg, -1)

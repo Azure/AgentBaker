@@ -1388,6 +1388,25 @@ func (k *KubernetesConfig) IsUsingNetworkPluginMode(mode string) bool {
 	return strings.EqualFold(k.NetworkPluginMode, mode)
 }
 
+func setCustomKubletConfigFromSettings(customKc *CustomKubeletConfig, kubeletConfig map[string]string) map[string]string {
+	// Settings from customKubeletConfig, only take if it's set.
+	if customKc != nil {
+		if customKc.ImageGcHighThreshold != nil {
+			kubeletConfig["--image-gc-high-threshold"] = fmt.Sprintf("%d", *customKc.ImageGcHighThreshold)
+		}
+		if customKc.ImageGcLowThreshold != nil {
+			kubeletConfig["--image-gc-low-threshold"] = fmt.Sprintf("%d", *customKc.ImageGcLowThreshold)
+		}
+		if customKc.ContainerLogMaxSizeMB != nil {
+			kubeletConfig["--container-log-max-size"] = fmt.Sprintf("%dMi", *customKc.ContainerLogMaxSizeMB)
+		}
+		if customKc.ContainerLogMaxFiles != nil {
+			kubeletConfig["--container-log-max-files"] = fmt.Sprintf("%d", *customKc.ContainerLogMaxFiles)
+		}
+	}
+	return kubeletConfig
+}
+
 /*
 GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell
 script consumption.
@@ -1410,20 +1429,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	}
 
 	// Settings from customKubeletConfig, only take if it's set.
-	if customKc != nil {
-		if customKc.ImageGcHighThreshold != nil {
-			kubeletConfig["--image-gc-high-threshold"] = fmt.Sprintf("%d", *customKc.ImageGcHighThreshold)
-		}
-		if customKc.ImageGcLowThreshold != nil {
-			kubeletConfig["--image-gc-low-threshold"] = fmt.Sprintf("%d", *customKc.ImageGcLowThreshold)
-		}
-		if customKc.ContainerLogMaxSizeMB != nil {
-			kubeletConfig["--container-log-max-size"] = fmt.Sprintf("%dMi", *customKc.ContainerLogMaxSizeMB)
-		}
-		if customKc.ContainerLogMaxFiles != nil {
-			kubeletConfig["--container-log-max-files"] = fmt.Sprintf("%d", *customKc.ContainerLogMaxFiles)
-		}
-	}
+	kubeletConfig = setCustomKubletConfigFromSettings(customKc, kubeletConfig)
 
 	if len(kubeletConfig) == 0 {
 		return ""

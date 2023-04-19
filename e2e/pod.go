@@ -15,7 +15,7 @@ import (
 func getDebugPodName(kube *kubeclient) (string, error) {
 	podList := corev1.PodList{}
 	if err := kube.dynamic.List(context.Background(), &podList, client.MatchingLabels{"app": "debug"}); err != nil {
-		return "", fmt.Errorf("failed to list debug pod: %q", err)
+		return "", fmt.Errorf("failed to list debug pod: %w", err)
 	}
 
 	if len(podList.Items) < 1 {
@@ -31,7 +31,7 @@ func ensureDebugDaemonset(ctx context.Context, kube *kubeclient) error {
 	var ds appsv1.DaemonSet
 
 	if err := yaml.Unmarshal([]byte(manifest), &ds); err != nil {
-		return fmt.Errorf("failed to unmarshal debug daemonset manifest: %q", err)
+		return fmt.Errorf("failed to unmarshal debug daemonset manifest: %w", err)
 	}
 
 	desired := ds.DeepCopy()
@@ -41,7 +41,7 @@ func ensureDebugDaemonset(ctx context.Context, kube *kubeclient) error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to apply debug daemonset: %q", err)
+		return fmt.Errorf("failed to apply debug daemonset: %w", err)
 	}
 
 	return nil
@@ -52,7 +52,7 @@ func ensureTestNginxPod(ctx context.Context, kube *kubeclient, nodeName string) 
 	var obj corev1.Pod
 
 	if err := yaml.Unmarshal([]byte(manifest), &obj); err != nil {
-		return fmt.Errorf("failed to unmarshal nginx pod manifest: %q", err)
+		return fmt.Errorf("failed to unmarshal nginx pod manifest: %w", err)
 	}
 
 	desired := obj.DeepCopy()
@@ -62,7 +62,7 @@ func ensureTestNginxPod(ctx context.Context, kube *kubeclient, nodeName string) 
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to apply nginx test pod: %q", err)
+		return fmt.Errorf("failed to apply nginx test pod: %w", err)
 	}
 
 	return waitUntilPodRunning(ctx, kube, nodeName)
