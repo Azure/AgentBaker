@@ -2,11 +2,13 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"regexp"
+	"strings"
 
 	"github.com/sanity-io/litter"
 )
@@ -25,7 +27,7 @@ func run() error {
 
 	fmt.Println("k8s version is:", k8sVersion)
 	binaryPath := fmt.Sprintf("/usr/local/bin/kubelet-%s", k8sVersion)
-	
+
 	r, w := io.Pipe()
 
 	runKubelet := exec.Command("sudo", "timeout", "-k", "3", "--preserve-status", "1", binaryPath, "-v", "1", "--container-runtime-endpoint", "unix:///var/run/containerd/containerd.sock")
@@ -43,17 +45,17 @@ func run() error {
 	parseFlags.Stderr = &grepOut
 
 	if err := parseFlags.Start(); err != nil {
-		return fmt.Errorf("failed to start grep pipeline: %q", err)
+		return fmt.Errorf("failed to start grep pipeline: %w", err)
 	}
 
 	if err := runKubelet.Run(); err != nil {
-		return fmt.Errorf("failed to run kubelet: %q", err)
+		return fmt.Errorf("failed to run kubelet: %w", err)
 	}
 
 	w.Close()
 
 	if err := parseFlags.Wait(); err != nil {
-		fmt.Println(fmt.Errorf("failed to wait for grep to exit: %q", err))
+		fmt.Println(fmt.Errorf("failed to wait for grep to exit: %w", err))
 	}
 
 	flags, err := extractKeyValuePairs(grepOut.Bytes())
@@ -61,7 +63,27 @@ func run() error {
 		return fmt.Errorf("failed to extract key value pairs: %q", err)
 	}
 
+	// pretty output in case we want to check it in GH Action
 	litter.Dump(flags)
+
+	filePath := fmt.Sprintf("kubelet/%s-flags.json", k8sVersion)
+	file, err := os.Create(filePath)
+	if err != nil {
+		fmt.Println("File not created")
+		return err
+	}
+
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ") // optional pretty print
+	err = encoder.Encode(flags)
+	if err != nil {
+		fmt.Println("Error encoding data:", err)
+		return err
+	}
+
+	fmt.Println("Data written to: ", filePath)
 
 	return nil
 }
@@ -91,7 +113,8 @@ func extractKeyValuePairs(data []byte) (map[string]string, error) {
 		}
 
 		key := submatchGroup[1]
-		val := submatchGroup[2]
+		// this strips the double quotes from the value, otherwise it is invalid JSON
+		val := strings.ReplaceAll(submatchGroup[2], "\"", "")
 
 		resultKeyValuePairs[key] = val
 	}

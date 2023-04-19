@@ -69,7 +69,7 @@ func newAzureClient(subscription string) (*azureClient, error) {
 
 	credential, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create credential: %q", err)
+		return nil, fmt.Errorf("failed to create credential: %w", err)
 	}
 
 	plOpts := runtime.PipelineOptions{}
@@ -84,37 +84,37 @@ func newAzureClient(subscription string) (*azureClient, error) {
 	// purely for telemetry, entirely unused today
 	coreClient, err := azcore.NewClient("agentbakere2e.e2e_test", "v0.0.0", plOpts, clOpts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create core client: %q", err)
+		return nil, fmt.Errorf("failed to create core client: %w", err)
 	}
 
 	aksClient, err := armcontainerservice.NewManagedClustersClient(subscription, credential, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create aks client: %q", err)
+		return nil, fmt.Errorf("failed to create aks client: %w", err)
 	}
 
 	vmssClient, err := armcompute.NewVirtualMachineScaleSetsClient(subscription, credential, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create vmss client: %q", err)
+		return nil, fmt.Errorf("failed to create vmss client: %w", err)
 	}
 
 	vmssVMClient, err := armcompute.NewVirtualMachineScaleSetVMsClient(subscription, credential, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create vmss vm client: %q", err)
+		return nil, fmt.Errorf("failed to create vmss vm client: %w", err)
 	}
 
 	resourceClient, err := armresources.NewClient(subscription, credential, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create resource client: %q", err)
+		return nil, fmt.Errorf("failed to create resource client: %w", err)
 	}
 
 	resourceGroupClient, err := armresources.NewResourceGroupsClient(subscription, credential, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create resource group client: %q", err)
+		return nil, fmt.Errorf("failed to create resource group client: %w", err)
 	}
 
 	vnetClient, err := armnetwork.NewVirtualNetworksClient(subscription, credential, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create vnet client: %q", err)
+		return nil, fmt.Errorf("failed to create vnet client: %w", err)
 	}
 
 	var cloud = &azureClient{
