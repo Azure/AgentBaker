@@ -227,6 +227,10 @@ func mustChooseCluster(
 			t.Fatalf("unable to create new cluster: %s", err)
 		}
 
+		if cluster.Properties == nil {
+			t.Fatalf("newly created cluster model has nil properties:\n%+v", cluster)
+		}
+
 		kube, subnetID, clusterParams, err := prepareClusterForTests(ctx, t, cloud, suiteConfig, cluster, paramCache)
 		if err != nil {
 			t.Fatalf("unable to prepare new cluster for test: %s", err)
@@ -279,6 +283,10 @@ func mustChooseCluster(
 		t.Fatalf("unable to successfully choose a cluster for scenario %q", scenario.Name)
 	}
 
+	if chosenCluster.Properties.NodeResourceGroup == nil {
+		t.Fatalf("tried to chose a cluster without a node resource group:\n%+v", *chosenCluster)
+	}
+
 	return chosenKubeClient, chosenCluster, chosenClusterParams, chosenSubnetID
 }
 
@@ -325,22 +333,6 @@ func getClusterParametersWithCache(ctx context.Context, t *testing.T, kube *kube
 	} else {
 		return cachedParams, nil
 	}
-}
-
-func clusterModelHasProperties(cluster *armcontainerservice.ManagedCluster) bool {
-	return cluster != nil && cluster.Properties != nil
-}
-
-func clusterModelHasNetworkProfile(cluster *armcontainerservice.ManagedCluster) bool {
-	return clusterModelHasProperties(cluster) && cluster.Properties.NetworkProfile != nil
-}
-
-func clusterModelHasAgentPoolProfiles(cluster *armcontainerservice.ManagedCluster) bool {
-	if !clusterModelHasProperties(cluster) {
-		return false
-	}
-	apps := cluster.Properties.AgentPoolProfiles
-	return apps != nil && len(apps) > 0
 }
 
 func getBaseClusterModel(clusterName, location string) armcontainerservice.ManagedCluster {

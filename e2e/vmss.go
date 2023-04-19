@@ -110,9 +110,12 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 		}
 		podIPConfigs = append(podIPConfigs, ipConfig)
 	}
-	vmssNICConfig := vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0]
-	ipConfigs := append(vmssNICConfig.Properties.IPConfigurations, podIPConfigs...)
-	vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.IPConfigurations = ipConfigs
+	vmssNICConfig, err := getVMSSNICConfig(vmss)
+	if err != nil {
+		return fmt.Errorf("unable to get vmss nic: %w", err)
+	}
+	vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.IPConfigurations =
+		append(vmssNICConfig.Properties.IPConfigurations, podIPConfigs...)
 	return nil
 }
 
@@ -147,7 +150,11 @@ func getVMPrivateIPAddress(ctx context.Context, cloud *azureClient, subscription
 		return "", err
 	}
 
-	privateIP := instanceNICResult.Value[0].Properties.IPConfigurations[0].Properties.PrivateIPAddress
+	privateIP, err := extractPrivateIP(instanceNICResult)
+	if err != nil {
+		return "", err
+	}
+
 	return privateIP, nil
 }
 
@@ -241,4 +248,15 @@ func getBaseVMSSModel(name, location, mcResourceGroupName, subnetID, sshPublicKe
 			},
 		},
 	}
+}
+
+func getVMSSNICConfig(vmss *armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSetNetworkConfiguration, error) {
+	if vmss != nil && vmss.Properties != nil &&
+		vmss.Properties.VirtualMachineProfile != nil && vmss.Properties.VirtualMachineProfile.NetworkProfile != nil {
+		networkProfile := vmss.Properties.VirtualMachineProfile.NetworkProfile
+		if len(networkProfile.NetworkInterfaceConfigurations) > 0 {
+			return networkProfile.NetworkInterfaceConfigurations[0], nil
+		}
+	}
+	return nil, fmt.Errorf("unable to extract vmss nic info, vmss model or vmss model properties were nil/empty:\n%+v", vmss)
 }
