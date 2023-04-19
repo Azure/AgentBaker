@@ -133,3 +133,8 @@ enableMarinerKata() {
     # dracut to generate an initrd for the nested VM using binaries from the Mariner host OS.
     systemctlEnableAndStart kata-osbuilder-generate
 }
+
+activateNfConntrack() {
+    # explicitly activate nf_conntrack module so associated sysctls can be properly set 
+    echo nf_conntrack >> /etc/modules-load.d/contrack.conf
+}

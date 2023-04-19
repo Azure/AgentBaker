@@ -14,20 +14,23 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ValidateDNSPrefix is a helper function to check that a DNS Prefix is valid
+// ValidateDNSPrefix is a helper function to check that a DNS Prefix is valid.
 func ValidateDNSPrefix(dnsName string) error {
 	dnsNameRegex := `^([A-Za-z][A-Za-z0-9-]{1,43}[A-Za-z0-9])$`
+
 	re, err := regexp.Compile(dnsNameRegex)
 	if err != nil {
 		return err
 	}
 	if !re.MatchString(dnsName) {
-		return errors.Errorf("DNSPrefix '%s' is invalid. The DNSPrefix must contain between 3 and 45 characters and can contain only letters, numbers, and hyphens.  It must start with a letter and must end with a letter or a number. (length was %d)", dnsName, len(dnsName))
+		return errors.Errorf("DNSPrefix '%s' is invalid. The DNSPrefix must contain between 3 and 45 characters"+
+			" and can contain only letters, numbers, and hyphens.  It must start with a letter and must end with a"+
+			" letter or a number. (length was %d)", dnsName, len(dnsName))
 	}
 	return nil
 }
 
-// IsSgxEnabledSKU determines if an VM SKU has SGX driver support
+// IsSgxEnabledSKU determines if an VM SKU has SGX driver support.
 func IsSgxEnabledSKU(vmSize string) bool {
 	switch vmSize {
 	case "Standard_DC2s", "Standard_DC4s":
@@ -36,12 +39,12 @@ func IsSgxEnabledSKU(vmSize string) bool {
 	return false
 }
 
-// IsMIGNode check if the node should be partitioned
-func IsMIGNode(GPUInstanceProfile string) bool {
-	return GPUInstanceProfile != ""
+// IsMIGNode check if the node should be partitioned.
+func IsMIGNode(gpuInstanceProfile string) bool {
+	return gpuInstanceProfile != ""
 }
 
-// GetStorageAccountType returns the support managed disk storage tier for a give VM size
+// GetStorageAccountType returns the support managed disk storage tier for a give VM size.
 func GetStorageAccountType(sizeName string) (string, error) {
 	spl := strings.Split(sizeName, "_")
 	if len(spl) < 2 {
@@ -54,7 +57,7 @@ func GetStorageAccountType(sizeName string) (string, error) {
 	return "Standard_LRS", nil
 }
 
-// GetOrderedEscapedKeyValsString returns an ordered string of escaped, quoted key=val
+// GetOrderedEscapedKeyValsString returns an ordered string of escaped, quoted key=val.
 func GetOrderedEscapedKeyValsString(config map[string]string) string {
 	keys := []string{}
 	for key := range config {
@@ -68,12 +71,12 @@ func GetOrderedEscapedKeyValsString(config map[string]string) string {
 	return strings.TrimSuffix(buf.String(), ", ")
 }
 
-// SliceIntIsNonEmpty is a simple convenience to determine if a []int is non-empty
+// SliceIntIsNonEmpty is a simple convenience to determine if a []int is non-empty.
 func SliceIntIsNonEmpty(s []int) bool {
 	return len(s) > 0
 }
 
-// WrapAsVerbatim formats a string for inserting a literal string into an ARM expression
+// WrapAsVerbatim formats a string for inserting a literal string into an ARM expression.
 func WrapAsVerbatim(s string) string {
 	return fmt.Sprintf("',%s,'", s)
 }

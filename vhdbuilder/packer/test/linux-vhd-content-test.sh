@@ -7,6 +7,10 @@ KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
+CONTAINER_RUNTIME="$1"
+OS_VERSION="$2"
+ENABLE_FIPS="$3"
+OS_SKU="$4"
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
@@ -165,6 +169,7 @@ testAuditDNotPresent() {
 }
 
 testChrony() {
+  os_sku=$1
   test="testChrony"
   echo "$test:Start"
 
@@ -177,27 +182,38 @@ testChrony() {
     err $test "ntp is active with status ${status}"
   fi
   #test chrony is running
-  status=$(systemctl show -p SubState --value chrony)
+  #if mariner check chronyd, else check chrony
+  os_chrony="chrony"
+  if [[ "$os_sku" == "CBLMariner" ]]; then
+    os_chrony="chronyd"
+  fi
+  status=$(systemctl show -p SubState --value $os_chrony)
   if [ $status == 'running' ]; then
-    echo $test "chrony is running, as expected"
+    echo $test "$os_chrony is running, as expected"
   else
-    err $test "chrony is not running with status ${status}"
+    err $test "$os_chrony is not running with status ${status}"
   fi
 
   #test if chrony corrects time
+  if [ $os_sku == 'CBLMariner' ]; then
+    echo $test "exiting without checking chrony time correction"
+    echo $test "reenable after Mariner updates the chrony config in base image"
+    echo "$test:Finish"
+    return
+  fi
   initialDate=$(date +%s)
   date --set "27 Feb 2021"
   for i in $(seq 1 10); do
     newDate=$(date +%s)
     if (( $newDate > $initialDate)); then
-      echo "chrony readjusted the system time correctly"
+      echo "$os_chrony readjusted the system time correctly"
       break
     fi
     sleep 10
     echo "${i}: retrying: check if chrony modified the time"
   done
   if (($i == 10)); then
-    err $test "chrony failed to readjust the system time"
+    err $test "$os_chrony failed to readjust the system time"
   fi
   echo "$test:Finish"
 }
@@ -351,13 +367,13 @@ string_replace() {
 
 testVHDBuildLogsExist
 testCriticalTools
-testFilesDownloaded $1
-testImagesPulled $1 "$(cat $COMPONENTS_FILEPATH)"
-testChrony
+testFilesDownloaded $CONTAINER_RUNTIME
+testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
+testChrony $OS_SKU
 testAuditDNotPresent
-testFips $2 $3
-testKubeBinariesPresent $1
-testKubeProxyImagesPulled $1
-testImagesRetagged $1
+testFips $OS_VERSION $ENABLE_FIPS
+testKubeBinariesPresent $CONTAINER_RUNTIME
+testKubeProxyImagesPulled $CONTAINER_RUNTIME
+testImagesRetagged $CONTAINER_RUNTIME
 testCustomCAScriptExecutable
 testCustomCATimerNotStarted

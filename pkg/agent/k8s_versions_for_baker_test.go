@@ -64,26 +64,36 @@ const (
 	flannelInstallCNIImageReference                   string = "quay.io/coreos/flannel:v0.10.0-amd64"
 	KubeRBACProxyImageReference                       string = "gcr.io/kubebuilder/kube-rbac-proxy:v0.4.0"
 	ScheduledMaintenanceManagerImageReference         string = "quay.io/awesomenix/drainsafe-manager:latest"
-	// DefaultKubernetesCloudProviderBackoffRetries is 6, takes effect if DefaultKubernetesCloudProviderBackoff is true
+	/* DefaultKubernetesCloudProviderBackoffRetries is 6, takes effect if
+	DefaultKubernetesCloudProviderBackoff is true */
 	DefaultKubernetesCloudProviderBackoffRetries = 6
-	// DefaultKubernetesCloudProviderBackoffJitter is 1, takes effect if DefaultKubernetesCloudProviderBackoff is true
+	/* DefaultKubernetesCloudProviderBackoffJitter is 1, takes effect if
+	DefaultKubernetesCloudProviderBackoff is true */
 	DefaultKubernetesCloudProviderBackoffJitter = 1.0
-	// DefaultKubernetesCloudProviderBackoffDuration is 5, takes effect if DefaultKubernetesCloudProviderBackoff is true
+	/* DefaultKubernetesCloudProviderBackoffDuration is 5, takes effect if
+	DefaultKubernetesCloudProviderBackoff is true */
 	DefaultKubernetesCloudProviderBackoffDuration = 5
-	// DefaultKubernetesCloudProviderBackoffExponent is 1.5, takes effect if DefaultKubernetesCloudProviderBackoff is true
+	/* DefaultKubernetesCloudProviderBackoffExponent is 1.5, takes effect if
+	DefaultKubernetesCloudProviderBackoff is true */
 	DefaultKubernetesCloudProviderBackoffExponent = 1.5
-	// DefaultKubernetesCloudProviderRateLimitQPS is 3, takes effect if DefaultKubernetesCloudProviderRateLimit is true
+	/* DefaultKubernetesCloudProviderRateLimitQPS is 3, takes effect if
+	DefaultKubernetesCloudProviderRateLimit is true */
 	DefaultKubernetesCloudProviderRateLimitQPS = 3.0
-	// DefaultKubernetesCloudProviderRateLimitQPSWrite is 1, takes effect if DefaultKubernetesCloudProviderRateLimit is true
+	/* DefaultKubernetesCloudProviderRateLimitQPSWrite is 1, takes effect if
+	DefaultKubernetesCloudProviderRateLimit is true */
 	DefaultKubernetesCloudProviderRateLimitQPSWrite = 1.0
-	// DefaultKubernetesCloudProviderRateLimitBucket is 10, takes effect if DefaultKubernetesCloudProviderRateLimit is true
+	/* DefaultKubernetesCloudProviderRateLimitBucket is 10, takes effect if
+	DefaultKubernetesCloudProviderRateLimit is true */
 	DefaultKubernetesCloudProviderRateLimitBucket = 10
-	// DefaultKubernetesCloudProviderRateLimitBucketWrite is 10, takes effect if DefaultKubernetesCloudProviderRateLimit is true
+	/* DefaultKubernetesCloudProviderRateLimitBucketWrite is 10, takes effect if
+	DefaultKubernetesCloudProviderRateLimit is true */
 	DefaultKubernetesCloudProviderRateLimitBucketWrite = DefaultKubernetesCloudProviderRateLimitBucket
 )
 
-// k8sComponentVersions is a convenience map to make UT maintenance easier,
-// at the expense of some add'l indirection in getK8sVersionComponents below
+/*
+k8sComponentVersions is a convenience map to make UT maintenance easier,
+at the expense of some add'l indirection in getK8sVersionComponents below.
+*/
 var k8sComponentVersions = map[string]map[string]string{
 	"1.6": {
 		"dashboard":      "kubernetes-dashboard-amd64:v1.6.3",
@@ -97,7 +107,10 @@ var k8sComponentVersions = map[string]map[string]string{
 	},
 }
 
-// K8sComponentsByVersionMap represents Docker images used for Kubernetes components based on Kubernetes versions (major.minor.patch)
+/*
+K8sComponentsByVersionMap represents Docker images used for Kubernetes components based on
+Kubernetes versions (major.minor.patch).
+*/
 var K8sComponentsByVersionMap map[string]map[string]string
 
 func init() {

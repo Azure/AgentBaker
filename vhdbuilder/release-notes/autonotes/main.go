@@ -40,7 +40,7 @@ func main() {
 	flag.StringVar(&fl.include, "include", "", "only include this list of VHD release notes.")
 	flag.StringVar(&fl.ignore, "ignore", "", "ignore release notes for these VHDs")
 	flag.StringVar(&fl.path, "path", defaultPath, "output path to root of VHD notes")
-	flag.StringVar(&fl.date, "date", defaultDate, "date of VHD build in format YYYY.MM.DD")
+	flag.StringVar(&fl.date, "date", defaultDate, "date of VHD build in format YYYYMM.DD.0")
 
 	flag.Parse()
 
@@ -241,7 +241,7 @@ type flags struct {
 }
 
 var defaultPath = filepath.Join("vhdbuilder", "release-notes")
-var defaultDate = strings.Split(time.Now().Format("2006.01.02 15:04:05"), " ")[0]
+var defaultDate = strings.Split(time.Now().Format("200601.02"), " ")[0] + ".0"
 
 var artifactToPath = map[string]string{
 	"1804-containerd":                   filepath.Join("AKSUbuntu", "gen1", "1804containerd"),
@@ -252,6 +252,8 @@ var artifactToPath = map[string]string{
 	"1804-fips-gen2-containerd":         filepath.Join("AKSUbuntu", "gen2", "1804fipscontainerd"),
 	"1804-fips-gpu-containerd":          filepath.Join("AKSUbuntu", "gen1", "1804fipsgpucontainerd"),
 	"1804-fips-gen2-gpu-containerd":     filepath.Join("AKSUbuntu", "gen2", "1804fipsgpucontainerd"),
+	"2004-fips-containerd":              filepath.Join("AKSUbuntu", "gen1", "2004fipscontainerd"),
+	"2004-fips-gen2-containerd":         filepath.Join("AKSUbuntu", "gen2", "2004fipscontainerd"),
 	"marinerv1":                         filepath.Join("AKSCBLMariner", "gen1"),
 	"marinerv1-gen2":                    filepath.Join("AKSCBLMariner", "gen2"),
 	"marinerv2-gen2":                    filepath.Join("AKSCBLMarinerV2", "gen2"),

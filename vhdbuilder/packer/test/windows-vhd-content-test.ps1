@@ -152,16 +152,17 @@ function Test-FilesToCacheOnVHD
             if ($URL.StartsWith("https://acs-mirror.azureedge.net/")) {
                 $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
                 try {
-                    DownloadFileWithRetry -URL $mcURL -Dest $tmpDest -redactUrl
-                    $remoteFileHash = (Get-FileHash  -Algorithm SHA256 -Path $tmpDest).Hash
-                    Remove-Item -Path $tmpDest
-                    if ($localFileHash -ne $remoteFileHash) {
+                    # It's too slow to download the file from the China Cloud. So we only compare the file size.
+                    $localFileSize = (Get-Item $dest).length
+                    $remoteFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
+                    if ($localFileSize -ne $remoteFileSize) {
                         $excludeHashComparisionListInAzureChinaCloud = @(
                             "calico-windows",
                             "azure-vnet-cni-singletenancy-windows-amd64",
                             "azure-vnet-cni-singletenancy-swift-windows-amd64",
                             "azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
                             "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35.zip",
+                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35_Win2019OverlayFix.zip",
                             # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
                             # so we can ignore the different hash values.
                             "v1.26.0-1int.zip"
@@ -178,7 +179,7 @@ function Test-FilesToCacheOnVHD
                             continue
                         }
 
-                        Write-ErrorWithTimestamp "$mcURL is valid but the file hash is different. Expect $localFileHash but remote file hash in AzureChinaCloud is $remoteFileHash"
+                        Write-ErrorWithTimestamp "$mcURL is valid but the file size is different. Expect $localFileSize but remote file size in AzureChinaCloud is $remoteFileSize"
                         $invalidFiles = $mcURL
                         continue
                     }
@@ -268,11 +269,46 @@ function Test-RegistryAdded {
             Write-ErrorWithTimestamp "The registry for the WCIFS fix in 2022-10B is not added"
             exit 1
         }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsPolicyUpdateChange)
+        if ($result.HnsPolicyUpdateChange -ne 1) {
+            Write-ErrorWithTimestamp "The registry for HnsPolicyUpdateChange is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNatAllowRuleUpdateChange)
+        if ($result.HnsNatAllowRuleUpdateChange -ne 1) {
+            Write-ErrorWithTimestamp "The registry for HnsNatAllowRuleUpdateChange is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3105872524)
+        if ($result.3105872524 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 3105872524 is not added"
+            exit 1
+        }
     }
     if ($env:WindowsSKU -Like '2022*') {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2629306509)
         if ($result.2629306509 -ne 1) {
             Write-ErrorWithTimestamp "The registry for the WCIFS fix in 2022-10B is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsPolicyUpdateChange)
+        if ($result.HnsPolicyUpdateChange -ne 1) {
+            Write-ErrorWithTimestamp "The registry for HnsPolicyUpdateChange is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNatAllowRuleUpdateChange)
+        if ($result.HnsNatAllowRuleUpdateChange -ne 1) {
+            Write-ErrorWithTimestamp "The registry for HnsNatAllowRuleUpdateChange is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3508525708)
+        if ($result.3508525708 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 3508525708 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsAclUpdateChange)
+        if ($result.HnsAclUpdateChange -ne 1) {
+            Write-ErrorWithTimestamp "The registry for HnsAclUpdateChange is not added"
             exit 1
         }
     }

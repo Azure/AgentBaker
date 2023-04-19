@@ -21,7 +21,11 @@ import (
 	"github.com/blang/semver"
 )
 
-// TranslatedKubeletConfigFlags represents kubelet flags that will be translated into config file (if kubelet config file is enabled)
+/*
+	TranslatedKubeletConfigFlags represents kubelet flags that will be translated into config file
+
+(if kubelet config file is enabled).
+*/
 var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
 	"--address":                           true,
 	"--anonymous-auth":                    true,
@@ -65,7 +69,7 @@ var TranslatedKubeletConfigFlags map[string]bool = map[string]bool{
 var keyvaultSecretPathRe *regexp.Regexp
 
 func init() {
-	keyvaultSecretPathRe = regexp.MustCompile(`^(/subscriptions/\S+/resourceGroups/\S+/providers/Microsoft.KeyVault/vaults/\S+)/secrets/([^/\s]+)(/(\S+))?$`)
+	keyvaultSecretPathRe = regexp.MustCompile(`^(/subscriptions/\S+/resourceGroups/\S+/providers/Microsoft.KeyVault/vaults/\S+)/secrets/([^/\s]+)(/(\S+))?$`) //nolint:lll
 }
 
 type paramsMap map[string]interface{}
@@ -88,6 +92,7 @@ func addKeyvaultReference(m paramsMap, k string, vaultID, secretName, secretVers
 	}
 }
 
+//nolint:unparam,nolintlint
 func addSecret(m paramsMap, k string, v interface{}, encode bool) {
 	str, ok := v.(string)
 	if !ok {
@@ -129,10 +134,12 @@ func makeExtensionScriptCommands(extension *datamodel.Extension, curlCaCertOpt s
 	}
 
 	extensionsParameterReference := fmt.Sprintf("parameters('%sParameters')", extensionProfile.Name)
-	scriptURL := getExtensionURL(extensionProfile.RootURL, extensionProfile.Name, extensionProfile.Version, extensionProfile.Script, extensionProfile.URLQuery)
+	scriptURL := getExtensionURL(extensionProfile.RootURL, extensionProfile.Name, extensionProfile.Version, extensionProfile.Script,
+		extensionProfile.URLQuery)
 	scriptFilePath := fmt.Sprintf("/opt/azure/containers/extensions/%s/%s", extensionProfile.Name, extensionProfile.Script)
-	return fmt.Sprintf("- sudo /usr/bin/curl --retry 5 --retry-delay 10 --retry-max-time 30 -o %s --create-dirs %s \"%s\" \n- sudo /bin/chmod 744 %s \n- sudo %s ',%s,' > /var/log/%s-output.log",
-		scriptFilePath, curlCaCertOpt, scriptURL, scriptFilePath, scriptFilePath, extensionsParameterReference, extensionProfile.Name)
+	return fmt.Sprintf("- sudo /usr/bin/curl --retry 5 --retry-delay 10 --retry-max-time 30 -o %s --create-dirs %s \"%s\" \n- sudo /bin/"+
+		"chmod 744 %s \n- sudo %s ',%s,' > /var/log/%s-output.log", scriptFilePath, curlCaCertOpt, scriptURL, scriptFilePath, scriptFilePath,
+		extensionsParameterReference, extensionProfile.Name)
 }
 
 func makeWindowsExtensionScriptCommands(extension *datamodel.Extension, extensionProfiles []*datamodel.ExtensionProfile) string {
@@ -148,43 +155,44 @@ func makeWindowsExtensionScriptCommands(extension *datamodel.Extension, extensio
 		panic(fmt.Sprintf("%s extension referenced was not found in the extension profile", extension.Name))
 	}
 
-	scriptURL := getExtensionURL(extensionProfile.RootURL, extensionProfile.Name, extensionProfile.Version, extensionProfile.Script, extensionProfile.URLQuery)
+	scriptURL := getExtensionURL(extensionProfile.RootURL, extensionProfile.Name, extensionProfile.Version, extensionProfile.Script,
+		extensionProfile.URLQuery)
 	scriptFileDir := fmt.Sprintf("$env:SystemDrive:/AzureData/extensions/%s", extensionProfile.Name)
 	scriptFilePath := fmt.Sprintf("%s/%s", scriptFileDir, extensionProfile.Script)
-	return fmt.Sprintf("New-Item -ItemType Directory -Force -Path \"%s\" ; curl.exe --retry 5 --retry-delay 0 -L \"%s\" -o \"%s\" ; powershell \"%s `\"',parameters('%sParameters'),'`\"\"\n", scriptFileDir, scriptURL, scriptFilePath, scriptFilePath, extensionProfile.Name)
+	return fmt.Sprintf("New-Item -ItemType Directory -Force -Path \"%s\" ; curl.exe --retry 5 --retry-delay 0 -L \"%s\" -o \"%s\" ; powershell \"%s `\"',parameters('%sParameters'),'`\"\"\n", scriptFileDir, scriptURL, scriptFilePath, scriptFilePath, extensionProfile.Name) //nolint:lll
 }
 
 func escapeSingleLine(escapedStr string) string {
-	// template.JSEscapeString leaves undesirable chars that don't work with pretty print
-	escapedStr = strings.Replace(escapedStr, "\\", "\\\\", -1)
-	escapedStr = strings.Replace(escapedStr, "\r\n", "\\n", -1)
-	escapedStr = strings.Replace(escapedStr, "\n", "\\n", -1)
-	escapedStr = strings.Replace(escapedStr, "\"", "\\\"", -1)
+	// template.JSEscapeString leaves undesirable chars that don't work with pretty print.
+	escapedStr = strings.ReplaceAll(escapedStr, "\\", "\\\\")
+	escapedStr = strings.ReplaceAll(escapedStr, "\r\n", "\\n")
+	escapedStr = strings.ReplaceAll(escapedStr, "\n", "\\n")
+	escapedStr = strings.ReplaceAll(escapedStr, "\"", "\\\"")
 	return escapedStr
 }
 
-// getBase64EncodedGzippedCustomScript will return a base64 of the CSE
+// getBase64EncodedGzippedCustomScript will return a base64 of the CSE.
 func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.NodeBootstrappingConfiguration) string {
 	b, err := templates.Asset(csFilename)
 	if err != nil {
-		// this should never happen and this is a bug
+		// this should never happen and this is a bug.
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
-	// translate the parameters
+	// translate the parameters.
 	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(getContainerServiceFuncMap(config))
 	_, err = templ.Parse(string(b))
 	if err != nil {
-		// this should never happen and this is a bug
+		// this should never happen and this is a bug.
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	var buffer bytes.Buffer
 	templ.Execute(&buffer, config.ContainerService)
 	csStr := buffer.String()
-	csStr = strings.Replace(csStr, "\r\n", "\n", -1)
+	csStr = strings.ReplaceAll(csStr, "\r\n", "\n")
 	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
 }
 
-// getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data
+// getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data.
 func getBase64EncodedGzippedCustomScriptFromStr(str string) string {
 	var gzipB bytes.Buffer
 	w := gzip.NewWriter(&gzipB)
@@ -216,7 +224,7 @@ func getSSHPublicKeysPowerShell(linuxProfile *datamodel.LinuxProfile) string {
 	return str
 }
 
-// IsSgxEnabledSKU determines if an VM SKU has SGX driver support
+// IsSgxEnabledSKU determines if an VM SKU has SGX driver support.
 func IsSgxEnabledSKU(vmSize string) bool {
 	switch vmSize {
 	case "Standard_DC2s", "Standard_DC4s":
@@ -225,9 +233,9 @@ func IsSgxEnabledSKU(vmSize string) bool {
 	return false
 }
 
-// GetCloudTargetEnv determines and returns whether the region is a sovereign cloud which
-// have their own data compliance regulations (China/Germany/USGov) or standard
-// Azure public cloud
+/* GetCloudTargetEnv determines and returns whether the region is a sovereign cloud which
+have their own data compliance regulations (China/Germany/USGov) or standard.  */
+// Azure public cloud.
 func GetCloudTargetEnv(location string) string {
 	loc := strings.ToLower(strings.Join(strings.Fields(location), ""))
 	switch {
@@ -242,7 +250,7 @@ func GetCloudTargetEnv(location string) string {
 	}
 }
 
-// IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version
+// IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.
 func IsKubernetesVersionGe(actualVersion, version string) bool {
 	v1, _ := semver.Make(actualVersion)
 	v2, _ := semver.Make(version)
@@ -258,12 +266,13 @@ func getCustomDataFromJSON(jsonStr string) string {
 	return customDataObj["customData"]
 }
 
-// GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs
-// copied from AKS-Engine and filter out flags that already translated to config file
-func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, kubeletConfigFileToggleEnabled bool) string {
-	// NOTE(mainred): kubeConfigFile now relies on CustomKubeletConfig, while custom configuration is not compatible
-	// with CustomKubeletConfig. When custom configuration is set we want to override every configuration with the
-	// customized one.
+// GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs.
+// copied from AKS-Engine and filter out flags that already translated to config file.
+func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile,
+	kubeletConfigFileToggleEnabled bool) string {
+	/* NOTE(mainred): kubeConfigFile now relies on CustomKubeletConfig, while custom configuration is not
+	compatible with CustomKubeletConfig. When custom configuration is set we want to override every
+	configuration with the customized one. */
 	kubeletCustomConfigurations := getKubeletCustomConfiguration(cs.Properties)
 	if kubeletCustomConfigurations != nil {
 		return getOrderedKubeletConfigFlagWithCustomConfigurationString(kubeletCustomConfigurations, k)
@@ -294,7 +303,7 @@ func getOrderedKubeletConfigFlagWithCustomConfigurationString(customConfig, defa
 	config := customConfig
 
 	for k, v := range defaultConfig {
-		// add key-value only when the flag does not exist in custom config
+		// add key-value only when the flag does not exist in custom config.
 		if _, ok := config[k]; !ok {
 			config[k] = v
 		}
@@ -325,30 +334,29 @@ func getKubeletCustomConfiguration(properties *datamodel.Properties) map[string]
 	if kubeletConfigurations.Config == nil {
 		return nil
 	}
-	// empty config is treated as nil
+	// empty config is treated as nil.
 	if len(kubeletConfigurations.Config) == 0 {
 		return nil
 	}
 	return kubeletConfigurations.Config
 }
 
-// IsKubeletConfigFileEnabled get if dynamic kubelet is supported in AKS and toggle is on
+// IsKubeletConfigFileEnabled get if dynamic kubelet is supported in AKS and toggle is on.
 func IsKubeletConfigFileEnabled(cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile, kubeletConfigFileToggleEnabled bool) bool {
-	// TODO(bowa) remove toggle when backfill
-	// If customKubeletConfig or customLinuxOSConfig is used (API20201101 and later), use kubelet config file
+	// TODO(bowa) remove toggle when backfill.
+	// If customKubeletConfig or customLinuxOSConfig is used (API20201101 and later), use kubelet config file.
 	return profile.CustomKubeletConfig != nil || profile.CustomLinuxOSConfig != nil ||
 		(kubeletConfigFileToggleEnabled && cs.Properties.OrchestratorProfile.IsKubernetes() &&
 			IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0"))
 }
 
-// IsKubeletClientTLSBootstrappingEnabled get if kubelet client TLS bootstrapping is enabled
+// IsKubeletClientTLSBootstrappingEnabled get if kubelet client TLS bootstrapping is enabled.
 func IsKubeletClientTLSBootstrappingEnabled(tlsBootstrapToken *string) bool {
 	return tlsBootstrapToken != nil
 }
 
 // GetTLSBootstrapTokenForKubeConfig returns the TLS bootstrap token for kubeconfig usage.
 // It returns empty string if TLS bootstrap token is not enabled.
-//
 // ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping/#kubelet-configuration
 func GetTLSBootstrapTokenForKubeConfig(tlsBootstrapToken *string) string {
 	if tlsBootstrapToken == nil {
@@ -359,12 +367,7 @@ func GetTLSBootstrapTokenForKubeConfig(tlsBootstrapToken *string) string {
 	return *tlsBootstrapToken
 }
 
-// GetKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content
-func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.CustomKubeletConfig) string {
-	if kc == nil {
-		return ""
-	}
-	// translate simple values
+func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfiguration {
 	kubeletConfig := &datamodel.AKSKubeletConfiguration{
 		APIVersion:    "kubelet.config.k8s.io/v1beta1",
 		Kind:          "KubeletConfiguration",
@@ -394,41 +397,12 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 		ResolverConfig:                 kc["--resolv-conf"],
 		ContainerLogMaxSize:            kc["--container-log-max-size"],
 	}
+	return kubeletConfig
+}
 
-	// Authentication
-	kubeletConfig.Authentication = datamodel.KubeletAuthentication{}
-	if ca := kc["--client-ca-file"]; ca != "" {
-		kubeletConfig.Authentication.X509 = datamodel.KubeletX509Authentication{
-			ClientCAFile: ca,
-		}
-	}
-	if aw := kc["--authentication-token-webhook"]; aw != "" {
-		kubeletConfig.Authentication.Webhook = datamodel.KubeletWebhookAuthentication{
-			Enabled: strToBool(aw),
-		}
-	}
-	if aa := kc["--anonymous-auth"]; aa != "" {
-		kubeletConfig.Authentication.Anonymous = datamodel.KubeletAnonymousAuthentication{
-			Enabled: strToBool(aa),
-		}
-	}
-
-	// EvictionHard
-	// default: "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%"
-	if eh, ok := kc["--eviction-hard"]; ok && eh != "" {
-		kubeletConfig.EvictionHard = strKeyValToMap(eh, ",", "<")
-	}
-
-	// feature gates
-	// look like "f1=true,f2=true"
-	kubeletConfig.FeatureGates = strKeyValToMapBool(kc["--feature-gates"], ",", "=")
-
-	// system reserve and kube reserve
-	// looks like "cpu=100m,memory=1638Mi"
-	kubeletConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], ",", "=")
-	kubeletConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], ",", "=")
-
-	// Settings from customKubeletConfig, only take if it's set
+//nolint:gocognit
+func setCustomKubeletConfig(customKc *datamodel.CustomKubeletConfig,
+	kubeletConfig *datamodel.AKSKubeletConfiguration) {
 	if customKc != nil {
 		if customKc.CPUManagerPolicy != "" {
 			kubeletConfig.CPUManagerPolicy = customKc.CPUManagerPolicy
@@ -438,12 +412,12 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 		}
 		if customKc.CPUCfsQuotaPeriod != "" {
 			kubeletConfig.CPUCFSQuotaPeriod = datamodel.Duration(customKc.CPUCfsQuotaPeriod)
-			// enable CustomCPUCFSQuotaPeriod feature gate is required for this configuration
+			// enable CustomCPUCFSQuotaPeriod feature gate is required for this configuration.
 			kubeletConfig.FeatureGates["CustomCPUCFSQuotaPeriod"] = true
 		}
 		if customKc.TopologyManagerPolicy != "" {
 			kubeletConfig.TopologyManagerPolicy = customKc.TopologyManagerPolicy
-			// enable TopologyManager feature gate is required for this configuration
+			// enable TopologyManager feature gate is required for this configuration.
 			kubeletConfig.FeatureGates["TopologyManager"] = true
 		}
 		if customKc.ImageGcHighThreshold != nil {
@@ -468,6 +442,51 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 			kubeletConfig.PodPidsLimit = to.Int64Ptr(int64(*customKc.PodMaxPids))
 		}
 	}
+}
+
+// GetKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content.
+func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.CustomKubeletConfig) string {
+	if kc == nil {
+		return ""
+	}
+	// translate simple values.
+	kubeletConfig := getAKSKubeletConfiguration(kc)
+
+	// Authentication.
+	kubeletConfig.Authentication = datamodel.KubeletAuthentication{}
+	if ca := kc["--client-ca-file"]; ca != "" {
+		kubeletConfig.Authentication.X509 = datamodel.KubeletX509Authentication{
+			ClientCAFile: ca,
+		}
+	}
+	if aw := kc["--authentication-token-webhook"]; aw != "" {
+		kubeletConfig.Authentication.Webhook = datamodel.KubeletWebhookAuthentication{
+			Enabled: strToBool(aw),
+		}
+	}
+	if aa := kc["--anonymous-auth"]; aa != "" {
+		kubeletConfig.Authentication.Anonymous = datamodel.KubeletAnonymousAuthentication{
+			Enabled: strToBool(aa),
+		}
+	}
+
+	// EvictionHard.
+	// default: "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%".
+	if eh, ok := kc["--eviction-hard"]; ok && eh != "" {
+		kubeletConfig.EvictionHard = strKeyValToMap(eh, ",", "<")
+	}
+
+	// feature gates.
+	// look like "f1=true,f2=true".
+	kubeletConfig.FeatureGates = strKeyValToMapBool(kc["--feature-gates"], ",", "=")
+
+	// system reserve and kube reserve.
+	// looks like "cpu=100m,memory=1638Mi".
+	kubeletConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], ",", "=")
+	kubeletConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], ",", "=")
+
+	// Settings from customKubeletConfig, only take if it's set.
+	setCustomKubeletConfig(customKc, kubeletConfig)
 
 	configStringByte, _ := json.MarshalIndent(kubeletConfig, "", "    ")
 	return string(configStringByte)

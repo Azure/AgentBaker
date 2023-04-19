@@ -8,6 +8,12 @@ parameters:
   - name: windowsVMSize
     type: string
     default: Standard_D2s_v3
+  - name: windowsDistro
+    type: string
+    default: aks-windows-2019-containerd
+  - name: windowsNodeImageVersion
+    type: string
+    default: AKSWindows-2019-containerd-test-2023.02.07
   - name: storageAccount
     type: string
     default: storewin19
@@ -27,11 +33,13 @@ jobs:
         export WINDOWS_E2E_VMSIZE=${{ parameters.windowsVMSize }}
         export WINDOWS_E2E_STORAGE_ACCOUNT=${{ parameters.storageAccount }}
         mkdir -p $WINDOWS_E2E_IMAGE
-        cp -r e2e/* $WINDOWS_E2E_IMAGE
+        cp -r e2e/windows/* $WINDOWS_E2E_IMAGE
         go version
         cd $WINDOWS_E2E_IMAGE
         bash ./e2e-starter.sh
         bash e2e-create-windows-nodepool.sh
+      env:
+        MAPPED_ACCOUNT_KEY: $(STORAGE_ACCOUNT_KEY)
       displayName: Setup Test Cluster
     - publish: $(System.DefaultWorkingDirectory)/${{ parameters.windowsImage }}
       artifact: ${{ parameters.windowsImage }}-clusterConfig
@@ -40,7 +48,7 @@ jobs:
 - job: Generate_Matrix
   steps:
     - bash: |
-        stringifyJson=$(cat e2e/matrix-windows.json | jq -r tojson | sed 's/\\//g')
+        stringifyJson=$(cat e2e/windows/matrix.json | jq -r tojson | sed 's/\\//g')
         echo "##vso[task.setVariable variable=scenarioMatrix;isOutput=true]"$stringifyJson
       name: matrix
       
@@ -61,10 +69,12 @@ jobs:
     - bash: |
         export SCENARIO_NAME
         export WINDOWS_E2E_IMAGE=${{ parameters.windowsImage }}
+        export WINDOWS_DISTRO=${{ parameters.windowsDistro }}
+        export WINDOWS_NODE_IMAGE_VERSION=${{ parameters.windowsNodeImageVersion }}
         mkdir -p $WINDOWS_E2E_IMAGE
         cp -a $(Pipeline.Workspace)/${{ parameters.windowsImage }}-clusterConfig/* $WINDOWS_E2E_IMAGE
         cd $WINDOWS_E2E_IMAGE
-        bash e2e-windows-scenario.sh
+        bash e2e-scenario.sh
       env:
         MAPPED_ACCOUNT_KEY: $(STORAGE_ACCOUNT_KEY)
     - publish: $(System.DefaultWorkingDirectory)/${{ parameters.windowsImage }}/$(SCENARIO_NAME)-logs

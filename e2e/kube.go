@@ -27,12 +27,12 @@ type kubeclient struct {
 func newKubeclient(config *rest.Config) (*kubeclient, error) {
 	dynamic, err := client.New(config, client.Options{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create dynamic kubeclient: %q", err)
+		return nil, fmt.Errorf("failed to create dynamic kubeclient: %w", err)
 	}
 
 	restClient, err := rest.RESTClientFor(config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create rest kube client: %q", err)
+		return nil, fmt.Errorf("failed to create rest kube client: %w", err)
 	}
 
 	typed := kubernetes.New(restClient)
@@ -44,15 +44,15 @@ func newKubeclient(config *rest.Config) (*kubeclient, error) {
 	}, nil
 }
 
-func getClusterKubeClient(ctx context.Context, cloud *azureClient, config *suiteConfig) (*kubeclient, error) {
-	data, err := getClusterKubeconfigBytes(ctx, cloud, config.resourceGroupName, config.clusterName)
+func getClusterKubeClient(ctx context.Context, cloud *azureClient, resourceGroupName, clusterName string) (*kubeclient, error) {
+	data, err := getClusterKubeconfigBytes(ctx, cloud, resourceGroupName, clusterName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get cluster kubeconfig bytes")
+		return nil, fmt.Errorf("failed to get cluster kubeconfig bytes: %w", err)
 	}
 
 	restConfig, err := clientcmd.RESTConfigFromKubeConfig(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert kubeconfig bytes to rest config")
+		return nil, fmt.Errorf("failed to convert kubeconfig bytes to rest config: %w", err)
 	}
 	restConfig.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
 	restConfig.APIPath = "/api"
@@ -66,7 +66,7 @@ func getClusterKubeClient(ctx context.Context, cloud *azureClient, config *suite
 func getClusterKubeconfigBytes(ctx context.Context, cloud *azureClient, resourceGroupName, clusterName string) ([]byte, error) {
 	credentialList, err := cloud.aksClient.ListClusterAdminCredentials(ctx, resourceGroupName, clusterName, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list cluster admin credentials: %q", err)
+		return nil, fmt.Errorf("failed to list cluster admin credentials: %w", err)
 	}
 
 	if len(credentialList.Kubeconfigs) < 1 {
@@ -99,7 +99,7 @@ func waitUntilNodeReady(ctx context.Context, kube *kubeclient, vmssName string) 
 	})
 
 	if err != nil {
-		return "", fmt.Errorf("failed to find or wait for node to be ready: %q", err)
+		return "", fmt.Errorf("failed to find or wait for node to be ready: %w", err)
 	}
 
 	return nodeName, nil

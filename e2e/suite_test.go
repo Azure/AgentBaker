@@ -2,21 +2,28 @@ package e2e_test
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	mrand "math/rand"
+	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/scenario"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/barkimedes/go-deepcopy"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
+
+var e2eMode string
+
+func init() {
+	flag.StringVar(&e2eMode, "e2eMode", "", "specify mode for e2e tests - 'coverage' or 'validation' - default: 'validation'")
+}
 
 func Test_All(t *testing.T) {
 	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 	ctx := context.Background()
-
 	t.Parallel()
 
 	suiteConfig, err := newSuiteConfig()
@@ -24,60 +31,41 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if err := createE2ELoggingDir(); err != nil {
+		t.Fatal(err)
+	}
+
+	scenarioTable := scenario.InitScenarioTable(t, suiteConfig.scenariosToRun)
+
 	cloud, err := newAzureClient(suiteConfig.subscription)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := setupCluster(ctx, cloud, suiteConfig.location, suiteConfig.resourceGroupName, suiteConfig.clusterName); err != nil {
+	if err := ensureResourceGroup(ctx, t, cloud, suiteConfig.resourceGroupName); err != nil {
 		t.Fatal(err)
 	}
 
-	subnetID, err := getClusterSubnetID(ctx, cloud, suiteConfig.location, suiteConfig.resourceGroupName, suiteConfig.clusterName)
+	clusters, err := listClusters(ctx, t, cloud, suiteConfig.resourceGroupName)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	kube, err := getClusterKubeClient(ctx, cloud, suiteConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
+	paramCache := paramCache{}
 
-	if err := ensureDebugDaemonset(ctx, kube, suiteConfig.resourceGroupName, suiteConfig.clusterName); err != nil {
-		t.Fatal(err)
-	}
+	for _, scenario := range scenarioTable {
+		scenario := scenario
 
-	var clusterParams map[string]string
-	err = wait.PollImmediateWithContext(ctx, 15*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
-		params, err := extractClusterParameters(ctx, t, kube)
+		kube, cluster, clusterParams, subnetID := mustChooseCluster(ctx, t, r, cloud, suiteConfig, scenario, &clusters, paramCache)
+
+		clusterName := *cluster.Name
+		t.Logf("chose cluster: %q", clusterName)
+
+		baseConfig, err := getBaseNodeBootstrappingConfiguration(ctx, t, cloud, suiteConfig, clusterParams)
 		if err != nil {
-			t.Logf("error extracting cluster parameters: %q", err)
-			return false, nil
+			t.Fatal(err)
 		}
-		clusterParams = params
-		return true, nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
 
-	if err := createClusterParamsDir(); err != nil {
-		t.Fatal(err)
-	}
-
-	t.Logf("dumping cluster parameters to local directory: %s", clusterParamsDir)
-	if err := dumpFileMapToDir(clusterParamsDir, clusterParams); err != nil {
-		t.Error("error dumping cluster parameters", err)
-	}
-
-	baseConfig, err := getBaseBootstrappingConfig(ctx, t, cloud, suiteConfig, clusterParams)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for name, tc := range cases {
-		tc := tc
-		caseName := name
 		copied, err := deepcopy.Anything(baseConfig)
 		if err != nil {
 			t.Error(err)
@@ -85,105 +73,137 @@ func Test_All(t *testing.T) {
 		}
 		nbc := copied.(*datamodel.NodeBootstrappingConfiguration)
 
-		if tc.bootstrapConfigMutator != nil {
-			tc.bootstrapConfigMutator(t, nbc)
+		if scenario.Config.BootstrapConfigMutator != nil {
+			scenario.Config.BootstrapConfigMutator(nbc)
 		}
 
-		t.Run(caseName, func(t *testing.T) {
+		t.Run(scenario.Name, func(t *testing.T) {
 			t.Parallel()
 
-			caseLogsDir, err := createVMLogsDir(caseName)
+			caseLogsDir, err := createVMLogsDir(scenario.Name)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			baker := agent.InitializeTemplateGenerator()
-			base64EncodedCustomData := baker.GetNodeBootstrappingPayload(nbc)
-			cseCmd := baker.GetNodeBootstrappingCmd(nbc)
-
-			vmssName := fmt.Sprintf("abtest%s", randomLowercaseString(r, 4))
-			t.Logf("vmss name: %q", vmssName)
-
-			cleanupVMSS := func() {
-				t.Log("deleting vmss", vmssName)
-				poller, err := cloud.vmssClient.BeginDelete(ctx, agentbakerTestClusterMCResourceGroupName, vmssName, nil)
-				if err != nil {
-					t.Error("error deleting vmss", vmssName, err)
-					return
-				}
-				_, err = poller.PollUntilDone(ctx, nil)
-				if err != nil {
-					t.Error("error polling deleting vmss", vmssName, err)
-				}
-				t.Log("finished deleting vmss", vmssName)
+			opts := &scenarioRunOpts{
+				cloud:         cloud,
+				kube:          kube,
+				suiteConfig:   suiteConfig,
+				scenario:      scenario,
+				chosenCluster: cluster,
+				nbc:           nbc,
+				subnetID:      subnetID,
+				loggingDir:    caseLogsDir,
 			}
 
-			defer cleanupVMSS()
-
-			privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair(r)
-			if err != nil {
-				t.Error(err)
-				return
-			}
-
-			err = createVMSSWithPayload(ctx, publicKeyBytes, cloud, suiteConfig.location, vmssName, subnetID, base64EncodedCustomData, cseCmd, tc.vmConfigMutator)
-			isCSEError := isVMExtensionProvisioningError(err)
-			vmssSucceeded := true
-			if err != nil {
-				vmssSucceeded = false
-				if isCSEError {
-					t.Error("VM was unable to be provisioned due to a CSE error, will still atempt to extract provisioning logs...", err)
-				} else {
-					t.Fatal("Encountered an unknown error while creating VM", err)
-				}
-			}
-
-			// Perform posthoc log extraction when the VMSS creation succeeded, or failed due to a CSE error
-			if vmssSucceeded || isCSEError {
-				debug := func() {
-					err := wait.PollImmediateWithContext(ctx, 15*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
-						t.Log("attempting to extract VM logs")
-
-						logFiles, err := extractLogsFromVM(ctx, t, cloud, kube, suiteConfig.subscription, vmssName, string(privateKeyBytes))
-						if err != nil {
-							t.Logf("error extracting VM logs: %q", err)
-							return false, nil
-						}
-
-						t.Logf("dumping VM logs to local directory: %s", caseLogsDir)
-						if err = dumpFileMapToDir(caseLogsDir, logFiles); err != nil {
-							t.Logf("error extracting VM logs: %q", err)
-							return false, nil
-						}
-
-						return true, nil
-					})
-					if err != nil {
-						t.Fatal(err)
-					}
-				}
-				defer debug()
-			}
-
-			// Only perform node readiness/pod-related checks when VMSS creation succeeded
-			if vmssSucceeded {
-				t.Log("VMSS creation succeded, proceeding with node readiness and pod checks...")
-
-				nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
-				if err != nil {
-					t.Fatal("error waiting for node ready", err)
-				}
-
-				err = ensureTestNginxPod(ctx, kube, nodeName)
-				if err != nil {
-					t.Fatal("error waiting for pod ready", err)
-				}
-
-				err = waitUntilPodDeleted(ctx, kube, nodeName)
-				if err != nil {
-					t.Fatal("error waiting for pod deleted", err)
-				}
-			}
+			runScenario(ctx, t, r, opts)
 		})
 	}
+}
+
+func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts) {
+	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair(r)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	vmssName, vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, opts, publicKeyBytes)
+	if cleanupVMSS != nil {
+		defer cleanupVMSS()
+	}
+	isCSEError := isVMExtensionProvisioningError(err)
+	vmssSucceeded := true
+	if err != nil {
+		vmssSucceeded = false
+		if !isCSEError {
+			t.Fatal("Encountered an unknown error while creating VM:", err)
+		}
+		t.Log("VM was unable to be provisioned due to a CSE error, will still atempt to extract provisioning logs...")
+	}
+
+	if vmssModel != nil {
+		if err := writeToFile(filepath.Join(opts.loggingDir, "vmssId.txt"), *vmssModel.ID); err != nil {
+			t.Fatal("failed to write vmss resource ID to disk", err)
+		}
+	}
+
+	// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
+	if vmssSucceeded || isCSEError {
+		debug := func() {
+			err := pollExtractVMLogs(ctx, t, vmssName, privateKeyBytes, opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		defer debug()
+	}
+
+	// Only perform node readiness/pod-related checks when VMSS creation succeeded
+	if vmssSucceeded {
+		t.Log("vmss creation succeded, proceeding with node readiness and pod checks...")
+		if err = validateNodeHealth(ctx, t, opts.kube, vmssName); err != nil {
+			t.Fatal(err)
+		}
+
+		t.Logf("node is ready, proceeding with validation commands...")
+
+		err := runLiveVMValidators(ctx, t, *vmssModel.Name, string(privateKeyBytes), opts)
+		if err != nil {
+			t.Fatalf("VM validation failed: %s", err)
+		}
+
+		t.Log("node bootstrapping succeeded!")
+	}
+}
+
+func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts, publicKeyBytes []byte) (string, *armcompute.VirtualMachineScaleSet, func(), error) {
+	nodeBootstrappingFn := getNodeBootstrappingFn(e2eMode)
+	nodeBootstrapping, err := nodeBootstrappingFn(ctx, opts.nbc)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("unable to get node bootstrapping: %w", err)
+	}
+
+	vmssName := fmt.Sprintf("abtest%s", randomLowercaseString(r, 4))
+	t.Logf("vmss name: %q", vmssName)
+
+	cleanupVMSS := func() {
+		t.Log("deleting vmss", vmssName)
+		poller, err := opts.cloud.vmssClient.BeginDelete(ctx, *opts.chosenCluster.Properties.NodeResourceGroup, vmssName, nil)
+		if err != nil {
+			t.Error("error deleting vmss", vmssName, err)
+			return
+		}
+		_, err = poller.PollUntilDone(ctx, nil)
+		if err != nil {
+			t.Error("error polling deleting vmss", vmssName, err)
+		}
+		t.Logf("finished deleting vmss %q", vmssName)
+	}
+
+	vmssModel, err := createVMSSWithPayload(ctx, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("unable to create VMSS with payload: %w", err)
+	}
+
+	return vmssName, vmssModel, cleanupVMSS, nil
+}
+
+func validateNodeHealth(ctx context.Context, t *testing.T, kube *kubeclient, vmssName string) error {
+	nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
+	if err != nil {
+		return fmt.Errorf("error waiting for node ready: %w", err)
+	}
+
+	err = ensureTestNginxPod(ctx, kube, nodeName)
+	if err != nil {
+		return fmt.Errorf("error waiting for pod ready: %w", err)
+	}
+
+	err = waitUntilPodDeleted(ctx, kube, nodeName)
+	if err != nil {
+		return fmt.Errorf("error waiting pod deleted: %w", err)
+	}
+
+	return nil
 }

@@ -13,7 +13,7 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
-CONTAINERD_WASM_VERSION="v0.3.0"
+CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 
@@ -70,18 +70,21 @@ downloadCNI() {
 }
 
 downloadContainerdWasmShims() {
-    local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${CONTAINERD_WASM_VERSION}/linux/amd64"
-    local containerd_wasm_filepath="/usr/local/bin"
-    if [[ $(isARM64) == 1 ]]; then
-        containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${CONTAINERD_WASM_VERSION}/linux/arm64"
-    fi
+    for shim_version in $CONTAINERD_WASM_VERSIONS; do
+        binary_version="$(echo "${shim_version}" | tr . -)"
+        local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/amd64"
+        local containerd_wasm_filepath="/usr/local/bin"
+        if [[ $(isARM64) == 1 ]]; then
+            containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/arm64"
+        fi
 
-    if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-v1" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-v1" ]; then
-        retrycmd_if_failure 30 5 60 curl -fSL -o "$containerd_wasm_filepath/containerd-shim-spin-v1" "$containerd_wasm_url/containerd-shim-spin-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-        retrycmd_if_failure 30 5 60 curl -fSL -o "$containerd_wasm_filepath/containerd-shim-slight-v1" "$containerd_wasm_url/containerd-shim-slight-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-v1"
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-v1"
-    fi
+        if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-v1" "$containerd_wasm_url/containerd-shim-spin-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-v1" "$containerd_wasm_url/containerd-shim-slight-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+            chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
+            chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
+        fi
+    done
 }
 
 downloadAzureCNI() {
@@ -219,32 +222,6 @@ extractKubeBinaries() {
     rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
 }
 
-extractHyperkube() {
-    CLI_TOOL=$1
-    path="/home/hyperkube-downloads/${KUBERNETES_VERSION}"
-    pullContainerImage $CLI_TOOL ${HYPERKUBE_URL}
-    mkdir -p "$path"
-    if [[ "$CLI_TOOL" == "ctr" ]]; then
-        if ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
-            mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
-            mv "$path/kubectl" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
-        else
-            ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /hyperkube $path"
-        fi
-
-    else
-        if docker run --rm --entrypoint "" -v $path:$path ${HYPERKUBE_URL} /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
-            mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
-            mv "$path/kubectl" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
-        else
-            docker run --rm -v $path:$path ${HYPERKUBE_URL} /bin/bash -c "cp /hyperkube $path"
-        fi
-    fi
-
-    cp "$path/hyperkube" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
-    mv "$path/hyperkube" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
-}
-
 installKubeletKubectlAndKubeProxy() {
 
     CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"
@@ -262,12 +239,6 @@ installKubeletKubectlAndKubeProxy() {
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
                 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
-            else
-                if [[ "$CONTAINER_RUNTIME" == "containerd" ]]; then
-                    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractHyperkube" extractHyperkube ctr
-                else
-                    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractHyperkube" extractHyperkube docker
-                fi
             fi
         fi
     fi
@@ -372,12 +343,6 @@ cleanUpImages() {
     retrycmd_if_failure 10 5 120 bash -c cleanupImagesRun
 }
 
-cleanUpHyperkubeImages() {
-    echo $(date),$(hostname), cleanUpHyperkubeImages
-    cleanUpImages "hyperkube"
-    echo $(date),$(hostname), endCleanUpHyperkubeImages
-}
-
 cleanUpKubeProxyImages() {
     echo $(date),$(hostname), startCleanUpKubeProxyImages
     cleanUpImages "kube-proxy"
@@ -412,15 +377,12 @@ cleanupRetaggedImages() {
 }
 
 cleanUpContainerImages() {
-    # run cleanUpHyperkubeImages and cleanUpKubeProxyImages concurrently
     export KUBERNETES_VERSION
     export CLI_TOOL
     export -f retrycmd_if_failure
     export -f removeContainerImage
     export -f cleanUpImages
-    export -f cleanUpHyperkubeImages
     export -f cleanUpKubeProxyImages
-    bash -c cleanUpHyperkubeImages &
     bash -c cleanUpKubeProxyImages &
 }
 

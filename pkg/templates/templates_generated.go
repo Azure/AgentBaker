@@ -1808,7 +1808,7 @@ retrycmd_get_tarball() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            timeout 60 curl -fsSL $url -o $tarball
+            timeout 60 curl -fsSLv $url -o $tarball
             sleep $wait_sleep
         fi
     done
@@ -1821,7 +1821,7 @@ retrycmd_curl_file() {
         if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout $timeout curl -fsSL $url -o $filepath
+            timeout $timeout curl -fsSLv $url -o $filepath
             sleep $wait_sleep
         fi
     done
@@ -2027,7 +2027,7 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
-CONTAINERD_WASM_VERSION="v0.3.0"
+CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 
@@ -2084,18 +2084,21 @@ downloadCNI() {
 }
 
 downloadContainerdWasmShims() {
-    local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${CONTAINERD_WASM_VERSION}/linux/amd64"
-    local containerd_wasm_filepath="/usr/local/bin"
-    if [[ $(isARM64) == 1 ]]; then
-        containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${CONTAINERD_WASM_VERSION}/linux/arm64"
-    fi
+    for shim_version in $CONTAINERD_WASM_VERSIONS; do
+        binary_version="$(echo "${shim_version}" | tr . -)"
+        local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/amd64"
+        local containerd_wasm_filepath="/usr/local/bin"
+        if [[ $(isARM64) == 1 ]]; then
+            containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/arm64"
+        fi
 
-    if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-v1" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-v1" ]; then
-        retrycmd_if_failure 30 5 60 curl -fSL -o "$containerd_wasm_filepath/containerd-shim-spin-v1" "$containerd_wasm_url/containerd-shim-spin-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-        retrycmd_if_failure 30 5 60 curl -fSL -o "$containerd_wasm_filepath/containerd-shim-slight-v1" "$containerd_wasm_url/containerd-shim-slight-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-v1"
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-v1"
-    fi
+        if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-v1" "$containerd_wasm_url/containerd-shim-spin-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-v1" "$containerd_wasm_url/containerd-shim-slight-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+            chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
+            chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
+        fi
+    done
 }
 
 downloadAzureCNI() {
@@ -2233,32 +2236,6 @@ extractKubeBinaries() {
     rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
 }
 
-extractHyperkube() {
-    CLI_TOOL=$1
-    path="/home/hyperkube-downloads/${KUBERNETES_VERSION}"
-    pullContainerImage $CLI_TOOL ${HYPERKUBE_URL}
-    mkdir -p "$path"
-    if [[ "$CLI_TOOL" == "ctr" ]]; then
-        if ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
-            mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
-            mv "$path/kubectl" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
-        else
-            ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /hyperkube $path"
-        fi
-
-    else
-        if docker run --rm --entrypoint "" -v $path:$path ${HYPERKUBE_URL} /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
-            mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
-            mv "$path/kubectl" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
-        else
-            docker run --rm -v $path:$path ${HYPERKUBE_URL} /bin/bash -c "cp /hyperkube $path"
-        fi
-    fi
-
-    cp "$path/hyperkube" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
-    mv "$path/hyperkube" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
-}
-
 installKubeletKubectlAndKubeProxy() {
 
     CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"
@@ -2276,12 +2253,6 @@ installKubeletKubectlAndKubeProxy() {
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
                 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
-            else
-                if [[ "$CONTAINER_RUNTIME" == "containerd" ]]; then
-                    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractHyperkube" extractHyperkube ctr
-                else
-                    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractHyperkube" extractHyperkube docker
-                fi
             fi
         fi
     fi
@@ -2386,12 +2357,6 @@ cleanUpImages() {
     retrycmd_if_failure 10 5 120 bash -c cleanupImagesRun
 }
 
-cleanUpHyperkubeImages() {
-    echo $(date),$(hostname), cleanUpHyperkubeImages
-    cleanUpImages "hyperkube"
-    echo $(date),$(hostname), endCleanUpHyperkubeImages
-}
-
 cleanUpKubeProxyImages() {
     echo $(date),$(hostname), startCleanUpKubeProxyImages
     cleanUpImages "kube-proxy"
@@ -2426,15 +2391,12 @@ cleanupRetaggedImages() {
 }
 
 cleanUpContainerImages() {
-    # run cleanUpHyperkubeImages and cleanUpKubeProxyImages concurrently
     export KUBERNETES_VERSION
     export CLI_TOOL
     export -f retrycmd_if_failure
     export -f removeContainerImage
     export -f cleanUpImages
-    export -f cleanUpHyperkubeImages
     export -f cleanUpKubeProxyImages
-    bash -c cleanUpHyperkubeImages &
     bash -c cleanUpKubeProxyImages &
 }
 
@@ -4000,15 +3962,12 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "stable": "1.4.13-3"
     },
     "runc": {
-        "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",
+        "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "downloadLocation": "/opt/runc/downloads",
-        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
-        "versions": [
-            "1.0.0-rc92",
-            "1.0.0-rc95"
-        ],
+        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
+        "versions": [],
         "installed": {
-            "default": "1.0.3"
+            "default": "1.1.5"
         }
     },
     "nvidia-container-runtime": {
@@ -4028,17 +3987,8 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadLocation": "",
         "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz",
         "versions": [
-            "1.22.11-hotfix.20220620",
-            "1.22.15",
-            "1.23.8-hotfix.20220620",
-            "1.23.12",
-            "1.23.15-hotfix.20230114",
-            "1.24.3",
-            "1.24.6",
             "1.24.9",
             "1.24.10",
-            "1.25.2-hotfix.20221006",
-            "1.25.4",
             "1.25.5",
             "1.25.6",
             "1.26.0",
@@ -5795,13 +5745,7 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.0.3"
-
-        if [[ $(isARM64) == 1 ]]; then
-            # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
-            # so use different target version for different arch to avoid affecting each other during provisioning
-            TARGET_VERSION="1.0.3"
-        fi
+        TARGET_VERSION="1.1.5+azure-ubuntu${UBUNTU_RELEASE}u1"
     fi
 
     if [[ $(isARM64) == 1 ]]; then
@@ -5813,20 +5757,22 @@ ensureRunc() {
 
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-    if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
-        echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
+    CLEANED_TARGET_VERSION=$(TARGET_VERSION%+*) # removes the +azure-ubuntu18.04u1 (or similar) suffix
+
+    if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
+        echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
         return
     fi
     # if on a vhd-built image, first check if we've cached the deb file
     if [ -f $VHD_LOGS_FILEPATH ]; then
-        RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_${CPU_ARCH}.deb"
+        RUNC_DEB_PATTERN="moby-runc_*.deb"
         RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
         if [[ -f "${RUNC_DEB_FILE}" ]]; then
             installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
             return 0
         fi
     fi
-    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION/-/\~}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION} --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
 #EOF
@@ -6268,29 +6214,6 @@ write_files:
       name: localclustercontext
     current-context: localclustercontext
 {{- end}}
-
-- path: /etc/systemd/system/containerd.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=containerd daemon
-    After=network.target
-    [Service]
-    ExecStartPre=/sbin/modprobe overlay
-    ExecStart=/usr/bin/containerd
-    Delegate=yes
-    KillMode=process
-    Restart=always
-    OOMScoreAdjust=-999
-    # Having non-zero Limit*s causes performance problems due to accounting overhead
-    # in the kernel. We recommend using cgroups to do container-local accounting.
-    LimitNPROC=infinity
-    LimitCORE=infinity
-    LimitNOFILE=infinity
-    TasksMax=infinity
-    [Install]
-    WantedBy=multi-user.target
 
 - path: /opt/azure/containers/kubelet.sh
   permissions: "0755"

@@ -13,7 +13,7 @@ The primary consumer of Agentbaker is Azure Kubernetes Service (AKS).
 
 AKS uses Agentbaker to provision Linux and Windows Kubernetes nodes.
 
-# Contributing
+## Contributing
 
 Developing agentbaker requires a few basic requisites:
 - Go (at least version 1.19)
@@ -43,6 +43,16 @@ This job uses the linters "no-new-issues" feature.
 
 As long as PRs don't introduce net new issues, they should pass.
 
+We also have a linting job to enforce commit message style.
+
+We adhere to [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/).
+
+Prefer pull requests with single commits.
+
+To clean up in-progress commits, you can use `git rebase -i` to fixup commits.
+
+See the [git documentation](https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History#_squashing) for more details.
+
 ## Testing
 
 Most code may be tested with vanilla Go unit tests.
@@ -59,25 +69,7 @@ See `./pkg/agent/baker_test.go` for examples (search for `dynamic-config-dir` to
 
 ### E2E
 
-We also have basic e2e tests which run a subset of the agentbaker API against a real Azure subscription.
-
-These tests join a standalone VM to an existing cluster. 
-
-They use a basic NodeBootstrappingConfiguration template, overriding it with per-scenario config.
-
-`./e2e/nodebootstrapping_template.json` defines the base configuration.
-
-Specific scenarios exist in `./e2e/scenarios/$SCENARIO_NAME`, for example `./e2e/vanilla-gpu` contains a GPU VM sku scenario to test driver provisioning.
-
-You can run these locally:
-
-```bash
-cd e2e
-# scenario name and VM size as args currently
-bash ./e2e-local.sh vanilla-aks Standard_D4ads_v5
-```
-
-This will generate many files in the current directory including an SSH key in case you need to debug the VM afterwards.
+Checkout the [e2e directory](e2e/).
 
 ## Contributor License Agreement (CLA)
 
