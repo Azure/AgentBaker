@@ -366,12 +366,7 @@ func GetTLSBootstrapTokenForKubeConfig(tlsBootstrapToken *string) string {
 	return *tlsBootstrapToken
 }
 
-// GetKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content.
-func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.CustomKubeletConfig) string {
-	if kc == nil {
-		return ""
-	}
-	// translate simple values.
+func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfiguration {
 	kubeletConfig := &datamodel.AKSKubeletConfiguration{
 		APIVersion:    "kubelet.config.k8s.io/v1beta1",
 		Kind:          "KubeletConfiguration",
@@ -401,41 +396,12 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 		ResolverConfig:                 kc["--resolv-conf"],
 		ContainerLogMaxSize:            kc["--container-log-max-size"],
 	}
+	return kubeletConfig
+}
 
-	// Authentication.
-	kubeletConfig.Authentication = datamodel.KubeletAuthentication{}
-	if ca := kc["--client-ca-file"]; ca != "" {
-		kubeletConfig.Authentication.X509 = datamodel.KubeletX509Authentication{
-			ClientCAFile: ca,
-		}
-	}
-	if aw := kc["--authentication-token-webhook"]; aw != "" {
-		kubeletConfig.Authentication.Webhook = datamodel.KubeletWebhookAuthentication{
-			Enabled: strToBool(aw),
-		}
-	}
-	if aa := kc["--anonymous-auth"]; aa != "" {
-		kubeletConfig.Authentication.Anonymous = datamodel.KubeletAnonymousAuthentication{
-			Enabled: strToBool(aa),
-		}
-	}
-
-	// EvictionHard.
-	// default: "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%".
-	if eh, ok := kc["--eviction-hard"]; ok && eh != "" {
-		kubeletConfig.EvictionHard = strKeyValToMap(eh, ",", "<")
-	}
-
-	// feature gates.
-	// look like "f1=true,f2=true".
-	kubeletConfig.FeatureGates = strKeyValToMapBool(kc["--feature-gates"], ",", "=")
-
-	// system reserve and kube reserve.
-	// looks like "cpu=100m,memory=1638Mi".
-	kubeletConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], ",", "=")
-	kubeletConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], ",", "=")
-
-	// Settings from customKubeletConfig, only take if it's set.
+//nolint:gocognit
+func setCustomKubeletConfig(customKc *datamodel.CustomKubeletConfig,
+	kubeletConfig *datamodel.AKSKubeletConfiguration) {
 	if customKc != nil {
 		if customKc.CPUManagerPolicy != "" {
 			kubeletConfig.CPUManagerPolicy = customKc.CPUManagerPolicy
@@ -475,6 +441,51 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 			kubeletConfig.PodPidsLimit = to.Int64Ptr(int64(*customKc.PodMaxPids))
 		}
 	}
+}
+
+// GetKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content.
+func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.CustomKubeletConfig) string {
+	if kc == nil {
+		return ""
+	}
+	// translate simple values.
+	kubeletConfig := getAKSKubeletConfiguration(kc)
+
+	// Authentication.
+	kubeletConfig.Authentication = datamodel.KubeletAuthentication{}
+	if ca := kc["--client-ca-file"]; ca != "" {
+		kubeletConfig.Authentication.X509 = datamodel.KubeletX509Authentication{
+			ClientCAFile: ca,
+		}
+	}
+	if aw := kc["--authentication-token-webhook"]; aw != "" {
+		kubeletConfig.Authentication.Webhook = datamodel.KubeletWebhookAuthentication{
+			Enabled: strToBool(aw),
+		}
+	}
+	if aa := kc["--anonymous-auth"]; aa != "" {
+		kubeletConfig.Authentication.Anonymous = datamodel.KubeletAnonymousAuthentication{
+			Enabled: strToBool(aa),
+		}
+	}
+
+	// EvictionHard.
+	// default: "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%".
+	if eh, ok := kc["--eviction-hard"]; ok && eh != "" {
+		kubeletConfig.EvictionHard = strKeyValToMap(eh, ",", "<")
+	}
+
+	// feature gates.
+	// look like "f1=true,f2=true".
+	kubeletConfig.FeatureGates = strKeyValToMapBool(kc["--feature-gates"], ",", "=")
+
+	// system reserve and kube reserve.
+	// looks like "cpu=100m,memory=1638Mi".
+	kubeletConfig.SystemReserved = strKeyValToMap(kc["--system-reserved"], ",", "=")
+	kubeletConfig.KubeReserved = strKeyValToMap(kc["--kube-reserved"], ",", "=")
+
+	// Settings from customKubeletConfig, only take if it's set.
+	setCustomKubeletConfig(customKc, kubeletConfig)
 
 	configStringByte, _ := json.MarshalIndent(kubeletConfig, "", "    ")
 	return string(configStringByte)

@@ -23,12 +23,12 @@ type podExecResult struct {
 	stderr, stdout *bytes.Buffer
 }
 
-func (r *podExecResult) dumpAll() {
+func (r podExecResult) dumpAll() {
 	r.dumpStdout()
 	r.dumpStderr()
 }
 
-func (r *podExecResult) dumpStdout() {
+func (r podExecResult) dumpStdout() {
 	if r.stdout != nil {
 		stdoutContent := r.stdout.String()
 		if stdoutContent != "" && stdoutContent != "<nil>" {
@@ -41,7 +41,7 @@ func (r *podExecResult) dumpStdout() {
 	}
 }
 
-func (r *podExecResult) dumpStderr() {
+func (r podExecResult) dumpStderr() {
 	if r.stderr != nil {
 		stderrContent := r.stderr.String()
 		if stderrContent != "" && stderrContent != "<nil>" {
@@ -77,7 +77,7 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName string, sshPr
 
 		execResult, err := execOnVM(ctx, opts.kube, privateIP, podName, sshPrivateKey, sourceCmd)
 		if execResult != nil {
-			checkStdErr(execResult.stderr, t)
+			execResult.dumpStderr()
 		}
 		if err != nil {
 			return nil, err
@@ -106,7 +106,7 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 
 		execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, sourceCmd)
 		if execResult != nil {
-			checkStdErr(execResult.stderr, t)
+			execResult.dumpStderr()
 		}
 		if err != nil {
 			return nil, err
@@ -180,17 +180,6 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 		stdout:   &stdout,
 		stderr:   &stderr,
 	}, nil
-}
-
-func checkStdErr(stderr *bytes.Buffer, t *testing.T) {
-	stderrString := stderr.String()
-	if stderrString != "" && stderrString != "<nil>" {
-		t.Logf("%s\n%s\n%s\n%s",
-			"stderr is non-empty after executing last command:",
-			"----------------------------------- begin stderr -----------------------------------",
-			stderrString,
-			"------------------------------------ end stderr ------------------------------------")
-	}
 }
 
 func nsenterCommandArray() []string {
