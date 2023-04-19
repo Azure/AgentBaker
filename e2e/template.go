@@ -452,17 +452,17 @@ func getBaseNodeBootstrappingConfiguration(ctx context.Context, t *testing.T, cl
 
 	bootstrapToken, err := extractKeyValuePair("token", bootstrapKubeconfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract bootstrap token via regex: %q", err)
+		return nil, fmt.Errorf("failed to extract bootstrap token via regex: %w", err)
 	}
 
 	bootstrapToken, err = strconv.Unquote(bootstrapToken)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unquote bootstrap token: %q", err)
+		return nil, fmt.Errorf("failed to unquote bootstrap token: %w", err)
 	}
 
 	server, err := extractKeyValuePair("server", bootstrapKubeconfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract fqdn via regex: %q", err)
+		return nil, fmt.Errorf("failed to extract fqdn via regex: %w", err)
 	}
 	tokens := strings.Split(server, ":")
 	if len(tokens) != 3 {
@@ -575,4 +575,15 @@ type listVMSSVMNetworkInterfaceResult struct {
 			} `json:"virtualMachine,omitempty"`
 		} `json:"properties,omitempty"`
 	} `json:"value,omitempty"`
+}
+
+func extractPrivateIP(res listVMSSVMNetworkInterfaceResult) (string, error) {
+	if len(res.Value) > 0 {
+		v := res.Value[0]
+		if len(v.Properties.IPConfigurations) > 0 {
+			ipconfig := v.Properties.IPConfigurations[0]
+			return ipconfig.Properties.PrivateIPAddress, nil
+		}
+	}
+	return "", fmt.Errorf("unable to extract private IP address from listVMSSNetworkInterfaceResult:\n%+v", res)
 }

@@ -2,11 +2,9 @@
   "ContainerImages": [
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
-      "amd64OnlyVersions": [
-        "1.8.5"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.8.14"
+        "1.8.18"
       ]
     },
     {
@@ -161,15 +159,16 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/operator-generic:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.5"
+        "1.12.5",
+        "1.12.8"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.5.1",
-        "1.12.5.2"
+        "1.12.5.2",
+        "1.12.8"
       ]
     },
     {
@@ -198,11 +197,9 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
-      "amd64OnlyVersions": [
-        "1.8.3"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.8.5"
+        "1.8.6"
       ]
     },
     {
@@ -262,8 +259,6 @@
       "downloadURL": "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.8.1",
-        "v3.10.0",
         "v3.11.0"
       ]
     },
@@ -302,9 +297,6 @@
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "prod_20220512.2",
-        "prod_20221215.1",
-        "prod_20230203.1",
         "prod_20230208.1"
       ]
     },
@@ -312,9 +304,6 @@
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "prod_20220512.2",
-        "prod_20221215.1",
-        "prod_20230203.1",
         "prod_20230208.1"
       ]
     },
