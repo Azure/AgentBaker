@@ -86,6 +86,9 @@ CLUSTER_ID=$(echo $MC_VMSS_NAME | cut -d '-' -f3)
 if [ "$create_cluster" == "true" ]; then
     create_storage_account
     upload_linux_file_to_storage_account
+    if [ "$WINDOWS_E2E_IMAGE" == "2019-containerd" ]; then
+        cleanupOutdatedFiles
+    fi
 fi
 download_linux_file_from_storage_account
 
