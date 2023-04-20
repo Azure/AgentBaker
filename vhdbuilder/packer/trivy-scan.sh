@@ -2,7 +2,7 @@
 set -euxo pipefail
 
 TRIVY_REPORT_PATH=/opt/azure/containers/trivy-report.json
-TRIVY_VERSION="0.38.2"
+TRIVY_VERSION="0.40.0"
 TRIVY_ARCH=""
 
 arch="$(uname -m)"
