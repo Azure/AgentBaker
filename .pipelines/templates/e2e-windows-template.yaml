@@ -44,7 +44,7 @@ jobs:
           fi
         else
           if [[ -z "${KUBERNETES_VERSION}" ]]; then
-            KUBERNETES_VERSION=$(az aks get-versions -l eastus --query "orchestrators[?default==\`true\`].orchestratorVersion" -otsv)
+            KUBERNETES_VERSION=$(az aks get-versions -l $LOCATION --query "orchestrators[?default==\`true\`].orchestratorVersion" -otsv)
             echo "Using default kubernetes version ${KUBERNETES_VERSION} for the windows package"
           fi
           export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
@@ -96,7 +96,7 @@ jobs:
           export WINDOWS_PACKAGE_VERSION=$(echo $windowsPackageURL | grep -oP '(?<=/v)\d+\.\d+\.\d+' | head -1)
         else
           if [[ -z "${KUBERNETES_VERSION}" ]]; then
-            KUBERNETES_VERSION=$(az aks get-versions -l eastus --query "orchestrators[?default==\`true\`].orchestratorVersion" -otsv)
+            KUBERNETES_VERSION=$(az aks get-versions -l $LOCATION --query "orchestrators[?default==\`true\`].orchestratorVersion" -otsv)
             echo "Using default kubernetes version ${KUBERNETES_VERSION} for the windows package"
           fi
           export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
