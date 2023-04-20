@@ -99,7 +99,7 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 	sigConfig datamodel.SIGConfig, region string) (map[datamodel.Distro]datamodel.SigImageConfig, error) {
 	allAzureSigConfig, err := datamodel.GetSIGAzureCloudSpecConfig(sigConfig, region)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get sig image config: %v", err)
+		return nil, fmt.Errorf("failed to get sig image config: %w", err)
 	}
 
 	allDistros := map[datamodel.Distro]datamodel.SigImageConfig{}

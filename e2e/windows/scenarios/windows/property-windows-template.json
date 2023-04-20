@@ -3,7 +3,7 @@
     "properties": {
       "orchestratorProfile": {
         "orchestratorType": "Kubernetes",
-        "orchestratorVersion": "1.23.12",
+        "orchestratorVersion": "${orchestratorVersion}",
         "kubernetesConfig": {
           "networkPlugin": "azure",
           "loadBalancerSku": "Standard",
@@ -61,7 +61,7 @@
     }
   },
   "K8sComponents": {
-    "WindowsPackageURL": "https://acs-mirror.azureedge.net/kubernetes/v1.23.12/windowszip/v1.23.12-1int.zip"
+    "WindowsPackageURL": "${windowsPackageURL}"
   },
   "AgentPoolProfile": {
     "name": "winnp",
@@ -97,7 +97,6 @@
     "--kube-reserved": "cpu=100m,memory=3891Mi",
     "--kubeconfig": "c:\\k\\config",
     "--max-pods": "30",
-    "--network-plugin": "azure",
     "--pod-infra-container-image": "kubletwin/pause",
     "--resolv-conf": "\"\"\"\"",
     "--rotate-certificates": "true",
