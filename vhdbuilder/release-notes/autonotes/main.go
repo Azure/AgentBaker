@@ -132,7 +132,7 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 
 	trivyReportName := fmt.Sprintf("trivy-report-%s", sku)
 	trivyReportFileIn := filepath.Join(tmpdir, "trivy-report.json")
-	trivyTableName := fmt.Sprintf("trivy-report-%s", sku)
+	trivyTableName := fmt.Sprintf("trivy-table-%s", sku)
 	trivyReportTableIn := filepath.Join(tmpdir, "trivy-table.txt")
 
 	artifactsDirOut := filepath.Join(fl.path, path)
@@ -215,7 +215,7 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 	}
 
 	if err := os.Rename(trivyReportFileIn, trivyReportFileOut); err != nil {
-		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", imageListFileIn, imageListFileOut, err)
+		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", trivyReportFileIn, trivyReportFileOut, err)
 		return
 	}
 
@@ -238,7 +238,7 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 	}
 
 	if err := os.Rename(trivyReportTableIn, trivyReportTableOut); err != nil {
-		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", imageListFileIn, imageListFileOut, err)
+		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", trivyReportTableIn, trivyReportTableOut, err)
 		return
 	}
 
