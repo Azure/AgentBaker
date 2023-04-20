@@ -8,11 +8,7 @@ log "Starting e2e tests"
 
 # Create a resource group for the cluster
 log "Creating resource group"
-if echo "$windowsPackageURL" | grep -q "hotfix"; then
-    RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION-h"
-else
-    RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION"
-fi
+RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION"
 
 rgStartTime=$(date +%s)
 az group create -l $LOCATION -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID -ojson

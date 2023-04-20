@@ -86,10 +86,6 @@ jobs:
         if [[ -n "${WINDOWS_PACKAGE_URL}" ]]; then
           export windowsPackageURL=$WINDOWS_PACKAGE_URL
           export WINDOWS_PACKAGE_VERSION=$(echo $windowsPackageURL | grep -oP '(?<=/v)\d+\.\d+\.\d+' | head -1)
-          if [[ "${WINDOWS_PACKAGE_VERSION}" != "${KUBERNETES_VERSION}" ]]; then
-            echo "Windows package version $WINDOWS_PACKAGE_VERSION does not match with kubernetes version $KUBERNETES_VERSION. Invalid test scenario."
-            exit 1
-          fi
         else
           export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
           export WINDOWS_PACKAGE_VERSION=$KUBERNETES_VERSION

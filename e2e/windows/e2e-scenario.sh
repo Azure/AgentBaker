@@ -43,11 +43,7 @@ collect-logs() {
     set -x
 }
 
-if echo "$windowsPackageURL" | grep -q "hotfix"; then
-    RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION-h"
-else
-    RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION"
-fi
+RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION"
 
 DEPLOYMENT_VMSS_NAME="$(mktemp -u winXXXXX | tr '[:upper:]' '[:lower:]')"
 export DEPLOYMENT_VMSS_NAME
@@ -99,7 +95,6 @@ fi
 log "Upload cse packages done"
 
 log "Scenario is $SCENARIO_NAME"
-log "Windows package url is $windowsPackageURL"
 log "Windows package version is $WINDOWS_PACKAGE_VERSION"
 
 # Generate vmss cse deployment config for windows nodepool testing
