@@ -218,8 +218,6 @@ var artifactToPath = map[string]string{
 	"1804-gen2-gpu-containerd":          filepath.Join("AKSUbuntu", "gen2", "1804gpucontainerd"),
 	"1804-fips-containerd":              filepath.Join("AKSUbuntu", "gen1", "1804fipscontainerd"),
 	"1804-fips-gen2-containerd":         filepath.Join("AKSUbuntu", "gen2", "1804fipscontainerd"),
-	"1804-fips-gpu-containerd":          filepath.Join("AKSUbuntu", "gen1", "1804fipsgpucontainerd"),
-	"1804-fips-gen2-gpu-containerd":     filepath.Join("AKSUbuntu", "gen2", "1804fipsgpucontainerd"),
 	"2004-fips-containerd":              filepath.Join("AKSUbuntu", "gen1", "2004fipscontainerd"),
 	"2004-fips-gen2-containerd":         filepath.Join("AKSUbuntu", "gen2", "2004fipscontainerd"),
 	"marinerv1":                         filepath.Join("AKSCBLMariner", "gen1"),
