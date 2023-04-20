@@ -266,7 +266,7 @@ const (
 	// DO NOT MODIFY: used for freezing linux images with docker.
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
-	// DO NOT MODIFY: used to freeze linux image versions for FIPS GPU images
+	// DO NOT MODIFY: used to freeze linux image versions for FIPS GPU images.
 	FrozenLinuxSigImageVersionFor1804FIPSGPU string = "202304.10.0"
 
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
