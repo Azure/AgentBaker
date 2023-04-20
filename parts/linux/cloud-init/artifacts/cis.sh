@@ -124,10 +124,22 @@ setPWExpiration() {
     replaceOrAppendUserAdd INACTIVE 30
 }
 
+function fixRpFilter() {
+    # Mariner AKS CIS Benchmark: 3.3.7 Ensure Reverse Path Filtering is enabled
+    # Comment out rp_filter settings in /usr/lib/sysctl.d/50-default.conf and /lib/sysctl.d/50-default.conf
+    # We set these correctly in sysctl-d-60-CIS.conf, but they also need to not be present in the default file.
+    # These sed comands will comment out any line that starts with the settings we want to get rid of.
+    sed -E -i 's/^[[:space:]]*net.ipv4.conf.all.rp_filter/#net.ipv4.conf.all.rp_filter/g' /usr/lib/sysctl.d/50-default.conf
+    sed -E -i 's/^[[:space:]]*net.ipv4.conf.default.rp_filter/#net.ipv4.conf.default.rp_filter/g' /usr/lib/sysctl.d/50-default.conf
+    sed -E -i 's/^[[:space:]]*net.ipv4.conf.all.rp_filter/#net.ipv4.conf.all.rp_filter/g' /lib/sysctl.d/50-default.conf
+    sed -E -i 's/^[[:space:]]*net.ipv4.conf.default.rp_filter/#net.ipv4.conf.default.rp_filter/g' /lib/sysctl.d/50-default.conf
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
     assignFilePermissions
+    fixRpFilter
 }
 
 applyCIS

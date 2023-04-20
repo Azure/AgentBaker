@@ -748,10 +748,22 @@ setPWExpiration() {
     replaceOrAppendUserAdd INACTIVE 30
 }
 
+function fixRpFilter() {
+    # Mariner AKS CIS Benchmark: 3.3.7 Ensure Reverse Path Filtering is enabled
+    # Comment out rp_filter settings in /usr/lib/sysctl.d/50-default.conf and /lib/sysctl.d/50-default.conf
+    # We set these correctly in sysctl-d-60-CIS.conf, but they also need to not be present in the default file.
+    # These sed comands will comment out any line that starts with the settings we want to get rid of.
+    sed -E -i 's/^[[:space:]]*net.ipv4.conf.all.rp_filter/#net.ipv4.conf.all.rp_filter/g' /usr/lib/sysctl.d/50-default.conf
+    sed -E -i 's/^[[:space:]]*net.ipv4.conf.default.rp_filter/#net.ipv4.conf.default.rp_filter/g' /usr/lib/sysctl.d/50-default.conf
+    sed -E -i 's/^[[:space:]]*net.ipv4.conf.all.rp_filter/#net.ipv4.conf.all.rp_filter/g' /lib/sysctl.d/50-default.conf
+    sed -E -i 's/^[[:space:]]*net.ipv4.conf.default.rp_filter/#net.ipv4.conf.default.rp_filter/g' /lib/sysctl.d/50-default.conf
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
     assignFilePermissions
+    fixRpFilter
 }
 
 applyCIS
@@ -5342,27 +5354,52 @@ func linuxCloudInitArtifactsSyncContainerLogsSh() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsSysctlD60CisConf = []byte(`# 3.1.2 Ensure packet redirect sending is disabled
+var _linuxCloudInitArtifactsSysctlD60CisConf = []byte(`# Ubuntu CIS Benchmark: 3.1.2 Ensure packet redirect sending is disabled
 net.ipv4.conf.all.send_redirects = 0
 net.ipv4.conf.default.send_redirects = 0
-# 3.2.1 Ensure source routed packets are not accepted 
+
+# Ubuntu CIS Benchmark: 3.2.1 Ensure source routed packets are not accepted
+# Mariner AKS CIS Benchmark: 3.3.1 Ensure source routed packets are not accepted
 net.ipv4.conf.all.accept_source_route = 0
 net.ipv4.conf.default.accept_source_route = 0
-# 3.2.2 Ensure ICMP redirects are not accepted
+net.ipv6.conf.all.accept_source_route = 0
+net.ipv6.conf.default.accept_source_route = 0
+
+# Ubuntu CIS Benchmark: 3.2.2 Ensure ICMP redirects are not accepted
+# Mariner AKS CIS Benchmark: 3.3.2 Ensure ICMP redirects are not accepted
 net.ipv4.conf.all.accept_redirects = 0
 net.ipv4.conf.default.accept_redirects = 0
-# 3.2.3 Ensure secure ICMP redirects are not accepted
-net.ipv4.conf.all.secure_redirects = 0
-net.ipv4.conf.default.secure_redirects = 0
-# 3.2.4 Ensure suspicious packets are logged
-net.ipv4.conf.all.log_martians = 1
-net.ipv4.conf.default.log_martians = 1
-# 3.3.1 Ensure IPv6 router advertisements are not accepted
-net.ipv6.conf.all.accept_ra = 0
-net.ipv6.conf.default.accept_ra = 0
-# 3.3.2 Ensure IPv6 redirects are not accepted
 net.ipv6.conf.all.accept_redirects = 0
 net.ipv6.conf.default.accept_redirects = 0
+
+# Ubuntu CIS Benchmark: 3.2.3 Ensure secure ICMP redirects are not accepted
+# Mariner AKS CIS Benchmark: 3.3.3 Ensure secure ICMP redirects are not accepted
+net.ipv4.conf.all.secure_redirects = 0
+net.ipv4.conf.default.secure_redirects = 0
+
+# Ubuntu CIS Benchmark: 3.2.4 Ensure suspicious packets are logged
+# Mariner AKS CIS Benchmark: 3.3.4 Ensure suspicious packets are logged
+net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.default.log_martians = 1
+
+# Ubuntu CIS Benchmark: 3.3.1 Ensure IPv6 router advertisements are not accepted
+# Mariner AKS CIS Benchmark: 3.3.9 Ensure IPv6 router advertisements are not accepted
+net.ipv6.conf.all.accept_ra = 0
+net.ipv6.conf.default.accept_ra = 0
+
+# Mariner AKS CIS Benchmark: 3.3.5 Ensure broadcast ICMP requests are ignored
+net.ipv4.icmp_echo_ignore_broadcasts = 1
+
+# Mariner AKS CIS Benchmark: 3.3.6 Ensure bogus ICMP responses are ignored
+net.ipv4.icmp_ignore_bogus_error_responses = 1
+
+# Mariner AKS CIS Benchmark: 3.3.7 Ensure Reverse Path Filtering is enabled
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.default.rp_filter = 1
+
+# Mariner AKS CIS Benchmark: 3.3.8 Ensure TCP SYN Cookies is enabled
+net.ipv4.tcp_syncookies = 1
+
 # refer to https://github.com/kubernetes/kubernetes/blob/75d45bdfc9eeda15fb550e00da662c12d7d37985/pkg/kubelet/cm/container_manager_linux.go#L359-L397
 vm.overcommit_memory = 1
 kernel.panic = 10
@@ -5371,7 +5408,7 @@ kernel.panic_on_oops = 1
 kernel.pid_max = 4194304
 # https://github.com/Azure/AKS/issues/772
 fs.inotify.max_user_watches = 1048576
-# Ubuntu 22.04 has inotify_max_user_instances set to 128, where as Ubuntu 18.04 had 1024. 
+# Ubuntu 22.04 has inotify_max_user_instances set to 128, where as Ubuntu 18.04 had 1024.
 fs.inotify.max_user_instances = 1024
 `)
 

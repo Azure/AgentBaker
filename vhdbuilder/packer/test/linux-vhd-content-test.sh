@@ -412,6 +412,59 @@ testUserAdd() {
   echo "$test:Finish"
 }
 
+testNetworkSettings() {
+  local test="testNetworkSettings"
+  local main_settings_file=/etc/sysctl.d/60-CIS.conf
+  echo "$test:Start"
+
+  # We set one file directly and then change 2 in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh,
+  # so we need to check each of them.
+  declare -a settings_files=($main_settings_file /usr/lib/sysctl.d/50-default.conf /lib/sysctl.d/50-default.conf)
+
+  # We make sure certain settings are commented out or not present.
+  declare -a settings_commented_out=(net.ipv4.conf.all.rp_filter net.ipv4.conf.default.rp_filter net.ipv4.conf.all.rp_filter net.ipv4.conf.default.rp_filter)
+
+  # Run checks for each setting file.
+  local settings_file=
+  for settings_file in "${settings_files[@]}"; do
+    # Existence and format check. Based on the man page https://www.man7.org/linux/man-pages/man5/sysctl.conf.5.html
+    # we expect the file to have lines that are either a comment or "NAME = VALUE" pairs. Arbitrary whitespace
+    # is allowed before NAME and between NAME and VALUE. It can also just be "NAME" (no '='). Name seems to be
+    # lower-case and include letters and '_' and '.'. Value can be anything, so we make sure they're printable.
+    # If a line starts with '-', it has special meaning so we need to allow that too.
+    testSettingFileFormat $test $settings_file '^[[:space:]]*(#|;|$)' '^-{0,1}[[:space:]]*[a-z\.0-9_\*]+[[:space:]]*$' '^-{0,1}[[:space:]]*[a-z\.0-9_\*]+[[:space:]]*=[[:space:]]*[^[:cntrl:]]*$'
+
+    # For the two files we modify, check that the settings we do not want are either not present or
+    # commented out.
+    if [[ $settings_file != $main_settings_file ]]; then
+      echo "$test: Checking specific settings in $settings_file"
+      for setting in "${settings_commented_out[@]}"; do
+        local escaped_setting=
+        echo "$test: Checking that setting $setting is commented out or not present in $settings_file"
+        escaped_setting=${setting//\./\\.}
+
+        # These settings must be commented-out or not present. So, filter out lines that are
+        # that are commented out and then any lines with the setting are errors.
+        # Disable shellcheck warning about using '$?' in an if statement because we don't want
+        # the return value later anyway and this is more clear.
+        local setting_lines=
+        setting_lines=$(grep -E -n -H "^[[:space:]]*${escaped_setting}" $settings_file)
+        # shellcheck disable=SC2181
+        if [[ $? -eq 0 ]]; then
+          err $test "Found $setting in $settings_file, but it should be commented out or not present. See below for lines."
+          while read -r line; do
+            err $test "$line"
+          done <<<"$setting_lines"
+        else
+          echo "$test: $setting is correctly commented out or not present in $settings_file"
+        fi
+      done
+    fi
+  done
+
+  echo "$test:End"
+}
+
 # Tests a setting file's format. This is a simple, line-by line check.
 # Parameters:
 #  test: The name of the test.
@@ -541,3 +594,4 @@ testCustomCAScriptExecutable
 testCustomCATimerNotStarted
 testLoginDefs
 testUserAdd
+testNetworkSettings
