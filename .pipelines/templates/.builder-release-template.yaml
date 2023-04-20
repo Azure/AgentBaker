@@ -103,7 +103,11 @@ steps:
     inputs:
         artifactName: 'trivy-report-${{ parameters.artifactName }}'
         targetPath: 'trivy-report.json'
-    displayName: publish release notes
+  - task: PublishPipelineArtifact@0
+    inputs:
+        artifactName: 'trivy-report-${{ parameters.artifactName }}'
+        targetPath: 'trivy-table.txt'
+    displayName: publish trivy report
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'

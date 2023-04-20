@@ -512,6 +512,12 @@
     {
       "type": "file",
       "direction": "download",
+      "source": "/opt/azure/containers/trivy-table.txt",
+      "destination": "trivy-table.txt"
+    },
+    {
+      "type": "file",
+      "direction": "download",
       "source": "/opt/azure/vhd-install.complete",
       "destination": "release-notes.txt"
     },
