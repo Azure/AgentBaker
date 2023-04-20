@@ -2,26 +2,6 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
 parameters:
-- name: build1604
-  displayName: Build 1604
-  type: boolean
-  default: false
-- name: build1804
-  displayName: Build 1804
-  type: boolean
-  default: false
-- name: build1804gen2
-  displayName: Build 1804 Gen2
-  type: boolean
-  default: false
-- name: build1804gpu
-  displayName: Build 1804 GPU
-  type: boolean
-  default: false
-- name: build1804gen2gpu
-  displayName: Build 1804 Gen2 GPU
-  type: boolean
-  default: false
 - name: build1804containerd
   displayName: Build 1804 containerd
   type: boolean
