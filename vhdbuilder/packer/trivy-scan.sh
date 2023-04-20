@@ -24,8 +24,8 @@ tar -xvzf "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
 rm "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
 chmod a+x trivy 
 
-./trivy --security-checks vuln rootfs -f json --ignore-unfixed --severity HIGH,CRITICAL -o "${TRIVY_REPORT_JSON_PATH}" /
-./trivy --security-checks vuln rootfs -f table --ignore-unfixed --severity HIGH,CRITICAL -o "${TRIVY_REPORT_TABLE_PATH}" /
+./trivy --scanners vuln rootfs -f json --ignore-unfixed --severity HIGH,CRITICAL -o "${TRIVY_REPORT_JSON_PATH}" /
+./trivy --scanners vuln rootfs -f table --ignore-unfixed --severity HIGH,CRITICAL -o "${TRIVY_REPORT_TABLE_PATH}" /
 
 
 rm ./trivy 
