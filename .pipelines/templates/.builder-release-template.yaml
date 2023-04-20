@@ -105,7 +105,7 @@ steps:
         targetPath: 'trivy-report.json'
   - task: PublishPipelineArtifact@0
     inputs:
-        artifactName: 'trivy-report-${{ parameters.artifactName }}'
+        artifactName: 'trivy-table-${{ parameters.artifactName }}'
         targetPath: 'trivy-table.txt'
     displayName: publish trivy report
   - task: PublishPipelineArtifact@0
