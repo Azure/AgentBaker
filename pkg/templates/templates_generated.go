@@ -625,19 +625,19 @@ func linuxCloudInitArtifactsCiSyslogWatcherSh() (*asset, error) {
 var _linuxCloudInitArtifactsCisSh = []byte(`#!/bin/bash
 
 assignRootPW() {
-  if grep '^root:[!*]:' /etc/shadow; then
-    VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
-    SALT=$(openssl rand -base64 5)
-    SECRET=$(openssl rand -base64 37)
-    CMD="import crypt, getpass, pwd; print(crypt.crypt('$SECRET', '\$6\$$SALT\$'))"
-    if [[ "${VERSION}" == "22.04" ]]; then
-      HASH=$(python3 -c "$CMD")
-    else
-      HASH=$(python -c "$CMD")
-    fi
+    if grep '^root:[!*]:' /etc/shadow; then
+        VERSION=$(grep DISTRIB_RELEASE /etc/*-release | cut -f 2 -d "=")
+        SALT=$(openssl rand -base64 5)
+        SECRET=$(openssl rand -base64 37)
+        CMD="import crypt, getpass, pwd; print(crypt.crypt('$SECRET', '\$6\$$SALT\$'))"
+        if [[ "${VERSION}" == "22.04" ]]; then
+            HASH=$(python3 -c "$CMD")
+        else
+            HASH=$(python -c "$CMD")
+        fi
 
-    echo 'root:'$HASH | /usr/sbin/chpasswd -e || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
-  fi
+        echo 'root:'$HASH | /usr/sbin/chpasswd -e || exit $ERR_CIS_ASSIGN_ROOT_PW
+    fi
 }
 
 assignFilePermissions() {
@@ -683,29 +683,75 @@ assignFilePermissions() {
         chmod 0600 /etc/crontab || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     fi
     for filepath in /etc/cron.hourly /etc/cron.daily /etc/cron.weekly /etc/cron.monthly /etc/cron.d; do
-      chmod 0600 $filepath || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+        chmod 0600 $filepath || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     done
 }
 
+# Helper function to replace or append settings to a setting file.
+# This abstracts the general logic of:
+#   1. Search for the setting (via a pattern passed in).
+#   2. If it's there, replace it with desired setting line; otherwise append it to the end of the file.
+#   3. Validate that there is now exactly one instance of the setting, and that it is the one we want.
+replaceOrAppendSetting() {
+    local SEARCH_PATTERN=$1
+    local SETTING_LINE=$2
+    local FILE=$3
+
+    # Search and replace/append.
+    if grep -E "$SEARCH_PATTERN" "$FILE" >/dev/null; then
+        sed -E -i "s|${SEARCH_PATTERN}|${SETTING_LINE}|g" "$FILE" || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+    else
+        echo -e "\n${SETTING_LINE}" >>"$FILE"
+    fi
+
+    # After replacement/append, there should be exactly one line that sets the setting,
+    # and it must have the value we want.
+    # If not, then there's something wrong with this script.
+    if [[ $(grep -E "$SEARCH_PATTERN" "$FILE") != "$SETTING_LINE" ]]; then
+        echo "replacement was wrong"
+        exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+    fi
+}
+
+# Creates the search pattern and setting lines for login.defs settings, and calls through
+# to do the replacement. Note that this uses extended regular expressions, so both
+# grep and sed need to be called as such.
+#
+# The search pattern is:
+#   '^#{0,1} {0,1}' -- Line starts with 0 or 1 '#' followed by 0 or 1 space
+#   '${1}\s+'       -- Then the setting name followed by one or more whitespace characters
+#   '[0-9]+$'       -- Then one more more number, which is the setting value, which is the end of the line.
+#
+# This is based on a combination of the syntax for the file and real examples we've found.
+replaceOrAppendLoginDefs() {
+    replaceOrAppendSetting "^#{0,1} {0,1}${1}\s+[0-9]+$" "${1} ${2}" /etc/login.defs
+}
+
+# Creates the search pattern and setting lines for useradd default settings, and calls through
+# to do the replacement. Note that this uses extended regular expressions, so both
+# grep and sed need to be called as such.
+#
+# The search pattern is:
+#   '^#{0,1} {0,1}' -- Line starts with 0 or 1 '#' followed by 0 or 1 space
+#   '${1}='         -- Then the setting name followed by '='
+#   '.*$'           -- Then 0 or nore of any character which is the end of the line.
+#                      Note that this allows for a setting value to be there or not.
+#
+# This is based on a combination of the syntax for the file and real examples we've found.
+replaceOrAppendUserAdd() {
+    replaceOrAppendSetting "^#{0,1} {0,1}${1}=.*$" "${1}=${2}" /etc/default/useradd
+}
+
 setPWExpiration() {
-  sed -i "s|PASS_MAX_DAYS||g" /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  grep 'PASS_MAX_DAYS' /etc/login.defs && exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  sed -i "s|PASS_MIN_DAYS||g" /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  grep 'PASS_MIN_DAYS' /etc/login.defs && exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  sed -i "s|INACTIVE=||g" /etc/default/useradd || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  grep 'INACTIVE=' /etc/default/useradd && exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  echo 'PASS_MAX_DAYS 90' >> /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  grep 'PASS_MAX_DAYS 90' /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  echo 'PASS_MIN_DAYS 7' >> /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  grep 'PASS_MIN_DAYS 7' /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  echo 'INACTIVE=30' >> /etc/default/useradd || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  grep 'INACTIVE=30' /etc/default/useradd || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+    replaceOrAppendLoginDefs PASS_MAX_DAYS 90
+    replaceOrAppendLoginDefs PASS_MIN_DAYS 7
+    replaceOrAppendUserAdd INACTIVE 30
 }
 
 applyCIS() {
-  setPWExpiration
-  assignRootPW
-  assignFilePermissions
+    setPWExpiration
+    assignRootPW
+    assignFilePermissions
 }
 
 applyCIS
