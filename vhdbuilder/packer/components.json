@@ -144,7 +144,7 @@
       "downloadURL": "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.25.0.2"
+        "v3.24.0"
       ]
     },
     {
