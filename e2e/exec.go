@@ -55,12 +55,7 @@ func (r podExecResult) dumpStderr() {
 	}
 }
 
-func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName string, sshPrivateKey string, opts *scenarioRunOpts) (map[string]string, error) {
-	privateIP, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.chosenCluster.Properties.NodeResourceGroup, vmssName)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get private IP address of VM on VMSS %q: %w", vmssName, err)
-	}
-
+func extractLogsFromVM(ctx context.Context, vmssName, privateKey, vmPrivateIP string, opts *scenarioRunOpts) (map[string]string, error) {
 	commandList := map[string]string{
 		"/var/log/azure/cluster-provision.log": "cat /var/log/azure/cluster-provision.log",
 		"kubelet.log":                          "journalctl -u kubelet",
@@ -73,9 +68,9 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName string, sshPr
 
 	var result = map[string]string{}
 	for file, sourceCmd := range commandList {
-		t.Logf("executing command on remote VM at %s of VMSS %s: %q", privateIP, vmssName, sourceCmd)
+		log.Printf("executing command on remote VM at %s of VMSS %s: %q", vmPrivateIP, vmssName, sourceCmd)
 
-		execResult, err := execOnVM(ctx, opts.kube, privateIP, podName, sshPrivateKey, sourceCmd)
+		execResult, err := execOnVM(ctx, opts.kube, vmPrivateIP, podName, privateKey, sourceCmd)
 		if execResult != nil {
 			execResult.dumpStderr()
 		}
@@ -118,8 +113,8 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 	return result, nil
 }
 
-func execOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
-	sshCommand := fmt.Sprintf(sshCommandTemplate, sshPrivateKey, vmPrivateIP)
+func execOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName, privateKey, command string) (*podExecResult, error) {
+	sshCommand := fmt.Sprintf(sshCommandTemplate, privateKey, vmPrivateIP)
 	commandToExecute := fmt.Sprintf("%s %s", sshCommand, command)
 
 	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, commandToExecute)
@@ -180,6 +175,13 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 		stdout:   &stdout,
 		stderr:   &stderr,
 	}, nil
+}
+
+func bashCommandArray() []string {
+	return []string{
+		"/bin/bash",
+		"-c",
+	}
 }
 
 func nsenterCommandArray() []string {

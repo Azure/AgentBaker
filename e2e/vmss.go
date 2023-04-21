@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	mrand "math/rand"
+	"testing"
 
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
@@ -17,39 +18,35 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// Returns a newly generated RSA public/private key pair with the private key in PEM format.
-func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []byte, e error) {
-	privateKey, err := rsa.GenerateKey(r, 4096)
+func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, publicKeyBytes []byte, opts *scenarioRunOpts) (string, *armcompute.VirtualMachineScaleSet, func(), error) {
+	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create rsa private key: %w", err)
+		return "", nil, nil, fmt.Errorf("unable to get node bootstrapping: %w", err)
 	}
 
-	err = privateKey.Validate()
+	vmssName := fmt.Sprintf("abtest%s", randomLowercaseString(r, 4))
+	t.Logf("vmss name: %q", vmssName)
+
+	cleanupVMSS := func() {
+		t.Log("deleting vmss", vmssName)
+		poller, err := opts.cloud.vmssClient.BeginDelete(ctx, *opts.chosenCluster.Properties.NodeResourceGroup, vmssName, nil)
+		if err != nil {
+			t.Error("error deleting vmss", vmssName, err)
+			return
+		}
+		_, err = poller.PollUntilDone(ctx, nil)
+		if err != nil {
+			t.Error("error polling deleting vmss", vmssName, err)
+		}
+		t.Logf("finished deleting vmss %q", vmssName)
+	}
+
+	vmssModel, err := createVMSSWithPayload(ctx, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to validate rsa private key: %w", err)
+		return "", nil, nil, fmt.Errorf("unable to create VMSS with payload: %w", err)
 	}
 
-	publicRsaKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to convert private to public key: %w", err)
-	}
-
-	publicKeyBytes = ssh.MarshalAuthorizedKey(publicRsaKey)
-
-	// Get ASN.1 DER format
-	privDER := x509.MarshalPKCS1PrivateKey(privateKey)
-
-	// pem.Block
-	privBlock := pem.Block{
-		Type:    "RSA PRIVATE KEY",
-		Headers: nil,
-		Bytes:   privDER,
-	}
-
-	// Private key in PEM format
-	privatePEMBytes = pem.EncodeToMemory(&privBlock)
-
-	return
+	return vmssName, vmssModel, cleanupVMSS, nil
 }
 
 func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
@@ -158,6 +155,41 @@ func getVMPrivateIPAddress(ctx context.Context, cloud *azureClient, subscription
 	return privateIP, nil
 }
 
+// Returns a newly generated RSA public/private key pair with the private key in PEM format.
+func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []byte, e error) {
+	privateKey, err := rsa.GenerateKey(r, 4096)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create rsa private key: %w", err)
+	}
+
+	err = privateKey.Validate()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to validate rsa private key: %w", err)
+	}
+
+	publicRsaKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to convert private to public key: %w", err)
+	}
+
+	publicKeyBytes = ssh.MarshalAuthorizedKey(publicRsaKey)
+
+	// Get ASN.1 DER format
+	privDER := x509.MarshalPKCS1PrivateKey(privateKey)
+
+	// pem.Block
+	privBlock := pem.Block{
+		Type:    "RSA PRIVATE KEY",
+		Headers: nil,
+		Bytes:   privDER,
+	}
+
+	// Private key in PEM format
+	privatePEMBytes = pem.EncodeToMemory(&privBlock)
+
+	return
+}
+
 func getBaseVMSSModel(name, location, mcResourceGroupName, subnetID, sshPublicKey, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(location),
@@ -259,4 +291,15 @@ func getVMSSNICConfig(vmss *armcompute.VirtualMachineScaleSet) (*armcompute.Virt
 		}
 	}
 	return nil, fmt.Errorf("unable to extract vmss nic info, vmss model or vmss model properties were nil/empty:\n%+v", vmss)
+}
+
+func extractPrivateIP(res listVMSSVMNetworkInterfaceResult) (string, error) {
+	if len(res.Value) > 0 {
+		v := res.Value[0]
+		if len(v.Properties.IPConfigurations) > 0 {
+			ipconfig := v.Properties.IPConfigurations[0]
+			return ipconfig.Properties.PrivateIPAddress, nil
+		}
+	}
+	return "", fmt.Errorf("unable to extract private IP address from listVMSSNetworkInterfaceResult:\n%+v", res)
 }

@@ -1,11 +1,7 @@
 package e2e_test
 
 import (
-	"context"
 	"fmt"
-	"strconv"
-	"strings"
-	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
@@ -444,39 +440,6 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 	}
 }
 
-func getBaseNodeBootstrappingConfiguration(ctx context.Context, t *testing.T, cloud *azureClient, suiteConfig *suiteConfig, clusterParams map[string]string) (*datamodel.NodeBootstrappingConfiguration, error) {
-	nbc := baseTemplate()
-	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = clusterParams["/etc/kubernetes/certs/ca.crt"]
-
-	bootstrapKubeconfig := clusterParams["/var/lib/kubelet/bootstrap-kubeconfig"]
-
-	bootstrapToken, err := extractKeyValuePair("token", bootstrapKubeconfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract bootstrap token via regex: %w", err)
-	}
-
-	bootstrapToken, err = strconv.Unquote(bootstrapToken)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unquote bootstrap token: %w", err)
-	}
-
-	server, err := extractKeyValuePair("server", bootstrapKubeconfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract fqdn via regex: %w", err)
-	}
-	tokens := strings.Split(server, ":")
-	if len(tokens) != 3 {
-		return nil, fmt.Errorf("expected 3 tokens from fqdn %q, got %d", server, len(tokens))
-	}
-	// strip off the // prefix from https://
-	fqdn := tokens[1][2:]
-
-	nbc.KubeletClientTLSBootstrapToken = &bootstrapToken
-	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = fqdn
-
-	return nbc, nil
-}
-
 func getDebugDaemonset() string {
 	return `apiVersion: apps/v1
 kind: Deployment
@@ -500,7 +463,7 @@ spec:
         kubernetes.azure.com/agentpool: nodepool1
       hostPID: true
       containers:
-      - image: mcr.microsoft.com/mirror/docker/library/ubuntu:18.04
+      - image: mcr.microsoft.com/oss/nginx/nginx:1.21.6
         name: ubuntu
         command: ["sleep", "infinity"]
         resources:
@@ -517,7 +480,7 @@ func getNginxPodTemplate(nodeName string) string {
 	return fmt.Sprintf(`apiVersion: v1
 kind: Pod
 metadata:
-  name: %[1]s
+  name: %[1]s-nginx
   namespace: default
 spec:
   containers:
@@ -527,6 +490,51 @@ spec:
   nodeSelector:
     kubernetes.io/hostname: %[1]s
 `, nodeName)
+}
+
+func getWasmSpinPodTemplate(nodeName string) string {
+	return fmt.Sprintf(`apiVersion: v1
+kind: Pod
+metadata:
+  name: %[1]s-wasm-spin
+  namespace: default
+spec:
+  runtimeClassName: wasmtime-spin
+  containers:
+  - name: spin-hello
+    image: ghcr.io/deislabs/containerd-wasm-shims/examples/spin-rust-hello:v0.5.1
+    imagePullPolicy: IfNotPresent
+    command: ["/"]
+  nodeSelector:
+    kubernetes.io/hostname: %[1]s
+`, nodeName)
+}
+
+func getWasmSlightPodTemplate(nodeName string) string {
+	return fmt.Sprintf(`apiVersion: v1
+kind: Pod
+metadata:
+  name: %[1]s-wasm-slight
+  namespace: default
+spec:
+  runtimeClassName: wasmtime-slight
+  containers:
+  - name: slight-hello
+    image: ghcr.io/deislabs/containerd-wasm-shims/examples/slight-rust-hello:v0.5.1
+    imagePullPolicy: IfNotPresent
+    command: ["/"]
+  nodeSelector:
+    kubernetes.io/hostname: %[1]s
+`, nodeName)
+}
+
+func getWasmRuntimeClassTemplate(wasmRuntime string) string {
+	return fmt.Sprintf(`apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: wasmtime-%[1]s
+handler: %[1]s
+`, wasmRuntime)
 }
 
 type listVMSSVMNetworkInterfaceResult struct {
@@ -575,15 +583,4 @@ type listVMSSVMNetworkInterfaceResult struct {
 			} `json:"virtualMachine,omitempty"`
 		} `json:"properties,omitempty"`
 	} `json:"value,omitempty"`
-}
-
-func extractPrivateIP(res listVMSSVMNetworkInterfaceResult) (string, error) {
-	if len(res.Value) > 0 {
-		v := res.Value[0]
-		if len(v.Properties.IPConfigurations) > 0 {
-			ipconfig := v.Properties.IPConfigurations[0]
-			return ipconfig.Properties.PrivateIPAddress, nil
-		}
-	}
-	return "", fmt.Errorf("unable to extract private IP address from listVMSSNetworkInterfaceResult:\n%+v", res)
 }

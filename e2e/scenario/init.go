@@ -29,6 +29,7 @@ func scenarios() []*Scenario {
 		ubuntu2204CustomSysctls(),
 		marinerv1CustomSysctls(),
 		marinerv2CustomSysctls(),
+		ubuntu2204Wasm(),
 		base_azurecni(),
 		marinerv1_azurecni(),
 		marinerv2_azurecni(),
