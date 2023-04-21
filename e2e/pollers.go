@@ -80,7 +80,7 @@ func pollExtractClusterParameters(ctx context.Context, t *testing.T, kube *kubec
 
 // Wraps exctracLogsFromVM and dumpFileMapToDir in a poller with a 15-second wait interval and 5-minute timeout
 func pollExtractVMLogs(ctx context.Context, t *testing.T, vmssName string, privateKeyBytes []byte, opts *scenarioRunOpts) error {
-	err := wait.PollImmediateWithContext(ctx, extractVMLogsPollingTimeout, extractVMLogsPollingTimeout, func(ctx context.Context) (bool, error) {
+	err := wait.PollImmediateWithContext(ctx, extractVMLogsPollInterval, extractVMLogsPollingTimeout, func(ctx context.Context) (bool, error) {
 		t.Log("attempting to extract VM logs")
 
 		logFiles, err := extractLogsFromVM(ctx, t, vmssName, string(privateKeyBytes), opts)

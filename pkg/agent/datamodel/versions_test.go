@@ -11,14 +11,16 @@ func Test_GetAllSupportedKubernetesVersions(t *testing.T) {
 	responseFromGetter := GetAllSupportedKubernetesVersions(true, false)
 
 	if len(AllKubernetesSupportedVersions) != len(responseFromGetter) {
-		t.Errorf("GetAllSupportedKubernetesVersions(true, false) returned %d items, expected %d", len(responseFromGetter), len(AllKubernetesSupportedVersions))
+		t.Errorf("GetAllSupportedKubernetesVersions(true, false) returned %d items, expected %d", len(responseFromGetter),
+			len(AllKubernetesSupportedVersions))
 	}
 
 	responseFromGetter = GetAllSupportedKubernetesVersions(false, false)
 
 	for _, version := range responseFromGetter {
 		if !AllKubernetesSupportedVersions[version] {
-			t.Errorf("GetAllSupportedKubernetesVersions(false, false) returned a version %s that was not in the definitive AllKubernetesSupportedVersions map", version)
+			t.Errorf("GetAllSupportedKubernetesVersions(false, false) returned a version %s that was not in the definitive "+
+				"AllKubernetesSupportedVersions map", version)
 		}
 	}
 }
@@ -34,7 +36,8 @@ func Test_GetSupportedKubernetesVersion(t *testing.T) {
 
 	defaultVersion := GetSupportedKubernetesVersion("", false)
 	if defaultVersion != GetDefaultKubernetesVersion(false) {
-		t.Errorf("GetSupportedKubernetesVersion(\"\") should return the default version %s, instead returned %s", GetDefaultKubernetesVersion(false), defaultVersion)
+		t.Errorf("GetSupportedKubernetesVersion(\"\") should return the default version %s, instead returned %s",
+			GetDefaultKubernetesVersion(false), defaultVersion)
 	}
 
 	winVersions := GetAllSupportedKubernetesVersions(false, true)
@@ -47,7 +50,8 @@ func Test_GetSupportedKubernetesVersion(t *testing.T) {
 
 	defaultWinVersion := GetSupportedKubernetesVersion("", true)
 	if defaultWinVersion != GetDefaultKubernetesVersion(true) {
-		t.Errorf("GetSupportedKubernetesVersion(\"\") should return the default version for windows %s, instead returned %s", GetDefaultKubernetesVersion(true), defaultWinVersion)
+		t.Errorf("GetSupportedKubernetesVersion(\"\") should return the default version for windows %s, instead returned %s",
+			GetDefaultKubernetesVersion(true), defaultWinVersion)
 	}
 }
 
@@ -203,6 +207,7 @@ func TestGetVersionsLt(t *testing.T) {
 	}
 }
 
+//nolint:gocognit
 func TestGetVersionsBetween(t *testing.T) {
 	versions := []string{"1.1.0", "1.2.0", "1.2.1"}
 	expected := []string{"1.2.0"}

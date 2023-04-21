@@ -12,8 +12,6 @@ import (
 	"github.com/blang/semver"
 )
 
-var dockerShimFlags = []string{"--cni-bin-dir", "--cni-cache-dir", "--cni-conf-dir", "--docker-endpoint", "--image-pull-progress-deadline", "--network-plugin", "--network-plugin-mtu"}
-
 // getCustomDataVariables returns cloudinit data used by Linux.
 func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
@@ -178,11 +176,12 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 		return ""
 	}
 	registry := ""
-	if cloudSpecConfig.CloudName == datamodel.AzureChinaCloud {
+	switch {
+	case cloudSpecConfig.CloudName == datamodel.AzureChinaCloud:
 		registry = `gcr.azk8s.cn`
-	} else if cs.IsAKSCustomCloud() {
+	case cs.IsAKSCustomCloud():
 		registry = cs.Properties.CustomCloudEnv.McrURL
-	} else {
+	default:
 		registry = `mcr.microsoft.com`
 	}
 

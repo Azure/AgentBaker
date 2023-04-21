@@ -4,7 +4,6 @@
 package datamodel
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -37,14 +36,12 @@ func TestHasAadProfile(t *testing.T) {
 	if !p.HasAadProfile() {
 		t.Fatalf("Expected HasAadProfile() to return true")
 	}
-
 }
 
 func TestGetCustomEnvironmentJSON(t *testing.T) {
 	properities := getMockProperitesWithCustomClouEnv()
-	expectedRet := `{"name":"AzureStackCloud","Name":"AzureStackCloud","mcrURL":"mcr.microsoft.fakecustomcloud","repoDepotEndpoint":"https://repodepot.azure.microsoft.fakecustomcloud/ubuntu","managementPortalURL":"https://portal.azure.microsoft.fakecustomcloud/","serviceManagementEndpoint":"https://management.core.microsoft.fakecustomcloud/","resourceManagerEndpoint":"https://management.azure.microsoft.fakecustomcloud/","activeDirectoryEndpoint":"https://login.microsoftonline.microsoft.fakecustomcloud/","keyVaultEndpoint":"https://vault.cloudapi.microsoft.fakecustomcloud/","graphEndpoint":"https://graph.cloudapi.microsoft.fakecustomcloud/","storageEndpointSuffix":"core.microsoft.fakecustomcloud","sqlDatabaseDNSSuffix":"database.cloudapi.microsoft.fakecustomcloud","keyVaultDNSSuffix":"vault.cloudapi.microsoft.fakecustomcloud","resourceManagerVMDNSSuffix":"cloudapp.azure.microsoft.fakecustomcloud/","containerRegistryDNSSuffix":".azurecr.microsoft.fakecustomcloud","cosmosDBDNSSuffix":"documents.core.microsoft.fakecustomcloud/","tokenAudience":"https://management.core.microsoft.fakecustomcloud/","resourceIdentifiers":{}}`
+	expectedRet := `{"name":"AzureStackCloud","Name":"AzureStackCloud","mcrURL":"mcr.microsoft.fakecustomcloud","repoDepotEndpoint":"https://repodepot.azure.microsoft.fakecustomcloud/ubuntu","managementPortalURL":"https://portal.azure.microsoft.fakecustomcloud/","serviceManagementEndpoint":"https://management.core.microsoft.fakecustomcloud/","resourceManagerEndpoint":"https://management.azure.microsoft.fakecustomcloud/","activeDirectoryEndpoint":"https://login.microsoftonline.microsoft.fakecustomcloud/","keyVaultEndpoint":"https://vault.cloudapi.microsoft.fakecustomcloud/","graphEndpoint":"https://graph.cloudapi.microsoft.fakecustomcloud/","storageEndpointSuffix":"core.microsoft.fakecustomcloud","sqlDatabaseDNSSuffix":"database.cloudapi.microsoft.fakecustomcloud","keyVaultDNSSuffix":"vault.cloudapi.microsoft.fakecustomcloud","resourceManagerVMDNSSuffix":"cloudapp.azure.microsoft.fakecustomcloud/","containerRegistryDNSSuffix":".azurecr.microsoft.fakecustomcloud","cosmosDBDNSSuffix":"documents.core.microsoft.fakecustomcloud/","tokenAudience":"https://management.core.microsoft.fakecustomcloud/","resourceIdentifiers":{}}` //nolint: lll
 	actual, err := properities.GetCustomEnvironmentJSON(false)
-	fmt.Println(actual)
 	if err != nil {
 		t.Error(err)
 	}
@@ -359,10 +356,12 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 
 	for _, c := range cases {
 		if c.p.IsIPMasqAgentEnabled() != c.expectedPropertiesIsIPMasqAgentEnabled {
-			t.Fatalf("expected Properties.IsIPMasqAgentEnabled() to return %t but instead returned %t", c.expectedPropertiesIsIPMasqAgentEnabled, c.p.IsIPMasqAgentEnabled())
+			t.Fatalf("expected Properties.IsIPMasqAgentEnabled() to return %t but instead returned %t",
+				c.expectedPropertiesIsIPMasqAgentEnabled, c.p.IsIPMasqAgentEnabled())
 		}
 		if c.p.OrchestratorProfile.KubernetesConfig.IsIPMasqAgentEnabled() != c.expectedKubernetesConfigIsIPMasqAgentEnabled {
-			t.Fatalf("expected KubernetesConfig.IsIPMasqAgentEnabled() to return %t but instead returned %t", c.expectedKubernetesConfigIsIPMasqAgentEnabled, c.p.OrchestratorProfile.KubernetesConfig.IsIPMasqAgentEnabled())
+			t.Fatalf("expected KubernetesConfig.IsIPMasqAgentEnabled() to return %t but instead returned %t",
+				c.expectedKubernetesConfigIsIPMasqAgentEnabled, c.p.OrchestratorProfile.KubernetesConfig.IsIPMasqAgentEnabled())
 		}
 	}
 }
@@ -584,7 +583,8 @@ func TestAvailabilityProfile(t *testing.T) {
 			t.Fatalf("expected HasVMSSAgentPool() to return %t but instead returned %t", c.expectedHasVMSS, c.p.HasVMSSAgentPool())
 		}
 		if c.p.AgentPoolProfiles[0].IsVirtualMachineScaleSets() != c.expectedISVMSS {
-			t.Fatalf("expected IsVirtualMachineScaleSets() to return %t but instead returned %t", c.expectedISVMSS, c.p.AgentPoolProfiles[0].IsVirtualMachineScaleSets())
+			t.Fatalf("expected IsVirtualMachineScaleSets() to return %t but instead returned %t", c.expectedISVMSS,
+				c.p.AgentPoolProfiles[0].IsVirtualMachineScaleSets())
 		}
 		if c.p.AgentPoolProfiles[0].IsAvailabilitySets() != c.expectedIsAS {
 			t.Fatalf("expected IsAvailabilitySets() to return %t but instead returned %t", c.expectedIsAS, c.p.AgentPoolProfiles[0].IsAvailabilitySets())
@@ -638,7 +638,7 @@ func TestGetSubnetName(t *testing.T) {
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
 						AvailabilityProfile: VirtualMachineScaleSets,
-						VnetSubnetID:        "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet",
+						VnetSubnetID:        "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet", //nolint: lll
 					},
 				},
 			},
@@ -712,7 +712,7 @@ func TestProperties_GetVirtualNetworkName(t *testing.T) {
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
 						AvailabilityProfile: VirtualMachineScaleSets,
-						VnetSubnetID:        "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet",
+						VnetSubnetID:        "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet", //nolint: lll
 					},
 				},
 			},
@@ -766,7 +766,7 @@ func TestProperties_GetVNetResourceGroupName(t *testing.T) {
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
 				AvailabilityProfile: VirtualMachineScaleSets,
-				VnetSubnetID:        "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet",
+				VnetSubnetID:        "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet", //nolint: lll
 			},
 		},
 	}
@@ -1235,7 +1235,8 @@ func TestHasStorageProfile(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.p.OrchestratorProfile != nil && c.p.OrchestratorProfile.KubernetesConfig.PrivateJumpboxProvision() != c.expectedPrivateJB {
-				t.Fatalf("expected PrivateJumpboxProvision() to return %t but instead returned %t", c.expectedPrivateJB, c.p.OrchestratorProfile.KubernetesConfig.PrivateJumpboxProvision())
+				t.Fatalf("expected PrivateJumpboxProvision() to return %t but instead returned %t", c.expectedPrivateJB,
+					c.p.OrchestratorProfile.KubernetesConfig.PrivateJumpboxProvision())
 			}
 		})
 	}
@@ -1636,6 +1637,68 @@ func TestGetKubeProxyFeatureGatesWindowsArguments(t *testing.T) {
 			expectedFeatureGates: "\"IPv6DualStack=true\"",
 		},
 		{
+			name: "IPV6 enabled but version does not have feature gate (too old)",
+			properties: &Properties{
+				FeatureFlags: &FeatureFlags{
+					EnableIPv6DualStack: true,
+				},
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorVersion: "1.11.0",
+				},
+			},
+			expectedFeatureGates: "",
+		},
+		{
+			name: "IPV6 enabled but version does not have feature gate",
+			properties: &Properties{
+				FeatureFlags: &FeatureFlags{
+					EnableIPv6DualStack: true,
+				},
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorVersion: "1.25.0",
+				},
+			},
+			expectedFeatureGates: "",
+		},
+		{
+			name: "IPV6 enabled and version has feature gate (>= 1.15 < 1.25)",
+			properties: &Properties{
+				FeatureFlags: &FeatureFlags{
+					EnableIPv6DualStack: true,
+				},
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorVersion: "1.24.12",
+				},
+			},
+			expectedFeatureGates: "\"IPv6DualStack=true\"",
+		},
+		{
+			name: "IPV6 enabled but version does not have feature gate",
+			properties: &Properties{
+				FeatureFlags: &FeatureFlags{
+					EnableIPv6DualStack: true,
+					EnableWinDSR:        true,
+				},
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorVersion: "1.25.0",
+				},
+			},
+			expectedFeatureGates: "\"WinDSR=true\", \"WinOverlay=false\"",
+		},
+		{
+			name: "IPv6 enabled but version does not have feature gate",
+			properties: &Properties{
+				FeatureFlags: &FeatureFlags{
+					EnableIPv6DualStack: true,
+					EnableWinDSR:        true,
+				},
+				OrchestratorProfile: &OrchestratorProfile{
+					OrchestratorVersion: "1.26.2",
+				},
+			},
+			expectedFeatureGates: "\"WinDSR=true\", \"WinOverlay=false\"",
+		},
+		{
 			name: "WinDSR enabled",
 			properties: &Properties{
 				FeatureFlags: &FeatureFlags{
@@ -1730,7 +1793,8 @@ func TestKubernetesConfigIsAddonEnabled(t *testing.T) {
 
 	for _, c := range cases {
 		if c.k.IsAddonEnabled(c.addonName) != c.expected {
-			t.Fatalf("expected KubernetesConfig.IsAddonEnabled(%s) to return %t but instead returned %t", c.addonName, c.expected, c.k.IsAddonEnabled(c.addonName))
+			t.Fatalf("expected KubernetesConfig.IsAddonEnabled(%s) to return %t but instead returned %t", c.addonName, c.expected,
+				c.k.IsAddonEnabled(c.addonName))
 		}
 	}
 }
@@ -1788,36 +1852,38 @@ func TestKubernetesConfigIsIPMasqAgentDisabled(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.k.IsIPMasqAgentDisabled() != c.expectedDisabled {
-				t.Fatalf("expected KubernetesConfig.IsIPMasqAgentDisabled() to return %t but instead returned %t", c.expectedDisabled, c.k.IsIPMasqAgentDisabled())
+				t.Fatalf("expected KubernetesConfig.IsIPMasqAgentDisabled() to return %t but instead returned %t", c.expectedDisabled,
+					c.k.IsIPMasqAgentDisabled())
 			}
 		})
 	}
 }
 
 func TestGetAddonByName(t *testing.T) {
-	ContainerMonitoringAddonName := "container-monitoring"
+	containerMonitoringAddonName := "container-monitoring"
 
 	// Addon present and enabled with logAnalyticsWorkspaceResourceId in config
 	b := true
 	c := KubernetesConfig{
 		Addons: []KubernetesAddon{
 			{
-				Name:    ContainerMonitoringAddonName,
+				Name:    containerMonitoringAddonName,
 				Enabled: &b,
 				Config: map[string]string{
-					"logAnalyticsWorkspaceResourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-workspace-rg/providers/Microsoft.OperationalInsights/workspaces/test-workspace",
+					"logAnalyticsWorkspaceResourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-workspace-rg/providers/Microsoft.OperationalInsights/workspaces/test-workspace", //nolint:lll
 				},
 			},
 		},
 	}
 
-	addon := c.GetAddonByName(ContainerMonitoringAddonName)
+	addon := c.GetAddonByName(containerMonitoringAddonName)
 	if addon.Config == nil || len(addon.Config) == 0 {
 		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config instead returned null or empty")
 	}
 
 	if addon.Config["logAnalyticsWorkspaceResourceId"] == "" {
-		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config with logAnalyticsWorkspaceResourceId, instead returned null or empty")
+		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config with logAnalyticsWorkspaceResourceId," +
+			" instead returned null or empty")
 	}
 
 	workspaceResourceID := addon.Config["logAnalyticsWorkspaceResourceId"]
@@ -1827,7 +1893,8 @@ func TestGetAddonByName(t *testing.T) {
 
 	resourceParts := strings.Split(workspaceResourceID, "/")
 	if len(resourceParts) != 9 {
-		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config with valid Azure logAnalyticsWorkspaceResourceId, instead returned %s", workspaceResourceID)
+		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config with valid Azure logAnalyticsWorkspaceResourceId,"+
+			" instead returned %s", workspaceResourceID)
 	}
 
 	// Addon present and enabled with legacy config
@@ -1835,7 +1902,7 @@ func TestGetAddonByName(t *testing.T) {
 	c = KubernetesConfig{
 		Addons: []KubernetesAddon{
 			{
-				Name:    ContainerMonitoringAddonName,
+				Name:    containerMonitoringAddonName,
 				Enabled: &b,
 				Config: map[string]string{
 					"workspaceGuid": "MDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAw",
@@ -1845,7 +1912,7 @@ func TestGetAddonByName(t *testing.T) {
 		},
 	}
 
-	addon = c.GetAddonByName(ContainerMonitoringAddonName)
+	addon = c.GetAddonByName(containerMonitoringAddonName)
 	if addon.Config == nil || len(addon.Config) == 0 {
 		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config instead returned null or empty")
 	}
@@ -1921,7 +1988,8 @@ func TestKubernetesConfigIsAddonDisabled(t *testing.T) {
 
 	for _, c := range cases {
 		if c.k.IsAddonDisabled(c.addonName) != c.expected {
-			t.Fatalf("expected KubernetesConfig.IsAddonDisabled(%s) to return %t but instead returned %t", c.addonName, c.expected, c.k.IsAddonDisabled(c.addonName))
+			t.Fatalf("expected KubernetesConfig.IsAddonDisabled(%s) to return %t but instead returned %t", c.addonName, c.expected,
+				c.k.IsAddonDisabled(c.addonName))
 		}
 	}
 }
@@ -2002,7 +2070,7 @@ func TestKubernetesConfig_RequiresDocker(t *testing.T) {
 }
 
 func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
-	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60", "--keep-terminated-pod-volumes=false", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"`
+	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60", "--keep-terminated-pod-volumes=false", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"` //nolint:lll
 	cases := []struct {
 		name                  string
 		config                *NodeBootstrappingConfiguration
@@ -2076,7 +2144,8 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.expectedForPowershell != c.config.GetOrderedKubeletConfigStringForPowershell(c.CustomKubeletConfig) {
-				t.Fatalf("Got unexpected AgentPoolProfile.GetOrderedKubeletConfigStringForPowershell() result. Expected: %s. Got: %s.", c.expectedForPowershell, c.config.GetOrderedKubeletConfigStringForPowershell(c.CustomKubeletConfig))
+				t.Fatalf("Got unexpected AgentPoolProfile.GetOrderedKubeletConfigStringForPowershell() result. Expected: %s. Got: %s.",
+					c.expectedForPowershell, c.config.GetOrderedKubeletConfigStringForPowershell(c.CustomKubeletConfig))
 			}
 		})
 	}
@@ -2301,7 +2370,7 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 				ImageGcLowThreshold:  to.Int32Ptr(60),
 				ImageGcHighThreshold: to.Int32Ptr(80),
 			},
-			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`,
+			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`, //nolint:lll
 		},
 		{
 			name: "custom configuration overrides default KubeletConfig",
@@ -2328,7 +2397,7 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
 				ContainerLogMaxFiles:  to.Int32Ptr(20),
 			},
-			expected: `"--address=127.0.0.1", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi"`,
+			expected: `"--address=127.0.0.1", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi"`, //nolint:lll
 		},
 		{
 			name: "custom configuration does not override default KubeletConfig",
@@ -2361,7 +2430,7 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
 				ContainerLogMaxFiles:  to.Int32Ptr(20),
 			},
-			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--event-qps=100", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`,
+			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--event-qps=100", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`, //nolint:lll
 		},
 	}
 

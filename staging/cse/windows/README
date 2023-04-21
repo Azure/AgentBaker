@@ -12,6 +12,11 @@
 # AKS Windows CSE Scripts Package
 All files except *.test.ps1 and README will be published in AKS Windows CSE Scripts Package.
 
+## v0.0.24
+- fix: do not add IPv6DualStack to Windows kube-proxy feature-gates when K8s >= 1.25.0 #3024
+- fix: add file check for windows log script #3029
+- fix: Windows Azure CNI conflist should split ExceptionList by IP family #3049
+
 ## v0.0.23
 - fix: Remove all download steps in Windows debug scripts #2738
 - fix: Validate whether the PID of HNS service is valid #2781

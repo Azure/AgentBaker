@@ -42,7 +42,7 @@ func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBo
 // { "customData": "<customData string>" }.
 func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
 	// get parameters
-	parameters := getParameters(config, "baker", "1.0")
+	parameters := getParameters(config)
 	// get variable cloudInit
 	variables := getCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml,
@@ -61,7 +61,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	// get parameters
-	parameters := getParameters(config, "", "")
+	parameters := getParameters(config)
 	// get variable custom data
 	variables := getWindowsCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
@@ -77,7 +77,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 		preprovisionCmd = makeAgentExtensionScriptCommands(cs, profile)
 	}
 
-	str = strings.Replace(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)), -1)
+	str = strings.ReplaceAll(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)))
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }
 
@@ -93,7 +93,7 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 // getLinuxNodeCSECommand returns Linux node custom script extension execution command.
 func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
 	// get parameters
-	parameters := getParameters(config, "", "")
+	parameters := getParameters(config)
 	// get variable
 	variables := getCSECommandVariables(config)
 	// NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
@@ -108,13 +108,13 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 	}
 	// NOTE: we break the one-line CSE command into different lines in a file for better management
 	// so we need to combine them into one line here
-	return strings.Replace(str, "\n", " ", -1)
+	return strings.ReplaceAll(str, "\n", " ")
 }
 
 // getWindowsNodeCSECommand returns Windows node custom script extension execution command.
 func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
 	// get parameters
-	parameters := getParameters(config, "", "")
+	parameters := getParameters(config)
 	// get variable
 	variables := getCSECommandVariables(config)
 
@@ -131,11 +131,11 @@ func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBoots
 	/* NOTE(qinahao): windows cse cmd uses esapced \" to quote Powershell command in
 	[csecmd.p1](https://github.com/Azure/AgentBaker/blob/master/parts/windows/csecmd.ps1). */
 	// to not break go template parsing. We switch \" back to " otherwise Azure ARM template will escape \ to be \\\"
-	str = strings.Replace(str, `\"`, `"`, -1)
+	str = strings.ReplaceAll(str, `\"`, `"`)
 
 	// NOTE: we break the one-line CSE command into different lines in a file for better management
 	// so we need to combine them into one line here
-	return strings.Replace(str, "\n", " ", -1)
+	return strings.ReplaceAll(str, "\n", " ")
 }
 
 // getSingleLineForTemplate returns the file as a single line for embedding in an arm template.
@@ -164,12 +164,12 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 	// use go templates to process the text filename
 	templ := template.New("customdata template").Option("missingkey=zero").Funcs(funcMap)
 	if _, err = templ.New(textFilename).Parse(string(b)); err != nil {
-		return "", fmt.Errorf("error parsing file %s: %v", textFilename, err)
+		return "", fmt.Errorf("error parsing file %s: %w", textFilename, err)
 	}
 
 	var buffer bytes.Buffer
 	if err = templ.ExecuteTemplate(&buffer, textFilename, profile); err != nil {
-		return "", fmt.Errorf("error executing template for file %s: %v", textFilename, err)
+		return "", fmt.Errorf("error executing template for file %s: %w", textFilename, err)
 	}
 	expandedTemplate := buffer.String()
 
@@ -177,6 +177,8 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 }
 
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
+//
+//nolint:gocognit
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
 
@@ -268,12 +270,23 @@ func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
 	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
 	// we should only allow users to configure from API (20201101 and later)
+	dockerShimFlags := []string{
+		"--cni-bin-dir",
+		"--cni-cache-dir",
+		"--cni-conf-dir",
+		"--docker-endpoint",
+		"--image-pull-progress-deadline",
+		"--network-plugin",
+		"--network-plugin-mtu",
+	}
 	profile := config.AgentPoolProfile
 	if config.KubeletConfig != nil {
 		kubeletFlags := config.KubeletConfig
 		delete(kubeletFlags, "--dynamic-config-dir")
 		delete(kubeletFlags, "--non-masquerade-cidr")
-		if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" && profile.KubernetesConfig.ContainerRuntime == "containerd" {
+		if profile != nil && profile.KubernetesConfig != nil &&
+			profile.KubernetesConfig.ContainerRuntime != "" &&
+			profile.KubernetesConfig.ContainerRuntime == "containerd" {
 			for _, flag := range dockerShimFlags {
 				delete(kubeletFlags, flag)
 			}
@@ -322,6 +335,7 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 // getContainerServiceFuncMap returns all functions used in template generation.
 /* These funcs are a thin wrapper for template generation operations,
 all business logic is implemented in the underlying func. */
+//nolint:gocognit
 func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration) template.FuncMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
@@ -396,7 +410,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return nil
 		},
 		"ShouldConfigTransparentHugePage": func() bool {
-			return profile.CustomLinuxOSConfig != nil && (profile.CustomLinuxOSConfig.TransparentHugePageEnabled != "" || profile.CustomLinuxOSConfig.TransparentHugePageDefrag != "")
+			return profile.CustomLinuxOSConfig != nil && (profile.CustomLinuxOSConfig.TransparentHugePageEnabled != "" ||
+				profile.CustomLinuxOSConfig.TransparentHugePageDefrag != "")
 		},
 		"GetTransparentHugePageEnabled": func() string {
 			if profile.CustomLinuxOSConfig == nil {
@@ -600,16 +615,20 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.RequiresDocker()
 		},
 		"HasDataDir": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
+			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil &&
+				profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
 				return true
 			}
 			if profile.KubeletDiskType == datamodel.TempDisk {
 				return true
 			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig != nil && cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != ""
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig != nil &&
+				cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != ""
 		},
 		"GetDataDir": func() string {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
+			if profile != nil && profile.KubernetesConfig != nil &&
+				profile.KubernetesConfig.ContainerRuntimeConfig != nil &&
+				profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
 				return profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
 			}
 			if profile.KubeletDiskType == datamodel.TempDisk {
@@ -640,13 +659,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString([]byte(kubenetCniTemplate))
 		},
 		"GetContainerdConfigContent": func() string {
-			parameters := getParameters(config, "baker", "1.0")
+			parameters := getParameters(config)
 			// get variable cloudInit
 			variables := getCustomDataVariables(config)
-			containerdConfigTemplate := template.Must(template.New("kubenet").Funcs(getBakerFuncMap(config, parameters, variables)).Parse(containerdConfigTemplateString))
+			bakerFuncMap := getBakerFuncMap(config, parameters, variables)
+			containerdConfigTemplate := template.Must(template.New("kubenet").Funcs(bakerFuncMap).Parse(containerdConfigTemplateString))
 			var b bytes.Buffer
 			if err := containerdConfigTemplate.Execute(&b, profile); err != nil {
-				panic(fmt.Errorf("failed to execute sysctl template: %s", err))
+				panic(fmt.Errorf("failed to execute sysctl template: %w", err))
 			}
 			return base64.StdEncoding.EncodeToString(b.Bytes())
 		},
