@@ -171,6 +171,7 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
+        "1.12.5.1",
         "1.12.5.2",
         "1.12.8"
       ]
@@ -201,7 +202,10 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
-      "amd64OnlyVersions": [],
+      "amd64OnlyVersions": [
+        "1.7.1-hotfix.20200403",
+        "1.7.1-hotfix.20200403.1"
+      ],
       "multiArchVersions": [
         "1.8.6"
       ]
@@ -295,7 +299,9 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:*",
       "amd64OnlyVersions": [],
-      "multiArchVersions": []
+      "multiArchVersions": [
+        "1.4.8"
+      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
