@@ -2,11 +2,13 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"regexp"
+	"strings"
 
 	"github.com/sanity-io/litter"
 )
@@ -61,7 +63,27 @@ func run() error {
 		return fmt.Errorf("failed to extract key value pairs: %q", err)
 	}
 
+	// pretty output in case we want to check it in GH Action
 	litter.Dump(flags)
+
+	filePath := fmt.Sprintf("kubelet/%s-flags.json", k8sVersion)
+	file, err := os.Create(filePath)
+	if err != nil {
+		fmt.Println("File not created")
+		return err
+	}
+
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ") // optional pretty print
+	err = encoder.Encode(flags)
+	if err != nil {
+		fmt.Println("Error encoding data:", err)
+		return err
+	}
+
+	fmt.Println("Data written to: ", filePath)
 
 	return nil
 }
@@ -91,7 +113,8 @@ func extractKeyValuePairs(data []byte) (map[string]string, error) {
 		}
 
 		key := submatchGroup[1]
-		val := submatchGroup[2]
+		// this strips the double quotes from the value, otherwise it is invalid JSON
+		val := strings.ReplaceAll(submatchGroup[2], "\"", "")
 
 		resultKeyValuePairs[key] = val
 	}

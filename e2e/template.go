@@ -576,3 +576,14 @@ type listVMSSVMNetworkInterfaceResult struct {
 		} `json:"properties,omitempty"`
 	} `json:"value,omitempty"`
 }
+
+func extractPrivateIP(res listVMSSVMNetworkInterfaceResult) (string, error) {
+	if len(res.Value) > 0 {
+		v := res.Value[0]
+		if len(v.Properties.IPConfigurations) > 0 {
+			ipconfig := v.Properties.IPConfigurations[0]
+			return ipconfig.Properties.PrivateIPAddress, nil
+		}
+	}
+	return "", fmt.Errorf("unable to extract private IP address from listVMSSNetworkInterfaceResult:\n%+v", res)
+}
