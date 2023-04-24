@@ -3,7 +3,7 @@ set -euxo pipefail
 
 IMAGE_VERSION="${IMAGE_VERSION:-$(date +%Y%m.%d.0)}"
 
-CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-docker}"
+CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-containerd}"
 
 TEMP_IMAGE_BOM_PATH=/opt/azure/containers/temp-image-bom.json
 IMAGE_BOM_PATH=/opt/azure/containers/image-bom.json

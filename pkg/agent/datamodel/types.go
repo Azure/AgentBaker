@@ -861,11 +861,11 @@ func (p *Properties) GetCustomEnvironmentJSON(escape bool) (string, error) {
 		}()
 		bytes, err := json.Marshal(p.CustomCloudEnv)
 		if err != nil {
-			return "", fmt.Errorf("could not serialize CustomCloudEnv object - %s", err.Error())
+			return "", fmt.Errorf("could not serialize CustomCloudEnv object - %w", err)
 		}
 		environmentJSON = string(bytes)
 		if escape {
-			environmentJSON = strings.Replace(environmentJSON, "\"", "\\\"", -1)
+			environmentJSON = strings.ReplaceAll(environmentJSON, "\"", "\\\"")
 		}
 	}
 	return environmentJSON, nil
@@ -1523,8 +1523,8 @@ customCloudProfile is empty. Because customCloudProfile is empty for deployment 
 AzureChinaCloud,AzureGermanCloud,AzureUSGovernmentCloud, The customCloudName value will be empty string
 for those clouds. */
 func FormatProdFQDNByLocation(fqdnPrefix string, location string, cloudSpecConfig *AzureEnvironmentSpecConfig) string {
-	FQDNFormat := cloudSpecConfig.EndpointConfig.ResourceManagerVMDNSSuffix
-	return fmt.Sprintf("%s.%s."+FQDNFormat, fqdnPrefix, location)
+	fqdnFormat := cloudSpecConfig.EndpointConfig.ResourceManagerVMDNSSuffix
+	return fmt.Sprintf("%s.%s."+fqdnFormat, fqdnPrefix, location)
 }
 
 type K8sComponents struct {
