@@ -412,6 +412,21 @@ testUserAdd() {
   echo "$test:Finish"
 }
 
+testNetworkSettings() {
+  local test="testNetworkSettings"
+  local settings_file=/etc/sysctl.d/60-CIS.conf
+  echo "$test:Start"
+
+  # Existence and format check. Based on the man page https://www.man7.org/linux/man-pages/man5/sysctl.conf.5.html
+  # we expect the file to have lines that are either a comment or "NAME = VALUE" pairs. Arbitrary whitespace
+  # is allowed before NAME and between NAME and VALUE. It can also just be "NAME" (no '='). Name seems to be
+  # lower-case and include letters and '_' and '.'. Value can be anything, so we make sure they're printable.
+  # If a line starts with '-', it has special meaning so we need to allow that too.
+  testSettingFileFormat $test $settings_file '^[[:space:]]*(#|;|$)' '^-{0,1}[[:space:]]*[a-z\.0-9_\*]+[[:space:]]*$' '^-{0,1}[[:space:]]*[a-z\.0-9_\*]+[[:space:]]*=[[:space:]]*[^[:cntrl:]]*$'
+
+  echo "$test:End"
+}
+
 # Tests a setting file's format. This is a simple, line-by line check.
 # Parameters:
 #  test: The name of the test.
@@ -541,3 +556,4 @@ testCustomCAScriptExecutable
 testCustomCATimerNotStarted
 testLoginDefs
 testUserAdd
+testNetworkSettings
