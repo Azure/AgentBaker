@@ -35,7 +35,7 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	scenarioTable := scenario.InitScenarioTable(t, suiteConfig.scenariosToRun)
+	scenarios := scenario.InitScenarioTable(t, suiteConfig.scenariosToRun)
 
 	cloud, err := newAzureClient(suiteConfig.subscription)
 	if err != nil {
@@ -46,22 +46,26 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	clusters, err := listClusters(ctx, t, cloud, suiteConfig.resourceGroupName)
+	clusterConfigs, err := getInitialClusterConfigs(ctx, t, cloud, suiteConfig.resourceGroupName)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	paramCache := paramCache{}
+	paramCache := parameterCache{}
 
-	for _, scenario := range scenarioTable {
+	if err := createMissingClusters(ctx, t, r, cloud, suiteConfig, scenarios, paramCache, &clusterConfigs); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, scenario := range scenarios {
 		scenario := scenario
 
-		kube, cluster, clusterParams, subnetID := mustChooseCluster(ctx, t, r, cloud, suiteConfig, scenario, &clusters, paramCache)
+		chosenConfig := mustChooseCluster(ctx, t, r, cloud, suiteConfig, scenario, paramCache, clusterConfigs)
 
-		clusterName := *cluster.Name
+		clusterName := *chosenConfig.cluster.Name
 		t.Logf("chose cluster: %q", clusterName)
 
-		baseConfig, err := getBaseNodeBootstrappingConfiguration(ctx, t, cloud, suiteConfig, clusterParams)
+		baseConfig, err := getBaseNodeBootstrappingConfiguration(ctx, t, cloud, suiteConfig, chosenConfig.parameters)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -86,13 +90,11 @@ func Test_All(t *testing.T) {
 			}
 
 			opts := &scenarioRunOpts{
+				clusterConfig: chosenConfig,
 				cloud:         cloud,
-				kube:          kube,
 				suiteConfig:   suiteConfig,
 				scenario:      scenario,
-				chosenCluster: cluster,
 				nbc:           nbc,
-				subnetID:      subnetID,
 				loggingDir:    caseLogsDir,
 			}
 
@@ -147,17 +149,17 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 	// Only perform node readiness/pod-related checks when VMSS creation succeeded
 	if vmssSucceeded {
 		t.Log("vmss creation succeded, proceeding with node readiness and pod checks...")
-		nodeName, err := validateNodeHealth(ctx, t, opts.kube, vmssName)
+		nodeName, err := validateNodeHealth(ctx, t, opts.clusterConfig.kube, vmssName)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		if opts.nbc.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi {
 			t.Log("wasm scenario: running wasm validation...")
-			if err := ensureWasmRuntimeClasses(ctx, opts.kube); err != nil {
+			if err := ensureWasmRuntimeClasses(ctx, opts.clusterConfig.kube); err != nil {
 				t.Fatalf("unable to ensure wasm RuntimeClasses: %s", err)
 			}
-			if err := validateWasm(ctx, opts.kube, nodeName, string(privateKeyBytes)); err != nil {
+			if err := validateWasm(ctx, opts.clusterConfig.kube, nodeName, string(privateKeyBytes)); err != nil {
 				t.Fatalf("unable to validate wasm: %s", err)
 			}
 		}
@@ -185,7 +187,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scena
 
 	cleanupVMSS := func() {
 		t.Log("deleting vmss", vmssName)
-		poller, err := opts.cloud.vmssClient.BeginDelete(ctx, *opts.chosenCluster.Properties.NodeResourceGroup, vmssName, nil)
+		poller, err := opts.cloud.vmssClient.BeginDelete(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName, nil)
 		if err != nil {
 			t.Error("error deleting vmss", vmssName, err)
 			return
