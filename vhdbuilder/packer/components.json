@@ -53,7 +53,8 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.32"
+        "v1.4.32",
+        "v1.4.45"
       ]
     },
     {
@@ -143,11 +144,8 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:*",
-      "amd64OnlyVersions": [
-        "v3.8.9.1"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.23.3",
         "v3.24.0"
       ]
     },
