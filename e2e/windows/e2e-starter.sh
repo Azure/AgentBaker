@@ -8,7 +8,7 @@ log "Starting e2e tests"
 
 # Create a resource group for the cluster
 log "Creating resource group"
-RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"-"$WINDOWS_E2E_IMAGE"-v2
+RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION"
 
 rgStartTime=$(date +%s)
 az group create -l $LOCATION -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID -ojson
@@ -84,10 +84,14 @@ MC_VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(name,
 CLUSTER_ID=$(echo $MC_VMSS_NAME | cut -d '-' -f3)
 
 if [ "$create_cluster" == "true" ]; then
-    create_storage_account
+    create_storage_container
     upload_linux_file_to_storage_account
+    if [ "$WINDOWS_E2E_IMAGE" == "2019-containerd" ]; then
+        cleanupOutdatedFiles
+    fi
 fi
 download_linux_file_from_storage_account
+log "Download of linux file from storage account completed"
 
 set +x
 addJsonToFile "apiserverCrt" "$(cat apiserver.crt)"
@@ -113,3 +117,4 @@ set +x
 $(jq -r 'keys[] as $k | "export \($k)=\(.[$k])"' fields.json)
 envsubst < percluster_template.json > percluster_config.json
 jq -s '.[0] * .[1]' nodebootstrapping_template.json percluster_config.json > nodebootstrapping_config.json
+log "Node bootstrapping config generated"

@@ -31,13 +31,35 @@ jobs:
         export WINDOWS_E2E_IMAGE=${{ parameters.windowsImage }}
         export WINDOWS_E2E_OSSKU=${{ parameters.windowsOSSKU }}
         export WINDOWS_E2E_VMSIZE=${{ parameters.windowsVMSize }}
-        export WINDOWS_E2E_STORAGE_ACCOUNT=${{ parameters.storageAccount }}
+        if [[ -n "${WINDOWS_PACKAGE_URL}" ]]; then
+          export windowsPackageURL=$WINDOWS_PACKAGE_URL
+          export WINDOWS_PACKAGE_VERSION=$(echo $windowsPackageURL | grep -oP '(?<=/v)\d+\.\d+\.\d+' | head -1)
+          if [[ -z "${KUBERNETES_VERSION}" ]]; then
+            echo "You must set KUBERNETES_VERSION when setting WINDOWS_PACKAGE_URL"
+            exit 1
+          fi
+          if [[ "${WINDOWS_PACKAGE_VERSION}" != "${KUBERNETES_VERSION}" ]]; then
+            echo "Windows package version $WINDOWS_PACKAGE_VERSION does not match with kubernetes version $KUBERNETES_VERSION. Invalid test scenario."
+            exit 1
+          fi
+        else
+          if [[ -z "${KUBERNETES_VERSION}" ]]; then
+            KUBERNETES_VERSION=$(az aks get-versions -l $LOCATION --query "orchestrators[?default==\`true\`].orchestratorVersion" -otsv)
+            echo "Using default kubernetes version ${KUBERNETES_VERSION} for the windows package"
+          fi
+          export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
+          export WINDOWS_PACKAGE_VERSION=$KUBERNETES_VERSION
+        fi
+        export K8S_VERSION=${WINDOWS_PACKAGE_VERSION//./}
+        export WINDOWS_E2E_STORAGE_CONTAINER=${{ parameters.storageAccount }}-$K8S_VERSION
         mkdir -p $WINDOWS_E2E_IMAGE
         cp -r e2e/windows/* $WINDOWS_E2E_IMAGE
         go version
         cd $WINDOWS_E2E_IMAGE
         bash ./e2e-starter.sh
         bash e2e-create-windows-nodepool.sh
+      env:
+        MAPPED_ACCOUNT_KEY: $(STORAGE_ACCOUNT_KEY)
       displayName: Setup Test Cluster
     - publish: $(System.DefaultWorkingDirectory)/${{ parameters.windowsImage }}
       artifact: ${{ parameters.windowsImage }}-clusterConfig
@@ -69,6 +91,18 @@ jobs:
         export WINDOWS_E2E_IMAGE=${{ parameters.windowsImage }}
         export WINDOWS_DISTRO=${{ parameters.windowsDistro }}
         export WINDOWS_NODE_IMAGE_VERSION=${{ parameters.windowsNodeImageVersion }}
+        if [[ -n "${WINDOWS_PACKAGE_URL}" ]]; then
+          export windowsPackageURL=$WINDOWS_PACKAGE_URL
+          export WINDOWS_PACKAGE_VERSION=$(echo $windowsPackageURL | grep -oP '(?<=/v)\d+\.\d+\.\d+' | head -1)
+        else
+          if [[ -z "${KUBERNETES_VERSION}" ]]; then
+            KUBERNETES_VERSION=$(az aks get-versions -l $LOCATION --query "orchestrators[?default==\`true\`].orchestratorVersion" -otsv)
+            echo "Using default kubernetes version ${KUBERNETES_VERSION} for the windows package"
+          fi
+          export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
+          export WINDOWS_PACKAGE_VERSION=$KUBERNETES_VERSION
+        fi
+        export K8S_VERSION=${WINDOWS_PACKAGE_VERSION//./}
         mkdir -p $WINDOWS_E2E_IMAGE
         cp -a $(Pipeline.Workspace)/${{ parameters.windowsImage }}-clusterConfig/* $WINDOWS_E2E_IMAGE
         cd $WINDOWS_E2E_IMAGE

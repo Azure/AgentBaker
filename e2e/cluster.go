@@ -23,7 +23,7 @@ type paramCache map[string]map[string]string
 func isExistingResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupName string) (bool, error) {
 	rgExistence, err := cloud.resourceGroupClient.CheckExistence(ctx, resourceGroupName, nil)
 	if err != nil {
-		return false, fmt.Errorf("failed to get RG %q: %q", resourceGroupName, err)
+		return false, fmt.Errorf("failed to get RG %q: %w", resourceGroupName, err)
 	}
 
 	return rgExistence.Success, nil
@@ -48,7 +48,7 @@ func ensureResourceGroup(ctx context.Context, t *testing.T, cloud *azureClient, 
 			nil)
 
 		if err != nil {
-			return fmt.Errorf("failed to create RG %q: %q", resourceGroupName, err)
+			return fmt.Errorf("failed to create RG %q: %w", resourceGroupName, err)
 		}
 	}
 
@@ -70,7 +70,7 @@ func validateExistingClusterState(
 			t.Logf("received ResourceNotFound error when trying to GET test cluster %q", clusterName)
 			needRecreate = true
 		} else {
-			return false, fmt.Errorf("failed to get aks cluster %q: %q", clusterName, err)
+			return false, fmt.Errorf("failed to get aks cluster %q: %w", clusterName, err)
 		}
 	} else {
 		// We only need to check the MC resource group + cluster properties if the cluster resource itself exists
@@ -84,7 +84,7 @@ func validateExistingClusterState(
 
 			needRecreate = true
 			if err := deleteExistingCluster(ctx, cloud, resourceGroupName, clusterName); err != nil {
-				return false, fmt.Errorf("failed to delete cluster in bad state: %s", err)
+				return false, fmt.Errorf("failed to delete cluster in bad state: %w", err)
 			}
 		}
 	}
@@ -105,12 +105,12 @@ func createNewCluster(
 		nil,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to begin aks cluster creation: %q", err)
+		return nil, fmt.Errorf("failed to begin aks cluster creation: %w", err)
 	}
 
 	clusterResp, err := pollerResp.PollUntilDone(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to wait for aks cluster creation %q", err)
+		return nil, fmt.Errorf("failed to wait for aks cluster creation %w", err)
 	}
 
 	return &clusterResp.ManagedCluster, nil
@@ -119,12 +119,12 @@ func createNewCluster(
 func deleteExistingCluster(ctx context.Context, cloud *azureClient, resourceGroupName, clusterName string) error {
 	poller, err := cloud.aksClient.BeginDelete(ctx, resourceGroupName, clusterName, nil)
 	if err != nil {
-		return fmt.Errorf("failed to start aks cluster %q deletion: %q", clusterName, err)
+		return fmt.Errorf("failed to start aks cluster %q deletion: %w", clusterName, err)
 	}
 
 	_, err = poller.PollUntilDone(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to wait for aks cluster %q deletion: %q", clusterName, err)
+		return fmt.Errorf("failed to wait for aks cluster %q deletion: %w", clusterName, err)
 	}
 
 	return nil
@@ -136,7 +136,7 @@ func getClusterSubnetID(ctx context.Context, cloud *azureClient, location, mcRes
 	for pager.More() {
 		nextResult, err := pager.NextPage(ctx)
 		if err != nil {
-			return "", fmt.Errorf("failed to advance page: %q", err)
+			return "", fmt.Errorf("failed to advance page: %w", err)
 		}
 		for _, v := range nextResult.Value {
 			if v == nil {
@@ -156,7 +156,7 @@ func listClusters(ctx context.Context, t *testing.T, cloud *azureClient, resourc
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to advance page: %q", err)
+			return nil, fmt.Errorf("failed to advance page: %w", err)
 		}
 		for _, resource := range page.Value {
 			if strings.EqualFold(*resource.Type, managedClusterResourceType) {
@@ -166,7 +166,7 @@ func listClusters(ctx context.Context, t *testing.T, cloud *azureClient, resourc
 						log.Printf("get aks cluster %q returned 404 Not Found, continuing to list clusters...", *resource.Name)
 						continue
 					} else {
-						return nil, fmt.Errorf("failed to get aks cluster: %q", err)
+						return nil, fmt.Errorf("failed to get aks cluster: %w", err)
 					}
 				}
 				if cluster.Properties == nil {
@@ -227,6 +227,10 @@ func mustChooseCluster(
 			t.Fatalf("unable to create new cluster: %s", err)
 		}
 
+		if cluster.Properties == nil {
+			t.Fatalf("newly created cluster model has nil properties:\n%+v", cluster)
+		}
+
 		kube, subnetID, clusterParams, err := prepareClusterForTests(ctx, t, cloud, suiteConfig, cluster, paramCache)
 		if err != nil {
 			t.Fatalf("unable to prepare new cluster for test: %s", err)
@@ -279,6 +283,10 @@ func mustChooseCluster(
 		t.Fatalf("unable to successfully choose a cluster for scenario %q", scenario.Name)
 	}
 
+	if chosenCluster.Properties.NodeResourceGroup == nil {
+		t.Fatalf("tried to chose a cluster without a node resource group:\n%+v", *chosenCluster)
+	}
+
 	return chosenKubeClient, chosenCluster, chosenClusterParams, chosenSubnetID
 }
 
@@ -293,21 +301,21 @@ func prepareClusterForTests(
 
 	subnetID, err := getClusterSubnetID(ctx, cloud, suiteConfig.location, *cluster.Properties.NodeResourceGroup, clusterName)
 	if err != nil {
-		return nil, "", nil, fmt.Errorf("unable get subnet ID of cluster %q: %s", clusterName, err)
+		return nil, "", nil, fmt.Errorf("unable get subnet ID of cluster %q: %w", clusterName, err)
 	}
 
 	kube, err := getClusterKubeClient(ctx, cloud, suiteConfig.resourceGroupName, clusterName)
 	if err != nil {
-		return nil, "", nil, fmt.Errorf("unable get kube client using cluster %q: %s", clusterName, err)
+		return nil, "", nil, fmt.Errorf("unable get kube client using cluster %q: %w", clusterName, err)
 	}
 
 	if err := ensureDebugDaemonset(ctx, kube); err != nil {
-		return nil, "", nil, fmt.Errorf("unable to ensure debug damonset of viable cluster %q: %s", clusterName, err)
+		return nil, "", nil, fmt.Errorf("unable to ensure debug damonset of viable cluster %q: %w", clusterName, err)
 	}
 
 	clusterParams, err := getClusterParametersWithCache(ctx, t, kube, clusterName, paramCache)
 	if err != nil {
-		return nil, "", nil, fmt.Errorf("unable to get cluster paramters: %s", err)
+		return nil, "", nil, fmt.Errorf("unable to get cluster paramters: %w", err)
 	}
 
 	return kube, subnetID, clusterParams, nil
@@ -318,29 +326,13 @@ func getClusterParametersWithCache(ctx context.Context, t *testing.T, kube *kube
 	if !ok {
 		params, err := pollExtractClusterParameters(ctx, t, kube)
 		if err != nil {
-			return nil, fmt.Errorf("unable to extract cluster parameters from %q: %s", clusterName, err)
+			return nil, fmt.Errorf("unable to extract cluster parameters from %q: %w", clusterName, err)
 		}
 		paramCache[clusterName] = params
 		return params, nil
 	} else {
 		return cachedParams, nil
 	}
-}
-
-func clusterModelHasProperties(cluster *armcontainerservice.ManagedCluster) bool {
-	return cluster != nil && cluster.Properties != nil
-}
-
-func clusterModelHasNetworkProfile(cluster *armcontainerservice.ManagedCluster) bool {
-	return clusterModelHasProperties(cluster) && cluster.Properties.NetworkProfile != nil
-}
-
-func clusterModelHasAgentPoolProfiles(cluster *armcontainerservice.ManagedCluster) bool {
-	if !clusterModelHasProperties(cluster) {
-		return false
-	}
-	apps := cluster.Properties.AgentPoolProfiles
-	return apps != nil && len(apps) > 0
 }
 
 func getBaseClusterModel(clusterName, location string) armcontainerservice.ManagedCluster {

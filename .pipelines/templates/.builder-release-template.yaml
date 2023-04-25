@@ -101,6 +101,15 @@ steps:
     displayName: Run VHD Tests
   - task: PublishPipelineArtifact@0
     inputs:
+        artifactName: 'trivy-report-${{ parameters.artifactName }}'
+        targetPath: 'trivy-report.json'
+  - task: PublishPipelineArtifact@0
+    inputs:
+        artifactName: 'trivy-table-${{ parameters.artifactName }}'
+        targetPath: 'trivy-table.txt'
+    displayName: publish trivy report
+  - task: PublishPipelineArtifact@0
+    inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
         targetPath: 'release-notes.txt'
     displayName: publish release notes

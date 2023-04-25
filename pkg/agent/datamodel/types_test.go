@@ -4,7 +4,6 @@
 package datamodel
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -37,14 +36,12 @@ func TestHasAadProfile(t *testing.T) {
 	if !p.HasAadProfile() {
 		t.Fatalf("Expected HasAadProfile() to return true")
 	}
-
 }
 
 func TestGetCustomEnvironmentJSON(t *testing.T) {
 	properities := getMockProperitesWithCustomClouEnv()
 	expectedRet := `{"name":"AzureStackCloud","Name":"AzureStackCloud","mcrURL":"mcr.microsoft.fakecustomcloud","repoDepotEndpoint":"https://repodepot.azure.microsoft.fakecustomcloud/ubuntu","managementPortalURL":"https://portal.azure.microsoft.fakecustomcloud/","serviceManagementEndpoint":"https://management.core.microsoft.fakecustomcloud/","resourceManagerEndpoint":"https://management.azure.microsoft.fakecustomcloud/","activeDirectoryEndpoint":"https://login.microsoftonline.microsoft.fakecustomcloud/","keyVaultEndpoint":"https://vault.cloudapi.microsoft.fakecustomcloud/","graphEndpoint":"https://graph.cloudapi.microsoft.fakecustomcloud/","storageEndpointSuffix":"core.microsoft.fakecustomcloud","sqlDatabaseDNSSuffix":"database.cloudapi.microsoft.fakecustomcloud","keyVaultDNSSuffix":"vault.cloudapi.microsoft.fakecustomcloud","resourceManagerVMDNSSuffix":"cloudapp.azure.microsoft.fakecustomcloud/","containerRegistryDNSSuffix":".azurecr.microsoft.fakecustomcloud","cosmosDBDNSSuffix":"documents.core.microsoft.fakecustomcloud/","tokenAudience":"https://management.core.microsoft.fakecustomcloud/","resourceIdentifiers":{}}` //nolint: lll
 	actual, err := properities.GetCustomEnvironmentJSON(false)
-	fmt.Println(actual)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1863,14 +1860,14 @@ func TestKubernetesConfigIsIPMasqAgentDisabled(t *testing.T) {
 }
 
 func TestGetAddonByName(t *testing.T) {
-	ContainerMonitoringAddonName := "container-monitoring"
+	containerMonitoringAddonName := "container-monitoring"
 
 	// Addon present and enabled with logAnalyticsWorkspaceResourceId in config
 	b := true
 	c := KubernetesConfig{
 		Addons: []KubernetesAddon{
 			{
-				Name:    ContainerMonitoringAddonName,
+				Name:    containerMonitoringAddonName,
 				Enabled: &b,
 				Config: map[string]string{
 					"logAnalyticsWorkspaceResourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-workspace-rg/providers/Microsoft.OperationalInsights/workspaces/test-workspace", //nolint:lll
@@ -1879,7 +1876,7 @@ func TestGetAddonByName(t *testing.T) {
 		},
 	}
 
-	addon := c.GetAddonByName(ContainerMonitoringAddonName)
+	addon := c.GetAddonByName(containerMonitoringAddonName)
 	if addon.Config == nil || len(addon.Config) == 0 {
 		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config instead returned null or empty")
 	}
@@ -1905,7 +1902,7 @@ func TestGetAddonByName(t *testing.T) {
 	c = KubernetesConfig{
 		Addons: []KubernetesAddon{
 			{
-				Name:    ContainerMonitoringAddonName,
+				Name:    containerMonitoringAddonName,
 				Enabled: &b,
 				Config: map[string]string{
 					"workspaceGuid": "MDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAw",
@@ -1915,7 +1912,7 @@ func TestGetAddonByName(t *testing.T) {
 		},
 	}
 
-	addon = c.GetAddonByName(ContainerMonitoringAddonName)
+	addon = c.GetAddonByName(containerMonitoringAddonName)
 	if addon.Config == nil || len(addon.Config) == 0 {
 		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config instead returned null or empty")
 	}

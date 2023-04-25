@@ -270,6 +270,9 @@ const (
 	// DO NOT MODIFY: used for freezing linux images with docker.
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
 
+	// DO NOT MODIFY: used to freeze linux image versions for FIPS GPU images.
+	FrozenLinuxSigImageVersionFor1804FIPSGPU string = "202304.10.0"
+
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
 	Windows2019SIGImageVersion string = "17763.2019.221114"
 	Windows2022SIGImageVersion string = "20348.2022.221114"
@@ -393,14 +396,14 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804fipsgpucontainerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSigImageVersionFor1804FIPSGPU,
 	}
 
 	SIGUbuntuFipsGPUContainerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2fipsgpucontainerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSigImageVersionFor1804FIPSGPU,
 	}
 
 	SIGUbuntuFipsContainerd2004ImageConfigTemplate = SigImageConfigTemplate{
@@ -457,7 +460,7 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2004gen2CVMcontainerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       "202304.10.0",
 	}
 
 	SIGCBLMarinerV1ImageConfigTemplate = SigImageConfigTemplate{
@@ -654,19 +657,19 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 
 	fromACSUbuntu, err := withACSSIGConfig(sigConfig, "AKSUbuntu")
 	if err != nil {
-		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSUbuntu: %s", err)
+		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSUbuntu: %w", err)
 	}
 	c.SigUbuntuImageConfig = getSigUbuntuImageConfigMapWithOpts(fromACSUbuntu)
 
 	fromACSCBLMariner, err := withACSSIGConfig(sigConfig, "AKSCBLMariner")
 	if err != nil {
-		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSCBLMariner: %s", err)
+		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSCBLMariner: %w", err)
 	}
 	c.SigCBLMarinerImageConfig = getSigCBLMarinerImageConfigMapWithOpts(fromACSCBLMariner)
 
 	fromACSWindows, err := withACSSIGConfig(sigConfig, "AKSWindows")
 	if err != nil {
-		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for Windows: %s", err)
+		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for Windows: %w", err)
 	}
 	c.SigWindowsImageConfig = getSigWindowsImageConfigMapWithOpts(fromACSWindows)
 
@@ -711,6 +714,7 @@ func withEdgeZoneConfig(acsSigConfig SIGConfig) SigImageConfigOpt {
 	}
 }
 
+//nolint:unparam //subscriptionID only receives AzurePublicCloudSigSubscription
 func withSubscription(subscriptionID string) SigImageConfigOpt {
 	return func(c *SigImageConfig) {
 		c.SubscriptionID = subscriptionID

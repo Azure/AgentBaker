@@ -54,7 +54,7 @@ func healthz(w http.ResponseWriter, r *http.Request) {
 	handleOK(w, r)
 }
 
-func handleOK(w http.ResponseWriter, r *http.Request) {
+func handleOK(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 }

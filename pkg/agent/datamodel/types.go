@@ -865,11 +865,11 @@ func (p *Properties) GetCustomEnvironmentJSON(escape bool) (string, error) {
 		}()
 		bytes, err := json.Marshal(p.CustomCloudEnv)
 		if err != nil {
-			return "", fmt.Errorf("could not serialize CustomCloudEnv object - %s", err.Error())
+			return "", fmt.Errorf("could not serialize CustomCloudEnv object - %w", err)
 		}
 		environmentJSON = string(bytes)
 		if escape {
-			environmentJSON = strings.Replace(environmentJSON, "\"", "\\\"", -1)
+			environmentJSON = strings.ReplaceAll(environmentJSON, "\"", "\\\"")
 		}
 	}
 	return environmentJSON, nil
@@ -1392,6 +1392,25 @@ func (k *KubernetesConfig) IsUsingNetworkPluginMode(mode string) bool {
 	return strings.EqualFold(k.NetworkPluginMode, mode)
 }
 
+func setCustomKubletConfigFromSettings(customKc *CustomKubeletConfig, kubeletConfig map[string]string) map[string]string {
+	// Settings from customKubeletConfig, only take if it's set.
+	if customKc != nil {
+		if customKc.ImageGcHighThreshold != nil {
+			kubeletConfig["--image-gc-high-threshold"] = fmt.Sprintf("%d", *customKc.ImageGcHighThreshold)
+		}
+		if customKc.ImageGcLowThreshold != nil {
+			kubeletConfig["--image-gc-low-threshold"] = fmt.Sprintf("%d", *customKc.ImageGcLowThreshold)
+		}
+		if customKc.ContainerLogMaxSizeMB != nil {
+			kubeletConfig["--container-log-max-size"] = fmt.Sprintf("%dMi", *customKc.ContainerLogMaxSizeMB)
+		}
+		if customKc.ContainerLogMaxFiles != nil {
+			kubeletConfig["--container-log-max-files"] = fmt.Sprintf("%d", *customKc.ContainerLogMaxFiles)
+		}
+	}
+	return kubeletConfig
+}
+
 /*
 GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell
 script consumption.
@@ -1414,20 +1433,7 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	}
 
 	// Settings from customKubeletConfig, only take if it's set.
-	if customKc != nil {
-		if customKc.ImageGcHighThreshold != nil {
-			kubeletConfig["--image-gc-high-threshold"] = fmt.Sprintf("%d", *customKc.ImageGcHighThreshold)
-		}
-		if customKc.ImageGcLowThreshold != nil {
-			kubeletConfig["--image-gc-low-threshold"] = fmt.Sprintf("%d", *customKc.ImageGcLowThreshold)
-		}
-		if customKc.ContainerLogMaxSizeMB != nil {
-			kubeletConfig["--container-log-max-size"] = fmt.Sprintf("%dMi", *customKc.ContainerLogMaxSizeMB)
-		}
-		if customKc.ContainerLogMaxFiles != nil {
-			kubeletConfig["--container-log-max-files"] = fmt.Sprintf("%d", *customKc.ContainerLogMaxFiles)
-		}
-	}
+	kubeletConfig = setCustomKubletConfigFromSettings(customKc, kubeletConfig)
 
 	if len(kubeletConfig) == 0 {
 		return ""
@@ -1521,8 +1527,8 @@ customCloudProfile is empty. Because customCloudProfile is empty for deployment 
 AzureChinaCloud,AzureGermanCloud,AzureUSGovernmentCloud, The customCloudName value will be empty string
 for those clouds. */
 func FormatProdFQDNByLocation(fqdnPrefix string, location string, cloudSpecConfig *AzureEnvironmentSpecConfig) string {
-	FQDNFormat := cloudSpecConfig.EndpointConfig.ResourceManagerVMDNSSuffix
-	return fmt.Sprintf("%s.%s."+FQDNFormat, fqdnPrefix, location)
+	fqdnFormat := cloudSpecConfig.EndpointConfig.ResourceManagerVMDNSSuffix
+	return fmt.Sprintf("%s.%s."+fqdnFormat, fqdnPrefix, location)
 }
 
 type K8sComponents struct {
