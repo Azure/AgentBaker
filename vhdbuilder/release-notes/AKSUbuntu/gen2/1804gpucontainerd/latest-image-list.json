@@ -1,5 +1,5 @@
 {
-  "imageVersion": "202304.20.0",
+  "imageVersion": "202304.24.0",
   "imageBom": [
     {
       "id": "sha256:01b9c60889c7291dadef076b0eca2f8651f85700673ccfba6c04f7adb6b7f53d",
@@ -819,6 +819,15 @@
       ],
       "repoDigests": [
         "sha256:e01f5dae19d7e1be536606fe5deb893417429486b628b816d80ffa0e441eeae8"
+      ]
+    },
+    {
+      "id": "sha256:f9d35d7be45f1e40338851242510151afcf77689ea207f25384096723eb8c330",
+      "repoTags": [
+        "mcr.microsoft.com/containernetworking/azure-npm:v1.4.45"
+      ],
+      "repoDigests": [
+        "sha256:275ffd99692b30570bd960bbbf671fc85b77f7ed290249f198736354f2010205"
       ]
     }
   ]
