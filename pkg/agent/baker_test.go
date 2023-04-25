@@ -705,12 +705,27 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			Expect(err).To(BeNil())
 		}),
 
+		Entry("AKSUbuntu1804 with expected files present on disk", "AKSUbuntu1804+KubeletClientTLSBootstrapping", "1.18.3", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
+		}, func(o *nodeBootstrappingOutput) {
+			etcDefaultKubelet := o.files["/etc/default/kubelet"].value
+			bootstrapKubeConfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
+			kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
+			caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
+
+			Expect(etcDefaultKubelet).NotTo(BeEmpty())
+			Expect(bootstrapKubeConfig).NotTo(BeEmpty())
+			Expect(kubeletSh).NotTo(BeEmpty())
+			Expect(caCRT).NotTo(BeEmpty())
+		}),
+
 		Entry("AKSUbuntu1804 with containerd and runcshimv2", "AKSUbuntu1804+Containerd+runcshimv2", "1.19.13",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableRuncShimV2 = true
 			}, nil),
 
 		Entry("AKSUbuntu1804 with containerd and motd", "AKSUbuntu1804+Containerd+MotD", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+
 			config.ContainerService.Properties.AgentPoolProfiles[0].MessageOfTheDay = "Zm9vYmFyDQo=" // foobar in b64
 		}, nil),
 
@@ -863,6 +878,7 @@ oom_score = 0
 				Name: "akscustom",
 			}
 		}, nil))
+
 })
 
 var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
