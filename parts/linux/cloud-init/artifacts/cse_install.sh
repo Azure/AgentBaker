@@ -30,29 +30,29 @@ cleanupContainerdDlFiles() {
 }
 
 installContainerRuntime() {
-if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-    echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
-    wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
+    if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+        echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
+        wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
-    local containerd_version
-    if [ -f "$MANIFEST_FILEPATH" ]; then
-        containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        local containerd_version
+        if [ -f "$MANIFEST_FILEPATH" ]; then
+            containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        else
+            echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+        fi
+
+        containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
+        containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
+        if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ] || [ "$containerd_revision" == "null" ]; then
+            echo "invalid container version: $containerd_version"
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi
+
+        logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
+        echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
     else
-        echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+        installMoby
     fi
-
-    containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
-    containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
-    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ]  || [ "$containerd_revision" == "null" ]; then
-        echo "invalid container version: $containerd_version"
-        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    fi 
-
-    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
-    echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
-else
-    installMoby
-fi
 }
 
 installNetworkPlugin() {
@@ -95,7 +95,7 @@ downloadAzureCNI() {
 
 downloadCrictl() {
     CRICTL_VERSION=$1
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    CPU_ARCH=$(getCPUArch) #amd64 or arm64
     mkdir -p $CRICTL_DOWNLOAD_DIR
     CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
     CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
@@ -103,7 +103,7 @@ downloadCrictl() {
 }
 
 installCrictl() {
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    CPU_ARCH=$(getCPUArch) #amd64 or arm64
     currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
     if [[ "${currentVersion}" != "" ]]; then
         echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${KUBERNETES_VERSION%.*}.0"
@@ -118,6 +118,7 @@ installCrictl() {
         fi
         echo "Unpacking crictl into ${CRICTL_BIN_DIR}"
         tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
+        chown root:root $CRICTL_BIN_DIR/crictl
         chmod 755 $CRICTL_BIN_DIR/crictl
     fi
 }
@@ -172,7 +173,7 @@ setupCNIDirs() {
 
 installCNI() {
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}    # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
 
     # We want to use the untar cni reference first. And if that doesn't exist on the vhd does the tgz?
     # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
@@ -186,13 +187,13 @@ installCNI() {
 
         tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
-    
+
     chown -R root:root $CNI_BIN_DIR
 }
 
 installAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}         # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
 
     # We want to use the untar azurecni reference first. And if that doesn't exist on the vhd does the tgz?
     # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
@@ -203,7 +204,7 @@ installAzureCNI() {
         if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
             downloadAzureCNI
         fi
-        
+
         tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
 
@@ -254,11 +255,11 @@ pullContainerImage() {
     CONTAINER_IMAGE_URL=$2
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
     if [[ ${CLI_TOOL} == "ctr" ]]; then
-        logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT)
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
-        logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT)
     else
-        logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT)
     fi
 }
 
@@ -363,8 +364,8 @@ cleanupRetaggedImages() {
         if [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
                 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-                # always use ctr, even if crictl is installed.
-                # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
+                    # always use ctr, even if crictl is installed.
+                    # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
                     removeContainerImage "ctr" ${image}
                 else
                     removeContainerImage "docker" ${image}
@@ -393,7 +394,7 @@ cleanUpContainerd() {
 overrideNetworkConfig() {
     CONFIG_FILEPATH="/etc/cloud/cloud.cfg.d/80_azure_net_config.cfg"
     touch ${CONFIG_FILEPATH}
-    cat << EOF >> ${CONFIG_FILEPATH}
+    cat <<EOF >>${CONFIG_FILEPATH}
 datasource:
     Azure:
         apply_network_config: false
