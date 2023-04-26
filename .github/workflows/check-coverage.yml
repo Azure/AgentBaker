@@ -64,6 +64,22 @@ jobs:
           GOCOVERDIR=covdatafiles ./baker start &
       - name: Run e2e tests
         run: |
+          export SCENARIOS_TO_RUN=ubuntu1804,\
+          ubuntu2204,\
+          marinerv1,\
+          marinerv2,\
+          ubuntu2204-arm64,\
+          marinerv2-arm64,\
+          ubuntu2204-custom-sysctls,\
+          marinerv1-custom-sysctls,\
+          marinerv2-custom-sysctls,\
+          ubuntu2204-wasm,\
+          marinerv1-wasm,\
+          marinerv2-wasm,\
+          ubuntu1804-azurecni,\
+          marinerv1-azurecni,\
+          marinerv2-azurecni
+          
           echo "Running e2e tests"
           cd e2e
           go test -e2eMode="coverage" -timeout 30m -v -run Test_All ./
