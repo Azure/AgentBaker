@@ -55,12 +55,7 @@ func (r podExecResult) dumpStderr() {
 	}
 }
 
-func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName string, sshPrivateKey string, opts *scenarioRunOpts) (map[string]string, error) {
-	privateIP, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.chosenCluster.Properties.NodeResourceGroup, vmssName)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get private IP address of VM on VMSS %q: %w", vmssName, err)
-	}
-
+func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) (map[string]string, error) {
 	commandList := map[string]string{
 		"/var/log/azure/cluster-provision.log": "cat /var/log/azure/cluster-provision.log",
 		"kubelet.log":                          "journalctl -u kubelet",
@@ -180,6 +175,22 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 		stdout:   &stdout,
 		stderr:   &stderr,
 	}, nil
+}
+
+func getWasmCurlCommand(url string) string {
+	return fmt.Sprintf(`curl \
+--connect-timeout 5 \
+--max-time 10 \
+--retry 10 \
+--retry-max-time 100 \
+%s`, url)
+}
+
+func bashCommandArray() []string {
+	return []string{
+		"/bin/bash",
+		"-c",
+	}
 }
 
 func nsenterCommandArray() []string {

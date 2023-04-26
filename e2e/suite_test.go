@@ -128,10 +128,15 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		}
 	}
 
+	vmPrivateIP, err := pollGetVMPrivateIP(ctx, vmssName, opts)
+	if err != nil {
+		t.Fatalf("failed to get VM private IP: %s", err)
+	}
+
 	// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
 	if vmssSucceeded || isCSEError {
 		debug := func() {
-			err := pollExtractVMLogs(ctx, t, vmssName, privateKeyBytes, opts)
+			err := pollExtractVMLogs(ctx, t, vmssName, vmPrivateIP, privateKeyBytes, opts)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -142,13 +147,24 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 	// Only perform node readiness/pod-related checks when VMSS creation succeeded
 	if vmssSucceeded {
 		t.Log("vmss creation succeded, proceeding with node readiness and pod checks...")
-		if err = validateNodeHealth(ctx, t, opts.kube, vmssName); err != nil {
+		nodeName, err := validateNodeHealth(ctx, t, opts.kube, vmssName)
+		if err != nil {
 			t.Fatal(err)
+		}
+
+		if opts.nbc.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi {
+			t.Log("wasm scenario: running wasm validation...")
+			if err := ensureWasmRuntimeClasses(ctx, opts.kube); err != nil {
+				t.Fatalf("unable to ensure wasm RuntimeClasses: %s", err)
+			}
+			if err := validateWasm(ctx, opts.kube, nodeName, string(privateKeyBytes)); err != nil {
+				t.Fatalf("unable to validate wasm: %s", err)
+			}
 		}
 
 		t.Logf("node is ready, proceeding with validation commands...")
 
-		err := runLiveVMValidators(ctx, t, *vmssModel.Name, string(privateKeyBytes), opts)
+		err = runLiveVMValidators(ctx, t, *vmssModel.Name, vmPrivateIP, string(privateKeyBytes), opts)
 		if err != nil {
 			t.Fatalf("VM validation failed: %s", err)
 		}
@@ -189,21 +205,21 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scena
 	return vmssName, vmssModel, cleanupVMSS, nil
 }
 
-func validateNodeHealth(ctx context.Context, t *testing.T, kube *kubeclient, vmssName string) error {
+func validateNodeHealth(ctx context.Context, t *testing.T, kube *kubeclient, vmssName string) (string, error) {
 	nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
 	if err != nil {
-		return fmt.Errorf("error waiting for node ready: %w", err)
+		return "", fmt.Errorf("error waiting for node ready: %w", err)
 	}
 
-	err = ensureTestNginxPod(ctx, kube, nodeName)
+	nginxPodName, err := ensureTestNginxPod(ctx, kube, nodeName)
 	if err != nil {
-		return fmt.Errorf("error waiting for pod ready: %w", err)
+		return "", fmt.Errorf("error waiting for pod ready: %w", err)
 	}
 
-	err = waitUntilPodDeleted(ctx, kube, nodeName)
+	err = waitUntilPodDeleted(ctx, kube, nginxPodName)
 	if err != nil {
-		return fmt.Errorf("error waiting pod deleted: %w", err)
+		return "", fmt.Errorf("error waiting pod deleted: %w", err)
 	}
 
-	return nil
+	return nodeName, nil
 }

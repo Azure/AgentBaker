@@ -15,15 +15,19 @@ import (
 const (
 	// Polling intervals
 	execOnVMPollInterval                 = 10 * time.Second
+	execOnPodPollInterval                = 10 * time.Second
 	extractClusterParametersPollInterval = 15 * time.Second
 	extractVMLogsPollInterval            = 15 * time.Second
+	getVMPrivateIPAddressPollInterval    = 5 * time.Second
 	waitUntilPodRunningPollInterval      = 5 * time.Second
 	waitUntilPodDeletedPollInterval      = 5 * time.Second
 
 	// Polling timeouts
 	execOnVMPollingTimeout                 = 3 * time.Minute
+	execOnPodPollingTimeout                = 2 * time.Minute
 	extractClusterParametersPollingTimeout = 3 * time.Minute
 	extractVMLogsPollingTimeout            = 5 * time.Minute
+	getVMPrivateIPAddressPollingTimeout    = 1 * time.Minute
 	waitUntilPodRunningPollingTimeout      = 3 * time.Minute
 	waitUntilPodDeletedPollingTimeout      = 1 * time.Minute
 )
@@ -44,6 +48,31 @@ func pollExecOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPod
 
 		// this denotes a retriable SSH failure
 		if res.exitCode == "255" {
+			return false, nil
+		}
+
+		execResult = res
+		return true, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return execResult, nil
+}
+
+func pollExecOnPod(ctx context.Context, kube *kubeclient, namespace, podName, command string) (*podExecResult, error) {
+	var execResult *podExecResult
+	err := wait.PollImmediateWithContext(ctx, execOnPodPollInterval, execOnPodPollingTimeout, func(ctx context.Context) (bool, error) {
+		res, err := execOnPod(ctx, kube, namespace, podName, append(bashCommandArray(), command))
+		if err != nil {
+			log.Printf("unable to execute command on pod: %s", err)
+
+			// fail hard on non-retriable error
+			if strings.Contains(err.Error(), "error extracting exit code") {
+				return false, err
+			}
 			return false, nil
 		}
 
@@ -79,11 +108,11 @@ func pollExtractClusterParameters(ctx context.Context, t *testing.T, kube *kubec
 }
 
 // Wraps exctracLogsFromVM and dumpFileMapToDir in a poller with a 15-second wait interval and 5-minute timeout
-func pollExtractVMLogs(ctx context.Context, t *testing.T, vmssName string, privateKeyBytes []byte, opts *scenarioRunOpts) error {
+func pollExtractVMLogs(ctx context.Context, t *testing.T, vmssName, privateIP string, privateKeyBytes []byte, opts *scenarioRunOpts) error {
 	err := wait.PollImmediateWithContext(ctx, extractVMLogsPollInterval, extractVMLogsPollingTimeout, func(ctx context.Context) (bool, error) {
 		t.Log("attempting to extract VM logs")
 
-		logFiles, err := extractLogsFromVM(ctx, t, vmssName, string(privateKeyBytes), opts)
+		logFiles, err := extractLogsFromVM(ctx, t, vmssName, privateIP, string(privateKeyBytes), opts)
 		if err != nil {
 			t.Logf("error extracting VM logs: %q", err)
 			return false, nil
@@ -103,6 +132,25 @@ func pollExtractVMLogs(ctx context.Context, t *testing.T, vmssName string, priva
 	}
 
 	return nil
+}
+
+func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *scenarioRunOpts) (string, error) {
+	var vmPrivateIP string
+	err := wait.PollImmediateWithContext(ctx, getVMPrivateIPAddressPollInterval, getVMPrivateIPAddressPollingTimeout, func(ctx context.Context) (bool, error) {
+		pip, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.chosenCluster.Properties.NodeResourceGroup, vmssName)
+		if err != nil {
+			log.Printf("encountered an error while getting VM private IP address: %s", err)
+			return false, nil
+		}
+		vmPrivateIP = pip
+		return true, nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	return vmPrivateIP, nil
 }
 
 func waitUntilPodRunning(ctx context.Context, kube *kubeclient, podName string) error {
