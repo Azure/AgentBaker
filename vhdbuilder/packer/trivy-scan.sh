@@ -24,9 +24,12 @@ tar -xvzf "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
 rm "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
 chmod a+x trivy 
 
-./trivy --scanners vuln rootfs -f json --ignore-unfixed --severity HIGH,CRITICAL -o "${TRIVY_REPORT_JSON_PATH}" /
-./trivy --scanners vuln rootfs -f table --ignore-unfixed --severity HIGH,CRITICAL -o "${TRIVY_REPORT_TABLE_PATH}" /
+./trivy --scanners vuln rootfs -f json --skip-dirs /var/lib/containerd --ignore-unfixed --severity HIGH,CRITICAL -o "${TRIVY_REPORT_JSON_PATH}" /
 
+IMAGE_LIST=$(ctr -n k8s.io image list -q | grep -v sha256)
+for image in $IMAGE_LIST; do
+    trivy --scanners vuln image --ignore-unfixed --severity HIGH,CRITICAL -f table $image >> ${TRIVY_REPORT_TABLE_PATH}
+done
 
 rm ./trivy 
 
