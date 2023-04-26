@@ -111,6 +111,8 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2FIPS,
+	AKSCBLMarinerV2FIPSGen2,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
@@ -154,6 +156,8 @@ var AvailableCBLMarinerDistros []Distro = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2FIPS,
+	AKSCBLMarinerV2FIPSGen2,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSCBLMarinerV2Gen2TL,
@@ -265,6 +269,9 @@ const (
 const (
 	// DO NOT MODIFY: used for freezing linux images with docker.
 	FrozenLinuxSIGImageVersionForDocker string = "2022.08.29"
+
+	// DO NOT MODIFY: used to freeze linux image versions for FIPS GPU images.
+	FrozenLinuxSigImageVersionFor1804FIPSGPU string = "202304.10.0"
 
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
 	Windows2019SIGImageVersion string = "17763.2019.221114"
@@ -389,14 +396,14 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804fipsgpucontainerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSigImageVersionFor1804FIPSGPU,
 	}
 
 	SIGUbuntuFipsGPUContainerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2fipsgpucontainerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenLinuxSigImageVersionFor1804FIPSGPU,
 	}
 
 	SIGUbuntuFipsContainerd2004ImageConfigTemplate = SigImageConfigTemplate{
@@ -453,7 +460,7 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2004gen2CVMcontainerd",
-		Version:       LinuxSIGImageVersion,
+		Version:       "202304.10.0",
 	}
 
 	SIGCBLMarinerV1ImageConfigTemplate = SigImageConfigTemplate{
@@ -474,6 +481,20 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2gen2",
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGCBLMarinerV2FIPSGen1ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
+		Definition:    "V2fips",
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGCBLMarinerV2FIPSGen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
+		Definition:    "V2fipsgen2",
 		Version:       LinuxSIGImageVersion,
 	}
 
@@ -564,6 +585,8 @@ func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 		AKSCBLMarinerV1:           SIGCBLMarinerV1ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2:           SIGCBLMarinerV2Gen1ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2:       SIGCBLMarinerV2ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2FIPS:       SIGCBLMarinerV2FIPSGen1ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2FIPSGen2:   SIGCBLMarinerV2FIPSGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2Kata:   SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Arm64Gen2:  SIGCBLMarinerV2Arm64ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2TL:     SIGCBLMarinerV2TLImageConfigTemplate.WithOptions(opts...),
