@@ -28,7 +28,7 @@ chmod a+x trivy
 
 IMAGE_LIST=$(ctr -n k8s.io image list -q | grep -v sha256)
 for image in $IMAGE_LIST; do
-    trivy --scanners vuln image --ignore-unfixed --severity HIGH,CRITICAL -f table $image >> ${TRIVY_REPORT_TABLE_PATH}
+    ./trivy --scanners vuln image --ignore-unfixed --severity HIGH,CRITICAL -f table $image >> ${TRIVY_REPORT_TABLE_PATH}
 done
 
 rm ./trivy 
