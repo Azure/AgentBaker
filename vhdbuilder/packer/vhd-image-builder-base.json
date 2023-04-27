@@ -576,7 +576,7 @@
     {
       "type": "file",
       "direction": "download",
-      "source": "/opt/azure/containers/trivy-table.txt",
+      "source": "/opt/azure/containers/trivy-images-table.txt",
       "destination": "trivy-table.txt"
     },
     {

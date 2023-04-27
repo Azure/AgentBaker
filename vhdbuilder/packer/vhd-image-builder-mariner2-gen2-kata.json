@@ -518,8 +518,8 @@
     {
       "type": "file",
       "direction": "download",
-      "source": "/opt/azure/containers/trivy-table.txt",
-      "destination": "trivy-table.txt"
+      "source": "/opt/azure/containers/trivy-image-table.txt",
+      "destination": "trivy-image-table.txt"
     },
     {
       "type": "file",
