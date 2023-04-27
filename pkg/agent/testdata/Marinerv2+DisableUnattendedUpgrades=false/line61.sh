@@ -26,9 +26,12 @@ installDeps() {
 }
 
 downloadGPUDrivers() {
-    # uname -r in Mariner will return %{version}-%{release}.%{mariner_version_postfix}
-    # Need to process the return value of "uname -r" to get the %{version} value
-    KERNEL_VERSION=$(cut -d - -f 1 <<< "$(uname -r)")
+    # Mariner CUDA rpm name comes in the following format:
+    #
+    # cuda-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
+    #
+    # Before installing cuda, check the active kernel version (uname -r) and use that to determine which cuda to install
+    KERNEL_VERSION=$(uname -r | sed 's/-/./g')
     CUDA_VERSION="*_${KERNEL_VERSION}*"
 
     if ! dnf_install 30 1 600 cuda-${CUDA_VERSION}; then
