@@ -565,8 +565,8 @@
     {
       "type": "file",
       "direction": "download",
-      "source": "/opt/azure/containers/trivy-report.json",
-      "destination": "trivy-table.txt"
+      "source": "/opt/azure/containers/trivy-images-table.txt",
+      "destination": "trivy-images-table.txt"
     },
     {
       "type": "file",
