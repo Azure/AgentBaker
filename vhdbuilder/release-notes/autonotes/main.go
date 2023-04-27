@@ -132,7 +132,7 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 
 	trivyReportName := fmt.Sprintf("trivy-report-%s", sku)
 	trivyReportFileIn := filepath.Join(tmpdir, "trivy-report.json")
-	trivyTableName := fmt.Sprintf("trivy-table-%s", sku)
+	trivyTableName := fmt.Sprintf("trivy-images-table-%s", sku)
 	trivyReportTableIn := filepath.Join(tmpdir, "trivy-images-table.txt")
 
 	artifactsDirOut := filepath.Join(fl.path, path)
