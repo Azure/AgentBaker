@@ -757,10 +757,31 @@ setPWExpiration() {
     replaceOrAppendUserAdd INACTIVE 30
 }
 
+# Creates the search pattern and setting lines for the core dump settings, and calls through
+# to do the replacement. Note that this uses extended regular expressions, so both
+# grep and sed need to be called as such.
+#
+# The search pattern is:
+#  '^#{0,1} {0,1}' -- Line starts with 0 or 1 '#' followed by 0 or 1 space
+#  '${1}='         -- Then the setting name followed by '='
+#  '.*$'           -- Then 0 or nore of any character which is the end of the line.
+#
+# This is based on a combination of the syntax for the file (https://www.man7.org/linux/man-pages/man5/coredump.conf.5.html)
+# and real examples we've found.
+replaceOrAppendCoreDump() {
+    replaceOrAppendSetting "^#{0,1} {0,1}${1}=.*$" "${1}=${2}" /etc/systemd/coredump.conf
+}
+
+configureCoreDump() {
+    replaceOrAppendCoreDump Storage none
+    replaceOrAppendCoreDump ProcessSizeMax 0
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
     assignFilePermissions
+    configureCoreDump
 }
 
 applyCIS
