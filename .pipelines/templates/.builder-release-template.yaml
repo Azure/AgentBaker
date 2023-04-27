@@ -106,7 +106,7 @@ steps:
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'trivy-table-${{ parameters.artifactName }}'
-        targetPath: 'trivy-image-table.txt'
+        targetPath: 'trivy-images-table.txt'
     displayName: publish trivy report
   - task: PublishPipelineArtifact@0
     inputs:
