@@ -5,10 +5,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 )
 
-func base_azurecni() *Scenario {
+func ubuntu1804_azurecni() *Scenario {
 	return &Scenario{
-		Name:        "base-azurecni",
-		Description: "base scenario on cluster configured with Azure CNI",
+		Name:        "ubuntu1804-azurecni",
+		Description: "ubuntu1804 scenario on cluster configured with Azure CNI",
 		Config: Config{
 			ClusterSelector: NetworkPluginAzureSelector,
 			ClusterMutator:  NetworkPluginAzureMutator,

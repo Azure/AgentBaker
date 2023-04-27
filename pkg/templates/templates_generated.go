@@ -685,6 +685,15 @@ assignFilePermissions() {
     for filepath in /etc/cron.hourly /etc/cron.daily /etc/cron.weekly /etc/cron.monthly /etc/cron.d; do
         chmod 0600 $filepath || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     done
+
+    # Docs: https://www.man7.org/linux/man-pages/man1/crontab.1.html
+    # If cron.allow exists, then cron.deny is ignored. To minimize who can use cron, we
+    # always want cron.allow and will default it to empty if it doesn't exist.
+    # We also need to set appropriate permissions on it.
+    # Since it will be ignored anyway, we delete cron.deny.
+    touch /etc/cron.allow || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+    chmod 640 /etc/cron.allow || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+    rm -rf /etc/cron.deny || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
 }
 
 # Helper function to replace or append settings to a setting file.
@@ -2090,29 +2099,29 @@ cleanupContainerdDlFiles() {
 }
 
 installContainerRuntime() {
-if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-    echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
-    wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
+    if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+        echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
+        wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
-    local containerd_version
-    if [ -f "$MANIFEST_FILEPATH" ]; then
-        containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        local containerd_version
+        if [ -f "$MANIFEST_FILEPATH" ]; then
+            containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        else
+            echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+        fi
+
+        containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
+        containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
+        if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ] || [ "$containerd_revision" == "null" ]; then
+            echo "invalid container version: $containerd_version"
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi
+
+        logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
+        echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
     else
-        echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+        installMoby
     fi
-
-    containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
-    containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
-    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ]  || [ "$containerd_revision" == "null" ]; then
-        echo "invalid container version: $containerd_version"
-        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    fi 
-
-    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
-    echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
-else
-    installMoby
-fi
 }
 
 installNetworkPlugin() {
@@ -2155,7 +2164,7 @@ downloadAzureCNI() {
 
 downloadCrictl() {
     CRICTL_VERSION=$1
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    CPU_ARCH=$(getCPUArch) #amd64 or arm64
     mkdir -p $CRICTL_DOWNLOAD_DIR
     CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
     CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
@@ -2163,7 +2172,7 @@ downloadCrictl() {
 }
 
 installCrictl() {
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    CPU_ARCH=$(getCPUArch) #amd64 or arm64
     currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
     if [[ "${currentVersion}" != "" ]]; then
         echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${KUBERNETES_VERSION%.*}.0"
@@ -2178,6 +2187,7 @@ installCrictl() {
         fi
         echo "Unpacking crictl into ${CRICTL_BIN_DIR}"
         tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
+        chown root:root $CRICTL_BIN_DIR/crictl
         chmod 755 $CRICTL_BIN_DIR/crictl
     fi
 }
@@ -2232,7 +2242,7 @@ setupCNIDirs() {
 
 installCNI() {
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}    # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
 
     # We want to use the untar cni reference first. And if that doesn't exist on the vhd does the tgz?
     # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
@@ -2246,13 +2256,13 @@ installCNI() {
 
         tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
-    
+
     chown -R root:root $CNI_BIN_DIR
 }
 
 installAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}         # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
 
     # We want to use the untar azurecni reference first. And if that doesn't exist on the vhd does the tgz?
     # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
@@ -2263,7 +2273,7 @@ installAzureCNI() {
         if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
             downloadAzureCNI
         fi
-        
+
         tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
 
@@ -2314,11 +2324,11 @@ pullContainerImage() {
     CONTAINER_IMAGE_URL=$2
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
     if [[ ${CLI_TOOL} == "ctr" ]]; then
-        logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT)
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
-        logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT)
     else
-        logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT)
     fi
 }
 
@@ -2423,8 +2433,8 @@ cleanupRetaggedImages() {
         if [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
                 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-                # always use ctr, even if crictl is installed.
-                # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
+                    # always use ctr, even if crictl is installed.
+                    # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
                     removeContainerImage "ctr" ${image}
                 else
                     removeContainerImage "docker" ${image}
@@ -2453,7 +2463,7 @@ cleanUpContainerd() {
 overrideNetworkConfig() {
     CONFIG_FILEPATH="/etc/cloud/cloud.cfg.d/80_azure_net_config.cfg"
     touch ${CONFIG_FILEPATH}
-    cat << EOF >> ${CONFIG_FILEPATH}
+    cat <<EOF >>${CONFIG_FILEPATH}
 datasource:
     Azure:
         apply_network_config: false
@@ -4362,7 +4372,9 @@ install rds /bin/true
 # 3.5.4 Ensure TIPC is disabled
 install tipc /bin/true
 # 1.1.1.1 Ensure mounting of cramfs filesystems is disabled
+# Mariner AKS CIS Benchmark: Ensure mounting of cramfs filesystems is disabled
 install cramfs /bin/true
+blacklist cramfs
 # 1.1.1.2 Ensure mounting of freevxfs filesystems is disabled
 install freevxfs /bin/true
 # 1.1.1.3 Ensure mounting of jffs2 filesystems is disabled
@@ -4370,7 +4382,8 @@ install jffs2 /bin/true
 # 1.1.1.4 Ensure mounting of hfs filesystems is disabled
 install hfs /bin/true
 # 1.1.1.5 Ensure mounting of hfsplus filesystems is disabled
-install hfsplus /bin/true`)
+install hfsplus /bin/true
+`)
 
 func linuxCloudInitArtifactsModprobeCisConfBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsModprobeCisConf, nil
@@ -5342,27 +5355,52 @@ func linuxCloudInitArtifactsSyncContainerLogsSh() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsSysctlD60CisConf = []byte(`# 3.1.2 Ensure packet redirect sending is disabled
+var _linuxCloudInitArtifactsSysctlD60CisConf = []byte(`# Ubuntu CIS Benchmark: Ensure packet redirect sending is disabled
 net.ipv4.conf.all.send_redirects = 0
 net.ipv4.conf.default.send_redirects = 0
-# 3.2.1 Ensure source routed packets are not accepted 
+
+# Ubuntu CIS Benchmark: Ensure source routed packets are not accepted
+# Mariner AKS CIS Benchmark: Ensure source routed packets are not accepted
 net.ipv4.conf.all.accept_source_route = 0
 net.ipv4.conf.default.accept_source_route = 0
-# 3.2.2 Ensure ICMP redirects are not accepted
+net.ipv6.conf.all.accept_source_route = 0
+net.ipv6.conf.default.accept_source_route = 0
+
+# Ubuntu CIS Benchmark: Ensure ICMP redirects are not accepted
+# Mariner AKS CIS Benchmark: Ensure ICMP redirects are not accepted
 net.ipv4.conf.all.accept_redirects = 0
 net.ipv4.conf.default.accept_redirects = 0
-# 3.2.3 Ensure secure ICMP redirects are not accepted
-net.ipv4.conf.all.secure_redirects = 0
-net.ipv4.conf.default.secure_redirects = 0
-# 3.2.4 Ensure suspicious packets are logged
-net.ipv4.conf.all.log_martians = 1
-net.ipv4.conf.default.log_martians = 1
-# 3.3.1 Ensure IPv6 router advertisements are not accepted
-net.ipv6.conf.all.accept_ra = 0
-net.ipv6.conf.default.accept_ra = 0
-# 3.3.2 Ensure IPv6 redirects are not accepted
 net.ipv6.conf.all.accept_redirects = 0
 net.ipv6.conf.default.accept_redirects = 0
+
+# Ubuntu CIS Benchmark: Ensure secure ICMP redirects are not accepted
+# Mariner AKS CIS Benchmark: Ensure secure ICMP redirects are not accepted
+net.ipv4.conf.all.secure_redirects = 0
+net.ipv4.conf.default.secure_redirects = 0
+
+# Ubuntu CIS Benchmark: Ensure suspicious packets are logged
+# Mariner AKS CIS Benchmark: Ensure suspicious packets are logged
+net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.default.log_martians = 1
+
+# Ubuntu CIS Benchmark: Ensure IPv6 router advertisements are not accepted
+# Mariner AKS CIS Benchmark: Ensure IPv6 router advertisements are not accepted
+net.ipv6.conf.all.accept_ra = 0
+net.ipv6.conf.default.accept_ra = 0
+
+# Mariner AKS CIS Benchmark: Ensure broadcast ICMP requests are ignored
+net.ipv4.icmp_echo_ignore_broadcasts = 1
+
+# Mariner AKS CIS Benchmark: Ensure bogus ICMP responses are ignored
+net.ipv4.icmp_ignore_bogus_error_responses = 1
+
+# Mariner AKS CIS Benchmark: Ensure Reverse Path Filtering is enabled
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.default.rp_filter = 1
+
+# Mariner AKS CIS Benchmark: Ensure TCP SYN Cookies is enabled
+net.ipv4.tcp_syncookies = 1
+
 # refer to https://github.com/kubernetes/kubernetes/blob/75d45bdfc9eeda15fb550e00da662c12d7d37985/pkg/kubelet/cm/container_manager_linux.go#L359-L397
 vm.overcommit_memory = 1
 kernel.panic = 10
@@ -5371,7 +5409,7 @@ kernel.panic_on_oops = 1
 kernel.pid_max = 4194304
 # https://github.com/Azure/AKS/issues/772
 fs.inotify.max_user_watches = 1048576
-# Ubuntu 22.04 has inotify_max_user_instances set to 128, where as Ubuntu 18.04 had 1024. 
+# Ubuntu 22.04 has inotify_max_user_instances set to 128, where as Ubuntu 18.04 had 1024.
 fs.inotify.max_user_instances = 1024
 `)
 

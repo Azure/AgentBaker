@@ -224,7 +224,7 @@ testFips() {
   os_version=$1
   enable_fips=$2
 
-  if [[ (${os_version} == "18.04" || ${os_version} == "20.04") && ${enable_fips,,} == "true" ]]; then
+  if [[ (${os_version} == "18.04" || ${os_version} == "20.04" || ${os_version} == "V2") && ${enable_fips,,} == "true" ]]; then
     kernel=$(uname -r)
     if [[ -f /proc/sys/crypto/fips_enabled ]]; then
       fips_enabled=$(cat /proc/sys/crypto/fips_enabled)
@@ -237,10 +237,12 @@ testFips() {
       err $test "FIPS is not enabled."
     fi
 
-    if [[ -f /usr/src/linux-headers-${kernel}/Makefile ]]; then
-      echo "fips header files exist."
-    else
-      err $test "fips header files don't exist."
+    if [[ ${os_version} == "18.04" || ${os_version} == "20.04" ]]; then
+      if [[ -f /usr/src/linux-headers-${kernel}/Makefile ]]; then
+        echo "fips header files exist."
+      else
+        err $test "fips header files don't exist."
+      fi
     fi
   fi
 
@@ -412,6 +414,108 @@ testUserAdd() {
   echo "$test:Finish"
 }
 
+testNetworkSettings() {
+  local test="testNetworkSettings"
+  local settings_file=/etc/sysctl.d/60-CIS.conf
+  echo "$test:Start"
+
+  # Existence and format check. Based on the man page https://www.man7.org/linux/man-pages/man5/sysctl.conf.5.html
+  # we expect the file to have lines that are either a comment or "NAME = VALUE" pairs. Arbitrary whitespace
+  # is allowed before NAME and between NAME and VALUE. It can also just be "NAME" (no '='). Name seems to be
+  # lower-case and include letters and '_' and '.'. Value can be anything, so we make sure they're printable.
+  # If a line starts with '-', it has special meaning so we need to allow that too.
+  testSettingFileFormat $test $settings_file '^[[:space:]]*(#|;|$)' '^-{0,1}[[:space:]]*[a-z\.0-9_\*]+[[:space:]]*$' '^-{0,1}[[:space:]]*[a-z\.0-9_\*]+[[:space:]]*=[[:space:]]*[^[:cntrl:]]*$'
+
+  echo "$test:End"
+}
+
+# Tests that the modes on the cron-related files and directories in /etc are set correctly, per the
+# function assignFilePermissions in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
+testCronPermissions() {
+  local test="testCronPermissions"
+  echo "$test:Start"
+
+  declare -A required_pathss=(
+    ['/etc/cron.allow']=640
+    ['/etc/cron.hourly']=600
+    ['/etc/cron.daily']=600
+    ['/etc/cron.weekly']=600
+    ['/etc/cron.monthly']=600
+    ['/etc/cron.d']=600
+  )
+
+  declare -A optional_paths=(
+    ['/etc/crontab']=600
+  )
+
+  declare -a disallowed_paths=(
+    '/etc/cron.deny'
+  )
+
+  echo "$test: Checking required paths"
+  for path in "${!required_path[@]}"; do
+    checkPathPermissions $test $path ${required_paths[$path]} 1
+  done
+
+  echo "$test: Checking optional paths"
+  for path in "${!optional_paths[@]}"; do
+    checkPathPermissions $test $path ${optional_paths[$path]} 0
+  done
+
+  echo "$test: Checking disallowed paths"
+  for path in "${disallowed_paths[@]}"; do
+    checkPathDoesNotExist $test $path
+  done
+
+  echo "$test:Finish"
+}
+
+# Checks a single file or directory's permissions.
+# Parameters:
+#  test: The name of the test.
+#  path: The path to check.
+#  expected_perms: The expected permissions.
+#  required: If 1, the path must exist. If 0, the path is optional.
+function checkPathPermissions() {
+  local test="$1"
+  local path="$2"
+  local expected_perms="$3"
+  local required="$4"
+
+  echo "$test: Checking permissions for '$path'"
+  if [ ! -e "$path" ]; then
+    if [ "$required" -eq 1 ]; then
+      err $test "Required path '$path' does not exist"
+    else
+      echo "$test: Optional path '$path' does not exist"
+    fi
+  else
+    local actual_perms=
+    actual_perms=$(stat -c %a $path)
+    if [ "$actual_perms" != "$expected_perms" ]; then
+      err $test "Path '$path' has permissions $actual_perms; expected $expected_perms"
+    else
+      echo "$test: $path has correct permissions $actual_perms"
+    fi
+  fi
+}
+
+# Checks that a single file or directory does not exist.
+# Parameters:
+#  test: The name of the test.
+#  path: The path to check.
+function checkPathDoesNotExist() {
+  local test="$1"
+  local path="$2"
+
+  echo "$test: Checking that '$path' does not exist"
+  if [ -e "$path" ]; then
+    err $test "Path '$path' exists"
+  else
+    echo "$test: $path correctly does not exist"
+  fi
+}
+
 # Tests a setting file's format. This is a simple, line-by line check.
 # Parameters:
 #  test: The name of the test.
@@ -541,3 +645,5 @@ testCustomCAScriptExecutable
 testCustomCATimerNotStarted
 testLoginDefs
 testUserAdd
+testNetworkSettings
+testCronPermissions
