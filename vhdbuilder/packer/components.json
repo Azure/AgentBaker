@@ -11,8 +11,6 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/metrics-server:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.5.2",
-        "v0.6.1",
         "v0.6.3"
       ]
     },
@@ -101,8 +99,8 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "6.4.0-main-02-22-2023-3ee44b9e",
-        "6.5.0-main-03-24-2023-7eb3f5c7"
+        "6.5.0-main-03-24-2023-7eb3f5c7",
+        "6.6.0-main-04-25-2023-2eb2a81c"
       ]
     },
     {

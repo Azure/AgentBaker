@@ -10,12 +10,59 @@ import (
 	"github.com/Azure/agentbakere2e/scenario"
 )
 
-func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, sshPrivateKey string, opts *scenarioRunOpts) error {
-	privateIP, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.chosenCluster.Properties.NodeResourceGroup, vmssName)
+func validateWasm(ctx context.Context, kube *kubeclient, nodeName, privateKey string) error {
+	spinPodName, err := ensureWasmPods(ctx, kube, nodeName)
 	if err != nil {
-		return fmt.Errorf("unable to get private IP address of VM on VMSS %q: %w", vmssName, err)
+		return fmt.Errorf("failed to valiate wasm, unable to ensure wasm pods on node %q: %w", nodeName, err)
 	}
 
+	spinPodIP, err := getPodIP(ctx, kube, defaultNamespace, spinPodName)
+	if err != nil {
+		return fmt.Errorf("unable to get IP of wasm spin pod %q: %w", spinPodName, err)
+	}
+
+	debugPodName, err := getDebugPodName(kube)
+	if err != nil {
+		return fmt.Errorf("unable to get debug pod name to validate wasm: %w", err)
+	}
+
+	execResult, err := pollExecOnPod(ctx, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
+	if err != nil {
+		return fmt.Errorf("unable to execute wasm validation command: %w", err)
+	}
+
+	if execResult.exitCode != "0" {
+		// retry getting the pod IP + curling the hello endpoint if the original curl reports connection refused or a timeout
+		// since the wasm spin pod usually restarts at least once after initial creation, giving it a new IP
+		if execResult.exitCode == "7" || execResult.exitCode == "28" {
+			spinPodIP, err = getPodIP(ctx, kube, defaultNamespace, spinPodName)
+			if err != nil {
+				return fmt.Errorf("unable to get IP of wasm spin pod %q: %w", spinPodName, err)
+			}
+
+			execResult, err = pollExecOnPod(ctx, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
+			if err != nil {
+				return fmt.Errorf("unable to execute wasm validation command on wasm pod %q at %s: %w", spinPodName, spinPodIP, err)
+			}
+
+			if execResult.exitCode != "0" {
+				execResult.dumpAll()
+				return fmt.Errorf("curl wasm endpoint on pod %q at %s terminated with exit code %s", spinPodName, spinPodIP, execResult.exitCode)
+			}
+		} else {
+			execResult.dumpAll()
+			return fmt.Errorf("curl wasm endpoint on pod %q at %s terminated with exit code %s", spinPodName, spinPodIP, execResult.exitCode)
+		}
+	}
+
+	if err := waitUntilPodDeleted(ctx, kube, spinPodName); err != nil {
+		return fmt.Errorf("error waiting for wasm pod deletion: %w", err)
+	}
+
+	return nil
+}
+
+func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
 	podName, err := getDebugPodName(opts.kube)
 	if err != nil {
 		return fmt.Errorf("unable to get debug pod name: %w", err)
