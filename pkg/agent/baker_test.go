@@ -860,6 +860,18 @@ oom_score = 0
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
 		}, nil),
+		Entry("CustomizedImage VHD should not have provision_start.sh", "CustomizedImage", "1.24.2",
+			func(c *datamodel.NodeBootstrappingConfiguration) {
+				c.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				c.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.CustomizedImage
+			}, func(o *nodeBootstrappingOutput) {
+				_, exist := o.files["/opt/azure/containers/provision_start.sh"]
+
+				Expect(exist).To(BeFalse())
+			},
+		),
 		Entry("AKSUbuntu2204 DisableSSH with enabled ssh", "AKSUbuntu2204+SSHStatusOn", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.SSHStatus = datamodel.SSHOn
 		}, nil),

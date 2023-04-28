@@ -25,12 +25,14 @@ write_files:
     {{GetVariableProperty "cloudInitData" "provisionSourceUbuntu"}}
 {{end}}
 
+{{ if not IsCustomImage -}}
 - path: /opt/azure/containers/provision_start.sh
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionStartScript"}}
+{{- end }}
 
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"

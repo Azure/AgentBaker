@@ -4048,7 +4048,8 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
             "1.25.5",
             "1.25.6",
             "1.26.0",
-            "1.26.3"
+            "1.26.3",
+            "1.27.1"
         ]
     },
     "_template": {
@@ -6003,12 +6004,14 @@ write_files:
     {{GetVariableProperty "cloudInitData" "provisionSourceUbuntu"}}
 {{end}}
 
+{{ if not IsCustomImage -}}
 - path: /opt/azure/containers/provision_start.sh
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionStartScript"}}
+{{- end }}
 
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"
