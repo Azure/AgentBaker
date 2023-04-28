@@ -45,7 +45,7 @@ type Config struct {
 
 // VMCommandOutputAsserterFn is a function which takes in stdout and stderr stream content
 // as strings and performs arbitrary assertions on them, returning an error in the case where the assertion fails
-type VMCommandOutputAsserterFn func(stdout, stderr string) error
+type VMCommandOutputAsserterFn func(code, stdout, stderr string) error
 
 // LiveVMValidator represents a command to be run on a live VM after
 // node bootstrapping has succeeded that generates output which can be asserted against

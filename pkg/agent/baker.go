@@ -662,16 +662,18 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString([]byte(kubenetCniTemplate))
 		},
 		"GetContainerdConfigContent": func() string {
-			parameters := getParameters(config)
-			// get variable cloudInit
-			variables := getCustomDataVariables(config)
-			bakerFuncMap := getBakerFuncMap(config, parameters, variables)
-			containerdConfigTemplate := template.Must(template.New("kubenet").Funcs(bakerFuncMap).Parse(containerdConfigTemplateString))
-			var b bytes.Buffer
-			if err := containerdConfigTemplate.Execute(&b, profile); err != nil {
-				panic(fmt.Errorf("failed to execute sysctl template: %w", err))
+			output, err := containerdConfigFromTemplate(config, profile, containerdConfigTemplateString)
+			if err != nil {
+				panic(err)
 			}
-			return base64.StdEncoding.EncodeToString(b.Bytes())
+			return output
+		},
+		"GetContainerdConfigNoGPUContent": func() string {
+			output, err := containerdConfigFromTemplate(config, profile, containerdConfigNoGpuTemplateString)
+			if err != nil {
+				panic(err)
+			}
+			return output
 		},
 		"TeleportEnabled": func() bool {
 			return config.EnableACRTeleportPlugin
@@ -1048,3 +1050,88 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/teleportd/snapshotter.sock"
 {{- end}}
 `
+
+// this pains me, but to make it respect mutability of vmss tags,
+// we cannot use go templates at runtime.
+// CSE needs to be able to generate the full config, with all params,
+// with the tags pulled from wireserver. this is a hack to avoid
+// moving all the go templates to CSE -- we allow two options,
+// duplicate them in CSE base64-encoded, and pick the right one.
+// they're identical except for GPU runtime class.
+const containerdConfigNoGpuTemplateString = `version = 2
+oom_score = 0{{if HasDataDir }}
+root = "{{GetDataDir}}"{{- end}}
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = "{{GetPodInfraContainerSpec}}"
+  [plugins."io.containerd.grpc.v1.cri".containerd]
+    {{- if TeleportEnabled }}
+    snapshotter = "teleportd"
+    disable_snapshot_annotations = false
+    {{- end}}
+    default_runtime_name = "runc"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      {{- if Is2204VHD }}
+      SystemdCgroup = true
+      {{- end}}
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+    {{- if IsKata }}
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+      runtime_type = "io.containerd.kata.v2"
+    {{- end}}
+    {{- if IsKrustlet }}
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
+      runtime_type = "io.containerd.spin-v0-3-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
+      runtime_type = "io.containerd.slight-v0-3-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]
+      runtime_type = "io.containerd.spin-v0-3-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]
+      runtime_type = "io.containerd.slight-v0-3-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]
+      runtime_type = "io.containerd.spin-v0-5-1.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]
+      runtime_type = "io.containerd.slight-v0-5-1.v1"
+    {{- end}}
+  {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
+  [plugins."io.containerd.grpc.v1.cri".cni]
+    bin_dir = "/opt/cni/bin"
+    conf_dir = "/etc/cni/net.d"
+    conf_template = "/etc/containerd/kubenet_template.conf"
+  {{- end}}
+  {{- if IsKubernetesVersionGe "1.22.0"}}
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    config_path = "/etc/containerd/certs.d"
+  {{- end}}
+  [plugins."io.containerd.grpc.v1.cri".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[metrics]
+  address = "0.0.0.0:10257"
+{{- if TeleportEnabled }}
+[proxy_plugins]
+  [proxy_plugins.teleportd]
+    type = "snapshot"
+    address = "/run/teleportd/snapshotter.sock"
+{{- end}}
+`
+
+func containerdConfigFromTemplate(
+	config *datamodel.NodeBootstrappingConfiguration,
+	profile *datamodel.AgentPoolProfile,
+	tmpl string,
+) (string, error) {
+	parameters := getParameters(config)
+	variables := getCustomDataVariables(config)
+	bakerFuncMap := getBakerFuncMap(config, parameters, variables)
+	containerdConfigTemplate := template.Must(template.New("kubenet").Funcs(bakerFuncMap).Parse(tmpl))
+	var b bytes.Buffer
+	if err := containerdConfigTemplate.Execute(&b, profile); err != nil {
+		return "", fmt.Errorf("failed to execute sysctl template: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
+}

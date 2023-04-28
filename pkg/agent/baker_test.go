@@ -860,6 +860,47 @@ oom_score = 0
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
 		}, nil),
+		Entry("AKSUbuntu2204 containerd with multi-instance GPU", "AKSUbuntu2204+Containerd+MIG", "1.19.13",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_ND96asr_v4"
+				// the purpose of this unit test is to ensure the containerd config
+				// does not use the nvidia container runtime when skipping the
+				// GPU driver install, since it will fail to run even non-GPU
+				// pods, as it will not be installed.
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.GPUInstanceProfile = "MIG7g"
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]).NotTo(BeEmpty())
+				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
+				Expect(err).To(BeNil())
+				expectedShimConfig := `version = 2
+oom_score = 0
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = ""
+  [plugins."io.containerd.grpc.v1.cri".containerd]
+    default_runtime_name = "runc"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+  [plugins."io.containerd.grpc.v1.cri".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[metrics]
+  address = "0.0.0.0:10257"
+`
+
+				Expect(containerdConfigFileContent).To(Equal(expectedShimConfig))
+			}),
 		Entry("CustomizedImage VHD should not have provision_start.sh", "CustomizedImage", "1.24.2",
 			func(c *datamodel.NodeBootstrappingConfiguration) {
 				c.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
