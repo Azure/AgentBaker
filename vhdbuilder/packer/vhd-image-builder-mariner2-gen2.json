@@ -6,10 +6,12 @@
     "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
     "location": "{{env `AZURE_LOCATION`}}",
     "vm_size": "{{env `AZURE_VM_SIZE`}}",
+    "build_definition_name": "{{env `BUILD_DEFINITION_NAME`}}",
     "build_number": "{{env `BUILD_NUMBER`}}",
     "build_id": "{{env `BUILD_ID`}}",
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
+    "image_version": "{{env `IMAGE_VERSION`}}",
     "os_version": "{{env `OS_VERSION`}}",
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
@@ -38,6 +40,9 @@
       "image_sku": "{{user `img_sku`}}",
       "image_version": "latest",
       "azure_tags": {
+        "buildDefinitionName": "{{user `build_definition_name`}}",
+        "buildNumber": "{{user `build_number`}}",
+        "buildId": "{{user `build_id`}}",
         "SkipLinuxAzSecPack": "true",
         "os": "Linux",
         "now": "{{user `create_time`}}",
@@ -108,6 +113,121 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_config.sh",
+      "destination": "/home/packer/provision_configs.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_main.sh",
+      "destination": "/home/packer/provision.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_start.sh",
+      "destination": "/home/packer/provision_start.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/containerd_exec_start.conf",
+      "destination": "/home/packer/containerd_exec_start.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/kubelet.service",
+      "destination": "/home/packer/kubelet.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/reconcile-private-hosts.sh",
+      "destination": "/home/packer/reconcile-private-hosts.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/block_wireserver.sh",
+      "destination": "/home/packer/block_wireserver.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_redact_cloud_config.py",
+      "destination": "/home/packer/cse_redact_cloud_config.py"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_send_logs.py",
+      "destination": "/home/packer/cse_send_logs.py"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/init-aks-custom-cloud.sh",
+      "destination": "/home/packer/init-aks-custom-cloud.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/reconcile-private-hosts.service",
+      "destination": "/home/packer/reconcile-private-hosts.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mig-partition.service",
+      "destination": "/home/packer/mig-partition.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/bind-mount.sh",
+      "destination": "/home/packer/bind-mount.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/bind-mount.service",
+      "destination": "/home/packer/bind-mount.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/enable-dhcpv6.sh",
+      "destination": "/home/packer/enable-dhcpv6.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/dhcpv6.service",
+      "destination": "/home/packer/dhcpv6.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/sync-container-logs.sh",
+      "destination": "/home/packer/sync-container-logs.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/sync-container-logs.service",
+      "destination": "/home/packer/sync-container-logs.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/crictl.yaml",
+      "destination": "/home/packer/crictl.yaml"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ensure-no-dup.sh",
+      "destination": "/home/packer/ensure-no-dup.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ensure-no-dup.service",
+      "destination": "/home/packer/ensure-no-dup.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/teleportd.service",
+      "destination": "/home/packer/teleportd.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/setup-custom-search-domains.sh",
+      "destination": "/home/packer/setup-custom-search-domains.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cis.sh",
       "destination": "/home/packer/cis.sh"
     },
@@ -160,11 +280,6 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sshd_config",
       "destination": "/home/packer/sshd_config"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/sshd_config_1604",
-      "destination": "/home/packer/sshd_config_1604"
     },
     {
       "type": "file",
@@ -303,8 +418,8 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/kubelet-monitor.service",
-      "destination": "/home/packer/kubelet-monitor.service"
+      "source": "parts/linux/cloud-init/artifacts/mig-partition.sh",
+      "destination": "/home/packer/mig-partition.sh"
     },
     {
       "type": "file",
@@ -315,6 +430,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/containerd-monitor.timer",
       "destination": "/home/packer/containerd-monitor.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/containerd.service",
+      "destination": "/home/packer/containerd.service"
     },
     {
       "type": "file",
@@ -362,9 +482,20 @@
       "destination": "/home/packer/list-images.sh"
     },
     {
+      "type": "file",
+      "source": "vhdbuilder/packer/trivy-scan.sh",
+      "destination": "/home/packer/trivy-scan.sh"
+    },
+    {
       "type": "shell",
       "inline": [
-        "sudo BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} /bin/bash -ux /home/packer/list-images.sh"
+        "sudo IMAGE_VERSION={{user `image_version`}} CONTAINER_RUNTIME={{user `container_runtime`}} /bin/bash -ux /home/packer/list-images.sh"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo /bin/bash -ux /home/packer/trivy-scan.sh"
       ]
     },
     {
@@ -376,6 +507,18 @@
     {
       "type": "file",
       "direction": "download",
+      "source": "/opt/azure/containers/trivy-report.json",
+      "destination": "trivy-report.json"
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/containers/trivy-images-table.txt",
+      "destination": "trivy-images-table.txt"
+    },
+    {
+      "type": "file",
+      "direction": "download",
       "source": "/opt/azure/vhd-install.complete",
       "destination": "release-notes.txt"
     },
@@ -383,7 +526,7 @@
       "type": "shell",
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
-        "sudo /bin/bash -eux /home/packer/cleanup-vhd.sh",
+        "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
         "sudo /usr/bin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
     }

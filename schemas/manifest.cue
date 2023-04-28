@@ -58,22 +58,20 @@
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/${UBUNTU_CODENAME}/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu${UBUNTU_RELEASE}u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [
             "1.4.13-3",
-            "1.6.15-1"
+            "1.6.18-1"
         ],
-        "edge": "1.6.15-1",
+        "edge": "1.6.18-1",
         "latest": "1.5.11-2", // latest is default in vhd.
         "stable": "1.4.13-3", // we use latest vs stable at runtime depending on k8s version.
     },
     "runc": {
-        "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",
+        "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "downloadLocation": "/opt/runc/downloads",
-        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
+        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [
-            "1.0.0-rc92",
-            "1.0.0-rc95"
         ],
-        "installed": { 
-			"default": "1.0.3"
+        "installed": {
+			"default": "1.1.5"
 		}
     },
     "nvidia-container-runtime": {
@@ -92,19 +90,14 @@
         "fileName": "kubernetes-node-linux-arch.tar.gz",
         "downloadLocation": "",
         "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
-        "versions": [ 
-            "1.22.11-hotfix.20220620",
-            "1.22.15",
-            "1.23.8-hotfix.20220620",
-            "1.23.12",
-            "1.23.15",
-            "1.24.3",
-            "1.24.6",
+        "versions": [
             "1.24.9",
-            "1.25.2-hotfix.20221006",
-            "1.25.4",
+            "1.24.10",
             "1.25.5",
-            "1.26.0"
+            "1.25.6",
+            "1.26.0",
+            "1.26.3",
+            "1.27.1"
         ]
     },
     "_template": {

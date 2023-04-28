@@ -1,9 +1,8 @@
-//This has been generated using akservice version: v0.0.1
+// This has been generated using akservice version: v0.0.1.
 package starter
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -19,12 +18,12 @@ func Execute() {
 	startCmd.Flags().StringVar(&options.Addr, "addr", ":8080", "the addr to serve the api on")
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		os.Exit(1)
 	}
 }
 
-// rootCmd represents the base command when called without any subcommands
+// rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:   "agentbaker",
 	Short: "Agent baker is responsible for generating all the data necessary to allow Nodes to join an AKS cluster.",
@@ -34,14 +33,20 @@ var (
 	options = &apiserver.Options{}
 )
 
-// startCmd represents the start command
+// startCmd represents the start command.
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Starts the server that hosts agentbaker",
-	Run:   startHelper,
+	Run: func(cmd *cobra.Command, args []string) {
+		err := startHelper(cmd, args)
+		if err != nil {
+			log.Println(err.Error())
+			os.Exit(1)
+		}
+	},
 }
 
-func startHelper(cmd *cobra.Command, args []string) {
+func startHelper(_ *cobra.Command, _ []string) error {
 	ctx, shutdown := context.WithCancel(context.Background())
 	defer shutdown()
 
@@ -56,7 +61,8 @@ func startHelper(cmd *cobra.Command, args []string) {
 
 	api, err := apiserver.NewAPIServer(options)
 	if err != nil {
-		log.Fatal(ctx, err.Error())
+		log.Println(ctx, err.Error())
+		return err
 	}
 
 	errorPipeline := make(chan error)
@@ -68,8 +74,8 @@ func startHelper(cmd *cobra.Command, args []string) {
 
 	select {
 	case <-ctx.Done():
-		return
-	case err := <-errorPipeline:
-		log.Fatal(ctx, err.Error())
+		return nil
+	case pipelineErr := <-errorPipeline:
+		return pipelineErr
 	}
 }

@@ -10,6 +10,8 @@ installBcc() {
     echo "Installing BCC tools..."
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_install 120 5 25 bcc-tools || exit $ERR_BCC_INSTALL_TIMEOUT
+    echo "Installing BCC examples..."
+    dnf_install 120 5 25 bcc-examples || exit $ERR_BCC_INSTALL_TIMEOUT
 }
 
 addMarinerNvidiaRepo() {
@@ -72,21 +74,29 @@ listInstalledPackages() {
     rpm -qa
 }
 
-# By default the dnf-automatic is service is notify only in Mariner.
-# Enable the automatic install timer and the check-restart timer.
-enableDNFAutomatic() {
-    # Stop the notify only dnf timer since we've enabled the auto install one.
+# disable and mask all UU timers/services
+disableDNFAutomatic() {
+    # Make sure dnf-automatic is running with the notify timer rather than the auto install timer
+    systemctlEnableAndStart dnf-automatic-notifyonly.timer || exit $ERR_SYSTEMCTL_START_FAIL
+
+    # Ensure the automatic install timer is disabled. 
     # systemctlDisableAndStop adds .service to the end which doesn't work on timers.
-    systemctl disable dnf-automatic-notifyonly.timer
-    systemctl stop dnf-automatic-notifyonly.timer
-    # At 6:00:00 UTC (1 hour random fuzz) download and install package updates.
-    # Disable timer persistence so dnf-automatic-install doesnt run immediately on first boot.
-    sed -i 's/Persistent=true/Persistent=false/' /usr/lib/systemd/system/dnf-automatic-install.timer
-    systemctlEnableAndStart dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
-    # At 8:000:00 UTC check if a reboot-required package was installed
-    # Touch /var/run/reboot-required if a reboot required pacakge was installed.
-    # This helps avoid a Mariner specific reboot check command in kured.
-    systemctlEnableAndStart check-restart.timer || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctl disable dnf-automatic-install.service || exit 1
+    systemctl mask dnf-automatic-install.service || exit 1
+
+    systemctl stop dnf-automatic-install.timer || exit 1
+    systemctl disable dnf-automatic-install.timer || exit 1
+    systemctl mask dnf-automatic-install.timer || exit 1
+}
+
+# Regardless of UU mode, ensure check-restart is running
+enableCheckRestart() {
+  # Even if UU is disabled, we should still run check-restart so that kured
+  # will work as expected if it is installed.
+  # At 8:000:00 UTC check if a reboot-required package was installed
+  # Touch /var/run/reboot-required if a reboot required package was installed.
+  # This helps avoid a Mariner specific reboot check command in kured.
+  systemctlEnableAndStart check-restart.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 # There are several issues in default file permissions when trying to run AMA and ASA extensions.
@@ -122,4 +132,33 @@ enableMarinerKata() {
     # kata-osbuilder-generate is responsible for triggering the kata-osbuilder.sh script, which uses
     # dracut to generate an initrd for the nested VM using binaries from the Mariner host OS.
     systemctlEnableAndStart kata-osbuilder-generate
+}
+
+activateNfConntrack() {
+    # explicitly activate nf_conntrack module so associated sysctls can be properly set 
+    echo nf_conntrack >> /etc/modules-load.d/contrack.conf
+}
+
+installFIPS() {
+
+    echo "Installing FIPS..."
+
+    # Install necessary rpm pacakages
+    dnf_install 120 5 25 grubby || exit $ERR_APT_INSTALL_TIMEOUT
+    dnf_install 120 5 25 dracut-fips || exit $ERR_APT_INSTALL_TIMEOUT
+
+    # Add the boot= cmd line parameter if the boot dir is not the same as the root dir
+    boot_dev="$(df /boot/ | tail -1 | cut -d' ' -f1)"
+    root_dev="$(df / | tail -1 | cut -d' ' -f1)"
+    if [ ! "$root_dev" == "$boot_dev" ]; then
+        boot_uuid="UUID=$(blkid $boot_dev -s UUID -o value)"
+
+        # Enable FIPS mode and modify boot directory
+        if grub2-editenv - list | grep -q kernelopts;then
+                grub2-editenv - set "$(grub2-editenv - list | grep kernelopts) fips=1 boot=$boot_uuid"
+        else
+                grubby --update-kernel=ALL --args="fips=1 boot=$boot_uuid"
+        fi
+    fi
+    
 }

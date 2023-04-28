@@ -2,7 +2,7 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
 pool:
-  name: 1ES-AKS-Elastic-DevInfra-Auto-TearDown-Pool
+  name: $(POOL_NAME)
 
 parameters:
 - name: build2019
@@ -25,6 +25,10 @@ parameters:
   displayName: VHD Debug
   type: boolean
   default: False
+- name: backfillresourcedeletion
+  displayName: Perform Resource Backfill Deletion
+  type: boolean
+  default: False
 
 variables:
   CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
@@ -39,12 +43,12 @@ stages:
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=DRY_RUN]True'
+            echo '##vso[task.setvariable variable=BACKFILL_RESOURCE_DELETION]${{parameters.backfillresourcedeletion}}'
             echo '##vso[task.setvariable variable=VHD_DEBUG]${{parameters.vhddebug}}'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
             echo '##vso[task.setvariable variable=WINDOWS_SKU]2019'
-            echo '##vso[task.setvariable variable=VNET_RESOURCE_GROUP_NAME]vnet-2019-$(Build.BuildNumber)'
             echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_2019_BASE_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2019_NANO_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2019_CORE_IMAGE_URL)'
@@ -62,12 +66,12 @@ stages:
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=DRY_RUN]True'
+            echo '##vso[task.setvariable variable=BACKFILL_RESOURCE_DELETION]${{parameters.backfillresourcedeletion}}'
             echo '##vso[task.setvariable variable=VHD_DEBUG]${{parameters.vhddebug}}'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=WINDOWS_SKU]2019-containerd'
-            echo '##vso[task.setvariable variable=VNET_RESOURCE_GROUP_NAME]vnet-2019-containerd-$(Build.BuildNumber)'
             echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_2019_BASE_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2019_NANO_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2019_CORE_IMAGE_URL)'
@@ -85,12 +89,12 @@ stages:
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=DRY_RUN]True'
+            echo '##vso[task.setvariable variable=BACKFILL_RESOURCE_DELETION]${{parameters.backfillresourcedeletion}}'
             echo '##vso[task.setvariable variable=VHD_DEBUG]${{parameters.vhddebug}}'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=WINDOWS_SKU]2022-containerd'
-            echo '##vso[task.setvariable variable=VNET_RESOURCE_GROUP_NAME]vnet-2022-containerd-$(Build.BuildNumber)'
             echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_2022_BASE_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2022_NANO_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2022_CORE_IMAGE_URL)'
@@ -108,12 +112,12 @@ stages:
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=DRY_RUN]True'
+            echo '##vso[task.setvariable variable=BACKFILL_RESOURCE_DELETION]${{parameters.backfillresourcedeletion}}'
             echo '##vso[task.setvariable variable=VHD_DEBUG]${{parameters.vhddebug}}'            
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=WINDOWS_SKU]2022-containerd-gen2'
-            echo '##vso[task.setvariable variable=VNET_RESOURCE_GROUP_NAME]vnet-2022-containerd-gen2-$(Build.BuildNumber)'
             echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_2022_GEN2_BASE_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2022_NANO_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2022_CORE_IMAGE_URL)'
@@ -121,3 +125,16 @@ stages:
         - template: ./templates/.builder-release-template-windows.yaml
           parameters:
             artifactName: 2022-containerd-gen2
+  
+  - stage: backfill_cleanup_outdated_resources
+    dependsOn: []
+    condition: always()
+    jobs:
+    - job: build
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=DRY_RUN]True'
+            echo '##vso[task.setvariable variable=BACKFILL_RESOURCE_DELETION]${{parameters.backfillresourcedeletion}}'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template-windows-cleanup.yaml

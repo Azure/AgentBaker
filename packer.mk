@@ -44,6 +44,10 @@ ifeq (${HYPERV_GENERATION},V2)
 	@echo "${MODE}: Building with Hyper-v generation 2 VM"
 	@echo "Using packer template file vhd-image-builder-mariner2-gen2.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner2-gen2.json
+else
+	@echo "${MODE}: Building with Hyper-v generation 1 VM"
+	@echo "Using packer template file vhd-image-builder-mariner2-gen2.json"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner2-gen2.json
 endif
 endif
 else ifeq (${OS_VERSION},V2kata)
@@ -60,20 +64,21 @@ else
 endif
 
 build-packer-windows:
-ifeq (${MODE},sigMode)
-ifeq (${HYPERV_GENRATION},V1)
+ifeq (${MODE},windowsVhdMode)
+ifeq (${SIG_FOR_PRODUCTION},True)
+ifeq (${HYPERV_GENERATION},V1)
+	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
+else
+	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Classic Storage Account"
+endif
+else
+ifeq (${HYPERV_GENERATION},V1)
 	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Shared Image Gallery"
 else
-ifeq (${GEN2_SIG_FOR_PRODUCTION},True)
-	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Classic Storage Account"
-else
-	@echo "${MODE}: Building and save to Shared Image Gallery"
+	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Shared Image Gallery"
 endif
 endif
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows-vhd-builder-sig.json
-else
-	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows-vhd-builder.json
 endif
 
 az-login:
@@ -95,11 +100,12 @@ run-packer: az-login
 run-packer-windows: az-login
 	@packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer-windows | tee -a packer-output)
 
-az-copy: az-login
-	azcopy-preview copy "${OS_DISK_SAS}" "${CLASSIC_BLOB}${CLASSIC_SAS_TOKEN}" --recursive=true
-
 cleanup: az-login
 	@./vhdbuilder/packer/cleanup.sh
+
+backfill-cleanup: az-login
+	@chmod +x ./vhdbuilder/packer/backfill-cleanup.sh
+	@./vhdbuilder/packer/backfill-cleanup.sh
 
 generate-sas: az-login
 	@./vhdbuilder/packer/generate-vhd-publishing-info.sh

@@ -12,11 +12,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-// AllKubernetesSupportedVersions is a whitelist map of all supported Kubernetes version strings
-// The bool value indicates if creating new clusters with this version is allowed
+// AllKubernetesSupportedVersions is a whitelist map of all supported Kubernetes version strings.
+// The bool value indicates if creating new clusters with this version is allowed.
 var AllKubernetesSupportedVersions = map[string]bool{
 	"1.6.6":          false,
-	"1.6.9":          true, // need to keep 1.6.9 version support for v20160930
+	"1.6.9":          true, // need to keep 1.6.9 version support for v20160930.
 	"1.6.11":         false,
 	"1.6.12":         false,
 	"1.6.13":         false,
@@ -105,7 +105,7 @@ var AllKubernetesSupportedVersions = map[string]bool{
 	"1.12.6":         false,
 	"1.12.7":         false,
 	"1.12.8":         false,
-	"1.12.9":         false, // disabled because of https://github.com/Azure/aks-engine/issues/1421
+	"1.12.9":         false, // disabled because of https://github.com/Azure/aks-engine/issues/1421.
 	"1.13.0-alpha.1": false,
 	"1.13.0-alpha.2": false,
 	"1.13.1":         false,
@@ -113,7 +113,7 @@ var AllKubernetesSupportedVersions = map[string]bool{
 	"1.13.3":         false,
 	"1.13.4":         false,
 	"1.13.5":         false,
-	"1.13.6":         false, // disabled because of https://github.com/kubernetes/kubernetes/issues/78308
+	"1.13.6":         false, // disabled because of https://github.com/kubernetes/kubernetes/issues/78308.
 	"1.13.7":         false,
 	"1.13.8":         false,
 	"1.13.9":         false,
@@ -127,14 +127,14 @@ var AllKubernetesSupportedVersions = map[string]bool{
 	"1.14.0-rc.1":    false,
 	"1.14.0":         false,
 	"1.14.1":         false,
-	"1.14.2":         false, // disabled because of https://github.com/kubernetes/kubernetes/issues/78308
+	"1.14.2":         false, // disabled because of https://github.com/kubernetes/kubernetes/issues/78308.
 	"1.14.3":         false,
 	"1.14.4":         false,
 	"1.14.5":         false,
 	"1.14.6":         false,
 	"1.14.7":         true,
 	"1.14.8":         true,  // disabled because of https://github.com/Azure/aks-engine/issues/2312, enabled for aks with v1.14.8_f0.0.4
-	"1.14.10":        false, // disabled because of https://github.com/Azure/aks-engine/issues/2312
+	"1.14.10":        false, // disabled because of https://github.com/Azure/aks-engine/issues/2312.
 	"1.15.0-alpha.1": false,
 	"1.15.0-alpha.2": false,
 	"1.15.0-alpha.3": false,
@@ -146,9 +146,9 @@ var AllKubernetesSupportedVersions = map[string]bool{
 	"1.15.2":         false,
 	"1.15.3":         false,
 	"1.15.4":         false,
-	"1.15.5":         false, // disabled because of https://github.com/Azure/aks-engine/issues/2312
-	"1.15.7":         true,  // enabled for aks with v1.15.7_f0.0.2
-	"1.15.8":         false, // disabled because of https://github.com/kubernetes/release/issues/1020
+	"1.15.5":         false, // disabled because of https://github.com/Azure/aks-engine/issues/2312.
+	"1.15.7":         true,  // enabled for aks with v1.15.7_f0.0.2.
+	"1.15.8":         false, // disabled because of https://github.com/kubernetes/release/issues/1020.
 	"1.15.9":         true,
 	"1.15.10":        true,
 	"1.15.11":        true,
@@ -161,9 +161,9 @@ var AllKubernetesSupportedVersions = map[string]bool{
 	"1.16.0-rc.1":    false,
 	"1.16.0":         false,
 	"1.16.1":         false,
-	"1.16.2":         false, // disabled because of https://github.com/Azure/aks-engine/issues/2312
+	"1.16.2":         false, // disabled because of https://github.com/Azure/aks-engine/issues/2312.
 	"1.16.4":         false,
-	"1.16.5":         false, // disabled because of https://github.com/kubernetes/release/issues/1020
+	"1.16.5":         false, // disabled because of https://github.com/kubernetes/release/issues/1020.
 	"1.16.6":         true,
 	"1.16.7":         true,
 	"1.16.8":         false,
@@ -197,7 +197,10 @@ var AllKubernetesSupportedVersions = map[string]bool{
 	"1.19.0":         true,
 }
 
-// GetDefaultKubernetesVersion returns the default Kubernetes version, that is the latest patch of the default release
+/*
+GetDefaultKubernetesVersion returns the default Kubernetes version, that is the latest patch
+of the default release.
+*/
 func GetDefaultKubernetesVersion(hasWindows bool) string {
 	defaultRelease := KubernetesDefaultRelease
 	if hasWindows {
@@ -206,7 +209,10 @@ func GetDefaultKubernetesVersion(hasWindows bool) string {
 	return GetLatestPatchVersion(defaultRelease, GetAllSupportedKubernetesVersions(false, hasWindows))
 }
 
-// GetSupportedKubernetesVersion verifies that a passed-in version string is supported, or returns a default version string if not
+/*
+GetSupportedKubernetesVersion verifies that a passed-in version string is supported, or returns
+a default version string if not.
+*/
 func GetSupportedKubernetesVersion(version string, hasWindows bool) string {
 	k8sVersion := GetDefaultKubernetesVersion(hasWindows)
 	if hasWindows {
@@ -221,7 +227,7 @@ func GetSupportedKubernetesVersion(version string, hasWindows bool) string {
 	return k8sVersion
 }
 
-// GetAllSupportedKubernetesVersions returns a slice of all supported Kubernetes versions
+// GetAllSupportedKubernetesVersions returns a slice of all supported Kubernetes versions.
 func GetAllSupportedKubernetesVersions(isUpdate, hasWindows bool) []string {
 	var versions []string
 	allSupportedVersions := AllKubernetesSupportedVersions
@@ -239,11 +245,13 @@ func GetAllSupportedKubernetesVersions(isUpdate, hasWindows bool) []string {
 	return versions
 }
 
-// GetVersionsGt returns a list of versions greater than a semver string given a list of versions
-// inclusive=true means that we test for equality as well
-// preReleases=true means that we include pre-release versions in the list
+/*
+GetVersionsGt returns a list of versions greater than a semver string given a list of versions
+inclusive=true means that we test for equality as well
+preReleases=true means that we include pre-release versions in the list.
+*/
 func GetVersionsGt(versions []string, version string, inclusive, preReleases bool) []string {
-	// Try to get latest version matching the release
+	// Try to get latest version matching the release.
 	var ret []string
 	minVersion, _ := semver.Make(version)
 	for _, v := range versions {
@@ -258,11 +266,13 @@ func GetVersionsGt(versions []string, version string, inclusive, preReleases boo
 	return ret
 }
 
-// GetVersionsLt returns a list of versions less than than a semver string given a list of versions
-// inclusive=true means that we test for equality as well
-// preReleases=true means that we include pre-release versions in the list
+/*
+GetVersionsLt returns a list of versions less than than a semver string given a list of versions
+inclusive=true means that we test for equality as well
+preReleases=true means that we include pre-release versions in the list.
+*/
 func GetVersionsLt(versions []string, version string, inclusive, preReleases bool) []string {
-	// Try to get latest version matching the release
+	// Try to get latest version matching the release.
 	var ret []string
 	minVersion, _ := semver.Make(version)
 	for _, v := range versions {
@@ -277,9 +287,11 @@ func GetVersionsLt(versions []string, version string, inclusive, preReleases boo
 	return ret
 }
 
-// GetVersionsBetween returns a list of versions between a min and max
-// inclusive=true means that we test for equality on both bounds
-// preReleases=true means that we include pre-release versions in the list
+/*
+GetVersionsBetween returns a list of versions between a min and max
+inclusive=true means that we test for equality on both bounds
+preReleases=true means that we include pre-release versions in the list.
+*/
 func GetVersionsBetween(versions []string, versionMin, versionMax string, inclusive, preReleases bool) []string {
 	var ret []string
 	if minV, _ := semver.Make(versionMin); len(minV.Pre) != 0 {
@@ -297,8 +309,8 @@ func GetVersionsBetween(versions []string, versionMin, versionMax string, inclus
 	return ret
 }
 
-// GetMinVersion gets the lowest semver version
-// preRelease=true means accept a pre-release version as a min value
+// GetMinVersion gets the lowest semver version.
+// preRelease=true means accept a pre-release version as a min value.
 func GetMinVersion(versions []string, preRelease bool) string {
 	if len(versions) < 1 {
 		return ""
@@ -307,8 +319,8 @@ func GetMinVersion(versions []string, preRelease bool) string {
 	return semverVersions[0].String()
 }
 
-// GetMaxVersion gets the highest semver version
-// preRelease=true means accept a pre-release version as a max value
+// GetMaxVersion gets the highest semver version.
+// preRelease=true means accept a pre-release version as a max value.
 func GetMaxVersion(versions []string, preRelease bool) string {
 	if len(versions) < 1 {
 		return ""
@@ -329,7 +341,7 @@ func getSortedSemverVersions(versions []string, preRelease bool) []semver.Versio
 	return semverVersions
 }
 
-// AllKubernetesWindowsSupportedVersions maintain a set of available k8s Windows versions in aks-engine
+// AllKubernetesWindowsSupportedVersions maintain a set of available k8s Windows versions in aks-engine.
 var AllKubernetesWindowsSupportedVersions = getAllKubernetesWindowsSupportedVersionsMap()
 
 func getAllKubernetesWindowsSupportedVersionsMap() map[string]bool {
@@ -360,17 +372,15 @@ func getAllKubernetesWindowsSupportedVersionsMap() map[string]bool {
 	return ret
 }
 
-// GetSupportedVersions get supported version list for a certain orchestrator
-func GetSupportedVersions(orchType string, isUpdate, hasWindows bool) (versions []string, defaultVersion string) {
-	switch orchType {
-	case Kubernetes:
+// GetSupportedVersions get supported version list for a certain orchestrator.
+func GetSupportedVersions(orchType string, isUpdate, hasWindows bool) ([]string, string) {
+	if orchType == Kubernetes {
 		return GetAllSupportedKubernetesVersions(isUpdate, hasWindows), GetDefaultKubernetesVersion(hasWindows)
-	default:
-		return nil, ""
 	}
+	return nil, ""
 }
 
-//GetValidPatchVersion gets the current valid patch version for the minor version of the passed in version
+// GetValidPatchVersion gets the current valid patch version for the minor version of the passed in version.
 func GetValidPatchVersion(orchType, orchVer string, isUpdate, hasWindows bool) string {
 	if orchVer == "" {
 		return RationalizeReleaseAndVersion(
@@ -381,7 +391,8 @@ func GetValidPatchVersion(orchType, orchVer string, isUpdate, hasWindows bool) s
 			hasWindows)
 	}
 
-	// check if the current version is valid, this allows us to have multiple supported patch versions in the future if we need it
+	/* check if the current version is valid, this allows us to have multiple supported patch
+	versions in the future if we need it. */
 	version := RationalizeReleaseAndVersion(
 		orchType,
 		"",
@@ -406,9 +417,11 @@ func GetValidPatchVersion(orchType, orchVer string, isUpdate, hasWindows bool) s
 	return version
 }
 
-// RationalizeReleaseAndVersion return a version when it can be rationalized from the input, otherwise ""
-func RationalizeReleaseAndVersion(orchType, orchRel, orchVer string, isUpdate, hasWindows bool) (version string) {
-	// ignore "v" prefix in orchestrator version and release: "v1.8.0" is equivalent to "1.8.0", "v1.9" is equivalent to "1.9"
+// RationalizeReleaseAndVersion return a version when it can be rationalized from the input, otherwise "".
+func RationalizeReleaseAndVersion(orchType, orchRel, orchVer string, isUpdate, hasWindows bool) string {
+	/* ignore "v" prefix in orchestrator version and release: "v1.8.0" is equivalent to "1.8.0", "v1.9"
+	is equivalent to "1.9". */
+	var version string
 	orchVer = strings.TrimPrefix(orchVer, "v")
 	orchRel = strings.TrimPrefix(orchRel, "v")
 	supportedVersions, defaultVersion := GetSupportedVersions(orchType, isUpdate, hasWindows)
@@ -421,11 +434,11 @@ func RationalizeReleaseAndVersion(orchType, orchRel, orchVer string, isUpdate, h
 	}
 
 	if orchVer == "" {
-		// Try to get latest version matching the release
+		// Try to get latest version matching the release.
 		version = GetLatestPatchVersion(orchRel, supportedVersions)
 		return version
 	} else if orchRel == "" {
-		// Try to get version the same with orchVer
+		// Try to get version the same with orchVer.
 		version = ""
 		for _, ver := range supportedVersions {
 			if ver == orchVer {
@@ -435,7 +448,7 @@ func RationalizeReleaseAndVersion(orchType, orchRel, orchVer string, isUpdate, h
 		}
 		return version
 	}
-	// Try to get latest version matching the release
+	// Try to get latest version matching the release.
 	version = ""
 	for _, ver := range supportedVersions {
 		sv, _ := semver.Make(ver)
@@ -456,7 +469,9 @@ func IsValidMinVersion(orchType, orchRelease, orchVersion, minVersion string) (b
 		false,
 		false)
 	if version == "" {
-		return false, errors.Errorf("the following user supplied OrchestratorProfile configuration is not supported: OrchestratorType: %s, OrchestratorRelease: %s, OrchestratorVersion: %s. Please check supported Release or Version for this build of aks-engine",
+		return false, errors.Errorf("the following user supplied OrchestratorProfile configuration is not supported: "+
+			"OrchestratorType: %s, OrchestratorRelease: %s, OrchestratorVersion: %s. Please check supported Release or Version for this build"+
+			" of aks-engine",
 			orchType,
 			orchRelease,
 			orchVersion)
@@ -475,21 +490,24 @@ func IsValidMinVersion(orchType, orchRelease, orchVersion, minVersion string) (b
 	return true, nil
 }
 
-// IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version
+// IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.
 func IsKubernetesVersionGe(actualVersion, version string) bool {
 	v1, _ := semver.Make(actualVersion)
 	v2, _ := semver.Make(version)
 	return v1.GE(v2)
 }
 
-// GetLatestPatchVersion gets the most recent patch version from a list of semver versions given a major.minor string
-func GetLatestPatchVersion(majorMinor string, versionsList []string) (version string) {
-	// Try to get latest version matching the release
-	version = ""
+/*
+GetLatestPatchVersion gets the most recent patch version from a list of semver versions
+given a major.minor string.
+*/
+func GetLatestPatchVersion(majorMinor string, versionsList []string) string {
+	// Try to get latest version matching the release.
+	var version string
 	for _, ver := range versionsList {
 		sv, err := semver.Make(ver)
 		if err != nil {
-			return
+			return ""
 		}
 		sr := fmt.Sprintf("%d.%d", sv.Major, sv.Minor)
 		if sr == majorMinor {
@@ -506,7 +524,7 @@ func GetLatestPatchVersion(majorMinor string, versionsList []string) (version st
 	return version
 }
 
-// IsSupportedKubernetesVersion return true if the provided Kubernetes version is supported
+// IsSupportedKubernetesVersion return true if the provided Kubernetes version is supported.
 func IsSupportedKubernetesVersion(version string, isUpdate, hasWindows bool) bool {
 	for _, ver := range GetAllSupportedKubernetesVersions(isUpdate, hasWindows) {
 		if ver == version {

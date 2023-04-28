@@ -6,22 +6,31 @@ configureAdminUser(){
     chage -E -1 -I -1 -m 0 -M 99999 "${ADMINUSER}"
     chage -l "${ADMINUSER}"
 }
+
+configPrivateClusterHosts() {
+    mkdir -p /etc/systemd/system/reconcile-private-hosts.service.d/
+    touch /etc/systemd/system/reconcile-private-hosts.service.d/10-fqdn.conf
+    tee /etc/systemd/system/reconcile-private-hosts.service.d/10-fqdn.conf > /dev/null <<EOF
+[Service]
+Environment="KUBE_API_SERVER_NAME=${API_SERVER_NAME}"
+EOF
+  systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
+}
 configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
-    THP_ENABLED=never
     if [[ "${THP_ENABLED}" != "" ]]; then
         echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
         echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${ETC_SYSFS_CONF}
     fi
-    THP_DEFRAG=defer+madvise
     if [[ "${THP_DEFRAG}" != "" ]]; then
         echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
         echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
     fi
 }
+
 configureSwapFile() {
     # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
-    swap_size_kb=$(expr 1500 \* 1000)
+    swap_size_kb=$(expr ${SWAP_FILE_SIZE_MB} \* 1000)
     swap_location=""
     
     # Attempt to use the resource disk
@@ -59,13 +68,78 @@ configureSwapFile() {
     echo "${swap_location} none swap sw 0 0" >> /etc/fstab
 }
 
+configureEtcEnvironment() {
+    mkdir -p /etc/systemd/system.conf.d/
+    touch /etc/systemd/system.conf.d/proxy.conf
+    chmod 0644 /etc/systemd/system.conf.d/proxy.conf
+
+    mkdir -p  /etc/apt/apt.conf.d
+    chmod 0644 /etc/apt/apt.conf.d/95proxy
+    touch /etc/apt/apt.conf.d/95proxy
+
+    # TODO(ace): this pains me but quick and dirty refactor
+    echo "[Manager]" >> /etc/systemd/system.conf.d/proxy.conf
+    if [ "${HTTP_PROXY_URLS}" != "" ]; then
+        echo "HTTP_PROXY=${HTTP_PROXY_URLS}" >> /etc/environment
+        echo "http_proxy=${HTTP_PROXY_URLS}" >> /etc/environment
+        echo "Acquire::http::proxy \"${HTTP_PROXY_URLS}\";" >> /etc/apt/apt.conf.d/95proxy
+        echo "DefaultEnvironment=\"HTTP_PROXY=${HTTP_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "DefaultEnvironment=\"http_proxy=${HTTP_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+    fi
+    if [ "${HTTPS_PROXY_URLS}" != "" ]; then
+        echo "HTTPS_PROXY=${HTTPS_PROXY_URLS}" >> /etc/environment
+        echo "https_proxy=${HTTPS_PROXY_URLS}" >> /etc/environment
+        echo "Acquire::https::proxy \"${HTTPS_PROXY_URLS}\";" >> /etc/apt/apt.conf.d/95proxy
+        echo "DefaultEnvironment=\"HTTPS_PROXY=${HTTPS_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "DefaultEnvironment=\"https_proxy=${HTTPS_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+    fi
+    if [ "${NO_PROXY_URLS}" != "" ]; then
+        echo "NO_PROXY=${NO_PROXY_URLS}" >> /etc/environment
+        echo "no_proxy=${NO_PROXY_URLS}" >> /etc/environment
+        echo "DefaultEnvironment=\"NO_PROXY=${NO_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+        echo "DefaultEnvironment=\"no_proxy=${NO_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
+    fi
+
+    # for kubelet to pick up the proxy
+    mkdir -p "/etc/systemd/system/kubelet.service.d"
+    tee "/etc/systemd/system/kubelet.service.d/10-httpproxy.conf" > /dev/null <<'EOF'
+[Service]
+EnvironmentFile=/etc/environment
+EOF
+}
+
 configureHTTPProxyCA() {
-    wait_for_file 1200 1 /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_FILE_WATCH_TIMEOUT
-    update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
+    if [[ $OS == $MARINER_OS_NAME ]]; then
+        cert_dest="/usr/share/pki/ca-trust-source/anchors"
+        update_cmd="update-ca-trust"
+    else
+        cert_dest="/usr/local/share/ca-certificates"
+        update_cmd="update-ca-certificates"
+    fi
+    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.crt" || exit $ERR_UPDATE_CA_CERTS
+    $update_cmd || exit $ERR_UPDATE_CA_CERTS
 }
 
 configureCustomCaCertificate() {
+    mkdir -p /opt/certs
+    for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
+        # directly referring to the variable as "${CUSTOM_CA_CERT_${i}}"
+        # causes bad substitution errors in bash
+        # dynamically declare and use `!` to add a layer of indirection
+        declare varname=CUSTOM_CA_CERT_${i} 
+        echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
+    done
+    # This will block until the service is considered active.
+    # Update_certs.service is a oneshot type of unit that
+    # is considered active when the ExecStart= command terminates with a zero status code.
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
+    # after new certs are added to trust store, containerd will not pick them up properly before restart.
+    # aim here is to have this working straight away for a freshly provisioned node
+    # so we force a restart after the certs are updated
+    # custom CA daemonset copies certs passed by the user to the node, what then triggers update_certs.path unit
+    # path unit then triggers the script that copies over cert files to correct location on the node and updates the trust store
+    # as a part of this flow we could restart containerd everytime a new cert is added to the trust store using custom CA
+    systemctl restart containerd
 }
 
 
@@ -88,21 +162,28 @@ configureK8s() {
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
 
-    SP_FILE="/etc/kubernetes/sp.txt"
-
-    wait_for_file 1200 1 /etc/kubernetes/certs/client.key || exit $ERR_FILE_WATCH_TIMEOUT
-    wait_for_file 1200 1 "$SP_FILE" || exit $ERR_FILE_WATCH_TIMEOUT
+    mkdir -p "/etc/kubernetes/certs"
+    if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
+        echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
+    fi
+    if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
+        echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
+    fi
+    if [ -n "${SERVICE_PRINCIPAL_FILE_CONTENT}" ]; then
+        echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > /etc/kubernetes/sp.txt
+    fi
 
     set +x
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
-    
+    # Perform the required JSON escaping
+    SP_FILE="/etc/kubernetes/sp.txt"
     SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
     rm "$SP_FILE" # unneeded after reading from disk.
     cat << EOF > "${AZURE_JSON_PATH}"
 {
-    "cloud": "AzurePublicCloud",
+    "cloud": "${TARGET_CLOUD}",
     "tenantId": "${TENANT_ID}",
     "subscriptionId": "${SUBSCRIPTION_ID}",
     "aadClientId": "${SERVICE_PRINCIPAL_CLIENT_ID}",
@@ -147,101 +228,37 @@ EOF
     fi
 
     configureKubeletServerCert
-    set +x
-    KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
-    touch "${KUBELET_CONFIG_JSON_PATH}"
-    chmod 0600 "${KUBELET_CONFIG_JSON_PATH}"
-    chown root:root "${KUBELET_CONFIG_JSON_PATH}"
-    cat << EOF > "${KUBELET_CONFIG_JSON_PATH}"
-{
-    "kind": "KubeletConfiguration",
-    "apiVersion": "kubelet.config.k8s.io/v1beta1",
-    "staticPodPath": "/etc/kubernetes/manifests",
-    "address": "0.0.0.0",
-    "readOnlyPort": 10255,
-    "tlsCertFile": "/etc/kubernetes/certs/kubeletserver.crt",
-    "tlsPrivateKeyFile": "/etc/kubernetes/certs/kubeletserver.key",
-    "tlsCipherSuites": [
-        "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
-        "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
-        "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
-        "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
-        "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305",
-        "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
-        "TLS_RSA_WITH_AES_256_GCM_SHA384",
-        "TLS_RSA_WITH_AES_128_GCM_SHA256"
-    ],
-    "rotateCertificates": true,
-    "authentication": {
-        "x509": {
-            "clientCAFile": "/etc/kubernetes/certs/ca.crt"
-        },
-        "webhook": {
-            "enabled": true
-        },
-        "anonymous": {}
-    },
-    "authorization": {
-        "mode": "Webhook",
-        "webhook": {}
-    },
-    "eventRecordQPS": 0,
-    "clusterDomain": "cluster.local",
-    "clusterDNS": [
-        "10.0.0.10"
-    ],
-    "streamingConnectionIdleTimeout": "4h0m0s",
-    "nodeStatusUpdateFrequency": "10s",
-    "imageGCHighThresholdPercent": 90,
-    "imageGCLowThresholdPercent": 70,
-    "cgroupsPerQOS": true,
-    "cpuManagerPolicy": "static",
-    "topologyManagerPolicy": "best-effort",
-    "maxPods": 110,
-    "podPidsLimit": 12345,
-    "resolvConf": "/etc/resolv.conf",
-    "cpuCFSQuota": false,
-    "cpuCFSQuotaPeriod": "200ms",
-    "evictionHard": {
-        "memory.available": "750Mi",
-        "nodefs.available": "10%",
-        "nodefs.inodesFree": "5%"
-    },
-    "protectKernelDefaults": true,
-    "featureGates": {
-        "CustomCPUCFSQuotaPeriod": true,
-        "DynamicKubeletConfig": false,
-        "PodPriority": true,
-        "RotateKubeletServerCertificate": true,
-        "TopologyManager": true,
-        "a": false,
-        "x": false
-    },
-    "failSwapOn": false,
-    "containerLogMaxSize": "1000M",
-    "containerLogMaxFiles": 99,
-    "systemReserved": {
-        "cpu": "2",
-        "memory": "1Gi"
-    },
-    "kubeReserved": {
-        "cpu": "100m",
-        "memory": "1638Mi"
-    },
-    "enforceNodeAllocatable": [
-        "pods"
-    ],
-    "allowedUnsafeSysctls": [
-        "kernel.msg*",
-        "net.ipv4.route.min_pmtu"
-    ]
-}
+    if [ "${IS_CUSTOM_CLOUD}" == "true" ]; then
+        set +x
+        AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
+        touch "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        chmod 0600 "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        chown root:root "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+
+        echo "${CUSTOM_ENV_JSON}" | base64 -d > "${AKS_CUSTOM_CLOUD_JSON_PATH}"
+        set -x
+    fi
+
+    if [ "${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
+        set +x
+        KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
+        touch "${KUBELET_CONFIG_JSON_PATH}"
+        chmod 0600 "${KUBELET_CONFIG_JSON_PATH}"
+        chown root:root "${KUBELET_CONFIG_JSON_PATH}"
+        echo "${KUBELET_CONFIG_FILE_CONTENT}" | base64 -d > "${KUBELET_CONFIG_JSON_PATH}"
+        set -x
+        KUBELET_CONFIG_DROP_IN="/etc/systemd/system/kubelet.service.d/10-componentconfig.conf"
+        touch "${KUBELET_CONFIG_DROP_IN}"
+        chmod 0600 "${KUBELET_CONFIG_DROP_IN}"
+        tee "${KUBELET_CONFIG_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_CONFIG_FILE_FLAGS=--config /etc/default/kubeletconfig.json"
 EOF
-    set -x
+    fi
 }
 
 configureCNI() {
-    
+    # needed for the iptables rules to work on bridges
     retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
     configureCNIIPTables
@@ -272,6 +289,41 @@ disableSystemdResolved() {
         cat /etc/resolv.conf
     fi
 }
+
+ensureContainerd() {
+  if [ "${TELEPORT_ENABLED}" == "true" ]; then
+    ensureTeleportd
+  fi
+  mkdir -p "/etc/systemd/system/containerd.service.d" 
+  tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
+[Service]
+ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+EOF
+
+  mkdir -p /etc/containerd
+  echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
+net.ipv4.ip_forward = 1
+net.ipv4.conf.all.forwarding = 1
+net.ipv6.conf.all.forwarding = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
+  retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
+  systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
+  systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
+ensureNoDupOnPromiscuBridge() {
+    wait_for_file 1200 1 /opt/azure/containers/ensure-no-dup.sh || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 1200 1 /etc/systemd/system/ensure-no-dup.service || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart ensure-no-dup || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
+ensureTeleportd() {
+    wait_for_file 1200 1 /etc/systemd/system/teleportd.service || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
     wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
@@ -293,30 +345,106 @@ ensureDocker() {
     systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
 
 }
-ensureMonitorService() {
-    
-    DOCKER_MONITOR_SYSTEMD_TIMER_FILE=/etc/systemd/system/docker-monitor.timer
-    wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_TIMER_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    DOCKER_MONITOR_SYSTEMD_FILE=/etc/systemd/system/docker-monitor.service
-    wait_for_file 1200 1 $DOCKER_MONITOR_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
+
+ensureDHCPv6() {
+    wait_for_file 3600 1 "${DHCPV6_SERVICE_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+    wait_for_file 3600 1 "${DHCPV6_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
+    systemctlEnableAndStart dhcpv6 || exit $ERR_SYSTEMCTL_START_FAIL
+    retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
 }
 
-
-
 ensureKubelet() {
-    KUBELET_DEFAULT_FILE=/etc/default/kubelet
-    wait_for_file 1200 1 $KUBELET_DEFAULT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
-    KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
-    wait_for_file 1200 1 $KUBECONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    # ensure cloud init completes
+    # avoids potential corruption of files written by cloud init and CSE concurrently.
+    # removes need for wait_for_file and EOF markers
+    cloud-init status --wait
+    KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
+    mkdir -p "$(dirname "${KUBE_CA_FILE}")"
+    echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
+    chmod 0600 "${KUBE_CA_FILE}"
+    
+    if [ "${CLIENT_TLS_BOOTSTRAPPING_ENABLED}" == "true" ]; then
+        KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
+        mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
+        touch "${KUBELET_TLS_DROP_IN}"
+        chmod 0600 "${KUBELET_TLS_DROP_IN}"
+        tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+EOF
+        BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+        mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
+        touch "${BOOTSTRAP_KUBECONFIG_FILE}"
+        chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
+        tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://${API_SERVER_NAME}:443
+users:
+- name: kubelet-bootstrap
+  user:
+    token: "${TLS_BOOTSTRAP_TOKEN}"
+contexts:
+- context:
+    cluster: localcluster
+    user: kubelet-bootstrap
+  name: bootstrap-context
+current-context: bootstrap-context
+EOF
+    else
+        KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
+        mkdir -p "$(dirname "${KUBECONFIG_FILE}")"
+        touch "${KUBECONFIG_FILE}"
+        chmod 0644 "${KUBECONFIG_FILE}"
+        tee "${KUBECONFIG_FILE}" > /dev/null <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://${API_SERVER_NAME}:443
+users:
+- name: client
+  user:
+    client-certificate: /etc/kubernetes/certs/client.crt
+    client-key: /etc/kubernetes/certs/client.key
+contexts:
+- context:
+    cluster: localcluster
+    user: client
+  name: localclustercontext
+current-context: localclustercontext
+EOF
+    fi
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
-    wait_for_file 1200 1 $KUBELET_RUNTIME_CONFIG_SCRIPT_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
+#!/bin/bash
+# Disallow container from reaching out to the special IP address 168.63.129.16
+# for TCP protocol (which http uses)
+#
+# 168.63.129.16 contains protected settings that have priviledged info.
+#
+# The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
+#
+# Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+# for DNS.
+iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+EOF
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
-    
-    
 }
 
 ensureMigPartition(){
+    mkdir -p /etc/systemd/system/mig-partition.service.d/
+    touch /etc/systemd/system/mig-partition.service.d/10-mig-profile.conf
+    tee /etc/systemd/system/mig-partition.service.d/10-mig-profile.conf > /dev/null <<EOF
+[Service]
+Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
+EOF
     systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
@@ -408,7 +536,7 @@ configGPUDrivers() {
         mkdir -p /opt/{actions,gpu}
         if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
             ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-            bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+            retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
             ret=$?
             if [[ "$ret" != "0" ]]; then
                 echo "Failed to install GPU driver, exiting..."
@@ -436,7 +564,7 @@ configGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
-    retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     
     # reload containerd/dockerd
@@ -456,9 +584,9 @@ validateGPUDrivers() {
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
     which nvidia-smi
     if [[ $? == 0 ]]; then
-        SMI_RESULT=$(retrycmd_if_failure 24 5 25 nvidia-smi)
+        SMI_RESULT=$(retrycmd_if_failure 24 5 300 nvidia-smi)
     else
-        SMI_RESULT=$(retrycmd_if_failure 24 5 25 $GPU_DEST/bin/nvidia-smi)
+        SMI_RESULT=$(retrycmd_if_failure 24 5 300 $GPU_DEST/bin/nvidia-smi)
     fi
     SMI_STATUS=$?
     if [[ $SMI_STATUS != 0 ]]; then
@@ -486,6 +614,10 @@ ensureGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
+}
+
+disableSSH() {
+    systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
 }
 
 #EOF

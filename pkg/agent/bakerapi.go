@@ -24,10 +24,17 @@ type agentBakerImpl struct{}
 
 func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context,
 	config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
+	// validate and fix input before passing config to the template generator.
+	if config.AgentPoolProfile.IsWindows() {
+		validateAndSetWindowsNodeBootstrappingConfiguration(config)
+	} else {
+		validateAndSetLinuxNodeBootstrappingConfiguration(config)
+	}
+
 	templateGenerator := InitializeTemplateGenerator()
 	nodeBootstrapping := &datamodel.NodeBootstrapping{
-		CustomData: templateGenerator.GetNodeBootstrappingPayload(config),
-		CSE:        templateGenerator.GetNodeBootstrappingCmd(config),
+		CustomData: templateGenerator.getNodeBootstrappingPayload(config),
+		CSE:        templateGenerator.getNodeBootstrappingCmd(config),
 	}
 
 	distro := config.AgentPoolProfile.Distro
@@ -67,6 +74,9 @@ func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distr
 	if imageConfig, ok := sigConfig.SigWindowsImageConfig[distro]; ok {
 		return &imageConfig
 	}
+	if imageConfig, ok := sigConfig.SigUbuntuEdgeZoneImageConfig[distro]; ok {
+		return &imageConfig
+	}
 
 	return nil
 }
@@ -85,10 +95,11 @@ func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(
 	return sigImageConfig, nil
 }
 
-func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, region string) (map[datamodel.Distro]datamodel.SigImageConfig, error) {
+func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
+	sigConfig datamodel.SIGConfig, region string) (map[datamodel.Distro]datamodel.SigImageConfig, error) {
 	allAzureSigConfig, err := datamodel.GetSIGAzureCloudSpecConfig(sigConfig, region)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get sig image config: %v", err)
+		return nil, fmt.Errorf("failed to get sig image config: %w", err)
 	}
 
 	allDistros := map[datamodel.Distro]datamodel.SigImageConfig{}
@@ -101,6 +112,10 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(sigConfig datamodel.SI
 	}
 
 	for distro, sigConfig := range allAzureSigConfig.SigUbuntuImageConfig {
+		allDistros[distro] = sigConfig
+	}
+
+	for distro, sigConfig := range allAzureSigConfig.SigUbuntuEdgeZoneImageConfig {
 		allDistros[distro] = sigConfig
 	}
 

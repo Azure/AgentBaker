@@ -81,6 +81,10 @@ validate-shell:
 validate-image-version:
 	@./vhdbuilder/packer/test/run-pretest.sh
 
+.PHONY: generate-kubelet-flags
+generate-kubelet-flags:
+	@./e2e/kubelet/generate-kubelet-flags.sh
+
 .PHONY: generate
 generate: bootstrap
 	@echo $(GOFLAGS)

@@ -1,5 +1,6 @@
 #!/bin/bash
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 #the following sed removes all comments of the format {{/* */}}
@@ -45,10 +46,12 @@ systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 systemctlEnableAndStart logrotate.timer || exit 1
 rm -f /etc/cron.daily/logrotate
 
-if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+systemctlEnableAndStart sync-container-logs.service || exit 1
+
+if [[ (${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_RELEASE} == "18.04" || ($OS == $MARINER_OS_NAME && $OS_VERSION == "2.0")) && ${ENABLE_FIPS,,} == "true" ]]; then
   installFIPS
 elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
-  echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
+  echo "AKS enables FIPS on Ubuntu 18.04, 20.04 or Mariner 2.0 only, exiting..."
   exit 1
 fi
 

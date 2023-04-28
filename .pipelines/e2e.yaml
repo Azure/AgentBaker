@@ -13,54 +13,36 @@ pool:
   name: nodesigtest-pool
 
 jobs:
-- job: Setup_Test_Cluster
+- job: Run_AgentBaker_E2E
   steps:
   - bash: |
-      az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
+      az login --identity
       az account set -s $(AZURE_SUBSCRIPTION_ID)
     displayName: az login
   - bash: bash .pipelines/scripts/setup_go.sh
     displayName: setup go
   - bash: |
+      export PATH="/usr/local/go/bin:$PATH"
       go version
       cd e2e
-      bash ./e2e-starter.sh
-    displayName: Setup Test Cluster
-  - publish: $(System.DefaultWorkingDirectory)/e2e
-    artifact: clusterConfig
+      go test -timeout 30m -v -run Test_All ./
+    displayName: Run AgentBaker E2E
+  - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
+    artifact: scenario-logs
     condition: always()
+  - bash: |
+      set -x
 
-- job: Generate_Matrix
-  steps:
-  - bash: |
-      stringifyJson=$(cat e2e/matrix.json | jq -r tojson | sed 's/\\//g')
-      echo "##vso[task.setVariable variable=scenarioMatrix;isOutput=true]"$stringifyJson
-    name: matrix
+      vmssResourceIds=""
+      for vmssModel in e2e/scenario-logs/*/vmssId.txt; do
+        resourceId=$(cat ${vmssModel})
+        vmssResourceIds="${vmssResourceIds} ${resourceId}"
+      done
 
-- job: Test
-  dependsOn:
-    - Setup_Test_Cluster
-    - Generate_Matrix
-  strategy:
-    matrix: $[ dependencies.Generate_Matrix.outputs['matrix.scenarioMatrix'] ]
-    maxParallel: 3
-  steps:
-  - download: current
-    artifact: clusterConfig
-  - bash: |
-      az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
-      az account set -s $(AZURE_SUBSCRIPTION_ID)
-    displayName: az login
-  - bash: |
-      export SCENARIO_NAME
-      export $VM_SKU
-      cp -a $(Pipeline.Workspace)/clusterConfig/* e2e
-      cd e2e
-      bash e2e-scenario.sh
-  - publish: $(System.DefaultWorkingDirectory)/e2e/$(SCENARIO_NAME)-logs
-    artifact: $(SCENARIO_NAME)-logs
+      if [ -n "${vmssResourceIds// }" ]; then
+        az resource delete --ids ${vmssResourceIds}
+      fi
+    displayName: ensure vmss deletion
     condition: always()
-  - bash: |
-      az vmss delete -g $(jq -r .group e2e/$(SCENARIO_NAME)-vmss.json) -n $(jq -r .vmss e2e/$(SCENARIO_NAME)-vmss.json)
-    displayName: delete vmss
-    condition: always()
+ 
+ 

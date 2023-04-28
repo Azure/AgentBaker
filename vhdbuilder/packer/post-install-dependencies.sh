@@ -18,7 +18,11 @@ MAX_BLOCK_COUNT=30298176 # 30 GB
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # shellcheck disable=SC2021
   current_kernel="$(uname -r | cut -d- -f-2)"
-  dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get remove -yq {}
+  if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+    dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | grep -v "fips" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
+  else
+    dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "linux-\(headers\|modules\|image\)-azure" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
+  fi
 
   # remove apport
   apt-get purge --auto-remove apport open-vm-tools -y
@@ -63,12 +67,16 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "FIPS enabled: ${ENABLE_FIPS}"
 } >> ${VHD_LOGS_FILEPATH}
 
+echo -e "=== os-release Begin" >> ${VHD_LOGS_FILEPATH}
+cat /etc/os-release >> ${VHD_LOGS_FILEPATH}
+echo -e "=== os-release End" >> ${VHD_LOGS_FILEPATH}
+
 if [[ $(isARM64) != 1 ]]; then
   # no asc-baseline-1.1.0-268.arm64.deb
   installAscBaseline
 fi
 
-if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
+if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
   if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH} == "arm64" ]]; then
     relinkResolvConf
   fi

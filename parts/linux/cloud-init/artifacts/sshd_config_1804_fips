@@ -123,3 +123,6 @@ Subsystem sftp	/usr/lib/openssh/sftp-server
 
 # CLOUD_IMG: This file was created/modified by the Cloud Image build process
 ClientAliveInterval 120
+
+# Mariner AKS CIS Benchmark: Ensure SSH access is limited
+DenyUsers root omsagent nxautomation

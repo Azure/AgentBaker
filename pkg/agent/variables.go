@@ -12,9 +12,7 @@ import (
 	"github.com/blang/semver"
 )
 
-var dockerShimFlags = []string{"--cni-bin-dir", "--cni-cache-dir", "--cni-conf-dir", "--docker-endpoint", "--image-pull-progress-deadline", "--network-plugin", "--network-plugin-mtu"}
-
-// getCustomDataVariables returns cloudinit data used by Linux
+// getCustomDataVariables returns cloudinit data used by Linux.
 func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
 	cloudInitFiles := map[string]interface{}{
@@ -34,7 +32,6 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"dhcpv6SystemdService":         getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, config),
 			"dhcpv6ConfigurationScript":    getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, config),
 			"kubeletSystemdService":        getBase64EncodedGzippedCustomScript(kubeletSystemdService, config),
-			"krustletSystemdService":       getBase64EncodedGzippedCustomScript(krustletSystemdService, config),
 			"reconcilePrivateHostsScript":  getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, config),
 			"reconcilePrivateHostsService": getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
 			"ensureNoDupEbtablesScript":    getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesScript, config),
@@ -50,13 +47,12 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"bindMountDropin":              getBase64EncodedGzippedCustomScript(bindMountDropin, config),
 			"httpProxyDropin":              getBase64EncodedGzippedCustomScript(httpProxyDropin, config),
 			"componentManifestFile":        getBase64EncodedGzippedCustomScript(componentManifestFile, config),
-			"syncTunnelLogsScript":         getBase64EncodedGzippedCustomScript(syncTunnelLogsScript, config),
 		},
 	}
 
 	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
 	if cs.IsAKSCustomCloud() {
-		// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner
+		// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner.
 		if config.AgentPoolProfile.Distro.IsCBLMarinerDistro() || isMariner(config.OSSKU) {
 			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudMarinerScript, config)
 		} else {
@@ -80,11 +76,12 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 	return cloudInitFiles
 }
 
-// getWindowsCustomDataVariables returns custom data for Windows
-// TODO(qinhao): combine this function with `getCSECommandVariables` after we support passing variables from cse command to customdata
+// getWindowsCustomDataVariables returns custom data for Windows.
+/* TODO(qinhao): combine this function with `getCSECommandVariables` after we support passing variables
+from cse command to customdata. */
 func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
-	// these variables is subet of
+	// these variables is subet of.
 	customData := map[string]interface{}{
 		"tenantID":                             config.TenantID,
 		"subscriptionId":                       config.SubscriptionID,
@@ -110,7 +107,6 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"windowsSecureTlsEnabled":              cs.Properties.WindowsProfile.IsWindowsSecureTlsEnabled(),
 		"windowsGmsaPackageUrl":                cs.Properties.WindowsProfile.WindowsGmsaPackageUrl,
 		"windowsCSEScriptsPackageURL":          cs.Properties.WindowsProfile.CseScriptsPackageURL,
-		"isNotRebootWindowsNode":               strconv.FormatBool(config.AgentPoolProfile.IsNotRebootWindowsNode()),
 		"isDisableWindowsOutboundNat":          strconv.FormatBool(config.AgentPoolProfile.IsDisableWindowsOutboundNat()),
 	}
 
@@ -170,7 +166,7 @@ func getMaximumLoadBalancerRuleCount(cs *datamodel.ContainerService) int {
 }
 
 func isVHD(profile *datamodel.AgentPoolProfile) string {
-	//NOTE: update as new distro is introduced
+	//NOTE: update as new distro is introduced.
 	return strconv.FormatBool(profile.IsVHDDistro())
 }
 
@@ -180,16 +176,21 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 		return ""
 	}
 	registry := ""
-	if cloudSpecConfig.CloudName == datamodel.AzureChinaCloud {
+	switch {
+	case cloudSpecConfig.CloudName == datamodel.AzureChinaCloud:
 		registry = `gcr.azk8s.cn`
-	} else if cs.IsAKSCustomCloud() {
+	case cs.IsAKSCustomCloud():
 		registry = cs.Properties.CustomCloudEnv.McrURL
-	} else {
+	default:
 		registry = `mcr.microsoft.com`
 	}
 
-	// curl on Ubuntu 16.04 (shipped prior to AKS 1.18) doesn't support proxy TLS
-	// so we need to use nc for the connectivity check
+	if registry == "" {
+		return ""
+	}
+
+	// curl on Ubuntu 16.04 (shipped prior to AKS 1.18) doesn't support proxy TLS.
+	// so we need to use nc for the connectivity check.
 	clusterVersion, _ := semver.Make(cs.Properties.OrchestratorProfile.OrchestratorVersion)
 	minVersion, _ := semver.Make("1.18.0")
 
@@ -200,11 +201,11 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 		connectivityCheckCommand = `nc -vz ` + registry + ` 443`
 	}
 
-	if registry == "" {
-		return ""
-	}
+	return connectivityCheckCommand
+}
 
-	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy
+func getProxyVariables(nbc *datamodel.NodeBootstrappingConfiguration) string {
+	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy.
 	proxyVars := ""
 	if nbc.HTTPProxyConfig != nil {
 		if nbc.HTTPProxyConfig.HTTPProxy != nil {
@@ -218,12 +219,5 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 			proxyVars = fmt.Sprintf("export NO_PROXY=\"%s\"; %s", strings.Join(*nbc.HTTPProxyConfig.NoProxy, ","), proxyVars)
 		}
 	}
-
-	cmd := `retrycmd_if_failure() { r=$1; w=$2; t=$3; shift && shift && shift; for i in $(seq 1 $r); do timeout $t ${@}; [ $? -eq 0  ] && break || if [ $i -eq $r ]; then return 1; else sleep $w; fi; done }; ERR_OUTBOUND_CONN_FAIL=50; retrycmd_if_failure 50 1 5 ` + connectivityCheckCommand + ` >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || time ` + connectivityCheckCommand + ` || exit $ERR_OUTBOUND_CONN_FAIL;`
-
-	if proxyVars != "" {
-		cmd = fmt.Sprintf("%s %s", proxyVars, cmd)
-	}
-
-	return cmd
+	return proxyVars
 }

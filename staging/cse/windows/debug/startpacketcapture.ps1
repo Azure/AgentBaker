@@ -116,51 +116,6 @@ class Provider
 }
 
 
-# Downloads a file from the Internet.
-# Returns the full path to the download.
-function Get-WebFile
-{
-    param ( 
-        [string]$URI,
-        [string]$savePath,
-        [string]$fileName
-    )
-
-    Write-Debug "Get-WebFile - Start."
-    # make sure we don't try to use an insecure SSL/TLS protocol when downloading files
-    Write-Debug "Get-WebFile - Disabling unsupported SSL/TLS protocls."
-    $secureProtocols = @() 
-    $insecureProtocols = @( [System.Net.SecurityProtocolType]::SystemDefault, 
-                            [System.Net.SecurityProtocolType]::Ssl3, 
-                            [System.Net.SecurityProtocolType]::Tls, 
-                            [System.Net.SecurityProtocolType]::Tls11) 
-    foreach ($protocol in [System.Enum]::GetValues([System.Net.SecurityProtocolType])) 
-    { 
-        if ($insecureProtocols -notcontains $protocol) 
-        { 
-            $secureProtocols += $protocol 
-        } 
-    } 
-    [System.Net.ServicePointManager]::SecurityProtocol = $secureProtocols
-
-    Write-Verbose "Get-WebFile - Attempting download of $URI."
-    try 
-    {
-        Invoke-WebRequest -Uri $URI -OutFile "$savePath\$fileName" -MaximumRedirection 5 -EA Stop
-        Write-Verbose "Get-WebFile - File downloaded to $savePath\$fileName."
-    } 
-    catch 
-    {
-        # return terminating error
-        return (Write-Error "Could not download $URI`: $_" -EA Stop)
-    }
-
-    #Add-Log "Downloaded successfully to: $output"
-    Write-Debug "Get-WebFile - Returning: $savePath\$fileName "
-    Write-Debug "Get-WebFile - End."
-    return "$savePath\$fileName"
-}
-
 #endregion CLASSES and FUNCTIONS
 
 
@@ -296,31 +251,11 @@ if (-NOT $NoPrompt.IsPresent)
         # is collectlogs.ps1 in $baseDir?
         $isCLFnd = Get-Item "$BaseDir\collectlogs.ps1" -EA SilentlyContinue
 
-        if (-NOT $isCLFnd)
-        {
-            Write-Verbose "Collectlogs.ps1 not found. Attempting to download."
-            # try to download collectlogs.ps1
-            try 
-            {
-                $isCLFnd = Get-WebFile -URI 'https://raw.githubusercontent.com/microsoft/SDN/master/Kubernetes/windows/debug/collectlogs.ps1' -savePath "$BaseDir" -fileName 'collectlogs.ps1'
-            }
-            catch 
-            {
-                return (Write-Warning "The trace was successful but collectlogs failed to download: $_" -EA Stop)
-            }
-        }
-        else 
-        {
-            $isCLFnd = $isCLFnd.FullName    
-        }
-
+        $isCLFnd = $isCLFnd.FullName   
         # execute collectlogs.ps1
-        if ($isCLFnd)
-        {
-            Write-Host "Running collectlogs.ps1."
-            # redirecting as much of the collectlog output to the success stream for collection
-            $clResults = &$isCLFnd *>&1 | ForEach-Object ToString
-        }
+        Write-Host "Running collectlogs.ps1."
+        # redirecting as much of the collectlog output to the success stream for collection
+        $clResults = &$isCLFnd *>&1 | ForEach-Object ToString
     }
 
     Write-Host -ForegroundColor Green "`n`nAll done! The data is located at:`n`t- $EtlFile $(if ($clResults) {"`n`t- $($clResults[-1].Substring(22))"})"

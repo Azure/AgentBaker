@@ -9,7 +9,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// Route the route specifics
+// Route the route specifics.
 type Route struct {
 	Name        string
 	Method      string
@@ -17,10 +17,10 @@ type Route struct {
 	HandlerFunc http.HandlerFunc
 }
 
-// Routes list of routes to be added to the server
+// Routes list of routes to be added to the server.
 type Routes []Route
 
-// NewRouter returns a new router with defaults
+// NewRouter returns a new router with defaults.
 func (api *APIServer) NewRouter(ctx context.Context) *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
 
@@ -54,7 +54,7 @@ func healthz(w http.ResponseWriter, r *http.Request) {
 	handleOK(w, r)
 }
 
-func handleOK(w http.ResponseWriter, r *http.Request) {
+func handleOK(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 }
