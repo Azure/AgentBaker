@@ -91,7 +91,7 @@ copyPackerFiles() {
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
   VHD_CLEANUP_SCRIPT_SRC=/home/packer/cleanup-vhd.sh
   VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
-  
+
   CSE_REDACT_SRC=/home/packer/cse_redact_cloud_config.py
   CSE_REDACT_DEST=/opt/azure/containers/provision_redact_cloud_config.py
   cpAndMode $CSE_REDACT_SRC $CSE_REDACT_DEST 0744
@@ -159,7 +159,7 @@ copyPackerFiles() {
   CSE_MAIN_SRC=/home/packer/provision.sh
   CSE_MAIN_DEST=/opt/azure/containers/provision.sh
   cpAndMode $CSE_MAIN_SRC $CSE_MAIN_DEST 0744
-  
+
   CSE_START_SRC=/home/packer/provision_start.sh
   CSE_START_DEST=/opt/azure/containers/provision_start.sh
   cpAndMode $CSE_START_SRC $CSE_START_DEST 0744
@@ -186,6 +186,7 @@ copyPackerFiles() {
 
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
+
   if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     SSHD_CONFIG_SRC=/home/packer/sshd_config_1604
   elif [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
@@ -205,7 +206,7 @@ copyPackerFiles() {
   if [[ ${UBUNTU_RELEASE} == "22.04" ]]; then
     PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth-2204
   fi
-  
+
   cpAndMode $KUBELET_SERVICE_SRC $KUBELET_SERVICE_DEST 600
   cpAndMode $BLOCK_WIRESERVER_SRC $BLOCK_WIRESERVER_DEST 755
   cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
@@ -213,7 +214,7 @@ copyPackerFiles() {
   cpAndMode $RSYSLOG_CONFIG_SRC $RSYSLOG_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_CONFIG_SRC $ETC_ISSUE_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_NET_CONFIG_SRC $ETC_ISSUE_NET_CONFIG_DEST 644
-  cpAndMode $SSHD_CONFIG_SRC $SSHD_CONFIG_DEST 644
+  cpAndMode $SSHD_CONFIG_SRC $SSHD_CONFIG_DEST 600
   cpAndMode $MODPROBE_CIS_SRC $MODPROBE_CIS_DEST 644
   cpAndMode $PWQUALITY_CONF_SRC $PWQUALITY_CONF_DEST 600
   cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
@@ -247,9 +248,9 @@ copyPackerFiles() {
   if [[ $OS == $MARINER_OS_NAME ]]; then
     cpAndMode $CONTAINERD_SERVICE_SRC $CONTAINERD_SERVICE_DEST 644
   fi
-  if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+  if grep -q "fullgpu" <<<"$FEATURE_FLAGS"; then
     cpAndMode $NVIDIA_DOCKER_DAEMON_SRC $NVIDIA_DOCKER_DAEMON_DEST 644
-    if grep -q "gpudaemon" <<< "$FEATURE_FLAGS"; then
+    if grep -q "gpudaemon" <<<"$FEATURE_FLAGS"; then
       cpAndMode $NVIDIA_DEVICE_PLUGIN_SERVICE_SRC $NVIDIA_DEVICE_PLUGIN_SERVICE_DEST 644
     fi
   fi
@@ -262,6 +263,8 @@ copyPackerFiles() {
 }
 
 cpAndMode() {
-  src=$1; dest=$2; mode=$3
+  src=$1
+  dest=$2
+  mode=$3
   DIR=$(dirname "$dest") && mkdir -p ${DIR} && cp $src $dest && chmod $mode $dest || exit $ERR_PACKER_COPY_FILE
 }

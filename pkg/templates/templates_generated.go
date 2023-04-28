@@ -4982,6 +4982,9 @@ Subsystem sftp /usr/lib/openssh/sftp-server
 UsePAM yes
 UseDNS no
 GSSAPIAuthentication no
+
+# Mariner AKS CIS Benchmark: Ensure SSH access is limited
+DenyUsers root omsagent nxautomation
 `)
 
 func linuxCloudInitArtifactsSshd_configBytes() ([]byte, error) {
@@ -5094,6 +5097,9 @@ Subsystem sftp /usr/lib/openssh/sftp-server
 UsePAM yes
 UseDNS no
 GSSAPIAuthentication no
+
+# Mariner AKS CIS Benchmark: Ensure SSH access is limited
+DenyUsers root omsagent nxautomation
 `)
 
 func linuxCloudInitArtifactsSshd_config_1604Bytes() ([]byte, error) {
@@ -5236,6 +5242,9 @@ Subsystem sftp	/usr/lib/openssh/sftp-server
 
 # CLOUD_IMG: This file was created/modified by the Cloud Image build process
 ClientAliveInterval 120
+
+# Mariner AKS CIS Benchmark: Ensure SSH access is limited
+DenyUsers root omsagent nxautomation
 `)
 
 func linuxCloudInitArtifactsSshd_config_1804_fipsBytes() ([]byte, error) {
