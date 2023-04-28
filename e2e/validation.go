@@ -83,13 +83,8 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP,
 			return fmt.Errorf("unable to execute validator command %q: %w", command, err)
 		}
 
-		if execResult.exitCode != "0" {
-			execResult.dumpAll()
-			return fmt.Errorf("validator command %q terminated with exit code %s", command, execResult.exitCode)
-		}
-
 		if validator.Asserter != nil {
-			err := validator.Asserter(execResult.stdout.String(), execResult.stderr.String())
+			err := validator.Asserter(execResult.exitCode, execResult.stdout.String(), execResult.stderr.String())
 			if err != nil {
 				execResult.dumpAll()
 				return fmt.Errorf("failed validator assertion: %w", err)
@@ -105,7 +100,10 @@ func commonLiveVMValidators() []*scenario.LiveVMValidator {
 		{
 			Description: "assert /etc/default/kubelet should not contain dynamic config dir flag",
 			Command:     "cat /etc/default/kubelet",
-			Asserter: func(stdout, stderr string) error {
+			Asserter: func(code, stdout, stderr string) error {
+				if code != "0" {
+					return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
+				}
 				if strings.Contains(stdout, "--dynamic-config-dir") {
 					return fmt.Errorf("/etc/default/kubelet should not contain kubelet flag '--dynamic-config-dir', but does")
 				}
