@@ -112,7 +112,7 @@ stages:
         - task: PublishPipelineArtifact@0
           inputs:
             artifactName: 'trivy-report-table'
-            targetPath: 'trivy-table.txt'
+            targetPath: 'trivy-images-table.txt'
         - task: PublishPipelineArtifact@0
           inputs:
             artifactName: 'vhd-release-notes'
