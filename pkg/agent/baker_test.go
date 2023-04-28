@@ -616,7 +616,20 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Entry("AKSUbuntu1804 with kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+KubeletClientTLSBootstrapping", "1.18.3",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
-			}, nil),
+				config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
+					CaCertificate: "fooBarBaz",
+				}
+			}, func(o *nodeBootstrappingOutput) {
+				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
+				bootstrapKubeConfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
+				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
+				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
+
+				Expect(etcDefaultKubelet).NotTo(BeEmpty())
+				Expect(bootstrapKubeConfig).NotTo(BeEmpty())
+				Expect(kubeletSh).NotTo(BeEmpty())
+				Expect(caCRT).NotTo(BeEmpty())
+			}),
 
 		Entry("Mariner v2 with kata", "MarinerV2+Kata", "1.23.8", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.OSSKU = "Mariner"
@@ -711,6 +724,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}, nil),
 
 		Entry("AKSUbuntu1804 with containerd and motd", "AKSUbuntu1804+Containerd+MotD", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+
 			config.ContainerService.Properties.AgentPoolProfiles[0].MessageOfTheDay = "Zm9vYmFyDQo=" // foobar in b64
 		}, nil),
 
@@ -875,6 +889,7 @@ oom_score = 0
 				Name: "akscustom",
 			}
 		}, nil))
+
 })
 
 var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
