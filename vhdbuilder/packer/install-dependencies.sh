@@ -42,7 +42,7 @@ APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
 
-installDeps
+updateAptWithMicrosoftPkg
 
 # CVM breaks on kernel image updates due to nullboot package post-install.
 # it relies on boot measurements from real tpm hardware.
@@ -53,6 +53,8 @@ installDeps
 if [ "$IMG_SKU" != "20_04-lts-cvm" ]; then
   apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 fi
+
+installDeps
 
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
 Storage=persistent
@@ -120,7 +122,6 @@ downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
 
 echo "VHD will be built with containerd as the container runtime"
-updateAptWithMicrosoftPkg
 containerd_manifest="$(jq .containerd manifest.json)" || exit $?
 installed_version="$(echo ${containerd_manifest} | jq -r '.edge')"
 containerd_version="$(echo "$installed_version" | cut -d- -f1)"
