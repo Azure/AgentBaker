@@ -439,7 +439,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				config.KubeletConfig = map[string]string{}
 			}, nil),
 
-		Entry("AKSUbuntu1604 with custom kubeletConfig and osConfig", "AKSUbuntu1604+CustomKubeletConfig+CustomLinuxOSConfig", "1.16.13",
+		Entry("AKSUbuntu2204 with custom kubeletConfig and osConfig", "AKSUbuntu2204+CustomKubeletConfig+CustomLinuxOSConfig", "1.26.3",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableKubeletConfigFile = false
 				netIpv4TcpTwReuse := true
@@ -475,8 +475,22 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 					TransparentHugePageDefrag:  "defer+madvise",
 					SwapFileSizeMB:             &swapFileSizeMB,
 				}
-			}, nil),
-
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["KUBELET_CONFIG_FILE_ENABLED"]).To(Equal("true"))
+				Expect(o.vars["KUBELET_CONFIG_FILE_CONTENT"]).NotTo(BeEmpty())
+				kubeletConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["KUBELET_CONFIG_FILE_CONTENT"]))
+				Expect(err).To(BeNil())
+				expectedAnonymousAuthConfig := `    "authentication": {
+        "x509": {
+            "clientCAFile": "/etc/kubernetes/certs/ca.crt"
+        },
+        "webhook": {
+            "enabled": true
+        },
+        "anonymous": {}
+    },`
+				Expect(kubeletConfigFileContent).To(ContainSubstring(expectedAnonymousAuthConfig))
+			}),
 		Entry("AKSUbuntu1604 - dynamic-config-dir should always be removed with custom kubelet config",
 			"AKSUbuntu1604+CustomKubeletConfig+DynamicKubeletConfig", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
