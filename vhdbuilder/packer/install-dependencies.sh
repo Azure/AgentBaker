@@ -21,7 +21,7 @@ echo "Components downloaded in this VHD build (some of the below components migh
 
 # fix grub issue with cvm by reinstalling before other deps
 # other VHDs use grub-pc, not grub-efi
-if [[ "${UBUNTU_RELEASE}" == "20.04" ]]; then
+if [[ "${UBUNTU_RELEASE}" == "20.04" ]] && [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT 
   wait_for_apt_locks
   apt_get_install 30 1 600 grub-efi || exit 1
@@ -43,6 +43,16 @@ EOF
 fi
 
 installDeps
+
+# CVM breaks on kernel image updates due to nullboot package post-install.
+# it relies on boot measurements from real tpm hardware.
+# building on a real CVM would solve this, but packer doesn't support it.
+# we could make upstream changes but that takes time, and we are broken now.
+# so we just hold the kernel image packages for now on CVM.
+# this still allows us base image and package updates on a weekly cadence.
+if [ "$IMG_SKU" != "20_04-lts-cvm" ]; then
+  apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
+fi
 
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
 Storage=persistent
