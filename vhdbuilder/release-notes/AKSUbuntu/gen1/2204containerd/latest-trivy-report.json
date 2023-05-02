@@ -1,11 +1,11 @@
 {
   "SchemaVersion": 2,
-  "ArtifactName": "pkrvm9d01eayryu",
+  "ArtifactName": "pkrvmnrkhbzdct6",
   "ArtifactType": "filesystem",
   "Metadata": {
     "OS": {
       "Family": "ubuntu",
-      "Name": "18.04"
+      "Name": "22.04"
     },
     "ImageConfig": {
       "architecture": "",
@@ -20,7 +20,7 @@
   },
   "Results": [
     {
-      "Target": "pkrvm9d01eayryu (ubuntu 18.04)",
+      "Target": "pkrvmnrkhbzdct6 (ubuntu 22.04)",
       "Class": "os-pkgs",
       "Type": "ubuntu"
     },
