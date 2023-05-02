@@ -50,7 +50,7 @@ installDeps
 # we could make upstream changes but that takes time, and we are broken now.
 # so we just hold the kernel image packages for now on CVM.
 # this still allows us base image and package updates on a weekly cadence.
-if [ "$IMG_SKU" != "20_04-lts-cvm" ]; then
+if [ "$OS" == "$UBUNTU_OS_NAME" ] && [ "$IMG_SKU" != "20_04-lts-cvm" ]; then
   apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 fi
 
