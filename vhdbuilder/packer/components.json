@@ -52,7 +52,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.4.32",
-        "v1.4.45"
+        "v1.4.45",
+        "v1.4.45_hotfix"
       ]
     },
     {
