@@ -70,7 +70,7 @@
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [
         ],
-        "installed": { 
+        "installed": {
 			"default": "1.1.5"
 		}
     },
@@ -90,13 +90,14 @@
         "fileName": "kubernetes-node-linux-arch.tar.gz",
         "downloadLocation": "",
         "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
-        "versions": [ 
+        "versions": [
             "1.24.9",
             "1.24.10",
             "1.25.5",
             "1.25.6",
             "1.26.0",
-            "1.26.3"
+            "1.26.3",
+            "1.27.1"
         ]
     },
     "_template": {

@@ -38,5 +38,6 @@ func scenarios() []*Scenario {
 		marinerv2_azurecni(),
 		ubuntu1804gpu_azurecni(),
 		marinerv2gpu_azurecni(),
+		ubuntu2204gpuNoDriver(),
 	}
 }
