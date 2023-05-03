@@ -78,6 +78,8 @@ var AvailableUbuntu1804Distros []Distro = []Distro{
 	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuEdgeZoneContainerd1804,
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
+	AKSUbuntuEdgeZoneGPUContainerd1804,
+	AKSUbuntuEdgeZoneGPUContainerd1804Gen2,
 }
 
 var AvailableUbuntu2004Distros []Distro = []Distro{
@@ -108,6 +110,8 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSUbuntuEdgeZoneContainerd1804,
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
+	AKSUbuntuEdgeZoneGPUContainerd1804,
+	AKSUbuntuEdgeZoneGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSCBLMarinerV2Gen2,
@@ -133,6 +137,8 @@ var AvailableGPUDistros []Distro = []Distro{
 	AKSUbuntuGPUContainerd1804Gen2,
 	AKSUbuntuFipsGPUContainerd1804,
 	AKSUbuntuFipsGPUContainerd1804Gen2,
+	AKSUbuntuEdgeZoneGPUContainerd1804,
+	AKSUbuntuEdgeZoneGPUContainerd1804Gen2,
 }
 
 var AvailableGen2Distros []Distro = []Distro{
@@ -150,6 +156,7 @@ var AvailableGen2Distros []Distro = []Distro{
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
+	AKSUbuntuEdgeZoneGPUContainerd1804Gen2,
 }
 
 var AvailableCBLMarinerDistros []Distro = []Distro{
@@ -621,6 +628,22 @@ func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[D
 	}
 
 	// This image is using a specific resource group and gallery name for edge zone scenario.
+	sIGUbuntuEdgeZoneGPUContainerd1804ImageConfigTemplate := SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
+		Gallery:       AKSUbuntuEdgeZoneGalleryName,
+		Definition:    "1804gpucontainerd",
+		Version:       EdgeZoneSIGImageVersion,
+	}
+
+	// This image is using a specific resource group and gallery name for edge zone scenario.
+	sIGUbuntuEdgeZoneGPUContainerd1804Gen2ImageConfigTemplate := SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
+		Gallery:       AKSUbuntuEdgeZoneGalleryName,
+		Definition:    "1804gen2gpucontainerd",
+		Version:       EdgeZoneSIGImageVersion,
+	}
+
+	// This image is using a specific resource group and gallery name for edge zone scenario.
 	sigUbuntuEdgeZoneContainerd2204ImageConfigTemplate := SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
 		Gallery:       AKSUbuntuEdgeZoneGalleryName,
@@ -637,10 +660,12 @@ func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[D
 	}
 
 	return map[Distro]SigImageConfig{
-		AKSUbuntuEdgeZoneContainerd1804:     sigUbuntuEdgeZoneContainerd1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuEdgeZoneContainerd1804Gen2: sigUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuEdgeZoneContainerd2204:     sigUbuntuEdgeZoneContainerd2204ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuEdgeZoneContainerd2204Gen2: sigUbuntuEdgeZoneContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuEdgeZoneContainerd1804:        sigUbuntuEdgeZoneContainerd1804ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuEdgeZoneContainerd1804Gen2:    sigUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuEdgeZoneGPUContainerd1804:     sIGUbuntuEdgeZoneGPUContainerd1804ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuEdgeZoneGPUContainerd1804Gen2: sIGUbuntuEdgeZoneGPUContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuEdgeZoneContainerd2204:        sigUbuntuEdgeZoneContainerd2204ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuEdgeZoneContainerd2204Gen2:    sigUbuntuEdgeZoneContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
