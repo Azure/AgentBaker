@@ -11,9 +11,9 @@ TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
 
 if [ "$OS_TYPE" == "Linux" ]; then
-  if [ "$IMG_SKU" == "20_04-lts-cvm" ] || [ "$OS_VERSION" == "V1" ] && [ "$OS_SKU" == "CBLMariner" ]; then
-    echo "Skipping tests for CVM 20.04 and Mariner 1.0"
-    exit 0
+  #if [ "$IMG_SKU" == "20_04-lts-cvm" ] || [ "$OS_VERSION" == "V1" ] && [ "$OS_SKU" == "CBLMariner" ]; then
+  echo "Skipping tests for custom base image"
+  #  exit 0
   fi
 fi
 

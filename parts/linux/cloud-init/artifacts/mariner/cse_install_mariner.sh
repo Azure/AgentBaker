@@ -25,6 +25,19 @@ installDeps() {
     fi
 }
 
+installKataDeps() {
+    echo "mitchzhu kata packages"
+
+    # install kata deps for 2.0;
+    if [[ $OS_VERSION == "2.0" ]]; then
+      for dnf_package in kernel-mshv kernel-uvm cloud-hypervisor kata-containers mshv-bootloader mshv-linuxloader mshv; do
+        if ! dnf_install 30 1 600 $dnf_package; then
+          exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+      done
+    fi
+}
+
 downloadGPUDrivers() {
     # uname -r in Mariner will return %{version}-%{release}.%{mariner_version_postfix}
     # Need to process the return value of "uname -r" to get the %{version} value

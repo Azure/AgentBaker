@@ -82,6 +82,7 @@ EOF
 fi
 
 installDeps
+installKataDeps
 
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
 Storage=persistent
