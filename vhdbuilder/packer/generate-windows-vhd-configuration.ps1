@@ -56,8 +56,8 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.1",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.2",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
-            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0",
-            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.3",
+            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
             # Azure cloud node manager. Owner: nilo19 (Qi Ni)
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.24", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.11", # for k8s 1.24.x
@@ -88,8 +88,8 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.1",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.2",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
-            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0",
-            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.3",
+            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
             # Azure cloud node manager. Owner: nilo19 (Qi Ni)
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.24", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.11", # for k8s 1.24.x
@@ -123,8 +123,8 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.1",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.2",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
-            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0",
-            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.3",
+            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
             # Azure cloud node manager. Owner: nilo19 (Qi Ni)
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.24", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.11", # for k8s 1.24.x
