@@ -125,13 +125,46 @@ EOF
     chmod 755 /etc/rsyslog.d
 }
 
-enableMarinerKata() {
-    # Enable the mshv boot path
+setupMSHV() {
+    echo "in setupMSHV"
+
+    # Add PARTUUID in linuxloader.conf
+    echo "Contents of linuxloader.conf"
+    cat /boot/efi/linuxloader.conf
+
+    echo "Contents of blkid output"
+    export my_blkid=$(blkid)
+    echo $my_blkid
+
+    # sed -i -e "s/KERNEL_CMDLINE=.*$//" /boot/efi/linuxloader.conf
+    # export ROOT=$(blkid | grep image-rootfs | grep -o -P '(?<=PARTUUID=).*' | cut -d ' ' -f1 | sed -e 's?"??g')
+    # echo "KERNEL_CMDLINE=PARTUUID=$ROOT rd.auto=1 lockdown=integrity sysctl.kernel.unprivileged_bpf_disabled=1 init=/lib/systemd/systemd ro no-vmw-sta crashkernel=128M net.ifnames=0 plymouth.enable=0 systemd.legacy_systemd_cgroup_controller=yes systemd.unified_cgroup_hierarchy=0 audit=0 console=ttyS0,115200n8 earlyprintk" >> /boot/efi/linuxloader.conf
+
+    # echo "Contents of linuxloader after blkid"
+    # cat /boot/efi/linuxloader.conf
+    # Add DOM0 boot entry above default
     sudo sed -i -e 's@menuentry "CBL-Mariner"@menuentry "Dom0" {\n    search --no-floppy --set=root --file /EFI/Microsoft/Boot/bootmgfw.efi\n        chainloader /EFI/Microsoft/Boot/bootmgfw.efi\n}\n\nmenuentry "CBL-Mariner"@'  /boot/grub2/grub.cfg
 
-    # kata-osbuilder-generate is responsible for triggering the kata-osbuilder.sh script, which uses
-    # dracut to generate an initrd for the nested VM using binaries from the Mariner host OS.
-    systemctlEnableAndStart kata-osbuilder-generate
+    SERVICE_FILEPATH="/etc/systemd/system/set-kataconfig.service"
+    touch ${SERVICE_FILEPATH}
+    cat << EOF > ${SERVICE_FILEPATH}
+[Unit]
+Description=Apply Kata Config once provisioning is complete
+After=containerd.service
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /setupkata.sh
+RemainAfterExit=no
+
+[Install]
+RequiredBy=kubelet.service
+EOF
+
+    systemctlEnableAndStart set-kataconfig || exit $ERR_SYSTEMCTL_START_FAIL
+
+    # generate initrd for guest
+    systemctl restart kata-osbuilder-generate.service
 }
 
 activateNfConntrack() {

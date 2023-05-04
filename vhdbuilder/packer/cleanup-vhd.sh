@@ -7,3 +7,6 @@ rm -f /var/log/cloud-init.log /var/log/cloud-init-output.log
 rm -f /etc/machine-id
 touch /etc/machine-id
 chmod 644 /etc/machine-id
+
+# Remove preview-repo from RPM installation sources
+rm -f /etc/yum.repos.d/preview.repo

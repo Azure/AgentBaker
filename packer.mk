@@ -27,7 +27,7 @@ ifeq (${OS_SKU},Ubuntu)
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
 else ifeq (${OS_SKU},CBLMariner)
 	@echo "Using packer template file vhd-image-builder-mariner.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
+	@PACKER_LOG=1 packer build -debug -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
@@ -52,13 +52,8 @@ endif
 endif
 
 az-login:
-ifeq (${OS_TYPE},Windows)
 	@echo "Logging into Azure with service principal..."
 	@az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
-else
-	@echo "Logging into Azure with agent VM MSI..."
-	@az login --identity
-endif
 	@az account set -s ${SUBSCRIPTION_ID}
 
 init-packer:

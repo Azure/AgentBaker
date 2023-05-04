@@ -43,7 +43,8 @@ if [[ "${OS_NAME,,}" != "windows" ]]; then
     sas_token=$(az storage container generate-sas --name ${OUTPUT_STORAGE_CONTAINER_NAME} --permissions lr --connection-string ${CLASSIC_SA_CONNECTION_STRING} --start ${start_date} --expiry ${expiry_date} | tr -d '"')
 else
     # we still need to use the original connection string when not using a system-assigned identity on 1ES pools
-    sas_token=$(az storage container generate-sas --name vhds --permissions lr --connection-string ${CLASSIC_SA_CONNECTION_STRING} --start ${start_date} --expiry ${expiry_date} | tr -d '"')
+    #sas_token=$(az storage container generate-sas --name vhds --permissions lr --connection-string ${CLASSIC_SA_CONNECTION_STRING} --start ${start_date} --expiry ${expiry_date} | tr -d '"')
+    sas_token="empty"
 fi
 
 if [ "$sas_token" == "" ]; then
