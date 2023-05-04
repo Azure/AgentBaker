@@ -87,7 +87,32 @@ func pollExecOnPod(ctx context.Context, kube *kubeclient, namespace, podName, co
 	return execResult, nil
 }
 
-// Wraps extractClusterParameters in a poller with a 15-second wait interval and 5-minute timeout
+func pollExecOnPriviledgedPod(ctx context.Context, kube *kubeclient, namespace, podName, command string) (*podExecResult, error) {
+	var execResult *podExecResult
+	err := wait.PollImmediateWithContext(ctx, execOnPodPollInterval, execOnPodPollingTimeout, func(ctx context.Context) (bool, error) {
+		res, err := execOnPrivilegedPod(ctx, kube, namespace, podName, command)
+		if err != nil {
+			log.Printf("unable to execute command on priviledged pod: %s", err)
+
+			// fail hard on non-retriable error
+			if strings.Contains(err.Error(), "error extracting exit code") {
+				return false, err
+			}
+			return false, nil
+		}
+
+		execResult = res
+		return true, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return execResult, nil
+}
+
+// Wraps extractClusterParameters in a poller with a 10-second wait interval and 3-minute timeout
 func pollExtractClusterParameters(ctx context.Context, kube *kubeclient) (map[string]string, error) {
 	var clusterParams map[string]string
 	err := wait.PollImmediateWithContext(ctx, extractClusterParametersPollInterval, extractClusterParametersPollingTimeout, func(ctx context.Context) (bool, error) {
@@ -105,33 +130,6 @@ func pollExtractClusterParameters(ctx context.Context, kube *kubeclient) (map[st
 	}
 
 	return clusterParams, nil
-}
-
-// Wraps exctracLogsFromVM and dumpFileMapToDir in a poller with a 15-second wait interval and 5-minute timeout
-func pollExtractVMLogs(ctx context.Context, vmssName, privateIP string, privateKeyBytes []byte, opts *scenarioRunOpts) error {
-	err := wait.PollImmediateWithContext(ctx, extractVMLogsPollInterval, extractVMLogsPollingTimeout, func(ctx context.Context) (bool, error) {
-		log.Println("attempting to extract VM logs")
-
-		logFiles, err := extractLogsFromVM(ctx, vmssName, privateIP, string(privateKeyBytes), opts)
-		if err != nil {
-			log.Printf("error extracting VM logs: %q", err)
-			return false, nil
-		}
-
-		log.Printf("dumping VM logs to local directory: %s", opts.loggingDir)
-		if err = dumpFileMapToDir(opts.loggingDir, logFiles); err != nil {
-			log.Printf("error extracting VM logs: %q", err)
-			return false, nil
-		}
-
-		return true, nil
-	})
-
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *scenarioRunOpts) (string, error) {

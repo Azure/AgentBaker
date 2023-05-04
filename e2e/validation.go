@@ -28,7 +28,7 @@ func validateNodeHealth(ctx context.Context, kube *kubeclient, vmssName string) 
 	return nodeName, nil
 }
 
-func validateWasm(ctx context.Context, kube *kubeclient, nodeName, privateKey string) error {
+func validateWasm(ctx context.Context, nodeName string, kube *kubeclient, executor remoteCommandExecutor) error {
 	spinPodName, err := ensureWasmPods(ctx, kube, nodeName)
 	if err != nil {
 		return fmt.Errorf("failed to valiate wasm, unable to ensure wasm pods on node %q: %w", nodeName, err)
@@ -39,12 +39,7 @@ func validateWasm(ctx context.Context, kube *kubeclient, nodeName, privateKey st
 		return fmt.Errorf("unable to get IP of wasm spin pod %q: %w", spinPodName, err)
 	}
 
-	debugPodName, err := getDebugPodName(kube)
-	if err != nil {
-		return fmt.Errorf("unable to get debug pod name to validate wasm: %w", err)
-	}
-
-	execResult, err := pollExecOnPod(ctx, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
+	execResult, err := executor.onPod(curlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
 	if err != nil {
 		return fmt.Errorf("unable to execute wasm validation command: %w", err)
 	}
@@ -58,7 +53,7 @@ func validateWasm(ctx context.Context, kube *kubeclient, nodeName, privateKey st
 				return fmt.Errorf("unable to get IP of wasm spin pod %q: %w", spinPodName, err)
 			}
 
-			execResult, err = pollExecOnPod(ctx, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
+			execResult, err = executor.onPod(curlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
 			if err != nil {
 				return fmt.Errorf("unable to execute wasm validation command on wasm pod %q at %s: %w", spinPodName, spinPodIP, err)
 			}
@@ -80,12 +75,7 @@ func validateWasm(ctx context.Context, kube *kubeclient, nodeName, privateKey st
 	return nil
 }
 
-func runLiveVMValidators(ctx context.Context, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
-	podName, err := getDebugPodName(opts.clusterConfig.kube)
-	if err != nil {
-		return fmt.Errorf("unable to get debug pod name: %w", err)
-	}
-
+func runLiveVMValidators(ctx context.Context, vmssName string, executor remoteCommandExecutor, opts *scenarioRunOpts) error {
 	validators := commonLiveVMValidators()
 	if opts.scenario.LiveVMValidators != nil {
 		validators = append(validators, opts.scenario.LiveVMValidators...)
@@ -96,7 +86,7 @@ func runLiveVMValidators(ctx context.Context, vmssName, privateIP, sshPrivateKey
 		command := validator.Command
 		log.Printf("running live VM validator: %q", desc)
 
-		execResult, err := pollExecOnVM(ctx, opts.clusterConfig.kube, privateIP, podName, sshPrivateKey, command)
+		execResult, err := executor.onVM(command)
 		if err != nil {
 			return fmt.Errorf("unable to execute validator command %q: %w", command, err)
 		}

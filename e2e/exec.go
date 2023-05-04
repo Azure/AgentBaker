@@ -17,6 +17,39 @@ const (
 	listVMSSNetworkInterfaceURLTemplate = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
 )
 
+type remoteCommandExecutor struct {
+	ctx           context.Context
+	kube          *kubeclient
+	namespace     string
+	debugPodName  string
+	vmPrivateIP   string
+	sshPrivateKey string
+}
+
+func (e remoteCommandExecutor) onVM(command string) (*podExecResult, error) {
+	result, err := pollExecOnVM(e.ctx, e.kube, e.debugPodName, e.vmPrivateIP, e.sshPrivateKey, command)
+	if err != nil {
+		return nil, fmt.Errorf("encountered an error while running vm command: %w", err)
+	}
+	return result, nil
+}
+
+func (e remoteCommandExecutor) onPod(command string) (*podExecResult, error) {
+	result, err := pollExecOnPod(e.ctx, e.kube, e.namespace, e.debugPodName, command)
+	if err != nil {
+		return nil, fmt.Errorf("encountered an error while running pod command: %w", err)
+	}
+	return result, nil
+}
+
+func (e remoteCommandExecutor) onPrivilegedPod(command string) (*podExecResult, error) {
+	result, err := pollExecOnPriviledgedPod(e.ctx, e.kube, e.namespace, e.debugPodName, command)
+	if err != nil {
+		return nil, fmt.Errorf("encountererd an error while running privileged pod command: %w", err)
+	}
+	return result, nil
+}
+
 type podExecResult struct {
 	exitCode       string
 	stderr, stdout *bytes.Buffer
@@ -54,27 +87,24 @@ func (r podExecResult) dumpStderr() {
 	}
 }
 
-func extractLogsFromVM(ctx context.Context, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) (map[string]string, error) {
+func extractLogsFromVM(ctx context.Context, executor remoteCommandExecutor) (map[string]string, error) {
 	commandList := map[string]string{
 		"/var/log/azure/cluster-provision.log": "cat /var/log/azure/cluster-provision.log",
 		"kubelet.log":                          "journalctl -u kubelet",
 	}
 
-	podName, err := getDebugPodName(opts.clusterConfig.kube)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get debug pod name: %w", err)
-	}
-
 	var result = map[string]string{}
 	for file, sourceCmd := range commandList {
-		log.Printf("executing command on remote VM at %s of VMSS %s: %q", privateIP, vmssName, sourceCmd)
+		log.Printf("executing remote VM command: %q", sourceCmd)
 
-		execResult, err := execOnVM(ctx, opts.clusterConfig.kube, privateIP, podName, sshPrivateKey, sourceCmd)
-		if execResult != nil {
-			execResult.dumpStderr()
-		}
+		execResult, err := executor.onVM(sourceCmd)
 		if err != nil {
 			return nil, err
+		}
+
+		if execResult.exitCode != "0" {
+			execResult.dumpAll()
+			return nil, fmt.Errorf("failed to extract VM logs, command terminated with exit code %s", execResult.exitCode)
 		}
 
 		result[file] = execResult.stdout.String()
@@ -176,7 +206,7 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 	}, nil
 }
 
-func getWasmCurlCommand(url string) string {
+func curlCommand(url string) string {
 	return fmt.Sprintf(`curl \
 --connect-timeout 5 \
 --max-time 10 \

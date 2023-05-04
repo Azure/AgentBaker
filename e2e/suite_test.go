@@ -129,11 +129,31 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		t.Fatalf("failed to get VM private IP: %s", err)
 	}
 
+	debugPodName, err := getDebugPodName(opts.clusterConfig.kube)
+	if err != nil {
+		t.Fatalf("unable to get debug pod name: %s", err)
+	}
+
+	executor := remoteCommandExecutor{
+		ctx:           ctx,
+		kube:          opts.clusterConfig.kube,
+		namespace:     defaultNamespace,
+		debugPodName:  debugPodName,
+		vmPrivateIP:   vmPrivateIP,
+		sshPrivateKey: string(privateKeyBytes),
+	}
+
 	// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
 	defer func() {
-		err := pollExtractVMLogs(ctx, vmssName, vmPrivateIP, privateKeyBytes, opts)
+		logFiles, err := extractLogsFromVM(ctx, executor)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("error extracting VM logs: %s", err)
+		}
+
+		log.Printf("dumping VM logs to local directory: %s", opts.loggingDir)
+
+		if err = dumpFileMapToDir(opts.loggingDir, logFiles); err != nil {
+			t.Fatalf("error dumping VM logs: %s", err)
 		}
 	}()
 
@@ -150,14 +170,14 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 			if err := ensureWasmRuntimeClasses(ctx, opts.clusterConfig.kube); err != nil {
 				t.Fatalf("unable to ensure wasm RuntimeClasses: %s", err)
 			}
-			if err := validateWasm(ctx, opts.clusterConfig.kube, nodeName, string(privateKeyBytes)); err != nil {
+			if err := validateWasm(ctx, nodeName, opts.clusterConfig.kube, executor); err != nil {
 				t.Fatalf("unable to validate wasm: %s", err)
 			}
 		}
 
 		log.Println("node is ready, proceeding with validation commands...")
 
-		err = runLiveVMValidators(ctx, vmssName, vmPrivateIP, string(privateKeyBytes), opts)
+		err = runLiveVMValidators(ctx, vmssName, executor, opts)
 		if err != nil {
 			t.Fatalf("VM validation failed: %s", err)
 		}
