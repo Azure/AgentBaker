@@ -114,8 +114,8 @@ EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
-        timeout $timeout "${@}" && break || \
-        if [ $i -eq $retries ]; then
+        timeout --preserve-status $timeout "${@}" && break || \
+        if gs[ $i -eq $retries ]; then
             echo Executed \"$@\" $i times;
             return 1
         else
@@ -127,7 +127,7 @@ retrycmd_if_failure() {
 retrycmd_if_failure_no_stats() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
-        timeout $timeout ${@} && break || \
+        timeout --preserve-status $timeout ${@} && break || \
         if [ $i -eq $retries ]; then
             return 1
         else
@@ -143,7 +143,7 @@ retrycmd_get_tarball() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            timeout 60 curl -fsSLv $url -o $tarball
+            timeout --preserve-status 60 curl -fsSLv $url -o $tarball
             sleep $wait_sleep
         fi
     done
@@ -156,7 +156,7 @@ retrycmd_curl_file() {
         if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout $timeout curl -fsSLv $url -o $filepath
+            timeout --preserve-status $timeout curl -fsSLv $url -o $filepath
             sleep $wait_sleep
         fi
     done
@@ -179,8 +179,8 @@ wait_for_file() {
 systemctl_restart() {
     retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
     for i in $(seq 1 $retries); do
-        timeout $timeout systemctl daemon-reload
-        timeout $timeout systemctl restart $svcname && break || \
+        timeout --preserve-status $timeout systemctl daemon-reload
+        timeout --preserve-status $timeout systemctl restart $svcname && break || \
         if [ $i -eq $retries ]; then
             return 1
         else

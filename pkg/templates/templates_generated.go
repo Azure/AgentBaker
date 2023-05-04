@@ -1842,8 +1842,8 @@ EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
-        timeout $timeout "${@}" && break || \
-        if [ $i -eq $retries ]; then
+        timeout --preserve-status $timeout "${@}" && break || \
+        if gs[ $i -eq $retries ]; then
             echo Executed \"$@\" $i times;
             return 1
         else
@@ -1855,7 +1855,7 @@ retrycmd_if_failure() {
 retrycmd_if_failure_no_stats() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
-        timeout $timeout ${@} && break || \
+        timeout --preserve-status $timeout ${@} && break || \
         if [ $i -eq $retries ]; then
             return 1
         else
@@ -1871,7 +1871,7 @@ retrycmd_get_tarball() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            timeout 60 curl -fsSLv $url -o $tarball
+            timeout --preserve-status 60 curl -fsSLv $url -o $tarball
             sleep $wait_sleep
         fi
     done
@@ -1884,7 +1884,7 @@ retrycmd_curl_file() {
         if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout $timeout curl -fsSLv $url -o $filepath
+            timeout --preserve-status $timeout curl -fsSLv $url -o $filepath
             sleep $wait_sleep
         fi
     done
@@ -1907,8 +1907,8 @@ wait_for_file() {
 systemctl_restart() {
     retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
     for i in $(seq 1 $retries); do
-        timeout $timeout systemctl daemon-reload
-        timeout $timeout systemctl restart $svcname && break || \
+        timeout --preserve-status $timeout systemctl daemon-reload
+        timeout --preserve-status $timeout systemctl restart $svcname && break || \
         if [ $i -eq $retries ]; then
             return 1
         else
@@ -3066,7 +3066,7 @@ func linuxCloudInitArtifactsCse_send_logsPy() (*asset, error) {
 
 var _linuxCloudInitArtifactsCse_startSh = []byte(`CSE_STARTTIME=$(date)
 CSE_STARTTIME_FORMATTED=$(date +"%F %T.%3N")
-timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
+timeout --preserve-status -k5s 15m /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(tail -c 3000 "/var/log/azure/cluster-provision.log")
@@ -3502,7 +3502,7 @@ container_runtime_monitoring() {
     local healthcheck_command="docker ps"
   fi
 
-  until timeout 60 ${healthcheck_command} > /dev/null; do
+  until timeout --preserve-status 60 ${healthcheck_command} > /dev/null; do
     if (( attempt == max_attempts )); then
       echo "Max attempt ${max_attempts} reached! Proceeding to monitor container runtime healthiness."
       break
@@ -3511,7 +3511,7 @@ container_runtime_monitoring() {
     sleep "$(( 2 ** attempt++ ))"
   done
   while true; do
-    if ! timeout 60 ${healthcheck_command} > /dev/null; then
+    if ! timeout --preserve-status 60 ${healthcheck_command} > /dev/null; then
       echo "Container runtime ${container_runtime_name} failed!"
       if [[ "$container_runtime_name" == "containerd" ]]; then
         pkill -SIGUSR1 containerd
@@ -5561,7 +5561,7 @@ apt_get_purge() {
         wait_for_apt_locks
         export DEBIAN_FRONTEND=noninteractive
         dpkg --configure -a --force-confdef
-        timeout $timeout apt-get purge -o Dpkg::Options::="--force-confold" -y ${@} && break || \
+        timeout --preserve-status $timeout apt-get purge -o Dpkg::Options::="--force-confold" -y ${@} && break || \
         if [ $i -eq $retries ]; then
             return 1
         else

@@ -17,7 +17,7 @@ container_runtime_monitoring() {
     local healthcheck_command="docker ps"
   fi
 
-  until timeout 60 ${healthcheck_command} > /dev/null; do
+  until timeout --preserve-status 60 ${healthcheck_command} > /dev/null; do
     if (( attempt == max_attempts )); then
       echo "Max attempt ${max_attempts} reached! Proceeding to monitor container runtime healthiness."
       break
@@ -26,7 +26,7 @@ container_runtime_monitoring() {
     sleep "$(( 2 ** attempt++ ))"
   done
   while true; do
-    if ! timeout 60 ${healthcheck_command} > /dev/null; then
+    if ! timeout --preserve-status 60 ${healthcheck_command} > /dev/null; then
       echo "Container runtime ${container_runtime_name} failed!"
       if [[ "$container_runtime_name" == "containerd" ]]; then
         pkill -SIGUSR1 containerd
