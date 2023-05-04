@@ -115,7 +115,7 @@ retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
         timeout --preserve-status $timeout "${@}" && break || \
-        if gs[ $i -eq $retries ]; then
+        if [ $i -eq $retries ]; then
             echo Executed \"$@\" $i times;
             return 1
         else
