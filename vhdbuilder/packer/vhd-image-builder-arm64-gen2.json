@@ -572,6 +572,12 @@
     {
       "type": "file",
       "direction": "download",
+      "source": "/opt/azure/containers/trivy-images.json",
+      "destination": "trivy-images.json"
+    },
+    {
+      "type": "file",
+      "direction": "download",
       "source": "/opt/azure/vhd-install.complete",
       "destination": "release-notes.txt"
     },

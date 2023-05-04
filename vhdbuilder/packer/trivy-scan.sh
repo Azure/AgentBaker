@@ -3,6 +3,7 @@ set -euxo pipefail
 
 TRIVY_REPORT_JSON_PATH=/opt/azure/containers/trivy-report.json
 TRIVY_REPORT_TABLE_PATH=/opt/azure/containers/trivy-images-table.txt
+TRIVY_IMAGES_JSON_PATH=/opt/azure/containers/trivy-images.json
 TRIVY_VERSION="0.40.0"
 TRIVY_ARCH=""
 
@@ -18,6 +19,7 @@ fi
 
 mkdir -p "$(dirname "${TRIVY_REPORT_JSON_PATH}")"
 mkdir -p "$(dirname "${TRIVY_REPORT_TABLE_PATH}")"
+mkdir -p "$(dirname "${TRIVY_IMAGES_JSON_PATH}")"
 
 wget "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
 tar -xvzf "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
@@ -29,13 +31,15 @@ chmod a+x trivy
 IMAGE_LIST=$(ctr -n k8s.io image list -q | grep -v sha256)
 
 echo "This contains the list of images with high and critical level CVEs (if present), that are present in the node. 
-Note: images without CVEs are also listed" >> "${TRIVY_REPORT_TABLE_PATH}"
+Note: images without CVEs are also listed" >> "${TRIVY_REPORT_TABLE_PATH}" 
 
 for image in $IMAGE_LIST; do
     ./trivy --scanners vuln image --ignore-unfixed --severity HIGH,CRITICAL -f table $image >> ${TRIVY_REPORT_TABLE_PATH} || true
+    ./trivy --scanners vuln image --ignore-unfixed --severity HIGH,CRITICAL -f json $image >> ${TRIVY_IMAGES_JSON_PATH} || true
 done
 
 rm ./trivy 
 
 chmod a+r "${TRIVY_REPORT_JSON_PATH}"
 chmod a+r "${TRIVY_REPORT_TABLE_PATH}"
+chmod a+r "${TRIVY_IMAGES_JSON_PATH}"

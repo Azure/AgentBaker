@@ -134,6 +134,8 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 	trivyReportFileIn := filepath.Join(tmpdir, "trivy-report.json")
 	trivyTableName := fmt.Sprintf("trivy-images-table-%s", sku)
 	trivyReportTableIn := filepath.Join(tmpdir, "trivy-images-table.txt")
+	trivyImagesJsonName := fmt.Sprintf("trivy-images-%s", sku)
+	trivyImagesJsonIn := filepath.Join(tmpdir, "trivy-images.json")
 
 	artifactsDirOut := filepath.Join(fl.path, path)
 	releaseNotesFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s.txt", fl.date))
@@ -141,12 +143,14 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 
 	trivyReportFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s-trivy-report.json", fl.date))
 	trivyReportTableOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s-trivy-images-table.txt", fl.date))
+	trivyImagesJsonOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s-trivy-images.json", fl.date))
 
 	latestReleaseNotesFile := filepath.Join(artifactsDirOut, "latest.txt")
 	latestImageListFile := filepath.Join(artifactsDirOut, "latest-image-list.json")
 
 	latestTrivyReportFile := filepath.Join(artifactsDirOut, "latest-trivy-report.json")
 	latestTrivyReportTable := filepath.Join(artifactsDirOut, "latest-trivy-images-table.txt")
+	latestTrivyImagesJson := filepath.Join(artifactsDirOut, "latest-trivy-images.json")
 
 	if err := os.MkdirAll(filepath.Dir(artifactsDirOut), 0644); err != nil {
 		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
@@ -250,6 +254,31 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 	err = os.WriteFile(latestTrivyReportTable, data, 0644)
 	if err != nil {
 		errc <- fmt.Errorf("failed to write file %s for copying, err: %s", latestTrivyReportTable, err)
+	}
+
+	// For trivy image JSON file
+
+	cmd = exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", trivyImagesJsonName)
+	if stdout, err := cmd.CombinedOutput(); err != nil {
+		if err != nil {
+			errc <- fmt.Errorf("failed to download az devops trivy report table for sku %s, err: %s, output: %s", sku, err, string(stdout))
+		}
+		return
+	}
+
+	if err := os.Rename(trivyImagesJsonIn, trivyImagesJsonOut); err != nil {
+		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", trivyReportTableIn, trivyImagesJsonOut, err)
+		return
+	}
+
+	data, err = os.ReadFile(trivyImagesJsonOut)
+	if err != nil {
+		errc <- fmt.Errorf("failed to read file %s for copying, err: %s", trivyImagesJsonOut, err)
+	}
+
+	err = os.WriteFile(latestTrivyImagesJson, data, 0644)
+	if err != nil {
+		errc <- fmt.Errorf("failed to write file %s for copying, err: %s", latestTrivyImagesJson, err)
 	}
 }
 
