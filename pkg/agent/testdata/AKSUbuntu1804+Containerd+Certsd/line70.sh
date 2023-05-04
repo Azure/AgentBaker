@@ -122,6 +122,7 @@ configureHTTPProxyCA() {
 
 configureCustomCaCertificate() {
     mkdir -p /opt/certs
+    chmod +t /opt/certs
     for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
         # directly referring to the variable as "${CUSTOM_CA_CERT_${i}}"
         # causes bad substitution errors in bash

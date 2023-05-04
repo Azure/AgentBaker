@@ -99,6 +99,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -1203,10 +1204,11 @@ configureHTTPProxyCA() {
 
 configureCustomCaCertificate() {
     mkdir -p /opt/certs
+    chmod +t /opt/certs
     for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
         # directly referring to the variable as "${CUSTOM_CA_CERT_${i}}"
         # causes bad substitution errors in bash
-        # dynamically declare and use `+"`"+`!`+"`"+` to add a layer of indirection
+        # dynamically declare and use ` + "`" + `!` + "`" + ` to add a layer of indirection
         declare varname=CUSTOM_CA_CERT_${i} 
         echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
     done
@@ -1822,7 +1824,7 @@ MARINER_OS_NAME="MARINER"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 # this will be empty during VHD build
-# but vhd build runs with `+"`"+`set -o nounset`+"`"+`
+# but vhd build runs with ` + "`" + `set -o nounset` + "`" + `
 # so needs a default value
 # prefer empty string to avoid potential "it works but did something weird" scenarios
 export GPU_DV="${GPU_DRIVER_VERSION:=}"
@@ -2318,7 +2320,7 @@ installKubeletKubectlAndKubeProxy() {
         # remove the kubelet binaries to make sure the only binary left is from the CUSTOM_KUBE_BINARY_DOWNLOAD_URL
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
 
-        # NOTE(mainred): we expect kubelet binary to be under `+"`"+`kubernetes/node/bin`+"`"+`. This suits the current setting of
+        # NOTE(mainred): we expect kubelet binary to be under ` + "`" + `kubernetes/node/bin` + "`" + `. This suits the current setting of
         # kube binaries used by AKS and Kubernetes upstream.
         # TODO(mainred): let's see if necessary to auto-detect the path of kubelet
         logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}
@@ -2685,8 +2687,8 @@ EOF
     if [[ "${MIG_NODE}" == "true" ]]; then
         # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
         # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
-        # Commands such as `+"`"+`nvidia-smi --gpu-reset`+"`"+` may succeed,
-        # while commands such as `+"`"+`nvidia-smi -q`+"`"+` will show mismatched current/pending mig mode.
+        # Commands such as ` + "`" + `nvidia-smi --gpu-reset` + "`" + ` may succeed,
+        # while commands such as ` + "`" + `nvidia-smi -q` + "`" + ` will show mismatched current/pending mig mode.
         # this will not be required per nvidia for next gen H100.
         REBOOTREQUIRED=true
         
@@ -4612,7 +4614,7 @@ var _linuxCloudInitArtifactsPamDCommonPassword = []byte(`#
 # The "sha512" option enables salted SHA512 passwords.  Without this option,
 # the default is Unix crypt.  Prior releases used the option "md5".
 #
-# The "obscure" option replaces the old `+"`"+`OBSCURE_CHECKS_ENAB' option in
+# The "obscure" option replaces the old ` + "`" + `OBSCURE_CHECKS_ENAB' option in
 # login.defs.
 #
 # See the pam_unix manpage for other options.
@@ -4656,19 +4658,19 @@ func linuxCloudInitArtifactsPamDCommonPassword() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsPamDSu = []byte(`#
-# The PAM configuration file for the Shadow `+"`"+`su' service
+# The PAM configuration file for the Shadow ` + "`" + `su' service
 #
 
 # This allows root to su without passwords (normal operation)
 auth       sufficient pam_rootok.so
 
 # Uncomment this to force users to be a member of group root
-# before they can use `+"`"+`su'. You can also add "group=foo"
+# before they can use ` + "`" + `su'. You can also add "group=foo"
 # to the end of this line if you want to use a group other
 # than the default "root" (but this may have side effect of
 # denying "root" user, unless she's a member of "foo" or explicitly
 # permitted earlier by e.g. "sufficient pam_rootok.so").
-# (Replaces the `+"`"+`SU_WHEEL_ONLY' option from login.defs)
+# (Replaces the ` + "`" + `SU_WHEEL_ONLY' option from login.defs)
 
 # 5.6 Ensure access to the su command is restricted
 auth required pam_wheel.so use_uid
@@ -4683,7 +4685,7 @@ auth required pam_wheel.so use_uid
 
 # Uncomment and edit /etc/security/time.conf if you need to set
 # time restrainst on su usage.
-# (Replaces the `+"`"+`PORTTIME_CHECKS_ENAB' option from login.defs
+# (Replaces the ` + "`" + `PORTTIME_CHECKS_ENAB' option from login.defs
 # as well as /etc/porttime)
 # account    requisite  pam_time.so
 
@@ -6641,7 +6643,7 @@ $global:SubscriptionId = "{{GetVariable "subscriptionId"}}"
 $global:ResourceGroup = "{{GetVariable "resourceGroup"}}"
 $global:VmType = "{{GetVariable "vmType"}}"
 $global:SubnetName = "{{GetVariable "subnetName"}}"
-# NOTE: MasterSubnet is still referenced by `+"`"+`kubeletstart.ps1`+"`"+` and `+"`"+`windowsnodereset.ps1`+"`"+`
+# NOTE: MasterSubnet is still referenced by ` + "`" + `kubeletstart.ps1` + "`" + ` and ` + "`" + `windowsnodereset.ps1` + "`" + `
 # for case of Kubenet
 $global:MasterSubnet = ""
 $global:SecurityGroupName = "{{GetVariable "nsgName"}}"
@@ -6679,7 +6681,7 @@ $global:KubeDnsSearchPath = "svc.cluster.local"
 
 $global:CNIPath = [Io.path]::Combine("$global:KubeDir", "cni")
 $global:NetworkMode = "L2Bridge"
-$global:CNIConfig = [Io.path]::Combine($global:CNIPath, "config", "`+"`"+`$global:NetworkMode.conf")
+$global:CNIConfig = [Io.path]::Combine($global:CNIPath, "config", "` + "`" + `$global:NetworkMode.conf")
 $global:CNIConfigPath = [Io.path]::Combine("$global:CNIPath", "config")
 
 
@@ -6803,11 +6805,11 @@ try
     Initialize-DataDirectories
 
     Create-Directory -FullPath "c:\k"
-    Write-Log "Remove `+"`"+`"NT AUTHORITY\Authenticated Users`+"`"+`" write permissions on files in c:\k"
+    Write-Log "Remove ` + "`" + `"NT AUTHORITY\Authenticated Users` + "`" + `" write permissions on files in c:\k"
     icacls.exe "c:\k" /inheritance:r
-    icacls.exe "c:\k" /grant:r SYSTEM:`+"`"+`(OI`+"`"+`)`+"`"+`(CI`+"`"+`)`+"`"+`(F`+"`"+`)
-    icacls.exe "c:\k" /grant:r BUILTIN\Administrators:`+"`"+`(OI`+"`"+`)`+"`"+`(CI`+"`"+`)`+"`"+`(F`+"`"+`)
-    icacls.exe "c:\k" /grant:r BUILTIN\Users:`+"`"+`(OI`+"`"+`)`+"`"+`(CI`+"`"+`)`+"`"+`(RX`+"`"+`)
+    icacls.exe "c:\k" /grant:r SYSTEM:` + "`" + `(OI` + "`" + `)` + "`" + `(CI` + "`" + `)` + "`" + `(F` + "`" + `)
+    icacls.exe "c:\k" /grant:r BUILTIN\Administrators:` + "`" + `(OI` + "`" + `)` + "`" + `(CI` + "`" + `)` + "`" + `(F` + "`" + `)
+    icacls.exe "c:\k" /grant:r BUILTIN\Users:` + "`" + `(OI` + "`" + `)` + "`" + `(CI` + "`" + `)` + "`" + `(RX` + "`" + `)
     Write-Log "c:\k permissions: "
     icacls.exe "c:\k"
     Get-ProvisioningScripts
@@ -6844,26 +6846,26 @@ try
 
     # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
     Write-Log "Write Azure cloud provider config"
-    Write-AzureConfig `+"`"+`
-        -KubeDir $global:KubeDir `+"`"+`
-        -AADClientId $AADClientId `+"`"+`
-        -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) `+"`"+`
-        -TenantId $global:TenantId `+"`"+`
-        -SubscriptionId $global:SubscriptionId `+"`"+`
-        -ResourceGroup $global:ResourceGroup `+"`"+`
-        -Location $Location `+"`"+`
-        -VmType $global:VmType `+"`"+`
-        -SubnetName $global:SubnetName `+"`"+`
-        -SecurityGroupName $global:SecurityGroupName `+"`"+`
-        -VNetName $global:VNetName `+"`"+`
-        -RouteTableName $global:RouteTableName `+"`"+`
-        -PrimaryAvailabilitySetName $global:PrimaryAvailabilitySetName `+"`"+`
-        -PrimaryScaleSetName $global:PrimaryScaleSetName `+"`"+`
-        -UseManagedIdentityExtension $global:UseManagedIdentityExtension `+"`"+`
-        -UserAssignedClientID $UserAssignedClientID `+"`"+`
-        -UseInstanceMetadata $global:UseInstanceMetadata `+"`"+`
-        -LoadBalancerSku $global:LoadBalancerSku `+"`"+`
-        -ExcludeMasterFromStandardLB $global:ExcludeMasterFromStandardLB `+"`"+`
+    Write-AzureConfig ` + "`" + `
+        -KubeDir $global:KubeDir ` + "`" + `
+        -AADClientId $AADClientId ` + "`" + `
+        -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) ` + "`" + `
+        -TenantId $global:TenantId ` + "`" + `
+        -SubscriptionId $global:SubscriptionId ` + "`" + `
+        -ResourceGroup $global:ResourceGroup ` + "`" + `
+        -Location $Location ` + "`" + `
+        -VmType $global:VmType ` + "`" + `
+        -SubnetName $global:SubnetName ` + "`" + `
+        -SecurityGroupName $global:SecurityGroupName ` + "`" + `
+        -VNetName $global:VNetName ` + "`" + `
+        -RouteTableName $global:RouteTableName ` + "`" + `
+        -PrimaryAvailabilitySetName $global:PrimaryAvailabilitySetName ` + "`" + `
+        -PrimaryScaleSetName $global:PrimaryScaleSetName ` + "`" + `
+        -UseManagedIdentityExtension $global:UseManagedIdentityExtension ` + "`" + `
+        -UserAssignedClientID $UserAssignedClientID ` + "`" + `
+        -UseInstanceMetadata $global:UseInstanceMetadata ` + "`" + `
+        -LoadBalancerSku $global:LoadBalancerSku ` + "`" + `
+        -ExcludeMasterFromStandardLB $global:ExcludeMasterFromStandardLB ` + "`" + `
         -TargetEnvironment {{if IsAKSCustomCloud}}"AzureStackCloud"{{else}}$TargetEnvironment{{end}} 
 
     # we borrow the logic of AzureStackCloud to achieve AKSCustomCloud. 
@@ -6877,7 +6879,7 @@ try
     {{end}}
 
     Write-Log "Write ca root"
-    Write-CACert -CACertificate $global:CACertificate `+"`"+`
+    Write-CACert -CACertificate $global:CACertificate ` + "`" + `
         -KubeDir $global:KubeDir
 
     if ($global:EnableCsiProxy) {
@@ -6886,10 +6888,10 @@ try
 
     if ($global:TLSBootstrapToken) {
         Write-Log "Write TLS bootstrap kubeconfig"
-        Write-BootstrapKubeConfig -CACertificate $global:CACertificate `+"`"+`
-            -KubeDir $global:KubeDir `+"`"+`
-            -MasterFQDNPrefix $MasterFQDNPrefix `+"`"+`
-            -MasterIP $MasterIP `+"`"+`
+        Write-BootstrapKubeConfig -CACertificate $global:CACertificate ` + "`" + `
+            -KubeDir $global:KubeDir ` + "`" + `
+            -MasterFQDNPrefix $MasterFQDNPrefix ` + "`" + `
+            -MasterIP $MasterIP ` + "`" + `
             -TLSBootstrapToken $global:TLSBootstrapToken
 
         # NOTE: we need kubeconfig to setup calico even if TLS bootstrapping is enabled
@@ -6900,11 +6902,11 @@ try
         Write-Log "Write kube config"
     }
 
-    Write-KubeConfig -CACertificate $global:CACertificate `+"`"+`
-        -KubeDir $global:KubeDir `+"`"+`
-        -MasterFQDNPrefix $MasterFQDNPrefix `+"`"+`
-        -MasterIP $MasterIP `+"`"+`
-        -AgentKey $AgentKey `+"`"+`
+    Write-KubeConfig -CACertificate $global:CACertificate ` + "`" + `
+        -KubeDir $global:KubeDir ` + "`" + `
+        -MasterFQDNPrefix $MasterFQDNPrefix ` + "`" + `
+        -MasterIP $MasterIP ` + "`" + `
+        -AgentKey $AgentKey ` + "`" + `
         -AgentCertificate $global:AgentCertificate
 
     if ($global:EnableHostsConfigAgent) {
@@ -6934,35 +6936,35 @@ try
     Import-Module $global:HNSModule
 
     Write-Log "Installing Azure VNet plugins"
-    Install-VnetPlugins -AzureCNIConfDir $global:AzureCNIConfDir `+"`"+`
-        -AzureCNIBinDir $global:AzureCNIBinDir `+"`"+`
+    Install-VnetPlugins -AzureCNIConfDir $global:AzureCNIConfDir ` + "`" + `
+        -AzureCNIBinDir $global:AzureCNIBinDir ` + "`" + `
         -VNetCNIPluginsURL $global:VNetCNIPluginsURL
 
-    Set-AzureCNIConfig -AzureCNIConfDir $global:AzureCNIConfDir `+"`"+`
-        -KubeDnsSearchPath $global:KubeDnsSearchPath `+"`"+`
-        -KubeClusterCIDR $global:KubeClusterCIDR `+"`"+`
-        -KubeServiceCIDR $global:KubeServiceCIDR `+"`"+`
-        -VNetCIDR $global:VNetCIDR `+"`"+`
-        -IsDualStackEnabled $global:IsDualStackEnabled `+"`"+`
+    Set-AzureCNIConfig -AzureCNIConfDir $global:AzureCNIConfDir ` + "`" + `
+        -KubeDnsSearchPath $global:KubeDnsSearchPath ` + "`" + `
+        -KubeClusterCIDR $global:KubeClusterCIDR ` + "`" + `
+        -KubeServiceCIDR $global:KubeServiceCIDR ` + "`" + `
+        -VNetCIDR $global:VNetCIDR ` + "`" + `
+        -IsDualStackEnabled $global:IsDualStackEnabled ` + "`" + `
         -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
 
     if ($TargetEnvironment -ieq "AzureStackCloud") {
-        GenerateAzureStackCNIConfig `+"`"+`
-            -TenantId $global:TenantId `+"`"+`
-            -SubscriptionId $global:SubscriptionId `+"`"+`
-            -ResourceGroup $global:ResourceGroup `+"`"+`
-            -AADClientId $AADClientId `+"`"+`
-            -KubeDir $global:KubeDir `+"`"+`
-            -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) `+"`"+`
-            -NetworkAPIVersion $NetworkAPIVersion `+"`"+`
-            -AzureEnvironmentFilePath $([io.path]::Combine($global:KubeDir, "azurestackcloud.json")) `+"`"+`
+        GenerateAzureStackCNIConfig ` + "`" + `
+            -TenantId $global:TenantId ` + "`" + `
+            -SubscriptionId $global:SubscriptionId ` + "`" + `
+            -ResourceGroup $global:ResourceGroup ` + "`" + `
+            -AADClientId $AADClientId ` + "`" + `
+            -KubeDir $global:KubeDir ` + "`" + `
+            -AADClientSecret $([System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($AADClientSecret))) ` + "`" + `
+            -NetworkAPIVersion $NetworkAPIVersion ` + "`" + `
+            -AzureEnvironmentFilePath $([io.path]::Combine($global:KubeDir, "azurestackcloud.json")) ` + "`" + `
             -IdentitySystem "{{ GetIdentitySystem }}"
     }
 
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
 
-    Install-KubernetesServices `+"`"+`
-        -KubeDir $global:KubeDir `+"`"+`
+    Install-KubernetesServices ` + "`" + `
+        -KubeDir $global:KubeDir ` + "`" + `
         -ContainerRuntime $global:ContainerRuntime
 
     Write-Log "Disable Internet Explorer compat mode and set homepage"
@@ -7029,7 +7031,7 @@ try
     $timeout = 180 ##  seconds
     $timer = [Diagnostics.Stopwatch]::StartNew()
     while ((Get-ScheduledTask -TaskName 'k8s-restart-job').State -ne 'Ready') {
-        # The task `+"`"+`k8s-restart-job`+"`"+` needs ~8 seconds.
+        # The task ` + "`" + `k8s-restart-job` + "`" + ` needs ~8 seconds.
         if ($timer.Elapsed.TotalSeconds -gt $timeout) {
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask is not finished after [$($timer.Elapsed.TotalSeconds)] seconds"
         }
@@ -7053,7 +7055,7 @@ finally
     Write-Log "CSE ExecutionDuration: $ExecutionDuration"
 
     # Windows CSE does not return any error message so we cannot generate below content as the response
-    # $JsonString = "ExitCode: `+"`"+`"{0}`+"`"+`", Output: `+"`"+`"{1}`+"`"+`", Error: `+"`"+`"{2}`+"`"+`", ExecDuration: `+"`"+`"{3}`+"`"+`"" -f $global:ExitCode, "", $global:ErrorMessage, $ExecutionDuration.TotalSeconds
+    # $JsonString = "ExitCode: ` + "`" + `"{0}` + "`" + `", Output: ` + "`" + `"{1}` + "`" + `", Error: ` + "`" + `"{2}` + "`" + `", ExecDuration: ` + "`" + `"{3}` + "`" + `"" -f $global:ExitCode, "", $global:ErrorMessage, $ExecutionDuration.TotalSeconds
     Write-Log "Generate CSE result to $CSEResultFilePath : $global:ExitCode"
     echo $global:ExitCode | Out-File -FilePath $CSEResultFilePath -Encoding utf8
 
@@ -7587,11 +7589,13 @@ var _bindata = map[string]func() (*asset, error){
 // directory embedded in the file by go-bindata.
 // For example if you run go-bindata on data/... and data contains the
 // following hierarchy:
-//     data/
-//       foo.txt
-//       img/
-//         a.png
-//         b.png
+//
+//	data/
+//	  foo.txt
+//	  img/
+//	    a.png
+//	    b.png
+//
 // then AssetDir("data") would return []string{"foo.txt", "img"}
 // AssetDir("data/img") would return []string{"a.png", "b.png"}
 // AssetDir("foo.txt") and AssetDir("notexist") would return an error
