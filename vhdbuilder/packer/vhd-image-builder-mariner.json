@@ -59,9 +59,9 @@
       "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
       "polling_duration_timeout": "1h",
       "shared_image_gallery_destination": {
-        "resource_group": "nehaagarwal_home",
-        "gallery_name": "PackerACGeast",
-        "image_name": "output-aks-east-gen2",
+        "resource_group": "mitchzhutestSIGrg",
+        "gallery_name": "mitchzhutestSIG",
+        "image_name": "output-linuxtest",
         "image_version": "{{user `captured_sig_version`}}",
         "replication_regions": [
           "{{user `location`}}"
