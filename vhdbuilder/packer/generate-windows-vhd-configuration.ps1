@@ -43,10 +43,10 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/windows/nanoserver:1809",
             "mcr.microsoft.com/oss/kubernetes/pause:3.9",
             # CSI. Owner: andyzhangx (Andy Zhang)
-            "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.10.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0",
             # azuredisk-csi:v1.27 is only for AKS 1.26+, v1.26 is for other AKS versions
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.3",
@@ -56,8 +56,8 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.1",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.2",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
-            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0",
-            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.3",
+            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
             # Azure cloud node manager. Owner: nilo19 (Qi Ni)
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.24", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.11", # for k8s 1.24.x
@@ -75,10 +75,10 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/windows/nanoserver:1809",
             "mcr.microsoft.com/oss/kubernetes/pause:3.9",
             # CSI. Owner: andyzhangx (Andy Zhang)
-            "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.10.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0",
             # azuredisk-csi:v1.27 is only for AKS 1.26+, v1.26 is for other AKS versions
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.3",
@@ -88,8 +88,8 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.1",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.2",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
-            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0",
-            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.3",
+            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
             # Azure cloud node manager. Owner: nilo19 (Qi Ni)
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.24", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.11", # for k8s 1.24.x
@@ -110,10 +110,10 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
             "mcr.microsoft.com/oss/kubernetes/pause:3.9",
             # CSI. Owner: andyzhangx (Andy Zhang)
-            "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.4.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.10.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0",
             # azuredisk-csi:v1.27 is only for AKS 1.26+, v1.26 is for other AKS versions
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.3",
@@ -123,8 +123,8 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.1",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.2",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
-            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0",
-            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.3",
+            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
             # Azure cloud node manager. Owner: nilo19 (Qi Ni)
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.24", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.11", # for k8s 1.24.x
