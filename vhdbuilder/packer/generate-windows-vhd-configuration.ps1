@@ -53,11 +53,11 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.1",
             # azurefile-csi:v1.26 is only for AKS 1.26+, v1.24 is for other AKS versions
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.1",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.1",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.2",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
-            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0",
-            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.3",
+            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
             # Azure cloud node manager. Owner: nilo19 (Qi Ni)
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.24", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.11", # for k8s 1.24.x
@@ -68,7 +68,7 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.8", # for k8s 1.26.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.1", # for k8s 1.27.x
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.6")
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.7")
 } elseif ($windowsSku -eq "2019-containerd") {
     $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2019",
@@ -85,11 +85,11 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.1",
             # azurefile-csi:v1.26 is only for AKS 1.26+, v1.24 is for other AKS versions
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.1",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.1",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.2",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
-            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0",
-            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.3",
+            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
             # Azure cloud node manager. Owner: nilo19 (Qi Ni)
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.24", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.11", # for k8s 1.24.x
@@ -100,7 +100,7 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.8", # for k8s 1.26.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.1", # for k8s 1.27.x
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.6"
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.7"
             # CNS (Container Networking Service). Owner: jaer-tsun (Jaeryn)
             "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44")
 } elseif ($windowsSku -eq "2022-containerd" -or $windowsSku -eq "2022-containerd-gen2") {
@@ -120,11 +120,11 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.1",
             # azurefile-csi:v1.26 is only for AKS 1.26+, v1.24 is for other AKS versions
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
-            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.1",
+            "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.1",
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.2",
             # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
-            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.0",
-            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.0",
+            "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.3",
+            "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
             # Azure cloud node manager. Owner: nilo19 (Qi Ni)
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.23.24", # for k8s 1.23.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.11", # for k8s 1.24.x
@@ -135,7 +135,7 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.8", # for k8s 1.26.x
             "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.1", # for k8s 1.27.x
             # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.6",
+            "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.7",
             # NPM (Network Policy Manager) & CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
             "mcr.microsoft.com/containernetworking/azure-npm:v1.4.34",
             "mcr.microsoft.com/containernetworking/azure-cns:v1.4.35",
@@ -215,7 +215,8 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.25.5/windowszip/v1.25.5-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.25.6/windowszip/v1.25.6-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.26.0/windowszip/v1.26.0-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.26.3/windowszip/v1.26.3-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.26.3/windowszip/v1.26.3-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.27.1/windowszip/v1.27.1-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
