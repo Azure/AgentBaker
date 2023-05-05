@@ -34,12 +34,12 @@ parameters:
   displayName: Build MarinerV2 Gen2
   type: boolean
   default: true
-- name: buildMarinerV2fipsgen1
-  displayName: Build MarinerV2 FIPS Gen1
+- name: buildMarinerV2gen1fips
+  displayName: Build MarinerV2 Gen1 FIPS 
   type: boolean
   default: true
-- name: buildMarinerV2fipsgen2
-  displayName: Build MarinerV2 FIPS Gen2
+- name: buildMarinerV2gen2fips
+  displayName: Build MarinerV2 Gen2 FIPS 
   type: boolean
   default: true
 - name: buildMarinerV2gen2kata
@@ -315,9 +315,9 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen2
-  - stage: build_vhd_marinerv2_fips_gen1
+  - stage: build_vhd_marinerv2_gen1_fips
     dependsOn: []
-    condition: eq('${{ parameters.buildMarinerV2fipsgen1 }}', true)
+    condition: eq('${{ parameters.buildMarinerV2gen1fips }}', true)
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -340,10 +340,10 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
-            artifactName: marinerv2-fips-gen1
-  - stage: build_vhd_marinerv2_fips_gen2
+            artifactName: marinerv2-gen1-fips
+  - stage: build_vhd_marinerv2_gen2_fips
     dependsOn: []
-    condition: eq('${{ parameters.buildMarinerV2fipsgen2 }}', true)
+    condition: eq('${{ parameters.buildMarinerV2gen2fips }}', true)
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -366,7 +366,7 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
-            artifactName: marinerv2-fips-gen2
+            artifactName: marinerv2-gen2-fips
   - stage: build_vhd_mariner2_arm64
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2ARM64 }}', true)
