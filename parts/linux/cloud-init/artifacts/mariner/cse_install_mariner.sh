@@ -30,7 +30,7 @@ installKataDeps() {
 
     # install kata deps for 2.0;
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in kernel-mshv kernel-uvm cloud-hypervisor kata-containers mshv-bootloader mshv-linuxloader mshv; do
+      for dnf_package in kernel-mshv kernel-uvm cloud-hypervisor kata-containers mshv-linuxloader mshv-bootloader mshv; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
