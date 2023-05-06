@@ -140,7 +140,9 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:*",
-      "amd64OnlyVersions": [],
+      "amd64OnlyVersions": [
+        "v3.8.9.1"
+      ],
       "multiArchVersions": [
         "v3.24.0"
       ]
@@ -166,7 +168,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.12.5.2",
-        "1.12.8"
+        "1.12.8",
+        "1.12.8.1"
       ]
     },
     {
@@ -185,8 +188,8 @@
         "v1.23.24",
         "v1.24.11",
         "v1.24.18",
-        "v1.25.5",
         "v1.25.12",
+        "v1.25.5",
         "v1.26.0",
         "v1.26.8",
         "v1.27.1"
@@ -221,6 +224,7 @@
       "multiArchVersions": [
         "v1.26.2.2",
         "v1.26.3",
+        "v1.26.3.1",
         "v1.27.1"
       ]
     },
@@ -241,8 +245,8 @@
         "v2.2.0"
       ],
       "multiArchVersions": [
-        "v2.6.0",
-        "v2.10.0"
+        "v2.10.0",
+        "v2.6.0"
       ]
     },
     {
@@ -289,7 +293,9 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:*",
       "amd64OnlyVersions": [],
-      "multiArchVersions": []
+      "multiArchVersions": [
+        "1.4.8"
+      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
@@ -314,8 +320,8 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.8.13.3",
-        "v1.8.13.4"
+        "v1.8.13.4",
+        "v1.8.13.5"
       ]
     },
     {
