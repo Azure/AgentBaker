@@ -521,6 +521,12 @@ function Update-Registry {
             Write-Log "The current value of HnsAclUpdateChange is $currentValue"
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsAclUpdateChange -Value 1 -Type DWORD
+        
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNpmRefresh -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HnsNpmRefresh is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNpmRefresh -Value 1 -Type DWORD
     }
 }
 
