@@ -200,12 +200,12 @@ installAndConfigureArtifactStreaming() {
   # download acr-mirror proxy
   MIRROR_PROXY_VERSION='0.1.0-dev-23'
   UBUNTU_VERSION_CLEANED="${UBUNTU_RELEASE//.}"
-  MIRROR_PROXY_URL="https://github.com/juliusl/lifec_registry/releases/download/v${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_VERSION_CLEANED}-v${MIRROR_PROXY_VERSION}.deb"
+  MIRROR_PROXY_URL="https://github.com/juliusl/lifec_registry/releases/download/v${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
   wget $MIRROR_PROXY_URL || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
-  apt_get_install 30 1 600 "./acr-mirror-${UBUNTU_VERSION_CLEANED}-v${MIRROR_PROXY_VERSION}.deb" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+  apt_get_install 30 1 600 "./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
 
   echo "  - [installed] acr mirror-proxy v${MIRROR_PROXY_VERSION}" >> ${VHD_LOGS_FILEPATH}
-  rm "./acr-mirror-${UBUNTU_VERSION_CLEANED}-v${MIRROR_PROXY_VERSION}.deb"
+  rm "./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
   popd || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
 
   sudo apt install libnl-3-dev libnl-genl-3-dev -y
