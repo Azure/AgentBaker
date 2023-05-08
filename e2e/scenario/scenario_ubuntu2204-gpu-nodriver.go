@@ -32,7 +32,7 @@ func ubuntu2204gpuNoDriver() *Scenario {
 				}
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				NvidiaSMINotInstalledValidater(),
+				NvidiaSMINotInstalledValidator(),
 			},
 		},
 	}
