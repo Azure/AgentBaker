@@ -36,7 +36,7 @@ copyPackerFiles
 systemctlEnableAndStart disk_queue || exit 1
 
 mkdir /opt/certs
-chmod 666 /opt/certs
+chmod 1666 /opt/certs
 systemctlEnableAndStart update_certs.path || exit 1
 
 systemctlEnableAndStart ci-syslog-watcher.path || exit 1
