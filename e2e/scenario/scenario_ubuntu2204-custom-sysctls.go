@@ -10,6 +10,7 @@ func ubuntu2204CustomSysctls() *Scenario {
 	customSysctls := map[string]int{
 		"net.netfilter.nf_conntrack_max":     200000,
 		"net.netfilter.nf_conntrack_buckets": 75264,
+		"net.ipv4.tcp_keepalive_intvl":       10,
 	}
 	return &Scenario{
 		Name:        "ubuntu2204-custom-sysctls",
@@ -22,6 +23,7 @@ func ubuntu2204CustomSysctls() *Scenario {
 					Sysctls: &datamodel.SysctlConfig{
 						NetNetfilterNfConntrackMax:     to.Ptr(int32(customSysctls["net.netfilter.nf_conntrack_max"])),
 						NetNetfilterNfConntrackBuckets: to.Ptr(int32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
+						NetIpv4TcpkeepaliveIntvl:       to.Ptr(int32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
 					},
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig

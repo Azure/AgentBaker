@@ -27,6 +27,7 @@ func scenarios() []*Scenario {
 		marinerv2ARM64(),
 		ubuntu1804gpu(),
 		marinerv2gpu(),
+		ubuntu1804CustomSysctls(),
 		ubuntu2204CustomSysctls(),
 		marinerv1CustomSysctls(),
 		marinerv2CustomSysctls(),
