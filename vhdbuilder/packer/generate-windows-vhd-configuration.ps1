@@ -19,7 +19,7 @@ $global:lowestFreeSpace = 2*1024*1024*1024 # 2GB
 
 # defaultContainerdPackageUrl refers to the stable containerd package used to pull and cache container images
 # Add cache for another containerd version which is not installed by default
-$global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.6.21-azure.1/binaries/containerd-v1.6.21-azure.1-windows-amd64.tar.gz"
+$global:defaultContainerdPackageUrl = "https://junjiezhang.blob.core.windows.net/testcontainerd/package-20240508.tar.gz"
 if ($windowsSKU -Like "23H2*") {
     $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.7.14-azure.1/binaries/containerd-v1.7.14-azure.1-windows-amd64.tar.gz"
 }
@@ -49,8 +49,8 @@ switch -Regex ($windowsSku) {
         )
     }
     "2022-containerd*" {
-        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/secu/2024/04/windows10.0-kb5036909-x64_786040b0b0d000b17d6a727ea93ff77d733d1044.msu")
-        $global:patchIDs = @("KB5036909")
+        $global:patchUrls = @()
+        $global:patchIDs = @()
 
         $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2022",

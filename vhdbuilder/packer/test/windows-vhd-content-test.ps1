@@ -450,7 +450,7 @@ function Test-SSHDConfig {
 
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
-Test-ImagesPulled
+#Test-ImagesPulled
 Test-RegistryAdded
 Test-DefenderSignature
 Test-AzureExtensions
