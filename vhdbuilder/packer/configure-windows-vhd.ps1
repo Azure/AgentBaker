@@ -77,7 +77,7 @@ function Retry-Command {
 
         # Throw an error after $Maximum unsuccessful invocations. Doesn't need
         # a condition, since the function returns upon successful invocation.
-        throw 'All retries failed. $ErrorMessage'
+        throw "All retries failed. $ErrorMessage"
     }
 }
 
@@ -173,7 +173,7 @@ function Get-ContainerImages {
 
             Write-Log "Loading image $image from $tmpDest"
             Retry-Command -ScriptBlock {
-                & ctr -n k8s.io images import $tmpDest
+                & ctr -n k8s.io images import --digests --snapshotter cimfs $tmpDest
             } -ErrorMessage "Failed to load image $image from $tmpDest"
 
             Write-Log "Removing tmp tar file $tmpDest"
@@ -276,7 +276,8 @@ function Install-ContainerD {
     $containerdConfigPath = [Io.Path]::Combine($installDir, "config.toml")
     # enabling discard_unpacked_layers allows GC to remove layers from the content store after
     # successfully unpacking these layers to the snapshotter to reduce the disk space caching Windows containerd images
-    (containerd config default)  | %{$_ -replace "discard_unpacked_layers = false", "discard_unpacked_layers = true"}  | Out-File  -FilePath $containerdConfigPath -Encoding ascii
+    # (containerd config default)  | %{$_ -replace "discard_unpacked_layers = false", "discard_unpacked_layers = true"}  | Out-File  -FilePath $containerdConfigPath -Encoding ascii
+    (Get-Content "c:\program files\containerd\containerd.toml") | %{$_ -replace "discard_unpacked_layers = false", "discard_unpacked_layers = true"}  | Out-File  -FilePath $containerdConfigPath -Encoding ascii
 
     Get-Content $containerdConfigPath
 
@@ -824,7 +825,7 @@ try{
             Set-WinRmServiceDelayedStart
             Update-DefenderSignatures
             Log-ReofferUpdate
-            Install-OpenSSH
+            # Install-OpenSSH
             Log-ReofferUpdate
             Install-WindowsPatches
             Update-WindowsFeatures

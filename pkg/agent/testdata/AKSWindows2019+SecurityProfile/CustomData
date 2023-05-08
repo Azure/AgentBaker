@@ -86,6 +86,7 @@ $global:KubeBinariesPackageSASURL = "https://acs-mirror.azureedge.net/kubernetes
 $global:WindowsKubeBinariesURL = ""
 $global:KubeBinariesVersion = "1.26.0"
 $global:ContainerdUrl = "https://k8swin.blob.core.windows.net/k8s-windows/containerd/containerplat-aks-test-0.0.8.zip"
+# $global:ContainerdUrl = $(WINDOWS_CONTAINERD_URL_FOR_NEW_FS)
 $global:ContainerdSdnPluginUrl = ""
 
 ## Docker Version
@@ -259,9 +260,10 @@ try
     # Install OpenSSH if SSH enabled
     $sshEnabled = [System.Convert]::ToBoolean("true")
 
-    if ( $sshEnabled ) {
-        Install-OpenSSH -SSHKeys $SSHKeys
-    }
+    # if ( $sshEnabled ) {
+    #     Write-Log "Install OpenSSH"
+    #     Install-OpenSSH -SSHKeys $SSHKeys
+    # }
 
     Set-TelemetrySetting -WindowsTelemetryGUID $global:WindowsTelemetryGUID
 

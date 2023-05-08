@@ -264,6 +264,7 @@ try
     $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
 
     if ( $sshEnabled ) {
+        Write-Log "Install OpenSSH"
         Install-OpenSSH -SSHKeys $SSHKeys
     }
 
