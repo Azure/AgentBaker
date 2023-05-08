@@ -66,6 +66,7 @@ steps:
         -e ARCHITECTURE=${ARCHITECTURE} \
         -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
         -e SGX_INSTALL=${SGX_INSTALL} \
+        -e IMAGE_VERSION=${IMAGE_VERSION} \
         ${CONTAINER_IMAGE} make -f packer.mk run-packer
     displayName: Building VHD
   - script: |
@@ -98,6 +99,15 @@ steps:
         -e SGX_INSTALL=${SGX_INSTALL} \
         ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD Tests
+  - task: PublishPipelineArtifact@0
+    inputs:
+        artifactName: 'trivy-report-${{ parameters.artifactName }}'
+        targetPath: 'trivy-report.json'
+  - task: PublishPipelineArtifact@0
+    inputs:
+        artifactName: 'trivy-images-table-${{ parameters.artifactName }}'
+        targetPath: 'trivy-images-table.txt'
+    displayName: publish trivy report
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
@@ -176,6 +186,7 @@ steps:
         if [[ ${OS_VERSION} == "22.04" && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
         if [[ ${OS_VERSION} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
         if [[ ${OS_VERSION} == "20.04" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
+        if [[ ${OS_VERSION} == "V2" && ${OS_SKU} == "CBLMariner" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
         if [[ "$(FEATURE_FLAGS)" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
         if [[ "${IMG_SKU}" == "20_04-lts-cvm" ]]; then SKU_NAME="${SKU_NAME}CVM"; fi && \
         if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
@@ -187,6 +198,7 @@ steps:
         -e CLIENT_SECRET="$(CLIENT_SECRET)" \
         -e TENANT_ID=${TENANT_ID} \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+        -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
         -e OUTPUT_STORAGE_ACCOUNT_NAME=${OUTPUT_STORAGE_ACCOUNT_NAME} \
         -e OUTPUT_STORAGE_CONTAINER_NAME=${OUTPUT_STORAGE_CONTAINER_NAME} \
         -e STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \

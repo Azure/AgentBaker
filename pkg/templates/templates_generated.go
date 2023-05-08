@@ -625,19 +625,19 @@ func linuxCloudInitArtifactsCiSyslogWatcherSh() (*asset, error) {
 var _linuxCloudInitArtifactsCisSh = []byte(`#!/bin/bash
 
 assignRootPW() {
-  if grep '^root:[!*]:' /etc/shadow; then
-    VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
-    SALT=$(openssl rand -base64 5)
-    SECRET=$(openssl rand -base64 37)
-    CMD="import crypt, getpass, pwd; print(crypt.crypt('$SECRET', '\$6\$$SALT\$'))"
-    if [[ "${VERSION}" == "22.04" ]]; then
-      HASH=$(python3 -c "$CMD")
-    else
-      HASH=$(python -c "$CMD")
-    fi
+    if grep '^root:[!*]:' /etc/shadow; then
+        VERSION=$(grep DISTRIB_RELEASE /etc/*-release | cut -f 2 -d "=")
+        SALT=$(openssl rand -base64 5)
+        SECRET=$(openssl rand -base64 37)
+        CMD="import crypt, getpass, pwd; print(crypt.crypt('$SECRET', '\$6\$$SALT\$'))"
+        if [[ "${VERSION}" == "22.04" ]]; then
+            HASH=$(python3 -c "$CMD")
+        else
+            HASH=$(python -c "$CMD")
+        fi
 
-    echo 'root:'$HASH | /usr/sbin/chpasswd -e || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
-  fi
+        echo 'root:'$HASH | /usr/sbin/chpasswd -e || exit $ERR_CIS_ASSIGN_ROOT_PW
+    fi
 }
 
 assignFilePermissions() {
@@ -683,29 +683,84 @@ assignFilePermissions() {
         chmod 0600 /etc/crontab || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     fi
     for filepath in /etc/cron.hourly /etc/cron.daily /etc/cron.weekly /etc/cron.monthly /etc/cron.d; do
-      chmod 0600 $filepath || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+        chmod 0600 $filepath || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     done
+
+    # Docs: https://www.man7.org/linux/man-pages/man1/crontab.1.html
+    # If cron.allow exists, then cron.deny is ignored. To minimize who can use cron, we
+    # always want cron.allow and will default it to empty if it doesn't exist.
+    # We also need to set appropriate permissions on it.
+    # Since it will be ignored anyway, we delete cron.deny.
+    touch /etc/cron.allow || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+    chmod 640 /etc/cron.allow || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+    rm -rf /etc/cron.deny || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+}
+
+# Helper function to replace or append settings to a setting file.
+# This abstracts the general logic of:
+#   1. Search for the setting (via a pattern passed in).
+#   2. If it's there, replace it with desired setting line; otherwise append it to the end of the file.
+#   3. Validate that there is now exactly one instance of the setting, and that it is the one we want.
+replaceOrAppendSetting() {
+    local SEARCH_PATTERN=$1
+    local SETTING_LINE=$2
+    local FILE=$3
+
+    # Search and replace/append.
+    if grep -E "$SEARCH_PATTERN" "$FILE" >/dev/null; then
+        sed -E -i "s|${SEARCH_PATTERN}|${SETTING_LINE}|g" "$FILE" || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+    else
+        echo -e "\n${SETTING_LINE}" >>"$FILE"
+    fi
+
+    # After replacement/append, there should be exactly one line that sets the setting,
+    # and it must have the value we want.
+    # If not, then there's something wrong with this script.
+    if [[ $(grep -E "$SEARCH_PATTERN" "$FILE") != "$SETTING_LINE" ]]; then
+        echo "replacement was wrong"
+        exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+    fi
+}
+
+# Creates the search pattern and setting lines for login.defs settings, and calls through
+# to do the replacement. Note that this uses extended regular expressions, so both
+# grep and sed need to be called as such.
+#
+# The search pattern is:
+#   '^#{0,1} {0,1}' -- Line starts with 0 or 1 '#' followed by 0 or 1 space
+#   '${1}\s+'       -- Then the setting name followed by one or more whitespace characters
+#   '[0-9]+$'       -- Then one more more number, which is the setting value, which is the end of the line.
+#
+# This is based on a combination of the syntax for the file and real examples we've found.
+replaceOrAppendLoginDefs() {
+    replaceOrAppendSetting "^#{0,1} {0,1}${1}\s+[0-9]+$" "${1} ${2}" /etc/login.defs
+}
+
+# Creates the search pattern and setting lines for useradd default settings, and calls through
+# to do the replacement. Note that this uses extended regular expressions, so both
+# grep and sed need to be called as such.
+#
+# The search pattern is:
+#   '^#{0,1} {0,1}' -- Line starts with 0 or 1 '#' followed by 0 or 1 space
+#   '${1}='         -- Then the setting name followed by '='
+#   '.*$'           -- Then 0 or nore of any character which is the end of the line.
+#                      Note that this allows for a setting value to be there or not.
+#
+# This is based on a combination of the syntax for the file and real examples we've found.
+replaceOrAppendUserAdd() {
+    replaceOrAppendSetting "^#{0,1} {0,1}${1}=.*$" "${1}=${2}" /etc/default/useradd
 }
 
 setPWExpiration() {
-  sed -i "s|PASS_MAX_DAYS||g" /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  grep 'PASS_MAX_DAYS' /etc/login.defs && exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  sed -i "s|PASS_MIN_DAYS||g" /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  grep 'PASS_MIN_DAYS' /etc/login.defs && exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  sed -i "s|INACTIVE=||g" /etc/default/useradd || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  grep 'INACTIVE=' /etc/default/useradd && exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  echo 'PASS_MAX_DAYS 90' >> /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  grep 'PASS_MAX_DAYS 90' /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  echo 'PASS_MIN_DAYS 7' >> /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  grep 'PASS_MIN_DAYS 7' /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  echo 'INACTIVE=30' >> /etc/default/useradd || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  grep 'INACTIVE=30' /etc/default/useradd || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+    replaceOrAppendLoginDefs PASS_MAX_DAYS 90
+    replaceOrAppendLoginDefs PASS_MIN_DAYS 7
+    replaceOrAppendUserAdd INACTIVE 30
 }
 
 applyCIS() {
-  setPWExpiration
-  assignRootPW
-  assignFilePermissions
+    setPWExpiration
+    assignRootPW
+    assignFilePermissions
 }
 
 applyCIS
@@ -989,7 +1044,6 @@ CUSTOM_SEARCH_REALM_PASSWORD="{{GetSearchDomainRealmPassword}}"
 MESSAGE_OF_THE_DAY="{{GetMessageOfTheDay}}"
 HAS_KUBELET_DISK_TYPE="{{HasKubeletDiskType}}"
 NEEDS_CGROUPV2="{{Is2204VHD}}"
-SYSCTL_CONTENT="{{GetSysctlContent}}"
 TLS_BOOTSTRAP_TOKEN="{{GetTLSBootstrapTokenForKubeConfig}}"
 KUBELET_FLAGS="{{GetKubeletConfigKeyVals}}"
 NETWORK_POLICY="{{GetParameter "networkPolicy"}}"
@@ -1005,6 +1059,7 @@ AZURE_ENVIRONMENT_FILEPATH="{{- if IsAKSCustomCloud}}/etc/kubernetes/{{GetTarget
 KUBE_CA_CRT="{{GetParameter "caCertificate"}}"
 KUBENET_TEMPLATE="{{GetKubenetTemplate}}"
 CONTAINERD_CONFIG_CONTENT="{{GetContainerdConfigContent}}"
+CONTAINERD_CONFIG_NO_GPU_CONTENT="{{GetContainerdConfigNoGPUContent}}"
 IS_KATA="{{IsKata}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
@@ -1135,8 +1190,15 @@ EOF
 }
 
 configureHTTPProxyCA() {
-    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_UPDATE_CA_CERTS
-    update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
+    if [[ $OS == $MARINER_OS_NAME ]]; then
+        cert_dest="/usr/share/pki/ca-trust-source/anchors"
+        update_cmd="update-ca-trust"
+    else
+        cert_dest="/usr/local/share/ca-certificates"
+        update_cmd="update-ca-certificates"
+    fi
+    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.crt" || exit $ERR_UPDATE_CA_CERTS
+    $update_cmd || exit $ERR_UPDATE_CA_CERTS
 }
 
 configureCustomCaCertificate() {
@@ -1146,7 +1208,7 @@ configureCustomCaCertificate() {
         # causes bad substitution errors in bash
         # dynamically declare and use `+"`"+`!`+"`"+` to add a layer of indirection
         declare varname=CUSTOM_CA_CERT_${i} 
-        echo "${!varname}" > /opt/certs/00000000000000cert${i}.crt
+        echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
     done
     # This will block until the service is considered active.
     # Update_certs.service is a oneshot type of unit that
@@ -1320,7 +1382,14 @@ ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
   mkdir -p /etc/containerd
-  echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" == "true" ]]; then
+    echo "Generating non-GPU containerd config for GPU node due to VM tags"
+    echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  else
+    echo "Generating containerd config..."
+    echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  fi
+
   tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
 net.ipv4.ip_forward = 1
 net.ipv4.conf.all.forwarding = 1
@@ -1469,10 +1538,7 @@ EOF
 
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
-    mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")"
-    touch "${SYSCTL_CONFIG_FILE}"
-    chmod 0644 "${SYSCTL_CONFIG_FILE}"
-    echo "${SYSCTL_CONTENT}" | base64 -d > "${SYSCTL_CONFIG_FILE}"
+    wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 
@@ -1586,7 +1652,7 @@ configGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
-    retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     
     # reload containerd/dockerd
@@ -1606,9 +1672,9 @@ validateGPUDrivers() {
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
     which nvidia-smi
     if [[ $? == 0 ]]; then
-        SMI_RESULT=$(retrycmd_if_failure 24 5 25 nvidia-smi)
+        SMI_RESULT=$(retrycmd_if_failure 24 5 300 nvidia-smi)
     else
-        SMI_RESULT=$(retrycmd_if_failure 24 5 25 $GPU_DEST/bin/nvidia-smi)
+        SMI_RESULT=$(retrycmd_if_failure 24 5 300 $GPU_DEST/bin/nvidia-smi)
     fi
     SMI_STATUS=$?
     if [[ $SMI_STATUS != 0 ]]; then
@@ -1806,7 +1872,7 @@ retrycmd_get_tarball() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            timeout 60 curl -fsSL $url -o $tarball
+            timeout 60 curl -fsSLv $url -o $tarball
             sleep $wait_sleep
         fi
     done
@@ -1819,7 +1885,7 @@ retrycmd_curl_file() {
         if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout $timeout curl -fsSL $url -o $filepath
+            timeout $timeout curl -fsSLv $url -o $filepath
             sleep $wait_sleep
         fi
     done
@@ -1992,6 +2058,17 @@ logs_to_events() {
       return $ret
     fi
 }
+
+should_skip_nvidia_drivers() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
+    should_skip=$(echo "$body" | jq -e '.compute.tagsList | map(select(.name | test("SkipGpuDriverInstall"; "i")))[0].value // "false" | test("true"; "i")')
+    echo "$should_skip" # true or false
+}
 #HELPERSEOF
 `)
 
@@ -2025,7 +2102,7 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
-CONTAINERD_WASM_VERSION="v0.3.0"
+CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 
@@ -2042,29 +2119,29 @@ cleanupContainerdDlFiles() {
 }
 
 installContainerRuntime() {
-if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-    echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
-    wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
+    if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+        echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
+        wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
-    local containerd_version
-    if [ -f "$MANIFEST_FILEPATH" ]; then
-        containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        local containerd_version
+        if [ -f "$MANIFEST_FILEPATH" ]; then
+            containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        else
+            echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+        fi
+
+        containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
+        containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
+        if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ] || [ "$containerd_revision" == "null" ]; then
+            echo "invalid container version: $containerd_version"
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi
+
+        logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
+        echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
     else
-        echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+        installMoby
     fi
-
-    containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
-    containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
-    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ]  || [ "$containerd_revision" == "null" ]; then
-        echo "invalid container version: $containerd_version"
-        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    fi 
-
-    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
-    echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
-else
-    installMoby
-fi
 }
 
 installNetworkPlugin() {
@@ -2082,18 +2159,21 @@ downloadCNI() {
 }
 
 downloadContainerdWasmShims() {
-    local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${CONTAINERD_WASM_VERSION}/linux/amd64"
-    local containerd_wasm_filepath="/usr/local/bin"
-    if [[ $(isARM64) == 1 ]]; then
-        containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${CONTAINERD_WASM_VERSION}/linux/arm64"
-    fi
+    for shim_version in $CONTAINERD_WASM_VERSIONS; do
+        binary_version="$(echo "${shim_version}" | tr . -)"
+        local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/amd64"
+        local containerd_wasm_filepath="/usr/local/bin"
+        if [[ $(isARM64) == 1 ]]; then
+            containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/arm64"
+        fi
 
-    if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-v1" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-v1" ]; then
-        retrycmd_if_failure 30 5 60 curl -fSL -o "$containerd_wasm_filepath/containerd-shim-spin-v1" "$containerd_wasm_url/containerd-shim-spin-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-        retrycmd_if_failure 30 5 60 curl -fSL -o "$containerd_wasm_filepath/containerd-shim-slight-v1" "$containerd_wasm_url/containerd-shim-slight-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-v1"
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-v1"
-    fi
+        if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+            chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
+            chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
+        fi
+    done
 }
 
 downloadAzureCNI() {
@@ -2104,7 +2184,7 @@ downloadAzureCNI() {
 
 downloadCrictl() {
     CRICTL_VERSION=$1
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    CPU_ARCH=$(getCPUArch) #amd64 or arm64
     mkdir -p $CRICTL_DOWNLOAD_DIR
     CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
     CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
@@ -2112,7 +2192,7 @@ downloadCrictl() {
 }
 
 installCrictl() {
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    CPU_ARCH=$(getCPUArch) #amd64 or arm64
     currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
     if [[ "${currentVersion}" != "" ]]; then
         echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${KUBERNETES_VERSION%.*}.0"
@@ -2127,6 +2207,7 @@ installCrictl() {
         fi
         echo "Unpacking crictl into ${CRICTL_BIN_DIR}"
         tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
+        chown root:root $CRICTL_BIN_DIR/crictl
         chmod 755 $CRICTL_BIN_DIR/crictl
     fi
 }
@@ -2181,7 +2262,7 @@ setupCNIDirs() {
 
 installCNI() {
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}    # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
 
     # We want to use the untar cni reference first. And if that doesn't exist on the vhd does the tgz?
     # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
@@ -2195,13 +2276,13 @@ installCNI() {
 
         tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
-    
+
     chown -R root:root $CNI_BIN_DIR
 }
 
 installAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}         # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
 
     # We want to use the untar azurecni reference first. And if that doesn't exist on the vhd does the tgz?
     # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
@@ -2212,7 +2293,7 @@ installAzureCNI() {
         if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
             downloadAzureCNI
         fi
-        
+
         tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
 
@@ -2229,32 +2310,6 @@ extractKubeBinaries() {
     tar --transform="s|.*|&-${K8S_VERSION}|" --show-transformed-names -xzvf "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" \
         --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
     rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
-}
-
-extractHyperkube() {
-    CLI_TOOL=$1
-    path="/home/hyperkube-downloads/${KUBERNETES_VERSION}"
-    pullContainerImage $CLI_TOOL ${HYPERKUBE_URL}
-    mkdir -p "$path"
-    if [[ "$CLI_TOOL" == "ctr" ]]; then
-        if ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
-            mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
-            mv "$path/kubectl" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
-        else
-            ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /hyperkube $path"
-        fi
-
-    else
-        if docker run --rm --entrypoint "" -v $path:$path ${HYPERKUBE_URL} /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
-            mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
-            mv "$path/kubectl" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
-        else
-            docker run --rm -v $path:$path ${HYPERKUBE_URL} /bin/bash -c "cp /hyperkube $path"
-        fi
-    fi
-
-    cp "$path/hyperkube" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
-    mv "$path/hyperkube" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
 }
 
 installKubeletKubectlAndKubeProxy() {
@@ -2274,12 +2329,6 @@ installKubeletKubectlAndKubeProxy() {
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
                 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
-            else
-                if [[ "$CONTAINER_RUNTIME" == "containerd" ]]; then
-                    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractHyperkube" extractHyperkube ctr
-                else
-                    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractHyperkube" extractHyperkube docker
-                fi
             fi
         fi
     fi
@@ -2295,11 +2344,11 @@ pullContainerImage() {
     CONTAINER_IMAGE_URL=$2
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
     if [[ ${CLI_TOOL} == "ctr" ]]; then
-        logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT)
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
-        logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT)
     else
-        logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT)
     fi
 }
 
@@ -2350,7 +2399,7 @@ removeContainerImage() {
         docker image rm $CONTAINER_IMAGE_URL
     else
         # crictl should always be present
-        crictl rm $CONTAINER_IMAGE_URL
+        crictl rmi $CONTAINER_IMAGE_URL
     fi
 }
 
@@ -2384,12 +2433,6 @@ cleanUpImages() {
     retrycmd_if_failure 10 5 120 bash -c cleanupImagesRun
 }
 
-cleanUpHyperkubeImages() {
-    echo $(date),$(hostname), cleanUpHyperkubeImages
-    cleanUpImages "hyperkube"
-    echo $(date),$(hostname), endCleanUpHyperkubeImages
-}
-
 cleanUpKubeProxyImages() {
     echo $(date),$(hostname), startCleanUpKubeProxyImages
     cleanUpImages "kube-proxy"
@@ -2410,8 +2453,8 @@ cleanupRetaggedImages() {
         if [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
                 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-                # always use ctr, even if crictl is installed.
-                # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
+                    # always use ctr, even if crictl is installed.
+                    # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
                     removeContainerImage "ctr" ${image}
                 else
                     removeContainerImage "docker" ${image}
@@ -2424,15 +2467,12 @@ cleanupRetaggedImages() {
 }
 
 cleanUpContainerImages() {
-    # run cleanUpHyperkubeImages and cleanUpKubeProxyImages concurrently
     export KUBERNETES_VERSION
     export CLI_TOOL
     export -f retrycmd_if_failure
     export -f removeContainerImage
     export -f cleanUpImages
-    export -f cleanUpHyperkubeImages
     export -f cleanUpKubeProxyImages
-    bash -c cleanUpHyperkubeImages &
     bash -c cleanUpKubeProxyImages &
 }
 
@@ -2443,7 +2483,7 @@ cleanUpContainerd() {
 overrideNetworkConfig() {
     CONFIG_FILEPATH="/etc/cloud/cloud.cfg.d/80_azure_net_config.cfg"
     touch ${CONFIG_FILEPATH}
-    cat << EOF >> ${CONFIG_FILEPATH}
+    cat <<EOF >>${CONFIG_FILEPATH}
 datasource:
     Azure:
         apply_network_config: false
@@ -2560,7 +2600,15 @@ if [[ ${ID} != "mariner" ]]; then
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
 fi
 
-if [[ "${GPU_NODE}" != "true" ]]; then
+export -f should_skip_nvidia_drivers
+skip_nvidia_driver_install=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_nvidia_drivers)
+ret=$?
+if [[ "$ret" != "0" ]]; then
+    echo "Failed to determine if nvidia driver install should be skipped"
+    exit $ERR_NVIDIA_DRIVER_INSTALL
+fi
+
+if [[ "${GPU_NODE}" != "true" ]] || [[ "${skip_nvidia_driver_install}" == "true" ]]; then
     logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
 fi
 
@@ -2604,7 +2652,7 @@ fi
 REBOOTREQUIRED=false
 
 echo $(date),$(hostname), "Start configuring GPU drivers"
-if [[ "${GPU_NODE}" = true ]]; then
+if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" != "true" ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
         if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
@@ -2620,34 +2668,34 @@ EOF
     else
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
     fi
-fi
 
-if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
-    # fabric manager trains nvlink connections between multi instance gpus.
-    # it appears this is only necessary for systems with *multiple cards*.
-    # i.e., an A100 can be partitioned a maximum of 7 ways.
-    # An NC24ads_A100_v4 has one A100.
-    # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
-    # ND96 seems to require fabric manager *even when not using mig partitions*
-    # while it fails to install on NC24.
-    logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
-fi
+    if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
+        # fabric manager trains nvlink connections between multi instance gpus.
+        # it appears this is only necessary for systems with *multiple cards*.
+        # i.e., an A100 can be partitioned a maximum of 7 ways.
+        # An NC24ads_A100_v4 has one A100.
+        # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
+        # ND96 seems to require fabric manager *even when not using mig partitions*
+        # while it fails to install on NC24.
+        logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
+    fi
 
-# This will only be true for multi-instance capable VM sizes
-# for which the user has specified a partitioning profile.
-# it is valid to use mig-capable gpus without a partitioning profile.
-if [[ "${MIG_NODE}" == "true" ]]; then
-    # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
-    # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
-    # Commands such as `+"`"+`nvidia-smi --gpu-reset`+"`"+` may succeed,
-    # while commands such as `+"`"+`nvidia-smi -q`+"`"+` will show mismatched current/pending mig mode.
-    # this will not be required per nvidia for next gen H100.
-    REBOOTREQUIRED=true
-    
-    # this service applies the partitioning scheme with nvidia-smi.
-    # we should consider moving to mig-parted which is simpler/newer.
-    # we couldn't because of old drivers but that has long been fixed.
-    logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
+    # This will only be true for multi-instance capable VM sizes
+    # for which the user has specified a partitioning profile.
+    # it is valid to use mig-capable gpus without a partitioning profile.
+    if [[ "${MIG_NODE}" == "true" ]]; then
+        # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
+        # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
+        # Commands such as `+"`"+`nvidia-smi --gpu-reset`+"`"+` may succeed,
+        # while commands such as `+"`"+`nvidia-smi -q`+"`"+` will show mismatched current/pending mig mode.
+        # this will not be required per nvidia for next gen H100.
+        REBOOTREQUIRED=true
+        
+        # this service applies the partitioning scheme with nvidia-smi.
+        # we should consider moving to mig-parted which is simpler/newer.
+        # we couldn't because of old drivers but that has long been fixed.
+        logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
+    fi
 fi
 
 echo $(date),$(hostname), "End configuring GPU drivers"
@@ -3998,15 +4046,12 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "stable": "1.4.13-3"
     },
     "runc": {
-        "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",
+        "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "downloadLocation": "/opt/runc/downloads",
-        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
-        "versions": [
-            "1.0.0-rc92",
-            "1.0.0-rc95"
-        ],
+        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
+        "versions": [],
         "installed": {
-            "default": "1.0.3"
+            "default": "1.1.5"
         }
     },
     "nvidia-container-runtime": {
@@ -4026,21 +4071,13 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadLocation": "",
         "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz",
         "versions": [
-            "1.22.11-hotfix.20220620",
-            "1.22.15",
-            "1.23.8-hotfix.20220620",
-            "1.23.12",
-            "1.23.15-hotfix.20230114",
-            "1.24.3",
-            "1.24.6",
             "1.24.9",
             "1.24.10",
-            "1.25.2-hotfix.20221006",
-            "1.25.4",
             "1.25.5",
             "1.25.6",
             "1.26.0",
-            "1.26.1"
+            "1.26.3",
+            "1.27.1"
         ]
     },
     "_template": {
@@ -4364,7 +4401,9 @@ install rds /bin/true
 # 3.5.4 Ensure TIPC is disabled
 install tipc /bin/true
 # 1.1.1.1 Ensure mounting of cramfs filesystems is disabled
+# Mariner AKS CIS Benchmark: Ensure mounting of cramfs filesystems is disabled
 install cramfs /bin/true
+blacklist cramfs
 # 1.1.1.2 Ensure mounting of freevxfs filesystems is disabled
 install freevxfs /bin/true
 # 1.1.1.3 Ensure mounting of jffs2 filesystems is disabled
@@ -4372,7 +4411,8 @@ install jffs2 /bin/true
 # 1.1.1.4 Ensure mounting of hfs filesystems is disabled
 install hfs /bin/true
 # 1.1.1.5 Ensure mounting of hfsplus filesystems is disabled
-install hfsplus /bin/true`)
+install hfsplus /bin/true
+`)
 
 func linuxCloudInitArtifactsModprobeCisConfBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsModprobeCisConf, nil
@@ -4970,6 +5010,9 @@ Subsystem sftp /usr/lib/openssh/sftp-server
 UsePAM yes
 UseDNS no
 GSSAPIAuthentication no
+
+# Mariner AKS CIS Benchmark: Ensure SSH access is limited
+DenyUsers root omsagent nxautomation
 `)
 
 func linuxCloudInitArtifactsSshd_configBytes() ([]byte, error) {
@@ -5082,6 +5125,9 @@ Subsystem sftp /usr/lib/openssh/sftp-server
 UsePAM yes
 UseDNS no
 GSSAPIAuthentication no
+
+# Mariner AKS CIS Benchmark: Ensure SSH access is limited
+DenyUsers root omsagent nxautomation
 `)
 
 func linuxCloudInitArtifactsSshd_config_1604Bytes() ([]byte, error) {
@@ -5224,6 +5270,9 @@ Subsystem sftp	/usr/lib/openssh/sftp-server
 
 # CLOUD_IMG: This file was created/modified by the Cloud Image build process
 ClientAliveInterval 120
+
+# Mariner AKS CIS Benchmark: Ensure SSH access is limited
+DenyUsers root omsagent nxautomation
 `)
 
 func linuxCloudInitArtifactsSshd_config_1804_fipsBytes() ([]byte, error) {
@@ -5344,27 +5393,52 @@ func linuxCloudInitArtifactsSyncContainerLogsSh() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsSysctlD60CisConf = []byte(`# 3.1.2 Ensure packet redirect sending is disabled
+var _linuxCloudInitArtifactsSysctlD60CisConf = []byte(`# Ubuntu CIS Benchmark: Ensure packet redirect sending is disabled
 net.ipv4.conf.all.send_redirects = 0
 net.ipv4.conf.default.send_redirects = 0
-# 3.2.1 Ensure source routed packets are not accepted 
+
+# Ubuntu CIS Benchmark: Ensure source routed packets are not accepted
+# Mariner AKS CIS Benchmark: Ensure source routed packets are not accepted
 net.ipv4.conf.all.accept_source_route = 0
 net.ipv4.conf.default.accept_source_route = 0
-# 3.2.2 Ensure ICMP redirects are not accepted
+net.ipv6.conf.all.accept_source_route = 0
+net.ipv6.conf.default.accept_source_route = 0
+
+# Ubuntu CIS Benchmark: Ensure ICMP redirects are not accepted
+# Mariner AKS CIS Benchmark: Ensure ICMP redirects are not accepted
 net.ipv4.conf.all.accept_redirects = 0
 net.ipv4.conf.default.accept_redirects = 0
-# 3.2.3 Ensure secure ICMP redirects are not accepted
-net.ipv4.conf.all.secure_redirects = 0
-net.ipv4.conf.default.secure_redirects = 0
-# 3.2.4 Ensure suspicious packets are logged
-net.ipv4.conf.all.log_martians = 1
-net.ipv4.conf.default.log_martians = 1
-# 3.3.1 Ensure IPv6 router advertisements are not accepted
-net.ipv6.conf.all.accept_ra = 0
-net.ipv6.conf.default.accept_ra = 0
-# 3.3.2 Ensure IPv6 redirects are not accepted
 net.ipv6.conf.all.accept_redirects = 0
 net.ipv6.conf.default.accept_redirects = 0
+
+# Ubuntu CIS Benchmark: Ensure secure ICMP redirects are not accepted
+# Mariner AKS CIS Benchmark: Ensure secure ICMP redirects are not accepted
+net.ipv4.conf.all.secure_redirects = 0
+net.ipv4.conf.default.secure_redirects = 0
+
+# Ubuntu CIS Benchmark: Ensure suspicious packets are logged
+# Mariner AKS CIS Benchmark: Ensure suspicious packets are logged
+net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.default.log_martians = 1
+
+# Ubuntu CIS Benchmark: Ensure IPv6 router advertisements are not accepted
+# Mariner AKS CIS Benchmark: Ensure IPv6 router advertisements are not accepted
+net.ipv6.conf.all.accept_ra = 0
+net.ipv6.conf.default.accept_ra = 0
+
+# Mariner AKS CIS Benchmark: Ensure broadcast ICMP requests are ignored
+net.ipv4.icmp_echo_ignore_broadcasts = 1
+
+# Mariner AKS CIS Benchmark: Ensure bogus ICMP responses are ignored
+net.ipv4.icmp_ignore_bogus_error_responses = 1
+
+# Mariner AKS CIS Benchmark: Ensure Reverse Path Filtering is enabled
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.default.rp_filter = 1
+
+# Mariner AKS CIS Benchmark: Ensure TCP SYN Cookies is enabled
+net.ipv4.tcp_syncookies = 1
+
 # refer to https://github.com/kubernetes/kubernetes/blob/75d45bdfc9eeda15fb550e00da662c12d7d37985/pkg/kubelet/cm/container_manager_linux.go#L359-L397
 vm.overcommit_memory = 1
 kernel.panic = 10
@@ -5373,7 +5447,7 @@ kernel.panic_on_oops = 1
 kernel.pid_max = 4194304
 # https://github.com/Azure/AKS/issues/772
 fs.inotify.max_user_watches = 1048576
-# Ubuntu 22.04 has inotify_max_user_instances set to 128, where as Ubuntu 18.04 had 1024. 
+# Ubuntu 22.04 has inotify_max_user_instances set to 128, where as Ubuntu 18.04 had 1024.
 fs.inotify.max_user_instances = 1024
 `)
 
@@ -5567,13 +5641,13 @@ installDeps() {
 
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
     pkg_list=(apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r))
 
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
+    BLOBFUSE2_VERSION="2.0.3"
 
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
@@ -5584,7 +5658,7 @@ installDeps() {
         # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
         # for 22.04, fuse3 is installed. for all others, fuse is installed
         # for 16.04, installed blobfuse1.3.7, for all others except 22.04, installed blobfuse1.4.5
-        pkg_list+=(blobfuse2)
+        pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
         if [[ "${OSVERSION}" == "22.04" ]]; then
             pkg_list+=(fuse3)
         else
@@ -5792,13 +5866,7 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.0.3"
-
-        if [[ $(isARM64) == 1 ]]; then
-            # RUNC versions of 1.0.3 later might not be available in Ubuntu AMD64/ARM64 repo at the same time
-            # so use different target version for different arch to avoid affecting each other during provisioning
-            TARGET_VERSION="1.0.3"
-        fi
+        TARGET_VERSION="1.1.5+azure-ubuntu${UBUNTU_RELEASE}u1"
     fi
 
     if [[ $(isARM64) == 1 ]]; then
@@ -5810,20 +5878,22 @@ ensureRunc() {
 
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-    if [ "${CURRENT_VERSION}" == "${TARGET_VERSION}" ]; then
-        echo "target moby-runc version ${TARGET_VERSION} is already installed. skipping installRunc."
+    CLEANED_TARGET_VERSION=${TARGET_VERSION%+*} # removes the +azure-ubuntu18.04u1 (or similar) suffix
+
+    if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
+        echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
         return
     fi
     # if on a vhd-built image, first check if we've cached the deb file
     if [ -f $VHD_LOGS_FILEPATH ]; then
-        RUNC_DEB_PATTERN="moby-runc_${TARGET_VERSION/-/\~}+azure-*_${CPU_ARCH}.deb"
+        RUNC_DEB_PATTERN="moby-runc_*.deb"
         RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
         if [[ -f "${RUNC_DEB_FILE}" ]]; then
             installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
             return 0
         fi
     fi
-    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION/-/\~}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION} --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
 #EOF
@@ -5970,12 +6040,14 @@ write_files:
     {{GetVariableProperty "cloudInitData" "provisionSourceUbuntu"}}
 {{end}}
 
+{{ if not IsCustomImage -}}
 - path: /opt/azure/containers/provision_start.sh
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionStartScript"}}
+{{- end }}
 
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"
@@ -6266,29 +6338,6 @@ write_files:
     current-context: localclustercontext
 {{- end}}
 
-- path: /etc/systemd/system/containerd.service
-  permissions: "0644"
-  owner: root
-  content: |
-    [Unit]
-    Description=containerd daemon
-    After=network.target
-    [Service]
-    ExecStartPre=/sbin/modprobe overlay
-    ExecStart=/usr/bin/containerd
-    Delegate=yes
-    KillMode=process
-    Restart=always
-    OOMScoreAdjust=-999
-    # Having non-zero Limit*s causes performance problems due to accounting overhead
-    # in the kernel. We recommend using cgroups to do container-local accounting.
-    LimitNPROC=infinity
-    LimitCORE=infinity
-    LimitNOFILE=infinity
-    TasksMax=infinity
-    [Install]
-    WantedBy=multi-user.target
-
 - path: /opt/azure/containers/kubelet.sh
   permissions: "0755"
   owner: root
@@ -6318,6 +6367,116 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
+
+
+- path: /etc/sysctl.d/999-sysctl-aks.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    # This is a partial workaround to this upstream Kubernetes issue:
+    # https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
+    net.ipv4.tcp_retries2=8
+    net.core.message_burst=80
+    net.core.message_cost=40
+{{- if GetCustomSysctlConfigByName "NetCoreSomaxconn"}}
+    net.core.somaxconn={{.CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
+{{- else}}
+    net.core.somaxconn=16384
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4TcpMaxSynBacklog"}}
+    net.ipv4.tcp_max_syn_backlog={{.CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
+{{- else}}
+    net.ipv4.tcp_max_syn_backlog=16384
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh1"}}
+    net.ipv4.neigh.default.gc_thresh1={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh1=4096
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh2"}}
+    net.ipv4.neigh.default.gc_thresh2={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh2=8192
+{{- end}}
+{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh3"}}
+    net.ipv4.neigh.default.gc_thresh3={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
+{{- else}}
+    net.ipv4.neigh.default.gc_thresh3=16384
+{{- end}}
+{{if ShouldConfigCustomSysctl}}
+    # The following are sysctl configs passed from API
+{{- $s:=.CustomLinuxOSConfig.Sysctls}}
+{{- if $s.NetCoreNetdevMaxBacklog}}
+    net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
+{{- end}}
+{{- if $s.NetCoreRmemDefault}}
+    net.core.rmem_default={{$s.NetCoreRmemDefault}}
+{{- end}}
+{{- if $s.NetCoreRmemMax}}
+    net.core.rmem_max={{$s.NetCoreRmemMax}}
+{{- end}}
+{{- if $s.NetCoreWmemDefault}}
+    net.core.wmem_default={{$s.NetCoreWmemDefault}}
+{{- end}}
+{{- if $s.NetCoreWmemMax}}
+    net.core.wmem_max={{$s.NetCoreWmemMax}}
+{{- end}}
+{{- if $s.NetCoreOptmemMax}}
+    net.core.optmem_max={{$s.NetCoreOptmemMax}}
+{{- end}}
+{{- if $s.NetIpv4TcpMaxTwBuckets}}
+    net.ipv4.tcp_max_tw_buckets={{$s.NetIpv4TcpMaxTwBuckets}}
+{{- end}}
+{{- if $s.NetIpv4TcpFinTimeout}}
+    net.ipv4.tcp_fin_timeout={{$s.NetIpv4TcpFinTimeout}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveTime}}
+    net.ipv4.tcp_keepalive_time={{$s.NetIpv4TcpKeepaliveTime}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveProbes}}
+    net.ipv4.tcp_keepalive_probes={{$s.NetIpv4TcpKeepaliveProbes}}
+{{- end}}
+{{- if $s.NetIpv4TcpkeepaliveIntvl}}
+    net.ipv4.tcp_keepalive_intvl={{$s.NetIpv4TcpkeepaliveIntvl}}
+{{- end}}
+{{- if $s.NetIpv4TcpTwReuse}}
+    net.ipv4.tcp_tw_reuse={{BoolPtrToInt $s.NetIpv4TcpTwReuse}}
+{{- end}}
+{{- if $s.NetIpv4IpLocalPortRange}}
+    net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackMax}}
+    net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackBuckets}}
+    net.netfilter.nf_conntrack_buckets={{$s.NetNetfilterNfConntrackBuckets}}
+{{- end}}
+{{- if $s.FsInotifyMaxUserWatches}}
+    fs.inotify.max_user_watches={{$s.FsInotifyMaxUserWatches}}
+{{- end}}
+{{- if $s.FsFileMax}}
+    fs.file-max={{$s.FsFileMax}}
+{{- end}}
+{{- if $s.FsAioMaxNr}}
+    fs.aio-max-nr={{$s.FsAioMaxNr}}
+{{- end}}
+{{- if $s.FsNrOpen}}
+    fs.nr_open={{$s.FsNrOpen}}
+{{- end}}
+{{- if $s.KernelThreadsMax}}
+    kernel.threads-max={{$s.KernelThreadsMax}}
+{{- end}}
+{{- if $s.VMMaxMapCount}}
+    vm.max_map_count={{$s.VMMaxMapCount}}
+{{- end}}
+{{- if $s.VMSwappiness}}
+    vm.swappiness={{$s.VMSwappiness}}
+{{- end}}
+{{- if $s.VMVfsCachePressure}}
+    vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
+{{- end}}
+{{- end}}
+    #EOF
 `)
 
 func linuxCloudInitNodecustomdataYmlBytes() ([]byte, error) {
@@ -7119,18 +7278,6 @@ function Set-ExitCode
     $global:ExitCode=$ExitCode
     $global:ErrorMessage=$ErrorMessage
     exit $ExitCode
-}
-
-function Postpone-RestartComputer
-{
-    Write-Log "Creating an one-time task to restart the VM"
-    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument " -Command `+"`"+`"Restart-Computer -Force`+"`"+`""
-    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
-    # trigger this task once
-    $trigger = New-JobTrigger -At  (Get-Date).AddSeconds(15).DateTime -Once
-    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "Restart computer after provisioning the VM"
-    Register-ScheduledTask -TaskName "restart-computer" -InputObject $definition
-    Write-Log "Created an one-time task to restart the VM"
 }
 
 function Create-Directory

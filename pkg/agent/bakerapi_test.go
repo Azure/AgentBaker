@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/barkimedes/go-deepcopy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -34,7 +35,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 						VMSize:              "Standard_DS1_v2",
 						StorageProfile:      "ManagedDisks",
 						OSType:              datamodel.Linux,
-						VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
+						VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1", //nolint:lll
 						AvailabilityProfile: datamodel.VirtualMachineScaleSets,
 						Distro:              datamodel.AKSUbuntu1604,
 					},
@@ -81,7 +82,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			"--cgroups-per-qos":                   "true",
 			"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
 			"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-			"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
+			"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
 			"--max-pods":                          "110",
 			"--node-status-update-frequency":      "10s",
 			"--image-gc-high-threshold":           "85",
@@ -105,19 +106,19 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		}
 
 		galleries := map[string]datamodel.SIGGalleryConfig{
-			"AKSUbuntu": datamodel.SIGGalleryConfig{
+			"AKSUbuntu": {
 				GalleryName:   "aksubuntu",
 				ResourceGroup: "resourcegroup",
 			},
-			"AKSCBLMariner": datamodel.SIGGalleryConfig{
+			"AKSCBLMariner": {
 				GalleryName:   "akscblmariner",
 				ResourceGroup: "resourcegroup",
 			},
-			"AKSWindows": datamodel.SIGGalleryConfig{
+			"AKSWindows": {
 				GalleryName:   "akswindows",
 				ResourceGroup: "resourcegroup",
 			},
-			"AKSUbuntuEdgeZone": datamodel.SIGGalleryConfig{
+			"AKSUbuntuEdgeZone": {
 				GalleryName:   "AKSUbuntuEdgeZone",
 				ResourceGroup: "AKS-Ubuntu-EdgeZone",
 			},
@@ -173,10 +174,17 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		})
 
 		It("should return an error if cloud is not found", func() {
+			// this CloudSpecConfig is shared across all AgentBaker UTs,
+			// thus we need to make and use a copy when performing mutations for mocking
+			cloudSpecConfigCopy, err := deepcopy.Anything(config.CloudSpecConfig)
+			Expect(err).To(BeNil())
+			cloudSpecConfig, ok := cloudSpecConfigCopy.(*datamodel.AzureEnvironmentSpecConfig)
+			Expect(ok).To(BeTrue())
+			config.CloudSpecConfig = cloudSpecConfig
+
 			config.CloudSpecConfig.CloudName = "UnknownCloud"
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
-
 			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).To(HaveOccurred())
 		})

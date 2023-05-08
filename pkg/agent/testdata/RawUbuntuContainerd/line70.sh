@@ -109,8 +109,15 @@ EOF
 }
 
 configureHTTPProxyCA() {
-    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > /usr/local/share/ca-certificates/proxyCA.crt || exit $ERR_UPDATE_CA_CERTS
-    update-ca-certificates || exit $ERR_UPDATE_CA_CERTS
+    if [[ $OS == $MARINER_OS_NAME ]]; then
+        cert_dest="/usr/share/pki/ca-trust-source/anchors"
+        update_cmd="update-ca-trust"
+    else
+        cert_dest="/usr/local/share/ca-certificates"
+        update_cmd="update-ca-certificates"
+    fi
+    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.crt" || exit $ERR_UPDATE_CA_CERTS
+    $update_cmd || exit $ERR_UPDATE_CA_CERTS
 }
 
 configureCustomCaCertificate() {
@@ -120,7 +127,7 @@ configureCustomCaCertificate() {
         # causes bad substitution errors in bash
         # dynamically declare and use `!` to add a layer of indirection
         declare varname=CUSTOM_CA_CERT_${i} 
-        echo "${!varname}" > /opt/certs/00000000000000cert${i}.crt
+        echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
     done
     # This will block until the service is considered active.
     # Update_certs.service is a oneshot type of unit that
@@ -294,7 +301,14 @@ ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
   mkdir -p /etc/containerd
-  echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" == "true" ]]; then
+    echo "Generating non-GPU containerd config for GPU node due to VM tags"
+    echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  else
+    echo "Generating containerd config..."
+    echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  fi
+
   tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
 net.ipv4.ip_forward = 1
 net.ipv4.conf.all.forwarding = 1
@@ -443,10 +457,7 @@ EOF
 
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
-    mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")"
-    touch "${SYSCTL_CONFIG_FILE}"
-    chmod 0644 "${SYSCTL_CONFIG_FILE}"
-    echo "${SYSCTL_CONTENT}" | base64 -d > "${SYSCTL_CONFIG_FILE}"
+    wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 
@@ -560,7 +571,7 @@ configGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
-    retrycmd_if_failure 120 5 25 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     
     # reload containerd/dockerd
@@ -580,9 +591,9 @@ validateGPUDrivers() {
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
     which nvidia-smi
     if [[ $? == 0 ]]; then
-        SMI_RESULT=$(retrycmd_if_failure 24 5 25 nvidia-smi)
+        SMI_RESULT=$(retrycmd_if_failure 24 5 300 nvidia-smi)
     else
-        SMI_RESULT=$(retrycmd_if_failure 24 5 25 $GPU_DEST/bin/nvidia-smi)
+        SMI_RESULT=$(retrycmd_if_failure 24 5 300 $GPU_DEST/bin/nvidia-smi)
     fi
     SMI_STATUS=$?
     if [[ $SMI_STATUS != 0 ]]; then

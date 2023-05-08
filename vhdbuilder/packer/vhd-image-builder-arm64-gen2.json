@@ -11,6 +11,7 @@
     "build_id": "{{env `BUILD_ID`}}",
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
+    "image_version": "{{env `IMAGE_VERSION`}}",
     "os_version": "{{env `OS_VERSION`}}",
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
@@ -21,6 +22,8 @@
     "img_publisher": "{{env `IMG_PUBLISHER`}}",
     "img_offer": "{{env `IMG_OFFER`}}",
     "img_sku": "{{env `IMG_SKU`}}",
+    "img_version": "{{env `IMG_VERSION`}}",
+    "sgx_install": "{{env `SGX_INSTALL`}}",
     "vnet_name": "{{env `VNET_NAME`}}",
     "subnet_name": "{{env `SUBNET_NAME`}}"
   },
@@ -39,7 +42,7 @@
       "image_publisher": "{{user `img_publisher`}}",
       "image_offer": "{{user `img_offer`}}",
       "image_sku": "{{user `img_sku`}}",
-      "image_version": "latest",
+      "image_version": "{{user `img_version`}}",
       "azure_tags": {
         "buildDefinitionName": "{{user `build_definition_name`}}",
         "buildNumber": "{{user `build_number`}}",
@@ -119,7 +122,6 @@
       "source": "parts/linux/cloud-init/artifacts/cse_start.sh",
       "destination": "/home/packer/provision_start.sh"
     },
-    
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/containerd_exec_start.conf",
@@ -498,7 +500,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} /bin/bash -ux /home/packer/pre-install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} IMG_SKU={{user `img_sku`}} /bin/bash -ux /home/packer/pre-install-dependencies.sh"
       ]
     },
     {
@@ -511,7 +513,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL=True /bin/bash -ux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} IMG_SKU={{user `img_sku`}} /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
     },
     {
@@ -524,7 +526,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} /bin/bash -ux /home/packer/post-install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} IMG_SKU={{user `img_sku`}} /bin/bash -ux /home/packer/post-install-dependencies.sh"
       ]
     },
     {
@@ -533,9 +535,20 @@
       "destination": "/home/packer/list-images.sh"
     },
     {
+      "type": "file",
+      "source": "vhdbuilder/packer/trivy-scan.sh",
+      "destination": "/home/packer/trivy-scan.sh"
+    },
+    {
       "type": "shell",
       "inline": [
-        "sudo BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} /bin/bash -ux /home/packer/list-images.sh"
+        "sudo IMAGE_VERSION={{user `image_version`}} CONTAINER_RUNTIME={{user `container_runtime`}} /bin/bash -ux /home/packer/list-images.sh"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo /bin/bash -ux /home/packer/trivy-scan.sh"
       ]
     },
     {
@@ -543,6 +556,18 @@
       "direction": "download",
       "source": "/opt/azure/containers/image-bom.json",
       "destination": "image-bom.json"
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/containers/trivy-report.json",
+      "destination": "trivy-report.json"
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/containers/trivy-images-table.txt",
+      "destination": "trivy-images-table.txt"
     },
     {
       "type": "file",

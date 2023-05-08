@@ -12,15 +12,12 @@
         "stable": "1.4.13-3"
     },
     "runc": {
-        "fileName": "moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}.deb",
+        "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "downloadLocation": "/opt/runc/downloads",
-        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
-        "versions": [
-            "1.0.0-rc92",
-            "1.0.0-rc95"
-        ],
+        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
+        "versions": [],
         "installed": {
-            "default": "1.0.3"
+            "default": "1.1.5"
         }
     },
     "nvidia-container-runtime": {
@@ -40,21 +37,13 @@
         "downloadLocation": "",
         "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz",
         "versions": [
-            "1.22.11-hotfix.20220620",
-            "1.22.15",
-            "1.23.8-hotfix.20220620",
-            "1.23.12",
-            "1.23.15-hotfix.20230114",
-            "1.24.3",
-            "1.24.6",
             "1.24.9",
             "1.24.10",
-            "1.25.2-hotfix.20221006",
-            "1.25.4",
             "1.25.5",
             "1.25.6",
             "1.26.0",
-            "1.26.1"
+            "1.26.3",
+            "1.27.1"
         ]
     },
     "_template": {

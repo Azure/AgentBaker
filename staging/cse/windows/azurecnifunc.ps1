@@ -83,9 +83,11 @@ function Set-AzureCNIConfig
     } else {
         # Fill in DNS information for kubernetes.
         $exceptionAddresses = @()
-        if ($IsDualStackEnabled){
-            $subnetToPass = $KubeClusterCIDR -split ","
-            $exceptionAddresses += $subnetToPass[0]
+        if ($IsDualStackEnabled) {
+            $subnetsToPass = $KubeClusterCIDR -split ","
+            foreach ($subnet in $subnetsToPass) {
+                $exceptionAddresses += $subnet
+            }
         } else {
             $exceptionAddresses += $KubeClusterCIDR
         }
@@ -108,7 +110,35 @@ function Set-AzureCNIConfig
             $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $processedExceptions
         }
         else {
-            $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $exceptionAddresses
+            if ($IsDualStackEnabled) {
+                $ipv4Cidrs = @()
+                $ipv6Cidrs = @()
+                foreach ($cidr in $exceptionAddresses) {
+                    # this is the pwsh way of strings.Count(s, ":") >= 2
+                    if (($cidr -split ":").Count -ge 3) {
+                        $ipv6Cidrs += $cidr
+                    } else {
+                        $ipv4Cidrs += $cidr
+                    }
+                }
+
+                # we just assume the first entry in additional Args is the exception
+                # list for IPv4 and then append a new EnpointPolicy for IPv6. We
+                # probably shouldn't hard code the first one like this and just build
+                # 2 EndpointPolicies and append to the AdditionalArgs.
+                $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $ipv4Cidrs
+
+                $outboundException = [PSCustomObject]@{
+                    Name = 'EndpointPolicy'
+                    Value = [PSCustomObject]@{
+                        Type = 'OutBoundNAT'
+                        ExceptionList = $ipv6Cidrs
+                    }
+                }
+                $configJson.plugins[0].AdditionalArgs += $outboundException
+            } else {
+                $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $exceptionAddresses
+            }
         }
     }
 
@@ -408,6 +438,14 @@ function New-ExternalHnsNetwork
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST -ErrorMessage "Failed to find $managementIP after creating $externalNetwork network"
     }
     Write-Log "It took $($StopWatch.Elapsed.Seconds) seconds to create the $externalNetwork network."
+
+    Write-Log "Log network adapter info after creating $externalNetwork network"
+    Get-NetIPConfiguration -AllCompartments -ErrorAction Ignore
+
+    $dnsServers=Get-DnsClientServerAddress -ErrorAction Ignore
+    if ($dnsServers) {
+        Write-Log "DNS Servers are: $($dnsServers.ServerAddresses)"
+    }
 }
 
 function Get-HnsPsm1

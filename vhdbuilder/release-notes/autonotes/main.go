@@ -40,7 +40,7 @@ func main() {
 	flag.StringVar(&fl.include, "include", "", "only include this list of VHD release notes.")
 	flag.StringVar(&fl.ignore, "ignore", "", "ignore release notes for these VHDs")
 	flag.StringVar(&fl.path, "path", defaultPath, "output path to root of VHD notes")
-	flag.StringVar(&fl.date, "date", defaultDate, "date of VHD build in format YYYY.MM.DD")
+	flag.StringVar(&fl.date, "date", defaultDate, "date of VHD build in format YYYYMM.DD.0")
 
 	flag.Parse()
 
@@ -129,11 +129,29 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 	releaseNotesFileIn := filepath.Join(tmpdir, "release-notes.txt")
 	imageListName := fmt.Sprintf("vhd-image-bom-%s", sku)
 	imageListFileIn := filepath.Join(tmpdir, "image-bom.json")
+
+	trivyReportName := fmt.Sprintf("trivy-report-%s", sku)
+	trivyReportFileIn := filepath.Join(tmpdir, "trivy-report.json")
+	trivyTableName := fmt.Sprintf("trivy-images-table-%s", sku)
+	trivyReportTableIn := filepath.Join(tmpdir, "trivy-images-table.txt")
+
 	artifactsDirOut := filepath.Join(fl.path, path)
 	releaseNotesFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s.txt", fl.date))
 	imageListFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s-image-list.json", fl.date))
+
+	trivyReportFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s-trivy-report.json", fl.date))
+	trivyReportTableOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s-trivy-images-table.txt", fl.date))
+
 	latestReleaseNotesFile := filepath.Join(artifactsDirOut, "latest.txt")
 	latestImageListFile := filepath.Join(artifactsDirOut, "latest-image-list.json")
+
+	latestTrivyReportFile := filepath.Join(artifactsDirOut, "latest-trivy-report.json")
+	latestTrivyReportTable := filepath.Join(artifactsDirOut, "latest-trivy-images-table.txt")
+
+	if err := os.MkdirAll(filepath.Dir(artifactsDirOut), 0644); err != nil {
+		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
+		return
+	}
 
 	if err := os.MkdirAll(artifactsDirOut, 0644); err != nil {
 		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
@@ -180,12 +198,58 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 
 	data, err = os.ReadFile(imageListFileOut)
 	if err != nil {
-		errc <- fmt.Errorf("failed to read file %s for copying, err: %s", releaseNotesFileOut, err)
+		errc <- fmt.Errorf("failed to read file %s for copying, err: %s", imageListFileOut, err)
 	}
 
 	err = os.WriteFile(latestImageListFile, data, 0644)
 	if err != nil {
-		errc <- fmt.Errorf("failed to write file %s for copying, err: %s", releaseNotesFileOut, err)
+		errc <- fmt.Errorf("failed to write file %s for copying, err: %s", latestImageListFile, err)
+	}
+
+	cmd = exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", trivyReportName)
+	if stdout, err := cmd.CombinedOutput(); err != nil {
+		if err != nil {
+			errc <- fmt.Errorf("failed to download az devops trivy report for sku %s, err: %s, output: %s", sku, err, string(stdout))
+		}
+		return
+	}
+
+	if err := os.Rename(trivyReportFileIn, trivyReportFileOut); err != nil {
+		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", trivyReportFileIn, trivyReportFileOut, err)
+		return
+	}
+
+	data, err = os.ReadFile(trivyReportFileOut)
+	if err != nil {
+		errc <- fmt.Errorf("failed to read file %s for copying, err: %s", trivyReportFileOut, err)
+	}
+
+	err = os.WriteFile(latestTrivyReportFile, data, 0644)
+	if err != nil {
+		errc <- fmt.Errorf("failed to write file %s for copying, err: %s", latestTrivyReportFile, err)
+	}
+
+	cmd = exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", trivyTableName)
+	if stdout, err := cmd.CombinedOutput(); err != nil {
+		if err != nil {
+			errc <- fmt.Errorf("failed to download az devops trivy report table for sku %s, err: %s, output: %s", sku, err, string(stdout))
+		}
+		return
+	}
+
+	if err := os.Rename(trivyReportTableIn, trivyReportTableOut); err != nil {
+		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", trivyReportTableIn, trivyReportTableOut, err)
+		return
+	}
+
+	data, err = os.ReadFile(trivyReportTableOut)
+	if err != nil {
+		errc <- fmt.Errorf("failed to read file %s for copying, err: %s", trivyReportTableOut, err)
+	}
+
+	err = os.WriteFile(latestTrivyReportTable, data, 0644)
+	if err != nil {
+		errc <- fmt.Errorf("failed to write file %s for copying, err: %s", latestTrivyReportTable, err)
 	}
 }
 
@@ -209,7 +273,7 @@ type flags struct {
 }
 
 var defaultPath = filepath.Join("vhdbuilder", "release-notes")
-var defaultDate = strings.Split(time.Now().Format("2006.01.02 15:04:05"), " ")[0]
+var defaultDate = strings.Split(time.Now().Format("200601.02"), " ")[0] + ".0"
 
 var artifactToPath = map[string]string{
 	"1804-containerd":                   filepath.Join("AKSUbuntu", "gen1", "1804containerd"),
@@ -218,8 +282,8 @@ var artifactToPath = map[string]string{
 	"1804-gen2-gpu-containerd":          filepath.Join("AKSUbuntu", "gen2", "1804gpucontainerd"),
 	"1804-fips-containerd":              filepath.Join("AKSUbuntu", "gen1", "1804fipscontainerd"),
 	"1804-fips-gen2-containerd":         filepath.Join("AKSUbuntu", "gen2", "1804fipscontainerd"),
-	"1804-fips-gpu-containerd":          filepath.Join("AKSUbuntu", "gen1", "1804fipsgpucontainerd"),
-	"1804-fips-gen2-gpu-containerd":     filepath.Join("AKSUbuntu", "gen2", "1804fipsgpucontainerd"),
+	"2004-fips-containerd":              filepath.Join("AKSUbuntu", "gen1", "2004fipscontainerd"),
+	"2004-fips-gen2-containerd":         filepath.Join("AKSUbuntu", "gen2", "2004fipscontainerd"),
 	"marinerv1":                         filepath.Join("AKSCBLMariner", "gen1"),
 	"marinerv1-gen2":                    filepath.Join("AKSCBLMariner", "gen2"),
 	"marinerv2-gen2":                    filepath.Join("AKSCBLMarinerV2", "gen2"),

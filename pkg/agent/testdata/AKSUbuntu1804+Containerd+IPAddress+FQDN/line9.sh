@@ -144,7 +144,7 @@ retrycmd_get_tarball() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            timeout 60 curl -fsSL $url -o $tarball
+            timeout 60 curl -fsSLv $url -o $tarball
             sleep $wait_sleep
         fi
     done
@@ -157,7 +157,7 @@ retrycmd_curl_file() {
         if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout $timeout curl -fsSL $url -o $filepath
+            timeout $timeout curl -fsSLv $url -o $filepath
             sleep $wait_sleep
         fi
     done
@@ -329,5 +329,16 @@ logs_to_events() {
     if [ "$ret" != "0" ]; then
       return $ret
     fi
+}
+
+should_skip_nvidia_drivers() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
+    should_skip=$(echo "$body" | jq -e '.compute.tagsList | map(select(.name | test("SkipGpuDriverInstall"; "i")))[0].value // "false" | test("true"; "i")')
+    echo "$should_skip" # true or false
 }
 #HELPERSEOF

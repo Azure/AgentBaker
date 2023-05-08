@@ -11,6 +11,7 @@
     "build_id": "{{env `BUILD_ID`}}",
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
+    "image_version": "{{env `IMAGE_VERSION`}}",
     "os_version": "{{env `OS_VERSION`}}",
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
@@ -23,6 +24,7 @@
     "img_offer": "{{env `IMG_OFFER`}}",
     "img_sku": "{{env `IMG_SKU`}}",
     "img_version": "{{env `IMG_VERSION`}}",
+    "sgx_install": "{{env `SGX_INSTALL`}}",
     "vnet_name": "{{env `VNET_NAME`}}",
     "subnet_name": "{{env `SUBNET_NAME`}}"
   },
@@ -31,6 +33,7 @@
       "type": "azure-arm",
       "virtual_network_name": "{{user `vnet_name`}}",
       "virtual_network_subnet_name": "{{user `subnet_name`}}",
+      "ssh_read_write_timeout": "5m",
       "client_id": "{{user `client_id`}}",
       "client_secret": "{{user `client_secret`}}",
       "tenant_id": "{{user `tenant_id`}}",
@@ -265,6 +268,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/manifest.json",
+      "destination": "/home/packer/manifest.json"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/kube-proxy-images.json",
+      "destination": "/home/packer/kube-proxy-images.json"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sysctl-d-60-CIS.conf",
       "destination": "/home/packer/sysctl-d-60-CIS.conf"
     },
@@ -272,11 +285,6 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sshd_config",
       "destination": "/home/packer/sshd_config"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/sshd_config_1604",
-      "destination": "/home/packer/sshd_config_1604"
     },
     {
       "type": "file",
@@ -454,15 +462,10 @@
       "destination": "/home/packer/NOTICE.txt"
     },
     {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/manifest.json",
-      "destination": "/home/packer/manifest.json"
-    },
-    {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} /bin/bash -ux /home/packer/pre-install-dependencies.sh",
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} /bin/bash -ux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} IMG_SKU={{user `img_sku`}} /bin/bash -ux /home/packer/pre-install-dependencies.sh",
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} IMG_SKU={{user `img_sku`}} /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
     },
     {
@@ -475,7 +478,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} /bin/bash -ux /home/packer/post-install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} IMG_SKU={{user `img_sku`}} /bin/bash -ux /home/packer/post-install-dependencies.sh"
       ]
     },
     {
@@ -484,9 +487,20 @@
       "destination": "/home/packer/list-images.sh"
     },
     {
+      "type": "file",
+      "source": "vhdbuilder/packer/trivy-scan.sh",
+      "destination": "/home/packer/trivy-scan.sh"
+    },
+    {
       "type": "shell",
       "inline": [
-        "sudo BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} /bin/bash -ux /home/packer/list-images.sh"
+        "sudo IMAGE_VERSION={{user `image_version`}} CONTAINER_RUNTIME={{user `container_runtime`}} /bin/bash -ux /home/packer/list-images.sh"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo /bin/bash -ux /home/packer/trivy-scan.sh"
       ]
     },
     {
@@ -494,6 +508,18 @@
       "direction": "download",
       "source": "/opt/azure/containers/image-bom.json",
       "destination": "image-bom.json"
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/containers/trivy-report.json",
+      "destination": "trivy-report.json"
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/containers/trivy-images-table.txt",
+      "destination": "trivy-images-table.txt"
     },
     {
       "type": "file",

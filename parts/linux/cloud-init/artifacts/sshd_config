@@ -83,3 +83,6 @@ Subsystem sftp /usr/lib/openssh/sftp-server
 UsePAM yes
 UseDNS no
 GSSAPIAuthentication no
+
+# Mariner AKS CIS Benchmark: Ensure SSH access is limited
+DenyUsers root omsagent nxautomation
