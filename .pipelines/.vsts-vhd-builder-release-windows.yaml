@@ -8,7 +8,7 @@ parameters:
 - name: build2019
   displayName: Build 2019
   type: boolean
-  default: True
+  default: False
 - name: build2019containerd
   displayName: Build 2019 containerd
   type: boolean
