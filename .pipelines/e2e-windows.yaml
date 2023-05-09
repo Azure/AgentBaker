@@ -15,7 +15,9 @@ variables:
 - group: ab-e2e-windows
 
 pool:
-  name: 1ES-AKS-DevInfra-Auto-TearDown-Pool-EastUS
+  # uncomment this if the auto teardown pool is down.
+  # vmImage: ubuntu-22.04
+  name: $(1ES_DevInfra_Auto_TearDown_Pool_Name)
 
 parameters:
 - name: test2019containerd
