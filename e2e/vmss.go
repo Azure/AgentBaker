@@ -53,9 +53,9 @@ func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []b
 }
 
 func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
-	model := getBaseVMSSModel(vmssName, opts.suiteConfig.location, *opts.chosenCluster.Properties.NodeResourceGroup, opts.subnetID, string(publicKeyBytes), customData, cseCmd)
+	model := getBaseVMSSModel(vmssName, opts.suiteConfig.location, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, opts.clusterConfig.subnetId, string(publicKeyBytes), customData, cseCmd)
 
-	isAzureCNI, err := opts.isChosenClusterAzureCNI()
+	isAzureCNI, err := opts.clusterConfig.isAzureCNI()
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine whether chosen cluster uses Azure CNI from cluster model: %w", err)
 	}
@@ -72,7 +72,7 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 
 	pollerResp, err := opts.cloud.vmssClient.BeginCreateOrUpdate(
 		ctx,
-		*opts.chosenCluster.Properties.NodeResourceGroup,
+		*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
 		vmssName,
 		model,
 		nil,
@@ -93,7 +93,7 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 // as we need be able to allow AKS to allocate an additional IP config for each pod running on the given node.
 // Additional info: https://learn.microsoft.com/en-us/azure/aks/configure-azure-cni
 func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssName string, opts *scenarioRunOpts) error {
-	maxPodsPerNode, err := opts.chosenClusterMaxPodsPerNode()
+	maxPodsPerNode, err := opts.clusterConfig.maxPodsPerNode()
 	if err != nil {
 		return fmt.Errorf("failed to read agentpool MaxPods value from chosen cluster model: %w", err)
 	}
@@ -104,7 +104,7 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 			Name: to.Ptr(fmt.Sprintf("%s%d", vmssName, i)),
 			Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
 				Subnet: &armcompute.APIEntityReference{
-					ID: to.Ptr(opts.subnetID),
+					ID: to.Ptr(opts.clusterConfig.subnetId),
 				},
 			},
 		}
