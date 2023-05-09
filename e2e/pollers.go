@@ -16,8 +16,8 @@ const (
 	// Polling intervals
 	execOnVMPollInterval                 = 10 * time.Second
 	execOnPodPollInterval                = 10 * time.Second
-	extractClusterParametersPollInterval = 15 * time.Second
-	extractVMLogsPollInterval            = 15 * time.Second
+	extractClusterParametersPollInterval = 10 * time.Second
+	extractVMLogsPollInterval            = 10 * time.Second
 	getVMPrivateIPAddressPollInterval    = 5 * time.Second
 	waitUntilPodRunningPollInterval      = 5 * time.Second
 	waitUntilPodDeletedPollInterval      = 5 * time.Second
@@ -137,7 +137,7 @@ func pollExtractVMLogs(ctx context.Context, t *testing.T, vmssName, privateIP st
 func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *scenarioRunOpts) (string, error) {
 	var vmPrivateIP string
 	err := wait.PollImmediateWithContext(ctx, getVMPrivateIPAddressPollInterval, getVMPrivateIPAddressPollingTimeout, func(ctx context.Context) (bool, error) {
-		pip, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.chosenCluster.Properties.NodeResourceGroup, vmssName)
+		pip, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName)
 		if err != nil {
 			log.Printf("encountered an error while getting VM private IP address: %s", err)
 			return false, nil
