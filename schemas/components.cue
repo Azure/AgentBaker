@@ -4,6 +4,7 @@ package components
 	downloadURL: string
 	amd64OnlyVersions: [...string]
 	multiArchVersions: [...]
+	needsGen2?:			bool  | _|_
 }
 
 #DownloadFile: {

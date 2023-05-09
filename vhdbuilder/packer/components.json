@@ -324,6 +324,46 @@
       "multiArchVersions": [
         "master.221011.1"
       ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/aks/acc/sgx-device-plugin:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "1.0"
+      ],
+      "needsGen2": true
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/aks/acc/sgx-plugin:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "1.1"
+      ],
+      "needsGen2": true
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/aks/acc/sgx-plugin:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "1.1"
+      ],
+      "needsGen2": true
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/aks/acc/sgx-webhook:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "1.1"
+      ],
+      "needsGen2": true
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/aks/acc/sgx-attestation:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "3.3"
+      ],
+      "needsGen2": true
     }
   ],
   "DownloadFiles": [
