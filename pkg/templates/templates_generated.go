@@ -2797,6 +2797,15 @@ if [ "${NEEDS_CONTAINERD}" == "true" ]; then
 [Service]
 Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
 EOF
+    
+    # --container-runtime flag is removed in 1.27
+    # therefore, do not pass it to kubelet for k8s >= 1.27
+    if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.27.0"; then
+        tee "/etc/systemd/system/kubelet.service.d/10-containerd.conf" > /dev/null <<'EOF'
+[Service]
+Environment="KUBELET_CONTAINERD_FLAGS=--runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
+EOF
+    fi
 fi
 
 if [ "${HAS_KUBELET_DISK_TYPE}" == "true" ]; then
