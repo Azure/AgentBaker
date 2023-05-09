@@ -112,7 +112,7 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSCBLMarinerV2,
 	AKSCBLMarinerV2Gen2,
 	AKSCBLMarinerV2FIPS,
-	AKSCBLMarinerV2FIPSGen2,
+	AKSCBLMarinerV2Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
@@ -157,7 +157,7 @@ var AvailableCBLMarinerDistros []Distro = []Distro{
 	AKSCBLMarinerV2,
 	AKSCBLMarinerV2Gen2,
 	AKSCBLMarinerV2FIPS,
-	AKSCBLMarinerV2FIPSGen2,
+	AKSCBLMarinerV2Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSCBLMarinerV2Gen2TL,
@@ -460,7 +460,7 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2004gen2CVMcontainerd",
-		Version:       "202304.10.0",
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV1ImageConfigTemplate = SigImageConfigTemplate{
@@ -484,17 +484,17 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	SIGCBLMarinerV2FIPSGen1ImageConfigTemplate = SigImageConfigTemplate{
+	SIGCBLMarinerV2Gen1FIPSImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2fips",
 		Version:       LinuxSIGImageVersion,
 	}
 
-	SIGCBLMarinerV2FIPSGen2ImageConfigTemplate = SigImageConfigTemplate{
+	SIGCBLMarinerV2Gen2FIPSImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
-		Definition:    "V2fipsgen2",
+		Definition:    "V2gen2fips",
 		Version:       LinuxSIGImageVersion,
 	}
 
@@ -585,8 +585,8 @@ func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 		AKSCBLMarinerV1:           SIGCBLMarinerV1ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2:           SIGCBLMarinerV2Gen1ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2:       SIGCBLMarinerV2ImageConfigTemplate.WithOptions(opts...),
-		AKSCBLMarinerV2FIPS:       SIGCBLMarinerV2FIPSGen1ImageConfigTemplate.WithOptions(opts...),
-		AKSCBLMarinerV2FIPSGen2:   SIGCBLMarinerV2FIPSGen2ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2FIPS:       SIGCBLMarinerV2Gen1FIPSImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2Gen2FIPS:   SIGCBLMarinerV2Gen2FIPSImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2Kata:   SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Arm64Gen2:  SIGCBLMarinerV2Arm64ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2TL:     SIGCBLMarinerV2TLImageConfigTemplate.WithOptions(opts...),

@@ -197,9 +197,9 @@ function Get-ContainerImages {
                 Retry-Command -ScriptBlock {
                     & crictl.exe pull $image
                 } -ErrorMessage "Failed to pull image $image"
-
-                Retag-ImageForAzureChinaCloud -imageUrl $image
             }
+
+            Retag-ImageForAzureChinaCloud -imageUrl $image
         }
         Stop-Job  -Name containerd
         Remove-Job -Name containerd

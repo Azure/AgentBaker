@@ -620,14 +620,17 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 					CaCertificate: "fooBarBaz",
 				}
 			}, func(o *nodeBootstrappingOutput) {
+				// Please see #2815 for more details
 				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
-				bootstrapKubeConfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
+				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
 				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
+				bootstrapKubeConfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
 				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
 
 				Expect(etcDefaultKubelet).NotTo(BeEmpty())
 				Expect(bootstrapKubeConfig).NotTo(BeEmpty())
 				Expect(kubeletSh).NotTo(BeEmpty())
+				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
 				Expect(caCRT).NotTo(BeEmpty())
 			}),
 

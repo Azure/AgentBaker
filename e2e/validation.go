@@ -63,7 +63,7 @@ func validateWasm(ctx context.Context, kube *kubeclient, nodeName, privateKey st
 }
 
 func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
-	podName, err := getDebugPodName(opts.kube)
+	podName, err := getDebugPodName(opts.clusterConfig.kube)
 	if err != nil {
 		return fmt.Errorf("unable to get debug pod name: %w", err)
 	}
@@ -78,7 +78,7 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP,
 		command := validator.Command
 		log.Printf("running live VM validator: %q", desc)
 
-		execResult, err := pollExecOnVM(ctx, opts.kube, privateIP, podName, sshPrivateKey, command)
+		execResult, err := pollExecOnVM(ctx, opts.clusterConfig.kube, privateIP, podName, sshPrivateKey, command)
 		if err != nil {
 			return fmt.Errorf("unable to execute validator command %q: %w", command, err)
 		}
