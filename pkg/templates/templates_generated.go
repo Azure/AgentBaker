@@ -2806,7 +2806,7 @@ EOF
     if ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.27.0"; then
         tee "/etc/systemd/system/kubelet.service.d/10-container-runtime-flag.conf" > /dev/null <<'EOF'
 [Service]
-Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote"
+Environment="KUBELET_CONTAINER_RUNTIME_FLAG=--container-runtime=remote"
 EOF
     fi
 fi
@@ -4042,6 +4042,7 @@ ExecStart=/usr/local/bin/kubelet \
         $KUBELET_TLS_BOOTSTRAP_FLAGS \
         $KUBELET_CONFIG_FILE_FLAGS \
         $KUBELET_CONTAINERD_FLAGS \
+        $KUBELET_CONTAINER_RUNTIME_FLAG \
         $KUBELET_CGROUP_FLAGS \
         $KUBELET_FLAGS
 
