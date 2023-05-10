@@ -2793,16 +2793,19 @@ if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     mkdir -p /etc/containerd
     echo "${KUBENET_TEMPLATE}" | base64 -d > /etc/containerd/kubenet_template.conf
 
-    tee "/etc/systemd/system/kubelet.service.d/10-containerd.conf" > /dev/null <<'EOF'
+    tee "/etc/systemd/system/kubelet.service.d/10-containerd-base.conf" > /dev/null <<'EOF'
 [Service]
-Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
+Environment="KUBELET_CONTAINERD_FLAGS=--runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
 EOF
     
     # --container-runtime flag is removed in 1.27
     # therefore, do not pass it to kubelet for k8s >= 1.27
     # i.e remove it from the drop in file
-    if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.27.0"; then
-        sed -i 's/--container-runtime=remote //' /etc/systemd/system/kubelet.service.d/10-containerd.conf
+    if semverCompare "1.26.0" ${KUBERNETES_VERSION:-"0.0.0"}; then
+        tee "/etc/systemd/system/kubelet.service.d/10-containerd-126.conf" > /dev/null <<'EOF'
+[Service]
+Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote"
+EOF
     fi
 fi
 
