@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strings"
 
-	"github.com/Azure/agentbakere2e/scenario"
+	"github.com/Azure/agentbakere2e/validation"
 )
 
 func validateNodeHealth(ctx context.Context, kube *kubeclient, vmssName string) (string, error) {
@@ -76,7 +75,7 @@ func validateWasm(ctx context.Context, nodeName string, kube *kubeclient, execut
 }
 
 func runLiveVMValidators(ctx context.Context, vmssName string, executor remoteCommandExecutor, opts *scenarioRunOpts) error {
-	validators := commonLiveVMValidators()
+	validators := validation.CommonLiveVMValidators()
 	if opts.scenario.LiveVMValidators != nil {
 		validators = append(validators, opts.scenario.LiveVMValidators...)
 	}
@@ -101,44 +100,4 @@ func runLiveVMValidators(ctx context.Context, vmssName string, executor remoteCo
 	}
 
 	return nil
-}
-
-func commonLiveVMValidators() []*scenario.LiveVMValidator {
-	return []*scenario.LiveVMValidator{
-		{
-			Description: "assert /etc/default/kubelet should not contain dynamic config dir flag",
-			Command:     "cat /etc/default/kubelet",
-			Asserter: func(code, stdout, stderr string) error {
-				if code != "0" {
-					return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
-				}
-				if strings.Contains(stdout, "--dynamic-config-dir") {
-					return fmt.Errorf("/etc/default/kubelet should not contain kubelet flag '--dynamic-config-dir', but does")
-				}
-				return nil
-			},
-		},
-		scenario.SysctlConfigValidator(
-			map[string]int{
-				"net.ipv4.tcp_retries2":             8,
-				"net.core.message_burst":            80,
-				"net.core.message_cost":             40,
-				"net.core.somaxconn":                16384,
-				"net.ipv4.tcp_max_syn_backlog":      16384,
-				"net.ipv4.neigh.default.gc_thresh1": 4096,
-				"net.ipv4.neigh.default.gc_thresh2": 8192,
-				"net.ipv4.neigh.default.gc_thresh3": 16384,
-			},
-		),
-		scenario.DirectoryValidator(
-			"/var/log/azure/aks",
-			[]string{
-				"cluster-provision.log",
-				"cluster-provision-cse-output.log",
-				"cloud-init-files.paved",
-				"vhd-install.complete",
-				"cloud-config.txt",
-			},
-		),
-	}
 }

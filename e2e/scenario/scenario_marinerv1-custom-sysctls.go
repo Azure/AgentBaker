@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/validation"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 )
@@ -34,8 +35,8 @@ func marinerv1CustomSysctls() *Scenario {
 					ID: to.Ptr(DefaultImageVersionIDs["marinerv1"]),
 				}
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				SysctlConfigValidator(customSysctls),
+			LiveVMValidators: []*validation.LiveVMValidator{
+				validation.SysctlConfigValidator(customSysctls),
 			},
 		},
 	}
