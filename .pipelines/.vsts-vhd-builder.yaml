@@ -73,7 +73,7 @@ stages:
             -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
             -e SGX_INSTALL=${SGX_INSTALL} \
             -e IMAGE_VERSION=${IMAGE_VERSION} \
-            ${CONTAINER_IMAGE} make -f packer.mk run-packer
+            ${CONTAINER_IMAGE} ./packer.sh run-packer
           displayName: Building VHD
         - script: |
             OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
@@ -103,7 +103,7 @@ stages:
             -e ARCHITECTURE=${ARCHITECTURE} \
             -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
             -e SGX_INSTALL=${SGX_INSTALL} \
-            ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
+            ${CONTAINER_IMAGE} ./packer.sh test-building-vhd
           displayName: Run VHD Tests
         - task: PublishPipelineArtifact@0
           inputs:
@@ -153,7 +153,7 @@ stages:
             -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
             -e ARCHITECTURE=${ARCHITECTURE} \
             -e ARM64_OS_DISK_SNAPSHOT_NAME=${ARM64_OS_DISK_SNAPSHOT_NAME} \
-            ${CONTAINER_IMAGE} make -f packer.mk cleanup
+            ${CONTAINER_IMAGE} ./packer.sh cleanup
           displayName: Clean Up Packer Generated Resources
           condition: always()
         - bash: |
@@ -177,7 +177,7 @@ stages:
             -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
             -e CAPTURED_SIG_VERSION=${captured_sig_version} \
             -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
-            ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
+            ${CONTAINER_IMAGE} ./packer.sh convert-sig-to-classic-storage-account-blob
           displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
           condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
         - bash: |
@@ -213,7 +213,7 @@ stages:
             -e HYPERV_GENERATION=${HYPERV_GENERATION} \
             -e ARCHITECTURE=${ARCHITECTURE} \
             -e IMAGE_VERSION=${IMAGE_VERSION} \
-            ${CONTAINER_IMAGE} make -f packer.mk generate-sas
+            ${CONTAINER_IMAGE} ./packer.sh generate-sas
           displayName: Getting Shared Access Signature URI
           condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
         - task: PublishPipelineArtifact@1

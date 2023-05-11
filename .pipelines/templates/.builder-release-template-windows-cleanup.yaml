@@ -16,6 +16,6 @@ steps:
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       -e BACKFILL_RESOURCE_DELETION=${BACKFILL_RESOURCE_DELETION} \
       -e OS_TYPE="Windows" \
-      ${CONTAINER_IMAGE} make -f packer.mk backfill-cleanup
+      ${CONTAINER_IMAGE} ./packer.sh backfill-cleanup
     displayName: Backfill Clean Up Older Resources
     condition: always()
