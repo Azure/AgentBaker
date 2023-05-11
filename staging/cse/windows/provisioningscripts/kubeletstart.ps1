@@ -63,7 +63,12 @@ if ($global:ContainerRuntime -eq "docker") {
 
 # Update args to use ContainerD if needed
 if ($global:ContainerRuntime -eq "containerd") {
-    $KubeletArgList += @("--container-runtime=remote", "--container-runtime-endpoint=npipe://./pipe/containerd-containerd")
+    $KubeletArgList += @("--container-runtime-endpoint=npipe://./pipe/containerd-containerd")
+    # Kubelet flag --container-runtime has been removed from k8s 1.27
+    # Reference: https://github.com/kubernetes/kubernetes/blob/master/CHANGELOG/CHANGELOG-1.27.md#other-cleanup-or-flake
+    if ($global:KubeBinariesVersion -lt "1.27.0") {
+        $KubeletArgList += @("--container-runtime=remote")
+    }
 }
 
 # Used in WinCNI version of kubeletstart.ps1
