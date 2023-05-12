@@ -63,7 +63,7 @@ apt_get_purge() {
         wait_for_apt_locks
         export DEBIAN_FRONTEND=noninteractive
         dpkg --configure -a --force-confdef
-        timeout $timeout apt-get purge -o Dpkg::Options::="--force-confold" -y ${@} && break || \
+        timeout --preserve-status $timeout apt-get purge -o Dpkg::Options::="--force-confold" -y ${@} && break || \
         if [ $i -eq $retries ]; then
             return 1
         else
