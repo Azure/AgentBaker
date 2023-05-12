@@ -9,7 +9,7 @@ import (
 	"github.com/Azure/agentbakere2e/validation"
 )
 
-func runK8sValidators(ctx context.Context, nodeName string, executor exec.RemoteCommandExecutor, opts *runOpts) error {
+func runK8sValidators(ctx context.Context, nodeName string, executor *exec.RemoteCommandExecutor, opts *runOpts) error {
 	validatorConfig := validation.K8sValidationConfig{
 		NodeName:  nodeName,
 		Namespace: defaultNamespace,
@@ -29,7 +29,7 @@ func runK8sValidators(ctx context.Context, nodeName string, executor exec.Remote
 	return nil
 }
 
-func runLiveVMValidators(ctx context.Context, executor exec.RemoteCommandExecutor, opts *runOpts) error {
+func runLiveVMValidators(ctx context.Context, executor *exec.RemoteCommandExecutor, opts *runOpts) error {
 	validators := validation.CommonLiveVMValidators()
 	if opts.scenario.LiveVMValidators != nil {
 		validators = append(validators, opts.scenario.LiveVMValidators...)

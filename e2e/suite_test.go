@@ -113,7 +113,7 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *runOpts
 	if err != nil {
 		vmssSucceeded = false
 		if !isVMExtensionProvisioningError(err) {
-			t.Fatal("Encountered an unknown error while creating VM:", err)
+			t.Fatalf("Encountered an unknown error while creating VM: %s", err)
 		}
 		log.Println("VM was unable to be provisioned due to a CSE error, will still atempt to extract provisioning logs...")
 	}
@@ -157,13 +157,15 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *runOpts
 		}
 
 		log.Println("vmss creation succeded, proceeding with k8s validation...")
-		if err := runK8sValidators(ctx, nodeName, *executor, opts); err != nil {
+		if err := runK8sValidators(ctx, nodeName, executor, opts); err != nil {
 			t.Fatalf("k8s validation failed: %s", err)
 		}
 
 		log.Println("k8s validation succeeded, proceeding with live VM validation...")
-		if err := runLiveVMValidators(ctx, *executor, opts); err != nil {
+		if err := runLiveVMValidators(ctx, executor, opts); err != nil {
 			t.Fatalf("live VM validation failed: %s", err)
 		}
+
+		log.Println("node bootstrapping succeeded!")
 	}
 }

@@ -306,8 +306,8 @@ func chooseCluster(
 		return clusterConfig{}, fmt.Errorf("unable to successfully choose a cluster for scenario %q", scenario.Name)
 	}
 
-	if chosenConfig.cluster.Properties.NodeResourceGroup == nil {
-		return clusterConfig{}, fmt.Errorf("tried to chose a cluster without a node resource group: %+v", *chosenConfig.cluster)
+	if chosenConfig.cluster.Properties == nil || chosenConfig.cluster.Properties.NodeResourceGroup == nil {
+		return clusterConfig{}, fmt.Errorf("tried to chose a cluster without properties/a node resource group: %+v", *chosenConfig.cluster)
 	}
 
 	return chosenConfig, nil

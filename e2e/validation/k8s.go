@@ -18,7 +18,7 @@ func CommonK8sValidators() []*K8sValidator {
 func NodeHealthValidator() *K8sValidator {
 	return &K8sValidator{
 		Description: "wait for node registration/readiness and run an nginx pod",
-		ValidatorFn: func(ctx context.Context, kube *clients.KubeClient, executor exec.RemoteCommandExecutor, validatorConfig K8sValidationConfig) error {
+		ValidatorFn: func(ctx context.Context, kube *clients.KubeClient, executor *exec.RemoteCommandExecutor, validatorConfig K8sValidationConfig) error {
 			if err := util.WaitUntilNodeReady(ctx, kube, validatorConfig.NodeName); err != nil {
 				return fmt.Errorf("error waiting for node ready: %w", err)
 			}
@@ -40,7 +40,7 @@ func NodeHealthValidator() *K8sValidator {
 func WASMValidator() *K8sValidator {
 	return &K8sValidator{
 		Description: "deploy wasm pods and ensure apps are reachable from within pod network",
-		ValidatorFn: func(ctx context.Context, kube *clients.KubeClient, executor exec.RemoteCommandExecutor, validatorConfig K8sValidationConfig) error {
+		ValidatorFn: func(ctx context.Context, kube *clients.KubeClient, executor *exec.RemoteCommandExecutor, validatorConfig K8sValidationConfig) error {
 			spinPodName, err := ensureWasmPods(ctx, kube, validatorConfig.Namespace, validatorConfig.NodeName)
 			if err != nil {
 				return fmt.Errorf("failed to valiate wasm, unable to ensure wasm pods on node %q: %w", validatorConfig.NodeName, err)

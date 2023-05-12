@@ -30,7 +30,7 @@ type K8sValidationConfig struct {
 	NodeName  string
 }
 
-type K8sValidatorFn func(ctx context.Context, kube *clients.KubeClient, executor exec.RemoteCommandExecutor, validationConfig K8sValidationConfig) error
+type K8sValidatorFn func(ctx context.Context, kube *clients.KubeClient, executor *exec.RemoteCommandExecutor, validationConfig K8sValidationConfig) error
 
 type K8sValidator struct {
 	Description string
