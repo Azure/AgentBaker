@@ -5,8 +5,34 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/Azure/agentbakere2e/clients"
 	"github.com/Azure/agentbakere2e/exec"
 )
+
+func extractClusterParameters(ctx context.Context, kube *clients.KubeClient, namespace, podName string) (map[string]string, error) {
+	commandList := map[string]string{
+		"/etc/kubernetes/azure.json":            "cat /etc/kubernetes/azure.json",
+		"/etc/kubernetes/certs/ca.crt":          "cat /etc/kubernetes/certs/ca.crt",
+		"/var/lib/kubelet/bootstrap-kubeconfig": "cat /var/lib/kubelet/bootstrap-kubeconfig",
+	}
+
+	var result = map[string]string{}
+	for file, sourceCmd := range commandList {
+		log.Printf("executing command on privileged pod %s/%s: %q", namespace, podName, sourceCmd)
+
+		execResult, err := exec.ExecOnPrivilegedPod(ctx, kube, defaultNamespace, podName, sourceCmd)
+		if execResult != nil {
+			execResult.DumpStderr()
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		result[file] = execResult.Stdout.String()
+	}
+
+	return result, nil
+}
 
 func extractLogsFromVM(ctx context.Context, executor *exec.RemoteCommandExecutor) (map[string]string, error) {
 	commandList := map[string]string{
@@ -30,30 +56,5 @@ func extractLogsFromVM(ctx context.Context, executor *exec.RemoteCommandExecutor
 
 		result[file] = execResult.Stdout.String()
 	}
-	return result, nil
-}
-
-func extractClusterParameters(ctx context.Context, executor *exec.RemoteCommandExecutor) (map[string]string, error) {
-	commandList := map[string]string{
-		"/etc/kubernetes/azure.json":            "cat /etc/kubernetes/azure.json",
-		"/etc/kubernetes/certs/ca.crt":          "cat /etc/kubernetes/certs/ca.crt",
-		"/var/lib/kubelet/bootstrap-kubeconfig": "cat /var/lib/kubelet/bootstrap-kubeconfig",
-	}
-
-	var result = map[string]string{}
-	for file, sourceCmd := range commandList {
-		log.Printf("executing command on privileged pod %s/%s: %q", executor.Namespace, executor.DebugPodName, sourceCmd)
-
-		execResult, err := executor.OnPrivilegedPod(sourceCmd)
-		if execResult != nil {
-			execResult.DumpStderr()
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		result[file] = execResult.Stdout.String()
-	}
-
 	return result, nil
 }

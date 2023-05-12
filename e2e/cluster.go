@@ -21,8 +21,6 @@ const (
 
 type clusterParameters map[string]string
 
-type parameterCache map[string]clusterParameters
-
 type clusterConfig struct {
 	cluster      *armcontainerservice.ManagedCluster
 	kube         *clients.KubeClient
@@ -361,7 +359,12 @@ func prepareClusterForTests(
 		return nil, "", nil, fmt.Errorf("unable to ensure debug damonset of viable cluster %q: %w", clusterName, err)
 	}
 
-	clusterParams, err := pollExtractClusterParameters(ctx, kube)
+	podName, err := getDebugPodName(kube)
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("unable to get debug pod name: %w", err)
+	}
+
+	clusterParams, err := pollExtractClusterParameters(ctx, kube, defaultNamespace, podName)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("unable to extract cluster parameters from %q: %w", clusterName, err)
 	}

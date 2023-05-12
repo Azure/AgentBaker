@@ -30,66 +30,27 @@ func NewRemoteCommandExecutor(ctx context.Context, kube *clients.KubeClient, nam
 }
 
 func (e RemoteCommandExecutor) OnVM(command string) (*ExecResult, error) {
-	sshCommand := fmt.Sprintf(sshCommandTemplate, e.SSHPrivateKey, e.VMPrivateIP)
-	commandToExecute := fmt.Sprintf("%s %s", sshCommand, command)
-
-	execResult, err := e.OnPrivilegedPod(commandToExecute)
+	execResult, err := execOnVM(e.Ctx, e.Kube, e.Namespace, e.DebugPodName, e.VMPrivateIP, e.SSHPrivateKey, command)
 	if err != nil {
-		return nil, fmt.Errorf("error executing command on pod: %w", err)
+		return nil, err
 	}
-
 	return execResult, nil
 }
 
 func (e RemoteCommandExecutor) OnPrivilegedPod(command string) (*ExecResult, error) {
-	return e.OnPod(append(NSEnterCommandArray(), command))
+	execResult, err := ExecOnPrivilegedPod(e.Ctx, e.Kube, e.Namespace, e.DebugPodName, command)
+	if err != nil {
+		return nil, err
+	}
+	return execResult, nil
 }
 
 func (e RemoteCommandExecutor) OnPod(command []string) (*ExecResult, error) {
-	req := e.Kube.Typed.CoreV1().RESTClient().Post().Resource("pods").Name(e.DebugPodName).Namespace(e.Namespace).SubResource("exec")
-
-	option := &corev1.PodExecOptions{
-		Command: command,
-		Stdout:  true,
-		Stderr:  true,
-	}
-
-	req.VersionedParams(
-		option,
-		scheme.ParameterCodec,
-	)
-
-	exec, err := remotecommand.NewSPDYExecutor(e.Kube.Rest, "POST", req.URL())
+	execResult, err := execOnPod(e.Ctx, e.Kube, e.Namespace, e.DebugPodName, command)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create new SPDY executor for pod exec: %w", err)
+		return nil, err
 	}
-
-	var (
-		stdout, stderr bytes.Buffer
-		exitCode       string = "0"
-	)
-
-	err = exec.StreamWithContext(e.Ctx, remotecommand.StreamOptions{
-		Stdout: &stdout,
-		Stderr: &stderr,
-	})
-	if err != nil {
-		if strings.Contains(err.Error(), "command terminated with exit code") {
-			code, err := extractExitCode(err.Error())
-			if err != nil {
-				return nil, fmt.Errorf("error extracing exit code from remote command execution error msg: %w", err)
-			}
-			exitCode = code
-		} else {
-			return nil, fmt.Errorf("encountered unexpected error when executing command on pod: %w", err)
-		}
-	}
-
-	return &ExecResult{
-		ExitCode: exitCode,
-		Stdout:   &stdout,
-		Stderr:   &stderr,
-	}, nil
+	return execResult, nil
 }
 
 func (r ExecResult) DumpAll() {
@@ -122,4 +83,68 @@ func (r ExecResult) DumpStderr() {
 		}
 
 	}
+}
+
+func ExecOnPrivilegedPod(ctx context.Context, kube *clients.KubeClient, namespace, podName, command string) (*ExecResult, error) {
+	privilegedCommand := append(NSEnterCommandArray(), command)
+	return execOnPod(ctx, kube, namespace, podName, privilegedCommand)
+}
+
+func execOnVM(ctx context.Context, kube *clients.KubeClient, namespace, jumpboxPodName, vmPrivateIP, sshPrivateKey, command string) (*ExecResult, error) {
+	sshCommand := fmt.Sprintf(sshCommandTemplate, sshPrivateKey, vmPrivateIP)
+	commandToExecute := fmt.Sprintf("%s %s", sshCommand, command)
+
+	execResult, err := ExecOnPrivilegedPod(ctx, kube, namespace, jumpboxPodName, commandToExecute)
+	if err != nil {
+		return nil, fmt.Errorf("error executing command on pod: %w", err)
+	}
+
+	return execResult, nil
+}
+
+func execOnPod(ctx context.Context, kube *clients.KubeClient, namespace, podName string, command []string) (*ExecResult, error) {
+	req := kube.Typed.CoreV1().RESTClient().Post().Resource("pods").Name(podName).Namespace(namespace).SubResource("exec")
+
+	option := &corev1.PodExecOptions{
+		Command: command,
+		Stdout:  true,
+		Stderr:  true,
+	}
+
+	req.VersionedParams(
+		option,
+		scheme.ParameterCodec,
+	)
+
+	exec, err := remotecommand.NewSPDYExecutor(kube.Rest, "POST", req.URL())
+	if err != nil {
+		return nil, fmt.Errorf("unable to create new SPDY executor for pod exec: %w", err)
+	}
+
+	var (
+		stdout, stderr bytes.Buffer
+		exitCode       string = "0"
+	)
+
+	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if err != nil {
+		if strings.Contains(err.Error(), "command terminated with exit code") {
+			code, err := extractExitCode(err.Error())
+			if err != nil {
+				return nil, fmt.Errorf("error extracing exit code from remote command execution error msg: %w", err)
+			}
+			exitCode = code
+		} else {
+			return nil, fmt.Errorf("encountered unexpected error when executing command on pod: %w", err)
+		}
+	}
+
+	return &ExecResult{
+		ExitCode: exitCode,
+		Stdout:   &stdout,
+		Stderr:   &stderr,
+	}, nil
 }

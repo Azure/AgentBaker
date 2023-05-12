@@ -138,13 +138,12 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *runOpts
 
 	// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
 	defer func() {
-		logFiles, err := extractLogsFromVM(ctx, executor)
+		logFiles, err := pollExtractVMLogs(ctx, executor)
 		if err != nil {
 			t.Fatalf("error extracting VM logs: %s", err)
 		}
 
 		log.Printf("dumping VM logs to local directory: %s", opts.loggingDir)
-
 		if err = dumpFileMapToDir(opts.loggingDir, logFiles); err != nil {
 			t.Fatalf("error dumping VM logs: %s", err)
 		}
@@ -159,12 +158,12 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *runOpts
 
 		log.Println("vmss creation succeded, proceeding with k8s validation...")
 		if err := runK8sValidators(ctx, nodeName, *executor, opts); err != nil {
-			t.Fatal("k8s validation failed: %s", err)
+			t.Fatalf("k8s validation failed: %s", err)
 		}
 
 		log.Println("k8s validation succeeded, proceeding with live VM validation...")
 		if err := runLiveVMValidators(ctx, *executor, opts); err != nil {
-			t.Fatal("live VM validation failed: %s", err)
+			t.Fatalf("live VM validation failed: %s", err)
 		}
 	}
 }

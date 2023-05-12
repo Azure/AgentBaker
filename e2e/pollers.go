@@ -60,6 +60,29 @@ func pollExecOnVM(ctx context.Context, executor *exec.RemoteCommandExecutor, com
 	return execResult, nil
 }
 
+// Wraps exctracLogsFromVM and dumpFileMapToDir in a poller with a 15-second wait interval and 5-minute timeout
+func pollExtractVMLogs(ctx context.Context, executor *exec.RemoteCommandExecutor) (map[string]string, error) {
+	var logFiles map[string]string
+	err := wait.PollImmediateWithContext(ctx, extractVMLogsPollInterval, extractVMLogsPollingTimeout, func(ctx context.Context) (bool, error) {
+		log.Println("attempting to extract VM logs...")
+
+		files, err := extractLogsFromVM(ctx, executor)
+		if err != nil {
+			log.Printf("error extracting VM logs: %q", err)
+			return false, nil
+		}
+
+		logFiles = files
+		return true, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return logFiles, nil
+}
+
 func pollExecOnPod(ctx context.Context, executor *exec.RemoteCommandExecutor, command []string) (*exec.ExecResult, error) {
 	var execResult *exec.ExecResult
 	err := wait.PollImmediateWithContext(ctx, execOnPodPollInterval, execOnPodPollingTimeout, func(ctx context.Context) (bool, error) {
@@ -111,10 +134,10 @@ func pollExecOnPriviledgedPod(ctx context.Context, executor *exec.RemoteCommandE
 }
 
 // Wraps extractClusterParameters in a poller with a 10-second wait interval and 3-minute timeout
-func pollExtractClusterParameters(ctx context.Context, executor *exec.RemoteCommandExecutor) (map[string]string, error) {
+func pollExtractClusterParameters(ctx context.Context, kube *clients.KubeClient, namespace, podName string) (map[string]string, error) {
 	var clusterParams map[string]string
 	err := wait.PollImmediateWithContext(ctx, extractClusterParametersPollInterval, extractClusterParametersPollingTimeout, func(ctx context.Context) (bool, error) {
-		params, err := extractClusterParameters(ctx, executor)
+		params, err := extractClusterParameters(ctx, kube, namespace, podName)
 		if err != nil {
 			log.Printf("error extracting cluster parameters: %q", err)
 			return false, nil
