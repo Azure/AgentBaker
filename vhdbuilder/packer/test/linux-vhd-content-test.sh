@@ -647,6 +647,29 @@ testSetting() {
   return 0
 }
 
+testPackagesInstalled() {
+  test="testPackagesInstalled"
+
+  # Get the list of allowed packages based on OS SKU
+  local os_sku=$1
+  local ApprovedPackagesFile=""
+  if [[ $os_sku == "CBLMariner" ]]; then
+      ApprovedPackagesFile="./mariner-package-allow-list.txt"
+  else
+      err $test "Testing OS SKU - $OS_SKU - for allowed packages is not supported"
+  fi
+
+  # Check if all installed packages are in the approved package list
+  echo "$test:Start"
+  local packages=$(rpm -qa --qf "%{NAME}\n")
+  for package in ${packages[*]}; do
+      if ! grep -q --line-regexp $package $ApprovedPackagesFile; then
+          err $test "Package $package is not in the approved package list"
+      fi
+  done
+  echo "$test:Finish"
+}
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -672,3 +695,8 @@ testUserAdd
 testNetworkSettings
 testCronPermissions
 testCoreDumpSettings
+if [[ $OS_SKU == "CBLMariner" ]]; then
+  testPackagesInstalled $OS_SKU
+else
+  echo "Skipping testPackagesInstalled for $OS_SKU"
+fi
