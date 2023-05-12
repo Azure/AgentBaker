@@ -8,7 +8,7 @@ echo "Triggering ev2 artifact pipeline with Build ID $1"
 build_ids=$1
 
 trigger_pipeline() {
-    pipeline_id="165939"   # 165939 is the pipeline ID for ev2 artifacts pipeline
+    pipeline_id="317897"   # 317897 is the pipeline ID for ev2 artifacts pipeline
     for build_id in $build_ids; do
         echo "Build ID for the release is $build_id"
         az pipelines variable update --name VHD_PIPELINE_RUN_ID --pipeline-id $pipeline_id --value $build_id  # Update the VHD_PIPELINE_RUN_ID with the build ID
