@@ -2,14 +2,8 @@
 # This script is used to generate shared configuration for configure-windows-vhd.ps1 and windows-vhd-content-test.ps1.
 # MUST NOT add any shared functions in this script.
 $windowsConfig = @'
-$global:containerRuntime = $env:ContainerRuntime
-$validContainerRuntimes = @("containerd", "docker")
-if (-not ($validContainerRuntimes -contains $containerRuntime)) {
-    throw "Unsupported container runtime: $containerRuntime"
-}
-
 $global:windowsSKU = $env:WindowsSKU
-$validSKU = @("2019", "2019-containerd", "2022-containerd", "2022-containerd-gen2")
+$validSKU = @("2019-containerd", "2022-containerd", "2022-containerd-gen2")
 if (-not ($validSKU -contains $windowsSKU)) {
     throw "Unsupported windows image SKU: $windowsSKU"
 }
@@ -34,8 +28,6 @@ switch -Regex ($windowsSKU) {
 
 # defaultContainerdPackageUrl refers to the latest containerd package used to pull and cache container images
 $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.56/binaries/containerd-v0.0.56-windows-amd64.tar.gz"
-
-$global:defaultDockerVersion = "20.10.9"
 
 if ($windowsSku -eq "2019") {
     $global:imagesToPull = @(
