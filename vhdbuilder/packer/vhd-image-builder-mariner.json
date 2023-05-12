@@ -41,7 +41,7 @@
       "os_type": "Linux",
       "os_disk_size_gb": 30,
       "shared_image_gallery": {
-        "subscription": "{{user `subscription_id`}}",
+        "subscription": "b8f169b2-5b23-444a-ae4b-19a31b5e3652",
         "resource_group": "mitchzhutestSIGrg",
         "gallery_name": "mitchzhutestSIG",
         "image_name": "linuxtest",
@@ -63,6 +63,7 @@
       "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
       "polling_duration_timeout": "1h",
       "shared_image_gallery_destination": {
+        "subscription": "b8f169b2-5b23-444a-ae4b-19a31b5e3652",
         "resource_group": "mitchzhutestSIGrg",
         "gallery_name": "mitchzhutestSIG",
         "image_name": "output-linuxtest",
