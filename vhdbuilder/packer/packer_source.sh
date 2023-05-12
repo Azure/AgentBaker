@@ -1,12 +1,12 @@
 #!/bin/bash
 
 copyPackerFiles() {
-  SETUP_KATA_SRC=/home/packer/setupkata.sh
-  SETUP_KATA_DEST=/setupkata.sh
   SYSCTL_CONFIG_SRC=/home/packer/sysctl-d-60-CIS.conf
   SYSCTL_CONFIG_DEST=/etc/sysctl.d/60-CIS.conf
   RSYSLOG_CONFIG_SRC=/home/packer/rsyslog-d-60-CIS.conf
   RSYSLOG_CONFIG_DEST=/etc/rsyslog.d/60-CIS.conf
+  SETUP_KATA_SRC=/home/packer/setupkata.sh
+  SETUP_KATA_DEST=/setupkata.sh
   ETC_ISSUE_CONFIG_SRC=/home/packer/etc-issue
   ETC_ISSUE_CONFIG_DEST=/etc/issue
   ETC_ISSUE_NET_CONFIG_SRC=/home/packer/etc-issue.net
