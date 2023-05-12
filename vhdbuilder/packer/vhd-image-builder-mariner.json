@@ -107,11 +107,6 @@
       "destination": "/home/packer/provision_installs_distro.sh"
     },
     {
-     "type": "file",
-      "source": "vhdbuilder/packer/preview.repo",
-     "destination": "/home/packer/preview.repo"
-    },
-    {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_helpers.sh",
       "destination": "/home/packer/provision_source.sh"
