@@ -126,8 +126,9 @@ const (
 CommandLineOmittedKubeletConfigFlags are the flags set by RP that should NOT be included within the set of
 command line flags when configuring kubelet.
 */
-var CommandLineOmittedKubeletConfigFlags map[string]bool = map[string]bool{
-	"--node-status-report-frequency": true,
+func GetCommandLineOmittedKubeletConfigFlags() map[string]bool {
+	flags := map[string]bool{"--node-status-report-frequency": true}
+	return flags
 }
 
 // Distro represents Linux distro to use for Linux VMs.
@@ -151,7 +152,7 @@ const (
 	AKSCBLMarinerV2                     Distro = "aks-cblmariner-v2"
 	AKSCBLMarinerV2Gen2                 Distro = "aks-cblmariner-v2-gen2"
 	AKSCBLMarinerV2FIPS                 Distro = "aks-cblmariner-v2-fips"
-	AKSCBLMarinerV2FIPSGen2             Distro = "aks-cblmariner-v2-fips-gen2"
+	AKSCBLMarinerV2Gen2FIPS             Distro = "aks-cblmariner-v2-gen2-fips"
 	AKSCBLMarinerV2Gen2Kata             Distro = "aks-cblmariner-v2-gen2-kata"
 	AKSCBLMarinerV2Gen2TL               Distro = "aks-cblmariner-v2-gen2-tl"
 	AKSCBLMarinerV2KataGen2TL           Distro = "aks-cblmariner-v2-kata-gen2-tl"
@@ -197,7 +198,8 @@ const (
 	USSecCloud = "USSecCloud"
 )
 
-var AKSDistrosAvailableOnVHD []Distro = []Distro{
+//nolint:gochecknoglobals
+var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntu1604,
 	AKSUbuntu1804,
 	AKSUbuntu1804Gen2,
@@ -211,7 +213,7 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSCBLMarinerV2,
 	AKSCBLMarinerV2Gen2,
 	AKSCBLMarinerV2FIPS,
-	AKSCBLMarinerV2FIPSGen2,
+	AKSCBLMarinerV2Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
@@ -471,8 +473,8 @@ type WindowsProfile struct {
 	AlwaysPullWindowsPauseImage    *bool                      `json:"alwaysPullWindowsPauseImage,omitempty"`
 	ContainerdWindowsRuntimes      *ContainerdWindowsRuntimes `json:"containerdWindowsRuntimes,omitempty"`
 	WindowsCalicoPackageURL        string                     `json:"windowsCalicoPackageURL,omitempty"`
-	WindowsSecureTlsEnabled        *bool                      `json:"windowsSecureTlsEnabled,omitempty"`
-	WindowsGmsaPackageUrl          string                     `json:"windowsGmsaPackageUrl,omitempty"`
+	WindowsSecureTLSEnabled        *bool                      `json:"windowsSecureTlsEnabled,omitempty"`
+	WindowsGMSAPackageURL          string                     `json:"windowsGmsaPackageUrl,omitempty"`
 	CseScriptsPackageURL           string                     `json:"cseScriptsPackageURL,omitempty"`
 	HnsRemediatorIntervalInMinutes *uint32                    `json:"hnsRemediatorIntervalInMinutes,omitempty"`
 	LogGeneratorIntervalInMinutes  *uint32                    `json:"logGeneratorIntervalInMinutes,omitempty"`
@@ -827,6 +829,7 @@ func (p *Properties) GetClusterID() string {
 		} else if len(p.AgentPoolProfiles) > 0 {
 			h.Write([]byte(p.AgentPoolProfiles[0].Name))
 		}
+		//nolint:gosec // I think we want rand not crypto/rand here
 		r := rand.New(rand.NewSource(int64(h.Sum64())))
 		mutex.Lock()
 		p.ClusterID = fmt.Sprintf("%08d", r.Uint32())[:uniqueNameSuffixSize]
@@ -1229,12 +1232,12 @@ func (w *WindowsProfile) IsAlwaysPullWindowsPauseImage() bool {
 	return w.AlwaysPullWindowsPauseImage != nil && *w.AlwaysPullWindowsPauseImage
 }
 
-// IsWindowsSecureTlsEnabled returns true if secure TLS should be enabled for Windows nodes.
-func (w *WindowsProfile) IsWindowsSecureTlsEnabled() bool {
-	if w.WindowsSecureTlsEnabled != nil {
-		return *w.WindowsSecureTlsEnabled
+// IsWindowsSecureTLSEnabled returns true if secure TLS should be enabled for Windows nodes.
+func (w *WindowsProfile) IsWindowsSecureTLSEnabled() bool {
+	if w.WindowsSecureTLSEnabled != nil {
+		return *w.WindowsSecureTLSEnabled
 	}
-	return DefaultWindowsSecureTlsEnabled
+	return DefaultWindowsSecureTLSEnabled
 }
 
 // GetHnsRemediatorIntervalInMinutes gets HnsRemediatorIntervalInMinutes specified or returns default value.
@@ -1439,9 +1442,10 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 		return ""
 	}
 
+	commandLineOmmittedKubeletConfigFlags := GetCommandLineOmittedKubeletConfigFlags()
 	keys := []string{}
 	for key := range kubeletConfig {
-		if !CommandLineOmittedKubeletConfigFlags[key] {
+		if !commandLineOmmittedKubeletConfigFlags[key] {
 			keys = append(keys, key)
 		}
 	}
@@ -1547,6 +1551,8 @@ type K8sComponents struct {
 
 // GetLatestSigImageConfigRequest describes the input for a GetLatestSigImageConfig HTTP request.
 // This is mostly a wrapper over existing types so RP doesn't have to manually construct JSON.
+//
+//nolint:musttag // tags can be added if deemed necessary
 type GetLatestSigImageConfigRequest struct {
 	SIGConfig SIGConfig
 	Region    string
@@ -1554,6 +1560,8 @@ type GetLatestSigImageConfigRequest struct {
 }
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
+//
+//nolint:musttag // tags can be added if deemed necessary
 type NodeBootstrappingConfiguration struct {
 	ContainerService              *ContainerService
 	CloudSpecConfig               *AzureEnvironmentSpecConfig
@@ -1606,6 +1614,8 @@ const (
 )
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
+//
+//nolint:musttag // tags can be added if deemed necessary
 type NodeBootstrapping struct {
 	CustomData     string
 	CSE            string
@@ -2067,8 +2077,8 @@ type AgentPoolWindowsProfile struct {
 }
 
 // IsDisableWindowsOutboundNat returns true if the Windows agent pool disable OutboundNAT.
-func (ap *AgentPoolProfile) IsDisableWindowsOutboundNat() bool {
-	return ap.AgentPoolWindowsProfile != nil &&
-		ap.AgentPoolWindowsProfile.DisableOutboundNat != nil &&
-		*ap.AgentPoolWindowsProfile.DisableOutboundNat
+func (a *AgentPoolProfile) IsDisableWindowsOutboundNat() bool {
+	return a.AgentPoolWindowsProfile != nil &&
+		a.AgentPoolWindowsProfile.DisableOutboundNat != nil &&
+		*a.AgentPoolWindowsProfile.DisableOutboundNat
 }

@@ -45,16 +45,14 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	paramCache := parameterCache{}
-
-	if err := createMissingClusters(ctx, r, cloud, suiteConfig, scenarios, paramCache, &clusterConfigs); err != nil {
+	if err := createMissingClusters(ctx, r, cloud, suiteConfig, scenarios, &clusterConfigs); err != nil {
 		t.Fatal(err)
 	}
 
 	for _, scenario := range scenarios {
 		scenario := scenario
 
-		clusterConfig, err := chooseCluster(ctx, r, cloud, suiteConfig, scenario, paramCache, clusterConfigs)
+		clusterConfig, err := chooseCluster(ctx, r, cloud, suiteConfig, scenario, clusterConfigs)
 		if err != nil {
 			t.Fatal(err)
 		}

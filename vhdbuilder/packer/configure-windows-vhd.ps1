@@ -197,9 +197,9 @@ function Get-ContainerImages {
                 Retry-Command -ScriptBlock {
                     & crictl.exe pull $image
                 } -ErrorMessage "Failed to pull image $image"
-
-                Retag-ImageForAzureChinaCloud -imageUrl $image
             }
+
+            Retag-ImageForAzureChinaCloud -imageUrl $image
         }
         Stop-Job  -Name containerd
         Remove-Job -Name containerd
@@ -469,6 +469,25 @@ function Update-Registry {
             Write-Log "The current value of 3105872524 is $currentValue"
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3105872524 -Value 1 -Type DWORD
+
+        Write-Log "Enable 1 fix in 2023-05B"
+        $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt" -ErrorAction Ignore)
+        if (!$regPath) {
+            Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt"
+            New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt"
+        }
+
+        $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -ErrorAction Ignore)
+        if (!$regPath) {
+            Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters"
+            New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters"
+        }
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of VfpEvenPodDistributionIsEnabled is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled -Value 1 -Type DWORD
     }
 
     if ($env:WindowsSKU -Like '2022*') {
@@ -521,6 +540,43 @@ function Update-Registry {
             Write-Log "The current value of HnsAclUpdateChange is $currentValue"
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsAclUpdateChange -Value 1 -Type DWORD
+
+        Write-Log "Enable 4 fixes in 2023-05B"
+        $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt" -ErrorAction Ignore)
+        if (!$regPath) {
+            Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt"
+            New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt"
+        }
+
+        $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -ErrorAction Ignore)
+        if (!$regPath) {
+            Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters"
+            New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters"
+        }
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of VfpEvenPodDistributionIsEnabled is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled -Value 1 -Type DWORD
+        
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNpmRefresh -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HnsNpmRefresh is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNpmRefresh -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1995963020 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 1995963020 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1995963020 -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 189519500 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 189519500 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 189519500 -Value 1 -Type DWORD
     }
 }
 

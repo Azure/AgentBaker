@@ -40,7 +40,7 @@
             "image_version": "{{user `windows_image_version`}}",
             "image_url": "{{user `windows_image_url`}}",
             "managed_image_resource_group_name": "{{user `resource_group_name`}}",
-            "managed_image_name": "{{user `sig_image_name`}}",
+            "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
             "shared_image_gallery": {
               "subscription": "{{user `windows_sigmode_source_subscription_id`}}",
               "resource_group": "{{user `windows_sigmode_source_resource_group_name`}}",
