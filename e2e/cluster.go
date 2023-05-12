@@ -6,19 +6,47 @@ import (
 	"log"
 	mrand "math/rand"
 	"strings"
-	"testing"
 
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"k8s.io/apimachinery/pkg/util/errors"
 )
 
 const (
 	managedClusterResourceType = "Microsoft.ContainerService/managedClusters"
 )
 
-type paramCache map[string]map[string]string
+type clusterParameters map[string]string
+
+type clusterConfig struct {
+	cluster      *armcontainerservice.ManagedCluster
+	kube         *kubeclient
+	parameters   clusterParameters
+	subnetId     string
+	isNewCluster bool
+}
+
+// Returns true if the cluster is configured with Azure CNI
+func (c clusterConfig) isAzureCNI() (bool, error) {
+	if c.cluster.Properties.NetworkProfile != nil {
+		return *c.cluster.Properties.NetworkProfile.NetworkPlugin == armcontainerservice.NetworkPluginAzure, nil
+	}
+	return false, fmt.Errorf("cluster network profile was nil: %+v", c.cluster)
+}
+
+// Returns the maximum number of pods per node of the cluster's agentpool
+func (c clusterConfig) maxPodsPerNode() (int, error) {
+	if len(c.cluster.Properties.AgentPoolProfiles) > 0 {
+		return int(*c.cluster.Properties.AgentPoolProfiles[0].MaxPods), nil
+	}
+	return 0, fmt.Errorf("cluster agentpool profiles were nil or empty: %+v", c.cluster)
+}
+
+func (c clusterConfig) needsPreparation() bool {
+	return c.kube == nil || c.parameters == nil || c.subnetId == ""
+}
 
 func isExistingResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupName string) (bool, error) {
 	rgExistence, err := cloud.resourceGroupClient.CheckExistence(ctx, resourceGroupName, nil)
@@ -29,8 +57,8 @@ func isExistingResourceGroup(ctx context.Context, cloud *azureClient, resourceGr
 	return rgExistence.Success, nil
 }
 
-func ensureResourceGroup(ctx context.Context, t *testing.T, cloud *azureClient, resourceGroupName string) error {
-	t.Logf("ensuring resource group %q...", resourceGroupName)
+func ensureResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupName string) error {
+	log.Printf("ensuring resource group %q...", resourceGroupName)
 
 	rgExists, err := isExistingResourceGroup(ctx, cloud, resourceGroupName)
 	if err != nil {
@@ -57,7 +85,6 @@ func ensureResourceGroup(ctx context.Context, t *testing.T, cloud *azureClient, 
 
 func validateExistingClusterState(
 	ctx context.Context,
-	t *testing.T,
 	cloud *azureClient,
 	resourceGroupName string,
 	clusterModel *armcontainerservice.ManagedCluster) (bool, error) {
@@ -67,7 +94,7 @@ func validateExistingClusterState(
 	cluster, err := cloud.aksClient.Get(ctx, resourceGroupName, clusterName, nil)
 	if err != nil {
 		if isResourceNotFoundError(err) {
-			t.Logf("received ResourceNotFound error when trying to GET test cluster %q", clusterName)
+			log.Printf("received ResourceNotFound error when trying to GET test cluster %q", clusterName)
 			needRecreate = true
 		} else {
 			return false, fmt.Errorf("failed to get aks cluster %q: %w", clusterName, err)
@@ -80,7 +107,7 @@ func validateExistingClusterState(
 		}
 
 		if !rgExists || cluster.Properties == nil || cluster.Properties.ProvisioningState == nil || *cluster.Properties.ProvisioningState == "Failed" {
-			t.Logf("deleting test cluster in bad state: %q", clusterName)
+			log.Printf("deleting test cluster in bad state: %q", clusterName)
 
 			needRecreate = true
 			if err := deleteExistingCluster(ctx, cloud, resourceGroupName, clusterName); err != nil {
@@ -149,8 +176,8 @@ func getClusterSubnetID(ctx context.Context, cloud *azureClient, location, mcRes
 	return "", fmt.Errorf("failed to find aks vnet")
 }
 
-func listClusters(ctx context.Context, t *testing.T, cloud *azureClient, resourceGroupName string) ([]*armcontainerservice.ManagedCluster, error) {
-	clusters := []*armcontainerservice.ManagedCluster{}
+func getInitialClusterConfigs(ctx context.Context, cloud *azureClient, resourceGroupName string) ([]clusterConfig, error) {
+	var configs []clusterConfig
 	pager := cloud.resourceClient.NewListByResourceGroupPager(resourceGroupName, nil)
 
 	for pager.More() {
@@ -177,129 +204,147 @@ func listClusters(ctx context.Context, t *testing.T, cloud *azureClient, resourc
 					continue
 				}
 
-				t.Logf("found agentbaker e2e cluster: %q", *cluster.Name)
-				clusters = append(clusters, &cluster.ManagedCluster)
+				log.Printf("found agentbaker e2e cluster: %q", *cluster.Name)
+				configs = append(configs, clusterConfig{cluster: &cluster.ManagedCluster})
 			}
 		}
 	}
 
-	return clusters, nil
+	return configs, nil
 }
 
-func getViableClusters(scenario *scenario.Scenario, clusters []*armcontainerservice.ManagedCluster) []*armcontainerservice.ManagedCluster {
-	viableClusters := []*armcontainerservice.ManagedCluster{}
-	for _, cluster := range clusters {
-		if scenario.Config.ClusterSelector(cluster) {
-			viableClusters = append(viableClusters, cluster)
+func hasViableConfig(scenario *scenario.Scenario, clusterConfigs []clusterConfig) bool {
+	for _, config := range clusterConfigs {
+		if scenario.Config.ClusterSelector(config.cluster) {
+			return true
 		}
 	}
-	return viableClusters
+	return false
 }
 
-func mustChooseCluster(
+func createMissingClusters(
 	ctx context.Context,
-	t *testing.T,
+	r *mrand.Rand,
+	cloud *azureClient,
+	suiteConfig *suiteConfig,
+	scenarios scenario.Table,
+	clusterConfigs *[]clusterConfig) error {
+	var newConfigs []clusterConfig
+	for _, scenario := range scenarios {
+		if !hasViableConfig(scenario, *clusterConfigs) && !hasViableConfig(scenario, newConfigs) {
+			newClusterModel := getNewClusterModelForScenario(generateClusterName(r), suiteConfig.location, scenario)
+			newConfigs = append(newConfigs, clusterConfig{cluster: &newClusterModel, isNewCluster: true})
+		}
+	}
+
+	var createFuncs []func() error
+	for i, c := range newConfigs {
+		config := c
+		idx := i
+		createFunc := func() error {
+			clusterName := *config.cluster.Name
+
+			log.Printf("creating cluster %q...", clusterName)
+			liveCluster, err := createNewCluster(ctx, cloud, suiteConfig.resourceGroupName, config.cluster)
+			if err != nil {
+				return fmt.Errorf("unable to create new cluster: %w", err)
+			}
+
+			if liveCluster.Properties == nil {
+				return fmt.Errorf("newly created cluster model has nil properties:\n%+v", liveCluster)
+			}
+
+			log.Printf("preparing cluster %q for testing...", clusterName)
+			kube, subnetId, clusterParams, err := prepareClusterForTests(ctx, cloud, suiteConfig, liveCluster)
+			if err != nil {
+				return fmt.Errorf("unable to prepare viable cluster for testing: %s", err)
+			}
+
+			newConfigs[idx].cluster = liveCluster
+			newConfigs[idx].kube = kube
+			newConfigs[idx].parameters = clusterParams
+			newConfigs[idx].subnetId = subnetId
+			return nil
+		}
+
+		createFuncs = append(createFuncs, createFunc)
+	}
+
+	if err := errors.AggregateGoroutines(createFuncs...); err != nil {
+		return fmt.Errorf("at least one cluster creation routine returned an error:\n%w", err)
+	}
+
+	*clusterConfigs = append(*clusterConfigs, newConfigs...)
+	return nil
+}
+
+func chooseCluster(
+	ctx context.Context,
 	r *mrand.Rand,
 	cloud *azureClient,
 	suiteConfig *suiteConfig,
 	scenario *scenario.Scenario,
-	clusters *[]*armcontainerservice.ManagedCluster,
-	paramCache paramCache) (*kubeclient, *armcontainerservice.ManagedCluster, map[string]string, string) {
-	var (
-		chosenKubeClient    *kubeclient
-		chosenCluster       *armcontainerservice.ManagedCluster
-		chosenClusterParams map[string]string
-		chosenSubnetID      string
-	)
-
-	viableClusters := getViableClusters(scenario, *clusters)
-
-	if len(viableClusters) == 0 {
-		t.Logf("unable to find viable test cluster for scenario %q, attempting to create a new one...", scenario.Name)
-		clusterBaseModel := getBaseClusterModel(
-			fmt.Sprintf(testClusterNameTemplate, randomLowercaseString(r, 5)),
-			suiteConfig.location,
-		)
-		scenario.Config.ClusterMutator(&clusterBaseModel)
-
-		cluster, err := createNewCluster(ctx, cloud, suiteConfig.resourceGroupName, &clusterBaseModel)
-		if err != nil {
-			t.Fatalf("unable to create new cluster: %s", err)
-		}
-
-		if cluster.Properties == nil {
-			t.Fatalf("newly created cluster model has nil properties:\n%+v", cluster)
-		}
-
-		kube, subnetID, clusterParams, err := prepareClusterForTests(ctx, t, cloud, suiteConfig, cluster, paramCache)
-		if err != nil {
-			t.Fatalf("unable to prepare new cluster for test: %s", err)
-		}
-
-		*clusters = append(*clusters, cluster)
-
-		chosenCluster = cluster
-		chosenKubeClient = kube
-		chosenSubnetID = subnetID
-		chosenClusterParams = clusterParams
-	} else {
-		for _, viableCluster := range viableClusters {
-			var cluster *armcontainerservice.ManagedCluster
-
-			needRecreate, err := validateExistingClusterState(ctx, t, cloud, suiteConfig.resourceGroupName, viableCluster)
-			if err != nil {
-				t.Logf("unable to validate state of viable cluster %q: %s", *viableCluster.Name, err)
-				continue
-			}
-
-			if needRecreate {
-				t.Logf("viable cluster %q is in a bad state, attempting to recreate...", *viableCluster.Name)
-
-				newCluster, err := createNewCluster(ctx, cloud, suiteConfig.resourceGroupName, viableCluster)
-				if err != nil {
-					t.Logf("unable to recreate viable cluster %q: %s", *viableCluster.Name, err)
+	clusterConfigs []clusterConfig) (clusterConfig, error) {
+	var chosenConfig clusterConfig
+	for i := range clusterConfigs {
+		config := &clusterConfigs[i]
+		if scenario.Config.ClusterSelector(config.cluster) {
+			// only validate + prep the cluster for testing if we didn't just create it and it hasn't already been prepared
+			if !config.isNewCluster && config.needsPreparation() {
+				if err := validateAndPrepareCluster(ctx, cloud, suiteConfig, config); err != nil {
+					log.Printf("unable to validate and preprare cluster %q: %s", *config.cluster.Name, err)
 					continue
 				}
-				cluster = newCluster
-			} else {
-				cluster = viableCluster
 			}
-
-			kube, subnetID, clusterParams, err := prepareClusterForTests(ctx, t, cloud, suiteConfig, cluster, paramCache)
-			if err != nil {
-				t.Logf("unable to prepare viable cluster for testing: %s", err)
-				continue
-			}
-
-			chosenCluster = cluster
-			chosenKubeClient = kube
-			chosenSubnetID = subnetID
-			chosenClusterParams = clusterParams
+			chosenConfig = *config
 			break
 		}
 	}
 
-	if chosenCluster == nil {
-		t.Fatalf("unable to successfully choose a cluster for scenario %q", scenario.Name)
+	if chosenConfig.cluster == nil || chosenConfig.needsPreparation() {
+		return clusterConfig{}, fmt.Errorf("unable to successfully choose a cluster for scenario %q", scenario.Name)
 	}
 
-	if chosenCluster.Properties.NodeResourceGroup == nil {
-		t.Fatalf("tried to chose a cluster without a node resource group:\n%+v", *chosenCluster)
+	if chosenConfig.cluster.Properties.NodeResourceGroup == nil {
+		return clusterConfig{}, fmt.Errorf("tried to chose a cluster without a node resource group: %+v", *chosenConfig.cluster)
 	}
 
-	return chosenKubeClient, chosenCluster, chosenClusterParams, chosenSubnetID
+	return chosenConfig, nil
+}
+
+func validateAndPrepareCluster(ctx context.Context, cloud *azureClient, suiteConfig *suiteConfig, config *clusterConfig) error {
+	needRecreate, err := validateExistingClusterState(ctx, cloud, suiteConfig.resourceGroupName, config.cluster)
+	if err != nil {
+		return err
+	}
+
+	if needRecreate {
+		log.Printf("cluster %q is in a bad state, attempting to recreate...", *config.cluster.Name)
+		config.cluster, err = createNewCluster(ctx, cloud, suiteConfig.resourceGroupName, config.cluster)
+		if err != nil {
+			return err
+		}
+	}
+
+	kube, subnetId, clusterParams, err := prepareClusterForTests(ctx, cloud, suiteConfig, config.cluster)
+	if err != nil {
+		return err
+	}
+
+	config.kube = kube
+	config.parameters = clusterParams
+	config.subnetId = subnetId
+	return nil
 }
 
 func prepareClusterForTests(
 	ctx context.Context,
-	t *testing.T,
 	cloud *azureClient,
 	suiteConfig *suiteConfig,
-	cluster *armcontainerservice.ManagedCluster,
-	paramCache paramCache) (*kubeclient, string, map[string]string, error) {
+	cluster *armcontainerservice.ManagedCluster) (*kubeclient, string, clusterParameters, error) {
 	clusterName := *cluster.Name
 
-	subnetID, err := getClusterSubnetID(ctx, cloud, suiteConfig.location, *cluster.Properties.NodeResourceGroup, clusterName)
+	subnetId, err := getClusterSubnetID(ctx, cloud, suiteConfig.location, *cluster.Properties.NodeResourceGroup, clusterName)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("unable get subnet ID of cluster %q: %w", clusterName, err)
 	}
@@ -313,26 +358,24 @@ func prepareClusterForTests(
 		return nil, "", nil, fmt.Errorf("unable to ensure debug damonset of viable cluster %q: %w", clusterName, err)
 	}
 
-	clusterParams, err := getClusterParametersWithCache(ctx, t, kube, clusterName, paramCache)
+	clusterParams, err := pollExtractClusterParameters(ctx, kube)
 	if err != nil {
-		return nil, "", nil, fmt.Errorf("unable to get cluster paramters: %w", err)
+		return nil, "", nil, fmt.Errorf("unable to extract cluster parameters from %q: %w", clusterName, err)
 	}
 
-	return kube, subnetID, clusterParams, nil
+	return kube, subnetId, clusterParams, nil
 }
 
-func getClusterParametersWithCache(ctx context.Context, t *testing.T, kube *kubeclient, clusterName string, paramCache paramCache) (map[string]string, error) {
-	cachedParams, ok := paramCache[clusterName]
-	if !ok {
-		params, err := pollExtractClusterParameters(ctx, t, kube)
-		if err != nil {
-			return nil, fmt.Errorf("unable to extract cluster parameters from %q: %w", clusterName, err)
-		}
-		paramCache[clusterName] = params
-		return params, nil
-	} else {
-		return cachedParams, nil
+func getNewClusterModelForScenario(clusterName, location string, scenario *scenario.Scenario) armcontainerservice.ManagedCluster {
+	baseModel := getBaseClusterModel(clusterName, location)
+	if scenario.ClusterMutator != nil {
+		scenario.ClusterMutator(&baseModel)
 	}
+	return baseModel
+}
+
+func generateClusterName(r *mrand.Rand) string {
+	return fmt.Sprintf(testClusterNameTemplate, randomLowercaseString(r, 5))
 }
 
 func getBaseClusterModel(clusterName, location string) armcontainerservice.ManagedCluster {

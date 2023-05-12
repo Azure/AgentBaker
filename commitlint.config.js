@@ -8,6 +8,7 @@ module.exports = {
 			[
         // can add to this list for customization
 				'build',
+				'bump',
 				'chore',
 				'ci',
 				'docs',

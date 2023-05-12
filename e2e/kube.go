@@ -3,14 +3,9 @@ package e2e_test
 import (
 	"context"
 	"fmt"
-	"strings"
-	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -74,33 +69,4 @@ func getClusterKubeconfigBytes(ctx context.Context, cloud *azureClient, resource
 	}
 
 	return credentialList.Kubeconfigs[0].Value, nil
-}
-
-func waitUntilNodeReady(ctx context.Context, kube *kubeclient, vmssName string) (string, error) {
-	var nodeName string
-	err := wait.PollImmediateWithContext(ctx, 5*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
-		nodes, err := kube.typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return false, err
-		}
-
-		for _, node := range nodes.Items {
-			if strings.HasPrefix(node.Name, vmssName) {
-				for _, cond := range node.Status.Conditions {
-					if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
-						nodeName = node.Name
-						return true, nil
-					}
-				}
-			}
-		}
-
-		return false, nil
-	})
-
-	if err != nil {
-		return "", fmt.Errorf("failed to find or wait for node to be ready: %w", err)
-	}
-
-	return nodeName, nil
 }

@@ -284,6 +284,11 @@ function Test-RegistryAdded {
             Write-ErrorWithTimestamp "The registry for 3105872524 is not added"
             exit 1
         }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled)
+        if ($result.VfpEvenPodDistributionIsEnabled -ne 1) {
+            Write-ErrorWithTimestamp "The registry for VfpEvenPodDistributionIsEnabled is not added"
+            exit 1
+        }
     }
     if ($env:WindowsSKU -Like '2022*') {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2629306509)
@@ -309,6 +314,26 @@ function Test-RegistryAdded {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsAclUpdateChange)
         if ($result.HnsAclUpdateChange -ne 1) {
             Write-ErrorWithTimestamp "The registry for HnsAclUpdateChange is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNpmRefresh)
+        if ($result.HnsNpmRefresh -ne 1) {
+            Write-ErrorWithTimestamp "The registry for HnsNpmRefresh is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1995963020)
+        if ($result.1995963020 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 1995963020 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 189519500)
+        if ($result.189519500 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 189519500 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled)
+        if ($result.VfpEvenPodDistributionIsEnabled -ne 1) {
+            Write-ErrorWithTimestamp "The registry for VfpEvenPodDistributionIsEnabled is not added"
             exit 1
         }
     }

@@ -14,6 +14,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	minSizeNamePartCount = 2
+)
+
 // ValidateDNSPrefix is a helper function to check that a DNS Prefix is valid.
 func ValidateDNSPrefix(dnsName string) error {
 	dnsNameRegex := `^([A-Za-z][A-Za-z0-9-]{1,43}[A-Za-z0-9])$`
@@ -47,7 +51,7 @@ func IsMIGNode(gpuInstanceProfile string) bool {
 // GetStorageAccountType returns the support managed disk storage tier for a give VM size.
 func GetStorageAccountType(sizeName string) (string, error) {
 	spl := strings.Split(sizeName, "_")
-	if len(spl) < 2 {
+	if len(spl) < minSizeNamePartCount {
 		return "", errors.Errorf("Invalid sizeName: %s", sizeName)
 	}
 	capability := spl[1]
