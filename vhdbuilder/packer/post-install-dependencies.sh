@@ -1,6 +1,7 @@
 #!/bin/bash
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
+MARINER_OS_NAME="MARINER"
 
 source /home/packer/provision_installs.sh
 source /home/packer/provision_installs_distro.sh
@@ -31,6 +32,11 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   apt-get -y autoclean || exit 1
   apt-get -y autoremove --purge || exit 1
   apt-get -y clean || exit 1
+elif [[ $OS == $MARINER_OS_NAME ]]; then
+  current_kernel_version="$(uname -r | cut -d. -f-4)"
+  kernel_packages_to_remove=$(rpm -qa | grep "kernel" | grep -v $current_kernel_version)
+  dnf -y autoremove $kernel_packages_to_remove
+  dnf -y autoremove # remove all other unused packages
 fi
 
 # shellcheck disable=SC2129
