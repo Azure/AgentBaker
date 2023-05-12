@@ -52,9 +52,13 @@ endif
 endif
 
 az-login:
+ifeq (${OS_TYPE},Windows)
 	@echo "Logging into Azure with service principal..."
 	@az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
-	@az account set -s ${SUBSCRIPTION_ID}
+else
+	@echo "Logging into Azure with agent VM MSI..."
+	@az login --identity
+endif
 
 init-packer:
 	@./vhdbuilder/packer/init-variables.sh
