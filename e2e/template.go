@@ -1,11 +1,7 @@
 package e2e_test
 
 import (
-	"context"
 	"fmt"
-	"strconv"
-	"strings"
-	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
@@ -444,39 +440,6 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 	}
 }
 
-func getBaseNodeBootstrappingConfiguration(ctx context.Context, t *testing.T, cloud *azureClient, suiteConfig *suiteConfig, clusterParams clusterParameters) (*datamodel.NodeBootstrappingConfiguration, error) {
-	nbc := baseTemplate()
-	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = clusterParams["/etc/kubernetes/certs/ca.crt"]
-
-	bootstrapKubeconfig := clusterParams["/var/lib/kubelet/bootstrap-kubeconfig"]
-
-	bootstrapToken, err := extractKeyValuePair("token", bootstrapKubeconfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract bootstrap token via regex: %w", err)
-	}
-
-	bootstrapToken, err = strconv.Unquote(bootstrapToken)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unquote bootstrap token: %w", err)
-	}
-
-	server, err := extractKeyValuePair("server", bootstrapKubeconfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract fqdn via regex: %w", err)
-	}
-	tokens := strings.Split(server, ":")
-	if len(tokens) != 3 {
-		return nil, fmt.Errorf("expected 3 tokens from fqdn %q, got %d", server, len(tokens))
-	}
-	// strip off the // prefix from https://
-	fqdn := tokens[1][2:]
-
-	nbc.KubeletClientTLSBootstrapToken = &bootstrapToken
-	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = fqdn
-
-	return nbc, nil
-}
-
 func getDebugDaemonset() string {
 	return `apiVersion: apps/v1
 kind: Deployment
@@ -577,63 +540,4 @@ spec:
   nodeSelector:
     kubernetes.io/hostname: %[1]s
 `, nodeName)
-}
-
-type listVMSSVMNetworkInterfaceResult struct {
-	Value []struct {
-		Name       string `json:"name,omitempty"`
-		ID         string `json:"id,omitempty"`
-		Properties struct {
-			ProvisioningState string `json:"provisioningState,omitempty"`
-			IPConfigurations  []struct {
-				Name       string `json:"name,omitempty"`
-				ID         string `json:"id,omitempty"`
-				Properties struct {
-					ProvisioningState         string `json:"provisioningState,omitempty"`
-					PrivateIPAddress          string `json:"privateIPAddress,omitempty"`
-					PrivateIPAllocationMethod string `json:"privateIPAllocationMethod,omitempty"`
-					PublicIPAddress           struct {
-						ID string `json:"id,omitempty"`
-					} `json:"publicIPAddress,omitempty"`
-					Subnet struct {
-						ID string `json:"id,omitempty"`
-					} `json:"subnet,omitempty"`
-					Primary                         bool   `json:"primary,omitempty"`
-					PrivateIPAddressVersion         string `json:"privateIPAddressVersion,omitempty"`
-					LoadBalancerBackendAddressPools []struct {
-						ID string `json:"id,omitempty"`
-					} `json:"loadBalancerBackendAddressPools,omitempty"`
-					LoadBalancerInboundNatRules []struct {
-						ID string `json:"id,omitempty"`
-					} `json:"loadBalancerInboundNatRules,omitempty"`
-				} `json:"properties,omitempty"`
-			} `json:"ipConfigurations,omitempty"`
-			DNSSettings struct {
-				DNSServers               []interface{} `json:"dnsServers,omitempty"`
-				AppliedDNSServers        []interface{} `json:"appliedDnsServers,omitempty"`
-				InternalDomainNameSuffix string        `json:"internalDomainNameSuffix,omitempty"`
-			} `json:"dnsSettings,omitempty"`
-			MacAddress                  string `json:"macAddress,omitempty"`
-			EnableAcceleratedNetworking bool   `json:"enableAcceleratedNetworking,omitempty"`
-			EnableIPForwarding          bool   `json:"enableIPForwarding,omitempty"`
-			NetworkSecurityGroup        struct {
-				ID string `json:"id,omitempty"`
-			} `json:"networkSecurityGroup,omitempty"`
-			Primary        bool `json:"primary,omitempty"`
-			VirtualMachine struct {
-				ID string `json:"id,omitempty"`
-			} `json:"virtualMachine,omitempty"`
-		} `json:"properties,omitempty"`
-	} `json:"value,omitempty"`
-}
-
-func extractPrivateIP(res listVMSSVMNetworkInterfaceResult) (string, error) {
-	if len(res.Value) > 0 {
-		v := res.Value[0]
-		if len(v.Properties.IPConfigurations) > 0 {
-			ipconfig := v.Properties.IPConfigurations[0]
-			return ipconfig.Properties.PrivateIPAddress, nil
-		}
-	}
-	return "", fmt.Errorf("unable to extract private IP address from listVMSSNetworkInterfaceResult:\n%+v", res)
 }
