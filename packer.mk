@@ -59,6 +59,7 @@ else
 	@echo "Logging into Azure with agent VM MSI..."
 	@az login --identity
 endif
+	@az account set -s ${SUBSCRIPTION_ID}
 
 init-packer:
 	@./vhdbuilder/packer/init-variables.sh
