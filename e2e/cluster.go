@@ -7,6 +7,7 @@ import (
 	mrand "math/rand"
 	"strings"
 
+	"github.com/Azure/agentbakere2e/clients"
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
@@ -24,7 +25,7 @@ type parameterCache map[string]clusterParameters
 
 type clusterConfig struct {
 	cluster    *armcontainerservice.ManagedCluster
-	kube       *kubeclient
+	kube       *clients.KubeClient
 	parameters clusterParameters
 	subnetId   string
 }
@@ -49,8 +50,8 @@ func (c clusterConfig) needsPreparation() bool {
 	return c.kube == nil || c.parameters == nil || c.subnetId == ""
 }
 
-func isExistingResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupName string) (bool, error) {
-	rgExistence, err := cloud.resourceGroupClient.CheckExistence(ctx, resourceGroupName, nil)
+func isExistingResourceGroup(ctx context.Context, cloud *clients.AzureClient, resourceGroupName string) (bool, error) {
+	rgExistence, err := cloud.ResourceGroupClient.CheckExistence(ctx, resourceGroupName, nil)
 	if err != nil {
 		return false, fmt.Errorf("failed to get RG %q: %w", resourceGroupName, err)
 	}
@@ -58,7 +59,7 @@ func isExistingResourceGroup(ctx context.Context, cloud *azureClient, resourceGr
 	return rgExistence.Success, nil
 }
 
-func ensureResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupName string) error {
+func ensureResourceGroup(ctx context.Context, cloud *clients.AzureClient, resourceGroupName string) error {
 	log.Printf("ensuring resource group %q...", resourceGroupName)
 
 	rgExists, err := isExistingResourceGroup(ctx, cloud, resourceGroupName)
@@ -67,7 +68,7 @@ func ensureResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupN
 	}
 
 	if !rgExists {
-		_, err = cloud.resourceGroupClient.CreateOrUpdate(
+		_, err = cloud.ResourceGroupClient.CreateOrUpdate(
 			ctx,
 			resourceGroupName,
 			armresources.ResourceGroup{
@@ -86,13 +87,13 @@ func ensureResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupN
 
 func validateExistingClusterState(
 	ctx context.Context,
-	cloud *azureClient,
+	cloud *clients.AzureClient,
 	resourceGroupName string,
 	clusterModel *armcontainerservice.ManagedCluster) (bool, error) {
 	var needRecreate bool
 	clusterName := *clusterModel.Name
 
-	cluster, err := cloud.aksClient.Get(ctx, resourceGroupName, clusterName, nil)
+	cluster, err := cloud.AKSClient.Get(ctx, resourceGroupName, clusterName, nil)
 	if err != nil {
 		if isResourceNotFoundError(err) {
 			log.Printf("received ResourceNotFound error when trying to GET test cluster %q", clusterName)
@@ -122,10 +123,10 @@ func validateExistingClusterState(
 
 func createNewCluster(
 	ctx context.Context,
-	cloud *azureClient,
+	cloud *clients.AzureClient,
 	resourceGroupName string,
 	clusterModel *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
-	pollerResp, err := cloud.aksClient.BeginCreateOrUpdate(
+	pollerResp, err := cloud.AKSClient.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
 		*clusterModel.Name,
@@ -144,8 +145,8 @@ func createNewCluster(
 	return &clusterResp.ManagedCluster, nil
 }
 
-func deleteExistingCluster(ctx context.Context, cloud *azureClient, resourceGroupName, clusterName string) error {
-	poller, err := cloud.aksClient.BeginDelete(ctx, resourceGroupName, clusterName, nil)
+func deleteExistingCluster(ctx context.Context, cloud *clients.AzureClient, resourceGroupName, clusterName string) error {
+	poller, err := cloud.AKSClient.BeginDelete(ctx, resourceGroupName, clusterName, nil)
 	if err != nil {
 		return fmt.Errorf("failed to start aks cluster %q deletion: %w", clusterName, err)
 	}
@@ -158,8 +159,8 @@ func deleteExistingCluster(ctx context.Context, cloud *azureClient, resourceGrou
 	return nil
 }
 
-func getClusterSubnetID(ctx context.Context, cloud *azureClient, location, mcResourceGroupName, clusterName string) (string, error) {
-	pager := cloud.vnetClient.NewListPager(mcResourceGroupName, nil)
+func getClusterSubnetID(ctx context.Context, cloud *clients.AzureClient, location, mcResourceGroupName, clusterName string) (string, error) {
+	pager := cloud.VNetClient.NewListPager(mcResourceGroupName, nil)
 
 	for pager.More() {
 		nextResult, err := pager.NextPage(ctx)
@@ -177,9 +178,9 @@ func getClusterSubnetID(ctx context.Context, cloud *azureClient, location, mcRes
 	return "", fmt.Errorf("failed to find aks vnet")
 }
 
-func getInitialClusterConfigs(ctx context.Context, cloud *azureClient, resourceGroupName string) ([]clusterConfig, error) {
+func getInitialClusterConfigs(ctx context.Context, cloud *clients.AzureClient, resourceGroupName string) ([]clusterConfig, error) {
 	var configs []clusterConfig
-	pager := cloud.resourceClient.NewListByResourceGroupPager(resourceGroupName, nil)
+	pager := cloud.ResourceClient.NewListByResourceGroupPager(resourceGroupName, nil)
 
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -188,7 +189,7 @@ func getInitialClusterConfigs(ctx context.Context, cloud *azureClient, resourceG
 		}
 		for _, resource := range page.Value {
 			if strings.EqualFold(*resource.Type, managedClusterResourceType) {
-				cluster, err := cloud.aksClient.Get(ctx, resourceGroupName, *resource.Name, nil)
+				cluster, err := cloud.AKSClient.Get(ctx, resourceGroupName, *resource.Name, nil)
 				if err != nil {
 					if isNotFoundError(err) {
 						log.Printf("get aks cluster %q returned 404 Not Found, continuing to list clusters...", *resource.Name)
@@ -236,7 +237,7 @@ func hasViableConfig(scenario *scenario.Scenario, clusterConfigs []clusterConfig
 func createMissingClusters(
 	ctx context.Context,
 	r *mrand.Rand,
-	cloud *azureClient,
+	cloud *clients.AzureClient,
 	suiteConfig *suiteConfig,
 	scenarios scenario.Table,
 	paramCache parameterCache,
@@ -293,7 +294,7 @@ func createMissingClusters(
 func chooseCluster(
 	ctx context.Context,
 	r *mrand.Rand,
-	cloud *azureClient,
+	cloud *clients.AzureClient,
 	suiteConfig *suiteConfig,
 	scenario *scenario.Scenario,
 	paramCache parameterCache,
@@ -349,10 +350,10 @@ func chooseCluster(
 
 func prepareClusterForTests(
 	ctx context.Context,
-	cloud *azureClient,
+	cloud *clients.AzureClient,
 	suiteConfig *suiteConfig,
 	cluster *armcontainerservice.ManagedCluster,
-	paramCache parameterCache) (*kubeclient, string, clusterParameters, error) {
+	paramCache parameterCache) (*clients.KubeClient, string, clusterParameters, error) {
 	clusterName := *cluster.Name
 
 	subnetID, err := getClusterSubnetID(ctx, cloud, suiteConfig.location, *cluster.Properties.NodeResourceGroup, clusterName)
@@ -360,7 +361,7 @@ func prepareClusterForTests(
 		return nil, "", nil, fmt.Errorf("unable get subnet ID of cluster %q: %w", clusterName, err)
 	}
 
-	kube, err := getClusterKubeClient(ctx, cloud, suiteConfig.resourceGroupName, clusterName)
+	kube, err := clients.GetClusterKubeClient(ctx, cloud, suiteConfig.resourceGroupName, clusterName)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("unable get kube client using cluster %q: %w", clusterName, err)
 	}
@@ -377,7 +378,7 @@ func prepareClusterForTests(
 	return kube, subnetID, clusterParams, nil
 }
 
-func getClusterParametersWithCache(ctx context.Context, kube *kubeclient, clusterName string, paramCache parameterCache) (clusterParameters, error) {
+func getClusterParametersWithCache(ctx context.Context, kube *clients.KubeClient, clusterName string, paramCache parameterCache) (clusterParameters, error) {
 	cachedParams, ok := paramCache[clusterName]
 	if !ok {
 		params, err := pollExtractClusterParameters(ctx, kube)

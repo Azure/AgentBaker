@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/clients"
+	"github.com/Azure/agentbakere2e/exec"
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/barkimedes/go-deepcopy"
 )
@@ -29,7 +31,7 @@ func Test_All(t *testing.T) {
 
 	scenarios := scenario.InitScenarioTable(suiteConfig.scenariosToRun)
 
-	cloud, err := newAzureClient(suiteConfig.subscription)
+	cloud, err := clients.NewAzureClient(suiteConfig.subscription)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +86,7 @@ func Test_All(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			opts := &scenarioRunOpts{
+			opts := &runOpts{
 				clusterConfig: clusterConfig,
 				cloud:         cloud,
 				suiteConfig:   suiteConfig,
@@ -98,7 +100,7 @@ func Test_All(t *testing.T) {
 	}
 }
 
-func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts) {
+func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *runOpts) {
 	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair(r)
 	if err != nil {
 		t.Error(err)
@@ -134,14 +136,7 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		t.Fatalf("unable to get debug pod name: %s", err)
 	}
 
-	executor := remoteCommandExecutor{
-		ctx:           ctx,
-		kube:          opts.clusterConfig.kube,
-		namespace:     defaultNamespace,
-		debugPodName:  debugPodName,
-		vmPrivateIP:   vmPrivateIP,
-		sshPrivateKey: string(privateKeyBytes),
-	}
+	executor := exec.NewRemoteCommandExecutor(ctx, opts.clusterConfig.kube, defaultNamespace, debugPodName, vmPrivateIP, string(privateKeyBytes))
 
 	// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
 	defer func() {
@@ -159,29 +154,19 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 
 	// Only perform node readiness/pod-related checks when VMSS creation succeeded
 	if vmssSucceeded {
-		log.Println("vmss creation succeded, proceeding with node readiness and pod checks...")
-		nodeName, err := validateNodeHealth(ctx, opts.clusterConfig.kube, vmssName)
+		nodeName, err := pollGetNodeName(ctx, opts.clusterConfig.kube, vmssName)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("unable to query for new node name: %s", err)
 		}
 
-		if opts.nbc.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi {
-			log.Println("wasm scenario: running wasm validation...")
-			if err := ensureWasmRuntimeClasses(ctx, opts.clusterConfig.kube); err != nil {
-				t.Fatalf("unable to ensure wasm RuntimeClasses: %s", err)
-			}
-			if err := validateWasm(ctx, nodeName, opts.clusterConfig.kube, executor); err != nil {
-				t.Fatalf("unable to validate wasm: %s", err)
-			}
+		log.Println("vmss creation succeded, proceeding with k8s validation...")
+		if err := runK8sValidators(ctx, nodeName, *executor, opts); err != nil {
+			t.Fatal("k8s validation failed: %s", err)
 		}
 
-		log.Println("node is ready, proceeding with validation commands...")
-
-		err = runLiveVMValidators(ctx, vmssName, executor, opts)
-		if err != nil {
-			t.Fatalf("VM validation failed: %s", err)
+		log.Println("k8s validation succeeded, proceeding with live VM validation...")
+		if err := runLiveVMValidators(ctx, *executor, opts); err != nil {
+			t.Fatal("live VM validation failed: %s", err)
 		}
-
-		log.Println("node bootstrapping succeeded!")
 	}
 }

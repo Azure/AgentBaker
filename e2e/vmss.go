@@ -12,6 +12,7 @@ import (
 	mrand "math/rand"
 	"testing"
 
+	"github.com/Azure/agentbakere2e/clients"
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -19,7 +20,11 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts, publicKeyBytes []byte) (string, *armcompute.VirtualMachineScaleSet, func(), error) {
+const (
+	listVMSSNetworkInterfaceURLTemplate = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
+)
+
+func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *runOpts, publicKeyBytes []byte) (string, *armcompute.VirtualMachineScaleSet, func(), error) {
 	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("unable to get node bootstrapping: %w", err)
@@ -30,7 +35,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scena
 
 	cleanupVMSS := func() {
 		log.Printf("deleting vmss %q", vmssName)
-		poller, err := opts.cloud.vmssClient.BeginDelete(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName, nil)
+		poller, err := opts.cloud.VMSSClient.BeginDelete(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName, nil)
 		if err != nil {
 			t.Error("error deleting vmss", vmssName, err)
 			return
@@ -50,7 +55,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scena
 	return vmssName, vmssModel, cleanupVMSS, nil
 }
 
-func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
+func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *runOpts) (*armcompute.VirtualMachineScaleSet, error) {
 	model := getBaseVMSSModel(vmssName, opts.suiteConfig.location, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, opts.clusterConfig.subnetId, string(publicKeyBytes), customData, cseCmd)
 
 	isAzureCNI, err := opts.clusterConfig.isAzureCNI()
@@ -68,7 +73,7 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 		opts.scenario.VMConfigMutator(&model)
 	}
 
-	pollerResp, err := opts.cloud.vmssClient.BeginCreateOrUpdate(
+	pollerResp, err := opts.cloud.VMSSClient.BeginCreateOrUpdate(
 		ctx,
 		*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
 		vmssName,
@@ -90,7 +95,7 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 // Adds additional IP configs to the passed in vmss model based on the chosen cluster's setting of "maxPodsPerNode",
 // as we need be able to allow AKS to allocate an additional IP config for each pod running on the given node.
 // Additional info: https://learn.microsoft.com/en-us/azure/aks/configure-azure-cni
-func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssName string, opts *scenarioRunOpts) error {
+func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssName string, opts *runOpts) error {
 	maxPodsPerNode, err := opts.clusterConfig.maxPodsPerNode()
 	if err != nil {
 		return fmt.Errorf("failed to read agentpool MaxPods value from chosen cluster model: %w", err)
@@ -117,8 +122,8 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 	return nil
 }
 
-func getVMPrivateIPAddress(ctx context.Context, cloud *azureClient, subscription, mcResourceGroupName, vmssName string) (string, error) {
-	pl := cloud.coreClient.Pipeline()
+func getVMPrivateIPAddress(ctx context.Context, cloud *clients.AzureClient, subscription, mcResourceGroupName, vmssName string) (string, error) {
+	pl := cloud.CoreClient.Pipeline()
 	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
 		subscription,
 		mcResourceGroupName,

@@ -42,4 +42,7 @@ type Config struct {
 	// LiveVMValidators is a slice of LiveVMValidator objects for performing any live VM validation
 	// specific to the scenario that isn't covered in the set of common validators run with all scenarios
 	LiveVMValidators []*validation.LiveVMValidator
+
+	// K8sValidators is a slice of K8sValidator objects for performing any k8s-level validation specific to the given scenario
+	K8sValidators []*validation.K8sValidator
 }

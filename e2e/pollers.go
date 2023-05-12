@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/agentbakere2e/clients"
+	"github.com/Azure/agentbakere2e/exec"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -19,8 +21,6 @@ const (
 	extractClusterParametersPollInterval = 10 * time.Second
 	extractVMLogsPollInterval            = 10 * time.Second
 	getVMPrivateIPAddressPollInterval    = 5 * time.Second
-	waitUntilPodRunningPollInterval      = 5 * time.Second
-	waitUntilPodDeletedPollInterval      = 5 * time.Second
 
 	// Polling timeouts
 	execOnVMPollingTimeout                 = 3 * time.Minute
@@ -28,14 +28,12 @@ const (
 	extractClusterParametersPollingTimeout = 3 * time.Minute
 	extractVMLogsPollingTimeout            = 5 * time.Minute
 	getVMPrivateIPAddressPollingTimeout    = 1 * time.Minute
-	waitUntilPodRunningPollingTimeout      = 3 * time.Minute
-	waitUntilPodDeletedPollingTimeout      = 1 * time.Minute
 )
 
-func pollExecOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey, command string) (*podExecResult, error) {
-	var execResult *podExecResult
+func pollExecOnVM(ctx context.Context, executor *exec.RemoteCommandExecutor, command string) (*exec.ExecResult, error) {
+	var execResult *exec.ExecResult
 	err := wait.PollImmediateWithContext(ctx, execOnVMPollInterval, execOnVMPollingTimeout, func(ctx context.Context) (bool, error) {
-		res, err := execOnVM(ctx, kube, vmPrivateIP, jumpboxPodName, sshPrivateKey, command)
+		res, err := executor.OnVM(command)
 		if err != nil {
 			log.Printf("unable to execute command on VM: %s", err)
 
@@ -47,7 +45,7 @@ func pollExecOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPod
 		}
 
 		// this denotes a retriable SSH failure
-		if res.exitCode == "255" {
+		if res.ExitCode == "255" {
 			return false, nil
 		}
 
@@ -62,10 +60,10 @@ func pollExecOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPod
 	return execResult, nil
 }
 
-func pollExecOnPod(ctx context.Context, kube *kubeclient, namespace, podName, command string) (*podExecResult, error) {
-	var execResult *podExecResult
+func pollExecOnPod(ctx context.Context, executor *exec.RemoteCommandExecutor, command []string) (*exec.ExecResult, error) {
+	var execResult *exec.ExecResult
 	err := wait.PollImmediateWithContext(ctx, execOnPodPollInterval, execOnPodPollingTimeout, func(ctx context.Context) (bool, error) {
-		res, err := execOnPod(ctx, kube, namespace, podName, append(bashCommandArray(), command))
+		res, err := executor.OnPod(command)
 		if err != nil {
 			log.Printf("unable to execute command on pod: %s", err)
 
@@ -87,10 +85,10 @@ func pollExecOnPod(ctx context.Context, kube *kubeclient, namespace, podName, co
 	return execResult, nil
 }
 
-func pollExecOnPriviledgedPod(ctx context.Context, kube *kubeclient, namespace, podName, command string) (*podExecResult, error) {
-	var execResult *podExecResult
+func pollExecOnPriviledgedPod(ctx context.Context, executor *exec.RemoteCommandExecutor, command string) (*exec.ExecResult, error) {
+	var execResult *exec.ExecResult
 	err := wait.PollImmediateWithContext(ctx, execOnPodPollInterval, execOnPodPollingTimeout, func(ctx context.Context) (bool, error) {
-		res, err := execOnPrivilegedPod(ctx, kube, namespace, podName, command)
+		res, err := executor.OnPrivilegedPod(command)
 		if err != nil {
 			log.Printf("unable to execute command on priviledged pod: %s", err)
 
@@ -113,10 +111,10 @@ func pollExecOnPriviledgedPod(ctx context.Context, kube *kubeclient, namespace, 
 }
 
 // Wraps extractClusterParameters in a poller with a 10-second wait interval and 3-minute timeout
-func pollExtractClusterParameters(ctx context.Context, kube *kubeclient) (map[string]string, error) {
+func pollExtractClusterParameters(ctx context.Context, executor *exec.RemoteCommandExecutor) (map[string]string, error) {
 	var clusterParams map[string]string
 	err := wait.PollImmediateWithContext(ctx, extractClusterParametersPollInterval, extractClusterParametersPollingTimeout, func(ctx context.Context) (bool, error) {
-		params, err := extractClusterParameters(ctx, kube)
+		params, err := extractClusterParameters(ctx, executor)
 		if err != nil {
 			log.Printf("error extracting cluster parameters: %q", err)
 			return false, nil
@@ -132,7 +130,7 @@ func pollExtractClusterParameters(ctx context.Context, kube *kubeclient) (map[st
 	return clusterParams, nil
 }
 
-func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *scenarioRunOpts) (string, error) {
+func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *runOpts) (string, error) {
 	var vmPrivateIP string
 	err := wait.PollImmediateWithContext(ctx, getVMPrivateIPAddressPollInterval, getVMPrivateIPAddressPollingTimeout, func(ctx context.Context) (bool, error) {
 		pip, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName)
@@ -151,10 +149,10 @@ func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *scenarioRunO
 	return vmPrivateIP, nil
 }
 
-func waitUntilNodeReady(ctx context.Context, kube *kubeclient, vmssName string) (string, error) {
+func pollGetNodeName(ctx context.Context, kube *clients.KubeClient, vmssName string) (string, error) {
 	var nodeName string
 	err := wait.PollImmediateWithContext(ctx, 5*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
-		nodes, err := kube.typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+		nodes, err := kube.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -178,22 +176,4 @@ func waitUntilNodeReady(ctx context.Context, kube *kubeclient, vmssName string) 
 	}
 
 	return nodeName, nil
-}
-
-func waitUntilPodRunning(ctx context.Context, kube *kubeclient, podName string) error {
-	return wait.PollImmediateWithContext(ctx, waitUntilPodRunningPollInterval, waitUntilPodRunningPollingTimeout, func(ctx context.Context) (bool, error) {
-		pod, err := kube.typed.CoreV1().Pods(defaultNamespace).Get(ctx, podName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-
-		return pod.Status.Phase == corev1.PodPhase("Running"), nil
-	})
-}
-
-func waitUntilPodDeleted(ctx context.Context, kube *kubeclient, podName string) error {
-	return wait.PollImmediateWithContext(ctx, waitUntilPodDeletedPollInterval, waitUntilPodDeletedPollingTimeout, func(ctx context.Context) (bool, error) {
-		err := kube.typed.CoreV1().Pods(defaultNamespace).Delete(ctx, podName, metav1.DeleteOptions{})
-		return err == nil, err
-	})
 }

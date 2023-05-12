@@ -1,5 +1,12 @@
 package validation
 
+import (
+	"context"
+
+	"github.com/Azure/agentbakere2e/clients"
+	"github.com/Azure/agentbakere2e/exec"
+)
+
 // VMCommandOutputAsserterFn is a function which takes in an exit code as well as stdout and stderr stream content
 // as strings and performs arbitrary assertions on them, returning an error in the case where the assertion fails
 type VMCommandOutputAsserterFn func(code, stdout, stderr string) error
@@ -16,4 +23,16 @@ type LiveVMValidator struct {
 
 	// Asserter is the validator's VMCommandOutputAsserterFn which will be run against command output
 	Asserter VMCommandOutputAsserterFn
+}
+
+type K8sValidationConfig struct {
+	Namespace string
+	NodeName  string
+}
+
+type K8sValidatorFn func(ctx context.Context, kube *clients.KubeClient, executor exec.RemoteCommandExecutor, validationConfig K8sValidationConfig) error
+
+type K8sValidator struct {
+	Description string
+	ValidatorFn K8sValidatorFn
 }
