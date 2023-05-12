@@ -14,6 +14,8 @@ import (
 
 // AllKubernetesSupportedVersions is a whitelist map of all supported Kubernetes version strings.
 // The bool value indicates if creating new clusters with this version is allowed.
+//
+//nolint:gochecknoglobals
 var AllKubernetesSupportedVersions = map[string]bool{
 	"1.6.6":          false,
 	"1.6.9":          true, // need to keep 1.6.9 version support for v20160930.
@@ -215,8 +217,9 @@ a default version string if not.
 */
 func GetSupportedKubernetesVersion(version string, hasWindows bool) string {
 	k8sVersion := GetDefaultKubernetesVersion(hasWindows)
+	allKubernetesWindowsSupportedVersions := getAllKubernetesWindowsSupportedVersionsMap()
 	if hasWindows {
-		if AllKubernetesWindowsSupportedVersions[version] {
+		if allKubernetesWindowsSupportedVersions[version] {
 			k8sVersion = version
 		}
 	} else {
@@ -231,8 +234,9 @@ func GetSupportedKubernetesVersion(version string, hasWindows bool) string {
 func GetAllSupportedKubernetesVersions(isUpdate, hasWindows bool) []string {
 	var versions []string
 	allSupportedVersions := AllKubernetesSupportedVersions
+	allKubernetesWindowsSupportedVersions := getAllKubernetesWindowsSupportedVersionsMap()
 	if hasWindows {
-		allSupportedVersions = AllKubernetesWindowsSupportedVersions
+		allSupportedVersions = allKubernetesWindowsSupportedVersions
 	}
 	for ver, supported := range allSupportedVersions {
 		if isUpdate || supported {
@@ -340,9 +344,6 @@ func getSortedSemverVersions(versions []string, preRelease bool) []semver.Versio
 	semver.Sort(semverVersions)
 	return semverVersions
 }
-
-// AllKubernetesWindowsSupportedVersions maintain a set of available k8s Windows versions in aks-engine.
-var AllKubernetesWindowsSupportedVersions = getAllKubernetesWindowsSupportedVersionsMap()
 
 func getAllKubernetesWindowsSupportedVersionsMap() map[string]bool {
 	ret := make(map[string]bool)
