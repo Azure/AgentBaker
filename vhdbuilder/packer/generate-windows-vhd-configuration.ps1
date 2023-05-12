@@ -48,8 +48,8 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0",
             # azuredisk-csi:v1.27 is only for AKS 1.26+, v1.26 is for other AKS versions
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.3",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.4",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.1",
             # azurefile-csi:v1.26 is only for AKS 1.26+, v1.24 is for other AKS versions
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
@@ -80,8 +80,8 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0",
             # azuredisk-csi:v1.27 is only for AKS 1.26+, v1.26 is for other AKS versions
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.3",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.4",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.1",
             # azurefile-csi:v1.26 is only for AKS 1.26+, v1.24 is for other AKS versions
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
@@ -115,8 +115,8 @@ if ($windowsSku -eq "2019") {
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
             "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0",
             # azuredisk-csi:v1.27 is only for AKS 1.26+, v1.26 is for other AKS versions
-            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.2",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.3",
+            "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.4",
             "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.1",
             # azurefile-csi:v1.26 is only for AKS 1.26+, v1.24 is for other AKS versions
             "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
