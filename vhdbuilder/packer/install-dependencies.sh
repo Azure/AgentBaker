@@ -81,7 +81,9 @@ EOF
 fi
 
 installDeps
-installKataDeps
+if grep -q "kata" <<< "$FEATURE_FLAGS"; then  
+  installKataDeps
+fi
 
 # CVM breaks on kernel image updates due to nullboot package post-install.
 # it relies on boot measurements from real tpm hardware.
@@ -147,9 +149,9 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     fixCBLMarinerPermissions
     addMarinerNvidiaRepo
     overrideNetworkConfig || exit 1
-    #if grep -q "kata" <<< "$FEATURE_FLAGS"; then
-    setupMSHV
-    #fi
+    if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+      setupMSHV
+    fi
     disableDNFAutomatic
     enableCheckRestart
     activateNfConntrack
@@ -293,6 +295,7 @@ unpackAzureCNI() {
 
 #must be both amd64/arm64 images
 VNET_CNI_VERSIONS="
+1.4.43
 1.4.35
 "
 

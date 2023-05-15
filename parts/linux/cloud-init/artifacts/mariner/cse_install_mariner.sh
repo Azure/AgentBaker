@@ -26,9 +26,6 @@ installDeps() {
 }
 
 installKataDeps() {
-    echo "mitchzhu kata packages"
-
-    # install kata deps for 2.0;
     if [[ $OS_VERSION == "2.0" ]]; then
       for dnf_package in kernel-mshv kernel-uvm cloud-hypervisor kata-containers; do
         if ! dnf_install 30 1 600 $dnf_package; then
@@ -37,17 +34,17 @@ installKataDeps() {
       done
 
       echo "wget mshv packages"
-      wget "https://mitchzhu.blob.core.windows.net/public/mshv-25309.1000.230224-1334.1.cm2.x86_64.rpm" -O mshv-25309.1000.230224-1334.1.cm2.x86_64.rpm
       wget "https://mitchzhu.blob.core.windows.net/public/mshv-bootloader-25309.1000.230224-1334.1.cm2.x86_64.rpm" -O mshv-bootloader-25309.1000.230224-1334.1.cm2.x86_64.rpm
       wget "https://mitchzhu.blob.core.windows.net/public/mshv-linuxloader-0.4.0-1.2.cm2.x86_64.rpm" -O mshv-linuxloader-0.4.0-1.2.cm2.x86_64.rpm
+      wget "https://mitchzhu.blob.core.windows.net/public/mshv-25309.1000.230224-1334.1.cm2.x86_64.rpm" -O mshv-25309.1000.230224-1334.1.cm2.x86_64.rpm
 
       rpm -ihv mshv-bootloader-25309.1000.230224-1334.1.cm2.x86_64.rpm
       rpm -ihv mshv-linuxloader-0.4.0-1.2.cm2.x86_64.rpm
       rpm -ihv mshv-25309.1000.230224-1334.1.cm2.x86_64.rpm
 
-      rm mshv-25309.1000.230224-1334.1.cm2.x86_64.rpm
       rm mshv-bootloader-25309.1000.230224-1334.1.cm2.x86_64.rpm
       rm mshv-linuxloader-0.4.0-1.2.cm2.x86_64.rpm
+      rm mshv-25309.1000.230224-1334.1.cm2.x86_64.rpm
     fi
 }
 
