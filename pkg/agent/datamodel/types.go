@@ -1235,6 +1235,8 @@ func (w *WindowsProfile) IsAlwaysPullWindowsPauseImage() bool {
 }
 
 // IsWindowsSecureTLSEnabled returns true if secure TLS should be enabled for Windows nodes.
+//
+//nolint:revive,stylecheck // allign func name with field name
 func (w *WindowsProfile) IsWindowsSecureTlsEnabled() bool {
 	if w.WindowsSecureTlsEnabled != nil {
 		return *w.WindowsSecureTlsEnabled
