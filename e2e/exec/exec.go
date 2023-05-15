@@ -103,6 +103,7 @@ func execOnVM(ctx context.Context, kube *clients.KubeClient, namespace, jumpboxP
 }
 
 func execOnPod(ctx context.Context, kube *clients.KubeClient, namespace, podName string, command []string) (*ExecResult, error) {
+	log.Printf("executing command on pod: %q", command)
 	req := kube.Typed.CoreV1().RESTClient().Post().Resource("pods").Name(podName).Namespace(namespace).SubResource("exec")
 
 	option := &corev1.PodExecOptions{
