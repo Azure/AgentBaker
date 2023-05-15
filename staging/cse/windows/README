@@ -45,8 +45,9 @@ pushd aks-windows-cse
 		   curl -O "$url/provisioningscripts/$file"
 		done
 	popd
+
+	zip -r "../aks-windows-cse-scripts-$testCseVersion.zip" *
 popd
-zip -r "aks-windows-cse-scripts-$testCseVersion.zip" aks-windows-cse/*
 ```
 1. Upload the test package to an Azure storage container
 1. Test it with AKS RP in the toggle `windows-cse-package-url.yaml`
