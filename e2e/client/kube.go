@@ -1,4 +1,4 @@
-package e2e_test
+package client
 
 import (
 	"context"
@@ -13,13 +13,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type kubeclient struct {
-	dynamic client.Client
-	typed   kubernetes.Interface
-	rest    *rest.Config
+type Kube struct {
+	Dynamic client.Client
+	Typed   kubernetes.Interface
+	Rest    *rest.Config
 }
 
-func newKubeclient(config *rest.Config) (*kubeclient, error) {
+func newKubeClient(config *rest.Config) (*Kube, error) {
 	dynamic, err := client.New(config, client.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create dynamic kubeclient: %w", err)
@@ -32,14 +32,14 @@ func newKubeclient(config *rest.Config) (*kubeclient, error) {
 
 	typed := kubernetes.New(restClient)
 
-	return &kubeclient{
-		dynamic: dynamic,
-		typed:   typed,
-		rest:    config,
+	return &Kube{
+		Dynamic: dynamic,
+		Typed:   typed,
+		Rest:    config,
 	}, nil
 }
 
-func getClusterKubeClient(ctx context.Context, cloud *azureClient, resourceGroupName, clusterName string) (*kubeclient, error) {
+func GetClusterKubeClient(ctx context.Context, cloud *Azure, resourceGroupName, clusterName string) (*Kube, error) {
 	data, err := getClusterKubeconfigBytes(ctx, cloud, resourceGroupName, clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster kubeconfig bytes: %w", err)
@@ -55,11 +55,11 @@ func getClusterKubeClient(ctx context.Context, cloud *azureClient, resourceGroup
 		Version: "v1",
 	}
 
-	return newKubeclient(restConfig)
+	return newKubeClient(restConfig)
 }
 
-func getClusterKubeconfigBytes(ctx context.Context, cloud *azureClient, resourceGroupName, clusterName string) ([]byte, error) {
-	credentialList, err := cloud.aksClient.ListClusterAdminCredentials(ctx, resourceGroupName, clusterName, nil)
+func getClusterKubeconfigBytes(ctx context.Context, azureClient *Azure, resourceGroupName, clusterName string) ([]byte, error) {
+	credentialList, err := azureClient.AKSClient.ListClusterAdminCredentials(ctx, resourceGroupName, clusterName, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list cluster admin credentials: %w", err)
 	}

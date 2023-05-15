@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/validation"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 )
@@ -23,6 +24,9 @@ func ubuntu2204Wasm() *Scenario {
 				vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
 					ID: to.Ptr(DefaultImageVersionIDs["ubuntu2204"]),
 				}
+			},
+			K8sValidators: []*validation.K8sValidator{
+				validation.WASMValidator(),
 			},
 		},
 	}

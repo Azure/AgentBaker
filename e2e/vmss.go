@@ -4,22 +4,20 @@ import (
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"io"
 	"log"
 	mrand "math/rand"
 	"testing"
 
 	"github.com/Azure/agentbakere2e/scenario"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
+	azureutils "github.com/Azure/agentbakere2e/utils/azure"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"golang.org/x/crypto/ssh"
 )
 
-func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts, publicKeyBytes []byte) (string, *armcompute.VirtualMachineScaleSet, func(), error) {
+func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *runOpts, publicKeyBytes []byte) (string, *armcompute.VirtualMachineScaleSet, func(), error) {
 	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("unable to get node bootstrapping: %w", err)
@@ -30,7 +28,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scena
 
 	cleanupVMSS := func() {
 		log.Printf("deleting vmss %q", vmssName)
-		poller, err := opts.cloud.vmssClient.BeginDelete(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName, nil)
+		poller, err := opts.cloud.VMSSClient.BeginDelete(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName, nil)
 		if err != nil {
 			t.Error("error deleting vmss", vmssName, err)
 			return
@@ -50,7 +48,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scena
 	return vmssName, vmssModel, cleanupVMSS, nil
 }
 
-func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
+func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *runOpts) (*armcompute.VirtualMachineScaleSet, error) {
 	model := getBaseVMSSModel(vmssName, opts.suiteConfig.location, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, opts.clusterConfig.subnetId, string(publicKeyBytes), customData, cseCmd)
 
 	isAzureCNI, err := opts.clusterConfig.isAzureCNI()
@@ -68,7 +66,7 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 		opts.scenario.VMConfigMutator(&model)
 	}
 
-	pollerResp, err := opts.cloud.vmssClient.BeginCreateOrUpdate(
+	pollerResp, err := opts.cloud.VMSSClient.BeginCreateOrUpdate(
 		ctx,
 		*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
 		vmssName,
@@ -90,7 +88,7 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 // Adds additional IP configs to the passed in vmss model based on the chosen cluster's setting of "maxPodsPerNode",
 // as we need be able to allow AKS to allocate an additional IP config for each pod running on the given node.
 // Additional info: https://learn.microsoft.com/en-us/azure/aks/configure-azure-cni
-func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssName string, opts *scenarioRunOpts) error {
+func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssName string, opts *runOpts) error {
 	maxPodsPerNode, err := opts.clusterConfig.maxPodsPerNode()
 	if err != nil {
 		return fmt.Errorf("failed to read agentpool MaxPods value from chosen cluster model: %w", err)
@@ -108,52 +106,13 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 		}
 		podIPConfigs = append(podIPConfigs, ipConfig)
 	}
-	vmssNICConfig, err := getVMSSNICConfig(vmss)
+	vmssNICConfig, err := azureutils.GetVMSSNICConfig(vmss)
 	if err != nil {
 		return fmt.Errorf("unable to get vmss nic: %w", err)
 	}
 	vmss.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations[0].Properties.IPConfigurations =
 		append(vmssNICConfig.Properties.IPConfigurations, podIPConfigs...)
 	return nil
-}
-
-func getVMPrivateIPAddress(ctx context.Context, cloud *azureClient, subscription, mcResourceGroupName, vmssName string) (string, error) {
-	pl := cloud.coreClient.Pipeline()
-	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
-		subscription,
-		mcResourceGroupName,
-		vmssName,
-		0,
-	)
-	req, err := runtime.NewRequest(ctx, "GET", url)
-	if err != nil {
-		return "", err
-	}
-
-	resp, err := pl.Do(req)
-	if err != nil {
-		return "", err
-	}
-
-	defer resp.Body.Close()
-
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	var instanceNICResult listVMSSVMNetworkInterfaceResult
-
-	if err := json.Unmarshal(respBytes, &instanceNICResult); err != nil {
-		return "", err
-	}
-
-	privateIP, err := getPrivateIP(instanceNICResult)
-	if err != nil {
-		return "", err
-	}
-
-	return privateIP, nil
 }
 
 // Returns a newly generated RSA public/private key pair with the private key in PEM format.
@@ -281,52 +240,4 @@ func getBaseVMSSModel(name, location, mcResourceGroupName, subnetID, sshPublicKe
 			},
 		},
 	}
-}
-
-type listVMSSVMNetworkInterfaceResult struct {
-	Value []struct {
-		Name       string `json:"name,omitempty"`
-		ID         string `json:"id,omitempty"`
-		Properties struct {
-			ProvisioningState string `json:"provisioningState,omitempty"`
-			IPConfigurations  []struct {
-				Name       string `json:"name,omitempty"`
-				ID         string `json:"id,omitempty"`
-				Properties struct {
-					ProvisioningState         string `json:"provisioningState,omitempty"`
-					PrivateIPAddress          string `json:"privateIPAddress,omitempty"`
-					PrivateIPAllocationMethod string `json:"privateIPAllocationMethod,omitempty"`
-					PublicIPAddress           struct {
-						ID string `json:"id,omitempty"`
-					} `json:"publicIPAddress,omitempty"`
-					Subnet struct {
-						ID string `json:"id,omitempty"`
-					} `json:"subnet,omitempty"`
-					Primary                         bool   `json:"primary,omitempty"`
-					PrivateIPAddressVersion         string `json:"privateIPAddressVersion,omitempty"`
-					LoadBalancerBackendAddressPools []struct {
-						ID string `json:"id,omitempty"`
-					} `json:"loadBalancerBackendAddressPools,omitempty"`
-					LoadBalancerInboundNatRules []struct {
-						ID string `json:"id,omitempty"`
-					} `json:"loadBalancerInboundNatRules,omitempty"`
-				} `json:"properties,omitempty"`
-			} `json:"ipConfigurations,omitempty"`
-			DNSSettings struct {
-				DNSServers               []interface{} `json:"dnsServers,omitempty"`
-				AppliedDNSServers        []interface{} `json:"appliedDnsServers,omitempty"`
-				InternalDomainNameSuffix string        `json:"internalDomainNameSuffix,omitempty"`
-			} `json:"dnsSettings,omitempty"`
-			MacAddress                  string `json:"macAddress,omitempty"`
-			EnableAcceleratedNetworking bool   `json:"enableAcceleratedNetworking,omitempty"`
-			EnableIPForwarding          bool   `json:"enableIPForwarding,omitempty"`
-			NetworkSecurityGroup        struct {
-				ID string `json:"id,omitempty"`
-			} `json:"networkSecurityGroup,omitempty"`
-			Primary        bool `json:"primary,omitempty"`
-			VirtualMachine struct {
-				ID string `json:"id,omitempty"`
-			} `json:"virtualMachine,omitempty"`
-		} `json:"properties,omitempty"`
-	} `json:"value,omitempty"`
 }
