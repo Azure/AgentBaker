@@ -103,7 +103,6 @@ func execOnVM(ctx context.Context, kube *clients.KubeClient, namespace, jumpboxP
 }
 
 func execOnPod(ctx context.Context, kube *clients.KubeClient, namespace, podName string, command []string) (*ExecResult, error) {
-	log.Printf("executing command on pod: %q", command)
 	req := kube.Typed.CoreV1().RESTClient().Post().Resource("pods").Name(podName).Namespace(namespace).SubResource("exec")
 
 	option := &corev1.PodExecOptions{
@@ -142,6 +141,10 @@ func execOnPod(ctx context.Context, kube *clients.KubeClient, namespace, podName
 			return nil, fmt.Errorf("encountered unexpected error when executing command on pod: %w", err)
 		}
 	}
+
+	// if exitCode != "0" {
+	// 	log.Printf("non-zero exit code when executing command on pod: %q", command)
+	// }
 
 	return &ExecResult{
 		ExitCode: exitCode,

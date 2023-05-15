@@ -1,15 +1,10 @@
 package exec
 
-import "fmt"
+import "strings"
 
-func CurlCommand(url string) string {
-	return fmt.Sprintf(`curl \
---connect-timeout 5 \
---max-time 10 \
---retry 10 \
---retry-max-time 100 \
-%s`, url)
-}
+const (
+	commandSeperator = " "
+)
 
 func BashCommandArray() []string {
 	return []string{
@@ -27,4 +22,19 @@ func NSEnterCommandArray() []string {
 		"bash",
 		"-c",
 	}
+}
+
+func CurlCommandArray(url string) []string {
+	return []string{
+		"curl",
+		"--connect-timeout 5",
+		"--max-time 10",
+		"--retry 10",
+		"--retry-max-time 100",
+		url,
+	}
+}
+
+func CommandArrayToString(commandArray []string) string {
+	return strings.Join(commandArray, commandSeperator)
 }

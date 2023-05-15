@@ -51,8 +51,8 @@ func WASMValidator() *K8sValidator {
 				return fmt.Errorf("unable to get IP of wasm spin pod %q: %w", spinPodName, err)
 			}
 
-			curlCmd := []string{exec.CurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP))}
-			execResult, err := executor.OnPod(curlCmd)
+			appEndpoint := fmt.Sprintf("http://%s/hello", spinPodIP)
+			execResult, err := executor.OnPrivilegedPod(exec.CommandArrayToString(exec.CurlCommandArray(appEndpoint)))
 			if err != nil {
 				return fmt.Errorf("unable to execute wasm validation command: %w", err)
 			}
@@ -66,8 +66,8 @@ func WASMValidator() *K8sValidator {
 						return fmt.Errorf("unable to get IP of wasm spin pod %q: %w", spinPodName, err)
 					}
 
-					curlCmd = []string{exec.CurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP))}
-					execResult, err = executor.OnPod(curlCmd)
+					appEndpoint := fmt.Sprintf("http://%s/hello", spinPodIP)
+					execResult, err := executor.OnPrivilegedPod(exec.CommandArrayToString(exec.CurlCommandArray(appEndpoint)))
 					if err != nil {
 						return fmt.Errorf("unable to execute wasm validation command on wasm pod %q at %s: %w", spinPodName, spinPodIP, err)
 					}
