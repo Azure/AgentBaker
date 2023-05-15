@@ -15,8 +15,8 @@ To run the Go implementation of the E2E test suite locally, simply use `e2e-loca
 - `SUBSCRIPTION_ID` - default `8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8`
 - `RESOURCE_GROUP_NAME` - defualt: `agentbaker-e2e-tests`
 - `LOCATION` - default: `eastus`
-- `CLUSTER_NAME` - default `agentbaker-e2e-test-cluster`
 - `AZURE_TENANT_ID` - default: `72f988bf-86f1-41af-91ab-2d7cd011db47`
+- `TIMEOUT` - default: `30m`
 
 `SCENARIOS_TO_RUN` may also optionally be set to specify a subset of the E2E scenarios to run during the testing session as a comma-separated list, for example:
 
@@ -32,13 +32,20 @@ You may also run the test command yourself assuming you've properly setup the re
 go test -timeout 30m -v -run Test_All ./
 ```
 
-## Package Structure
+## Folder Structure
 
 The top-level package of the Golang E2E implementation is named `e2e_test` and is entirely separate from all AgentBaker packages.
 
-The `e2e_test` package has a dependency on subpackage located in the [scenario](scenario/) directory. Package `scenario` is where all E2E scenarios are defined, each in their own separate files. This package also defines common [types](scenario/types.go) related to scenario and scenario configuration, as well as the hard-coded list of SIG version IDs located in [images.go](scenario/images.go) used for testing different OS distros. Package `scenario` also contains the implementation of common cluster selectors and mutators within [clusterconfiguration.go](scenario/clusterconfiguration.go), though each scenario could define their own implementations if needed.
+The `e2e_test` package has a dependency on a few subpackages:
 
-The primary testing function is located in [suite_test.go](suite_test.go), which is run by `go test ...`.
+- [secnario](/scenario): where all E2E scenarios are defined, along with scenario-based cluster selection/configuration
+- [client](client/): implementations of both Kube and Azure clients for interacting with AKS clusters and the Azure cloud respectively
+- [exec](exec/): implementations of functions and types used for executing commands on pods and VMs during testing
+- [validation](validation/): implementations of functions and types used for running both K8s-level and VM-level validation
+- [poll](poll/): implementations of common functions wrapped in polling/retry logic
+- [utils](utils/): implementations of utility functions for both K8s and Azure
+
+The entry-point test function is located in [suite_test.go](suite_test.go) and is invoked by `go test ...`.
 
 ## Scenarios
 

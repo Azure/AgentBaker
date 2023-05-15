@@ -25,14 +25,26 @@ type LiveVMValidator struct {
 	Asserter VMCommandOutputAsserterFn
 }
 
+// K8sValidationConfig contains configuration used by the k8s validators at runtime
 type K8sValidationConfig struct {
+	// Namespace is the namespace in which the namespace-scoped validation steps are to be performed
+	// (such as creating and interacting with test pods)
 	Namespace string
-	NodeName  string
+
+	// NodeName is the name of the newly-bootstrapped VM as registered with the cluster's apiserver
+	NodeName string
 }
 
+// K8sValidatorFn is a function which takes a context object, a Kube client, a remote command executor object, and validation configuration
+// to run arbitrary K8s-level validation against the cluster containing the newly-bootstrapped VM
 type K8sValidatorFn func(ctx context.Context, kube *client.Kube, executor *exec.RemoteCommandExecutor, validationConfig K8sValidationConfig) error
 
+// K8sValidator represents a K8s-level validation routine used to ensure that the AKS cluster
+// containing the newly-bootstrapped VM is in an expected state (e.g. has registered and can schedule workoads on the new VM)
 type K8sValidator struct {
+	// Description is the description of the validator and what it actually validates on the AKS cluster
 	Description string
+
+	// ValidatorFn is the K8sValidatorFn which will be run by the validator
 	ValidatorFn K8sValidatorFn
 }
