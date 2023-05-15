@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Azure/agentbakere2e/client"
-	"github.com/Azure/agentbakere2e/util"
+	k8sutils "github.com/Azure/agentbakere2e/utils/k8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	controllerruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -14,7 +14,7 @@ import (
 )
 
 func ensureDebugDaemonset(ctx context.Context, kube *client.Kube) error {
-	manifest := util.GetDebugDaemonset()
+	manifest := k8sutils.GetDebugDaemonset()
 	var ds appsv1.DaemonSet
 
 	if err := yaml.Unmarshal([]byte(manifest), &ds); err != nil {

@@ -11,6 +11,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/client"
 	"github.com/Azure/agentbakere2e/exec"
+	"github.com/Azure/agentbakere2e/poll"
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/barkimedes/go-deepcopy"
 )
@@ -124,7 +125,7 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *runOpts
 		}
 	}
 
-	vmPrivateIP, err := pollGetVMPrivateIP(ctx, vmssName, opts)
+	vmPrivateIP, err := poll.GetVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName)
 	if err != nil {
 		t.Fatalf("failed to get VM private IP: %s", err)
 	}
@@ -138,7 +139,7 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *runOpts
 
 	// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
 	defer func() {
-		logFiles, err := pollExtractVMLogs(ctx, executor)
+		logFiles, err := poll.ExtractVMLogs(ctx, executor)
 		if err != nil {
 			t.Fatalf("error extracting VM logs: %s", err)
 		}
@@ -151,7 +152,7 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *runOpts
 
 	// Only perform node readiness/pod-related checks when VMSS creation succeeded
 	if vmssSucceeded {
-		nodeName, err := pollGetNodeName(ctx, opts.clusterConfig.kube, vmssName)
+		nodeName, err := poll.GetNodeName(ctx, opts.clusterConfig.kube, vmssName)
 		if err != nil {
 			t.Fatalf("unable to query for new node name: %s", err)
 		}

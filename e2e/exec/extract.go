@@ -1,4 +1,4 @@
-package e2e_test
+package exec
 
 import (
 	"context"
@@ -6,10 +6,9 @@ import (
 	"log"
 
 	"github.com/Azure/agentbakere2e/client"
-	"github.com/Azure/agentbakere2e/exec"
 )
 
-func extractClusterParameters(ctx context.Context, kube *client.Kube, namespace, podName string) (map[string]string, error) {
+func ExtractClusterParameters(ctx context.Context, kube *client.Kube, namespace, podName string) (map[string]string, error) {
 	commandList := map[string]string{
 		"/etc/kubernetes/azure.json":            "cat /etc/kubernetes/azure.json",
 		"/etc/kubernetes/certs/ca.crt":          "cat /etc/kubernetes/certs/ca.crt",
@@ -20,7 +19,7 @@ func extractClusterParameters(ctx context.Context, kube *client.Kube, namespace,
 	for file, sourceCmd := range commandList {
 		log.Printf("executing command on privileged pod %s/%s: %q", namespace, podName, sourceCmd)
 
-		execResult, err := exec.ExecOnPrivilegedPod(ctx, kube, defaultNamespace, podName, sourceCmd)
+		execResult, err := execOnPrivilegedPod(ctx, kube, namespace, podName, sourceCmd)
 		if execResult != nil {
 			execResult.DumpStderr()
 		}
@@ -34,7 +33,7 @@ func extractClusterParameters(ctx context.Context, kube *client.Kube, namespace,
 	return result, nil
 }
 
-func extractLogsFromVM(ctx context.Context, executor *exec.RemoteCommandExecutor) (map[string]string, error) {
+func ExtractLogsFromVM(ctx context.Context, executor *RemoteCommandExecutor) (map[string]string, error) {
 	commandList := map[string]string{
 		"/var/log/azure/cluster-provision.log": "cat /var/log/azure/cluster-provision.log",
 		"kubelet.log":                          "journalctl -u kubelet",

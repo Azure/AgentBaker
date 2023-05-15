@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Azure/agentbakere2e/client"
+	"github.com/Azure/agentbakere2e/poll"
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
@@ -364,7 +365,7 @@ func prepareClusterForTests(
 		return nil, "", nil, fmt.Errorf("unable to get debug pod name: %w", err)
 	}
 
-	clusterParams, err := pollExtractClusterParameters(ctx, kube, defaultNamespace, podName)
+	clusterParams, err := poll.ExtractClusterParameters(ctx, kube, defaultNamespace, podName)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("unable to extract cluster parameters from %q: %w", clusterName, err)
 	}

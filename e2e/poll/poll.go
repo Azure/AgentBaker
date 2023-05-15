@@ -1,4 +1,4 @@
-package e2e_test
+package poll
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/Azure/agentbakere2e/client"
 	"github.com/Azure/agentbakere2e/exec"
+	azureutils "github.com/Azure/agentbakere2e/utils/azure"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -34,7 +35,7 @@ const (
 	getVMPrivateIPAddressPollingTimeout    = 1 * time.Minute
 )
 
-func pollExecOnVM(ctx context.Context, executor *exec.RemoteCommandExecutor, command string) (*exec.Result, error) {
+func ExecOnVM(ctx context.Context, executor *exec.RemoteCommandExecutor, command string) (*exec.Result, error) {
 	var execResult *exec.Result
 	err := wait.PollImmediateWithContext(ctx, execOnVMPollInterval, execOnVMPollingTimeout, func(ctx context.Context) (bool, error) {
 		res, err := executor.OnVM(command)
@@ -65,12 +66,12 @@ func pollExecOnVM(ctx context.Context, executor *exec.RemoteCommandExecutor, com
 }
 
 // Wraps exctracLogsFromVM and dumpFileMapToDir in a poller with a 15-second wait interval and 5-minute timeout
-func pollExtractVMLogs(ctx context.Context, executor *exec.RemoteCommandExecutor) (map[string]string, error) {
+func ExtractVMLogs(ctx context.Context, executor *exec.RemoteCommandExecutor) (map[string]string, error) {
 	var logFiles map[string]string
 	err := wait.PollImmediateWithContext(ctx, extractVMLogsPollInterval, extractVMLogsPollingTimeout, func(ctx context.Context) (bool, error) {
 		log.Println("attempting to extract VM logs...")
 
-		files, err := extractLogsFromVM(ctx, executor)
+		files, err := exec.ExtractLogsFromVM(ctx, executor)
 		if err != nil {
 			log.Printf("error extracting VM logs: %q", err)
 			return false, nil
@@ -87,7 +88,7 @@ func pollExtractVMLogs(ctx context.Context, executor *exec.RemoteCommandExecutor
 	return logFiles, nil
 }
 
-func pollExecOnPod(ctx context.Context, executor *exec.RemoteCommandExecutor, command []string) (*exec.Result, error) {
+func ExecOnPod(ctx context.Context, executor *exec.RemoteCommandExecutor, command []string) (*exec.Result, error) {
 	var execResult *exec.Result
 	err := wait.PollImmediateWithContext(ctx, execOnPodPollInterval, execOnPodPollingTimeout, func(ctx context.Context) (bool, error) {
 		res, err := executor.OnPod(command)
@@ -112,7 +113,7 @@ func pollExecOnPod(ctx context.Context, executor *exec.RemoteCommandExecutor, co
 	return execResult, nil
 }
 
-func pollExecOnPriviledgedPod(ctx context.Context, executor *exec.RemoteCommandExecutor, command string) (*exec.Result, error) {
+func ExecOnPriviledgedPod(ctx context.Context, executor *exec.RemoteCommandExecutor, command string) (*exec.Result, error) {
 	var execResult *exec.Result
 	err := wait.PollImmediateWithContext(ctx, execOnPodPollInterval, execOnPodPollingTimeout, func(ctx context.Context) (bool, error) {
 		res, err := executor.OnPrivilegedPod(command)
@@ -138,10 +139,10 @@ func pollExecOnPriviledgedPod(ctx context.Context, executor *exec.RemoteCommandE
 }
 
 // Wraps extractClusterParameters in a poller with a 10-second wait interval and 3-minute timeout
-func pollExtractClusterParameters(ctx context.Context, kube *client.Kube, namespace, podName string) (map[string]string, error) {
+func ExtractClusterParameters(ctx context.Context, kube *client.Kube, namespace, podName string) (map[string]string, error) {
 	var clusterParams map[string]string
 	err := wait.PollImmediateWithContext(ctx, extractClusterParametersPollInterval, extractClusterParametersPollingTimeout, func(ctx context.Context) (bool, error) {
-		params, err := extractClusterParameters(ctx, kube, namespace, podName)
+		params, err := exec.ExtractClusterParameters(ctx, kube, namespace, podName)
 		if err != nil {
 			log.Printf("error extracting cluster parameters: %q", err)
 			return false, nil
@@ -157,10 +158,10 @@ func pollExtractClusterParameters(ctx context.Context, kube *client.Kube, namesp
 	return clusterParams, nil
 }
 
-func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *runOpts) (string, error) {
+func GetVMPrivateIPAddress(ctx context.Context, azureClient *client.Azure, subscription, resourceGroup, vmssName string) (string, error) {
 	var vmPrivateIP string
 	err := wait.PollImmediateWithContext(ctx, getVMPrivateIPAddressPollInterval, getVMPrivateIPAddressPollingTimeout, func(ctx context.Context) (bool, error) {
-		pip, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName)
+		pip, err := azureutils.GetVMPrivateIPAddress(ctx, azureClient, subscription, resourceGroup, vmssName)
 		if err != nil {
 			log.Printf("encountered an error while getting VM private IP address: %s", err)
 			return false, nil
@@ -176,7 +177,7 @@ func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *runOpts) (st
 	return vmPrivateIP, nil
 }
 
-func pollGetNodeName(ctx context.Context, kube *client.Kube, vmssName string) (string, error) {
+func GetNodeName(ctx context.Context, kube *client.Kube, vmssName string) (string, error) {
 	var nodeName string
 	err := wait.PollImmediateWithContext(ctx, 5*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
 		nodes, err := kube.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})

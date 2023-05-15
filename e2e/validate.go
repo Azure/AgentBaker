@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/Azure/agentbakere2e/exec"
+	"github.com/Azure/agentbakere2e/poll"
 	"github.com/Azure/agentbakere2e/validation"
 )
 
@@ -39,7 +40,7 @@ func runLiveVMValidators(ctx context.Context, executor *exec.RemoteCommandExecut
 		command := validator.Command
 		log.Printf("running live VM validator: %q", validator.Description)
 
-		execResult, err := pollExecOnVM(ctx, executor, command)
+		execResult, err := poll.ExecOnVM(ctx, executor, command)
 		if err != nil {
 			return fmt.Errorf("unable to execute validator command %q: %w", command, err)
 		}

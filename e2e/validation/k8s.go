@@ -7,7 +7,7 @@ import (
 
 	"github.com/Azure/agentbakere2e/client"
 	"github.com/Azure/agentbakere2e/exec"
-	"github.com/Azure/agentbakere2e/util"
+	k8sutils "github.com/Azure/agentbakere2e/utils/k8s"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -21,7 +21,7 @@ func NodeHealthValidator() *K8sValidator {
 	return &K8sValidator{
 		Description: "wait for node registration/readiness and run an nginx pod",
 		ValidatorFn: func(ctx context.Context, kube *client.Kube, executor *exec.RemoteCommandExecutor, validatorConfig K8sValidationConfig) error {
-			if err := util.WaitUntilNodeReady(ctx, kube, validatorConfig.NodeName); err != nil {
+			if err := k8sutils.WaitUntilNodeReady(ctx, kube, validatorConfig.NodeName); err != nil {
 				return fmt.Errorf("error waiting for node ready: %w", err)
 			}
 
@@ -30,7 +30,7 @@ func NodeHealthValidator() *K8sValidator {
 				return fmt.Errorf("error waiting for nginx pod to be ready: %w", err)
 			}
 
-			if err = util.WaitUntilPodDeleted(ctx, kube, validatorConfig.Namespace, nginxPodName); err != nil {
+			if err = k8sutils.WaitUntilPodDeleted(ctx, kube, validatorConfig.Namespace, nginxPodName); err != nil {
 				return fmt.Errorf("error waiting for nginx pod to be deleted: %w", err)
 			}
 
@@ -49,7 +49,7 @@ func WASMValidator() *K8sValidator {
 			}
 
 			err = wait.PollImmediateWithContext(ctx, 5*time.Second, 1*time.Minute, func(ctx context.Context) (bool, error) {
-				spinPodIP, err := util.GetPodIP(ctx, kube, validatorConfig.Namespace, spinPodName)
+				spinPodIP, err := k8sutils.GetPodIP(ctx, kube, validatorConfig.Namespace, spinPodName)
 				if err != nil {
 					return false, fmt.Errorf("unable to get IP of wasm spin pod %q: %w", spinPodName, err)
 				}
@@ -74,7 +74,7 @@ func WASMValidator() *K8sValidator {
 				}
 			})
 
-			if err := util.WaitUntilPodDeleted(ctx, kube, validatorConfig.Namespace, spinPodName); err != nil {
+			if err := k8sutils.WaitUntilPodDeleted(ctx, kube, validatorConfig.Namespace, spinPodName); err != nil {
 				return fmt.Errorf("error waiting for wasm pod deletion: %w", err)
 			}
 
@@ -85,8 +85,8 @@ func WASMValidator() *K8sValidator {
 
 func ensureTestNginxPod(ctx context.Context, kube *client.Kube, namespace, nodeName string) (string, error) {
 	nginxPodName := fmt.Sprintf("%s-nginx", nodeName)
-	nginxPodManifest := util.GetNginxPodTemplate(nodeName)
-	if err := util.EnsurePod(ctx, kube, namespace, nginxPodName, nginxPodManifest); err != nil {
+	nginxPodManifest := k8sutils.GetNginxPodTemplate(nodeName)
+	if err := k8sutils.EnsurePod(ctx, kube, namespace, nginxPodName, nginxPodManifest); err != nil {
 		return "", fmt.Errorf("failed to ensure test nginx pod %q: %w", nginxPodName, err)
 	}
 	return nginxPodName, nil
@@ -94,8 +94,8 @@ func ensureTestNginxPod(ctx context.Context, kube *client.Kube, namespace, nodeN
 
 func ensureWasmPods(ctx context.Context, kube *client.Kube, namespace, nodeName string) (string, error) {
 	spinPodName := fmt.Sprintf("%s-wasm-spin", nodeName)
-	spinPodManifest := util.GetWasmSpinPodTemplate(nodeName)
-	if err := util.EnsurePod(ctx, kube, namespace, spinPodName, spinPodManifest); err != nil {
+	spinPodManifest := k8sutils.GetWasmSpinPodTemplate(nodeName)
+	if err := k8sutils.EnsurePod(ctx, kube, namespace, spinPodName, spinPodManifest); err != nil {
 		return "", fmt.Errorf("failed to ensure wasm spin pod %q: %w", spinPodName, err)
 	}
 	return spinPodName, nil

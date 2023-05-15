@@ -30,7 +30,7 @@ func NewRemoteCommandExecutor(ctx context.Context, kube *client.Kube, namespace,
 }
 
 func (e RemoteCommandExecutor) OnVM(command string) (*Result, error) {
-	execResult, err := ExecOnVM(e.Ctx, e.Kube, e.Namespace, e.DebugPodName, e.VMPrivateIP, e.SSHPrivateKey, command)
+	execResult, err := execOnVM(e.Ctx, e.Kube, e.Namespace, e.DebugPodName, e.VMPrivateIP, e.SSHPrivateKey, command)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func (e RemoteCommandExecutor) OnVM(command string) (*Result, error) {
 }
 
 func (e RemoteCommandExecutor) OnPrivilegedPod(command string) (*Result, error) {
-	execResult, err := ExecOnPrivilegedPod(e.Ctx, e.Kube, e.Namespace, e.DebugPodName, command)
+	execResult, err := execOnPrivilegedPod(e.Ctx, e.Kube, e.Namespace, e.DebugPodName, command)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (e RemoteCommandExecutor) OnPrivilegedPod(command string) (*Result, error) 
 }
 
 func (e RemoteCommandExecutor) OnPod(command []string) (*Result, error) {
-	execResult, err := ExecOnPod(e.Ctx, e.Kube, e.Namespace, e.DebugPodName, command)
+	execResult, err := execOnPod(e.Ctx, e.Kube, e.Namespace, e.DebugPodName, command)
 	if err != nil {
 		return nil, err
 	}
@@ -89,16 +89,16 @@ func (r Result) DumpStderr() {
 	}
 }
 
-func ExecOnPrivilegedPod(ctx context.Context, kube *client.Kube, namespace, podName, command string) (*Result, error) {
+func execOnPrivilegedPod(ctx context.Context, kube *client.Kube, namespace, podName, command string) (*Result, error) {
 	privilegedCommand := append(NSEnterCommandArray(), command)
-	return ExecOnPod(ctx, kube, namespace, podName, privilegedCommand)
+	return execOnPod(ctx, kube, namespace, podName, privilegedCommand)
 }
 
-func ExecOnVM(ctx context.Context, kube *client.Kube, namespace, jumpboxPodName, vmPrivateIP, sshPrivateKey, command string) (*Result, error) {
+func execOnVM(ctx context.Context, kube *client.Kube, namespace, jumpboxPodName, vmPrivateIP, sshPrivateKey, command string) (*Result, error) {
 	sshCommand := fmt.Sprintf(sshCommandTemplate, sshPrivateKey, vmPrivateIP)
 	commandToExecute := fmt.Sprintf("%s %s", sshCommand, command)
 
-	execResult, err := ExecOnPrivilegedPod(ctx, kube, namespace, jumpboxPodName, commandToExecute)
+	execResult, err := execOnPrivilegedPod(ctx, kube, namespace, jumpboxPodName, commandToExecute)
 	if err != nil {
 		return nil, fmt.Errorf("error executing command on pod: %w", err)
 	}
@@ -106,7 +106,7 @@ func ExecOnVM(ctx context.Context, kube *client.Kube, namespace, jumpboxPodName,
 	return execResult, nil
 }
 
-func ExecOnPod(ctx context.Context, kube *client.Kube, namespace, podName string, command []string) (*Result, error) {
+func execOnPod(ctx context.Context, kube *client.Kube, namespace, podName string, command []string) (*Result, error) {
 	req := kube.Typed.CoreV1().RESTClient().Post().Resource("pods").Name(podName).Namespace(namespace).SubResource("exec")
 
 	option := &corev1.PodExecOptions{
@@ -145,10 +145,6 @@ func ExecOnPod(ctx context.Context, kube *client.Kube, namespace, podName string
 			return nil, fmt.Errorf("encountered unexpected error when executing command on pod: %w", err)
 		}
 	}
-
-	// if exitCode != "0" {
-	// 	log.Printf("non-zero exit code when executing command on pod: %q", command)
-	// }
 
 	return &Result{
 		ExitCode: exitCode,
