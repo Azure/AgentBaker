@@ -3,10 +3,12 @@ package validation
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/Azure/agentbakere2e/clients"
 	"github.com/Azure/agentbakere2e/exec"
 	"github.com/Azure/agentbakere2e/util"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func CommonK8sValidators() []*K8sValidator {
@@ -46,41 +48,31 @@ func WASMValidator() *K8sValidator {
 				return fmt.Errorf("failed to valiate wasm, unable to ensure wasm pods on node %q: %w", validatorConfig.NodeName, err)
 			}
 
-			spinPodIP, err := util.GetPodIP(ctx, kube, validatorConfig.Namespace, spinPodName)
-			if err != nil {
-				return fmt.Errorf("unable to get IP of wasm spin pod %q: %w", spinPodName, err)
-			}
+			err = wait.PollImmediateWithContext(ctx, 5*time.Second, 1*time.Minute, func(ctx context.Context) (bool, error) {
+				spinPodIP, err := util.GetPodIP(ctx, kube, validatorConfig.Namespace, spinPodName)
+				if err != nil {
+					return false, fmt.Errorf("unable to get IP of wasm spin pod %q: %w", spinPodName, err)
+				}
 
-			appEndpoint := fmt.Sprintf("http://%s/hello", spinPodIP)
-			execResult, err := executor.OnPrivilegedPod(exec.CommandArrayToString(exec.CurlCommandArray(appEndpoint)))
-			if err != nil {
-				return fmt.Errorf("unable to execute wasm validation command: %w", err)
-			}
+				appEndpoint := fmt.Sprintf("http://%s/hello", spinPodIP)
+				execResult, err := executor.OnPrivilegedPod(exec.CommandArrayToString(exec.CurlCommandArray(appEndpoint)))
+				if err != nil {
+					return false, fmt.Errorf("unable to execute wasm validation command: %w", err)
+				}
 
-			if execResult.ExitCode != "0" {
+				if execResult.ExitCode == "0" {
+					return true, nil
+				}
+
 				// retry getting the pod IP + curling the hello endpoint if the original curl reports connection refused or a timeout
 				// since the wasm spin pod usually restarts at least once after initial creation, giving it a new IP
 				if execResult.ExitCode == "7" || execResult.ExitCode == "28" {
-					spinPodIP, err = util.GetPodIP(ctx, kube, validatorConfig.Namespace, spinPodName)
-					if err != nil {
-						return fmt.Errorf("unable to get IP of wasm spin pod %q: %w", spinPodName, err)
-					}
-
-					appEndpoint := fmt.Sprintf("http://%s/hello", spinPodIP)
-					execResult, err := executor.OnPrivilegedPod(exec.CommandArrayToString(exec.CurlCommandArray(appEndpoint)))
-					if err != nil {
-						return fmt.Errorf("unable to execute wasm validation command on wasm pod %q at %s: %w", spinPodName, spinPodIP, err)
-					}
-
-					if execResult.ExitCode != "0" {
-						execResult.DumpAll()
-						return fmt.Errorf("curl wasm endpoint on pod %q at %s terminated with exit code %s", spinPodName, spinPodIP, execResult.ExitCode)
-					}
+					return false, nil
 				} else {
 					execResult.DumpAll()
-					return fmt.Errorf("curl wasm endpoint on pod %q at %s terminated with exit code %s", spinPodName, spinPodIP, execResult.ExitCode)
+					return false, fmt.Errorf("curl wasm endpoint on pod %q at %s terminated with exit code %s", spinPodName, spinPodIP, execResult.ExitCode)
 				}
-			}
+			})
 
 			if err := util.WaitUntilPodDeleted(ctx, kube, validatorConfig.Namespace, spinPodName); err != nil {
 				return fmt.Errorf("error waiting for wasm pod deletion: %w", err)
