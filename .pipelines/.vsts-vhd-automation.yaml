@@ -1,7 +1,7 @@
 pool:
   # uncomment this if the auto teardown pool is down.
   # vmImage: ubuntu-22.04
-  name: nodesigtest-pool
+  name: 1ES-AKS-DevInfra-Auto-TearDown-Pool-EastUS
 
 parameters:
 - name: ImageBump
@@ -32,6 +32,7 @@ steps:
         rm "${GOLANG_VERSION}.linux-amd64.tar.gz"
   displayName: 'Clean up go environment'
 - bash: |
+        az upgrade
         az extension add -n azure-devops
         echo $MAPPED_ADO_PAT | az devops login --organization=https://dev.azure.com/msazure
         az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
