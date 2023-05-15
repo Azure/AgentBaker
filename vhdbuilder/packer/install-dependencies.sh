@@ -81,9 +81,6 @@ EOF
 fi
 
 installDeps
-if grep -q "kata" <<< "$FEATURE_FLAGS"; then  
-  installKataDeps
-fi
 
 # CVM breaks on kernel image updates due to nullboot package post-install.
 # it relies on boot measurements from real tpm hardware.
@@ -150,6 +147,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     addMarinerNvidiaRepo
     overrideNetworkConfig || exit 1
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+      installKataDeps
       setupMSHV
     fi
     disableDNFAutomatic
