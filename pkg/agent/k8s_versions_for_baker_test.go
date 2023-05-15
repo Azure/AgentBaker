@@ -113,6 +113,7 @@ Kubernetes versions (major.minor.patch).
 */
 var K8sComponentsByVersionMap map[string]map[string]string
 
+//nolint:gochecknoinits
 func init() {
 	K8sComponentsByVersionMap = getKubeConfigs()
 }

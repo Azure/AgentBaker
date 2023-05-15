@@ -156,113 +156,57 @@ function Disable-WindowsUpdates {
 function Retag-ImageForAzureChinaCloud {
     Param(
         [string]
-        $imageUrl,
-        [Switch]$isDocker = $false
+        $imageUrl
     )
     Write-Log "Retagging image $imageUrl for AzureChinaCloud"
     $retagImageUrl=$image.replace('mcr.microsoft.com', 'mcr.azk8s.cn')
-    if ($isDocker) {
-        docker image tag $imageUrl $retagImageUrl
-    } else {
-        ctr.exe -n k8s.io image tag $imageUrl $retagImageUrl
-    }
+    ctr.exe -n k8s.io image tag $imageUrl $retagImageUrl
 }
 
 function Get-ContainerImages {
-    if ($containerRuntime -eq 'containerd') {
-        Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
-        foreach ($image in $imagesToPull) {
-            if (($image.Contains("mcr.microsoft.com/windows/servercore") -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
-                ($image.Contains("mcr.microsoft.com/windows/nanoserver") -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL))) {
-                $url=""
-                if ($image.Contains("mcr.microsoft.com/windows/servercore")) {
-                    $url=$env:WindowsServerCoreImageURL
-                } elseif ($image.Contains("mcr.microsoft.com/windows/nanoserver")) {
-                    $url=$env:WindowsNanoServerImageURL
-                }
-                $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
-                $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
-                Write-Log "Downloading image $image to $tmpDest"
-                DownloadFileWithRetry -URL $url -Dest $tmpDest -redactUrl
-
-                Write-Log "Loading image $image from $tmpDest"
-                Retry-Command -ScriptBlock {
-                    & ctr -n k8s.io images import $tmpDest
-                } -ErrorMessage "Failed to load image $image from $tmpDest"
-
-                Write-Log "Removing tmp tar file $tmpDest"
-                Remove-Item -Path $tmpDest
-            } else {
-                Write-Log "Pulling image $image"
-                Retry-Command -ScriptBlock {
-                    & crictl.exe pull $image
-                } -ErrorMessage "Failed to pull image $image"
+    Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
+    foreach ($image in $imagesToPull) {
+        if (($image.Contains("mcr.microsoft.com/windows/servercore") -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
+            ($image.Contains("mcr.microsoft.com/windows/nanoserver") -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL))) {
+            $url=""
+            if ($image.Contains("mcr.microsoft.com/windows/servercore")) {
+                $url=$env:WindowsServerCoreImageURL
+            } elseif ($image.Contains("mcr.microsoft.com/windows/nanoserver")) {
+                $url=$env:WindowsNanoServerImageURL
             }
+            $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
+            $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
+            Write-Log "Downloading image $image to $tmpDest"
+            DownloadFileWithRetry -URL $url -Dest $tmpDest -redactUrl
 
-            Retag-ImageForAzureChinaCloud -imageUrl $image
+            Write-Log "Loading image $image from $tmpDest"
+            Retry-Command -ScriptBlock {
+                & ctr -n k8s.io images import $tmpDest
+            } -ErrorMessage "Failed to load image $image from $tmpDest"
+
+            Write-Log "Removing tmp tar file $tmpDest"
+            Remove-Item -Path $tmpDest
+        } else {
+            Write-Log "Pulling image $image"
+            Retry-Command -ScriptBlock {
+                & crictl.exe pull $image
+            } -ErrorMessage "Failed to pull image $image"
         }
-        Stop-Job  -Name containerd
-        Remove-Job -Name containerd
+
+        Retag-ImageForAzureChinaCloud -imageUrl $image
     }
-    else {
-        Write-Log "Pulling images for windows server 2019 with docker"
-        foreach ($image in $imagesToPull) {
-            if (($image.Contains("mcr.microsoft.com/windows/servercore") -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
-                ($image.Contains("mcr.microsoft.com/windows/nanoserver") -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL))) {
-                $url=""
-                if ($image.Contains("mcr.microsoft.com/windows/servercore")) {
-                    $url=$env:WindowsServerCoreImageURL
-                } elseif ($image.Contains("mcr.microsoft.com/windows/nanoserver")) {
-                    $url=$env:WindowsNanoServerImageURL
-                }
-                $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
-                $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
-                Write-Log "Downloading image $image to $tmpDest"
-                DownloadFileWithRetry -URL $url -Dest $tmpDest -redactUrl
-
-                Write-Log "Loading image $image from $tmpDest"
-                Retry-Command -ScriptBlock {
-                    & docker load -i $tmpDest
-                } -ErrorMessage "Failed to load image $image from $tmpDest"
-
-                Write-Log "Removing tmp tar file $tmpDest"
-                Remove-Item -Path $tmpDest
-            } else {
-                Write-Log "Pulling image $image"
-                Retry-Command -ScriptBlock {
-                    docker pull $image
-                } -ErrorMessage "Failed to pull image $image"
-
-                Retag-ImageForAzureChinaCloud -imageUrl $image -isDocker
-            }
-        }
-    }
+    Stop-Job  -Name containerd
+    Remove-Job -Name containerd
 }
 
 function Get-FilesToCacheOnVHD {
-    Write-Log "Caching misc files on VHD, container runtimne: $containerRuntime"
+    Write-Log "Caching misc files on VHD"
 
     foreach ($dir in $map.Keys) {
         New-Item -ItemType Directory $dir -Force | Out-Null
 
         foreach ($URL in $map[$dir]) {
             $fileName = [IO.Path]::GetFileName($URL)
-            # Do not cache containerd package on docker VHD
-            if ($containerRuntime -ne 'containerd' -And $dir -eq "c:\akse-cache\containerd\") {
-                Write-Log "Skip to download $URL for docker VHD"
-                continue
-            }
-
-            # Windows containerD supports Windows containerD, starting from Kubernetes 1.20
-            if ($containerRuntime -eq 'containerd' -And $dir -eq "c:\akse-cache\win-k8s\") {
-                $k8sMajorVersion = $fileName.split(".",3)[0]
-                $k8sMinorVersion = $fileName.split(".",3)[1]
-                if ($k8sMinorVersion -lt "20" -And $k8sMajorVersion -eq "v1") {
-                    Write-Log "Skip to download $URL for containerD is supported from Kubernets 1.20"
-                    continue
-                }
-            }
-
             $dest = [IO.Path]::Combine($dir, $fileName)
 
             Write-Log "Downloading $URL to $dest"
@@ -310,25 +254,6 @@ function Install-ContainerD {
     # CSE will configure and register containerd as a service at deployment time
     Start-Job -Name containerd -ScriptBlock { containerd.exe }
 }
-
-function Install-Docker {
-    Write-Log "Attempting to install Docker version $defaultDockerVersion"
-    Install-PackageProvider -Name DockerMsftProvider -Force -ForceBootstrap | Out-null
-    $package = Find-Package -Name Docker -ProviderName DockerMsftProvider -RequiredVersion $defaultDockerVersion
-    Write-Log "Installing Docker version $($package.Version)"
-    $package | Install-Package -Force | Out-Null
-
-    if ($defaultDockerVersion -eq "20.10.9"){
-        # We only do this for docker 20.10.9 so we do not need to add below code in Install-Docker in configfunc.ps1 because
-        # 1. the cat file is installed in building WS2019+docker
-        # 2. it does not need to run below code if a newer docker version is used in CSE later
-        Write-Log "Downloading cat for docker 20.10.9"
-        DownloadFileWithRetry -URL "https://dockermsft.azureedge.net/dockercontainer/docker-20-10-9.cat" -Dest "C:\Windows\System32\CatRoot\{F750E6C3-38EE-11D1-85E5-00C04FC295EE}\docker-20-10-9.cat"
-    }
-
-    Start-Service docker
-}
-
 
 function Install-OpenSSH {
     Write-Log "Installing OpenSSH Server"
@@ -411,10 +336,8 @@ function Update-WindowsFeatures {
 function Update-Registry {
     # Enables DNS resolution of SMB shares for containerD
     # https://github.com/kubernetes-sigs/windows-gmsa/issues/30#issuecomment-802240945
-    if ($containerRuntime -eq 'containerd') {
-        Write-Log "Apply SMB Resolution Fix for containerD"
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name EnableCompartmentNamespace -Value 1 -Type DWORD
-    }
+    Write-Log "Apply SMB Resolution Fix for containerD"
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name EnableCompartmentNamespace -Value 1 -Type DWORD
 
     if ($env:WindowsSKU -Like '2019*') {
         Write-Log "Enable a HNS fix (0x40) in 2022-11B and another HNS fix (0x10)"
@@ -622,13 +545,9 @@ try{
             Update-WindowsFeatures
         }
         "2" {
-            Write-Log "Performing actions for provisioning phase 2 for container runtime '$containerRuntime'"
+            Write-Log "Performing actions for provisioning phase 2"
             Set-WinRmServiceAutoStart
-            if ($containerRuntime -eq 'containerd') {
-                Install-ContainerD
-            } else {
-                Install-Docker
-            }
+            Install-ContainerD
             Update-Registry
             Get-ContainerImages
             Get-FilesToCacheOnVHD

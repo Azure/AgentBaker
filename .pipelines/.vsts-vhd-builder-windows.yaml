@@ -5,10 +5,6 @@ pool:
   name: $(POOL_NAME)
 
 parameters:
-- name: build2019
-  displayName: Build 2019
-  type: boolean
-  default: False
 - name: build2019containerd
   displayName: Build 2019 containerd
   type: boolean
@@ -34,29 +30,6 @@ variables:
   CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
 
 stages:
-  - stage: build_vhd_2019
-    dependsOn: []
-    condition: eq('${{ parameters.build2019 }}', True)
-    jobs:
-    - job: build
-      timeoutInMinutes: 180
-      steps:
-        - bash: |
-            echo '##vso[task.setvariable variable=DRY_RUN]True'
-            echo '##vso[task.setvariable variable=BACKFILL_RESOURCE_DELETION]${{parameters.backfillresourcedeletion}}'
-            echo '##vso[task.setvariable variable=VHD_DEBUG]${{parameters.vhddebug}}'
-            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
-            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]docker'
-            echo '##vso[task.setvariable variable=WINDOWS_SKU]2019'
-            echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_2019_BASE_IMAGE_URL)'
-            echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2019_NANO_IMAGE_URL)'
-            echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2019_CORE_IMAGE_URL)'
-          displayName: Setup Build Variables
-        - template: ./templates/.builder-release-template-windows.yaml
-          parameters:
-            artifactName: 2019
-
   - stage: build_vhd_2019_containerd
     dependsOn: []
     condition: eq('${{ parameters.build2019containerd }}', True)
@@ -70,7 +43,6 @@ stages:
             echo '##vso[task.setvariable variable=VHD_DEBUG]${{parameters.vhddebug}}'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
-            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=WINDOWS_SKU]2019-containerd'
             echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_2019_BASE_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2019_NANO_IMAGE_URL)'
@@ -93,7 +65,6 @@ stages:
             echo '##vso[task.setvariable variable=VHD_DEBUG]${{parameters.vhddebug}}'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
-            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=WINDOWS_SKU]2022-containerd'
             echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_2022_BASE_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2022_NANO_IMAGE_URL)'
@@ -116,7 +87,6 @@ stages:
             echo '##vso[task.setvariable variable=VHD_DEBUG]${{parameters.vhddebug}}'            
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
-            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=WINDOWS_SKU]2022-containerd-gen2'
             echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_2022_GEN2_BASE_IMAGE_URL)'
             echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2022_NANO_IMAGE_URL)'
