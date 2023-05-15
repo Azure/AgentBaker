@@ -39,7 +39,7 @@ pushd aks-windows-cse
 	popd
 	
 	pushd provisioningscripts
-		files=("cleanupnetwork.ps1" "hnsremediator.ps1" "hostsconfigagent.ps1" "kubeletstart.ps1" "kubeproxystart.ps1" "loggenerator.ps1" "runprocess.dll" "windowslogscleanup.ps1" "windowsnodereset.ps1" "windowssecuretls.ps1")
+		files=("cleanupnetwork.ps1" "hnsremediator.ps1" "hostsconfigagent.ps1" "kubeletstart.ps1" "kubeproxystart.ps1" "loggenerator.ps1" "windowslogscleanup.ps1" "windowsnodereset.ps1" "windowssecuretls.ps1")
 		for file in ${files[@]}; do
 		    echo "Downloading $file from $url/provisioningscripts/$file"
 		   curl -O "$url/provisioningscripts/$file"
