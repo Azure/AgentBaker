@@ -12,7 +12,7 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/agentbakere2e/clients"
+	"github.com/Azure/agentbakere2e/client"
 )
 
 type nodeBootstrappingFn func(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
@@ -63,7 +63,7 @@ func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeB
 
 func getBaseNodeBootstrappingConfiguration(
 	ctx context.Context,
-	cloud *clients.AzureClient,
+	cloud *client.Azure,
 	suiteConfig *suiteConfig,
 	clusterParams clusterParameters) (*datamodel.NodeBootstrappingConfiguration, error) {
 	nbc := baseTemplate()

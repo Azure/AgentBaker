@@ -12,7 +12,7 @@ import (
 	mrand "math/rand"
 	"testing"
 
-	"github.com/Azure/agentbakere2e/clients"
+	"github.com/Azure/agentbakere2e/client"
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -122,7 +122,7 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 	return nil
 }
 
-func getVMPrivateIPAddress(ctx context.Context, cloud *clients.AzureClient, subscription, mcResourceGroupName, vmssName string) (string, error) {
+func getVMPrivateIPAddress(ctx context.Context, cloud *client.Azure, subscription, mcResourceGroupName, vmssName string) (string, error) {
 	pl := cloud.CoreClient.Pipeline()
 	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
 		subscription,

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Azure/agentbakere2e/clients"
+	"github.com/Azure/agentbakere2e/client"
 	nodev1 "k8s.io/api/node/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -15,7 +15,7 @@ const (
 	wasmHandlerSlight = "slight"
 )
 
-func ensureWasmRuntimeClasses(ctx context.Context, kube *clients.KubeClient) error {
+func ensureWasmRuntimeClasses(ctx context.Context, kube *client.Kube) error {
 	// Only create spin class for now
 	spinClassName := fmt.Sprintf("wasmtime-%s", wasmHandlerSpin)
 	if err := createRuntimeClass(ctx, kube, spinClassName, wasmHandlerSpin); err != nil {
@@ -24,7 +24,7 @@ func ensureWasmRuntimeClasses(ctx context.Context, kube *clients.KubeClient) err
 	return nil
 }
 
-func createRuntimeClass(ctx context.Context, kube *clients.KubeClient, name, handler string) error {
+func createRuntimeClass(ctx context.Context, kube *client.Kube, name, handler string) error {
 	runtimeClass := &nodev1.RuntimeClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/Azure/agentbakere2e/clients"
+	"github.com/Azure/agentbakere2e/client"
 	"github.com/Azure/agentbakere2e/exec"
 )
 
-func extractClusterParameters(ctx context.Context, kube *clients.KubeClient, namespace, podName string) (map[string]string, error) {
+func extractClusterParameters(ctx context.Context, kube *client.Kube, namespace, podName string) (map[string]string, error) {
 	commandList := map[string]string{
 		"/etc/kubernetes/azure.json":            "cat /etc/kubernetes/azure.json",
 		"/etc/kubernetes/certs/ca.crt":          "cat /etc/kubernetes/certs/ca.crt",

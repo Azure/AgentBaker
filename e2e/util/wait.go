@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Azure/agentbakere2e/clients"
+	"github.com/Azure/agentbakere2e/client"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -21,7 +21,7 @@ const (
 	waitUntilPodDeletedPollingTimeout = 1 * time.Minute
 )
 
-func WaitUntilNodeReady(ctx context.Context, kube *clients.KubeClient, nodeName string) error {
+func WaitUntilNodeReady(ctx context.Context, kube *client.Kube, nodeName string) error {
 	err := wait.PollImmediateWithContext(ctx, waitUntilNodeReadyPollInterval, waitUntilNodeReadyPollTimeout, func(ctx context.Context) (bool, error) {
 		node, err := kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 		if err != nil {
@@ -44,7 +44,7 @@ func WaitUntilNodeReady(ctx context.Context, kube *clients.KubeClient, nodeName 
 	return nil
 }
 
-func WaitUntilPodRunning(ctx context.Context, kube *clients.KubeClient, namespace, podName string) error {
+func WaitUntilPodRunning(ctx context.Context, kube *client.Kube, namespace, podName string) error {
 	return wait.PollImmediateWithContext(ctx, waitUntilPodRunningPollInterval, waitUntilPodRunningPollingTimeout, func(ctx context.Context) (bool, error) {
 		pod, err := kube.Typed.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 		if err != nil {
@@ -55,7 +55,7 @@ func WaitUntilPodRunning(ctx context.Context, kube *clients.KubeClient, namespac
 	})
 }
 
-func WaitUntilPodDeleted(ctx context.Context, kube *clients.KubeClient, namespace, podName string) error {
+func WaitUntilPodDeleted(ctx context.Context, kube *client.Kube, namespace, podName string) error {
 	return wait.PollImmediateWithContext(ctx, waitUntilPodDeletedPollInterval, waitUntilPodDeletedPollingTimeout, func(ctx context.Context) (bool, error) {
 		err := kube.Typed.CoreV1().Pods(namespace).Delete(ctx, podName, metav1.DeleteOptions{})
 		return err == nil, err

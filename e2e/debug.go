@@ -4,16 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Azure/agentbakere2e/clients"
+	"github.com/Azure/agentbakere2e/client"
 	"github.com/Azure/agentbakere2e/util"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	controllerruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/yaml"
 )
 
-func ensureDebugDaemonset(ctx context.Context, kube *clients.KubeClient) error {
+func ensureDebugDaemonset(ctx context.Context, kube *client.Kube) error {
 	manifest := util.GetDebugDaemonset()
 	var ds appsv1.DaemonSet
 
@@ -35,9 +35,9 @@ func ensureDebugDaemonset(ctx context.Context, kube *clients.KubeClient) error {
 }
 
 // Returns the name of a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node.
-func getDebugPodName(kube *clients.KubeClient) (string, error) {
+func getDebugPodName(kube *client.Kube) (string, error) {
 	podList := corev1.PodList{}
-	if err := kube.Dynamic.List(context.Background(), &podList, client.MatchingLabels{"app": "debug"}); err != nil {
+	if err := kube.Dynamic.List(context.Background(), &podList, controllerruntimeclient.MatchingLabels{"app": "debug"}); err != nil {
 		return "", fmt.Errorf("failed to list debug pod: %w", err)
 	}
 

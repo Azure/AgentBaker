@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/agentbakere2e/clients"
+	"github.com/Azure/agentbakere2e/client"
 	"github.com/Azure/agentbakere2e/exec"
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/barkimedes/go-deepcopy"
@@ -31,7 +31,7 @@ func Test_All(t *testing.T) {
 
 	scenarios := scenario.InitScenarioTable(suiteConfig.scenariosToRun)
 
-	cloud, err := clients.NewAzureClient(suiteConfig.subscription)
+	cloud, err := client.NewAzureClient(suiteConfig.subscription)
 	if err != nil {
 		t.Fatal(err)
 	}

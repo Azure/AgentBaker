@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Azure/agentbakere2e/clients"
+	"github.com/Azure/agentbakere2e/client"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/yaml"
 )
 
-func GetPodIP(ctx context.Context, kube *clients.KubeClient, namespaceName, podName string) (string, error) {
+func GetPodIP(ctx context.Context, kube *client.Kube, namespaceName, podName string) (string, error) {
 	pod, err := kube.Typed.CoreV1().Pods(namespaceName).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("unable to get pod %s/%s: %w", namespaceName, podName, err)
@@ -19,7 +19,7 @@ func GetPodIP(ctx context.Context, kube *clients.KubeClient, namespaceName, podN
 	return pod.Status.PodIP, nil
 }
 
-func ApplyPodManifest(ctx context.Context, kube *clients.KubeClient, manifest string) error {
+func ApplyPodManifest(ctx context.Context, kube *client.Kube, manifest string) error {
 	var podObj corev1.Pod
 	if err := yaml.Unmarshal([]byte(manifest), &podObj); err != nil {
 		return fmt.Errorf("failed to unmarshal Pod manifest: %w", err)
@@ -38,7 +38,7 @@ func ApplyPodManifest(ctx context.Context, kube *clients.KubeClient, manifest st
 	return nil
 }
 
-func EnsurePod(ctx context.Context, kube *clients.KubeClient, namespace, podName, manifest string) error {
+func EnsurePod(ctx context.Context, kube *client.Kube, namespace, podName, manifest string) error {
 	if err := ApplyPodManifest(ctx, kube, manifest); err != nil {
 		return fmt.Errorf("failed to ensure pod: %w", err)
 	}

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Azure/agentbakere2e/clients"
+	"github.com/Azure/agentbakere2e/client"
 	"github.com/Azure/agentbakere2e/exec"
 	"github.com/Azure/agentbakere2e/util"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -20,7 +20,7 @@ func CommonK8sValidators() []*K8sValidator {
 func NodeHealthValidator() *K8sValidator {
 	return &K8sValidator{
 		Description: "wait for node registration/readiness and run an nginx pod",
-		ValidatorFn: func(ctx context.Context, kube *clients.KubeClient, executor *exec.RemoteCommandExecutor, validatorConfig K8sValidationConfig) error {
+		ValidatorFn: func(ctx context.Context, kube *client.Kube, executor *exec.RemoteCommandExecutor, validatorConfig K8sValidationConfig) error {
 			if err := util.WaitUntilNodeReady(ctx, kube, validatorConfig.NodeName); err != nil {
 				return fmt.Errorf("error waiting for node ready: %w", err)
 			}
@@ -42,7 +42,7 @@ func NodeHealthValidator() *K8sValidator {
 func WASMValidator() *K8sValidator {
 	return &K8sValidator{
 		Description: "deploy wasm pods and ensure apps are reachable from within pod network",
-		ValidatorFn: func(ctx context.Context, kube *clients.KubeClient, executor *exec.RemoteCommandExecutor, validatorConfig K8sValidationConfig) error {
+		ValidatorFn: func(ctx context.Context, kube *client.Kube, executor *exec.RemoteCommandExecutor, validatorConfig K8sValidationConfig) error {
 			spinPodName, err := ensureWasmPods(ctx, kube, validatorConfig.Namespace, validatorConfig.NodeName)
 			if err != nil {
 				return fmt.Errorf("failed to valiate wasm, unable to ensure wasm pods on node %q: %w", validatorConfig.NodeName, err)
@@ -60,7 +60,7 @@ func WASMValidator() *K8sValidator {
 					return false, fmt.Errorf("unable to execute wasm validation command: %w", err)
 				}
 
-				if execResult.ExitCode == "0" {
+				if execResult.Success() {
 					return true, nil
 				}
 
@@ -83,7 +83,7 @@ func WASMValidator() *K8sValidator {
 	}
 }
 
-func ensureTestNginxPod(ctx context.Context, kube *clients.KubeClient, namespace, nodeName string) (string, error) {
+func ensureTestNginxPod(ctx context.Context, kube *client.Kube, namespace, nodeName string) (string, error) {
 	nginxPodName := fmt.Sprintf("%s-nginx", nodeName)
 	nginxPodManifest := util.GetNginxPodTemplate(nodeName)
 	if err := util.EnsurePod(ctx, kube, namespace, nginxPodName, nginxPodManifest); err != nil {
@@ -92,7 +92,7 @@ func ensureTestNginxPod(ctx context.Context, kube *clients.KubeClient, namespace
 	return nginxPodName, nil
 }
 
-func ensureWasmPods(ctx context.Context, kube *clients.KubeClient, namespace, nodeName string) (string, error) {
+func ensureWasmPods(ctx context.Context, kube *client.Kube, namespace, nodeName string) (string, error) {
 	spinPodName := fmt.Sprintf("%s-wasm-spin", nodeName)
 	spinPodManifest := util.GetWasmSpinPodTemplate(nodeName)
 	if err := util.EnsurePod(ctx, kube, namespace, spinPodName, spinPodManifest); err != nil {

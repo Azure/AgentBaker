@@ -7,11 +7,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/agentbakere2e/clients"
+	"github.com/Azure/agentbakere2e/client"
 	"github.com/Azure/agentbakere2e/exec"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+)
+
+const (
+	sshErrorExitCode = "255"
 )
 
 const (
@@ -30,8 +34,8 @@ const (
 	getVMPrivateIPAddressPollingTimeout    = 1 * time.Minute
 )
 
-func pollExecOnVM(ctx context.Context, executor *exec.RemoteCommandExecutor, command string) (*exec.ExecResult, error) {
-	var execResult *exec.ExecResult
+func pollExecOnVM(ctx context.Context, executor *exec.RemoteCommandExecutor, command string) (*exec.Result, error) {
+	var execResult *exec.Result
 	err := wait.PollImmediateWithContext(ctx, execOnVMPollInterval, execOnVMPollingTimeout, func(ctx context.Context) (bool, error) {
 		res, err := executor.OnVM(command)
 		if err != nil {
@@ -45,7 +49,7 @@ func pollExecOnVM(ctx context.Context, executor *exec.RemoteCommandExecutor, com
 		}
 
 		// this denotes a retriable SSH failure
-		if res.ExitCode == "255" {
+		if res.ExitCode == sshErrorExitCode {
 			return false, nil
 		}
 
@@ -83,8 +87,8 @@ func pollExtractVMLogs(ctx context.Context, executor *exec.RemoteCommandExecutor
 	return logFiles, nil
 }
 
-func pollExecOnPod(ctx context.Context, executor *exec.RemoteCommandExecutor, command []string) (*exec.ExecResult, error) {
-	var execResult *exec.ExecResult
+func pollExecOnPod(ctx context.Context, executor *exec.RemoteCommandExecutor, command []string) (*exec.Result, error) {
+	var execResult *exec.Result
 	err := wait.PollImmediateWithContext(ctx, execOnPodPollInterval, execOnPodPollingTimeout, func(ctx context.Context) (bool, error) {
 		res, err := executor.OnPod(command)
 		if err != nil {
@@ -108,8 +112,8 @@ func pollExecOnPod(ctx context.Context, executor *exec.RemoteCommandExecutor, co
 	return execResult, nil
 }
 
-func pollExecOnPriviledgedPod(ctx context.Context, executor *exec.RemoteCommandExecutor, command string) (*exec.ExecResult, error) {
-	var execResult *exec.ExecResult
+func pollExecOnPriviledgedPod(ctx context.Context, executor *exec.RemoteCommandExecutor, command string) (*exec.Result, error) {
+	var execResult *exec.Result
 	err := wait.PollImmediateWithContext(ctx, execOnPodPollInterval, execOnPodPollingTimeout, func(ctx context.Context) (bool, error) {
 		res, err := executor.OnPrivilegedPod(command)
 		if err != nil {
@@ -134,7 +138,7 @@ func pollExecOnPriviledgedPod(ctx context.Context, executor *exec.RemoteCommandE
 }
 
 // Wraps extractClusterParameters in a poller with a 10-second wait interval and 3-minute timeout
-func pollExtractClusterParameters(ctx context.Context, kube *clients.KubeClient, namespace, podName string) (map[string]string, error) {
+func pollExtractClusterParameters(ctx context.Context, kube *client.Kube, namespace, podName string) (map[string]string, error) {
 	var clusterParams map[string]string
 	err := wait.PollImmediateWithContext(ctx, extractClusterParametersPollInterval, extractClusterParametersPollingTimeout, func(ctx context.Context) (bool, error) {
 		params, err := extractClusterParameters(ctx, kube, namespace, podName)
@@ -172,7 +176,7 @@ func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *runOpts) (st
 	return vmPrivateIP, nil
 }
 
-func pollGetNodeName(ctx context.Context, kube *clients.KubeClient, vmssName string) (string, error) {
+func pollGetNodeName(ctx context.Context, kube *client.Kube, vmssName string) (string, error) {
 	var nodeName string
 	err := wait.PollImmediateWithContext(ctx, 5*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
 		nodes, err := kube.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
