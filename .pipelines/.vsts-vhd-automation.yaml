@@ -1,7 +1,7 @@
 pool:
   # uncomment this if the auto teardown pool is down.
   # vmImage: ubuntu-22.04
-  name: $(1ES_DevInfra_Auto_TearDown_Pool_Name)
+  name: nodesigtest-pool
 
 parameters:
 - name: ImageBump
