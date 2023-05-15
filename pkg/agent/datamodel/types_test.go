@@ -1358,8 +1358,8 @@ func TestWindowsProfile(t *testing.T) {
 				{BuildNumber: "18362"},
 			},
 		},
-		WindowsGMSAPackageURL:   "windows-gmsa-package-url",
-		WindowsSecureTLSEnabled: to.BoolPtr(false),
+		WindowsGmsaPackageUrl:   "windows-gmsa-package-url",
+		WindowsSecureTlsEnabled: to.BoolPtr(false),
 	}
 
 	dv = w.GetWindowsDockerVersion()
@@ -1422,16 +1422,16 @@ func TestWindowsProfile(t *testing.T) {
 		t.Fatalf("Expected unmarshalled SSHEnabled to return true, got %v", se)
 	}
 
-	if unmarshalled.WindowsGMSAPackageURL != "windows-gmsa-package-url" {
-		t.Fatalf("Expected unmarshalled WindowsGMSAPackageURL to equal windows-gmsa-package-url, got %s", unmarshalled.WindowsGMSAPackageURL)
+	if unmarshalled.WindowsGmsaPackageUrl != "windows-gmsa-package-url" {
+		t.Fatalf("Expected unmarshalled WindowsGMSAPackageURL to equal windows-gmsa-package-url, got %s", unmarshalled.WindowsGmsaPackageUrl)
 	}
 
-	if unmarshalled.WindowsSecureTLSEnabled == nil {
+	if unmarshalled.WindowsSecureTlsEnabled == nil {
 		t.Fatalf("Execpted unmarshalled WindowsSecureTLSEnabled to not be nil")
 	}
 
-	if *unmarshalled.WindowsSecureTLSEnabled != false {
-		t.Fatalf("Expected unmarshalled WindowsSecureTLSEnabled to equal false, got %v", *unmarshalled.WindowsSecureTLSEnabled)
+	if *unmarshalled.WindowsSecureTlsEnabled != false {
+		t.Fatalf("Expected unmarshalled WindowsSecureTLSEnabled to equal false, got %v", *unmarshalled.WindowsSecureTlsEnabled)
 	}
 }
 
