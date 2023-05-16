@@ -199,7 +199,7 @@ installAndConfigureArtifactStreaming() {
   pushd /tmp || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
   # download acr-mirror proxy
   MIRROR_PROXY_VERSION='11'
-  UBUNTU_VERSION_CLEANED="${UBUNTU_RELEASE//.}"https://askubuntu.com/questions/445384/what-is-the-difference-between-apt-and-apt-get
+  UBUNTU_VERSION_CLEANED="${UBUNTU_RELEASE//.}"
   MIRROR_PROXY_URL="https://acrmirrordev.blob.core.windows.net/bin/Release-11/acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
   
   wget $MIRROR_PROXY_URL || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
