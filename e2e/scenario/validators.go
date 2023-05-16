@@ -41,7 +41,7 @@ func SysctlConfigValidator(customSysctls map[string]int) *LiveVMValidator {
 	}
 }
 
-func NvidiaSMINotInstalledValidater() *LiveVMValidator {
+func NvidiaSMINotInstalledValidator() *LiveVMValidator {
 	return &LiveVMValidator{
 		Description: "assert nvidia-smi is not installed",
 		Command:     "nvidia-smi",

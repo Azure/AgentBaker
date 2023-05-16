@@ -35,8 +35,7 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.39",
-        "v1.4.44"
+        "v1.4.44_hotfix"
       ]
     },
     {
@@ -97,8 +96,8 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "6.5.0-main-03-24-2023-7eb3f5c7",
-        "6.6.0-main-04-25-2023-2eb2a81c"
+        "6.6.0-main-04-25-2023-2eb2a81c",
+        "6.7.0-main-05-04-2023-4450ad10"
       ]
     },
     {
@@ -219,8 +218,8 @@
         "v1.2.2.5"
       ],
       "multiArchVersions": [
-        "v1.26.2.2",
         "v1.26.3",
+        "v1.26.4",
         "v1.27.1"
       ]
     },
@@ -241,14 +240,16 @@
         "v2.2.0"
       ],
       "multiArchVersions": [
-        "v2.6.0"
+        "v2.6.0",
+        "v2.10.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.5.0"
+        "v2.5.0",
+        "v2.8.0"
       ]
     },
     {

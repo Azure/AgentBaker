@@ -15,12 +15,13 @@ import (
 const (
 	// RoutePathNodeBootstrapData the route path to get node bootstrapping data.
 	RoutePathNodeBootstrapData string = "/getnodebootstrapdata"
+	defaultTimeout                    = 30 * time.Second
 )
 
 // GetNodeBootstrapConfig endpoint for getting node bootstrapping data.
 func (api *APIServer) GetNodeBootstrapData(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
 	var config datamodel.NodeBootstrappingConfiguration
