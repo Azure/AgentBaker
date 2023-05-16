@@ -6,7 +6,6 @@ import (
 	"log"
 	mrand "math/rand"
 	"strings"
-	"testing"
 
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -58,8 +57,8 @@ func isExistingResourceGroup(ctx context.Context, cloud *azureClient, resourceGr
 	return rgExistence.Success, nil
 }
 
-func ensureResourceGroup(ctx context.Context, t *testing.T, cloud *azureClient, resourceGroupName string) error {
-	t.Logf("ensuring resource group %q...", resourceGroupName)
+func ensureResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupName string) error {
+	log.Printf("ensuring resource group %q...", resourceGroupName)
 
 	rgExists, err := isExistingResourceGroup(ctx, cloud, resourceGroupName)
 	if err != nil {
@@ -86,7 +85,6 @@ func ensureResourceGroup(ctx context.Context, t *testing.T, cloud *azureClient, 
 
 func validateExistingClusterState(
 	ctx context.Context,
-	t *testing.T,
 	cloud *azureClient,
 	resourceGroupName string,
 	clusterModel *armcontainerservice.ManagedCluster) (bool, error) {
@@ -96,7 +94,7 @@ func validateExistingClusterState(
 	cluster, err := cloud.aksClient.Get(ctx, resourceGroupName, clusterName, nil)
 	if err != nil {
 		if isResourceNotFoundError(err) {
-			t.Logf("received ResourceNotFound error when trying to GET test cluster %q", clusterName)
+			log.Printf("received ResourceNotFound error when trying to GET test cluster %q", clusterName)
 			needRecreate = true
 		} else {
 			return false, fmt.Errorf("failed to get aks cluster %q: %w", clusterName, err)
@@ -109,7 +107,7 @@ func validateExistingClusterState(
 		}
 
 		if !rgExists || cluster.Properties == nil || cluster.Properties.ProvisioningState == nil || *cluster.Properties.ProvisioningState == "Failed" {
-			t.Logf("deleting test cluster in bad state: %q", clusterName)
+			log.Printf("deleting test cluster in bad state: %q", clusterName)
 
 			needRecreate = true
 			if err := deleteExistingCluster(ctx, cloud, resourceGroupName, clusterName); err != nil {
@@ -178,7 +176,7 @@ func getClusterSubnetID(ctx context.Context, cloud *azureClient, location, mcRes
 	return "", fmt.Errorf("failed to find aks vnet")
 }
 
-func getInitialClusterConfigs(ctx context.Context, t *testing.T, cloud *azureClient, resourceGroupName string) ([]clusterConfig, error) {
+func getInitialClusterConfigs(ctx context.Context, cloud *azureClient, resourceGroupName string) ([]clusterConfig, error) {
 	var configs []clusterConfig
 	pager := cloud.resourceClient.NewListByResourceGroupPager(resourceGroupName, nil)
 
@@ -206,7 +204,7 @@ func getInitialClusterConfigs(ctx context.Context, t *testing.T, cloud *azureCli
 					continue
 				}
 
-				t.Logf("found agentbaker e2e cluster: %q", *cluster.Name)
+				log.Printf("found agentbaker e2e cluster: %q", *cluster.Name)
 				configs = append(configs, clusterConfig{cluster: &cluster.ManagedCluster})
 			}
 		}
@@ -226,7 +224,6 @@ func hasViableConfig(scenario *scenario.Scenario, clusterConfigs []clusterConfig
 
 func createMissingClusters(
 	ctx context.Context,
-	t *testing.T,
 	r *mrand.Rand,
 	cloud *azureClient,
 	suiteConfig *suiteConfig,
@@ -258,7 +255,7 @@ func createMissingClusters(
 			}
 
 			log.Printf("preparing cluster %q for testing...", clusterName)
-			kube, subnetId, clusterParams, err := prepareClusterForTests(ctx, t, cloud, suiteConfig, liveCluster)
+			kube, subnetId, clusterParams, err := prepareClusterForTests(ctx, cloud, suiteConfig, liveCluster)
 			if err != nil {
 				return fmt.Errorf("unable to prepare viable cluster for testing: %s", err)
 			}
@@ -281,22 +278,21 @@ func createMissingClusters(
 	return nil
 }
 
-func mustChooseCluster(
+func chooseCluster(
 	ctx context.Context,
-	t *testing.T,
 	r *mrand.Rand,
 	cloud *azureClient,
 	suiteConfig *suiteConfig,
 	scenario *scenario.Scenario,
-	clusterConfigs []clusterConfig) clusterConfig {
+	clusterConfigs []clusterConfig) (clusterConfig, error) {
 	var chosenConfig clusterConfig
 	for i := range clusterConfigs {
 		config := &clusterConfigs[i]
 		if scenario.Config.ClusterSelector(config.cluster) {
 			// only validate + prep the cluster for testing if we didn't just create it and it hasn't already been prepared
 			if !config.isNewCluster && config.needsPreparation() {
-				if err := validateAndPrepareCluster(ctx, t, cloud, suiteConfig, config); err != nil {
-					t.Logf("unable to validate and preprare cluster %q: %s", *config.cluster.Name, err)
+				if err := validateAndPrepareCluster(ctx, cloud, suiteConfig, config); err != nil {
+					log.Printf("unable to validate and preprare cluster %q: %s", *config.cluster.Name, err)
 					continue
 				}
 			}
@@ -306,31 +302,31 @@ func mustChooseCluster(
 	}
 
 	if chosenConfig.cluster == nil || chosenConfig.needsPreparation() {
-		t.Fatalf("unable to successfully choose a cluster for scenario %q", scenario.Name)
+		return clusterConfig{}, fmt.Errorf("unable to successfully choose a cluster for scenario %q", scenario.Name)
 	}
 
 	if chosenConfig.cluster.Properties.NodeResourceGroup == nil {
-		t.Fatalf("tried to chose a cluster without a node resource group:\n%+v", *chosenConfig.cluster)
+		return clusterConfig{}, fmt.Errorf("tried to chose a cluster without a node resource group: %+v", *chosenConfig.cluster)
 	}
 
-	return chosenConfig
+	return chosenConfig, nil
 }
 
-func validateAndPrepareCluster(ctx context.Context, t *testing.T, cloud *azureClient, suiteConfig *suiteConfig, config *clusterConfig) error {
-	needRecreate, err := validateExistingClusterState(ctx, t, cloud, suiteConfig.resourceGroupName, config.cluster)
+func validateAndPrepareCluster(ctx context.Context, cloud *azureClient, suiteConfig *suiteConfig, config *clusterConfig) error {
+	needRecreate, err := validateExistingClusterState(ctx, cloud, suiteConfig.resourceGroupName, config.cluster)
 	if err != nil {
 		return err
 	}
 
 	if needRecreate {
-		t.Logf("cluster %q is in a bad state, attempting to recreate...", *config.cluster.Name)
+		log.Printf("cluster %q is in a bad state, attempting to recreate...", *config.cluster.Name)
 		config.cluster, err = createNewCluster(ctx, cloud, suiteConfig.resourceGroupName, config.cluster)
 		if err != nil {
 			return err
 		}
 	}
 
-	kube, subnetId, clusterParams, err := prepareClusterForTests(ctx, t, cloud, suiteConfig, config.cluster)
+	kube, subnetId, clusterParams, err := prepareClusterForTests(ctx, cloud, suiteConfig, config.cluster)
 	if err != nil {
 		return err
 	}
@@ -343,7 +339,6 @@ func validateAndPrepareCluster(ctx context.Context, t *testing.T, cloud *azureCl
 
 func prepareClusterForTests(
 	ctx context.Context,
-	t *testing.T,
 	cloud *azureClient,
 	suiteConfig *suiteConfig,
 	cluster *armcontainerservice.ManagedCluster) (*kubeclient, string, clusterParameters, error) {
@@ -363,7 +358,7 @@ func prepareClusterForTests(
 		return nil, "", nil, fmt.Errorf("unable to ensure debug damonset of viable cluster %q: %w", clusterName, err)
 	}
 
-	clusterParams, err := pollExtractClusterParameters(ctx, t, kube)
+	clusterParams, err := pollExtractClusterParameters(ctx, kube)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("unable to extract cluster parameters from %q: %w", clusterName, err)
 	}
