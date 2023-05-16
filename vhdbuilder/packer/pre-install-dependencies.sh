@@ -48,11 +48,12 @@ rm -f /etc/cron.daily/logrotate
 
 systemctlEnableAndStart sync-container-logs.service || exit 1
 
+# For any SKU that suppports FIPS, we call installFIPS and pass ENABLE_FIPS = true
+# The elif will only enter if UBUNTU_RELEASE = 1804 and ENABLE_FIPS = false
 if [[ (${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_RELEASE} == "18.04" || ($OS == $MARINER_OS_NAME && $OS_VERSION == "2.0")) && ${ENABLE_FIPS,,} == "true" ]]; then
-  installFIPS
-elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
-  echo "AKS enables FIPS on Ubuntu 18.04, 20.04 or Mariner 2.0 only, exiting..."
-  exit 1
+  installFIPS ${ENABLE_FIPS,,}
+elif [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
+  installUA ${ENABLE_FIPS,,}
 fi
 
 echo "pre-install-dependencies step finished successfully"

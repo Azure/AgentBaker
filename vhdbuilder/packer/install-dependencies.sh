@@ -43,9 +43,12 @@ EOF
 fi
 
 installDeps
-if [[ "${UBUNTU_RELEASE}" == "18.04" ]]; then
-  install1804EsmUpdates
-fi
+# if [[ "${UBUNTU_RELEASE}" == "18.04" ]]; then
+#   # passing false here and not ${ENABLE_FIPS}, because installFIPS is already called in pre-install-depedencies.sh
+#   # if ${ENABLE_FIPS} is true, installFIPS will already have called installUA with true
+#   # passing true here would redundantly run the code twice
+#   installUA "false"
+# fi
 
 # CVM breaks on kernel image updates due to nullboot package post-install.
 # it relies on boot measurements from real tpm hardware.

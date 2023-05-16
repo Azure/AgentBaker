@@ -137,6 +137,7 @@ EOF
 }
 
 installFIPS() {
+    enableFIPS=$1
     echo "Installing FIPS..."
     wait_for_apt_locks
 
@@ -150,31 +151,7 @@ installFIPS() {
         fi
     done
 
-    echo "auto attaching ua..."
-    retrycmd_if_failure 5 10 120 ua auto-attach || exit $ERR_AUTO_UA_ATTACH
-
-    echo "disabling ua livepatch..."
-    retrycmd_if_failure 5 10 300 echo y | ua disable livepatch
-
-    echo "enabling ua fips-updates..."
-    retrycmd_if_failure 5 10 1200 echo y | ua enable fips-updates || exit $ERR_UA_ENABLE_FIPS
-
-    # 'ua status' for logging
-    ua status
-
-    echo "detaching ua..."
-    retrycmd_if_failure 5 10 120 printf "y\nN" | ua detach || $ERR_UA_DETACH
-
-    # now the fips packages/kernel are installed, clean up apt settings in the vhd,
-    # the VMs created on customers' subscriptions don't have access to UA repo
-    rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-apps.gpg
-    rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-infra-trusty.gpg
-    rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-fips.gpg
-    rm -f /etc/apt/sources.list.d/ubuntu-esm-apps.list
-    rm -f /etc/apt/sources.list.d/ubuntu-esm-infra.list
-    rm -f /etc/apt/sources.list.d/ubuntu-fips-updates.list
-    rm -f /etc/apt/auth.conf.d/*ubuntu-advantage
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    installUA ${enableFIPS}
 }
 
 relinkResolvConf() {
@@ -206,4 +183,42 @@ install1804EsmUpdates() {
 
     echo "detaching ua..."
     retrycmd_if_failure 5 10 120 printf "y\nN" | ua detach || $ERR_UA_DETACH
+}
+
+# UA for FIPS and 1804 ESM Updates
+installUA() {
+    enableFIPS=$1
+
+    echo "auto attaching ua..."
+    retrycmd_if_failure 5 10 120 ua auto-attach || exit $ERR_AUTO_UA_ATTACH
+
+    echo "disabling ua livepatch..."
+    retrycmd_if_failure 5 10 300 echo y | ua disable livepatch
+
+    if [[ "${enableFIPS}" == "true" ]]; then
+        echo "enabling ua fips-updates..."
+        retrycmd_if_failure 5 10 1200 echo y | ua enable fips-updates || exit $ERR_UA_ENABLE_FIPS
+    fi
+
+    # 'ua status' for logging
+    ua status
+
+    echo "detaching ua..."
+    retrycmd_if_failure 5 10 120 printf "y\nN" | ua detach || $ERR_UA_DETACH
+
+    # now the fips/ESM packages/kernel are installed, clean up apt settings in the vhd,
+    # the VMs created on customers' subscriptions don't have access to UA repo
+    rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-apps.gpg
+    rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-infra-trusty.gpg
+    rm -f /etc/apt/sources.list.d/ubuntu-esm-apps.list
+    rm -f /etc/apt/sources.list.d/ubuntu-esm-infra.list
+    rm -f /etc/apt/auth.conf.d/*ubuntu-advantage
+
+    if [[ "${enableFIPS}" == "true" ]]; then
+        rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-fips.gpg
+        rm -f /etc/apt/sources.list.d/ubuntu-fips-updates.list
+    fi
+
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 }
