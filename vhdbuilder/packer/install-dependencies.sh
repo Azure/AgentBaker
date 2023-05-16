@@ -199,7 +199,7 @@ installAndConfigureArtifactStreaming() {
   pushd /tmp || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
   # download acr-mirror proxy
   MIRROR_PROXY_VERSION='11'
-  UBUNTU_VERSION_CLEANED="${UBUNTU_RELEASE//.}"
+  UBUNTU_VERSION_CLEANED="${UBUNTU_RELEASE//.}"https://askubuntu.com/questions/445384/what-is-the-difference-between-apt-and-apt-get
   MIRROR_PROXY_URL="https://acrmirrordev.blob.core.windows.net/bin/Release-11/acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
   
   wget $MIRROR_PROXY_URL || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
@@ -209,9 +209,9 @@ installAndConfigureArtifactStreaming() {
   rm "./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
   popd || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
 
-  sudo apt install libnl-3-dev libnl-genl-3-dev -y
-  
-  echo "  - [installed] libnl-3-dev & libnl-genl-3-dev"
+  sudo apt install libnl-3-dev libnl-genl-3-dev libc6 libssl3 -y
+
+  echo "  - [installed] libnl-3-dev, libnl-genl-3-dev, libc6 and libssl3" >> ${VHD_LOGS_FILEPATH}
 
   sudo /opt/acr/tools/overlaybd/install.sh || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
   sudo /opt/acr/tools/overlaybd/enable-http-auth.sh || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
