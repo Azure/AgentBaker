@@ -154,37 +154,6 @@ installFIPS() {
     installUA ${enableFIPS}
 }
 
-relinkResolvConf() {
-    # /run/systemd/resolve/stub-resolv.conf contains local nameserver 127.0.0.53
-    # remove this block after toggle disable-1804-systemd-resolved is enabled prod wide
-    resolvconf=$(readlink -f /etc/resolv.conf)
-    if [[ "${resolvconf}" == */run/systemd/resolve/stub-resolv.conf ]]; then
-        unlink /etc/resolv.conf
-        ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
-    fi
-}
-
-listInstalledPackages() {
-    apt list --installed
-}
-
-install1804EsmUpdates() {
-    echo "auto attaching ua..."
-    retrycmd_if_failure 5 10 120 ua auto-attach || exit $ERR_AUTO_UA_ATTACH
-
-    echo "disabling ua livepatch..."
-    retrycmd_if_failure 5 10 300 echo y | ua disable livepatch
-
-    # 'ua status' for logging
-    ua status
-
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-
-    echo "detaching ua..."
-    retrycmd_if_failure 5 10 120 printf "y\nN" | ua detach || $ERR_UA_DETACH
-}
-
 # UA for FIPS and 1804 ESM Updates
 installUA() {
     enableFIPS=$1
@@ -221,4 +190,18 @@ installUA() {
 
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
+}
+
+relinkResolvConf() {
+    # /run/systemd/resolve/stub-resolv.conf contains local nameserver 127.0.0.53
+    # remove this block after toggle disable-1804-systemd-resolved is enabled prod wide
+    resolvconf=$(readlink -f /etc/resolv.conf)
+    if [[ "${resolvconf}" == */run/systemd/resolve/stub-resolv.conf ]]; then
+        unlink /etc/resolv.conf
+        ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+    fi
+}
+
+listInstalledPackages() {
+    apt list --installed
 }
