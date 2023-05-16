@@ -48,6 +48,10 @@ rm -f /etc/cron.daily/logrotate
 
 systemctlEnableAndStart sync-container-logs.service || exit 1
 
+if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
+  installESMFor1804
+fi
+
 if [[ (${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_RELEASE} == "18.04" || ($OS == $MARINER_OS_NAME && $OS_VERSION == "2.0")) && ${ENABLE_FIPS,,} == "true" ]]; then
   installFIPS
 elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
