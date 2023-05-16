@@ -85,22 +85,23 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 		addValue(parametersMap, "runcVersion", config.RuncVersion)
 	}
 	addValue(parametersMap, "runcPackageURL", config.RuncPackageURL)
-	if profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
-		// override containerRuntime parameter value if specified in AgentPoolProfile
-		// this allows for heteregenous clusters
-		addValue(parametersMap, "containerRuntime", profile.KubernetesConfig.ContainerRuntime)
-		if profile.KubernetesConfig.ContainerRuntime == "containerd" {
-			addValue(parametersMap, "cliTool", "ctr")
-			if config.ContainerdVersion != "" {
-				addValue(parametersMap, "containerdVersion", config.ContainerdVersion)
-			}
-			if config.TeleportdPluginURL != "" {
-				addValue(parametersMap, "teleportdPluginURL", config.TeleportdPluginURL)
-			}
-			addValue(parametersMap, "containerdPackageURL", config.ContainerdPackageURL)
-		} else {
-			addValue(parametersMap, "cliTool", "docker")
+	if profile.KubernetesConfig == nil || profile.KubernetesConfig.ContainerRuntime == "" {
+		return
+	}
+	// override containerRuntime parameter value if specified in AgentPoolProfile
+	// this allows for heteregenous clusters
+	addValue(parametersMap, "containerRuntime", profile.KubernetesConfig.ContainerRuntime)
+	if profile.KubernetesConfig.ContainerRuntime == "containerd" {
+		addValue(parametersMap, "cliTool", "ctr")
+		if config.ContainerdVersion != "" {
+			addValue(parametersMap, "containerdVersion", config.ContainerdVersion)
 		}
+		if config.TeleportdPluginURL != "" {
+			addValue(parametersMap, "teleportdPluginURL", config.TeleportdPluginURL)
+		}
+		addValue(parametersMap, "containerdPackageURL", config.ContainerdPackageURL)
+	} else {
+		addValue(parametersMap, "cliTool", "docker")
 	}
 }
 

@@ -3,6 +3,7 @@
 
 package datamodel
 
+//nolint:gochecknoglobals
 var (
 	Ubuntu1604OSImageConfig = AzureOSImageConfig{
 		ImageOffer:     "UbuntuServer",

@@ -90,23 +90,15 @@ foreach ($key in $wuRegistryKeys) {
 }
 Log ""
 
-if ($env:containerRuntime -eq 'docker') {
-    Log "Docker Info"
-    $dockerVersion = (docker --version) | Out-String
-    Log ("Version: {0}" -f $dockerVersion)
-    Log "Images:"
-    Log (docker images --format='{{json .}}' | ConvertFrom-Json | Format-Table Repository, Tag, ID)
-} else {
-    Log "ContainerD Info"
-    # starting containerd for printing containerD info, the same way as we pre-pull containerD images in configure-windows-vhd.ps1
-    Start-Job -Name containerd -ScriptBlock { containerd.exe }
-    $containerDVersion = (ctr.exe --version) | Out-String
-    Log ("Version: {0}" -f $containerDVersion)
-    Log "Images:"
-    Log (ctr.exe -n k8s.io image ls)
-    Stop-Job  -Name containerd
-    Remove-Job -Name containerd
-}
+Log "ContainerD Info"
+# starting containerd for printing containerD info, the same way as we pre-pull containerD images in configure-windows-vhd.ps1
+Start-Job -Name containerd -ScriptBlock { containerd.exe }
+$containerDVersion = (ctr.exe --version) | Out-String
+Log ("Version: {0}" -f $containerDVersion)
+Log "Images:"
+Log (ctr.exe -n k8s.io image ls)
+Stop-Job  -Name containerd
+Remove-Job -Name containerd
 Log ""
 
 Log "Cached Files:"
