@@ -36,9 +36,9 @@ go test -timeout 30m -v -run Test_All ./
 
 The top-level package of the Golang E2E implementation is named `e2e_test` and is entirely separate from all AgentBaker packages.
 
-The `e2e_test` package has a dependency on a few subpackages:
+The `e2e_test` package has a dependencies on a few subpackages:
 
-- [secnario](/scenario): where all E2E scenarios are defined, along with scenario-based cluster selection/configuration
+- [secnario](scenario/): where all E2E scenarios are defined, along with scenario-based cluster selection/configuration
 - [client](client/): implementations of both Kube and Azure clients for interacting with AKS clusters and the Azure cloud respectively
 - [exec](exec/): implementations of functions and types used for executing commands on pods and VMs during testing
 - [validation](validation/): implementations of functions and types used for running both K8s-level and VM-level validation
