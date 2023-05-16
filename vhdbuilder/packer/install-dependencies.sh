@@ -43,6 +43,9 @@ EOF
 fi
 
 installDeps
+if [[ "${UBUNTU_RELEASE}" == "18.04" ]]; then
+  install1804EsmUpdates
+fi
 
 # CVM breaks on kernel image updates due to nullboot package post-install.
 # it relies on boot measurements from real tpm hardware.

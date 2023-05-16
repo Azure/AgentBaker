@@ -190,3 +190,20 @@ relinkResolvConf() {
 listInstalledPackages() {
     apt list --installed
 }
+
+install1804EsmUpdates() {
+    echo "auto attaching ua..."
+    retrycmd_if_failure 5 10 120 ua auto-attach || exit $ERR_AUTO_UA_ATTACH
+
+    echo "disabling ua livepatch..."
+    retrycmd_if_failure 5 10 300 echo y | ua disable livepatch
+
+    # 'ua status' for logging
+    ua status
+
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
+
+    echo "detaching ua..."
+    retrycmd_if_failure 5 10 120 printf "y\nN" | ua detach || $ERR_UA_DETACH
+}
