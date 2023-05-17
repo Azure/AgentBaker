@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/validation"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 )
@@ -31,8 +32,8 @@ func ubuntu2204gpuNoDriver() *Scenario {
 					ID: to.Ptr(DefaultImageVersionIDs["ubuntu2204"]),
 				}
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				NvidiaSMINotInstalledValidator(),
+			LiveVMValidators: []*validation.LiveVMValidator{
+				validation.NvidiaSMINotInstalledValidator(),
 			},
 		},
 	}

@@ -1,9 +1,49 @@
-package scenario
+package validation
 
 import (
 	"fmt"
 	"strings"
 )
+
+func CommonLiveVMValidators() []*LiveVMValidator {
+	return []*LiveVMValidator{
+		{
+			Description: "assert /etc/default/kubelet should not contain dynamic config dir flag",
+			Command:     "cat /etc/default/kubelet",
+			Asserter: func(code, stdout, stderr string) error {
+				if code != "0" {
+					return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
+				}
+				if strings.Contains(stdout, "--dynamic-config-dir") {
+					return fmt.Errorf("/etc/default/kubelet should not contain kubelet flag '--dynamic-config-dir', but does")
+				}
+				return nil
+			},
+		},
+		SysctlConfigValidator(
+			map[string]int{
+				"net.ipv4.tcp_retries2":             8,
+				"net.core.message_burst":            80,
+				"net.core.message_cost":             40,
+				"net.core.somaxconn":                16384,
+				"net.ipv4.tcp_max_syn_backlog":      16384,
+				"net.ipv4.neigh.default.gc_thresh1": 4096,
+				"net.ipv4.neigh.default.gc_thresh2": 8192,
+				"net.ipv4.neigh.default.gc_thresh3": 16384,
+			},
+		),
+		DirectoryValidator(
+			"/var/log/azure/aks",
+			[]string{
+				"cluster-provision.log",
+				"cluster-provision-cse-output.log",
+				"cloud-init-files.paved",
+				"vhd-install.complete",
+				"cloud-config.txt",
+			},
+		),
+	}
+}
 
 func DirectoryValidator(path string, files []string) *LiveVMValidator {
 	return &LiveVMValidator{

@@ -1,4 +1,4 @@
-package e2e_test
+package client
 
 import (
 	"crypto/tls"
@@ -19,17 +19,21 @@ import (
 	"github.com/Azure/go-armbalancer"
 )
 
-type azureClient struct {
-	coreClient          *azcore.Client
-	vmssClient          *armcompute.VirtualMachineScaleSetsClient
-	vmssVMClient        *armcompute.VirtualMachineScaleSetVMsClient
-	vnetClient          *armnetwork.VirtualNetworksClient
-	resourceClient      *armresources.Client
-	resourceGroupClient *armresources.ResourceGroupsClient
-	aksClient           *armcontainerservice.ManagedClustersClient
+const (
+	defaultAzureTokenScope = "https://management.azure.com/.default"
+)
+
+type Azure struct {
+	CoreClient          *azcore.Client
+	VMSSClient          *armcompute.VirtualMachineScaleSetsClient
+	VMSSVMClient        *armcompute.VirtualMachineScaleSetVMsClient
+	VNetClient          *armnetwork.VirtualNetworksClient
+	ResourceClient      *armresources.Client
+	ResourceGroupClient *armresources.ResourceGroupsClient
+	AKSClient           *armcontainerservice.ManagedClustersClient
 }
 
-func newAzureClient(subscription string) (*azureClient, error) {
+func NewAzureClient(subscription string) (*Azure, error) {
 	httpClient := &http.Client{
 		// use a bunch of connections for load balancing
 		// ensure all timeouts are defined and reasonable
@@ -117,15 +121,13 @@ func newAzureClient(subscription string) (*azureClient, error) {
 		return nil, fmt.Errorf("failed to create vnet client: %w", err)
 	}
 
-	var cloud = &azureClient{
-		coreClient:          coreClient,
-		aksClient:           aksClient,
-		resourceClient:      resourceClient,
-		resourceGroupClient: resourceGroupClient,
-		vmssClient:          vmssClient,
-		vmssVMClient:        vmssVMClient,
-		vnetClient:          vnetClient,
-	}
-
-	return cloud, nil
+	return &Azure{
+		CoreClient:          coreClient,
+		AKSClient:           aksClient,
+		ResourceClient:      resourceClient,
+		ResourceGroupClient: resourceGroupClient,
+		VMSSClient:          vmssClient,
+		VMSSVMClient:        vmssVMClient,
+		VNetClient:          vnetClient,
+	}, nil
 }
