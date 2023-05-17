@@ -48,16 +48,13 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
     "mcr.microsoft.com/oss/kubernetes/pause:3.9",
     # CSI. Owner: andyzhangx (Andy Zhang)
-    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
     "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.10.0",
-    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0",
     # azuredisk-csi:v1.27 is only for AKS 1.26+, v1.26 is for other AKS versions
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.3",
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.4",
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.1",
     # azurefile-csi:v1.26 is only for AKS 1.26+, v1.24 is for other AKS versions
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.1",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.2",
     # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
