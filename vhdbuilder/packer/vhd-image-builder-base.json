@@ -260,11 +260,6 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/install-fips-dependencies.sh",
-      "destination": "/home/packer/install-fips-dependencies.sh"
-    },
-    {
-      "type": "file",
       "source": "vhdbuilder/packer/install-dependencies.sh",
       "destination": "/home/packer/install-dependencies.sh"
     },

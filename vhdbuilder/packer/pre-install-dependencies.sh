@@ -57,7 +57,7 @@ if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
   fi
 else
   # Handle FIPS and ESM for Ubuntu
-  useUA=$( [[ "${UBUNTU_RELEASE}" = "18.04" ]] || [[ "${ENABLE_FIPS}" = "true" ]] && echo "true" || echo "false" )
+  useUA=$( [[ "${UBUNTU_RELEASE}" = "18.04" ]] || [[ "${ENABLE_FIPS,,}" = "true" ]] && echo "true" || echo "false" )
   if [[ "${useUA}" == "true" ]]; then
     # useUA = true implies the SKU is either FIPS Enabled or 1804
     autoAttachUA

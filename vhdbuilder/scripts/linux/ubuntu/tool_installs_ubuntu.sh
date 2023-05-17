@@ -168,20 +168,6 @@ listInstalledPackages() {
     apt list --installed
 }
 
-installESMFor1804() {
-    autoAttachUA
-
-    # Run apt get update to refresh repo list
-    # Run apt dist get upgrade to install packages/kernels
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT    
-    
-    # 'ua status' for logging
-    ua status
-
-    detachAndCleanUpUA
-}
-
 autoAttachUA() {
     echo "auto attaching ua..."
     retrycmd_if_failure 5 10 120 ua auto-attach || exit $ERR_AUTO_UA_ATTACH
