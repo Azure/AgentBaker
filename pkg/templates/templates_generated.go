@@ -62,6 +62,7 @@
 // linux/cloud-init/artifacts/nvidia-device-plugin.service
 // linux/cloud-init/artifacts/nvidia-docker-daemon.json
 // linux/cloud-init/artifacts/nvidia-modprobe.service
+// linux/cloud-init/artifacts/nvidia-persistenced.service
 // linux/cloud-init/artifacts/pam-d-common-auth
 // linux/cloud-init/artifacts/pam-d-common-auth-2204
 // linux/cloud-init/artifacts/pam-d-common-password
@@ -1673,6 +1674,12 @@ configGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
+    # this service may not be present in older VHDs.
+    # it is a latency optimization to nvidia-smi/driver load latency.
+    # we allow skipping it if it is not present.
+    # this is a forking service, so when systemctl restart completes,
+    # nvidia-smi should succeed with much lower latency.
+    logs_to_events "AKS.CSE.restart.nvidia-persistenced" "systemctlEnableAndStart nvidia-persistenced"
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     
@@ -4535,6 +4542,36 @@ func linuxCloudInitArtifactsNvidiaModprobeService() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/nvidia-modprobe.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsNvidiaPersistencedService = []byte(`[Unit]
+Description=NVIDIA Persistence Daemon
+Wants=syslog.target
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/nvidia-persistenced --verbose
+ExecStopPost=/bin/rm -rf /var/run/nvidia-persistenced
+PIDFile=/var/run/nvidia-persistenced/nvidia-persistenced.pid
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+`)
+
+func linuxCloudInitArtifactsNvidiaPersistencedServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsNvidiaPersistencedService, nil
+}
+
+func linuxCloudInitArtifactsNvidiaPersistencedService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsNvidiaPersistencedServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/nvidia-persistenced.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -7582,6 +7619,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/nvidia-device-plugin.service":              linuxCloudInitArtifactsNvidiaDevicePluginService,
 	"linux/cloud-init/artifacts/nvidia-docker-daemon.json":                 linuxCloudInitArtifactsNvidiaDockerDaemonJson,
 	"linux/cloud-init/artifacts/nvidia-modprobe.service":                   linuxCloudInitArtifactsNvidiaModprobeService,
+	"linux/cloud-init/artifacts/nvidia-persistenced.service":               linuxCloudInitArtifactsNvidiaPersistencedService,
 	"linux/cloud-init/artifacts/pam-d-common-auth":                         linuxCloudInitArtifactsPamDCommonAuth,
 	"linux/cloud-init/artifacts/pam-d-common-auth-2204":                    linuxCloudInitArtifactsPamDCommonAuth2204,
 	"linux/cloud-init/artifacts/pam-d-common-password":                     linuxCloudInitArtifactsPamDCommonPassword,
@@ -7719,6 +7757,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"nvidia-device-plugin.service":    &bintree{linuxCloudInitArtifactsNvidiaDevicePluginService, map[string]*bintree{}},
 				"nvidia-docker-daemon.json":       &bintree{linuxCloudInitArtifactsNvidiaDockerDaemonJson, map[string]*bintree{}},
 				"nvidia-modprobe.service":         &bintree{linuxCloudInitArtifactsNvidiaModprobeService, map[string]*bintree{}},
+				"nvidia-persistenced.service":     &bintree{linuxCloudInitArtifactsNvidiaPersistencedService, map[string]*bintree{}},
 				"pam-d-common-auth":               &bintree{linuxCloudInitArtifactsPamDCommonAuth, map[string]*bintree{}},
 				"pam-d-common-auth-2204":          &bintree{linuxCloudInitArtifactsPamDCommonAuth2204, map[string]*bintree{}},
 				"pam-d-common-password":           &bintree{linuxCloudInitArtifactsPamDCommonPassword, map[string]*bintree{}},

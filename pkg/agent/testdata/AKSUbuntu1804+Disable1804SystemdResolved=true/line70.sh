@@ -571,6 +571,12 @@ configGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
+    # this service may not be present in older VHDs.
+    # it is a latency optimization to nvidia-smi/driver load latency.
+    # we allow skipping it if it is not present.
+    # this is a forking service, so when systemctl restart completes,
+    # nvidia-smi should succeed with much lower latency.
+    logs_to_events "AKS.CSE.restart.nvidia-persistenced" "systemctlEnableAndStart nvidia-persistenced"
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     

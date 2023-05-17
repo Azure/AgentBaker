@@ -332,6 +332,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/nvidia-persistenced.service",
+      "destination": "/home/packer/nvidia-persistenced.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mariner/update_certs_mariner.service",
       "destination": "/home/packer/update_certs.service"
     },
