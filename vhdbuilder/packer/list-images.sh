@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 set -euxo pipefail
 
-IMAGE_VERSION="${IMAGE_VERSION:-$(date +%Y%m.%d.0)}"
-
-CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-containerd}"
-
 TEMP_IMAGE_BOM_PATH=/opt/azure/containers/temp-image-bom.json
 IMAGE_BOM_PATH=/opt/azure/containers/image-bom.json
+
+SKU_NAME="${SKU_NAME:=}"
+IMAGE_VERSION="${IMAGE_VERSION:-$(date +%Y%m.%d.0)}"
+CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-containerd}"
+
+if [[ -z "${SKU_NAME}" ]]; then
+    echo "SKU_NAME must be set when generating image list"
+    exit 1
+fi
 
 function generate_image_bom_for_containerd() {
     IFS_backup=$IFS; IFS=$'\n'
@@ -23,7 +28,7 @@ function generate_image_bom_for_containerd() {
 
     IFS=$IFS_backup
     bom=$(jq --slurpfile images $TEMP_IMAGE_BOM_PATH -n '$images | group_by(.id) | map({id:.[0].id, repoTags:[.[].repoTags] | add | unique, repoDigests:[.[].repoDigests] | add | unique})')
-    jq --argjson bom "$bom" --arg version "$IMAGE_VERSION" -n '{imageVersion:$version, imageBom:$bom}' > $IMAGE_BOM_PATH
+    jq --argjson bom "$bom" --arg version "$IMAGE_VERSION" --arg sku "$SKU_NAME" -n '{sku:$sku, imageVersion:$version, imageBom:$bom}' > $IMAGE_BOM_PATH
     rm -f $TEMP_IMAGE_BOM_PATH
 }
 
