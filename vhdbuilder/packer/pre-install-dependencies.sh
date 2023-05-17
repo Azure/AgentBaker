@@ -49,14 +49,8 @@ rm -f /etc/cron.daily/logrotate
 systemctlEnableAndStart sync-container-logs.service || exit 1
 
 if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
+  echo "installing ESM for Ubuntu 18.04"
   installESMFor1804
-fi
-
-if [[ (${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_RELEASE} == "18.04" || ($OS == $MARINER_OS_NAME && $OS_VERSION == "2.0")) && ${ENABLE_FIPS,,} == "true" ]]; then
-  installFIPS
-elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
-  echo "AKS enables FIPS on Ubuntu 18.04, 20.04 or Mariner 2.0 only, exiting..."
-  exit 1
 fi
 
 echo "pre-install-dependencies step finished successfully"
