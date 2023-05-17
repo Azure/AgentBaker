@@ -77,7 +77,10 @@ Log "`thttps://docs.microsoft.com/en-us/windows/deployment/update/waas-wu-settin
 $wuRegistryKeys = @(
     "HKLM:SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate",
     "HKLM:SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU",
-    "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State"
+    "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State",
+    "HKLM:\SYSTEM\CurrentControlSet\Services\wcifs",
+    "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides",
+    "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters"
 )
 
 foreach ($key in $wuRegistryKeys) {
