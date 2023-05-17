@@ -83,15 +83,9 @@ func ensureResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupN
 	return nil
 }
 
-func validateExistingClusterState(
-	ctx context.Context,
-	cloud *azureClient,
-	resourceGroupName string,
-	clusterModel *armcontainerservice.ManagedCluster) (bool, error) {
+func validateExistingClusterState(ctx context.Context, cloud *azureClient, resourceGroupName, clusterName string) (bool, error) {
 	var needRecreate bool
-	clusterName := *clusterModel.Name
-
-	cluster, err := cloud.aksClient.Get(ctx, resourceGroupName, clusterName, nil)
+	clusterResp, err := cloud.aksClient.Get(ctx, resourceGroupName, clusterName, nil)
 	if err != nil {
 		if isResourceNotFoundError(err) {
 			log.Printf("received ResourceNotFound error when trying to GET test cluster %q", clusterName)
@@ -100,8 +94,17 @@ func validateExistingClusterState(
 			return false, fmt.Errorf("failed to get aks cluster %q: %w", clusterName, err)
 		}
 	} else {
+		cluster := &clusterResp.ManagedCluster
+		if *cluster.Properties.ProvisioningState == "Creating" {
+			cl, err := waitForClusterCreation(ctx, cloud, resourceGroupName, clusterName)
+			if err != nil {
+				return false, err
+			}
+			cluster = cl
+		}
+
 		// We only need to check the MC resource group + cluster properties if the cluster resource itself exists
-		rgExists, err := isExistingResourceGroup(ctx, cloud, *clusterModel.Properties.NodeResourceGroup)
+		rgExists, err := isExistingResourceGroup(ctx, cloud, *cluster.Properties.NodeResourceGroup)
 		if err != nil {
 			return false, err
 		}
@@ -196,15 +199,15 @@ func getInitialClusterConfigs(ctx context.Context, cloud *azureClient, resourceG
 						return nil, fmt.Errorf("failed to get aks cluster: %w", err)
 					}
 				}
-				if cluster.Properties == nil {
-					return nil, fmt.Errorf("aks cluster properties were nil")
+				if cluster.Properties == nil || cluster.Properties.ProvisioningState == nil {
+					return nil, fmt.Errorf("aks cluster %q properties/provisioning state were nil", *resource.Name)
 				}
 
 				if *cluster.Properties.ProvisioningState == "Deleting" {
 					continue
 				}
 
-				log.Printf("found agentbaker e2e cluster: %q", *cluster.Name)
+				log.Printf("found agentbaker e2e cluster %q in provisioning state %q", *resource.Name, *cluster.Properties.ProvisioningState)
 				configs = append(configs, clusterConfig{cluster: &cluster.ManagedCluster})
 			}
 		}
@@ -291,7 +294,7 @@ func chooseCluster(
 		if scenario.Config.ClusterSelector(config.cluster) {
 			// only validate + prep the cluster for testing if we didn't just create it and it hasn't already been prepared
 			if !config.isNewCluster && config.needsPreparation() {
-				if err := validateAndPrepareCluster(ctx, cloud, suiteConfig, config); err != nil {
+				if err := validateAndPrepareCluster(ctx, r, cloud, suiteConfig, config); err != nil {
 					log.Printf("unable to validate and preprare cluster %q: %s", *config.cluster.Name, err)
 					continue
 				}
@@ -312,18 +315,24 @@ func chooseCluster(
 	return chosenConfig, nil
 }
 
-func validateAndPrepareCluster(ctx context.Context, cloud *azureClient, suiteConfig *suiteConfig, config *clusterConfig) error {
-	needRecreate, err := validateExistingClusterState(ctx, cloud, suiteConfig.resourceGroupName, config.cluster)
+func validateAndPrepareCluster(ctx context.Context, r *mrand.Rand, cloud *azureClient, suiteConfig *suiteConfig, config *clusterConfig) error {
+	needRecreate, err := validateExistingClusterState(ctx, cloud, suiteConfig.resourceGroupName, *config.cluster.Name)
 	if err != nil {
 		return err
 	}
 
 	if needRecreate {
-		log.Printf("cluster %q is in a bad state, attempting to recreate...", *config.cluster.Name)
-		config.cluster, err = createNewCluster(ctx, cloud, suiteConfig.resourceGroupName, config.cluster)
+		log.Printf("cluster %q is in a bad state, creating a replacement...", *config.cluster.Name)
+		newModel, err := prepareClusterModelForRecreate(r, config.cluster)
 		if err != nil {
 			return err
 		}
+		newCluster, err := createNewCluster(ctx, cloud, suiteConfig.resourceGroupName, newModel)
+		if err != nil {
+			return err
+		}
+		log.Printf("replaced bad cluster %q with new cluster %q", *config.cluster.Name, *newModel.Name)
+		config.cluster = newCluster
 	}
 
 	kube, subnetId, clusterParams, err := prepareClusterForTests(ctx, cloud, suiteConfig, config.cluster)
@@ -364,6 +373,26 @@ func prepareClusterForTests(
 	}
 
 	return kube, subnetId, clusterParams, nil
+}
+
+// TODO(cameissner): figure out a better way to reconcile server-side and client-side properties,
+// for now we simply regenerate a new base model and manually patch its properties according to the original model
+func prepareClusterModelForRecreate(r *mrand.Rand, clusterModel *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
+	if clusterModel == nil || clusterModel.Properties == nil {
+		return nil, fmt.Errorf("unable to prepare cluster model for recreate, got nil cluster model/properties")
+	}
+	if clusterModel.Properties.NetworkProfile == nil || clusterModel.Properties.NetworkProfile.NetworkPlugin == nil {
+		return nil, fmt.Errorf("unable to prepare cluster model for recreate, got nil network profile/plugin")
+	}
+
+	newModel := getBaseClusterModel(generateClusterName(r), *clusterModel.Location)
+
+	// patch new model according to original model properties
+	newModel.Properties.NetworkProfile = &armcontainerservice.NetworkProfile{
+		NetworkPlugin: to.Ptr(*clusterModel.Properties.NetworkProfile.NetworkPlugin),
+	}
+
+	return &newModel, nil
 }
 
 func getNewClusterModelForScenario(clusterName, location string, scenario *scenario.Scenario) armcontainerservice.ManagedCluster {
