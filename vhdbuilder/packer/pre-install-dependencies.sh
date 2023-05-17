@@ -50,7 +50,7 @@ systemctlEnableAndStart sync-container-logs.service || exit 1
 
 # First handle Mariner + FIPS
 if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
-  if [[ ${ENABLE_FIPS,,} == "true" ]]; then
+  if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # This is FIPS install for Mariner and has nothing to do with Ubuntu Advantage
     echo "Install FIPS for Mariner SKU"
     installFIPS
@@ -75,7 +75,7 @@ else
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT    
   fi
 
-  if [[ ${ENABLE_FIPS,,} == "true" ]]; then
+  if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # This is FIPS Install for Ubuntu, it purges non FIPS Kernel and attaches UA FIPS Updates
     echo "Install FIPS for Ubuntu SKU"
     installFIPS
