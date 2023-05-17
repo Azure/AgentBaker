@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
+//nolint:revive // Name does not need to be modified to baker
 type AgentBaker interface {
 	GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
 	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, region string, distro datamodel.Distro) (*datamodel.SigImageConfig, error)

@@ -2,11 +2,12 @@ package e2e_test
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strings"
-	"testing"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -14,13 +15,14 @@ import (
 
 const (
 	// Polling intervals
-	execOnVMPollInterval                 = 10 * time.Second
-	execOnPodPollInterval                = 10 * time.Second
-	extractClusterParametersPollInterval = 15 * time.Second
-	extractVMLogsPollInterval            = 15 * time.Second
-	getVMPrivateIPAddressPollInterval    = 5 * time.Second
-	waitUntilPodRunningPollInterval      = 5 * time.Second
-	waitUntilPodDeletedPollInterval      = 5 * time.Second
+	execOnVMPollInterval                    = 10 * time.Second
+	execOnPodPollInterval                   = 10 * time.Second
+	extractClusterParametersPollInterval    = 10 * time.Second
+	extractVMLogsPollInterval               = 10 * time.Second
+	getVMPrivateIPAddressPollInterval       = 5 * time.Second
+	waitUntilPodRunningPollInterval         = 5 * time.Second
+	waitUntilPodDeletedPollInterval         = 5 * time.Second
+	waitUntilClusterNotCreatingPollInterval = 10 * time.Second
 
 	// Polling timeouts
 	execOnVMPollingTimeout                 = 3 * time.Minute
@@ -88,12 +90,12 @@ func pollExecOnPod(ctx context.Context, kube *kubeclient, namespace, podName, co
 }
 
 // Wraps extractClusterParameters in a poller with a 15-second wait interval and 5-minute timeout
-func pollExtractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclient) (map[string]string, error) {
+func pollExtractClusterParameters(ctx context.Context, kube *kubeclient) (map[string]string, error) {
 	var clusterParams map[string]string
 	err := wait.PollImmediateWithContext(ctx, extractClusterParametersPollInterval, extractClusterParametersPollingTimeout, func(ctx context.Context) (bool, error) {
-		params, err := extractClusterParameters(ctx, t, kube)
+		params, err := extractClusterParameters(ctx, kube)
 		if err != nil {
-			t.Logf("error extracting cluster parameters: %q", err)
+			log.Printf("error extracting cluster parameters: %s", err)
 			return false, nil
 		}
 		clusterParams = params
@@ -108,19 +110,19 @@ func pollExtractClusterParameters(ctx context.Context, t *testing.T, kube *kubec
 }
 
 // Wraps exctracLogsFromVM and dumpFileMapToDir in a poller with a 15-second wait interval and 5-minute timeout
-func pollExtractVMLogs(ctx context.Context, t *testing.T, vmssName, privateIP string, privateKeyBytes []byte, opts *scenarioRunOpts) error {
+func pollExtractVMLogs(ctx context.Context, vmssName, privateIP string, privateKeyBytes []byte, opts *scenarioRunOpts) error {
 	err := wait.PollImmediateWithContext(ctx, extractVMLogsPollInterval, extractVMLogsPollingTimeout, func(ctx context.Context) (bool, error) {
-		t.Log("attempting to extract VM logs")
+		log.Println("attempting to extract VM logs")
 
-		logFiles, err := extractLogsFromVM(ctx, t, vmssName, privateIP, string(privateKeyBytes), opts)
+		logFiles, err := extractLogsFromVM(ctx, vmssName, privateIP, string(privateKeyBytes), opts)
 		if err != nil {
-			t.Logf("error extracting VM logs: %q", err)
+			log.Printf("error extracting VM logs: %q", err)
 			return false, nil
 		}
 
-		t.Logf("dumping VM logs to local directory: %s", opts.loggingDir)
+		log.Printf("dumping VM logs to local directory: %s", opts.loggingDir)
 		if err = dumpFileMapToDir(opts.loggingDir, logFiles); err != nil {
-			t.Logf("error extracting VM logs: %q", err)
+			log.Printf("error extracting VM logs: %q", err)
 			return false, nil
 		}
 
@@ -137,7 +139,7 @@ func pollExtractVMLogs(ctx context.Context, t *testing.T, vmssName, privateIP st
 func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *scenarioRunOpts) (string, error) {
 	var vmPrivateIP string
 	err := wait.PollImmediateWithContext(ctx, getVMPrivateIPAddressPollInterval, getVMPrivateIPAddressPollingTimeout, func(ctx context.Context) (bool, error) {
-		pip, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.chosenCluster.Properties.NodeResourceGroup, vmssName)
+		pip, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName)
 		if err != nil {
 			log.Printf("encountered an error while getting VM private IP address: %s", err)
 			return false, nil
@@ -151,6 +153,62 @@ func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *scenarioRunO
 	}
 
 	return vmPrivateIP, nil
+}
+
+func waitForClusterCreation(ctx context.Context, cloud *azureClient, resourceGroupName, clusterName string) (*armcontainerservice.ManagedCluster, error) {
+	var cluster *armcontainerservice.ManagedCluster
+	err := wait.PollInfiniteWithContext(ctx, waitUntilClusterNotCreatingPollInterval, func(ctx context.Context) (bool, error) {
+		clusterResp, err := cloud.aksClient.Get(ctx, resourceGroupName, clusterName, nil)
+		if err != nil {
+			return false, err
+		}
+
+		if clusterResp.Properties == nil || clusterResp.Properties.ProvisioningState == nil {
+			return false, fmt.Errorf("%q: nil cluster properties/provisioning state when waiting for non-\"Creating\" provisioning state", *cluster.Name)
+		}
+
+		if *clusterResp.Properties.ProvisioningState == "Creating" {
+			return false, nil
+		}
+
+		cluster = &clusterResp.ManagedCluster
+		return true, nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("error waiting for cluster %q to be non-\"Creating\" provisioning state: %w", clusterName, err)
+	}
+
+	return cluster, nil
+}
+
+func waitUntilNodeReady(ctx context.Context, kube *kubeclient, vmssName string) (string, error) {
+	var nodeName string
+	err := wait.PollImmediateWithContext(ctx, 5*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
+		nodes, err := kube.typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		for _, node := range nodes.Items {
+			if strings.HasPrefix(node.Name, vmssName) {
+				for _, cond := range node.Status.Conditions {
+					if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
+						nodeName = node.Name
+						return true, nil
+					}
+				}
+			}
+		}
+
+		return false, nil
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to find or wait for node to be ready: %w", err)
+	}
+
+	return nodeName, nil
 }
 
 func waitUntilPodRunning(ctx context.Context, kube *kubeclient, podName string) error {

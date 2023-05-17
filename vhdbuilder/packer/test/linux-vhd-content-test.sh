@@ -470,6 +470,30 @@ testCronPermissions() {
   echo "$test:Finish"
 }
 
+# Tests that /etc/systemd/coredump.conf is set correctly, per the function
+# configureCoreDump in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
+testCoreDumpSettings() {
+  local test="testCoreDumpSettings"
+  local settings_file=/etc/systemd/coredump.conf
+  echo "$test:Start"
+
+  # Existence and format check. The man page https://www.man7.org/linux/man-pages/man5/coredump.conf.5.html
+  # doesn't really state the format of the file, but show that each line must be one o:
+  #   A comment starting with '#'.
+  #   A section heading -- this file is only supposed to have '[Coredump]'
+  #   Settings, which take the form 'NAME=VALUE', where values can be empty or strings, and strings
+  #   is pretty loose (more or less any printable character).
+  testSettingFileFormat $test $settings_file '^(#|$)' '^\[Coredump\]$' '^[A-Z_]+=[^[:cntrl:]]*$'
+
+  # Look for the settings we specifically set in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
+  # and ensure they're set to the values we expect.
+  echo "$test: Checking specific settings in $settings_file"
+  testSetting $test $settings_file 'Storage' '^Storage=' '=' 'none'
+  testSetting $test $settings_file 'ProcessSizeMax' '^ProcessSizeMax=' '=' '0'
+
+  echo "$test:Finish"
+}
+
 # Checks a single file or directory's permissions.
 # Parameters:
 #  test: The name of the test.
@@ -647,3 +671,4 @@ testLoginDefs
 testUserAdd
 testNetworkSettings
 testCronPermissions
+testCoreDumpSettings

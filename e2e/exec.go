@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -55,22 +54,22 @@ func (r podExecResult) dumpStderr() {
 	}
 }
 
-func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) (map[string]string, error) {
+func extractLogsFromVM(ctx context.Context, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) (map[string]string, error) {
 	commandList := map[string]string{
 		"/var/log/azure/cluster-provision.log": "cat /var/log/azure/cluster-provision.log",
 		"kubelet.log":                          "journalctl -u kubelet",
 	}
 
-	podName, err := getDebugPodName(opts.kube)
+	podName, err := getDebugPodName(opts.clusterConfig.kube)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get debug pod name: %w", err)
 	}
 
 	var result = map[string]string{}
 	for file, sourceCmd := range commandList {
-		t.Logf("executing command on remote VM at %s of VMSS %s: %q", privateIP, vmssName, sourceCmd)
+		log.Printf("executing command on remote VM at %s of VMSS %s: %q", privateIP, vmssName, sourceCmd)
 
-		execResult, err := execOnVM(ctx, opts.kube, privateIP, podName, sshPrivateKey, sourceCmd)
+		execResult, err := execOnVM(ctx, opts.clusterConfig.kube, privateIP, podName, sshPrivateKey, sourceCmd)
 		if execResult != nil {
 			execResult.dumpStderr()
 		}
@@ -83,7 +82,7 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, s
 	return result, nil
 }
 
-func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclient) (map[string]string, error) {
+func extractClusterParameters(ctx context.Context, kube *kubeclient) (map[string]string, error) {
 	commandList := map[string]string{
 		"/etc/kubernetes/azure.json":            "cat /etc/kubernetes/azure.json",
 		"/etc/kubernetes/certs/ca.crt":          "cat /etc/kubernetes/certs/ca.crt",
@@ -97,7 +96,7 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 
 	var result = map[string]string{}
 	for file, sourceCmd := range commandList {
-		t.Logf("executing privileged command on pod %s/%s: %q", defaultNamespace, podName, sourceCmd)
+		log.Printf("executing privileged command on pod %s/%s: %q", defaultNamespace, podName, sourceCmd)
 
 		execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, sourceCmd)
 		if execResult != nil {
