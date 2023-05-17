@@ -2850,7 +2850,7 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
        API_SERVER_DNS_RETRIES=200
     fi
     if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]]; then
-        RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME}")
+        RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 20 nslookup -timeout=5 -retry=0 ${API_SERVER_NAME}")
         STS=$?
     else
         STS=0
@@ -6779,7 +6779,7 @@ try
 {
     Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.24.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.25.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
