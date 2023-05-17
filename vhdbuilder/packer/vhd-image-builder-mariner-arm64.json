@@ -13,6 +13,7 @@
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
     "image_version": "{{env `IMAGE_VERSION`}}",
     "os_version": "{{env `OS_VERSION`}}",
+    "sku_name": "{{env `SKU_NAME`}}",
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
     "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
@@ -517,7 +518,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo IMAGE_VERSION={{user `image_version`}} CONTAINER_RUNTIME={{user `container_runtime`}} /bin/bash -ux /home/packer/list-images.sh"
+        "sudo SKU_NAME={{user `sku_name`}} IMAGE_VERSION={{user `image_version`}} CONTAINER_RUNTIME={{user `container_runtime`}} /bin/bash -ux /home/packer/list-images.sh"
       ]
     },
     {
