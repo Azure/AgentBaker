@@ -65,8 +65,17 @@ else
 
   # Run apt get update to refresh repo list
   # Run apt dist get upgrade to install packages/kernels
-  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-  apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT    
+
+  # CVM breaks on kernel image updates due to nullboot package post-install.
+  # it relies on boot measurements from real tpm hardware.
+  # building on a real CVM would solve this, but packer doesn't support it.
+  # we could make upstream changes but that takes time, and we are broken now.
+  # so we just hold the kernel image packages for now on CVM.
+  # this still allows us base image and package updates on a weekly cadence.
+  if [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT    
+  fi
 
   if [[ ${ENABLE_FIPS,,} == "true" ]]; then
     # This is FIPS Install for Ubuntu, it purges non FIPS Kernel and attaches UA FIPS Updates
