@@ -57,9 +57,7 @@ if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
   fi
 else
   # Handle FIPS and ESM for Ubuntu
-  useUA=$( [[ "${UBUNTU_RELEASE}" = "18.04" ]] || [[ "${ENABLE_FIPS,,}" = "true" ]] && echo "true" || echo "false" )
-  if [[ "${useUA}" == "true" ]]; then
-    # useUA = true implies the SKU is either FIPS Enabled or 1804
+  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     autoAttachUA
   fi
 
@@ -83,8 +81,8 @@ else
     installFIPS
   fi
 
-  # Final step, if useUA = true, log ua status, detach UA and clean up
-  if [[ "${useUA}" == "true" ]]; then
+  # Final step, if 1804 or FIPS, log ua status, detach UA and clean up
+  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # 'ua status' for logging
     ua status
     detachAndCleanUpUA
