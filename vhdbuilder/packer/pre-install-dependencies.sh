@@ -48,9 +48,27 @@ rm -f /etc/cron.daily/logrotate
 
 systemctlEnableAndStart sync-container-logs.service || exit 1
 
-if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then
-  echo "installing ESM for Ubuntu 18.04"
-  installESMFor1804
+useUA=$( [[ "${UBUNTU_RELEASE}" = "18.04" ]] || [[ "${ENABLE_FIPS}" = "true" ]] && echo "true" || echo "false" )
+
+if [[ "${useUA}" == "true" ]]; then
+  # useUA = true implies the SKU is either FIPS Enabled or 1804
+  autoAttachUA
+fi
+
+# Run apt get update to refresh repo list
+# Run apt dist get upgrade to install packages/kernels
+apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT    
+
+if [[ ${ENABLE_FIPS,,} == "true" ]]; then
+  # this step purges non fips kernel and attaches ua fips updates
+  installFIPS
+fi
+
+if [[ "${useUA}" == "true" ]]; then
+  # 'ua status' for logging
+  ua status
+  detachAndCleanUpUA
 fi
 
 echo "pre-install-dependencies step finished successfully"

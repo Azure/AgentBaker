@@ -150,22 +150,8 @@ installFIPS() {
         fi
     done
 
-    echo "auto attaching ua..."
-    retrycmd_if_failure 5 10 120 ua auto-attach || exit $ERR_AUTO_UA_ATTACH
-
-    echo "disabling ua livepatch..."
-    retrycmd_if_failure 5 10 300 echo y | ua disable livepatch
-
     echo "enabling ua fips-updates..."
     retrycmd_if_failure 5 10 1200 echo y | ua enable fips-updates || exit $ERR_UA_ENABLE_FIPS
-
-    # 'ua status' for logging
-    ua status
-
-    echo "detaching ua..."
-    retrycmd_if_failure 5 10 120 printf "y\nN" | ua detach || $ERR_UA_DETACH
-
-    cleanUpUA
 }
 
 relinkResolvConf() {
@@ -183,11 +169,7 @@ listInstalledPackages() {
 }
 
 installESMFor1804() {
-    echo "auto attaching ua..."
-    retrycmd_if_failure 5 10 120 ua auto-attach || exit $ERR_AUTO_UA_ATTACH
-
-    echo "disabling ua livepatch..."
-    retrycmd_if_failure 5 10 300 echo y | ua disable livepatch
+    autoAttachUA
 
     # Run apt get update to refresh repo list
     # Run apt dist get upgrade to install packages/kernels
@@ -197,13 +179,21 @@ installESMFor1804() {
     # 'ua status' for logging
     ua status
 
+    detachAndCleanUpUA
+}
+
+autoAttachUA() {
+    echo "auto attaching ua..."
+    retrycmd_if_failure 5 10 120 ua auto-attach || exit $ERR_AUTO_UA_ATTACH
+
+    echo "disabling ua livepatch..."
+    retrycmd_if_failure 5 10 300 echo y | ua disable livepatch
+}
+
+detachAndCleanUpUA() {
     echo "detaching ua..."
     retrycmd_if_failure 5 10 120 printf "y\nN" | ua detach || $ERR_UA_DETACH
 
-    cleanUpUA
-}
-
-cleanUpUA() {
     # now that the ESM/FIPS packages are installed, clean up apt settings in the vhd,
     # the VMs created on customers' subscriptions don't have access to UA repo
     rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-apps.gpg

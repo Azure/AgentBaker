@@ -1,4 +1,10 @@
 #!/bin/bash
+
+if [[ ${ENABLE_FIPS,,} != "true" ]]; then
+  echo "Skip FIPS installation and subsequent reboot since SKU is not FIPS Enabled"
+  exit 0
+fi
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
@@ -25,4 +31,5 @@ elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
   exit 1
 fi
 
-echo "fips install dependencies step finished successfully"
+echo "fips install dependencies step finished successfully, now reboot"
+sudo reboot
