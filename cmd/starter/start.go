@@ -3,18 +3,22 @@ package starter
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/Azure/agentbaker/apiserver"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/spf13/cobra"
 )
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 func Execute() {
 	rootCmd.AddCommand(startCmd)
+	rootCmd.AddCommand(imageCmd)
 	startCmd.Flags().StringVar(&options.Addr, "addr", ":8080", "the addr to serve the api on")
 
 	if err := rootCmd.Execute(); err != nil {
@@ -83,4 +87,45 @@ func startHelper(_ *cobra.Command, _ []string) error {
 	case pipelineErr := <-errorPipeline:
 		return pipelineErr
 	}
+}
+
+/*
+Example output:
+https://gist.github.com/alexeldeib/859817f42497f99e221d5f451be4bc9d
+*/
+var imageCmd = &cobra.Command{
+	Use:   "images",
+	Short: "Emit the list of all distros with their image versions",
+	Run: func(cmd *cobra.Command, args []string) {
+		err := imageHelper(cmd, args)
+		if err != nil {
+			log.Println(err.Error())
+			os.Exit(1)
+		}
+	},
+}
+
+func imageHelper(_ *cobra.Command, _ []string) error {
+	allAzureSigConfig := datamodel.GetAzurePublicSIGConfigForTest()
+
+	allDistros := map[datamodel.Distro]datamodel.SigImageConfig{}
+
+	for distro, sigConfig := range allAzureSigConfig.SigCBLMarinerImageConfig {
+		allDistros[distro] = sigConfig
+	}
+
+	for distro, sigConfig := range allAzureSigConfig.SigUbuntuImageConfig {
+		allDistros[distro] = sigConfig
+	}
+
+	for distro, sigConfig := range allAzureSigConfig.SigUbuntuEdgeZoneImageConfig {
+		allDistros[distro] = sigConfig
+	}
+
+	b, err := json.MarshalIndent(&allDistros, "", "    ")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s\n", string(b))
+	return nil
 }
