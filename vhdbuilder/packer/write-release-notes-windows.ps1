@@ -83,12 +83,31 @@ $wuRegistryKeys = @(
     "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters"
 )
 
+$wuRegistryNames = @(
+    "NoAutoUpdate",
+    "EnableCompartmentNamespace",
+    "HNSControlFlag",
+    "HnsPolicyUpdateChange",
+    "HnsNatAllowRuleUpdateChange",
+    "HnsAclUpdateChange",
+    "HnsNpmRefresh",
+    "WcifsSOPCountDisabled",
+    "3105872524",
+    "2629306509",
+    "3508525708",
+    "1995963020",
+    "189519500",
+    "VfpEvenPodDistributionIsEnabled"
+)
+
 foreach ($key in $wuRegistryKeys) {
     Log ("`t{0}" -f $key)
     Get-Item -Path $key |
     Select-Object -ExpandProperty property |
     ForEach-Object {
-        Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
+        if ($wuRegistryNames -contains $_) {
+            Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
+        }
     }
 }
 Log ""
