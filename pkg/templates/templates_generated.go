@@ -1886,26 +1886,28 @@ retrycmd_if_failure_no_stats() {
 }
 retrycmd_get_tarball() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
+    curl_output=/tmp/verbose_curl.out
     echo "${tar_retries} retries"
     for i in $(seq 1 $tar_retries); do
         tar -tzf $tarball && break || \
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            timeout 60 curl -fsSLv $url -o $tarball
+           ! (timeout 60 curl -fsSLv $url -o $tarball 2>&1 | tee $curl_output | grep -E "^(curl:.*)|([eE]rr.*)$") || cat $curl_output
             sleep $wait_sleep
         fi
     done
 }
 retrycmd_curl_file() {
     curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
+    curl_output=/tmp/verbose_curl.out
     echo "${curl_retries} retries"
     for i in $(seq 1 $curl_retries); do
         [[ -f $filepath ]] && break
         if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout $timeout curl -fsSLv $url -o $filepath
+            ! (timeout $timeout curl -fsSLv $url -o $filepath 2>&1 | tee $curl_output | grep -E "^(curl:.*)|([eE]rr.*)$") || cat $curl_output
             sleep $wait_sleep
         fi
     done
@@ -2179,6 +2181,7 @@ downloadCNI() {
 }
 
 downloadContainerdWasmShims() {
+    curl_output=/tmp/verbose_curl.out
     for shim_version in $CONTAINERD_WASM_VERSIONS; do
         binary_version="$(echo "${shim_version}" | tr . -)"
         local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/amd64"
@@ -2188,8 +2191,8 @@ downloadContainerdWasmShims() {
         fi
 
         if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+            retrycmd_if_failure 30 5 60 ! (curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $curl_output | grep -E "^(curl:.*)|([eE]rr.*)$") || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+            retrycmd_if_failure 30 5 60 ! (curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $curl_output | grep -E "^(curl:.*)|([eE]rr.*)$") || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
             chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
             chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
         fi
