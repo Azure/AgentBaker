@@ -685,6 +685,15 @@ assignFilePermissions() {
     for filepath in /etc/cron.hourly /etc/cron.daily /etc/cron.weekly /etc/cron.monthly /etc/cron.d; do
         chmod 0600 $filepath || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     done
+
+    # Docs: https://www.man7.org/linux/man-pages/man1/crontab.1.html
+    # If cron.allow exists, then cron.deny is ignored. To minimize who can use cron, we
+    # always want cron.allow and will default it to empty if it doesn't exist.
+    # We also need to set appropriate permissions on it.
+    # Since it will be ignored anyway, we delete cron.deny.
+    touch /etc/cron.allow || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+    chmod 640 /etc/cron.allow || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+    rm -rf /etc/cron.deny || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
 }
 
 # Helper function to replace or append settings to a setting file.
@@ -748,10 +757,36 @@ setPWExpiration() {
     replaceOrAppendUserAdd INACTIVE 30
 }
 
+# Creates the search pattern and setting lines for the core dump settings, and calls through
+# to do the replacement. Note that this uses extended regular expressions, so both
+# grep and sed need to be called as such.
+#
+# The search pattern is:
+#  '^#{0,1} {0,1}' -- Line starts with 0 or 1 '#' followed by 0 or 1 space
+#  '${1}='         -- Then the setting name followed by '='
+#  '.*$'           -- Then 0 or nore of any character which is the end of the line.
+#
+# This is based on a combination of the syntax for the file (https://www.man7.org/linux/man-pages/man5/coredump.conf.5.html)
+# and real examples we've found.
+replaceOrAppendCoreDump() {
+    replaceOrAppendSetting "^#{0,1} {0,1}${1}=.*$" "${1}=${2}" /etc/systemd/coredump.conf
+}
+
+configureCoreDump() {
+    replaceOrAppendCoreDump Storage none
+    replaceOrAppendCoreDump ProcessSizeMax 0
+}
+
+fixDefaultUmaskForAccountCreation() {
+    replaceOrAppendLoginDefs UMASK 027
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
     assignFilePermissions
+    configureCoreDump
+    fixDefaultUmaskForAccountCreation
 }
 
 applyCIS
@@ -1050,6 +1085,7 @@ AZURE_ENVIRONMENT_FILEPATH="{{- if IsAKSCustomCloud}}/etc/kubernetes/{{GetTarget
 KUBE_CA_CRT="{{GetParameter "caCertificate"}}"
 KUBENET_TEMPLATE="{{GetKubenetTemplate}}"
 CONTAINERD_CONFIG_CONTENT="{{GetContainerdConfigContent}}"
+CONTAINERD_CONFIG_NO_GPU_CONTENT="{{GetContainerdConfigNoGPUContent}}"
 IS_KATA="{{IsKata}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
 `)
@@ -1372,7 +1408,14 @@ ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
   mkdir -p /etc/containerd
-  echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" == "true" ]]; then
+    echo "Generating non-GPU containerd config for GPU node due to VM tags"
+    echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  else
+    echo "Generating containerd config..."
+    echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  fi
+
   tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
 net.ipv4.ip_forward = 1
 net.ipv4.conf.all.forwarding = 1
@@ -1813,7 +1856,7 @@ export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
 NVIDIA_CONTAINER_RUNTIME_VERSION="3.6.0"
-export NVIDIA_DRIVER_IMAGE_SHA="sha-dc8c1a"
+export NVIDIA_DRIVER_IMAGE_SHA="sha-10d772"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu"
 export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
@@ -2040,6 +2083,17 @@ logs_to_events() {
       return $ret
     fi
 }
+
+should_skip_nvidia_drivers() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
+    should_skip=$(echo "$body" | jq -e '.compute.tagsList | map(select(.name | test("SkipGpuDriverInstall"; "i")))[0].value // "false" | test("true"; "i")')
+    echo "$should_skip" # true or false
+}
 #HELPERSEOF
 `)
 
@@ -2090,29 +2144,29 @@ cleanupContainerdDlFiles() {
 }
 
 installContainerRuntime() {
-if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-    echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
-    wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
+    if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+        echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
+        wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
 
-    local containerd_version
-    if [ -f "$MANIFEST_FILEPATH" ]; then
-        containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        local containerd_version
+        if [ -f "$MANIFEST_FILEPATH" ]; then
+            containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        else
+            echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+        fi
+
+        containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
+        containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
+        if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ] || [ "$containerd_revision" == "null" ]; then
+            echo "invalid container version: $containerd_version"
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi
+
+        logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
+        echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
     else
-        echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+        installMoby
     fi
-
-    containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
-    containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
-    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ]  || [ "$containerd_revision" == "null" ]; then
-        echo "invalid container version: $containerd_version"
-        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    fi 
-
-    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
-    echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
-else
-    installMoby
-fi
 }
 
 installNetworkPlugin() {
@@ -2155,7 +2209,7 @@ downloadAzureCNI() {
 
 downloadCrictl() {
     CRICTL_VERSION=$1
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    CPU_ARCH=$(getCPUArch) #amd64 or arm64
     mkdir -p $CRICTL_DOWNLOAD_DIR
     CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
     CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
@@ -2163,7 +2217,7 @@ downloadCrictl() {
 }
 
 installCrictl() {
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    CPU_ARCH=$(getCPUArch) #amd64 or arm64
     currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
     if [[ "${currentVersion}" != "" ]]; then
         echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${KUBERNETES_VERSION%.*}.0"
@@ -2178,6 +2232,7 @@ installCrictl() {
         fi
         echo "Unpacking crictl into ${CRICTL_BIN_DIR}"
         tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
+        chown root:root $CRICTL_BIN_DIR/crictl
         chmod 755 $CRICTL_BIN_DIR/crictl
     fi
 }
@@ -2232,7 +2287,7 @@ setupCNIDirs() {
 
 installCNI() {
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}    # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
 
     # We want to use the untar cni reference first. And if that doesn't exist on the vhd does the tgz?
     # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
@@ -2246,13 +2301,13 @@ installCNI() {
 
         tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
-    
+
     chown -R root:root $CNI_BIN_DIR
 }
 
 installAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}         # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
 
     # We want to use the untar azurecni reference first. And if that doesn't exist on the vhd does the tgz?
     # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
@@ -2263,7 +2318,7 @@ installAzureCNI() {
         if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
             downloadAzureCNI
         fi
-        
+
         tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
 
@@ -2314,11 +2369,11 @@ pullContainerImage() {
     CONTAINER_IMAGE_URL=$2
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
     if [[ ${CLI_TOOL} == "ctr" ]]; then
-        logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT)
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
-        logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT)
     else
-        logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT)
     fi
 }
 
@@ -2423,8 +2478,8 @@ cleanupRetaggedImages() {
         if [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
                 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-                # always use ctr, even if crictl is installed.
-                # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
+                    # always use ctr, even if crictl is installed.
+                    # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
                     removeContainerImage "ctr" ${image}
                 else
                     removeContainerImage "docker" ${image}
@@ -2453,7 +2508,7 @@ cleanUpContainerd() {
 overrideNetworkConfig() {
     CONFIG_FILEPATH="/etc/cloud/cloud.cfg.d/80_azure_net_config.cfg"
     touch ${CONFIG_FILEPATH}
-    cat << EOF >> ${CONFIG_FILEPATH}
+    cat <<EOF >>${CONFIG_FILEPATH}
 datasource:
     Azure:
         apply_network_config: false
@@ -2570,7 +2625,15 @@ if [[ ${ID} != "mariner" ]]; then
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
 fi
 
-if [[ "${GPU_NODE}" != "true" ]]; then
+export -f should_skip_nvidia_drivers
+skip_nvidia_driver_install=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_nvidia_drivers)
+ret=$?
+if [[ "$ret" != "0" ]]; then
+    echo "Failed to determine if nvidia driver install should be skipped"
+    exit $ERR_NVIDIA_DRIVER_INSTALL
+fi
+
+if [[ "${GPU_NODE}" != "true" ]] || [[ "${skip_nvidia_driver_install}" == "true" ]]; then
     logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
 fi
 
@@ -2614,7 +2677,7 @@ fi
 REBOOTREQUIRED=false
 
 echo $(date),$(hostname), "Start configuring GPU drivers"
-if [[ "${GPU_NODE}" = true ]]; then
+if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" != "true" ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
         if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
@@ -2630,34 +2693,34 @@ EOF
     else
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
     fi
-fi
 
-if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
-    # fabric manager trains nvlink connections between multi instance gpus.
-    # it appears this is only necessary for systems with *multiple cards*.
-    # i.e., an A100 can be partitioned a maximum of 7 ways.
-    # An NC24ads_A100_v4 has one A100.
-    # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
-    # ND96 seems to require fabric manager *even when not using mig partitions*
-    # while it fails to install on NC24.
-    logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
-fi
+    if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
+        # fabric manager trains nvlink connections between multi instance gpus.
+        # it appears this is only necessary for systems with *multiple cards*.
+        # i.e., an A100 can be partitioned a maximum of 7 ways.
+        # An NC24ads_A100_v4 has one A100.
+        # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
+        # ND96 seems to require fabric manager *even when not using mig partitions*
+        # while it fails to install on NC24.
+        logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
+    fi
 
-# This will only be true for multi-instance capable VM sizes
-# for which the user has specified a partitioning profile.
-# it is valid to use mig-capable gpus without a partitioning profile.
-if [[ "${MIG_NODE}" == "true" ]]; then
-    # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
-    # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
-    # Commands such as `+"`"+`nvidia-smi --gpu-reset`+"`"+` may succeed,
-    # while commands such as `+"`"+`nvidia-smi -q`+"`"+` will show mismatched current/pending mig mode.
-    # this will not be required per nvidia for next gen H100.
-    REBOOTREQUIRED=true
-    
-    # this service applies the partitioning scheme with nvidia-smi.
-    # we should consider moving to mig-parted which is simpler/newer.
-    # we couldn't because of old drivers but that has long been fixed.
-    logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
+    # This will only be true for multi-instance capable VM sizes
+    # for which the user has specified a partitioning profile.
+    # it is valid to use mig-capable gpus without a partitioning profile.
+    if [[ "${MIG_NODE}" == "true" ]]; then
+        # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
+        # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
+        # Commands such as `+"`"+`nvidia-smi --gpu-reset`+"`"+` may succeed,
+        # while commands such as `+"`"+`nvidia-smi -q`+"`"+` will show mismatched current/pending mig mode.
+        # this will not be required per nvidia for next gen H100.
+        REBOOTREQUIRED=true
+        
+        # this service applies the partitioning scheme with nvidia-smi.
+        # we should consider moving to mig-parted which is simpler/newer.
+        # we couldn't because of old drivers but that has long been fixed.
+        logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
+    fi
 fi
 
 echo $(date),$(hostname), "End configuring GPU drivers"
@@ -2735,10 +2798,22 @@ if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     mkdir -p /etc/containerd
     echo "${KUBENET_TEMPLATE}" | base64 -d > /etc/containerd/kubenet_template.conf
 
-    tee "/etc/systemd/system/kubelet.service.d/10-containerd.conf" > /dev/null <<'EOF'
+    # In k8s 1.27, the flag --container-runtime was removed.
+    # We now have 2 drop-in's, one with the still valid flags that will be applied to all k8s versions,
+    # the flags are --runtime-request-timeout, --container-runtime-endpoint, --runtime-cgroups
+    # For k8s >= 1.27, the flag --container-runtime will not be passed.
+    tee "/etc/systemd/system/kubelet.service.d/10-containerd-base-flag.conf" > /dev/null <<'EOF'
 [Service]
-Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
+Environment="KUBELET_CONTAINERD_FLAGS=--runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
 EOF
+    
+    # if k8s version < 1.27.0, add the drop in for --container-runtime flag
+    if ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.27.0"; then
+        tee "/etc/systemd/system/kubelet.service.d/10-container-runtime-flag.conf" > /dev/null <<'EOF'
+[Service]
+Environment="KUBELET_CONTAINER_RUNTIME_FLAG=--container-runtime=remote"
+EOF
+    fi
 fi
 
 if [ "${HAS_KUBELET_DISK_TYPE}" == "true" ]; then
@@ -2780,7 +2855,7 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
        API_SERVER_DNS_RETRIES=200
     fi
     if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]]; then
-        RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME}")
+        RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 20 nslookup -timeout=5 -retry=0 ${API_SERVER_NAME}")
         STS=$?
     else
         STS=0
@@ -3972,6 +4047,7 @@ ExecStart=/usr/local/bin/kubelet \
         $KUBELET_TLS_BOOTSTRAP_FLAGS \
         $KUBELET_CONFIG_FILE_FLAGS \
         $KUBELET_CONTAINERD_FLAGS \
+        $KUBELET_CONTAINER_RUNTIME_FLAG \
         $KUBELET_CGROUP_FLAGS \
         $KUBELET_FLAGS
 
@@ -3999,13 +4075,8 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "fileName": "moby-containerd_${CONTAINERD_VERSION}+azure-${CONTAINERD_PATCH_VERSION}.deb",
         "downloadLocation": "/opt/containerd/downloads",
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/${UBUNTU_CODENAME}/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu${UBUNTU_RELEASE}u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
-        "versions": [
-            "1.4.13-3",
-            "1.6.18-1"
-        ],
-        "edge": "1.6.18-1",
-        "latest": "1.5.11-2",
-        "stable": "1.4.13-3"
+        "versions": [],
+        "edge": "1.7.1-1"
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
@@ -4013,7 +4084,7 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [],
         "installed": {
-            "default": "1.1.5"
+            "default": "1.1.7"
         }
     },
     "nvidia-container-runtime": {
@@ -4038,7 +4109,8 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
             "1.25.5",
             "1.25.6",
             "1.26.0",
-            "1.26.3"
+            "1.26.3",
+            "1.27.1"
         ]
     },
     "_template": {
@@ -4362,7 +4434,9 @@ install rds /bin/true
 # 3.5.4 Ensure TIPC is disabled
 install tipc /bin/true
 # 1.1.1.1 Ensure mounting of cramfs filesystems is disabled
+# Mariner AKS CIS Benchmark: Ensure mounting of cramfs filesystems is disabled
 install cramfs /bin/true
+blacklist cramfs
 # 1.1.1.2 Ensure mounting of freevxfs filesystems is disabled
 install freevxfs /bin/true
 # 1.1.1.3 Ensure mounting of jffs2 filesystems is disabled
@@ -4370,7 +4444,8 @@ install jffs2 /bin/true
 # 1.1.1.4 Ensure mounting of hfs filesystems is disabled
 install hfs /bin/true
 # 1.1.1.5 Ensure mounting of hfsplus filesystems is disabled
-install hfsplus /bin/true`)
+install hfsplus /bin/true
+`)
 
 func linuxCloudInitArtifactsModprobeCisConfBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsModprobeCisConf, nil
@@ -4968,6 +5043,9 @@ Subsystem sftp /usr/lib/openssh/sftp-server
 UsePAM yes
 UseDNS no
 GSSAPIAuthentication no
+
+# Mariner AKS CIS Benchmark: Ensure SSH access is limited
+DenyUsers root omsagent nxautomation
 `)
 
 func linuxCloudInitArtifactsSshd_configBytes() ([]byte, error) {
@@ -5080,6 +5158,9 @@ Subsystem sftp /usr/lib/openssh/sftp-server
 UsePAM yes
 UseDNS no
 GSSAPIAuthentication no
+
+# Mariner AKS CIS Benchmark: Ensure SSH access is limited
+DenyUsers root omsagent nxautomation
 `)
 
 func linuxCloudInitArtifactsSshd_config_1604Bytes() ([]byte, error) {
@@ -5222,6 +5303,9 @@ Subsystem sftp	/usr/lib/openssh/sftp-server
 
 # CLOUD_IMG: This file was created/modified by the Cloud Image build process
 ClientAliveInterval 120
+
+# Mariner AKS CIS Benchmark: Ensure SSH access is limited
+DenyUsers root omsagent nxautomation
 `)
 
 func linuxCloudInitArtifactsSshd_config_1804_fipsBytes() ([]byte, error) {
@@ -5590,14 +5674,13 @@ installDeps() {
 
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
     pkg_list=(apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r))
 
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
-    BLOBFUSE2_VERSION="2.0.2"
+    BLOBFUSE2_VERSION="2.0.3"
 
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
@@ -5725,7 +5808,7 @@ installStandaloneContainerd() {
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.6.18"
+        CONTAINERD_VERSION="1.7.1"
         CONTAINERD_PATCH_VERSION="1"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
@@ -5816,7 +5899,7 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.1.5+azure-ubuntu${UBUNTU_RELEASE}u1"
+        TARGET_VERSION="1.1.7+azure-ubuntu${UBUNTU_RELEASE}"
     fi
 
     if [[ $(isARM64) == 1 ]]; then
@@ -5828,7 +5911,7 @@ ensureRunc() {
 
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-    CLEANED_TARGET_VERSION=$(TARGET_VERSION%+*) # removes the +azure-ubuntu18.04u1 (or similar) suffix
+    CLEANED_TARGET_VERSION=${TARGET_VERSION%+*} # removes the +azure-ubuntu18.04u1 (or similar) suffix
 
     if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
         echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
@@ -5843,7 +5926,7 @@ ensureRunc() {
             return 0
         fi
     fi
-    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION} --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
 #EOF
@@ -5990,12 +6073,14 @@ write_files:
     {{GetVariableProperty "cloudInitData" "provisionSourceUbuntu"}}
 {{end}}
 
+{{ if not IsCustomImage -}}
 - path: /opt/azure/containers/provision_start.sh
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionStartScript"}}
+{{- end }}
 
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"
@@ -6699,7 +6784,7 @@ try
 {
     Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.22.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.25.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -7141,10 +7226,10 @@ $global:WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG=50 # Return this error code in csecm
 $global:WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS=51
 
 # NOTE: KubernetesVersion does not contain "v"
-$global:MinimalKubernetesVersionWithLatestContainerd = "1.40.0" # Will change it to the correct version when we support new Windows containerd version
+$global:MinimalKubernetesVersionWithLatestContainerd = "1.27.0" # Will change it to the correct version when we support new Windows containerd version
 $global:StableContainerdPackage = "v0.0.56/binaries/containerd-v0.0.56-windows-amd64.tar.gz"
-# The containerd package name may be changed in future
-$global:LatestContainerdPackage = "v1.0.46/binaries/containerd-v1.0.46-windows-amd64.tar.gz" # It does not exist and is only for test for now
+# The latest containerd version
+$global:LatestContainerdPackage = "v1.7.1-azure.1/binaries/containerd-v1.7.1-azure.1-windows-amd64.tar.gz"
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }

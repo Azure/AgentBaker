@@ -66,7 +66,12 @@ jobs:
         run: |
           echo "Running e2e tests"
           cd e2e
-          go test -e2eMode="coverage" -timeout 30m -v -run Test_All ./
+          go test -e2eMode="coverage" -timeout 60m -v -run Test_All ./
+      - name: Upload e2e artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: scenario-logs
+          path: e2e/scenario-logs
       - name: Generate coverage report
         run: |
           kill $(pgrep baker)

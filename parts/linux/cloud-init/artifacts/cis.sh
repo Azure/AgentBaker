@@ -61,6 +61,15 @@ assignFilePermissions() {
     for filepath in /etc/cron.hourly /etc/cron.daily /etc/cron.weekly /etc/cron.monthly /etc/cron.d; do
         chmod 0600 $filepath || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     done
+
+    # Docs: https://www.man7.org/linux/man-pages/man1/crontab.1.html
+    # If cron.allow exists, then cron.deny is ignored. To minimize who can use cron, we
+    # always want cron.allow and will default it to empty if it doesn't exist.
+    # We also need to set appropriate permissions on it.
+    # Since it will be ignored anyway, we delete cron.deny.
+    touch /etc/cron.allow || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+    chmod 640 /etc/cron.allow || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+    rm -rf /etc/cron.deny || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
 }
 
 # Helper function to replace or append settings to a setting file.
@@ -124,10 +133,36 @@ setPWExpiration() {
     replaceOrAppendUserAdd INACTIVE 30
 }
 
+# Creates the search pattern and setting lines for the core dump settings, and calls through
+# to do the replacement. Note that this uses extended regular expressions, so both
+# grep and sed need to be called as such.
+#
+# The search pattern is:
+#  '^#{0,1} {0,1}' -- Line starts with 0 or 1 '#' followed by 0 or 1 space
+#  '${1}='         -- Then the setting name followed by '='
+#  '.*$'           -- Then 0 or nore of any character which is the end of the line.
+#
+# This is based on a combination of the syntax for the file (https://www.man7.org/linux/man-pages/man5/coredump.conf.5.html)
+# and real examples we've found.
+replaceOrAppendCoreDump() {
+    replaceOrAppendSetting "^#{0,1} {0,1}${1}=.*$" "${1}=${2}" /etc/systemd/coredump.conf
+}
+
+configureCoreDump() {
+    replaceOrAppendCoreDump Storage none
+    replaceOrAppendCoreDump ProcessSizeMax 0
+}
+
+fixDefaultUmaskForAccountCreation() {
+    replaceOrAppendLoginDefs UMASK 027
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
     assignFilePermissions
+    configureCoreDump
+    fixDefaultUmaskForAccountCreation
 }
 
 applyCIS

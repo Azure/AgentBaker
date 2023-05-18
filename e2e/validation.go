@@ -5,18 +5,83 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"testing"
 
 	"github.com/Azure/agentbakere2e/scenario"
 )
 
-func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, sshPrivateKey string, opts *scenarioRunOpts) error {
-	privateIP, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.chosenCluster.Properties.NodeResourceGroup, vmssName)
+func validateNodeHealth(ctx context.Context, kube *kubeclient, vmssName string) (string, error) {
+	nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
 	if err != nil {
-		return fmt.Errorf("unable to get private IP address of VM on VMSS %q: %w", vmssName, err)
+		return "", fmt.Errorf("error waiting for node ready: %w", err)
 	}
 
-	podName, err := getDebugPodName(opts.kube)
+	nginxPodName, err := ensureTestNginxPod(ctx, kube, nodeName)
+	if err != nil {
+		return "", fmt.Errorf("error waiting for pod ready: %w", err)
+	}
+
+	err = waitUntilPodDeleted(ctx, kube, nginxPodName)
+	if err != nil {
+		return "", fmt.Errorf("error waiting pod deleted: %w", err)
+	}
+
+	return nodeName, nil
+}
+
+func validateWasm(ctx context.Context, kube *kubeclient, nodeName, privateKey string) error {
+	spinPodName, err := ensureWasmPods(ctx, kube, nodeName)
+	if err != nil {
+		return fmt.Errorf("failed to valiate wasm, unable to ensure wasm pods on node %q: %w", nodeName, err)
+	}
+
+	spinPodIP, err := getPodIP(ctx, kube, defaultNamespace, spinPodName)
+	if err != nil {
+		return fmt.Errorf("unable to get IP of wasm spin pod %q: %w", spinPodName, err)
+	}
+
+	debugPodName, err := getDebugPodName(kube)
+	if err != nil {
+		return fmt.Errorf("unable to get debug pod name to validate wasm: %w", err)
+	}
+
+	execResult, err := pollExecOnPod(ctx, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
+	if err != nil {
+		return fmt.Errorf("unable to execute wasm validation command: %w", err)
+	}
+
+	if execResult.exitCode != "0" {
+		// retry getting the pod IP + curling the hello endpoint if the original curl reports connection refused or a timeout
+		// since the wasm spin pod usually restarts at least once after initial creation, giving it a new IP
+		if execResult.exitCode == "7" || execResult.exitCode == "28" {
+			spinPodIP, err = getPodIP(ctx, kube, defaultNamespace, spinPodName)
+			if err != nil {
+				return fmt.Errorf("unable to get IP of wasm spin pod %q: %w", spinPodName, err)
+			}
+
+			execResult, err = pollExecOnPod(ctx, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
+			if err != nil {
+				return fmt.Errorf("unable to execute wasm validation command on wasm pod %q at %s: %w", spinPodName, spinPodIP, err)
+			}
+
+			if execResult.exitCode != "0" {
+				execResult.dumpAll()
+				return fmt.Errorf("curl wasm endpoint on pod %q at %s terminated with exit code %s", spinPodName, spinPodIP, execResult.exitCode)
+			}
+		} else {
+			execResult.dumpAll()
+			return fmt.Errorf("curl wasm endpoint on pod %q at %s terminated with exit code %s", spinPodName, spinPodIP, execResult.exitCode)
+		}
+	}
+
+	if err := waitUntilPodDeleted(ctx, kube, spinPodName); err != nil {
+		return fmt.Errorf("error waiting for wasm pod deletion: %w", err)
+	}
+
+	return nil
+}
+
+func runLiveVMValidators(ctx context.Context, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
+	podName, err := getDebugPodName(opts.clusterConfig.kube)
 	if err != nil {
 		return fmt.Errorf("unable to get debug pod name: %w", err)
 	}
@@ -31,18 +96,13 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, sshPrivate
 		command := validator.Command
 		log.Printf("running live VM validator: %q", desc)
 
-		execResult, err := pollExecOnVM(ctx, opts.kube, privateIP, podName, sshPrivateKey, command)
+		execResult, err := pollExecOnVM(ctx, opts.clusterConfig.kube, privateIP, podName, sshPrivateKey, command)
 		if err != nil {
 			return fmt.Errorf("unable to execute validator command %q: %w", command, err)
 		}
 
-		if execResult.exitCode != "0" {
-			execResult.dumpAll()
-			return fmt.Errorf("validator command %q terminated with exit code %s", command, execResult.exitCode)
-		}
-
 		if validator.Asserter != nil {
-			err := validator.Asserter(execResult.stdout.String(), execResult.stderr.String())
+			err := validator.Asserter(execResult.exitCode, execResult.stdout.String(), execResult.stderr.String())
 			if err != nil {
 				execResult.dumpAll()
 				return fmt.Errorf("failed validator assertion: %w", err)
@@ -58,7 +118,10 @@ func commonLiveVMValidators() []*scenario.LiveVMValidator {
 		{
 			Description: "assert /etc/default/kubelet should not contain dynamic config dir flag",
 			Command:     "cat /etc/default/kubelet",
-			Asserter: func(stdout, stderr string) error {
+			Asserter: func(code, stdout, stderr string) error {
+				if code != "0" {
+					return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
+				}
 				if strings.Contains(stdout, "--dynamic-config-dir") {
 					return fmt.Errorf("/etc/default/kubelet should not contain kubelet flag '--dynamic-config-dir', but does")
 				}

@@ -21,7 +21,7 @@ echo "Components downloaded in this VHD build (some of the below components migh
 
 # fix grub issue with cvm by reinstalling before other deps
 # other VHDs use grub-pc, not grub-efi
-if [[ "${UBUNTU_RELEASE}" == "20.04" ]]; then
+if [[ "${UBUNTU_RELEASE}" == "20.04" ]] && [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT 
   wait_for_apt_locks
   apt_get_install 30 1 600 grub-efi || exit 1

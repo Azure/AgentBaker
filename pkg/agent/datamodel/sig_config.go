@@ -62,7 +62,8 @@ func GetCloudTargetEnv(location string) string {
 AvailableUbuntu1804Distros : TODO(amaheshwari): these vars are not consumed by Agentbaker but by RP. do a
 cleanup to remove these after 20.04 work.
 */
-var AvailableUbuntu1804Distros []Distro = []Distro{
+//nolint:gochecknoglobals
+var AvailableUbuntu1804Distros = []Distro{
 	AKSUbuntu1804,
 	AKSUbuntu1804Gen2,
 	AKSUbuntuGPU1804,
@@ -80,13 +81,15 @@ var AvailableUbuntu1804Distros []Distro = []Distro{
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
 }
 
-var AvailableUbuntu2004Distros []Distro = []Distro{
+//nolint:gochecknoglobals
+var AvailableUbuntu2004Distros = []Distro{
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuFipsContainerd2004,
 	AKSUbuntuFipsContainerd2004Gen2,
 }
 
-var AvailableUbuntu2204Distros []Distro = []Distro{
+//nolint:gochecknoglobals
+var AvailableUbuntu2204Distros = []Distro{
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
@@ -95,7 +98,8 @@ var AvailableUbuntu2204Distros []Distro = []Distro{
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
 }
 
-var AvailableContainerdDistros []Distro = []Distro{
+//nolint:gochecknoglobals
+var AvailableContainerdDistros = []Distro{
 	AKSUbuntuContainerd1804,
 	AKSUbuntuContainerd1804Gen2,
 	AKSUbuntuGPUContainerd1804,
@@ -111,6 +115,8 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2FIPS,
+	AKSCBLMarinerV2Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
@@ -124,7 +130,8 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
 }
 
-var AvailableGPUDistros []Distro = []Distro{
+//nolint:gochecknoglobals
+var AvailableGPUDistros = []Distro{
 	AKSUbuntuGPU1804,
 	AKSUbuntuGPU1804Gen2,
 	AKSUbuntuGPUContainerd1804,
@@ -133,7 +140,8 @@ var AvailableGPUDistros []Distro = []Distro{
 	AKSUbuntuFipsGPUContainerd1804Gen2,
 }
 
-var AvailableGen2Distros []Distro = []Distro{
+//nolint:gochecknoglobals
+var AvailableGen2Distros = []Distro{
 	AKSUbuntu1804Gen2,
 	AKSUbuntuGPU1804Gen2,
 	AKSUbuntuContainerd1804Gen2,
@@ -150,10 +158,13 @@ var AvailableGen2Distros []Distro = []Distro{
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
 }
 
-var AvailableCBLMarinerDistros []Distro = []Distro{
+//nolint:gochecknoglobals
+var AvailableCBLMarinerDistros = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2FIPS,
+	AKSCBLMarinerV2Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSCBLMarinerV2Gen2TL,
@@ -213,6 +224,8 @@ func (d Distro) IsWindowsPIRDistro() bool {
 }
 
 // SigImageConfigTemplate represents the SIG image configuration template.
+//
+//nolint:musttag // tags can be added if deemed necessary
 type SigImageConfigTemplate struct {
 	ResourceGroup string
 	Gallery       string
@@ -237,7 +250,8 @@ func (template SigImageConfigTemplate) WithOptions(options ...SigImageConfigOpt)
 	return *config
 }
 
-var AvailableWindowsSIGDistros []Distro = []Distro{
+//nolint:gochecknoglobals
+var AvailableWindowsSIGDistros = []Distro{
 	AKSWindows2019,
 	AKSWindows2019Containerd,
 	AKSWindows2022Containerd,
@@ -245,7 +259,8 @@ var AvailableWindowsSIGDistros []Distro = []Distro{
 	CustomizedWindowsOSImage,
 }
 
-var AvailableWindowsPIRDistros []Distro = []Distro{
+//nolint:gochecknoglobals
+var AvailableWindowsPIRDistros = []Distro{
 	AKSWindows2019PIR,
 }
 
@@ -288,8 +303,13 @@ var edgeZoneJSONContentsEmbedded string
 //go:embed mariner_v2_kata_gen2_tl_sig_version.json
 var marinerV2KataGen2TLJSONContentsEmbedded string
 
+//nolint:gochecknoglobals
 var LinuxSIGImageVersion = getSIGVersionFromEmbeddedString(linuxVersionJSONContentsEmbedded)
+
+//nolint:gochecknoglobals
 var EdgeZoneSIGImageVersion = getSIGVersionFromEmbeddedString(edgeZoneJSONContentsEmbedded)
+
+//nolint:gochecknoglobals
 var CBLMarinerV2KataGen2TLSIGImageVersion = getSIGVersionFromEmbeddedString(marinerV2KataGen2TLJSONContentsEmbedded)
 
 func getSIGVersionFromEmbeddedString(contents string) string {
@@ -309,6 +329,8 @@ func getSIGVersionFromEmbeddedString(contents string) string {
 }
 
 // SIG config Template.
+//
+//nolint:gochecknoglobals
 var (
 	SIGUbuntu1604ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
@@ -456,7 +478,7 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2004gen2CVMcontainerd",
-		Version:       "202304.10.0",
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV1ImageConfigTemplate = SigImageConfigTemplate{
@@ -477,6 +499,20 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2gen2",
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGCBLMarinerV2Gen1FIPSImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
+		Definition:    "V2fips",
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGCBLMarinerV2Gen2FIPSImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
+		Definition:    "V2gen2fips",
 		Version:       LinuxSIGImageVersion,
 	}
 
@@ -567,6 +603,8 @@ func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 		AKSCBLMarinerV1:           SIGCBLMarinerV1ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2:           SIGCBLMarinerV2Gen1ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2:       SIGCBLMarinerV2ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2FIPS:       SIGCBLMarinerV2Gen1FIPSImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2Gen2FIPS:   SIGCBLMarinerV2Gen2FIPSImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2Kata:   SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Arm64Gen2:  SIGCBLMarinerV2Arm64ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2TL:     SIGCBLMarinerV2TLImageConfigTemplate.WithOptions(opts...),

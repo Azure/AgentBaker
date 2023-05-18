@@ -319,6 +319,25 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 			config.KubeletConfig = map[string]string{}
 		}, nil),
+		Entry("AKSUbuntu11604 with containerd", "AKSUbuntu1604+Containerd", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerdPackageURL = "containerd-package-url"
+		}, func(o *nodeBootstrappingOutput) {
+			Expect(o.vars["CLI_TOOL"]).To(Equal("ctr"))
+			Expect(o.vars["CONTAINERD_PACKAGE_URL"]).To(Equal("containerd-package-url"))
+		}),
+		//nolint:lll
+		Entry("AKSUbuntu11604 with docker and containerd package url", "AKSUbuntu1604+Docker", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Docker,
+			}
+			config.ContainerdPackageURL = "containerd-package-url"
+		}, func(o *nodeBootstrappingOutput) {
+			Expect(o.vars["CLI_TOOL"]).To(Equal("docker"))
+			Expect(o.vars["CONTAINERD_PACKAGE_URL"]).To(Equal(""))
+		}),
 		Entry("AKSUbuntu1604 with temp disk (api field)", "AKSUbuntu1604+TempDiskExplicit", "1.15.7",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				// also tests prioritization, but now the API property should take precedence
@@ -616,7 +635,23 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Entry("AKSUbuntu1804 with kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+KubeletClientTLSBootstrapping", "1.18.3",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
-			}, nil),
+				config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
+					CaCertificate: "fooBarBaz",
+				}
+			}, func(o *nodeBootstrappingOutput) {
+				// Please see #2815 for more details
+				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
+				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
+				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
+				bootstrapKubeConfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
+				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
+
+				Expect(etcDefaultKubelet).NotTo(BeEmpty())
+				Expect(bootstrapKubeConfig).NotTo(BeEmpty())
+				Expect(kubeletSh).NotTo(BeEmpty())
+				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
+				Expect(caCRT).NotTo(BeEmpty())
+			}),
 
 		Entry("Mariner v2 with kata", "MarinerV2+Kata", "1.23.8", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.OSSKU = "Mariner"
@@ -711,6 +746,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}, nil),
 
 		Entry("AKSUbuntu1804 with containerd and motd", "AKSUbuntu1804+Containerd+MotD", "1.19.13", func(config *datamodel.NodeBootstrappingConfiguration) {
+
 			config.ContainerService.Properties.AgentPoolProfiles[0].MessageOfTheDay = "Zm9vYmFyDQo=" // foobar in b64
 		}, nil),
 
@@ -846,6 +882,59 @@ oom_score = 0
 			}
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
 		}, nil),
+		Entry("AKSUbuntu2204 containerd with multi-instance GPU", "AKSUbuntu2204+Containerd+MIG", "1.19.13",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.AgentPoolProfile.VMSize = "Standard_ND96asr_v4"
+				// the purpose of this unit test is to ensure the containerd config
+				// does not use the nvidia container runtime when skipping the
+				// GPU driver install, since it will fail to run even non-GPU
+				// pods, as it will not be installed.
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.GPUInstanceProfile = "MIG7g"
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]).NotTo(BeEmpty())
+				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
+				Expect(err).To(BeNil())
+				expectedShimConfig := `version = 2
+oom_score = 0
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = ""
+  [plugins."io.containerd.grpc.v1.cri".containerd]
+    default_runtime_name = "runc"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+  [plugins."io.containerd.grpc.v1.cri".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[metrics]
+  address = "0.0.0.0:10257"
+`
+
+				Expect(containerdConfigFileContent).To(Equal(expectedShimConfig))
+			}),
+		Entry("CustomizedImage VHD should not have provision_start.sh", "CustomizedImage", "1.24.2",
+			func(c *datamodel.NodeBootstrappingConfiguration) {
+				c.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				c.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.CustomizedImage
+			}, func(o *nodeBootstrappingOutput) {
+				_, exist := o.files["/opt/azure/containers/provision_start.sh"]
+
+				Expect(exist).To(BeFalse())
+			},
+		),
 		Entry("AKSUbuntu2204 DisableSSH with enabled ssh", "AKSUbuntu2204+SSHStatusOn", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.SSHStatus = datamodel.SSHOn
 		}, nil),
@@ -863,6 +952,7 @@ oom_score = 0
 				Name: "akscustom",
 			}
 		}, nil))
+
 })
 
 var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
@@ -1070,7 +1160,8 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		cseCommand := nodeBootstrapping.CSE
 
 		if generateTestData() {
-			ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
+			err = ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
+			Expect(err).To(BeNil())
 		}
 
 		expectedCSECommand, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
@@ -1164,7 +1255,8 @@ func backfillCustomData(folder, customData string) {
 		e := os.MkdirAll(fmt.Sprintf("./testdata/%s", folder), 0755)
 		Expect(e).To(BeNil())
 	}
-	ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CustomData", folder), []byte(customData), 0644)
+	writeFileError := ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CustomData", folder), []byte(customData), 0644)
+	Expect(writeFileError).To(BeNil())
 	if strings.Contains(folder, "AKSWindows") {
 		return
 	}
@@ -1244,14 +1336,14 @@ func verifyCertsEncoding(cert string) error {
 func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error) {
 	var customData cloudInit
 
-	if err := yaml.Unmarshal([]byte(data), &customData); err != nil {
+	if err := yaml.Unmarshal(data, &customData); err != nil {
 		return nil, err
 	}
 
 	var files = make(map[string]*decodedValue)
 
 	for _, val := range customData.WriteFiles {
-		var encoding cseVariableEncoding = ""
+		var encoding cseVariableEncoding
 		maybeEncodedValue := val.Content
 
 		if strings.Contains(val.Encoding, "gzip") {
@@ -1260,7 +1352,7 @@ func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error
 				if err != nil {
 					return nil, fmt.Errorf("failed to decode gzip value: %q with error %w", maybeEncodedValue, err)
 				}
-				maybeEncodedValue = string(output)
+				maybeEncodedValue = output
 				encoding = cseVariableEncodingGzip
 			}
 		}

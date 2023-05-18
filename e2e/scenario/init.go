@@ -1,13 +1,15 @@
 package scenario
 
-import "testing"
+import (
+	"log"
+)
 
 // Initializes and returns the set of scenarios comprising the E2E suite in table-form.
-func InitScenarioTable(t *testing.T, scenariosToRun map[string]bool) Table {
+func InitScenarioTable(scenariosToRun map[string]bool) Table {
 	table := Table{}
 	for _, scenario := range scenarios() {
 		if scenariosToRun == nil || scenariosToRun[scenario.Name] {
-			t.Logf("will run E2E scenario %q: %s", scenario.Name, scenario.Description)
+			log.Printf("will run E2E scenario %q: %s", scenario.Name, scenario.Description)
 			table[scenario.Name] = scenario
 		}
 	}
@@ -30,10 +32,14 @@ func scenarios() []*Scenario {
 		ubuntu2204CustomSysctls(),
 		marinerv1CustomSysctls(),
 		marinerv2CustomSysctls(),
+		ubuntu2204Wasm(),
+		marinerv1Wasm(),
+		marinerv2Wasm(),
 		ubuntu1804_azurecni(),
 		marinerv1_azurecni(),
 		marinerv2_azurecni(),
 		ubuntu1804gpu_azurecni(),
 		marinerv2gpu_azurecni(),
+		ubuntu2204gpuNoDriver(),
 	}
 }

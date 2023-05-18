@@ -7,6 +7,7 @@ set -euxo pipefail
 : "${LOCATION:=eastus}"
 : "${CLUSTER_NAME:=agentbaker-e2e-test-cluster}"
 : "${AZURE_TENANT_ID:=72f988bf-86f1-41af-91ab-2d7cd011db47}"
+: "${TIMEOUT:=30m}"
 
 export SUBSCRIPTION_ID
 export RESOURCE_GROUP_NAME
@@ -15,4 +16,4 @@ export CLUSTER_NAME
 export AZURE_TENANT_ID
 
 go version
-go test -timeout 30m -v -run Test_All ./
+go test -timeout $TIMEOUT -v -run Test_All ./

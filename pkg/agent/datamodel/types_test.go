@@ -4,6 +4,7 @@
 package datamodel
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -1273,6 +1274,7 @@ func TestLinuxProfile(t *testing.T) {
 	}
 }
 
+//nolint:gocognit
 func TestWindowsProfile(t *testing.T) {
 	trueVar := true
 	w := WindowsProfile{}
@@ -1356,6 +1358,8 @@ func TestWindowsProfile(t *testing.T) {
 				{BuildNumber: "18362"},
 			},
 		},
+		WindowsGmsaPackageUrl:   "windows-gmsa-package-url",
+		WindowsSecureTlsEnabled: to.BoolPtr(false),
 	}
 
 	dv = w.GetWindowsDockerVersion()
@@ -1381,6 +1385,53 @@ func TestWindowsProfile(t *testing.T) {
 	se := w.GetSSHEnabled()
 	if !se {
 		t.Fatalf("Expected SSHEnabled to return true, got %v", se)
+	}
+
+	jsonBytes, err := json.Marshal(w)
+	if err != nil {
+		t.Fatalf("Expected JSON marshal to not return an error, but returned: %s", err)
+	}
+
+	unmarshalled := WindowsProfile{}
+	if err = json.Unmarshal(jsonBytes, &unmarshalled); err != nil {
+		t.Fatalf("Expected JSON unmarshal to not return an error, but returned: %s", err)
+	}
+
+	dv = unmarshalled.GetWindowsDockerVersion()
+	if dv != "18.03.1-ee-3" {
+		t.Fatalf("Expected unmarshalled GetWindowsDockerVersion() to equal 18.03.1-ee-3, got %s", dv)
+	}
+
+	windowsSku = unmarshalled.GetWindowsSku()
+	if windowsSku != "Datacenter-Core-1809-with-Containers-smalldisk" {
+		t.Fatalf("Expected unmarshalled GetWindowsSku() to equal Datacenter-Core-1809-with-Containers-smalldisk, got %s", windowsSku)
+	}
+
+	dv = unmarshalled.GetWindowsDockerVersion()
+	if dv != "18.03.1-ee-3" {
+		t.Fatalf("Expected unmarshalled GetWindowsDockerVersion() to equal 18.03.1-ee-3, got %s", dv)
+	}
+
+	windowsSku = unmarshalled.GetWindowsSku()
+	if windowsSku != "Datacenter-Core-1809-with-Containers-smalldisk" {
+		t.Fatalf("Expected unmarshalled GetWindowsSku() to equal Datacenter-Core-1809-with-Containers-smalldisk, got %s", windowsSku)
+	}
+
+	se = unmarshalled.GetSSHEnabled()
+	if !se {
+		t.Fatalf("Expected unmarshalled SSHEnabled to return true, got %v", se)
+	}
+
+	if unmarshalled.WindowsGmsaPackageUrl != "windows-gmsa-package-url" {
+		t.Fatalf("Expected unmarshalled WindowsGMSAPackageURL to equal windows-gmsa-package-url, got %s", unmarshalled.WindowsGmsaPackageUrl)
+	}
+
+	if unmarshalled.WindowsSecureTlsEnabled == nil {
+		t.Fatalf("Execpted unmarshalled WindowsSecureTLSEnabled to not be nil")
+	}
+
+	if *unmarshalled.WindowsSecureTlsEnabled != false {
+		t.Fatalf("Expected unmarshalled WindowsSecureTLSEnabled to equal false, got %v", *unmarshalled.WindowsSecureTlsEnabled)
 	}
 }
 
