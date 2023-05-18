@@ -150,31 +150,8 @@ installFIPS() {
         fi
     done
 
-    echo "auto attaching ua..."
-    retrycmd_if_failure 5 10 120 ua auto-attach || exit $ERR_AUTO_UA_ATTACH
-
-    echo "disabling ua livepatch..."
-    retrycmd_if_failure 5 10 300 echo y | ua disable livepatch
-
     echo "enabling ua fips-updates..."
     retrycmd_if_failure 5 10 1200 echo y | ua enable fips-updates || exit $ERR_UA_ENABLE_FIPS
-
-    # 'ua status' for logging
-    ua status
-
-    echo "detaching ua..."
-    retrycmd_if_failure 5 10 120 printf "y\nN" | ua detach || $ERR_UA_DETACH
-
-    # now the fips packages/kernel are installed, clean up apt settings in the vhd,
-    # the VMs created on customers' subscriptions don't have access to UA repo
-    rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-apps.gpg
-    rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-infra-trusty.gpg
-    rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-fips.gpg
-    rm -f /etc/apt/sources.list.d/ubuntu-esm-apps.list
-    rm -f /etc/apt/sources.list.d/ubuntu-esm-infra.list
-    rm -f /etc/apt/sources.list.d/ubuntu-fips-updates.list
-    rm -f /etc/apt/auth.conf.d/*ubuntu-advantage
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }
 
 relinkResolvConf() {
@@ -189,4 +166,28 @@ relinkResolvConf() {
 
 listInstalledPackages() {
     apt list --installed
+}
+
+autoAttachUA() {
+    echo "auto attaching ua..."
+    retrycmd_if_failure 5 10 120 ua auto-attach || exit $ERR_AUTO_UA_ATTACH
+
+    echo "disabling ua livepatch..."
+    retrycmd_if_failure 5 10 300 echo y | ua disable livepatch
+}
+
+detachAndCleanUpUA() {
+    echo "detaching ua..."
+    retrycmd_if_failure 5 10 120 printf "y\nN" | ua detach || $ERR_UA_DETACH
+
+    # now that the ESM/FIPS packages are installed, clean up apt settings in the vhd,
+    # the VMs created on customers' subscriptions don't have access to UA repo
+    rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-apps.gpg
+    rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-esm-infra-trusty.gpg
+    rm -f /etc/apt/trusted.gpg.d/ubuntu-advantage-fips.gpg
+    rm -f /etc/apt/sources.list.d/ubuntu-esm-apps.list
+    rm -f /etc/apt/sources.list.d/ubuntu-esm-infra.list
+    rm -f /etc/apt/sources.list.d/ubuntu-fips-updates.list
+    rm -f /etc/apt/auth.conf.d/*ubuntu-advantage
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 }

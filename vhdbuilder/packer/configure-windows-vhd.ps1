@@ -333,6 +333,8 @@ function Update-WindowsFeatures {
     }
 }
 
+# If you need to add registry key in this function,
+# please update $wuRegistryKeys and $wuRegistryNames in vhdbuilder/packer/write-release-notes-windows.ps1 at the same time
 function Update-Registry {
     # Enables DNS resolution of SMB shares for containerD
     # https://github.com/kubernetes-sigs/windows-gmsa/issues/30#issuecomment-802240945
