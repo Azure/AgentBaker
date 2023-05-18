@@ -70,6 +70,7 @@ downloadCNI() {
 }
 
 downloadContainerdWasmShims() {
+    curl_output=/tmp/verbose_curl.out
     for shim_version in $CONTAINERD_WASM_VERSIONS; do
         binary_version="$(echo "${shim_version}" | tr . -)"
         local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/amd64"
@@ -79,8 +80,10 @@ downloadContainerdWasmShims() {
         fi
 
         if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+            #containerd_shim_spin_command=$(curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee "$curl_output" | grep -E "^(curl:.*)|([eE]rr.*)$") || { cat "$curl_output"; exit "$ERR_KRUSTLET_DOWNLOAD_TIMEOUT"; }
+            #containerd_shim_slight_command=$(curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee "$curl_output" | grep -E "^(curl:.*)|([eE]rr.*)$") || { cat "$curl_output"; exit "$ERR_KRUSTLET_DOWNLOAD_TIMEOUT"; }
+            retrycmd_if_failure 30 5 60 (curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee "$curl_output" | grep -E "^(curl:.*)|([eE]rr.*)$") || { cat "$curl_output"; exit "$ERR_KRUSTLET_DOWNLOAD_TIMEOUT"; }
+            retrycmd_if_failure 30 5 60 (curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee "$curl_output" | grep -E "^(curl:.*)|([eE]rr.*)$") || { cat "$curl_output"; exit "$ERR_KRUSTLET_DOWNLOAD_TIMEOUT"; }
             chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
             chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
         fi
