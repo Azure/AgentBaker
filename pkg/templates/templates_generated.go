@@ -2517,8 +2517,7 @@ datasource:
         apply_network_config: false
 EOF
 }
-#EOF
-`)
+#EOF`)
 
 func linuxCloudInitArtifactsCse_installShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_installSh, nil
