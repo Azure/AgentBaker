@@ -48,11 +48,45 @@ rm -f /etc/cron.daily/logrotate
 
 systemctlEnableAndStart sync-container-logs.service || exit 1
 
-if [[ (${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_RELEASE} == "18.04" || ($OS == $MARINER_OS_NAME && $OS_VERSION == "2.0")) && ${ENABLE_FIPS,,} == "true" ]]; then
-  installFIPS
-elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
-  echo "AKS enables FIPS on Ubuntu 18.04, 20.04 or Mariner 2.0 only, exiting..."
-  exit 1
+# First handle Mariner + FIPS
+if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
+  if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+    # This is FIPS install for Mariner and has nothing to do with Ubuntu Advantage
+    echo "Install FIPS for Mariner SKU"
+    installFIPS
+  fi
+else
+  # Handle FIPS and ESM for Ubuntu
+  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+    autoAttachUA
+  fi
+
+  # Run apt get update to refresh repo list
+  # Run apt dist get upgrade to install packages/kernels
+
+  # CVM breaks on kernel image updates due to nullboot package post-install.
+  # it relies on boot measurements from real tpm hardware.
+  # building on a real CVM would solve this, but packer doesn't support it.
+  # we could make upstream changes but that takes time, and we are broken now.
+  # so we just hold the kernel image packages for now on CVM.
+  # this still allows us base image and package updates on a weekly cadence.
+  if [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT    
+  fi
+
+  if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+    # This is FIPS Install for Ubuntu, it purges non FIPS Kernel and attaches UA FIPS Updates
+    echo "Install FIPS for Ubuntu SKU"
+    installFIPS
+  fi
+
+  # Final step, if 1804 or FIPS, log ua status, detach UA and clean up
+  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+    # 'ua status' for logging
+    ua status
+    detachAndCleanUpUA
+  fi
 fi
 
 echo "pre-install-dependencies step finished successfully"
