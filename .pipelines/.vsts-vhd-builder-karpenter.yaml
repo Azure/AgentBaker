@@ -82,6 +82,10 @@ parameters:
   displayName: Build 2204 Gen2 Containerd
   type: boolean
   default: true
+- name: dryrun
+  displayName: Dry run
+  type: boolean
+  default: False
 
 variables:
 - name: CONTAINER_IMAGE
