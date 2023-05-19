@@ -13,12 +13,16 @@ function Set-TelemetrySetting
 # Resize the system partition to the max available size. Azure can resize a managed disk, but the VM still needs to extend the partition boundary
 function Resize-OSDrive
 {
-    $osDrive = ((Get-WmiObject Win32_OperatingSystem).SystemDrive).TrimEnd(":")
-    $size = (Get-Partition -DriveLetter $osDrive).Size
-    $maxSize = (Get-PartitionSupportedSize -DriveLetter $osDrive).SizeMax
-    if ($size -lt $maxSize)
-    {
-        Resize-Partition -DriveLetter $osDrive -Size $maxSize
+    try {
+        $osDrive = ((Get-WmiObject Win32_OperatingSystem -ErrorAction Stop).SystemDrive).TrimEnd(":")
+        $size = (Get-Partition -DriveLetter $osDrive -ErrorAction Stop).Size
+        $maxSize = (Get-PartitionSupportedSize -DriveLetter $osDrive -ErrorAction Stop).SizeMax
+        if ($size -lt $maxSize)
+        {
+            Resize-Partition -DriveLetter $osDrive -Size $maxSize -ErrorAction Stop
+        }
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE -ErrorMessage "Failed to resize os drive. Error: $_"
     }
 }
 
