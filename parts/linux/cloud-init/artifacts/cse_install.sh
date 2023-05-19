@@ -84,6 +84,8 @@ downloadContainerdWasmShims() {
             #containerd_shim_slight_command=$(curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee "$curl_output" | grep -E "^(curl:.*)|([eE]rr.*)$") || { cat "$curl_output"; exit "$ERR_KRUSTLET_DOWNLOAD_TIMEOUT"; }
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" > /dev/null 2>&1 | tee "$curl_output" | grep -E "^(curl:.*)|([eE]rr.*)$" || cat $curl_output
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" > /dev/null 2>&1 | tee "$curl_output" | grep -E "^(curl:.*)|([eE]rr.*)$" || cat $curl_output
+            echo "CATING HERE FOR WASMSHIM"
+            cat $curl_output
             chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
             chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
         fi
