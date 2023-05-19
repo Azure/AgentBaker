@@ -153,11 +153,16 @@ configureCoreDump() {
     replaceOrAppendCoreDump ProcessSizeMax 0
 }
 
+fixDefaultUmaskForAccountCreation() {
+    replaceOrAppendLoginDefs UMASK 027
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
     assignFilePermissions
     configureCoreDump
+    fixDefaultUmaskForAccountCreation
 }
 
 applyCIS

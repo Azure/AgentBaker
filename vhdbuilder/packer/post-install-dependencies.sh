@@ -25,12 +25,12 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   fi
 
   # remove apport
-  apt-get purge --auto-remove apport open-vm-tools -y
+  retrycmd_if_failure 10 2 60 apt-get purge --auto-remove apport open-vm-tools -y || exit 1
 
   # strip old kernels/packages
-  apt-get -y autoclean || exit 1
-  apt-get -y autoremove --purge || exit 1
-  apt-get -y clean || exit 1
+  retrycmd_if_failure 10 2 60 apt-get -y autoclean || exit 1
+  retrycmd_if_failure 10 2 60 apt-get -y autoremove --purge || exit 1
+  retrycmd_if_failure 10 2 60 apt-get -y clean || exit 1
 fi
 
 # shellcheck disable=SC2129

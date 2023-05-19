@@ -8,7 +8,8 @@ if (-not ($validSKU -contains $windowsSKU)) {
     throw "Unsupported windows image SKU: $windowsSKU"
 }
 
-# defaultContainerdPackageUrl refers to the latest containerd package used to pull and cache container images
+# defaultContainerdPackageUrl refers to the stable containerd package used to pull and cache container images
+# Add cache for another containerd version which is not installed by default
 $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.56/binaries/containerd-v0.0.56-windows-amd64.tar.gz"
 
 # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
@@ -48,18 +49,17 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
     "mcr.microsoft.com/oss/kubernetes/pause:3.9",
     # CSI. Owner: andyzhangx (Andy Zhang)
-    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.6.0",
     "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.10.0",
-    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.5.0",
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0",
     # azuredisk-csi:v1.27 is only for AKS 1.26+, v1.26 is for other AKS versions
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.3",
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.4",
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.1",
     # azurefile-csi:v1.26 is only for AKS 1.26+, v1.24 is for other AKS versions
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.0",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.1",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.2",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.2",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.3",
     # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.3",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
@@ -73,7 +73,7 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.8", # for k8s 1.26.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.1", # for k8s 1.27.x
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.7",
+    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.8",
     # NPM (Network Policy Manager) & CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44"
 )
@@ -107,7 +107,8 @@ $global:map = @{
     # specified by AKS PR for most of the cases. BUT as long as there's a new unpacked image version, we should keep the
     # versions synced.
     "c:\akse-cache\containerd\"   = @(
-        $defaultContainerdPackageUrl
+        $defaultContainerdPackageUrl,
+        "https://acs-mirror.azureedge.net/containerd/windows/v1.7.1-azure.1/binaries/containerd-v1.7.1-azure.1-windows-amd64.tar.gz"
     );
     "c:\akse-cache\csi-proxy\"    = @(
         "https://acs-mirror.azureedge.net/csi-proxy/v1.0.2/binaries/csi-proxy-v1.0.2.tar.gz"
@@ -141,13 +142,19 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.24.3-hotfix.20221006/windowszip/v1.24.3-hotfix.20221006-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.24.6-hotfix.20221006/windowszip/v1.24.6-hotfix.20221006-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/windowszip/v1.24.9-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.24.9-hotfix.20230509/windowszip/v1.24.9-hotfix.20230509-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.24.10/windowszip/v1.24.10-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.24.10-hotfix.20230509/windowszip/v1.24.10-hotfix.20230509-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.25.2-hotfix.20221006/windowszip/v1.25.2-hotfix.20221006-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.25.4/windowszip/v1.25.4-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.25.5/windowszip/v1.25.5-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.25.5-hotfix.20230509/windowszip/v1.25.5-hotfix.20230509-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.25.6/windowszip/v1.25.6-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.25.6-hotfix.20230509/windowszip/v1.25.6-hotfix.20230509-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.26.0/windowszip/v1.26.0-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.26.0-hotfix.20230509/windowszip/v1.26.0-hotfix.20230509-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.26.3/windowszip/v1.26.3-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.26.3-hotfix.20230509/windowszip/v1.26.3-hotfix.20230509-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.1/windowszip/v1.27.1-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
