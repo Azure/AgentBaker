@@ -1898,7 +1898,7 @@ retrycmd_get_tarball() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            timeout 60 curl -fsSLv $url -o $tarball > /dev/null 2>&1 | tee $curl_output | grep -E "^(curl:.*)|([eE]rr.*)$" || cat $curl_output
+            timeout 60 curl -fsSLv $url -o $tarball 2>&1 | tee $curl_output >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && cat $curl_output
             echo "CATING HERE FOR TARBALL"
             cat $curl_output
             sleep $wait_sleep
@@ -1914,7 +1914,7 @@ retrycmd_curl_file() {
         if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout $timeout curl -fsSLv $url -o $filepath > /dev/null 2>&1 | tee $curl_output | grep -E "^(curl:.*)|([eE]rr.*)$" || cat $curl_output
+            timeout $timeout curl -fsSLv $url -o $filepath 2>&1 | tee $curl_output >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && cat $curl_output
             echo "CATING HERE FOR CURL FILE"
             cat $curl_output
             sleep $wait_sleep
@@ -2202,8 +2202,8 @@ downloadContainerdWasmShims() {
         if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
             #containerd_shim_spin_command=$(curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee "$curl_output" | grep -E "^(curl:.*)|([eE]rr.*)$") || { cat "$curl_output"; exit "$ERR_KRUSTLET_DOWNLOAD_TIMEOUT"; }
             #containerd_shim_slight_command=$(curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee "$curl_output" | grep -E "^(curl:.*)|([eE]rr.*)$") || { cat "$curl_output"; exit "$ERR_KRUSTLET_DOWNLOAD_TIMEOUT"; }
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" > /dev/null 2>&1 | tee "$curl_output" | grep -E "^(curl:.*)|([eE]rr.*)$" || cat $curl_output
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" > /dev/null 2>&1 | tee "$curl_output" | grep -E "^(curl:.*)|([eE]rr.*)$" || cat $curl_output
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee "$curl_output" >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $curl_output && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT)
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee "$curl_output" >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $curl_output && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT)
             echo "CATING HERE FOR WASMSHIM"
             cat $curl_output
             chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
