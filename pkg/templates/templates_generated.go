@@ -1864,6 +1864,7 @@ export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v 
 APT_CACHE_DIR=/var/cache/apt/archives/
 PERMANENT_CACHE_DIR=/root/aptcache/
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+CURL_OUTPUT=/tmp/curl_verbose.out
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -1891,28 +1892,26 @@ retrycmd_if_failure_no_stats() {
 }
 retrycmd_get_tarball() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
-    curl_output=/tmp/verbose_curl.out
     echo "${tar_retries} retries"
     for i in $(seq 1 $tar_retries); do
         tar -tzf $tarball && break || \
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            timeout 60 curl -fsSLv $url -o $tarball 2>&1 | tee $curl_output >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && cat $curl_output
+            timeout 60 curl -fsSLv $url -o $tarball 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && cat $CURL_OUTPUT
             sleep $wait_sleep
         fi
     done
 }
 retrycmd_curl_file() {
     curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
-    curl_output=/tmp/verbose_curl.out
     echo "${curl_retries} retries"
     for i in $(seq 1 $curl_retries); do
         [[ -f $filepath ]] && break
         if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout $timeout curl -fsSLv $url -o $filepath 2>&1 | tee $curl_output >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && cat $curl_output
+            timeout $timeout curl -fsSLv $url -o $filepath 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && cat $CURL_OUTPUT
             sleep $wait_sleep
         fi
     done
@@ -2132,6 +2131,7 @@ TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
+CURL_OUTPUT=/tmp/curl_verbose.out
 
 removeManDbAutoUpdateFlagFile() {
     rm -f $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
@@ -2186,7 +2186,6 @@ downloadCNI() {
 }
 
 downloadContainerdWasmShims() {
-    curl_output=/tmp/verbose_curl.out
     for shim_version in $CONTAINERD_WASM_VERSIONS; do
         binary_version="$(echo "${shim_version}" | tr . -)"
         local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/amd64"
@@ -2196,8 +2195,8 @@ downloadContainerdWasmShims() {
         fi
 
         if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee "$curl_output" >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $curl_output && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT)
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee "$curl_output" >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $curl_output && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT)
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT)
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT)
             chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
             chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
         fi
