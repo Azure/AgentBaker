@@ -33,9 +33,6 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   retrycmd_if_failure 10 2 60 apt-get -y autoremove --purge || exit 1
   retrycmd_if_failure 10 2 60 apt-get -y clean || exit 1
 elif [[ $OS == $MARINER_OS_NAME ]]; then
-  current_kernel_version="$(uname -r | cut -d. -f-4)"
-  kernel_packages_to_remove=$(rpm -qa | grep "kernel" | grep -v $current_kernel_version)
-  retrycmd_if_failure 10 2 60 dnf -y autoremove $kernel_packages_to_remove || exit 1
   retrycmd_if_failure 10 2 60 dnf -y autoremove || exit 1 # remove all other unused packages
 fi
 
