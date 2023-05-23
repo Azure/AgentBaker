@@ -21,7 +21,7 @@ steps:
 - bash: |
         echo "Removing existing go environment"
         sudo rm -r /usr/local/go
-        GOLANG_VERSION="go1.20.3"
+        GOLANG_VERSION="go1.20.4"
         echo "Downloading ${GOLANG_VERSION}"
         curl -O "https://dl.google.com/go/${GOLANG_VERSION}.linux-amd64.tar.gz"
 
