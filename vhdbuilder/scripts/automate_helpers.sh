@@ -49,7 +49,7 @@ create_pull_request() {
     curl \
         -X POST \
         https://api.github.com/repos/Azure/AgentBaker/pulls \
-        -d '{"head" : "'$3'", "base" : "master", "title" : "Automated PR for '$4'"}' \
+        -d '{"head" : "'$3'", "base" : "master", "title" : "chore: automated PR for '$4'"}' \
         -u "anujmaheshwari1:$2"
     set -x
     
