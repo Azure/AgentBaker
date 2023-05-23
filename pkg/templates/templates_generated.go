@@ -1898,7 +1898,10 @@ retrycmd_get_tarball() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            timeout 60 curl -fsSLv $url -o $tarball 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && cat $CURL_OUTPUT
+            timeout 60 curl -fsSLv $url -o $tarball 2>&1 | tee $CURL_OUTPUT >/dev/null
+            if [[ $? != 0 ]]; then
+                cat $CURL_OUTPUT
+            fi
             sleep $wait_sleep
         fi
     done
@@ -1911,7 +1914,10 @@ retrycmd_curl_file() {
         if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout $timeout curl -fsSLv $url -o $filepath 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && cat $CURL_OUTPUT
+            timeout $timeout curl -fsSLv $url -o $filepath 2>&1 | tee $CURL_OUTPUT >/dev/null
+            if [[ $? != 0 ]]; then
+                cat $CURL_OUTPUT
+            fi
             sleep $wait_sleep
         fi
     done
