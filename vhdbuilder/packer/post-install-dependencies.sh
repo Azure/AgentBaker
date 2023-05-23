@@ -33,10 +33,27 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   retrycmd_if_failure 10 2 60 apt-get -y autoremove --purge || exit 1
   retrycmd_if_failure 10 2 60 apt-get -y clean || exit 1
 elif [[ $OS == $MARINER_OS_NAME ]]; then
+  # Clean up old packages and old kernels
   current_kernel_version="$(uname -r | cut -d. -f-4)"
   kernel_packages_to_remove=$(rpm -qa | grep "kernel" | grep -v $current_kernel_version)
   retrycmd_if_failure 10 2 60 dnf -y autoremove $kernel_packages_to_remove || exit 1
   retrycmd_if_failure 10 2 60 dnf -y autoremove || exit 1 # remove all other unused packages
+
+  # Get the list of allowed packages. Generated with the following command: rpm -qa -qf '%{NAME}\n' | sort > mariner-package-allow-list.txt
+  ApprovedPackagesFile="/home/packer/package-allow-list.txt"
+
+  dnf install yum-utils -y
+
+  # Check if all installed packages are in the approved package list
+  packages=$(rpm -qa --qf "%{NAME}\n")
+  for package in ${packages[*]}; do
+      if ! grep -q --line-regexp $package $ApprovedPackagesFile; then
+          echo "[WARNING] Package $package is unexpected for Mariner. A new package dependency may have been added."
+          echo -e "[WARNING] The following packages require $package:\n$(repoquery --installed --whatrequires $package)"
+      fi
+  done
+
+  dnf remove yum-utils -y
 fi
 
 # shellcheck disable=SC2129
