@@ -1,6 +1,7 @@
 #!/bin/bash
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
+MARINER_OS_NAME="MARINER"
 
 source /home/packer/provision_installs.sh
 source /home/packer/provision_installs_distro.sh
@@ -25,12 +26,17 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   fi
 
   # remove apport
-  apt-get purge --auto-remove apport open-vm-tools -y
+  retrycmd_if_failure 10 2 60 apt-get purge --auto-remove apport open-vm-tools -y || exit 1
 
   # strip old kernels/packages
-  apt-get -y autoclean || exit 1
-  apt-get -y autoremove --purge || exit 1
-  apt-get -y clean || exit 1
+  retrycmd_if_failure 10 2 60 apt-get -y autoclean || exit 1
+  retrycmd_if_failure 10 2 60 apt-get -y autoremove --purge || exit 1
+  retrycmd_if_failure 10 2 60 apt-get -y clean || exit 1
+elif [[ $OS == $MARINER_OS_NAME ]]; then
+  current_kernel_version="$(uname -r | cut -d. -f-4)"
+  kernel_packages_to_remove=$(rpm -qa | grep "kernel" | grep -v $current_kernel_version)
+  retrycmd_if_failure 10 2 60 dnf -y autoremove $kernel_packages_to_remove || exit 1
+  retrycmd_if_failure 10 2 60 dnf -y autoremove || exit 1 # remove all other unused packages
 fi
 
 # shellcheck disable=SC2129

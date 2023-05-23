@@ -62,14 +62,13 @@ echo "The generated sas token works"
 
 # Do not log sas token
 echo "COPY ME ---> ${STORAGE_ACCT_BLOB_URL}/${VHD_NAME}?***"
-sku_name=$(echo $SKU_NAME | tr -d '.')
 
 # Note: The offer_name is the value from OS_SKU (eg. Ubuntu)
 cat <<EOF > vhd-publishing-info.json
 {
     "vhd_url" : "$vhd_url",
     "os_name" : "$OS_NAME",
-    "sku_name" : "$sku_name",
+    "sku_name" : "$SKU_NAME",
     "offer_name" : "$OFFER_NAME",
     "hyperv_generation": "${HYPERV_GENERATION}",
     "image_architecture": "${IMAGE_ARCH}",

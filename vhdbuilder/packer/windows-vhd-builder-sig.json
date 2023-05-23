@@ -7,7 +7,6 @@
         "build_repo": "{{env `GIT_REPO`}}",
         "client_id": "{{env `AZURE_CLIENT_ID`}}",
         "client_secret": "{{env `AZURE_CLIENT_SECRET`}}",
-        "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
         "windows_sku": "{{env `WINDOWS_SKU`}}",
         "tenant_id": "{{env `AZURE_TENANT_ID`}}",
         "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
@@ -81,7 +80,6 @@
             "environment_vars": [
                 "ProvisioningPhase=1",
                 "WindowsSKU={{user `windows_sku`}}",
-                "ContainerRuntime={{user `container_runtime`}}",
                 "CustomizedDiskSize={{user `os_disk_size_gb`}}"
             ],
             "type": "powershell",
@@ -100,7 +98,6 @@
             "environment_vars": [
                 "ProvisioningPhase=2",
                 "WindowsSKU={{user `windows_sku`}}",
-                "ContainerRuntime={{user `container_runtime`}}",
                 "CustomizedDiskSize={{user `os_disk_size_gb`}}",
                 "WindowsNanoServerImageURL={{user `nano_image_url`}}",
                 "WindowsServerCoreImageURL={{user `core_image_url`}}"
@@ -128,8 +125,7 @@
                 "BUILD_COMMIT={{user `build_commit`}}",
                 "BUILD_ID={{user `build_id`}}",
                 "BUILD_NUMBER={{user `build_number`}}",
-                "BUILD_REPO={{user `build_repo`}}",
-                "ContainerRuntime={{user `container_runtime`}}"
+                "BUILD_REPO={{user `build_repo`}}"
             ],
             "type": "powershell",
             "script": "vhdbuilder/packer/write-release-notes-windows.ps1"
