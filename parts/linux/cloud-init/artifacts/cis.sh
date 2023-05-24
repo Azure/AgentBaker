@@ -157,12 +157,22 @@ fixDefaultUmaskForAccountCreation() {
     replaceOrAppendLoginDefs UMASK 027
 }
 
+function maskNfsServer() {
+    # If nfs-server.service exists, we need to mask it per CIS requirement.
+    # Note that on ubuntu systems, it isn't installed but on mariner we need it
+    # due to a dependency, but disable it by default.
+    if systemctl list-unit-files nfs-server.service >/dev/null; then
+        systemctl --now mask nfs-server || $ERR_SYSTEMCTL_MASK_FAIL
+    fi
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
     assignFilePermissions
     configureCoreDump
     fixDefaultUmaskForAccountCreation
+    maskNfsServer
 }
 
 applyCIS
