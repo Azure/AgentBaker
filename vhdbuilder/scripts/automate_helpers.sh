@@ -49,7 +49,12 @@ create_pull_request() {
     curl \
         -X POST \
         https://api.github.com/repos/Azure/AgentBaker/pulls \
-        -d '{"head" : "'$3'", "base" : "master", "title" : "Automated PR for '$4'"}' \
+        -d '{
+            "head" : "'$3'", 
+            "base" : "master", 
+            "title" : "chore: automated PR to update '$4' for '$1' VHD", 
+            "body" : "This is an automated PR to bump '$4' for the VHD release with image version '$1'"
+        }' \
         -u "anujmaheshwari1:$2"
     set -x
     

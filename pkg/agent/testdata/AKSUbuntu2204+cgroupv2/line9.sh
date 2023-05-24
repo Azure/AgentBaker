@@ -88,6 +88,8 @@ ERR_DISABLE_SSH=172 # Error disabling ssh service
 ERR_VHD_REBOOT_REQUIRED=200 # Reserved for VHD reboot required exit condition
 ERR_NO_PACKAGES_FOUND=201 # Reserved for no security packages found exit condition
 
+ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
@@ -110,6 +112,7 @@ export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v 
 APT_CACHE_DIR=/var/cache/apt/archives/
 PERMANENT_CACHE_DIR=/root/aptcache/
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+CURL_OUTPUT=/tmp/curl_verbose.out
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -143,7 +146,10 @@ retrycmd_get_tarball() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            timeout 60 curl -fsSLv $url -o $tarball
+            timeout 60 curl -fsSLv $url -o $tarball 2>&1 | tee $CURL_OUTPUT >/dev/null
+            if [[ $? != 0 ]]; then
+                cat $CURL_OUTPUT
+            fi
             sleep $wait_sleep
         fi
     done
@@ -156,7 +162,10 @@ retrycmd_curl_file() {
         if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout $timeout curl -fsSLv $url -o $filepath
+            timeout $timeout curl -fsSLv $url -o $filepath 2>&1 | tee $CURL_OUTPUT >/dev/null
+            if [[ $? != 0 ]]; then
+                cat $CURL_OUTPUT
+            fi
             sleep $wait_sleep
         fi
     done
