@@ -43,12 +43,12 @@ systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 systemctlEnableAndStart logrotate.timer || exit 1
 rm -f /etc/cron.daily/logrotate
 
-#if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
-#  installFIPS
-#elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
-#  echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
-#  exit 1
-#fi
+if [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+  installFIPS
+elif [[ ${ENABLE_FIPS,,} == "true" ]]; then
+  echo "AKS enables FIPS on Ubuntu 18.04 only, exiting..."
+  exit 1
+fi
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
