@@ -103,12 +103,29 @@ if [ "$OS_TYPE" == "Linux" ]; then
   fi
 
   SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
-  for i in $(seq 1 3); do
-    ret=$(az vm run-command invoke --command-id RunShellScript \
+  retries=3
+  for i in $(seq 1 $retries); do
+    output=$(az vm run-command invoke --command-id RunShellScript \
       --name $VM_NAME \
       --resource-group $RESOURCE_GROUP_NAME \
       --scripts @$SCRIPT_PATH \
-      --parameters ${CONTAINER_RUNTIME} ${OS_VERSION} ${ENABLE_FIPS} ${OS_SKU}) && break
+      --parameters ${CONTAINER_RUNTIME} ${OS_VERSION} ${ENABLE_FIPS} ${OS_SKU})
+
+    ret=$?
+
+    # break on successful execution out of loop
+    if [[ "$ret" == "0" ]]; then
+      echo "${i}: successfully invoked az vm run-command"
+      break
+    else
+      # otherwise exit if we exhausted all retries
+      if [ $i -eq $retries ]; then
+        echo "Failed to invoke az vm run-command on all retries"
+        exit 1
+      fi
+    fi
+
+    # otherwise, continue with next attempt.
     echo "${i}: retrying az vm run-command"
   done
   # The error message for a Linux VM run-command is as follows:
@@ -123,7 +140,7 @@ if [ "$OS_TYPE" == "Linux" ]; then
   #    }
   #  ]
   #  We have extract the message field from the json, and get the errors outputted to stderr + remove \n
-  errMsg=$(echo -e $(echo $ret | jq ".value[] | .message" | grep -oP '(?<=stderr]).*(?=\\n")'))
+  errMsg=$(echo -e $(echo $output | jq ".value[] | .message" | grep -oP '(?<=stderr]).*(?=\\n")'))
   echo $errMsg
   if [[ $errMsg != '' ]]; then
     exit 1
