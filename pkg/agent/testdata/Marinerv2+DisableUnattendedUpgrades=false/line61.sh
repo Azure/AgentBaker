@@ -50,11 +50,6 @@ installNvidiaContainerRuntime() {
     done
 }
 
-installSGXDrivers() {
-    echo "SGX drivers not yet supported for Mariner"
-    exit $ERR_SGX_DRIVERS_START_FAIL
-}
-
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     CONTAINERD_VERSION=$1

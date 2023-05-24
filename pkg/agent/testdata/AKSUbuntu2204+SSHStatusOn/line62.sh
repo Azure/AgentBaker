@@ -54,42 +54,6 @@ installDeps() {
     done
 }
 
-installSGXDrivers() {
-    if [[ $(isARM64) == 1 ]]; then
-        # no intel sgx on arm64
-        return
-    fi
-
-    echo "Installing SGX driver"
-    local VERSION
-    VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
-    case $VERSION in
-    "18.04")
-        SGX_DRIVER_URL="https://download.01.org/intel-sgx/dcap-1.2/linux/dcap_installers/ubuntuServer18.04/sgx_linux_x64_driver_1.12_c110012.bin"
-        ;;
-    "16.04")
-        SGX_DRIVER_URL="https://download.01.org/intel-sgx/dcap-1.2/linux/dcap_installers/ubuntuServer16.04/sgx_linux_x64_driver_1.12_c110012.bin"
-        ;;
-    "*")
-        echo "Version $VERSION is not supported"
-        exit 1
-        ;;
-    esac
-
-    local PACKAGES="make gcc dkms"
-    wait_for_apt_locks
-    retrycmd_if_failure 30 5 3600 apt-get -y install $PACKAGES  || exit $ERR_SGX_DRIVERS_INSTALL_TIMEOUT
-
-    local SGX_DRIVER
-    SGX_DRIVER=$(basename $SGX_DRIVER_URL)
-    local OE_DIR=/opt/azure/containers/oe
-    mkdir -p ${OE_DIR}
-
-    retrycmd_if_failure 120 5 25 curl -fsSL ${SGX_DRIVER_URL} -o ${OE_DIR}/${SGX_DRIVER} || exit $ERR_SGX_DRIVERS_INSTALL_TIMEOUT
-    chmod a+x ${OE_DIR}/${SGX_DRIVER}
-    ${OE_DIR}/${SGX_DRIVER} || exit $ERR_SGX_DRIVERS_START_FAIL
-}
-
 updateAptWithMicrosoftPkg() {
     if [[ $(isARM64) == 1 ]]; then
         if [ "${UBUNTU_RELEASE}" == "22.04" ]; then
