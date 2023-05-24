@@ -781,12 +781,22 @@ fixDefaultUmaskForAccountCreation() {
     replaceOrAppendLoginDefs UMASK 027
 }
 
+function maskNfsServer() {
+    # If nfs-server.service exists, we need to mask it per CIS requirement.
+    # Note that on ubuntu systems, it isn't installed but on mariner we need it
+    # due to a dependency, but disable it by default.
+    if systemctl list-unit-files nfs-server.service >/dev/null; then
+        systemctl --now mask nfs-server || $ERR_SYSTEMCTL_MASK_FAIL
+    fi
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
     assignFilePermissions
     configureCoreDump
     fixDefaultUmaskForAccountCreation
+    maskNfsServer
 }
 
 applyCIS
@@ -1841,6 +1851,8 @@ ERR_DISABLE_SSH=172 # Error disabling ssh service
 
 ERR_VHD_REBOOT_REQUIRED=200 # Reserved for VHD reboot required exit condition
 ERR_NO_PACKAGES_FOUND=201 # Reserved for no security packages found exit condition
+
+ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
