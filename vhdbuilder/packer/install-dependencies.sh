@@ -450,10 +450,10 @@ for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
 done
 
 echo "install-dependencies step completed successfully"
-#if [[ $OS == $UBUNTU_OS_NAME ]]; then
-#  # remove apport
-#  apt-get purge --auto-remove apport open-vm-tools -y
-#fi
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+  # remove apport
+  apt-get purge --auto-remove apport open-vm-tools -y
+fi
 
 # shellcheck disable=SC2129
 echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
@@ -492,8 +492,8 @@ if [[ $(isARM64) != 1 ]]; then
   installAscBaseline
 fi
 
-#if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
-#  if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH} == "arm64" ]]; then
-#    relinkResolvConf
-#  fi
-#fi
+if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
+  if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH} == "arm64" ]]; then
+    relinkResolvConf
+  fi
+fi
