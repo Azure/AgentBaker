@@ -312,14 +312,6 @@
       "multiArchVersions": []
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "v1.8.13.3",
-        "v1.8.13.4"
-      ]
-    },
-    {
       "downloadURL": "mcr.microsoft.com/aks/aks-node-ca-watcher:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
