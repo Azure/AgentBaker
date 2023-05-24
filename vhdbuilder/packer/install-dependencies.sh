@@ -487,10 +487,10 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "FIPS enabled: ${ENABLE_FIPS}"
 } >> ${VHD_LOGS_FILEPATH}
 
-#if [[ $(isARM64) != 1 ]]; then
-#  # no asc-baseline-1.1.0-268.arm64.deb
-#  installAscBaseline
-#fi
+if [[ $(isARM64) != 1 ]]; then
+  # no asc-baseline-1.1.0-268.arm64.deb
+  installAscBaseline
+fi
 
 #if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
 #  if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH} == "arm64" ]]; then
