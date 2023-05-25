@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"context"
+	"fmt"
 	"log"
 	mrand "math/rand"
 	"path/filepath"
@@ -103,11 +104,12 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		return
 	}
 
+	fmt.Println("lecimy tutaj private key:" + string(privateKeyBytes))
 	vmssSucceeded := true
-	vmssName, vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, opts, publicKeyBytes)
-	if cleanupVMSS != nil {
-		defer cleanupVMSS()
-	}
+	vmssName, vmssModel, _, err := bootstrapVMSS(ctx, t, r, opts, publicKeyBytes)
+	//if cleanupVMSS != nil {
+	//	defer cleanupVMSS()
+	//}
 	if err != nil {
 		vmssSucceeded = false
 		if !isVMExtensionProvisioningError(err) {
