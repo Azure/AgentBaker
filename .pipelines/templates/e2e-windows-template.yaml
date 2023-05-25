@@ -63,7 +63,7 @@ jobs:
       displayName: Setup Test Cluster
     - publish: $(System.DefaultWorkingDirectory)/${{ parameters.windowsImage }}
       artifact: ${{ parameters.windowsImage }}-clusterConfig
-      condition: always()
+      condition: succeeded()
 
 - job: Generate_Matrix
   steps:
