@@ -66,7 +66,6 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.3.0.3",
         "v1.3.3"
       ]
     },
@@ -74,7 +73,6 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.0",
         "v1.4.1"
       ]
     },
@@ -82,7 +80,7 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "3.1.7"
+        "3.1.8"
       ]
     },
     {
@@ -214,33 +212,26 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
-      "amd64OnlyVersions": [
-        "v1.2.2.5"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.26.3",
         "v1.26.4",
         "v1.27.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
-      "amd64OnlyVersions": [
-        "v1.2.2"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.24.0",
         "v1.24.1",
-        "v1.26.2"
+        "v1.24.2",
+        "v1.26.2",
+        "v1.26.3"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:*",
-      "amd64OnlyVersions": [
-        "v2.2.0"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.6.0",
         "v2.10.0"
       ]
     },
@@ -248,7 +239,6 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.5.0",
         "v2.8.0"
       ]
     },
@@ -256,7 +246,8 @@
       "downloadURL": "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.11.0"
+        "v3.11.0",
+        "v3.11.1"
       ]
     },
     {
@@ -294,28 +285,22 @@
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "prod_20230208.1"
+        "prod_20230208.1",
+        "1.0.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "prod_20230208.1"
+        "prod_20230208.1",
+        "1.0.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": []
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "v1.8.13.3",
-        "v1.8.13.4"
-      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-node-ca-watcher:*",

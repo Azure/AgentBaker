@@ -377,6 +377,7 @@ testLoginDefs() {
   echo "$test: Checking specific settings in $settings_file"
   testSetting $test $settings_file PASS_MAX_DAYS '^[[:space:]]*PASS_MAX_DAYS[[:space:]]' ' ' 90
   testSetting $test $settings_file PASS_MIN_DAYS '^[[:space:]]*PASS_MIN_DAYS[[:space:]]+' ' ' 7
+  testSetting $test $settings_file UMASK '^[[:space:]]*UMASK[[:space:]]+' ' ' 027
 
   echo "$test:Finish"
 }
@@ -490,6 +491,29 @@ testCoreDumpSettings() {
   echo "$test: Checking specific settings in $settings_file"
   testSetting $test $settings_file 'Storage' '^Storage=' '=' 'none'
   testSetting $test $settings_file 'ProcessSizeMax' '^ProcessSizeMax=' '=' '0'
+
+  echo "$test:Finish"
+}
+
+# Tests that the nfs-server systemd service is masked, per the function
+# configuremaskNfsServerNfsServer in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
+testNfsServerService() {
+  local test="testNfsServerService"
+  local service_name="nfs-server.service"
+  echo "$test:Start"
+
+  # is-enabled returns 'masked' if the service is masked and an empty
+  # string if the service is not installed. Either is fine.
+  echo "$test: Checking that $service_name is masked"
+  local is_enabled=
+  is_enabled=$(systemctl is-enabled $service_name 2>/dev/null)
+  if [[ "${is_enabled}" == "masked" ]]; then
+    echo "$test: $service_name is correctly masked"
+  elif [[ "${is_enabled}" == "" ]]; then
+    echo "$test: $service_name is not installed, which is fine"
+  else
+    err $test "$service_name is not masked"
+  fi
 
   echo "$test:Finish"
 }
@@ -672,3 +696,4 @@ testUserAdd
 testNetworkSettings
 testCronPermissions
 testCoreDumpSettings
+testNfsServerService
