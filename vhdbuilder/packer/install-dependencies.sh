@@ -326,6 +326,7 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
 
   systemctlEnableAndStart nvidia-device-plugin || exit 1
 fi
+fi
 
 NGINX_VERSIONS="1.21.6"
 for NGINX_VERSION in ${NGINX_VERSIONS}; do
