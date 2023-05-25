@@ -40,6 +40,11 @@ The `e2e_test` package has a dependency on subpackage located in the [scenario](
 
 The primary testing function is located in [suite_test.go](suite_test.go), which is run by `go test ...`.
 
+## Updating the Test Images
+The [images.go](scenario/images.go) file contains the hard-coded references to a set of delete-locked SIG versions used by the e2e scenarios.
+
+**If you decide to update some or all of these SIG versions, you need to make sure to add delete locks to each one via the Azure Portal so they don't get automatically deleted and eventually cause failuires**
+
 ## Scenarios
 
 Minimally, each E2E scenario is parameterized with a set of "mutators" that change/set various properties of a base NodeBootstrappingConfiguration struct. This struct is then fed into GetLatestNodeBootstrapping to generate CSE and custom data. The most commonly mutated property of this struct across all scenarios is the OS distro. This is primarily because each scenario currently uses a separate VHD corresponding to the respective distro.
