@@ -66,7 +66,6 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.3.0.3",
         "v1.3.3"
       ]
     },
@@ -74,7 +73,6 @@
       "downloadURL": "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.0",
         "v1.4.1"
       ]
     },
@@ -214,20 +212,15 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
-      "amd64OnlyVersions": [
-        "v1.2.2.5"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.26.3",
         "v1.26.4",
         "v1.27.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
-      "amd64OnlyVersions": [
-        "v1.2.2"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.24.1",
         "v1.24.2",
@@ -237,9 +230,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:*",
-      "amd64OnlyVersions": [
-        "v2.2.0"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v2.10.0"
       ]
