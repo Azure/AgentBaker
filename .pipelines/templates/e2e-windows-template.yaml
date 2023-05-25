@@ -63,7 +63,7 @@ jobs:
       displayName: Setup Test Cluster
     - publish: $(System.DefaultWorkingDirectory)/${{ parameters.windowsImage }}
       artifact: ${{ parameters.windowsImage }}-clusterConfig
-      condition: always()
+      condition: succeeded()
 
 - job: Generate_Matrix
   steps:
@@ -111,4 +111,4 @@ jobs:
         MAPPED_ACCOUNT_KEY: $(STORAGE_ACCOUNT_KEY)
     - publish: $(System.DefaultWorkingDirectory)/${{ parameters.windowsImage }}/$(SCENARIO_NAME)-logs
       artifact: ${{ parameters.windowsImage }}-$(SCENARIO_NAME)-logs
-      condition: always()
+      condition: succeeded()
