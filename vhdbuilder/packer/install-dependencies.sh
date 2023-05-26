@@ -326,41 +326,6 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
 
   systemctlEnableAndStart nvidia-device-plugin || exit 1
 fi
-
-installSGX=${SGX_INSTALL:-"False"}
-if [[ ${installSGX} == "True" ]]; then
-    SGX_DEVICE_PLUGIN_VERSIONS="1.0"
-    for SGX_DEVICE_PLUGIN_VERSION in ${SGX_DEVICE_PLUGIN_VERSIONS}; do
-        CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-device-plugin:${SGX_DEVICE_PLUGIN_VERSION}"
-        pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-        echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    done
-
-    SGX_PLUGIN_VERSIONS="
-    1.1
-    "
-    for SGX_PLUGIN_VERSION in ${SGX_PLUGIN_VERSIONS}; do
-        CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-plugin:${SGX_PLUGIN_VERSION}"
-        pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-        echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    done
-
-    SGX_WEBHOOK_VERSIONS="
-    1.1
-    "
-    for SGX_WEBHOOK_VERSION in ${SGX_WEBHOOK_VERSIONS}; do
-        CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-webhook:${SGX_WEBHOOK_VERSION}"
-        pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-        echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    done
-
-    SGX_QUOTE_HELPER_VERSIONS="3.3"
-    for SGX_QUOTE_HELPER_VERSION in ${SGX_QUOTE_HELPER_VERSIONS}; do
-        CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-attestation:${SGX_QUOTE_HELPER_VERSION}"
-        pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-        echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    done
-fi
 fi
 
 NGINX_VERSIONS="1.21.6"
