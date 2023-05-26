@@ -233,7 +233,7 @@ function Install-ContainerD {
     if ($containerdFilename.endswith(".zip")) {
         Expand-Archive -path $containerdTmpDest -DestinationPath $installDir -Force
     } else {
-        tar -xzf $containerdTmpDest --strip=1 -C $installDir
+        tar -xzf $containerdTmpDest -C $installDir
         mv -Force $installDir\bin\* $installDir
         Remove-Item -Path $installDir\bin -Force -Recurse
     }

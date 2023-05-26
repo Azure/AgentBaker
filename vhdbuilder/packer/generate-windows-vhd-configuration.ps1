@@ -10,7 +10,7 @@ if (-not ($validSKU -contains $windowsSKU)) {
 
 # defaultContainerdPackageUrl refers to the stable containerd package used to pull and cache container images
 # Add cache for another containerd version which is not installed by default
-$global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v0.0.56/binaries/containerd-v0.0.56-windows-amd64.tar.gz"
+$global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.6.21-azure.1/binaries/containerd-v1.6.21-azure.1-windows-amd64.tar.gz"
 
 # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
 # Windows Server 2022 update history can be found at https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee
