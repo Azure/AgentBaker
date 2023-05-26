@@ -1,4 +1,6 @@
 #!/bin/bash
+# This gets us the error codes we use and the os and such.
+source /home/packer/provision_source.sh
 
 assignRootPW() {
     if grep '^root:[!*]:' /etc/shadow; then
@@ -166,6 +168,26 @@ function maskNfsServer() {
     fi
 }
 
+function addFailLockDir() {
+    # Mariner V2 uses pamd faillocking, which requires a directory to store the faillock files.
+    # Default is /var/run/faillock, but that's a tmpfs, so we need to use /var/log/faillock instead.
+    # But we need to leave settings alone for other skus.
+    if [[ "${OS}" == "${MARINER_OS_NAME}" && "${OS_VERSION}" == "2.0" ]]; then
+        # Replace or append the dir setting in /etc/security/faillock.conf
+        # Docs: https://www.man7.org/linux/man-pages/man5/faillock.conf.5.html
+        #
+        # Search pattern is:
+        # '^#{0,1} {0,1}' -- Line starts with 0 or 1 '#' followed by 0 or 1 space
+        # 'dir\s+'        -- Then the setting name followed by one or more whitespace characters
+        # '.*$'           -- Then 0 or nore of any character which is the end of the line.
+        #
+        # This is based on a combination of the syntax for the file and real examples we've found.
+        local fail_lock_dir="/var/log/faillock"
+        mkdir -p ${fail_lock_dir}
+        replaceOrAppendSetting "^#{0,1} {0,1}dir\s+.*$" "dir = ${fail_lock_dir}" /etc/security/faillock.conf
+    fi
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
@@ -173,6 +195,7 @@ applyCIS() {
     configureCoreDump
     fixDefaultUmaskForAccountCreation
     maskNfsServer
+    addFailLockDir
 }
 
 applyCIS
