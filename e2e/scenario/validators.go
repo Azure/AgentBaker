@@ -66,7 +66,7 @@ func NvidiaSMINotInstalledValidator() *LiveVMValidator {
 	}
 }
 
-func NonEmptyDIrectoryValidator(dirName string) *LiveVMValidator {
+func NonEmptyDirectoryValidator(dirName string) *LiveVMValidator {
 	return &LiveVMValidator{
 		Description: "assert that there are files in directory",
 		Command:     fmt.Sprintf("ls -1q %s | grep -q '^.*$' && true || false", dirName),
