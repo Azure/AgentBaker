@@ -30,7 +30,7 @@ func ubuntu2204CustomCATrust() *Scenario {
 				}
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				FileExistsInDirectoryValidator("/usr/local/share/ca-certificates/certs"),
+				NonEmptyDIrectoryValidator("/usr/local/share/ca-certificates/certs"),
 			},
 		},
 	}
