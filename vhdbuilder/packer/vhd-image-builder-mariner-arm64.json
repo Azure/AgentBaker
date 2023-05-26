@@ -312,6 +312,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/pam-d-system-auth",
+      "destination": "/home/packer/pam-d-system-auth"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/pam-d-system-password",
+      "destination": "/home/packer/pam-d-system-password"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/pam-d-common-auth",
       "destination": "/home/packer/pam-d-common-auth"
     },
@@ -434,16 +444,6 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/containerd.service",
       "destination": "/home/packer/containerd.service"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/pam-d-common-auth",
-      "destination": "/home/packer/pam-d-common-auth"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/pam-d-common-password",
-      "destination": "/home/packer/pam-d-common-password"
     },
     {
       "type": "file",
