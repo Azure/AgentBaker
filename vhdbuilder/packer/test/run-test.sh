@@ -76,7 +76,15 @@ else
   TARGET_COMMAND_STRING=""
   if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     TARGET_COMMAND_STRING+="--size Standard_D2pds_v5"
-  elif [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
+  elif [[ "${FEATURE_FLAGS,,}" == "kata" ]]; then
+    TARGET_COMMAND_STRING="--size Standard_D4ds_v5"
+  fi
+
+  if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
+    if [[ -n "$TARGET_COMMAND_STRING" ]]; then
+      # To take care of Mariner Kata TL images
+      TARGET_COMMAND_STRING+=" "
+    fi
     TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
   fi
 

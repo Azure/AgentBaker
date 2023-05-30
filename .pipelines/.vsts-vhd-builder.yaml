@@ -113,6 +113,7 @@ stages:
             -e IMG_SKU=${IMG_SKU} \
             -e MODE=$(MODE) \
             -e VHD_DEBUG=${VHD_DEBUG} \
+            -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
             -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
             -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
             -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \

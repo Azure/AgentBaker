@@ -66,15 +66,13 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.3.0.3",
-        "v1.3.3"
+        "v1.3.3.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.0",
         "v1.4.1"
       ]
     },
@@ -165,7 +163,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.12.5.2",
-        "1.12.8"
+        "1.12.8.1"
       ]
     },
     {
@@ -209,37 +207,30 @@
       "downloadURL": "mcr.microsoft.com/aks/ip-masq-agent-v2:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.1.5"
+        "v0.1.6"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
-      "amd64OnlyVersions": [
-        "v1.2.2.5"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.26.3",
         "v1.26.4",
         "v1.27.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
-      "amd64OnlyVersions": [
-        "v1.2.2"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.24.1",
         "v1.24.2",
-        "v1.26.2",
+        "v1.26.2.1",
         "v1.26.3"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:*",
-      "amd64OnlyVersions": [
-        "v2.2.0"
-      ],
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v2.10.0"
       ]
@@ -310,14 +301,6 @@
       "downloadURL": "mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": []
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/azure/aad-pod-identity/nmi:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "v1.8.13.3",
-        "v1.8.13.4"
-      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-node-ca-watcher:*",

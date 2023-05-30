@@ -55,6 +55,8 @@
 // linux/cloud-init/artifacts/manifest.json
 // linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh
 // linux/cloud-init/artifacts/mariner/cse_install_mariner.sh
+// linux/cloud-init/artifacts/mariner/pam-d-system-auth
+// linux/cloud-init/artifacts/mariner/pam-d-system-password
 // linux/cloud-init/artifacts/mariner/update_certs_mariner.service
 // linux/cloud-init/artifacts/mig-partition.service
 // linux/cloud-init/artifacts/mig-partition.sh
@@ -623,6 +625,8 @@ func linuxCloudInitArtifactsCiSyslogWatcherSh() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCisSh = []byte(`#!/bin/bash
+# This gets us the error codes we use and the os and such.
+source /home/packer/provision_source.sh
 
 assignRootPW() {
     if grep '^root:[!*]:' /etc/shadow; then
@@ -790,6 +794,26 @@ function maskNfsServer() {
     fi
 }
 
+function addFailLockDir() {
+    # Mariner V2 uses pamd faillocking, which requires a directory to store the faillock files.
+    # Default is /var/run/faillock, but that's a tmpfs, so we need to use /var/log/faillock instead.
+    # But we need to leave settings alone for other skus.
+    if [[ "${OS}" == "${MARINER_OS_NAME}" && "${OS_VERSION}" == "2.0" ]]; then
+        # Replace or append the dir setting in /etc/security/faillock.conf
+        # Docs: https://www.man7.org/linux/man-pages/man5/faillock.conf.5.html
+        #
+        # Search pattern is:
+        # '^#{0,1} {0,1}' -- Line starts with 0 or 1 '#' followed by 0 or 1 space
+        # 'dir\s+'        -- Then the setting name followed by one or more whitespace characters
+        # '.*$'           -- Then 0 or nore of any character which is the end of the line.
+        #
+        # This is based on a combination of the syntax for the file and real examples we've found.
+        local fail_lock_dir="/var/log/faillock"
+        mkdir -p ${fail_lock_dir}
+        replaceOrAppendSetting "^#{0,1} {0,1}dir\s+.*$" "dir = ${fail_lock_dir}" /etc/security/faillock.conf
+    fi
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
@@ -797,6 +821,7 @@ applyCIS() {
     configureCoreDump
     fixDefaultUmaskForAccountCreation
     maskNfsServer
+    addFailLockDir
 }
 
 applyCIS
@@ -1855,6 +1880,7 @@ ERR_NO_PACKAGES_FOUND=201 # Reserved for no security packages found exit conditi
 ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 KUBECTL=/usr/local/bin/kubectl
@@ -4293,11 +4319,6 @@ installNvidiaContainerRuntime() {
     done
 }
 
-installSGXDrivers() {
-    echo "SGX drivers not yet supported for Mariner"
-    exit $ERR_SGX_DRIVERS_START_FAIL
-}
-
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     CONTAINERD_VERSION=$1
@@ -4351,6 +4372,86 @@ func linuxCloudInitArtifactsMarinerCse_install_marinerSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mariner/cse_install_mariner.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsMarinerPamDSystemAuth = []byte(`# Begin /etc/pam.d/system-auth
+
+auth      required      pam_faillock.so preauth silent audit deny=5 unlock_time=900
+auth      [success=1 default=ignore]      pam_unix.so use_authtok try_first_pass
+auth      [default=die] pam_faillock.so authfail audit deny=5 unlock_time=900
+auth      sufficient    pam_faillock.so authsucc audit deny=5 unlock_time=900
+auth      required      pam_deny.so
+
+account   required      pam_faillock.so
+account   include       system-account
+
+password  requisite     pam_pwquality.so retry=3
+password  required      pam_pwhistory.so use_authtok remember=5
+password  [success=1 default=ignore]      pam_unix.so use_authtok try_first_pass sha512 audit
+# here's the fallback if no module succeeds
+password  requisite     pam_deny.so
+# prime the stack with a positive return value if there isn't one already;
+# this avoids us returning an error just because nothing sets a success code
+# since the modules above will each just jump around
+password  required      pam_permit.so
+
+
+# End /etc/pam.d/system-auth
+`)
+
+func linuxCloudInitArtifactsMarinerPamDSystemAuthBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMarinerPamDSystemAuth, nil
+}
+
+func linuxCloudInitArtifactsMarinerPamDSystemAuth() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMarinerPamDSystemAuthBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mariner/pam-d-system-auth", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsMarinerPamDSystemPassword = []byte(`# Begin /etc/pam.d/system-auth
+
+auth      required      pam_faillock.so preauth silent audit deny=5 unlock_time=900
+auth      [success=1 default=ignore]      pam_unix.so use_authtok try_first_pass
+auth      [default=die] pam_faillock.so authfail audit deny=5 unlock_time=900
+auth      sufficient    pam_faillock.so authsucc audit deny=5 unlock_time=900
+auth      required      pam_deny.so
+
+account   required      pam_faillock.so
+account   include       system-account
+
+password  requisite     pam_pwquality.so retry=3
+password  required      pam_pwhistory.so use_authtok remember=5
+password  [success=1 default=ignore]      pam_unix.so use_authtok try_first_pass sha512 audit
+# here's the fallback if no module succeeds
+password  requisite     pam_deny.so
+# prime the stack with a positive return value if there isn't one already;
+# this avoids us returning an error just because nothing sets a success code
+# since the modules above will each just jump around
+password  required      pam_permit.so
+
+
+# End /etc/pam.d/system-auth
+`)
+
+func linuxCloudInitArtifactsMarinerPamDSystemPasswordBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMarinerPamDSystemPassword, nil
+}
+
+func linuxCloudInitArtifactsMarinerPamDSystemPassword() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMarinerPamDSystemPasswordBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mariner/pam-d-system-password", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -5728,42 +5829,6 @@ installDeps() {
             exit $ERR_APT_INSTALL_TIMEOUT
         fi
     done
-}
-
-installSGXDrivers() {
-    if [[ $(isARM64) == 1 ]]; then
-        # no intel sgx on arm64
-        return
-    fi
-
-    echo "Installing SGX driver"
-    local VERSION
-    VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
-    case $VERSION in
-    "18.04")
-        SGX_DRIVER_URL="https://download.01.org/intel-sgx/dcap-1.2/linux/dcap_installers/ubuntuServer18.04/sgx_linux_x64_driver_1.12_c110012.bin"
-        ;;
-    "16.04")
-        SGX_DRIVER_URL="https://download.01.org/intel-sgx/dcap-1.2/linux/dcap_installers/ubuntuServer16.04/sgx_linux_x64_driver_1.12_c110012.bin"
-        ;;
-    "*")
-        echo "Version $VERSION is not supported"
-        exit 1
-        ;;
-    esac
-
-    local PACKAGES="make gcc dkms"
-    wait_for_apt_locks
-    retrycmd_if_failure 30 5 3600 apt-get -y install $PACKAGES  || exit $ERR_SGX_DRIVERS_INSTALL_TIMEOUT
-
-    local SGX_DRIVER
-    SGX_DRIVER=$(basename $SGX_DRIVER_URL)
-    local OE_DIR=/opt/azure/containers/oe
-    mkdir -p ${OE_DIR}
-
-    retrycmd_if_failure 120 5 25 curl -fsSL ${SGX_DRIVER_URL} -o ${OE_DIR}/${SGX_DRIVER} || exit $ERR_SGX_DRIVERS_INSTALL_TIMEOUT
-    chmod a+x ${OE_DIR}/${SGX_DRIVER}
-    ${OE_DIR}/${SGX_DRIVER} || exit $ERR_SGX_DRIVERS_START_FAIL
 }
 
 updateAptWithMicrosoftPkg() {
@@ -7251,7 +7316,7 @@ $global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE=52
 
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.27.0" # Will change it to the correct version when we support new Windows containerd version
-$global:StableContainerdPackage = "v0.0.56/binaries/containerd-v0.0.56-windows-amd64.tar.gz"
+$global:StableContainerdPackage = "v1.6.21-azure.1/binaries/containerd-v1.6.21-azure.1-windows-amd64.tar.gz"
 # The latest containerd version
 $global:LatestContainerdPackage = "v1.7.1-azure.1/binaries/containerd-v1.7.1-azure.1-windows-amd64.tar.gz"
 
@@ -7604,6 +7669,8 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/manifest.json":                             linuxCloudInitArtifactsManifestJson,
 	"linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh":            linuxCloudInitArtifactsMarinerCse_helpers_marinerSh,
 	"linux/cloud-init/artifacts/mariner/cse_install_mariner.sh":            linuxCloudInitArtifactsMarinerCse_install_marinerSh,
+	"linux/cloud-init/artifacts/mariner/pam-d-system-auth":                 linuxCloudInitArtifactsMarinerPamDSystemAuth,
+	"linux/cloud-init/artifacts/mariner/pam-d-system-password":             linuxCloudInitArtifactsMarinerPamDSystemPassword,
 	"linux/cloud-init/artifacts/mariner/update_certs_mariner.service":      linuxCloudInitArtifactsMarinerUpdate_certs_marinerService,
 	"linux/cloud-init/artifacts/mig-partition.service":                     linuxCloudInitArtifactsMigPartitionService,
 	"linux/cloud-init/artifacts/mig-partition.sh":                          linuxCloudInitArtifactsMigPartitionSh,
@@ -7740,6 +7807,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"mariner": &bintree{nil, map[string]*bintree{
 					"cse_helpers_mariner.sh":       &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
 					"cse_install_mariner.sh":       &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},
+					"pam-d-system-auth":            &bintree{linuxCloudInitArtifactsMarinerPamDSystemAuth, map[string]*bintree{}},
+					"pam-d-system-password":        &bintree{linuxCloudInitArtifactsMarinerPamDSystemPassword, map[string]*bintree{}},
 					"update_certs_mariner.service": &bintree{linuxCloudInitArtifactsMarinerUpdate_certs_marinerService, map[string]*bintree{}},
 				}},
 				"mig-partition.service":           &bintree{linuxCloudInitArtifactsMigPartitionService, map[string]*bintree{}},
