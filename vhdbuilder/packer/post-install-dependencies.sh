@@ -17,14 +17,11 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 MAX_BLOCK_COUNT=30298176 # 30 GB
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
-  echo "Check point 1"
   # shellcheck disable=SC2021
   current_kernel="$(uname -r | cut -d- -f-2)"
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
-    echo "Check point 2"
     dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | grep -v "fips" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
   else
-    echo "Check point 3"
     dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "linux-\(headers\|modules\|image\)-azure" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
   fi
 
@@ -37,10 +34,14 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   retrycmd_if_failure 10 2 60 apt-get -y clean || exit 1
 elif [[ $OS == $MARINER_OS_NAME ]]; then
   echo "Check point 4"
-  current_kernel_version="$(uname -r | cut -d. -f-4)"
-  kernel_packages_to_remove=$(rpm -qa | grep "kernel" | grep -v $current_kernel_version)
-  retrycmd_if_failure 10 2 60 dnf -y autoremove $kernel_packages_to_remove || exit 1
-  retrycmd_if_failure 10 2 60 dnf -y autoremove || exit 1 # remove all other unused packages
+  if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+    echo "Check point 5"
+  else
+    current_kernel_version="$(uname -r | cut -d. -f-4)"
+    kernel_packages_to_remove=$(rpm -qa | grep "kernel" | grep -v $current_kernel_version)
+    retrycmd_if_failure 10 2 60 dnf -y autoremove $kernel_packages_to_remove || exit 1
+    retrycmd_if_failure 10 2 60 dnf -y autoremove || exit 1 # remove all other unused packages
+  fi
 fi
 
 # shellcheck disable=SC2129
