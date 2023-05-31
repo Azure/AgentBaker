@@ -41,12 +41,12 @@ steps:
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${BUILD_CLIENT_ID} \
-      -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
-      -e TENANT_ID=${BUILD_TENANT_ID} \
-      -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
-      -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
-      -e AZURE_LOCATION=${BUILD_AZURE_LOCATION} \
+      -e CLIENT_ID=${PROD_BUILD_CLIENT_ID} \
+      -e CLIENT_SECRET="$(PROD_BUILD_CLIENT_SECRET)" \
+      -e TENANT_ID=${PROD_BUILD_TENANT_ID} \
+      -e SUBSCRIPTION_ID="${PROD_BUILD_SUBSCRIPTION_ID}" \
+      -e AZURE_RESOURCE_GROUP_NAME=${PROD_BUILD_AZURE_RESOURCE_GROUP_NAME} \
+      -e AZURE_LOCATION=${PROD_BUILD_AZURE_LOCATION} \
       -e AZURE_VM_SIZE=${AZURE_VM_SIZE} \
       -e GIT_BRANCH=$(Build.SourceBranchName) \
       -e GIT_REPO=$(Build.Repository.Uri) \
@@ -78,14 +78,14 @@ steps:
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${BUILD_CLIENT_ID} \
-      -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
-      -e TENANT_ID=${BUILD_TENANT_ID} \
-      -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
-      -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
+      -e CLIENT_ID=${PROD_BUILD_CLIENT_ID} \
+      -e CLIENT_SECRET="$(PROD_BUILD_CLIENT_SECRET)" \
+      -e TENANT_ID=${PROD_BUILD_TENANT_ID} \
+      -e SUBSCRIPTION_ID="${PROD_BUILD_SUBSCRIPTION_ID}" \
+      -e AZURE_RESOURCE_GROUP_NAME=${PROD_BUILD_AZURE_RESOURCE_GROUP_NAME} \
       -e OS_DISK_URI=${OS_DISK_URI} \
       -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
-      -e AZURE_LOCATION=${BUILD_AZURE_LOCATION} \
+      -e AZURE_LOCATION=${PROD_BUILD_AZURE_LOCATION} \
       -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
       -e WINDOWS_SKU=$(WINDOWS_SKU) \
       -e OS_TYPE="Windows" \
@@ -115,12 +115,12 @@ steps:
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
-        -e CLIENT_ID=${BUILD_CLIENT_ID} \
-        -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
-        -e TENANT_ID=${BUILD_TENANT_ID} \
-        -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
-        -e RESOURCE_GROUP_NAME="${BUILD_AZURE_RESOURCE_GROUP_NAME}" \
-        -e LOCATION="${BUILD_AZURE_LOCATION}" \
+        -e CLIENT_ID=${PROD_BUILD_CLIENT_ID} \
+        -e CLIENT_SECRET="$(PROD_BUILD_CLIENT_SECRET)" \
+        -e TENANT_ID=${PROD_BUILD_TENANT_ID} \
+        -e SUBSCRIPTION_ID="${PROD_BUILD_SUBSCRIPTION_ID}" \
+        -e RESOURCE_GROUP_NAME="${PROD_BUILD_AZURE_RESOURCE_GROUP_NAME}" \
+        -e LOCATION="${PROD_BUILD_AZURE_LOCATION}" \
         -e OS_TYPE="Windows" \
         -e CLASSIC_SAS_TOKEN="$(STORAGE_ACCT_SAS_TOKEN)" \
         -e CLASSIC_BLOB="$(STORAGE_ACCT_BLOB_URL)" \
@@ -151,12 +151,12 @@ steps:
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${BUILD_CLIENT_ID} \
-      -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
-      -e TENANT_ID=${BUILD_TENANT_ID} \
-      -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
+      -e CLIENT_ID=${PROD_BUILD_CLIENT_ID} \
+      -e CLIENT_SECRET="$(PROD_BUILD_CLIENT_SECRET)" \
+      -e TENANT_ID=${PROD_BUILD_TENANT_ID} \
+      -e SUBSCRIPTION_ID="${PROD_BUILD_SUBSCRIPTION_ID}" \
       -e SA_NAME=${SA_NAME} \
-      -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
+      -e AZURE_RESOURCE_GROUP_NAME=${PROD_BUILD_AZURE_RESOURCE_GROUP_NAME} \
       -e PKR_RG_NAME=${PKR_RG_NAME} \
       -e MODE=$(MODE) \
       -e DRY_RUN=${DRY_RUN} \
