@@ -6,11 +6,11 @@ steps:
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${BUILD_CLIENT_ID} \
-      -e CLIENT_SECRET="$(BUILD_CLIENT_SECRET)" \
-      -e TENANT_ID=${BUILD_TENANT_ID} \
-      -e SUBSCRIPTION_ID="${BUILD_SUBSCRIPTION_ID}" \
-      -e AZURE_RESOURCE_GROUP_NAME=${BUILD_AZURE_RESOURCE_GROUP_NAME} \
+      -e CLIENT_ID=${PROD_BUILD_CLIENT_ID} \
+      -e CLIENT_SECRET="$(PROD_BUILD_CLIENT_SECRET)" \
+      -e TENANT_ID=${PROD_BUILD_TENANT_ID} \
+      -e SUBSCRIPTION_ID="${PROD_BUILD_SUBSCRIPTION_ID}" \
+      -e AZURE_RESOURCE_GROUP_NAME=${PROD_BUILD_AZURE_RESOURCE_GROUP_NAME} \
       -e MODE=$m \
       -e DRY_RUN=${DRY_RUN} \
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
