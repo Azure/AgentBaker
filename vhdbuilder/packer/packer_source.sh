@@ -114,7 +114,7 @@ copyPackerFiles() {
 
   MIG_PART_SRC=/home/packer/mig-partition.service
   MIG_PART_DEST=/etc/systemd/system/mig-partition.service
-  cpAndMode $MIG_PART_SRC $MIG_PART_DEST 600
+  cpAndMode $MIG_PART_SRC $MIG_PART_DEST 0644
 
   MNT_SH_SRC=/home/packer/bind-mount.sh
   MNT_SH_DEST=/opt/azure/containers/bind-mount.sh
