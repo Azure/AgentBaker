@@ -70,7 +70,6 @@ ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 # Error fetching the subnet address prefix
 
 # Error code 124 is returned when a `timeout` command times out, and --preserve-status is not specified: https://man7.org/linux/man-pages/man1/timeout.1.html
 ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
-ERR_VHD_FILE_NOT_FOUND=126 # VHD log file not found on VM built from VHD distro (previously classified as exit code 124)
 
 ERR_SWAP_CREATE_FAIL=130 # Error allocating swap file
 ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 # Error insufficient disk space for swap file creation
@@ -85,6 +84,8 @@ ERR_DISBALE_IPTABLES=170 # Error disabling iptables service
 
 ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 # Timeout waiting for krustlet downloads
 ERR_DISABLE_SSH=172 # Error disabling ssh service
+
+ERR_VHD_FILE_NOT_FOUND=180 # VHD log file not found on VM built from VHD distro (previously classified as exit code 124)
 
 ERR_VHD_REBOOT_REQUIRED=200 # Reserved for VHD reboot required exit condition
 ERR_NO_PACKAGES_FOUND=201 # Reserved for no security packages found exit condition
