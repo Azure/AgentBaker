@@ -15,6 +15,9 @@ installDeps() {
       fi
     done
 
+    echo "lib/modules output:"
+    ls -la /lib/modules
+
     # install additional apparmor deps for 2.0;
     if [[ $OS_VERSION == "2.0" ]]; then
       for dnf_package in apparmor-parser libapparmor blobfuse2 nftables; do
