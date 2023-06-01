@@ -73,22 +73,12 @@ else
   # we could make upstream changes but that takes time, and we are broken now.
   # so we just hold the kernel image packages for now on CVM.
   # this still allows us base image and package updates on a weekly cadence.
-  if [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT    
-  fi
+  
 
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # This is FIPS Install for Ubuntu, it purges non FIPS Kernel and attaches UA FIPS Updates
     echo "Install FIPS for Ubuntu SKU"
     installFIPS
-  fi
-
-  # Final step, if 1804 or FIPS, log ua status, detach UA and clean up
-  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
-    # 'ua status' for logging
-    ua status
-    detachAndCleanUpUA
   fi
 fi
 

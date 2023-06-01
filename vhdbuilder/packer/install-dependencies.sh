@@ -44,6 +44,18 @@ fi
 
 installDeps
 
+if [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT    
+fi
+
+# Final step, if 1804 or FIPS, log ua status, detach UA and clean up
+if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+  # 'ua status' for logging
+  ua status
+  detachAndCleanUpUA
+fi
+
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
 Storage=persistent
 SystemMaxUse=1G
