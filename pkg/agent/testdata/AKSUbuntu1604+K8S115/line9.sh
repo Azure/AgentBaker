@@ -38,6 +38,7 @@ ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL=53 # Unable to resolve k8s api server n
 ERR_KATA_KEY_DOWNLOAD_TIMEOUT=60 # Timeout waiting to download kata repo key
 ERR_KATA_APT_KEY_TIMEOUT=61 # Timeout waiting for kata apt-key
 ERR_KATA_INSTALL_TIMEOUT=62 # Timeout waiting for kata install
+ERR_VHD_FILE_NOT_FOUND=65 # VHD log file not found on VM built from VHD distro (previously classified as exit code 124)
 ERR_CONTAINERD_DOWNLOAD_TIMEOUT=70 # Timeout waiting for containerd downloads
 ERR_RUNC_DOWNLOAD_TIMEOUT=71 # Timeout waiting for runc downloads
 ERR_CUSTOM_SEARCH_DOMAINS_FAIL=80 # Unable to configure custom search domains
@@ -84,8 +85,6 @@ ERR_DISBALE_IPTABLES=170 # Error disabling iptables service
 
 ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 # Timeout waiting for krustlet downloads
 ERR_DISABLE_SSH=172 # Error disabling ssh service
-
-ERR_VHD_FILE_NOT_FOUND=180 # VHD log file not found on VM built from VHD distro (previously classified as exit code 124)
 
 ERR_VHD_REBOOT_REQUIRED=200 # Reserved for VHD reboot required exit condition
 ERR_NO_PACKAGES_FOUND=201 # Reserved for no security packages found exit condition
