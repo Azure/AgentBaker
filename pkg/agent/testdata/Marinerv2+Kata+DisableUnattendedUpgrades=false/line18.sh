@@ -53,7 +53,7 @@ dnf_update() {
   retries=10
   dnf_update_output=/tmp/dnf-update.out
   for i in $(seq 1 $retries); do
-    ! (dnf update --exclude mshv-linuxloader -y --refresh 2>&1 | tee $dnf_update_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+    ! (dnf update --exclude="mshv-linuxloader kernel" -y --refresh 2>&1 | tee $dnf_update_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
     cat $dnf_update_output && break || \
     cat $dnf_update_output
     if [ $i -eq $retries ]; then
@@ -61,6 +61,8 @@ dnf_update() {
     else sleep 5
     fi
   done
+  echo "lib/modules output:"
+  ls -la /lib/modules
   echo Executed dnf update -y --refresh $i times
 }
 #EOF
