@@ -15,6 +15,9 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
 MAX_BLOCK_COUNT=30298176 # 30 GB
 
+echo "post-install lib/modules output before:"
+ls -la /lib/modules
+
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # shellcheck disable=SC2021
   current_kernel="$(uname -r | cut -d- -f-2)"
@@ -32,6 +35,9 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   retrycmd_if_failure 10 2 60 apt-get -y autoremove --purge || exit 1
   retrycmd_if_failure 10 2 60 apt-get -y clean || exit 1
 fi
+
+echo "post-install lib/modules output after:"
+ls -la /lib/modules
 
 # shellcheck disable=SC2129
 echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
