@@ -7,6 +7,8 @@ removeContainerd() {
 }
 
 installDeps() {
+    echo "lib/modules output before:"
+    ls -la /lib/modules
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
     for dnf_package in blobfuse ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse git inotify-tools iotop iproute ipset iptables jq kernel-devel logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip; do
@@ -15,7 +17,7 @@ installDeps() {
       fi
     done
 
-    echo "lib/modules output:"
+    echo "lib/modules output after:"
     ls -la /lib/modules
 
     # install additional apparmor deps for 2.0;
