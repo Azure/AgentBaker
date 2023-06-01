@@ -4247,8 +4247,6 @@ dnf_update() {
     else sleep 5
     fi
   done
-  echo "lib/modules output:"
-  ls -la /lib/modules
   echo Executed dnf update -y --refresh $i times
 }
 #EOF
