@@ -4239,7 +4239,7 @@ dnf_update() {
   retries=10
   dnf_update_output=/tmp/dnf-update.out
   for i in $(seq 1 $retries); do
-    ! (dnf update -y --refresh 2>&1 | tee $dnf_update_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+    ! (dnf update --exclude mshv-linuxloader -y --refresh 2>&1 | tee $dnf_update_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
     cat $dnf_update_output && break || \
     cat $dnf_update_output
     if [ $i -eq $retries ]; then
@@ -7315,7 +7315,7 @@ $global:WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS=51
 $global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE=52
 
 # NOTE: KubernetesVersion does not contain "v"
-$global:MinimalKubernetesVersionWithLatestContainerd = "1.27.0" # Will change it to the correct version when we support new Windows containerd version
+$global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version
 $global:StableContainerdPackage = "v1.6.21-azure.1/binaries/containerd-v1.6.21-azure.1-windows-amd64.tar.gz"
 # The latest containerd version
 $global:LatestContainerdPackage = "v1.7.1-azure.1/binaries/containerd-v1.7.1-azure.1-windows-amd64.tar.gz"

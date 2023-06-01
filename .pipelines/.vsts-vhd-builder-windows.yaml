@@ -2,7 +2,7 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
 pool:
-  name: $(POOL_NAME)
+  name: $(PROD_POOL_NAME)
 
 parameters:
 - name: build2019containerd
@@ -27,7 +27,7 @@ parameters:
   default: False
 
 variables:
-  CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
+- group: ab-vhd-windows-prod
 
 stages:
   - stage: build_vhd_2019_containerd
