@@ -38,9 +38,8 @@ switch -Regex ($windowsSku) {
             "mcr.microsoft.com/windows/servercore:ltsc2022",
             "mcr.microsoft.com/windows/nanoserver:ltsc2022",
 
-            # NPM (Network Policy Manager) & CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
-            "mcr.microsoft.com/containernetworking/azure-npm:v1.4.34",
-            "mcr.microsoft.com/containernetworking/azure-cns:v1.4.35"
+            # NPM (Network Policy Manager) Owner: jaer-tsun (Jaeryn)
+            "mcr.microsoft.com/containernetworking/azure-npm:v1.4.34"
         )
     }
 }
@@ -71,8 +70,9 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.4", # for k8s 1.27.x
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
     "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.8",
-    # NPM (Network Policy Manager) & CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44"
+    # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44",
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.5.3"
 )
 
 $global:map = @{
@@ -155,10 +155,14 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.1/windowszip/v1.27.1-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
+        # Azure CNI v1 (legacy) on v1.4.35
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
+        # Azure CNI v2 (pod subnet) upgrading from v1.4.35 to v1.5.3
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.4.35.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35.zip",
+        "https://acs-mirror.azureedge.net/azure-cni/v1.5.3/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.5.3.zip",
+        # Azure CNI for Overlay upgrading from v1.4.35_Win2019OverlayFix to v1.5.3
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35_Win2019OverlayFix/binaries/azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35_Win2019OverlayFix.zip"
+        "https://acs-mirror.azureedge.net/azure-cni/v1.5.3/binaries/azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.5.3.zip"
     );
     "c:\akse-cache\calico\" = @(
         "https://acs-mirror.azureedge.net/calico-node/v3.21.6/binaries/calico-windows-v3.21.6.zip",
