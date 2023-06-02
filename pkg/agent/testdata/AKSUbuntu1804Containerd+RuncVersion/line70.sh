@@ -452,7 +452,11 @@ ensureMigPartition(){
 [Service]
 Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
 EOF
-    systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
+    # this is expected to fail and work only on next reboot
+    # it MAY succeed, only due to unreliability of systemd
+    # service type=Simple, which does not exit non-zero
+    # on failure if ExecStart failed to invoke.
+    systemctlEnableAndStart mig-partition
 }
 
 ensureSysctl() {
