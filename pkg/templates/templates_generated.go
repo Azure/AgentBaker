@@ -1048,6 +1048,7 @@ ENABLE_HOSTS_CONFIG_AGENT="{{EnableHostsConfigAgent}}"
 DISABLE_SSH="{{ShouldDisableSSH}}"
 NEEDS_CONTAINERD="{{NeedsContainerd}}"
 TELEPORT_ENABLED="{{TeleportEnabled}}"
+ARTIFACT_STREAMING_ENABLED="{{ArtifactStreamingEnabled}}"
 SHOULD_CONFIGURE_HTTP_PROXY="{{ShouldConfigureHTTPProxy}}"
 SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
 HTTP_PROXY_TRUSTED_CA="{{GetHTTPProxyCA}}"
@@ -1436,6 +1437,10 @@ ensureContainerd() {
   if [ "${TELEPORT_ENABLED}" == "true" ]; then
     ensureTeleportd
   fi
+  if [ "${ARTIFACT_STREAMING_ENABLED}" == "true" ]; then
+    ensureArtifactStreaming
+  fi
+
   mkdir -p "/etc/systemd/system/containerd.service.d" 
   tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
 [Service]
@@ -1471,6 +1476,10 @@ ensureNoDupOnPromiscuBridge() {
 ensureTeleportd() {
     wait_for_file 1200 1 /etc/systemd/system/teleportd.service || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
+ensureArtifactStreaming(){
+    touch /etc/default/artifact-streaming.test
 }
 
 ensureDocker() {

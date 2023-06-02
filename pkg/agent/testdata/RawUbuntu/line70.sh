@@ -294,6 +294,10 @@ ensureContainerd() {
   if [ "${TELEPORT_ENABLED}" == "true" ]; then
     ensureTeleportd
   fi
+  if [ "${ARTIFACT_STREAMING_ENABLED}" == "true" ]; then
+    ensureArtifactStreaming
+  fi
+
   mkdir -p "/etc/systemd/system/containerd.service.d" 
   tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
 [Service]
@@ -329,6 +333,10 @@ ensureNoDupOnPromiscuBridge() {
 ensureTeleportd() {
     wait_for_file 1200 1 /etc/systemd/system/teleportd.service || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
+ensureArtifactStreaming(){
+    touch /etc/default/artifact-streaming.test
 }
 
 ensureDocker() {
