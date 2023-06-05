@@ -57,6 +57,7 @@ if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
     # This is FIPS install for Mariner and has nothing to do with Ubuntu Advantage
     echo "Install FIPS for Mariner SKU"
     installFIPS
+    installFedRAMP
   fi
 else
   # Handle FIPS and ESM for Ubuntu

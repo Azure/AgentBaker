@@ -162,3 +162,82 @@ installFIPS() {
     fi
     
 }
+
+installFedRAMP() {
+
+    echo "Configuring openssl default cipher suites..."
+
+    sed -i '/= new_oids/a openssl_conf            = default_conf' /etc/pki/tls/openssl.cnf
+    cat << EOF >> test.sh
+
+    [default_conf] 
+
+    ssl_conf = ssl_sect
+    
+    [ssl_sect]
+    
+    system_default = system_default_sect 
+
+    [system_default_sect] 
+
+    MinProtocol = TLSv1.2 
+
+    CipherString = ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256 
+    EOF
+
+
+
+<<comments
+
+    script_dir="$(dirname "$(realpath "$0")")"
+
+    mkdir "$script_dir/apply_logs"
+    echo "Apply scripts" 1>&2
+    touch "$script_dir/fail.txt"
+    touch "$script_dir/success.txt"
+    touch $script_dir/failure_details.txt
+    
+    for script in $(find "$script_dir/rhel8" -name '*.sh' | sort -u); do
+        scriptname="$(basename "${script}")"
+        prunedname=$(echo "${scriptname#*-}" | cut -d'.' -f1)
+
+        echo "checking '${prunedname}'"  1>&2
+        if grep -q -E "^${prunedname}\$" "$script_dir/skip_list.txt" ; then
+            # If we are running live scripts, run those anyways
+            if [[ "${run_live}" == "yes" ]]; then
+                if ! grep -q -E "^${prunedname}\$" "$script_dir/live_machine_only.txt" ; then
+                    echo "Skipping ${script} since its in skip_list.txt but not also in live_machine_only.txt" 1>&2
+                    continue
+                fi
+            else
+                echo "Skipping ${script} since its in skip_list.txt" 1>&2
+                continue
+            fi
+        fi
+
+        if [[ "${marketplace}" == "yes" ]]; then
+        if grep -q -E "^${prunedname}\$" "$script_dir/marketplace_skip_list.txt" ; then
+            echo "Skipping ${script} since its in marketplace_skip_list.txt" 1>&2
+            continue
+        fi
+        fi
+
+        if [[ "${skip_apply}" == "yes" ]]; then
+            echo "Skipping ${script} due to --skip_apply"  1>&2
+            echo "Skipped ${script}" > "$script_dir/apply_logs/$(basename "${script}").log"
+        else
+            echo "Running ${script}" 1>&2
+            out=$(${script} 2>&1)
+            res=$?
+            if [[ ${res} -ne 0 ]]; then
+                basename "${script}" >> "$script_dir/fail.txt"
+            else
+                basename "${script}" >> "$script_dir/success.txt"
+            fi
+            echo "$out" > "$script_dir/apply_logs/$(basename "${script}").log"
+        fi
+    done
+
+comments
+
+}
