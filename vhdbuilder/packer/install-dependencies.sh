@@ -101,6 +101,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
       enableMarinerKata
     fi
+    disableTimesyncd
     disableDNFAutomatic
     enableCheckRestart
     activateNfConntrack

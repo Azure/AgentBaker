@@ -89,6 +89,16 @@ disableDNFAutomatic() {
     systemctl mask dnf-automatic-install.timer || exit 1
 }
 
+disableTimesyncd() {
+    # Disable and Mask timesyncd to prevent it from interfering with chronyd's work
+    systemctl stop systemd-timesyncd || exit 1
+    systemctl disable systemd-timesyncd || exit 1
+    systemctl mask systemd-timesyncd || exit 1
+    
+    # Before we return, make sure that chronyd is running
+    systemctlEnableAndStart chronyd || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
 # Regardless of UU mode, ensure check-restart is running
 enableCheckRestart() {
   # Even if UU is disabled, we should still run check-restart so that kured
