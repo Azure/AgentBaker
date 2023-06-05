@@ -35,7 +35,8 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.44_hotfix"
+        "v1.4.44_hotfix",
+        "v1.5.3"
       ]
     },
     {
@@ -321,8 +322,8 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.43",
-        "1.4.35"
+        "1.5.3",
+        "1.4.43"
       ]
     },
     {
@@ -330,8 +331,8 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.43",
-        "1.4.35"
+        "1.5.3",
+        "1.4.43"
       ]
     },
     {
@@ -339,8 +340,8 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.43",
-        "1.4.35"
+        "1.5.3",
+        "1.4.43"
       ]
     },
     {
