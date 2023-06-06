@@ -19,14 +19,16 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts, publicKeyBytes []byte) (string, *armcompute.VirtualMachineScaleSet, func(), error) {
+const (
+	vmssNameTemplate                    = "abtest%s"
+	listVMSSNetworkInterfaceURLTemplate = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
+)
+
+func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
 	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("unable to get node bootstrapping: %w", err)
+		return nil, nil, fmt.Errorf("unable to get node bootstrapping: %w", err)
 	}
-
-	vmssName := fmt.Sprintf("abtest%s", randomLowercaseString(r, 4))
-	log.Printf("vmss name: %q", vmssName)
 
 	cleanupVMSS := func() {
 		log.Printf("deleting vmss %q", vmssName)
@@ -44,10 +46,10 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scena
 
 	vmssModel, err := createVMSSWithPayload(ctx, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("unable to create VMSS with payload: %w", err)
+		return nil, nil, fmt.Errorf("unable to create VMSS with payload: %w", err)
 	}
 
-	return vmssName, vmssModel, cleanupVMSS, nil
+	return vmssModel, cleanupVMSS, nil
 }
 
 func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
@@ -189,6 +191,10 @@ func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []b
 	privatePEMBytes = pem.EncodeToMemory(&privBlock)
 
 	return
+}
+
+func getVmssName(r *mrand.Rand) string {
+	return fmt.Sprintf(vmssNameTemplate, randomLowercaseString(r, 4))
 }
 
 func getBaseVMSSModel(name, location, mcResourceGroupName, subnetID, sshPublicKey, customData, cseCmd string) armcompute.VirtualMachineScaleSet {

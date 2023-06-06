@@ -103,8 +103,11 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		return
 	}
 
+	vmssName := getVmssName(r)
+	log.Printf("vmss name: %q", vmssName)
+
 	vmssSucceeded := true
-	vmssName, vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, opts, publicKeyBytes)
+	vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, vmssName, opts, publicKeyBytes)
 	if cleanupVMSS != nil {
 		defer cleanupVMSS()
 	}
@@ -120,6 +123,8 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		if err := writeToFile(filepath.Join(opts.loggingDir, "vmssId.txt"), *vmssModel.ID); err != nil {
 			t.Fatal("failed to write vmss resource ID to disk", err)
 		}
+	} else {
+		log.Printf("WARNING: bootstrapped VMSS model was nil for %s", vmssName)
 	}
 
 	vmPrivateIP, err := pollGetVMPrivateIP(ctx, vmssName, opts)
@@ -161,5 +166,7 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		}
 
 		log.Println("node bootstrapping succeeded!")
+	} else {
+		t.Fatal("VMSS was unable to be properly created and bootstrapped")
 	}
 }
