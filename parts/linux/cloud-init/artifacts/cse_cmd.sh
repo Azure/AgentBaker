@@ -1,9 +1,7 @@
 echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
-# ensure cloud init completes
-# avoids potential corruption of files written by cloud init and CSE concurrently.
-# removes need for wait_for_file and EOF markers
-cloud-init status --wait
-
+cloud-init status --wait  > /dev/null 2>&1
+[ $? -ne 0 ] && echo 'cloud-init failed' && exit 1
+echo "cloud-init succeeded"
 {{if IsAKSCustomCloud}}
 REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
 {{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
