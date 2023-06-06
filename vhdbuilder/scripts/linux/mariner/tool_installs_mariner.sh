@@ -187,8 +187,6 @@ installFedRAMP() {
 
 
 
-<<comments
-
     script_dir="$(dirname "$(realpath "$0")")"
 
     mkdir "$script_dir/apply_logs"
@@ -202,6 +200,8 @@ installFedRAMP() {
         prunedname=$(echo "${scriptname#*-}" | cut -d'.' -f1)
 
         echo "checking '${prunedname}'"  1>&2
+
+<<comments
         if grep -q -E "^${prunedname}\$" "$script_dir/skip_list.txt" ; then
             # If we are running live scripts, run those anyways
             if [[ "${run_live}" == "yes" ]]; then
@@ -236,8 +236,10 @@ installFedRAMP() {
             fi
             echo "$out" > "$script_dir/apply_logs/$(basename "${script}").log"
         fi
+comments
+
     done
 
-comments
+
 
 }
