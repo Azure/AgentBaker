@@ -1,13 +1,10 @@
 echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
-for i in $(seq 1 1200); do
-grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
-if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
-done;
+# ensure cloud init completes
+# avoids potential corruption of files written by cloud init and CSE concurrently.
+# removes need for wait_for_file and EOF markers
+cloud-init status --wait
+
 {{if IsAKSCustomCloud}}
-for i in $(seq 1 1200); do
-grep -Fq "EOF" {{GetInitAKSCustomCloudFilepath}} && break;
-if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
-done;
 REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
 {{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
 {{end}}
