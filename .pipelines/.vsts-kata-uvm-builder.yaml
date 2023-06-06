@@ -22,8 +22,8 @@ stages:
                     
                     Write-Host "Hello World"
                     Write-Host 'Hi'
-                    $msiResponse = Invoke-WebRequest -Uri "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.net" `
-                            -Headers @{Metadata = "true" } -UseBasicParsing
+                    Invoke-WebRequest -Uri "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/" `
+                    -Headers @{Metadata = "true" } -UseBasicParsing                    
                     $msiContent = $msiResponse.Content | ConvertFrom-Json
                     $access_token = $msiContent.access_token
                     
