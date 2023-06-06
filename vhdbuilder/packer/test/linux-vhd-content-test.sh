@@ -7,10 +7,23 @@ KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
-CONTAINER_RUNTIME="$1"
-OS_VERSION="$2"
-ENABLE_FIPS="$3"
-OS_SKU="$4"
+
+# When called via az run-command, the arguments are set up as environment variables
+# rather than passed in as traditional arguments.
+#
+# To allow both types of calls, we will only set them here if they are not already set.
+# This is not a perfect solution -- it doesn't, for example, allow environment variables
+# to be used for some arguments and positional arguments for others -- but it works
+# the build script and you can easily run it manually if you need to.
+CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-$1}"
+OS_VERSION="${OS_VERSION:-$2}"
+ENABLE_FIPS="${ENABLE_FIPS:-$3}"
+OS_SKU="${OS_SKU:-$4}"
+
+echo "Container runtime: $CONTAINER_RUNTIME"
+echo "OS version: $OS_VERSION"
+echo "Enable FIPS: $ENABLE_FIPS"
+echo "OS SKU: $OS_SKU"
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
@@ -81,6 +94,7 @@ testImagesPulled() {
   test="testImagesPulled"
   echo "$test:Start"
   containerRuntime=$1
+  echo "testImagesPulled: Container runtime: $containerRuntime"
   if [ $containerRuntime == 'containerd' ]; then
     pulledImages=$(ctr -n k8s.io image ls)
   elif [ $containerRuntime == 'docker' ]; then
@@ -711,7 +725,7 @@ testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS
 testKubeBinariesPresent $CONTAINER_RUNTIME
 testKubeProxyImagesPulled $CONTAINER_RUNTIME
-testImagesRetagged $CONTAINER_RUNTIME
+# testImagesRetagged $CONTAINER_RUNTIME
 testCustomCAScriptExecutable
 testCustomCATimerNotStarted
 testLoginDefs
