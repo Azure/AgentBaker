@@ -1,29 +1,29 @@
 # Agentbaker
 
-[![Coverage Status](https://coveralls.io/repos/github/Azure/AgentBaker/badge.svg?branch=master)](https://coveralls.io/github/Azure/AgentBaker?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/Azure/AgentBaker/badge.svg?branch=master)](https://coveralls.io/github/Azure/AgentBaker?branch=master) 
 
-Agentbaker is a collection of components used to provision Kubernetes nodes in Azure.
+Agentbaker is a collection of components used to provision Kubernetes nodes in Azure. 
 
-Agentbaker has a few pieces
-- Packer templates and scripts to build VM images.
-- A set of templates and a public API to render those templates given input config.
-- An API to retrieve the latest VM image version for new clusters.
+Agentbaker has a few pieces 
+- Packer templates and scripts to build VM images. 
+- A set of templates and a public API to render those templates given input config. 
+- An API to retrieve the latest VM image version for new clusters.  
 
-The primary consumer of Agentbaker is Azure Kubernetes Service (AKS).
+The primary consumer of Agentbaker is Azure Kubernetes Service (AKS). 
 
-AKS uses Agentbaker to provision Linux and Windows Kubernetes nodes.
+AKS uses Agentbaker to provision Linux and Windows Kubernetes nodes. 
 
-## Contributing
+## Contributing 
 
-Developing agentbaker requires a few basic requisites:
-- Go (at least version 1.19)
-- Make
+Developing agentbaker requires a few basic requisites: 
+- Go (at least version 1.19) 
+- Make 
 
-Run `make -C hack/tools install` to install all development tools.
+Run `make -C hack/tools install` to install all development tools. 
 
-If you change code or artifacts used to generate custom data or custom script extension payloads, you should run `make`.
+If you change code or artifacts used to generate custom data or custom script extension payloads, you should run `make`. 
 
-This re-runs code to embed static files in Go code, which is what will actually be used at runtime.
+This re-runs code to embed static files in Go code, which is what will actually be used at runtime. 
 
 This additionally runs unit tests (equivalent of `go test ./...`) and regenerates snapshot testdata.
 
