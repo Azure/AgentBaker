@@ -155,16 +155,14 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/operator-generic:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.5",
-        "1.12.8"
+        "1.12.10"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.5.2",
-        "1.12.8.1"
+        "1.12.10"
       ]
     },
     {
@@ -207,7 +205,8 @@
       "downloadURL": "mcr.microsoft.com/aks/ip-masq-agent-v2:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.1.6"
+        "v0.1.6",
+        "v0.1.7"
       ]
     },
     {
@@ -215,6 +214,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.26.4",
+        "v1.26.4.1",
         "v1.27.1"
       ]
     },
@@ -223,7 +223,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.24.2",
-        "v1.26.3"
+        "v1.26.3",
+        "v1.26.3.1"
       ]
     },
     {
