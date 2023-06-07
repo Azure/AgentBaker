@@ -1438,6 +1438,7 @@ ensureContainerd() {
     ensureTeleportd
   fi
   if [ "${ARTIFACT_STREAMING_ENABLED}" == "true" ]; then
+    echo "ARTIFACT STREAMING is enabled, running test function for artifact streaming"
     ensureArtifactStreaming
   fi
 
@@ -1480,6 +1481,32 @@ ensureTeleportd() {
 
 ensureArtifactStreaming(){
     touch /etc/default/artifact-streaming.test
+    if [[ "${UBUNTU_RELEASE}" == "22.04"  && ( "${CPU_ARCH}" == "amd64" ) ]]; then
+        installAndConfigureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+    fi
+}
+
+installAndConfigureArtifactStreaming() {
+  UBUNTU_RELEASE=$(lsb_release -r -s)
+  pushd /tmp || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+  # download acr-mirror proxy
+  MIRROR_PROXY_VERSION='11'
+  UBUNTU_VERSION_CLEANED="${UBUNTU_RELEASE//.}"
+  MIRROR_PROXY_URL="https://acrmirrordev.blob.core.windows.net/bin/Release-11/acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
+
+  wget $MIRROR_PROXY_URL || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+  apt_get_install 30 1 600 "./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+
+  echo "  - [installed] acr mirror-proxy v${MIRROR_PROXY_VERSION}"
+  rm "./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
+  popd || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+
+  sudo apt install libnl-3-dev libnl-genl-3-dev libc6 libssl3 -y
+
+  echo "  - [installed] libnl-3-dev, libnl-genl-3-dev, libc6 and libssl3"
+
+  sudo /opt/acr/tools/overlaybd/install.sh || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+  sudo /opt/acr/tools/overlaybd/enable-http-auth.sh || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
 }
 
 ensureDocker() {
@@ -1875,6 +1902,7 @@ ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 # Error insufficient disk space for 
 
 ERR_TELEPORTD_DOWNLOAD_ERR=150 # Error downloading teleportd binary
 ERR_TELEPORTD_INSTALL_ERR=151 # Error installing teleportd binary
+ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL=152 # Error downloading or installing mirror proxy and overlaybd components
 
 ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
 ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
