@@ -7,9 +7,13 @@ import (
 )
 
 func ubuntu2204CustomSysctls() *Scenario {
-	customSysctls := map[string]int{
-		"net.netfilter.nf_conntrack_max":     200000,
-		"net.netfilter.nf_conntrack_buckets": 75264,
+	customIntSysctls := map[string]int{
+		"net.netfilter.nf_conntrack_max":     2097152,
+		"net.netfilter.nf_conntrack_buckets": 524288,
+		"net.ipv4.tcp_keepalive_intvl":       90,
+	}
+	customStringSysctls := map[string]string{
+		"net.ipv4.ip_local_port_range": "32768 65535",
 	}
 	return &Scenario{
 		Name:        "ubuntu2204-custom-sysctls",
@@ -20,8 +24,10 @@ func ubuntu2204CustomSysctls() *Scenario {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
-						NetNetfilterNfConntrackMax:     to.Ptr(int32(customSysctls["net.netfilter.nf_conntrack_max"])),
-						NetNetfilterNfConntrackBuckets: to.Ptr(int32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
+						NetNetfilterNfConntrackMax:     to.Ptr(int32(customIntSysctls["net.netfilter.nf_conntrack_max"])),
+						NetNetfilterNfConntrackBuckets: to.Ptr(int32(customIntSysctls["net.netfilter.nf_conntrack_buckets"])),
+						NetIpv4IpLocalPortRange:        customStringSysctls["net.ipv4.ip_local_port_range"],
+						NetIpv4TcpkeepaliveIntvl:       to.Ptr(int32(customIntSysctls["net.ipv4.tcp_keepalive_intvl"])),
 					},
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
@@ -35,7 +41,8 @@ func ubuntu2204CustomSysctls() *Scenario {
 				}
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				SysctlConfigValidator(customSysctls),
+				SysctlConfigValidator(customIntSysctls),
+				SysctlConfigValidator(customStringSysctls),
 			},
 		},
 	}
