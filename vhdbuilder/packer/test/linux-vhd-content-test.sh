@@ -630,7 +630,7 @@ testSettingFileFormat() {
 
     if [ $valid -eq 0 ]; then
       any_invalid=1
-      err $test "Invalid line $line_num in $settings_file: '$line'" >>/dev/stderr
+      err $test "Invalid line $line_num in $settings_file: '$line'"
     fi
 
     valid=0
