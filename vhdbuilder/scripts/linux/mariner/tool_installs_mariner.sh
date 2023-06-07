@@ -173,14 +173,44 @@ installFedRAMP() {
     echo -e '\n[ssl_sect]\n\nsystem_default = system_default_sect\n' >> /etc/pki/tls/openssl.cnf
     echo -e '\n[system_default_sect]\n\nMinProtocol = TLSv1.2\n\nCipherString = ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256' >> /etc/pki/tls/openssl.cnf
 
-    script_dir="$(dirname "$(realpath "$0")")"
 
+    echo "Applying scripts for FedRAMP..." 
+
+    script_dir="$(dirname "$(realpath "$0")")"
     mkdir "$script_dir/apply_logs"
-    echo "Apply scripts" 1>&2
     touch "$script_dir/fail.txt"
     touch "$script_dir/success.txt"
     touch $script_dir/failure_details.txt
-    echo $script_dir
-    
 
+    for script in $(find "$script_dir/rhel8" -name '*.sh' | sort -u); do
+        scriptname="$(basename "${script}")"
+        prunedname=$(echo "${scriptname#*-}" | cut -d'.' -f1)
+
+        echo "checking '${prunedname}'"
+
+        if grep -q -E "^${prunedname}\$" "$script_dir/skip_list.txt" ; then
+            echo "Skipping ${script} since its in skip_list.txt" 1>&2
+            continue
+        else
+            echo "Running ${script}" 1>&2
+            out=$(${script} 2>&1)
+            res=$?
+            if [[ ${res} -ne 0 ]]; then
+                basename "${script}" >> "$script_dir/fail.txt"
+            else
+                basename "${script}" >> "$script_dir/success.txt"
+            fi
+            echo "$out" > "$script_dir/apply_logs/$(basename "${script}").log"
+        fi
+    done
+
+    if [[ $(wc -l < "$script_dir/fail.txt") -gt 0 ]]; then
+        cat "$script_dir/fail.txt"
+        while read -r line; do
+            echo "${line}:" | tee -a $script_dir/failure_details.txt
+            cat "$script_dir/apply_logs/${line}.log" | tee -a $script_dir/failure_details.txt
+        done < "$script_dir/fail.txt"
+        exit 1
+    fi
+\
 }
