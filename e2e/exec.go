@@ -55,8 +55,9 @@ func (r podExecResult) dumpStderr() {
 
 func extractLogsFromVM(ctx context.Context, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) (map[string]string, error) {
 	commandList := map[string]string{
-		"/var/log/azure/cluster-provision.log": "cat /var/log/azure/cluster-provision.log",
-		"kubelet.log":                          "journalctl -u kubelet",
+		"/var/log/azure/cluster-provision.log":            "cat /var/log/azure/cluster-provision.log",
+		"kubelet.log":                                     "journalctl -u kubelet",
+		"/var/log/azure/cluster-provision-cse-output.log": "cat /var/log/azure/cluster-provision-cse-output.log",
 	}
 
 	podName, err := getDebugPodName(opts.clusterConfig.kube)
