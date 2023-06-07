@@ -1594,7 +1594,11 @@ ensureMigPartition(){
 [Service]
 Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
 EOF
-    systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
+    # this is expected to fail and work only on next reboot
+    # it MAY succeed, only due to unreliability of systemd
+    # service type=Simple, which does not exit non-zero
+    # on failure if ExecStart failed to invoke.
+    systemctlEnableAndStart mig-partition
 }
 
 ensureSysctl() {
@@ -1827,6 +1831,7 @@ ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL=53 # Unable to resolve k8s api server n
 ERR_KATA_KEY_DOWNLOAD_TIMEOUT=60 # Timeout waiting to download kata repo key
 ERR_KATA_APT_KEY_TIMEOUT=61 # Timeout waiting for kata apt-key
 ERR_KATA_INSTALL_TIMEOUT=62 # Timeout waiting for kata install
+ERR_VHD_FILE_NOT_FOUND=65 # VHD log file not found on VM built from VHD distro (previously classified as exit code 124)
 ERR_CONTAINERD_DOWNLOAD_TIMEOUT=70 # Timeout waiting for containerd downloads
 ERR_RUNC_DOWNLOAD_TIMEOUT=71 # Timeout waiting for runc downloads
 ERR_CUSTOM_SEARCH_DOMAINS_FAIL=80 # Unable to configure custom search domains
@@ -1857,7 +1862,7 @@ ERR_AZURE_STACK_GET_ARM_TOKEN=120 # Error generating a token to use with Azure R
 ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 # Error fetching the network configuration for the node
 ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 # Error fetching the subnet address prefix for a subnet ID
 
-ERR_VHD_FILE_NOT_FOUND=124 # VHD log file not found on VM built from VHD distro
+# Error code 124 is returned when a `+"`"+`timeout`+"`"+` command times out, and --preserve-status is not specified: https://man7.org/linux/man-pages/man1/timeout.1.html
 ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
 
 ERR_SWAP_CREATE_FAIL=130 # Error allocating swap file
@@ -1894,7 +1899,7 @@ export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
 NVIDIA_CONTAINER_RUNTIME_VERSION="3.6.0"
-export NVIDIA_DRIVER_IMAGE_SHA="sha-10d772"
+export NVIDIA_DRIVER_IMAGE_SHA="sha-e8873b"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu"
 export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
@@ -4239,7 +4244,7 @@ dnf_update() {
   retries=10
   dnf_update_output=/tmp/dnf-update.out
   for i in $(seq 1 $retries); do
-    ! (dnf update -y --refresh 2>&1 | tee $dnf_update_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+    ! (dnf update --exclude mshv-linuxloader -y --refresh 2>&1 | tee $dnf_update_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
     cat $dnf_update_output && break || \
     cat $dnf_update_output
     if [ $i -eq $retries ]; then
@@ -7315,7 +7320,7 @@ $global:WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS=51
 $global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE=52
 
 # NOTE: KubernetesVersion does not contain "v"
-$global:MinimalKubernetesVersionWithLatestContainerd = "1.27.0" # Will change it to the correct version when we support new Windows containerd version
+$global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version
 $global:StableContainerdPackage = "v1.6.21-azure.1/binaries/containerd-v1.6.21-azure.1-windows-amd64.tar.gz"
 # The latest containerd version
 $global:LatestContainerdPackage = "v1.7.1-azure.1/binaries/containerd-v1.7.1-azure.1-windows-amd64.tar.gz"
