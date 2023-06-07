@@ -484,7 +484,7 @@ testCoreDumpSettings() {
   #   A section heading -- this file is only supposed to have '[Coredump]'
   #   Settings, which take the form 'NAME=VALUE', where values can be empty or strings, and strings
   #   is pretty loose (more or less any printable character).
-  testSettingFileFormat $test $settings_file '^(#|$)' '^\[Coredump\]$' '^[A-Z_]+=[^[:cntrl:]]*$'
+  testSettingFileFormat $test $settings_file '^(#|$)' '^\[Coredump\]$' '^[A-Za-z_]+=[^[:cntrl:]]*$'
 
   # Look for the settings we specifically set in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
   # and ensure they're set to the values we expect.
