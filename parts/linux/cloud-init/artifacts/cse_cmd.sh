@@ -1,6 +1,6 @@
 echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
-cloud-init status --wait  > /dev/null 2>&1
-[ $? -ne 0 ] && echo 'cloud-init failed' && exit 1
+cloud-init status --wait  > /dev/null 2>&1;
+[ $? -ne 0 ] && echo 'cloud-init failed' && exit 1;
 echo "cloud-init succeeded"
 {{if IsAKSCustomCloud}}
 REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
