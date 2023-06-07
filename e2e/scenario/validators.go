@@ -23,7 +23,7 @@ func DirectoryValidator(path string, files []string) *LiveVMValidator {
 	}
 }
 
-func SysctlConfigValidator[V comparable](customSysctls map[string]V) *LiveVMValidator {
+func SysctlConfigValidator(customSysctls map[string]string) *LiveVMValidator {
 	keysToCheck := make([]string, len(customSysctls))
 	for k, _ := range customSysctls {
 		keysToCheck = append(keysToCheck, k)
