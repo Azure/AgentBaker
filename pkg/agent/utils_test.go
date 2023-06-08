@@ -58,6 +58,7 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		ContainerLogMaxSizeMB: to.Int32Ptr(1000),
 		ContainerLogMaxFiles:  to.Int32Ptr(99),
 		PodMaxPids:            to.Int32Ptr(12345),
+		MemoryManagerPolicy:   "static",
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
 	diff := cmp.Diff(expectedKubeletJSON, configFileStr)
@@ -179,6 +180,7 @@ var expectedKubeletJSON = `{
     "imageGCLowThresholdPercent": 70,
     "cgroupsPerQOS": true,
     "cpuManagerPolicy": "static",
+    "memoryManagerPolicy": "static",
     "topologyManagerPolicy": "best-effort",
     "maxPods": 110,
     "podPidsLimit": 12345,
@@ -261,6 +263,7 @@ var expectedKubeletJSONWithNodeStatusReportFrequency = `{
     "imageGCLowThresholdPercent": 70,
     "cgroupsPerQOS": true,
     "cpuManagerPolicy": "static",
+    "memoryManagerPolicy": "static",
     "topologyManagerPolicy": "best-effort",
     "maxPods": 110,
     "podPidsLimit": 12345,
@@ -340,6 +343,7 @@ var expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags = `{
     "imageGCLowThresholdPercent": 70,
     "cgroupsPerQOS": true,
     "cpuManagerPolicy": "static",
+    "memoryManagerPolicy": "static",
     "topologyManagerPolicy": "best-effort",
     "maxPods": 110,
     "podPidsLimit": 12345,
@@ -382,6 +386,7 @@ func TestGetKubeletConfigFileFlagsWithNodeStatusReportFrequency(t *testing.T) {
 	kc := getExampleKcWithNodeStatusReportFrequency()
 	customKc := &datamodel.CustomKubeletConfig{
 		CPUManagerPolicy:      "static",
+		MemoryManagerPolicy:   "static",
 		CPUCfsQuota:           to.BoolPtr(false),
 		CPUCfsQuotaPeriod:     "200ms",
 		ImageGcHighThreshold:  to.Int32Ptr(90),
@@ -402,6 +407,7 @@ func TestGetKubeletConfigFileFromFlagsWithContainerLogMaxSize(t *testing.T) {
 	kc := getExampleKcWithContainerLogMaxSize()
 	customKc := &datamodel.CustomKubeletConfig{
 		CPUManagerPolicy:      "static",
+		MemoryManagerPolicy:   "static",
 		CPUCfsQuota:           to.BoolPtr(false),
 		CPUCfsQuotaPeriod:     "200ms",
 		ImageGcHighThreshold:  to.Int32Ptr(90),
@@ -423,6 +429,7 @@ func TestGetKubeletConfigFileCustomKCShouldOverrideValuesPassedInKc(t *testing.T
 	kc := getExampleKcWithContainerLogMaxSize()
 	customKc := &datamodel.CustomKubeletConfig{
 		CPUManagerPolicy:      "static",
+		MemoryManagerPolicy:   "static",
 		CPUCfsQuota:           to.BoolPtr(false),
 		CPUCfsQuotaPeriod:     "200ms",
 		ImageGcHighThreshold:  to.Int32Ptr(90),

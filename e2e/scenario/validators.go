@@ -1,6 +1,7 @@
 package scenario
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -24,7 +25,7 @@ func DirectoryValidator(path string, files []string) *LiveVMValidator {
 }
 
 func SysctlConfigValidator(customSysctls map[string]string) *LiveVMValidator {
-	keysToCheck := make([]string, len(customSysctls))
+	keysToCheck := make([]string, 0)
 	for k, _ := range customSysctls {
 		keysToCheck = append(keysToCheck, k)
 	}
@@ -40,6 +41,34 @@ func SysctlConfigValidator(customSysctls map[string]string) *LiveVMValidator {
 			for name, value := range customSysctls {
 				if !strings.Contains(stdout, fmt.Sprintf("%s = %v", name, value)) {
 					return fmt.Errorf(fmt.Sprintf("expected to find %s set to %v, but was not", name, value))
+				}
+			}
+			return nil
+		},
+	}
+}
+
+func KubeletConfigValidator(kubeletConfigParams map[string]string) *LiveVMValidator {
+	keysToCheck := make([]string, 0)
+	for k, _ := range kubeletConfigParams {
+		keysToCheck = append(keysToCheck, k)
+	}
+	return &LiveVMValidator{
+		Description: "assert kubelet config settings",
+		Command:     fmt.Sprintf("jq `{%s}` /etc/default/kubeleconfig.json", strings.Join(keysToCheck, ",")),
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
+			}
+			// this works fine for checking simple unnested parameters, will not really work for nested structures
+			var kubeletConfig map[string]interface{}
+			err := json.Unmarshal([]byte(stdout), &kubeletConfig)
+			if err != nil {
+				return err
+			}
+			for kubeletParam, expectedValue := range kubeletConfigParams {
+				if kubeletConfig[kubeletParam] != expectedValue {
+					return fmt.Errorf(fmt.Sprintf("expected to find %s set to %v, but was not", kubeletParam, expectedValue))
 				}
 			}
 			return nil

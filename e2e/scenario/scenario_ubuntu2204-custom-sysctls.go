@@ -13,6 +13,10 @@ func ubuntu2204CustomSysctls() *Scenario {
 		"net.netfilter.nf_conntrack_buckets": "524288",
 		"net.ipv4.tcp_keepalive_intvl":       "90",
 	}
+	kubeletConfigParamsToCheck := map[string]string{
+		"cpu-manager-policy":    "static",
+		"memory-manager-policy": "static",
+	}
 	return &Scenario{
 		Name:        "ubuntu2204-custom-sysctls",
 		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
@@ -30,6 +34,14 @@ func ubuntu2204CustomSysctls() *Scenario {
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = customLinuxConfig
+
+				customKubeletConfig := &datamodel.CustomKubeletConfig{
+					CPUManagerPolicy:    "static",
+					MemoryManagerPolicy: "static",
+				}
+				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
+
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 			},
@@ -40,6 +52,7 @@ func ubuntu2204CustomSysctls() *Scenario {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				SysctlConfigValidator(customSysctls),
+				KubeletConfigValidator(kubeletConfigParamsToCheck),
 			},
 		},
 	}

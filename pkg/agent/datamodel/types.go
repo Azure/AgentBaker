@@ -639,6 +639,7 @@ type CustomKubeletConfig struct {
 	ContainerLogMaxSizeMB *int32    `json:"containerLogMaxSizeMB,omitempty"`
 	ContainerLogMaxFiles  *int32    `json:"containerLogMaxFiles,omitempty"`
 	PodMaxPids            *int32    `json:"podMaxPids,omitempty"`
+	MemoryManagerPolicy   string    `json:"memoryManagerPolicy,omitempty"`
 }
 
 // CustomLinuxOSConfig represents custom os configurations for agent pool nodes.
@@ -1817,6 +1818,11 @@ type AKSKubeletConfiguration struct {
 	Default: "none"
 	+optional. */
 	CPUManagerPolicy string `json:"cpuManagerPolicy,omitempty"`
+	// memoryManagerPolicy is the name of the policy to use by memory manager.
+	// Requires the MemoryManager feature gate to be enabled.
+	// Default: "none"
+	// +optional
+	MemoryManagerPolicy string `json:"memoryManagerPolicy,omitempty"`
 	/* TopologyManagerPolicy is the name of the policy to use.
 	Policies other than "none" require the TopologyManager feature gate to be enabled.
 	Dynamic Kubelet Config (beta): This field should not be updated without a full node
