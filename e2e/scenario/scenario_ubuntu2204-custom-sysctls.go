@@ -15,7 +15,7 @@ func ubuntu2204CustomSysctls() *Scenario {
 	}
 	kubeletConfigParamsToCheck := map[string]string{
 		"cpu-manager-policy":    "static",
-		"memory-manager-policy": "static",
+		"memory-manager-policy": "Static",
 	}
 	return &Scenario{
 		Name:        "ubuntu2204-custom-sysctls",
@@ -37,7 +37,7 @@ func ubuntu2204CustomSysctls() *Scenario {
 
 				customKubeletConfig := &datamodel.CustomKubeletConfig{
 					CPUManagerPolicy:    "static",
-					MemoryManagerPolicy: "static",
+					MemoryManagerPolicy: "Static",
 				}
 				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
