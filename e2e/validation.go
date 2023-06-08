@@ -129,15 +129,15 @@ func commonLiveVMValidators() []*scenario.LiveVMValidator {
 			},
 		},
 		scenario.SysctlConfigValidator(
-			map[string]int{
-				"net.ipv4.tcp_retries2":             8,
-				"net.core.message_burst":            80,
-				"net.core.message_cost":             40,
-				"net.core.somaxconn":                16384,
-				"net.ipv4.tcp_max_syn_backlog":      16384,
-				"net.ipv4.neigh.default.gc_thresh1": 4096,
-				"net.ipv4.neigh.default.gc_thresh2": 8192,
-				"net.ipv4.neigh.default.gc_thresh3": 16384,
+			map[string]string{
+				"net.ipv4.tcp_retries2":             "8",
+				"net.core.message_burst":            "80",
+				"net.core.message_cost":             "40",
+				"net.core.somaxconn":                "16384",
+				"net.ipv4.tcp_max_syn_backlog":      "16384",
+				"net.ipv4.neigh.default.gc_thresh1": "4096",
+				"net.ipv4.neigh.default.gc_thresh2": "8192",
+				"net.ipv4.neigh.default.gc_thresh3": "16384",
 			},
 		),
 		scenario.DirectoryValidator(
