@@ -254,6 +254,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/skip_list.txt",
+      "destination": "/home/packer/skip_list.txt"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/pre-install-dependencies.sh",
       "destination": "/home/packer/pre-install-dependencies.sh"
     },
