@@ -458,6 +458,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				config.KubeletConfig = map[string]string{}
 			}, nil),
 
+		Entry("AKSUbuntu1804 with secure kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+SecureTLSBootstrapping", "1.25.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.EnableSecureTLSBootstrapping = true
+		}, nil),
+
 		Entry("AKSUbuntu1604 with custom kubeletConfig and osConfig", "AKSUbuntu1604+CustomKubeletConfig+CustomLinuxOSConfig", "1.16.13",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableKubeletConfigFile = false

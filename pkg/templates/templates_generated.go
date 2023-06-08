@@ -1278,15 +1278,6 @@ configureCustomCaCertificate() {
     systemctl restart containerd
 }
 
-
-configureKubeletServerCert() {
-    KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
-    KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
-
-    openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
-    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}" -addext "subjectAltName=DNS:${NODE_NAME}"
-}
-
 configureK8s() {
     APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
     touch "${APISERVER_PUBLIC_KEY_PATH}"
@@ -1363,7 +1354,6 @@ EOF
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
     fi
 
-    configureKubeletServerCert
     if [ "${IS_CUSTOM_CLOUD}" == "true" ]; then
         set +x
         AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
@@ -2212,6 +2202,21 @@ downloadCNI() {
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
+downloadSecureTLSBootstrapExecPlugin() {
+    local kubelet_plugin_url="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/main/linux/amd64/tls-bootstrap-client"
+    local kubelet_plugin_filepath="/opt/azure/containers/tls-bootstrap-client"
+    if [[ $(isARM64) == 1 ]]; then
+        kubelet_plugin_url="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/main/linux/arm64/tls-bootstrap-client"
+    fi
+
+    mkdir -p /opt/azure/containers
+
+    if [ ! -f "$kubelet_plugin_filepath" ]; then
+        retrycmd_if_failure 30 5 60 curl -fSL -o "$kubelet_plugin_filepath" "$kubelet_plugin_url" || exit $ERR_DOWNLOAD_EXEC_PLUGIN_TIMEOUT
+        chmod 755 "$kubelet_plugin_filepath"
+    fi
+}
+
 downloadContainerdWasmShims() {
     for shim_version in $CONTAINERD_WASM_VERSIONS; do
         binary_version="$(echo "${shim_version}" | tr . -)"
@@ -2694,6 +2699,8 @@ logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 if [ "${IS_KRUSTLET}" == "true" ]; then
     logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
 fi
+
+downloadSecureTLSBootstrapExecPlugin
 
 # By default, never reboot new nodes.
 REBOOTREQUIRED=false
@@ -4065,6 +4072,7 @@ ExecStart=/usr/local/bin/kubelet \
         --node-labels="${KUBELET_NODE_LABELS}" \
         --v=2 \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
+        --rotate-server-certificates \
         $KUBELET_TLS_BOOTSTRAP_FLAGS \
         $KUBELET_CONFIG_FILE_FLAGS \
         $KUBELET_CONTAINERD_FLAGS \
@@ -6402,7 +6410,15 @@ write_files:
     users:
     - name: kubelet-bootstrap
       user:
+      {{- if EnableSecureTLSBootstrapping }}
+        exec:
+          apiVersion: client.authentication.k8s.io/v1
+          command: /opt/azure/containers/tls-bootstrap-client
+          interactiveMode: Never
+          provideClusterInfo: true
+      {{- else }}
         token: "{{GetTLSBootstrapTokenForKubeConfig}}"
+      {{- end }}
     contexts:
     - context:
         cluster: localcluster

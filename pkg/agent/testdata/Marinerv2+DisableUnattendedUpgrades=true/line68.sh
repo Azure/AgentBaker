@@ -142,15 +142,6 @@ configureCustomCaCertificate() {
     systemctl restart containerd
 }
 
-
-configureKubeletServerCert() {
-    KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
-    KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
-
-    openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
-    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}" -addext "subjectAltName=DNS:${NODE_NAME}"
-}
-
 configureK8s() {
     APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
     touch "${APISERVER_PUBLIC_KEY_PATH}"
@@ -227,7 +218,6 @@ EOF
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
     fi
 
-    configureKubeletServerCert
     if [ "${IS_CUSTOM_CLOUD}" == "true" ]; then
         set +x
         AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
