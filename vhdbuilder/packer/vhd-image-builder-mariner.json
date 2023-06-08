@@ -249,6 +249,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/rhel8",
+      "destination": "/home/packer/rhel8"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/pre-install-dependencies.sh",
       "destination": "/home/packer/pre-install-dependencies.sh"
     },
