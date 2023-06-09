@@ -180,11 +180,15 @@
       "multiArchVersions": [
         "v1.24.18",
         "v1.24.20",
+        "v1.24.21",
         "v1.25.12",
         "v1.25.14",
+        "v1.25.15",
         "v1.26.8",
         "v1.26.10",
-        "v1.27.4"
+        "v1.26.11",
+        "v1.27.4",
+        "v1.27.5"
       ]
     },
     {
@@ -245,7 +249,6 @@
       "downloadURL": "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.11.0",
         "v3.11.1"
       ]
     },
@@ -284,7 +287,6 @@
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "prod_20230208.1",
         "1.0.1"
       ]
     },
@@ -292,7 +294,6 @@
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "prod_20230208.1",
         "1.0.1"
       ]
     },

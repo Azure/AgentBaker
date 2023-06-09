@@ -13,8 +13,7 @@ import (
 )
 
 const (
-	sshCommandTemplate                  = `echo '%s' > sshkey && chmod 0600 sshkey && ssh -i sshkey -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 azureuser@%s sudo`
-	listVMSSNetworkInterfaceURLTemplate = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
+	sshCommandTemplate = `echo '%s' > sshkey && chmod 0600 sshkey && ssh -i sshkey -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 azureuser@%s sudo`
 )
 
 type podExecResult struct {
@@ -56,8 +55,10 @@ func (r podExecResult) dumpStderr() {
 
 func extractLogsFromVM(ctx context.Context, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) (map[string]string, error) {
 	commandList := map[string]string{
-		"/var/log/azure/cluster-provision.log": "cat /var/log/azure/cluster-provision.log",
-		"kubelet.log":                          "journalctl -u kubelet",
+		"/var/log/azure/cluster-provision.log":            "cat /var/log/azure/cluster-provision.log",
+		"kubelet.log":                                     "journalctl -u kubelet",
+		"/var/log/azure/cluster-provision-cse-output.log": "cat /var/log/azure/cluster-provision-cse-output.log",
+		"sysctl-out.log":                                  "sysctl -a",
 	}
 
 	podName, err := getDebugPodName(opts.clusterConfig.kube)
