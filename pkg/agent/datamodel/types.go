@@ -647,6 +647,7 @@ type CustomLinuxOSConfig struct {
 	TransparentHugePageEnabled string        `json:"transparentHugePageEnabled,omitempty"`
 	TransparentHugePageDefrag  string        `json:"transparentHugePageDefrag,omitempty"`
 	SwapFileSizeMB             *int32        `json:"swapFileSizeMB,omitempty"`
+	UlimitConfig               *UlimitConfig `json:"ulimitConfig,omitempty"`
 }
 
 // SysctlConfig represents sysctl configs in customLinuxOsConfig.
@@ -679,6 +680,11 @@ type SysctlConfig struct {
 	VMMaxMapCount                  *int32 `json:"vmMaxMapCount,omitempty"`
 	VMSwappiness                   *int32 `json:"vmSwappiness,omitempty"`
 	VMVfsCachePressure             *int32 `json:"vmVfsCachePressure,omitempty"`
+}
+
+type UlimitConfig struct {
+	MaxLockedMemory string `json:"memlock,omitempty"`
+	NoFile          *int32 `json:"nofile,omitempty"`
 }
 
 type CustomConfiguration struct {

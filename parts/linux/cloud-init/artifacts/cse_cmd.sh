@@ -87,6 +87,10 @@ ENABLE_UNATTENDED_UPGRADES="{{EnableUnattendedUpgrade}}"
 ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE="{{ and NeedsContainerd IsKubenet (not HasCalicoNetworkPolicy) }}"
 SHOULD_CONFIG_SWAP_FILE="{{ShouldConfigSwapFile}}"
 SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE="{{ShouldConfigTransparentHugePage}}"
+SHOULD_CONFIG_MEMLOCK="{{ShouldConfigMemLock}}"
+SHOULD_CONFIG_NOFILE="{{ShouldConfigNoFile}}"
+MEM_LOCK_VAL="{{GetMemLockValue}}"
+NO_FILE_VAL="{{GetNoFileValue}}"
 {{/* both CLOUD and ENVIRONMENT have special values when IsAKSCustomCloud == true */}}
 {{/* CLOUD uses AzureStackCloud and seems to be used by kubelet, k8s cloud provider */}}
 {{/* target environment seems to go to ARM SDK config */}}

@@ -14,6 +14,7 @@ export RESOURCE_GROUP_NAME
 export LOCATION
 export CLUSTER_NAME
 export AZURE_TENANT_ID
+export SCENARIOS_TO_RUN="marinerv2-custom-sysctls"
 
 go version
 go test -timeout $TIMEOUT -v -run Test_All ./

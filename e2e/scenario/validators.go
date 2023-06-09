@@ -84,3 +84,22 @@ func NonEmptyDirectoryValidator(dirName string) *LiveVMValidator {
 		},
 	}
 }
+
+func UlimitValidator(expectedOutputs []string, flagsToCheck []string) *LiveVMValidator {
+	return &LiveVMValidator{
+		Description: "assert ulimit settings",
+		Command:     fmt.Sprintf("ulimit %s | sed 's/  */ /g'", strings.Join(flagsToCheck, " ")),
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
+			}
+			for _, expectedOutput := range expectedOutputs {
+				if !strings.Contains(stdout, expectedOutput) {
+					return fmt.Errorf(fmt.Sprintf("expected to find %s set, but was not", expectedOutput))
+				}
+			}
+			return nil
+		},
+		IsShellBuiltIn: true,
+	}
+}

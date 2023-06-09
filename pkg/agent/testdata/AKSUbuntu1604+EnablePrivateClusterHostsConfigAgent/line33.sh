@@ -100,6 +100,20 @@ logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
+echo "testing nowych rzeczy"
+echo "${SHOULD_CONFIG_MEMLOCK}"
+echo "${SHOULD_CONFIG_NOFILE}"
+
+if [[ "${SHOULD_CONFIG_MEMLOCK}" == "true" ]]; then
+  # TODO - add error handling
+  echo "* hard memlock ${MEM_LOCK_VAL}" >> /etc/security/limits.conf || exit $ERR_UPDATE_CA_CERTS
+fi
+
+if [[ "${SHOULD_CONFIG_NOFILE}" == "true" ]]; then
+  # TODO - add error handling
+  echo "* hard nofile ${NO_FILE_VAL}" >> /etc/security/limits.conf || exit $ERR_UPDATE_CA_CERTS
+fi
+
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
