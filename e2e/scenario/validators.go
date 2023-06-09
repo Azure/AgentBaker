@@ -85,7 +85,7 @@ func NonEmptyDirectoryValidator(dirName string) *LiveVMValidator {
 	}
 }
 
-func UlimitValidator(expectedOutputs []string, flagsToCheck []string) *LiveVMValidator {
+func UlimitValidator(expectedOutputs, flagsToCheck []string) *LiveVMValidator {
 	return &LiveVMValidator{
 		Description: "assert ulimit settings",
 		Command:     fmt.Sprintf("ulimit %s | sed 's/  */ /g'", strings.Join(flagsToCheck, " ")),
