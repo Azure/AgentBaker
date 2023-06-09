@@ -58,6 +58,7 @@ func extractLogsFromVM(ctx context.Context, vmssName, privateIP, sshPrivateKey s
 		"/var/log/azure/cluster-provision.log":            "cat /var/log/azure/cluster-provision.log",
 		"kubelet.log":                                     "journalctl -u kubelet",
 		"/var/log/azure/cluster-provision-cse-output.log": "cat /var/log/azure/cluster-provision-cse-output.log",
+		"sysctl-out.log":                                  "sysctl -a",
 	}
 
 	podName, err := getDebugPodName(opts.clusterConfig.kube)
