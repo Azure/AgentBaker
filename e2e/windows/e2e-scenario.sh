@@ -140,7 +140,7 @@ MC_WIN_VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(n
 VMSS_RESOURCE_Id=$(az resource show --resource-group $MC_RESOURCE_GROUP_NAME --name $MC_WIN_VMSS_NAME --resource-type Microsoft.Compute/virtualMachineScaleSets --query id --output tsv)
 
 az group export --resource-group $MC_RESOURCE_GROUP_NAME --resource-ids $VMSS_RESOURCE_Id --include-parameter-default-value > test.json
-IMAGE_REFERENCE=$(jq -c '.resources[0].properties.virtualMachineProfile.storageProfile.imageReference.id' test.json)
+IMAGE_REFERENCE=$(jq -r '.resources[0].properties.virtualMachineProfile.storageProfile.imageReference.id' test.json)
 IMAGE_EXTERNALID="/subscriptions/$IMAGE_PROD_SUBSCRIPTION_ID/resourceGroups/AKS-Windows/providers/Microsoft.Compute/galleries/AKSWindows"
 WINDOWS_VNET=$(jq -c '.parameters | with_entries( select(.key|contains("vnet")))' test.json)
 WINDOWS_LOADBALANCER=$(jq -c '.parameters | with_entries( select(.key|contains("loadBalancers")))' test.json)
