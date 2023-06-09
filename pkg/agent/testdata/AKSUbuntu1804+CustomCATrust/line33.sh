@@ -100,9 +100,6 @@ logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
-echo "testing nowych rzeczy"
-echo "${SHOULD_CONFIG_MEMLOCK}"
-echo "${SHOULD_CONFIG_NOFILE}"
 
 if [[ "${SHOULD_CONFIG_MEMLOCK}" == "true" ]]; then
   # TODO - add error handling
