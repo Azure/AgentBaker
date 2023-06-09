@@ -249,13 +249,8 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/rhel8",
-      "destination": "/home/packer/rhel8"
-    },
-    {
-      "type": "file",
-      "source": "vhdbuilder/packer/skip_list.txt",
-      "destination": "/home/packer/skip_list.txt"
+      "source": "vhdbuilder/scripts/linux/mariner/stig_remediation.tar.gz",
+      "destination": "/home/packer/stig_remediation.tar.gz"
     },
     {
       "type": "file",
