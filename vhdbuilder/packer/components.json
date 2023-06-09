@@ -249,7 +249,6 @@
       "downloadURL": "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.11.0",
         "v3.11.1"
       ]
     },
@@ -288,7 +287,6 @@
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "prod_20230208.1",
         "1.0.1"
       ]
     },
@@ -296,7 +294,6 @@
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "prod_20230208.1",
         "1.0.1"
       ]
     },
