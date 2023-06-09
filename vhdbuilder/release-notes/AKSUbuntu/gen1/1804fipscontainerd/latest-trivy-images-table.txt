@@ -8,7 +8,7 @@ Total: 0 (HIGH: 0, CRITICAL: 0)
 
 mcr.microsoft.com/aks/ip-masq-agent-v2:v0.1.6 (debian 11.5)
 ===========================================================
-Total: 8 (HIGH: 8, CRITICAL: 0)
+Total: 10 (HIGH: 10, CRITICAL: 0)
 
 ┌───────────┬───────────────┬──────────┬───────────────────┬──────────────────┬────────────────────────────────────────────────────────────┐
 │  Library  │ Vulnerability │ Severity │ Installed Version │  Fixed Version   │                           Title                            │
@@ -25,6 +25,9 @@ Total: 8 (HIGH: 8, CRITICAL: 0)
 │           │ CVE-2023-0464 │          │                   │ 1.1.1n-0+deb11u5 │ Denial of service by excessive resource usage in verifying │
 │           │               │          │                   │                  │ X509 policy constraints...                                 │
 │           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
 ├───────────┼───────────────┤          │                   ├──────────────────┼────────────────────────────────────────────────────────────┤
 │ openssl   │ CVE-2022-4450 │          │                   │ 1.1.1n-0+deb11u4 │ double free after calling PEM_read_bio_ex                  │
 │           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2022-4450                  │
@@ -38,11 +41,36 @@ Total: 8 (HIGH: 8, CRITICAL: 0)
 │           │ CVE-2023-0464 │          │                   │ 1.1.1n-0+deb11u5 │ Denial of service by excessive resource usage in verifying │
 │           │               │          │                   │                  │ X509 policy constraints...                                 │
 │           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+└───────────┴───────────────┴──────────┴───────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
+
+mcr.microsoft.com/aks/ip-masq-agent-v2:v0.1.7 (debian 11.7)
+===========================================================
+Total: 4 (HIGH: 4, CRITICAL: 0)
+
+┌───────────┬───────────────┬──────────┬───────────────────┬──────────────────┬────────────────────────────────────────────────────────────┐
+│  Library  │ Vulnerability │ Severity │ Installed Version │  Fixed Version   │                           Title                            │
+├───────────┼───────────────┼──────────┼───────────────────┼──────────────────┼────────────────────────────────────────────────────────────┤
+│ libssl1.1 │ CVE-2023-0464 │ HIGH     │ 1.1.1n-0+deb11u4  │ 1.1.1n-0+deb11u5 │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+├───────────┼───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│ openssl   │ CVE-2023-0464 │          │                   │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
 └───────────┴───────────────┴──────────┴───────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
 
 mcr.microsoft.com/aks/msi/addon-token-adapter:master.221118.2 (debian 11.5)
 ===========================================================================
-Total: 8 (HIGH: 8, CRITICAL: 0)
+Total: 10 (HIGH: 10, CRITICAL: 0)
 
 ┌───────────┬───────────────┬──────────┬───────────────────┬──────────────────┬────────────────────────────────────────────────────────────┐
 │  Library  │ Vulnerability │ Severity │ Installed Version │  Fixed Version   │                           Title                            │
@@ -59,6 +87,9 @@ Total: 8 (HIGH: 8, CRITICAL: 0)
 │           │ CVE-2023-0464 │          │                   │ 1.1.1n-0+deb11u5 │ Denial of service by excessive resource usage in verifying │
 │           │               │          │                   │                  │ X509 policy constraints...                                 │
 │           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
 ├───────────┼───────────────┤          │                   ├──────────────────┼────────────────────────────────────────────────────────────┤
 │ openssl   │ CVE-2022-4450 │          │                   │ 1.1.1n-0+deb11u4 │ double free after calling PEM_read_bio_ex                  │
 │           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2022-4450                  │
@@ -72,6 +103,9 @@ Total: 8 (HIGH: 8, CRITICAL: 0)
 │           │ CVE-2023-0464 │          │                   │ 1.1.1n-0+deb11u5 │ Denial of service by excessive resource usage in verifying │
 │           │               │          │                   │                  │ X509 policy constraints...                                 │
 │           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
 └───────────┴───────────────┴──────────┴───────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
 
 mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.0.1 (cbl-mariner 2.0.20230426)
@@ -116,7 +150,7 @@ Total: 1 (HIGH: 1, CRITICAL: 0)
 │                  │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2022-41723   │
 └──────────────────┴────────────────┴──────────┴───────────────────┴───────────────┴──────────────────────────────────────────────┘
 
-mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.6.0-main-04-25-2023-2eb2a81c (cbl-mariner 2.0.20230407)
+mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.7.0-main-05-04-2023-4450ad10 (cbl-mariner 2.0.20230426)
 =============================================================================================================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
@@ -183,24 +217,10 @@ Total: 4 (HIGH: 4, CRITICAL: 0)
 │                                │                │          │                        │                  │ https://avd.aquasec.com/nvd/cve-2022-41723                 │
 └────────────────────────────────┴────────────────┴──────────┴────────────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
 
-mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.7.0-main-05-04-2023-4450ad10 (cbl-mariner 2.0.20230426)
+mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.7.1-main-06-02-2023-d384b035 (cbl-mariner 2.0.20230518)
 =============================================================================================================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
-
-Ruby (gemspec)
-==============
-Total: 2 (HIGH: 2, CRITICAL: 0)
-
-┌───────────────────────────┬────────────────┬──────────┬───────────────────┬──────────────────────────────────────────────┬────────────────────────────────────────────┐
-│          Library          │ Vulnerability  │ Severity │ Installed Version │                Fixed Version                 │                   Title                    │
-├───────────────────────────┼────────────────┼──────────┼───────────────────┼──────────────────────────────────────────────┼────────────────────────────────────────────┤
-│ time (time-0.2.0.gemspec) │ CVE-2023-28756 │ HIGH     │ 0.2.0             │ ~> 0.1.1, >= 0.2.2                           │ ReDoS vulnerability in Time                │
-│                           │                │          │                   │                                              │ https://avd.aquasec.com/nvd/cve-2023-28756 │
-├───────────────────────────┼────────────────┤          ├───────────────────┼──────────────────────────────────────────────┼────────────────────────────────────────────┤
-│ uri (uri-0.11.0.gemspec)  │ CVE-2023-28755 │          │ 0.11.0            │ ~> 0.10.0.1, ~> 0.10.2, ~> 0.11.1, >= 0.12.1 │ ReDoS vulnerability in URI                 │
-│                           │                │          │                   │                                              │ https://avd.aquasec.com/nvd/cve-2023-28755 │
-└───────────────────────────┴────────────────┴──────────┴───────────────────┴──────────────────────────────────────────────┴────────────────────────────────────────────┘
 
 opt/microsoft/otelcollector/otelcollector (gobinary)
 ====================================================
@@ -294,6 +314,11 @@ Total: 1 (HIGH: 1, CRITICAL: 0)
 │ golang.org/x/net │ CVE-2022-41723 │ HIGH     │ v0.4.0            │ 0.7.0         │ avoid quadratic complexity in HPACK decoding │
 │                  │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2022-41723   │
 └──────────────────┴────────────────┴──────────┴───────────────────┴───────────────┴──────────────────────────────────────────────┘
+
+mcr.microsoft.com/containernetworking/azure-cns:v1.5.3 (cbl-mariner 2.0.20230518)
+=================================================================================
+Total: 0 (HIGH: 0, CRITICAL: 0)
+
 
 mcr.microsoft.com/containernetworking/azure-npm:v1.4.32 (ubuntu 20.04)
 ======================================================================
@@ -548,7 +573,7 @@ Total: 39 (HIGH: 25, CRITICAL: 14)
 │              │                │          │                        │                         │ no_renegotiation alert sent                                  │
 │              │                │          │                        │                         │ https://avd.aquasec.com/nvd/cve-2020-24659                   │
 │              ├────────────────┤          │                        ├─────────────────────────┼──────────────────────────────────────────────────────────────┤
-│              │ CVE-2022-2509  │          │                        │ 3.6.7-4+deb10u9         │ gnutls: Double free during gnutls_pkcs7_verify               │
+│              │ CVE-2022-2509  │          │                        │ 3.6.7-4+deb10u9         │ Double free during gnutls_pkcs7_verify                       │
 │              │                │          │                        │                         │ https://avd.aquasec.com/nvd/cve-2022-2509                    │
 │              ├────────────────┤          │                        ├─────────────────────────┼──────────────────────────────────────────────────────────────┤
 │              │ CVE-2023-0361  │          │                        │ 3.6.7-4+deb10u10        │ timing side-channel in the TLS RSA key exchange code         │
@@ -810,7 +835,7 @@ Total: 56 (HIGH: 36, CRITICAL: 20)
 │              │                │          │                        │                         │ no_renegotiation alert sent                                  │
 │              │                │          │                        │                         │ https://avd.aquasec.com/nvd/cve-2020-24659                   │
 │              ├────────────────┤          │                        ├─────────────────────────┼──────────────────────────────────────────────────────────────┤
-│              │ CVE-2022-2509  │          │                        │ 3.6.7-4+deb10u9         │ gnutls: Double free during gnutls_pkcs7_verify               │
+│              │ CVE-2022-2509  │          │                        │ 3.6.7-4+deb10u9         │ Double free during gnutls_pkcs7_verify                       │
 │              │                │          │                        │                         │ https://avd.aquasec.com/nvd/cve-2022-2509                    │
 │              ├────────────────┤          │                        ├─────────────────────────┼──────────────────────────────────────────────────────────────┤
 │              │ CVE-2023-0361  │          │                        │ 3.6.7-4+deb10u10        │ timing side-channel in the TLS RSA key exchange code         │
@@ -962,89 +987,25 @@ Total: 4 (HIGH: 3, CRITICAL: 1)
 │                                │                │          │                                                    │                                   │ https://avd.aquasec.com/nvd/cve-2022-32149                  │
 └────────────────────────────────┴────────────────┴──────────┴────────────────────────────────────────────────────┴───────────────────────────────────┴─────────────────────────────────────────────────────────────┘
 
-mcr.microsoft.com/oss/cilium/cilium:1.12.5.2 (ubuntu 20.04)
-===========================================================
+mcr.microsoft.com/oss/cilium/cilium:1.12.10 (ubuntu 20.04)
+==========================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
-usr/bin/cilium (gobinary)
-=========================
-Total: 2 (HIGH: 1, CRITICAL: 1)
-
-┌────────────────────────────────┬────────────────┬──────────┬──────────────────────────────────────┬─────────────────────┬──────────────────────────────────────────────────┐
-│            Library             │ Vulnerability  │ Severity │          Installed Version           │    Fixed Version    │                      Title                       │
-├────────────────────────────────┼────────────────┼──────────┼──────────────────────────────────────┼─────────────────────┼──────────────────────────────────────────────────┤
-│ github.com/emicklei/go-restful │ CVE-2022-1996  │ CRITICAL │ v2.9.5+incompatible                  │ 2.16.0+incompatible │ Authorization Bypass Through User-Controlled Key │
-│                                │                │          │                                      │                     │ https://avd.aquasec.com/nvd/cve-2022-1996        │
-├────────────────────────────────┼────────────────┼──────────┼──────────────────────────────────────┼─────────────────────┼──────────────────────────────────────────────────┤
-│ golang.org/x/net               │ CVE-2022-41723 │ HIGH     │ v0.3.1-0.20221206200815-1e63c2f08a10 │ 0.7.0               │ avoid quadratic complexity in HPACK decoding     │
-│                                │                │          │                                      │                     │ https://avd.aquasec.com/nvd/cve-2022-41723       │
-└────────────────────────────────┴────────────────┴──────────┴──────────────────────────────────────┴─────────────────────┴──────────────────────────────────────────────────┘
-
-usr/bin/cilium-agent (gobinary)
-===============================
-Total: 2 (HIGH: 1, CRITICAL: 1)
-
-┌────────────────────────────────┬────────────────┬──────────┬──────────────────────────────────────┬─────────────────────┬──────────────────────────────────────────────────┐
-│            Library             │ Vulnerability  │ Severity │          Installed Version           │    Fixed Version    │                      Title                       │
-├────────────────────────────────┼────────────────┼──────────┼──────────────────────────────────────┼─────────────────────┼──────────────────────────────────────────────────┤
-│ github.com/emicklei/go-restful │ CVE-2022-1996  │ CRITICAL │ v2.9.5+incompatible                  │ 2.16.0+incompatible │ Authorization Bypass Through User-Controlled Key │
-│                                │                │          │                                      │                     │ https://avd.aquasec.com/nvd/cve-2022-1996        │
-├────────────────────────────────┼────────────────┼──────────┼──────────────────────────────────────┼─────────────────────┼──────────────────────────────────────────────────┤
-│ golang.org/x/net               │ CVE-2022-41723 │ HIGH     │ v0.3.1-0.20221206200815-1e63c2f08a10 │ 0.7.0               │ avoid quadratic complexity in HPACK decoding     │
-│                                │                │          │                                      │                     │ https://avd.aquasec.com/nvd/cve-2022-41723       │
-└────────────────────────────────┴────────────────┴──────────┴──────────────────────────────────────┴─────────────────────┴──────────────────────────────────────────────────┘
-
-usr/bin/hubble (gobinary)
-=========================
-Total: 3 (HIGH: 3, CRITICAL: 0)
-
-┌───────────────────┬────────────────┬──────────┬────────────────────────────────────┬───────────────────────────────────┬─────────────────────────────────────────────────────────────┐
-│      Library      │ Vulnerability  │ Severity │         Installed Version          │           Fixed Version           │                            Title                            │
-├───────────────────┼────────────────┼──────────┼────────────────────────────────────┼───────────────────────────────────┼─────────────────────────────────────────────────────────────┤
-│ golang.org/x/net  │ CVE-2022-27664 │ HIGH     │ v0.0.0-20220520000938-2e3eb7b945c2 │ 0.0.0-20220906165146-f3363e06e74c │ handle server errors after sending GOAWAY                   │
-│                   │                │          │                                    │                                   │ https://avd.aquasec.com/nvd/cve-2022-27664                  │
-│                   ├────────────────┤          │                                    ├───────────────────────────────────┼─────────────────────────────────────────────────────────────┤
-│                   │ CVE-2022-41723 │          │                                    │ 0.7.0                             │ avoid quadratic complexity in HPACK decoding                │
-│                   │                │          │                                    │                                   │ https://avd.aquasec.com/nvd/cve-2022-41723                  │
-├───────────────────┼────────────────┤          ├────────────────────────────────────┼───────────────────────────────────┼─────────────────────────────────────────────────────────────┤
-│ golang.org/x/text │ CVE-2022-32149 │          │ v0.3.7                             │ 0.3.8                             │ ParseAcceptLanguage takes a long time to parse complex tags │
-│                   │                │          │                                    │                                   │ https://avd.aquasec.com/nvd/cve-2022-32149                  │
-└───────────────────┴────────────────┴──────────┴────────────────────────────────────┴───────────────────────────────────┴─────────────────────────────────────────────────────────────┘
-
-usr/lib/libcilium.so.1 (gobinary)
-=================================
-Total: 1 (HIGH: 1, CRITICAL: 0)
-
-┌──────────────────┬────────────────┬──────────┬──────────────────────────────────────┬───────────────┬──────────────────────────────────────────────┐
-│     Library      │ Vulnerability  │ Severity │          Installed Version           │ Fixed Version │                    Title                     │
-├──────────────────┼────────────────┼──────────┼──────────────────────────────────────┼───────────────┼──────────────────────────────────────────────┤
-│ golang.org/x/net │ CVE-2022-41723 │ HIGH     │ v0.3.1-0.20221206200815-1e63c2f08a10 │ 0.7.0         │ avoid quadratic complexity in HPACK decoding │
-│                  │                │          │                                      │               │ https://avd.aquasec.com/nvd/cve-2022-41723   │
-└──────────────────┴────────────────┴──────────┴──────────────────────────────────────┴───────────────┴──────────────────────────────────────────────┘
-
-usr/bin/cilium-operator-generic (gobinary)
-==========================================
-Total: 2 (HIGH: 1, CRITICAL: 1)
-
-┌────────────────────────────────┬────────────────┬──────────┬──────────────────────────────────────┬─────────────────────┬──────────────────────────────────────────────────┐
-│            Library             │ Vulnerability  │ Severity │          Installed Version           │    Fixed Version    │                      Title                       │
-├────────────────────────────────┼────────────────┼──────────┼──────────────────────────────────────┼─────────────────────┼──────────────────────────────────────────────────┤
-│ github.com/emicklei/go-restful │ CVE-2022-1996  │ CRITICAL │ v2.9.5+incompatible                  │ 2.16.0+incompatible │ Authorization Bypass Through User-Controlled Key │
-│                                │                │          │                                      │                     │ https://avd.aquasec.com/nvd/cve-2022-1996        │
-├────────────────────────────────┼────────────────┼──────────┼──────────────────────────────────────┼─────────────────────┼──────────────────────────────────────────────────┤
-│ golang.org/x/net               │ CVE-2022-41723 │ HIGH     │ v0.3.1-0.20221206200815-1e63c2f08a10 │ 0.7.0               │ avoid quadratic complexity in HPACK decoding     │
-│                                │                │          │                                      │                     │ https://avd.aquasec.com/nvd/cve-2022-41723       │
-└────────────────────────────────┴────────────────┴──────────┴──────────────────────────────────────┴─────────────────────┴──────────────────────────────────────────────────┘
-
 mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.4 (alpine 3.15.1)
 ==========================================================================
-Total: 2 (HIGH: 2, CRITICAL: 0)
+Total: 4 (HIGH: 4, CRITICAL: 0)
 
 ┌───────────────────────┬────────────────┬──────────┬───────────────────┬──────────────────┬─────────────────────────────────────────────────────────────┐
 │        Library        │ Vulnerability  │ Severity │ Installed Version │  Fixed Version   │                            Title                            │
 ├───────────────────────┼────────────────┼──────────┼───────────────────┼──────────────────┼─────────────────────────────────────────────────────────────┤
-│ ncurses-libs          │ CVE-2023-29491 │ HIGH     │ 6.3_p20211120-r1  │ 6.3_p20211120-r2 │ Local users can trigger security-relevant memory corruption │
+│ libcrypto1.1          │ CVE-2023-2650  │ HIGH     │ 1.1.1t-r3         │ 1.1.1u-r0        │ Possible DoS translating ASN.1 object identifiers           │
+│                       │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                   │
+├───────────────────────┤                │          │                   │                  │                                                             │
+│ libssl1.1             │                │          │                   │                  │                                                             │
+│                       │                │          │                   │                  │                                                             │
+├───────────────────────┼────────────────┤          ├───────────────────┼──────────────────┼─────────────────────────────────────────────────────────────┤
+│ ncurses-libs          │ CVE-2023-29491 │          │ 6.3_p20211120-r1  │ 6.3_p20211120-r2 │ Local users can trigger security-relevant memory corruption │
 │                       │                │          │                   │                  │ via malformed data                                          │
 │                       │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-29491                  │
 ├───────────────────────┤                │          │                   │                  │                                                             │
@@ -1053,14 +1014,34 @@ Total: 2 (HIGH: 2, CRITICAL: 0)
 │                       │                │          │                   │                  │                                                             │
 └───────────────────────┴────────────────┴──────────┴───────────────────┴──────────────────┴─────────────────────────────────────────────────────────────┘
 
+mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.4.1 (alpine 3.15.1)
+============================================================================
+Total: 2 (HIGH: 2, CRITICAL: 0)
+
+┌──────────────┬───────────────┬──────────┬───────────────────┬───────────────┬───────────────────────────────────────────────────┐
+│   Library    │ Vulnerability │ Severity │ Installed Version │ Fixed Version │                       Title                       │
+├──────────────┼───────────────┼──────────┼───────────────────┼───────────────┼───────────────────────────────────────────────────┤
+│ libcrypto1.1 │ CVE-2023-2650 │ HIGH     │ 1.1.1t-r3         │ 1.1.1u-r0     │ Possible DoS translating ASN.1 object identifiers │
+│              │               │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-2650         │
+├──────────────┤               │          │                   │               │                                                   │
+│ libssl1.1    │               │          │                   │               │                                                   │
+│              │               │          │                   │               │                                                   │
+└──────────────┴───────────────┴──────────┴───────────────────┴───────────────┴───────────────────────────────────────────────────┘
+
 mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.1 (alpine 3.15.1)
 ==========================================================================
-Total: 2 (HIGH: 2, CRITICAL: 0)
+Total: 4 (HIGH: 4, CRITICAL: 0)
 
 ┌───────────────────────┬────────────────┬──────────┬───────────────────┬──────────────────┬─────────────────────────────────────────────────────────────┐
 │        Library        │ Vulnerability  │ Severity │ Installed Version │  Fixed Version   │                            Title                            │
 ├───────────────────────┼────────────────┼──────────┼───────────────────┼──────────────────┼─────────────────────────────────────────────────────────────┤
-│ ncurses-libs          │ CVE-2023-29491 │ HIGH     │ 6.3_p20211120-r1  │ 6.3_p20211120-r2 │ Local users can trigger security-relevant memory corruption │
+│ libcrypto1.1          │ CVE-2023-2650  │ HIGH     │ 1.1.1t-r3         │ 1.1.1u-r0        │ Possible DoS translating ASN.1 object identifiers           │
+│                       │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                   │
+├───────────────────────┤                │          │                   │                  │                                                             │
+│ libssl1.1             │                │          │                   │                  │                                                             │
+│                       │                │          │                   │                  │                                                             │
+├───────────────────────┼────────────────┤          ├───────────────────┼──────────────────┼─────────────────────────────────────────────────────────────┤
+│ ncurses-libs          │ CVE-2023-29491 │          │ 6.3_p20211120-r1  │ 6.3_p20211120-r2 │ Local users can trigger security-relevant memory corruption │
 │                       │                │          │                   │                  │ via malformed data                                          │
 │                       │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-29491                  │
 ├───────────────────────┤                │          │                   │                  │                                                             │
@@ -1071,7 +1052,7 @@ Total: 2 (HIGH: 2, CRITICAL: 0)
 
 mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.2 (debian 11.7)
 ========================================================================
-Total: 2 (HIGH: 2, CRITICAL: 0)
+Total: 4 (HIGH: 4, CRITICAL: 0)
 
 ┌───────────┬───────────────┬──────────┬───────────────────┬──────────────────┬────────────────────────────────────────────────────────────┐
 │  Library  │ Vulnerability │ Severity │ Installed Version │  Fixed Version   │                           Title                            │
@@ -1079,20 +1060,32 @@ Total: 2 (HIGH: 2, CRITICAL: 0)
 │ libssl1.1 │ CVE-2023-0464 │ HIGH     │ 1.1.1n-0+deb11u4  │ 1.1.1n-0+deb11u5 │ Denial of service by excessive resource usage in verifying │
 │           │               │          │                   │                  │ X509 policy constraints...                                 │
 │           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
-├───────────┤               │          │                   │                  │                                                            │
-│ openssl   │               │          │                   │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+├───────────┼───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│ openssl   │ CVE-2023-0464 │          │                   │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
 └───────────┴───────────────┴──────────┴───────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
 
 mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.3 (alpine 3.15.1)
 ==========================================================================
-Total: 2 (HIGH: 2, CRITICAL: 0)
+Total: 4 (HIGH: 4, CRITICAL: 0)
 
 ┌───────────────────────┬────────────────┬──────────┬───────────────────┬──────────────────┬─────────────────────────────────────────────────────────────┐
 │        Library        │ Vulnerability  │ Severity │ Installed Version │  Fixed Version   │                            Title                            │
 ├───────────────────────┼────────────────┼──────────┼───────────────────┼──────────────────┼─────────────────────────────────────────────────────────────┤
-│ ncurses-libs          │ CVE-2023-29491 │ HIGH     │ 6.3_p20211120-r1  │ 6.3_p20211120-r2 │ Local users can trigger security-relevant memory corruption │
+│ libcrypto1.1          │ CVE-2023-2650  │ HIGH     │ 1.1.1t-r3         │ 1.1.1u-r0        │ Possible DoS translating ASN.1 object identifiers           │
+│                       │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                   │
+├───────────────────────┤                │          │                   │                  │                                                             │
+│ libssl1.1             │                │          │                   │                  │                                                             │
+│                       │                │          │                   │                  │                                                             │
+├───────────────────────┼────────────────┤          ├───────────────────┼──────────────────┼─────────────────────────────────────────────────────────────┤
+│ ncurses-libs          │ CVE-2023-29491 │          │ 6.3_p20211120-r1  │ 6.3_p20211120-r2 │ Local users can trigger security-relevant memory corruption │
 │                       │                │          │                   │                  │ via malformed data                                          │
 │                       │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-29491                  │
 ├───────────────────────┤                │          │                   │                  │                                                             │
@@ -1100,6 +1093,20 @@ Total: 2 (HIGH: 2, CRITICAL: 0)
 │                       │                │          │                   │                  │                                                             │
 │                       │                │          │                   │                  │                                                             │
 └───────────────────────┴────────────────┴──────────┴───────────────────┴──────────────────┴─────────────────────────────────────────────────────────────┘
+
+mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.3.1 (alpine 3.15.1)
+============================================================================
+Total: 2 (HIGH: 2, CRITICAL: 0)
+
+┌──────────────┬───────────────┬──────────┬───────────────────┬───────────────┬───────────────────────────────────────────────────┐
+│   Library    │ Vulnerability │ Severity │ Installed Version │ Fixed Version │                       Title                       │
+├──────────────┼───────────────┼──────────┼───────────────────┼───────────────┼───────────────────────────────────────────────────┤
+│ libcrypto1.1 │ CVE-2023-2650 │ HIGH     │ 1.1.1t-r3         │ 1.1.1u-r0     │ Possible DoS translating ASN.1 object identifiers │
+│              │               │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-2650         │
+├──────────────┤               │          │                   │               │                                                   │
+│ libssl1.1    │               │          │                   │               │                                                   │
+│              │               │          │                   │               │                                                   │
+└──────────────┴───────────────┴──────────┴───────────────────┴───────────────┴───────────────────────────────────────────────────┘
 
 mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0 (debian 11.6)
 ===================================================================================
@@ -1113,7 +1120,7 @@ Total: 0 (HIGH: 0, CRITICAL: 0)
 
 mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.3.1 (debian 11.6)
 ================================================================================
-Total: 2 (HIGH: 2, CRITICAL: 0)
+Total: 4 (HIGH: 4, CRITICAL: 0)
 
 ┌───────────┬───────────────┬──────────┬───────────────────┬──────────────────┬────────────────────────────────────────────────────────────┐
 │  Library  │ Vulnerability │ Severity │ Installed Version │  Fixed Version   │                           Title                            │
@@ -1121,10 +1128,16 @@ Total: 2 (HIGH: 2, CRITICAL: 0)
 │ libssl1.1 │ CVE-2023-0464 │ HIGH     │ 1.1.1n-0+deb11u4  │ 1.1.1n-0+deb11u5 │ Denial of service by excessive resource usage in verifying │
 │           │               │          │                   │                  │ X509 policy constraints...                                 │
 │           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
-├───────────┤               │          │                   │                  │                                                            │
-│ openssl   │               │          │                   │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+├───────────┼───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│ openssl   │ CVE-2023-0464 │          │                   │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
 └───────────┴───────────────┴──────────┴───────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
 
 proxy-agent (gobinary)
@@ -1425,7 +1438,7 @@ Total: 8 (HIGH: 8, CRITICAL: 0)
 
 mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:v1.2.1 (alpine 3.14.6)
 ========================================================================================
-Total: 36 (HIGH: 31, CRITICAL: 5)
+Total: 34 (HIGH: 29, CRITICAL: 5)
 
 ┌───────────────────────┬────────────────┬──────────┬───────────────────┬──────────────────┬────────────────────────────────────────────────────────────┐
 │        Library        │ Vulnerability  │ Severity │ Installed Version │  Fixed Version   │                           Title                            │
@@ -1442,7 +1455,7 @@ Total: 36 (HIGH: 31, CRITICAL: 5)
 │                       │ CVE-2022-27782 │          │                   │                  │ TLS and SSH connection too eager reuse                     │
 │                       │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2022-27782                 │
 │                       ├────────────────┤          │                   ├──────────────────┼────────────────────────────────────────────────────────────┤
-│                       │ CVE-2022-43551 │          │                   │ 7.79.1-r4        │ curl: HSTS bypass via IDN                                  │
+│                       │ CVE-2022-43551 │          │                   │ 7.79.1-r4        │ HSTS bypass via IDN                                        │
 │                       │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2022-43551                 │
 │                       ├────────────────┤          │                   ├──────────────────┼────────────────────────────────────────────────────────────┤
 │                       │ CVE-2023-27533 │          │                   │ 8.0.1-r0         │ TELNET option IAC injection                                │
@@ -1453,9 +1466,6 @@ Total: 36 (HIGH: 31, CRITICAL: 5)
 │                       ├────────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
 │                       │ CVE-2023-27535 │          │                   │                  │ FTP too eager connection reuse                             │
 │                       │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-27535                 │
-│                       ├────────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
-│                       │ CVE-2023-27536 │          │                   │                  │ GSS delegation too eager connection re-use                 │
-│                       │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-27536                 │
 ├───────────────────────┼────────────────┤          ├───────────────────┼──────────────────┼────────────────────────────────────────────────────────────┤
 │ libcrypto1.1          │ CVE-2022-4450  │          │ 1.1.1o-r0         │ 1.1.1t-r0        │ double free after calling PEM_read_bio_ex                  │
 │                       │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2022-4450                  │
@@ -1482,7 +1492,7 @@ Total: 36 (HIGH: 31, CRITICAL: 5)
 │                       │ CVE-2022-27782 │          │                   │                  │ TLS and SSH connection too eager reuse                     │
 │                       │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2022-27782                 │
 │                       ├────────────────┤          │                   ├──────────────────┼────────────────────────────────────────────────────────────┤
-│                       │ CVE-2022-43551 │          │                   │ 7.79.1-r4        │ curl: HSTS bypass via IDN                                  │
+│                       │ CVE-2022-43551 │          │                   │ 7.79.1-r4        │ HSTS bypass via IDN                                        │
 │                       │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2022-43551                 │
 │                       ├────────────────┤          │                   ├──────────────────┼────────────────────────────────────────────────────────────┤
 │                       │ CVE-2023-27533 │          │                   │ 8.0.1-r0         │ TELNET option IAC injection                                │
@@ -1493,9 +1503,6 @@ Total: 36 (HIGH: 31, CRITICAL: 5)
 │                       ├────────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
 │                       │ CVE-2023-27535 │          │                   │                  │ FTP too eager connection reuse                             │
 │                       │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-27535                 │
-│                       ├────────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
-│                       │ CVE-2023-27536 │          │                   │                  │ GSS delegation too eager connection re-use                 │
-│                       │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-27536                 │
 ├───────────────────────┼────────────────┤          ├───────────────────┼──────────────────┼────────────────────────────────────────────────────────────┤
 │ libssl1.1             │ CVE-2022-4450  │          │ 1.1.1o-r0         │ 1.1.1t-r0        │ double free after calling PEM_read_bio_ex                  │
 │                       │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2022-4450                  │
@@ -1576,7 +1583,7 @@ Total: 0 (HIGH: 0, CRITICAL: 0)
 
 mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.10-hotfix.20230509.1 (debian 11.3)
 ====================================================================================
-Total: 1 (HIGH: 1, CRITICAL: 0)
+Total: 2 (HIGH: 2, CRITICAL: 0)
 
 ┌───────────┬───────────────┬──────────┬───────────────────┬──────────────────┬────────────────────────────────────────────────────────────┐
 │  Library  │ Vulnerability │ Severity │ Installed Version │  Fixed Version   │                           Title                            │
@@ -1584,11 +1591,14 @@ Total: 1 (HIGH: 1, CRITICAL: 0)
 │ libssl1.1 │ CVE-2023-0464 │ HIGH     │ 1.1.1n-0+deb11u4  │ 1.1.1n-0+deb11u5 │ Denial of service by excessive resource usage in verifying │
 │           │               │          │                   │                  │ X509 policy constraints...                                 │
 │           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
 └───────────┴───────────────┴──────────┴───────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
 
 mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.9-hotfix.20230509.1 (debian 11.3)
 ===================================================================================
-Total: 1 (HIGH: 1, CRITICAL: 0)
+Total: 2 (HIGH: 2, CRITICAL: 0)
 
 ┌───────────┬───────────────┬──────────┬───────────────────┬──────────────────┬────────────────────────────────────────────────────────────┐
 │  Library  │ Vulnerability │ Severity │ Installed Version │  Fixed Version   │                           Title                            │
@@ -1596,11 +1606,14 @@ Total: 1 (HIGH: 1, CRITICAL: 0)
 │ libssl1.1 │ CVE-2023-0464 │ HIGH     │ 1.1.1n-0+deb11u4  │ 1.1.1n-0+deb11u5 │ Denial of service by excessive resource usage in verifying │
 │           │               │          │                   │                  │ X509 policy constraints...                                 │
 │           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
 └───────────┴───────────────┴──────────┴───────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
 
 mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.25.5-hotfix.20230509.1 (debian 11.4)
 ===================================================================================
-Total: 6 (HIGH: 6, CRITICAL: 0)
+Total: 9 (HIGH: 9, CRITICAL: 0)
 
 ┌───────────┬───────────────┬──────────┬───────────────────┬──────────────────┬────────────────────────────────────────────────────────────┐
 │  Library  │ Vulnerability │ Severity │ Installed Version │  Fixed Version   │                           Title                            │
@@ -1617,14 +1630,78 @@ Total: 6 (HIGH: 6, CRITICAL: 0)
 │           │ CVE-2023-0464 │          │                   │ 1.1.1n-0+deb11u5 │ Denial of service by excessive resource usage in verifying │
 │           │               │          │                   │                  │ X509 policy constraints...                                 │
 │           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
-│           │               │          ├───────────────────┤                  │                                                            │
-│           │               │          │ 1.1.1n-0+deb11u4  │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
-├───────────┤               │          │                   │                  │                                                            │
-│ openssl   │               │          │                   │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+│           ├───────────────┤          ├───────────────────┤                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0464 │          │ 1.1.1n-0+deb11u4  │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+├───────────┼───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│ openssl   │ CVE-2023-0464 │          │                   │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+└───────────┴───────────────┴──────────┴───────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
+
+usr/local/bin/kube-proxy (gobinary)
+===================================
+Total: 3 (HIGH: 3, CRITICAL: 0)
+
+┌────────────────────────────────┬────────────────┬──────────┬──────────────────────────────────────┬───────────────┬────────────────────────────────────────────────────────────┐
+│            Library             │ Vulnerability  │ Severity │          Installed Version           │ Fixed Version │                           Title                            │
+├────────────────────────────────┼────────────────┼──────────┼──────────────────────────────────────┼───────────────┼────────────────────────────────────────────────────────────┤
+│ github.com/docker/distribution │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible                  │ 2.8.2-beta.1  │ DoS from malicious API request                             │
+│                                │                │          │                                      │               │ https://avd.aquasec.com/nvd/cve-2023-2253                  │
+├────────────────────────────────┼────────────────┤          ├──────────────────────────────────────┼───────────────┼────────────────────────────────────────────────────────────┤
+│ github.com/opencontainers/runc │ CVE-2023-27561 │          │ v1.1.3                               │ 1.1.5         │ volume mount race condition (regression of CVE-2019-19921) │
+│                                │                │          │                                      │               │ https://avd.aquasec.com/nvd/cve-2023-27561                 │
+├────────────────────────────────┼────────────────┤          ├──────────────────────────────────────┼───────────────┼────────────────────────────────────────────────────────────┤
+│ golang.org/x/net               │ CVE-2022-41723 │          │ v0.3.1-0.20221206200815-1e63c2f08a10 │ 0.7.0         │ avoid quadratic complexity in HPACK decoding               │
+│                                │                │          │                                      │               │ https://avd.aquasec.com/nvd/cve-2022-41723                 │
+└────────────────────────────────┴────────────────┴──────────┴──────────────────────────────────────┴───────────────┴────────────────────────────────────────────────────────────┘
+
+mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.25.5-hotfix.20230509.2 (debian 11.4)
+===================================================================================
+Total: 9 (HIGH: 9, CRITICAL: 0)
+
+┌───────────┬───────────────┬──────────┬───────────────────┬──────────────────┬────────────────────────────────────────────────────────────┐
+│  Library  │ Vulnerability │ Severity │ Installed Version │  Fixed Version   │                           Title                            │
+├───────────┼───────────────┼──────────┼───────────────────┼──────────────────┼────────────────────────────────────────────────────────────┤
+│ libssl1.1 │ CVE-2022-4450 │ HIGH     │ 1.1.1n-0+deb11u3  │ 1.1.1n-0+deb11u4 │ double free after calling PEM_read_bio_ex                  │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2022-4450                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0215 │          │                   │                  │ use-after-free following BIO_new_NDEF                      │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0215                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0286 │          │                   │                  │ X.400 address type confusion in X.509 GeneralName          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0286                  │
+│           ├───────────────┤          │                   ├──────────────────┼────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0464 │          │                   │ 1.1.1n-0+deb11u5 │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+│           ├───────────────┤          ├───────────────────┤                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0464 │          │ 1.1.1n-0+deb11u4  │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+├───────────┼───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│ openssl   │ CVE-2023-0464 │          │                   │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
 └───────────┴───────────────┴──────────┴───────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
 
 usr/local/bin/kube-proxy (gobinary)
@@ -1646,7 +1723,7 @@ Total: 3 (HIGH: 3, CRITICAL: 0)
 
 mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.25.6-hotfix.20230509.1 (debian 11.4)
 ===================================================================================
-Total: 6 (HIGH: 6, CRITICAL: 0)
+Total: 9 (HIGH: 9, CRITICAL: 0)
 
 ┌───────────┬───────────────┬──────────┬───────────────────┬──────────────────┬────────────────────────────────────────────────────────────┐
 │  Library  │ Vulnerability │ Severity │ Installed Version │  Fixed Version   │                           Title                            │
@@ -1663,14 +1740,78 @@ Total: 6 (HIGH: 6, CRITICAL: 0)
 │           │ CVE-2023-0464 │          │                   │ 1.1.1n-0+deb11u5 │ Denial of service by excessive resource usage in verifying │
 │           │               │          │                   │                  │ X509 policy constraints...                                 │
 │           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
-│           │               │          ├───────────────────┤                  │                                                            │
-│           │               │          │ 1.1.1n-0+deb11u4  │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
-├───────────┤               │          │                   │                  │                                                            │
-│ openssl   │               │          │                   │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+│           ├───────────────┤          ├───────────────────┤                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0464 │          │ 1.1.1n-0+deb11u4  │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+├───────────┼───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│ openssl   │ CVE-2023-0464 │          │                   │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+└───────────┴───────────────┴──────────┴───────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
+
+usr/local/bin/kube-proxy (gobinary)
+===================================
+Total: 3 (HIGH: 3, CRITICAL: 0)
+
+┌────────────────────────────────┬────────────────┬──────────┬──────────────────────────────────────┬───────────────┬────────────────────────────────────────────────────────────┐
+│            Library             │ Vulnerability  │ Severity │          Installed Version           │ Fixed Version │                           Title                            │
+├────────────────────────────────┼────────────────┼──────────┼──────────────────────────────────────┼───────────────┼────────────────────────────────────────────────────────────┤
+│ github.com/docker/distribution │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible                  │ 2.8.2-beta.1  │ DoS from malicious API request                             │
+│                                │                │          │                                      │               │ https://avd.aquasec.com/nvd/cve-2023-2253                  │
+├────────────────────────────────┼────────────────┤          ├──────────────────────────────────────┼───────────────┼────────────────────────────────────────────────────────────┤
+│ github.com/opencontainers/runc │ CVE-2023-27561 │          │ v1.1.3                               │ 1.1.5         │ volume mount race condition (regression of CVE-2019-19921) │
+│                                │                │          │                                      │               │ https://avd.aquasec.com/nvd/cve-2023-27561                 │
+├────────────────────────────────┼────────────────┤          ├──────────────────────────────────────┼───────────────┼────────────────────────────────────────────────────────────┤
+│ golang.org/x/net               │ CVE-2022-41723 │          │ v0.3.1-0.20221206200815-1e63c2f08a10 │ 0.7.0         │ avoid quadratic complexity in HPACK decoding               │
+│                                │                │          │                                      │               │ https://avd.aquasec.com/nvd/cve-2022-41723                 │
+└────────────────────────────────┴────────────────┴──────────┴──────────────────────────────────────┴───────────────┴────────────────────────────────────────────────────────────┘
+
+mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.25.6-hotfix.20230509.2 (debian 11.4)
+===================================================================================
+Total: 9 (HIGH: 9, CRITICAL: 0)
+
+┌───────────┬───────────────┬──────────┬───────────────────┬──────────────────┬────────────────────────────────────────────────────────────┐
+│  Library  │ Vulnerability │ Severity │ Installed Version │  Fixed Version   │                           Title                            │
+├───────────┼───────────────┼──────────┼───────────────────┼──────────────────┼────────────────────────────────────────────────────────────┤
+│ libssl1.1 │ CVE-2022-4450 │ HIGH     │ 1.1.1n-0+deb11u3  │ 1.1.1n-0+deb11u4 │ double free after calling PEM_read_bio_ex                  │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2022-4450                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0215 │          │                   │                  │ use-after-free following BIO_new_NDEF                      │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0215                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0286 │          │                   │                  │ X.400 address type confusion in X.509 GeneralName          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0286                  │
+│           ├───────────────┤          │                   ├──────────────────┼────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0464 │          │                   │ 1.1.1n-0+deb11u5 │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+│           ├───────────────┤          ├───────────────────┤                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0464 │          │ 1.1.1n-0+deb11u4  │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+├───────────┼───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│ openssl   │ CVE-2023-0464 │          │                   │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
 └───────────┴───────────────┴──────────┴───────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
 
 usr/local/bin/kube-proxy (gobinary)
@@ -1692,7 +1833,7 @@ Total: 3 (HIGH: 3, CRITICAL: 0)
 
 mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.0-hotfix.20230509.1 (debian 11.5)
 ===================================================================================
-Total: 6 (HIGH: 6, CRITICAL: 0)
+Total: 9 (HIGH: 9, CRITICAL: 0)
 
 ┌───────────┬───────────────┬──────────┬───────────────────┬──────────────────┬────────────────────────────────────────────────────────────┐
 │  Library  │ Vulnerability │ Severity │ Installed Version │  Fixed Version   │                           Title                            │
@@ -1709,14 +1850,78 @@ Total: 6 (HIGH: 6, CRITICAL: 0)
 │           │ CVE-2023-0464 │          │                   │ 1.1.1n-0+deb11u5 │ Denial of service by excessive resource usage in verifying │
 │           │               │          │                   │                  │ X509 policy constraints...                                 │
 │           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
-│           │               │          ├───────────────────┤                  │                                                            │
-│           │               │          │ 1.1.1n-0+deb11u4  │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
-├───────────┤               │          │                   │                  │                                                            │
-│ openssl   │               │          │                   │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+│           ├───────────────┤          ├───────────────────┤                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0464 │          │ 1.1.1n-0+deb11u4  │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+├───────────┼───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│ openssl   │ CVE-2023-0464 │          │                   │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+└───────────┴───────────────┴──────────┴───────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
+
+usr/local/bin/kube-proxy (gobinary)
+===================================
+Total: 3 (HIGH: 3, CRITICAL: 0)
+
+┌────────────────────────────────┬────────────────┬──────────┬──────────────────────────────────────┬───────────────┬────────────────────────────────────────────────────────────┐
+│            Library             │ Vulnerability  │ Severity │          Installed Version           │ Fixed Version │                           Title                            │
+├────────────────────────────────┼────────────────┼──────────┼──────────────────────────────────────┼───────────────┼────────────────────────────────────────────────────────────┤
+│ github.com/docker/distribution │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible                  │ 2.8.2-beta.1  │ DoS from malicious API request                             │
+│                                │                │          │                                      │               │ https://avd.aquasec.com/nvd/cve-2023-2253                  │
+├────────────────────────────────┼────────────────┤          ├──────────────────────────────────────┼───────────────┼────────────────────────────────────────────────────────────┤
+│ github.com/opencontainers/runc │ CVE-2023-27561 │          │ v1.1.4                               │ 1.1.5         │ volume mount race condition (regression of CVE-2019-19921) │
+│                                │                │          │                                      │               │ https://avd.aquasec.com/nvd/cve-2023-27561                 │
+├────────────────────────────────┼────────────────┤          ├──────────────────────────────────────┼───────────────┼────────────────────────────────────────────────────────────┤
+│ golang.org/x/net               │ CVE-2022-41723 │          │ v0.3.1-0.20221206200815-1e63c2f08a10 │ 0.7.0         │ avoid quadratic complexity in HPACK decoding               │
+│                                │                │          │                                      │               │ https://avd.aquasec.com/nvd/cve-2022-41723                 │
+└────────────────────────────────┴────────────────┴──────────┴──────────────────────────────────────┴───────────────┴────────────────────────────────────────────────────────────┘
+
+mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.0-hotfix.20230509.2 (debian 11.5)
+===================================================================================
+Total: 9 (HIGH: 9, CRITICAL: 0)
+
+┌───────────┬───────────────┬──────────┬───────────────────┬──────────────────┬────────────────────────────────────────────────────────────┐
+│  Library  │ Vulnerability │ Severity │ Installed Version │  Fixed Version   │                           Title                            │
+├───────────┼───────────────┼──────────┼───────────────────┼──────────────────┼────────────────────────────────────────────────────────────┤
+│ libssl1.1 │ CVE-2022-4450 │ HIGH     │ 1.1.1n-0+deb11u3  │ 1.1.1n-0+deb11u4 │ double free after calling PEM_read_bio_ex                  │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2022-4450                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0215 │          │                   │                  │ use-after-free following BIO_new_NDEF                      │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0215                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0286 │          │                   │                  │ X.400 address type confusion in X.509 GeneralName          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0286                  │
+│           ├───────────────┤          │                   ├──────────────────┼────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0464 │          │                   │ 1.1.1n-0+deb11u5 │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+│           ├───────────────┤          ├───────────────────┤                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0464 │          │ 1.1.1n-0+deb11u4  │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+├───────────┼───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│ openssl   │ CVE-2023-0464 │          │                   │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
 └───────────┴───────────────┴──────────┴───────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
 
 usr/local/bin/kube-proxy (gobinary)
@@ -1738,7 +1943,7 @@ Total: 3 (HIGH: 3, CRITICAL: 0)
 
 mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.3-hotfix.20230509.1 (debian 11.5)
 ===================================================================================
-Total: 6 (HIGH: 6, CRITICAL: 0)
+Total: 9 (HIGH: 9, CRITICAL: 0)
 
 ┌───────────┬───────────────┬──────────┬───────────────────┬──────────────────┬────────────────────────────────────────────────────────────┐
 │  Library  │ Vulnerability │ Severity │ Installed Version │  Fixed Version   │                           Title                            │
@@ -1755,14 +1960,75 @@ Total: 6 (HIGH: 6, CRITICAL: 0)
 │           │ CVE-2023-0464 │          │                   │ 1.1.1n-0+deb11u5 │ Denial of service by excessive resource usage in verifying │
 │           │               │          │                   │                  │ X509 policy constraints...                                 │
 │           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
-│           │               │          ├───────────────────┤                  │                                                            │
-│           │               │          │ 1.1.1n-0+deb11u4  │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
-├───────────┤               │          │                   │                  │                                                            │
-│ openssl   │               │          │                   │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+│           ├───────────────┤          ├───────────────────┤                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0464 │          │ 1.1.1n-0+deb11u4  │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+├───────────┼───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│ openssl   │ CVE-2023-0464 │          │                   │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+└───────────┴───────────────┴──────────┴───────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
+
+usr/local/bin/kube-proxy (gobinary)
+===================================
+Total: 2 (HIGH: 2, CRITICAL: 0)
+
+┌────────────────────────────────┬────────────────┬──────────┬─────────────────────┬───────────────┬────────────────────────────────────────────────────────────┐
+│            Library             │ Vulnerability  │ Severity │  Installed Version  │ Fixed Version │                           Title                            │
+├────────────────────────────────┼────────────────┼──────────┼─────────────────────┼───────────────┼────────────────────────────────────────────────────────────┤
+│ github.com/docker/distribution │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible │ 2.8.2-beta.1  │ DoS from malicious API request                             │
+│                                │                │          │                     │               │ https://avd.aquasec.com/nvd/cve-2023-2253                  │
+├────────────────────────────────┼────────────────┤          ├─────────────────────┼───────────────┼────────────────────────────────────────────────────────────┤
+│ github.com/opencontainers/runc │ CVE-2023-27561 │          │ v1.1.4              │ 1.1.5         │ volume mount race condition (regression of CVE-2019-19921) │
+│                                │                │          │                     │               │ https://avd.aquasec.com/nvd/cve-2023-27561                 │
+└────────────────────────────────┴────────────────┴──────────┴─────────────────────┴───────────────┴────────────────────────────────────────────────────────────┘
+
+mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.3-hotfix.20230509.2 (debian 11.5)
+===================================================================================
+Total: 9 (HIGH: 9, CRITICAL: 0)
+
+┌───────────┬───────────────┬──────────┬───────────────────┬──────────────────┬────────────────────────────────────────────────────────────┐
+│  Library  │ Vulnerability │ Severity │ Installed Version │  Fixed Version   │                           Title                            │
+├───────────┼───────────────┼──────────┼───────────────────┼──────────────────┼────────────────────────────────────────────────────────────┤
+│ libssl1.1 │ CVE-2022-4450 │ HIGH     │ 1.1.1n-0+deb11u3  │ 1.1.1n-0+deb11u4 │ double free after calling PEM_read_bio_ex                  │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2022-4450                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0215 │          │                   │                  │ use-after-free following BIO_new_NDEF                      │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0215                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0286 │          │                   │                  │ X.400 address type confusion in X.509 GeneralName          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0286                  │
+│           ├───────────────┤          │                   ├──────────────────┼────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0464 │          │                   │ 1.1.1n-0+deb11u5 │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+│           ├───────────────┤          ├───────────────────┤                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-0464 │          │ 1.1.1n-0+deb11u4  │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+├───────────┼───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│ openssl   │ CVE-2023-0464 │          │                   │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
 └───────────┴───────────────┴──────────┴───────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
 
 usr/local/bin/kube-proxy (gobinary)
@@ -1781,7 +2047,7 @@ Total: 2 (HIGH: 2, CRITICAL: 0)
 
 mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.1 (debian 11.6)
 =================================================================
-Total: 2 (HIGH: 2, CRITICAL: 0)
+Total: 4 (HIGH: 4, CRITICAL: 0)
 
 ┌───────────┬───────────────┬──────────┬───────────────────┬──────────────────┬────────────────────────────────────────────────────────────┐
 │  Library  │ Vulnerability │ Severity │ Installed Version │  Fixed Version   │                           Title                            │
@@ -1789,10 +2055,16 @@ Total: 2 (HIGH: 2, CRITICAL: 0)
 │ libssl1.1 │ CVE-2023-0464 │ HIGH     │ 1.1.1n-0+deb11u4  │ 1.1.1n-0+deb11u5 │ Denial of service by excessive resource usage in verifying │
 │           │               │          │                   │                  │ X509 policy constraints...                                 │
 │           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
-├───────────┤               │          │                   │                  │                                                            │
-│ openssl   │               │          │                   │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
-│           │               │          │                   │                  │                                                            │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
+├───────────┼───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│ openssl   │ CVE-2023-0464 │          │                   │                  │ Denial of service by excessive resource usage in verifying │
+│           │               │          │                   │                  │ X509 policy constraints...                                 │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-0464                  │
+│           ├───────────────┤          │                   │                  ├────────────────────────────────────────────────────────────┤
+│           │ CVE-2023-2650 │          │                   │                  │ Possible DoS translating ASN.1 object identifiers          │
+│           │               │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2650                  │
 └───────────┴───────────────┴──────────┴───────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
 
 usr/local/bin/kube-proxy (gobinary)
@@ -1841,7 +2113,7 @@ Total: 0 (HIGH: 0, CRITICAL: 0)
 
 mcr.microsoft.com/oss/nginx/nginx:1.21.6 (debian 11.2)
 ======================================================
-Total: 89 (HIGH: 59, CRITICAL: 30)
+Total: 91 (HIGH: 61, CRITICAL: 30)
 
 ┌─────────────────────┬────────────────┬──────────┬────────────────────┬─────────────────────────┬──────────────────────────────────────────────────────────────┐
 │       Library       │ Vulnerability  │ Severity │ Installed Version  │      Fixed Version      │                            Title                             │
@@ -1994,7 +2266,7 @@ Total: 89 (HIGH: 59, CRITICAL: 30)
 │                     │ CVE-2022-27406 │          │                    │                         │ Freetype: Segmentation violation via FT_Request_Size         │
 │                     │                │          │                    │                         │ https://avd.aquasec.com/nvd/cve-2022-27406                   │
 ├─────────────────────┼────────────────┤          ├────────────────────┼─────────────────────────┼──────────────────────────────────────────────────────────────┤
-│ libgnutls30         │ CVE-2022-2509  │          │ 3.7.1-5            │ 3.7.1-5+deb11u2         │ gnutls: Double free during gnutls_pkcs7_verify               │
+│ libgnutls30         │ CVE-2022-2509  │          │ 3.7.1-5            │ 3.7.1-5+deb11u2         │ Double free during gnutls_pkcs7_verify                       │
 │                     │                │          │                    │                         │ https://avd.aquasec.com/nvd/cve-2022-2509                    │
 │                     ├────────────────┤          │                    ├─────────────────────────┼──────────────────────────────────────────────────────────────┤
 │                     │ CVE-2023-0361  │          │                    │ 3.7.1-5+deb11u3         │ timing side-channel in the TLS RSA key exchange code         │
@@ -2056,6 +2328,9 @@ Total: 89 (HIGH: 59, CRITICAL: 30)
 │                     │ CVE-2023-0464  │          │                    │ 1.1.1n-0+deb11u5        │ Denial of service by excessive resource usage in verifying   │
 │                     │                │          │                    │                         │ X509 policy constraints...                                   │
 │                     │                │          │                    │                         │ https://avd.aquasec.com/nvd/cve-2023-0464                    │
+│                     ├────────────────┤          │                    │                         ├──────────────────────────────────────────────────────────────┤
+│                     │ CVE-2023-2650  │          │                    │                         │ Possible DoS translating ASN.1 object identifiers            │
+│                     │                │          │                    │                         │ https://avd.aquasec.com/nvd/cve-2023-2650                    │
 ├─────────────────────┼────────────────┼──────────┼────────────────────┼─────────────────────────┼──────────────────────────────────────────────────────────────┤
 │ libtasn1-6          │ CVE-2021-46848 │ CRITICAL │ 4.16.0-2           │ 4.16.0-2+deb11u1        │ libtasn1: Out-of-bound access in ETYPE_OK                    │
 │                     │                │          │                    │                         │ https://avd.aquasec.com/nvd/cve-2021-46848                   │
@@ -2128,6 +2403,9 @@ Total: 89 (HIGH: 59, CRITICAL: 30)
 │                     │ CVE-2023-0464  │          │                    │ 1.1.1n-0+deb11u5        │ Denial of service by excessive resource usage in verifying   │
 │                     │                │          │                    │                         │ X509 policy constraints...                                   │
 │                     │                │          │                    │                         │ https://avd.aquasec.com/nvd/cve-2023-0464                    │
+│                     ├────────────────┤          │                    │                         ├──────────────────────────────────────────────────────────────┤
+│                     │ CVE-2023-2650  │          │                    │                         │ Possible DoS translating ASN.1 object identifiers            │
+│                     │                │          │                    │                         │ https://avd.aquasec.com/nvd/cve-2023-2650                    │
 ├─────────────────────┼────────────────┼──────────┼────────────────────┼─────────────────────────┼──────────────────────────────────────────────────────────────┤
 │ zlib1g              │ CVE-2022-37434 │ CRITICAL │ 1:1.2.11.dfsg-2    │ 1:1.2.11.dfsg-2+deb11u2 │ heap-based buffer over-read and overflow in inflate() in     │
 │                     │                │          │                    │                         │ inflate.c via a large...                                     │
