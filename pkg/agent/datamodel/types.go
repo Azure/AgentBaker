@@ -1601,6 +1601,7 @@ type NodeBootstrappingConfiguration struct {
 	CustomCATrustConfig            *CustomCATrustConfig
 	DisableUnattendedUpgrades      bool
 	SSHStatus                      SSHStatus
+	DisableCustomData			   bool
 }
 
 type SSHStatus int

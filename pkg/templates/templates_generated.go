@@ -972,9 +972,8 @@ func linuxCloudInitArtifactsCrictlYaml() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
-cloud-init status --wait  > /dev/null 2>&1;
-[ $? -ne 0 ] && echo 'cloud-init failed' >> /var/log/azure/cluster-provision-cse-output.log && exit 1;
-echo "cloud-init succeeded" >> /var/log/azure/cluster-provision-cse-output.log;
+DISABLE_CUSTOM_DATA="{{ShouldDisableCustomData}}"
+if [ "${DISABLE_CUSTOM_DATA}" == "false" ]; then cloud-init status --wait > /dev/null 2>&1; [ $? -ne 0 ] && echo 'cloud-init failed' >> /var/log/azure/cluster-provision-cse-output.log && exit 1; echo "cloud-init succeeded" >> /var/log/azure/cluster-provision-cse-output.log; fi
 {{if IsAKSCustomCloud}}
 REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
 {{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
