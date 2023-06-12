@@ -116,7 +116,7 @@ func extractClusterParameters(ctx context.Context, kube *kubeclient) (map[string
 func execOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
 	sshCommand := fmt.Sprintf(sshCommandTemplate, sshPrivateKey, strings.ReplaceAll(vmPrivateIP, ".", ""), vmPrivateIP)
 	if !isShellBuiltIn {
-		sshCommand = sshCommand + "sudo"
+		sshCommand = sshCommand + " sudo"
 	}
 	commandToExecute := fmt.Sprintf("%s %s", sshCommand, command)
 
