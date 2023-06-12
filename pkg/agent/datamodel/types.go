@@ -650,6 +650,13 @@ type CustomLinuxOSConfig struct {
 	UlimitConfig               *UlimitConfig `json:"ulimitConfig,omitempty"`
 }
 
+func (c *CustomLinuxOSConfig) GetUlimitConfig() *UlimitConfig {
+	if c == nil {
+		return nil
+	}
+	return c.UlimitConfig
+}
+
 // SysctlConfig represents sysctl configs in customLinuxOsConfig.
 type SysctlConfig struct {
 	NetCoreSomaxconn               *int32 `json:"netCoreSomaxconn,omitempty"`
@@ -723,6 +730,13 @@ type AgentPoolProfile struct {
 	behavior to reboot Windows node when it is nil. */
 	NotRebootWindowsNode    *bool                    `json:"notRebootWindowsNode,omitempty"`
 	AgentPoolWindowsProfile *AgentPoolWindowsProfile `json:"agentPoolWindowsProfile,omitempty"`
+}
+
+func (a *AgentPoolProfile) GetCustomLinuxOSConfig() *CustomLinuxOSConfig {
+	if a == nil {
+		return nil
+	}
+	return a.CustomLinuxOSConfig
 }
 
 // Properties represents the AKS cluster definition.

@@ -28,8 +28,8 @@ func ubuntu2204CustomSysctls() *Scenario {
 						NetIpv4TcpkeepaliveIntvl:       to.Ptr(stringToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
 					},
 					UlimitConfig: &datamodel.UlimitConfig{
-						MaxLockedMemory: "65536",
-						NoFile:          to.Ptr(stringToInt32("1024")),
+						MaxLockedMemory: "75000",
+						NoFile:          to.Ptr(stringToInt32("1048")),
 					},
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
@@ -44,7 +44,7 @@ func ubuntu2204CustomSysctls() *Scenario {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				SysctlConfigValidator(customSysctls),
-				UlimitValidator([]string{"open files (-n) 1024", "max locked memory (kbytes, -l) 65536"}, []string{"-n", "-l"}),
+				UlimitValidator([]string{"open files (-n) 1048", "max locked memory (kbytes, -l) 75000"}, []string{"-n", "-l"}),
 			},
 		},
 	}

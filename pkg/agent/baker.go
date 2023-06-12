@@ -435,15 +435,23 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return 0
 		},
-		"ShouldConfigMemLock": func() bool {
-			return profile.CustomLinuxOSConfig != nil &&
-				profile.CustomLinuxOSConfig.UlimitConfig != nil &&
-				profile.CustomLinuxOSConfig.UlimitConfig.MaxLockedMemory != ""
+		"ShouldConfigContainerdUlimits": func() bool {
+			return profile.GetCustomLinuxOSConfig().GetUlimitConfig() != nil
 		},
-		"ShouldConfigNoFile": func() bool {
-			return profile.CustomLinuxOSConfig != nil &&
-				profile.CustomLinuxOSConfig.UlimitConfig != nil &&
-				profile.CustomLinuxOSConfig.UlimitConfig.NoFile != nil
+		"GetContainerdUlimitString": func() string {
+			ulimitConfig := profile.GetCustomLinuxOSConfig().GetUlimitConfig()
+			if ulimitConfig == nil {
+				return ""
+			}
+			var sb strings.Builder
+			sb.WriteString("[Service]\n")
+			if ulimitConfig.MaxLockedMemory != "" {
+				sb.WriteString(fmt.Sprintf("LimitMEMLOCK=%s\n", ulimitConfig.MaxLockedMemory))
+			}
+			if ulimitConfig.NoFile != nil {
+				sb.WriteString(fmt.Sprintf("LimitNOFILE=%d\n", *ulimitConfig.NoFile))
+			}
+			return sb.String()
 		},
 		"GetMemLockValue": func() string {
 			if profile.CustomLinuxOSConfig == nil || profile.CustomLinuxOSConfig.UlimitConfig == nil {
