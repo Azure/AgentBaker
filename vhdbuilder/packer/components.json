@@ -67,6 +67,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
+        "v1.3.3-2",
         "v1.3.3.1"
       ]
     },
@@ -209,7 +210,6 @@
       "downloadURL": "mcr.microsoft.com/aks/ip-masq-agent-v2:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.1.6",
         "v0.1.7"
       ]
     },
@@ -229,6 +229,14 @@
         "v1.24.2",
         "v1.26.3",
         "v1.26.3.1"
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "v1.19.5",
+        "v1.21.3"
       ]
     },
     {
