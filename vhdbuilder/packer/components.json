@@ -36,7 +36,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.4.44_hotfix",
-        "v1.5.3"
+        "v1.5.3",
+        "v1.5.5"
       ]
     },
     {
@@ -44,7 +45,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v0.0.2",
-        "v0.0.4"
+        "v0.0.4",
+        "v0.0.7"
       ]
     },
     {
@@ -332,6 +334,7 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
+        "1.5.5",
         "1.5.3",
         "1.4.43"
       ]
@@ -341,6 +344,7 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
+        "1.5.5",
         "1.5.3",
         "1.4.43"
       ]
@@ -350,6 +354,7 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
+        "1.5.5",
         "1.5.3",
         "1.4.43"
       ]
