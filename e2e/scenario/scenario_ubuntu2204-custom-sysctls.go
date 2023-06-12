@@ -13,6 +13,10 @@ func ubuntu2204CustomSysctls() *Scenario {
 		"net.netfilter.nf_conntrack_buckets": "524288",
 		"net.ipv4.tcp_keepalive_intvl":       "90",
 	}
+	customContainerdUlimits := map[string]string{
+		"LimitMEMLOCK": "75000",
+		"LimitNOFILE":  "1048",
+	}
 	return &Scenario{
 		Name:        "ubuntu2204-custom-sysctls",
 		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
@@ -44,7 +48,7 @@ func ubuntu2204CustomSysctls() *Scenario {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				SysctlConfigValidator(customSysctls),
-				UlimitValidator([]string{"open files (-n) 1048", "max locked memory (kbytes, -l) 75000"}, []string{"-n", "-l"}),
+				UlimitValidator(customContainerdUlimits),
 			},
 		},
 	}

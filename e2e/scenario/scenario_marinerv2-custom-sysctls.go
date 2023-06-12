@@ -13,6 +13,10 @@ func marinerv2CustomSysctls() *Scenario {
 		"net.netfilter.nf_conntrack_buckets": "524288",
 		"net.ipv4.tcp_keepalive_intvl":       "90",
 	}
+	customContainerdUlimits := map[string]string{
+		"LimitMEMLOCK": "75000",
+		"LimitNOFILE":  "1048",
+	}
 	return &Scenario{
 		Name:        "marinerv2-custom-sysctls",
 		Description: "tests that a MarinerV2 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
@@ -28,8 +32,8 @@ func marinerv2CustomSysctls() *Scenario {
 						NetIpv4TcpkeepaliveIntvl:       to.Ptr(stringToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
 					},
 					UlimitConfig: &datamodel.UlimitConfig{
-						MaxLockedMemory: "65536",
-						NoFile:          to.Ptr(stringToInt32("1024")),
+						MaxLockedMemory: customContainerdUlimits["LimitMEMLOCK"],
+						NoFile:          to.Ptr(stringToInt32(customContainerdUlimits["LimitNOFILE"])),
 					},
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
@@ -44,7 +48,7 @@ func marinerv2CustomSysctls() *Scenario {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				SysctlConfigValidator(customSysctls),
-				UlimitValidator([]string{"open files (-n) 1024", "max locked memory (kbytes, -l) 65536"}, []string{"-n", "-l"}),
+				UlimitValidator(customContainerdUlimits),
 			},
 		},
 	}
