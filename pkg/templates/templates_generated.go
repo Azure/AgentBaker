@@ -972,15 +972,10 @@ func linuxCloudInitArtifactsCrictlYaml() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
-for i in $(seq 1 1200); do
-grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
-if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
-done;
+cloud-init status --wait  > /dev/null 2>&1;
+[ $? -ne 0 ] && echo 'cloud-init failed' >> /var/log/azure/cluster-provision-cse-output.log && exit 1;
+echo "cloud-init succeeded" >> /var/log/azure/cluster-provision-cse-output.log;
 {{if IsAKSCustomCloud}}
-for i in $(seq 1 1200); do
-grep -Fq "EOF" {{GetInitAKSCustomCloudFilepath}} && break;
-if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
-done;
 REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
 {{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
 {{end}}
@@ -1122,8 +1117,7 @@ KUBENET_TEMPLATE="{{GetKubenetTemplate}}"
 CONTAINERD_CONFIG_CONTENT="{{GetContainerdConfigContent}}"
 CONTAINERD_CONFIG_NO_GPU_CONTENT="{{GetContainerdConfigNoGPUContent}}"
 IS_KATA="{{IsKata}}"
-/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
-`)
+/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_cmdSh, nil
@@ -1463,22 +1457,17 @@ EOF
 }
 
 ensureNoDupOnPromiscuBridge() {
-    wait_for_file 1200 1 /opt/azure/containers/ensure-no-dup.sh || exit $ERR_FILE_WATCH_TIMEOUT
-    wait_for_file 1200 1 /etc/systemd/system/ensure-no-dup.service || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart ensure-no-dup || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureTeleportd() {
-    wait_for_file 1200 1 /etc/systemd/system/teleportd.service || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
-    wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     usermod -aG docker ${ADMINUSER}
     DOCKER_MOUNT_FLAGS_SYSTEMD_FILE=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
-    wait_for_file 1200 1 $DOCKER_MOUNT_FLAGS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     DOCKER_JSON_FILE=/etc/docker/daemon.json
     for i in $(seq 1 1200); do
         if [ -s $DOCKER_JSON_FILE ]; then
@@ -1496,17 +1485,11 @@ ensureDocker() {
 }
 
 ensureDHCPv6() {
-    wait_for_file 3600 1 "${DHCPV6_SERVICE_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
-    wait_for_file 3600 1 "${DHCPV6_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart dhcpv6 || exit $ERR_SYSTEMCTL_START_FAIL
     retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
 }
 
 ensureKubelet() {
-    # ensure cloud init completes
-    # avoids potential corruption of files written by cloud init and CSE concurrently.
-    # removes need for wait_for_file and EOF markers
-    cloud-init status --wait
     KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
     mkdir -p "$(dirname "${KUBE_CA_FILE}")"
     echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
@@ -1594,12 +1577,15 @@ ensureMigPartition(){
 [Service]
 Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
 EOF
-    systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
+    # this is expected to fail and work only on next reboot
+    # it MAY succeed, only due to unreliability of systemd
+    # service type=Simple, which does not exit non-zero
+    # on failure if ExecStart failed to invoke.
+    systemctlEnableAndStart mig-partition
 }
 
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
-    wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 
@@ -1651,7 +1637,6 @@ users:
 
 configClusterAutoscalerAddon() {
     CLUSTER_AUTOSCALER_ADDON_FILE=/etc/kubernetes/addons/cluster-autoscaler-deployment.yaml
-    wait_for_file 1200 1 $CLUSTER_AUTOSCALER_ADDON_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     sed -i "s|<clientID>|$(echo $SERVICE_PRINCIPAL_CLIENT_ID | base64)|g" $CLUSTER_AUTOSCALER_ADDON_FILE
     sed -i "s|<clientSec>|$(echo $SERVICE_PRINCIPAL_CLIENT_SECRET | base64)|g" $CLUSTER_AUTOSCALER_ADDON_FILE
     sed -i "s|<subID>|$(echo $SUBSCRIPTION_ID | base64)|g" $CLUSTER_AUTOSCALER_ADDON_FILE
@@ -1667,7 +1652,6 @@ configACIConnectorAddon() {
     ACI_CONNECTOR_CERT=$(base64 /etc/kubernetes/certs/aci-connector-cert.pem -w0)
 
     ACI_CONNECTOR_ADDON_FILE=/etc/kubernetes/addons/aci-connector-deployment.yaml
-    wait_for_file 1200 1 $ACI_CONNECTOR_ADDON_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     sed -i "s|<creds>|$ACI_CONNECTOR_CREDENTIALS|g" $ACI_CONNECTOR_ADDON_FILE
     sed -i "s|<rgName>|$RESOURCE_GROUP|g" $ACI_CONNECTOR_ADDON_FILE
     sed -i "s|<cert>|$ACI_CONNECTOR_CERT|g" $ACI_CONNECTOR_ADDON_FILE
@@ -1895,7 +1879,7 @@ export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
 NVIDIA_CONTAINER_RUNTIME_VERSION="3.6.0"
-export NVIDIA_DRIVER_IMAGE_SHA="sha-10d772"
+export NVIDIA_DRIVER_IMAGE_SHA="sha-e8873b"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu"
 export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
@@ -2193,8 +2177,6 @@ cleanupContainerdDlFiles() {
 installContainerRuntime() {
     if [ "${NEEDS_CONTAINERD}" == "true" ]; then
         echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
-        wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
-
         local containerd_version
         if [ -f "$MANIFEST_FILEPATH" ]; then
             containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
@@ -2628,16 +2610,9 @@ done
 sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
 source "${CSE_HELPERS_FILEPATH}"
 
-wait_for_file 3600 1 "${CSE_DISTRO_HELPERS_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_DISTRO_HELPERS_FILEPATH}"
-
-wait_for_file 3600 1 "${CSE_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_INSTALL_FILEPATH}"
-
-wait_for_file 3600 1 "${CSE_DISTRO_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
-
-wait_for_file 3600 1 "${CSE_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_CONFIG_FILEPATH}"
 
 if [[ "${DISABLE_SSH}" == "true" ]]; then
@@ -2783,7 +2758,6 @@ logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectl
 createKubeManifestDir
 
 if [ "${HAS_CUSTOM_SEARCH_DOMAIN}" == "true" ]; then
-    wait_for_file 3600 1 "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
     "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 fi
 
@@ -4240,7 +4214,7 @@ dnf_update() {
   retries=10
   dnf_update_output=/tmp/dnf-update.out
   for i in $(seq 1 $retries); do
-    ! (dnf update --exclude mshv-linuxloader -y --refresh 2>&1 | tee $dnf_update_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+    ! (dnf update --exclude mshv-linuxloader --exclude kernel-mshv -y --refresh 2>&1 | tee $dnf_update_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
     cat $dnf_update_output && break || \
     cat $dnf_update_output
     if [ $i -eq $retries ]; then

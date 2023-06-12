@@ -321,22 +321,17 @@ EOF
 }
 
 ensureNoDupOnPromiscuBridge() {
-    wait_for_file 1200 1 /opt/azure/containers/ensure-no-dup.sh || exit $ERR_FILE_WATCH_TIMEOUT
-    wait_for_file 1200 1 /etc/systemd/system/ensure-no-dup.service || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart ensure-no-dup || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureTeleportd() {
-    wait_for_file 1200 1 /etc/systemd/system/teleportd.service || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
-    wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     usermod -aG docker ${ADMINUSER}
     DOCKER_MOUNT_FLAGS_SYSTEMD_FILE=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
-    wait_for_file 1200 1 $DOCKER_MOUNT_FLAGS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     DOCKER_JSON_FILE=/etc/docker/daemon.json
     for i in $(seq 1 1200); do
         if [ -s $DOCKER_JSON_FILE ]; then
@@ -354,17 +349,11 @@ ensureDocker() {
 }
 
 ensureDHCPv6() {
-    wait_for_file 3600 1 "${DHCPV6_SERVICE_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
-    wait_for_file 3600 1 "${DHCPV6_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart dhcpv6 || exit $ERR_SYSTEMCTL_START_FAIL
     retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
 }
 
 ensureKubelet() {
-    # ensure cloud init completes
-    # avoids potential corruption of files written by cloud init and CSE concurrently.
-    # removes need for wait_for_file and EOF markers
-    cloud-init status --wait
     KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
     mkdir -p "$(dirname "${KUBE_CA_FILE}")"
     echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
@@ -452,12 +441,15 @@ ensureMigPartition(){
 [Service]
 Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
 EOF
-    systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
+    # this is expected to fail and work only on next reboot
+    # it MAY succeed, only due to unreliability of systemd
+    # service type=Simple, which does not exit non-zero
+    # on failure if ExecStart failed to invoke.
+    systemctlEnableAndStart mig-partition
 }
 
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
-    wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 
@@ -509,7 +501,6 @@ users:
 
 configClusterAutoscalerAddon() {
     CLUSTER_AUTOSCALER_ADDON_FILE=/etc/kubernetes/addons/cluster-autoscaler-deployment.yaml
-    wait_for_file 1200 1 $CLUSTER_AUTOSCALER_ADDON_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     sed -i "s|<clientID>|$(echo $SERVICE_PRINCIPAL_CLIENT_ID | base64)|g" $CLUSTER_AUTOSCALER_ADDON_FILE
     sed -i "s|<clientSec>|$(echo $SERVICE_PRINCIPAL_CLIENT_SECRET | base64)|g" $CLUSTER_AUTOSCALER_ADDON_FILE
     sed -i "s|<subID>|$(echo $SUBSCRIPTION_ID | base64)|g" $CLUSTER_AUTOSCALER_ADDON_FILE
@@ -525,7 +516,6 @@ configACIConnectorAddon() {
     ACI_CONNECTOR_CERT=$(base64 /etc/kubernetes/certs/aci-connector-cert.pem -w0)
 
     ACI_CONNECTOR_ADDON_FILE=/etc/kubernetes/addons/aci-connector-deployment.yaml
-    wait_for_file 1200 1 $ACI_CONNECTOR_ADDON_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     sed -i "s|<creds>|$ACI_CONNECTOR_CREDENTIALS|g" $ACI_CONNECTOR_ADDON_FILE
     sed -i "s|<rgName>|$RESOURCE_GROUP|g" $ACI_CONNECTOR_ADDON_FILE
     sed -i "s|<cert>|$ACI_CONNECTOR_CERT|g" $ACI_CONNECTOR_ADDON_FILE

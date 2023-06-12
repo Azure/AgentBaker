@@ -484,7 +484,7 @@ testCoreDumpSettings() {
   #   A section heading -- this file is only supposed to have '[Coredump]'
   #   Settings, which take the form 'NAME=VALUE', where values can be empty or strings, and strings
   #   is pretty loose (more or less any printable character).
-  testSettingFileFormat $test $settings_file '^(#|$)' '^\[Coredump\]$' '^[A-Z_]+=[^[:cntrl:]]*$'
+  testSettingFileFormat $test $settings_file '^(#|$)' '^\[Coredump\]$' '^[A-Za-z_]+=[^[:cntrl:]]*$'
 
   # Look for the settings we specifically set in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
   # and ensure they're set to the values we expect.
@@ -521,24 +521,35 @@ testNfsServerService() {
 # Tests that the pam.d settings are set correctly, per the function
 # addFailLockDir in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
 testPamDSettings() {
+  local os_sku="${1}"
+  local os_version="${2}"
   local test="testPamDSettings"
   local settings_file=/etc/security/faillock.conf
   echo "$test:Start"
 
-  # Existence and format check. The man page https://www.man7.org/linux/man-pages/man5/faillock.conf.5.html
-  # describes the following format for each line:
-  #   Comments start with '#'.
-  #   Blank lines are ignored.
-  #   Lines are of in two forms:
-  #       'setting = value', where settings are lower-case and include '_'
-  #       'setting'
-  #   Whitespace at beginning and end of line, along with around the '=' is ignored.
-  testSettingFileFormat $test $settings_file '^(#|$)' '^[[:space:]]*$' '^[[:space:]]*[a-z_][[:space:]]*' '^[[:space:]]*[a-z_]+[[:space::]]*=[^[:cntrl:]]*$'
+  # We only want to run this test on Mariner 2.0
+  # So if it's anything else, report that we're skipping the test and bail.
+  if [[ "${os_sku}" != "CBLMariner" || "${os_version}" != "2.0" ]]; then
+    echo "$test: Skipping test on ${os_sku} ${os_version}"
+  else
 
-  # Look for the setting we specifically set in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
-  # and ensure it's set to the values we expect.
-  echo "$test: Checking specific settings in $settings_file"
-  testSetting $test $settings_file 'dir' '^[[:space:]]*dir[[:space:]]*=' '=' '/var/log/faillock'
+    # Existence and format check. The man page https://www.man7.org/linux/man-pages/man5/faillock.conf.5.html
+    # describes the following format for each line:
+    #   Comments start with '#'.
+    #   Blank lines are ignored.
+    #   Lines are of in two forms:
+    #       'setting = value', where settings are lower-case and include '_'
+    #       'setting'
+    #   Whitespace at beginning and end of line, along with around the '=' is ignored.
+    testSettingFileFormat $test $settings_file '^(#|$)' '^[[:space:]]*$' '^[[:space:]]*[a-z_][[:space:]]*' '^[[:space:]]*[a-z_]+[[:space::]]*=[^[:cntrl:]]*$'
+
+    # Look for the setting we specifically set in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
+    # and ensure it's set to the values we expect.
+    echo "$test: Checking specific settings in $settings_file"
+    testSetting $test $settings_file 'dir' '^[[:space:]]*dir[[:space:]]*=' '=' '/var/log/faillock'
+  fi
+
+  echo "$test:Finish"
 }
 
 # Checks a single file or directory's permissions.
@@ -630,7 +641,7 @@ testSettingFileFormat() {
 
     if [ $valid -eq 0 ]; then
       any_invalid=1
-      err $test "Invalid line $line_num in $settings_file: '$line'" >>/dev/stderr
+      err $test "Invalid line $line_num in $settings_file: '$line'"
     fi
 
     valid=0
@@ -720,4 +731,4 @@ testNetworkSettings
 testCronPermissions
 testCoreDumpSettings
 testNfsServerService
-testPamDSettings
+testPamDSettings $OS_SKU $OS_VERSION
