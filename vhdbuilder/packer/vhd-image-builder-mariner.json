@@ -59,7 +59,6 @@
       },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
-      "custom_data_file": "vhdbuilder/packer/sha1rsa_custom_data",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
       "polling_duration_timeout": "1h",
