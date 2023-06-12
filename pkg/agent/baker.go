@@ -912,7 +912,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			sysctlTemplate := template.Must(template.New("sysctl").Parse(sysctlTemplateString))
 			var b bytes.Buffer
 			if err := sysctlTemplate.Execute(&b, profile); err != nil {
-				return "", fmt.Errorf("failed to execute sysctl template: %s", err)
+				return "", fmt.Errorf("failed to execute sysctl template: %w", err)
 			}
 			return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 		},
@@ -954,7 +954,6 @@ func isMariner(osSku string) bool {
 	return osSku == datamodel.OSSKUCBLMariner || osSku == datamodel.OSSKUMariner
 }
 
-// 
 const sysctlTemplateString = `# This is a partial workaround to this upstream Kubernetes issue:
 # https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
 net.ipv4.tcp_retries2=8
