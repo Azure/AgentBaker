@@ -908,13 +908,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"ShouldDisableSSH": func() bool {
 			return config.SSHStatus == datamodel.SSHOff
 		},
-		"GetSysctlContent": func() string {
+		"GetSysctlContent": func() (string, error) {
 			sysctlTemplate := template.Must(template.New("sysctl").Parse(sysctlTemplateString))
 			var b bytes.Buffer
 			if err := sysctlTemplate.Execute(&b, profile); err != nil {
-				panic(fmt.Errorf("failed to execute sysctl template: %s", err))
+				return "", fmt.Errorf("failed to execute sysctl template: %s", err)
 			}
-			return base64.StdEncoding.EncodeToString(b.Bytes())
+			return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 		},
 	}
 }
