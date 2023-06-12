@@ -487,8 +487,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						NetIpv4IpLocalPortRange:      "32768 60999",
 						NetIpv4TcpMaxSynBacklog:      to.Int32Ptr(1638498),
 						NetIpv4NeighDefaultGcThresh1: to.Int32Ptr(10001),
-						//NetIpv4NeighDefaultGcThresh2: to.Int32Ptr(10002),
-						//NetIpv4NeighDefaultGcThresh3: to.Int32Ptr(10003),
 					},
 					TransparentHugePageEnabled: "never",
 					TransparentHugePageDefrag:  "defer+madvise",
