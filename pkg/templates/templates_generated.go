@@ -1117,6 +1117,7 @@ KUBENET_TEMPLATE="{{GetKubenetTemplate}}"
 CONTAINERD_CONFIG_CONTENT="{{GetContainerdConfigContent}}"
 CONTAINERD_CONFIG_NO_GPU_CONTENT="{{GetContainerdConfigNoGPUContent}}"
 IS_KATA="{{IsKata}}"
+SYSCTL_CONTENT="{{GetSysctlContent}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -1586,6 +1587,10 @@ EOF
 
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
+    mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")"
+    touch "${SYSCTL_CONFIG_FILE}"
+    chmod 0644 "${SYSCTL_CONFIG_FILE}"
+    echo "${SYSCTL_CONTENT}" | base64 -d > "${SYSCTL_CONFIG_FILE}"
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 
@@ -6572,8 +6577,7 @@ write_files:
     vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
 {{- end}}
 {{- end}}
-    #EOF
-`)
+    #EOF`)
 
 func linuxCloudInitNodecustomdataYmlBytes() ([]byte, error) {
 	return _linuxCloudInitNodecustomdataYml, nil
