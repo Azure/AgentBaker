@@ -175,11 +175,13 @@ installFedRAMP() {
 
 
     echo "Applying scripts for FedRAMP..." 
-
+    
+    dnf_install 120 5 25 openscap || exit $ERR_APT_INSTALL_TIMEOUT
     script_dir="$(dirname "$(realpath "$0")")"
 
+    sudo -s
     tar -xzvf $script_dir/stig_remediation.tar.gz
     $script_dir/stig_remediation/marketplace_compliance.sh --run_live --marketplace
     $script_dir/stig_remediation/run_oscap.sh
-
+    chown mariner_user:mariner_user stig-rhel8_results.xml stig-rhel8_report.html
 }
