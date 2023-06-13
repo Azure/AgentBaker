@@ -915,7 +915,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 
 			var b bytes.Buffer
-			if err := sysctlTemplate.Execute(&b, profile); err != nil {
+			if err = sysctlTemplate.Execute(&b, profile); err != nil {
 				return "", fmt.Errorf("failed to execute sysctl template: %w", err)
 			}
 			return base64.StdEncoding.EncodeToString(b.Bytes()), nil
