@@ -909,7 +909,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.SSHStatus == datamodel.SSHOff
 		},
 		"GetSysctlContent": func() (string, error) {
-			sysctlTemplate := template.Must(template.New("sysctl").Parse(sysctlTemplateString))
+			sysctlTemplate, err := template.New("sysctl").Parse(sysctlTemplateString)
+			if err != nil {
+				return "", fmt.Errorf("failed to parse sysctl template: %w", err)
+			}
+
 			var b bytes.Buffer
 			if err := sysctlTemplate.Execute(&b, profile); err != nil {
 				return "", fmt.Errorf("failed to execute sysctl template: %w", err)
