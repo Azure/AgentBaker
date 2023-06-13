@@ -46,7 +46,7 @@
         "resource_group": "mitchzhutestSIGrg",
         "gallery_name": "mitchzhutestSIG",
         "image_name": "linuxtest",
-        "image_version": "latest"
+        "image_version": "1.0516.2207"
       },
       "azure_tags": {
         "buildDefinitionName": "{{user `build_definition_name`}}",
