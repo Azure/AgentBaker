@@ -50,10 +50,10 @@ installKataDeps() {
       wget "https://mitchzhu.blob.core.windows.net/public/kernel-uvm-5.15.110.mshv2-1.cm2.x86_64.rpm" -O kernel-uvm-5.15.110.mshv2-1.cm2.x86_64.rpm
       wget "https://mitchzhu.blob.core.windows.net/public/kernel-uvm-devel-5.15.110.mshv2-1.cm2.x86_64.rpm" -O kernel-uvm-devel-5.15.110.mshv2-1.cm2.x86_64.rpm
 
-      rpm -ihv kata-containers-cc-0.4.1-4.cm2.x86_64.rpm
-      rpm -ihv kata-containers-cc-tools-0.4.1-4.cm2.x86_64.rpm
       rpm -ihv kernel-uvm-5.15.110.mshv2-1.cm2.x86_64.rpm
       rpm -ihv kernel-uvm-devel-5.15.110.mshv2-1.cm2.x86_64.rpm
+      rpm -ihv kata-containers-cc-0.4.1-4.cm2.x86_64.rpm
+      rpm -ihv kata-containers-cc-tools-0.4.1-4.cm2.x86_64.rpm
       rpm -ihv igvm-generator-0.0.1-3.cm2.x86_64.rpm
 
       rm kata-containers-cc-0.4.1-4.cm2.x86_64.rpm
