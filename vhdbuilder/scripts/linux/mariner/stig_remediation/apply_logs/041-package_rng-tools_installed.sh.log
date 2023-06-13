@@ -1,0 +1,2 @@
+Remediating rule 41/364: 'package_rng-tools_installed'
+/home/mingheren/Desktop/stig_remediation/rhel8/041-package_rng-tools_installed.sh: line 6: dnf: command not found

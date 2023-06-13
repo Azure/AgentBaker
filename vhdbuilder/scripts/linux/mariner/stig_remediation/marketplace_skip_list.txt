@@ -1,0 +1,86 @@
+################################################################################
+# Scripts that should not be run on Azure marketplace images
+################################################################################
+
+# Marketplace may use empty password for main account
+sudo_remove_nopasswd
+
+# Azure infra handles accounts and auth
+sssd_enable_certmap
+sssd_enable_smartcards
+accounts_password_set_min_life_existing
+accounts_minimum_age_login_defs
+accounts_maximum_age_login_defs
+accounts_password_set_max_life_existing
+accounts_password_pam_pwhistory_remember_system_auth
+accounts_password_pam_minlen
+accounts_password_minlen_login_defs
+
+# SELinux policy tooling is unhappy on the marketplace
+# Currently not working as expected
+selinux_policytype
+selinux_state
+
+# Don't set banners for Azure VMs
+banner_etc_issue
+sshd_enable_warning_banner
+dconf_gnome_login_banner_text
+
+# Do not lock accounts
+accounts_passwords_pam_faillock_deny
+accounts_passwords_pam_faillock_deny_root
+accounts_passwords_pam_faillock_interval
+accounts_passwords_pam_faillock_unlock_time
+accounts_passwords_pam_faillock_persistant_tally
+account_disable_post_pw_expiration
+
+# Don't require tmux
+package_tmux_installed
+configure_bashrc_exec_tmux
+configure_tmux_lock_after_time
+configure_tmux_lock_command
+
+# Leave AzSecPack to handle security, auditing and logs
+auditd_data_retention_action_mail_acct
+postfix_client_configure_mail_alias
+package_rsyslog_installed
+rsyslog_cron_logging
+package_rsyslog-gnutls_installed
+rsyslog_remote_loghost
+rsyslog_encrypt_offload_defaultnetstreamdriver
+rsyslog_encrypt_offload_actionsendstreamdriverauthmode
+auditd_data_retention_space_left_action
+agent_mfetpd_running
+package_aide_installed
+aide_check_audit_tools
+aide_scan_notification
+aide_verify_acls
+aide_verify_ext_attributes
+configure_firewalld_ports
+package_fapolicyd_installed
+service_fapolicyd_enabled
+
+# Use Azure infra for time
+chronyd_or_ntpd_set_maxpoll
+
+# Do not have partitions other than root, Azure should manage other mounts
+mount_option_var_log_nodev
+mount_option_var_log_nosuid
+mount_option_var_log_noexec
+mount_option_var_log_audit_nodev
+mount_option_var_log_audit_nosuid
+mount_option_var_log_audit_noexec
+mount_option_var_tmp_nodev
+mount_option_var_tmp_nosuid
+mount_option_var_tmp_noexec
+mount_option_home_nosuid
+mount_option_boot_nosuid
+mount_option_home_noexec
+mount_option_nodev_removable_partitions
+mount_option_noexec_removable_partitions
+mount_option_nosuid_removable_partitions
+
+# Required as container host
+sysctl_net_ipv4_ip_forward
+sysctl_net_ipv4_conf_all_rp_filter
+

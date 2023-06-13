@@ -1,0 +1,2 @@
+Remediating rule 1/364: 'package_aide_installed'
+/home/mingheren/Desktop/stig_remediation/rhel8/001-package_aide_installed.sh: line 8: dnf: command not found

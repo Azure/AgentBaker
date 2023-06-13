@@ -1,0 +1,2 @@
+Remediating rule 5/364: 'aide_verify_ext_attributes'
+/home/mingheren/Desktop/stig_remediation/rhel8/005-aide_verify_ext_attributes.sh: line 8: dnf: command not found

@@ -1,0 +1,2 @@
+Remediating rule 38/364: 'sudo_require_reauthentication'
+Skipping remediation, /etc/sudoers failed to validate

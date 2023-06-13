@@ -1,0 +1,16 @@
+001-package_aide_installed.sh
+002-aide_check_audit_tools.sh
+004-aide_verify_acls.sh
+005-aide_verify_ext_attributes.sh
+038-sudo_require_reauthentication.sh
+040-sudoers_validate_passwd.sh
+041-package_rng-tools_installed.sh
+057-banner_etc_issue.sh
+001-package_aide_installed.sh
+002-aide_check_audit_tools.sh
+004-aide_verify_acls.sh
+005-aide_verify_ext_attributes.sh
+038-sudo_require_reauthentication.sh
+040-sudoers_validate_passwd.sh
+041-package_rng-tools_installed.sh
+057-banner_etc_issue.sh

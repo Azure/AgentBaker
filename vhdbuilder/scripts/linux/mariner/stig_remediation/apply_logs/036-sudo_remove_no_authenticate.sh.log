@@ -1,0 +1,3 @@
+Remediating rule 36/364: 'sudo_remove_no_authenticate'
+grep: /etc/sudoers: Permission denied
+grep: /etc/sudoers.d/README: Permission denied

@@ -1,0 +1,44 @@
+################################################################################
+# Scripts that can only be run during runtime
+################################################################################
+
+# These scripts require /var/log/messages, which rsyslog creates on first boot.
+file_groupowner_var_log_messages
+file_owner_var_log_messages
+
+# Run this both live and during normal build
+file_permissions_var_log_messages
+
+# These scripts require /var/log/audit/audit.log, which auditd creates on first boot.
+file_group_ownership_var_log_audit
+file_ownership_var_log_audit_stig
+file_permissions_var_log_audit
+
+# We share the host machines /dev and /tmp during build, these scripts will work on a live machine however.
+mount_option_dev_shm_nodev
+mount_option_dev_shm_noexec
+mount_option_dev_shm_nosuid
+mount_option_tmp_nodev
+mount_option_tmp_noexec
+mount_option_tmp_nosuid
+
+# There are no removable partitions during build, and these return errors if they are missing
+mount_option_nodev_removable_partitions
+mount_option_noexec_removable_partitions
+mount_option_nosuid_removable_partitions
+
+# These scripts require the sshd keys which are created on first boot
+file_permissions_sshd_private_key
+file_permissions_sshd_pub_key
+
+# Our tooling generates the grub.cfg after these scripts run. We set the values at boot time so we disable here.
+grub2_audit_argument
+grub2_audit_backlog_limit_argument
+grub2_pti_argument
+grub2_vsyscall_argument
+grub2_page_poison_argument
+grub2_slub_debug_argument
+
+# SELinux policy tooling is unhappy in a chroot
+selinux_policytype
+selinux_state

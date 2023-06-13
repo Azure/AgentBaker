@@ -174,7 +174,7 @@ installFedRAMP() {
     echo -e '\n[system_default_sect]\n\nMinProtocol = TLSv1.2\n\nCipherString = ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256' >> /etc/pki/tls/openssl.cnf
 
 
-    echo "Applying scripts for FedRAMP..." 
+    echo "Appcp edRAMP..." 
 
     dnf_install 120 5 25 openscap || exit $ERR_APT_INSTALL_TIMEOUT
     script_dir="$(dirname "$(realpath "$0")")"
@@ -183,4 +183,5 @@ installFedRAMP() {
     tar -xzvf $script_dir/stig_remediation.tar.gz
     $script_dir/stig_remediation/marketplace_compliance.sh --run_live --marketplace
  
+
 }
