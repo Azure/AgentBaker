@@ -487,14 +487,22 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						NetIpv4IpLocalPortRange:      "32768 60999",
 						NetIpv4TcpMaxSynBacklog:      to.Int32Ptr(1638498),
 						NetIpv4NeighDefaultGcThresh1: to.Int32Ptr(10001),
-						NetIpv4NeighDefaultGcThresh2: to.Int32Ptr(10002),
-						NetIpv4NeighDefaultGcThresh3: to.Int32Ptr(10003),
 					},
 					TransparentHugePageEnabled: "never",
 					TransparentHugePageDefrag:  "defer+madvise",
 					SwapFileSizeMB:             &swapFileSizeMB,
 				}
-			}, nil),
+			}, func(o *nodeBootstrappingOutput) {
+				sysctlContent, err := getBase64DecodedValue([]byte(o.vars["SYSCTL_CONTENT"]))
+				Expect(err).To(BeNil())
+				// assert defaults for gc_thresh2 and gc_thresh3
+				// assert custom values for all others.
+				Expect(sysctlContent).To(ContainSubstring("net.core.somaxconn=1638499"))
+				Expect(sysctlContent).To(ContainSubstring("net.ipv4.tcp_max_syn_backlog=1638498"))
+				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh1=10001"))
+				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh2=8192"))
+				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh3=16384"))
+			}),
 
 		Entry("AKSUbuntu1604 - dynamic-config-dir should always be removed with custom kubelet config",
 			"AKSUbuntu1604+CustomKubeletConfig+DynamicKubeletConfig", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
@@ -544,7 +552,16 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 					"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 					"--dynamic-config-dir":                "",
 				}
-			}, nil),
+			}, func(o *nodeBootstrappingOutput) {
+				sysctlContent, err := getBase64DecodedValue([]byte(o.vars["SYSCTL_CONTENT"]))
+				Expect(err).To(BeNil())
+				// assert defaults for all.
+				Expect(sysctlContent).To(ContainSubstring("net.core.somaxconn=16384"))
+				Expect(sysctlContent).To(ContainSubstring("net.ipv4.tcp_max_syn_backlog=16384"))
+				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh1=4096"))
+				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh2=8192"))
+				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh3=16384"))
+			}),
 
 		Entry("AKSUbuntu1604 - dynamic-config-dir should always be removed", "AKSUbuntu1604+DynamicKubeletConfig", "1.16.13",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
