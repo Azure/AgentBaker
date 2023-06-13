@@ -458,6 +458,19 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				config.KubeletConfig = map[string]string{}
 			}, nil),
 
+		Entry("AKSUbuntu1804 with secure kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+SecureTLSBootstrapping", "1.25.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.EnableSecureTLSBootstrapping = true
+		}, func(o *nodeBootstrappingOutput) {
+			bootstrapKubeConfigCustomData := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
+			Expect(bootstrapKubeConfigCustomData).To(ContainSubstring("exec:"))
+			Expect(bootstrapKubeConfigCustomData).To(ContainSubstring("apiVersion: client.authentication.k8s.io/v1"))
+			Expect(bootstrapKubeConfigCustomData).To(ContainSubstring("command: /opt/azure/containers/tls-bootstrap-client"))
+			Expect(bootstrapKubeConfigCustomData).To(ContainSubstring("interactiveMode: Never"))
+			Expect(bootstrapKubeConfigCustomData).To(ContainSubstring("provideClusterInfo: true"))
+
+			Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
+		}),
+
 		Entry("AKSUbuntu1604 with custom kubeletConfig and osConfig", "AKSUbuntu1604+CustomKubeletConfig+CustomLinuxOSConfig", "1.16.13",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableKubeletConfigFile = false

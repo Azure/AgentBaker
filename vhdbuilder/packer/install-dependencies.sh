@@ -110,6 +110,9 @@ fi
 downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
 
+downloadSecureTLSBootstrapExecPlugin
+echo "  - tls-bootstrap-client" >> ${VHD_LOGS_FILEPATH}
+
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
 containerd_manifest="$(jq .containerd manifest.json)" || exit $?
