@@ -249,8 +249,8 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/scripts/linux/mariner/stig_remediation.tar.gz",
-      "destination": "/home/packer/stig_remediation.tar.gz"
+      "source": "vhdbuilder/scripts/linux/mariner/remediation.tar.gz",
+      "destination": "/home/packer/remediation.tar.gz"
     },
     {
       "type": "file",
