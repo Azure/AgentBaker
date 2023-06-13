@@ -362,7 +362,32 @@ EOF
         mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
         touch "${BOOTSTRAP_KUBECONFIG_FILE}"
         chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
-        tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+        if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+                tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://${API_SERVER_NAME}:443
+users:
+- name: kubelet-bootstrap
+  user:
+    exec:
+        apiVersion: client.authentication.k8s.io/v1
+        command: /opt/azure/containers/tls-bootstrap-client
+        interactiveMode: Never
+        provideClusterInfo: true
+contexts:
+- context:
+    cluster: localcluster
+    user: kubelet-bootstrap
+  name: bootstrap-context
+current-context: bootstrap-context
+EOF
+        else
+            tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
 apiVersion: v1
 kind: Config
 clusters:
@@ -381,6 +406,7 @@ contexts:
   name: bootstrap-context
 current-context: bootstrap-context
 EOF
+        fi
     else
         KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
         mkdir -p "$(dirname "${KUBECONFIG_FILE}")"

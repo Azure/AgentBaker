@@ -1100,6 +1100,7 @@ CUSTOM_SEARCH_REALM_PASSWORD="{{GetSearchDomainRealmPassword}}"
 MESSAGE_OF_THE_DAY="{{GetMessageOfTheDay}}"
 HAS_KUBELET_DISK_TYPE="{{HasKubeletDiskType}}"
 NEEDS_CGROUPV2="{{Is2204VHD}}"
+ENABLE_SECURE_TLS_BOOTSTRAPPING="{{EnableSecureTLSBootstrapping}}"
 TLS_BOOTSTRAP_TOKEN="{{GetTLSBootstrapTokenForKubeConfig}}"
 KUBELET_FLAGS="{{GetKubeletConfigKeyVals}}"
 NETWORK_POLICY="{{GetParameter "networkPolicy"}}"
@@ -1498,7 +1499,32 @@ EOF
         mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
         touch "${BOOTSTRAP_KUBECONFIG_FILE}"
         chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
-        tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+        if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+                tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://${API_SERVER_NAME}:443
+users:
+- name: kubelet-bootstrap
+  user:
+    exec:
+        apiVersion: client.authentication.k8s.io/v1
+        command: /opt/azure/containers/tls-bootstrap-client
+        interactiveMode: Never
+        provideClusterInfo: true
+contexts:
+- context:
+    cluster: localcluster
+    user: kubelet-bootstrap
+  name: bootstrap-context
+current-context: bootstrap-context
+EOF
+        else
+            tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
 apiVersion: v1
 kind: Config
 clusters:
@@ -1517,6 +1543,7 @@ contexts:
   name: bootstrap-context
 current-context: bootstrap-context
 EOF
+        fi
     else
         KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
         mkdir -p "$(dirname "${KUBECONFIG_FILE}")"
@@ -1844,6 +1871,7 @@ ERR_TELEPORTD_INSTALL_ERR=151 # Error installing teleportd binary
 ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
 ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
 
+ERR_DOWNLOAD_EXEC_PLUGIN_TIMEOUT=169 # Timeout waiting for secure TLS bootrstraping exec plugin download
 ERR_DISBALE_IPTABLES=170 # Error disabling iptables service
 
 ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 # Timeout waiting for krustlet downloads
