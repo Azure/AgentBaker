@@ -160,9 +160,6 @@ const (
 	AKSUbuntuFipsContainerd1804Gen2     Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
 	AKSUbuntuFipsContainerd2004         Distro = "aks-ubuntu-fips-containerd-20.04"
 	AKSUbuntuFipsContainerd2004Gen2     Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
-	AKSUbuntuFipsGPUContainerd1804      Distro = "aks-ubuntu-fips-gpu-containerd-18.04"
-	AKSUbuntuFipsGPUContainerd1804Gen2  Distro = "aks-ubuntu-fips-gpu-containerd-18.04-gen2"
-	AKSUbuntuArm64Containerd1804Gen2    Distro = "aks-ubuntu-arm64-containerd-18.04-gen2"
 	AKSUbuntuEdgeZoneContainerd1804     Distro = "aks-ubuntu-edgezone-containerd-18.04"
 	AKSUbuntuEdgeZoneContainerd1804Gen2 Distro = "aks-ubuntu-edgezone-containerd-18.04-gen2"
 	AKSUbuntuEdgeZoneContainerd2204     Distro = "aks-ubuntu-edgezone-containerd-22.04"
@@ -221,9 +218,6 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsContainerd2004,
 	AKSUbuntuFipsContainerd2004Gen2,
-	AKSUbuntuFipsGPUContainerd1804,
-	AKSUbuntuFipsGPUContainerd1804Gen2,
-	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuEdgeZoneContainerd1804,
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSUbuntuEdgeZoneContainerd2204,
@@ -653,6 +647,14 @@ type CustomLinuxOSConfig struct {
 	TransparentHugePageEnabled string        `json:"transparentHugePageEnabled,omitempty"`
 	TransparentHugePageDefrag  string        `json:"transparentHugePageDefrag,omitempty"`
 	SwapFileSizeMB             *int32        `json:"swapFileSizeMB,omitempty"`
+	UlimitConfig               *UlimitConfig `json:"ulimitConfig,omitempty"`
+}
+
+func (c *CustomLinuxOSConfig) GetUlimitConfig() *UlimitConfig {
+	if c == nil {
+		return nil
+	}
+	return c.UlimitConfig
 }
 
 // SysctlConfig represents sysctl configs in customLinuxOsConfig.
@@ -685,6 +687,11 @@ type SysctlConfig struct {
 	VMMaxMapCount                  *int32 `json:"vmMaxMapCount,omitempty"`
 	VMSwappiness                   *int32 `json:"vmSwappiness,omitempty"`
 	VMVfsCachePressure             *int32 `json:"vmVfsCachePressure,omitempty"`
+}
+
+type UlimitConfig struct {
+	MaxLockedMemory string `json:"maxLockedMemory ,omitempty"`
+	NoFile          *int32 `json:"noFile,omitempty"`
 }
 
 type CustomConfiguration struct {
@@ -723,6 +730,13 @@ type AgentPoolProfile struct {
 	behavior to reboot Windows node when it is nil. */
 	NotRebootWindowsNode    *bool                    `json:"notRebootWindowsNode,omitempty"`
 	AgentPoolWindowsProfile *AgentPoolWindowsProfile `json:"agentPoolWindowsProfile,omitempty"`
+}
+
+func (a *AgentPoolProfile) GetCustomLinuxOSConfig() *CustomLinuxOSConfig {
+	if a == nil {
+		return nil
+	}
+	return a.CustomLinuxOSConfig
 }
 
 // Properties represents the AKS cluster definition.

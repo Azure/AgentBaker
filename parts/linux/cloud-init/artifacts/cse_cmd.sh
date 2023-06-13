@@ -1,13 +1,8 @@
 echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
-for i in $(seq 1 1200); do
-grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
-if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
-done;
+cloud-init status --wait  > /dev/null 2>&1;
+[ $? -ne 0 ] && echo 'cloud-init failed' >> /var/log/azure/cluster-provision-cse-output.log && exit 1;
+echo "cloud-init succeeded" >> /var/log/azure/cluster-provision-cse-output.log;
 {{if IsAKSCustomCloud}}
-for i in $(seq 1 1200); do
-grep -Fq "EOF" {{GetInitAKSCustomCloudFilepath}} && break;
-if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
-done;
 REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
 {{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
 {{end}}
@@ -92,6 +87,8 @@ ENABLE_UNATTENDED_UPGRADES="{{EnableUnattendedUpgrade}}"
 ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE="{{ and NeedsContainerd IsKubenet (not HasCalicoNetworkPolicy) }}"
 SHOULD_CONFIG_SWAP_FILE="{{ShouldConfigSwapFile}}"
 SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE="{{ShouldConfigTransparentHugePage}}"
+SHOULD_CONFIG_CONTAINERD_ULIMITS="{{ShouldConfigContainerdUlimits}}"
+CONTAINERD_ULIMITS="{{GetContainerdUlimitString}}"
 {{/* both CLOUD and ENVIRONMENT have special values when IsAKSCustomCloud == true */}}
 {{/* CLOUD uses AzureStackCloud and seems to be used by kubelet, k8s cloud provider */}}
 {{/* target environment seems to go to ARM SDK config */}}

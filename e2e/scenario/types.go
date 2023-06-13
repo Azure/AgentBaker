@@ -59,4 +59,8 @@ type LiveVMValidator struct {
 
 	// Asserter is the validator's VMCommandOutputAsserterFn which will be run against command output
 	Asserter VMCommandOutputAsserterFn
+
+	// IsShellBuiltIn is a boolean flag which indicates whether or not the command is a shell built-in
+	// that will fail when executed with sudo - requires separate command to avoid command not found error on node
+	IsShellBuiltIn bool
 }
