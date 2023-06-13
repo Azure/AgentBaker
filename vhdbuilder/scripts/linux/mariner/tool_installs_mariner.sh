@@ -181,6 +181,6 @@ installFedRAMP() {
 
     sudo -s
     tar -xzvf $script_dir/stig_remediation.tar.gz
-   # $script_dir/stig_remediation/marketplace_compliance.sh --run_live
+    $script_dir/stig_remediation/marketplace_compliance.sh 
  
 }
