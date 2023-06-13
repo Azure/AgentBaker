@@ -142,6 +142,18 @@ configureCustomCaCertificate() {
     systemctl restart containerd
 }
 
+configureContainerdUlimits() {
+  CONTAINERD_ULIMIT_DROP_IN_FILE_PATH="/etc/systemd/system/containerd.service.d/set_ulimits.conf"
+  touch "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}"
+  chmod 0600 "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}"
+  tee "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}" > /dev/null <<EOF
+$(echo "$CONTAINERD_ULIMITS" | tr ' ' '\n')
+EOF
+
+  systemctl daemon-reload
+  systemctl restart containerd
+}
+
 
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"

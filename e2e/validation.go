@@ -94,9 +94,10 @@ func runLiveVMValidators(ctx context.Context, vmssName, privateIP, sshPrivateKey
 	for _, validator := range validators {
 		desc := validator.Description
 		command := validator.Command
+		isShellBuiltIn := validator.IsShellBuiltIn
 		log.Printf("running live VM validator: %q", desc)
 
-		execResult, err := pollExecOnVM(ctx, opts.clusterConfig.kube, privateIP, podName, sshPrivateKey, command)
+		execResult, err := pollExecOnVM(ctx, opts.clusterConfig.kube, privateIP, podName, sshPrivateKey, command, isShellBuiltIn)
 		if err != nil {
 			return fmt.Errorf("unable to execute validator command %q: %w", command, err)
 		}

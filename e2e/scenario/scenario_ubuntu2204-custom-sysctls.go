@@ -13,6 +13,10 @@ func ubuntu2204CustomSysctls() *Scenario {
 		"net.netfilter.nf_conntrack_buckets": "524288",
 		"net.ipv4.tcp_keepalive_intvl":       "90",
 	}
+	customContainerdUlimits := map[string]string{
+		"LimitMEMLOCK": "75000",
+		"LimitNOFILE":  "1048",
+	}
 	return &Scenario{
 		Name:        "ubuntu2204-custom-sysctls",
 		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
@@ -27,6 +31,10 @@ func ubuntu2204CustomSysctls() *Scenario {
 						NetIpv4IpLocalPortRange:        customSysctls["net.ipv4.ip_local_port_range"],
 						NetIpv4TcpkeepaliveIntvl:       to.Ptr(stringToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
 					},
+					UlimitConfig: &datamodel.UlimitConfig{
+						MaxLockedMemory: "75000",
+						NoFile:          to.Ptr(stringToInt32("1048")),
+					},
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = customLinuxConfig
@@ -40,6 +48,7 @@ func ubuntu2204CustomSysctls() *Scenario {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				SysctlConfigValidator(customSysctls),
+				UlimitValidator(customContainerdUlimits),
 			},
 		},
 	}

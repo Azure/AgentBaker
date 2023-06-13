@@ -435,6 +435,24 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return 0
 		},
+		"ShouldConfigContainerdUlimits": func() bool {
+			return profile.GetCustomLinuxOSConfig().GetUlimitConfig() != nil
+		},
+		"GetContainerdUlimitString": func() string {
+			ulimitConfig := profile.GetCustomLinuxOSConfig().GetUlimitConfig()
+			if ulimitConfig == nil {
+				return ""
+			}
+			var sb strings.Builder
+			sb.WriteString("[Service]\n")
+			if ulimitConfig.MaxLockedMemory != "" {
+				sb.WriteString(fmt.Sprintf("LimitMEMLOCK=%s\n", ulimitConfig.MaxLockedMemory))
+			}
+			if ulimitConfig.NoFile != nil {
+				sb.WriteString(fmt.Sprintf("LimitNOFILE=%d\n", *ulimitConfig.NoFile))
+			}
+			return sb.String()
+		},
 		"IsKubernetes": func() bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes()
 		},
