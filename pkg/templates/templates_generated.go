@@ -1060,6 +1060,8 @@ ENABLE_UNATTENDED_UPGRADES="{{EnableUnattendedUpgrade}}"
 ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE="{{ and NeedsContainerd IsKubenet (not HasCalicoNetworkPolicy) }}"
 SHOULD_CONFIG_SWAP_FILE="{{ShouldConfigSwapFile}}"
 SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE="{{ShouldConfigTransparentHugePage}}"
+SHOULD_CONFIG_CONTAINERD_ULIMITS="{{ShouldConfigContainerdUlimits}}"
+CONTAINERD_ULIMITS="{{GetContainerdUlimitString}}"
 {{/* both CLOUD and ENVIRONMENT have special values when IsAKSCustomCloud == true */}}
 {{/* CLOUD uses AzureStackCloud and seems to be used by kubelet, k8s cloud provider */}}
 {{/* target environment seems to go to ARM SDK config */}}
@@ -1277,6 +1279,18 @@ configureCustomCaCertificate() {
     # path unit then triggers the script that copies over cert files to correct location on the node and updates the trust store
     # as a part of this flow we could restart containerd everytime a new cert is added to the trust store using custom CA
     systemctl restart containerd
+}
+
+configureContainerdUlimits() {
+  CONTAINERD_ULIMIT_DROP_IN_FILE_PATH="/etc/systemd/system/containerd.service.d/set_ulimits.conf"
+  touch "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}"
+  chmod 0600 "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}"
+  tee "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}" > /dev/null <<EOF
+$(echo "$CONTAINERD_ULIMITS" | tr ' ' '\n')
+EOF
+
+  systemctl daemon-reload
+  systemctl restart containerd
 }
 
 
@@ -2851,6 +2865,10 @@ EOF
 fi
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
+
+if [ "${NEEDS_CONTAINERD}" == "true" ] &&  [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" == "true" ]; then
+  logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
+fi
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
