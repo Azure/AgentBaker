@@ -43,6 +43,10 @@ installKataDeps() {
       cp igvm-measurement /opt/confidential-containers/share/kata-containers/igvm-measurement
       cp kata-containers-initrd.img /opt/confidential-containers/share/kata-containers/kata-containers-initrd.img
 
+      echo "Appending kata-cc config to enable IGVM"
+      sed -i '/image =/a igvm = "/opt/confidential-containers/share/kata-containers/igvm.bin"' /opt/confidential-containers/share/defaults/kata-containers/configuration-clh.toml
+      sed -i 's/cloud-hypervisor/cloud-hypervisor-igvm/g' /opt/confidential-containers/share/defaults/kata-containers/configuration-clh.toml
+
       echo "wget kata-cc packages"
       wget "https://kataccstorage.blob.core.windows.net/confidential-containers/kata-containers-cc-0.4.1-3.cm2.x86_64.rpm" -O kata-containers-cc-0.4.1-3.cm2.x86_64.rpm
       wget "https://kataccstorage.blob.core.windows.net/confidential-containers/kata-containers-cc-tools-0.4.1-3.cm2.x86_64.rpm" -O kata-containers-cc-tools-0.4.1-3.cm2.x86_64.rpm
