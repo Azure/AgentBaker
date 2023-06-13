@@ -27,11 +27,43 @@ installDeps() {
 
 installKataDeps() {
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in kernel-mshv kernel-uvm cloud-hypervisor kata-containers; do
+      for dnf_package in cargo opa parted qemu-img moby-runc python3-devel python3-pip kernel-mshv cloud-hypervisor kata-containers; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
       done
+
+      echo "Copy UVM build pipeline artifacts"
+      wget "https://mitchzhu.blob.core.windows.net/public/igvm-measurement" -O igvm-measurement
+      wget "https://mitchzhu.blob.core.windows.net/public/igvm.bin" -O igvm.bin
+      wget "https://mitchzhu.blob.core.windows.net/public/kata-containers-initrd.img" -O kata-containers-initrd.img
+
+      mkdir -p /opt/confidential-containers/share/kata-containers/
+      cp igvm.bin /opt/confidential-containers/share/kata-containers/igvm.bin
+      cp igvm-measurement /opt/confidential-containers/share/kata-containers/igvm-measurement
+      cp kata-containers-initrd.img /opt/confidential-containers/share/kata-containers/kata-containers-initrd.img
+
+      echo "wget kata-cc packages"
+      wget "https://kataccstorage.blob.core.windows.net/confidential-containers/kata-containers-cc-0.4.1-3.cm2.x86_64.rpm" -O kata-containers-cc-0.4.1-3.cm2.x86_64.rpm
+      wget "https://kataccstorage.blob.core.windows.net/confidential-containers/kata-containers-cc-tools-0.4.1-3.cm2.x86_64.rpm" -O kata-containers-cc-tools-0.4.1-3.cm2.x86_64.rpm
+      wget "https://kataccstorage.blob.core.windows.net/confidential-containers/moby-containerd-cc-1.7.0-1.cm2.x86_64.rpm" -O moby-containerd-cc-1.7.0-1.cm2.x86_64.rpm
+      wget "https://kataccstorage.blob.core.windows.net/confidential-containers/igvm-generator-0.0.1-3.cm2.x86_64.rpm" -O igvm-generator-0.0.1-3.cm2.x86_64.rpm
+      wget "https://kataccstorage.blob.core.windows.net/confidential-containers/kernel-uvm-5.15.98.mshv1-4.cm2.x86_64.rpm" -O kernel-uvm-5.15.98.mshv1-4.cm2.x86_64.rpm
+      wget "https://kataccstorage.blob.core.windows.net/confidential-containers/kernel-uvm-devel-5.15.98.mshv1-4.cm2.x86_64.rpm" -O kernel-uvm-devel-5.15.98.mshv1-4.cm2.x86_64.rpm
+
+      rpm -ihv moby-containerd-cc-1.7.0-1.cm2.x86_64.rpm
+      rpm -ihv kata-containers-cc-0.4.1-3.cm2.x86_64.rpm
+      rpm -ihv kata-containers-cc-tools-0.4.1-3.cm2.x86_64.rpm
+      rpm -ihv kernel-uvm-5.15.98.mshv1-4.cm2.x86_64.rpm
+      rpm -ihv kernel-uvm-devel-5.15.98.mshv1-4.cm2.x86_64.rpm
+      rpm -ihv igvm-generator-0.0.1-3.cm2.x86_64.rpm
+
+      rm kata-containers-cc-0.4.1-3.cm2.x86_64.rpm
+      rm kata-containers-cc-tools-0.4.1-3.cm2.x86_64.rpm
+      rm moby-containerd-cc-1.7.0-1.cm2.x86_64.rpm
+      rm igvm-generator-0.0.1-3.cm2.x86_64.rpm
+      rm kernel-uvm-5.15.98.mshv1-4.cm2.x86_64.rpm
+      rm kernel-uvm-devel-5.15.98.mshv1-4.cm2.x86_64.rpm
 
       echo "wget mshv packages"
       wget "https://mitchzhu.blob.core.windows.net/public/mshv-bootloader-25357.1.230428-1528.1.cm2.x86_64.rpm" -O mshv-bootloader-25357.1.230428-1528.1.cm2.x86_64.rpm
