@@ -6,6 +6,8 @@ done
 
 sleep 10
 
+sed -i '/plugins."io.containerd.grpc.v1.cri".containerd]/a \\t  disable_snapshot_annotations = false' /etc/containerd/config.toml
+
 cat /etc/containerd/config.toml | grep kata > /dev/null
 if [[ $? != 0 ]]; then
   echo "kata config needs to be applied to containerd"
@@ -24,6 +26,17 @@ if [[ $? != 0 ]]; then
   Root = ""
   CriuPath = ""
   SystemdCgroup = false
+[proxy_plugins]
+  [proxy_plugins.tardev]
+    type = "snapshot"
+    address = "/run/containerd/tardev-snapshotter.sock"
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
+  snapshotter = "tardev"
+  runtime_type = "io.containerd.kata-cc.v2"
+  privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.*"]
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
+    ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh.toml"
 EOF
 
   echo "Config change applied, restarting containerd"

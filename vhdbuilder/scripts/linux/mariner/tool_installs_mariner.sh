@@ -138,9 +138,6 @@ EOF
 setupMSHV() {
     echo "in setupMSHV"
 
-    # Add PARTUUID in linuxloader.conf
-    echo "Contents of linuxloader.conf"
-    cat /boot/efi/linuxloader.conf
 
     echo "Contents of blkid output"
     export my_blkid=$(blkid)
@@ -153,7 +150,7 @@ setupMSHV() {
     # echo "Contents of linuxloader after blkid"
     # cat /boot/efi/linuxloader.conf
     # Add DOM0 boot entry above default
-    sudo sed -i -e 's@menuentry "CBL-Mariner"@menuentry "Dom0" {\n    search --no-floppy --set=root --file /EFI/Microsoft/Boot/bootmgfw.efi\n        chainloader /EFI/Microsoft/Boot/bootmgfw.efi\n}\n\nmenuentry "CBL-Mariner"@'  /boot/grub2/grub.cfg
+    sudo sed -i -e 's@menuentry "CBL-Mariner"@menuentry "Dom0_legacy" {\n    search --no-floppy --set=root --file /EFI/Microsoft/Boot/bootmgfw.efi\n        chainloader /EFI/Microsoft/Boot/bootmgfw.efi\n}\n\nmenuentry "CBL-Mariner"@'  /boot/grub2/grub.cfg
 
     SERVICE_FILEPATH="/etc/systemd/system/set-kataconfig.service"
     touch ${SERVICE_FILEPATH}
