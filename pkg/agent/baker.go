@@ -453,18 +453,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return sb.String()
 		},
-		"GetMemLockValue": func() string {
-			if profile.CustomLinuxOSConfig == nil || profile.CustomLinuxOSConfig.UlimitConfig == nil {
-				return ""
-			}
-			return profile.CustomLinuxOSConfig.UlimitConfig.MaxLockedMemory
-		},
-		"GetNoFileValue": func() int32 {
-			if profile.CustomLinuxOSConfig == nil || profile.CustomLinuxOSConfig.UlimitConfig == nil {
-				return 0
-			}
-			return *profile.CustomLinuxOSConfig.UlimitConfig.NoFile
-		},
 		"IsKubernetes": func() bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes()
 		},
