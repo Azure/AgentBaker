@@ -189,7 +189,7 @@ installFedRAMP() {
     dnf_install 120 5 25 openscap || exit $ERR_APT_INSTALL_TIMEOUT
     script_dir="$(dirname "$(realpath "$0")")"
 
-    sudo -s
+    sudo su
    # tar -xzvf $script_dir/remediation.tar.gz
     $script_dir/stig_remediation/marketplace_compliance.sh --run_live --marketplace
  
