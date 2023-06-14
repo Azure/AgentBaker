@@ -188,9 +188,9 @@ installFedRAMP() {
 
     script_dir="$(dirname "$(realpath "$0")")"
 
-    sudo su
     cd stig_remediation
    # tar -xzvf $script_dir/remediation.tar.gz
     ./marketplace_compliance.sh --run_live --marketplace
+    cd ..
  
 }
