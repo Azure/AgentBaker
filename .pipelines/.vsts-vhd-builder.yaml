@@ -57,6 +57,7 @@ stages:
             docker run --rm \
             -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
             -w /go/src/github.com/Azure/AgentBaker \
+            -e POOL_NAME=$(POOL_NAME) \
             -e CLIENT_ID=${CLIENT_ID} \
             -e CLIENT_SECRET="$(CLIENT_SECRET)" \
             -e TENANT_ID=${TENANT_ID} \
