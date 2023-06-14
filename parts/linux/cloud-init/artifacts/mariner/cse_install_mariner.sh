@@ -75,6 +75,9 @@ installKataDeps() {
       rm mshv-linuxloader-0.5.0-2.3.cm2.x86_64.rpm
       rm mshv-25357.1.230428-1528.2.cm2.x86_64.rpm
 
+      echo "create snapshotter dir"
+      mkdir -p /var/lib/containerd/io.containerd.snapshotter.v1.tardev/staging
+
       echo "Appending kata-cc config to enable IGVM"
       sed -i '/image =/a igvm = "/opt/confidential-containers/share/kata-containers/igvm.bin"' /opt/confidential-containers/share/defaults/kata-containers/configuration-clh.toml
       sed -i 's/cloud-hypervisor/cloud-hypervisor-igvm/g' /opt/confidential-containers/share/defaults/kata-containers/configuration-clh.toml
