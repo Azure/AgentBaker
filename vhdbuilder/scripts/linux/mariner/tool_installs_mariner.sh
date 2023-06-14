@@ -190,7 +190,7 @@ installFedRAMP() {
 
     cd stig_remediation
    # tar -xzvf $script_dir/remediation.tar.gz
-   # ./marketplace_compliance.sh --run_live --marketplace
+    ./marketplace_compliance.sh --run_live --marketplace
     cd ..
  
 }

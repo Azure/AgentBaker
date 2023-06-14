@@ -33,29 +33,6 @@ touch "$script_dir/fail.txt"
 touch "$script_dir/success.txt"
 touch $script_dir/failure_details.txt
 
-if [[ "${marketplace}" == "yes" ]]; then
-    # Marketplace images sometimes have issues running dnf reliably due to transaction locks being held by other processes.
-    # rpm does not allow a script to wait for the lock like an interactive user, it fails immediately.
-    # Alias dnf during the install flow so we try a few times before giving up.
-    dnf () {
-        echo "Auto-retry dnf"
-        for i in {1..20}; do
-            command dnf "$@" && break
-            echo "Try $i failed..."
-            sleep 5
-        done
-    }
-    # Export so it is available in the sub-shells
-    export -f dnf
-
-    # Marketplace does not explicitly define these mounts, add them to fstab so we can configure them
-    # Normally /tmp might have an explicit size=2g, omit that here.
-    echo "tmpfs /tmp tmpfs rw,nosuid,nodev,noexec 0 0" >> /etc/fstab
-    echo "tmpfs /dev/shm tmpfs rw,nosuid,nodev,noexec 0 0" >> /etc/fstab
-
-    # Marketplace will have a packer user, and this is expected. Fix up accounts_authorized_local_users remediation to remove mariner_user and add packer
-    sed -i 's/\(var_accounts_authorized_local_users_regex="^(\)mariner_user/\1packer/' "$script_dir/rhel8/"*"accounts_authorized_local_users.sh"
-fi
 
 for script in $(find "$script_dir/rhel8" -name '*.sh' | sort -u); do
     scriptname="$(basename "${script}")"
