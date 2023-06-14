@@ -87,4 +87,5 @@ sysctl_net_ipv4_conf_all_rp_filter
 coredump_disable_backtraces
 coredump_disable_storage
 banner_etc_issue
+service_auditd_enabled
 
