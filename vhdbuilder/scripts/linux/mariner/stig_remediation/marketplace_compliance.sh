@@ -84,28 +84,5 @@ for script in $(find "$script_dir/rhel8" -name '*.sh' | sort -u); do
     fi
     fi
 
-    if [[ "${skip_apply}" == "yes" ]]; then
-        echo "Skipping ${script} due to --skip_apply"  1>&2
-        echo "Skipped ${script}" > "$script_dir/apply_logs/$(basename "${script}").log"
-    else
-        echo "Running ${script}" 1>&2
-        out=$(${script} 2>&1)
-        res=$?
-        if [[ ${res} -ne 0 ]]; then
-            basename "${script}" >> "$script_dir/fail.txt"
-        else
-            basename "${script}" >> "$script_dir/success.txt"
-        fi
-        echo "$out" > "$script_dir/apply_logs/$(basename "${script}").log"
-    fi
 done
 
-
-if [[ $(wc -l < "$script_dir/fail.txt") -gt 0 ]]; then
-    cat "$script_dir/fail.txt"
-    while read -r line; do
-        echo "${line}:" | tee -a $script_dir/failure_details.txt
-        cat "$script_dir/apply_logs/${line}.log" | tee -a $script_dir/failure_details.txt
-    done < "$script_dir/fail.txt"
-    exit 1
-fi
