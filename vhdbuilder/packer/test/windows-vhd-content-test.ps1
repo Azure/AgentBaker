@@ -263,6 +263,11 @@ function Test-RegistryAdded {
             Write-ErrorWithTimestamp "The registry for VfpEvenPodDistributionIsEnabled is not added"
             exit 1
         }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3230913164)
+        if ($result.3230913164 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 3230913164 is not added"
+            exit 1
+        }
     }
     if ($env:WindowsSKU -Like '2022*') {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2629306509)
@@ -308,6 +313,11 @@ function Test-RegistryAdded {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled)
         if ($result.VfpEvenPodDistributionIsEnabled -ne 1) {
             Write-ErrorWithTimestamp "The registry for VfpEvenPodDistributionIsEnabled is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3398685324)
+        if ($result.3398685324 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 3398685324 is not added"
             exit 1
         }
     }

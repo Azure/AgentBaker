@@ -97,7 +97,9 @@ $wuRegistryNames = @(
     "3508525708",
     "1995963020",
     "189519500",
-    "VfpEvenPodDistributionIsEnabled"
+    "VfpEvenPodDistributionIsEnabled",
+    "3230913164",
+    "3398685324"
 )
 
 foreach ($key in $wuRegistryKeys) {
