@@ -36,6 +36,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.4.44_hotfix",
+        "v1.4.44.1",
         "v1.5.3"
       ]
     },
@@ -67,7 +68,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.3.3-2",
+        "v1.3.4",
         "v1.3.3.1"
       ]
     },
