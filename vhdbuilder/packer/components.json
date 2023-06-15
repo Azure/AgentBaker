@@ -218,9 +218,9 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.26.4",
         "v1.26.4.1",
-        "v1.27.1"
+        "v1.26.5",
+        "v1.28.0"
       ]
     },
     {
@@ -228,8 +228,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.24.2",
-        "v1.26.3",
-        "v1.26.3.1"
+        "v1.26.3.1",
+        "v1.28.0"
       ]
     },
     {
