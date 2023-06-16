@@ -79,7 +79,8 @@ $global:imagesToPull += @(
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.1",
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.5.3"
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.5.3",
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.5.4"
 )
 
 $global:map = @{
