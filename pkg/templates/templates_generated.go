@@ -1032,6 +1032,7 @@ IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
 SGX_NODE={{GetVariable "sgxNode"}}
 MIG_NODE={{GetVariable "migNode"}}
+MIG_NEEDS_REBOOT={{MIGNeedsReboot}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
@@ -2736,12 +2737,17 @@ EOF
         # Commands such as `+"`"+`nvidia-smi --gpu-reset`+"`"+` may succeed,
         # while commands such as `+"`"+`nvidia-smi -q`+"`"+` will show mismatched current/pending mig mode.
         # this will not be required per nvidia for next gen H100.
-        REBOOTREQUIRED=true
-        
-        # this service applies the partitioning scheme with nvidia-smi.
-        # we should consider moving to mig-parted which is simpler/newer.
-        # we couldn't because of old drivers but that has long been fixed.
-        logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
+        if [[ "${MIG_NEEDS_REBOOT}" == "true" ]]; then
+            REBOOTREQUIRED=true
+            # this service applies the partitioning scheme with nvidia-smi.
+            # we should consider moving to mig-parted which is simpler/newer.
+            # we couldn't because of old drivers but that has long been fixed.
+            # avoid failing here, for A100 it's not expected to work until reboot
+            logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
+        else
+            nvidia-smi --gpu-reset
+            logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition || exit $ERR_SYSTEMCTL_START_FAIL
+        fi
     fi
 fi
 

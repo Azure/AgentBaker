@@ -884,6 +884,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GPUDriverVersion": func() string {
 			return getGPUDriverVersion(profile.VMSize)
 		},
+		"MIGNeedsReboot": func() bool {
+			return multiInstanceGPUNeedsReboot(profile.VMSize)
+		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			if cs.Properties.WindowsProfile != nil {
 				return cs.Properties.WindowsProfile.GetHnsRemediatorIntervalInMinutes()
@@ -923,6 +926,14 @@ func getGPUDriverVersion(size string) string {
 		return datamodel.Nvidia470CudaDriverVersion
 	}
 	return datamodel.Nvidia525CudaDriverVersion
+}
+
+// multiInstanceGPUNeedsReboot returns true for GPUs with multiple
+// instances which require a reboot to toggle MIG mode.
+// A100 requires a reboot, H100 doesn't. See nvidia docs.
+// https://docs.nvidia.com/datacenter/tesla/mig-user-guide/index.html#reset-hopper
+func multiInstanceGPUNeedsReboot(size string) bool {
+	return datamodel.MultiInstanceGPURebootRequired[size]
 }
 
 func isStandardNCv1(size string) bool {
