@@ -448,8 +448,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			if ulimitConfig.MaxLockedMemory != "" {
 				sb.WriteString(fmt.Sprintf("LimitMEMLOCK=%s\n", ulimitConfig.MaxLockedMemory))
 			}
-			if ulimitConfig.NoFile != nil {
-				sb.WriteString(fmt.Sprintf("LimitNOFILE=%d\n", *ulimitConfig.NoFile))
+			if ulimitConfig.NoFile != "" {
+				sb.WriteString(fmt.Sprintf("LimitNOFILE=%s\n", ulimitConfig.NoFile))
 			}
 			return sb.String()
 		},

@@ -691,7 +691,7 @@ type SysctlConfig struct {
 
 type UlimitConfig struct {
 	MaxLockedMemory string `json:"maxLockedMemory ,omitempty"`
-	NoFile          *int32 `json:"noFile,omitempty"`
+	NoFile          string `json:"noFile,omitempty"`
 }
 
 type CustomConfiguration struct {
