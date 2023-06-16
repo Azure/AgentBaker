@@ -33,7 +33,7 @@ func marinerv2CustomSysctls() *Scenario {
 					},
 					UlimitConfig: &datamodel.UlimitConfig{
 						MaxLockedMemory: customContainerdUlimits["LimitMEMLOCK"],
-						NoFile:          to.Ptr(stringToInt32(customContainerdUlimits["LimitNOFILE"])),
+						NoFile:          customContainerdUlimits["LimitNOFILE"],
 					},
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
