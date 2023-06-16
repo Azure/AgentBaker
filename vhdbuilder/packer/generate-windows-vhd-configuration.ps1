@@ -50,13 +50,14 @@ $global:imagesToPull += @(
     # CSI. Owner: andyzhangx (Andy Zhang)
     "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.10.0",
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0",
-    # azuredisk-csi:v1.27 is only for AKS 1.26+, v1.26 is for other AKS versions
+    # azuredisk-csi:v1.28 is only for AKS 1.27+, v1.26 is for other AKS versions
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.4",
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.27.1",
-    # azurefile-csi:v1.26 is only for AKS 1.26+, v1.24 is for other AKS versions
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.5",
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.0",
+    # azurefile-csi:v1.28 is only for AKS 1.27+, v1.24, v1.26 is for other AKS versions
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.2",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.2",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.3",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.0",
     # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.3",
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.4",
