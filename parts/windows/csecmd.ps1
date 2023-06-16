@@ -1,15 +1,15 @@
 powershell.exe -ExecutionPolicy Unrestricted -command \"
 $arguments = '
--MasterIP {{ GetKubernetesEndpoint }}
--KubeDnsServiceIp {{ GetParameter "kubeDNSServiceIP" }}
--MasterFQDNPrefix {{ GetParameter "masterEndpointDNSNamePrefix" }}
--Location {{ GetVariable "location" }}
+-MasterIP ''{{ GetKubernetesEndpoint }}''
+-KubeDnsServiceIp ''{{ GetParameter "kubeDNSServiceIP" }}''
+-MasterFQDNPrefix ''{{ GetParameter "masterEndpointDNSNamePrefix" }}''
+-Location ''{{ GetVariable "location" }}''
 {{if UserAssignedIDEnabled}}
--UserAssignedClientID {{ GetVariable "userAssignedIdentityID" }}
+-UserAssignedClientID ''{{ GetVariable "userAssignedIdentityID" }}''
 {{ end }}
--TargetEnvironment {{ GetTargetEnvironment }}
--AgentKey {{ GetParameter "clientPrivateKey" }}
--AADClientId {{ GetParameter "servicePrincipalClientId" }}
+-TargetEnvironment ''{{ GetTargetEnvironment }}''
+-AgentKey ''{{ GetParameter "clientPrivateKey" }}''
+-AADClientId ''{{ GetParameter "servicePrincipalClientId" }}''
 -AADClientSecret ''{{ GetParameter "encodedServicePrincipalClientSecret" }}''
 -NetworkAPIVersion 2018-08-01
 -LogFile %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log
