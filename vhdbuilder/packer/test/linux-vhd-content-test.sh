@@ -726,7 +726,7 @@ testCriticalTools
 testFilesDownloaded $CONTAINER_RUNTIME
 testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
 testChrony $OS_SKU
-if [[$OS_SKU == $UBUNTU_OS_NAME] || [ "${ENABLE_FIPS,,}" == "false" ]]; then
+if [ $OS_SKU == $UBUNTU_OS_NAME ] || [ "${ENABLE_FIPS,,}" == "false" ]; then
   testAuditDNotPresent
 fi
 testFips $OS_VERSION $ENABLE_FIPS
