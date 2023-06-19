@@ -978,7 +978,6 @@ cloud-init status --wait > /dev/null 2>&1;
 [ $? -ne 0 ] && echo 'cloud-init failed' >> ${PROVISION_OUTPUT} && exit 1;
 echo "cloud-init succeeded" >> ${PROVISION_OUTPUT};
 {{end}}
-echo "outside if" >> ${PROVISION_OUTPUT};
 {{if IsAKSCustomCloud}}
 REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
 {{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
