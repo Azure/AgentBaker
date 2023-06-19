@@ -33,7 +33,7 @@ func ubuntu2204CustomSysctls() *Scenario {
 					},
 					UlimitConfig: &datamodel.UlimitConfig{
 						MaxLockedMemory: "75000",
-						NoFile:          to.Ptr(stringToInt32("1048")),
+						NoFile:          "1048",
 					},
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
