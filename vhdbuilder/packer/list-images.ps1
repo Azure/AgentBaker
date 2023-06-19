@@ -44,7 +44,15 @@ foreach($image in $imageList) {
     } else {
         # Get id and repoTags
         # Example:
-        # mcr.microsoft.com/windows/servercore:ltsc2022
+        # mcr.azk8s.cn/windows/servercore:ltsc2022
+        # application/vnd.docker.distribution.manifest.list.v2+json
+        # sha256:dfd3ce22e4b6e987ff2bfb3efe5e4912512fce35660be2ae5faa91e6f4da9748
+        # 1.3
+        # GiB
+        # windows/amd64
+        # io.cri-containerd.image=managed
+        #
+        # mcr.microsoft.com/windows/servercore@sha256:dfd3ce22e4b6e987ff2bfb3efe5e4912512fce35660be2ae5faa91e6f4da9748
         # application/vnd.docker.distribution.manifest.list.v2+json
         # sha256:dfd3ce22e4b6e987ff2bfb3efe5e4912512fce35660be2ae5faa91e6f4da9748
         # 1.3
@@ -62,22 +70,25 @@ foreach($image in $imageList) {
         $repoTags=$splitResult[0]
         $id=$splitResult[2]
 
-        $isExist=$false
-        foreach($bom in $bomList) {
-            if ($bom.id -eq $id) {
-                $bom.repoTags += $repoTags
-                $isExist=$true
-                break
+        # Ignore repoTags when it contains id
+        if (-not $repoTags.Contains($id)) {
+            $isExist=$false
+            foreach($bom in $bomList) {
+                if ($bom.id -eq $id) {
+                    $bom.repoTags += $repoTags
+                    $isExist=$true
+                    break
+                }
             }
-        }
 
-        if (-not $isExist) {
-            $bom=[pscustomobject]@{
-                id=$id;
-                repoTags=@($repoTags);
-                repoDigests=@();
+            if (-not $isExist) {
+                $bom=[pscustomobject]@{
+                    id=$id;
+                    repoTags=@($repoTags);
+                    repoDigests=@();
+                }
+                $bomList+=$bom
             }
-            $bomList+=$bom
         }
     }
 }
