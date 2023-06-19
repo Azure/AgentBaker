@@ -131,10 +131,22 @@
             "script": "vhdbuilder/packer/write-release-notes-windows.ps1"
         },
         {
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
+            "type": "powershell",
+            "script": "vhdbuilder/packer/list-images.ps1"
+        },
+        {
             "type": "file",
             "direction": "download",
             "source": "c:\\release-notes.txt",
             "destination": "release-notes.txt"
+        },
+        {
+            "type": "file",
+            "direction": "download",
+            "source": "c:\\image-bom.json",
+            "destination": "image-bom.json"
         },
         {
             "elevated_user": "packer",
