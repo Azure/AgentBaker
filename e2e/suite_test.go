@@ -98,8 +98,6 @@ func Test_All(t *testing.T) {
 
 func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts) {
 	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair(r)
-	privateKey := string(privateKeyBytes)
-	log.Printf("private key is: %q", privateKey)
 	if err != nil {
 		t.Error(err)
 		return
@@ -109,10 +107,10 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 	log.Printf("vmss name: %q", vmssName)
 
 	vmssSucceeded := true
-	vmssModel, _, err := bootstrapVMSS(ctx, t, r, vmssName, opts, publicKeyBytes)
-	// if cleanupVMSS != nil {
-	// 	defer cleanupVMSS()
-	// }
+	vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, vmssName, opts, publicKeyBytes)
+	if cleanupVMSS != nil {
+		defer cleanupVMSS()
+	}
 	if err != nil {
 		vmssSucceeded = false
 		if !isVMExtensionProvisioningError(err) {
