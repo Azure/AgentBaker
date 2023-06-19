@@ -100,11 +100,17 @@ steps:
       ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD cache test
 
-# We can generate release notes for check-in pr and sig mode to validate whether it is expected.
+# We can upload release notes for check-in pr and sig mode to validate whether it is expected.
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
         targetPath: 'release-notes.txt'
+
+# We can upload image bom json for check-in pr and sig mode to validate whether it is expected.
+  - task: PublishPipelineArtifact@0
+    inputs:
+        artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
+        targetPath: 'image-bom.json'
 
 # Moved conversion to VHD before cleanup.
 # Gen 2 packer outputs a sig in destination. This step: dest sig=>disk=>VHD in classic SA for publishing.
