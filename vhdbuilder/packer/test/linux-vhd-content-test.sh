@@ -728,8 +728,8 @@ testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
 testChrony $OS_SKU
 if [ $OS_SKU == $UBUNTU_OS_NAME ] || [ "${ENABLE_FIPS,,}" == "false" ]; then
   testAuditDNotPresent
-  testCoreDumpSettings
 fi
+testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS
 testKubeBinariesPresent $CONTAINER_RUNTIME
 testKubeProxyImagesPulled $CONTAINER_RUNTIME
@@ -744,5 +744,6 @@ testLoginDefs
 testUserAdd
 testNetworkSettings
 testCronPermissions
+testCoreDumpSettings
 testNfsServerService
 testPamDSettings $OS_SKU $OS_VERSION
