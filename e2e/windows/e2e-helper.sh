@@ -18,6 +18,9 @@ exec_on_host() {
 
 create_storage_container() {
     set +x
+    # list outdated storage containers created over a week ago
+    az storage container list --account-name akswinstorageaccount --account-key $MAPPED_ACCOUNT_KEY --query "[?properties.lastModified < '$(date -u --date='-7 days' +%Y-%m-%dT%H:%MZ)' && starts_with(name, 'akswinstore')].name" -o tsv
+
     # check if the storage container exists and create one if not
     exists=$(az storage container exists --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --name $WINDOWS_E2E_STORAGE_CONTAINER)
     if [[ $exists == *false* ]]; then
