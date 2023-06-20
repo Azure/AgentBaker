@@ -171,6 +171,7 @@ installFIPS() {
         fi
     fi
     
+    echo "Finish installing FIPS..."
 }
 
 
@@ -187,9 +188,8 @@ installFedRAMP() {
     echo "Applying scripts for FedRAMP..." 
 
     script_dir="$(dirname "$(realpath "$0")")"
-
-   # tar -xzvf $script_dir/remediation.tar.gz
     $script_dir/stig_remediation/marketplace_compliance.sh --run_live --marketplace
 
- 
+    echo "Finish installing FedRAMP..."
+
 }
