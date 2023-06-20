@@ -10,6 +10,7 @@ type suiteConfig struct {
 	location          string
 	resourceGroupName string
 	scenariosToRun    map[string]bool
+	keepVMSS          bool
 }
 
 func newSuiteConfig() (*suiteConfig, error) {
@@ -32,5 +33,6 @@ func newSuiteConfig() (*suiteConfig, error) {
 		location:          environment["LOCATION"],
 		resourceGroupName: environment["RESOURCE_GROUP_NAME"],
 		scenariosToRun:    strToBoolMap(os.Getenv("SCENARIOS_TO_RUN")),
+		keepVMSS:          os.Getenv("KEEP_VMSS") == "true",
 	}, nil
 }
