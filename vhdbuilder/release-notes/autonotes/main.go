@@ -275,6 +275,9 @@ type flags struct {
 var defaultPath = filepath.Join("vhdbuilder", "release-notes")
 var defaultDate = strings.Split(time.Now().Format("200601.02"), " ")[0] + ".0"
 
+// why does ubuntu use subfolders and mariner doesn't
+// there are dependencies on the folder structure but it would
+// be nice to fix this.
 var artifactToPath = map[string]string{
 	"1804-containerd":                   filepath.Join("AKSUbuntu", "gen1", "1804containerd"),
 	"1804-gen2-containerd":              filepath.Join("AKSUbuntu", "gen2", "1804containerd"),
@@ -286,6 +289,8 @@ var artifactToPath = map[string]string{
 	"2004-fips-gen2-containerd":         filepath.Join("AKSUbuntu", "gen2", "2004fipscontainerd"),
 	"marinerv1":                         filepath.Join("AKSCBLMariner", "gen1"),
 	"marinerv1-gen2":                    filepath.Join("AKSCBLMariner", "gen2"),
+	"marinerv2-gen1-fips":               filepath.Join("AKSCBLMarinerV2", "gen1fips"),
+	"marinerv2-gen2-fips":               filepath.Join("AKSCBLMarinerV2", "gen2fips"),
 	"marinerv2-gen2":                    filepath.Join("AKSCBLMarinerV2", "gen2"),
 	"marinerv2-gen2-kata":               filepath.Join("AKSCBLMarinerV2", "gen2kata"),
 	"marinerv2-gen2-arm64":              filepath.Join("AKSCBLMarinerV2", "gen2arm64"),
