@@ -27,4 +27,4 @@ test-kubernetes:
 
 test-azure-constants:
 	./scripts/azure-const.sh
-
+ 
