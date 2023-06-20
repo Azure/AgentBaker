@@ -29,6 +29,9 @@ func Test_All(t *testing.T) {
 	}
 
 	scenarios := scenario.InitScenarioTable(suiteConfig.scenariosToRun)
+	if len(scenarios) < 1 {
+		t.Fatal("at least one scenario must be selected to run the e2e suite")
+	}
 
 	cloud, err := newAzureClient(suiteConfig.subscription)
 	if err != nil {
@@ -111,24 +114,24 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 	log.Printf("vmss name: %q", vmssName)
 
 	vmssSucceeded := true
-	vmssModel, _, err := bootstrapVMSS(ctx, t, r, vmssName, opts, publicKeyBytes)
-	// if cleanupVMSS != nil {
-	// 	defer cleanupVMSS()
-	// }
+	vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, vmssName, opts, publicKeyBytes)
+	if !opts.suiteConfig.keepVMSS && cleanupVMSS != nil {
+		defer cleanupVMSS()
+	}
 	if err != nil {
 		vmssSucceeded = false
 		if !isVMExtensionProvisioningError(err) {
-			t.Fatal("Encountered an unknown error while creating VM:", err)
+			t.Fatalf("encountered an unknown error while creating VM: %s", err)
 		}
-		log.Println("VM was unable to be provisioned due to a CSE error, will still atempt to extract provisioning logs...")
+		log.Println("vm was unable to be provisioned due to a CSE error, will still atempt to extract provisioning logs...")
 	}
 
 	if vmssModel != nil {
 		if err := writeToFile(filepath.Join(opts.loggingDir, "vmssId.txt"), *vmssModel.ID); err != nil {
-			t.Fatal("failed to write vmss resource ID to disk", err)
+			t.Fatalf("failed to write vmss resource ID to disk: %s", err)
 		}
 	} else {
-		log.Printf("WARNING: bootstrapped VMSS model was nil for %s", vmssName)
+		log.Printf("WARNING: bootstrapped vmss model was nil for %s", vmssName)
 	}
 
 	vmPrivateIP, err := pollGetVMPrivateIP(ctx, vmssName, opts)
@@ -166,11 +169,23 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 
 		err = runLiveVMValidators(ctx, vmssName, vmPrivateIP, string(privateKeyBytes), opts)
 		if err != nil {
-			t.Fatalf("VM validation failed: %s", err)
+			t.Fatalf("vm validation failed: %s", err)
 		}
 
 		log.Println("node bootstrapping succeeded!")
 	} else {
-		t.Fatal("VMSS was unable to be properly created and bootstrapped")
+		t.Fatal("vmss was unable to be properly created and bootstrapped")
+	}
+
+	if opts.suiteConfig.keepVMSS {
+		log.Printf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
+		if vmssModel != nil {
+			log.Printf("retained vmss resource ID: %q", *vmssModel.ID)
+		} else {
+			log.Printf("WARNING: model of retained vmss %q is nil", vmssName)
+		}
+		if err := writeToFile(filepath.Join(opts.loggingDir, "sshkey"), string(privateKeyBytes)); err != nil {
+			t.Fatalf("failed to write retained vmss %q private ssh key to disk: %s", vmssName, err)
+		}
 	}
 }
