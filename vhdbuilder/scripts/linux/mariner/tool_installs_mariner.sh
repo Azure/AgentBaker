@@ -179,14 +179,15 @@ installFedRAMP() {
 
     echo "Configuring openssl default cipher suites..."
 
+    # Configure openssl 
     sed -i '/= new_oids/a openssl_conf            = default_conf' /etc/pki/tls/openssl.cnf
     echo -e '\n[default_conf]\n\nssl_conf = ssl_sect\n' >> /etc/pki/tls/openssl.cnf
     echo -e '\n[ssl_sect]\n\nsystem_default = system_default_sect\n' >> /etc/pki/tls/openssl.cnf
     echo -e '\n[system_default_sect]\n\nMinProtocol = TLSv1.2\n\nCipherString = ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256' >> /etc/pki/tls/openssl.cnf
 
-
     echo "Applying scripts for FedRAMP..." 
 
+     # Run Stig/FedRamp compliance script
     script_dir="$(dirname "$(realpath "$0")")"
     $script_dir/stig_remediation/marketplace_compliance.sh --run_live --marketplace
 
