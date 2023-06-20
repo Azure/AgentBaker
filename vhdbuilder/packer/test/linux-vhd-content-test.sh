@@ -1,16 +1,25 @@
 #!/bin/bash
-git clone https://github.com/Azure/AgentBaker.git 2>/dev/null
-source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
-source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 COMPONENTS_FILEPATH=/opt/azure/components.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
+
 CONTAINER_RUNTIME="$1"
 OS_VERSION="$2"
 ENABLE_FIPS="$3"
 OS_SKU="$4"
+GIT_BRANCH="$5"
+
+# Clone the repo and checkout the branch provided.
+# The git branch comes in as refs/heads/<branch-name> but we need to checkout
+# <branch-name>, so we strip out the refs/heads/ part.
+GIT_BRANCH=${GIT_BRANCH#refs/heads/}
+echo "Cloning AgentBaker repo and checking out branch ${GIT_BRANCH}"
+git clone --quiet --single-branch --branch "${GIT_BRANCH}" https://github.com/Azure/AgentBaker.git
+
+source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
+source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
