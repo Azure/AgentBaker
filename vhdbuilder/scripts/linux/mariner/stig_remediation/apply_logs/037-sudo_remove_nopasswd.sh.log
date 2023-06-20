@@ -1,3 +1,0 @@
-Remediating rule 37/364: 'sudo_remove_nopasswd'
-grep: /etc/sudoers: Permission denied
-grep: /etc/sudoers.d/README: Permission denied

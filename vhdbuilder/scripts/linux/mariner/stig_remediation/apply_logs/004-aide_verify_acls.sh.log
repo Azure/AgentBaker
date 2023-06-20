@@ -1,2 +1,0 @@
-Remediating rule 4/364: 'aide_verify_acls'
-/home/mingheren/Desktop/stig_remediation/rhel8/004-aide_verify_acls.sh: line 8: dnf: command not found

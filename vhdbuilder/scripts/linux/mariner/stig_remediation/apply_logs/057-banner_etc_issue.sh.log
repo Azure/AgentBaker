@@ -1,2 +1,0 @@
-Remediating rule 57/364: 'banner_etc_issue'
-/home/mingheren/Desktop/stig_remediation/rhel8/057-banner_etc_issue.sh: line 26: /etc/issue: Permission denied

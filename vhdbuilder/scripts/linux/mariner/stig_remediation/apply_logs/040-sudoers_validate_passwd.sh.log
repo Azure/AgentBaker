@@ -1,2 +1,0 @@
-Remediating rule 40/364: 'sudoers_validate_passwd'
-sed: can't read /etc/sudoers: Permission denied

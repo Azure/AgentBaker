@@ -157,10 +157,16 @@ testImagesRetagged() {
 }
 
 testAuditDStatus() {
+
+  
   test="testAuditDStatus"
   echo "$test:Start"
+
+  os_sku=$1
+  enable_fips=$2
+
   status=$(systemctl show -p SubState --value auditd.service)
-  if [ $OS_SKU == ${MARINER_OS_NAME} ] && [ "${ENABLE_FIPS,,}" == "true" ]; then
+  if [ "$os_sku" == "CBLMariner" ] && [ ${enable_fips,,} == "true" ]; then
     if [ $status == 'running' ]; then
     echo "AuditD is running, as expected for FIPS enabled Mariner image"
     else
@@ -734,10 +740,10 @@ testCriticalTools
 testFilesDownloaded $CONTAINER_RUNTIME
 testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
 testChrony $OS_SKU
-if [ $OS_SKU == $UBUNTU_OS_NAME ] || [ "${ENABLE_FIPS,,}" == "false" ]; then
-  testAuditDStatus
-fi
-testAuditDStatus
+# if [ $OS_SKU == $UBUNTU_OS_NAME ] || [ "${ENABLE_FIPS,,}" == "false" ]; then
+#  testAuditDStatus
+# fi
+testAuditDStatus $OS_SKU $ENABLE_FIPS
 testFips $OS_VERSION $ENABLE_FIPS
 testKubeBinariesPresent $CONTAINER_RUNTIME
 testKubeProxyImagesPulled $CONTAINER_RUNTIME

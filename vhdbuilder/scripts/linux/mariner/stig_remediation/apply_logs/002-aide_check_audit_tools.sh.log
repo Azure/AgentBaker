@@ -1,2 +1,0 @@
-Remediating rule 2/364: 'aide_check_audit_tools'
-/home/mingheren/Desktop/stig_remediation/rhel8/002-aide_check_audit_tools.sh: line 10: dnf: command not found
