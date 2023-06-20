@@ -938,8 +938,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 		},
-		"ShouldDisableCustomData": func() bool {
-			return config.DisableCustomData
+		"ShouldEnableCustomData": func() bool {
+			return !config.DisableCustomData
 		},
 	}
 }
