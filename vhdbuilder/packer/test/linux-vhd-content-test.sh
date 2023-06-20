@@ -156,14 +156,22 @@ testImagesRetagged() {
   fi
 }
 
-testAuditDNotPresent() {
-  test="testAuditDNotPresent"
+testAuditDStatus() {
+  test="testAuditDStatus"
   echo "$test:Start"
   status=$(systemctl show -p SubState --value auditd.service)
-  if [ $status == 'dead' ]; then
-    echo "AuditD is not present, as expected"
+  if [ $OS_SKU == ${MARINER_OS_NAME} ] && [ "${ENABLE_FIPS,,}" == "true" ]; then
+    if [ $status == 'running' ]; then
+    echo "AuditD is running, as expected for FIPS enabled Mariner image"
+    else
+      err $test "AuditD is not present with status ${status} for FIPS enabled Mariner image"
+    fi
   else
-    err $test "AuditD is active with status ${status}"
+    if [ $status == 'dead' ]; then
+      echo "AuditD is not present, as expected"
+    else
+      err $test "AuditD is active with status ${status}"
+    fi
   fi
   echo "$test:Finish"
 }
@@ -727,9 +735,9 @@ testFilesDownloaded $CONTAINER_RUNTIME
 testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
 testChrony $OS_SKU
 if [ $OS_SKU == $UBUNTU_OS_NAME ] || [ "${ENABLE_FIPS,,}" == "false" ]; then
-  testAuditDNotPresent
+  testAuditDStatus
 fi
-testAuditDNotPresent
+testAuditDStatus
 testFips $OS_VERSION $ENABLE_FIPS
 testKubeBinariesPresent $CONTAINER_RUNTIME
 testKubeProxyImagesPulled $CONTAINER_RUNTIME

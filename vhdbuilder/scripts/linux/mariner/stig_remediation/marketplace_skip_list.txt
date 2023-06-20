@@ -87,4 +87,3 @@ sysctl_net_ipv4_conf_all_rp_filter
 # Those are already patched by AgentBaker CIS.sh
 coredump_disable_backtraces
 coredump_disable_storage
-testAuditDNotPresent
