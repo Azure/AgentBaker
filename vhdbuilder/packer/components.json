@@ -196,7 +196,10 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
-      "amd64OnlyVersions": [],
+      "amd64OnlyVersions": [
+        "1.7.1-hotfix.20200403-1",
+        "1.7.1-hotfix.20200403.1"
+      ],
       "multiArchVersions": [
         "1.8.6"
       ]
@@ -219,6 +222,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
+        "v1.26.4-1",
         "v1.26.4.1",
         "v1.26.5",
         "v1.28.0"
@@ -229,6 +233,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.24.2",
+        "v1.26.3-1",
         "v1.26.3.1",
         "v1.28.0"
       ]
