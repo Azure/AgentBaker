@@ -254,6 +254,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/scripts/linux/mariner/stig_fedramp_remediation",
+      "destination": "/home/packer/stig_fedramp_remediation"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/install-dependencies.sh",
       "destination": "/home/packer/install-dependencies.sh"
     },
