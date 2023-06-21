@@ -249,13 +249,8 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/scripts/linux/mariner/remediation.tar.gz",
-      "destination": "/home/packer/remediation.tar.gz"
-    },
-    {
-      "type": "file",
-      "source": "vhdbuilder/scripts/linux/mariner/stig_remediation",
-      "destination": "/home/packer/stig_remediation"
+      "source": "vhdbuilder/scripts/linux/mariner/stig_fedramp_remediation",
+      "destination": "/home/packer/stig_fedramp_remediation"
     },
     {
       "type": "file",

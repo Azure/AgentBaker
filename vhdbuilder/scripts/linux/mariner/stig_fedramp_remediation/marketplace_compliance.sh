@@ -78,3 +78,11 @@ for script in $(find "$script_dir/rhel8" -name '*.sh' | sort -u); do
 
 done
 
+if [[ $(wc -l < "$script_dir/fail.txt") -gt 0 ]]; then
+    cat "$script_dir/fail.txt"
+    while read -r line; do
+        echo "${line}:" | tee -a $script_dir/failure_details.txt
+        cat "$script_dir/apply_logs/${line}.log" | tee -a $script_dir/failure_details.txt
+    done < "$script_dir/fail.txt"
+    exit 1
+fi

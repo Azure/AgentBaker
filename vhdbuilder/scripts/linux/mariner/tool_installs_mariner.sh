@@ -189,7 +189,7 @@ installFedRAMP() {
 
     # Run Stig/FedRamp compliance script
     script_dir="$(dirname "$(realpath "$0")")"
-    $script_dir/stig_remediation/marketplace_compliance.sh --run_live --marketplace
+    $script_dir/stig_fedramp_remediation/marketplace_compliance.sh --run_live --marketplace
 
     echo "Finish installing FedRAMP..."
 }
