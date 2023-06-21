@@ -4148,13 +4148,13 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadLocation": "",
         "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz",
         "versions": [
-            "1.24.9-hotfix.20230509",
-            "1.24.10-hotfix.20230509",
-            "1.25.5-hotfix.20230509",
-            "1.25.6-hotfix.20230509",
-            "1.26.0-hotfix.20230509",
-            "1.26.3-hotfix.20230509",
-            "1.27.1"
+            "1.24.9-hotfix.20230612",
+            "1.24.10-hotfix.20230612",
+            "1.25.5-hotfix.20230612",
+            "1.25.6-hotfix.20230612",
+            "1.26.0-hotfix.20230612",
+            "1.26.3-hotfix.20230612",
+            "1.27.1-hotfix.20230612"
         ]
     },
     "_template": {
@@ -6765,7 +6765,7 @@ try
         return
     }
    
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.25.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.26.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
