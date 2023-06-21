@@ -55,6 +55,9 @@ popd
 # AKS Windows CSE Scripts Package
 All files except *.test.ps1 and README will be published in AKS Windows CSE Scripts Package.
 
+## v0.0.26
+- fix: exit Windows CSE when it fails in Resize-OSDrive #3212
+
 ## v0.0.25
 - feat: remove Kubelet flag --container-runtime in k8s 1.27+ #3181
 
