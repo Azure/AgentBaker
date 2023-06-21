@@ -23,7 +23,7 @@ if [ -n "$out" ]; then
     provisioning_state=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson | jq '.provisioningState' | tr -d "\"")
     MC_RG_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_$LOCATION"
     exists=$(az group exists -n $MC_RG_NAME)
-    if [ "$exists" == "false" ] || [ "$provisioning_state" == "Failed" ]; then
+    if [ "$exists" == "false" ] || [ "$provisioning_state" == "Failed" ] || [ "$provisioning_state" == "Canceled" ]; then
         # The cluster is in a broken state
         log "Cluster $CLUSTER_NAME is in an unusable state, deleting..."
         clusterDeleteStartTime=$(date +%s)
@@ -40,6 +40,29 @@ if [ -n "$out" ]; then
             log "Cluster created by other pipeline successfully"
         else
             err "Other pipeline failed to create the cluster. Current state of cluster is $provisioning_state."
+            exit 1
+        fi
+    elif [ "$provisioning_state" == "Updating" ]; then
+        # Other pipeline is updating this cluster
+        log "Cluster $CLUSTER_NAME is being updated, waiting for ready"
+        az aks wait --name $CLUSTER_NAME --resource-group $RESOURCE_GROUP_NAME --updated --interval 60 --timeout 1800
+        provisioning_state=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson | jq '.provisioningState' | tr -d "\"")
+        if [ "$provisioning_state" == "Succeeded" ]; then
+            log "Cluster updated by other pipeline successfully"
+        else
+            err "Other pipeline failed to update the cluster. Current state of cluster is $provisioning_state."
+            exit 1
+        fi
+    elif [ "$provisioning_state" == "Deleting" ]; then
+        log "Cluster $CLUSTER_NAME is being deleted, waiting for ready"
+        az aks wait --name $CLUSTER_NAME --resource-group $RESOURCE_GROUP_NAME --deleted --interval 60 --timeout 1800
+        retval=0
+        az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson || retval=$?
+        if [ "$retval" -ne 0  ]; then
+            log "Cluster deleted successfully"
+            create_cluster="true"
+        else
+            err "Failed to delete the cluster."
             exit 1
         fi
     fi
