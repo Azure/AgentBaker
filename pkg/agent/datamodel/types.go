@@ -647,6 +647,14 @@ type CustomLinuxOSConfig struct {
 	TransparentHugePageEnabled string        `json:"transparentHugePageEnabled,omitempty"`
 	TransparentHugePageDefrag  string        `json:"transparentHugePageDefrag,omitempty"`
 	SwapFileSizeMB             *int32        `json:"swapFileSizeMB,omitempty"`
+	UlimitConfig               *UlimitConfig `json:"ulimitConfig,omitempty"`
+}
+
+func (c *CustomLinuxOSConfig) GetUlimitConfig() *UlimitConfig {
+	if c == nil {
+		return nil
+	}
+	return c.UlimitConfig
 }
 
 // SysctlConfig represents sysctl configs in customLinuxOsConfig.
@@ -679,6 +687,11 @@ type SysctlConfig struct {
 	VMMaxMapCount                  *int32 `json:"vmMaxMapCount,omitempty"`
 	VMSwappiness                   *int32 `json:"vmSwappiness,omitempty"`
 	VMVfsCachePressure             *int32 `json:"vmVfsCachePressure,omitempty"`
+}
+
+type UlimitConfig struct {
+	MaxLockedMemory string `json:"maxLockedMemory ,omitempty"`
+	NoFile          string `json:"noFile,omitempty"`
 }
 
 type CustomConfiguration struct {
@@ -717,6 +730,13 @@ type AgentPoolProfile struct {
 	behavior to reboot Windows node when it is nil. */
 	NotRebootWindowsNode    *bool                    `json:"notRebootWindowsNode,omitempty"`
 	AgentPoolWindowsProfile *AgentPoolWindowsProfile `json:"agentPoolWindowsProfile,omitempty"`
+}
+
+func (a *AgentPoolProfile) GetCustomLinuxOSConfig() *CustomLinuxOSConfig {
+	if a == nil {
+		return nil
+	}
+	return a.CustomLinuxOSConfig
 }
 
 // Properties represents the AKS cluster definition.
