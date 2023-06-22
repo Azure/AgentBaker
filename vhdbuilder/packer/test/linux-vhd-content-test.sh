@@ -1,16 +1,62 @@
 #!/bin/bash
-git clone https://github.com/Azure/AgentBaker.git 2>/dev/null
-source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
-source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 COMPONENTS_FILEPATH=/opt/azure/components.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
+
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 CONTAINER_RUNTIME="$1"
 OS_VERSION="$2"
 ENABLE_FIPS="$3"
 OS_SKU="$4"
+GIT_BRANCH="$5"
+
+err() {
+  echo "$1:Error: $2" >>/dev/stderr
+}
+
+# Clone the repo and checkout the branch provided.
+# Simply clone with just the branch doesn't work for pull requests, but this technique works
+# with everything we've tested so far.
+#
+# Strategy is to clone the repo, fetch the remote branch by ref into a local branch, and then checkout the local branch.
+# The remote branch will be something like 'refs/heads/branch/name' or 'refs/pull/number/head'. Using the same name
+# for the local branch has weird semantics, so we replace '/' with '-' for the local branch name.
+LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
+echo "Cloning AgentBaker repo and checking out remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
+COMMAND="git clone --quiet https://github.com/Azure/AgentBaker.git"
+if ! ${COMMAND}; then
+  err 'git-clone' "Failed to clone AgentBaker repo"
+  err 'git-clone' "Used command '${COMMAND}'"
+  exit 1
+fi
+if ! pushd ./AgentBaker; then
+  err 'git-clone' "Failed to pushd into AgentBaker repo -- this is weird given that clone succeeded"
+  err 'git-clone' "Current directory is '$(pwd)'"
+  err 'git-clone' "Contents of current directory: $(ls -al)"
+  exit 1
+fi
+COMMAND="git fetch --quiet origin ${GIT_BRANCH}:${LOCAL_GIT_BRANCH}"
+if ! ${COMMAND}; then
+  err 'git-clone' "Failed to fetch remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
+  err 'git-clone' "Used command '${COMMAND}'"
+  exit 1
+fi
+COMMAND="git checkout --quiet ${LOCAL_GIT_BRANCH}"
+if ! ${COMMAND}; then
+  err 'git-clone' "Failed to checkout local branch '${LOCAL_GIT_BRANCH}'"
+  err 'git-clone' "Used command '${COMMAND}'"
+  exit 1
+fi
+if ! popd; then
+  err 'git-clone' "Failed to popd out of AgentBaker repo -- this seems impossible"
+  err 'git-clone' "Current directory is $(pwd)"
+  err 'git-clone' "pushd stack is $(dirs -p)"
+  exit 1
+fi
+
+source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
+source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
@@ -703,10 +749,6 @@ testSetting() {
 
   echo "$test: Setting '$setting_name' has value correct value '$expected_value' in $settings_file"
   return 0
-}
-
-err() {
-  echo "$1:Error: $2" >>/dev/stderr
 }
 
 string_replace() {
