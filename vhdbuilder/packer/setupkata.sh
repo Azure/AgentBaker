@@ -6,11 +6,10 @@ done
 
 sleep 10
 
-sed -i '/plugins."io.containerd.grpc.v1.cri".containerd]/a \\t  disable_snapshot_annotations = false' /etc/containerd/config.toml
-
 cat /etc/containerd/config.toml | grep kata > /dev/null
 if [[ $? != 0 ]]; then
   echo "kata config needs to be applied to containerd"
+  sed -i '/plugins."io.containerd.grpc.v1.cri".containerd]/a \\t  disable_snapshot_annotations = false' /etc/containerd/config.toml
   cat << EOF >> /etc/containerd/config.toml
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
