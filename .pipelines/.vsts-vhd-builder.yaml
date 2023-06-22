@@ -135,13 +135,12 @@ stages:
             artifactName: 'vhd-release-notes'
             targetPath: 'release-notes.txt'
           displayName: publish release notes
-          condition: ne(variables.IMG_SKU, 'cbl-mariner-2-kata')
         - task: PublishPipelineArtifact@0
           inputs:
             artifactName: 'vhd-image-bom'
             targetPath: 'image-bom.json'
           displayName: publish container image list
-          condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), ne(variables.IMG_SKU, 'cbl-mariner-2-kata'))
+          condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
         - bash: |
             echo MODE=$(MODE) && \
             PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
@@ -197,7 +196,7 @@ stages:
             -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
             ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
           displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-          condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), ne(variables.IMG_SKU, 'cbl-mariner-2-kata'))
+          condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
         - bash: |
             echo MODE=$(MODE) && \
             captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
@@ -223,12 +222,12 @@ stages:
             -e IMAGE_VERSION=${IMAGE_VERSION} \
             ${CONTAINER_IMAGE} make -f packer.mk generate-sas
           displayName: Getting Shared Access Signature URI
-          condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), ne(variables.IMG_SKU, 'cbl-mariner-2-kata'))
+          condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
         - task: PublishPipelineArtifact@1
           inputs:
             artifactName: 'publishing-info'
             targetPath: 'vhd-publishing-info.json'
-          condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), ne(variables.IMG_SKU, 'cbl-mariner-2-kata'))
+          condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - stage: build_arm64_vhd
     dependsOn: []
     condition: and(eq(variables.SIG_GALLERY_NAME, ''), eq(variables.SIG_IMAGE_NAME, ''), eq(variables.SIG_IMAGE_VERSION, ''))
