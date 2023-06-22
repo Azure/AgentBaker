@@ -44,7 +44,7 @@ if [ "$MODE" == "default" ]; then
     --attach-os-disk $DISK_NAME \
     --os-type $OS_TYPE \
     --public-ip-address ""
-else 
+else
   if [ "$MODE" == "sigMode" ]; then
     id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
     if [ -z "$id" ]; then
@@ -89,14 +89,14 @@ else
   fi
 
   az vm create \
-      --resource-group $RESOURCE_GROUP_NAME \
-      --name $VM_NAME \
-      --image $IMG_DEF \
-      --admin-username $TEST_VM_ADMIN_USERNAME \
-      --admin-password $TEST_VM_ADMIN_PASSWORD \
-      --public-ip-address "" \
-      ${TARGET_COMMAND_STRING}
-      
+    --resource-group $RESOURCE_GROUP_NAME \
+    --name $VM_NAME \
+    --image $IMG_DEF \
+    --admin-username $TEST_VM_ADMIN_USERNAME \
+    --admin-password $TEST_VM_ADMIN_PASSWORD \
+    --public-ip-address "" \
+    ${TARGET_COMMAND_STRING}
+
   echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 fi
 
@@ -106,7 +106,7 @@ FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
 
 if [ "$OS_TYPE" == "Linux" ]; then
-  if [[ -z "${ENABLE_FIPS// }" ]]; then
+  if [[ -z "${ENABLE_FIPS// /}" ]]; then
     ENABLE_FIPS="false"
   fi
 
@@ -116,7 +116,7 @@ if [ "$OS_TYPE" == "Linux" ]; then
       --name $VM_NAME \
       --resource-group $RESOURCE_GROUP_NAME \
       --scripts @$SCRIPT_PATH \
-      --parameters ${CONTAINER_RUNTIME} ${OS_VERSION} ${ENABLE_FIPS} ${OS_SKU}) && break
+      --parameters ${CONTAINER_RUNTIME} ${OS_VERSION} ${ENABLE_FIPS} ${OS_SKU} ${GIT_BRANCH}) && break
     echo "${i}: retrying az vm run-command"
   done
   # The error message for a Linux VM run-command is as follows:
