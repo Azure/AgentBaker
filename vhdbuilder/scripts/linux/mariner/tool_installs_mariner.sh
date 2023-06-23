@@ -147,11 +147,6 @@ setupMSHV() {
     # export ROOT=$(blkid | grep image-rootfs | grep -o -P '(?<=PARTUUID=).*' | cut -d ' ' -f1 | sed -e 's?"??g')
     # echo "KERNEL_CMDLINE=PARTUUID=$ROOT rd.auto=1 lockdown=integrity sysctl.kernel.unprivileged_bpf_disabled=1 init=/lib/systemd/systemd ro no-vmw-sta crashkernel=128M net.ifnames=0 plymouth.enable=0 systemd.legacy_systemd_cgroup_controller=yes systemd.unified_cgroup_hierarchy=0 audit=0 console=ttyS0,115200n8 earlyprintk" >> /boot/efi/linuxloader.conf
 
-    # echo "Contents of linuxloader after blkid"
-    # cat /boot/efi/linuxloader.conf
-    # Add DOM0 boot entry above default
-    sudo sed -i -e 's@menuentry "CBL-Mariner"@menuentry "Dom0_legacy" {\n    search --no-floppy --set=root --file /EFI/Microsoft/Boot/bootmgfw.efi\n        chainloader /EFI/Microsoft/Boot/bootmgfw.efi\n}\n\nmenuentry "CBL-Mariner"@'  /boot/grub2/grub.cfg
-
     SERVICE_FILEPATH="/etc/systemd/system/set-kataconfig.service"
     touch ${SERVICE_FILEPATH}
     cat << EOF > ${SERVICE_FILEPATH}
