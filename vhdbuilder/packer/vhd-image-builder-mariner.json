@@ -459,6 +459,26 @@
     },
     {
       "type": "file",
+      "source": "igvm.bin",
+      "destination": "/home/packer/igvm.bin"
+    },
+    {
+      "type": "file",
+      "source": "igvm-measurement",
+      "destination": "/home/packer/igvm-measurement"
+    },
+    {
+      "type": "file",
+      "source": "kata-containers.img",
+      "destination": "/home/packer/kata-containers.img"
+    },
+    {
+      "type": "file",
+      "source": "kata-containers-initrd.img",
+      "destination": "/home/packer/kata-containers-initrd.img"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/notice.txt",
       "destination": "/home/packer/NOTICE.txt"
     },
