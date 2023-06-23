@@ -27,7 +27,7 @@ installDeps() {
 
 installKataDeps() {
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in cargo opa parted qemu-img moby-runc python3-devel python3-pip kernel-mshv cloud-hypervisor kata-containers moby-containerd-cc mshv-bootloader mshv-linuxloader mshv; do
+      for dnf_package in cargo opa parted qemu-img moby-runc python3-devel python3-pip kernel-mshv cloud-hypervisor kata-containers moby-containerd-cc; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
@@ -41,8 +41,8 @@ installKataDeps() {
       mv kata-containers.img /opt/confidential-containers/share/kata-containers/kata-containers.img
 
       echo "Install cloud-hypervisor-igvm"
-      mkdir -p /opt/confidential-containers/bin/
       wget "https://mitchzhu.blob.core.windows.net/public/cloud-hypervisor-igvm" -O cloud-hypervisor-igvm
+      mkdir -p /opt/confidential-containers/bin/
       mv cloud-hypervisor-igvm /opt/confidential-containers/bin/cloud-hypervisor-igvm
       chmod 777 /opt/confidential-containers/bin/cloud-hypervisor-igvm
 
@@ -64,6 +64,19 @@ installKataDeps() {
       rm igvm-generator-0.0.1-3.cm2.x86_64.rpm
       rm kernel-uvm-5.15.110.mshv2-1.cm2.x86_64.rpm
       rm kernel-uvm-devel-5.15.110.mshv2-1.cm2.x86_64.rpm
+
+      echo "wget mshv packages"
+      wget "https://mitchzhu.blob.core.windows.net/public/mshv-bootloader-25357.1.230428-1528.1.cm2.x86_64.rpm" -O mshv-bootloader-25357.1.230428-1528.1.cm2.x86_64.rpm
+      wget "https://mitchzhu.blob.core.windows.net/public/mshv-linuxloader-0.5.0-2.3.cm2.x86_64.rpm" -O mshv-linuxloader-0.5.0-2.3.cm2.x86_64.rpm
+      wget "https://mitchzhu.blob.core.windows.net/public/mshv-25357.1.230428-1528.2.cm2.x86_64.rpm" -O mshv-25357.1.230428-1528.2.cm2.x86_64.rpm
+
+      rpm -ihv mshv-bootloader-25357.1.230428-1528.1.cm2.x86_64.rpm
+      rpm -ihv mshv-linuxloader-0.5.0-2.3.cm2.x86_64.rpm
+      rpm -ihv mshv-25357.1.230428-1528.2.cm2.x86_64.rpm
+
+      rm mshv-bootloader-25357.1.230428-1528.1.cm2.x86_64.rpm
+      rm mshv-linuxloader-0.5.0-2.3.cm2.x86_64.rpm
+      rm mshv-25357.1.230428-1528.2.cm2.x86_64.rpm
 
       echo "create snapshotter dir"
       mkdir -p /var/lib/containerd/io.containerd.snapshotter.v1.tardev/staging
