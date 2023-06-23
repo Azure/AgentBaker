@@ -41,20 +41,36 @@ installKataDeps() {
 
       echo "TEMP: install cloud-hypervisor-igvm"
       mkdir -p /opt/confidential-containers/bin/
-      mv cloud-hypervisor-igvm /opt/confidential-containers/bin/cloud-hypervisor-igvm
-      chmod 755 /opt/confidential-containers/bin/cloud-hypervisor-igvm
+      cp cloud-hypervisor-igvm /opt/confidential-containers/bin/cloud-hypervisor-igvm
+      chmod 777 /opt/confidential-containers/bin/cloud-hypervisor-igvm
 
-      echo "TEMP: install kata-cc packages from storage account"
-      wget "${KERNEL_UVM_URL:-}" -O kernel-uvm.x86_64.rpm
-      wget "${KERNEL_UVM_DEV_URL:-}" -O kernel-uvm-devel.x86_64.rpm
-      wget "${KATA_CC_URL:-}" -O kata-containers-cc.x86_64.rpm
-      wget "${KATA_CC_TOOL_URL:-}" -O kata-containers-cc-tools.x86_64.rpm
-      rpm -ihv kernel-uvm.x86_64.rpm
-      rpm -ihv kernel-uvm-devel.x86_64.rpm
-      rpm -ihv kata-containers-cc.x86_64.rpm
-      rpm -ihv kata-containers-cc-tools.x86_64.rpm
+      echo "wget kata-cc packages"
+      wget "https://mitchzhu.blob.core.windows.net/public/kata-containers-cc-0.4.1-4.cm2.x86_64.rpm" -O kata-containers-cc-0.4.1-4.cm2.x86_64.rpm
+      wget "https://mitchzhu.blob.core.windows.net/public/kata-containers-cc-tools-0.4.1-4.cm2.x86_64.rpm" -O kata-containers-cc-tools-0.4.1-4.cm2.x86_64.rpm
+      wget "https://kataccstorage.blob.core.windows.net/confidential-containers/igvm-generator-0.0.1-3.cm2.x86_64.rpm" -O igvm-generator-0.0.1-3.cm2.x86_64.rpm
+      wget "https://mitchzhu.blob.core.windows.net/public/kernel-uvm-5.15.110.mshv2-1.cm2.x86_64.rpm" -O kernel-uvm-5.15.110.mshv2-1.cm2.x86_64.rpm
+      wget "https://mitchzhu.blob.core.windows.net/public/kernel-uvm-devel-5.15.110.mshv2-1.cm2.x86_64.rpm" -O kernel-uvm-devel-5.15.110.mshv2-1.cm2.x86_64.rpm
 
-      echo "Create snapshotter dir"
+      rpm -ihv kernel-uvm-5.15.110.mshv2-1.cm2.x86_64.rpm
+      rpm -ihv kernel-uvm-devel-5.15.110.mshv2-1.cm2.x86_64.rpm
+      rpm -ihv kata-containers-cc-0.4.1-4.cm2.x86_64.rpm
+      rpm -ihv kata-containers-cc-tools-0.4.1-4.cm2.x86_64.rpm
+      rpm -ihv igvm-generator-0.0.1-3.cm2.x86_64.rpm
+
+      rm kata-containers-cc-0.4.1-4.cm2.x86_64.rpm
+      rm kata-containers-cc-tools-0.4.1-4.cm2.x86_64.rpm
+      rm igvm-generator-0.0.1-3.cm2.x86_64.rpm
+      rm kernel-uvm-5.15.110.mshv2-1.cm2.x86_64.rpm
+      rm kernel-uvm-devel-5.15.110.mshv2-1.cm2.x86_64.rpm
+
+      echo "wget mshv packages"
+      wget "https://mitchzhu.blob.core.windows.net/public/mshv-25357.1.230428-1528.2.cm2.x86_64.rpm" -O mshv-25357.1.230428-1528.2.cm2.x86_64.rpm
+
+      rpm -ihv mshv-25357.1.230428-1528.2.cm2.x86_64.rpm
+
+      rm mshv-25357.1.230428-1528.2.cm2.x86_64.rpm
+
+      echo "create snapshotter dir"
       mkdir -p /var/lib/containerd/io.containerd.snapshotter.v1.tardev/staging
 
       echo "Append kata-cc config to enable IGVM"
