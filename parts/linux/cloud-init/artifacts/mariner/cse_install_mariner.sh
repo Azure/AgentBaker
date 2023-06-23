@@ -27,7 +27,7 @@ installDeps() {
 
 installKataDeps() {
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in cargo opa parted qemu-img moby-runc python3-devel python3-pip kernel-mshv cloud-hypervisor kata-containers moby-containerd-cc mshv-bootloader; do
+      for dnf_package in cargo opa parted qemu-img moby-runc python3-devel python3-pip kernel-mshv cloud-hypervisor kata-containers moby-containerd-cc kernel-uvm kernel-uvm-devel mshv-bootloader; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
@@ -50,11 +50,7 @@ installKataDeps() {
       wget "https://mitchzhu.blob.core.windows.net/public/kata-containers-cc-0.4.1-4.cm2.x86_64.rpm" -O kata-containers-cc-0.4.1-4.cm2.x86_64.rpm
       wget "https://mitchzhu.blob.core.windows.net/public/kata-containers-cc-tools-0.4.1-4.cm2.x86_64.rpm" -O kata-containers-cc-tools-0.4.1-4.cm2.x86_64.rpm
       wget "https://kataccstorage.blob.core.windows.net/confidential-containers/igvm-generator-0.0.1-3.cm2.x86_64.rpm" -O igvm-generator-0.0.1-3.cm2.x86_64.rpm
-      wget "https://mitchzhu.blob.core.windows.net/public/kernel-uvm-5.15.110.mshv2-1.cm2.x86_64.rpm" -O kernel-uvm-5.15.110.mshv2-1.cm2.x86_64.rpm
-      wget "https://mitchzhu.blob.core.windows.net/public/kernel-uvm-devel-5.15.110.mshv2-1.cm2.x86_64.rpm" -O kernel-uvm-devel-5.15.110.mshv2-1.cm2.x86_64.rpm
 
-      rpm -ihv kernel-uvm-5.15.110.mshv2-1.cm2.x86_64.rpm
-      rpm -ihv kernel-uvm-devel-5.15.110.mshv2-1.cm2.x86_64.rpm
       rpm -ihv kata-containers-cc-0.4.1-4.cm2.x86_64.rpm
       rpm -ihv kata-containers-cc-tools-0.4.1-4.cm2.x86_64.rpm
       rpm -ihv igvm-generator-0.0.1-3.cm2.x86_64.rpm
@@ -62,8 +58,6 @@ installKataDeps() {
       rm kata-containers-cc-0.4.1-4.cm2.x86_64.rpm
       rm kata-containers-cc-tools-0.4.1-4.cm2.x86_64.rpm
       rm igvm-generator-0.0.1-3.cm2.x86_64.rpm
-      rm kernel-uvm-5.15.110.mshv2-1.cm2.x86_64.rpm
-      rm kernel-uvm-devel-5.15.110.mshv2-1.cm2.x86_64.rpm
 
       echo "wget mshv packages"
       wget "https://mitchzhu.blob.core.windows.net/public/mshv-linuxloader-0.5.0-2.3.cm2.x86_64.rpm" -O mshv-linuxloader-0.5.0-2.3.cm2.x86_64.rpm
