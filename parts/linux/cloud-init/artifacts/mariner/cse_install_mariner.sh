@@ -27,7 +27,7 @@ installDeps() {
 
 installKataDeps() {
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in cargo opa parted qemu-img moby-runc python3-devel python3-pip kernel-mshv cloud-hypervisor kata-containers moby-containerd-cc; do
+      for dnf_package in cargo opa parted qemu-img moby-runc python3-devel python3-pip hvloader kernel-mshv cloud-hypervisor kata-containers moby-containerd-cc; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
@@ -69,10 +69,13 @@ installKataDeps() {
       rm kernel-uvm-devel-5.15.110.mshv2-1.cm2.x86_64.rpm
 
       echo "wget mshv packages"
+      wget "https://mitchzhu.blob.core.windows.net/public/mshv-bootloader-lx-25357.1.230428-1528.1.cm2.x86_64.rpm" -O mshv-bootloader-lx-25357.1.230428-1528.1.cm2.x86_64.rpm
       wget "https://mitchzhu.blob.core.windows.net/public/mshv-25357.1.230428-1528.2.cm2.x86_64.rpm" -O mshv-25357.1.230428-1528.2.cm2.x86_64.rpm
 
+      rpm -ihv mshv-bootloader-lx-25357.1.230428-1528.1.cm2.x86_64.rpm
       rpm -ihv mshv-25357.1.230428-1528.2.cm2.x86_64.rpm
 
+      rm mshv-bootloader-lx-25357.1.230428-1528.1.cm2.x86_64.rpm
       rm mshv-25357.1.230428-1528.2.cm2.x86_64.rpm
 
       echo "create snapshotter dir"
