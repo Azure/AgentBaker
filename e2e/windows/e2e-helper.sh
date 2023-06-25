@@ -18,8 +18,15 @@ exec_on_host() {
 
 create_storage_container() {
     set +x
-    # list outdated storage containers created over a week ago
-    az storage container list --account-name akswinstorageaccount --account-key $MAPPED_ACCOUNT_KEY --query "[?properties.lastModified < '$(date -u --date='-7 days' +%Y-%m-%dT%H:%MZ)' && starts_with(name, 'akswinstore')].name" -o tsv
+    # list outdated storage containers created over 2 weeks ago
+    list=$(az storage container list --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --query "[?properties.lastModified < '$(date -u --date='-14 days' +%Y-%m-%dT%H:%MZ)' && starts_with(name, 'akswinstore')].name" -o tsv)
+
+    # This is supposed to remove all the containers created on Apr 19, 2023 (not the one on Jun 19)
+    for container in $list; do
+        echo "Will delete storage container ${container} from storage account ${STORAGE_ACCOUNT_NAME}..."
+        az storage container delete --name $container --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY
+        echo "Deletion completed"
+    done
 
     # check if the storage container exists and create one if not
     exists=$(az storage container exists --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --name $WINDOWS_E2E_STORAGE_CONTAINER)
