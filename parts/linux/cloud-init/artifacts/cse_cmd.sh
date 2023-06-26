@@ -1,7 +1,10 @@
-echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
-cloud-init status --wait  > /dev/null 2>&1;
-[ $? -ne 0 ] && echo 'cloud-init failed' >> /var/log/azure/cluster-provision-cse-output.log && exit 1;
-echo "cloud-init succeeded" >> /var/log/azure/cluster-provision-cse-output.log;
+PROVISION_OUTPUT="/var/log/azure/cluster-provision-cse-output.log";
+echo $(date),$(hostname) > ${PROVISION_OUTPUT};
+{{if ShouldEnableCustomData}}
+cloud-init status --wait > /dev/null 2>&1;
+[ $? -ne 0 ] && echo 'cloud-init failed' >> ${PROVISION_OUTPUT} && exit 1;
+echo "cloud-init succeeded" >> ${PROVISION_OUTPUT};
+{{end}}
 {{if IsAKSCustomCloud}}
 REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
 {{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
