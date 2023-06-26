@@ -42,7 +42,9 @@ APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
 
-installDeps
+if [[ "$IMG_SKU" != "minimal-aks-22_04-daily-lts" ]]; then
+  installDeps
+fi
 
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
 Storage=persistent
