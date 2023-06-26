@@ -16,17 +16,21 @@ exec_on_host() {
     kubectl exec $(kubectl get pod -l app=debug -o jsonpath="{.items[0].metadata.name}") -- bash -c "nsenter -t 1 -m bash -c \"$1\"" > $2
 }
 
-create_storage_container() {
+backfill_clean_storage_container() {
     set +x
-    # list outdated storage containers created over 2 weeks ago
-    list=$(az storage container list --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --query "[?properties.lastModified < '$(date -u --date='-14 days' +%Y-%m-%dT%H:%MZ)' && starts_with(name, 'akswinstore')].name" -o tsv)
+    # list outdated storage containers created over 1 week ago
+    list=$(az storage container list --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --query "[?properties.lastModified < '$(date -u --date='-7 days' +%Y-%m-%dT%H:%MZ)' && starts_with(name, 'akswinstore')].name" -o tsv)
 
-    # This is supposed to remove all the containers created on Apr 19, 2023 (not the one on Jun 19)
     for container in $list; do
         echo "Will delete storage container ${container} from storage account ${STORAGE_ACCOUNT_NAME}..."
         az storage container delete --name $container --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY
         echo "Deletion completed"
     done
+    set -x
+}
+
+create_storage_container() {
+    set +x
 
     # check if the storage container exists and create one if not
     exists=$(az storage container exists --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --name $WINDOWS_E2E_STORAGE_CONTAINER)
