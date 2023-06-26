@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-	"fmt"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/scenario"
@@ -106,9 +105,6 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		t.Error(err)
 		return
 	}
-
-	privateKey := string(privateKeyBytes)
-	fmt.Println("private key is ", privateKey)
 	
 	vmssName := getVmssName(r)
 	log.Printf("vmss name: %q", vmssName)
