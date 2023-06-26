@@ -105,7 +105,7 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		t.Error(err)
 		return
 	}
-	
+
 	vmssName := getVmssName(r)
 	log.Printf("vmss name: %q", vmssName)
 
