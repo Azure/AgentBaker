@@ -669,6 +669,14 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
 				Expect(caCRT).NotTo(BeEmpty())
 			}),
+		
+		Entry("AKSUbuntu1804 with DisableCustomData = true", "AKSUbuntu1804+DisableCustomData", "1.19.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.DisableCustomData = true
+			}, nil),
 
 		Entry("Mariner v2 with kata", "MarinerV2+Kata", "1.23.8", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.OSSKU = "Mariner"
