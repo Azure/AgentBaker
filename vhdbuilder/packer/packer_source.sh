@@ -115,7 +115,6 @@ copyPackerFiles() {
   cpAndMode $CSE_REDACT_SRC $CSE_REDACT_DEST 600
 
   if grep -q "kata" <<< "$FEATURE_FLAGS"; then
-    echo "Copy UVM build artifacts"
     IGVM_BIN_SRC=/home/packer/igvm.bin
     IGVM_BIN_DEST=/opt/azure/containers/igvm.bin
     cpAndMode $IGVM_BIN_SRC $IGVM_BIN_DEST 0755
