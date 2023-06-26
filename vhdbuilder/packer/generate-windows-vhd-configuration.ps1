@@ -51,15 +51,15 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.10.0",
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0",
     # azuredisk-csi:v1.28 is only for AKS 1.27+, v1.26 is for other AKS versions
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.4",
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.5",
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.0",
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.0-windows-hp",
     # azurefile-csi:v1.28 is only for AKS 1.27+, v1.24, v1.26 is for other AKS versions
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.2",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.3",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.0",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.0-windows-hp",
     # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
-    "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.3",
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.4",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
     # Azure cloud node manager. Owner: nilo19 (Qi Ni)
@@ -101,9 +101,9 @@ $global:map = @{
         "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/hns.v2.psm1",
         "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.22.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.24.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.25.zip"
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.25.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.26.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.

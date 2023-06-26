@@ -81,7 +81,8 @@ $kLogFiles = @(
     "csi-proxy.err.log",
     "containerd.log",
     "containerd.err.log",
-    "hnsremediator.log"
+    "hnsremediator.log",
+    "windowslogscleanup.log"
 )
 $kLogFiles | Foreach-Object {
     Create-SymbolLinkFile -SrcFile (Join-Path "C:\k\" $_) -DestFile (Join-Path $aksLogFolder $_)
