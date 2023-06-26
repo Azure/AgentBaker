@@ -68,8 +68,6 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.3.3-2",
-        "v1.3.3.1",
         "v1.3.4"
       ]
     },
@@ -219,7 +217,6 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.26.4.1",
         "v1.26.5",
         "v1.28.0"
       ]
