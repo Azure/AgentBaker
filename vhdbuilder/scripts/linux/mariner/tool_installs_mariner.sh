@@ -135,10 +135,7 @@ EOF
     chmod 755 /etc/rsyslog.d
 }
 
-setupMSHV() {
-    echo "in setupMSHV"
-
-
+enableMarinerKata() {
     echo "Contents of blkid output"
     export my_blkid=$(blkid)
     echo $my_blkid

@@ -100,7 +100,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     overrideNetworkConfig || exit 1
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
       installKataDeps
-      setupMSHV
+      enableMarinerKata
     fi
     disableTimesyncd
     disableDNFAutomatic
