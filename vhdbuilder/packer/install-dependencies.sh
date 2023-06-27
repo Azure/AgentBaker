@@ -46,6 +46,8 @@ if [[ "$IMG_SKU" != "minimal-aks-22_04-daily-lts" ]]; then
   installDeps
 fi
 
+apt_get_install 30 1 600 iptables
+
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
 Storage=persistent
 SystemMaxUse=1G
@@ -126,10 +128,10 @@ echo "  - [installed] containerd v${containerd_version}-${containerd_patch_versi
 
 which systemctl
 echo "running systemctl with no arguements"
-systemctl --all
-systemctl restart containerd
+#systemctl --all
+#systemctl restart containerd
 systemctl status containerd
-journalctl -u containerd
+#journalctl -u containerd
 
 DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for componentToDownload in ${DOWNLOAD_FILES[*]}; do
