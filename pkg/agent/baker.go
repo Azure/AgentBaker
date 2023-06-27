@@ -903,7 +903,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return getGPUDriverVersion(profile.VMSize)
 		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
-			if cs.Properties.WindowsProfile != nil {
+			// Only need to enable HNSRemediator for Windows 2019
+			if cs.Properties.WindowsProfile != nil && profile.Distro == datamodel.AKSWindows2019Containerd {
 				return cs.Properties.WindowsProfile.GetHnsRemediatorIntervalInMinutes()
 			}
 			return 0
@@ -937,6 +938,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return "", fmt.Errorf("failed to execute sysctl template: %w", err)
 			}
 			return base64.StdEncoding.EncodeToString(b.Bytes()), nil
+		},
+		"ShouldEnableCustomData": func() bool {
+			return !config.DisableCustomData
 		},
 	}
 }
