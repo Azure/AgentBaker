@@ -126,9 +126,10 @@ echo "  - [installed] containerd v${containerd_version}-${containerd_patch_versi
 
 which systemctl
 echo "running systemctl with no arguements"
-systemctl
+systemctl --all
 systemctl restart containerd
 systemctl status containerd
+journalctl -u containerd
 
 DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for componentToDownload in ${DOWNLOAD_FILES[*]}; do
