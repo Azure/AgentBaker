@@ -123,10 +123,12 @@ containerd_version="$(echo "$installed_version" | cut -d- -f1)"
 containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
 installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
 echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
-apt policy init-system-helpers
-apt install init-system-helpers
-service containerd restart
-service containerd status
+
+which systemctl
+echo "running systemctl with no arguements"
+systemctl
+systemctl restart containerd
+systemctl status containerd
 
 DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for componentToDownload in ${DOWNLOAD_FILES[*]}; do
