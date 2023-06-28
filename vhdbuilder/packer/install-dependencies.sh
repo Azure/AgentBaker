@@ -42,11 +42,23 @@ APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
 
-if [[ "$IMG_SKU" != "minimal-aks-22_04-daily-lts" ]]; then
+# If the IMG_SKU does not contain "minimal", installDeps normally
+if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
+else
+  # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
+  # jq - for manipulation JSON data
+  # iptables - required to run containerd
+  # netcat - network comms with API server
+  # dnsutils - contains nslookup, to query API server DNS
+  required_pkg_list=(jq iptables netcat dnsutils)
+  for apt_package in ${required_pkg_list[*]}; do
+      if ! apt_get_install 30 1 600 $apt_package; then
+          journalctl --no-pager -u $apt_package
+          exit $ERR_APT_INSTALL_TIMEOUT
+      fi
+  done
 fi
-
-apt_get_install 30 1 600 iptables
 
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
 Storage=persistent
@@ -113,11 +125,6 @@ fi
 
 downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
-
-echo "Install jq"
-apt install -y jq
-yes | apt install netcat
-yes | apt install dnsutils
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg

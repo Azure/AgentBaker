@@ -170,7 +170,6 @@ const (
 	AKSUbuntuArm64Containerd2204Gen2    Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 	AKSCBLMarinerV2Arm64Gen2            Distro = "aks-cblmariner-v2-arm64-gen2"
 	AKSUbuntuContainerd2204TLGen2       Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
-	AKSUbuntuContainerd2204Minimal      Distro = "aks-ubuntu-minimal-containerd-22.04"
 	RHEL                                Distro = "rhel"
 	CoreOS                              Distro = "coreos"
 	AKS1604Deprecated                   Distro = "aks"      // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
