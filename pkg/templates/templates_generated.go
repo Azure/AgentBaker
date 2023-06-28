@@ -971,10 +971,13 @@ func linuxCloudInitArtifactsCrictlYaml() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
-cloud-init status --wait  > /dev/null 2>&1;
-[ $? -ne 0 ] && echo 'cloud-init failed' >> /var/log/azure/cluster-provision-cse-output.log && exit 1;
-echo "cloud-init succeeded" >> /var/log/azure/cluster-provision-cse-output.log;
+var _linuxCloudInitArtifactsCse_cmdSh = []byte(`PROVISION_OUTPUT="/var/log/azure/cluster-provision-cse-output.log";
+echo $(date),$(hostname) > ${PROVISION_OUTPUT};
+{{if ShouldEnableCustomData}}
+cloud-init status --wait > /dev/null 2>&1;
+[ $? -ne 0 ] && echo 'cloud-init failed' >> ${PROVISION_OUTPUT} && exit 1;
+echo "cloud-init succeeded" >> ${PROVISION_OUTPUT};
+{{end}}
 {{if IsAKSCustomCloud}}
 REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
 {{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
@@ -1060,6 +1063,8 @@ ENABLE_UNATTENDED_UPGRADES="{{EnableUnattendedUpgrade}}"
 ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE="{{ and NeedsContainerd IsKubenet (not HasCalicoNetworkPolicy) }}"
 SHOULD_CONFIG_SWAP_FILE="{{ShouldConfigSwapFile}}"
 SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE="{{ShouldConfigTransparentHugePage}}"
+SHOULD_CONFIG_CONTAINERD_ULIMITS="{{ShouldConfigContainerdUlimits}}"
+CONTAINERD_ULIMITS="{{GetContainerdUlimitString}}"
 {{/* both CLOUD and ENVIRONMENT have special values when IsAKSCustomCloud == true */}}
 {{/* CLOUD uses AzureStackCloud and seems to be used by kubelet, k8s cloud provider */}}
 {{/* target environment seems to go to ARM SDK config */}}
@@ -1118,6 +1123,7 @@ KUBENET_TEMPLATE="{{GetKubenetTemplate}}"
 CONTAINERD_CONFIG_CONTENT="{{GetContainerdConfigContent}}"
 CONTAINERD_CONFIG_NO_GPU_CONTENT="{{GetContainerdConfigNoGPUContent}}"
 IS_KATA="{{IsKata}}"
+SYSCTL_CONTENT="{{GetSysctlContent}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -1277,6 +1283,18 @@ configureCustomCaCertificate() {
     # path unit then triggers the script that copies over cert files to correct location on the node and updates the trust store
     # as a part of this flow we could restart containerd everytime a new cert is added to the trust store using custom CA
     systemctl restart containerd
+}
+
+configureContainerdUlimits() {
+  CONTAINERD_ULIMIT_DROP_IN_FILE_PATH="/etc/systemd/system/containerd.service.d/set_ulimits.conf"
+  touch "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}"
+  chmod 0600 "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}"
+  tee "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}" > /dev/null <<EOF
+$(echo "$CONTAINERD_ULIMITS" | tr ' ' '\n')
+EOF
+
+  systemctl daemon-reload
+  systemctl restart containerd
 }
 
 configureK8s() {
@@ -1481,6 +1499,17 @@ ensureDHCPv6() {
 }
 
 ensureKubelet() {
+    KUBELET_DEFAULT_FILE=/etc/default/kubelet
+    mkdir -p /etc/default
+    echo "KUBELET_FLAGS=${KUBELET_FLAGS}" > "${KUBELET_DEFAULT_FILE}"
+    echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
+    echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
+    echo "KUBELET_IMAGE=${KUBELET_IMAGE}" >> "${KUBELET_DEFAULT_FILE}"
+    echo "KUBELET_NODE_LABELS=${KUBELET_NODE_LABELS}" >> "${KUBELET_DEFAULT_FILE}"
+    if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
+        echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
+    fi
+    
     KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
     mkdir -p "$(dirname "${KUBE_CA_FILE}")"
     echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
@@ -1603,6 +1632,10 @@ EOF
 
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
+    mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")"
+    touch "${SYSCTL_CONFIG_FILE}"
+    chmod 0644 "${SYSCTL_CONFIG_FILE}"
+    echo "${SYSCTL_CONTENT}" | base64 -d > "${SYSCTL_CONFIG_FILE}"
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 
@@ -2881,6 +2914,10 @@ EOF
 fi
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
+
+if [ "${NEEDS_CONTAINERD}" == "true" ] &&  [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" == "true" ]; then
+  logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
+fi
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
@@ -4161,13 +4198,13 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadLocation": "",
         "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz",
         "versions": [
-            "1.24.9-hotfix.20230509",
-            "1.24.10-hotfix.20230509",
-            "1.25.5-hotfix.20230509",
-            "1.25.6-hotfix.20230509",
-            "1.26.0-hotfix.20230509",
-            "1.26.3-hotfix.20230509",
-            "1.27.1"
+            "1.24.9-hotfix.20230612",
+            "1.24.10-hotfix.20230612",
+            "1.25.5-hotfix.20230612",
+            "1.25.6-hotfix.20230612",
+            "1.26.0-hotfix.20230612",
+            "1.26.3-hotfix.20230612",
+            "1.27.1-hotfix.20230612"
         ]
     },
     "_template": {
@@ -6506,118 +6543,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
-
-
-- path: /etc/sysctl.d/999-sysctl-aks.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    # This is a partial workaround to this upstream Kubernetes issue:
-    # https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
-    net.ipv4.tcp_retries2=8
-    net.core.message_burst=80
-    net.core.message_cost=40
-{{- if GetCustomSysctlConfigByName "NetCoreSomaxconn"}}
-    net.core.somaxconn={{.CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
-{{- else}}
-    net.core.somaxconn=16384
-{{- end}}
-{{- if GetCustomSysctlConfigByName "NetIpv4TcpMaxSynBacklog"}}
-    net.ipv4.tcp_max_syn_backlog={{.CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
-{{- else}}
-    net.ipv4.tcp_max_syn_backlog=16384
-{{- end}}
-{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh1"}}
-    net.ipv4.neigh.default.gc_thresh1={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
-{{- else}}
-    net.ipv4.neigh.default.gc_thresh1=4096
-{{- end}}
-{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh2"}}
-    net.ipv4.neigh.default.gc_thresh2={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
-{{- else}}
-    net.ipv4.neigh.default.gc_thresh2=8192
-{{- end}}
-{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh3"}}
-    net.ipv4.neigh.default.gc_thresh3={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
-{{- else}}
-    net.ipv4.neigh.default.gc_thresh3=16384
-{{- end}}
-{{if ShouldConfigCustomSysctl}}
-    # The following are sysctl configs passed from API
-{{- $s:=.CustomLinuxOSConfig.Sysctls}}
-{{- if $s.NetCoreNetdevMaxBacklog}}
-    net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
-{{- end}}
-{{- if $s.NetCoreRmemDefault}}
-    net.core.rmem_default={{$s.NetCoreRmemDefault}}
-{{- end}}
-{{- if $s.NetCoreRmemMax}}
-    net.core.rmem_max={{$s.NetCoreRmemMax}}
-{{- end}}
-{{- if $s.NetCoreWmemDefault}}
-    net.core.wmem_default={{$s.NetCoreWmemDefault}}
-{{- end}}
-{{- if $s.NetCoreWmemMax}}
-    net.core.wmem_max={{$s.NetCoreWmemMax}}
-{{- end}}
-{{- if $s.NetCoreOptmemMax}}
-    net.core.optmem_max={{$s.NetCoreOptmemMax}}
-{{- end}}
-{{- if $s.NetIpv4TcpMaxTwBuckets}}
-    net.ipv4.tcp_max_tw_buckets={{$s.NetIpv4TcpMaxTwBuckets}}
-{{- end}}
-{{- if $s.NetIpv4TcpFinTimeout}}
-    net.ipv4.tcp_fin_timeout={{$s.NetIpv4TcpFinTimeout}}
-{{- end}}
-{{- if $s.NetIpv4TcpKeepaliveTime}}
-    net.ipv4.tcp_keepalive_time={{$s.NetIpv4TcpKeepaliveTime}}
-{{- end}}
-{{- if $s.NetIpv4TcpKeepaliveProbes}}
-    net.ipv4.tcp_keepalive_probes={{$s.NetIpv4TcpKeepaliveProbes}}
-{{- end}}
-{{- if $s.NetIpv4TcpkeepaliveIntvl}}
-    net.ipv4.tcp_keepalive_intvl={{$s.NetIpv4TcpkeepaliveIntvl}}
-{{- end}}
-{{- if $s.NetIpv4TcpTwReuse}}
-    net.ipv4.tcp_tw_reuse={{BoolPtrToInt $s.NetIpv4TcpTwReuse}}
-{{- end}}
-{{- if $s.NetIpv4IpLocalPortRange}}
-    net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
-{{- end}}
-{{- if $s.NetNetfilterNfConntrackMax}}
-    net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}
-{{- end}}
-{{- if $s.NetNetfilterNfConntrackBuckets}}
-    net.netfilter.nf_conntrack_buckets={{$s.NetNetfilterNfConntrackBuckets}}
-{{- end}}
-{{- if $s.FsInotifyMaxUserWatches}}
-    fs.inotify.max_user_watches={{$s.FsInotifyMaxUserWatches}}
-{{- end}}
-{{- if $s.FsFileMax}}
-    fs.file-max={{$s.FsFileMax}}
-{{- end}}
-{{- if $s.FsAioMaxNr}}
-    fs.aio-max-nr={{$s.FsAioMaxNr}}
-{{- end}}
-{{- if $s.FsNrOpen}}
-    fs.nr_open={{$s.FsNrOpen}}
-{{- end}}
-{{- if $s.KernelThreadsMax}}
-    kernel.threads-max={{$s.KernelThreadsMax}}
-{{- end}}
-{{- if $s.VMMaxMapCount}}
-    vm.max_map_count={{$s.VMMaxMapCount}}
-{{- end}}
-{{- if $s.VMSwappiness}}
-    vm.swappiness={{$s.VMSwappiness}}
-{{- end}}
-{{- if $s.VMVfsCachePressure}}
-    vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
-{{- end}}
-{{- end}}
-    #EOF
-`)
+    {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}`)
 
 func linuxCloudInitNodecustomdataYmlBytes() ([]byte, error) {
 	return _linuxCloudInitNodecustomdataYml, nil
@@ -6636,16 +6562,16 @@ func linuxCloudInitNodecustomdataYml() (*asset, error) {
 
 var _windowsCsecmdPs1 = []byte(`powershell.exe -ExecutionPolicy Unrestricted -command \"
 $arguments = '
--MasterIP {{ GetKubernetesEndpoint }}
--KubeDnsServiceIp {{ GetParameter "kubeDNSServiceIP" }}
--MasterFQDNPrefix {{ GetParameter "masterEndpointDNSNamePrefix" }}
--Location {{ GetVariable "location" }}
+-MasterIP ''{{ GetKubernetesEndpoint }}''
+-KubeDnsServiceIp ''{{ GetParameter "kubeDNSServiceIP" }}''
+-MasterFQDNPrefix ''{{ GetParameter "masterEndpointDNSNamePrefix" }}''
+-Location ''{{ GetVariable "location" }}''
 {{if UserAssignedIDEnabled}}
--UserAssignedClientID {{ GetVariable "userAssignedIdentityID" }}
+-UserAssignedClientID ''{{ GetVariable "userAssignedIdentityID" }}''
 {{ end }}
--TargetEnvironment {{ GetTargetEnvironment }}
--AgentKey {{ GetParameter "clientPrivateKey" }}
--AADClientId {{ GetParameter "servicePrincipalClientId" }}
+-TargetEnvironment ''{{ GetTargetEnvironment }}''
+-AgentKey ''{{ GetParameter "clientPrivateKey" }}''
+-AADClientId ''{{ GetParameter "servicePrincipalClientId" }}''
 -AADClientSecret ''{{ GetParameter "encodedServicePrincipalClientSecret" }}''
 -NetworkAPIVersion 2018-08-01
 -LogFile %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log
@@ -6893,7 +6819,13 @@ try
 {
     Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.25.zip"
+    # Exit early if the script has been executed
+    if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
+        Write-Log "The script has been executed before, will exit without doing anything."
+        return
+    }
+   
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.26.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -6919,11 +6851,6 @@ try
     . c:\AzureData\windows\kubeletfunc.ps1
     . c:\AzureData\windows\kubernetesfunc.ps1
 
-    # Exit early if the script has been executed
-    if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
-        Write-Log "The script has been executed before, will exit without doing anything."
-        return
-    }
     # Install OpenSSH if SSH enabled
     $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
 

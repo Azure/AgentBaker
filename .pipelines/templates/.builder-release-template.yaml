@@ -51,6 +51,7 @@ steps:
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
+        -e POOL_NAME=$(POOL_NAME) \
         -e CLIENT_ID=${CLIENT_ID} \
         -e CLIENT_SECRET="$(CLIENT_SECRET)" \
         -e TENANT_ID=${TENANT_ID} \
@@ -78,8 +79,6 @@ steps:
         -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
         -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME} \
         -e TELEPORTD_PLUGIN_DOWNLOAD_URL=${TELEPORTD_PLUGIN_DOWNLOAD_URL} \
-        -e IMPORT_IMAGE_URL_GEN2=${IMPORT_IMAGE_URL_GEN2} \
-        -e IMPORT_IMAGE_URL_KATA=${IMPORT_IMAGE_URL_KATA} \
         -e ENABLE_FIPS=${ENABLE_FIPS} \
         -e ARCHITECTURE=${ARCHITECTURE} \
         -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
@@ -116,6 +115,7 @@ steps:
         -e ARCHITECTURE=${ARCHITECTURE} \
         -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
         -e SGX_INSTALL=${SGX_INSTALL} \
+        -e GIT_BRANCH=$(Build.SourceBranch) \
         ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD Tests
   - task: PublishPipelineArtifact@0

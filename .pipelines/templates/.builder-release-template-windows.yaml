@@ -41,6 +41,7 @@ steps:
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
+      -e POOL_NAME=$(PROD_POOL_NAME) \
       -e CLIENT_ID=${PROD_BUILD_CLIENT_ID} \
       -e CLIENT_SECRET="$(PROD_BUILD_CLIENT_SECRET)" \
       -e TENANT_ID=${PROD_BUILD_TENANT_ID} \
@@ -99,11 +100,17 @@ steps:
       ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD cache test
 
-# We can generate release notes for check-in pr and sig mode to validate whether it is expected.
+# We can upload release notes for check-in pr and sig mode to validate whether it is expected.
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
         targetPath: 'release-notes.txt'
+
+# We can upload image bom json for check-in pr and sig mode to validate whether it is expected.
+  - task: PublishPipelineArtifact@0
+    inputs:
+        artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
+        targetPath: 'image-bom.json'
 
 # Moved conversion to VHD before cleanup.
 # Gen 2 packer outputs a sig in destination. This step: dest sig=>disk=>VHD in classic SA for publishing.

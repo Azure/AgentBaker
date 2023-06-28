@@ -286,6 +286,10 @@ fi
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
 
+if [ "${NEEDS_CONTAINERD}" == "true" ] &&  [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" == "true" ]; then
+  logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
+fi
+
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge

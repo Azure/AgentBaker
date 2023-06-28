@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	sshCommandTemplate = `echo '%s' > sshkey && chmod 0600 sshkey && ssh -i sshkey -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 azureuser@%s sudo`
+	sshCommandTemplate = `echo '%s' > sshkey%[2]s && chmod 0600 sshkey%[2]s && ssh -i sshkey%[2]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 azureuser@%s`
 )
 
 type podExecResult struct {
@@ -70,7 +70,7 @@ func extractLogsFromVM(ctx context.Context, vmssName, privateIP, sshPrivateKey s
 	for file, sourceCmd := range commandList {
 		log.Printf("executing command on remote VM at %s of VMSS %s: %q", privateIP, vmssName, sourceCmd)
 
-		execResult, err := execOnVM(ctx, opts.clusterConfig.kube, privateIP, podName, sshPrivateKey, sourceCmd)
+		execResult, err := execOnVM(ctx, opts.clusterConfig.kube, privateIP, podName, sshPrivateKey, sourceCmd, false)
 		if execResult != nil {
 			execResult.dumpStderr()
 		}
@@ -113,8 +113,11 @@ func extractClusterParameters(ctx context.Context, kube *kubeclient) (map[string
 	return result, nil
 }
 
-func execOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
-	sshCommand := fmt.Sprintf(sshCommandTemplate, sshPrivateKey, vmPrivateIP)
+func execOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
+	sshCommand := fmt.Sprintf(sshCommandTemplate, sshPrivateKey, strings.ReplaceAll(vmPrivateIP, ".", ""), vmPrivateIP)
+	if !isShellBuiltIn {
+		sshCommand = sshCommand + " sudo"
+	}
 	commandToExecute := fmt.Sprintf("%s %s", sshCommand, command)
 
 	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, commandToExecute)
