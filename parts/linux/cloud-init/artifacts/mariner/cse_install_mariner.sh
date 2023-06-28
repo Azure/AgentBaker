@@ -27,7 +27,7 @@ installDeps() {
 
 installKataDeps() {
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in cargo opa parted qemu-img moby-runc python3-devel python3-pip kernel-mshv cloud-hypervisor kata-containers moby-containerd-cc kernel-uvm kernel-uvm-devel mshv-bootloader mhsv-linuxloader mshv; do
+      for dnf_package in cargo opa parted qemu-img moby-runc python3-devel python3-pip kernel-mshv cloud-hypervisor kata-containers moby-containerd-cc kernel-uvm kernel-uvm-devel mshv-bootloader mshv-linuxloader mshv; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
