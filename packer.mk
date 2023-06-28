@@ -26,13 +26,8 @@ ifeq (${OS_SKU},Ubuntu)
 	@echo "Using packer template file: vhd-image-builder-base.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
 else ifeq (${OS_SKU},CBLMariner)
-ifeq (${OS_VERSION},V2kata)
-	@echo "Using packer template file vhd-image-builder-mariner-kata.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-kata.json
-else
 	@echo "Using packer template file vhd-image-builder-mariner.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
-endif
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
