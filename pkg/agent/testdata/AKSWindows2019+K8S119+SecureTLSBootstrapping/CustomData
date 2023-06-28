@@ -82,9 +82,9 @@ $global:CACertificate = ""
 $global:AgentCertificate = ""
 
 ## Download sources provided by aks-engine
-$global:KubeBinariesPackageSASURL = "https://acs-mirror.azureedge.net/kubernetes/v1.18.2-hotfix.20200624/windowszip/v1.18.2-hotfix.20200624-1int.zip"
+$global:KubeBinariesPackageSASURL = "https://acs-mirror.azureedge.net/kubernetes/v1.19.0/windowszip/v1.19.0-1int.zip"
 $global:WindowsKubeBinariesURL = ""
-$global:KubeBinariesVersion = "1.18.2"
+$global:KubeBinariesVersion = "1.19.0"
 $global:ContainerdUrl = "https://k8swin.blob.core.windows.net/k8s-windows/containerd/containerplat-aks-test-0.0.8.zip"
 $global:ContainerdSdnPluginUrl = ""
 
@@ -123,7 +123,7 @@ $global:KubeletNodeLabels = "agentpool=wpool2,kubernetes.azure.com/agentpool=wpo
 $global:KubeletConfigArgs = @( "--address=0.0.0.0", "--anonymous-auth=false", "--authentication-token-webhook=true", "--authorization-mode=Webhook", "--azure-container-registry-config=c:\k\azure.json", "--cgroups-per-qos=false", "--client-ca-file=c:\k\ca.crt", "--cloud-config=c:\k\azure.json", "--cloud-provider=azure", "--cluster-dns=10.0.0.10", "--cluster-domain=cluster.local", "--enforce-node-allocatable=", "--event-qps=0", "--eviction-hard=", "--feature-gates=DynamicKubeletConfig=false,RotateKubeletServerCertificate=true", "--hairpin-mode=promiscuous-bridge", "--image-gc-high-threshold=85", "--image-gc-low-threshold=80", "--keep-terminated-pod-volumes=false", "--kube-reserved=cpu=100m,memory=1843Mi", "--kubeconfig=c:\k\config", "--max-pods=30", "--network-plugin=cni", "--node-status-update-frequency=10s", "--pod-infra-container-image=kubletwin/pause", "--pod-max-pids=-1", "--read-only-port=0", "--resolv-conf=""", "--rotate-certificates=false", "--streaming-connection-idle-timeout=4h", "--system-reserved=memory=2Gi", "--tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256" )
 $global:KubeproxyConfigArgs = @( "--metrics-bind-address=0.0.0.0:10249" )
 
-$global:KubeproxyFeatureGates = @(  )
+$global:KubeproxyFeatureGates = @( "WinDSR=true", "WinOverlay=false" )
 
 $global:UseManagedIdentityExtension = "false"
 $global:UseInstanceMetadata = "true"
@@ -177,7 +177,7 @@ $global:WindowsCalicoPackageURL = "";
 $global:WindowsGmsaPackageUrl = "";
 
 # TLS Bootstrapping
-$global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("false")
+$global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("true")
 $global:SecureTLSBootstrapExecPluginURL = "https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/main/windows/amd64/tls-bootstrap-client.exe"
 $global:TLSBootstrapToken = ""
 

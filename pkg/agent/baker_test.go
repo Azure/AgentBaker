@@ -1281,6 +1281,10 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
 			}),
+		Entry("AKSWindows2019 with kubelet client secure TLS bootstrapping enabled", "AKSWindows2019+K8S119+SecureTLSBootstrapping", "1.19.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.EnableSecureTLSBootstrapping = true
+			}),
 		Entry("AKSWindows2019 with k8s version 1.19 + FIPS", "AKSWindows2019+K8S119+FIPS", "1.19.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.FIPSEnabled = true

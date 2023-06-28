@@ -153,8 +153,6 @@ $global:AzureCNIDir = [Io.path]::Combine("$global:KubeDir", "azurecni")
 $global:AzureCNIBinDir = [Io.path]::Combine("$global:AzureCNIDir", "bin")
 $global:AzureCNIConfDir = [Io.path]::Combine("$global:AzureCNIDir", "netconf")
 
-$global:SecureTLSBootstrapExecPluginURL = "https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/main/windows/amd64/tls-bootstrap-client.exe"
-
 # Azure cni configuration
 # $global:NetworkPolicy = "{{GetParameter "networkPolicy"}}" # BUG: unused
 $global:NetworkPlugin = "{{GetParameter "networkPlugin"}}"
@@ -182,7 +180,9 @@ $global:WindowsCalicoPackageURL = "{{GetVariable "windowsCalicoPackageURL" }}";
 # GMSA
 $global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
 
-# TLS Bootstrap Token
+# TLS Bootstrapping
+$global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("{{EnableSecureTLSBootstrapping}}")
+$global:SecureTLSBootstrapExecPluginURL = "https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/main/windows/amd64/tls-bootstrap-client.exe"
 $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
 # Disable OutBoundNAT in Azure CNI configuration
@@ -354,7 +354,7 @@ try
     }
 
     # Setup bootstrap-kubeconfig 
-    if ($global:EnableSecureTLSBootstrap -eq "true") {
+    if ($global:EnableSecureTLSBootstrapping) {
         Write-Log "Secure TLS bootstrapping enabled, checking existence of cached kubelet exec plugin..."
         # Check to see if the plugin has already been cached on the VHD,
         # if not then go download it from upstream before creating the bootstrap-kubeconfig
