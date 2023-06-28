@@ -400,24 +400,10 @@ stages:
     - job: build
       timeoutInMinutes: 180
       steps:
-        - task: DownloadPipelineArtifact@2
-          displayName: 'Download kata-cc UVM artifact'
-          inputs:
-            source: specific
-            project: 'CloudNativeCompute'
-            pipeline: 318507
-            runVersion: specific
-            runId: 74874584
-            artifactName: 'mariner-kata-uvm'
-            downloadType: 'single'
-            itemPattern: |
-              **/kata-containers**
-              **/igvm**
-            downloadPath: $(Build.SourcesDirectory)
         - bash: |
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
             echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
-            echo '##vso[task.setvariable variable=OS_VERSION]V2kata'
+            echo '##vso[task.setvariable variable=OS_VERSION]V2'
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
             echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-gen2'
