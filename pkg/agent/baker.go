@@ -435,6 +435,24 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return 0
 		},
+		"ShouldConfigContainerdUlimits": func() bool {
+			return profile.GetCustomLinuxOSConfig().GetUlimitConfig() != nil
+		},
+		"GetContainerdUlimitString": func() string {
+			ulimitConfig := profile.GetCustomLinuxOSConfig().GetUlimitConfig()
+			if ulimitConfig == nil {
+				return ""
+			}
+			var sb strings.Builder
+			sb.WriteString("[Service]\n")
+			if ulimitConfig.MaxLockedMemory != "" {
+				sb.WriteString(fmt.Sprintf("LimitMEMLOCK=%s\n", ulimitConfig.MaxLockedMemory))
+			}
+			if ulimitConfig.NoFile != "" {
+				sb.WriteString(fmt.Sprintf("LimitNOFILE=%s\n", ulimitConfig.NoFile))
+			}
+			return sb.String()
+		},
 		"IsKubernetes": func() bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes()
 		},
@@ -885,7 +903,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return getGPUDriverVersion(profile.VMSize)
 		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
-			if cs.Properties.WindowsProfile != nil {
+			// Only need to enable HNSRemediator for Windows 2019
+			if cs.Properties.WindowsProfile != nil && profile.Distro == datamodel.AKSWindows2019Containerd {
 				return cs.Properties.WindowsProfile.GetHnsRemediatorIntervalInMinutes()
 			}
 			return 0
@@ -907,6 +926,21 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"ShouldDisableSSH": func() bool {
 			return config.SSHStatus == datamodel.SSHOff
+		},
+		"GetSysctlContent": func() (string, error) {
+			sysctlTemplate, err := template.New("sysctl").Parse(sysctlTemplateString)
+			if err != nil {
+				return "", fmt.Errorf("failed to parse sysctl template: %w", err)
+			}
+
+			var b bytes.Buffer
+			if err = sysctlTemplate.Execute(&b, profile); err != nil {
+				return "", fmt.Errorf("failed to execute sysctl template: %w", err)
+			}
+			return base64.StdEncoding.EncodeToString(b.Bytes()), nil
+		},
+		"ShouldEnableCustomData": func() bool {
+			return !config.DisableCustomData
 		},
 	}
 }
@@ -945,6 +979,129 @@ func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfigurat
 func isMariner(osSku string) bool {
 	return osSku == datamodel.OSSKUCBLMariner || osSku == datamodel.OSSKUMariner
 }
+
+const sysctlTemplateString = `# This is a partial workaround to this upstream Kubernetes issue:
+# https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
+net.ipv4.tcp_retries2=8
+net.core.message_burst=80
+net.core.message_cost=40
+{{- if .CustomLinuxOSConfig}}
+{{- if .CustomLinuxOSConfig.Sysctls}}
+{{- if .CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
+net.core.somaxconn={{.CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
+{{- else}}
+net.core.somaxconn=16384
+{{- end}}
+{{- if .CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
+net.ipv4.tcp_max_syn_backlog={{.CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
+{{- else}}
+net.ipv4.tcp_max_syn_backlog=16384
+{{- end}}
+{{- if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
+net.ipv4.neigh.default.gc_thresh1={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
+{{- else}}
+net.ipv4.neigh.default.gc_thresh1=4096
+{{- end}}
+{{- if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
+net.ipv4.neigh.default.gc_thresh2={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
+{{- else}}
+net.ipv4.neigh.default.gc_thresh2=8192
+{{- end}}
+{{- if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
+net.ipv4.neigh.default.gc_thresh3={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
+{{- else}}
+net.ipv4.neigh.default.gc_thresh3=16384
+{{- end}}
+{{- else}}
+net.core.somaxconn=16384
+net.ipv4.tcp_max_syn_backlog=16384
+net.ipv4.neigh.default.gc_thresh1=4096
+net.ipv4.neigh.default.gc_thresh2=8192
+net.ipv4.neigh.default.gc_thresh3=16384
+{{- end}}
+{{- else}}
+net.core.somaxconn=16384
+net.ipv4.tcp_max_syn_backlog=16384
+net.ipv4.neigh.default.gc_thresh1=4096
+net.ipv4.neigh.default.gc_thresh2=8192
+net.ipv4.neigh.default.gc_thresh3=16384
+{{- end}}
+{{- if .CustomLinuxOSConfig}}
+{{- if .CustomLinuxOSConfig.Sysctls}}
+# The following are sysctl configs passed from API
+{{- $s:=.CustomLinuxOSConfig.Sysctls}}
+{{- if $s.NetCoreNetdevMaxBacklog}}
+net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
+{{- end}}
+{{- if $s.NetCoreRmemDefault}}
+net.core.rmem_default={{$s.NetCoreRmemDefault}}
+{{- end}}
+{{- if $s.NetCoreRmemMax}}
+net.core.rmem_max={{$s.NetCoreRmemMax}}
+{{- end}}
+{{- if $s.NetCoreWmemDefault}}
+net.core.wmem_default={{$s.NetCoreWmemDefault}}
+{{- end}}
+{{- if $s.NetCoreWmemMax}}
+net.core.wmem_max={{$s.NetCoreWmemMax}}
+{{- end}}
+{{- if $s.NetCoreOptmemMax}}
+net.core.optmem_max={{$s.NetCoreOptmemMax}}
+{{- end}}
+{{- if $s.NetIpv4TcpMaxTwBuckets}}
+net.ipv4.tcp_max_tw_buckets={{$s.NetIpv4TcpMaxTwBuckets}}
+{{- end}}
+{{- if $s.NetIpv4TcpFinTimeout}}
+net.ipv4.tcp_fin_timeout={{$s.NetIpv4TcpFinTimeout}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveTime}}
+net.ipv4.tcp_keepalive_time={{$s.NetIpv4TcpKeepaliveTime}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveProbes}}
+net.ipv4.tcp_keepalive_probes={{$s.NetIpv4TcpKeepaliveProbes}}
+{{- end}}
+{{- if $s.NetIpv4TcpkeepaliveIntvl}}
+net.ipv4.tcp_keepalive_intvl={{$s.NetIpv4TcpkeepaliveIntvl}}
+{{- end}}
+{{- if $s.NetIpv4TcpTwReuse}}
+net.ipv4.tcp_tw_reuse={{if $s.NetIpv4TcpTwReuse}}1{{else}}0{{end}}
+{{- end}}
+{{- if $s.NetIpv4IpLocalPortRange}}
+net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackMax}}
+net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackBuckets}}
+net.netfilter.nf_conntrack_buckets={{$s.NetNetfilterNfConntrackBuckets}}
+{{- end}}
+{{- if $s.FsInotifyMaxUserWatches}}
+fs.inotify.max_user_watches={{$s.FsInotifyMaxUserWatches}}
+{{- end}}
+{{- if $s.FsFileMax}}
+fs.file-max={{$s.FsFileMax}}
+{{- end}}
+{{- if $s.FsAioMaxNr}}
+fs.aio-max-nr={{$s.FsAioMaxNr}}
+{{- end}}
+{{- if $s.FsNrOpen}}
+fs.nr_open={{$s.FsNrOpen}}
+{{- end}}
+{{- if $s.KernelThreadsMax}}
+kernel.threads-max={{$s.KernelThreadsMax}}
+{{- end}}
+{{- if $s.VMMaxMapCount}}
+vm.max_map_count={{$s.VMMaxMapCount}}
+{{- end}}
+{{- if $s.VMSwappiness}}
+vm.swappiness={{$s.VMSwappiness}}
+{{- end}}
+{{- if $s.VMVfsCachePressure}}
+vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
+{{- end}}
+{{- end}}
+{{- end}}
+`
 
 const kubenetCniTemplate = `
 {

@@ -144,8 +144,9 @@ function Test-FilesToCacheOnVHD
                             "azure-vnet-cni-singletenancy-windows-amd64",
                             "azure-vnet-cni-singletenancy-swift-windows-amd64",
                             "azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
-                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35.zip",
+                            "azure-vnet-cni-singletenancy-windows-amd64-v1.5.3.zip",
                             "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35_Win2019OverlayFix.zip",
+                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.5.3.zip",
                             # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
                             # so we can ignore the different hash values.
                             "v1.26.0-1int.zip"
@@ -262,6 +263,11 @@ function Test-RegistryAdded {
             Write-ErrorWithTimestamp "The registry for VfpEvenPodDistributionIsEnabled is not added"
             exit 1
         }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3230913164)
+        if ($result.3230913164 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 3230913164 is not added"
+            exit 1
+        }
     }
     if ($env:WindowsSKU -Like '2022*') {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2629306509)
@@ -307,6 +313,11 @@ function Test-RegistryAdded {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled)
         if ($result.VfpEvenPodDistributionIsEnabled -ne 1) {
             Write-ErrorWithTimestamp "The registry for VfpEvenPodDistributionIsEnabled is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3398685324)
+        if ($result.3398685324 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 3398685324 is not added"
             exit 1
         }
     }
