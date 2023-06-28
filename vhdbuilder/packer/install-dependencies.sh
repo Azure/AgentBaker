@@ -135,13 +135,6 @@ containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
 installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
 echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
 
-which systemctl
-echo "running systemctl with no arguements"
-#systemctl --all
-#systemctl restart containerd
-systemctl status containerd
-#journalctl -u containerd
-
 DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for componentToDownload in ${DOWNLOAD_FILES[*]}; do
   fileName=$(echo "${componentToDownload}" | jq .fileName -r)
