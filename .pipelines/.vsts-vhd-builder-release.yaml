@@ -740,7 +740,7 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
-            artifactName: 2204-Minimal-Gen1-Containerd
+            artifactName: 2204-minimal-gen1-containerd
   - stage: build_vhd_2204_minimal_gen2_containerd
     dependsOn: []
     condition: eq('${{ parameters.build2204minimalgen2containerd }}', true)
@@ -756,7 +756,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-minimal-jammy-aks-daily-preview'
             echo '##vso[task.setvariable variable=IMG_SKU]minimal-aks-22_04-daily-lts-gen2'
             echo '##vso[task.setvariable variable=IMG_VERSION]latest'
-            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
             echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D2s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
@@ -766,4 +766,4 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
-            artifactName: 2204-Minimal-Gen2-Containerd
+            artifactName: 2204-minimal-gen2-containerd
