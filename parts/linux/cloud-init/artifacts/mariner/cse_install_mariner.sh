@@ -27,7 +27,7 @@ installDeps() {
 
 installKataDeps() {
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in cargo opa parted qemu-img moby-runc python3-devel python3-pip kernel-mshv cloud-hypervisor kata-containers moby-containerd-cc kernel-uvm kernel-uvm-devel mshv-bootloader; do
+      for dnf_package in cargo opa parted qemu-img moby-runc python3-devel python3-pip kernel-mshv cloud-hypervisor kata-containers moby-containerd-cc kernel-uvm kernel-uvm-devel mshv-bootloader mhsv-linuxloader mshv; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
@@ -56,14 +56,6 @@ installKataDeps() {
       rm kata-containers-cc-0.4.1-4.cm2.x86_64.rpm
       rm kata-containers-cc-tools-0.4.1-4.cm2.x86_64.rpm
       rm igvm-generator-0.0.1-3.cm2.x86_64.rpm
-
-      echo "TEMP: install mshv packages from storage account"
-      wget "https://mitchzhu.blob.core.windows.net/public/mshv-linuxloader-0.5.0-2.3.cm2.x86_64.rpm" -O mshv-linuxloader-0.5.0-2.3.cm2.x86_64.rpm
-      wget "https://mitchzhu.blob.core.windows.net/public/mshv-25357.1.230428-1528.2.cm2.x86_64.rpm" -O mshv-25357.1.230428-1528.2.cm2.x86_64.rpm
-      rpm -ihv mshv-linuxloader-0.5.0-2.3.cm2.x86_64.rpm
-      rpm -ihv mshv-25357.1.230428-1528.2.cm2.x86_64.rpm
-      rm mshv-linuxloader-0.5.0-2.3.cm2.x86_64.rpm
-      rm mshv-25357.1.230428-1528.2.cm2.x86_64.rpm
 
       echo "create snapshotter dir"
       mkdir -p /var/lib/containerd/io.containerd.snapshotter.v1.tardev/staging
