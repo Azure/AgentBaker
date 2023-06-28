@@ -5,8 +5,6 @@ copyPackerFiles() {
   SYSCTL_CONFIG_DEST=/etc/sysctl.d/60-CIS.conf
   RSYSLOG_CONFIG_SRC=/home/packer/rsyslog-d-60-CIS.conf
   RSYSLOG_CONFIG_DEST=/etc/rsyslog.d/60-CIS.conf
-  SETUP_KATA_SRC=/home/packer/setupkata.sh
-  SETUP_KATA_DEST=/setupkata.sh
   ETC_ISSUE_CONFIG_SRC=/home/packer/etc-issue
   ETC_ISSUE_CONFIG_DEST=/etc/issue
   ETC_ISSUE_NET_CONFIG_SRC=/home/packer/etc-issue.net
@@ -130,6 +128,10 @@ copyPackerFiles() {
     KATA_INITRD_SRC=/home/packer/kata-containers-initrd.img
     KATA_INITRD_DEST=/opt/azure/containers/kata-containers-initrd.img
     cpAndMode $KATA_INITRD_SRC $KATA_INITRD_DEST 0755
+
+    SETUP_KATA_SRC=/home/packer/setupkata.sh
+    SETUP_KATA_DEST=/setupkata.sh
+    cpAndMode $SETUP_KATA_SRC $SETUP_KATA_DEST 755
   fi
 
   MIG_PART_SRC=/home/packer/mig-partition.service
@@ -232,7 +234,6 @@ copyPackerFiles() {
   fi
 
   cpAndMode $KUBELET_SERVICE_SRC $KUBELET_SERVICE_DEST 600
-  cpAndMode $SETUP_KATA_SRC $SETUP_KATA_DEST 755
   cpAndMode $BLOCK_WIRESERVER_SRC $BLOCK_WIRESERVER_DEST 755
   cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
