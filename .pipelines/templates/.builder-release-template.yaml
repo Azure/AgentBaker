@@ -31,7 +31,7 @@ steps:
         **/kata-containers**
         **/igvm**
       downloadPath: $(Build.SourcesDirectory)
-    condition: and(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_VERSION, 'V2'))
+    condition: eq(variables.OS_SKU, 'CBLMariner')
   - bash: |
       pwd
       ls -R
