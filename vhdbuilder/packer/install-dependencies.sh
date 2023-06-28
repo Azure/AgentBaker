@@ -116,8 +116,8 @@ echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEP
 
 echo "Install jq"
 apt install -y jq
-apt install netcat
-apt install dnsutils
+yes | apt install netcat
+yes | apt install dnsutils
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
