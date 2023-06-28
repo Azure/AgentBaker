@@ -54,6 +54,7 @@ $global:WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN=49 # Return this error code in csec
 $global:WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG=50 # Return this error code in csecmd.ps1 when C:\AzureData\CSEResult.log does not exist
 $global:WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS=51
 $global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE=52
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_EXEC_PLUGIN=53
 
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version

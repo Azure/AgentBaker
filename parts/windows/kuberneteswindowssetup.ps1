@@ -153,6 +153,8 @@ $global:AzureCNIDir = [Io.path]::Combine("$global:KubeDir", "azurecni")
 $global:AzureCNIBinDir = [Io.path]::Combine("$global:AzureCNIDir", "bin")
 $global:AzureCNIConfDir = [Io.path]::Combine("$global:AzureCNIDir", "netconf")
 
+$global:SecureTLSBootstrapExecPluginURL = "https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/main/windows/amd64/tls-bootstrap-client.exe"
+
 # Azure cni configuration
 # $global:NetworkPolicy = "{{GetParameter "networkPolicy"}}" # BUG: unused
 $global:NetworkPlugin = "{{GetParameter "networkPlugin"}}"
@@ -350,7 +352,29 @@ try
         New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
     }
 
-    if ($global:TLSBootstrapToken) {
+    # Setup bootstrap-kubeconfig 
+    if ($global:EnableSecureTLSBootstrap -eq "true") {
+        Write-Log "Secure TLS bootstrapping enabled, checking existence of cached kubelet exec plugin..."
+        # Check to see if the plugin has already been cached on the VHD,
+        # if not then go download it from upstream before creating the bootstrap-kubeconfig
+        $pluginPath = "c:\aks-cache\kubelet-plugins\tls-bootstrap-client.exe"
+        if (!(Test-Path $pluginPath)) {
+            Write-Log "Kubelet exec plugin is not cached, downloading..."
+            Get-SecureTLSBootstrapExecPlugin -ExecPluginURL $global:SecureTLSBootstrapExecPluginURL
+            $pluginPath = "c:\tls-bootstrap-client.exe"
+        } else {
+            Write-Log "Kubelet exec plugin is already cached"
+        }
+
+        Write-Log "Write secure TLS bootstrap kubeconfig"
+        Write-SecureTLSBootstrapKubeConfig -CACertificate $global:CACertificate `
+        -KubeDir $global:KubeDir `
+        -MasterFQDNPrefix $MasterFQDNPrefix `
+        -MasterIP $MasterIP `
+        -PluginPath $pluginPath
+
+        Write-Log "Write temporary secure TLS bootstrap kubeconfig"
+    } else if ($global:TLSBootstrapToken) {
         Write-Log "Write TLS bootstrap kubeconfig"
         Write-BootstrapKubeConfig -CACertificate $global:CACertificate `
             -KubeDir $global:KubeDir `

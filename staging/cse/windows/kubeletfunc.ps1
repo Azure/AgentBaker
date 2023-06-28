@@ -170,6 +170,49 @@ users:
     $bootstrapKubeConfig | Out-File -encoding ASCII -filepath "$bootstrapKubeConfigFIle"
 }
 
+function Write-SecureTLSBootstrapKubeConfig {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $CACertificate,
+        [Parameter(Mandatory = $true)][string]
+        $MasterFQDNPrefix,
+        [Parameter(Mandatory = $true)][string]
+        $MasterIP,
+        [Parameter(Mandatory = $true)][string]
+        $KubeDir
+        [Parameter(Mandatory = $true)][string]
+        $PluginPath
+    )
+    $bootstrapKubeConfigFile = [io.path]::Combine($KubeDir, "bootstrap-config")
+
+    $bootstrapKubeConfig = @"
+---
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: "$CACertificate"
+    server: https://${MasterIP}:443
+  name: "$MasterFQDNPrefix"
+contexts:
+- context:
+    cluster: "$MasterFQDNPrefix"
+    user: "kubelet-bootstrap"
+  name: "$MasterFQDNPrefix"
+current-context: "$MasterFQDNPrefix"
+kind: Config
+users:
+- name: "kubelet-bootstrap"
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1
+      command: $PluginPath
+      interactiveMode: Never
+      provideClusterInfo: true
+"@
+
+    $bootstrapKubeConfig | Out-File -encoding ASCII -filepath "$bootstrapKubeConfigFIle"
+}
+
 function Test-ContainerImageExists {
     Param(
         [Parameter(Mandatory = $true)][string]
@@ -244,6 +287,23 @@ function New-InfraContainer {
             Invoke-Executable -Executable "ctr" -ArgList @("-n", "k8s.io", "image", "pull", "$defaultPauseImage") -ExitCode $global:WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE -Retries 5 -RetryDelaySeconds 30
         }
         Invoke-Executable -Executable "ctr" -ArgList @("-n", "k8s.io", "image", "tag", "$defaultPauseImage", "$DestinationTag") -ExitCode $global:WINDOWS_CSE_ERROR_BUILD_TAG_PAUSE_IMAGE
+    }
+}
+
+function Get-SecureTLSBootstrapExecPlugin {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $ExecPluginURL
+    )
+
+    $execPluginPath = "c:\tls-bootstrap-client.exe"
+    for ($i = 0; $i -le 10; $i++) {
+        DownloadFileOverHttp -Url $ExecPluginURL -DestinationPath $execPluginPath -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_EXEC_PLUGIN
+        if ($?) {
+            break
+        } else {
+            Write-Log $Error[0].Exception.Message
+        }
     }
 }
 

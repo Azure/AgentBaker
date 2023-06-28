@@ -172,6 +172,9 @@ $global:map = @{
     "c:\akse-cache\calico\" = @(
         "https://acs-mirror.azureedge.net/calico-node/v3.21.6/binaries/calico-windows-v3.21.6.zip",
         "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
+    );
+    "c:\aks-cache\kubelet-plugins\" = @(
+        "https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/main/windows/amd64/tls-bootstrap-client.exe"
     )
 }
 '@

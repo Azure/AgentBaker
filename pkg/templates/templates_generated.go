@@ -6827,6 +6827,8 @@ $global:AzureCNIDir = [Io.path]::Combine("$global:KubeDir", "azurecni")
 $global:AzureCNIBinDir = [Io.path]::Combine("$global:AzureCNIDir", "bin")
 $global:AzureCNIConfDir = [Io.path]::Combine("$global:AzureCNIDir", "netconf")
 
+$global:SecureTLSBootstrapExecPluginURL = "https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/main/windows/amd64/tls-bootstrap-client.exe"
+
 # Azure cni configuration
 # $global:NetworkPolicy = "{{GetParameter "networkPolicy"}}" # BUG: unused
 $global:NetworkPlugin = "{{GetParameter "networkPlugin"}}"
@@ -7024,7 +7026,29 @@ try
         New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
     }
 
-    if ($global:TLSBootstrapToken) {
+    # Setup bootstrap-kubeconfig 
+    if ($global:EnableSecureTLSBootstrap -eq "true") {
+        Write-Log "Secure TLS bootstrapping enabled, checking existence of cached kubelet exec plugin..."
+        # Check to see if the plugin has already been cached on the VHD,
+        # if not then go download it from upstream before creating the bootstrap-kubeconfig
+        $pluginPath = "c:\aks-cache\kubelet-plugins\tls-bootstrap-client.exe"
+        if (!(Test-Path $pluginPath)) {
+            Write-Log "Kubelet exec plugin is not cached, downloading..."
+            Get-SecureTLSBootstrapExecPlugin -ExecPluginURL $global:SecureTLSBootstrapExecPluginURL
+            $pluginPath = "c:\tls-bootstrap-client.exe"
+        } else {
+            Write-Log "Kubelet exec plugin is already cached"
+        }
+
+        Write-Log "Write secure TLS bootstrap kubeconfig"
+        Write-SecureTLSBootstrapKubeConfig -CACertificate $global:CACertificate `+"`"+`
+        -KubeDir $global:KubeDir `+"`"+`
+        -MasterFQDNPrefix $MasterFQDNPrefix `+"`"+`
+        -MasterIP $MasterIP `+"`"+`
+        -PluginPath $pluginPath
+
+        Write-Log "Write temporary secure TLS bootstrap kubeconfig"
+    } else if ($global:TLSBootstrapToken) {
         Write-Log "Write TLS bootstrap kubeconfig"
         Write-BootstrapKubeConfig -CACertificate $global:CACertificate `+"`"+`
             -KubeDir $global:KubeDir `+"`"+`
@@ -7332,6 +7356,7 @@ $global:WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN=49 # Return this error code in csec
 $global:WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG=50 # Return this error code in csecmd.ps1 when C:\AzureData\CSEResult.log does not exist
 $global:WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS=51
 $global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE=52
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_EXEC_PLUGIN=53
 
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version
