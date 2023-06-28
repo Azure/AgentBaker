@@ -419,13 +419,6 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	SIGUbuntuContainerd2204MinimalImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "2204minimalcontainerd",
-		Version:       "000006.13.0",
-	}
-
 	SIGUbuntuContainerd2204ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
