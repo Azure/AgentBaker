@@ -96,6 +96,10 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}CVM
 		fi
 
+		if [[ "${IMG_SKU}" == *"minimal"* ]]; then
+			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Minimal
+		fi
+		
 		if [[ "${OS_SKU}" == "CBLMariner" ]]; then
 			SIG_IMAGE_NAME=CBLMariner${SIG_IMAGE_NAME}
 		fi
