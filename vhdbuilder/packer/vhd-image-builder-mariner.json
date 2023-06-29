@@ -474,6 +474,11 @@
     },
     {
       "type": "file",
+      "source": "cloud-hypervisor-igvm",
+      "destination": "/home/packer/cloud-hypervisor-igvm"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/notice.txt",
       "destination": "/home/packer/NOTICE.txt"
     },

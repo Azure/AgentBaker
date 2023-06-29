@@ -39,6 +39,10 @@ installKataDeps() {
       mv igvm-measurement /opt/confidential-containers/share/kata-containers/igvm-measurement
       mv kata-containers-initrd.img /opt/confidential-containers/share/kata-containers/kata-containers-initrd.img
 
+      echo "TEMP: install cloud-hypervisor-igvm"
+      mkdir -p /opt/confidential-containers/bin/
+      mv cloud-hypervisor-igvm /opt/confidential-containers/bin/cloud-hypervisor-igvm
+
       echo "TEMP: install kata-cc packages from storage account"
       wget "https://mitchzhu.blob.core.windows.net/public/kernel-uvm-5.15.110.mshv2-2.cm2.x86_64.rpm" -O kernel-uvm-5.15.110.mshv2-2.cm2.x86_64.rpm
       wget "https://mitchzhu.blob.core.windows.net/public/kernel-uvm-devel-5.15.110.mshv2-2.cm2.x86_64.rpm" -O kernel-uvm-devel-5.15.110.mshv2-2.cm2.x86_64.rpm

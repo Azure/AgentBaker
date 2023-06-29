@@ -21,15 +21,16 @@ steps:
     displayName: 'Download Kata CC UVM artifact'
     inputs:
       source: specific
-      project: 'CloudNativeCompute'
-      pipeline: 318279
+      project: CloudNativeCompute
+      pipeline: ${UVM_PIPELINE_ID}
       runVersion: specific
-      runId: 75617403
+      runId: ${UVM_RUN_ID}
       artifactName: 'drop_build_and_sign_build_and_sign'
       downloadType: 'single'
       itemPattern: |
         **/kata-containers**
         **/igvm**
+        **/cloud-hypervisor**
       downloadPath: $(Build.SourcesDirectory)
     condition: eq(variables.OS_SKU, 'CBLMariner')
   - bash: |
