@@ -37,6 +37,16 @@ $lockedFiles | Foreach-Object {
   }
 }
 
+Write-Host "Collecting CustomScriptExtension log"
+$src = "c:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScriptExtension\*\CustomScriptHandler.log"
+if (Test-Path $src) {
+  Write-Host "Copying $_ to temp"
+  $tempfile = Copy-Item $src $lockedTemp -Passthru -ErrorAction Ignore
+  if ($tempFile) {
+    $paths += $tempFile
+  }
+}
+
 Write-Host "Collecting kubeclusterconfig"
 $paths += "c:\k\kubeclusterconfig.json"
 

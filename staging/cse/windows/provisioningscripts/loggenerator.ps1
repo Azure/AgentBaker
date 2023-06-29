@@ -88,6 +88,9 @@ $kLogFiles | Foreach-Object {
     Create-SymbolLinkFile -SrcFile (Join-Path "C:\k\" $_) -DestFile (Join-Path $aksLogFolder $_)
 }
 
+# CustomScriptExtension log
+Create-SymbolLinkFile -SrcFile "c:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScriptExtension\*\CustomScriptHandler.log" -DestFile (Join-Path $aksLogFolder "CustomScriptHandler.log")
+
 $calicoLogFolder="C:\CalicoWindows\logs\"
 if (Test-Path $calicoLogFolder) {
     $calicoLogFiles = @(
