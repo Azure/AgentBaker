@@ -375,7 +375,7 @@ try
         -PluginPath $pluginPath
 
         Write-Log "Write temporary secure TLS bootstrap kubeconfig"
-    } else if ($global:TLSBootstrapToken) {
+    } elseif ($global:TLSBootstrapToken) {
         Write-Log "Write TLS bootstrap kubeconfig"
         Write-BootstrapKubeConfig -CACertificate $global:CACertificate `
             -KubeDir $global:KubeDir `
