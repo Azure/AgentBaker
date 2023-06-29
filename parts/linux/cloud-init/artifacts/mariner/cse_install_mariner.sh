@@ -35,13 +35,14 @@ installKataDeps() {
 
       echo "Install UVM build pipeline artifacts"
       mkdir -p /opt/confidential-containers/share/kata-containers/
-      cp -p igvm-debug.bin /opt/confidential-containers/share/kata-containers/igvm-debug.bin
-      cp -p igvm-measurement /opt/confidential-containers/share/kata-containers/igvm-measurement
-      cp -p kata-containers-initrd.img /opt/confidential-containers/share/kata-containers/kata-containers-initrd.img
+      mv igvm-debug.bin /opt/confidential-containers/share/kata-containers/igvm-debug.bin
+      mv igvm-measurement /opt/confidential-containers/share/kata-containers/igvm-measurement
+      mv kata-containers-initrd.img /opt/confidential-containers/share/kata-containers/kata-containers-initrd.img
 
       echo "TEMP: install cloud-hypervisor-igvm"
       mkdir -p /opt/confidential-containers/bin/
-      cp -p cloud-hypervisor-igvm /opt/confidential-containers/bin/cloud-hypervisor-igvm
+      mv cloud-hypervisor-igvm /opt/confidential-containers/bin/cloud-hypervisor-igvm
+      chmod 755 /opt/confidential-containers/bin/cloud-hypervisor-igvm
 
       echo "TEMP: install kata-cc packages from storage account"
       wget "https://mitchzhu.blob.core.windows.net/public/kernel-uvm-5.15.110.mshv2-2.cm2.x86_64.rpm" -O kernel-uvm-5.15.110.mshv2-2.cm2.x86_64.rpm
