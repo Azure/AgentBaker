@@ -125,8 +125,8 @@ copyPackerFiles() {
     KATA_INITRD_DEST=/opt/azure/containers/kata-containers-initrd.img
     cpAndMode $KATA_INITRD_SRC $KATA_INITRD_DEST 0755
 
-    KATA_CLH_SRC=/home/packer/cloud-hypervisor
-    KATA_CLH_DEST=/opt/azure/containers/cloud-hypervisor
+    KATA_CLH_SRC=/home/packer/cloud-hypervisor-igvm
+    KATA_CLH_DEST=/opt/azure/containers/cloud-hypervisor-igvm
     cpAndMode $KATA_CLH_SRC $KATA_CLH_DEST 0755
 
     SETUP_KATA_SRC=/home/packer/setupkata.sh
