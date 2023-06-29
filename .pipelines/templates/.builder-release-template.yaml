@@ -22,11 +22,10 @@ steps:
     inputs:
       source: specific
       project: 'CloudNativeCompute'
-      pipeline: 318507
-      runVersion: specific
-      runId: 74874584
-      artifactName: 'mariner-kata-uvm'
+      pipeline: 318279
+      buildVersionToDownload: 'latest'
       downloadType: 'single'
+      artifactName: 'drop_build_and_sign_build_and_sign'
       itemPattern: |
         **/kata-containers**
         **/igvm**

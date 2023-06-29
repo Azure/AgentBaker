@@ -459,18 +459,13 @@
     },
     {
       "type": "file",
-      "source": "igvm.bin",
-      "destination": "/home/packer/igvm.bin"
+      "source": "igvm-debug.bin",
+      "destination": "/home/packer/igvm-debug.bin"
     },
     {
       "type": "file",
       "source": "igvm-measurement",
       "destination": "/home/packer/igvm-measurement"
-    },
-    {
-      "type": "file",
-      "source": "kata-containers.img",
-      "destination": "/home/packer/kata-containers.img"
     },
     {
       "type": "file",

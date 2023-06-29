@@ -113,17 +113,13 @@ copyPackerFiles() {
   cpAndMode $CSE_REDACT_SRC $CSE_REDACT_DEST 600
 
   if grep -q "kata" <<< "$FEATURE_FLAGS"; then
-    IGVM_BIN_SRC=/home/packer/igvm.bin
-    IGVM_BIN_DEST=/opt/azure/containers/igvm.bin
+    IGVM_BIN_SRC=/home/packer/igvm-debug.bin
+    IGVM_BIN_DEST=/opt/azure/containers/igvm-debug.bin
     cpAndMode $IGVM_BIN_SRC $IGVM_BIN_DEST 0755
 
     IGVM_MEASUREMENT_SRC=/home/packer/igvm-measurement
     IGVM_MEASUREMENT_DEST=/opt/azure/containers/igvm-measurement
     cpAndMode $IGVM_MEASUREMENT_SRC $IGVM_MEASUREMENT_DEST 0755
-
-    KATA_IMG_SRC=/home/packer/kata-containers.img
-    KATA_IMG_DEST=/opt/azure/containers/kata-containers.img
-    cpAndMode $KATA_IMG_SRC $KATA_IMG_DEST 0755
 
     KATA_INITRD_SRC=/home/packer/kata-containers-initrd.img
     KATA_INITRD_DEST=/opt/azure/containers/kata-containers-initrd.img
