@@ -33,7 +33,7 @@ installKataDeps() {
         fi
       done
 
-      echo "install UVM build pipeline artifacts"
+      echo "Install UVM build pipeline artifacts"
       mkdir -p /opt/confidential-containers/share/kata-containers/
       mv igvm-debug.bin /opt/confidential-containers/share/kata-containers/igvm-debug.bin
       mv igvm-measurement /opt/confidential-containers/share/kata-containers/igvm-measurement
@@ -51,10 +51,10 @@ installKataDeps() {
       rm kata-containers-cc-0.4.2-1.cm2.x86_64.rpm
       rm kata-containers-cc-tools-0.4.2-1.cm2.x86_64.rpm
 
-      echo "create snapshotter dir"
+      echo "Create snapshotter dir"
       mkdir -p /var/lib/containerd/io.containerd.snapshotter.v1.tardev/staging
 
-      echo "append kata-cc config to enable IGVM"
+      echo "Append kata-cc config to enable IGVM"
       sed -i '/image =/a igvm = "/opt/confidential-containers/share/kata-containers/igvm-debug.bin"' /opt/confidential-containers/share/defaults/kata-containers/configuration-clh.toml
       sed -i 's/cloud-hypervisor/cloud-hypervisor-igvm/g' /opt/confidential-containers/share/defaults/kata-containers/configuration-clh.toml
       # Comment out image and kernel configs
