@@ -687,7 +687,9 @@ assignFilePermissions() {
         chmod 0600 /etc/crontab || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     fi
     for filepath in /etc/cron.hourly /etc/cron.daily /etc/cron.weekly /etc/cron.monthly /etc/cron.d; do
-        chmod 0600 $filepath || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+        if [[ -e $filepath ]]; then
+            chmod 0600 $filepath || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+        fi
     done
 
     # Docs: https://www.man7.org/linux/man-pages/man1/crontab.1.html
