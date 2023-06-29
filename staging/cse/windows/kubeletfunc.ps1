@@ -179,7 +179,7 @@ function Write-SecureTLSBootstrapKubeConfig {
         [Parameter(Mandatory = $true)][string]
         $MasterIP,
         [Parameter(Mandatory = $true)][string]
-        $KubeDir
+        $KubeDir,
         [Parameter(Mandatory = $true)][string]
         $PluginPath
     )
