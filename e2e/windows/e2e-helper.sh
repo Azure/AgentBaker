@@ -16,8 +16,34 @@ exec_on_host() {
     kubectl exec $(kubectl get pod -l app=debug -o jsonpath="{.items[0].metadata.name}") -- bash -c "nsenter -t 1 -m bash -c \"$1\"" > $2
 }
 
+backfill_clean_storage_container() {
+    set +x
+    # Get supported kubernetes versions
+    versions=$(az aks get-versions --location $LOCATION --query "orchestrators[].orchestratorVersion" -o tsv)
+    k8s_versions=${versions//./}
+
+    # Get container names e.g. akswinstore2022-1256 (for this $container_version would be "1256")
+    container_names=$(az storage container list --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --query "[?starts_with(name, 'akswinstore')].name" -o tsv)
+    # Check if the container version is still supported and delete the container if not
+    for container_name in $container_names; do
+        container_version=$(echo $container_name | cut -d '-' -f 2- | awk '{print tolower($0)}')
+        echo "container version is $container_version"
+        if [[ $k8s_versions == *"$container_version"* ]]; then
+            echo "The version $container_version is available in the $LOCATION region."
+        else
+            echo "The version $container_version is not available in the $LOCATION region."
+            echo "Deleting the container."
+            az storage container delete --name $container_name --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY
+            echo "Deletion completed."
+        fi
+    done
+
+    set -x
+}
+
 create_storage_container() {
     set +x
+
     # check if the storage container exists and create one if not
     exists=$(az storage container exists --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --name $WINDOWS_E2E_STORAGE_CONTAINER)
     if [[ $exists == *false* ]]; then
