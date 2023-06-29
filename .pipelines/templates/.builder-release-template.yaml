@@ -23,9 +23,10 @@ steps:
       source: specific
       project: 'CloudNativeCompute'
       pipeline: 318279
-      buildVersionToDownload: 'latest'
-      downloadType: 'single'
+      runVersion: specific
+      runId: 75617403
       artifactName: 'drop_build_and_sign_build_and_sign'
+      downloadType: 'single'
       itemPattern: |
         **/kata-containers**
         **/igvm**
