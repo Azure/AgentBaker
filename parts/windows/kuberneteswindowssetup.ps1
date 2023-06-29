@@ -376,7 +376,7 @@ try
 
         Write-Log "Write temporary secure TLS bootstrap kubeconfig"
     } elseif ($global:TLSBootstrapToken) {
-        Write-Log "Write TLS bootstrap kubeconfig"
+        Write-Log "Write TLS bootstrap kubeconfig with pre-generated bootstrap token"
         Write-BootstrapKubeConfig -CACertificate $global:CACertificate `
             -KubeDir $global:KubeDir `
             -MasterFQDNPrefix $MasterFQDNPrefix `
