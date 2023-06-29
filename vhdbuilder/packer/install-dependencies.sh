@@ -261,7 +261,7 @@ unpackAzureCNI() {
 
 #must be both amd64/arm64 images
 VNET_CNI_VERSIONS="
-1.5.3
+1.5.5
 1.4.43
 "
 
@@ -276,7 +276,7 @@ done
 #UNITE swift and overlay versions?
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 SWIFT_CNI_VERSIONS="
-1.5.3
+1.5.5
 1.4.43
 "
 
@@ -288,7 +288,7 @@ for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
 done
 
 OVERLAY_CNI_VERSIONS="
-1.5.3
+1.5.5
 1.4.43
 "
 
