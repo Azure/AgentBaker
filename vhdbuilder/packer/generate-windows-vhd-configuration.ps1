@@ -77,9 +77,8 @@ $global:imagesToPull += @(
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
     "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.9",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44",
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.1",
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.5.3"
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.2",
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.5.5"
 )
 
 $global:map = @{
@@ -151,15 +150,15 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.3/windowszip/v1.27.3-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
-        # Azure CNI v1 (legacy) upgrading from v1.4.35 to v1.5.3
+        # Azure CNI v1 (legacy) upgrading from v1.4.35 to v1.5.5
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.5.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.5.3.zip",
-        # Azure CNI v2 (pod subnet) upgrading from v1.4.35 to v1.5.3
+        "https://acs-mirror.azureedge.net/azure-cni/v1.5.5/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.5.5.zip",
+        # Azure CNI v2 (pod subnet) upgrading from v1.4.35 to v1.5.5
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.4.35.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.5.3/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.5.3.zip",
-        # Azure CNI for Overlay upgrading from v1.4.35_Win2019OverlayFix to v1.5.3
+        "https://acs-mirror.azureedge.net/azure-cni/v1.5.5/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.5.5.zip",
+        # Azure CNI for Overlay upgrading from v1.4.35_Win2019OverlayFix to v1.5.5
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35_Win2019OverlayFix/binaries/azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35_Win2019OverlayFix.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.5.3/binaries/azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.5.3.zip"
+        "https://acs-mirror.azureedge.net/azure-cni/v1.5.5/binaries/azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.5.5.zip"
     );
     "c:\akse-cache\calico\" = @(
         "https://acs-mirror.azureedge.net/calico-node/v3.21.6/binaries/calico-windows-v3.21.6.zip",
