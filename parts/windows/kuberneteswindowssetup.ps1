@@ -225,7 +225,7 @@ try
         return
     }
    
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.26.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-secure-tls-bootstrap-v0.0.cameissner0.zip" # change to custom package for testing
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
