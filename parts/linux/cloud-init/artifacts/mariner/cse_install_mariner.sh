@@ -45,10 +45,10 @@ installKataDeps() {
       chmod 755 /opt/confidential-containers/bin/cloud-hypervisor-igvm
 
       echo "TEMP: install kata-cc packages from storage account"
-      wget "${KERNEL_UVM_URL}" -O kernel-uvm.x86_64.rpm
-      wget "${KERNEL_UVM_DEV_URL}" -O kernel-uvm-devel.x86_64.rpm
-      wget "${KATA_CC_URL}" -O kata-containers-cc.x86_64.rpm
-      wget "${KATA_CC_TOOL_URL}" -O kata-containers-cc-tools.x86_64.rpm
+      wget "${KERNEL_UVM_URL:-}" -O kernel-uvm.x86_64.rpm
+      wget "${KERNEL_UVM_DEV_URL:-}" -O kernel-uvm-devel.x86_64.rpm
+      wget "${KATA_CC_URL:-}" -O kata-containers-cc.x86_64.rpm
+      wget "${KATA_CC_TOOL_URL:-}" -O kata-containers-cc-tools.x86_64.rpm
       rpm -ihv kernel-uvm.x86_64.rpm
       rpm -ihv kernel-uvm-devel.x86_64.rpm
       rpm -ihv kata-containers-cc.x86_64.rpm
