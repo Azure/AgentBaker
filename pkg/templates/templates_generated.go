@@ -354,6 +354,7 @@ func linuxCloudInitArtifactsAksLogrotateTimer() (*asset, error) {
 
 var _linuxCloudInitArtifactsAksRsyslog = []byte(`/var/log/syslog
 /var/log/messages
+/var/log/secure
 /var/log/kern.log
 {
   rotate 5
