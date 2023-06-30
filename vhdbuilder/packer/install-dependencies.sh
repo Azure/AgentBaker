@@ -42,7 +42,23 @@ APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
 
-installDeps
+# If the IMG_SKU does not contain "minimal", installDeps normally
+if [[ "$IMG_SKU" != *"minimal"* ]]; then
+  installDeps
+else
+  # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
+  # jq - for manipulation JSON data
+  # iptables - required to run containerd
+  # netcat - network comms with API server
+  # dnsutils - contains nslookup, to query API server DNS
+  required_pkg_list=(jq iptables netcat dnsutils)
+  for apt_package in ${required_pkg_list[*]}; do
+      if ! apt_get_install 30 1 600 $apt_package; then
+          journalctl --no-pager -u $apt_package
+          exit $ERR_APT_INSTALL_TIMEOUT
+      fi
+  done
+fi
 
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
 Storage=persistent
@@ -246,7 +262,7 @@ unpackAzureCNI() {
 
 #must be both amd64/arm64 images
 VNET_CNI_VERSIONS="
-1.5.3
+1.5.5
 1.4.43
 "
 
@@ -261,7 +277,7 @@ done
 #UNITE swift and overlay versions?
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 SWIFT_CNI_VERSIONS="
-1.5.3
+1.5.5
 1.4.43
 "
 
@@ -273,7 +289,7 @@ for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
 done
 
 OVERLAY_CNI_VERSIONS="
-1.5.3
+1.5.5
 1.4.43
 "
 

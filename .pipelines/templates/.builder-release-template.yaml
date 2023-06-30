@@ -56,6 +56,7 @@ steps:
       if [[ ${OS_VERSION} == "V2" && ${OS_SKU} == "CBLMariner" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
       if [[ "$(FEATURE_FLAGS)" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
       if [[ "${IMG_SKU}" == "20_04-lts-cvm" ]]; then SKU_NAME="${SKU_NAME}CVM"; fi && \
+      if [[ "${IMG_SKU}" == *"minimal"* ]]; then SKU_NAME="${SKU_NAME}minimal"; fi && \
       if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
       if [[ ${OS_SKU} != "CBLMariner" && "${CONTAINER_RUNTIME}" == "containerd" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
       SKU_NAME=$(echo ${SKU_NAME} | tr -d '.') && \
