@@ -101,6 +101,10 @@ steps:
         -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
         -e SGX_INSTALL=${SGX_INSTALL} \
         -e IMAGE_VERSION=${IMAGE_VERSION} \
+        -e KERNEL_UVM_URL=${KERNEL_UVM_URL} \
+        -e KERNEL_UVM_DEV_URL=${KERNEL_UVM_DEV_URL} \
+        -e KATA_CC_URL=${KATA_CC_URL} \
+        -e KATA_CC_TOOL_URL=${KATA_CC_TOOL_URL} \
         ${CONTAINER_IMAGE} make -f packer.mk run-packer
     displayName: Building VHD
   - script: |
