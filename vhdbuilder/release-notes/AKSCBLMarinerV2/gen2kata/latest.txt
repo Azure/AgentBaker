@@ -1,4 +1,4 @@
-Starting build on  Mon Jul 3 08:09:36 UTC 2023
+Starting build on  Mon Jun 26 08:12:51 UTC 2023
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - containerd-wasm-shims v0.3.0 v0.5.1
   - [installed] containerd v1.7.1-1
@@ -16,11 +16,11 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/coredns:v1.8.7
   - mcr.microsoft.com/oss/kubernetes/coredns:v1.9.3
   - mcr.microsoft.com/oss/kubernetes/coredns:v1.9.4
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.4.39
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.2
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.5.5
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.4.44_hotfix
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.1
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.5.3
+  - mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.2
   - mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.4
-  - mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.9
   - mcr.microsoft.com/containernetworking/azure-npm:v1.4.32
   - mcr.microsoft.com/containernetworking/azure-npm:v1.4.45
   - mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:v0.0.30
@@ -29,8 +29,8 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.9
   - mcr.microsoft.com/aks/msi/addon-token-adapter:master.221118.2
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.7.0-main-05-04-2023-4450ad10
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.7.1-main-06-02-2023-d384b035
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.7.2-main-06-26-2023-6ee07896
   - mcr.microsoft.com/oss/kubernetes/kube-state-metrics:v2.6.0
   - mcr.microsoft.com/oss/calico/cni:v3.8.9.3
   - mcr.microsoft.com/oss/calico/cni:v3.23.3
@@ -65,14 +65,11 @@ containerd images pre-pulled:
   - mcr.microsoft.com/aks/ip-masq-agent-v2:v0.1.7
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.5
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.0
-  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.1
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.2
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.3
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.3.1
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.0-1
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.0
   - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.19.5
   - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.21.4
-  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.22.1
   - mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.10.0
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0
   - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.11.1
@@ -82,11 +79,11 @@ containerd images pre-pulled:
   - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.0.1
   - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.0.1
   - mcr.microsoft.com/aks/aks-node-ca-watcher:master.221011.1
-  - Azure CNI version 1.5.5
+  - Azure CNI version 1.5.3
   - Azure CNI version 1.4.43
-  - Azure Swift CNI version 1.5.5
+  - Azure Swift CNI version 1.5.3
   - Azure Swift CNI version 1.4.43
-  - Azure Overlay CNI version 1.5.5
+  - Azure Overlay CNI version 1.5.3
   - Azure Overlay CNI version 1.4.43
   - CNI plugin version 1.1.1
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.10-hotfix.20230509-2
@@ -105,6 +102,9 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.1-hotfix.20230612
 kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  50311268 Aug 26  2022 /usr/local/bin/crictl
+lrwxrwxrwx 1 root root        21 Jun 11 11:24 /usr/local/bin/kata-runtime -> /usr/bin/kata-runtime
+lrwxrwxrwx 1 root root        21 Jun 11 11:24 /usr/local/bin/kata-monitor -> /usr/bin/kata-monitor
+lrwxrwxrwx 1 root root        32 Jun 11 11:24 /usr/local/bin/containerd-shim-kata-v2 -> /usr/bin/containerd-shim-kata-v2
 -rwxr-xr-x 1 root root 116095704 Jun 12 19:26 /usr/local/bin/kubelet-1.24.9
 -rwxr-xr-x 1 root root  45752320 Jun 12 19:26 /usr/local/bin/kubectl-1.24.9
 -rwxr-xr-x 1 root root 116624792 Jun 12 19:26 /usr/local/bin/kubelet-1.24.10
@@ -119,17 +119,16 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  48021504 Jun 12 19:43 /usr/local/bin/kubectl-1.26.0
 -rwxr-xr-x 1 root root 114245720 Jun 12 19:47 /usr/local/bin/kubelet-1.25.6
 -rwxr-xr-x 1 root root  45027328 Jun 12 19:47 /usr/local/bin/kubectl-1.25.6
-lrwxrwxrwx 1 root root        21 Jun 22 01:01 /usr/local/bin/kata-runtime -> /usr/bin/kata-runtime
-lrwxrwxrwx 1 root root        21 Jun 22 01:01 /usr/local/bin/kata-monitor -> /usr/bin/kata-monitor
-lrwxrwxrwx 1 root root        32 Jun 22 01:01 /usr/local/bin/containerd-shim-kata-v2 -> /usr/bin/containerd-shim-kata-v2
--r-xr--r-- 1 root root      2462 Jul  3 08:09 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root       705 Jul  3 08:09 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root  36014944 Jul  3 08:12 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root  47622592 Jul  3 08:12 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root  45334640 Jul  3 08:12 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root  52232184 Jul  3 08:12 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-x--- 1 root root  35384960 Jul  3 08:13 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root      2462 Jun 26 08:12 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root       705 Jun 26 08:12 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  36014944 Jun 26 08:15 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root  47622592 Jun 26 08:15 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root  45334640 Jun 26 08:15 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root  52232184 Jun 26 08:15 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-x--- 1 root root  35384960 Jun 26 08:15 /usr/local/bin/bpftrace
 === Installed Packages Begin
+mariner-release-2.0-42.cm2.noarch
+filesystem-1.1-13.cm2.x86_64
 glibc-2.35-3.cm2.x86_64
 libgcc-11.2.0-4.cm2.x86_64
 pcre-libs-8.45-2.cm2.x86_64
@@ -138,6 +137,7 @@ zlib-1.2.13-1.cm2.x86_64
 xz-libs-5.2.5-1.cm2.x86_64
 ncurses-libs-6.4-1.cm2.x86_64
 readline-8.1-1.cm2.x86_64
+libcap-2.60-1.cm2.x86_64
 bzip2-libs-1.0.8-1.cm2.x86_64
 pcre-8.45-2.cm2.x86_64
 gmp-6.2.1-2.cm2.x86_64
@@ -207,6 +207,7 @@ device-mapper-event-2.03.15-2.cm2.x86_64
 util-linux-2.37.4-6.cm2.x86_64
 file-5.40-2.cm2.x86_64
 cryptsetup-2.4.3-3.cm2.x86_64
+iptables-1.8.7-2.cm2.x86_64
 dbus-1.15.2-2.cm2.x86_64
 pinentry-1.2.0-1.cm2.x86_64
 openssh-clients-8.8p1-7.cm2.x86_64
@@ -240,9 +241,11 @@ lvm2-2.03.15-2.cm2.x86_64
 pkgconf-m4-1.8.0-3.cm2.noarch
 libsemanage-3.2-2.cm2.x86_64
 shadow-utils-4.9-12.cm2.x86_64
+tdnf-cli-libs-3.2.2-4.cm2.x86_64
 nghttp2-1.46.0-2.cm2.x86_64
 curl-libs-8.0.1-2.cm2.x86_64
 curl-8.0.1-2.cm2.x86_64
+tdnf-3.2.2-4.cm2.x86_64
 libpkgconf-1.8.0-3.cm2.x86_64
 pkgconf-1.8.0-3.cm2.x86_64
 pkgconf-pkg-config-1.8.0-3.cm2.x86_64
@@ -264,6 +267,7 @@ mariner-repos-shared-2.0-8.cm2.noarch
 mariner-repos-microsoft-2.0-8.cm2.noarch
 mariner-repos-extras-2.0-8.cm2.noarch
 mariner-repos-2.0-8.cm2.noarch
+tdnf-plugin-repogpgcheck-3.2.2-4.cm2.x86_64
 core-packages-container-2.0-7.cm2.x86_64
 core-packages-base-image-2.0-7.cm2.x86_64
 mshv-bootloader-lx-25357.1.230428-1528.1.cm2.x86_64
@@ -281,6 +285,7 @@ python3-libs-3.9.14-6.cm2.x86_64
 dtc-1.6.1-1.cm2.x86_64
 busybox-1.35.0-3.cm2.x86_64
 dracut-055-5.cm2.x86_64
+qemu-virtiofsd-6.2.0-15.cm2.x86_64
 daxctl-65-3.cm2.x86_64
 fuse3-libs-3.10.5-2.cm2.x86_64
 libbpf-1.0.1-1.cm2.x86_64
@@ -297,6 +302,8 @@ sgabios-bin-0.20180715git-8.cm2.noarch
 snappy-1.1.9-2.cm2.x86_64
 autogen-libopts-5.18.16-8.cm2.x86_64
 ipxe-1.21.1-1.cm2.x86_64
+qemu-common-6.2.0-15.cm2.x86_64
+qemu-ipxe-6.2.0-15.cm2.x86_64
 glibc-iconv-2.35-3.cm2.x86_64
 libltdl-2.4.6-8.cm2.x86_64
 libunistring-0.9.10-5.cm2.x86_64
@@ -307,6 +314,9 @@ pciutils-3.7.0-3.cm2.x86_64
 rdma-core-39.0-1.cm2.x86_64
 libibverbs-39.0-1.cm2.x86_64
 librdmacm-39.0-1.cm2.x86_64
+qemu-system-x86-core-6.2.0-15.cm2.x86_64
+qemu-kvm-core-6.2.0-15.cm2.x86_64
+kata-containers-3.1.0-1.cm2.x86_64
 cloud-hypervisor-31.1-1.cm2.x86_64
 initramfs-2.0-12.cm2.x86_64
 zchunk-libs-1.1.16-2.cm2.x86_64
@@ -365,12 +375,18 @@ python3-pyparsing-3.0.7-1.cm2.noarch
 python3-packaging-21.3-1.cm2.noarch
 python3-cryptography-3.3.2-4.cm2.x86_64
 python3-pyOpenSSL-18.0.0-8.cm2.noarch
+python3-requests-2.27.1-5.cm2.noarch
 cloud-init-22.4-2.cm2.noarch
 cloud-init-azure-kvp-22.4-2.cm2.noarch
 gptfdisk-1.0.8-1.cm2.x86_64
 mpfr-4.1.0-1.cm2.x86_64
 gawk-5.1.0-2.cm2.x86_64
 cloud-utils-growpart-0.32-3.cm2.noarch
+hyperv-daemons-license-5.15.112.1-1.cm2.noarch
+hypervvssd-5.15.112.1-1.cm2.x86_64
+hypervkvpd-5.15.112.1-1.cm2.x86_64
+hypervfcopyd-5.15.112.1-1.cm2.x86_64
+hyperv-daemons-5.15.112.1-1.cm2.x86_64
 wpa_supplicant-2.10-1.cm2.x86_64
 netplan-0.95-1.cm2.x86_64
 ncurses-term-6.4-1.cm2.x86_64
@@ -381,6 +397,7 @@ libmpc-1.2.1-1.cm2.x86_64
 libstdc++-devel-11.2.0-4.cm2.x86_64
 liblognorm-2.0.6-2.cm2.x86_64
 librelp-1.10.0-1.cm2.x86_64
+postgresql-libs-14.5-1.cm2.x86_64
 cyrus-sasl-2.1.28-4.cm2.x86_64
 librdkafka1-1.8.2-1.cm2.x86_64
 make-4.3-2.cm2.x86_64
@@ -584,31 +601,10 @@ WALinuxAgent-2.3.1.1-3.cm2.noarch
 gpg-pubkey-3135ce90-5e6fda74
 gpg-pubkey-be1229cf-5631588c
 inotify-tools-3.22.1.0-1.cm2.x86_64
-hyperv-daemons-license-5.15.116.1-1.cm2.noarch
-qemu-common-6.2.0-16.cm2.x86_64
-qemu-ipxe-6.2.0-16.cm2.x86_64
-qemu-system-x86-core-6.2.0-16.cm2.x86_64
-qemu-kvm-core-6.2.0-16.cm2.x86_64
-hypervfcopyd-5.15.116.1-1.cm2.x86_64
-hypervkvpd-5.15.116.1-1.cm2.x86_64
-hypervvssd-5.15.116.1-1.cm2.x86_64
-tdnf-cli-libs-3.5.2-2.cm2.x86_64
-tdnf-3.5.2-2.cm2.x86_64
-qemu-virtiofsd-6.2.0-16.cm2.x86_64
-filesystem-1.1-14.cm2.x86_64
-kernel-5.15.116.1-1.cm2.x86_64
-kata-containers-3.1.0-2.cm2.x86_64
-tdnf-plugin-repogpgcheck-3.5.2-2.cm2.x86_64
-hyperv-daemons-5.15.116.1-1.cm2.x86_64
-python3-requests-2.27.1-6.cm2.noarch
-postgresql-libs-14.8-1.cm2.x86_64
-mariner-release-2.0-43.cm2.noarch
-libcap-2.60-2.cm2.x86_64
-iptables-1.8.7-3.cm2.x86_64
 mshv-25357.1.230428-1528.2.cm2.x86_64
 fuse-2.9.7-10.cm2.x86_64
 boost-1.76.0-3.cm2.x86_64
-blobfuse-1.4.5-9.cm2.x86_64
+blobfuse-1.4.5-8.cm2.x86_64
 python3-dbus-1.2.16-3.cm2.x86_64
 python3-dateutil-2.7.3-5.cm2.noarch
 python3-dnf-plugins-core-4.0.24-3.cm2.noarch
@@ -641,7 +637,7 @@ iotop-0.6-10.cm2.noarch
 ipset-7.15-1.cm2.x86_64
 oniguruma-6.9.7.1-1.cm2.x86_64
 jq-1.6-1.cm2.x86_64
-kernel-devel-5.15.116.1-1.cm2.x86_64
+kernel-devel-5.15.112.1-2.cm2.x86_64
 libtirpc-1.3.3-1.cm2.x86_64
 lsof-4.94.0-1.cm2.x86_64
 libpcap-1.10.1-1.cm2.x86_64
@@ -660,12 +656,12 @@ libapparmor-3.0.4-1.cm2.x86_64
 apparmor-parser-3.0.4-1.cm2.x86_64
 fuse-common-3.10.5-2.cm2.x86_64
 fuse3-3.10.5-2.cm2.x86_64
-blobfuse2-2.0.2-5.cm2.x86_64
+blobfuse2-2.0.2-4.cm2.x86_64
 libnftnl-1.2.1-1.cm2.x86_64
 jansson-2.14-1.cm2.x86_64
 nftables-1.0.1-1.cm2.x86_64
-moby-runc-1.1.5-2.cm2.x86_64
-moby-containerd-1.6.18-5.cm2.x86_64
+moby-runc-1.1.5-1.cm2.x86_64
+moby-containerd-1.6.18-4.cm2.x86_64
 llvm-12.0.1-6.cm2.x86_64
 compiler-rt-12.0.1-1.cm2.x86_64
 clang-libs-12.0.1-4.cm2.x86_64
@@ -680,18 +676,18 @@ devtmpfs        4.0M     0  4.0M   0% /dev
 tmpfs           7.6G     0  7.6G   0% /dev/shm
 tmpfs           3.1G  8.6M  3.1G   1% /run
 tmpfs           4.0M     0  4.0M   0% /sys/fs/cgroup
-/dev/sda3        29G   19G  8.7G  69% /
+/dev/sda3        29G   19G  9.2G  67% /
 tmpfs           7.6G  4.0K  7.6G   1% /tmp
-/dev/sda2       474M   77M  369M  18% /boot
+/dev/sda2       474M   47M  399M  11% /boot
 /dev/sda1        64M   37M   28M  57% /boot/efi
-/dev/sdb1       147G   40K  140G   1% /mnt
+/dev/sdb1       147G   32K  140G   1% /mnt
 tmpfs           1.6G     0  1.6G   0% /run/user/1000
 Using kernel:
 Linux version 5.15.110.mshv2-3.cm2 (root@CBL-Mariner) (gcc (GCC) 11.2.0, GNU ld (GNU Binutils) 2.37) #1 SMP Sun Jun 11 05:43:08 UTC 2023
-Install completed successfully on  Mon Jul 3 08:28:57 UTC 2023
-VSTS Build NUMBER: 20230703.1_master_75816202
-VSTS Build ID: 75816202
-Commit: db58ab6761eef4cb147f067009c78944dd9f50ff
+Install completed successfully on  Mon Jun 26 08:28:25 UTC 2023
+VSTS Build NUMBER: 20230626.1_master_75435955
+VSTS Build ID: 75435955
+Commit: 9a7fd904556738b7a6eceec695191bd61d47f5f8
 Ubuntu version: 
 Hyperv generation: V2
 Feature flags: kata
@@ -699,7 +695,7 @@ Container runtime: containerd
 FIPS enabled: false
 === os-release Begin
 NAME="Common Base Linux Mariner"
-VERSION="2.0.20230621"
+VERSION="2.0.20230611"
 ID=mariner
 VERSION_ID="2.0"
 PRETTY_NAME="CBL-Mariner/Linux"
