@@ -1,11 +1,11 @@
 {
   "SchemaVersion": 2,
-  "ArtifactName": "pkrvmr854ti8p5m",
+  "ArtifactName": "pkrvmkq1168djl6",
   "ArtifactType": "filesystem",
   "Metadata": {
     "OS": {
       "Family": "cbl-mariner",
-      "Name": "2.0.20230621"
+      "Name": "2.0.20230609"
     },
     "ImageConfig": {
       "architecture": "",
@@ -20,7 +20,7 @@
   },
   "Results": [
     {
-      "Target": "pkrvmr854ti8p5m (cbl-mariner 2.0.20230621)",
+      "Target": "pkrvmkq1168djl6 (cbl-mariner 2.0.20230609)",
       "Class": "os-pkgs",
       "Type": "cbl-mariner"
     },
@@ -68,12 +68,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-30551",
@@ -949,12 +948,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         },
         {
           "VulnerabilityID": "CVE-2022-41723",
@@ -1055,12 +1053,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         },
         {
           "VulnerabilityID": "CVE-2022-41723",
@@ -1161,12 +1158,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         },
         {
           "VulnerabilityID": "CVE-2022-41723",
@@ -1267,12 +1263,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         }
       ]
     },
@@ -1320,12 +1315,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         }
       ]
     },
@@ -1373,12 +1367,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-27561",
@@ -1533,12 +1526,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-27561",
@@ -1693,12 +1685,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-27561",
@@ -1853,12 +1844,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-27561",
@@ -1960,12 +1950,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-27561",
