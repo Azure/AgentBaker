@@ -1,4 +1,4 @@
-Starting build on  Mon Jul 3 08:09:51 UTC 2023
+Starting build on  Mon Jun 26 08:13:24 UTC 2023
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - containerd-wasm-shims v0.3.0 v0.5.1
   - [installed] containerd v1.7.1-1
@@ -16,11 +16,11 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/coredns:v1.8.7
   - mcr.microsoft.com/oss/kubernetes/coredns:v1.9.3
   - mcr.microsoft.com/oss/kubernetes/coredns:v1.9.4
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.4.39
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.2
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.5.5
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.4.44_hotfix
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.1
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.5.3
+  - mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.2
   - mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.4
-  - mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.9
   - mcr.microsoft.com/containernetworking/azure-npm:v1.4.32
   - mcr.microsoft.com/containernetworking/azure-npm:v1.4.45
   - mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:v0.0.30
@@ -29,8 +29,8 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.9
   - mcr.microsoft.com/aks/msi/addon-token-adapter:master.221118.2
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.7.0-main-05-04-2023-4450ad10
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.7.1-main-06-02-2023-d384b035
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.7.2-main-06-26-2023-6ee07896
   - mcr.microsoft.com/oss/kubernetes/kube-state-metrics:v2.6.0
   - mcr.microsoft.com/oss/calico/cni:v3.8.9.3
   - mcr.microsoft.com/oss/calico/cni:v3.23.3
@@ -65,14 +65,11 @@ containerd images pre-pulled:
   - mcr.microsoft.com/aks/ip-masq-agent-v2:v0.1.7
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.5
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.0
-  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.1
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.2
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.3
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.3.1
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.0-1
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.0
   - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.19.5
   - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.21.4
-  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.22.1
   - mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.10.0
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0
   - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.11.1
@@ -82,11 +79,11 @@ containerd images pre-pulled:
   - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.0.1
   - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.0.1
   - mcr.microsoft.com/aks/aks-node-ca-watcher:master.221011.1
-  - Azure CNI version 1.5.5
+  - Azure CNI version 1.5.3
   - Azure CNI version 1.4.43
-  - Azure Swift CNI version 1.5.5
+  - Azure Swift CNI version 1.5.3
   - Azure Swift CNI version 1.4.43
-  - Azure Overlay CNI version 1.5.5
+  - Azure Overlay CNI version 1.5.3
   - Azure Overlay CNI version 1.4.43
   - CNI plugin version 1.1.1
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.10-hotfix.20230509-2
@@ -119,19 +116,19 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  48021504 Jun 12 19:43 /usr/local/bin/kubectl-1.26.0
 -rwxr-xr-x 1 root root 114245720 Jun 12 19:47 /usr/local/bin/kubelet-1.25.6
 -rwxr-xr-x 1 root root  45027328 Jun 12 19:47 /usr/local/bin/kubectl-1.25.6
--r-xr--r-- 1 root root      2462 Jul  3 08:09 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root       705 Jul  3 08:09 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root  36014944 Jul  3 08:12 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root  47622592 Jul  3 08:12 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root  45334640 Jul  3 08:12 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root  52232184 Jul  3 08:12 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-x--- 1 root root  35384960 Jul  3 08:12 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root      2462 Jun 26 08:13 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root       705 Jun 26 08:13 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  36014944 Jun 26 08:16 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root  47622592 Jun 26 08:16 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root  45334640 Jun 26 08:16 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root  52232184 Jun 26 08:16 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-x--- 1 root root  35384960 Jun 26 08:16 /usr/local/bin/bpftrace
 === Installed Packages Begin
 iotop-0.6-7.cm1.noarch
 filesystem-1.1-7.cm1.x86_64
 oniguruma-6.9.5-2.cm1.x86_64
 libgcc-9.1.0-7.cm1.x86_64
-kernel-devel-5.10.183.1-1.cm1.x86_64
+kernel-devel-5.10.181.1-1.cm1.x86_64
 libstdc++-9.1.0-7.cm1.x86_64
 lsof-4.93.2-3.cm1.x86_64
 xz-libs-5.2.4-3.cm1.x86_64
@@ -148,7 +145,7 @@ bash-4.4.23-1.cm1.x86_64
 traceroute-2.1.0-5.cm1.x86_64
 xz-5.2.4-3.cm1.x86_64
 libapparmor-2.13-12.cm1.x86_64
-kernel-5.10.183.1-1.cm1.x86_64
+kernel-5.10.181.1-1.cm1.x86_64
 moby-runc-1.1.5+azure-1.cm1.x86_64
 grub2-efi-binary-2.06~rc1-10.cm1.x86_64
 libcgroup-0.41-24.cm1.x86_64
@@ -164,10 +161,10 @@ libgpg-error-1.32-4.cm1.x86_64
 elfutils-0.176-4.cm1.x86_64
 cracklib-2.9.7-3.cm1.x86_64
 lz4-1.9.2-2.cm1.x86_64
-openssl-libs-1.1.1k-16.cm1.x86_64
+openssl-libs-1.1.1k-15.cm1.x86_64
 cryptsetup-libs-2.3.7-1.cm1.x86_64
 cronie-1.5.2-5.cm1.x86_64
-openssl-1.1.1k-16.cm1.x86_64
+openssl-1.1.1k-15.cm1.x86_64
 libdb-5.3.28-6.cm1.x86_64
 expat-libs-2.5.0-1.cm1.x86_64
 pkg-config-0.29.2-4.cm1.x86_64
@@ -177,7 +174,7 @@ e2fsprogs-libs-1.44.6-4.cm1.x86_64
 mariner-repos-shared-1.0-16.cm1.noarch
 dbus-1.13.6-6.cm1.x86_64
 libssh2-1.9.0-1.cm1.x86_64
-curl-7.88.1-2.cm1.x86_64
+curl-7.88.1-1.cm1.x86_64
 libpwquality-1.4.2-7.cm1.x86_64
 python3-3.7.16-1.cm1.x86_64
 iana-etc-2.30-5.cm1.noarch
@@ -192,7 +189,7 @@ python3-dbus-1.2.16-7.cm1.x86_64
 zchunk-1.1.5-2.cm1.x86_64
 mariner-repos-microsoft-1.0-16.cm1.noarch
 cyrus-sasl-2.1.28-1.cm1.x86_64
-openssh-clients-8.9p1-2.cm1.x86_64
+openssh-clients-8.9p1-1.cm1.x86_64
 libcomps-0.1.11-4.cm1.x86_64
 file-5.38-1.cm1.x86_64
 procps-ng-3.3.15-3.cm1.x86_64
@@ -239,21 +236,21 @@ python3-asn1crypto-0.24.0-3.cm1.noarch
 python3-pycparser-2.18-3.cm1.noarch
 python3-pyparsing-2.2.0-7.cm1.noarch
 python3-cryptography-3.3.2-2.cm1.x86_64
-python3-requests-2.22.0-3.cm1.noarch
+python3-requests-2.22.0-2.cm1.noarch
 cloud-init-azure-kvp-21.4-2.cm1.noarch
 cloud-utils-growpart-0.32-3.cm1.noarch
-hypervvssd-5.10.183.1-1.cm1.x86_64
-hypervfcopyd-5.10.183.1-1.cm1.x86_64
+hypervvssd-5.10.181.1-1.cm1.x86_64
+hypervfcopyd-5.10.181.1-1.cm1.x86_64
 libnl3-3.4.0-6.cm1.x86_64
 netplan-0.95-1.cm1.x86_64
-openssh-server-8.9p1-2.cm1.x86_64
+openssh-server-8.9p1-1.cm1.x86_64
 python-xml-2.7.18-14.cm1.x86_64
 libestr-0.1.10-5.cm1.x86_64
 autogen-libopts-5.18.16-5.cm1.x86_64
 libltdl-2.4.6-8.cm1.x86_64
 guile-2.0.14-3.cm1.x86_64
 librelp-1.2.17-7.cm1.x86_64
-openssh-8.9p1-2.cm1.x86_64
+openssh-8.9p1-1.cm1.x86_64
 gpg-pubkey-3135ce90-5e6fda74
 inotify-tools-3.14-2.cm1.x86_64
 fuse-2.9.7-7.cm1.x86_64
@@ -270,7 +267,7 @@ python2-2.7.18-14.cm1.x86_64
 apr-util-1.6.3-1.cm1.x86_64
 subversion-1.14.0-5.cm1.x86_64
 git-2.33.8-1.cm1.x86_64
-mariner-release-1.0-64.cm1.noarch
+mariner-release-1.0-63.cm1.noarch
 ipset-7.1-2.cm1.x86_64
 glibc-2.28-24.cm1.x86_64
 jq-1.5-6.cm1.x86_64
@@ -320,7 +317,7 @@ libxml2-2.9.14-3.cm1.x86_64
 krb5-1.18.4-3.cm1.x86_64
 libassuan-2.5.1-3.cm1.x86_64
 zchunk-libs-1.1.5-2.cm1.x86_64
-curl-libs-7.88.1-2.cm1.x86_64
+curl-libs-7.88.1-1.cm1.x86_64
 cracklib-dicts-2.9.7-3.cm1.x86_64
 gdbm-1.18-3.cm1.x86_64
 python3-libs-3.7.16-1.cm1.x86_64
@@ -385,9 +382,9 @@ python3-packaging-17.1-6.cm1.noarch
 python3-pyOpenSSL-18.0.0-6.cm1.noarch
 cloud-init-21.4-2.cm1.noarch
 gptfdisk-1.0.4-4.cm1.x86_64
-hyperv-daemons-license-5.10.183.1-1.cm1.noarch
-hypervkvpd-5.10.183.1-1.cm1.x86_64
-hyperv-daemons-5.10.183.1-1.cm1.x86_64
+hyperv-daemons-license-5.10.181.1-1.cm1.noarch
+hypervkvpd-5.10.181.1-1.cm1.x86_64
+hyperv-daemons-5.10.181.1-1.cm1.x86_64
 wpa_supplicant-2.10-1.cm1.x86_64
 ncurses-term-6.4-1.cm1.x86_64
 python2-libs-2.7.18-14.cm1.x86_64
@@ -420,18 +417,18 @@ devtmpfs        3.4G     0  3.4G   0% /dev
 tmpfs           3.4G     0  3.4G   0% /dev/shm
 tmpfs           3.4G  516K  3.4G   1% /run
 tmpfs           3.4G     0  3.4G   0% /sys/fs/cgroup
-/dev/sda3        30G   18G  9.9G  65% /
+/dev/sda3        30G   18G   11G  63% /
 tmpfs           3.4G  4.0K  3.4G   1% /tmp
 /dev/sda2       459M   27M  403M   7% /boot
 /dev/sda1       8.0M  2.3M  5.8M  28% /boot/efi
 /dev/sdb1        14G   28K   13G   1% /mnt
 tmpfs           681M     0  681M   0% /run/user/1000
 Using kernel:
-Linux version 5.10.183.1-1.cm1 (root@CBL-Mariner) (gcc (GCC) 9.1.0, GNU ld (GNU Binutils) 2.36.1) #1 SMP Mon Jun 19 20:50:29 UTC 2023
-Install completed successfully on  Mon Jul 3 08:28:13 UTC 2023
-VSTS Build NUMBER: 20230703.1_master_75816202
-VSTS Build ID: 75816202
-Commit: db58ab6761eef4cb147f067009c78944dd9f50ff
+Linux version 5.10.181.1-1.cm1 (root@CBL-Mariner) (gcc (GCC) 9.1.0, GNU ld (GNU Binutils) 2.36.1) #1 SMP Wed Jun 7 23:46:37 UTC 2023
+Install completed successfully on  Mon Jun 26 08:28:46 UTC 2023
+VSTS Build NUMBER: 20230626.1_master_75435955
+VSTS Build ID: 75435955
+Commit: 9a7fd904556738b7a6eceec695191bd61d47f5f8
 Ubuntu version: 
 Hyperv generation: V2
 Feature flags: None
@@ -439,7 +436,7 @@ Container runtime: containerd
 FIPS enabled: false
 === os-release Begin
 NAME="Common Base Linux Mariner"
-VERSION="1.0.20230615"
+VERSION="1.0.20230607"
 ID=mariner
 VERSION_ID="1.0"
 PRETTY_NAME="CBL-Mariner/Linux"
