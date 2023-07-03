@@ -438,6 +438,7 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 		CustomCATrustConfig:       nil,
 		DisableUnattendedUpgrades: true,
 		SSHStatus:                 0,
+		DisableCustomData:         false,
 	}
 }
 
