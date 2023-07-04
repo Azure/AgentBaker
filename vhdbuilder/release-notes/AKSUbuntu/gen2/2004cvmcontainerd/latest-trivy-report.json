@@ -1,6 +1,6 @@
 {
   "SchemaVersion": 2,
-  "ArtifactName": "pkrvmyn4m1ndn40",
+  "ArtifactName": "pkrvmxl38mgzm28",
   "ArtifactType": "filesystem",
   "Metadata": {
     "OS": {
@@ -20,443 +20,9 @@
   },
   "Results": [
     {
-      "Target": "pkrvmyn4m1ndn40 (ubuntu 20.04)",
+      "Target": "pkrvmxl38mgzm28 (ubuntu 20.04)",
       "Class": "os-pkgs",
-      "Type": "ubuntu",
-      "Vulnerabilities": [
-        {
-          "VulnerabilityID": "CVE-2023-35788",
-          "PkgID": "linux-azure-5.15-cloud-tools-5.15.0-1039@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-azure-5.15-cloud-tools-5.15.0-1039",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1041.48~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-35788",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "out-of-bounds write in fl_set_geneve_opt()",
-          "Description": "An issue was discovered in fl_set_geneve_opt in net/sched/cls_flower.c in the Linux kernel before 6.3.7. It allows an out-of-bounds write in the flower classifier code via TCA_FLOWER_KEY_ENC_OPTS_GENEVE packets. This may result in denial of service or privilege escalation.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-787"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 8.1
-            }
-          },
-          "References": [
-            "http://www.openwall.com/lists/oss-security/2023/06/17/1",
-            "https://access.redhat.com/security/cve/CVE-2023-35788",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.3.7",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35788",
-            "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
-            "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
-            "https://ubuntu.com/security/notices/USN-6192-1",
-            "https://ubuntu.com/security/notices/USN-6193-1",
-            "https://ubuntu.com/security/notices/USN-6194-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-35788",
-            "https://www.openwall.com/lists/oss-security/2023/06/07/1",
-            "https://www.openwall.com/lists/oss-security/2023/06/12/1"
-          ],
-          "PublishedDate": "2023-06-16T21:15:00Z",
-          "LastModifiedDate": "2023-06-23T21:19:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-35788",
-          "PkgID": "linux-azure-5.15-headers-5.15.0-1039@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-azure-5.15-headers-5.15.0-1039",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1041.48~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-35788",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "out-of-bounds write in fl_set_geneve_opt()",
-          "Description": "An issue was discovered in fl_set_geneve_opt in net/sched/cls_flower.c in the Linux kernel before 6.3.7. It allows an out-of-bounds write in the flower classifier code via TCA_FLOWER_KEY_ENC_OPTS_GENEVE packets. This may result in denial of service or privilege escalation.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-787"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 8.1
-            }
-          },
-          "References": [
-            "http://www.openwall.com/lists/oss-security/2023/06/17/1",
-            "https://access.redhat.com/security/cve/CVE-2023-35788",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.3.7",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35788",
-            "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
-            "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
-            "https://ubuntu.com/security/notices/USN-6192-1",
-            "https://ubuntu.com/security/notices/USN-6193-1",
-            "https://ubuntu.com/security/notices/USN-6194-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-35788",
-            "https://www.openwall.com/lists/oss-security/2023/06/07/1",
-            "https://www.openwall.com/lists/oss-security/2023/06/12/1"
-          ],
-          "PublishedDate": "2023-06-16T21:15:00Z",
-          "LastModifiedDate": "2023-06-23T21:19:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-35788",
-          "PkgID": "linux-azure-5.15-tools-5.15.0-1039@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-azure-5.15-tools-5.15.0-1039",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1041.48~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-35788",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "out-of-bounds write in fl_set_geneve_opt()",
-          "Description": "An issue was discovered in fl_set_geneve_opt in net/sched/cls_flower.c in the Linux kernel before 6.3.7. It allows an out-of-bounds write in the flower classifier code via TCA_FLOWER_KEY_ENC_OPTS_GENEVE packets. This may result in denial of service or privilege escalation.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-787"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 8.1
-            }
-          },
-          "References": [
-            "http://www.openwall.com/lists/oss-security/2023/06/17/1",
-            "https://access.redhat.com/security/cve/CVE-2023-35788",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.3.7",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35788",
-            "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
-            "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
-            "https://ubuntu.com/security/notices/USN-6192-1",
-            "https://ubuntu.com/security/notices/USN-6193-1",
-            "https://ubuntu.com/security/notices/USN-6194-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-35788",
-            "https://www.openwall.com/lists/oss-security/2023/06/07/1",
-            "https://www.openwall.com/lists/oss-security/2023/06/12/1"
-          ],
-          "PublishedDate": "2023-06-16T21:15:00Z",
-          "LastModifiedDate": "2023-06-23T21:19:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-35788",
-          "PkgID": "linux-cloud-tools-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-cloud-tools-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1041.48~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-35788",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "out-of-bounds write in fl_set_geneve_opt()",
-          "Description": "An issue was discovered in fl_set_geneve_opt in net/sched/cls_flower.c in the Linux kernel before 6.3.7. It allows an out-of-bounds write in the flower classifier code via TCA_FLOWER_KEY_ENC_OPTS_GENEVE packets. This may result in denial of service or privilege escalation.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-787"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 8.1
-            }
-          },
-          "References": [
-            "http://www.openwall.com/lists/oss-security/2023/06/17/1",
-            "https://access.redhat.com/security/cve/CVE-2023-35788",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.3.7",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35788",
-            "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
-            "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
-            "https://ubuntu.com/security/notices/USN-6192-1",
-            "https://ubuntu.com/security/notices/USN-6193-1",
-            "https://ubuntu.com/security/notices/USN-6194-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-35788",
-            "https://www.openwall.com/lists/oss-security/2023/06/07/1",
-            "https://www.openwall.com/lists/oss-security/2023/06/12/1"
-          ],
-          "PublishedDate": "2023-06-16T21:15:00Z",
-          "LastModifiedDate": "2023-06-23T21:19:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-35788",
-          "PkgID": "linux-cloud-tools-common@5.4.0-150.167",
-          "PkgName": "linux-cloud-tools-common",
-          "InstalledVersion": "5.4.0-150.167",
-          "FixedVersion": "5.4.0-153.170",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-35788",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "out-of-bounds write in fl_set_geneve_opt()",
-          "Description": "An issue was discovered in fl_set_geneve_opt in net/sched/cls_flower.c in the Linux kernel before 6.3.7. It allows an out-of-bounds write in the flower classifier code via TCA_FLOWER_KEY_ENC_OPTS_GENEVE packets. This may result in denial of service or privilege escalation.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-787"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 8.1
-            }
-          },
-          "References": [
-            "http://www.openwall.com/lists/oss-security/2023/06/17/1",
-            "https://access.redhat.com/security/cve/CVE-2023-35788",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.3.7",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35788",
-            "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
-            "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
-            "https://ubuntu.com/security/notices/USN-6192-1",
-            "https://ubuntu.com/security/notices/USN-6193-1",
-            "https://ubuntu.com/security/notices/USN-6194-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-35788",
-            "https://www.openwall.com/lists/oss-security/2023/06/07/1",
-            "https://www.openwall.com/lists/oss-security/2023/06/12/1"
-          ],
-          "PublishedDate": "2023-06-16T21:15:00Z",
-          "LastModifiedDate": "2023-06-23T21:19:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-35788",
-          "PkgID": "linux-headers-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-headers-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1041.48~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-35788",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "out-of-bounds write in fl_set_geneve_opt()",
-          "Description": "An issue was discovered in fl_set_geneve_opt in net/sched/cls_flower.c in the Linux kernel before 6.3.7. It allows an out-of-bounds write in the flower classifier code via TCA_FLOWER_KEY_ENC_OPTS_GENEVE packets. This may result in denial of service or privilege escalation.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-787"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 8.1
-            }
-          },
-          "References": [
-            "http://www.openwall.com/lists/oss-security/2023/06/17/1",
-            "https://access.redhat.com/security/cve/CVE-2023-35788",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.3.7",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35788",
-            "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
-            "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
-            "https://ubuntu.com/security/notices/USN-6192-1",
-            "https://ubuntu.com/security/notices/USN-6193-1",
-            "https://ubuntu.com/security/notices/USN-6194-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-35788",
-            "https://www.openwall.com/lists/oss-security/2023/06/07/1",
-            "https://www.openwall.com/lists/oss-security/2023/06/12/1"
-          ],
-          "PublishedDate": "2023-06-16T21:15:00Z",
-          "LastModifiedDate": "2023-06-23T21:19:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-35788",
-          "PkgID": "linux-modules-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-modules-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1041.48~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-35788",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "out-of-bounds write in fl_set_geneve_opt()",
-          "Description": "An issue was discovered in fl_set_geneve_opt in net/sched/cls_flower.c in the Linux kernel before 6.3.7. It allows an out-of-bounds write in the flower classifier code via TCA_FLOWER_KEY_ENC_OPTS_GENEVE packets. This may result in denial of service or privilege escalation.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-787"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 8.1
-            }
-          },
-          "References": [
-            "http://www.openwall.com/lists/oss-security/2023/06/17/1",
-            "https://access.redhat.com/security/cve/CVE-2023-35788",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.3.7",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35788",
-            "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
-            "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
-            "https://ubuntu.com/security/notices/USN-6192-1",
-            "https://ubuntu.com/security/notices/USN-6193-1",
-            "https://ubuntu.com/security/notices/USN-6194-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-35788",
-            "https://www.openwall.com/lists/oss-security/2023/06/07/1",
-            "https://www.openwall.com/lists/oss-security/2023/06/12/1"
-          ],
-          "PublishedDate": "2023-06-16T21:15:00Z",
-          "LastModifiedDate": "2023-06-23T21:19:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-35788",
-          "PkgID": "linux-tools-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-tools-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1041.48~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-35788",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "out-of-bounds write in fl_set_geneve_opt()",
-          "Description": "An issue was discovered in fl_set_geneve_opt in net/sched/cls_flower.c in the Linux kernel before 6.3.7. It allows an out-of-bounds write in the flower classifier code via TCA_FLOWER_KEY_ENC_OPTS_GENEVE packets. This may result in denial of service or privilege escalation.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-787"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 8.1
-            }
-          },
-          "References": [
-            "http://www.openwall.com/lists/oss-security/2023/06/17/1",
-            "https://access.redhat.com/security/cve/CVE-2023-35788",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.3.7",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35788",
-            "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
-            "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
-            "https://ubuntu.com/security/notices/USN-6192-1",
-            "https://ubuntu.com/security/notices/USN-6193-1",
-            "https://ubuntu.com/security/notices/USN-6194-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-35788",
-            "https://www.openwall.com/lists/oss-security/2023/06/07/1",
-            "https://www.openwall.com/lists/oss-security/2023/06/12/1"
-          ],
-          "PublishedDate": "2023-06-16T21:15:00Z",
-          "LastModifiedDate": "2023-06-23T21:19:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-35788",
-          "PkgID": "linux-tools-common@5.4.0-150.167",
-          "PkgName": "linux-tools-common",
-          "InstalledVersion": "5.4.0-150.167",
-          "FixedVersion": "5.4.0-153.170",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-35788",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "out-of-bounds write in fl_set_geneve_opt()",
-          "Description": "An issue was discovered in fl_set_geneve_opt in net/sched/cls_flower.c in the Linux kernel before 6.3.7. It allows an out-of-bounds write in the flower classifier code via TCA_FLOWER_KEY_ENC_OPTS_GENEVE packets. This may result in denial of service or privilege escalation.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-787"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 8.1
-            }
-          },
-          "References": [
-            "http://www.openwall.com/lists/oss-security/2023/06/17/1",
-            "https://access.redhat.com/security/cve/CVE-2023-35788",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.3.7",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35788",
-            "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
-            "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
-            "https://ubuntu.com/security/notices/USN-6192-1",
-            "https://ubuntu.com/security/notices/USN-6193-1",
-            "https://ubuntu.com/security/notices/USN-6194-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-35788",
-            "https://www.openwall.com/lists/oss-security/2023/06/07/1",
-            "https://www.openwall.com/lists/oss-security/2023/06/12/1"
-          ],
-          "PublishedDate": "2023-06-16T21:15:00Z",
-          "LastModifiedDate": "2023-06-23T21:19:00Z"
-        }
-      ]
+      "Type": "ubuntu"
     },
     {
       "Target": "home/packer/trivy",
@@ -502,12 +68,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-30551",
@@ -1383,12 +948,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         },
         {
           "VulnerabilityID": "CVE-2022-41723",
@@ -1489,12 +1053,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         },
         {
           "VulnerabilityID": "CVE-2022-41723",
@@ -1595,12 +1158,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         },
         {
           "VulnerabilityID": "CVE-2022-41723",
@@ -1701,12 +1263,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         }
       ]
     },
@@ -1754,12 +1315,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         }
       ]
     },
@@ -1807,12 +1367,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-27561",
@@ -1967,12 +1526,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-27561",
@@ -2127,12 +1685,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-27561",
@@ -2287,12 +1844,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-27561",
@@ -2394,12 +1950,11 @@
             "https://github.com/advisories/GHSA-hqxw-f8mx-cpmw",
             "https://github.com/distribution/distribution/commit/f55a6552b006a381d9167e328808565dd2bf77dc",
             "https://github.com/distribution/distribution/security/advisories/GHSA-hqxw-f8mx-cpmw",
-            "https://lists.debian.org/debian-lts-announce/2023/06/msg00035.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-2253",
             "https://www.cve.org/CVERecord?id=CVE-2023-2253"
           ],
           "PublishedDate": "2023-06-06T20:15:00Z",
-          "LastModifiedDate": "2023-06-29T16:15:00Z"
+          "LastModifiedDate": "2023-06-13T19:09:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-27561",
