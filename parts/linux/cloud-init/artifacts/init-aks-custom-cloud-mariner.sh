@@ -13,6 +13,8 @@ IFS=$IFS_backup
 
 cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
 /usr/bin/update-ca-trust
+# Provide backwards compatibility with existing Ubuntu-based path of /etc/ssl/certs/ca-certificates.crt
+ln -s /etc/pki/tls/certs/ca-bundle.crt /etc/pki/tls/certs/ca-certificates.crt
 
 cloud-init status --wait
 
