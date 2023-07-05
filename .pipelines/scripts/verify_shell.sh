@@ -17,7 +17,7 @@ if [[ "${installed}" -ne 0 ]]; then
         sudo apt-get install shellcheck -y
     elif [[ "${DISTRO}" == "darwin" ]]; then
         brew install cabal-install shellcheck
-    else 
+    else
         echo "distro ${DISTRO} not supported at this time. skipping shellcheck"
         exit 1
     fi
@@ -25,7 +25,7 @@ else
     echo "shellcheck installed"
 fi
 
-filesToCheck=$(find . -type f -name "*.sh" -not -path './parts/linux/cloud-init/artifacts/*' -not -path './pkg/agent/testdata/*' -not -path './vendor/*' -not -path './hack/tools/vendor/*')
+filesToCheck=$(find . -type f -name "*.sh" -not -path './parts/linux/cloud-init/artifacts/*' -not -path './pkg/agent/testdata/*' -not -path './vendor/*' -not -path './hack/tools/vendor/*' -not -path './.git/*')
 
 # also shell-check generated test data
 generatedTestData=$(find ./pkg/agent/testdata -type f -name "*.sh" )
