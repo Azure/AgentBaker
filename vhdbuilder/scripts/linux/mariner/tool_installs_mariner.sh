@@ -145,9 +145,10 @@ enableMarinerKata() {
     # echo "KERNEL_CMDLINE=PARTUUID=$ROOT rd.auto=1 lockdown=integrity sysctl.kernel.unprivileged_bpf_disabled=1 init=/lib/systemd/systemd ro no-vmw-sta crashkernel=128M net.ifnames=0 plymouth.enable=0 systemd.legacy_systemd_cgroup_controller=yes systemd.unified_cgroup_hierarchy=0 audit=0 console=ttyS0,115200n8 earlyprintk" >> /boot/efi/linuxloader.conf
     
     sudo sed -i -e 's@set timeout=0@set timeout=10@'  /boot/grub2/grub.cfg
+    export debug_boot_uuid=$(sudo grep -o -m 1 '[0-9a-f]\{8\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{12\}' /boot/efi/boot/grub2/grub.cfg)
 
     sudo sed -i -e 's@load_env -f \$bootprefix\/mariner.cfg@load_env -f \$bootprefix\/mariner-mshv.cfg\nload_env -f $bootprefix\/mariner.cfg\n@'  /boot/grub2/grub.cfg
-    sudo sed -i -e 's@menuentry "CBL-Mariner"@menuentry "Dom0" {\n    search --no-floppy --set=root --file /HvLoader.efi\n    chainloader /HvLoader.efi lxhvloader.dll MSHV_ROOT=\\\\Windows MSHV_ENABLE=TRUE MSHV_SCHEDULER_TYPE=ROOT MSHV_X2APIC_POLICY=DEFAULT MSHV_LOAD_OPTION=INCLUDETRACEMETADATA=1 MSHV_DEBUG_ENABLED=TRUE MSHV_DEBUG_TYPE=SERIAL MSHV_DEBUG_PORT=1 MSHV_DEBUG_BAUD_RATE=115200 MSHV_LOAD_OPTION=EARLYKDINIT\n    boot\n    search --no-floppy --file --set=root /boot/$mariner_linux_mshv\n    linux /boot/$mariner_linux_mshv root=$rootdevice $mariner_cmdline_mshv $systemd_cmdline\n    if [ -f /boot/$mariner_initrd_mshv ]; then\n    initrd /boot/$mariner_initrd_mshv\n    fi\n}\n\nmenuentry "CBL-Mariner"@'  /boot/grub2/grub.cfg
+    sudo sed -i -e 's@menuentry "CBL-Mariner"@menuentry "Dom0" {\n    search --no-floppy --set=root --file /HvLoader.efi\n    chainloader /HvLoader.efi lxhvloader.dll MSHV_ROOT=\\\\Windows MSHV_ENABLE=TRUE MSHV_SCHEDULER_TYPE=ROOT MSHV_X2APIC_POLICY=DEFAULT MSHV_LOAD_OPTION=INCLUDETRACEMETADATA=1 MSHV_DEBUG_ENABLED=TRUE MSHV_DEBUG_TYPE=SERIAL MSHV_DEBUG_PORT=1 MSHV_DEBUG_BAUD_RATE=115200 MSHV_LOAD_OPTION=EARLYKDINIT\n    boot\n    search -n -u '"$debug_boot_uuid"' -s\n    linux $bootprefix/$mariner_linux_mshv root=$rootdevice $mariner_cmdline_mshv $systemd_cmdline\n    if [ -f /boot/$mariner_initrd_mshv ]; then\n    initrd /boot/$mariner_initrd_mshv\n    fi\n}\n\nmenuentry "CBL-Mariner"@'  /boot/grub2/grub.cfg
 
     SERVICE_FILEPATH="/etc/systemd/system/set-kataconfig.service"
     touch ${SERVICE_FILEPATH}
