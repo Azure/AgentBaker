@@ -21,6 +21,8 @@ parameters:
 jobs:
 - job: Setup_Test_Cluster
   steps:
+    - bash: pip install -Iv azure-cli==2.45.0 --extra-index-url https://azurecliprod.blob.core.windows.net/edge
+      displayName: use specified version of az cli
     - bash: |
         az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
         az account set -s $(AZURE_SUBSCRIPTION_ID)
@@ -82,6 +84,8 @@ jobs:
   steps:
     - download: current
       artifact: ${{ parameters.windowsImage }}-clusterConfig
+    - bash: pip install -Iv azure-cli==2.45.0 --extra-index-url https://azurecliprod.blob.core.windows.net/edge
+      displayName: use specified version of az cli
     - bash: |
         az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
         az account set -s $(AZURE_SUBSCRIPTION_ID)
