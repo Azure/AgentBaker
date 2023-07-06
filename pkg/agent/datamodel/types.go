@@ -231,6 +231,8 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSUbuntuContainerd2204TLGen2,
+	AKSUbuntuMinimalContainerd2204,
+	AKSUbuntuMinimalContainerd2204Gen2,
 }
 
 type CustomConfigurationComponent string
