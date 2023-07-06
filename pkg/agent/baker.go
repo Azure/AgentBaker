@@ -392,8 +392,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetKubeproxyConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
 		},
-		"Is2204VHD": func() bool {
-			return profile.Is2204VHDDistro()
+		"IsCgroupV2": func() bool {
+			return profile.Is2204VHDDistro() || config.IsAzureLinuxCgroupv2()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
@@ -1146,7 +1146,7 @@ root = "{{GetDataDir}}"{{- end}}
       runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
       BinaryName = "/usr/bin/nvidia-container-runtime"
-      {{- if Is2204VHD }}
+      {{- if IsCgroupV2 }}
       SystemdCgroup = true
       {{- end}}
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
@@ -1159,7 +1159,7 @@ root = "{{GetDataDir}}"{{- end}}
       runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
       BinaryName = "/usr/bin/runc"
-      {{- if Is2204VHD }}
+      {{- if IsCgroupV2 }}
       SystemdCgroup = true
       {{- end}}
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
@@ -1229,7 +1229,7 @@ root = "{{GetDataDir}}"{{- end}}
       runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
       BinaryName = "/usr/bin/runc"
-      {{- if Is2204VHD }}
+      {{- if IsCgroupV2 }}
       SystemdCgroup = true
       {{- end}}
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]

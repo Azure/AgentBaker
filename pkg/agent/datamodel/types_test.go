@@ -2496,3 +2496,159 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 		})
 	}
 }
+
+func TestIsAzureLinuxCgroupv2(t *testing.T) {
+	cases := []struct {
+		name     string
+		config   *NodeBootstrappingConfiguration
+		expected bool
+	}{
+		{
+			name: "Azure Linux V2 with Kubernetes version 1.27.1",
+			config: &NodeBootstrappingConfiguration{
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: AKSCBLMarinerV2,
+				},
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						OrchestratorProfile: &OrchestratorProfile{
+							OrchestratorType:    Kubernetes,
+							OrchestratorVersion: "1.27.1",
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V2 Gen2 with Kubernetes version 1.27.1",
+			config: &NodeBootstrappingConfiguration{
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: AKSCBLMarinerV2Gen2,
+				},
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						OrchestratorProfile: &OrchestratorProfile{
+							OrchestratorType:    Kubernetes,
+							OrchestratorVersion: "1.27.1",
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V2 ARM64 Gen2 with Kubernetes version 1.27.1",
+			config: &NodeBootstrappingConfiguration{
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: AKSCBLMarinerV2Arm64Gen2,
+				},
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						OrchestratorProfile: &OrchestratorProfile{
+							OrchestratorType:    Kubernetes,
+							OrchestratorVersion: "1.27.1",
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V2 FIPS with Kubernetes version 1.27.1",
+			config: &NodeBootstrappingConfiguration{
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: AKSCBLMarinerV2FIPS,
+				},
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						OrchestratorProfile: &OrchestratorProfile{
+							OrchestratorType:    Kubernetes,
+							OrchestratorVersion: "1.27.1",
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V2 Gen2 Kata with Kubernetes version 1.27.1",
+			config: &NodeBootstrappingConfiguration{
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: AKSCBLMarinerV2Gen2Kata,
+				},
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						OrchestratorProfile: &OrchestratorProfile{
+							OrchestratorType:    Kubernetes,
+							OrchestratorVersion: "1.27.1",
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V2 Gen2 TL with Kubernetes version 1.27.1",
+			config: &NodeBootstrappingConfiguration{
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: AKSCBLMarinerV2Gen2TL,
+				},
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						OrchestratorProfile: &OrchestratorProfile{
+							OrchestratorType:    Kubernetes,
+							OrchestratorVersion: "1.27.1",
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V2 Gen2 with Kubernetes version 1.26.3",
+			config: &NodeBootstrappingConfiguration{
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: AKSCBLMarinerV2Gen2,
+				},
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						OrchestratorProfile: &OrchestratorProfile{
+							OrchestratorType:    Kubernetes,
+							OrchestratorVersion: "1.26.3",
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "Azure Linux V2 ARM64 Gen2 with Kubernetes version 1.25.5",
+			config: &NodeBootstrappingConfiguration{
+				AgentPoolProfile: &AgentPoolProfile{
+					Distro: AKSCBLMarinerV2Arm64Gen2,
+				},
+				ContainerService: &ContainerService{
+					Properties: &Properties{
+						OrchestratorProfile: &OrchestratorProfile{
+							OrchestratorType:    Kubernetes,
+							OrchestratorVersion: "1.25.5",
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			actual := c.config.IsAzureLinuxCgroupv2()
+			if c.expected != actual {
+				t.Fatalf("test case: %s, expected: %t. Got: %t.", c.name, c.expected, actual)
+			}
+		})
+	}
+}
