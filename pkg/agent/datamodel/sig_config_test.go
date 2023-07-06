@@ -43,7 +43,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(sigConfig.SigTenantID).To(Equal("sometenantid"))
 		Expect(sigConfig.SubscriptionID).To(Equal("somesubid"))
 
-		Expect(len(sigConfig.SigUbuntuImageConfig)).To(Equal(18))
+		Expect(len(sigConfig.SigUbuntuImageConfig)).To(Equal(20))
 
 		aksUbuntuGPU1804Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuGPU1804Gen2]
 		Expect(aksUbuntuGPU1804Gen2.ResourceGroup).To(Equal("resourcegroup"))
@@ -170,5 +170,17 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(marinerV2Gen2FIPS.Gallery).To(Equal("akscblmariner"))
 		Expect(marinerV2Gen2FIPS.Definition).To(Equal("V2gen2fips"))
 		Expect(marinerV2Gen2FIPS.Version).To(Equal(LinuxSIGImageVersion))
+
+		aksUbuntuMinimalContainerd2204 := sigConfig.SigUbuntuImageConfig[AKSUbuntuMinimalContainerd2204]
+		Expect(aksUbuntuMinimalContainerd2204.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(aksUbuntuMinimalContainerd2204.Gallery).To(Equal("aksubuntu"))
+		Expect(aksUbuntuMinimalContainerd2204.Definition).To(Equal("2204minimalcontainerd"))
+		Expect(aksUbuntuMinimalContainerd2204.Version).To(Equal("202306.30.0"))
+
+		aksUbuntuMinimalContainerd2204Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuMinimalContainerd2204Gen2]
+		Expect(aksUbuntuMinimalContainerd2204Gen2.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(aksUbuntuMinimalContainerd2204Gen2.Gallery).To(Equal("aksubuntu"))
+		Expect(aksUbuntuMinimalContainerd2204Gen2.Definition).To(Equal("2204gen2minimalcontainerd"))
+		Expect(aksUbuntuMinimalContainerd2204Gen2.Version).To(Equal("202306.30.0"))
 	})
 })

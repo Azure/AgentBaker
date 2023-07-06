@@ -93,6 +93,8 @@ var AvailableUbuntu2204Distros = []Distro{
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuEdgeZoneContainerd2204,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
+	AKSUbuntuMinimalContainerd2204,
+	AKSUbuntuMinimalContainerd2204Gen2,
 }
 
 //nolint:gochecknoglobals
@@ -122,6 +124,8 @@ var AvailableContainerdDistros = []Distro{
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuEdgeZoneContainerd2204,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
+	AKSUbuntuMinimalContainerd2204,
+	AKSUbuntuMinimalContainerd2204Gen2,
 }
 
 //nolint:gochecknoglobals
@@ -146,6 +150,7 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
+	AKSUbuntuMinimalContainerd2204Gen2,
 }
 
 //nolint:gochecknoglobals
@@ -447,6 +452,20 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGUbuntuMinimalContainerd2204ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2204minimalcontainerd",
+		Version:       "202306.30.0",
+	}
+
+	SIGUbuntuMinimalContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2204gen2minimalcontainerd",
+		Version:       "202306.30.0",
+	}
+
 	SIGCBLMarinerV1ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
@@ -541,24 +560,26 @@ var (
 
 func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
-		AKSUbuntu1604:                    SIGUbuntu1604ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntu1804:                    SIGUbuntu1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntu1804Gen2:                SIGUbuntu1804Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuGPU1804:                 SIGUbuntuGPU1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuGPU1804Gen2:             SIGUbuntuGPU1804Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd1804:          SIGUbuntuContainerd1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd1804Gen2:      SIGUbuntuContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuGPUContainerd1804:       SIGUbuntuGPUContainerd1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuGPUContainerd1804Gen2:   SIGUbuntuGPUContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuFipsContainerd1804:      SIGUbuntuFipsContainerd1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuFipsContainerd1804Gen2:  SIGUbuntuFipsContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuFipsContainerd2004:      SIGUbuntuFipsContainerd2004ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuFipsContainerd2004Gen2:  SIGUbuntuFipsContainerd2004Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd2204:          SIGUbuntuContainerd2204ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd2204Gen2:      SIGUbuntuContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd2004CVMGen2:   SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuArm64Containerd2204Gen2: SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuContainerd2204TLGen2:    SIGUbuntuContainerd2204TLGen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntu1604:                      SIGUbuntu1604ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntu1804:                      SIGUbuntu1804ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntu1804Gen2:                  SIGUbuntu1804Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuGPU1804:                   SIGUbuntuGPU1804ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuGPU1804Gen2:               SIGUbuntuGPU1804Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd1804:            SIGUbuntuContainerd1804ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd1804Gen2:        SIGUbuntuContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuGPUContainerd1804:         SIGUbuntuGPUContainerd1804ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuGPUContainerd1804Gen2:     SIGUbuntuGPUContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuFipsContainerd1804:        SIGUbuntuFipsContainerd1804ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuFipsContainerd1804Gen2:    SIGUbuntuFipsContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuFipsContainerd2004:        SIGUbuntuFipsContainerd2004ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuFipsContainerd2004Gen2:    SIGUbuntuFipsContainerd2004Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2204:            SIGUbuntuContainerd2204ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2204Gen2:        SIGUbuntuContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2004CVMGen2:     SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuArm64Containerd2204Gen2:   SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2204TLGen2:      SIGUbuntuContainerd2204TLGen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuMinimalContainerd2204:     SIGUbuntuMinimalContainerd2204ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuMinimalContainerd2204Gen2: SIGUbuntuMinimalContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
