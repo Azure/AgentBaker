@@ -948,9 +948,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 	}
 }
 
-func getPortRangeEndValue(str, delimiter string, index int) int {
-	arr := strings.Split(str, delimiter)
-	num, err := strconv.Atoi(arr[index])
+func getPortRangeEndValue(portRange string) int {
+	arr := strings.Split(portRange, " ")
+	num, err := strconv.Atoi(arr[1])
 	if err != nil {
 		return -1
 	}
@@ -1080,7 +1080,7 @@ net.ipv4.tcp_tw_reuse={{if $s.NetIpv4TcpTwReuse}}1{{else}}0{{end}}
 {{- end}}
 {{- if $s.NetIpv4IpLocalPortRange}}
 net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
-{{$rangeEnd := getPortRangeEndValue $s.NetIpv4IpLocalPortRange " " 1}}
+{{$rangeEnd := getPortRangeEndValue $s.NetIpv4IpLocalPortRange}}
 {{ if ge $rangeEnd 65330}}
 net.ipv4.ip_local_reserved_ports=65330
 {{- end}}
