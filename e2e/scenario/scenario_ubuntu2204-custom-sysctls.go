@@ -12,6 +12,7 @@ func ubuntu2204CustomSysctls() *Scenario {
 		"net.netfilter.nf_conntrack_max":     "2097152",
 		"net.netfilter.nf_conntrack_buckets": "524288",
 		"net.ipv4.tcp_keepalive_intvl":       "90",
+		"net.ipv4.ip_local_reserved_ports":   "65330",
 	}
 	customContainerdUlimits := map[string]string{
 		"LimitMEMLOCK": "75000",

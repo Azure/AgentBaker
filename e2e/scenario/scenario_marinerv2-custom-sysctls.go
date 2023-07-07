@@ -8,10 +8,11 @@ import (
 
 func marinerv2CustomSysctls() *Scenario {
 	customSysctls := map[string]string{
-		"net.ipv4.ip_local_port_range":       "32768 65535",
+		"net.ipv4.ip_local_port_range":       "32768 62535",
 		"net.netfilter.nf_conntrack_max":     "2097152",
 		"net.netfilter.nf_conntrack_buckets": "524288",
 		"net.ipv4.tcp_keepalive_intvl":       "90",
+		"net.ipv4.ip_local_reserved_ports":   "",
 	}
 	customContainerdUlimits := map[string]string{
 		"LimitMEMLOCK": "75000",
