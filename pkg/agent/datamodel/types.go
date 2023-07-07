@@ -1522,19 +1522,6 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigStringFor
 	return strings.TrimSuffix(buf.String(), ", ")
 }
 
-/*
-IsAzureLinuxCgroupv2 returns true if the VHD distro is Azure Linux and the Kubernetes
-version is greater than or equal to 1.27.0
-*/
-func (config *NodeBootstrappingConfiguration) IsAzureLinuxCgroupv2() bool {
-	for _, distro := range AvailableCBLMarinerDistros {
-		if (config.AgentPoolProfile.Distro == distro) && IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.27.0") {
-			return true
-		}
-	}
-	return false
-}
-
 // IsEnabled returns true if the addon is enabled.
 func (a *KubernetesAddon) IsEnabled() bool {
 	if a.Enabled == nil {
