@@ -132,6 +132,8 @@ if [ "${IS_KRUSTLET}" == "true" ]; then
     logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
 fi
 
+logs_to_events "AKS.CSE.downloadSecureTLSBootstrapExecPlugin" downloadSecureTLSBootstrapExecPlugin
+
 # By default, never reboot new nodes.
 REBOOTREQUIRED=false
 

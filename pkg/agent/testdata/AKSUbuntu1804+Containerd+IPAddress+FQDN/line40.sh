@@ -68,6 +68,21 @@ downloadCNI() {
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
+downloadSecureTLSBootstrapExecPlugin() {
+    local kubelet_plugin_url="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/main/linux/amd64/tls-bootstrap-client"
+    local kubelet_plugin_filepath="/opt/azure/containers/tls-bootstrap-client"
+    if [[ $(isARM64) == 1 ]]; then
+        kubelet_plugin_url="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/main/linux/arm64/tls-bootstrap-client"
+    fi
+
+    mkdir -p /opt/azure/containers
+
+    if [ ! -f "$kubelet_plugin_filepath" ]; then
+        retrycmd_if_failure 30 5 60 curl -fSL -o "$kubelet_plugin_filepath" "$kubelet_plugin_url" || exit $ERR_DOWNLOAD_EXEC_PLUGIN_TIMEOUT
+        chmod 755 "$kubelet_plugin_filepath"
+    fi
+}
+
 downloadContainerdWasmShims() {
     for shim_version in $CONTAINERD_WASM_VERSIONS; do
         binary_version="$(echo "${shim_version}" | tr . -)"

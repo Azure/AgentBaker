@@ -1614,6 +1614,7 @@ type NodeBootstrappingConfiguration struct {
 	kubeconfig. */
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping.
 	KubeletClientTLSBootstrapToken *string
+	EnableSecureTLSBootstrapping   bool
 	FIPSEnabled                    bool
 	HTTPProxyConfig                *HTTPProxyConfig
 	KubeletConfig                  map[string]string

@@ -458,6 +458,19 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				config.KubeletConfig = map[string]string{}
 			}, nil),
 
+		Entry("AKSUbuntu1804 with secure kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+SecureTLSBootstrapping", "1.25.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.EnableSecureTLSBootstrapping = true
+		}, func(o *nodeBootstrappingOutput) {
+			bootstrapKubeConfigCustomData := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
+			Expect(bootstrapKubeConfigCustomData).To(ContainSubstring("exec:"))
+			Expect(bootstrapKubeConfigCustomData).To(ContainSubstring("apiVersion: client.authentication.k8s.io/v1"))
+			Expect(bootstrapKubeConfigCustomData).To(ContainSubstring("command: /opt/azure/containers/tls-bootstrap-client"))
+			Expect(bootstrapKubeConfigCustomData).To(ContainSubstring("interactiveMode: Never"))
+			Expect(bootstrapKubeConfigCustomData).To(ContainSubstring("provideClusterInfo: true"))
+
+			Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
+		}),
+
 		Entry("AKSUbuntu1604 with custom kubeletConfig and osConfig", "AKSUbuntu1604+CustomKubeletConfig+CustomLinuxOSConfig", "1.16.13",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableKubeletConfigFile = false
@@ -1267,6 +1280,10 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		Entry("AKSWindows2019 with kubelet client TLS bootstrapping enabled", "AKSWindows2019+KubeletClientTLSBootstrapping", "1.19.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
+			}),
+		Entry("AKSWindows2019 with kubelet client secure TLS bootstrapping enabled", "AKSWindows2019+K8S119+SecureTLSBootstrapping", "1.19.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.EnableSecureTLSBootstrapping = true
 			}),
 		Entry("AKSWindows2019 with k8s version 1.19 + FIPS", "AKSWindows2019+K8S119+FIPS", "1.19.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {

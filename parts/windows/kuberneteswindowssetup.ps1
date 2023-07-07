@@ -180,7 +180,9 @@ $global:WindowsCalicoPackageURL = "{{GetVariable "windowsCalicoPackageURL" }}";
 # GMSA
 $global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
 
-# TLS Bootstrap Token
+# TLS Bootstrapping
+$global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("{{EnableSecureTLSBootstrapping}}")
+$global:SecureTLSBootstrapExecPluginURL = "https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/main/windows/amd64/tls-bootstrap-client.exe"
 $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
 # Disable OutBoundNAT in Azure CNI configuration
@@ -223,7 +225,7 @@ try
         return
     }
    
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.26.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-secure-tls-bootstrap-v0.0.cameissner0.zip" # change to custom package for testing
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -351,8 +353,30 @@ try
         New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
     }
 
-    if ($global:TLSBootstrapToken) {
-        Write-Log "Write TLS bootstrap kubeconfig"
+    # Setup bootstrap-kubeconfig 
+    if ($global:EnableSecureTLSBootstrapping) {
+        Write-Log "Secure TLS bootstrapping enabled, checking existence of cached kubelet exec plugin..."
+        # Check to see if the plugin has already been cached on the VHD,
+        # if not then go download it from upstream before creating the bootstrap-kubeconfig
+        $pluginPath = "c:\aks-cache\kubelet-plugins\tls-bootstrap-client.exe"
+        if (!(Test-Path $pluginPath)) {
+            Write-Log "Kubelet exec plugin is not cached, downloading..."
+            Get-SecureTLSBootstrapExecPlugin -ExecPluginURL $global:SecureTLSBootstrapExecPluginURL
+            $pluginPath = "c:\tls-bootstrap-client.exe"
+        } else {
+            Write-Log "Kubelet exec plugin is already cached"
+        }
+
+        Write-Log "Write secure TLS bootstrap kubeconfig"
+        Write-SecureTLSBootstrapKubeConfig -CACertificate $global:CACertificate `
+        -KubeDir $global:KubeDir `
+        -MasterFQDNPrefix $MasterFQDNPrefix `
+        -MasterIP $MasterIP `
+        -PluginPath $pluginPath
+
+        Write-Log "Write temporary secure TLS bootstrap kubeconfig"
+    } elseif ($global:TLSBootstrapToken) {
+        Write-Log "Write TLS bootstrap kubeconfig with pre-generated bootstrap token"
         Write-BootstrapKubeConfig -CACertificate $global:CACertificate `
             -KubeDir $global:KubeDir `
             -MasterFQDNPrefix $MasterFQDNPrefix `

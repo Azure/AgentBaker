@@ -81,6 +81,7 @@ ERR_TELEPORTD_INSTALL_ERR=151 # Error installing teleportd binary
 ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
 ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
 
+ERR_DOWNLOAD_EXEC_PLUGIN_TIMEOUT=169 # Timeout waiting for secure TLS bootrstraping exec plugin download
 ERR_DISBALE_IPTABLES=170 # Error disabling iptables service
 
 ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 # Timeout waiting for krustlet downloads

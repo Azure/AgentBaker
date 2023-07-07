@@ -1108,6 +1108,7 @@ CUSTOM_SEARCH_REALM_PASSWORD="{{GetSearchDomainRealmPassword}}"
 MESSAGE_OF_THE_DAY="{{GetMessageOfTheDay}}"
 HAS_KUBELET_DISK_TYPE="{{HasKubeletDiskType}}"
 NEEDS_CGROUPV2="{{Is2204VHD}}"
+ENABLE_SECURE_TLS_BOOTSTRAPPING="{{EnableSecureTLSBootstrapping}}"
 TLS_BOOTSTRAP_TOKEN="{{GetTLSBootstrapTokenForKubeConfig}}"
 KUBELET_FLAGS="{{GetKubeletConfigKeyVals}}"
 NETWORK_POLICY="{{GetParameter "networkPolicy"}}"
@@ -1299,15 +1300,6 @@ EOF
   systemctl restart containerd
 }
 
-
-configureKubeletServerCert() {
-    KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
-    KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
-
-    openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
-    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}" -addext "subjectAltName=DNS:${NODE_NAME}"
-}
-
 configureK8s() {
     APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
     touch "${APISERVER_PUBLIC_KEY_PATH}"
@@ -1384,7 +1376,6 @@ EOF
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
     fi
 
-    configureKubeletServerCert
     if [ "${IS_CUSTOM_CLOUD}" == "true" ]; then
         set +x
         AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
@@ -1540,7 +1531,32 @@ EOF
         mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
         touch "${BOOTSTRAP_KUBECONFIG_FILE}"
         chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
-        tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+        if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+                tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://${API_SERVER_NAME}:443
+users:
+- name: kubelet-bootstrap
+  user:
+    exec:
+        apiVersion: client.authentication.k8s.io/v1
+        command: /opt/azure/containers/tls-bootstrap-client
+        interactiveMode: Never
+        provideClusterInfo: true
+contexts:
+- context:
+    cluster: localcluster
+    user: kubelet-bootstrap
+  name: bootstrap-context
+current-context: bootstrap-context
+EOF
+        else
+            tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
 apiVersion: v1
 kind: Config
 clusters:
@@ -1559,6 +1575,7 @@ contexts:
   name: bootstrap-context
 current-context: bootstrap-context
 EOF
+        fi
     else
         KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
         mkdir -p "$(dirname "${KUBECONFIG_FILE}")"
@@ -1890,6 +1907,7 @@ ERR_TELEPORTD_INSTALL_ERR=151 # Error installing teleportd binary
 ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
 ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
 
+ERR_DOWNLOAD_EXEC_PLUGIN_TIMEOUT=169 # Timeout waiting for secure TLS bootrstraping exec plugin download
 ERR_DISBALE_IPTABLES=170 # Error disabling iptables service
 
 ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 # Timeout waiting for krustlet downloads
@@ -2246,6 +2264,21 @@ downloadCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+}
+
+downloadSecureTLSBootstrapExecPlugin() {
+    local kubelet_plugin_url="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/main/linux/amd64/tls-bootstrap-client"
+    local kubelet_plugin_filepath="/opt/azure/containers/tls-bootstrap-client"
+    if [[ $(isARM64) == 1 ]]; then
+        kubelet_plugin_url="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/main/linux/arm64/tls-bootstrap-client"
+    fi
+
+    mkdir -p /opt/azure/containers
+
+    if [ ! -f "$kubelet_plugin_filepath" ]; then
+        retrycmd_if_failure 30 5 60 curl -fSL -o "$kubelet_plugin_filepath" "$kubelet_plugin_url" || exit $ERR_DOWNLOAD_EXEC_PLUGIN_TIMEOUT
+        chmod 755 "$kubelet_plugin_filepath"
+    fi
 }
 
 downloadContainerdWasmShims() {
@@ -2730,6 +2763,8 @@ logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 if [ "${IS_KRUSTLET}" == "true" ]; then
     logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
 fi
+
+logs_to_events "AKS.CSE.downloadSecureTLSBootstrapExecPlugin" downloadSecureTLSBootstrapExecPlugin
 
 # By default, never reboot new nodes.
 REBOOTREQUIRED=false
@@ -4105,6 +4140,7 @@ ExecStart=/usr/local/bin/kubelet \
         --node-labels="${KUBELET_NODE_LABELS}" \
         --v=2 \
         --volume-plugin-dir=/etc/kubernetes/volumeplugins \
+        --rotate-server-certificates \
         $KUBELET_TLS_BOOTSTRAP_FLAGS \
         $KUBELET_CONFIG_FILE_FLAGS \
         $KUBELET_CONTAINERD_FLAGS \
@@ -6442,7 +6478,15 @@ write_files:
     users:
     - name: kubelet-bootstrap
       user:
+      {{- if EnableSecureTLSBootstrapping }}
+        exec:
+          apiVersion: client.authentication.k8s.io/v1
+          command: /opt/azure/containers/tls-bootstrap-client
+          interactiveMode: Never
+          provideClusterInfo: true
+      {{- else }}
         token: "{{GetTLSBootstrapTokenForKubeConfig}}"
+      {{- end }}
     contexts:
     - context:
         cluster: localcluster
@@ -6739,7 +6783,9 @@ $global:WindowsCalicoPackageURL = "{{GetVariable "windowsCalicoPackageURL" }}";
 # GMSA
 $global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
 
-# TLS Bootstrap Token
+# TLS Bootstrapping
+$global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("{{EnableSecureTLSBootstrapping}}")
+$global:SecureTLSBootstrapExecPluginURL = "https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/main/windows/amd64/tls-bootstrap-client.exe"
 $global:TLSBootstrapToken = "{{GetTLSBootstrapTokenForKubeConfig}}"
 
 # Disable OutBoundNAT in Azure CNI configuration
@@ -6782,7 +6828,7 @@ try
         return
     }
    
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.26.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-secure-tls-bootstrap-v0.0.cameissner0.zip" # change to custom package for testing
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -6910,8 +6956,30 @@ try
         New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
     }
 
-    if ($global:TLSBootstrapToken) {
-        Write-Log "Write TLS bootstrap kubeconfig"
+    # Setup bootstrap-kubeconfig 
+    if ($global:EnableSecureTLSBootstrapping) {
+        Write-Log "Secure TLS bootstrapping enabled, checking existence of cached kubelet exec plugin..."
+        # Check to see if the plugin has already been cached on the VHD,
+        # if not then go download it from upstream before creating the bootstrap-kubeconfig
+        $pluginPath = "c:\aks-cache\kubelet-plugins\tls-bootstrap-client.exe"
+        if (!(Test-Path $pluginPath)) {
+            Write-Log "Kubelet exec plugin is not cached, downloading..."
+            Get-SecureTLSBootstrapExecPlugin -ExecPluginURL $global:SecureTLSBootstrapExecPluginURL
+            $pluginPath = "c:\tls-bootstrap-client.exe"
+        } else {
+            Write-Log "Kubelet exec plugin is already cached"
+        }
+
+        Write-Log "Write secure TLS bootstrap kubeconfig"
+        Write-SecureTLSBootstrapKubeConfig -CACertificate $global:CACertificate `+"`"+`
+        -KubeDir $global:KubeDir `+"`"+`
+        -MasterFQDNPrefix $MasterFQDNPrefix `+"`"+`
+        -MasterIP $MasterIP `+"`"+`
+        -PluginPath $pluginPath
+
+        Write-Log "Write temporary secure TLS bootstrap kubeconfig"
+    } elseif ($global:TLSBootstrapToken) {
+        Write-Log "Write TLS bootstrap kubeconfig with pre-generated bootstrap token"
         Write-BootstrapKubeConfig -CACertificate $global:CACertificate `+"`"+`
             -KubeDir $global:KubeDir `+"`"+`
             -MasterFQDNPrefix $MasterFQDNPrefix `+"`"+`
@@ -7218,6 +7286,7 @@ $global:WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN=49 # Return this error code in csec
 $global:WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG=50 # Return this error code in csecmd.ps1 when C:\AzureData\CSEResult.log does not exist
 $global:WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS=51
 $global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE=52
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_EXEC_PLUGIN=53
 
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version
