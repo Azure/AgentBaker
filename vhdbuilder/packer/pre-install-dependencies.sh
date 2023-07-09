@@ -82,13 +82,6 @@ else
     echo "Install FIPS for Ubuntu SKU"
     installFIPS
   fi
-
-  # Final step, if 1804 or FIPS, log ua status, detach UA and clean up
-  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
-    # 'ua status' for logging
-    ua status
-    detachAndCleanUpUA
-  fi
 fi
 
 echo "pre-install-dependencies step finished successfully"
