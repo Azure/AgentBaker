@@ -9,34 +9,6 @@ ERR_BPFTRACE_TOOLS_DOWNLOAD_FAIL=172 {{/* Failed to download bpftrace default pr
 BPFTRACE_DOWNLOADS_DIR="/opt/bpftrace/downloads"
 UBUNTU_CODENAME=$(lsb_release -c -s)
 
-installBpftrace() {
-    local version="v0.9.4"
-    local bpftrace_bin="bpftrace"
-    local bpftrace_tools="bpftrace-tools.tar"
-    local bpftrace_url="https://upstreamartifacts.azureedge.net/$bpftrace_bin/$version"
-    local bpftrace_filepath="/usr/local/bin/$bpftrace_bin"
-    local tools_filepath="/usr/local/share/$bpftrace_bin"
-    if [[ -f "$bpftrace_filepath" ]]; then
-        installed_version="$($bpftrace_bin -V | cut -d' ' -f2)"
-        if [[ "$version" == "$installed_version" ]]; then
-            return
-        fi
-        rm "$bpftrace_filepath"
-        if [[ -d "$tools_filepath" ]]; then
-            rm -r  "$tools_filepath"
-        fi
-    fi
-    mkdir -p "$tools_filepath"
-    install_dir="$BPFTRACE_DOWNLOADS_DIR/$version"
-    mkdir -p "$install_dir"
-    download_path="$install_dir/$bpftrace_tools"
-    retrycmd_if_failure 30 5 60 curl -fSL -o "$bpftrace_filepath" "$bpftrace_url/$bpftrace_bin" || exit $ERR_BPFTRACE_BIN_DOWNLOAD_FAIL
-    retrycmd_if_failure 30 5 60 curl -fSL -o "$download_path" "$bpftrace_url/$bpftrace_tools" || exit $ERR_BPFTRACE_TOOLS_DOWNLOAD_FAIL
-    tar -xvf "$download_path" -C "$tools_filepath"
-    chmod +x "$bpftrace_filepath"
-    chmod -R +x "$tools_filepath/tools"
-}
-
 ensureGPUDrivers() {
     configGPUDrivers
     systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
