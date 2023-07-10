@@ -64,6 +64,7 @@ if [[ $OS_VERSION == "2.0" ]]; then
     cat << EOF >> ${CONFIG_FILEPATH}
 
     [DHCPv4]
+    UseDomains=true
     SendRelease=false
 EOF
 fi
