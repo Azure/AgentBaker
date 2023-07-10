@@ -115,6 +115,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     addMarinerNvidiaRepo
     overrideNetworkConfig || exit 1
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+      installKataDeps
       enableMarinerKata
     fi
     disableTimesyncd

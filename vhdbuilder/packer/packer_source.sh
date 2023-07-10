@@ -112,6 +112,40 @@ copyPackerFiles() {
   PVT_HOST_SVC_DEST=/etc/systemd/system/reconcile-private-hosts.service
   cpAndMode $CSE_REDACT_SRC $CSE_REDACT_DEST 600
 
+  if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+    IGVM_DEBUG_MEASUREMENT_SRC=/home/packer/igvm-debug-measurement
+    IGVM_DEBUG_MEASUREMENT_DEST=/opt/confidential-containers/share/kata-containers/igvm-debug-measurement
+    cpAndMode $IGVM_DEBUG_MEASUREMENT_SRC $IGVM_DEBUG_MEASUREMENT_DEST 0755
+
+    IGVM_DEBUG_BIN_SRC=/home/packer/igvm-debug.bin
+    IGVM_DEBUG_BIN_DEST=/opt/confidential-containers/share/kata-containers/igvm-debug.bin
+    cpAndMode $IGVM_DEBUG_BIN_SRC $IGVM_DEBUG_BIN_DEST 0755
+
+    IGVM_MEASUREMENT_SRC=/home/packer/igvm-measurement
+    IGVM_MEASUREMENT_DEST=/opt/confidential-containers/share/kata-containers/igvm-measurement
+    cpAndMode $IGVM_MEASUREMENT_SRC $IGVM_MEASUREMENT_DEST 0755
+
+    IGVM_BIN_SRC=/home/packer/igvm.bin
+    IGVM_BIN_DEST=/opt/confidential-containers/share/kata-containers/igvm.bin
+    cpAndMode $IGVM_BIN_SRC $IGVM_BIN_DEST 0755
+
+    KATA_INITRD_SRC=/home/packer/kata-containers-initrd.img
+    KATA_INITRD_DEST=/opt/confidential-containers/share/kata-containers/kata-containers-initrd.img
+    cpAndMode $KATA_INITRD_SRC $KATA_INITRD_DEST 0755
+
+    REF_INFO_SRC=/home/packer/reference-info-base64
+    REF_INFO_DEST=/opt/confidential-containers/share/kata-containers/reference-info-base64
+    cpAndMode $REF_INFO_SRC $REF_INFO_DEST 0755
+
+    KATA_CLH_SRC=/home/packer/cloud-hypervisor-igvm
+    KATA_CLH_DEST=/opt/confidential-containers/bin/cloud-hypervisor-igvm
+    cpAndMode $KATA_CLH_SRC $KATA_CLH_DEST 0755
+
+    SETUP_KATA_SRC=/home/packer/setupkata.sh
+    SETUP_KATA_DEST=/setupkata.sh
+    cpAndMode $SETUP_KATA_SRC $SETUP_KATA_DEST 0755
+  fi
+
   MIG_PART_SRC=/home/packer/mig-partition.service
   MIG_PART_DEST=/etc/systemd/system/mig-partition.service
   cpAndMode $MIG_PART_SRC $MIG_PART_DEST 600

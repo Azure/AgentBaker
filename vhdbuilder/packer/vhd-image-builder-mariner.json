@@ -124,6 +124,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/setupkata.sh",
+      "destination": "/home/packer/setupkata.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_main.sh",
       "destination": "/home/packer/provision.sh"
     },
@@ -451,6 +456,41 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/containerd.service",
       "destination": "/home/packer/containerd.service"
+    },
+    {
+      "type": "file",
+      "source": "igvm-debug-measurement",
+      "destination": "/home/packer/igvm-debug-measurement"
+    },
+    {
+      "type": "file",
+      "source": "igvm-debug.bin",
+      "destination": "/home/packer/igvm-debug.bin"
+    },
+    {
+      "type": "file",
+      "source": "igvm-measurement",
+      "destination": "/home/packer/igvm-measurement"
+    },
+    {
+      "type": "file",
+      "source": "igvm.bin",
+      "destination": "/home/packer/igvm.bin"
+    },
+    {
+      "type": "file",
+      "source": "kata-containers-initrd.img",
+      "destination": "/home/packer/kata-containers-initrd.img"
+    },
+    {
+      "type": "file",
+      "source": "reference-info-base64",
+      "destination": "/home/packer/reference-info-base64"
+    },
+    {
+      "type": "file",
+      "source": "cloud-hypervisor-igvm",
+      "destination": "/home/packer/cloud-hypervisor-igvm"
     },
     {
       "type": "file",

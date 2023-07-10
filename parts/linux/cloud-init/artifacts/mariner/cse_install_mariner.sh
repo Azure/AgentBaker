@@ -25,6 +25,35 @@ installDeps() {
     fi
 }
 
+installKataDeps() {
+    if [[ $OS_VERSION != "1.0" ]]; then
+      # Install kata/kata-cc packages
+      for dnf_package in kernel-mshv cloud-hypervisor kata-containers moby-containerd-cc mshv-bootloader mshv-linuxloader mshv; do
+        if ! dnf_install 30 1 600 $dnf_package; then
+          exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+      done
+
+      echo "TEMP: install kata-cc packages from storage account"
+      wget "https://mitchzhu.blob.core.windows.net/public/kernel-uvm-5.15.110.mshv2-2.cm2.x86_64.rpm" -O kernel-uvm.x86_64.rpm
+      wget "https://mitchzhu.blob.core.windows.net/public/kernel-uvm-devel-5.15.110.mshv2-2.cm2.x86_64.rpm" -O kernel-uvm-devel.x86_64.rpm
+      wget "https://mitchzhu.blob.core.windows.net/public/kata-containers-cc-0.4.2-1.cm2.x86_64.rpm" -O kata-containers-cc.x86_64.rpm
+      rpm -ihv kernel-uvm.x86_64.rpm
+      rpm -ihv kernel-uvm-devel.x86_64.rpm
+      rpm -ihv kata-containers-cc.x86_64.rpm
+
+      echo "Create snapshotter dir"
+      mkdir -p /var/lib/containerd/io.containerd.snapshotter.v1.tardev/staging
+
+      echo "Append kata-cc config to enable IGVM"
+      sed -i '/image =/a igvm = "/opt/confidential-containers/share/kata-containers/igvm-debug.bin"' /opt/confidential-containers/share/defaults/kata-containers/configuration-clh.toml
+      sed -i 's/cloud-hypervisor/cloud-hypervisor-igvm/g' /opt/confidential-containers/share/defaults/kata-containers/configuration-clh.toml
+      # Comment out image and kernel configs
+      sed -i 's/kernel = /#kernel = /g' /opt/confidential-containers/share/defaults/kata-containers/configuration-clh.toml
+      sed -i 's/image = /#image = /g' /opt/confidential-containers/share/defaults/kata-containers/configuration-clh.toml
+    fi
+}
+
 downloadGPUDrivers() {
     # Mariner CUDA rpm name comes in the following format:
     #
