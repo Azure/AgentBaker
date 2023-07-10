@@ -196,7 +196,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.8.6"
+        "1.8.8"
       ]
     },
     {
