@@ -348,7 +348,8 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
 fi
 fi
 
-systemctlEnableAndStart cgroup-stats.timer || true
+systemctlEnableAndStart cgroup-stats.timer || exit 1
+systemctlEnableAndStart cgroup-stats.service || exit 1
 
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
