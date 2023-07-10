@@ -350,6 +350,21 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-stats.sh",
+      "destination": "/home/packer/cgroup-stats.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-stats.service",
+      "destination": "/etc/systemd/system/cgroup-stats.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-stats.timer",
+      "destination": "/home/packer/cgroup-stats.timer"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/update_certs.service",
       "destination": "/home/packer/update_certs.service"
     },
