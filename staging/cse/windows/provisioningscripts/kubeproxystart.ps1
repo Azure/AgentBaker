@@ -1,7 +1,6 @@
 $Global:ClusterConfiguration = ConvertFrom-Json ((Get-Content "c:\k\kubeclusterconfig.json" -ErrorAction Stop) | out-string)
 $KubeproxyFeatureGates = $Global:ClusterConfiguration.Kubernetes.Kubeproxy.FeatureGates # This is the initial feature list passed in from aks-engine
 $KubernetesVersion = $Global:ClusterConfiguration.Kubernetes.Source.Release
-$ContainerRuntime = $Global:ClusterConfiguration.Cri.Name
 
 # comparison function for 2 semantic versions
 # returns 1 if Version1 > Version 2, -1 if Version1 < Version2, and 0 if equal
@@ -45,11 +44,7 @@ if ($Global:ClusterConfiguration.Cni.Name -eq "kubenet") {
 }
 
 $env:KUBE_NETWORK = $KubeNetwork
-$global:HNSModule = "c:\k\hns.psm1"
-if ($ContainerRuntime -eq "containerd") {
-    Write-Host "ContainerRuntime is containerd. Use hns.v2.psm1"
-    $global:HNSModule = "c:\k\hns.v2.psm1"
-}
+$global:HNSModule = "c:\k\hns.v2.psm1"
 $global:KubeDir = $Global:ClusterConfiguration.Install.Destination
 $global:KubeproxyArgList = @("--v=3", "--proxy-mode=kernelspace", "--hostname-override=$env:computername", "--kubeconfig=$KubeDir\config")
 

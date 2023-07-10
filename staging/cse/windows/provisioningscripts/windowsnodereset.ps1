@@ -13,8 +13,6 @@ $global:CsiProxyEnabled = [System.Convert]::ToBoolean($Global:ClusterConfigurati
 $global:MasterSubnet = $Global:ClusterConfiguration.Kubernetes.ControlPlane.MasterSubnet
 $global:NetworkMode = "L2Bridge"
 $global:NetworkPlugin = $Global:ClusterConfiguration.Cni.Name
-$global:ContainerRuntime = $Global:ClusterConfiguration.Cri.Name
-$UseContainerD = ($global:ContainerRuntime -eq "containerd")
 # if dual-stack is enabled, the clusterCidr will have an IPv6 CIDR in the comma separated list
 # we can split the entire string by ":" to get a count of how many ":" there are. If there are
 # at least 3 groups (which means there are at least 2 ":") then we know there is an IPv6 CIDR
@@ -23,11 +21,7 @@ $UseContainerD = ($global:ContainerRuntime -eq "containerd")
 $IsDualStackEnabled = ($Global:ClusterConfiguration.Kubernetes.Kubeproxy.FeatureGates -contains "IPv6DualStack=true") -Or `
                         (($Global:ClusterConfiguration.Kubernetes.Network.ClusterCidr -split ":").Count -ge 3)
 
-$global:HNSModule = "c:\k\hns.psm1"
-if ($global:ContainerRuntime -eq "containerd") {
-    Write-Host "ContainerRuntime is containerd. Use hns.v2.psm1"
-    $global:HNSModule = "c:\k\hns.v2.psm1"
-}
+$global:HNSModule = "c:\k\hns.v2.psm1"
 
 filter Timestamp { "$(Get-Date -Format o): $_" }
 

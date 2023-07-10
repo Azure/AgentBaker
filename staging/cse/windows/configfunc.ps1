@@ -141,13 +141,9 @@ function Adjust-DynamicPortRange()
 # Service start actions. These should be split up later and included in each install step
 function Update-ServiceFailureActions
 {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $ContainerRuntime
-    )
     sc.exe failure "kubelet" actions= restart/60000/restart/60000/restart/60000 reset= 900
     sc.exe failure "kubeproxy" actions= restart/60000/restart/60000/restart/60000 reset= 900
-    sc.exe failure $ContainerRuntime actions= restart/60000/restart/60000/restart/60000 reset= 900
+    sc.exe failure "containerd" actions= restart/60000/restart/60000/restart/60000 reset= 900
 }
 
 function Add-SystemPathEntry
