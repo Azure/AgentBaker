@@ -65,6 +65,12 @@ copyPackerFiles() {
   NVIDIA_DEVICE_PLUGIN_SERVICE_DEST=/etc/systemd/system/nvidia-device-plugin.service
   DISK_QUEUE_SERVICE_SRC=/home/packer/disk_queue.service
   DISK_QUEUE_SERVICE_DEST=/etc/systemd/system/disk_queue.service
+  CGROUP_STATS_SERVICE_SRC=/home/packer/cgroup-stats.service
+  CGROUP_STATS_SERVICE_DEST=/etc/systemd/system/cgroup-stats.service
+  CGROUP_STATS_SCRIPT_SRC=/home/packer/cgroup-stats.sh
+  CGROUP_STATS_SCRIPT_DEST=/opt/scripts/cgroup-stats.sh
+  CGROUP_STATS_TIMER_SRC=/home/packer/cgroup-stats.timer
+  CGROUP_STATS_SCRIPT_DEST=/etc/systemd/system/cgroup-stats.timer
   UPDATE_CERTS_SERVICE_SRC=/home/packer/update_certs.service
   UPDATE_CERTS_SERVICE_DEST=/etc/systemd/system/update_certs.service
   UPDATE_CERTS_PATH_SRC=/home/packer/update_certs.path
