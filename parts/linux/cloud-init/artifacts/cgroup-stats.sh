@@ -343,7 +343,7 @@ pressure_string=$( jq -n \
 --argjson KUBEPODSSLICE "$(echo $kubepods_slice_pressure)" \
 --argjson KUBELETSERVICE "$(echo $kubelet_service_pressure)" \
 --argjson CONTAINERDSERVICE "$(echo $containerd_service_pressure)" \
-'{ cgroup: $CGROUP, systemslice: $SYSTEMSLICE, azureslice: $AZURESLICE, kubepodsslice: $KUBEPODSSLICE, kubeletservice: $KUBELETSERVICE, containerdservice $CONTAINERDSERVICE } | tostring'
+'{ cgroup: $CGROUP, systemslice: $SYSTEMSLICE, azureslice: $AZURESLICE, kubepodsslice: $KUBEPODSSLICE, kubeletservice: $KUBELETSERVICE, containerdservice: $CONTAINERDSERVICE } | tostring'
 )
 
 memory_string=$(echo $memory_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
@@ -368,6 +368,7 @@ EVENT_JSON=$( jq -n \
     --arg EventTid      "0" \
     '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
 )
+
 
 echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
 cat ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
