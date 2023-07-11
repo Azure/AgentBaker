@@ -1,4 +1,5 @@
 set -euxo pipefail
+az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID --allow-no-subscriptions
 
 # This function finds the latest windows VHD base Image version from the command az vm image show
 find_latest_image_version() {
