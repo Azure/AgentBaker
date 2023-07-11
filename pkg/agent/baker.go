@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -928,7 +929,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.SSHStatus == datamodel.SSHOff
 		},
 		"GetSysctlContent": func() (string, error) {
-			sysctlTemplate, err := template.New("sysctl").Parse(sysctlTemplateString)
+			templateFuncMap := make(template.FuncMap)
+			templateFuncMap["getPortRangeEndValue"] = getPortRangeEndValue
+			sysctlTemplate, err := template.New("sysctl").Funcs(templateFuncMap).Parse(sysctlTemplateString)
 			if err != nil {
 				return "", fmt.Errorf("failed to parse sysctl template: %w", err)
 			}
@@ -943,6 +946,15 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return !config.DisableCustomData
 		},
 	}
+}
+
+func getPortRangeEndValue(portRange string) int {
+	arr := strings.Split(portRange, " ")
+	num, err := strconv.Atoi(arr[1])
+	if err != nil {
+		return -1
+	}
+	return num
 }
 
 // NV series GPUs target graphics workloads vs NC which targets compute.
@@ -1068,6 +1080,10 @@ net.ipv4.tcp_tw_reuse={{if $s.NetIpv4TcpTwReuse}}1{{else}}0{{end}}
 {{- end}}
 {{- if $s.NetIpv4IpLocalPortRange}}
 net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
+{{$rangeEnd := getPortRangeEndValue $s.NetIpv4IpLocalPortRange}}
+{{ if ge $rangeEnd 65330}}
+net.ipv4.ip_local_reserved_ports=65330
+{{- end}}
 {{- end}}
 {{- if $s.NetNetfilterNfConntrackMax}}
 net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}

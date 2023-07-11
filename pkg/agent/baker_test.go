@@ -484,7 +484,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						NetCoreRmemDefault:           to.Int32Ptr(456000),
 						NetCoreWmemDefault:           to.Int32Ptr(89000),
 						NetIpv4TcpTwReuse:            &netIpv4TcpTwReuse,
-						NetIpv4IpLocalPortRange:      "32768 60999",
+						NetIpv4IpLocalPortRange:      "32768 65400",
 						NetIpv4TcpMaxSynBacklog:      to.Int32Ptr(1638498),
 						NetIpv4NeighDefaultGcThresh1: to.Int32Ptr(10001),
 					},
@@ -502,6 +502,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh1=10001"))
 				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh2=8192"))
 				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh3=16384"))
+				Expect(sysctlContent).To(ContainSubstring("net.ipv4.ip_local_reserved_ports=65330"))
 			}),
 
 		Entry("AKSUbuntu1604 - dynamic-config-dir should always be removed with custom kubelet config",
@@ -976,8 +977,53 @@ oom_score = 0
 			config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
 				Name: "akscustom",
 			}
-		}, nil))
-
+		}, nil),
+		Entry("AKSUbuntu2204 with custom kubeletConfig and osConfig", "AKSUbuntu2204+CustomKubeletConfig+CustomLinuxOSConfig", "1.24.2",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.EnableKubeletConfigFile = false
+				netIpv4TcpTwReuse := true
+				failSwapOn := false
+				var swapFileSizeMB int32 = 1500
+				var netCoreSomaxconn int32 = 1638499
+				config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
+					CPUManagerPolicy:      "static",
+					CPUCfsQuota:           to.BoolPtr(false),
+					CPUCfsQuotaPeriod:     "200ms",
+					ImageGcHighThreshold:  to.Int32Ptr(90),
+					ImageGcLowThreshold:   to.Int32Ptr(70),
+					TopologyManagerPolicy: "best-effort",
+					AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+					FailSwapOn:            &failSwapOn,
+					ContainerLogMaxSizeMB: to.Int32Ptr(1000),
+					ContainerLogMaxFiles:  to.Int32Ptr(99),
+					PodMaxPids:            to.Int32Ptr(12345),
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
+					Sysctls: &datamodel.SysctlConfig{
+						NetCoreSomaxconn:             &netCoreSomaxconn,
+						NetCoreRmemDefault:           to.Int32Ptr(456000),
+						NetCoreWmemDefault:           to.Int32Ptr(89000),
+						NetIpv4TcpTwReuse:            &netIpv4TcpTwReuse,
+						NetIpv4IpLocalPortRange:      "32768 65400",
+						NetIpv4TcpMaxSynBacklog:      to.Int32Ptr(1638498),
+						NetIpv4NeighDefaultGcThresh1: to.Int32Ptr(10001),
+					},
+					TransparentHugePageEnabled: "never",
+					TransparentHugePageDefrag:  "defer+madvise",
+					SwapFileSizeMB:             &swapFileSizeMB,
+				}
+			}, func(o *nodeBootstrappingOutput) {
+				sysctlContent, err := getBase64DecodedValue([]byte(o.vars["SYSCTL_CONTENT"]))
+				Expect(err).To(BeNil())
+				// assert defaults for gc_thresh2 and gc_thresh3
+				// assert custom values for all others.
+				Expect(sysctlContent).To(ContainSubstring("net.core.somaxconn=1638499"))
+				Expect(sysctlContent).To(ContainSubstring("net.ipv4.tcp_max_syn_backlog=1638498"))
+				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh1=10001"))
+				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh2=8192"))
+				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh3=16384"))
+				Expect(sysctlContent).To(ContainSubstring("net.ipv4.ip_local_reserved_ports=65330"))
+			}))
 })
 
 var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
