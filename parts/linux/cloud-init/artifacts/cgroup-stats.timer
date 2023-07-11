@@ -1,5 +1,5 @@
 [Unit]
-Description=Update cgroup statisitics to Kusto on a 5 minute timer
+Description=emit telemetry
 
 [Timer]
 OnBootSec=0min
