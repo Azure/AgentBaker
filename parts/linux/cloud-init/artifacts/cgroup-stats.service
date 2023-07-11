@@ -4,4 +4,3 @@ Description=Updates certificates copied from AKS DS
 [Service]
 Type=oneshot
 ExecStart=/bin/bash /opt/scripts/cgroup-stats.sh
-RestartSec=5
