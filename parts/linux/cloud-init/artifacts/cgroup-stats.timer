@@ -3,7 +3,7 @@ Description=Update cgroup statisitics to Kusto on a 5 minute timer
 
 [Timer]
 OnBootSec=0min
-OnCalendar=*:0/5
+OnCalendar=*-*-* *:0/5:0
 Unit=cgroup-stats.service
 
 [Install]
