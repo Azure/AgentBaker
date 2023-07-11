@@ -15,6 +15,9 @@
 // linux/cloud-init/artifacts/bind-mount.service
 // linux/cloud-init/artifacts/bind-mount.sh
 // linux/cloud-init/artifacts/block_wireserver.sh
+// linux/cloud-init/artifacts/cgroup-stats.service
+// linux/cloud-init/artifacts/cgroup-stats.sh
+// linux/cloud-init/artifacts/cgroup-stats.timer
 // linux/cloud-init/artifacts/ci-syslog-watcher.path
 // linux/cloud-init/artifacts/ci-syslog-watcher.service
 // linux/cloud-init/artifacts/ci-syslog-watcher.sh
@@ -529,6 +532,124 @@ func linuxCloudInitArtifactsBlock_wireserverSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/block_wireserver.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCgroupStatsService = []byte(`[Unit]
+Description=Updates certificates copied from AKS DS
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/scripts/cgroup-stats.sh`)
+
+func linuxCloudInitArtifactsCgroupStatsServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCgroupStatsService, nil
+}
+
+func linuxCloudInitArtifactsCgroupStatsService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCgroupStatsServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-stats.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCgroupStatsSh = []byte(`#!/bin/bash
+set -o errexit
+
+EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+EVENTS_FILE_NAME=$(date +%s%3N)
+STARTTIME=$(date)
+STARTTIME_FORMATTED=$(date +"%F %T.%3N")
+ENDTIME_FORMATTED=$(date +"%F %T.%3N")
+
+memory_string=$( jq -n \
+--arg USER_SLICE_MEMORY "$(cat /sys/fs/cgroup/user.slice/memory.current)" \
+--arg AZURE_SLICE_MEMORY "$(cat /sys/fs/cgroup/azure.slice/memory.current)" \
+--arg KUBEPODS_SLICE_MEMORY "$(cat /sys/fs/cgroup/kubepods.slice/memory.current)" \
+--arg SYSTEM_SLICE_MEMORY "$(cat /sys/fs/cgroup/system.slice/memory.current)" \
+--arg CONTAINERD_MEMORY "$(cat /sys/fs/cgroup/system.slice/containerd.service/memory.current)" \
+--arg KUBELET_MEMORY "$(cat /sys/fs/cgroup/system.slice/kubelet.service/memory.current)" \
+--arg EMPLOYED_MEMORY "$(( $(cat /sys/fs/cgroup/user.slice/memory.current) + $(cat /sys/fs/cgroup/azure.slice/memory.current) + $(cat /sys/fs/cgroup/kubepods.slice/memory.current) + $(cat /sys/fs/cgroup/system.slice/memory.current) ))" \
+--arg CAPACITY_MEMORY "$(grep MemTotal /proc/meminfo | awk '{print $2}')" \
+--arg KUBEPODS_CGROUP_MEMORY_MAX "$(cat /sys/fs/cgroup/kubepods.slice/memory.max)" \
+'{ UserSliceMemory: $USER_SLICE_MEMORY, AzureSliceMemory: $AZURE_SLICE_MEMORY, KubepodsSliceMemory: $KUBEPODS_SLICE_MEMORY, SystemSliceMemory: $SYSTEM_SLICE_MEMORY, ContainerdMemory: $CONTAINERD_MEMORY, KubeletMemory: $KUBELET_MEMORY, EmployedMemory: $EMPLOYED_MEMORY, CapacityMemory: $CAPACITY_MEMORY, KubepodsCgroupMemoryMax: $KUBEPODS_CGROUP_MEMORY_MAX } | tostring'
+)
+
+pressure_string=$( jq -n \
+--arg MEMORY_PRESSURE "$(cat /sys/fs/cgroup/memory.pressure)" \
+--arg IO_PRESSURE "$(cat /sys/fs/cgroup/io.pressure)" \
+--arg CPU_PRESSURE "$(cat /sys/fs/cgroup/cpu.pressure)" \
+'{ MemoryPressure: $MEMORY_PRESSURE, IoPressure: $IO_PRESSURE, CpuPressure: $CPU_PRESSURE } | tostring'
+)
+
+memory_string=$(echo $memory_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+pressure_string=$(echo $pressure_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+message_string=$( jq -n \
+    --argjson Memory    "$(echo $memory_string)" \
+    --argjson Pressure  "$(echo $pressure_string)" \
+    '{ Memory: $Memory, Pressure: $Pressure } | tostring'
+)
+
+message_string=$(echo $message_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+EVENT_JSON=$( jq -n \
+    --arg Timestamp     "${STARTTIME_FORMATTED}" \
+    --arg OperationId   "${ENDTIME_FORMATTED}" \
+    --arg Version       "1.23" \
+    --arg TaskName      "AKS.CSE.system_slice" \
+    --arg EventLevel    "${eventlevel}" \
+    --arg Message       "${message_string}" \
+    --arg EventPid      "0" \
+    --arg EventTid      "0" \
+    '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
+)
+
+echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
+cat ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json`)
+
+func linuxCloudInitArtifactsCgroupStatsShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCgroupStatsSh, nil
+}
+
+func linuxCloudInitArtifactsCgroupStatsSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCgroupStatsShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-stats.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCgroupStatsTimer = []byte(`[Unit]
+Description=Update cgroup statisitics to Kusto on a 5 minute timer
+
+[Timer]
+OnBootSec=0min
+OnCalendar=*-*-* *:0/5:0
+Unit=cgroup-stats.service
+
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsCgroupStatsTimerBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCgroupStatsTimer, nil
+}
+
+func linuxCloudInitArtifactsCgroupStatsTimer() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCgroupStatsTimerBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-stats.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -7525,6 +7646,9 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
 	"linux/cloud-init/artifacts/bind-mount.sh":                             linuxCloudInitArtifactsBindMountSh,
 	"linux/cloud-init/artifacts/block_wireserver.sh":                       linuxCloudInitArtifactsBlock_wireserverSh,
+	"linux/cloud-init/artifacts/cgroup-stats.service":                      linuxCloudInitArtifactsCgroupStatsService,
+	"linux/cloud-init/artifacts/cgroup-stats.sh":                           linuxCloudInitArtifactsCgroupStatsSh,
+	"linux/cloud-init/artifacts/cgroup-stats.timer":                        linuxCloudInitArtifactsCgroupStatsTimer,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.path":                    linuxCloudInitArtifactsCiSyslogWatcherPath,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.service":                 linuxCloudInitArtifactsCiSyslogWatcherService,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.sh":                      linuxCloudInitArtifactsCiSyslogWatcherSh,
@@ -7662,6 +7786,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
 				"bind-mount.sh":                             &bintree{linuxCloudInitArtifactsBindMountSh, map[string]*bintree{}},
 				"block_wireserver.sh":                       &bintree{linuxCloudInitArtifactsBlock_wireserverSh, map[string]*bintree{}},
+				"cgroup-stats.service":                      &bintree{linuxCloudInitArtifactsCgroupStatsService, map[string]*bintree{}},
+				"cgroup-stats.sh":                           &bintree{linuxCloudInitArtifactsCgroupStatsSh, map[string]*bintree{}},
+				"cgroup-stats.timer":                        &bintree{linuxCloudInitArtifactsCgroupStatsTimer, map[string]*bintree{}},
 				"ci-syslog-watcher.path":                    &bintree{linuxCloudInitArtifactsCiSyslogWatcherPath, map[string]*bintree{}},
 				"ci-syslog-watcher.service":                 &bintree{linuxCloudInitArtifactsCiSyslogWatcherService, map[string]*bintree{}},
 				"ci-syslog-watcher.sh":                      &bintree{linuxCloudInitArtifactsCiSyslogWatcherSh, map[string]*bintree{}},
