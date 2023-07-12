@@ -354,16 +354,18 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     pressure_string=$(echo $pressure_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
 
     message_string=$( jq -n \
+        --arg CgroupVersion "${CGROUP_VERSION}" \
         --arg MEMORY "$(echo $memory_string)" \
         --arg PRESSURE "$(echo $pressure_string)" \
-        '{ Memory: $MEMORY, Pressure: $PRESSURE } | tostring'
+        '{ CgroupVersion: $CgroupVersion, Memory: $MEMORY, Pressure: $PRESSURE } | tostring'
     )
     
 elif [ "$CGROUP_VERSION" = "tmpfs" ]; then
 
     message_string=$( jq -n \
+        --arg CgroupVersion "${CGROUP_VERSION}" \
         --arg MEMORY "$(echo $memory_string)" \
-        '{ Memory: $MEMORY } | tostring'
+        '{ CgroupVersion: $CgroupVersion, Memory: $MEMORY } | tostring'
     )
 
 else
@@ -379,11 +381,10 @@ EVENT_JSON=$( jq -n \
     --arg Version       "1.23" \
     --arg TaskName      "AKS.CSE.system_slice" \
     --arg EventLevel    "${eventlevel}" \
-    --arg Message       "${message_string}" \
-    --arg CgroupVersion "${CGROUP_VERSION}" \
+    --arg Message       "${memory_string}" \
     --arg EventPid      "0" \
     --arg EventTid      "0" \
-    '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, CgroupVersion: $CgroupVersion, EventPid: $EventPid, EventTid: $EventTid}'
+    '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
 )
 
 echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
