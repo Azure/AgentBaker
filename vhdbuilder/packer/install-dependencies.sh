@@ -46,6 +46,9 @@ fi
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
 else
+  retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+  retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
+  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # jq - for manipulation JSON data
   # iptables - required to run containerd
@@ -53,9 +56,7 @@ else
   # dnsutils - contains nslookup, to query API server DNS
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
   BLOBFUSE2_VERSION="2.0.3"
-  required_pkg_list=(jq iptables netcat dnsutils)
-  required_pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
-  required_pkg_list+=(fuse3)
+  required_pkg_list=(jq iptables netcat dnsutils blobfuse2=${BLOBFUSE2_VERSION} fuse3)
   for apt_package in ${required_pkg_list[*]}; do
       if ! apt_get_install 30 1 600 $apt_package; then
           journalctl --no-pager -u $apt_package
