@@ -5,27 +5,15 @@ STARTTIME_FORMATTED=$(date +"%F %T.%3N")
 ENDTIME_FORMATTED=$(date +"%F %T.%3N")
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
 
-memory_string=$( jq -n \
-    --arg SYSTEM_SLICE_MEMORY "$(($(cat /sys/fs/cgroup/system.slice/memory.stat | awk '/^file /{print $2}') + $(cat /sys/fs/cgroup/system.slice/memory.stat | awk '/^anon /{print $2}')))" \
-    --arg AZURE_SLICE_MEMORY "$(($(cat /sys/fs/cgroup/azure.slice/memory.stat | awk '/^file /{print $2}') + $(cat /sys/fs/cgroup/azure.slice/memory.stat | awk '/^anon /{print $2}')))" \
-    --arg KUBEPODS_SLICE_MEMORY "$(($(cat /sys/fs/cgroup/kubepods.slice/memory.stat | awk '/^file /{print $2}') + $(cat /sys/fs/cgroup/kubepods.slice/memory.stat | awk '/^anon /{print $2}')))" \
-    --arg USER_SLICE_MEMORY "$(($(cat /sys/fs/cgroup/user.slice/memory.stat | awk '/^file /{print $2}') + $(cat /sys/fs/cgroup/user.slice/memory.stat | awk '/^anon /{print $2}')))" \
-    --arg CONTAINERD_MEMORY "$(($(cat /sys/fs/cgroup/system.slice/containerd.service/memory.stat | awk '/^file /{print $2}') + $(cat /sys/fs/cgroup/system.slice/containerd.service/memory.stat | awk '/^anon /{print $2}')))" \
-    --arg KUBELET_MEMORY "$(($(cat /sys/fs/cgroup/system.slice/kubelet.service/memory.stat | awk '/^file /{print $2}') + $(cat /sys/fs/cgroup/system.slice/kubelet.service/memory.stat | awk '/^anon /{print $2}')))" \
-    --arg EMPLOYED_MEMORY "$(($(cat /sys/fs/cgroup/memory.stat | awk '/^file /{print $2}') + $(cat /sys/fs/cgroup/memory.stat | awk '/^anon /{print $2}')))" \
-    --arg CAPACITY_MEMORY "$(grep MemTotal /proc/meminfo | awk '{print $2}')" \
-    --arg KUBEPODS_CGROUP_MEMORY_MAX "$(cat /sys/fs/cgroup/kubepods.slice/memory.max)" \
-    '{ SystemSliceMemory: $SYSTEM_SLICE_MEMORY, AzureSliceMemory: $AZURE_SLICE_MEMORY, KubepodsSliceMemory: $KUBEPODS_SLICE_MEMORY, UserSliceMemory: $USER_SLICE_MEMORY, ContainerdMemory: $CONTAINERD_MEMORY, KubeletMemory: $KUBELET_MEMORY, EmployedMemory: $EMPLOYED_MEMORY, CapacityMemory: $CAPACITY_MEMORY, KubepodsCgroupMemoryMax: $KUBEPODS_CGROUP_MEMORY_MAX } | tostring'
-)
-
-memory_string=$(echo $memory_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+CGROUP="/sys/fs/cgroup"
+CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)
+KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)
 
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
 
-    CGROUP="sys/fs/cgroup"
-    cgroup_cpu_pressure=$(cat $CGROUP/cpu.pressure)
-    cgroup_memory_pressure=$(cat sys/fs/cgroup/memory.pressure)
-    cgroup_io_pressure=$(cat sys/fs/cgroup/io.pressure)
+    cgroup_cpu_pressure=$(cat ${CGROUP}/cpu.pressure)
+    cgroup_memory_pressure=$(cat ${CGROUP}/memory.pressure)
+    cgroup_io_pressure=$(cat ${CGROUP}/io.pressure)
 
     cgroup_cpu_pressures=$( jq -n \
     --arg SOME_AVG10 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
@@ -68,13 +56,13 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     cgroup_io_pressures=$(echo $cgroup_io_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
 
     cgroup_pressure=$( jq -n \
-    --arg CPU_PRESSURE "$(echo $cgroup_cpu_pressures)" \
-    --arg MEMORY_PRESSURE "$(echo $cgroup_memory_pressures)" \
-    --arg IO_PRESSURE "$(echo $cgroup_io_pressures)" \
+    --argjson CPU_PRESSURE "$(echo $cgroup_cpu_pressures)" \
+    --argjson MEMORY_PRESSURE "$(echo $cgroup_memory_pressures)" \
+    --argjson IO_PRESSURE "$(echo $cgroup_io_pressures)" \
     '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
     )
 
-    SYSTEMSLICE="$CGROUP/system.slice"
+    SYSTEMSLICE="${CGROUP}//system.slice"
     system_slice_cpu_pressure=$(cat $SYSTEMSLICE/cpu.pressure)
     system_slice_memory_pressure=$(cat $SYSTEMSLICE/memory.pressure)
     system_slice_io_pressure=$(cat $SYSTEMSLICE/io.pressure)
@@ -120,13 +108,13 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     system_slice_io_pressures=$(echo $system_slice_io_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
 
     system_slice_pressure=$( jq -n \
-    --arg CPU_PRESSURE "$(echo $system_slice_cpu_pressures)" \
-    --arg MEMORY_PRESSURE "$(echo $system_slice_memory_pressures)" \
-    --arg IO_PRESSURE "$(echo $system_slice_io_pressures)" \
+    --argjson CPU_PRESSURE "$(echo $system_slice_cpu_pressures)" \
+    --argjson MEMORY_PRESSURE "$(echo $system_slice_memory_pressures)" \
+    --argjson IO_PRESSURE "$(echo $system_slice_io_pressures)" \
     '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
     )
 
-    AZURESLICE="$CGROUP/azure.slice"
+    AZURESLICE="${CGROUP}/azure.slice"
     azure_slice_cpu_pressure=$(cat $AZURESLICE/cpu.pressure)
     azure_slice_memory_pressure=$(cat $AZURESLICE/memory.pressure)
     azure_slice_io_pressure=$(cat $AZURESLICE/io.pressure)
@@ -172,13 +160,13 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     azure_slice_io_pressures=$(echo $azure_slice_io_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
 
     azure_slice_pressure=$( jq -n \
-    --arg CPU_PRESSURE "$(echo $azure_slice_cpu_pressures)" \
-    --arg MEMORY_PRESSURE "$(echo $azure_slice_memory_pressures)" \
-    --arg IO_PRESSURE "$(echo $azure_slice_io_pressures)" \
+    --argjson CPU_PRESSURE "$(echo $azure_slice_cpu_pressures)" \
+    --argjson MEMORY_PRESSURE "$(echo $azure_slice_memory_pressures)" \
+    --argjson IO_PRESSURE "$(echo $azure_slice_io_pressures)" \
     '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
     )
 
-    KUBEPODSSLICE="$CGROUP/kubepods.slice"
+    KUBEPODSSLICE="${CGROUP}/kubepods.slice"
     kubepods_slice_cpu_pressure=$(cat $KUBEPODSSLICE/cpu.pressure)
     kubepods_slice_memory_pressure=$(cat $KUBEPODSSLICE/memory.pressure)
     kubepods_slice_io_pressure=$(cat $KUBEPODSSLICE/io.pressure)
@@ -224,13 +212,13 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     kubepods_slice_io_pressures=$(echo $kubepods_slice_io_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
 
     kubepods_slice_pressure=$( jq -n \
-    --arg CPU_PRESSURE "$(echo $kubepods_slice_cpu_pressures)" \
-    --arg MEMORY_PRESSURE "$(echo $kubepods_slice_memory_pressures)" \
-    --arg IO_PRESSURE "$(echo $kubepods_slice_io_pressures)" \
+    --argjson CPU_PRESSURE "$(echo $kubepods_slice_cpu_pressures)" \
+    --argjson MEMORY_PRESSURE "$(echo $kubepods_slice_memory_pressures)" \
+    --argjson IO_PRESSURE "$(echo $kubepods_slice_io_pressures)" \
     '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
     )
 
-    KUBELETSERVICE="$SYSTEMSLICE/kubelet.service"
+    KUBELETSERVICE="${CGROUP}/${KSLICE}/kubelet.service"
     kubelet_service_cpu_pressure=$(cat $KUBELETSERVICE/cpu.pressure)
     kubelet_service_memory_pressure=$(cat $KUBELETSERVICE/memory.pressure)
     kubelet_service_io_pressure=$(cat $KUBELETSERVICE/io.pressure)
@@ -276,13 +264,13 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     kubelet_service_io_pressures=$(echo $kubelet_service_io_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
 
     kubelet_service_pressure=$( jq -n \
-    --arg CPU_PRESSURE "$(echo $kubelet_service_cpu_pressures)" \
-    --arg MEMORY_PRESSURE "$(echo $kubelet_service_memory_pressures)" \
-    --arg IO_PRESSURE "$(echo $kubelet_service_io_pressures)" \
+    --argjson CPU_PRESSURE "$(echo $kubelet_service_cpu_pressures)" \
+    --argjson MEMORY_PRESSURE "$(echo $kubelet_service_memory_pressures)" \
+    --argjson IO_PRESSURE "$(echo $kubelet_service_io_pressures)" \
     '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
     )
 
-    CONTAINERDSERVICE="$SYSTEMSLICE/containerd.service"
+    CONTAINERDSERVICE="${CGROUP}/${CSLICE}/containerd.service"
     containerd_service_cpu_pressure=$(cat $CONTAINERDSERVICE/cpu.pressure)
     containerd_service_memory_pressure=$(cat $CONTAINERDSERVICE/memory.pressure)
     containerd_service_io_pressure=$(cat $CONTAINERDSERVICE/io.pressure)
@@ -328,9 +316,9 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     containerd_service_io_pressures=$(echo $containerd_service_io_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
 
     containerd_service_pressure=$( jq -n \
-    --arg CPU_PRESSURE "$(echo $containerd_service_cpu_pressures)" \
-    --arg MEMORY_PRESSURE "$(echo $containerd_service_memory_pressures)" \
-    --arg IO_PRESSURE "$(echo $containerd_service_io_pressures)" \
+    --argjson CPU_PRESSURE "$(echo $containerd_service_cpu_pressures)" \
+    --argjson MEMORY_PRESSURE "$(echo $containerd_service_memory_pressures)" \
+    --argjson IO_PRESSURE "$(echo $containerd_service_io_pressures)" \
     '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
     )
 
@@ -342,30 +330,60 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     containerd_service_pressure=$(echo $containerd_service_pressure | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
 
     pressure_string=$( jq -n \
-    --arg CGROUP "$(echo $cgroup_pressure)" \
-    --arg SYSTEMSLICE "$(echo $system_slice_pressure)" \
-    --arg AZURESLICE "$(echo $azure_slice_pressure)" \
-    --arg KUBEPODSSLICE "$(echo $kubepods_slice_pressure)" \
-    --arg KUBELETSERVICE "$(echo $kubelet_service_pressure)" \
-    --arg CONTAINERDSERVICE "$(echo $containerd_service_pressure)" \
-    '{ cgroup: $CGROUP, systemslice: $SYSTEMSLICE, azureslice: $AZURESLICE, kubepodsslice: $KUBEPODSSLICE, kubeletservice: $KUBELETSERVICE, containerdservice: $CONTAINERDSERVICE } | tostring'
+    --argjson CGROUP "$(echo $cgroup_pressure)" \
+    --argjson SYSTEMSLICE "$(echo $system_slice_pressure)" \
+    --argjson AZURESLICE "$(echo $azure_slice_pressure)" \
+    --argjson KUBEPODSSLICE "$(echo $kubepods_slice_pressure)" \
+    --argjson KUBELETSERVICE "$(echo $kubelet_service_pressure)" \
+    --argjson CONTAINERDSERVICE "$(echo $containerd_service_pressure)" \
+    '{ cgroup_pressure: $CGROUP, system_slice_pressure: $SYSTEMSLICE, azure_slice_pressure: $AZURESLICE, kubepods_slice_pressure: $KUBEPODSSLICE, kubelet_service_pressure: $KUBELETSERVICE, containerd_service_pressure: $CONTAINERDSERVICE } | tostring'
     )
 
     pressure_string=$(echo $pressure_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
 
+    memory_string=$( jq -n \
+        --arg SYSTEM_SLICE_MEMORY "$(($(cat ${CGROUP}/system.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/system.slice/memory.stat | awk '/^anon /{print $2}')))" \
+        --arg AZURE_SLICE_MEMORY "$(($(cat ${CGROUP}/azure.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^anon /{print $2}')))" \
+        --arg KUBEPODS_SLICE_MEMORY "$(($(cat ${CGROUP}/kubepods.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/kubepods.slice/memory.stat | awk '/^anon /{print $2}')))" \
+        --arg USER_SLICE_MEMORY "$(($(cat ${CGROUP}/user.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/user.slice/memory.stat | awk '/^anon /{print $2}')))" \
+        --arg CONTAINERD_MEMORY "$(($(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^anon /{print $2}')))" \
+        --arg KUBELET_MEMORY "$(($(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^anon /{print $2}')))" \
+        --arg EMPLOYED_MEMORY "$(($(cat ${CGROUP}/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/memory.stat | awk '/^anon /{print $2}')))" \
+        --arg CAPACITY_MEMORY "$(grep MemTotal /proc/meminfo | awk '{print $2}')" \
+        --arg KUBEPODS_CGROUP_MEMORY_MAX "$(cat ${CGROUP}/kubepods.slice/memory.max)" \
+        '{ system_slice_memory: $SYSTEM_SLICE_MEMORY, azure_slice_memory: $AZURE_SLICE_MEMORY, kubepods_slice_memory: $KUBEPODS_SLICE_MEMORY, user_slice_memory: $USER_SLICE_MEMORY, containerd_service_memory: $CONTAINERD_MEMORY, kubelet_service_memory: $KUBELET_MEMORY, cgroup_memory: $EMPLOYED_MEMORY, cgroup_capacity_memory: $CAPACITY_MEMORY, kubepods_max_memory: $KUBEPODS_CGROUP_MEMORY_MAX } | tostring'
+    )
+
+    memory_string=$(echo $memory_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
     message_string=$( jq -n \
-        --arg CgroupVersion "${CGROUP_VERSION}" \
-        --arg MEMORY "$(echo $memory_string)" \
-        --arg PRESSURE "$(echo $pressure_string)" \
-        '{ CgroupVersion: $CgroupVersion, Memory: $MEMORY, Pressure: $PRESSURE } | tostring'
+        --arg CGROUPV "${CGROUP_VERSION}" \
+        --argjson MEMORY "$(echo $memory_string)" \
+        --argjson PRESSURE "$(echo $pressure_string)" \
+        '{ CgroupVersion: $CGROUPV, Memory: $MEMORY, Pressure: $PRESSURE } | tostring'
     )
     
 elif [ "$CGROUP_VERSION" = "tmpfs" ]; then
 
+    memory_string=$( jq -n \
+        --arg SYSTEM_SLICE_MEMORY "$(($(cat ${CGROUP}/system.slice/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/system.slice/memory.stat | awk '/^rss /{print $2}')))" \
+        --arg AZURE_SLICE_MEMORY "$(($(cat ${CGROUP}/azure.slice/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^rss /{print $2}')))" \
+        --arg KUBEPODS_SLICE_MEMORY "$(($(cat ${CGROUP}/kubepods.slice/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/kubepods.slice/memory.stat | awk '/^rss /{print $2}')))" \
+        --arg USER_SLICE_MEMORY "$(($(cat ${CGROUP}/user.slice/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/user.slice/memory.stat | awk '/^rss /{print $2}')))" \
+        --arg CONTAINERD_MEMORY "$(($(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^rss /{print $2}')))" \
+        --arg KUBELET_MEMORY "$(($(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^rss /{print $2}')))" \
+        --arg EMPLOYED_MEMORY "$(($(cat ${CGROUP}/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/memory.stat | awk '/^rss /{print $2}')))" \
+        --arg CAPACITY_MEMORY "$(grep MemTotal /proc/meminfo | awk '{print $2}')" \
+        --arg KUBEPODS_CGROUP_MEMORY_MAX "$(cat ${CGROUP}/kubepods.slice/memory.max)" \
+        '{ system_slice_memory: $SYSTEM_SLICE_MEMORY, azure_slice_memory: $AZURE_SLICE_MEMORY, kubepods_slice_memory: $KUBEPODS_SLICE_MEMORY, user_slice_memory: $USER_SLICE_MEMORY, containerd_service_memory: $CONTAINERD_MEMORY, kubelet_service_memory: $KUBELET_MEMORY, cgroup_memory: $EMPLOYED_MEMORY, cgroup_capacity_memory: $CAPACITY_MEMORY, kubepods_max_memory: $KUBEPODS_CGROUP_MEMORY_MAX } | tostring'
+    )
+
+    memory_string=$(echo $memory_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
     message_string=$( jq -n \
-        --arg CgroupVersion "${CGROUP_VERSION}" \
+        --arg CGROUPV "$(echo $CGROUP_VERSION)" \
         --arg MEMORY "$(echo $memory_string)" \
-        '{ CgroupVersion: $CgroupVersion, Memory: $MEMORY } | tostring'
+        '{ CgroupVersion: $CGROUPV, Memory: $MEMORY } | tostring'
     )
 
 else
@@ -381,7 +399,7 @@ EVENT_JSON=$( jq -n \
     --arg Version       "1.23" \
     --arg TaskName      "AKS.CSE.system_slice" \
     --arg EventLevel    "${eventlevel}" \
-    --arg Message       "${memory_string}" \
+    --argjson Message       "${message_string}" \
     --arg EventPid      "0" \
     --arg EventTid      "0" \
     '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
