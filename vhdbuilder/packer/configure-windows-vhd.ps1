@@ -581,7 +581,7 @@ function SuppressRemoteCalls()
         New-Item -Path $NGXPath -Force
     }
     Write-Log "Setting registry $path property $PropertyName to dword:00000000"
-    Set-ItemProperty -Path $NGXPath -Name $PropertyName -PropertyType DWord -Value 0
+    Set-ItemProperty -Path $NGXPath -Name $PropertyName -Type DWord -Value 0
 }
 
 
