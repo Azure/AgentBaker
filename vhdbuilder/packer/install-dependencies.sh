@@ -46,9 +46,7 @@ fi
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
 else
-  retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
-  retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
-  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+  updateAptWithMicrosoftPkg
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # jq - for manipulation JSON data
   # iptables - required to run containerd
