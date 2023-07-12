@@ -169,6 +169,9 @@ listInstalledPackages() {
 }
 
 autoAttachUA() {
+    echo "update ua tools"
+    apt-get install ubuntu-advantage-tools
+    
     echo "auto attaching ua..."
     retrycmd_if_failure 5 10 120 ua auto-attach || exit $ERR_AUTO_UA_ATTACH
 
