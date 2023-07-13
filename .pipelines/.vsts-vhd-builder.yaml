@@ -90,6 +90,7 @@ stages:
             -e ARCHITECTURE=${ARCHITECTURE} \
             -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
             -e SGX_INSTALL=${SGX_INSTALL} \
+            -e ENABLE_CGROUPV2=${ENABLE_CGROUPV2} \
             -e IMAGE_VERSION=${IMAGE_VERSION} \
             ${CONTAINER_IMAGE} make -f packer.mk run-packer
           displayName: Building VHD
@@ -122,6 +123,7 @@ stages:
             -e ARCHITECTURE=${ARCHITECTURE} \
             -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
             -e SGX_INSTALL=${SGX_INSTALL} \
+            -e ENABLE_CGROUPV2=${ENABLE_CGROUPV2} \
             ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
           displayName: Run VHD Tests
         - task: PublishPipelineArtifact@0
