@@ -150,12 +150,19 @@ const (
 	AKSUbuntuGPUContainerd1804Gen2      Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
 	AKSCBLMarinerV1                     Distro = "aks-cblmariner-v1"
 	AKSCBLMarinerV2                     Distro = "aks-cblmariner-v2"
+	AKSCBLMarinerV2CgroupV2             Distro = "aks-cblmariner-v2-cgroupv2"
 	AKSCBLMarinerV2Gen2                 Distro = "aks-cblmariner-v2-gen2"
+	AKSCBLMarinerV2Gen2CgroupV2         Distro = "aks-cblmariner-v2-gen2-cgroupv2"
 	AKSCBLMarinerV2FIPS                 Distro = "aks-cblmariner-v2-fips"
+	AKSCBLMarinerV2FIPSCgroupV2         Distro = "aks-cblmariner-v2-fips-cgroupv2"
 	AKSCBLMarinerV2Gen2FIPS             Distro = "aks-cblmariner-v2-gen2-fips"
+	AKSCBLMarinerV2Gen2FIPSCgroupV2     Distro = "aks-cblmariner-v2-gen2-fips-cgroupv2"
 	AKSCBLMarinerV2Gen2Kata             Distro = "aks-cblmariner-v2-gen2-kata"
+	AKSCBLMarinerV2Gen2KataCgroupV2    	Distro = "aks-cblmariner-v2-gen2-kata-cgroupv2"
 	AKSCBLMarinerV2Gen2TL               Distro = "aks-cblmariner-v2-gen2-tl"
+	AKSCBLMarinerV2Gen2TLCgroupV2       Distro = "aks-cblmariner-v2-gen2-tl-cgroupv2"
 	AKSCBLMarinerV2KataGen2TL           Distro = "aks-cblmariner-v2-kata-gen2-tl"
+	AKSCBLMarinerV2KataGen2TLCgroupV2   Distro = "aks-cblmariner-v2-kata-gen2-tl-cgroupv2"
 	AKSUbuntuFipsContainerd1804         Distro = "aks-ubuntu-fips-containerd-18.04"
 	AKSUbuntuFipsContainerd1804Gen2     Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
 	AKSUbuntuFipsContainerd2004         Distro = "aks-ubuntu-fips-containerd-20.04"
@@ -169,6 +176,7 @@ const (
 	AKSUbuntuContainerd2004CVMGen2      Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
 	AKSUbuntuArm64Containerd2204Gen2    Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 	AKSCBLMarinerV2Arm64Gen2            Distro = "aks-cblmariner-v2-arm64-gen2"
+	AKSCBLMarinerV2Arm64Gen2CgroupV2    Distro = "aks-cblmariner-v2-arm64-gen2-cgroupv2"
 	AKSUbuntuContainerd2204TLGen2       Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
 	AKSUbuntuMinimalContainerd2204      Distro = "aks-ubuntu-minimal-containerd-22.04"
 	AKSUbuntuMinimalContainerd2204Gen2  Distro = "aks-ubuntu-minimal-containerd-22.04-gen2"
@@ -211,12 +219,19 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
+	AKSCBLMarinerV2CgroupV2,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2Gen2CgroupV2,
 	AKSCBLMarinerV2FIPS,
+	AKSCBLMarinerV2FIPSCgroupV2,
 	AKSCBLMarinerV2Gen2FIPS,
+	AKSCBLMarinerV2Gen2FIPSCgroupV2,
 	AKSCBLMarinerV2Gen2Kata,
+	AKSCBLMarinerV2Gen2KataCgroupV2,
 	AKSCBLMarinerV2Gen2TL,
+	AKSCBLMarinerV2Gen2TLCgroupV2,
 	AKSCBLMarinerV2KataGen2TL,
+	AKSCBLMarinerV2KataGen2TLCgroupV2,
 	AKSUbuntuFipsContainerd1804,
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsContainerd2004,
@@ -230,6 +245,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSCBLMarinerV2Arm64Gen2,
+	AKSCBLMarinerV2Arm64Gen2CgroupV2,
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuMinimalContainerd2204,
 	AKSUbuntuMinimalContainerd2204Gen2,
@@ -261,7 +277,7 @@ func (d Distro) Is2204VHDDistro() bool {
 }
 
 func (d Distro) IsKataDistro() bool {
-	return d == AKSCBLMarinerV2Gen2Kata
+	return d == AKSCBLMarinerV2Gen2Kata || d == AKSCBLMarinerV2Gen2KataCgroupV2 || d == AKSCBLMarinerV2KataGen2TL || d == AKSCBLMarinerV2KataGen2TLCgroupV2
 }
 
 /*

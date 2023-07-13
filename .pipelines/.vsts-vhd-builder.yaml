@@ -49,6 +49,7 @@ stages:
             if [[ "${IMG_SKU}" == "20_04-lts-cvm" ]]; then SKU_NAME="${SKU_NAME}CVM"; fi && \
             if [[ "${IMG_SKU}" == *"minimal"* ]]; then SKU_NAME="${SKU_NAME}minimal"; fi && \
             if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
+            if [[ ${OS_VERSION} == "V2" && ${OS_SKU} == "CBLMariner" && ${ENABLE_CGROUPV2,,} == "true" ]]; then SKU_NAME="${SKU_NAME}cgroupv2"; fi && \
             SKU_NAME=$(echo ${SKU_NAME} | tr -d '.') && \
             echo "##vso[task.setvariable variable=SKU_NAME]$SKU_NAME"
             echo "Set SKU_NAME to $SKU_NAME"

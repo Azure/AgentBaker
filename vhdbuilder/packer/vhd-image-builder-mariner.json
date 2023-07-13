@@ -27,7 +27,8 @@
     "img_version": "{{env `IMG_VERSION`}}",
     "sgx_install": "{{env `SGX_INSTALL`}}",
     "vnet_name": "{{env `VNET_NAME`}}",
-    "subnet_name": "{{env `SUBNET_NAME`}}"
+    "subnet_name": "{{env `SUBNET_NAME`}}",
+    "enable_cgroupv2": "{{env `ENABLE_CGROUPV2`}}"
   },
   "builders": [
     {
