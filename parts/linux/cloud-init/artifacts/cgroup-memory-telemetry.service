@@ -3,4 +3,4 @@ Description=Updates certificates copied from AKS DS
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash /opt/scripts/cgroup-stats.sh
+ExecStart=/bin/bash /opt/scripts/cgroup-memory-telemetry.sh

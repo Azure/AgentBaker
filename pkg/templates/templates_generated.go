@@ -15,9 +15,9 @@
 // linux/cloud-init/artifacts/bind-mount.service
 // linux/cloud-init/artifacts/bind-mount.sh
 // linux/cloud-init/artifacts/block_wireserver.sh
-// linux/cloud-init/artifacts/cgroup-stats.service
-// linux/cloud-init/artifacts/cgroup-stats.sh
-// linux/cloud-init/artifacts/cgroup-stats.timer
+// linux/cloud-init/artifacts/cgroup-memory-telemetry.service
+// linux/cloud-init/artifacts/cgroup-memory-telemetry.sh
+// linux/cloud-init/artifacts/cgroup-memory-telemetry.timer
 // linux/cloud-init/artifacts/ci-syslog-watcher.path
 // linux/cloud-init/artifacts/ci-syslog-watcher.service
 // linux/cloud-init/artifacts/ci-syslog-watcher.sh
@@ -541,7 +541,7 @@ Description=Updates certificates copied from AKS DS
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash /opt/scripts/cgroup-stats.sh`)
+ExecStart=/bin/bash /opt/scripts/cgroup-memory-telemetry.sh`)
 
 func linuxCloudInitArtifactsCgroupStatsServiceBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCgroupStatsService, nil
@@ -553,7 +553,7 @@ func linuxCloudInitArtifactsCgroupStatsService() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-stats.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-memory-telemetry.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -623,7 +623,7 @@ func linuxCloudInitArtifactsCgroupStatsSh() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-stats.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-memory-telemetry.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -634,7 +634,7 @@ Description=Update cgroup statisitics to Kusto on a 5 minute timer
 [Timer]
 OnBootSec=0min
 OnCalendar=*-*-* *:0/5:0
-Unit=cgroup-stats.service
+Unit=cgroup-memory-telemetry.service
 
 [Install]
 WantedBy=multi-user.target`)
@@ -649,7 +649,7 @@ func linuxCloudInitArtifactsCgroupStatsTimer() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-stats.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-memory-telemetry.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -7655,9 +7655,9 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
 	"linux/cloud-init/artifacts/bind-mount.sh":                             linuxCloudInitArtifactsBindMountSh,
 	"linux/cloud-init/artifacts/block_wireserver.sh":                       linuxCloudInitArtifactsBlock_wireserverSh,
-	"linux/cloud-init/artifacts/cgroup-stats.service":                      linuxCloudInitArtifactsCgroupStatsService,
-	"linux/cloud-init/artifacts/cgroup-stats.sh":                           linuxCloudInitArtifactsCgroupStatsSh,
-	"linux/cloud-init/artifacts/cgroup-stats.timer":                        linuxCloudInitArtifactsCgroupStatsTimer,
+	"linux/cloud-init/artifacts/cgroup-memory-telemetry.service":                      linuxCloudInitArtifactsCgroupStatsService,
+	"linux/cloud-init/artifacts/cgroup-memory-telemetry.sh":                           linuxCloudInitArtifactsCgroupStatsSh,
+	"linux/cloud-init/artifacts/cgroup-memory-telemetry.timer":                        linuxCloudInitArtifactsCgroupStatsTimer,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.path":                    linuxCloudInitArtifactsCiSyslogWatcherPath,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.service":                 linuxCloudInitArtifactsCiSyslogWatcherService,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.sh":                      linuxCloudInitArtifactsCiSyslogWatcherSh,
@@ -7795,9 +7795,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
 				"bind-mount.sh":                             &bintree{linuxCloudInitArtifactsBindMountSh, map[string]*bintree{}},
 				"block_wireserver.sh":                       &bintree{linuxCloudInitArtifactsBlock_wireserverSh, map[string]*bintree{}},
-				"cgroup-stats.service":                      &bintree{linuxCloudInitArtifactsCgroupStatsService, map[string]*bintree{}},
-				"cgroup-stats.sh":                           &bintree{linuxCloudInitArtifactsCgroupStatsSh, map[string]*bintree{}},
-				"cgroup-stats.timer":                        &bintree{linuxCloudInitArtifactsCgroupStatsTimer, map[string]*bintree{}},
+				"cgroup-memory-telemetry.service":                      &bintree{linuxCloudInitArtifactsCgroupStatsService, map[string]*bintree{}},
+				"cgroup-memory-telemetry.sh":                           &bintree{linuxCloudInitArtifactsCgroupStatsSh, map[string]*bintree{}},
+				"cgroup-memory-telemetry.timer":                        &bintree{linuxCloudInitArtifactsCgroupStatsTimer, map[string]*bintree{}},
 				"ci-syslog-watcher.path":                    &bintree{linuxCloudInitArtifactsCiSyslogWatcherPath, map[string]*bintree{}},
 				"ci-syslog-watcher.service":                 &bintree{linuxCloudInitArtifactsCiSyslogWatcherService, map[string]*bintree{}},
 				"ci-syslog-watcher.sh":                      &bintree{linuxCloudInitArtifactsCiSyslogWatcherSh, map[string]*bintree{}},
