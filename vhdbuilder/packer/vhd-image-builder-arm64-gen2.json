@@ -356,7 +356,7 @@
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.service",
-      "destination": "/etc/systemd/system/cgroup-memory-telemetry.service"
+      "destination": "/home/packer/cgroup-pressure-telemetry.service"
     },
     {
       "type": "file",
@@ -371,7 +371,7 @@
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.service",
-      "destination": "/etc/systemd/system/cgroup-pressure-telemetry.service"
+      "destination": "/home/packer/cgroup-pressure-telemetry.service"
     },
     {
       "type": "file",
