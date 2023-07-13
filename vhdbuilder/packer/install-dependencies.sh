@@ -350,8 +350,12 @@ fi
 
 systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
 systemctlEnableAndStart cgroup-memory-telemetry.service || exit 1
-systemctlEnableAndStart cgroup-pressure-telemetry.timer || exit 1
-systemctlEnableAndStart cgroup-pressure-telemetry.service || exit 1
+
+CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
+if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
+  systemctlEnableAndStart cgroup-pressure-telemetry.timer || exit 1
+  systemctlEnableAndStart cgroup-pressure-telemetry.service || exit 1
+fi
 
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
