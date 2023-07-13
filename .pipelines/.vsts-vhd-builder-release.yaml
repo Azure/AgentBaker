@@ -332,7 +332,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen1
-    - stage: build_vhd_marinerv2_gen1_cgroupv2
+  - stage: build_vhd_marinerv2_gen1_cgroupv2
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen1CgroupV2 }}', true)
     jobs:
