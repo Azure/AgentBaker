@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh bash
 
 set -o errexit
 set -o nounset
@@ -16,6 +16,9 @@ CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)
 KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)
 
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
+
+    VERSION="cgroupv2"
+    TASK_NAME="AKS.Runtime.pressure_telemetry_cgroupv2"
 
     cgroup_cpu_pressure=$(cat ${CGROUP}/cpu.pressure)
     cgroup_memory_pressure=$(cat ${CGROUP}/memory.pressure)
@@ -348,11 +351,22 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     pressure_string=$(echo $pressure_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
 
     message_string=$( jq -n \
-        --arg CGROUPV "${CGROUP_VERSION}" \
+        --arg CGROUPV "${VERSION}" \
         --argjson PRESSURE "$(echo $pressure_string)" \
         '{ CgroupVersion: $CGROUPV, Pressure: $PRESSURE } | tostring'
     )
     
+elif [ "$CGROUP_VERSION" = "tmpfs" ]; then
+
+    VERSION="cgroupv1"
+    TASK_NAME="AKS.Runtime.pressure_telemetry_cgroupv1"
+
+    message_string=$( jq -n \
+        --arg CGROUPV "${VERSION}" \
+        --arg Pressure "$(echo "No PSI available for $VERSION")" \
+        '{ CgroupVersion: $CGROUPV, Pressure: $Pressure } | tostring'
+    )
+
 else
     echo "Unexpected cgroup type. Exiting"
     exit 1
@@ -364,7 +378,7 @@ EVENT_JSON=$( jq -n \
     --arg Timestamp     "${STARTTIME_FORMATTED}" \
     --arg OperationId   "${ENDTIME_FORMATTED}" \
     --arg Version       "1.23" \
-    --arg TaskName      "AKS.Runtime.pressure_telemetry" \
+    --arg TaskName      "${TASK_NAME}" \
     --arg EventLevel    "${eventlevel}" \
     --argjson Message       "${message_string}" \
     --arg EventPid      "0" \

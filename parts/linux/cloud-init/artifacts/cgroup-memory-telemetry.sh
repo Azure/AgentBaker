@@ -17,6 +17,10 @@ KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)
 
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
 
+    VERSION="cgroupv2"
+    TASK_NAME="AKS.Runtime.memory_telemetry_cgroupv2"
+    
+    
     memory_string=$( jq -n \
         --arg SYSTEM_SLICE_MEMORY "$(($(cat ${CGROUP}/system.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/system.slice/memory.stat | awk '/^anon /{print $2}')))" \
         --arg AZURE_SLICE_MEMORY "$(($(cat ${CGROUP}/azure.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^anon /{print $2}')))" \
@@ -31,6 +35,9 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     )
     
 elif [ "$CGROUP_VERSION" = "tmpfs" ]; then
+
+    VERSION="cgroupv1"
+    TASK_NAME="AKS.Runtime.memory_telemetry_cgroupv1"
 
     memory_string=$( jq -n \
         --arg SYSTEM_SLICE_MEMORY "$(($(cat ${CGROUP}/system.slice/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/system.slice/memory.stat | awk '/^rss /{print $2}')))" \
@@ -53,7 +60,7 @@ fi
 memory_string=$(echo $memory_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
 
 message_string=$( jq -n \
-    --arg CGROUPV "${CGROUP_VERSION}" \
+    --arg CGROUPV "${VERSION}" \
     --argjson MEMORY "$(echo $memory_string)" \
     '{ CgroupVersion: $CGROUPV, Memory: $MEMORY } | tostring'
 )
@@ -64,9 +71,9 @@ EVENT_JSON=$( jq -n \
     --arg Timestamp     "${STARTTIME_FORMATTED}" \
     --arg OperationId   "${ENDTIME_FORMATTED}" \
     --arg Version       "1.23" \
-    --arg TaskName      "AKS.Runtime.memory_telemetry" \
+    --arg TaskName      "${TASK_NAME}" \
     --arg EventLevel    "${eventlevel}" \
-    --argjson Message       "${message_string}" \
+    --argjson Message    "${message_string}" \
     --arg EventPid      "0" \
     --arg EventTid      "0" \
     '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
