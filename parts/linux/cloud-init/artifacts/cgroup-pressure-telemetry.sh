@@ -356,17 +356,6 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
         '{ CgroupVersion: $CGROUPV, Pressure: $PRESSURE } | tostring'
     )
     
-elif [ "$CGROUP_VERSION" = "tmpfs" ]; then
-
-    VERSION="cgroupv1"
-    TASK_NAME="AKS.Runtime.pressure_telemetry_cgroupv1"
-
-    message_string=$( jq -n \
-        --arg CGROUPV "${VERSION}" \
-        --arg Pressure "$(echo "No PSI available for $VERSION")" \
-        '{ CgroupVersion: $CGROUPV, Pressure: $Pressure } | tostring'
-    )
-
 else
     echo "Unexpected cgroup type. Exiting"
     exit 1
