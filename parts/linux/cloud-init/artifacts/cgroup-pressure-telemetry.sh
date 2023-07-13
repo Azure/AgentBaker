@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 set -o errexit
 set -o nounset
@@ -353,14 +353,6 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
         '{ CgroupVersion: $CGROUPV, Pressure: $PRESSURE } | tostring'
     )
     
-elif [ "$CGROUP_VERSION" = "tmpfs" ]; then
-
-    message_string=$( jq -n \
-        --arg CGROUPV "$(echo $CGROUP_VERSION)" \
-        --arg Pressure "$(echo "No PSI available for $CGROUP_VERSION")" \
-        '{ CgroupVersion: $CGROUPV, Pressure: $Pressure } | tostring'
-    )
-
 else
     echo "Unexpected cgroup type. Exiting"
     exit 1
