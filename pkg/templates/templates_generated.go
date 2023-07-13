@@ -540,7 +540,7 @@ func linuxCloudInitArtifactsBlock_wireserverSh() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCgroupMemoryTelemetryService = []byte(`[Unit]
-Description=Updates certificates copied from AKS DS
+Description=Emit system cgroup memory telemetry
 
 [Service]
 Type=oneshot
@@ -561,7 +561,13 @@ func linuxCloudInitArtifactsCgroupMemoryTelemetryService() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsCgroupMemoryTelemetrySh = []byte(`EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+var _linuxCloudInitArtifactsCgroupMemoryTelemetrySh = []byte(`#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 EVENTS_FILE_NAME=$(date +%s%3N)
 STARTTIME=$(date)
 STARTTIME_FORMATTED=$(date +"%F %T.%3N")
@@ -629,8 +635,7 @@ EVENT_JSON=$( jq -n \
     '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
 )
 
-echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
-cat ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json`)
+echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json`)
 
 func linuxCloudInitArtifactsCgroupMemoryTelemetryShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCgroupMemoryTelemetrySh, nil
@@ -674,7 +679,7 @@ func linuxCloudInitArtifactsCgroupMemoryTelemetryTimer() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCgroupPressureTelemetryService = []byte(`[Unit]
-Description=Updates certificates copied from AKS DS
+Description=Emit system cgroup pressure telemetry
 
 [Service]
 Type=oneshot
@@ -695,7 +700,13 @@ func linuxCloudInitArtifactsCgroupPressureTelemetryService() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsCgroupPressureTelemetrySh = []byte(`EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+var _linuxCloudInitArtifactsCgroupPressureTelemetrySh = []byte(`#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 EVENTS_FILE_NAME=$(date +%s%3N)
 STARTTIME=$(date)
 STARTTIME_FORMATTED=$(date +"%F %T.%3N")
@@ -1071,8 +1082,7 @@ EVENT_JSON=$( jq -n \
     '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
 )
 
-echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
-cat ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json`)
+echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json`)
 
 func linuxCloudInitArtifactsCgroupPressureTelemetryShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCgroupPressureTelemetrySh, nil
