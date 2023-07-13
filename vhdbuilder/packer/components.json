@@ -120,6 +120,7 @@
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/node:*",
       "amd64OnlyVersions": [
+        "v3.8.9.3",
         "v3.8.9.5"
       ],
       "multiArchVersions": [
@@ -194,14 +195,20 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
-      "amd64OnlyVersions": [],
+      "amd64OnlyVersions": [
+        "1.7.1-hotfix.20200403-1",
+        "1.7.1-hotfix.20200403.1"
+      ],
       "multiArchVersions": [
         "v1.8.8"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/ip-masq-agent:*",
-      "amd64OnlyVersions": [],
+      "amd64OnlyVersions": [
+        "v2.5.0.12",
+        "v2.5.0.7"
+      ],
       "multiArchVersions": [
         "v2.5.0.12"
       ]
@@ -228,8 +235,10 @@
       "multiArchVersions": [
         "v1.24.2",
         "v1.24.3",
+        "v1.26.3-2",
         "v1.26.3.1",
-        "v1.28.0-1"
+        "v1.28.0-1",
+        "v1.28.0-2"
       ]
     },
     {
