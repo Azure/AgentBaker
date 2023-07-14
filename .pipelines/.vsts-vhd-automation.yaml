@@ -52,6 +52,7 @@ steps:
 - bash: |
         echo "Triggering windows VHD production pipeline (containerd & docker)"
         /bin/bash vhdbuilder/scripts/windows/automate_vhd_production.sh
+        /bin/bash vhdbuilder/scripts/windows/automate_winev2pipeline_trigger.sh
   displayName: 'Windows VHD Production'
   condition: eq('${{ parameters.VHDProdTrigger }}', true)
 - bash: |
