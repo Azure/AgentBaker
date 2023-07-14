@@ -103,7 +103,6 @@ def set_password(username, password):
     child = BashSpawn(f"sudo passwd {username}", encoding='utf-8',
                       logfile=sys.stdout)
     try:
-        # child.expect_optional_sudo_auth()
         child.expect_password_prompt(password)
         child.expect(["Retype new password:"])
         print("\n-------Confirming password")
@@ -148,8 +147,6 @@ class User:
                           f"{self.name}",
                           encoding='utf-8')
         try:
-            # child.expect_optional_sudo_auth()
-
             child.expect([pexpect.EOF])
 
             if not check_user_exists(self.name):
@@ -177,7 +174,6 @@ class User:
         print(f"\n=== Deleting user {self.name}")
         child = BashSpawn(f"sudo userdel -f {self.name}", encoding='utf-8')
         try:
-            # child.expect_optional_sudo_auth()
             child.expect([pexpect.EOF])
 
             if check_user_exists(self.name):
@@ -195,7 +191,6 @@ class User:
         child = BashSpawn(f"sudo rm -f /var/run/faillock/{self.name}",
                           encoding='utf-8')
         try:
-            # child.expect_optional_sudo_auth()
             child.expect([pexpect.EOF])
 
         except Exception as e:
@@ -242,7 +237,6 @@ def login(user, pw=None):
     print("\n=== Logging in as " + user.name)
     child = BashSpawn("sudo login", encoding='utf-8')
     try:
-        # child.expect_optional_sudo_auth()
         child.expect_login_prompt(user.name)
         child.expect_password_prompt(pw)
 
@@ -280,7 +274,6 @@ def change_password(user, new_pw):
     child = BashSpawn(f"sudo login {user.name}", encoding='utf-8',
                       logfile=sys.stdout, timeout=1)
     try:
-        # child.expect_optional_sudo_auth()
         child.expect_password_prompt(user.pw)
         child.expect([r"\$"])
         child.sendline("whoami")
@@ -346,7 +339,6 @@ def change_password_w_retries(user, bad_pw):
     child = BashSpawn(f"sudo login {user.name}", encoding='utf-8')
     count = 0
     try:
-        # child.expect_optional_sudo_auth()
         child.expect_password_prompt(user.pw)
         child.expect([r"\$"])
 
