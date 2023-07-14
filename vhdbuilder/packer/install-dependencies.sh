@@ -351,12 +351,12 @@ fi
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
 systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
-systemctlEnableAndStart cgroup-memory-telemetry.service || exit 1
+systemctlEnableAndStart cgroup-memory-telemetry.service
 
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
   systemctlEnableAndStart cgroup-pressure-telemetry.timer || exit 1
-  systemctlEnableAndStart cgroup-pressure-telemetry.service || exit 1
+  systemctlEnableAndStart cgroup-pressure-telemetry.service
 fi
 
 cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
