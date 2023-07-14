@@ -43,7 +43,7 @@ steps:
         MAPPED_ADO_PAT: $(ADO_PAT)
   displayName: 'az devops login'
 - bash: |
-        echo "Checking latest windows VHD base image version before bumping in windows-image.env"
+        echo "Bumping windows VHD base image version"
         /bin/bash vhdbuilder/scripts/windows/automate_version_bump.sh $MAPPED_GITHUB_PAT
   env:
         MAPPED_GITHUB_PAT: $(TMP_GITHUB_PAT)
