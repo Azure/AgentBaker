@@ -49,7 +49,7 @@ create_image_bump_pr() {
 
     set +x
     # Notice all the git operations have been commented for now
-    create_pull_request $new_image_version $github_access_token $branch_name $pr_title
+    #create_pull_request $new_image_version $github_access_token $branch_name $pr_title
     set -x
 }
 
