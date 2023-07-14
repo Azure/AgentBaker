@@ -1,0 +1,6 @@
+[Unit]
+Description=Emit system cgroup pressure telemetry
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/scripts/cgroup-pressure-telemetry.sh

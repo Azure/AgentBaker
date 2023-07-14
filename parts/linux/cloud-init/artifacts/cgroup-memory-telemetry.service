@@ -1,0 +1,6 @@
+[Unit]
+Description=Emit system cgroup memory telemetry
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/scripts/cgroup-memory-telemetry.sh
