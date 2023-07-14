@@ -10,6 +10,7 @@ STARTTIME=$(date)
 STARTTIME_FORMATTED=$(date +"%F %T.%3N")
 ENDTIME_FORMATTED=$(date +"%F %T.%3N")
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
+eventlevel="Microsoft.Azure.Extensions.CustomScript-1.23"
 
 CGROUP="/sys/fs/cgroup"
 CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)
@@ -19,16 +20,15 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
 
     VERSION="cgroupv2"
     TASK_NAME="AKS.Runtime.memory_telemetry_cgroupv2"
-    
-    
+
     memory_string=$( jq -n \
-        --arg SYSTEM_SLICE_MEMORY "$(($(cat ${CGROUP}/system.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/system.slice/memory.stat | awk '/^anon /{print $2}')))" \
-        --arg AZURE_SLICE_MEMORY "$(($(cat ${CGROUP}/azure.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^anon /{print $2}')))" \
-        --arg KUBEPODS_SLICE_MEMORY "$(($(cat ${CGROUP}/kubepods.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/kubepods.slice/memory.stat | awk '/^anon /{print $2}')))" \
-        --arg USER_SLICE_MEMORY "$(($(cat ${CGROUP}/user.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/user.slice/memory.stat | awk '/^anon /{print $2}')))" \
-        --arg CONTAINERD_MEMORY "$(($(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^anon /{print $2}')))" \
-        --arg KUBELET_MEMORY "$(($(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^anon /{print $2}')))" \
-        --arg EMPLOYED_MEMORY "$(($(cat ${CGROUP}/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/memory.stat | awk '/^anon /{print $2}')))" \
+        --arg SYSTEM_SLICE_MEMORY "$(expr $(cat ${CGROUP}/system.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/system.slice/memory.stat | awk '/^anon /{print $2}'))" \
+        --arg AZURE_SLICE_MEMORY "$(expr $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^anon /{print $2}'))" \
+        --arg KUBEPODS_SLICE_MEMORY "$(expr $(cat ${CGROUP}/kubepods.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/kubepods.slice/memory.stat | awk '/^anon /{print $2}'))" \
+        --arg USER_SLICE_MEMORY "$(expr $(cat ${CGROUP}/user.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/user.slice/memory.stat | awk '/^anon /{print $2}'))" \
+        --arg CONTAINERD_MEMORY "$(expr $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^anon /{print $2}'))" \
+        --arg KUBELET_MEMORY "$(expr $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^anon /{print $2}'))" \
+        --arg EMPLOYED_MEMORY "$(expr $(cat ${CGROUP}/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/memory.stat | awk '/^anon /{print $2}'))" \
         --arg CAPACITY_MEMORY "$(grep MemTotal /proc/meminfo | awk '{print $2}')" \
         --arg KUBEPODS_CGROUP_MEMORY_MAX "$(cat ${CGROUP}/kubepods.slice/memory.max)" \
         '{ system_slice_memory: $SYSTEM_SLICE_MEMORY, azure_slice_memory: $AZURE_SLICE_MEMORY, kubepods_slice_memory: $KUBEPODS_SLICE_MEMORY, user_slice_memory: $USER_SLICE_MEMORY, containerd_service_memory: $CONTAINERD_MEMORY, kubelet_service_memory: $KUBELET_MEMORY, cgroup_memory: $EMPLOYED_MEMORY, cgroup_capacity_memory: $CAPACITY_MEMORY, kubepods_max_memory: $KUBEPODS_CGROUP_MEMORY_MAX } | tostring'
@@ -40,17 +40,17 @@ elif [ "$CGROUP_VERSION" = "tmpfs" ]; then
     TASK_NAME="AKS.Runtime.memory_telemetry_cgroupv1"
 
     memory_string=$( jq -n \
-        --arg SYSTEM_SLICE_MEMORY "$(($(cat ${CGROUP}/system.slice/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/system.slice/memory.stat | awk '/^rss /{print $2}')))" \
-        --arg AZURE_SLICE_MEMORY "$(($(cat ${CGROUP}/azure.slice/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^rss /{print $2}')))" \
-        --arg KUBEPODS_SLICE_MEMORY "$(($(cat ${CGROUP}/kubepods.slice/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/kubepods.slice/memory.stat | awk '/^rss /{print $2}')))" \
-        --arg USER_SLICE_MEMORY "$(($(cat ${CGROUP}/user.slice/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/user.slice/memory.stat | awk '/^rss /{print $2}')))" \
-        --arg CONTAINERD_MEMORY "$(($(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^rss /{print $2}')))" \
-        --arg KUBELET_MEMORY "$(($(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^rss /{print $2}')))" \
-        --arg EMPLOYED_MEMORY "$(($(cat ${CGROUP}/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/memory.stat | awk '/^rss /{print $2}')))" \
+        --arg SYSTEM_SLICE_MEMORY "$(expr $(cat ${CGROUP}/system.slice/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/system.slice/memory.stat | awk '/^rss /{print $2}'))" \
+        --arg AZURE_SLICE_MEMORY "$(expr $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^rss /{print $2}'))" \
+        --arg KUBEPODS_SLICE_MEMORY "$(expr $(cat ${CGROUP}/kubepods.slice/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/kubepods.slice/memory.stat | awk '/^rss /{print $2}'))" \
+        --arg USER_SLICE_MEMORY "$(expr $(cat ${CGROUP}/user.slice/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/user.slice/memory.stat | awk '/^rss /{print $2}'))" \
+        --arg CONTAINERD_MEMORY "$(expr $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^rss /{print $2}'))" \
+        --arg KUBELET_MEMORY "$(expr $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^rss /{print $2}'))" \
+        --arg EMPLOYED_MEMORY "$(expr $(cat ${CGROUP}/memory.stat | awk '/^cache /{print $2}') + $(cat ${CGROUP}/memory.stat | awk '/^rss /{print $2}'))" \
         --arg CAPACITY_MEMORY "$(grep MemTotal /proc/meminfo | awk '{print $2}')" \
         --arg KUBEPODS_CGROUP_MEMORY_MAX "$(cat ${CGROUP}/kubepods.slice/memory.max)" \
         '{ system_slice_memory: $SYSTEM_SLICE_MEMORY, azure_slice_memory: $AZURE_SLICE_MEMORY, kubepods_slice_memory: $KUBEPODS_SLICE_MEMORY, user_slice_memory: $USER_SLICE_MEMORY, containerd_service_memory: $CONTAINERD_MEMORY, kubelet_service_memory: $KUBELET_MEMORY, cgroup_memory: $EMPLOYED_MEMORY, cgroup_capacity_memory: $CAPACITY_MEMORY, kubepods_max_memory: $KUBEPODS_CGROUP_MEMORY_MAX } | tostring'
-    )   
+    )
 
 else
     echo "Unexpected cgroup type. Exiting"
