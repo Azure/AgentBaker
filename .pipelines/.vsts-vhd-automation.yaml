@@ -42,6 +42,6 @@ steps:
         echo "checking latest windows VHD base image version before bumping in windows-image.env"
         /bin/bash vhdbuilder/scripts/windows/automate_version_bump.sh $MAPPED_GITHUB_PAT
   env:
-        MAPPED_GITHUB_PAT: $(GITHUB_PAT)
+        MAPPED_GITHUB_PAT: $(TMP_GITHUB_PAT)
   displayName: 'Image Version Bumping'
   condition: eq('${{ parameters.ImageBump }}', true)
