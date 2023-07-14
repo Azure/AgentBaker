@@ -755,6 +755,51 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
+# Tests that the PAM configuration is functional and aligns with the expected configuration.
+testPam() {
+  local os_sku="${1}"
+  local os_version="${2}"
+  local test="testPam"
+  local testdir="./AgentBaker/vhdbuilder/packer/test/pam"
+  local retval=0
+  echo "${test}:Start"
+
+  # We only want to run this test on Mariner 2.0
+  # So if it's anything else, report that we're skipping the test and bail.
+  if [[ "${os_sku}" != "CBLMariner" || "${os_version}" != "2.0" ]]; then
+    echo "$test: Skipping test on ${os_sku} ${os_version}"
+  else
+    # cd to the directory of the script
+    pushd ${testdir} || (err ${test} "Failed to cd to test directory ${testdir}"; return 1)
+    # create the virtual environment
+    python3 -m venv . || (err ${test} "Failed to create virtual environment"; return 1)
+    # activate the virtual environment
+    # shellcheck source=/dev/null
+    source ./bin/activate
+    # install the dependencies
+    pip3 install --disable-pip-version-check -r requirements.txt || \
+      (err ${test} "Failed to install dependencies"; return 1)
+    # run the script
+    output=$(pytest -v -s test_pam.py)
+    retval=$?
+    # deactivate the virtual environment
+    deactivate
+    popd || (err ${test} "Failed to cd out of test dir"; return 1)
+    
+    if [ $retval -ne 0 ]; then
+      err ${test} "$output"
+      err ${test} "PAM configuration is not functional"
+      retval=1
+    else
+      echo "${test}: PAM configuration is functionally correct"
+    fi
+  fi
+
+  echo "${test}:Finish"
+  return $retval
+}
+
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -786,3 +831,4 @@ testCronPermissions
 testCoreDumpSettings
 testNfsServerService
 testPamDSettings $OS_SKU $OS_VERSION
+testPam $OS_SKU $OS_VERSION
