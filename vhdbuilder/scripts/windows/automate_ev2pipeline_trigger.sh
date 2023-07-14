@@ -32,3 +32,4 @@ trigger_pipeline() {
         echo "ev2 artifacts successfully built for build $build_id"
     done
 }
+trigger_pipeline

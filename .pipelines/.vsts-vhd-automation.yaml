@@ -51,7 +51,7 @@ steps:
   condition: eq('${{ parameters.ImageBump }}', true)
 - bash: |
         echo "Triggering windows VHD production pipeline (containerd & docker)"
-        /bin/bash vhdbuilder/scripts/windows/automate_vhd_production.sh
+        /bin/bash vhdbuilder/scripts/windows/automate_vhd_production.sh "${BUILD_ID[@]}"
   displayName: 'Windows VHD Production'
   condition: eq('${{ parameters.VHDProdTrigger }}', true)
 - bash: |
