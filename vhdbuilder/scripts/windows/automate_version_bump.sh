@@ -53,11 +53,6 @@ create_image_bump_pr() {
     set -x
 }
 
-trigger_pipeline() {
-    # az pipelines run --id 188674 # --name "AKS Windows VHD Build -ContainerD&Docker"    
-}
-
 set_git_config
 find_latest_image_version
 create_image_bump_pr
-#trigger_pipeline
