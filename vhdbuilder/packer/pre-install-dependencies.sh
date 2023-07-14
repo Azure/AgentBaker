@@ -84,9 +84,4 @@ else
   fi
 fi
 
-# Handle MarinerV2 + CgroupV2
-if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
-  sed -i 's/systemd.legacy_systemd_cgroup_controller=yes systemd.unified_cgroup_hierarchy=0//g' /boot/systemd.cfg
-fi
-
 echo "pre-install-dependencies step finished successfully"
