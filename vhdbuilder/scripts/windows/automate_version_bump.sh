@@ -47,12 +47,25 @@ create_image_bump_pr() {
     create_branch $branch_name
     update_image_version
 
-    set +x
+    #set +x
     # Notice all the git operations have been commented for now
     #create_pull_request $new_image_version $github_access_token $branch_name $pr_title
-    set -x
+    #set -x
+}
+
+
+build_id="76289801"
+
+trigger_pipeline() {
+    pipeline_id="322622" # [OneBranch][Official] AKS Windows VHD Build EV2 Artifacts
+    echo "Build ID for the release is $build_id"
+    az pipelines variable update --name VHD_PIPELINE_RUN_ID --pipeline-id $pipeline_id --value $build_id  # Update the VHD_PIPELINE_RUN_ID with the build ID
+        
+    # In case auth fails/other issue, we do not want the pipeline to run if the build ID was not correctly updated
+    
 }
 
 set_git_config
 find_latest_image_version
 create_image_bump_pr
+trigger_pipeline
