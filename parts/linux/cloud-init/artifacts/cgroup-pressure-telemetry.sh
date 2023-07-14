@@ -1,4 +1,4 @@
-#!/bin/sh bash
+#!/bin/bash
 
 set -o errexit
 set -o nounset
@@ -10,6 +10,7 @@ STARTTIME=$(date)
 STARTTIME_FORMATTED=$(date +"%F %T.%3N")
 ENDTIME_FORMATTED=$(date +"%F %T.%3N")
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
+eventlevel="Microsoft.Azure.Extensions.CustomScript-1.23"
 
 CGROUP="/sys/fs/cgroup"
 CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)
@@ -355,7 +356,7 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
         --argjson PRESSURE "$(echo $pressure_string)" \
         '{ CgroupVersion: $CGROUPV, Pressure: $PRESSURE } | tostring'
     )
-    
+
 else
     echo "Unexpected cgroup type. Exiting"
     exit 1
