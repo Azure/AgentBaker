@@ -56,8 +56,6 @@ steps:
   condition: eq('${{ parameters.VHDProdTrigger }}', true)
 - bash: |
         echo "Triggering windows VHD build ev2 artifacts pipeline"
-        /bin/bash vhdbuilder/scripts/windows/automate_ev2pipeline_trigger.sh $BUILD_ID
+        /bin/bash vhdbuilder/scripts/windows/automate_ev2pipeline_trigger.sh
   displayName: 'ev2 Artifact Pipeline Trigger'
-  env:
-        BUILD_ID: $(BUILD_ID)
   condition: eq('${{ parameters.ArtifactTrigger }}', true)
