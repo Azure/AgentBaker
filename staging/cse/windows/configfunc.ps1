@@ -531,13 +531,6 @@ function Retag-ImagesForAzureChinaCloud {
         [Parameter(Mandatory=$true)][string]
         $TargetEnvironment
     )
-
-    if ($TargetEnvironment -ne "AzureChinaCloud") {
-        # Do not remove existing tags in existing VHDs in non-AzureChinaCloud
-        # We will remove retagging images in building Windows VHDs soon
-        Write-Log "Not retagging images for $TargetEnvironment"
-        return
-    }
     
     $isExist=$false
     $imageList=$(ctr.exe -n k8s.io image ls | select -Skip 1)
@@ -548,6 +541,21 @@ function Retag-ImagesForAzureChinaCloud {
             $isExist=$true
             break
         }
+    }
+    
+    if ($TargetEnvironment -ne "AzureChinaCloud") {
+        if ($isExist) {
+            Write-Log "Clear existing tags for AzureChinaCloud in $TargetEnvironment"
+            foreach ($imageInfo in $imageList) {
+                $splitResult=($imageInfo -split '\s+')
+                $image=$splitResult[0]
+                if ($image -like 'mcr.azk8s.cn*' -and (-not $image.Contains("@sha256:"))) {
+                    ctr.exe -n k8s.io image delete $image
+                }
+            }
+        }
+        Write-Log "Not retagging images for $TargetEnvironment"
+        return
     }
 
     # Skip if we have already retagged the images in building VHDs
