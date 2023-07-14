@@ -51,11 +51,13 @@ steps:
   condition: eq('${{ parameters.ImageBump }}', true)
 - bash: |
         echo "Triggering windows VHD production pipeline (containerd & docker)"
-        /bin/bash vhdbuilder/scripts/windows/automate_vhd_production.sh "${BUILD_ID[@]}"
+        /bin/bash vhdbuilder/scripts/windows/automate_vhd_production.sh
   displayName: 'Windows VHD Production'
   condition: eq('${{ parameters.VHDProdTrigger }}', true)
 - bash: |
         echo "Triggering windows VHD build ev2 artifacts pipeline"
-        /bin/bash vhdbuilder/scripts/windows/automate_ev2pipeline_trigger.sh "${BUILD_ID[@]}"
+        /bin/bash vhdbuilder/scripts/windows/automate_ev2pipeline_trigger.sh $BUILD_ID
   displayName: 'ev2 Artifact Pipeline Trigger'
+  env:
+        BUILD_ID: $(BUILD_ID)
   condition: eq('${{ parameters.ArtifactTrigger }}', true)
