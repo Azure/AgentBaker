@@ -309,6 +309,8 @@ try
         Set-DockerLogFileOptions
     }
 
+    Retag-ImagesForAzureChinaCloud -TargetEnvironment $TargetEnvironment
+
     # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
     Write-Log "Write Azure cloud provider config"
     Write-AzureConfig `
