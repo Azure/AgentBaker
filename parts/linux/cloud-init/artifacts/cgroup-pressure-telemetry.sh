@@ -72,7 +72,7 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
     )
 
-    SYSTEMSLICE="${CGROUP}//system.slice"
+    SYSTEMSLICE="${CGROUP}/system.slice"
     system_slice_cpu_pressure=$(cat $SYSTEMSLICE/cpu.pressure)
     system_slice_memory_pressure=$(cat $SYSTEMSLICE/memory.pressure)
     system_slice_io_pressure=$(cat $SYSTEMSLICE/io.pressure)
