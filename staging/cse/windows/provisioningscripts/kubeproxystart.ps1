@@ -39,9 +39,6 @@ function Compare-SemanticVersion {
 }
 
 $KubeNetwork = "azure"
-if ($Global:ClusterConfiguration.Cni.Name -eq "kubenet") {
-    $KubeNetwork = "l2bridge"
-}
 
 $env:KUBE_NETWORK = $KubeNetwork
 $global:HNSModule = "c:\k\hns.v2.psm1"

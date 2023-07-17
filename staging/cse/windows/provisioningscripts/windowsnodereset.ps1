@@ -133,20 +133,6 @@ if ($IsDualStackEnabled) {
 & "c:\k\cleanupnetwork.ps1"
 
 #
-# Create required networks
-#
-
-# If using kubenet create the HNS network here.
-# (The kubelet creates the HNS network when using azure-cni + azure cloud provider)
-if ($global:NetworkPlugin -eq 'kubenet') {
-    Write-Log "Creating new hns network: $($global:NetworkMode.ToLower())"
-    $podCIDR = Get-PodCIDR
-    $masterSubnetGW = Get-DefaultGateway $global:MasterSubnet
-    New-HNSNetwork -Type $global:NetworkMode -AddressPrefix $podCIDR -Gateway $masterSubnetGW -Name $global:NetworkMode.ToLower() -Verbose
-    Start-sleep 10
-}
-
-#
 # Start Services
 #
 
