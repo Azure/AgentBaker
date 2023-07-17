@@ -19,6 +19,7 @@ parameters:
 
 steps:
 - bash: |
+        go env
         echo "Removing existing go environment"
         sudo rm -r /usr/local/go
         GOLANG_VERSION=$(curl -s 'https://go.dev/VERSION?m=text')
@@ -30,6 +31,7 @@ steps:
         sudo chown -R "$(whoami):$(whoami)" /usr/local/go 
         sudo tar -xvf "${GOLANG_VERSION}.linux-amd64.tar.gz" -C /usr/local
         rm "${GOLANG_VERSION}.linux-amd64.tar.gz"
+        go env
   displayName: 'Clean up go environment'
 - bash: |
         az extension add -n azure-devops
