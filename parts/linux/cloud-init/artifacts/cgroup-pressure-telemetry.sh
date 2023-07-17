@@ -24,8 +24,6 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     cgroup_memory_pressure=$(cat ${CGROUP}/memory.pressure)
     cgroup_io_pressure=$(cat ${CGROUP}/io.pressure)
 
-    # if [ -f ${cgroup_cpu_pressure} ]; then $(echo $cgroup_cpu_pressure | awk -F "=" '{print $2}' | awk '{print $1}'); else echo "Not Found"; fi"
-
     cgroup_cpu_pressures=$( jq -n \
     --arg SOME_AVG10 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
     --arg SOME_AVG60 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
