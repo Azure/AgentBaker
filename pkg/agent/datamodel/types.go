@@ -158,7 +158,7 @@ const (
 	AKSCBLMarinerV2Gen2FIPS             Distro = "aks-cblmariner-v2-gen2-fips"
 	AKSCBLMarinerV2Gen2FIPSCgroupV2     Distro = "aks-cblmariner-v2-gen2-fips-cgroupv2"
 	AKSCBLMarinerV2Gen2Kata             Distro = "aks-cblmariner-v2-gen2-kata"
-	AKSCBLMarinerV2Gen2KataCgroupV2    	Distro = "aks-cblmariner-v2-gen2-kata-cgroupv2"
+	AKSCBLMarinerV2Gen2KataCgroupV2     Distro = "aks-cblmariner-v2-gen2-kata-cgroupv2"
 	AKSCBLMarinerV2Gen2TL               Distro = "aks-cblmariner-v2-gen2-tl"
 	AKSCBLMarinerV2Gen2TLCgroupV2       Distro = "aks-cblmariner-v2-gen2-tl-cgroupv2"
 	AKSCBLMarinerV2KataGen2TL           Distro = "aks-cblmariner-v2-kata-gen2-tl"
