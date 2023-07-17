@@ -170,47 +170,6 @@ users:
     $bootstrapKubeConfig | Out-File -encoding ASCII -filepath "$bootstrapKubeConfigFIle"
 }
 
-function Test-ContainerImageExists {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $Image,
-        [Parameter(Mandatory = $false)][string]
-        $Tag
-    )
-
-    $target = $Image
-    if ($Tag) {
-        $target += ":$Tag"
-    }
-
-    return ( (ctr.exe -n k8s.io images list) | Select-String $target) -ne $Null
-}
-
-# TBD by abel: Remove this function after the change in CSE is deployed
-function New-InfraContainer {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $KubeDir,
-        $DestinationTag = "kubletwin/pause"
-    )
-    cd $KubeDir
-    $windowsVersion = Get-WindowsVersion
-
-    # Reference for these tags: curl -L https://mcr.microsoft.com/v2/k8s/core/pause/tags/list
-    # Then docker run --rm mplatform/manifest-tool inspect mcr.microsoft.com/k8s/core/pause:<tag>
-
-    $clusterConfig = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
-    $defaultPauseImage = $clusterConfig.Cri.Images.Pause
-
-    # containerd
-    if (-not (Test-ContainerImageExists -Image $defaultPauseImage) -or $global:AlwaysPullWindowsPauseImage) {
-        Invoke-Executable -Executable "ctr" -ArgList @("-n", "k8s.io", "image", "pull", "$defaultPauseImage") -ExitCode $global:WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE -Retries 5 -RetryDelaySeconds 30
-    }
-    Invoke-Executable -Executable "ctr" -ArgList @("-n", "k8s.io", "image", "tag", "$defaultPauseImage", "$DestinationTag") -ExitCode $global:WINDOWS_CSE_ERROR_BUILD_TAG_PAUSE_IMAGE
-}
-
-# TODO: Deprecate this and replace with methods that get individual components instead of zip containing everything
-# This expects the ZIP file created by Azure Pipelines.
 function Get-KubePackage {
     Param(
         [Parameter(Mandatory = $true)][string]
