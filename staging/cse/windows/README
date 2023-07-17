@@ -13,8 +13,8 @@
 1. Run below commands to build a test package
 ```bash
 branchName="master"
-currentCseVersion="v0.0.22" # `WindowsCSEScriptsPackage` defined in `parts/windows/kuberneteswindowssetup.ps1`
-testCseVersion="v0.0.24.1" # Test package name. NOTE: Please do not use the official package format and earlier used version.
+currentCseVersion="v0.0.27" # `WindowsCSEScriptsPackage` defined in `parts/windows/kuberneteswindowssetup.ps1`
+testCseVersion="v0.0.27.1" # Test package name. NOTE: Please do not use the official package format and earlier used version.
 url="https://raw.githubusercontent.com/Azure/AgentBaker/$branchName/staging/cse/windows"
 
 mkdir -p temp-work-folder/aks-windows-cse
@@ -54,6 +54,11 @@ popd
 
 # AKS Windows CSE Scripts Package
 All files except *.test.ps1 and README will be published in AKS Windows CSE Scripts Package.
+
+## v0.0.27
+- feat: clear existing images tags in non-AzureChinaCloud #3422
+- feat: retag images for AzureChinaCloud in provisioning Windows nodes #3414
+- feat: collect windowslogscleanup.log in GuestVMLogs #3355
 
 ## v0.0.26
 - fix: exit Windows CSE when it fails in Resize-OSDrive #3212
