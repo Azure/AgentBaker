@@ -35,6 +35,7 @@ create_pull_request() {
 
     git push -u origin $3 -f
 
+
     set +x  # To avoid logging PAT during curl
     curl -X POST \
         -H "Authorization: token $2" \
