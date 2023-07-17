@@ -6786,7 +6786,7 @@ try
         return
     }
    
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.26.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.27.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -6871,6 +6871,8 @@ try
         Install-Docker -DockerVersion $global:DockerVersion
         Set-DockerLogFileOptions
     }
+
+    Retag-ImagesForAzureChinaCloud -TargetEnvironment $TargetEnvironment
 
     # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
     Write-Log "Write Azure cloud provider config"
