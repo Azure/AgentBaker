@@ -19,7 +19,9 @@ parameters:
 
 steps:
 - bash: |
+        echo $PATH
         go env
+        GOPATH=/usr/local/go
         echo "Removing existing go environment"
         sudo rm -r /usr/local/go
         GOLANG_VERSION=$(curl -s 'https://go.dev/VERSION?m=text')
