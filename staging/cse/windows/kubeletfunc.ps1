@@ -215,6 +215,7 @@ function Build-PauseContainer {
     }
 }
 
+# TBD by abel: Remove this function after the change in CSE is deployed
 function New-InfraContainer {
     Param(
         [Parameter(Mandatory = $true)][string]
