@@ -47,10 +47,9 @@ create_image_bump_pr() {
     create_branch $branch_name
     update_image_version
 
-    #set +x
-    # Notice all the git operations have been commented for now
-    #create_pull_request $new_image_version $github_access_token $branch_name $pr_title
-    #set -x
+    set +x
+    create_pull_request $new_image_version $github_access_token $branch_name $pr_title
+    set -x
 }
 
 
@@ -68,4 +67,4 @@ trigger_pipeline() {
 set_git_config
 find_latest_image_version
 create_image_bump_pr
-trigger_pipeline
+#trigger_pipeline
