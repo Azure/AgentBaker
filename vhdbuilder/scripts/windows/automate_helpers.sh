@@ -24,7 +24,7 @@ create_pull_request() {
 
     git remote set-url origin https://wanqingfu:$2@github.com/Azure/AgentBaker.git  # Set remote URL with PAT
     git add .
-    
+
     if [[ $4 == "ReleaseNotes" ]]; then
         echo "to add git commit chore: release notes for release $1"
         git commit -m "chore: release notes for release $1"
@@ -36,16 +36,27 @@ create_pull_request() {
     git push -u origin $3 -f
 
     set +x  # To avoid logging PAT during curl
-    curl \
-        -X POST \
-        https://api.github.com/repos/Azure/AgentBaker/pulls \
+    curl -X POST \
+        -H "Authorization: token $2" \
+        -H "Content-Type: application/json" \
         -d '{
-            "head" : "'$3'", 
-            "base" : "master", 
-            "title" : "chore: automated PR to update '$4' for '$1' windows VHD", 
-            "body" : "This is an automated PR to bump '$4' for the windows VHD release with image version '$1'"
+            "title": "chore: automated PR to update '$4' for '$1' windows VHD",
+            "body": "This is an automated PR to '$4' for the windows VHD release with image version '$1'",
+            "head": "'$3'",
+            "base": "master"
         }' \
-        -u "wanqingfu:$2"
+        https://api.github.com/repos/Azure/AgentBaker/pulls
+
+    #curl \
+    #    -X POST \
+    #    https://api.github.com/repos/Azure/AgentBaker/pulls \
+    #    -d '{
+    #        "head" : "'$3'", 
+    #        "base" : "master", 
+    #        "title" : "chore: automated PR to update '$4' for '$1' windows VHD", 
+    #        "body" : "This is an automated PR to bump '$4' for the windows VHD release with image version '$1'"
+    #    }' \
+    #    -u "wanqingfu:$2"
     set -x
     
     git checkout master # Checkout to master for subsequent stages of the pipeline
