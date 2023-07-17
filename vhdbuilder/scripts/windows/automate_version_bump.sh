@@ -38,7 +38,8 @@ update_image_version() {
     line=$(grep "WINDOWS_2022_GEN2_BASE_IMAGE_VERSION=" vhdbuilder/packer/windows-image.env)
     echo $line
     sed -i "s/$line/WINDOWS_2022_GEN2_BASE_IMAGE_VERSION=$latest_image_version_2022/g" vhdbuilder/packer/windows-image.env
-
+    
+    echo >> vhdbuilder/packer/windows-image.env
     echo "windows-image.env:"
     cat vhdbuilder/packer/windows-image.env
 }
