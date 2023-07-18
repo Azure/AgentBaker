@@ -6940,23 +6940,8 @@ try
         -AgentCertificate $global:AgentCertificate
 
     if ($global:EnableHostsConfigAgent) {
-            Write-Log "Starting hosts config agent"
-            New-HostsConfigService
-        }
-
-    Write-Log "Create the Pause Container kubletwin/pause"
-    New-InfraContainer -KubeDir $global:KubeDir -ContainerRuntime $global:ContainerRuntime
-
-    if (-not (Test-ContainerImageExists -Image "kubletwin/pause" -ContainerRuntime $global:ContainerRuntime)) {
-        Write-Log "Could not find container with name kubletwin/pause"
-        if ($useContainerD) {
-            $o = ctr -n k8s.io image list
-            Write-Log $o
-        } else {
-            $o = docker image list
-            Write-Log $o
-        }
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PAUSE_IMAGE_NOT_EXIST -ErrorMessage "kubletwin/pause container does not exist!"
+        Write-Log "Starting hosts config agent"
+        New-HostsConfigService
     }
 
     Write-Log "Configuring networking with NetworkPlugin:$global:NetworkPlugin"
