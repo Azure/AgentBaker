@@ -184,14 +184,6 @@ Describe 'Set-AzureCNIConfig' {
 }
 
 Describe 'Get-HnsPsm1' {
-    Context 'Docker' {
-        It "Should copy hns.psm1 with the correct source file" {
-            Mock Copy-Item {}
-            Get-HnsPsm1 -HNSModule "C:\k\hns.psm1"
-            Assert-MockCalled -CommandName "Copy-Item" -Exactly -Times 1 -ParameterFilter { $Path -eq 'C:\k\debug\hns.psm1' -and $Destination -eq "C:\k\hns.psm1" }
-        }
-    }
-
     Context 'Containerd' {
         It "Should copy hns.v2.psm1 with the correct source file" {
             Mock Copy-Item {}
