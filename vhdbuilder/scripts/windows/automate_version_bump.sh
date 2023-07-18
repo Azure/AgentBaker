@@ -1,3 +1,4 @@
+#!/bin/bash
 set -euxo pipefail
 
 source vhdbuilder/scripts/windows/automate_helpers.sh

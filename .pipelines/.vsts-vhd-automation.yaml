@@ -16,6 +16,10 @@ parameters:
   displayName: SIG Artifact Trigger
   type: boolean
   default: true
+- name: VHDProdTrigger
+  displayName: VHD Production Trigger
+  type: boolean
+  default: true
 
 steps:
 - bash: |
@@ -45,4 +49,8 @@ steps:
         MAPPED_GITHUB_PAT: $(TMP_GITHUB_PAT)
   displayName: 'Image Version Bumping'
   condition: eq('${{ parameters.ImageBump }}', true)
-  
+- bash: |
+        echo "Triggering windows VHD production pipeline (containerd & docker)"
+        /bin/bash vhdbuilder/scripts/windows/automate_vhd_production_trigger.sh
+  displayName: 'Windows VHD Production'
+  condition: eq('${{ parameters.VHDProdTrigger }}', true)
