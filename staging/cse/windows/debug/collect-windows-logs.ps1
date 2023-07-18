@@ -1,6 +1,27 @@
 # NOTE: Please also update staging/cse/windows/provisioningscripts/loggenerator.ps1 when collecting new logs.
 $ProgressPreference = "SilentlyContinue"
 
+function CollectLogsFromDirectory {
+  Param(
+      [Parameter(Mandatory=$true)]
+      [String] $path,
+      [Parameter(Mandatory=$true)]
+      [String] $targetFileName
+  )
+  try {
+    if (Test-Path $path) {
+      Write-Host "Collecting logs from $path"
+      Compress-Archive -LiteralPath $path -DestinationPath "$ENV:TEMP\\$targetFileName"
+      return "$ENV:TEMP\\$targetFileName"
+    } else {
+      Write-Host "Path $path does not exist"
+    }
+  } catch {
+    Write-Host "Failed to collect logs from $path"
+  }
+  return ""
+}
+
 $lockedFiles = @(
   "kubelet.err.log",
   "kubelet.log",
@@ -274,6 +295,20 @@ if ($res) {
 }
 else {
   Write-Host "vmcompute process not availabel"
+}
+
+# Collect dump files
+$tempFile=(CollectLogsFromDirectory -path "C:\ProgramData\Microsoft\Windows\WER" -targetFileName "WER-$($timeStamp).zip")
+if ($tempFile -ne "") {
+  $paths += $tempFile
+}
+$tempFile=(CollectLogsFromDirectory -path "C:\Windows\Minidump" -targetFileName "Minidump-$($timeStamp).zip")
+if ($tempFile -ne "") {
+  $paths += $tempFile
+}
+$tempFile=(CollectLogsFromDirectory -path "C:\Windows\SystemTemp" -targetFileName "SystemTemp-$($timeStamp).zip")
+if ($tempFile -ne "") {
+  $paths += $tempFile
 }
 
 Write-Host "Compressing all logs to $zipName"
