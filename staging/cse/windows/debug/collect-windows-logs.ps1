@@ -9,10 +9,15 @@ function CollectLogsFromDirectory {
       [String] $targetFileName
   )
   try {
+    $tempFile="$ENV:TEMP\$targetFileName"
     if (Test-Path $path) {
       Write-Host "Collecting logs from $path"
-      Compress-Archive -LiteralPath $path -DestinationPath "$ENV:TEMP\\$targetFileName"
-      return "$ENV:TEMP\\$targetFileName"
+      Compress-Archive -LiteralPath $path -DestinationPath $tempFile
+      # Compress-Archive will not generate any target file if the source directory is empty
+      if (Test-Path $tempFile) {
+        Write-Host "Ignore since there is no log in $path"
+        return $tempFile
+      }
     } else {
       Write-Host "Path $path does not exist"
     }
