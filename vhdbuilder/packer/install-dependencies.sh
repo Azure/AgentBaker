@@ -46,12 +46,15 @@ fi
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
 else
+  updateAptWithMicrosoftPkg
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # jq - for manipulation JSON data
   # iptables - required to run containerd
   # netcat - network comms with API server
   # dnsutils - contains nslookup, to query API server DNS
-  required_pkg_list=(jq iptables netcat dnsutils)
+  # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
+  BLOBFUSE2_VERSION="2.0.4"
+  required_pkg_list=(jq iptables netcat dnsutils "blobfuse2="${BLOBFUSE2_VERSION} fuse3)
   for apt_package in ${required_pkg_list[*]}; do
       if ! apt_get_install 30 1 600 $apt_package; then
           journalctl --no-pager -u $apt_package

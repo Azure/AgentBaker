@@ -234,7 +234,7 @@ function Test-RegistryAdded {
 
     if ($env:WindowsSKU -Like '2019*') {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag)
-        if (($result.HNSControlFlag -band 0x50) -ne 0x50) {
+        if (($result.HNSControlFlag -band 0x10) -ne 0x10) {
             Write-ErrorWithTimestamp "The registry for the two HNS fixes is not added"
             exit 1
         }
@@ -318,6 +318,26 @@ function Test-RegistryAdded {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3398685324)
         if ($result.3398685324 -ne 1) {
             Write-ErrorWithTimestamp "The registry for 3398685324 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNodeToClusterIpv6)
+        if ($result.HnsNodeToClusterIpv6 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for HnsNodeToClusterIpv6 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSNpmIpsetLimitChange)
+        if ($result.HNSNpmIpsetLimitChange -ne 1) {
+            Write-ErrorWithTimestamp "The registry for HNSNpmIpsetLimitChange is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSLbNatDupRuleChange)
+        if ($result.HNSLbNatDupRuleChange -ne 1) {
+            Write-ErrorWithTimestamp "The registry for HNSLbNatDupRuleChange is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpIpv6DipsPrintingIsEnabled)
+        if ($result.VfpIpv6DipsPrintingIsEnabled -ne 1) {
+            Write-ErrorWithTimestamp "The registry for VfpIpv6DipsPrintingIsEnabled is not added"
             exit 1
         }
     }

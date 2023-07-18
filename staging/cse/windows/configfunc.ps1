@@ -522,3 +522,56 @@ function Upload-GuestVMLogs {
         Write-Log "Failed to upload CustomDataSetupScript.log. $_"
     }
 }
+
+# Retag-ImagesForAzureChinaCloud add tags for images for AzureChinaCloud to
+# use cached images instead of pulling them from MCR
+# This must be run after installing containerd but before New-InfraContainer
+function Retag-ImagesForAzureChinaCloud {
+    param(
+        [Parameter(Mandatory=$true)][string]
+        $TargetEnvironment
+    )
+    
+    $isExist=$false
+    $imageList=$(ctr.exe -n k8s.io image ls | select -Skip 1)
+    foreach ($imageInfo in $imageList) {
+        $splitResult=($imageInfo -split '\s+')
+        $image=$splitResult[0]
+        if ($image -like 'mcr.azk8s.cn*') {
+            $isExist=$true
+            break
+        }
+    }
+    
+    if ($TargetEnvironment -ne "AzureChinaCloud") {
+        if ($isExist) {
+            Write-Log "Clear existing tags for AzureChinaCloud in $TargetEnvironment"
+            foreach ($imageInfo in $imageList) {
+                $splitResult=($imageInfo -split '\s+')
+                $image=$splitResult[0]
+                if ($image -like 'mcr.azk8s.cn*' -and (-not $image.Contains("@sha256:"))) {
+                    ctr.exe -n k8s.io image delete $image
+                }
+            }
+        }
+        Write-Log "Not retagging images for $TargetEnvironment"
+        return
+    }
+
+    # Skip if we have already retagged the images in building VHDs
+    if ($isExist) {
+        Write-Log "Skip because images have already been retagged for AzureChinaCloud"
+        return
+    }
+
+    Write-Log "Retagging images for AzureChinaCloud"
+    foreach ($imageInfo in $imageList) {
+        $splitResult=($imageInfo -split '\s+')
+        $image=$splitResult[0]
+        if ($image -like 'mcr.microsoft.com*' -and (-not $image.Contains("@sha256:"))) {
+            Write-Log "Retagging image $image for AzureChinaCloud"
+            $retagImageUrl=$image.replace('mcr.microsoft.com', 'mcr.azk8s.cn')
+            ctr.exe -n k8s.io image tag $image $retagImageUrl
+        }
+    }
+}
