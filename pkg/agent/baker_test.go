@@ -1150,7 +1150,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			"--max-pods":                          "30",
 			"--network-plugin":                    "cni",
 			"--node-status-update-frequency":      "10s",
-			"--pod-infra-container-image":         "kubletwin/pause",
+			"--pod-infra-container-image":         "mcr.microsoft.com/oss/kubernetes/pause:3.9",
 			"--pod-max-pids":                      "-1",
 			"--read-only-port":                    "0",
 			"--resolv-conf":                       `""`,
