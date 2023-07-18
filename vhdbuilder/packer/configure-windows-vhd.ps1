@@ -153,16 +153,6 @@ function Disable-WindowsUpdates {
     Set-ItemProperty -Path $AutoUpdatePath -Name NoAutoUpdate -Value 1 | Out-Null
 }
 
-function Retag-ImageForAzureChinaCloud {
-    Param(
-        [string]
-        $imageUrl
-    )
-    Write-Log "Retagging image $imageUrl for AzureChinaCloud"
-    $retagImageUrl=$image.replace('mcr.microsoft.com', 'mcr.azk8s.cn')
-    ctr.exe -n k8s.io image tag $imageUrl $retagImageUrl
-}
-
 function Get-ContainerImages {
     Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
     foreach ($image in $imagesToPull) {
@@ -192,8 +182,6 @@ function Get-ContainerImages {
                 & crictl.exe pull $image
             } -ErrorMessage "Failed to pull image $image"
         }
-
-        Retag-ImageForAzureChinaCloud -imageUrl $image
     }
     Stop-Job  -Name containerd
     Remove-Job -Name containerd

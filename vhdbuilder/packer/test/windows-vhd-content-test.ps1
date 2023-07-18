@@ -197,19 +197,9 @@ function Test-PatchInstalled {
 }
 
 function Test-ImagesPulled {
-    Param(
-        [Switch]$isAzureChinaCloud = $false
-    )
-    Write-Output "Test-ImagesPulled. IsAzureChinaCloud: $isAzureChinaCloud"
+    Write-Output "Test-ImagesPulled."
     $targetImagesToPull = $imagesToPull
-    $excludeMcrUrl="mcr.azk8s.cn*"
-    if ($isAzureChinaCloud) {
-        $excludeMcrUrl="mcr.microsoft.com*"
-        $targetImagesToPull = @()
-        foreach ($image in $imagesToPull) {
-            $targetImagesToPull += $image.Replace("mcr.microsoft.com", "mcr.azk8s.cn")
-        }
-    }
+
     Start-Job-To-Expected-State -JobName containerd -ScriptBlock { containerd.exe }
     # NOTE:
     # 1. listing images with -q set is expected to return only image names/references, but in practise
@@ -217,10 +207,10 @@ function Test-ImagesPulled {
     #    https://github.com/containerd/containerd/blob/master/cmd/ctr/commands/images/images.go#L89
     # 2. As select-string with nomatch pattern returns additional line breaks, qurying MatchInfo's Line property keeps
     #    only image reference as a workaround
-    $pulledImages = (ctr.exe -n k8s.io image ls -q | Select-String -notmatch "sha256:.*" | Select-String -notmatch $excludeMcrUrl | % { $_.Line } )
+    $pulledImages = (ctr.exe -n k8s.io image ls -q | Select-String -notmatch "sha256:.*" | % { $_.Line } )
 
     if(Compare-Object $targetImagesToPull $pulledImages) {
-        Write-ErrorWithTimestamp "images to pull do not equal images cached $targetImagesToPull != $pulledImages. For AzureChinaCloud: $isAzureChinaCloud"
+        Write-ErrorWithTimestamp "images to pull do not equal images cached $targetImagesToPull != $pulledImages."
         exit 1
     }
 }
@@ -378,7 +368,6 @@ function Test-ExcludeUDPSourcePort {
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
-Test-ImagesPulled -isAzureChinaCloud
 Test-RegistryAdded
 Test-DefenderSignature
 Test-AzureExtensions
