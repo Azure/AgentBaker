@@ -44,73 +44,6 @@ function Set-Explorer
     New-ItemProperty -Path HKLM:"\\SOFTWARE\\Policies\\Microsoft\\Internet Explorer\\Main" -Name "Start Page" -Type String -Value http://bing.com
 }
 
-function Install-Docker
-{
-    Param(
-        [Parameter(Mandatory=$true)][string]
-        $DockerVersion
-    )
-
-    Write-Log "Docker version $DockerVersion found, clearing DOCKER_API_VERSION"
-    [System.Environment]::SetEnvironmentVariable('DOCKER_API_VERSION', $null, [System.EnvironmentVariableTarget]::Machine)
-
-    try {
-        $installDocker = $true
-        $dockerService = Get-Service | ? Name -like 'docker'
-        if ($dockerService.Count -eq 0) {
-            Write-Log "Docker is not installed. Install docker version($DockerVersion)."
-        }
-        else {
-            $dockerServerVersion = docker version --format '{{.Server.Version}}'
-            Write-Log "Docker service is installed with docker version($dockerServerVersion)."
-            if ($dockerServerVersion -eq $DockerVersion) {
-                $installDocker = $false
-                Write-Log "Same version docker installed will skip installing docker version($dockerServerVersion)."
-            }
-            else {
-                Write-Log "Same version docker is not installed. Will install docker version($DockerVersion)."
-            }
-        }
-
-        if ($installDocker) {
-            Find-Package -Name Docker -ProviderName DockerMsftProvider -RequiredVersion $DockerVersion -ErrorAction Stop
-            Write-Log "Found version $DockerVersion. Installing..."
-            Install-Package -Name Docker -ProviderName DockerMsftProvider -Update -Force -RequiredVersion $DockerVersion
-            net start docker
-            Write-Log "Installed version $DockerVersion"
-        }
-    } catch {
-        Write-Log "Error while installing package: $_.Exception.Message"
-        $currentDockerVersion = (Get-Package -Name Docker -ProviderName DockerMsftProvider).Version
-        Write-Log "Not able to install docker version. Using default version $currentDockerVersion"
-    }
-}
-
-function Set-DockerLogFileOptions {
-    Write-Log "Updating log file options in docker config"
-    $dockerConfigPath = "C:\ProgramData\docker\config\daemon.json"
-
-    if (-not (Test-Path $dockerConfigPath)) {
-        "{}" | Out-File $dockerConfigPath
-    }
-
-    $dockerConfig = Get-Content $dockerConfigPath | ConvertFrom-Json
-    $dockerConfig | Add-Member -Name "log-driver" -Value "json-file" -MemberType NoteProperty
-    $logOpts = @{ "max-size" = "50m"; "max-file" = "5" }
-    $dockerConfig | Add-Member -Name "log-opts" -Value $logOpts -MemberType NoteProperty
-    $dockerConfig = $dockerConfig | ConvertTo-Json -Depth 10
-
-    Write-Log "New docker config:"
-    Write-Log $dockerConfig
-
-    # daemon.json MUST be encoded as UTF8-no-BOM!
-    Remove-Item $dockerConfigPath
-    $fileEncoding = New-Object System.Text.UTF8Encoding $false
-    [IO.File]::WriteAllLInes($dockerConfigPath, $dockerConfig, $fileEncoding)
-
-    Restart-Service docker
-}
-
 # Pagefile adjustments
 function Adjust-PageFileSize()
 {
@@ -141,13 +74,9 @@ function Adjust-DynamicPortRange()
 # Service start actions. These should be split up later and included in each install step
 function Update-ServiceFailureActions
 {
-    Param(
-        [Parameter(Mandatory = $true)][string]
-        $ContainerRuntime
-    )
     sc.exe failure "kubelet" actions= restart/60000/restart/60000/restart/60000 reset= 900
     sc.exe failure "kubeproxy" actions= restart/60000/restart/60000/restart/60000 reset= 900
-    sc.exe failure $ContainerRuntime actions= restart/60000/restart/60000/restart/60000 reset= 900
+    sc.exe failure "containerd" actions= restart/60000/restart/60000/restart/60000 reset= 900
 }
 
 function Add-SystemPathEntry
