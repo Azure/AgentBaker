@@ -342,6 +342,36 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.sh",
+      "destination": "/home/packer/cgroup-memory-telemetry.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.service",
+      "destination": "/home/packer/cgroup-memory-telemetry.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.timer",
+      "destination": "/home/packer/cgroup-memory-telemetry.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh",
+      "destination": "/home/packer/cgroup-pressure-telemetry.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.service",
+      "destination": "/home/packer/cgroup-pressure-telemetry.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.timer",
+      "destination": "/home/packer/cgroup-pressure-telemetry.timer"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mariner/update_certs_mariner.service",
       "destination": "/home/packer/update_certs.service"
     },
