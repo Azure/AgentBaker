@@ -361,6 +361,7 @@ else
     exit 1
 fi
 
+
 message_string=$(echo $message_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
 
 EVENT_JSON=$( jq -n \
