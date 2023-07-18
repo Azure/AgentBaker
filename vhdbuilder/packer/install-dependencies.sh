@@ -348,6 +348,22 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
 fi
 fi
 
+mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
+
+systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
+systemctl enable cgroup-memory-telemetry.service || exit 1
+systemctl restart cgroup-memory-telemetry.service
+
+CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
+if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
+  systemctlEnableAndStart cgroup-pressure-telemetry.timer || exit 1
+  systemctl enable cgroup-pressure-telemetry.service || exit 1
+  systemctl restart cgroup-pressure-telemetry.service
+fi
+
+cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
+rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
+
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
