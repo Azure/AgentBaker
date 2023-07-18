@@ -124,9 +124,6 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     disableDNFAutomatic
     enableCheckRestart
     activateNfConntrack
-    if [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
-      enableCgroupV2forAzureLinux
-    fi
 fi
 
 downloadContainerdWasmShims

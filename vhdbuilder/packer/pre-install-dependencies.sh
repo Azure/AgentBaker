@@ -84,4 +84,9 @@ else
   fi
 fi
 
+# Handle Azure Linux + CgroupV2
+if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
+  enableCgroupV2forAzureLinux
+fi
+
 echo "pre-install-dependencies step finished successfully"
