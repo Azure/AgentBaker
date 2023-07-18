@@ -195,6 +195,8 @@ systemctl_restart() {
         if [ $i -eq $retries ]; then
             return 1
         else
+            systemctl status $svcname --no-pager -l
+            journalctl -u $svcname
             sleep $wait_sleep
         fi
     done
