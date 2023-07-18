@@ -54,3 +54,8 @@ steps:
         /bin/bash vhdbuilder/scripts/windows/automate_vhd_production_trigger.sh
   displayName: 'Windows VHD Production'
   condition: eq('${{ parameters.VHDProdTrigger }}', true)
+- bash: |
+        echo "Triggering windows VHD build ev2 artifacts pipeline"
+        /bin/bash vhdbuilder/scripts/windows/automate_ev2_pipeline_trigger.sh $BUILD_ID
+  displayName: 'ev2 Artifact Pipeline Trigger'
+  condition: eq('${{ parameters.ArtifactTrigger }}', true)
