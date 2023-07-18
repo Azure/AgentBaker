@@ -39,21 +39,10 @@ steps:
         MAPPED_ADO_PAT: $(ADO_PAT)
   displayName: 'az devops login'
 - bash: |
-        echo "PR for Image Bumping, Official Branch Cutting"
-        /bin/bash vhdbuilder/scripts/automate_version_bump.sh $(IMAGE_VERSION) $MAPPED_GITHUB_PAT "${BUILD_ID[@]}"
+        echo "Bumping windows VHD base image version"
+        /bin/bash vhdbuilder/scripts/windows/automate_version_bump.sh $MAPPED_GITHUB_PAT
   env:
-        MAPPED_GITHUB_PAT: $(GITHUB_PAT)
+        MAPPED_GITHUB_PAT: $(TMP_GITHUB_PAT)
   displayName: 'Image Version Bumping'
   condition: eq('${{ parameters.ImageBump }}', true)
-- bash: |
-        echo "PR for Release Notes"
-        /bin/bash vhdbuilder/scripts/automate_release_notes.sh $(IMAGE_VERSION) "${BUILD_ID[@]}" $MAPPED_GITHUB_PAT
-  env:
-        MAPPED_GITHUB_PAT: $(GITHUB_PAT)
-  displayName: 'Release Notes'
-  condition: eq('${{ parameters.ReleaseNotes }}', true)
-- bash: |
-        echo "Triggering ev2 artifacts pipeline"
-        /bin/bash vhdbuilder/scripts/automate_ev2pipeline_trigger.sh "${BUILD_ID[@]}"
-  displayName: 'ev2 Artifact Pipeline Trigger'
-  condition: eq('${{ parameters.ArtifactTrigger }}', true)
+  
