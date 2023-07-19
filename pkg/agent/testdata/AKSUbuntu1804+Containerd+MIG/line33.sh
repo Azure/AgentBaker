@@ -47,16 +47,9 @@ done
 sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
 source "${CSE_HELPERS_FILEPATH}"
 
-wait_for_file 3600 1 "${CSE_DISTRO_HELPERS_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_DISTRO_HELPERS_FILEPATH}"
-
-wait_for_file 3600 1 "${CSE_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_INSTALL_FILEPATH}"
-
-wait_for_file 3600 1 "${CSE_DISTRO_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
-
-wait_for_file 3600 1 "${CSE_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_CONFIG_FILEPATH}"
 
 if [[ "${DISABLE_SSH}" == "true" ]]; then
@@ -91,7 +84,15 @@ if [[ ${ID} != "mariner" ]]; then
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
 fi
 
-if [[ "${GPU_NODE}" != "true" ]]; then
+export -f should_skip_nvidia_drivers
+skip_nvidia_driver_install=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_nvidia_drivers)
+ret=$?
+if [[ "$ret" != "0" ]]; then
+    echo "Failed to determine if nvidia driver install should be skipped"
+    exit $ERR_NVIDIA_DRIVER_INSTALL
+fi
+
+if [[ "${GPU_NODE}" != "true" ]] || [[ "${skip_nvidia_driver_install}" == "true" ]]; then
     logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
 fi
 
@@ -135,7 +136,7 @@ fi
 REBOOTREQUIRED=false
 
 echo $(date),$(hostname), "Start configuring GPU drivers"
-if [[ "${GPU_NODE}" = true ]]; then
+if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" != "true" ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
         if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
@@ -151,37 +152,34 @@ EOF
     else
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
     fi
-fi
 
-if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
-    # fabric manager trains nvlink connections between multi instance gpus.
-    # it appears this is only necessary for systems with *multiple cards*.
-    # i.e., an A100 can be partitioned a maximum of 7 ways.
-    # An NC24ads_A100_v4 has one A100.
-    # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
-    # ND96 seems to require fabric manager *even when not using mig partitions*
-    # while it fails to install on NC24.
-    if [[ $OS == $MARINER_OS_NAME ]]; then
-        logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
+    if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
+        # fabric manager trains nvlink connections between multi instance gpus.
+        # it appears this is only necessary for systems with *multiple cards*.
+        # i.e., an A100 can be partitioned a maximum of 7 ways.
+        # An NC24ads_A100_v4 has one A100.
+        # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
+        # ND96 seems to require fabric manager *even when not using mig partitions*
+        # while it fails to install on NC24.
+        logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
-    logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
-fi
 
-# This will only be true for multi-instance capable VM sizes
-# for which the user has specified a partitioning profile.
-# it is valid to use mig-capable gpus without a partitioning profile.
-if [[ "${MIG_NODE}" == "true" ]]; then
-    # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
-    # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
-    # Commands such as `nvidia-smi --gpu-reset` may succeed,
-    # while commands such as `nvidia-smi -q` will show mismatched current/pending mig mode.
-    # this will not be required per nvidia for next gen H100.
-    REBOOTREQUIRED=true
-    
-    # this service applies the partitioning scheme with nvidia-smi.
-    # we should consider moving to mig-parted which is simpler/newer.
-    # we couldn't because of old drivers but that has long been fixed.
-    logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
+    # This will only be true for multi-instance capable VM sizes
+    # for which the user has specified a partitioning profile.
+    # it is valid to use mig-capable gpus without a partitioning profile.
+    if [[ "${MIG_NODE}" == "true" ]]; then
+        # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
+        # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
+        # Commands such as `nvidia-smi --gpu-reset` may succeed,
+        # while commands such as `nvidia-smi -q` will show mismatched current/pending mig mode.
+        # this will not be required per nvidia for next gen H100.
+        REBOOTREQUIRED=true
+        
+        # this service applies the partitioning scheme with nvidia-smi.
+        # we should consider moving to mig-parted which is simpler/newer.
+        # we couldn't because of old drivers but that has long been fixed.
+        logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
+    fi
 fi
 
 echo $(date),$(hostname), "End configuring GPU drivers"
@@ -197,7 +195,6 @@ logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectl
 createKubeManifestDir
 
 if [ "${HAS_CUSTOM_SEARCH_DOMAIN}" == "true" ]; then
-    wait_for_file 3600 1 "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
     "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 fi
 
@@ -259,10 +256,22 @@ if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     mkdir -p /etc/containerd
     echo "${KUBENET_TEMPLATE}" | base64 -d > /etc/containerd/kubenet_template.conf
 
-    tee "/etc/systemd/system/kubelet.service.d/10-containerd.conf" > /dev/null <<'EOF'
+    # In k8s 1.27, the flag --container-runtime was removed.
+    # We now have 2 drop-in's, one with the still valid flags that will be applied to all k8s versions,
+    # the flags are --runtime-request-timeout, --container-runtime-endpoint, --runtime-cgroups
+    # For k8s >= 1.27, the flag --container-runtime will not be passed.
+    tee "/etc/systemd/system/kubelet.service.d/10-containerd-base-flag.conf" > /dev/null <<'EOF'
 [Service]
-Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
+Environment="KUBELET_CONTAINERD_FLAGS=--runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
 EOF
+    
+    # if k8s version < 1.27.0, add the drop in for --container-runtime flag
+    if ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.27.0"; then
+        tee "/etc/systemd/system/kubelet.service.d/10-container-runtime-flag.conf" > /dev/null <<'EOF'
+[Service]
+Environment="KUBELET_CONTAINER_RUNTIME_FLAG=--container-runtime=remote"
+EOF
+    fi
 fi
 
 if [ "${HAS_KUBELET_DISK_TYPE}" == "true" ]; then
@@ -274,6 +283,10 @@ EOF
 fi
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
+
+if [ "${NEEDS_CONTAINERD}" == "true" ] &&  [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" == "true" ]; then
+  logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
+fi
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
@@ -304,7 +317,7 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
        API_SERVER_DNS_RETRIES=200
     fi
     if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]]; then
-        RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME}")
+        RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 20 nslookup -timeout=5 -retry=0 ${API_SERVER_NAME}")
         STS=$?
     else
         STS=0

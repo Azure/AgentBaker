@@ -1,5 +1,7 @@
 pool:
-  name: 1ES-AKS-Elastic-DevInfra-Normal-Pool
+  # uncomment this if the auto teardown pool is down.
+  # vmImage: ubuntu-22.04
+  name: $(1ES_DevInfra_Auto_TearDown_Pool_Name)
 
 parameters:
 - name: ImageBump
@@ -19,7 +21,7 @@ steps:
 - bash: |
         echo "Removing existing go environment"
         sudo rm -r /usr/local/go
-        GOLANG_VERSION="go1.18.10"
+        GOLANG_VERSION=$(curl -s 'https://go.dev/VERSION?m=text')
         echo "Downloading ${GOLANG_VERSION}"
         curl -O "https://dl.google.com/go/${GOLANG_VERSION}.linux-amd64.tar.gz"
 

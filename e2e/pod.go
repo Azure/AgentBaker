@@ -6,6 +6,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/yaml"
@@ -15,7 +16,7 @@ import (
 func getDebugPodName(kube *kubeclient) (string, error) {
 	podList := corev1.PodList{}
 	if err := kube.dynamic.List(context.Background(), &podList, client.MatchingLabels{"app": "debug"}); err != nil {
-		return "", fmt.Errorf("failed to list debug pod: %q", err)
+		return "", fmt.Errorf("failed to list debug pod: %w", err)
 	}
 
 	if len(podList.Items) < 1 {
@@ -26,12 +27,20 @@ func getDebugPodName(kube *kubeclient) (string, error) {
 	return podName, nil
 }
 
+func getPodIP(ctx context.Context, kube *kubeclient, namespaceName, podName string) (string, error) {
+	pod, err := kube.typed.CoreV1().Pods(namespaceName).Get(ctx, podName, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("unable to get pod %s/%s: %w", namespaceName, podName, err)
+	}
+	return pod.Status.PodIP, nil
+}
+
 func ensureDebugDaemonset(ctx context.Context, kube *kubeclient) error {
 	manifest := getDebugDaemonset()
 	var ds appsv1.DaemonSet
 
 	if err := yaml.Unmarshal([]byte(manifest), &ds); err != nil {
-		return fmt.Errorf("failed to unmarshal debug daemonset manifest: %q", err)
+		return fmt.Errorf("failed to unmarshal debug daemonset manifest: %w", err)
 	}
 
 	desired := ds.DeepCopy()
@@ -41,29 +50,55 @@ func ensureDebugDaemonset(ctx context.Context, kube *kubeclient) error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to apply debug daemonset: %q", err)
+		return fmt.Errorf("failed to apply debug daemonset: %w", err)
 	}
 
 	return nil
 }
 
-func ensureTestNginxPod(ctx context.Context, kube *kubeclient, nodeName string) error {
-	manifest := getNginxPodTemplate(nodeName)
-	var obj corev1.Pod
+func ensureTestNginxPod(ctx context.Context, kube *kubeclient, nodeName string) (string, error) {
+	nginxPodName := fmt.Sprintf("%s-nginx", nodeName)
+	nginxPodManifest := getNginxPodTemplate(nodeName)
+	if err := ensurePod(ctx, kube, nginxPodName, nginxPodManifest); err != nil {
+		return "", fmt.Errorf("failed to ensure test nginx pod %q: %w", nginxPodName, err)
+	}
+	return nginxPodName, nil
+}
 
-	if err := yaml.Unmarshal([]byte(manifest), &obj); err != nil {
-		return fmt.Errorf("failed to unmarshal nginx pod manifest: %q", err)
+func ensureWasmPods(ctx context.Context, kube *kubeclient, nodeName string) (string, error) {
+	spinPodName := fmt.Sprintf("%s-wasm-spin", nodeName)
+	spinPodManifest := getWasmSpinPodTemplate(nodeName)
+	if err := ensurePod(ctx, kube, spinPodName, spinPodManifest); err != nil {
+		return "", fmt.Errorf("failed to ensure wasm spin pod %q: %w", spinPodName, err)
+	}
+	return spinPodName, nil
+}
+
+func applyPodManifest(ctx context.Context, kube *kubeclient, manifest string) error {
+	var podObj corev1.Pod
+	if err := yaml.Unmarshal([]byte(manifest), &podObj); err != nil {
+		return fmt.Errorf("failed to unmarshal Pod manifest: %w", err)
 	}
 
-	desired := obj.DeepCopy()
-	_, err := controllerutil.CreateOrUpdate(ctx, kube.dynamic, &obj, func() error {
-		obj = *desired
+	desired := podObj.DeepCopy()
+	_, err := controllerutil.CreateOrUpdate(ctx, kube.dynamic, &podObj, func() error {
+		podObj = *desired
 		return nil
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to apply nginx test pod: %q", err)
+		return fmt.Errorf("failed to apply Pod manifest: %w", err)
 	}
 
-	return waitUntilPodRunning(ctx, kube, nodeName)
+	return nil
+}
+
+func ensurePod(ctx context.Context, kube *kubeclient, podName, manifest string) error {
+	if err := applyPodManifest(ctx, kube, manifest); err != nil {
+		return fmt.Errorf("failed to ensure pod: %w", err)
+	}
+	if err := waitUntilPodRunning(ctx, kube, podName); err != nil {
+		return fmt.Errorf("failed to wait for pod to be in running state: %w", err)
+	}
+	return nil
 }

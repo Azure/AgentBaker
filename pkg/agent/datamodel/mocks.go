@@ -44,13 +44,16 @@ func CreateMockContainerService(containerServiceName, orchestratorVersion string
 	cs.Properties.OrchestratorProfile = &OrchestratorProfile{}
 	cs.Properties.OrchestratorProfile.OrchestratorType = Kubernetes
 	cs.Properties.OrchestratorProfile.OrchestratorVersion = orchestratorVersion
+	const gcLowThreshold = 80
+	const gcHighThreshold = 85
+	const maxPods = 30
 	cs.Properties.OrchestratorProfile.KubernetesConfig = &KubernetesConfig{
 		EnableSecureKubelet:     to.BoolPtr(true),
 		EnableRbac:              to.BoolPtr(true),
 		DockerBridgeSubnet:      "172.17.0.1/16",
-		GCLowThreshold:          80,
-		GCHighThreshold:         85,
-		MaxPods:                 30,
+		GCLowThreshold:          gcLowThreshold,
+		GCHighThreshold:         gcHighThreshold,
+		MaxPods:                 maxPods,
 		ClusterSubnet:           "10.240.0.0/12",
 		ContainerRuntime:        Docker,
 		NetworkPlugin:           "kubenet",
@@ -175,6 +178,7 @@ func getMockAddon(name string) KubernetesAddon {
 	}
 }
 
+//nolint:gochecknoglobals
 var (
 	AzurePublicCloudSpecForTest = &AzureEnvironmentSpecConfig{
 		CloudName: "AzurePublicCloud",
@@ -197,7 +201,7 @@ var (
 			WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
 			CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",
 			VnetCNILinuxPluginsDownloadURL:       "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
-			VnetCNIWindowsPluginsDownloadURL:     "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip",
+			VnetCNIWindowsPluginsDownloadURL:     "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip", //nolint:lll
 			ContainerdDownloadURLBase:            "https://storage.googleapis.com/cri-containerd-release/",
 			CSIProxyDownloadURL:                  "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
 			WindowsProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.2.2.zip",

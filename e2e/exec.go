@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"strings"
-	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -13,8 +13,7 @@ import (
 )
 
 const (
-	sshCommandTemplate                  = `echo '%s' > sshkey && chmod 0600 sshkey && ssh -i sshkey -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 azureuser@%s sudo`
-	listVMSSNetworkInterfaceURLTemplate = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
+	sshCommandTemplate = `echo '%s' > sshkey%[2]s && chmod 0600 sshkey%[2]s && ssh -i sshkey%[2]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 azureuser@%s`
 )
 
 type podExecResult struct {
@@ -22,29 +21,58 @@ type podExecResult struct {
 	stderr, stdout *bytes.Buffer
 }
 
-func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName string, sshPrivateKey string, opts *scenarioRunOpts) (map[string]string, error) {
-	privateIP, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.chosenCluster.Properties.NodeResourceGroup, vmssName)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get private IP address of VM on VMSS %q: %s", vmssName, err)
-	}
+func (r podExecResult) dumpAll() {
+	r.dumpStdout()
+	r.dumpStderr()
+}
 
+func (r podExecResult) dumpStdout() {
+	if r.stdout != nil {
+		stdoutContent := r.stdout.String()
+		if stdoutContent != "" && stdoutContent != "<nil>" {
+			log.Printf("%s\n%s\n%s\n%s",
+				"dumping stdout:",
+				"----------------------------------- begin stdout -----------------------------------",
+				stdoutContent,
+				"------------------------------------ end stdout ------------------------------------")
+		}
+	}
+}
+
+func (r podExecResult) dumpStderr() {
+	if r.stderr != nil {
+		stderrContent := r.stderr.String()
+		if stderrContent != "" && stderrContent != "<nil>" {
+			log.Printf("%s\n%s\n%s\n%s",
+				"dumping stderr:",
+				"----------------------------------- begin stderr -----------------------------------",
+				stderrContent,
+				"------------------------------------ end stderr ------------------------------------")
+		}
+
+	}
+}
+
+func extractLogsFromVM(ctx context.Context, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) (map[string]string, error) {
 	commandList := map[string]string{
-		"/var/log/azure/cluster-provision.log": "cat /var/log/azure/cluster-provision.log",
-		"kubelet.log":                          "journalctl -u kubelet",
+		"/var/log/azure/cluster-provision.log":            "cat /var/log/azure/cluster-provision.log",
+		"kubelet.log":                                     "journalctl -u kubelet",
+		"/var/log/azure/cluster-provision-cse-output.log": "cat /var/log/azure/cluster-provision-cse-output.log",
+		"sysctl-out.log":                                  "sysctl -a",
 	}
 
-	podName, err := getDebugPodName(opts.kube)
+	podName, err := getDebugPodName(opts.clusterConfig.kube)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get debug pod name: %s", err)
+		return nil, fmt.Errorf("unable to get debug pod name: %w", err)
 	}
 
 	var result = map[string]string{}
 	for file, sourceCmd := range commandList {
-		t.Logf("executing command on remote VM at %s of VMSS %s: %q", privateIP, vmssName, sourceCmd)
+		log.Printf("executing command on remote VM at %s of VMSS %s: %q", privateIP, vmssName, sourceCmd)
 
-		execResult, err := execOnVM(ctx, opts.kube, privateIP, podName, sshPrivateKey, sourceCmd)
+		execResult, err := execOnVM(ctx, opts.clusterConfig.kube, privateIP, podName, sshPrivateKey, sourceCmd, false)
 		if execResult != nil {
-			checkStdErr(execResult.stderr, t)
+			execResult.dumpStderr()
 		}
 		if err != nil {
 			return nil, err
@@ -55,7 +83,7 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName string, sshPr
 	return result, nil
 }
 
-func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclient) (map[string]string, error) {
+func extractClusterParameters(ctx context.Context, kube *kubeclient) (map[string]string, error) {
 	commandList := map[string]string{
 		"/etc/kubernetes/azure.json":            "cat /etc/kubernetes/azure.json",
 		"/etc/kubernetes/certs/ca.crt":          "cat /etc/kubernetes/certs/ca.crt",
@@ -69,11 +97,11 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 
 	var result = map[string]string{}
 	for file, sourceCmd := range commandList {
-		t.Logf("executing privileged command on pod %s/%s: %q", defaultNamespace, podName, sourceCmd)
+		log.Printf("executing privileged command on pod %s/%s: %q", defaultNamespace, podName, sourceCmd)
 
 		execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, sourceCmd)
 		if execResult != nil {
-			checkStdErr(execResult.stderr, t)
+			execResult.dumpStderr()
 		}
 		if err != nil {
 			return nil, err
@@ -85,13 +113,16 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *kubeclien
 	return result, nil
 }
 
-func execOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
-	sshCommand := fmt.Sprintf(sshCommandTemplate, sshPrivateKey, vmPrivateIP)
+func execOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
+	sshCommand := fmt.Sprintf(sshCommandTemplate, sshPrivateKey, strings.ReplaceAll(vmPrivateIP, ".", ""), vmPrivateIP)
+	if !isShellBuiltIn {
+		sshCommand = sshCommand + " sudo"
+	}
 	commandToExecute := fmt.Sprintf("%s %s", sshCommand, command)
 
 	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, commandToExecute)
 	if err != nil {
-		return nil, fmt.Errorf("error executing command on pod: %s", err)
+		return nil, fmt.Errorf("error executing command on pod: %w", err)
 	}
 
 	return execResult, nil
@@ -118,7 +149,7 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 
 	exec, err := remotecommand.NewSPDYExecutor(kube.rest, "POST", req.URL())
 	if err != nil {
-		return nil, fmt.Errorf("unable to create new SPDY executor for pod exec: %s", err)
+		return nil, fmt.Errorf("unable to create new SPDY executor for pod exec: %w", err)
 	}
 
 	var (
@@ -134,11 +165,11 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 		if strings.Contains(err.Error(), "command terminated with exit code") {
 			code, err := extractExitCode(err.Error())
 			if err != nil {
-				return nil, fmt.Errorf("error extracing exit code from remote command execution error msg: %s", err)
+				return nil, fmt.Errorf("error extracing exit code from remote command execution error msg: %w", err)
 			}
 			exitCode = code
 		} else {
-			return nil, fmt.Errorf("encountered unexpected error when executing command on pod: %s", err)
+			return nil, fmt.Errorf("encountered unexpected error when executing command on pod: %w", err)
 		}
 	}
 
@@ -149,14 +180,19 @@ func execOnPod(ctx context.Context, kube *kubeclient, namespace, podName string,
 	}, nil
 }
 
-func checkStdErr(stderr *bytes.Buffer, t *testing.T) {
-	stderrString := stderr.String()
-	if stderrString != "" && stderrString != "<nil>" {
-		t.Logf("%s\n%s\n%s\n%s",
-			"stderr is non-empty after executing last command:",
-			"----------------------------------- begin stderr -----------------------------------",
-			stderrString,
-			"------------------------------------ end stderr ------------------------------------")
+func getWasmCurlCommand(url string) string {
+	return fmt.Sprintf(`curl \
+--connect-timeout 5 \
+--max-time 10 \
+--retry 10 \
+--retry-max-time 100 \
+%s`, url)
+}
+
+func bashCommandArray() []string {
+	return []string{
+		"/bin/bash",
+		"-c",
 	}
 }
 

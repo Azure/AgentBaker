@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -42,7 +43,7 @@ func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBo
 // { "customData": "<customData string>" }.
 func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
 	// get parameters
-	parameters := getParameters(config, "baker", "1.0")
+	parameters := getParameters(config)
 	// get variable cloudInit
 	variables := getCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml,
@@ -61,7 +62,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	// get parameters
-	parameters := getParameters(config, "", "")
+	parameters := getParameters(config)
 	// get variable custom data
 	variables := getWindowsCustomDataVariables(config)
 	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
@@ -77,7 +78,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 		preprovisionCmd = makeAgentExtensionScriptCommands(cs, profile)
 	}
 
-	str = strings.Replace(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)), -1)
+	str = strings.ReplaceAll(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)))
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }
 
@@ -93,7 +94,7 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 // getLinuxNodeCSECommand returns Linux node custom script extension execution command.
 func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
 	// get parameters
-	parameters := getParameters(config, "", "")
+	parameters := getParameters(config)
 	// get variable
 	variables := getCSECommandVariables(config)
 	// NOTE: that CSE command will be executed by VM/VMSS extension so it doesn't need extra escaping like custom data does
@@ -108,13 +109,13 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 	}
 	// NOTE: we break the one-line CSE command into different lines in a file for better management
 	// so we need to combine them into one line here
-	return strings.Replace(str, "\n", " ", -1)
+	return strings.ReplaceAll(str, "\n", " ")
 }
 
 // getWindowsNodeCSECommand returns Windows node custom script extension execution command.
 func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBootstrappingConfiguration) string {
 	// get parameters
-	parameters := getParameters(config, "", "")
+	parameters := getParameters(config)
 	// get variable
 	variables := getCSECommandVariables(config)
 
@@ -131,11 +132,11 @@ func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBoots
 	/* NOTE(qinahao): windows cse cmd uses esapced \" to quote Powershell command in
 	[csecmd.p1](https://github.com/Azure/AgentBaker/blob/master/parts/windows/csecmd.ps1). */
 	// to not break go template parsing. We switch \" back to " otherwise Azure ARM template will escape \ to be \\\"
-	str = strings.Replace(str, `\"`, `"`, -1)
+	str = strings.ReplaceAll(str, `\"`, `"`)
 
 	// NOTE: we break the one-line CSE command into different lines in a file for better management
 	// so we need to combine them into one line here
-	return strings.Replace(str, "\n", " ", -1)
+	return strings.ReplaceAll(str, "\n", " ")
 }
 
 // getSingleLineForTemplate returns the file as a single line for embedding in an arm template.
@@ -164,12 +165,12 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 	// use go templates to process the text filename
 	templ := template.New("customdata template").Option("missingkey=zero").Funcs(funcMap)
 	if _, err = templ.New(textFilename).Parse(string(b)); err != nil {
-		return "", fmt.Errorf("error parsing file %s: %v", textFilename, err)
+		return "", fmt.Errorf("error parsing file %s: %w", textFilename, err)
 	}
 
 	var buffer bytes.Buffer
 	if err = templ.ExecuteTemplate(&buffer, textFilename, profile); err != nil {
-		return "", fmt.Errorf("error executing template for file %s: %v", textFilename, err)
+		return "", fmt.Errorf("error executing template for file %s: %w", textFilename, err)
 	}
 	expandedTemplate := buffer.String()
 
@@ -177,6 +178,8 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 }
 
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
+//
+//nolint:gocognit
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
 
@@ -248,19 +251,18 @@ func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 	truncated := resourceGroupName
 	truncated = strings.ReplaceAll(truncated, "(", "-")
 	truncated = strings.ReplaceAll(truncated, ")", "-")
-	const maxLen = 63
-	if len(truncated) > maxLen {
-		truncated = truncated[0:maxLen]
+	const maxKubernetesLabelLength = 63
+	if len(truncated) > maxKubernetesLabelLength {
+		truncated = truncated[0:maxKubernetesLabelLength]
 	}
 
 	if strings.HasSuffix(truncated, "-") ||
 		strings.HasSuffix(truncated, "_") ||
 		strings.HasSuffix(truncated, ".") {
-		if len(truncated) > 62 {
+		if len(truncated) > maxKubernetesLabelLength-1 {
 			return truncated[0:len(truncated)-1] + "z"
-		} else {
-			return truncated + "z"
 		}
+		return truncated + "z"
 	}
 	return truncated
 }
@@ -268,12 +270,23 @@ func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
 	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
 	// we should only allow users to configure from API (20201101 and later)
+	dockerShimFlags := []string{
+		"--cni-bin-dir",
+		"--cni-cache-dir",
+		"--cni-conf-dir",
+		"--docker-endpoint",
+		"--image-pull-progress-deadline",
+		"--network-plugin",
+		"--network-plugin-mtu",
+	}
 	profile := config.AgentPoolProfile
 	if config.KubeletConfig != nil {
 		kubeletFlags := config.KubeletConfig
 		delete(kubeletFlags, "--dynamic-config-dir")
 		delete(kubeletFlags, "--non-masquerade-cidr")
-		if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" && profile.KubernetesConfig.ContainerRuntime == "containerd" {
+		if profile != nil && profile.KubernetesConfig != nil &&
+			profile.KubernetesConfig.ContainerRuntime != "" &&
+			profile.KubernetesConfig.ContainerRuntime == "containerd" {
 			for _, flag := range dockerShimFlags {
 				delete(kubeletFlags, flag)
 			}
@@ -322,6 +335,7 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 // getContainerServiceFuncMap returns all functions used in template generation.
 /* These funcs are a thin wrapper for template generation operations,
 all business logic is implemented in the underlying func. */
+//nolint:gocognit, funlen, cyclop, gocyclo
 func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration) template.FuncMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
@@ -396,7 +410,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return nil
 		},
 		"ShouldConfigTransparentHugePage": func() bool {
-			return profile.CustomLinuxOSConfig != nil && (profile.CustomLinuxOSConfig.TransparentHugePageEnabled != "" || profile.CustomLinuxOSConfig.TransparentHugePageDefrag != "")
+			return profile.CustomLinuxOSConfig != nil && (profile.CustomLinuxOSConfig.TransparentHugePageEnabled != "" ||
+				profile.CustomLinuxOSConfig.TransparentHugePageDefrag != "")
 		},
 		"GetTransparentHugePageEnabled": func() string {
 			if profile.CustomLinuxOSConfig == nil {
@@ -420,6 +435,24 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				return *profile.CustomLinuxOSConfig.SwapFileSizeMB
 			}
 			return 0
+		},
+		"ShouldConfigContainerdUlimits": func() bool {
+			return profile.GetCustomLinuxOSConfig().GetUlimitConfig() != nil
+		},
+		"GetContainerdUlimitString": func() string {
+			ulimitConfig := profile.GetCustomLinuxOSConfig().GetUlimitConfig()
+			if ulimitConfig == nil {
+				return ""
+			}
+			var sb strings.Builder
+			sb.WriteString("[Service]\n")
+			if ulimitConfig.MaxLockedMemory != "" {
+				sb.WriteString(fmt.Sprintf("LimitMEMLOCK=%s\n", ulimitConfig.MaxLockedMemory))
+			}
+			if ulimitConfig.NoFile != "" {
+				sb.WriteString(fmt.Sprintf("LimitNOFILE=%s\n", ulimitConfig.NoFile))
+			}
+			return sb.String()
 		},
 		"IsKubernetes": func() bool {
 			return cs.Properties.OrchestratorProfile.IsKubernetes()
@@ -445,6 +478,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"IsKata": func() bool {
 			return profile.Distro.IsKataDistro()
+		},
+		"IsCustomImage": func() bool {
+			return profile.Distro == datamodel.CustomizedImage
 		},
 		"EnableHostsConfigAgent": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
@@ -600,16 +636,20 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.RequiresDocker()
 		},
 		"HasDataDir": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
+			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil &&
+				profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
 				return true
 			}
 			if profile.KubeletDiskType == datamodel.TempDisk {
 				return true
 			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig != nil && cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != ""
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig != nil &&
+				cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != ""
 		},
 		"GetDataDir": func() string {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
+			if profile != nil && profile.KubernetesConfig != nil &&
+				profile.KubernetesConfig.ContainerRuntimeConfig != nil &&
+				profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
 				return profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
 			}
 			if profile.KubeletDiskType == datamodel.TempDisk {
@@ -640,15 +680,18 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString([]byte(kubenetCniTemplate))
 		},
 		"GetContainerdConfigContent": func() string {
-			parameters := getParameters(config, "baker", "1.0")
-			// get variable cloudInit
-			variables := getCustomDataVariables(config)
-			containerdConfigTemplate := template.Must(template.New("kubenet").Funcs(getBakerFuncMap(config, parameters, variables)).Parse(containerdConfigTemplateString))
-			var b bytes.Buffer
-			if err := containerdConfigTemplate.Execute(&b, profile); err != nil {
-				panic(fmt.Errorf("failed to execute sysctl template: %s", err))
+			output, err := containerdConfigFromTemplate(config, profile, containerdConfigTemplateString)
+			if err != nil {
+				panic(err)
 			}
-			return base64.StdEncoding.EncodeToString(b.Bytes())
+			return output
+		},
+		"GetContainerdConfigNoGPUContent": func() string {
+			output, err := containerdConfigFromTemplate(config, profile, containerdConfigNoGpuTemplateString)
+			if err != nil {
+				panic(err)
+			}
+			return output
 		},
 		"TeleportEnabled": func() bool {
 			return config.EnableACRTeleportPlugin
@@ -861,7 +904,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return getGPUDriverVersion(profile.VMSize)
 		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
-			if cs.Properties.WindowsProfile != nil {
+			// Only need to enable HNSRemediator for Windows 2019
+			if cs.Properties.WindowsProfile != nil && profile.Distro == datamodel.AKSWindows2019Containerd {
 				return cs.Properties.WindowsProfile.GetHnsRemediatorIntervalInMinutes()
 			}
 			return 0
@@ -884,7 +928,33 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"ShouldDisableSSH": func() bool {
 			return config.SSHStatus == datamodel.SSHOff
 		},
+		"GetSysctlContent": func() (string, error) {
+			templateFuncMap := make(template.FuncMap)
+			templateFuncMap["getPortRangeEndValue"] = getPortRangeEndValue
+			sysctlTemplate, err := template.New("sysctl").Funcs(templateFuncMap).Parse(sysctlTemplateString)
+			if err != nil {
+				return "", fmt.Errorf("failed to parse sysctl template: %w", err)
+			}
+
+			var b bytes.Buffer
+			if err = sysctlTemplate.Execute(&b, profile); err != nil {
+				return "", fmt.Errorf("failed to execute sysctl template: %w", err)
+			}
+			return base64.StdEncoding.EncodeToString(b.Bytes()), nil
+		},
+		"ShouldEnableCustomData": func() bool {
+			return !config.DisableCustomData
+		},
 	}
+}
+
+func getPortRangeEndValue(portRange string) int {
+	arr := strings.Split(portRange, " ")
+	num, err := strconv.Atoi(arr[1])
+	if err != nil {
+		return -1
+	}
+	return num
 }
 
 // NV series GPUs target graphics workloads vs NC which targets compute.
@@ -921,6 +991,133 @@ func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfigurat
 func isMariner(osSku string) bool {
 	return osSku == datamodel.OSSKUCBLMariner || osSku == datamodel.OSSKUMariner
 }
+
+const sysctlTemplateString = `# This is a partial workaround to this upstream Kubernetes issue:
+# https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
+net.ipv4.tcp_retries2=8
+net.core.message_burst=80
+net.core.message_cost=40
+{{- if .CustomLinuxOSConfig}}
+{{- if .CustomLinuxOSConfig.Sysctls}}
+{{- if .CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
+net.core.somaxconn={{.CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
+{{- else}}
+net.core.somaxconn=16384
+{{- end}}
+{{- if .CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
+net.ipv4.tcp_max_syn_backlog={{.CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
+{{- else}}
+net.ipv4.tcp_max_syn_backlog=16384
+{{- end}}
+{{- if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
+net.ipv4.neigh.default.gc_thresh1={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
+{{- else}}
+net.ipv4.neigh.default.gc_thresh1=4096
+{{- end}}
+{{- if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
+net.ipv4.neigh.default.gc_thresh2={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
+{{- else}}
+net.ipv4.neigh.default.gc_thresh2=8192
+{{- end}}
+{{- if .CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
+net.ipv4.neigh.default.gc_thresh3={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
+{{- else}}
+net.ipv4.neigh.default.gc_thresh3=16384
+{{- end}}
+{{- else}}
+net.core.somaxconn=16384
+net.ipv4.tcp_max_syn_backlog=16384
+net.ipv4.neigh.default.gc_thresh1=4096
+net.ipv4.neigh.default.gc_thresh2=8192
+net.ipv4.neigh.default.gc_thresh3=16384
+{{- end}}
+{{- else}}
+net.core.somaxconn=16384
+net.ipv4.tcp_max_syn_backlog=16384
+net.ipv4.neigh.default.gc_thresh1=4096
+net.ipv4.neigh.default.gc_thresh2=8192
+net.ipv4.neigh.default.gc_thresh3=16384
+{{- end}}
+{{- if .CustomLinuxOSConfig}}
+{{- if .CustomLinuxOSConfig.Sysctls}}
+# The following are sysctl configs passed from API
+{{- $s:=.CustomLinuxOSConfig.Sysctls}}
+{{- if $s.NetCoreNetdevMaxBacklog}}
+net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
+{{- end}}
+{{- if $s.NetCoreRmemDefault}}
+net.core.rmem_default={{$s.NetCoreRmemDefault}}
+{{- end}}
+{{- if $s.NetCoreRmemMax}}
+net.core.rmem_max={{$s.NetCoreRmemMax}}
+{{- end}}
+{{- if $s.NetCoreWmemDefault}}
+net.core.wmem_default={{$s.NetCoreWmemDefault}}
+{{- end}}
+{{- if $s.NetCoreWmemMax}}
+net.core.wmem_max={{$s.NetCoreWmemMax}}
+{{- end}}
+{{- if $s.NetCoreOptmemMax}}
+net.core.optmem_max={{$s.NetCoreOptmemMax}}
+{{- end}}
+{{- if $s.NetIpv4TcpMaxTwBuckets}}
+net.ipv4.tcp_max_tw_buckets={{$s.NetIpv4TcpMaxTwBuckets}}
+{{- end}}
+{{- if $s.NetIpv4TcpFinTimeout}}
+net.ipv4.tcp_fin_timeout={{$s.NetIpv4TcpFinTimeout}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveTime}}
+net.ipv4.tcp_keepalive_time={{$s.NetIpv4TcpKeepaliveTime}}
+{{- end}}
+{{- if $s.NetIpv4TcpKeepaliveProbes}}
+net.ipv4.tcp_keepalive_probes={{$s.NetIpv4TcpKeepaliveProbes}}
+{{- end}}
+{{- if $s.NetIpv4TcpkeepaliveIntvl}}
+net.ipv4.tcp_keepalive_intvl={{$s.NetIpv4TcpkeepaliveIntvl}}
+{{- end}}
+{{- if $s.NetIpv4TcpTwReuse}}
+net.ipv4.tcp_tw_reuse={{if $s.NetIpv4TcpTwReuse}}1{{else}}0{{end}}
+{{- end}}
+{{- if $s.NetIpv4IpLocalPortRange}}
+net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
+{{$rangeEnd := getPortRangeEndValue $s.NetIpv4IpLocalPortRange}}
+{{ if ge $rangeEnd 65330}}
+net.ipv4.ip_local_reserved_ports=65330
+{{- end}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackMax}}
+net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}
+{{- end}}
+{{- if $s.NetNetfilterNfConntrackBuckets}}
+net.netfilter.nf_conntrack_buckets={{$s.NetNetfilterNfConntrackBuckets}}
+{{- end}}
+{{- if $s.FsInotifyMaxUserWatches}}
+fs.inotify.max_user_watches={{$s.FsInotifyMaxUserWatches}}
+{{- end}}
+{{- if $s.FsFileMax}}
+fs.file-max={{$s.FsFileMax}}
+{{- end}}
+{{- if $s.FsAioMaxNr}}
+fs.aio-max-nr={{$s.FsAioMaxNr}}
+{{- end}}
+{{- if $s.FsNrOpen}}
+fs.nr_open={{$s.FsNrOpen}}
+{{- end}}
+{{- if $s.KernelThreadsMax}}
+kernel.threads-max={{$s.KernelThreadsMax}}
+{{- end}}
+{{- if $s.VMMaxMapCount}}
+vm.max_map_count={{$s.VMMaxMapCount}}
+{{- end}}
+{{- if $s.VMSwappiness}}
+vm.swappiness={{$s.VMSwappiness}}
+{{- end}}
+{{- if $s.VMVfsCachePressure}}
+vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
+{{- end}}
+{{- end}}
+{{- end}}
+`
 
 const kubenetCniTemplate = `
 {
@@ -1025,3 +1222,88 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/teleportd/snapshotter.sock"
 {{- end}}
 `
+
+// this pains me, but to make it respect mutability of vmss tags,
+// we cannot use go templates at runtime.
+// CSE needs to be able to generate the full config, with all params,
+// with the tags pulled from wireserver. this is a hack to avoid
+// moving all the go templates to CSE -- we allow two options,
+// duplicate them in CSE base64-encoded, and pick the right one.
+// they're identical except for GPU runtime class.
+const containerdConfigNoGpuTemplateString = `version = 2
+oom_score = 0{{if HasDataDir }}
+root = "{{GetDataDir}}"{{- end}}
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = "{{GetPodInfraContainerSpec}}"
+  [plugins."io.containerd.grpc.v1.cri".containerd]
+    {{- if TeleportEnabled }}
+    snapshotter = "teleportd"
+    disable_snapshot_annotations = false
+    {{- end}}
+    default_runtime_name = "runc"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      {{- if Is2204VHD }}
+      SystemdCgroup = true
+      {{- end}}
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+    {{- if IsKata }}
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+      runtime_type = "io.containerd.kata.v2"
+    {{- end}}
+    {{- if IsKrustlet }}
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
+      runtime_type = "io.containerd.spin-v0-3-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
+      runtime_type = "io.containerd.slight-v0-3-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]
+      runtime_type = "io.containerd.spin-v0-3-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]
+      runtime_type = "io.containerd.slight-v0-3-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]
+      runtime_type = "io.containerd.spin-v0-5-1.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]
+      runtime_type = "io.containerd.slight-v0-5-1.v1"
+    {{- end}}
+  {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
+  [plugins."io.containerd.grpc.v1.cri".cni]
+    bin_dir = "/opt/cni/bin"
+    conf_dir = "/etc/cni/net.d"
+    conf_template = "/etc/containerd/kubenet_template.conf"
+  {{- end}}
+  {{- if IsKubernetesVersionGe "1.22.0"}}
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    config_path = "/etc/containerd/certs.d"
+  {{- end}}
+  [plugins."io.containerd.grpc.v1.cri".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[metrics]
+  address = "0.0.0.0:10257"
+{{- if TeleportEnabled }}
+[proxy_plugins]
+  [proxy_plugins.teleportd]
+    type = "snapshot"
+    address = "/run/teleportd/snapshotter.sock"
+{{- end}}
+`
+
+func containerdConfigFromTemplate(
+	config *datamodel.NodeBootstrappingConfiguration,
+	profile *datamodel.AgentPoolProfile,
+	tmpl string,
+) (string, error) {
+	parameters := getParameters(config)
+	variables := getCustomDataVariables(config)
+	bakerFuncMap := getBakerFuncMap(config, parameters, variables)
+	containerdConfigTemplate := template.Must(template.New("kubenet").Funcs(bakerFuncMap).Parse(tmpl))
+	var b bytes.Buffer
+	if err := containerdConfigTemplate.Execute(&b, profile); err != nil {
+		return "", fmt.Errorf("failed to execute sysctl template: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
+}

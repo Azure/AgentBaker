@@ -21,7 +21,7 @@ echo "Components downloaded in this VHD build (some of the below components migh
 
 # fix grub issue with cvm by reinstalling before other deps
 # other VHDs use grub-pc, not grub-efi
-if [[ "${UBUNTU_RELEASE}" == "20.04" ]]; then
+if [[ "${UBUNTU_RELEASE}" == "20.04" ]] && [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT 
   wait_for_apt_locks
   apt_get_install 30 1 600 grub-efi || exit 1
@@ -42,7 +42,26 @@ APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
 
-installDeps
+# If the IMG_SKU does not contain "minimal", installDeps normally
+if [[ "$IMG_SKU" != *"minimal"* ]]; then
+  installDeps
+else
+  updateAptWithMicrosoftPkg
+  # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
+  # jq - for manipulation JSON data
+  # iptables - required to run containerd
+  # netcat - network comms with API server
+  # dnsutils - contains nslookup, to query API server DNS
+  # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
+  BLOBFUSE2_VERSION="2.0.4"
+  required_pkg_list=(jq iptables netcat dnsutils "blobfuse2="${BLOBFUSE2_VERSION} fuse3)
+  for apt_package in ${required_pkg_list[*]}; do
+      if ! apt_get_install 30 1 600 $apt_package; then
+          journalctl --no-pager -u $apt_package
+          exit $ERR_APT_INSTALL_TIMEOUT
+      fi
+  done
+fi
 
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
 Storage=persistent
@@ -50,6 +69,11 @@ SystemMaxUse=1G
 RuntimeMaxUse=1G
 ForwardToSyslog=yes
 EOF
+
+if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then
+  echo "Unsupported container runtime. Only containerd is supported for new VHD builds."
+  exit 1
+fi
 
 if [[ $(isARM64) == 1 ]]; then
   if [[ ${ENABLE_FIPS,,} == "true" ]]; then
@@ -96,59 +120,52 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
       enableMarinerKata
     fi
+    disableTimesyncd
     disableDNFAutomatic
     enableCheckRestart
+    activateNfConntrack
 fi
 
 downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
 
-if [[ ${CONTAINER_RUNTIME:-""} == "containerd" ]]; then
-  echo "VHD will be built with containerd as the container runtime"
-  updateAptWithMicrosoftPkg
-  containerd_manifest="$(jq .containerd manifest.json)" || exit $?
-  installed_version="$(echo ${containerd_manifest} | jq -r '.edge')"
-  containerd_version="$(echo "$installed_version" | cut -d- -f1)"
-  containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
-  installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
-  echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
+echo "VHD will be built with containerd as the container runtime"
+updateAptWithMicrosoftPkg
+containerd_manifest="$(jq .containerd manifest.json)" || exit $?
+installed_version="$(echo ${containerd_manifest} | jq -r '.edge')"
+containerd_version="$(echo "$installed_version" | cut -d- -f1)"
+containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
+installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
+echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
 
-  DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-  for componentToDownload in ${DOWNLOAD_FILES[*]}; do
-    fileName=$(echo "${componentToDownload}" | jq .fileName -r)
-    if [ $fileName == "crictl-v*-linux-amd64.tar.gz" ]; then
-      CRICTL_VERSIONS_STR=$(echo "${componentToDownload}" | jq .versions -r)
-      CRICTL_VERSIONS=""
-      if [[ ${CRICTL_VERSIONS_STR} != null ]]; then
-        CRICTL_VERSIONS=$(echo "${CRICTL_VERSIONS_STR}" | jq -r ".[]")
-        CRICTL_VERSIONS=$(echo -e "$CRICTL_VERSIONS" | tail -n 2 | head -n 1 | tr -d ' ')
-      fi
-      break
+DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
+for componentToDownload in ${DOWNLOAD_FILES[*]}; do
+  fileName=$(echo "${componentToDownload}" | jq .fileName -r)
+  if [ $fileName == "crictl-v*-linux-amd64.tar.gz" ]; then
+    CRICTL_VERSIONS_STR=$(echo "${componentToDownload}" | jq .versions -r)
+    CRICTL_VERSIONS=""
+    if [[ ${CRICTL_VERSIONS_STR} != null ]]; then
+      CRICTL_VERSIONS=$(echo "${CRICTL_VERSIONS_STR}" | jq -r ".[]")
+      CRICTL_VERSIONS=$(echo -e "$CRICTL_VERSIONS" | tail -n 2 | head -n 1 | tr -d ' ')
     fi
-  done
-  echo $CRICTL_VERSIONS
+    break
+  fi
+done
+echo $CRICTL_VERSIONS
 
-  for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
-    downloadCrictl ${CRICTL_VERSION}
-    echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
-  done
-  
-  KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
+for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
+  downloadCrictl ${CRICTL_VERSION}
+  echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
 
-  # k8s will use images in the k8s.io namespaces - create it
-  ctr namespace create k8s.io
-  cliTool="ctr"
+KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
 
-  # also pre-download Teleportd plugin for containerd
-  downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
-else
-  CONTAINER_RUNTIME="docker"
-  MOBY_VERSION="19.03.14"
-  installMoby
-  echo "VHD will be built with docker as container runtime"
-  echo "  - moby v${MOBY_VERSION}" >> ${VHD_LOGS_FILEPATH}
-  cliTool="docker"
-fi
+# k8s will use images in the k8s.io namespaces - create it
+ctr namespace create k8s.io
+cliTool="ctr"
+
+# also pre-download Teleportd plugin for containerd
+downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
@@ -158,33 +175,18 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
   export NVIDIA_DRIVER_IMAGE_TAG="cuda-525.85.12-${NVIDIA_DRIVER_IMAGE_SHA}"
 
   mkdir -p /opt/{actions,gpu}
-  if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-    ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-    if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-      bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
-      ret=$?
-      if [[ "$ret" != "0" ]]; then
-        echo "Failed to install GPU driver, exiting..."
-        exit $ret
-      fi
+  ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+  if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+    ret=$?
+    if [[ "$ret" != "0" ]]; then
+      echo "Failed to install GPU driver, exiting..."
+      exit $ret
     fi
-  else
-    if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-      bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG $gpu_action"
-      ret=$?
-      if [[ "$ret" != "0" ]]; then
-        echo "Failed to install GPU driver, exiting..."
-        exit $ret
-      fi
-    fi
-  fi
+  fi    
 fi
 
-if [ "${CONTAINER_RUNTIME:=}" == "containerd" ]; then
-    systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
-else
-    systemctlEnableAndStart docker-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
-fi
+systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
@@ -247,11 +249,7 @@ watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
 watcherStaticImg=${watcherBaseImg//\*/static}
 
 # can't use cliTool because crictl doesn't support retagging.
-if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-    retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
-else
-    retagContainerImage "docker" ${watcherFullImg} ${watcherStaticImg}
-fi
+retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
 
 # doing this at vhd allows CSE to be faster with just mv
 unpackAzureCNI() {
@@ -266,8 +264,8 @@ unpackAzureCNI() {
 
 #must be both amd64/arm64 images
 VNET_CNI_VERSIONS="
+1.5.5
 1.4.43
-1.4.35
 "
 
 
@@ -281,8 +279,8 @@ done
 #UNITE swift and overlay versions?
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 SWIFT_CNI_VERSIONS="
+1.5.5
 1.4.43
-1.4.35
 "
 
 for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
@@ -293,8 +291,8 @@ for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
 done
 
 OVERLAY_CNI_VERSIONS="
+1.5.5
 1.4.43
-1.4.35
 "
 
 for OVERLAY_CNI_VERSION in $OVERLAY_CNI_VERSIONS; do
@@ -341,82 +339,45 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
 
   DEST="/usr/local/nvidia/bin"
   mkdir -p $DEST
-  if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-    ctr --namespace k8s.io run --rm --mount type=bind,src=${DEST},dst=${DEST},options=bind:rw --cwd ${DEST} "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.13.0.7" plugingextract /bin/sh -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
-  else
-    docker run --rm --entrypoint "" -v $DEST:$DEST "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.13.0.7" /bin/bash -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
-  fi
+  ctr --namespace k8s.io run --rm --mount type=bind,src=${DEST},dst=${DEST},options=bind:rw --cwd ${DEST} "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.13.0.7" plugingextract /bin/sh -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
   chmod a+x $DEST/nvidia-device-plugin
   echo "  - extracted nvidia-device-plugin..." >> ${VHD_LOGS_FILEPATH}
   ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
 
   systemctlEnableAndStart nvidia-device-plugin || exit 1
 fi
-
-installSGX=${SGX_INSTALL:-"False"}
-if [[ ${installSGX} == "True" ]]; then
-    SGX_DEVICE_PLUGIN_VERSIONS="1.0"
-    for SGX_DEVICE_PLUGIN_VERSION in ${SGX_DEVICE_PLUGIN_VERSIONS}; do
-        CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-device-plugin:${SGX_DEVICE_PLUGIN_VERSION}"
-        pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-        echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    done
-
-    SGX_PLUGIN_VERSIONS="
-    0.5
-    "
-    for SGX_PLUGIN_VERSION in ${SGX_PLUGIN_VERSIONS}; do
-        CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-plugin:${SGX_PLUGIN_VERSION}"
-        pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-        echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    done
-
-    SGX_WEBHOOK_VERSIONS="
-    1.0
-    "
-    for SGX_WEBHOOK_VERSION in ${SGX_WEBHOOK_VERSIONS}; do
-        CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-webhook:${SGX_WEBHOOK_VERSION}"
-        pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-        echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    done
-
-    SGX_QUOTE_HELPER_VERSIONS="3.1"
-    for SGX_QUOTE_HELPER_VERSION in ${SGX_QUOTE_HELPER_VERSIONS}; do
-        CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-attestation:${SGX_QUOTE_HELPER_VERSION}"
-        pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-        echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    done
-fi
 fi
 
-NGINX_VERSIONS="1.21.6"
-for NGINX_VERSION in ${NGINX_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}"
-    pullContainerImage ${cliTool} mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
+mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
+
+systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
+systemctl enable cgroup-memory-telemetry.service || exit 1
+systemctl restart cgroup-memory-telemetry.service
+
+CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
+if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
+  systemctlEnableAndStart cgroup-pressure-telemetry.timer || exit 1
+  systemctl enable cgroup-pressure-telemetry.service || exit 1
+  systemctl restart cgroup-pressure-telemetry.service
+fi
+
+cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
+rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 
 # kube-proxy regular versions >=v1.17.0  hotfixes versions >= 20211009 are 'multi-arch'. All versions in kube-proxy-images.json are 'multi-arch' version now.
-if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
-  KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
-else
-  echo "Unsupported container runtime"
-  exit 1
-fi
+
+KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
 
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # use kube-proxy as well
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
   pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-  if [[ ${cliTool} == "docker" ]]; then
-      docker run --rm --entrypoint "" ${CONTAINER_IMAGE} /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
-  else
-      ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
-  fi
+  ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
+  
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
@@ -443,10 +404,6 @@ fi
 KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
 
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
-  if (($(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"." -f2) < 19)) && [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
-    echo "Only need to store k8s components >= 1.19 for containerd VHDs"
-    continue
-  fi
   KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
   extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
 done

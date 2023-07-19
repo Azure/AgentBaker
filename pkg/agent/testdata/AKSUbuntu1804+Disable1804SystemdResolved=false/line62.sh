@@ -21,14 +21,13 @@ installDeps() {
 
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
     pkg_list=(apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r))
 
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
-    BLOBFUSE2_VERSION="2.0.2"
+    BLOBFUSE2_VERSION="2.0.4"
 
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
@@ -53,42 +52,6 @@ installDeps() {
             exit $ERR_APT_INSTALL_TIMEOUT
         fi
     done
-}
-
-installSGXDrivers() {
-    if [[ $(isARM64) == 1 ]]; then
-        # no intel sgx on arm64
-        return
-    fi
-
-    echo "Installing SGX driver"
-    local VERSION
-    VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
-    case $VERSION in
-    "18.04")
-        SGX_DRIVER_URL="https://download.01.org/intel-sgx/dcap-1.2/linux/dcap_installers/ubuntuServer18.04/sgx_linux_x64_driver_1.12_c110012.bin"
-        ;;
-    "16.04")
-        SGX_DRIVER_URL="https://download.01.org/intel-sgx/dcap-1.2/linux/dcap_installers/ubuntuServer16.04/sgx_linux_x64_driver_1.12_c110012.bin"
-        ;;
-    "*")
-        echo "Version $VERSION is not supported"
-        exit 1
-        ;;
-    esac
-
-    local PACKAGES="make gcc dkms"
-    wait_for_apt_locks
-    retrycmd_if_failure 30 5 3600 apt-get -y install $PACKAGES  || exit $ERR_SGX_DRIVERS_INSTALL_TIMEOUT
-
-    local SGX_DRIVER
-    SGX_DRIVER=$(basename $SGX_DRIVER_URL)
-    local OE_DIR=/opt/azure/containers/oe
-    mkdir -p ${OE_DIR}
-
-    retrycmd_if_failure 120 5 25 curl -fsSL ${SGX_DRIVER_URL} -o ${OE_DIR}/${SGX_DRIVER} || exit $ERR_SGX_DRIVERS_INSTALL_TIMEOUT
-    chmod a+x ${OE_DIR}/${SGX_DRIVER}
-    ${OE_DIR}/${SGX_DRIVER} || exit $ERR_SGX_DRIVERS_START_FAIL
 }
 
 updateAptWithMicrosoftPkg() {
@@ -156,7 +119,7 @@ installStandaloneContainerd() {
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.6.18"
+        CONTAINERD_VERSION="1.7.1"
         CONTAINERD_PATCH_VERSION="1"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
@@ -247,7 +210,7 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.1.5+azure-ubuntu${UBUNTU_RELEASE}u1"
+        TARGET_VERSION="1.1.7+azure-ubuntu${UBUNTU_RELEASE}"
     fi
 
     if [[ $(isARM64) == 1 ]]; then
@@ -259,7 +222,7 @@ ensureRunc() {
 
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-    CLEANED_TARGET_VERSION=$(TARGET_VERSION%+*) # removes the +azure-ubuntu18.04u1 (or similar) suffix
+    CLEANED_TARGET_VERSION=${TARGET_VERSION%+*} # removes the +azure-ubuntu18.04u1 (or similar) suffix
 
     if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
         echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
@@ -274,7 +237,7 @@ ensureRunc() {
             return 0
         fi
     fi
-    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION} --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
 #EOF

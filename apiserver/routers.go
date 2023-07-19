@@ -1,9 +1,7 @@
 package apiserver
 
 import (
-	"context"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -21,7 +19,7 @@ type Route struct {
 type Routes []Route
 
 // NewRouter returns a new router with defaults.
-func (api *APIServer) NewRouter(ctx context.Context) *mux.Router {
+func (api *APIServer) NewRouter() *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
 
 	router.
@@ -54,7 +52,7 @@ func healthz(w http.ResponseWriter, r *http.Request) {
 	handleOK(w, r)
 }
 
-func handleOK(w http.ResponseWriter, r *http.Request) {
+func handleOK(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 }
@@ -65,6 +63,6 @@ func recoveryHandler() mux.MiddlewareFunc {
 
 func timeoutHandler() mux.MiddlewareFunc {
 	return func(h http.Handler) http.Handler {
-		return http.TimeoutHandler(h, time.Second*30, "")
+		return http.TimeoutHandler(h, defaultTimeout, "")
 	}
 }

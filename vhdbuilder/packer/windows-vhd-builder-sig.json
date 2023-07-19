@@ -7,7 +7,6 @@
         "build_repo": "{{env `GIT_REPO`}}",
         "client_id": "{{env `AZURE_CLIENT_ID`}}",
         "client_secret": "{{env `AZURE_CLIENT_SECRET`}}",
-        "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
         "windows_sku": "{{env `WINDOWS_SKU`}}",
         "tenant_id": "{{env `AZURE_TENANT_ID`}}",
         "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
@@ -40,7 +39,7 @@
             "image_version": "{{user `windows_image_version`}}",
             "image_url": "{{user `windows_image_url`}}",
             "managed_image_resource_group_name": "{{user `resource_group_name`}}",
-            "managed_image_name": "{{user `sig_image_name`}}",
+            "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
             "shared_image_gallery": {
               "subscription": "{{user `windows_sigmode_source_subscription_id`}}",
               "resource_group": "{{user `windows_sigmode_source_resource_group_name`}}",
@@ -81,7 +80,6 @@
             "environment_vars": [
                 "ProvisioningPhase=1",
                 "WindowsSKU={{user `windows_sku`}}",
-                "ContainerRuntime={{user `container_runtime`}}",
                 "CustomizedDiskSize={{user `os_disk_size_gb`}}"
             ],
             "type": "powershell",
@@ -100,7 +98,6 @@
             "environment_vars": [
                 "ProvisioningPhase=2",
                 "WindowsSKU={{user `windows_sku`}}",
-                "ContainerRuntime={{user `container_runtime`}}",
                 "CustomizedDiskSize={{user `os_disk_size_gb`}}",
                 "WindowsNanoServerImageURL={{user `nano_image_url`}}",
                 "WindowsServerCoreImageURL={{user `core_image_url`}}"
@@ -128,17 +125,28 @@
                 "BUILD_COMMIT={{user `build_commit`}}",
                 "BUILD_ID={{user `build_id`}}",
                 "BUILD_NUMBER={{user `build_number`}}",
-                "BUILD_REPO={{user `build_repo`}}",
-                "ContainerRuntime={{user `container_runtime`}}"
+                "BUILD_REPO={{user `build_repo`}}"
             ],
             "type": "powershell",
             "script": "vhdbuilder/packer/write-release-notes-windows.ps1"
+        },
+        {
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
+            "type": "powershell",
+            "script": "vhdbuilder/packer/list-images.ps1"
         },
         {
             "type": "file",
             "direction": "download",
             "source": "c:\\release-notes.txt",
             "destination": "release-notes.txt"
+        },
+        {
+            "type": "file",
+            "direction": "download",
+            "source": "c:\\image-bom.json",
+            "destination": "image-bom.json"
         },
         {
             "elevated_user": "packer",

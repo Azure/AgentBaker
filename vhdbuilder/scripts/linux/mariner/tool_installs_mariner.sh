@@ -14,6 +14,12 @@ installBcc() {
     dnf_install 120 5 25 bcc-examples || exit $ERR_BCC_INSTALL_TIMEOUT
 }
 
+installBpftrace() {
+    echo "Installing bpftrace ..."
+    dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
+    dnf_install 120 5 25 bpftrace || exit $ERR_BCC_INSTALL_TIMEOUT
+}
+
 addMarinerNvidiaRepo() {
     if [[ $OS_VERSION == "2.0" ]]; then 
         MARINER_NVIDIA_REPO_FILEPATH="/etc/yum.repos.d/mariner-nvidia.repo"
@@ -64,6 +70,7 @@ if [[ $OS_VERSION == "2.0" ]]; then
     cat << EOF >> ${CONFIG_FILEPATH}
 
     [DHCPv4]
+    UseDomains=true
     SendRelease=false
 EOF
 fi
@@ -87,6 +94,16 @@ disableDNFAutomatic() {
     systemctl stop dnf-automatic-install.timer || exit 1
     systemctl disable dnf-automatic-install.timer || exit 1
     systemctl mask dnf-automatic-install.timer || exit 1
+}
+
+disableTimesyncd() {
+    # Disable and Mask timesyncd to prevent it from interfering with chronyd's work
+    systemctl stop systemd-timesyncd || exit 1
+    systemctl disable systemd-timesyncd || exit 1
+    systemctl mask systemd-timesyncd || exit 1
+    
+    # Before we return, make sure that chronyd is running
+    systemctlEnableAndStart chronyd || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 # Regardless of UU mode, ensure check-restart is running
@@ -132,4 +149,33 @@ enableMarinerKata() {
     # kata-osbuilder-generate is responsible for triggering the kata-osbuilder.sh script, which uses
     # dracut to generate an initrd for the nested VM using binaries from the Mariner host OS.
     systemctlEnableAndStart kata-osbuilder-generate
+}
+
+activateNfConntrack() {
+    # explicitly activate nf_conntrack module so associated sysctls can be properly set 
+    echo nf_conntrack >> /etc/modules-load.d/contrack.conf
+}
+
+installFIPS() {
+
+    echo "Installing FIPS..."
+
+    # Install necessary rpm pacakages
+    dnf_install 120 5 25 grubby || exit $ERR_APT_INSTALL_TIMEOUT
+    dnf_install 120 5 25 dracut-fips || exit $ERR_APT_INSTALL_TIMEOUT
+
+    # Add the boot= cmd line parameter if the boot dir is not the same as the root dir
+    boot_dev="$(df /boot/ | tail -1 | cut -d' ' -f1)"
+    root_dev="$(df / | tail -1 | cut -d' ' -f1)"
+    if [ ! "$root_dev" == "$boot_dev" ]; then
+        boot_uuid="UUID=$(blkid $boot_dev -s UUID -o value)"
+
+        # Enable FIPS mode and modify boot directory
+        if grub2-editenv - list | grep -q kernelopts;then
+                grub2-editenv - set "$(grub2-editenv - list | grep kernelopts) fips=1 boot=$boot_uuid"
+        else
+                grubby --update-kernel=ALL --args="fips=1 boot=$boot_uuid"
+        fi
+    fi
+    
 }

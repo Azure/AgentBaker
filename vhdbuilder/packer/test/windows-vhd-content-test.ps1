@@ -6,12 +6,10 @@
 #>
 
 param (
-    $containerRuntime,
     $windowsSKU
 )
 
 # We use parameters for test script so we set environment variables before importing c:\windows-vhd-configuration.ps1 to reuse it
-$env:ContainerRuntime=$containerRuntime
 $env:WindowsSKU=$windowsSKU
 
 . c:\windows-vhd-configuration.ps1
@@ -104,21 +102,6 @@ function Test-FilesToCacheOnVHD
             $fileName = [IO.Path]::GetFileName($URL)
             $dest = [IO.Path]::Combine($dir, $fileName)
 
-            # Do not validate containerd package on docker VHD
-            if ($containerRuntime -ne 'containerd' -And $dir -eq "c:\akse-cache\containerd\") {
-                continue
-            }
-
-            # Windows containerD supports Windows containerD, starting from Kubernetes 1.20
-            if ($containerRuntime -eq "containerd" -And $fakeDir -eq "c:\akse-cache\win-k8s\") {
-                $k8sMajorVersion = $fileName.split(".",3)[0]
-                $k8sMinorVersion = $fileName.split(".",3)[1]
-                # Skip to validate $URL for containerD is supported from Kubernets 1.20
-                if ($k8sMinorVersion -lt "20" -And $k8sMajorVersion -eq "v1") {
-                    continue
-                }
-            }
-
             if(![System.IO.File]::Exists($dest)) {
                 Write-ErrorWithTimestamp "File $dest does not exist"
                 $invalidFiles = $invalidFiles + $dest
@@ -161,8 +144,9 @@ function Test-FilesToCacheOnVHD
                             "azure-vnet-cni-singletenancy-windows-amd64",
                             "azure-vnet-cni-singletenancy-swift-windows-amd64",
                             "azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
-                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35.zip",
+                            "azure-vnet-cni-singletenancy-windows-amd64-v1.5.5.zip",
                             "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35_Win2019OverlayFix.zip",
+                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.5.5.zip",
                             # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
                             # so we can ignore the different hash values.
                             "v1.26.0-1int.zip"
@@ -213,54 +197,34 @@ function Test-PatchInstalled {
 }
 
 function Test-ImagesPulled {
-    Param(
-        [Switch]$isAzureChinaCloud = $false
-    )
-    Write-Output "Test-ImagesPulled for $containerRuntime. IsAzureChinaCloud: $isAzureChinaCloud"
+    Write-Output "Test-ImagesPulled."
     $targetImagesToPull = $imagesToPull
-    $excludeMcrUrl="mcr.azk8s.cn*"
-    if ($isAzureChinaCloud) {
-        $excludeMcrUrl="mcr.microsoft.com*"
-        $targetImagesToPull = @()
-        foreach ($image in $imagesToPull) {
-            $targetImagesToPull += $image.Replace("mcr.microsoft.com", "mcr.azk8s.cn")
-        }
-    }
-    if ($containerRuntime -eq 'containerd') {
-        Start-Job-To-Expected-State -JobName containerd -ScriptBlock { containerd.exe }
-        # NOTE:
-        # 1. listing images with -q set is expected to return only image names/references, but in practise
-        #    we got additional digest info. The following command works as a workaround to return only image names instad.
-        #    https://github.com/containerd/containerd/blob/master/cmd/ctr/commands/images/images.go#L89
-        # 2. As select-string with nomatch pattern returns additional line breaks, qurying MatchInfo's Line property keeps
-        #    only image reference as a workaround
-        $pulledImages = (ctr.exe -n k8s.io image ls -q | Select-String -notmatch "sha256:.*" | Select-String -notmatch $excludeMcrUrl | % { $_.Line } )
-    }
-    elseif ($containerRuntime -eq 'docker') {
-        Start-Service docker
-        $pulledImages = (docker images --format "{{.Repository}}:{{.Tag}}" | Select-String -notmatch $excludeMcrUrl)
-    }
-    else {
-        Write-ErrorWithTimestamp "unsupported container runtime $containerRuntime"
-    }
+
+    Start-Job-To-Expected-State -JobName containerd -ScriptBlock { containerd.exe }
+    # NOTE:
+    # 1. listing images with -q set is expected to return only image names/references, but in practise
+    #    we got additional digest info. The following command works as a workaround to return only image names instad.
+    #    https://github.com/containerd/containerd/blob/master/cmd/ctr/commands/images/images.go#L89
+    # 2. As select-string with nomatch pattern returns additional line breaks, qurying MatchInfo's Line property keeps
+    #    only image reference as a workaround
+    $pulledImages = (ctr.exe -n k8s.io image ls -q | Select-String -notmatch "sha256:.*" | % { $_.Line } )
 
     if(Compare-Object $targetImagesToPull $pulledImages) {
-        Write-ErrorWithTimestamp "images to pull do not equal images cached $targetImagesToPull != $pulledImages. For AzureChinaCloud: $isAzureChinaCloud"
+        Write-ErrorWithTimestamp "images to pull do not equal images cached $targetImagesToPull != $pulledImages."
         exit 1
     }
 }
 
 function Test-RegistryAdded {
-    if ($containerRuntime -eq 'containerd') {
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name EnableCompartmentNamespace)
-        if ($result.EnableCompartmentNamespace -ne 1) {
-            Write-ErrorWithTimestamp "The registry for SMB Resolution Fix for containerD is not added"
-            exit 1
-        }
+    $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name EnableCompartmentNamespace)
+    if ($result.EnableCompartmentNamespace -ne 1) {
+        Write-ErrorWithTimestamp "The registry for SMB Resolution Fix for containerD is not added"
+        exit 1
     }
+
     if ($env:WindowsSKU -Like '2019*') {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag)
-        if (($result.HNSControlFlag -band 0x50) -ne 0x50) {
+        if (($result.HNSControlFlag -band 0x10) -ne 0x10) {
             Write-ErrorWithTimestamp "The registry for the two HNS fixes is not added"
             exit 1
         }
@@ -282,6 +246,16 @@ function Test-RegistryAdded {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3105872524)
         if ($result.3105872524 -ne 1) {
             Write-ErrorWithTimestamp "The registry for 3105872524 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled)
+        if ($result.VfpEvenPodDistributionIsEnabled -ne 1) {
+            Write-ErrorWithTimestamp "The registry for VfpEvenPodDistributionIsEnabled is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3230913164)
+        if ($result.3230913164 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 3230913164 is not added"
             exit 1
         }
     }
@@ -311,6 +285,51 @@ function Test-RegistryAdded {
             Write-ErrorWithTimestamp "The registry for HnsAclUpdateChange is not added"
             exit 1
         }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNpmRefresh)
+        if ($result.HnsNpmRefresh -ne 1) {
+            Write-ErrorWithTimestamp "The registry for HnsNpmRefresh is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1995963020)
+        if ($result.1995963020 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 1995963020 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 189519500)
+        if ($result.189519500 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 189519500 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled)
+        if ($result.VfpEvenPodDistributionIsEnabled -ne 1) {
+            Write-ErrorWithTimestamp "The registry for VfpEvenPodDistributionIsEnabled is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3398685324)
+        if ($result.3398685324 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 3398685324 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNodeToClusterIpv6)
+        if ($result.HnsNodeToClusterIpv6 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for HnsNodeToClusterIpv6 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSNpmIpsetLimitChange)
+        if ($result.HNSNpmIpsetLimitChange -ne 1) {
+            Write-ErrorWithTimestamp "The registry for HNSNpmIpsetLimitChange is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSLbNatDupRuleChange)
+        if ($result.HNSLbNatDupRuleChange -ne 1) {
+            Write-ErrorWithTimestamp "The registry for HNSLbNatDupRuleChange is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpIpv6DipsPrintingIsEnabled)
+        if ($result.VfpIpv6DipsPrintingIsEnabled -ne 1) {
+            Write-ErrorWithTimestamp "The registry for VfpIpv6DipsPrintingIsEnabled is not added"
+            exit 1
+        }
     }
 }
 
@@ -337,19 +356,6 @@ function Test-AzureExtensions {
     }
 }
 
-function Test-DockerCat {
-    if ($containerRuntime -eq 'docker') {
-        $dockerVersion = (docker version --format '{{.Server.Version}}')
-        if ($dockerVersion -eq "20.10.9") {
-            $catFilePath = "C:\Windows\System32\CatRoot\{F750E6C3-38EE-11D1-85E5-00C04FC295EE}\docker-20-10-9.cat"
-            if (!(Test-Path $catFilePath)) {
-                Write-ErrorWithTimestamp "$catFilePath does not exist"
-                exit 1
-            }
-        }
-    }
-}
-
 function Test-ExcludeUDPSourcePort {
     # Checking whether the UDP source port 65330 is excluded
     $result = $(netsh int ipv4 show excludedportrange udp | findstr.exe 65330)
@@ -362,10 +368,8 @@ function Test-ExcludeUDPSourcePort {
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
-Test-ImagesPulled -isAzureChinaCloud
 Test-RegistryAdded
 Test-DefenderSignature
 Test-AzureExtensions
-Test-DockerCat
 Test-ExcludeUDPSourcePort
 Remove-Item -Path c:\windows-vhd-configuration.ps1

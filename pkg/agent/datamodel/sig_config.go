@@ -62,7 +62,8 @@ func GetCloudTargetEnv(location string) string {
 AvailableUbuntu1804Distros : TODO(amaheshwari): these vars are not consumed by Agentbaker but by RP. do a
 cleanup to remove these after 20.04 work.
 */
-var AvailableUbuntu1804Distros []Distro = []Distro{
+//nolint:gochecknoglobals
+var AvailableUbuntu1804Distros = []Distro{
 	AKSUbuntu1804,
 	AKSUbuntu1804Gen2,
 	AKSUbuntuGPU1804,
@@ -73,29 +74,31 @@ var AvailableUbuntu1804Distros []Distro = []Distro{
 	AKSUbuntuGPUContainerd1804Gen2,
 	AKSUbuntuFipsContainerd1804,
 	AKSUbuntuFipsContainerd1804Gen2,
-	AKSUbuntuFipsGPUContainerd1804,
-	AKSUbuntuFipsGPUContainerd1804Gen2,
-	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuEdgeZoneContainerd1804,
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
 }
 
-var AvailableUbuntu2004Distros []Distro = []Distro{
+//nolint:gochecknoglobals
+var AvailableUbuntu2004Distros = []Distro{
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuFipsContainerd2004,
 	AKSUbuntuFipsContainerd2004Gen2,
 }
 
-var AvailableUbuntu2204Distros []Distro = []Distro{
+//nolint:gochecknoglobals
+var AvailableUbuntu2204Distros = []Distro{
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuEdgeZoneContainerd2204,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
+	AKSUbuntuMinimalContainerd2204,
+	AKSUbuntuMinimalContainerd2204Gen2,
 }
 
-var AvailableContainerdDistros []Distro = []Distro{
+//nolint:gochecknoglobals
+var AvailableContainerdDistros = []Distro{
 	AKSUbuntuContainerd1804,
 	AKSUbuntuContainerd1804Gen2,
 	AKSUbuntuGPUContainerd1804,
@@ -104,17 +107,16 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsContainerd2004,
 	AKSUbuntuFipsContainerd2004Gen2,
-	AKSUbuntuFipsGPUContainerd1804,
-	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSUbuntuEdgeZoneContainerd1804,
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2FIPS,
+	AKSCBLMarinerV2Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
-	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
@@ -122,38 +124,42 @@ var AvailableContainerdDistros []Distro = []Distro{
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuEdgeZoneContainerd2204,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
+	AKSUbuntuMinimalContainerd2204,
+	AKSUbuntuMinimalContainerd2204Gen2,
 }
 
-var AvailableGPUDistros []Distro = []Distro{
+//nolint:gochecknoglobals
+var AvailableGPUDistros = []Distro{
 	AKSUbuntuGPU1804,
 	AKSUbuntuGPU1804Gen2,
 	AKSUbuntuGPUContainerd1804,
 	AKSUbuntuGPUContainerd1804Gen2,
-	AKSUbuntuFipsGPUContainerd1804,
-	AKSUbuntuFipsGPUContainerd1804Gen2,
 }
 
-var AvailableGen2Distros []Distro = []Distro{
+//nolint:gochecknoglobals
+var AvailableGen2Distros = []Distro{
 	AKSUbuntu1804Gen2,
 	AKSUbuntuGPU1804Gen2,
 	AKSUbuntuContainerd1804Gen2,
 	AKSUbuntuGPUContainerd1804Gen2,
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsContainerd2004Gen2,
-	AKSUbuntuFipsGPUContainerd1804Gen2,
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
-	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
+	AKSUbuntuMinimalContainerd2204Gen2,
 }
 
-var AvailableCBLMarinerDistros []Distro = []Distro{
+//nolint:gochecknoglobals
+var AvailableCBLMarinerDistros = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2FIPS,
+	AKSCBLMarinerV2Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSCBLMarinerV2Gen2TL,
@@ -213,6 +219,8 @@ func (d Distro) IsWindowsPIRDistro() bool {
 }
 
 // SigImageConfigTemplate represents the SIG image configuration template.
+//
+//nolint:musttag // tags can be added if deemed necessary
 type SigImageConfigTemplate struct {
 	ResourceGroup string
 	Gallery       string
@@ -237,7 +245,8 @@ func (template SigImageConfigTemplate) WithOptions(options ...SigImageConfigOpt)
 	return *config
 }
 
-var AvailableWindowsSIGDistros []Distro = []Distro{
+//nolint:gochecknoglobals
+var AvailableWindowsSIGDistros = []Distro{
 	AKSWindows2019,
 	AKSWindows2019Containerd,
 	AKSWindows2022Containerd,
@@ -245,7 +254,8 @@ var AvailableWindowsSIGDistros []Distro = []Distro{
 	CustomizedWindowsOSImage,
 }
 
-var AvailableWindowsPIRDistros []Distro = []Distro{
+//nolint:gochecknoglobals
+var AvailableWindowsPIRDistros = []Distro{
 	AKSWindows2019PIR,
 }
 
@@ -285,8 +295,13 @@ var edgeZoneJSONContentsEmbedded string
 //go:embed mariner_v2_kata_gen2_tl_sig_version.json
 var marinerV2KataGen2TLJSONContentsEmbedded string
 
+//nolint:gochecknoglobals
 var LinuxSIGImageVersion = getSIGVersionFromEmbeddedString(linuxVersionJSONContentsEmbedded)
+
+//nolint:gochecknoglobals
 var EdgeZoneSIGImageVersion = getSIGVersionFromEmbeddedString(edgeZoneJSONContentsEmbedded)
+
+//nolint:gochecknoglobals
 var CBLMarinerV2KataGen2TLSIGImageVersion = getSIGVersionFromEmbeddedString(marinerV2KataGen2TLJSONContentsEmbedded)
 
 func getSIGVersionFromEmbeddedString(contents string) string {
@@ -306,6 +321,8 @@ func getSIGVersionFromEmbeddedString(contents string) string {
 }
 
 // SIG config Template.
+//
+//nolint:gochecknoglobals
 var (
 	SIGUbuntu1604ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
@@ -385,20 +402,6 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	SIGUbuntuFipsGPUContainerd1804ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "1804fipsgpucontainerd",
-		Version:       LinuxSIGImageVersion,
-	}
-
-	SIGUbuntuFipsGPUContainerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "1804gen2fipsgpucontainerd",
-		Version:       LinuxSIGImageVersion,
-	}
-
 	SIGUbuntuFipsContainerd2004ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
@@ -411,13 +414,6 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2004gen2fipscontainerd",
-		Version:       LinuxSIGImageVersion,
-	}
-
-	SIGUbuntuArm64Containerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuResourceGroup,
-		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "1804gen2arm64containerd",
 		Version:       LinuxSIGImageVersion,
 	}
 
@@ -456,6 +452,20 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGUbuntuMinimalContainerd2204ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2204minimalcontainerd",
+		Version:       "202306.30.0",
+	}
+
+	SIGUbuntuMinimalContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2204gen2minimalcontainerd",
+		Version:       "202306.30.0",
+	}
+
 	SIGCBLMarinerV1ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
@@ -474,6 +484,20 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2gen2",
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGCBLMarinerV2Gen1FIPSImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
+		Definition:    "V2fips",
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGCBLMarinerV2Gen2FIPSImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
+		Definition:    "V2gen2fips",
 		Version:       LinuxSIGImageVersion,
 	}
 
@@ -549,14 +573,13 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuFipsContainerd1804Gen2:    SIGUbuntuFipsContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuFipsContainerd2004:        SIGUbuntuFipsContainerd2004ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuFipsContainerd2004Gen2:    SIGUbuntuFipsContainerd2004Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuFipsGPUContainerd1804:     SIGUbuntuFipsGPUContainerd1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuFipsGPUContainerd1804Gen2: SIGUbuntuFipsGPUContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuArm64Containerd1804Gen2:   SIGUbuntuArm64Containerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2204:            SIGUbuntuContainerd2204ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2204Gen2:        SIGUbuntuContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2004CVMGen2:     SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuArm64Containerd2204Gen2:   SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2204TLGen2:      SIGUbuntuContainerd2204TLGen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuMinimalContainerd2204:     SIGUbuntuMinimalContainerd2204ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuMinimalContainerd2204Gen2: SIGUbuntuMinimalContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
@@ -564,6 +587,8 @@ func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 		AKSCBLMarinerV1:           SIGCBLMarinerV1ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2:           SIGCBLMarinerV2Gen1ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2:       SIGCBLMarinerV2ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2FIPS:       SIGCBLMarinerV2Gen1FIPSImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2Gen2FIPS:   SIGCBLMarinerV2Gen2FIPSImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2Kata:   SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Arm64Gen2:  SIGCBLMarinerV2Arm64ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2TL:     SIGCBLMarinerV2TLImageConfigTemplate.WithOptions(opts...),
@@ -634,19 +659,19 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 
 	fromACSUbuntu, err := withACSSIGConfig(sigConfig, "AKSUbuntu")
 	if err != nil {
-		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSUbuntu: %s", err)
+		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSUbuntu: %w", err)
 	}
 	c.SigUbuntuImageConfig = getSigUbuntuImageConfigMapWithOpts(fromACSUbuntu)
 
 	fromACSCBLMariner, err := withACSSIGConfig(sigConfig, "AKSCBLMariner")
 	if err != nil {
-		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSCBLMariner: %s", err)
+		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSCBLMariner: %w", err)
 	}
 	c.SigCBLMarinerImageConfig = getSigCBLMarinerImageConfigMapWithOpts(fromACSCBLMariner)
 
 	fromACSWindows, err := withACSSIGConfig(sigConfig, "AKSWindows")
 	if err != nil {
-		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for Windows: %s", err)
+		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for Windows: %w", err)
 	}
 	c.SigWindowsImageConfig = getSigWindowsImageConfigMapWithOpts(fromACSWindows)
 
@@ -691,6 +716,7 @@ func withEdgeZoneConfig(acsSigConfig SIGConfig) SigImageConfigOpt {
 	}
 }
 
+//nolint:unparam //subscriptionID only receives AzurePublicCloudSigSubscription
 func withSubscription(subscriptionID string) SigImageConfigOpt {
 	return func(c *SigImageConfig) {
 		c.SubscriptionID = subscriptionID

@@ -15,6 +15,12 @@
 // linux/cloud-init/artifacts/bind-mount.service
 // linux/cloud-init/artifacts/bind-mount.sh
 // linux/cloud-init/artifacts/block_wireserver.sh
+// linux/cloud-init/artifacts/cgroup-memory-telemetry.service
+// linux/cloud-init/artifacts/cgroup-memory-telemetry.sh
+// linux/cloud-init/artifacts/cgroup-memory-telemetry.timer
+// linux/cloud-init/artifacts/cgroup-pressure-telemetry.service
+// linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh
+// linux/cloud-init/artifacts/cgroup-pressure-telemetry.timer
 // linux/cloud-init/artifacts/ci-syslog-watcher.path
 // linux/cloud-init/artifacts/ci-syslog-watcher.service
 // linux/cloud-init/artifacts/ci-syslog-watcher.sh
@@ -55,6 +61,8 @@
 // linux/cloud-init/artifacts/manifest.json
 // linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh
 // linux/cloud-init/artifacts/mariner/cse_install_mariner.sh
+// linux/cloud-init/artifacts/mariner/pam-d-system-auth
+// linux/cloud-init/artifacts/mariner/pam-d-system-password
 // linux/cloud-init/artifacts/mariner/update_certs_mariner.service
 // linux/cloud-init/artifacts/mig-partition.service
 // linux/cloud-init/artifacts/mig-partition.sh
@@ -352,6 +360,7 @@ func linuxCloudInitArtifactsAksLogrotateTimer() (*asset, error) {
 
 var _linuxCloudInitArtifactsAksRsyslog = []byte(`/var/log/syslog
 /var/log/messages
+/var/log/secure
 /var/log/kern.log
 {
   rotate 5
@@ -530,6 +539,595 @@ func linuxCloudInitArtifactsBlock_wireserverSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsCgroupMemoryTelemetryService = []byte(`[Unit]
+Description=Emit system cgroup memory telemetry
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/scripts/cgroup-memory-telemetry.sh`)
+
+func linuxCloudInitArtifactsCgroupMemoryTelemetryServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCgroupMemoryTelemetryService, nil
+}
+
+func linuxCloudInitArtifactsCgroupMemoryTelemetryService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCgroupMemoryTelemetryServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-memory-telemetry.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCgroupMemoryTelemetrySh = []byte(`#!/bin/bash
+
+set -o nounset
+set -o pipefail
+
+EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+EVENTS_FILE_NAME=$(date +%s%3N)
+STARTTIME=$(date)
+STARTTIME_FORMATTED=$(date +"%F %T.%3N")
+ENDTIME_FORMATTED=$(date +"%F %T.%3N")
+CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
+eventlevel="Microsoft.Azure.Extensions.CustomScript-1.23"
+
+CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)
+KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)
+
+if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
+
+    VERSION="cgroupv2"
+    TASK_NAME="AKS.Runtime.memory_telemetry_cgroupv2"
+    CGROUP="/sys/fs/cgroup"
+
+    memory_string=$( jq -n \
+        --arg SYSTEM_SLICE_MEMORY "$(if [ -f "${CGROUP}/system.slice/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/system.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/system.slice/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
+        --arg AZURE_SLICE_MEMORY "$(if [ -f "${CGROUP}/azure.slice/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
+        --arg KUBEPODS_SLICE_MEMORY "$(if [ -f "${CGROUP}/kubepods.slice/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/kubepods.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/kubepods.slice/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
+        --arg USER_SLICE_MEMORY "$(if [ -f "${CGROUP}/user.slice/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/user.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/user.slice/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
+        --arg CONTAINERD_MEMORY "$(if [ -f "${CGROUP}/${CSLICE}/containerd.service/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
+        --arg KUBELET_MEMORY "$(if [ -f "${CGROUP}/${KSLICE}/kubelet.service/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
+        --arg EMPLOYED_MEMORY "$(if [ -f "${CGROUP}/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
+        --arg CAPACITY_MEMORY "$(grep MemTotal /proc/meminfo | awk '{print $2}')" \
+        --arg KUBEPODS_CGROUP_MEMORY_MAX "$(if [ -f "${CGROUP}/kubepods.slice/memory.max" ]; then cat ${CGROUP}/kubepods.slice/memory.max; else echo "Not Found"; fi)" \
+        '{ system_slice_memory: $SYSTEM_SLICE_MEMORY, azure_slice_memory: $AZURE_SLICE_MEMORY, kubepods_slice_memory: $KUBEPODS_SLICE_MEMORY, user_slice_memory: $USER_SLICE_MEMORY, containerd_service_memory: $CONTAINERD_MEMORY, kubelet_service_memory: $KUBELET_MEMORY, cgroup_memory: $EMPLOYED_MEMORY, cgroup_capacity_memory: $CAPACITY_MEMORY, kubepods_max_memory: $KUBEPODS_CGROUP_MEMORY_MAX } | tostring'
+    )
+    
+elif [ "$CGROUP_VERSION" = "tmpfs" ]; then
+
+    VERSION="cgroupv1"
+    TASK_NAME="AKS.Runtime.memory_telemetry_cgroupv1"
+    CGROUP="/sys/fs/cgroup/memory"
+
+    memory_string=$( jq -n \
+        --arg SYSTEM_SLICE_MEMORY "$(if [ -f ${CGROUP}/system.slice/memory.stat ]; then expr $(cat ${CGROUP}/system.slice/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/system.slice/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
+        --arg AZURE_SLICE_MEMORY "$(if [ -f ${CGROUP}/azure.slice/memory.stat ]; then expr $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
+        --arg KUBEPODS_SLICE_MEMORY "$(if [ -f ${CGROUP}/kubepods/memory.stat ]; then expr $(cat ${CGROUP}/kubepods/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/kubepods/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
+        --arg USER_SLICE_MEMORY "$(if [ -f ${CGROUP}/user.slice/memory.stat ]; then expr $(cat ${CGROUP}/user.slice/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/user.slice/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
+        --arg CONTAINERD_MEMORY "$(if [ -f ${CGROUP}/${CSLICE}/containerd.service/memory.stat ]; then expr $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
+        --arg KUBELET_MEMORY "$(if [ -f ${CGROUP}/${KSLICE}/kubelet.service/memory.stat ]; then expr $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
+        --arg EMPLOYED_MEMORY "$(if [ -f ${CGROUP}/memory.stat ]; then expr $(cat ${CGROUP}/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
+        --arg CAPACITY_MEMORY "$(grep MemTotal /proc/meminfo | awk '{print $2}' | awk '{print $1 * 1024}')" \
+        --arg KUBEPODS_CGROUP_MEMORY_MAX "$(if [ -f ${CGROUP}/kubepods/memory.limit_in_bytes ]; then cat ${CGROUP}/kubepods/memory.limit_in_bytes; else echo "Not Found"; fi)" \
+        '{ system_slice_memory: $SYSTEM_SLICE_MEMORY, azure_slice_memory: $AZURE_SLICE_MEMORY, kubepods_slice_memory: $KUBEPODS_SLICE_MEMORY, user_slice_memory: $USER_SLICE_MEMORY, containerd_service_memory: $CONTAINERD_MEMORY, kubelet_service_memory: $KUBELET_MEMORY, cgroup_memory: $EMPLOYED_MEMORY, cgroup_capacity_memory: $CAPACITY_MEMORY, kubepods_max_memory: $KUBEPODS_CGROUP_MEMORY_MAX } | tostring'
+    )
+
+else
+    echo "Unexpected cgroup type. Exiting"
+    exit 1
+fi
+
+memory_string=$(echo $memory_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+message_string=$( jq -n \
+    --arg CGROUPV "${VERSION}" \
+    --argjson MEMORY "$(echo $memory_string)" \
+    '{ CgroupVersion: $CGROUPV, Memory: $MEMORY } | tostring'
+)
+
+message_string=$(echo $message_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+EVENT_JSON=$( jq -n \
+    --arg Timestamp     "${STARTTIME_FORMATTED}" \
+    --arg OperationId   "${ENDTIME_FORMATTED}" \
+    --arg Version       "1.23" \
+    --arg TaskName      "${TASK_NAME}" \
+    --arg EventLevel    "${eventlevel}" \
+    --argjson Message    "${message_string}" \
+    --arg EventPid      "0" \
+    --arg EventTid      "0" \
+    '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
+)
+
+echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json`)
+
+func linuxCloudInitArtifactsCgroupMemoryTelemetryShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCgroupMemoryTelemetrySh, nil
+}
+
+func linuxCloudInitArtifactsCgroupMemoryTelemetrySh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCgroupMemoryTelemetryShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-memory-telemetry.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCgroupMemoryTelemetryTimer = []byte(`[Unit]
+Description=emit memory telemetry
+
+[Timer]
+OnBootSec=0min
+OnCalendar=*-*-* *:0/5:0
+Unit=cgroup-memory-telemetry.service
+
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsCgroupMemoryTelemetryTimerBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCgroupMemoryTelemetryTimer, nil
+}
+
+func linuxCloudInitArtifactsCgroupMemoryTelemetryTimer() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCgroupMemoryTelemetryTimerBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-memory-telemetry.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCgroupPressureTelemetryService = []byte(`[Unit]
+Description=Emit system cgroup pressure telemetry
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/scripts/cgroup-pressure-telemetry.sh`)
+
+func linuxCloudInitArtifactsCgroupPressureTelemetryServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCgroupPressureTelemetryService, nil
+}
+
+func linuxCloudInitArtifactsCgroupPressureTelemetryService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCgroupPressureTelemetryServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-pressure-telemetry.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCgroupPressureTelemetrySh = []byte(`#!/bin/bash
+
+set -o nounset
+set -o pipefail
+
+EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+EVENTS_FILE_NAME=$(date +%s%3N)
+STARTTIME=$(date)
+STARTTIME_FORMATTED=$(date +"%F %T.%3N")
+ENDTIME_FORMATTED=$(date +"%F %T.%3N")
+CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
+eventlevel="Microsoft.Azure.Extensions.CustomScript-1.23"
+
+CGROUP="/sys/fs/cgroup"
+CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)
+KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)
+
+if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
+
+    VERSION="cgroupv2"
+    TASK_NAME="AKS.Runtime.pressure_telemetry_cgroupv2"
+
+    cgroup_cpu_pressure=$(cat ${CGROUP}/cpu.pressure)
+    cgroup_memory_pressure=$(cat ${CGROUP}/memory.pressure)
+    cgroup_io_pressure=$(cat ${CGROUP}/io.pressure)
+
+    cgroup_cpu_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    cgroup_memory_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $cgroup_memory_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $cgroup_memory_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $cgroup_memory_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $cgroup_memory_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $cgroup_memory_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $cgroup_memory_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $cgroup_memory_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $cgroup_memory_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    cgroup_io_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $cgroup_io_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $cgroup_io_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $cgroup_io_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $cgroup_io_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $cgroup_io_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $cgroup_io_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $cgroup_io_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $cgroup_io_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    cgroup_cpu_pressures=$(echo $cgroup_cpu_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    cgroup_memory_pressures=$(echo $cgroup_memory_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    cgroup_io_pressures=$(echo $cgroup_io_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+    cgroup_pressure=$( jq -n \
+    --argjson CPU_PRESSURE "$(echo $cgroup_cpu_pressures)" \
+    --argjson MEMORY_PRESSURE "$(echo $cgroup_memory_pressures)" \
+    --argjson IO_PRESSURE "$(echo $cgroup_io_pressures)" \
+    '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
+    )
+
+    SYSTEMSLICE="${CGROUP}/system.slice"
+    system_slice_cpu_pressure=$(cat $SYSTEMSLICE/cpu.pressure)
+    system_slice_memory_pressure=$(cat $SYSTEMSLICE/memory.pressure)
+    system_slice_io_pressure=$(cat $SYSTEMSLICE/io.pressure)
+
+    system_slice_cpu_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    system_slice_memory_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $system_slice_memory_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $system_slice_memory_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $system_slice_memory_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $system_slice_memory_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $system_slice_memory_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $system_slice_memory_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $system_slice_memory_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $system_slice_memory_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    system_slice_io_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $system_slice_io_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $system_slice_io_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $system_slice_io_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $system_slice_io_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $system_slice_io_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $system_slice_io_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $system_slice_io_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $system_slice_io_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    system_slice_cpu_pressures=$(echo $system_slice_cpu_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    system_slice_memory_pressures=$(echo $system_slice_memory_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    system_slice_io_pressures=$(echo $system_slice_io_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+    system_slice_pressure=$( jq -n \
+    --argjson CPU_PRESSURE "$(echo $system_slice_cpu_pressures)" \
+    --argjson MEMORY_PRESSURE "$(echo $system_slice_memory_pressures)" \
+    --argjson IO_PRESSURE "$(echo $system_slice_io_pressures)" \
+    '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
+    )
+
+    AZURESLICE="${CGROUP}/azure.slice"
+    azure_slice_cpu_pressure=$(cat $AZURESLICE/cpu.pressure)
+    azure_slice_memory_pressure=$(cat $AZURESLICE/memory.pressure)
+    azure_slice_io_pressure=$(cat $AZURESLICE/io.pressure)
+
+    azure_slice_cpu_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    azure_slice_memory_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $azure_slice_memory_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $azure_slice_memory_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $azure_slice_memory_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $azure_slice_memory_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $azure_slice_memory_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $azure_slice_memory_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $azure_slice_memory_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $azure_slice_memory_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    azure_slice_io_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $azure_slice_io_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $azure_slice_io_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $azure_slice_io_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $azure_slice_io_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $azure_slice_io_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $azure_slice_io_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $azure_slice_io_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $azure_slice_io_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    azure_slice_cpu_pressures=$(echo $azure_slice_cpu_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    azure_slice_memory_pressures=$(echo $azure_slice_memory_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    azure_slice_io_pressures=$(echo $azure_slice_io_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+    azure_slice_pressure=$( jq -n \
+    --argjson CPU_PRESSURE "$(echo $azure_slice_cpu_pressures)" \
+    --argjson MEMORY_PRESSURE "$(echo $azure_slice_memory_pressures)" \
+    --argjson IO_PRESSURE "$(echo $azure_slice_io_pressures)" \
+    '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
+    )
+
+    KUBEPODSSLICE="${CGROUP}/kubepods.slice"
+    kubepods_slice_cpu_pressure=$(cat $KUBEPODSSLICE/cpu.pressure)
+    kubepods_slice_memory_pressure=$(cat $KUBEPODSSLICE/memory.pressure)
+    kubepods_slice_io_pressure=$(cat $KUBEPODSSLICE/io.pressure)
+
+    kubepods_slice_cpu_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    kubepods_slice_memory_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $kubepods_slice_memory_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $kubepods_slice_memory_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $kubepods_slice_memory_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $kubepods_slice_memory_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $kubepods_slice_memory_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $kubepods_slice_memory_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $kubepods_slice_memory_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $kubepods_slice_memory_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    kubepods_slice_io_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $kubepods_slice_io_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $kubepods_slice_io_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $kubepods_slice_io_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $kubepods_slice_io_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $kubepods_slice_io_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $kubepods_slice_io_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $kubepods_slice_io_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $kubepods_slice_io_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    kubepods_slice_cpu_pressures=$(echo $kubepods_slice_cpu_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    kubepods_slice_memory_pressures=$(echo $kubepods_slice_memory_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    kubepods_slice_io_pressures=$(echo $kubepods_slice_io_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+    kubepods_slice_pressure=$( jq -n \
+    --argjson CPU_PRESSURE "$(echo $kubepods_slice_cpu_pressures)" \
+    --argjson MEMORY_PRESSURE "$(echo $kubepods_slice_memory_pressures)" \
+    --argjson IO_PRESSURE "$(echo $kubepods_slice_io_pressures)" \
+    '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
+    )
+
+    KUBELETSERVICE="${CGROUP}/${KSLICE}/kubelet.service"
+    kubelet_service_cpu_pressure=$(cat $KUBELETSERVICE/cpu.pressure)
+    kubelet_service_memory_pressure=$(cat $KUBELETSERVICE/memory.pressure)
+    kubelet_service_io_pressure=$(cat $KUBELETSERVICE/io.pressure)
+
+    kubelet_service_cpu_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    kubelet_service_memory_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $kubelet_service_memory_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $kubelet_service_memory_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $kubelet_service_memory_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $kubelet_service_memory_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $kubelet_service_memory_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $kubelet_service_memory_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $kubelet_service_memory_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $kubelet_service_memory_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    kubelet_service_io_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $kubelet_service_io_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $kubelet_service_io_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $kubelet_service_io_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $kubelet_service_io_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $kubelet_service_io_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $kubelet_service_io_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $kubelet_service_io_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $kubelet_service_io_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    kubelet_service_cpu_pressures=$(echo $kubelet_service_cpu_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    kubelet_service_memory_pressures=$(echo $kubelet_service_memory_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    kubelet_service_io_pressures=$(echo $kubelet_service_io_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+    kubelet_service_pressure=$( jq -n \
+    --argjson CPU_PRESSURE "$(echo $kubelet_service_cpu_pressures)" \
+    --argjson MEMORY_PRESSURE "$(echo $kubelet_service_memory_pressures)" \
+    --argjson IO_PRESSURE "$(echo $kubelet_service_io_pressures)" \
+    '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
+    )
+
+    CONTAINERDSERVICE="${CGROUP}/${CSLICE}/containerd.service"
+    containerd_service_cpu_pressure=$(cat $CONTAINERDSERVICE/cpu.pressure)
+    containerd_service_memory_pressure=$(cat $CONTAINERDSERVICE/memory.pressure)
+    containerd_service_io_pressure=$(cat $CONTAINERDSERVICE/io.pressure)
+
+    containerd_service_cpu_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    containerd_service_memory_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $containerd_service_memory_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $containerd_service_memory_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $containerd_service_memory_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $containerd_service_memory_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $containerd_service_memory_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $containerd_service_memory_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $containerd_service_memory_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $containerd_service_memory_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    containerd_service_io_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $containerd_service_io_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $containerd_service_io_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $containerd_service_io_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $containerd_service_io_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $containerd_service_io_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $containerd_service_io_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $containerd_service_io_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $containerd_service_io_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    containerd_service_cpu_pressures=$(echo $containerd_service_cpu_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    containerd_service_memory_pressures=$(echo $containerd_service_memory_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    containerd_service_io_pressures=$(echo $containerd_service_io_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+    containerd_service_pressure=$( jq -n \
+    --argjson CPU_PRESSURE "$(echo $containerd_service_cpu_pressures)" \
+    --argjson MEMORY_PRESSURE "$(echo $containerd_service_memory_pressures)" \
+    --argjson IO_PRESSURE "$(echo $containerd_service_io_pressures)" \
+    '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
+    )
+
+    cgroup_pressure=$(echo $system_slice_pressure | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    system_slice_pressure=$(echo $system_slice_pressure | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    azure_slice_pressure=$(echo $azure_slice_pressure | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    kubepods_slice_pressure=$(echo $kubepods_slice_pressure | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    kubelet_service_pressure=$(echo $kubelet_service_pressure | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    containerd_service_pressure=$(echo $containerd_service_pressure | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+    pressure_string=$( jq -n \
+    --argjson CGROUP "$(echo $cgroup_pressure)" \
+    --argjson SYSTEMSLICE "$(echo $system_slice_pressure)" \
+    --argjson AZURESLICE "$(echo $azure_slice_pressure)" \
+    --argjson KUBEPODSSLICE "$(echo $kubepods_slice_pressure)" \
+    --argjson KUBELETSERVICE "$(echo $kubelet_service_pressure)" \
+    --argjson CONTAINERDSERVICE "$(echo $containerd_service_pressure)" \
+    '{ cgroup_pressure: $CGROUP, system_slice_pressure: $SYSTEMSLICE, azure_slice_pressure: $AZURESLICE, kubepods_slice_pressure: $KUBEPODSSLICE, kubelet_service_pressure: $KUBELETSERVICE, containerd_service_pressure: $CONTAINERDSERVICE } | tostring'
+    )
+
+    pressure_string=$(echo $pressure_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+    message_string=$( jq -n \
+        --arg CGROUPV "${VERSION}" \
+        --argjson PRESSURE "$(echo $pressure_string)" \
+        '{ CgroupVersion: $CGROUPV, Pressure: $PRESSURE } | tostring'
+    )
+
+else
+    echo "Unexpected cgroup type. Exiting"
+    exit 1
+fi
+
+
+message_string=$(echo $message_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+EVENT_JSON=$( jq -n \
+    --arg Timestamp     "${STARTTIME_FORMATTED}" \
+    --arg OperationId   "${ENDTIME_FORMATTED}" \
+    --arg Version       "1.23" \
+    --arg TaskName      "${TASK_NAME}" \
+    --arg EventLevel    "${eventlevel}" \
+    --argjson Message       "${message_string}" \
+    --arg EventPid      "0" \
+    --arg EventTid      "0" \
+    '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
+)
+
+echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json`)
+
+func linuxCloudInitArtifactsCgroupPressureTelemetryShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCgroupPressureTelemetrySh, nil
+}
+
+func linuxCloudInitArtifactsCgroupPressureTelemetrySh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCgroupPressureTelemetryShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCgroupPressureTelemetryTimer = []byte(`[Unit]
+Description=emit pressure telemetry
+
+[Timer]
+OnBootSec=0min
+OnCalendar=*-*-* *:0/5:0
+Unit=cgroup-pressure-telemetry.service
+
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsCgroupPressureTelemetryTimerBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCgroupPressureTelemetryTimer, nil
+}
+
+func linuxCloudInitArtifactsCgroupPressureTelemetryTimer() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCgroupPressureTelemetryTimerBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-pressure-telemetry.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsCiSyslogWatcherPath = []byte(`[Unit]
 Description=Monitor the ContainerInsights syslog status file for changes
 
@@ -623,21 +1221,23 @@ func linuxCloudInitArtifactsCiSyslogWatcherSh() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCisSh = []byte(`#!/bin/bash
+# This gets us the error codes we use and the os and such.
+source /home/packer/provision_source.sh
 
 assignRootPW() {
-  if grep '^root:[!*]:' /etc/shadow; then
-    VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
-    SALT=$(openssl rand -base64 5)
-    SECRET=$(openssl rand -base64 37)
-    CMD="import crypt, getpass, pwd; print(crypt.crypt('$SECRET', '\$6\$$SALT\$'))"
-    if [[ "${VERSION}" == "22.04" ]]; then
-      HASH=$(python3 -c "$CMD")
-    else
-      HASH=$(python -c "$CMD")
-    fi
+    if grep '^root:[!*]:' /etc/shadow; then
+        VERSION=$(grep DISTRIB_RELEASE /etc/*-release | cut -f 2 -d "=")
+        SALT=$(openssl rand -base64 5)
+        SECRET=$(openssl rand -base64 37)
+        CMD="import crypt, getpass, pwd; print(crypt.crypt('$SECRET', '\$6\$$SALT\$'))"
+        if [[ "${VERSION}" == "22.04" ]]; then
+            HASH=$(python3 -c "$CMD")
+        else
+            HASH=$(python -c "$CMD")
+        fi
 
-    echo 'root:'$HASH | /usr/sbin/chpasswd -e || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
-  fi
+        echo 'root:'$HASH | /usr/sbin/chpasswd -e || exit $ERR_CIS_ASSIGN_ROOT_PW
+    fi
 }
 
 assignFilePermissions() {
@@ -683,29 +1283,143 @@ assignFilePermissions() {
         chmod 0600 /etc/crontab || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     fi
     for filepath in /etc/cron.hourly /etc/cron.daily /etc/cron.weekly /etc/cron.monthly /etc/cron.d; do
-      chmod 0600 $filepath || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+        if [[ -e $filepath ]]; then
+            chmod 0600 $filepath || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+        fi
     done
+
+    # Docs: https://www.man7.org/linux/man-pages/man1/crontab.1.html
+    # If cron.allow exists, then cron.deny is ignored. To minimize who can use cron, we
+    # always want cron.allow and will default it to empty if it doesn't exist.
+    # We also need to set appropriate permissions on it.
+    # Since it will be ignored anyway, we delete cron.deny.
+    touch /etc/cron.allow || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+    chmod 640 /etc/cron.allow || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+    rm -rf /etc/cron.deny || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+}
+
+# Helper function to replace or append settings to a setting file.
+# This abstracts the general logic of:
+#   1. Search for the setting (via a pattern passed in).
+#   2. If it's there, replace it with desired setting line; otherwise append it to the end of the file.
+#   3. Validate that there is now exactly one instance of the setting, and that it is the one we want.
+replaceOrAppendSetting() {
+    local SEARCH_PATTERN=$1
+    local SETTING_LINE=$2
+    local FILE=$3
+
+    # Search and replace/append.
+    if grep -E "$SEARCH_PATTERN" "$FILE" >/dev/null; then
+        sed -E -i "s|${SEARCH_PATTERN}|${SETTING_LINE}|g" "$FILE" || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+    else
+        echo -e "\n${SETTING_LINE}" >>"$FILE"
+    fi
+
+    # After replacement/append, there should be exactly one line that sets the setting,
+    # and it must have the value we want.
+    # If not, then there's something wrong with this script.
+    if [[ $(grep -E "$SEARCH_PATTERN" "$FILE") != "$SETTING_LINE" ]]; then
+        echo "replacement was wrong"
+        exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+    fi
+}
+
+# Creates the search pattern and setting lines for login.defs settings, and calls through
+# to do the replacement. Note that this uses extended regular expressions, so both
+# grep and sed need to be called as such.
+#
+# The search pattern is:
+#   '^#{0,1} {0,1}' -- Line starts with 0 or 1 '#' followed by 0 or 1 space
+#   '${1}\s+'       -- Then the setting name followed by one or more whitespace characters
+#   '[0-9]+$'       -- Then one more more number, which is the setting value, which is the end of the line.
+#
+# This is based on a combination of the syntax for the file and real examples we've found.
+replaceOrAppendLoginDefs() {
+    replaceOrAppendSetting "^#{0,1} {0,1}${1}\s+[0-9]+$" "${1} ${2}" /etc/login.defs
+}
+
+# Creates the search pattern and setting lines for useradd default settings, and calls through
+# to do the replacement. Note that this uses extended regular expressions, so both
+# grep and sed need to be called as such.
+#
+# The search pattern is:
+#   '^#{0,1} {0,1}' -- Line starts with 0 or 1 '#' followed by 0 or 1 space
+#   '${1}='         -- Then the setting name followed by '='
+#   '.*$'           -- Then 0 or nore of any character which is the end of the line.
+#                      Note that this allows for a setting value to be there or not.
+#
+# This is based on a combination of the syntax for the file and real examples we've found.
+replaceOrAppendUserAdd() {
+    replaceOrAppendSetting "^#{0,1} {0,1}${1}=.*$" "${1}=${2}" /etc/default/useradd
 }
 
 setPWExpiration() {
-  sed -i "s|PASS_MAX_DAYS||g" /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  grep 'PASS_MAX_DAYS' /etc/login.defs && exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  sed -i "s|PASS_MIN_DAYS||g" /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  grep 'PASS_MIN_DAYS' /etc/login.defs && exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  sed -i "s|INACTIVE=||g" /etc/default/useradd || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  grep 'INACTIVE=' /etc/default/useradd && exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  echo 'PASS_MAX_DAYS 90' >> /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  grep 'PASS_MAX_DAYS 90' /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  echo 'PASS_MIN_DAYS 7' >> /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  grep 'PASS_MIN_DAYS 7' /etc/login.defs || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  echo 'INACTIVE=30' >> /etc/default/useradd || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
-  grep 'INACTIVE=30' /etc/default/useradd || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
+    replaceOrAppendLoginDefs PASS_MAX_DAYS 90
+    replaceOrAppendLoginDefs PASS_MIN_DAYS 7
+    replaceOrAppendUserAdd INACTIVE 30
+}
+
+# Creates the search pattern and setting lines for the core dump settings, and calls through
+# to do the replacement. Note that this uses extended regular expressions, so both
+# grep and sed need to be called as such.
+#
+# The search pattern is:
+#  '^#{0,1} {0,1}' -- Line starts with 0 or 1 '#' followed by 0 or 1 space
+#  '${1}='         -- Then the setting name followed by '='
+#  '.*$'           -- Then 0 or nore of any character which is the end of the line.
+#
+# This is based on a combination of the syntax for the file (https://www.man7.org/linux/man-pages/man5/coredump.conf.5.html)
+# and real examples we've found.
+replaceOrAppendCoreDump() {
+    replaceOrAppendSetting "^#{0,1} {0,1}${1}=.*$" "${1}=${2}" /etc/systemd/coredump.conf
+}
+
+configureCoreDump() {
+    replaceOrAppendCoreDump Storage none
+    replaceOrAppendCoreDump ProcessSizeMax 0
+}
+
+fixDefaultUmaskForAccountCreation() {
+    replaceOrAppendLoginDefs UMASK 027
+}
+
+function maskNfsServer() {
+    # If nfs-server.service exists, we need to mask it per CIS requirement.
+    # Note that on ubuntu systems, it isn't installed but on mariner we need it
+    # due to a dependency, but disable it by default.
+    if systemctl list-unit-files nfs-server.service >/dev/null; then
+        systemctl --now mask nfs-server || $ERR_SYSTEMCTL_MASK_FAIL
+    fi
+}
+
+function addFailLockDir() {
+    # Mariner V2 uses pamd faillocking, which requires a directory to store the faillock files.
+    # Default is /var/run/faillock, but that's a tmpfs, so we need to use /var/log/faillock instead.
+    # But we need to leave settings alone for other skus.
+    if [[ "${OS}" == "${MARINER_OS_NAME}" && "${OS_VERSION}" == "2.0" ]]; then
+        # Replace or append the dir setting in /etc/security/faillock.conf
+        # Docs: https://www.man7.org/linux/man-pages/man5/faillock.conf.5.html
+        #
+        # Search pattern is:
+        # '^#{0,1} {0,1}' -- Line starts with 0 or 1 '#' followed by 0 or 1 space
+        # 'dir\s+'        -- Then the setting name followed by one or more whitespace characters
+        # '.*$'           -- Then 0 or nore of any character which is the end of the line.
+        #
+        # This is based on a combination of the syntax for the file and real examples we've found.
+        local fail_lock_dir="/var/log/faillock"
+        mkdir -p ${fail_lock_dir}
+        replaceOrAppendSetting "^#{0,1} {0,1}dir\s+.*$" "dir = ${fail_lock_dir}" /etc/security/faillock.conf
+    fi
 }
 
 applyCIS() {
-  setPWExpiration
-  assignRootPW
-  assignFilePermissions
+    setPWExpiration
+    assignRootPW
+    assignFilePermissions
+    configureCoreDump
+    fixDefaultUmaskForAccountCreation
+    maskNfsServer
+    addFailLockDir
 }
 
 applyCIS
@@ -855,16 +1569,14 @@ func linuxCloudInitArtifactsCrictlYaml() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsCse_cmdSh = []byte(`echo $(date),$(hostname) > /var/log/azure/cluster-provision-cse-output.log;
-for i in $(seq 1 1200); do
-grep -Fq "EOF" /opt/azure/containers/provision.sh && break;
-if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
-done;
+var _linuxCloudInitArtifactsCse_cmdSh = []byte(`PROVISION_OUTPUT="/var/log/azure/cluster-provision-cse-output.log";
+echo $(date),$(hostname) > ${PROVISION_OUTPUT};
+{{if ShouldEnableCustomData}}
+cloud-init status --wait > /dev/null 2>&1;
+[ $? -ne 0 ] && echo 'cloud-init failed' >> ${PROVISION_OUTPUT} && exit 1;
+echo "cloud-init succeeded" >> ${PROVISION_OUTPUT};
+{{end}}
 {{if IsAKSCustomCloud}}
-for i in $(seq 1 1200); do
-grep -Fq "EOF" {{GetInitAKSCustomCloudFilepath}} && break;
-if [ $i -eq 1200 ]; then exit 100; else sleep 1; fi;
-done;
 REPO_DEPOT_ENDPOINT="{{AKSCustomCloudRepoDepotEndpoint}}"
 {{GetInitAKSCustomCloudFilepath}} >> /var/log/azure/cluster-provision.log 2>&1;
 {{end}}
@@ -949,6 +1661,8 @@ ENABLE_UNATTENDED_UPGRADES="{{EnableUnattendedUpgrade}}"
 ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE="{{ and NeedsContainerd IsKubenet (not HasCalicoNetworkPolicy) }}"
 SHOULD_CONFIG_SWAP_FILE="{{ShouldConfigSwapFile}}"
 SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE="{{ShouldConfigTransparentHugePage}}"
+SHOULD_CONFIG_CONTAINERD_ULIMITS="{{ShouldConfigContainerdUlimits}}"
+CONTAINERD_ULIMITS="{{GetContainerdUlimitString}}"
 {{/* both CLOUD and ENVIRONMENT have special values when IsAKSCustomCloud == true */}}
 {{/* CLOUD uses AzureStackCloud and seems to be used by kubelet, k8s cloud provider */}}
 {{/* target environment seems to go to ARM SDK config */}}
@@ -1004,9 +1718,10 @@ AZURE_ENVIRONMENT_FILEPATH="{{- if IsAKSCustomCloud}}/etc/kubernetes/{{GetTarget
 KUBE_CA_CRT="{{GetParameter "caCertificate"}}"
 KUBENET_TEMPLATE="{{GetKubenetTemplate}}"
 CONTAINERD_CONFIG_CONTENT="{{GetContainerdConfigContent}}"
+CONTAINERD_CONFIG_NO_GPU_CONTENT="{{GetContainerdConfigNoGPUContent}}"
 IS_KATA="{{IsKata}}"
-/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
-`)
+SYSCTL_CONTENT="{{GetSysctlContent}}"
+/usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_cmdSh, nil
@@ -1165,6 +1880,18 @@ configureCustomCaCertificate() {
     # path unit then triggers the script that copies over cert files to correct location on the node and updates the trust store
     # as a part of this flow we could restart containerd everytime a new cert is added to the trust store using custom CA
     systemctl restart containerd
+}
+
+configureContainerdUlimits() {
+  CONTAINERD_ULIMIT_DROP_IN_FILE_PATH="/etc/systemd/system/containerd.service.d/set_ulimits.conf"
+  touch "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}"
+  chmod 0600 "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}"
+  tee "${CONTAINERD_ULIMIT_DROP_IN_FILE_PATH}" > /dev/null <<EOF
+$(echo "$CONTAINERD_ULIMITS" | tr ' ' '\n')
+EOF
+
+  systemctl daemon-reload
+  systemctl restart containerd
 }
 
 
@@ -1326,7 +2053,14 @@ ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
   mkdir -p /etc/containerd
-  echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" == "true" ]]; then
+    echo "Generating non-GPU containerd config for GPU node due to VM tags"
+    echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  else
+    echo "Generating containerd config..."
+    echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+  fi
+
   tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
 net.ipv4.ip_forward = 1
 net.ipv4.conf.all.forwarding = 1
@@ -1339,22 +2073,17 @@ EOF
 }
 
 ensureNoDupOnPromiscuBridge() {
-    wait_for_file 1200 1 /opt/azure/containers/ensure-no-dup.sh || exit $ERR_FILE_WATCH_TIMEOUT
-    wait_for_file 1200 1 /etc/systemd/system/ensure-no-dup.service || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart ensure-no-dup || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureTeleportd() {
-    wait_for_file 1200 1 /etc/systemd/system/teleportd.service || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
-    wait_for_file 1200 1 $DOCKER_SERVICE_EXEC_START_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     usermod -aG docker ${ADMINUSER}
     DOCKER_MOUNT_FLAGS_SYSTEMD_FILE=/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
-    wait_for_file 1200 1 $DOCKER_MOUNT_FLAGS_SYSTEMD_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     DOCKER_JSON_FILE=/etc/docker/daemon.json
     for i in $(seq 1 1200); do
         if [ -s $DOCKER_JSON_FILE ]; then
@@ -1372,17 +2101,22 @@ ensureDocker() {
 }
 
 ensureDHCPv6() {
-    wait_for_file 3600 1 "${DHCPV6_SERVICE_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
-    wait_for_file 3600 1 "${DHCPV6_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
     systemctlEnableAndStart dhcpv6 || exit $ERR_SYSTEMCTL_START_FAIL
     retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
 }
 
 ensureKubelet() {
-    # ensure cloud init completes
-    # avoids potential corruption of files written by cloud init and CSE concurrently.
-    # removes need for wait_for_file and EOF markers
-    cloud-init status --wait
+    KUBELET_DEFAULT_FILE=/etc/default/kubelet
+    mkdir -p /etc/default
+    echo "KUBELET_FLAGS=${KUBELET_FLAGS}" > "${KUBELET_DEFAULT_FILE}"
+    echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
+    echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
+    echo "KUBELET_IMAGE=${KUBELET_IMAGE}" >> "${KUBELET_DEFAULT_FILE}"
+    echo "KUBELET_NODE_LABELS=${KUBELET_NODE_LABELS}" >> "${KUBELET_DEFAULT_FILE}"
+    if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
+        echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
+    fi
+    
     KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
     mkdir -p "$(dirname "${KUBE_CA_FILE}")"
     echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
@@ -1470,12 +2204,19 @@ ensureMigPartition(){
 [Service]
 Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
 EOF
-    systemctlEnableAndStart mig-partition || exit $ERR_SYSTEMCTL_START_FAIL
+    # this is expected to fail and work only on next reboot
+    # it MAY succeed, only due to unreliability of systemd
+    # service type=Simple, which does not exit non-zero
+    # on failure if ExecStart failed to invoke.
+    systemctlEnableAndStart mig-partition
 }
 
 ensureSysctl() {
     SYSCTL_CONFIG_FILE=/etc/sysctl.d/999-sysctl-aks.conf
-    wait_for_file 1200 1 $SYSCTL_CONFIG_FILE || exit $ERR_FILE_WATCH_TIMEOUT
+    mkdir -p "$(dirname "${SYSCTL_CONFIG_FILE}")"
+    touch "${SYSCTL_CONFIG_FILE}"
+    chmod 0644 "${SYSCTL_CONFIG_FILE}"
+    echo "${SYSCTL_CONTENT}" | base64 -d > "${SYSCTL_CONFIG_FILE}"
     retrycmd_if_failure 24 5 25 sysctl --system
 }
 
@@ -1527,7 +2268,6 @@ users:
 
 configClusterAutoscalerAddon() {
     CLUSTER_AUTOSCALER_ADDON_FILE=/etc/kubernetes/addons/cluster-autoscaler-deployment.yaml
-    wait_for_file 1200 1 $CLUSTER_AUTOSCALER_ADDON_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     sed -i "s|<clientID>|$(echo $SERVICE_PRINCIPAL_CLIENT_ID | base64)|g" $CLUSTER_AUTOSCALER_ADDON_FILE
     sed -i "s|<clientSec>|$(echo $SERVICE_PRINCIPAL_CLIENT_SECRET | base64)|g" $CLUSTER_AUTOSCALER_ADDON_FILE
     sed -i "s|<subID>|$(echo $SUBSCRIPTION_ID | base64)|g" $CLUSTER_AUTOSCALER_ADDON_FILE
@@ -1543,7 +2283,6 @@ configACIConnectorAddon() {
     ACI_CONNECTOR_CERT=$(base64 /etc/kubernetes/certs/aci-connector-cert.pem -w0)
 
     ACI_CONNECTOR_ADDON_FILE=/etc/kubernetes/addons/aci-connector-deployment.yaml
-    wait_for_file 1200 1 $ACI_CONNECTOR_ADDON_FILE || exit $ERR_FILE_WATCH_TIMEOUT
     sed -i "s|<creds>|$ACI_CONNECTOR_CREDENTIALS|g" $ACI_CONNECTOR_ADDON_FILE
     sed -i "s|<rgName>|$RESOURCE_GROUP|g" $ACI_CONNECTOR_ADDON_FILE
     sed -i "s|<cert>|$ACI_CONNECTOR_CERT|g" $ACI_CONNECTOR_ADDON_FILE
@@ -1710,6 +2449,7 @@ ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL=53 # Unable to resolve k8s api server n
 ERR_KATA_KEY_DOWNLOAD_TIMEOUT=60 # Timeout waiting to download kata repo key
 ERR_KATA_APT_KEY_TIMEOUT=61 # Timeout waiting for kata apt-key
 ERR_KATA_INSTALL_TIMEOUT=62 # Timeout waiting for kata install
+ERR_VHD_FILE_NOT_FOUND=65 # VHD log file not found on VM built from VHD distro (previously classified as exit code 124)
 ERR_CONTAINERD_DOWNLOAD_TIMEOUT=70 # Timeout waiting for containerd downloads
 ERR_RUNC_DOWNLOAD_TIMEOUT=71 # Timeout waiting for runc downloads
 ERR_CUSTOM_SEARCH_DOMAINS_FAIL=80 # Unable to configure custom search domains
@@ -1740,7 +2480,7 @@ ERR_AZURE_STACK_GET_ARM_TOKEN=120 # Error generating a token to use with Azure R
 ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 # Error fetching the network configuration for the node
 ERR_AZURE_STACK_GET_SUBNET_PREFIX=122 # Error fetching the subnet address prefix for a subnet ID
 
-ERR_VHD_FILE_NOT_FOUND=124 # VHD log file not found on VM built from VHD distro
+# Error code 124 is returned when a `+"`"+`timeout`+"`"+` command times out, and --preserve-status is not specified: https://man7.org/linux/man-pages/man1/timeout.1.html
 ERR_VHD_BUILD_ERROR=125 # Reserved for VHD CI exit conditions
 
 ERR_SWAP_CREATE_FAIL=130 # Error allocating swap file
@@ -1760,7 +2500,10 @@ ERR_DISABLE_SSH=172 # Error disabling ssh service
 ERR_VHD_REBOOT_REQUIRED=200 # Reserved for VHD reboot required exit condition
 ERR_NO_PACKAGES_FOUND=201 # Reserved for no security packages found exit condition
 
+ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 KUBECTL=/usr/local/bin/kubectl
@@ -1774,7 +2517,7 @@ export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
 NVIDIA_CONTAINER_RUNTIME_VERSION="3.6.0"
-export NVIDIA_DRIVER_IMAGE_SHA="sha-dc8c1a"
+export NVIDIA_DRIVER_IMAGE_SHA="sha-e8873b"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu"
 export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
@@ -1782,6 +2525,7 @@ export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v 
 APT_CACHE_DIR=/var/cache/apt/archives/
 PERMANENT_CACHE_DIR=/root/aptcache/
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+CURL_OUTPUT=/tmp/curl_verbose.out
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -1815,7 +2559,10 @@ retrycmd_get_tarball() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            timeout 60 curl -fsSLv $url -o $tarball
+            timeout 60 curl -fsSLv $url -o $tarball 2>&1 | tee $CURL_OUTPUT >/dev/null
+            if [[ $? != 0 ]]; then
+                cat $CURL_OUTPUT
+            fi
             sleep $wait_sleep
         fi
     done
@@ -1828,7 +2575,10 @@ retrycmd_curl_file() {
         if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout $timeout curl -fsSLv $url -o $filepath
+            timeout $timeout curl -fsSLv $url -o $filepath 2>&1 | tee $CURL_OUTPUT >/dev/null
+            if [[ $? != 0 ]]; then
+                cat $CURL_OUTPUT
+            fi
             sleep $wait_sleep
         fi
     done
@@ -1856,6 +2606,8 @@ systemctl_restart() {
         if [ $i -eq $retries ]; then
             return 1
         else
+            systemctl status $svcname --no-pager -l
+            journalctl -u $svcname
             sleep $wait_sleep
         fi
     done
@@ -2001,6 +2753,17 @@ logs_to_events() {
       return $ret
     fi
 }
+
+should_skip_nvidia_drivers() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
+    should_skip=$(echo "$body" | jq -e '.compute.tagsList | map(select(.name | test("SkipGpuDriverInstall"; "i")))[0].value // "false" | test("true"; "i")')
+    echo "$should_skip" # true or false
+}
 #HELPERSEOF
 `)
 
@@ -2037,6 +2800,7 @@ TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
+CURL_OUTPUT=/tmp/curl_verbose.out
 
 removeManDbAutoUpdateFlagFile() {
     rm -f $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
@@ -2051,29 +2815,27 @@ cleanupContainerdDlFiles() {
 }
 
 installContainerRuntime() {
-if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-    echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
-    wait_for_file 120 1 /opt/azure/manifest.json # no exit on failure is deliberate, we fallback below.
+    if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+        echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
+        local containerd_version
+        if [ -f "$MANIFEST_FILEPATH" ]; then
+            containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        else
+            echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+        fi
 
-    local containerd_version
-    if [ -f "$MANIFEST_FILEPATH" ]; then
-        containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
+        containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
+        if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ] || [ "$containerd_revision" == "null" ]; then
+            echo "invalid container version: $containerd_version"
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi
+
+        logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
+        echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
     else
-        echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+        installMoby
     fi
-
-    containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
-    containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
-    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ]  || [ "$containerd_revision" == "null" ]; then
-        echo "invalid container version: $containerd_version"
-        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    fi 
-
-    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
-    echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
-else
-    installMoby
-fi
 }
 
 installNetworkPlugin() {
@@ -2100,8 +2862,8 @@ downloadContainerdWasmShims() {
         fi
 
         if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-v1" "$containerd_wasm_url/containerd-shim-spin-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-v1" "$containerd_wasm_url/containerd-shim-slight-v1" || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT)
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT)
             chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
             chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
         fi
@@ -2116,7 +2878,7 @@ downloadAzureCNI() {
 
 downloadCrictl() {
     CRICTL_VERSION=$1
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    CPU_ARCH=$(getCPUArch) #amd64 or arm64
     mkdir -p $CRICTL_DOWNLOAD_DIR
     CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
     CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
@@ -2124,7 +2886,7 @@ downloadCrictl() {
 }
 
 installCrictl() {
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+    CPU_ARCH=$(getCPUArch) #amd64 or arm64
     currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
     if [[ "${currentVersion}" != "" ]]; then
         echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${KUBERNETES_VERSION%.*}.0"
@@ -2139,6 +2901,7 @@ installCrictl() {
         fi
         echo "Unpacking crictl into ${CRICTL_BIN_DIR}"
         tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
+        chown root:root $CRICTL_BIN_DIR/crictl
         chmod 755 $CRICTL_BIN_DIR/crictl
     fi
 }
@@ -2193,7 +2956,7 @@ setupCNIDirs() {
 
 installCNI() {
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}    # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
 
     # We want to use the untar cni reference first. And if that doesn't exist on the vhd does the tgz?
     # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
@@ -2207,13 +2970,13 @@ installCNI() {
 
         tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
-    
+
     chown -R root:root $CNI_BIN_DIR
 }
 
 installAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz} # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}         # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
 
     # We want to use the untar azurecni reference first. And if that doesn't exist on the vhd does the tgz?
     # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
@@ -2224,7 +2987,7 @@ installAzureCNI() {
         if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
             downloadAzureCNI
         fi
-        
+
         tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
 
@@ -2241,32 +3004,6 @@ extractKubeBinaries() {
     tar --transform="s|.*|&-${K8S_VERSION}|" --show-transformed-names -xzvf "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" \
         --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
     rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
-}
-
-extractHyperkube() {
-    CLI_TOOL=$1
-    path="/home/hyperkube-downloads/${KUBERNETES_VERSION}"
-    pullContainerImage $CLI_TOOL ${HYPERKUBE_URL}
-    mkdir -p "$path"
-    if [[ "$CLI_TOOL" == "ctr" ]]; then
-        if ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
-            mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
-            mv "$path/kubectl" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
-        else
-            ctr --namespace k8s.io run --rm --mount type=bind,src=$path,dst=$path,options=bind:rw ${HYPERKUBE_URL} extractTask /bin/bash -c "cp /hyperkube $path"
-        fi
-
-    else
-        if docker run --rm --entrypoint "" -v $path:$path ${HYPERKUBE_URL} /bin/bash -c "cp /usr/local/bin/{kubelet,kubectl} $path"; then
-            mv "$path/kubelet" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
-            mv "$path/kubectl" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
-        else
-            docker run --rm -v $path:$path ${HYPERKUBE_URL} /bin/bash -c "cp /hyperkube $path"
-        fi
-    fi
-
-    cp "$path/hyperkube" "/usr/local/bin/kubelet-${KUBERNETES_VERSION}"
-    mv "$path/hyperkube" "/usr/local/bin/kubectl-${KUBERNETES_VERSION}"
 }
 
 installKubeletKubectlAndKubeProxy() {
@@ -2286,12 +3023,6 @@ installKubeletKubectlAndKubeProxy() {
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
                 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
-            else
-                if [[ "$CONTAINER_RUNTIME" == "containerd" ]]; then
-                    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractHyperkube" extractHyperkube ctr
-                else
-                    logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractHyperkube" extractHyperkube docker
-                fi
             fi
         fi
     fi
@@ -2307,11 +3038,11 @@ pullContainerImage() {
     CONTAINER_IMAGE_URL=$2
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
     if [[ ${CLI_TOOL} == "ctr" ]]; then
-        logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT)
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
-        logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT)
     else
-        logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL" || ( echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT )
+        logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT)
     fi
 }
 
@@ -2396,12 +3127,6 @@ cleanUpImages() {
     retrycmd_if_failure 10 5 120 bash -c cleanupImagesRun
 }
 
-cleanUpHyperkubeImages() {
-    echo $(date),$(hostname), cleanUpHyperkubeImages
-    cleanUpImages "hyperkube"
-    echo $(date),$(hostname), endCleanUpHyperkubeImages
-}
-
 cleanUpKubeProxyImages() {
     echo $(date),$(hostname), startCleanUpKubeProxyImages
     cleanUpImages "kube-proxy"
@@ -2422,8 +3147,8 @@ cleanupRetaggedImages() {
         if [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
                 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-                # always use ctr, even if crictl is installed.
-                # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
+                    # always use ctr, even if crictl is installed.
+                    # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
                     removeContainerImage "ctr" ${image}
                 else
                     removeContainerImage "docker" ${image}
@@ -2436,15 +3161,12 @@ cleanupRetaggedImages() {
 }
 
 cleanUpContainerImages() {
-    # run cleanUpHyperkubeImages and cleanUpKubeProxyImages concurrently
     export KUBERNETES_VERSION
     export CLI_TOOL
     export -f retrycmd_if_failure
     export -f removeContainerImage
     export -f cleanUpImages
-    export -f cleanUpHyperkubeImages
     export -f cleanUpKubeProxyImages
-    bash -c cleanUpHyperkubeImages &
     bash -c cleanUpKubeProxyImages &
 }
 
@@ -2455,7 +3177,7 @@ cleanUpContainerd() {
 overrideNetworkConfig() {
     CONFIG_FILEPATH="/etc/cloud/cloud.cfg.d/80_azure_net_config.cfg"
     touch ${CONFIG_FILEPATH}
-    cat << EOF >> ${CONFIG_FILEPATH}
+    cat <<EOF >>${CONFIG_FILEPATH}
 datasource:
     Azure:
         apply_network_config: false
@@ -2528,16 +3250,9 @@ done
 sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
 source "${CSE_HELPERS_FILEPATH}"
 
-wait_for_file 3600 1 "${CSE_DISTRO_HELPERS_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_DISTRO_HELPERS_FILEPATH}"
-
-wait_for_file 3600 1 "${CSE_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_INSTALL_FILEPATH}"
-
-wait_for_file 3600 1 "${CSE_DISTRO_INSTALL_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
-
-wait_for_file 3600 1 "${CSE_CONFIG_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
 source "${CSE_CONFIG_FILEPATH}"
 
 if [[ "${DISABLE_SSH}" == "true" ]]; then
@@ -2572,7 +3287,15 @@ if [[ ${ID} != "mariner" ]]; then
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
 fi
 
-if [[ "${GPU_NODE}" != "true" ]]; then
+export -f should_skip_nvidia_drivers
+skip_nvidia_driver_install=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_nvidia_drivers)
+ret=$?
+if [[ "$ret" != "0" ]]; then
+    echo "Failed to determine if nvidia driver install should be skipped"
+    exit $ERR_NVIDIA_DRIVER_INSTALL
+fi
+
+if [[ "${GPU_NODE}" != "true" ]] || [[ "${skip_nvidia_driver_install}" == "true" ]]; then
     logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
 fi
 
@@ -2616,7 +3339,7 @@ fi
 REBOOTREQUIRED=false
 
 echo $(date),$(hostname), "Start configuring GPU drivers"
-if [[ "${GPU_NODE}" = true ]]; then
+if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" != "true" ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
         if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
@@ -2632,37 +3355,34 @@ EOF
     else
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
     fi
-fi
 
-if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
-    # fabric manager trains nvlink connections between multi instance gpus.
-    # it appears this is only necessary for systems with *multiple cards*.
-    # i.e., an A100 can be partitioned a maximum of 7 ways.
-    # An NC24ads_A100_v4 has one A100.
-    # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
-    # ND96 seems to require fabric manager *even when not using mig partitions*
-    # while it fails to install on NC24.
-    if [[ $OS == $MARINER_OS_NAME ]]; then
-        logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
+    if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
+        # fabric manager trains nvlink connections between multi instance gpus.
+        # it appears this is only necessary for systems with *multiple cards*.
+        # i.e., an A100 can be partitioned a maximum of 7 ways.
+        # An NC24ads_A100_v4 has one A100.
+        # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
+        # ND96 seems to require fabric manager *even when not using mig partitions*
+        # while it fails to install on NC24.
+        logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
-    logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
-fi
 
-# This will only be true for multi-instance capable VM sizes
-# for which the user has specified a partitioning profile.
-# it is valid to use mig-capable gpus without a partitioning profile.
-if [[ "${MIG_NODE}" == "true" ]]; then
-    # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
-    # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
-    # Commands such as `+"`"+`nvidia-smi --gpu-reset`+"`"+` may succeed,
-    # while commands such as `+"`"+`nvidia-smi -q`+"`"+` will show mismatched current/pending mig mode.
-    # this will not be required per nvidia for next gen H100.
-    REBOOTREQUIRED=true
-    
-    # this service applies the partitioning scheme with nvidia-smi.
-    # we should consider moving to mig-parted which is simpler/newer.
-    # we couldn't because of old drivers but that has long been fixed.
-    logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
+    # This will only be true for multi-instance capable VM sizes
+    # for which the user has specified a partitioning profile.
+    # it is valid to use mig-capable gpus without a partitioning profile.
+    if [[ "${MIG_NODE}" == "true" ]]; then
+        # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
+        # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
+        # Commands such as `+"`"+`nvidia-smi --gpu-reset`+"`"+` may succeed,
+        # while commands such as `+"`"+`nvidia-smi -q`+"`"+` will show mismatched current/pending mig mode.
+        # this will not be required per nvidia for next gen H100.
+        REBOOTREQUIRED=true
+        
+        # this service applies the partitioning scheme with nvidia-smi.
+        # we should consider moving to mig-parted which is simpler/newer.
+        # we couldn't because of old drivers but that has long been fixed.
+        logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
+    fi
 fi
 
 echo $(date),$(hostname), "End configuring GPU drivers"
@@ -2678,7 +3398,6 @@ logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectl
 createKubeManifestDir
 
 if [ "${HAS_CUSTOM_SEARCH_DOMAIN}" == "true" ]; then
-    wait_for_file 3600 1 "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" || exit $ERR_FILE_WATCH_TIMEOUT
     "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 fi
 
@@ -2740,10 +3459,22 @@ if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     mkdir -p /etc/containerd
     echo "${KUBENET_TEMPLATE}" | base64 -d > /etc/containerd/kubenet_template.conf
 
-    tee "/etc/systemd/system/kubelet.service.d/10-containerd.conf" > /dev/null <<'EOF'
+    # In k8s 1.27, the flag --container-runtime was removed.
+    # We now have 2 drop-in's, one with the still valid flags that will be applied to all k8s versions,
+    # the flags are --runtime-request-timeout, --container-runtime-endpoint, --runtime-cgroups
+    # For k8s >= 1.27, the flag --container-runtime will not be passed.
+    tee "/etc/systemd/system/kubelet.service.d/10-containerd-base-flag.conf" > /dev/null <<'EOF'
 [Service]
-Environment="KUBELET_CONTAINERD_FLAGS=--container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
+Environment="KUBELET_CONTAINERD_FLAGS=--runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
 EOF
+    
+    # if k8s version < 1.27.0, add the drop in for --container-runtime flag
+    if ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.27.0"; then
+        tee "/etc/systemd/system/kubelet.service.d/10-container-runtime-flag.conf" > /dev/null <<'EOF'
+[Service]
+Environment="KUBELET_CONTAINER_RUNTIME_FLAG=--container-runtime=remote"
+EOF
+    fi
 fi
 
 if [ "${HAS_KUBELET_DISK_TYPE}" == "true" ]; then
@@ -2755,6 +3486,10 @@ EOF
 fi
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
+
+if [ "${NEEDS_CONTAINERD}" == "true" ] &&  [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" == "true" ]; then
+  logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
+fi
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
@@ -2785,7 +3520,7 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
        API_SERVER_DNS_RETRIES=200
     fi
     if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]]; then
-        RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 10 nslookup ${API_SERVER_NAME}")
+        RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 20 nslookup -timeout=5 -retry=0 ${API_SERVER_NAME}")
         STS=$?
     else
         STS=0
@@ -3977,6 +4712,7 @@ ExecStart=/usr/local/bin/kubelet \
         $KUBELET_TLS_BOOTSTRAP_FLAGS \
         $KUBELET_CONFIG_FILE_FLAGS \
         $KUBELET_CONTAINERD_FLAGS \
+        $KUBELET_CONTAINER_RUNTIME_FLAG \
         $KUBELET_CGROUP_FLAGS \
         $KUBELET_FLAGS
 
@@ -4004,13 +4740,8 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "fileName": "moby-containerd_${CONTAINERD_VERSION}+azure-${CONTAINERD_PATCH_VERSION}.deb",
         "downloadLocation": "/opt/containerd/downloads",
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/${UBUNTU_CODENAME}/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu${UBUNTU_RELEASE}u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
-        "versions": [
-            "1.4.13-3",
-            "1.6.18-1"
-        ],
-        "edge": "1.6.18-1",
-        "latest": "1.5.11-2",
-        "stable": "1.4.13-3"
+        "versions": [],
+        "edge": "1.7.1-1"
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
@@ -4018,7 +4749,7 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [],
         "installed": {
-            "default": "1.1.5"
+            "default": "1.1.7"
         }
     },
     "nvidia-container-runtime": {
@@ -4038,12 +4769,17 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadLocation": "",
         "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz",
         "versions": [
-            "1.24.9",
-            "1.24.10",
-            "1.25.5",
-            "1.25.6",
-            "1.26.0",
-            "1.26.3"
+            "1.24.9-hotfix.20230612",
+            "1.24.10-hotfix.20230612",
+            "1.24.15",
+            "1.25.5-hotfix.20230612",
+            "1.25.6-hotfix.20230612",
+            "1.25.11",
+            "1.26.0-hotfix.20230612",
+            "1.26.3-hotfix.20230612",
+            "1.26.6",
+            "1.27.1-hotfix.20230612",
+            "1.27.3"
         ]
     },
     "_template": {
@@ -4126,7 +4862,7 @@ dnf_update() {
   retries=10
   dnf_update_output=/tmp/dnf-update.out
   for i in $(seq 1 $retries); do
-    ! (dnf update -y --refresh 2>&1 | tee $dnf_update_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+    ! (dnf update --exclude mshv-linuxloader --exclude kernel-mshv -y --refresh 2>&1 | tee $dnf_update_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
     cat $dnf_update_output && break || \
     cat $dnf_update_output
     if [ $i -eq $retries ]; then
@@ -4182,9 +4918,12 @@ installDeps() {
 }
 
 downloadGPUDrivers() {
-    # uname -r in Mariner will return %{version}-%{release}.%{mariner_version_postfix}
-    # Need to process the return value of "uname -r" to get the %{version} value
-    KERNEL_VERSION=$(cut -d - -f 1 <<< "$(uname -r)")
+    # Mariner CUDA rpm name comes in the following format:
+    #
+    # cuda-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
+    #
+    # Before installing cuda, check the active kernel version (uname -r) and use that to determine which cuda to install
+    KERNEL_VERSION=$(uname -r | sed 's/-/./g')
     CUDA_VERSION="*_${KERNEL_VERSION}*"
 
     if ! dnf_install 30 1 600 cuda-${CUDA_VERSION}; then
@@ -4211,11 +4950,6 @@ installNvidiaContainerRuntime() {
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
-}
-
-installSGXDrivers() {
-    echo "SGX drivers not yet supported for Mariner"
-    exit $ERR_SGX_DRIVERS_START_FAIL
 }
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
@@ -4271,6 +5005,86 @@ func linuxCloudInitArtifactsMarinerCse_install_marinerSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mariner/cse_install_mariner.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsMarinerPamDSystemAuth = []byte(`# Begin /etc/pam.d/system-auth
+
+auth      required      pam_faillock.so preauth silent audit deny=5 unlock_time=900
+auth      [success=1 default=ignore]      pam_unix.so use_authtok try_first_pass
+auth      [default=die] pam_faillock.so authfail audit deny=5 unlock_time=900
+auth      sufficient    pam_faillock.so authsucc audit deny=5 unlock_time=900
+auth      required      pam_deny.so
+
+account   required      pam_faillock.so
+account   include       system-account
+
+password  requisite     pam_pwquality.so retry=3
+password  required      pam_pwhistory.so use_authtok remember=5
+password  [success=1 default=ignore]      pam_unix.so use_authtok try_first_pass sha512 audit
+# here's the fallback if no module succeeds
+password  requisite     pam_deny.so
+# prime the stack with a positive return value if there isn't one already;
+# this avoids us returning an error just because nothing sets a success code
+# since the modules above will each just jump around
+password  required      pam_permit.so
+
+
+# End /etc/pam.d/system-auth
+`)
+
+func linuxCloudInitArtifactsMarinerPamDSystemAuthBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMarinerPamDSystemAuth, nil
+}
+
+func linuxCloudInitArtifactsMarinerPamDSystemAuth() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMarinerPamDSystemAuthBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mariner/pam-d-system-auth", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsMarinerPamDSystemPassword = []byte(`# Begin /etc/pam.d/system-auth
+
+auth      required      pam_faillock.so preauth silent audit deny=5 unlock_time=900
+auth      [success=1 default=ignore]      pam_unix.so use_authtok try_first_pass
+auth      [default=die] pam_faillock.so authfail audit deny=5 unlock_time=900
+auth      sufficient    pam_faillock.so authsucc audit deny=5 unlock_time=900
+auth      required      pam_deny.so
+
+account   required      pam_faillock.so
+account   include       system-account
+
+password  requisite     pam_pwquality.so retry=3
+password  required      pam_pwhistory.so use_authtok remember=5
+password  [success=1 default=ignore]      pam_unix.so use_authtok try_first_pass sha512 audit
+# here's the fallback if no module succeeds
+password  requisite     pam_deny.so
+# prime the stack with a positive return value if there isn't one already;
+# this avoids us returning an error just because nothing sets a success code
+# since the modules above will each just jump around
+password  required      pam_permit.so
+
+
+# End /etc/pam.d/system-auth
+`)
+
+func linuxCloudInitArtifactsMarinerPamDSystemPasswordBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMarinerPamDSystemPassword, nil
+}
+
+func linuxCloudInitArtifactsMarinerPamDSystemPassword() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMarinerPamDSystemPasswordBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mariner/pam-d-system-password", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -4378,7 +5192,9 @@ install rds /bin/true
 # 3.5.4 Ensure TIPC is disabled
 install tipc /bin/true
 # 1.1.1.1 Ensure mounting of cramfs filesystems is disabled
+# Mariner AKS CIS Benchmark: Ensure mounting of cramfs filesystems is disabled
 install cramfs /bin/true
+blacklist cramfs
 # 1.1.1.2 Ensure mounting of freevxfs filesystems is disabled
 install freevxfs /bin/true
 # 1.1.1.3 Ensure mounting of jffs2 filesystems is disabled
@@ -4386,7 +5202,8 @@ install jffs2 /bin/true
 # 1.1.1.4 Ensure mounting of hfs filesystems is disabled
 install hfs /bin/true
 # 1.1.1.5 Ensure mounting of hfsplus filesystems is disabled
-install hfsplus /bin/true`)
+install hfsplus /bin/true
+`)
 
 func linuxCloudInitArtifactsModprobeCisConfBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsModprobeCisConf, nil
@@ -4984,6 +5801,9 @@ Subsystem sftp /usr/lib/openssh/sftp-server
 UsePAM yes
 UseDNS no
 GSSAPIAuthentication no
+
+# Mariner AKS CIS Benchmark: Ensure SSH access is limited
+DenyUsers root omsagent nxautomation
 `)
 
 func linuxCloudInitArtifactsSshd_configBytes() ([]byte, error) {
@@ -5096,6 +5916,9 @@ Subsystem sftp /usr/lib/openssh/sftp-server
 UsePAM yes
 UseDNS no
 GSSAPIAuthentication no
+
+# Mariner AKS CIS Benchmark: Ensure SSH access is limited
+DenyUsers root omsagent nxautomation
 `)
 
 func linuxCloudInitArtifactsSshd_config_1604Bytes() ([]byte, error) {
@@ -5238,6 +6061,9 @@ Subsystem sftp	/usr/lib/openssh/sftp-server
 
 # CLOUD_IMG: This file was created/modified by the Cloud Image build process
 ClientAliveInterval 120
+
+# Mariner AKS CIS Benchmark: Ensure SSH access is limited
+DenyUsers root omsagent nxautomation
 `)
 
 func linuxCloudInitArtifactsSshd_config_1804_fipsBytes() ([]byte, error) {
@@ -5358,27 +6184,52 @@ func linuxCloudInitArtifactsSyncContainerLogsSh() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsSysctlD60CisConf = []byte(`# 3.1.2 Ensure packet redirect sending is disabled
+var _linuxCloudInitArtifactsSysctlD60CisConf = []byte(`# Ubuntu CIS Benchmark: Ensure packet redirect sending is disabled
 net.ipv4.conf.all.send_redirects = 0
 net.ipv4.conf.default.send_redirects = 0
-# 3.2.1 Ensure source routed packets are not accepted 
+
+# Ubuntu CIS Benchmark: Ensure source routed packets are not accepted
+# Mariner AKS CIS Benchmark: Ensure source routed packets are not accepted
 net.ipv4.conf.all.accept_source_route = 0
 net.ipv4.conf.default.accept_source_route = 0
-# 3.2.2 Ensure ICMP redirects are not accepted
+net.ipv6.conf.all.accept_source_route = 0
+net.ipv6.conf.default.accept_source_route = 0
+
+# Ubuntu CIS Benchmark: Ensure ICMP redirects are not accepted
+# Mariner AKS CIS Benchmark: Ensure ICMP redirects are not accepted
 net.ipv4.conf.all.accept_redirects = 0
 net.ipv4.conf.default.accept_redirects = 0
-# 3.2.3 Ensure secure ICMP redirects are not accepted
-net.ipv4.conf.all.secure_redirects = 0
-net.ipv4.conf.default.secure_redirects = 0
-# 3.2.4 Ensure suspicious packets are logged
-net.ipv4.conf.all.log_martians = 1
-net.ipv4.conf.default.log_martians = 1
-# 3.3.1 Ensure IPv6 router advertisements are not accepted
-net.ipv6.conf.all.accept_ra = 0
-net.ipv6.conf.default.accept_ra = 0
-# 3.3.2 Ensure IPv6 redirects are not accepted
 net.ipv6.conf.all.accept_redirects = 0
 net.ipv6.conf.default.accept_redirects = 0
+
+# Ubuntu CIS Benchmark: Ensure secure ICMP redirects are not accepted
+# Mariner AKS CIS Benchmark: Ensure secure ICMP redirects are not accepted
+net.ipv4.conf.all.secure_redirects = 0
+net.ipv4.conf.default.secure_redirects = 0
+
+# Ubuntu CIS Benchmark: Ensure suspicious packets are logged
+# Mariner AKS CIS Benchmark: Ensure suspicious packets are logged
+net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.default.log_martians = 1
+
+# Ubuntu CIS Benchmark: Ensure IPv6 router advertisements are not accepted
+# Mariner AKS CIS Benchmark: Ensure IPv6 router advertisements are not accepted
+net.ipv6.conf.all.accept_ra = 0
+net.ipv6.conf.default.accept_ra = 0
+
+# Mariner AKS CIS Benchmark: Ensure broadcast ICMP requests are ignored
+net.ipv4.icmp_echo_ignore_broadcasts = 1
+
+# Mariner AKS CIS Benchmark: Ensure bogus ICMP responses are ignored
+net.ipv4.icmp_ignore_bogus_error_responses = 1
+
+# Mariner AKS CIS Benchmark: Ensure Reverse Path Filtering is enabled
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.default.rp_filter = 1
+
+# Mariner AKS CIS Benchmark: Ensure TCP SYN Cookies is enabled
+net.ipv4.tcp_syncookies = 1
+
 # refer to https://github.com/kubernetes/kubernetes/blob/75d45bdfc9eeda15fb550e00da662c12d7d37985/pkg/kubelet/cm/container_manager_linux.go#L359-L397
 vm.overcommit_memory = 1
 kernel.panic = 10
@@ -5387,7 +6238,7 @@ kernel.panic_on_oops = 1
 kernel.pid_max = 4194304
 # https://github.com/Azure/AKS/issues/772
 fs.inotify.max_user_watches = 1048576
-# Ubuntu 22.04 has inotify_max_user_instances set to 128, where as Ubuntu 18.04 had 1024. 
+# Ubuntu 22.04 has inotify_max_user_instances set to 128, where as Ubuntu 18.04 had 1024.
 fs.inotify.max_user_instances = 1024
 `)
 
@@ -5581,14 +6432,13 @@ installDeps() {
 
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
     pkg_list=(apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r))
 
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
-    BLOBFUSE2_VERSION="2.0.2"
+    BLOBFUSE2_VERSION="2.0.4"
 
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
@@ -5613,42 +6463,6 @@ installDeps() {
             exit $ERR_APT_INSTALL_TIMEOUT
         fi
     done
-}
-
-installSGXDrivers() {
-    if [[ $(isARM64) == 1 ]]; then
-        # no intel sgx on arm64
-        return
-    fi
-
-    echo "Installing SGX driver"
-    local VERSION
-    VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
-    case $VERSION in
-    "18.04")
-        SGX_DRIVER_URL="https://download.01.org/intel-sgx/dcap-1.2/linux/dcap_installers/ubuntuServer18.04/sgx_linux_x64_driver_1.12_c110012.bin"
-        ;;
-    "16.04")
-        SGX_DRIVER_URL="https://download.01.org/intel-sgx/dcap-1.2/linux/dcap_installers/ubuntuServer16.04/sgx_linux_x64_driver_1.12_c110012.bin"
-        ;;
-    "*")
-        echo "Version $VERSION is not supported"
-        exit 1
-        ;;
-    esac
-
-    local PACKAGES="make gcc dkms"
-    wait_for_apt_locks
-    retrycmd_if_failure 30 5 3600 apt-get -y install $PACKAGES  || exit $ERR_SGX_DRIVERS_INSTALL_TIMEOUT
-
-    local SGX_DRIVER
-    SGX_DRIVER=$(basename $SGX_DRIVER_URL)
-    local OE_DIR=/opt/azure/containers/oe
-    mkdir -p ${OE_DIR}
-
-    retrycmd_if_failure 120 5 25 curl -fsSL ${SGX_DRIVER_URL} -o ${OE_DIR}/${SGX_DRIVER} || exit $ERR_SGX_DRIVERS_INSTALL_TIMEOUT
-    chmod a+x ${OE_DIR}/${SGX_DRIVER}
-    ${OE_DIR}/${SGX_DRIVER} || exit $ERR_SGX_DRIVERS_START_FAIL
 }
 
 updateAptWithMicrosoftPkg() {
@@ -5716,7 +6530,7 @@ installStandaloneContainerd() {
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.6.18"
+        CONTAINERD_VERSION="1.7.1"
         CONTAINERD_PATCH_VERSION="1"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
@@ -5807,7 +6621,7 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.1.5+azure-ubuntu${UBUNTU_RELEASE}u1"
+        TARGET_VERSION="1.1.7+azure-ubuntu${UBUNTU_RELEASE}"
     fi
 
     if [[ $(isARM64) == 1 ]]; then
@@ -5819,7 +6633,7 @@ ensureRunc() {
 
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-    CLEANED_TARGET_VERSION=$(TARGET_VERSION%+*) # removes the +azure-ubuntu18.04u1 (or similar) suffix
+    CLEANED_TARGET_VERSION=${TARGET_VERSION%+*} # removes the +azure-ubuntu18.04u1 (or similar) suffix
 
     if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
         echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
@@ -5834,7 +6648,7 @@ ensureRunc() {
             return 0
         fi
     fi
-    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION} --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
 #EOF
@@ -5981,12 +6795,14 @@ write_files:
     {{GetVariableProperty "cloudInitData" "provisionSourceUbuntu"}}
 {{end}}
 
+{{ if not IsCustomImage -}}
 - path: /opt/azure/containers/provision_start.sh
   permissions: "0744"
   encoding: gzip
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionStartScript"}}
+{{- end }}
 
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"
@@ -6305,118 +7121,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
-
-
-- path: /etc/sysctl.d/999-sysctl-aks.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    # This is a partial workaround to this upstream Kubernetes issue:
-    # https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
-    net.ipv4.tcp_retries2=8
-    net.core.message_burst=80
-    net.core.message_cost=40
-{{- if GetCustomSysctlConfigByName "NetCoreSomaxconn"}}
-    net.core.somaxconn={{.CustomLinuxOSConfig.Sysctls.NetCoreSomaxconn}}
-{{- else}}
-    net.core.somaxconn=16384
-{{- end}}
-{{- if GetCustomSysctlConfigByName "NetIpv4TcpMaxSynBacklog"}}
-    net.ipv4.tcp_max_syn_backlog={{.CustomLinuxOSConfig.Sysctls.NetIpv4TcpMaxSynBacklog}}
-{{- else}}
-    net.ipv4.tcp_max_syn_backlog=16384
-{{- end}}
-{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh1"}}
-    net.ipv4.neigh.default.gc_thresh1={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh1}}
-{{- else}}
-    net.ipv4.neigh.default.gc_thresh1=4096
-{{- end}}
-{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh2"}}
-    net.ipv4.neigh.default.gc_thresh2={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh2}}
-{{- else}}
-    net.ipv4.neigh.default.gc_thresh2=8192
-{{- end}}
-{{- if GetCustomSysctlConfigByName "NetIpv4NeighDefaultGcThresh3"}}
-    net.ipv4.neigh.default.gc_thresh3={{.CustomLinuxOSConfig.Sysctls.NetIpv4NeighDefaultGcThresh3}}
-{{- else}}
-    net.ipv4.neigh.default.gc_thresh3=16384
-{{- end}}
-{{if ShouldConfigCustomSysctl}}
-    # The following are sysctl configs passed from API
-{{- $s:=.CustomLinuxOSConfig.Sysctls}}
-{{- if $s.NetCoreNetdevMaxBacklog}}
-    net.core.netdev_max_backlog={{$s.NetCoreNetdevMaxBacklog}}
-{{- end}}
-{{- if $s.NetCoreRmemDefault}}
-    net.core.rmem_default={{$s.NetCoreRmemDefault}}
-{{- end}}
-{{- if $s.NetCoreRmemMax}}
-    net.core.rmem_max={{$s.NetCoreRmemMax}}
-{{- end}}
-{{- if $s.NetCoreWmemDefault}}
-    net.core.wmem_default={{$s.NetCoreWmemDefault}}
-{{- end}}
-{{- if $s.NetCoreWmemMax}}
-    net.core.wmem_max={{$s.NetCoreWmemMax}}
-{{- end}}
-{{- if $s.NetCoreOptmemMax}}
-    net.core.optmem_max={{$s.NetCoreOptmemMax}}
-{{- end}}
-{{- if $s.NetIpv4TcpMaxTwBuckets}}
-    net.ipv4.tcp_max_tw_buckets={{$s.NetIpv4TcpMaxTwBuckets}}
-{{- end}}
-{{- if $s.NetIpv4TcpFinTimeout}}
-    net.ipv4.tcp_fin_timeout={{$s.NetIpv4TcpFinTimeout}}
-{{- end}}
-{{- if $s.NetIpv4TcpKeepaliveTime}}
-    net.ipv4.tcp_keepalive_time={{$s.NetIpv4TcpKeepaliveTime}}
-{{- end}}
-{{- if $s.NetIpv4TcpKeepaliveProbes}}
-    net.ipv4.tcp_keepalive_probes={{$s.NetIpv4TcpKeepaliveProbes}}
-{{- end}}
-{{- if $s.NetIpv4TcpkeepaliveIntvl}}
-    net.ipv4.tcp_keepalive_intvl={{$s.NetIpv4TcpkeepaliveIntvl}}
-{{- end}}
-{{- if $s.NetIpv4TcpTwReuse}}
-    net.ipv4.tcp_tw_reuse={{BoolPtrToInt $s.NetIpv4TcpTwReuse}}
-{{- end}}
-{{- if $s.NetIpv4IpLocalPortRange}}
-    net.ipv4.ip_local_port_range={{$s.NetIpv4IpLocalPortRange}}
-{{- end}}
-{{- if $s.NetNetfilterNfConntrackMax}}
-    net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}
-{{- end}}
-{{- if $s.NetNetfilterNfConntrackBuckets}}
-    net.netfilter.nf_conntrack_buckets={{$s.NetNetfilterNfConntrackBuckets}}
-{{- end}}
-{{- if $s.FsInotifyMaxUserWatches}}
-    fs.inotify.max_user_watches={{$s.FsInotifyMaxUserWatches}}
-{{- end}}
-{{- if $s.FsFileMax}}
-    fs.file-max={{$s.FsFileMax}}
-{{- end}}
-{{- if $s.FsAioMaxNr}}
-    fs.aio-max-nr={{$s.FsAioMaxNr}}
-{{- end}}
-{{- if $s.FsNrOpen}}
-    fs.nr_open={{$s.FsNrOpen}}
-{{- end}}
-{{- if $s.KernelThreadsMax}}
-    kernel.threads-max={{$s.KernelThreadsMax}}
-{{- end}}
-{{- if $s.VMMaxMapCount}}
-    vm.max_map_count={{$s.VMMaxMapCount}}
-{{- end}}
-{{- if $s.VMSwappiness}}
-    vm.swappiness={{$s.VMSwappiness}}
-{{- end}}
-{{- if $s.VMVfsCachePressure}}
-    vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
-{{- end}}
-{{- end}}
-    #EOF
-`)
+    {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}`)
 
 func linuxCloudInitNodecustomdataYmlBytes() ([]byte, error) {
 	return _linuxCloudInitNodecustomdataYml, nil
@@ -6435,16 +7140,16 @@ func linuxCloudInitNodecustomdataYml() (*asset, error) {
 
 var _windowsCsecmdPs1 = []byte(`powershell.exe -ExecutionPolicy Unrestricted -command \"
 $arguments = '
--MasterIP {{ GetKubernetesEndpoint }}
--KubeDnsServiceIp {{ GetParameter "kubeDNSServiceIP" }}
--MasterFQDNPrefix {{ GetParameter "masterEndpointDNSNamePrefix" }}
--Location {{ GetVariable "location" }}
+-MasterIP ''{{ GetKubernetesEndpoint }}''
+-KubeDnsServiceIp ''{{ GetParameter "kubeDNSServiceIP" }}''
+-MasterFQDNPrefix ''{{ GetParameter "masterEndpointDNSNamePrefix" }}''
+-Location ''{{ GetVariable "location" }}''
 {{if UserAssignedIDEnabled}}
--UserAssignedClientID {{ GetVariable "userAssignedIdentityID" }}
+-UserAssignedClientID ''{{ GetVariable "userAssignedIdentityID" }}''
 {{ end }}
--TargetEnvironment {{ GetTargetEnvironment }}
--AgentKey {{ GetParameter "clientPrivateKey" }}
--AADClientId {{ GetParameter "servicePrincipalClientId" }}
+-TargetEnvironment ''{{ GetTargetEnvironment }}''
+-AgentKey ''{{ GetParameter "clientPrivateKey" }}''
+-AADClientId ''{{ GetParameter "servicePrincipalClientId" }}''
 -AADClientSecret ''{{ GetParameter "encodedServicePrincipalClientSecret" }}''
 -NetworkAPIVersion 2018-08-01
 -LogFile %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log
@@ -6565,7 +7270,6 @@ $global:ContainerdSdnPluginUrl = "{{GetParameter "windowsSdnPluginURL"}}"
 $global:DockerVersion = "{{GetParameter "windowsDockerVersion"}}"
 
 ## ContainerD Usage
-$global:ContainerRuntime = "{{GetParameter "containerRuntime"}}"
 $global:DefaultContainerdWindowsSandboxIsolation = "{{GetParameter "defaultContainerdWindowsSandboxIsolation"}}"
 $global:ContainerdWindowsRuntimeHandlers = "{{GetParameter "containerdWindowsRuntimeHandlers"}}"
 
@@ -6612,7 +7316,7 @@ $global:ExcludeMasterFromStandardLB = "{{GetVariable "excludeMasterFromStandardL
 # Windows defaults, not changed by aks-engine
 $global:CacheDir = "c:\akse-cache"
 $global:KubeDir = "c:\k"
-$global:HNSModule = [Io.path]::Combine("$global:KubeDir", "hns.psm1")
+$global:HNSModule = [Io.path]::Combine("$global:KubeDir", "hns.v2.psm1")
 
 $global:KubeDnsSearchPath = "svc.cluster.local"
 
@@ -6662,7 +7366,6 @@ $global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("{{GetVariable
 # Base64 representation of ZIP archive
 $zippedFiles = "{{ GetKubernetesWindowsAgentFunctions }}"
 
-$useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
 $fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
 
@@ -6673,10 +7376,6 @@ $global:HNSRemediatorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetHnsRem
 $global:LogGeneratorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetLogGeneratorIntervalInMinutes}}");
 
 $global:EnableIncreaseDynamicPortRange = $false
-
-if ($useContainerD) {
-    $global:HNSModule = [Io.path]::Combine("$global:KubeDir", "hns.v2.psm1")
-}
 
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
@@ -6690,7 +7389,13 @@ try
 {
     Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.22.zip"
+    # Exit early if the script has been executed
+    if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
+        Write-Log "The script has been executed before, will exit without doing anything."
+        return
+    }
+   
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.29.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -6716,11 +7421,6 @@ try
     . c:\AzureData\windows\kubeletfunc.ps1
     . c:\AzureData\windows\kubernetesfunc.ps1
 
-    # Exit early if the script has been executed
-    if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
-        Write-Log "The script has been executed before, will exit without doing anything."
-        return
-    }
     # Install OpenSSH if SSH enabled
     $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
 
@@ -6766,20 +7466,16 @@ try
         Get-KubeBinaries -KubeBinariesURL $global:WindowsKubeBinariesURL
     }
 
-    if ($useContainerD) {
-        Write-Log "Installing ContainerD"
-        $cniBinPath = $global:AzureCNIBinDir
-        $cniConfigPath = $global:AzureCNIConfDir
-        if ($global:NetworkPlugin -eq "kubenet") {
-            $cniBinPath = $global:CNIPath
-            $cniConfigPath = $global:CNIConfigPath
-        }
-        Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir -KubernetesVersion $global:KubeBinariesVersion
-    } else {
-        Write-Log "Install docker"
-        Install-Docker -DockerVersion $global:DockerVersion
-        Set-DockerLogFileOptions
+    Write-Log "Installing ContainerD"
+    $cniBinPath = $global:AzureCNIBinDir
+    $cniConfigPath = $global:AzureCNIConfDir
+    if ($global:NetworkPlugin -eq "kubenet") {
+        $cniBinPath = $global:CNIPath
+        $cniConfigPath = $global:CNIConfigPath
     }
+    Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir -KubernetesVersion $global:KubeBinariesVersion
+
+    Retag-ImagesForAzureChinaCloud -TargetEnvironment $TargetEnvironment
 
     # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
     Write-Log "Write Azure cloud provider config"
@@ -6847,23 +7543,8 @@ try
         -AgentCertificate $global:AgentCertificate
 
     if ($global:EnableHostsConfigAgent) {
-            Write-Log "Starting hosts config agent"
-            New-HostsConfigService
-        }
-
-    Write-Log "Create the Pause Container kubletwin/pause"
-    New-InfraContainer -KubeDir $global:KubeDir -ContainerRuntime $global:ContainerRuntime
-
-    if (-not (Test-ContainerImageExists -Image "kubletwin/pause" -ContainerRuntime $global:ContainerRuntime)) {
-        Write-Log "Could not find container with name kubletwin/pause"
-        if ($useContainerD) {
-            $o = ctr -n k8s.io image list
-            Write-Log $o
-        } else {
-            $o = docker image list
-            Write-Log $o
-        }
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PAUSE_IMAGE_NOT_EXIST -ErrorMessage "kubletwin/pause container does not exist!"
+        Write-Log "Starting hosts config agent"
+        New-HostsConfigService
     }
 
     Write-Log "Configuring networking with NetworkPlugin:$global:NetworkPlugin"
@@ -6901,8 +7582,7 @@ try
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
 
     Install-KubernetesServices `+"`"+`
-        -KubeDir $global:KubeDir `+"`"+`
-        -ContainerRuntime $global:ContainerRuntime
+        -KubeDir $global:KubeDir
 
     Write-Log "Disable Internet Explorer compat mode and set homepage"
     Set-Explorer
@@ -6914,7 +7594,7 @@ try
     PREPROVISION_EXTENSION
 
     Write-Log "Update service failure actions"
-    Update-ServiceFailureActions -ContainerRuntime $global:ContainerRuntime
+    Update-ServiceFailureActions
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
     Register-NodeResetScriptTask
@@ -7130,12 +7810,13 @@ $global:WINDOWS_CSE_ERROR_SET_UDP_EXCLUDE_PORT_RANGE=48
 $global:WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN=49 # Return this error code in csecmd.ps1 when C:\AzureData\CustomData.bin does not exist
 $global:WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG=50 # Return this error code in csecmd.ps1 when C:\AzureData\CSEResult.log does not exist
 $global:WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS=51
+$global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE=52
 
 # NOTE: KubernetesVersion does not contain "v"
-$global:MinimalKubernetesVersionWithLatestContainerd = "1.40.0" # Will change it to the correct version when we support new Windows containerd version
-$global:StableContainerdPackage = "v0.0.56/binaries/containerd-v0.0.56-windows-amd64.tar.gz"
-# The containerd package name may be changed in future
-$global:LatestContainerdPackage = "v1.0.46/binaries/containerd-v1.0.46-windows-amd64.tar.gz" # It does not exist and is only for test for now
+$global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version
+$global:StableContainerdPackage = "v1.6.21-azure.1/binaries/containerd-v1.6.21-azure.1-windows-amd64.tar.gz"
+# The latest containerd version
+$global:LatestContainerdPackage = "v1.7.1-azure.1/binaries/containerd-v1.7.1-azure.1-windows-amd64.tar.gz"
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }
@@ -7446,6 +8127,12 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
 	"linux/cloud-init/artifacts/bind-mount.sh":                             linuxCloudInitArtifactsBindMountSh,
 	"linux/cloud-init/artifacts/block_wireserver.sh":                       linuxCloudInitArtifactsBlock_wireserverSh,
+	"linux/cloud-init/artifacts/cgroup-memory-telemetry.service":           linuxCloudInitArtifactsCgroupMemoryTelemetryService,
+	"linux/cloud-init/artifacts/cgroup-memory-telemetry.sh":                linuxCloudInitArtifactsCgroupMemoryTelemetrySh,
+	"linux/cloud-init/artifacts/cgroup-memory-telemetry.timer":             linuxCloudInitArtifactsCgroupMemoryTelemetryTimer,
+	"linux/cloud-init/artifacts/cgroup-pressure-telemetry.service":         linuxCloudInitArtifactsCgroupPressureTelemetryService,
+	"linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh":              linuxCloudInitArtifactsCgroupPressureTelemetrySh,
+	"linux/cloud-init/artifacts/cgroup-pressure-telemetry.timer":           linuxCloudInitArtifactsCgroupPressureTelemetryTimer,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.path":                    linuxCloudInitArtifactsCiSyslogWatcherPath,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.service":                 linuxCloudInitArtifactsCiSyslogWatcherService,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.sh":                      linuxCloudInitArtifactsCiSyslogWatcherSh,
@@ -7486,6 +8173,8 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/manifest.json":                             linuxCloudInitArtifactsManifestJson,
 	"linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh":            linuxCloudInitArtifactsMarinerCse_helpers_marinerSh,
 	"linux/cloud-init/artifacts/mariner/cse_install_mariner.sh":            linuxCloudInitArtifactsMarinerCse_install_marinerSh,
+	"linux/cloud-init/artifacts/mariner/pam-d-system-auth":                 linuxCloudInitArtifactsMarinerPamDSystemAuth,
+	"linux/cloud-init/artifacts/mariner/pam-d-system-password":             linuxCloudInitArtifactsMarinerPamDSystemPassword,
 	"linux/cloud-init/artifacts/mariner/update_certs_mariner.service":      linuxCloudInitArtifactsMarinerUpdate_certs_marinerService,
 	"linux/cloud-init/artifacts/mig-partition.service":                     linuxCloudInitArtifactsMigPartitionService,
 	"linux/cloud-init/artifacts/mig-partition.sh":                          linuxCloudInitArtifactsMigPartitionSh,
@@ -7581,6 +8270,12 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
 				"bind-mount.sh":                             &bintree{linuxCloudInitArtifactsBindMountSh, map[string]*bintree{}},
 				"block_wireserver.sh":                       &bintree{linuxCloudInitArtifactsBlock_wireserverSh, map[string]*bintree{}},
+				"cgroup-memory-telemetry.service":           &bintree{linuxCloudInitArtifactsCgroupMemoryTelemetryService, map[string]*bintree{}},
+				"cgroup-memory-telemetry.sh":                &bintree{linuxCloudInitArtifactsCgroupMemoryTelemetrySh, map[string]*bintree{}},
+				"cgroup-memory-telemetry.timer":             &bintree{linuxCloudInitArtifactsCgroupMemoryTelemetryTimer, map[string]*bintree{}},
+				"cgroup-pressure-telemetry.service":         &bintree{linuxCloudInitArtifactsCgroupPressureTelemetryService, map[string]*bintree{}},
+				"cgroup-pressure-telemetry.sh":              &bintree{linuxCloudInitArtifactsCgroupPressureTelemetrySh, map[string]*bintree{}},
+				"cgroup-pressure-telemetry.timer":           &bintree{linuxCloudInitArtifactsCgroupPressureTelemetryTimer, map[string]*bintree{}},
 				"ci-syslog-watcher.path":                    &bintree{linuxCloudInitArtifactsCiSyslogWatcherPath, map[string]*bintree{}},
 				"ci-syslog-watcher.service":                 &bintree{linuxCloudInitArtifactsCiSyslogWatcherService, map[string]*bintree{}},
 				"ci-syslog-watcher.sh":                      &bintree{linuxCloudInitArtifactsCiSyslogWatcherSh, map[string]*bintree{}},
@@ -7622,6 +8317,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"mariner": &bintree{nil, map[string]*bintree{
 					"cse_helpers_mariner.sh":       &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
 					"cse_install_mariner.sh":       &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},
+					"pam-d-system-auth":            &bintree{linuxCloudInitArtifactsMarinerPamDSystemAuth, map[string]*bintree{}},
+					"pam-d-system-password":        &bintree{linuxCloudInitArtifactsMarinerPamDSystemPassword, map[string]*bintree{}},
 					"update_certs_mariner.service": &bintree{linuxCloudInitArtifactsMarinerUpdate_certs_marinerService, map[string]*bintree{}},
 				}},
 				"mig-partition.service":           &bintree{linuxCloudInitArtifactsMigPartitionService, map[string]*bintree{}},

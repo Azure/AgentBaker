@@ -11,8 +11,8 @@ TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
 
 if [ "$OS_TYPE" == "Linux" ]; then
-  if [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_VERSION" == "16.04" ] || [ "$IMG_SKU" == "20_04-lts-cvm" ]; then
-    echo "Skipping tests for Mariner, Ubuntu 16.04 and CVM 20.04"
+  if [ "$IMG_SKU" == "20_04-lts-cvm" ] || [ "$OS_VERSION" == "V1" ] && [ "$OS_SKU" == "CBLMariner" ]; then
+    echo "Skipping tests for CVM 20.04 and Mariner 1.0"
     exit 0
   fi
 fi
@@ -76,7 +76,15 @@ else
   TARGET_COMMAND_STRING=""
   if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     TARGET_COMMAND_STRING+="--size Standard_D2pds_v5"
-  elif [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
+  elif [[ "${FEATURE_FLAGS,,}" == "kata" ]]; then
+    TARGET_COMMAND_STRING="--size Standard_D4ds_v5"
+  fi
+
+  if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
+    if [[ -n "$TARGET_COMMAND_STRING" ]]; then
+      # To take care of Mariner Kata TL images
+      TARGET_COMMAND_STRING+=" "
+    fi
     TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
   fi
 
@@ -108,7 +116,7 @@ if [ "$OS_TYPE" == "Linux" ]; then
       --name $VM_NAME \
       --resource-group $RESOURCE_GROUP_NAME \
       --scripts @$SCRIPT_PATH \
-      --parameters ${CONTAINER_RUNTIME} ${OS_VERSION} ${ENABLE_FIPS}) && break
+      --parameters ${CONTAINER_RUNTIME} ${OS_VERSION} ${ENABLE_FIPS} ${OS_SKU} ${GIT_BRANCH}) && break
     echo "${i}: retrying az vm run-command"
   done
   # The error message for a Linux VM run-command is as follows:

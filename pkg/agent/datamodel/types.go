@@ -15,6 +15,7 @@ import (
 	"sync"
 
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Masterminds/semver/v3"
 )
 
 // TypeMeta describes an individual API model object.
@@ -125,8 +126,9 @@ const (
 CommandLineOmittedKubeletConfigFlags are the flags set by RP that should NOT be included within the set of
 command line flags when configuring kubelet.
 */
-var CommandLineOmittedKubeletConfigFlags map[string]bool = map[string]bool{
-	"--node-status-report-frequency": true,
+func GetCommandLineOmittedKubeletConfigFlags() map[string]bool {
+	flags := map[string]bool{"--node-status-report-frequency": true}
+	return flags
 }
 
 // Distro represents Linux distro to use for Linux VMs.
@@ -149,6 +151,8 @@ const (
 	AKSCBLMarinerV1                     Distro = "aks-cblmariner-v1"
 	AKSCBLMarinerV2                     Distro = "aks-cblmariner-v2"
 	AKSCBLMarinerV2Gen2                 Distro = "aks-cblmariner-v2-gen2"
+	AKSCBLMarinerV2FIPS                 Distro = "aks-cblmariner-v2-fips"
+	AKSCBLMarinerV2Gen2FIPS             Distro = "aks-cblmariner-v2-gen2-fips"
 	AKSCBLMarinerV2Gen2Kata             Distro = "aks-cblmariner-v2-gen2-kata"
 	AKSCBLMarinerV2Gen2TL               Distro = "aks-cblmariner-v2-gen2-tl"
 	AKSCBLMarinerV2KataGen2TL           Distro = "aks-cblmariner-v2-kata-gen2-tl"
@@ -156,9 +160,6 @@ const (
 	AKSUbuntuFipsContainerd1804Gen2     Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
 	AKSUbuntuFipsContainerd2004         Distro = "aks-ubuntu-fips-containerd-20.04"
 	AKSUbuntuFipsContainerd2004Gen2     Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
-	AKSUbuntuFipsGPUContainerd1804      Distro = "aks-ubuntu-fips-gpu-containerd-18.04"
-	AKSUbuntuFipsGPUContainerd1804Gen2  Distro = "aks-ubuntu-fips-gpu-containerd-18.04-gen2"
-	AKSUbuntuArm64Containerd1804Gen2    Distro = "aks-ubuntu-arm64-containerd-18.04-gen2"
 	AKSUbuntuEdgeZoneContainerd1804     Distro = "aks-ubuntu-edgezone-containerd-18.04"
 	AKSUbuntuEdgeZoneContainerd1804Gen2 Distro = "aks-ubuntu-edgezone-containerd-18.04-gen2"
 	AKSUbuntuEdgeZoneContainerd2204     Distro = "aks-ubuntu-edgezone-containerd-22.04"
@@ -169,10 +170,13 @@ const (
 	AKSUbuntuArm64Containerd2204Gen2    Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 	AKSCBLMarinerV2Arm64Gen2            Distro = "aks-cblmariner-v2-arm64-gen2"
 	AKSUbuntuContainerd2204TLGen2       Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
-	RHEL                                Distro = "rhel"
-	CoreOS                              Distro = "coreos"
-	AKS1604Deprecated                   Distro = "aks"      // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
-	AKS1804Deprecated                   Distro = "aks-1804" // deprecated AKS 18.04 distro. Equivalent to aks-ubuntu-18.04.
+	AKSUbuntuMinimalContainerd2204      Distro = "aks-ubuntu-minimal-containerd-22.04"
+	AKSUbuntuMinimalContainerd2204Gen2  Distro = "aks-ubuntu-minimal-containerd-22.04-gen2"
+
+	RHEL              Distro = "rhel"
+	CoreOS            Distro = "coreos"
+	AKS1604Deprecated Distro = "aks"      // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
+	AKS1804Deprecated Distro = "aks-1804" // deprecated AKS 18.04 distro. Equivalent to aks-ubuntu-18.04.
 
 	// Windows string const.
 	// AKSWindows2019 stands for distro of windows server 2019 SIG image with docker.
@@ -194,7 +198,8 @@ const (
 	USSecCloud = "USSecCloud"
 )
 
-var AKSDistrosAvailableOnVHD []Distro = []Distro{
+//nolint:gochecknoglobals
+var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntu1604,
 	AKSUbuntu1804,
 	AKSUbuntu1804Gen2,
@@ -207,6 +212,8 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSCBLMarinerV2Gen2,
+	AKSCBLMarinerV2FIPS,
+	AKSCBLMarinerV2Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
@@ -214,9 +221,6 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsContainerd2004,
 	AKSUbuntuFipsContainerd2004Gen2,
-	AKSUbuntuFipsGPUContainerd1804,
-	AKSUbuntuFipsGPUContainerd1804Gen2,
-	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuEdgeZoneContainerd1804,
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSUbuntuEdgeZoneContainerd2204,
@@ -227,6 +231,8 @@ var AKSDistrosAvailableOnVHD []Distro = []Distro{
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSUbuntuContainerd2204TLGen2,
+	AKSUbuntuMinimalContainerd2204,
+	AKSUbuntuMinimalContainerd2204Gen2,
 }
 
 type CustomConfigurationComponent string
@@ -445,32 +451,34 @@ type ResourcePurchasePlan struct {
 
 // WindowsProfile represents the windows parameters passed to the cluster.
 type WindowsProfile struct {
-	AdminUsername                  string                     `json:"adminUsername"`
-	AdminPassword                  string                     `json:"adminPassword" conform:"redact"`
-	CSIProxyURL                    string                     `json:"csiProxyURL,omitempty"`
-	EnableCSIProxy                 *bool                      `json:"enableCSIProxy,omitempty"`
-	ImageRef                       *ImageReference            `json:"imageReference,omitempty"`
-	ImageVersion                   string                     `json:"imageVersion"`
-	ProvisioningScriptsPackageURL  string                     `json:"provisioningScriptsPackageURL,omitempty"`
-	WindowsImageSourceURL          string                     `json:"windowsImageSourceURL"`
-	WindowsPublisher               string                     `json:"windowsPublisher"`
-	WindowsOffer                   string                     `json:"windowsOffer"`
-	WindowsSku                     string                     `json:"windowsSku"`
-	WindowsDockerVersion           string                     `json:"windowsDockerVersion"`
-	Secrets                        []KeyVaultSecrets          `json:"secrets,omitempty"`
-	SSHEnabled                     *bool                      `json:"sshEnabled,omitempty"`
-	EnableAutomaticUpdates         *bool                      `json:"enableAutomaticUpdates,omitempty"`
-	IsCredentialAutoGenerated      *bool                      `json:"isCredentialAutoGenerated,omitempty"`
-	EnableAHUB                     *bool                      `json:"enableAHUB,omitempty"`
-	WindowsPauseImageURL           string                     `json:"windowsPauseImageURL"`
-	AlwaysPullWindowsPauseImage    *bool                      `json:"alwaysPullWindowsPauseImage,omitempty"`
-	ContainerdWindowsRuntimes      *ContainerdWindowsRuntimes `json:"containerdWindowsRuntimes,omitempty"`
-	WindowsCalicoPackageURL        string                     `json:"windowsCalicoPackageURL,omitempty"`
-	WindowsSecureTlsEnabled        *bool                      `json:"windowsSecureTlsEnabled,omitempty"`
-	WindowsGmsaPackageUrl          string                     `json:"windowsGmsaPackageUrl,omitempty"`
-	CseScriptsPackageURL           string                     `json:"cseScriptsPackageURL,omitempty"`
-	HnsRemediatorIntervalInMinutes *uint32                    `json:"hnsRemediatorIntervalInMinutes,omitempty"`
-	LogGeneratorIntervalInMinutes  *uint32                    `json:"logGeneratorIntervalInMinutes,omitempty"`
+	AdminUsername                 string                     `json:"adminUsername"`
+	AdminPassword                 string                     `json:"adminPassword" conform:"redact"`
+	CSIProxyURL                   string                     `json:"csiProxyURL,omitempty"`
+	EnableCSIProxy                *bool                      `json:"enableCSIProxy,omitempty"`
+	ImageRef                      *ImageReference            `json:"imageReference,omitempty"`
+	ImageVersion                  string                     `json:"imageVersion"`
+	ProvisioningScriptsPackageURL string                     `json:"provisioningScriptsPackageURL,omitempty"`
+	WindowsImageSourceURL         string                     `json:"windowsImageSourceURL"`
+	WindowsPublisher              string                     `json:"windowsPublisher"`
+	WindowsOffer                  string                     `json:"windowsOffer"`
+	WindowsSku                    string                     `json:"windowsSku"`
+	WindowsDockerVersion          string                     `json:"windowsDockerVersion"`
+	Secrets                       []KeyVaultSecrets          `json:"secrets,omitempty"`
+	SSHEnabled                    *bool                      `json:"sshEnabled,omitempty"`
+	EnableAutomaticUpdates        *bool                      `json:"enableAutomaticUpdates,omitempty"`
+	IsCredentialAutoGenerated     *bool                      `json:"isCredentialAutoGenerated,omitempty"`
+	EnableAHUB                    *bool                      `json:"enableAHUB,omitempty"`
+	WindowsPauseImageURL          string                     `json:"windowsPauseImageURL"`
+	AlwaysPullWindowsPauseImage   *bool                      `json:"alwaysPullWindowsPauseImage,omitempty"`
+	ContainerdWindowsRuntimes     *ContainerdWindowsRuntimes `json:"containerdWindowsRuntimes,omitempty"`
+	WindowsCalicoPackageURL       string                     `json:"windowsCalicoPackageURL,omitempty"`
+	//nolint:revive, stylecheck // keep field names the same as RP
+	WindowsSecureTlsEnabled *bool `json:"windowsSecureTlsEnabled,omitempty"`
+	//nolint:revive, stylecheck // keep field names the same as RP
+	WindowsGmsaPackageUrl          string  `json:"windowsGmsaPackageUrl,omitempty"`
+	CseScriptsPackageURL           string  `json:"cseScriptsPackageURL,omitempty"`
+	HnsRemediatorIntervalInMinutes *uint32 `json:"hnsRemediatorIntervalInMinutes,omitempty"`
+	LogGeneratorIntervalInMinutes  *uint32 `json:"logGeneratorIntervalInMinutes,omitempty"`
 }
 
 // ContainerdWindowsRuntimes configures containerd runtimes that are available on the windows nodes.
@@ -561,7 +569,7 @@ type KubernetesConfig struct {
 	ServiceCIDR                       string            `json:"serviceCidr,omitempty"`
 	UseManagedIdentity                bool              `json:"useManagedIdentity,omitempty"`
 	UserAssignedID                    string            `json:"userAssignedID,omitempty"`
-	UserAssignedClientID              string            `json:"userAssignedClientID,omitempty"` // Note: cannot be provided in config. Used *only* for transferring this to azure.json.
+	UserAssignedClientID              string            `json:"userAssignedClientID,omitempty"` //nolint: lll // Note: cannot be provided in config. Used *only* for transferring this to azure.json.
 	CustomHyperkubeImage              string            `json:"customHyperkubeImage,omitempty"`
 	CustomKubeProxyImage              string            `json:"customKubeProxyImage,omitempty"`
 	CustomKubeBinaryURL               string            `json:"customKubeBinaryURL,omitempty"`
@@ -644,6 +652,14 @@ type CustomLinuxOSConfig struct {
 	TransparentHugePageEnabled string        `json:"transparentHugePageEnabled,omitempty"`
 	TransparentHugePageDefrag  string        `json:"transparentHugePageDefrag,omitempty"`
 	SwapFileSizeMB             *int32        `json:"swapFileSizeMB,omitempty"`
+	UlimitConfig               *UlimitConfig `json:"ulimitConfig,omitempty"`
+}
+
+func (c *CustomLinuxOSConfig) GetUlimitConfig() *UlimitConfig {
+	if c == nil {
+		return nil
+	}
+	return c.UlimitConfig
 }
 
 // SysctlConfig represents sysctl configs in customLinuxOsConfig.
@@ -676,6 +692,11 @@ type SysctlConfig struct {
 	VMMaxMapCount                  *int32 `json:"vmMaxMapCount,omitempty"`
 	VMSwappiness                   *int32 `json:"vmSwappiness,omitempty"`
 	VMVfsCachePressure             *int32 `json:"vmVfsCachePressure,omitempty"`
+}
+
+type UlimitConfig struct {
+	MaxLockedMemory string `json:"maxLockedMemory ,omitempty"`
+	NoFile          string `json:"noFile,omitempty"`
 }
 
 type CustomConfiguration struct {
@@ -714,6 +735,13 @@ type AgentPoolProfile struct {
 	behavior to reboot Windows node when it is nil. */
 	NotRebootWindowsNode    *bool                    `json:"notRebootWindowsNode,omitempty"`
 	AgentPoolWindowsProfile *AgentPoolWindowsProfile `json:"agentPoolWindowsProfile,omitempty"`
+}
+
+func (a *AgentPoolProfile) GetCustomLinuxOSConfig() *CustomLinuxOSConfig {
+	if a == nil {
+		return nil
+	}
+	return a.CustomLinuxOSConfig
 }
 
 // Properties represents the AKS cluster definition.
@@ -822,6 +850,7 @@ func (p *Properties) GetClusterID() string {
 		} else if len(p.AgentPoolProfiles) > 0 {
 			h.Write([]byte(p.AgentPoolProfiles[0].Name))
 		}
+		//nolint:gosec // I think we want rand not crypto/rand here
 		r := rand.New(rand.NewSource(int64(h.Sum64())))
 		mutex.Lock()
 		p.ClusterID = fmt.Sprintf("%08d", r.Uint32())[:uniqueNameSuffixSize]
@@ -860,11 +889,11 @@ func (p *Properties) GetCustomEnvironmentJSON(escape bool) (string, error) {
 		}()
 		bytes, err := json.Marshal(p.CustomCloudEnv)
 		if err != nil {
-			return "", fmt.Errorf("could not serialize CustomCloudEnv object - %s", err.Error())
+			return "", fmt.Errorf("could not serialize CustomCloudEnv object - %w", err)
 		}
 		environmentJSON = string(bytes)
 		if escape {
-			environmentJSON = strings.Replace(environmentJSON, "\"", "\\\"", -1)
+			environmentJSON = strings.ReplaceAll(environmentJSON, "\"", "\\\"")
 		}
 	}
 	return environmentJSON, nil
@@ -1014,10 +1043,11 @@ in Windows nodes.
 func (p *Properties) GetKubeProxyFeatureGatesWindowsArguments() string {
 	featureGates := map[string]bool{}
 
-	if p.FeatureFlags.IsFeatureEnabled("EnableIPv6DualStack") {
+	if p.FeatureFlags.IsFeatureEnabled(EnableIPv6DualStack) &&
+		p.OrchestratorProfile.VersionSupportsFeatureFlag(EnableIPv6DualStack) {
 		featureGates["IPv6DualStack"] = true
 	}
-	if p.FeatureFlags.IsFeatureEnabled("EnableWinDSR") {
+	if p.FeatureFlags.IsFeatureEnabled(EnableWinDSR) {
 		// WinOverlay must be set to false.
 		featureGates["WinDSR"] = true
 		featureGates["WinOverlay"] = false
@@ -1113,6 +1143,36 @@ func (o *OrchestratorProfile) IsNoneCNI() bool {
 	return false
 }
 
+func (o *OrchestratorProfile) VersionSupportsFeatureFlag(flag string) bool {
+	switch flag {
+	case EnableIPv6DualStack:
+		// unversioned will retrun true to maintain backwards compatibility
+		// IPv6DualStack flag was removed in 1.25.0 and is enabled by default
+		// since 1.21. It is supported between 1.15-1.24.
+		// https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates-removed/.
+		return o == nil || o.OrchestratorVersion == "" || o.VersionIs(">= 1.15.0 < 1.25.0")
+	default:
+		return false
+	}
+}
+
+// VersionIs takes a constraint expression to validate
+// the OrchestratorVersion meets this constraint. Examples
+// of expressions are `>= 1.24` or `!= 1.25.4`.
+// More info: https://github.com/Masterminds/semver#checking-version-constraints.
+func (o *OrchestratorProfile) VersionIs(expr string) bool {
+	if o == nil || o.OrchestratorVersion == "" {
+		return false
+	}
+
+	version := semver.MustParse(o.OrchestratorVersion)
+	constraint, _ := semver.NewConstraint(expr)
+	if constraint == nil {
+		return false
+	}
+	return constraint.Check(version)
+}
+
 // IsCSIProxyEnabled returns true if csi proxy service should be enable for Windows nodes.
 func (w *WindowsProfile) IsCSIProxyEnabled() bool {
 	if w.EnableCSIProxy != nil {
@@ -1193,12 +1253,14 @@ func (w *WindowsProfile) IsAlwaysPullWindowsPauseImage() bool {
 	return w.AlwaysPullWindowsPauseImage != nil && *w.AlwaysPullWindowsPauseImage
 }
 
-// IsWindowsSecureTlsEnabled returns true if secure TLS should be enabled for Windows nodes.
+// IsWindowsSecureTLSEnabled returns true if secure TLS should be enabled for Windows nodes.
+//
+//nolint:revive,stylecheck // allign func name with field name
 func (w *WindowsProfile) IsWindowsSecureTlsEnabled() bool {
 	if w.WindowsSecureTlsEnabled != nil {
 		return *w.WindowsSecureTlsEnabled
 	}
-	return DefaultWindowsSecureTlsEnabled
+	return DefaultWindowsSecureTLSEnabled
 }
 
 // GetHnsRemediatorIntervalInMinutes gets HnsRemediatorIntervalInMinutes specified or returns default value.
@@ -1226,15 +1288,15 @@ func (o *OrchestratorProfile) IsKubernetes() bool {
 func (f *FeatureFlags) IsFeatureEnabled(feature string) bool {
 	if f != nil {
 		switch feature {
-		case "CSERunInBackground":
+		case CSERunInBackground:
 			return f.EnableCSERunInBackground
-		case "BlockOutboundInternet":
+		case BlockOutboundInternet:
 			return f.BlockOutboundInternet
-		case "EnableIPv6DualStack":
+		case EnableIPv6DualStack:
 			return f.EnableIPv6DualStack
-		case "EnableIPv6Only":
+		case EnableIPv6Only:
 			return f.EnableIPv6Only
-		case "EnableWinDSR":
+		case EnableWinDSR:
 			return f.EnableWinDSR
 		default:
 			return false
@@ -1356,6 +1418,25 @@ func (k *KubernetesConfig) IsUsingNetworkPluginMode(mode string) bool {
 	return strings.EqualFold(k.NetworkPluginMode, mode)
 }
 
+func setCustomKubletConfigFromSettings(customKc *CustomKubeletConfig, kubeletConfig map[string]string) map[string]string {
+	// Settings from customKubeletConfig, only take if it's set.
+	if customKc != nil {
+		if customKc.ImageGcHighThreshold != nil {
+			kubeletConfig["--image-gc-high-threshold"] = fmt.Sprintf("%d", *customKc.ImageGcHighThreshold)
+		}
+		if customKc.ImageGcLowThreshold != nil {
+			kubeletConfig["--image-gc-low-threshold"] = fmt.Sprintf("%d", *customKc.ImageGcLowThreshold)
+		}
+		if customKc.ContainerLogMaxSizeMB != nil {
+			kubeletConfig["--container-log-max-size"] = fmt.Sprintf("%dMi", *customKc.ContainerLogMaxSizeMB)
+		}
+		if customKc.ContainerLogMaxFiles != nil {
+			kubeletConfig["--container-log-max-files"] = fmt.Sprintf("%d", *customKc.ContainerLogMaxFiles)
+		}
+	}
+	return kubeletConfig
+}
+
 /*
 GetOrderedKubeletConfigStringForPowershell returns an ordered string of key/val pairs for Powershell
 script consumption.
@@ -1378,28 +1459,16 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeletConfigStringForPo
 	}
 
 	// Settings from customKubeletConfig, only take if it's set.
-	if customKc != nil {
-		if customKc.ImageGcHighThreshold != nil {
-			kubeletConfig["--image-gc-high-threshold"] = fmt.Sprintf("%d", *customKc.ImageGcHighThreshold)
-		}
-		if customKc.ImageGcLowThreshold != nil {
-			kubeletConfig["--image-gc-low-threshold"] = fmt.Sprintf("%d", *customKc.ImageGcLowThreshold)
-		}
-		if customKc.ContainerLogMaxSizeMB != nil {
-			kubeletConfig["--container-log-max-size"] = fmt.Sprintf("%dMi", *customKc.ContainerLogMaxSizeMB)
-		}
-		if customKc.ContainerLogMaxFiles != nil {
-			kubeletConfig["--container-log-max-files"] = fmt.Sprintf("%d", *customKc.ContainerLogMaxFiles)
-		}
-	}
+	kubeletConfig = setCustomKubletConfigFromSettings(customKc, kubeletConfig)
 
 	if len(kubeletConfig) == 0 {
 		return ""
 	}
 
+	commandLineOmmittedKubeletConfigFlags := GetCommandLineOmittedKubeletConfigFlags()
 	keys := []string{}
 	for key := range kubeletConfig {
-		if !CommandLineOmittedKubeletConfigFlags[key] {
+		if !commandLineOmmittedKubeletConfigFlags[key] {
 			keys = append(keys, key)
 		}
 	}
@@ -1485,8 +1554,8 @@ customCloudProfile is empty. Because customCloudProfile is empty for deployment 
 AzureChinaCloud,AzureGermanCloud,AzureUSGovernmentCloud, The customCloudName value will be empty string
 for those clouds. */
 func FormatProdFQDNByLocation(fqdnPrefix string, location string, cloudSpecConfig *AzureEnvironmentSpecConfig) string {
-	FQDNFormat := cloudSpecConfig.EndpointConfig.ResourceManagerVMDNSSuffix
-	return fmt.Sprintf("%s.%s."+FQDNFormat, fqdnPrefix, location)
+	fqdnFormat := cloudSpecConfig.EndpointConfig.ResourceManagerVMDNSSuffix
+	return fmt.Sprintf("%s.%s."+fqdnFormat, fqdnPrefix, location)
 }
 
 type K8sComponents struct {
@@ -1505,6 +1574,8 @@ type K8sComponents struct {
 
 // GetLatestSigImageConfigRequest describes the input for a GetLatestSigImageConfig HTTP request.
 // This is mostly a wrapper over existing types so RP doesn't have to manually construct JSON.
+//
+//nolint:musttag // tags can be added if deemed necessary
 type GetLatestSigImageConfigRequest struct {
 	SIGConfig SIGConfig
 	Region    string
@@ -1512,6 +1583,8 @@ type GetLatestSigImageConfigRequest struct {
 }
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
+//
+//nolint:musttag // tags can be added if deemed necessary
 type NodeBootstrappingConfiguration struct {
 	ContainerService              *ContainerService
 	CloudSpecConfig               *AzureEnvironmentSpecConfig
@@ -1553,6 +1626,7 @@ type NodeBootstrappingConfiguration struct {
 	CustomCATrustConfig            *CustomCATrustConfig
 	DisableUnattendedUpgrades      bool
 	SSHStatus                      SSHStatus
+	DisableCustomData              bool
 }
 
 type SSHStatus int
@@ -1564,6 +1638,8 @@ const (
 )
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
+//
+//nolint:musttag // tags can be added if deemed necessary
 type NodeBootstrapping struct {
 	CustomData     string
 	CSE            string
@@ -2025,8 +2101,8 @@ type AgentPoolWindowsProfile struct {
 }
 
 // IsDisableWindowsOutboundNat returns true if the Windows agent pool disable OutboundNAT.
-func (ap *AgentPoolProfile) IsDisableWindowsOutboundNat() bool {
-	return ap.AgentPoolWindowsProfile != nil &&
-		ap.AgentPoolWindowsProfile.DisableOutboundNat != nil &&
-		*ap.AgentPoolWindowsProfile.DisableOutboundNat
+func (a *AgentPoolProfile) IsDisableWindowsOutboundNat() bool {
+	return a.AgentPoolWindowsProfile != nil &&
+		a.AgentPoolWindowsProfile.DisableOutboundNat != nil &&
+		*a.AgentPoolWindowsProfile.DisableOutboundNat
 }

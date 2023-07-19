@@ -24,7 +24,7 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		"--cgroups-per-qos":                   "true",
 		"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
 		"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-		"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
+		"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
 		"--max-pods":                          "110",
 		"--node-status-update-frequency":      "10s",
 		"--image-gc-high-threshold":           "85",
@@ -42,7 +42,7 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		"--authentication-token-webhook":      "true",
 		"--authorization-mode":                "Webhook",
 		"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", // what if you turn off dynamic kubelet using dynamic kubelet?
+		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", //nolint:lll // what if you turn off dynamic kubelet using dynamic kubelet?
 		"--system-reserved":                   "cpu=2,memory=1Gi",
 		"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 	}
@@ -75,7 +75,7 @@ func getExampleKcWithNodeStatusReportFrequency() map[string]string {
 		"--cgroups-per-qos":                   "true",
 		"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
 		"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-		"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
+		"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
 		"--max-pods":                          "110",
 		"--node-status-update-frequency":      "10s",
 		"--node-status-report-frequency":      "5m0s",
@@ -110,7 +110,7 @@ func getExampleKcWithContainerLogMaxSize() map[string]string {
 		"--cgroups-per-qos":                   "true",
 		"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
 		"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-		"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
+		"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
 		"--max-pods":                          "110",
 		"--node-status-update-frequency":      "10s",
 		"--image-gc-high-threshold":           "85",
@@ -136,7 +136,7 @@ func getExampleKcWithContainerLogMaxSize() map[string]string {
 	return kc
 }
 
-var expectedKubeletJSON string = `{
+var expectedKubeletJSON = `{
     "kind": "KubeletConfiguration",
     "apiVersion": "kubelet.config.k8s.io/v1beta1",
     "staticPodPath": "/etc/kubernetes/manifests",
@@ -217,7 +217,7 @@ var expectedKubeletJSON string = `{
     ]
 }`
 
-var expectedKubeletJSONWithNodeStatusReportFrequency string = `{
+var expectedKubeletJSONWithNodeStatusReportFrequency = `{
     "kind": "KubeletConfiguration",
     "apiVersion": "kubelet.config.k8s.io/v1beta1",
     "staticPodPath": "/etc/kubernetes/manifests",
@@ -297,7 +297,7 @@ var expectedKubeletJSONWithNodeStatusReportFrequency string = `{
     ]
 }`
 
-var expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags string = `{
+var expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags = `{
     "kind": "KubeletConfiguration",
     "apiVersion": "kubelet.config.k8s.io/v1beta1",
     "staticPodPath": "/etc/kubernetes/manifests",

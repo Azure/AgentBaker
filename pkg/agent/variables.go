@@ -12,8 +12,6 @@ import (
 	"github.com/blang/semver"
 )
 
-var dockerShimFlags = []string{"--cni-bin-dir", "--cni-cache-dir", "--cni-conf-dir", "--docker-endpoint", "--image-pull-progress-deadline", "--network-plugin", "--network-plugin-mtu"}
-
 // getCustomDataVariables returns cloudinit data used by Linux.
 func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
@@ -52,7 +50,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		},
 	}
 
-	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap)
+	cloudInitData := cloudInitFiles["cloudInitData"].(paramsMap) //nolint:errcheck // no error is actually here
 	if cs.IsAKSCustomCloud() {
 		// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner.
 		if config.AgentPoolProfile.Distro.IsCBLMarinerDistro() || isMariner(config.OSSKU) {
@@ -177,12 +175,14 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 	if cs.Properties.FeatureFlags.IsFeatureEnabled("BlockOutboundInternet") {
 		return ""
 	}
-	registry := ""
-	if cloudSpecConfig.CloudName == datamodel.AzureChinaCloud {
+
+	var registry string
+	switch {
+	case cloudSpecConfig.CloudName == datamodel.AzureChinaCloud:
 		registry = `gcr.azk8s.cn`
-	} else if cs.IsAKSCustomCloud() {
+	case cs.IsAKSCustomCloud():
 		registry = cs.Properties.CustomCloudEnv.McrURL
-	} else {
+	default:
 		registry = `mcr.microsoft.com`
 	}
 
@@ -195,7 +195,7 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 	clusterVersion, _ := semver.Make(cs.Properties.OrchestratorProfile.OrchestratorVersion)
 	minVersion, _ := semver.Make("1.18.0")
 
-	connectivityCheckCommand := ""
+	var connectivityCheckCommand string
 	if clusterVersion.GTE(minVersion) {
 		connectivityCheckCommand = `curl -v --insecure --proxy-insecure https://` + registry + `/v2/`
 	} else {

@@ -19,6 +19,10 @@ copyPackerFiles() {
   PAM_D_COMMON_AUTH_DEST=/etc/pam.d/common-auth
   PAM_D_COMMON_PASSWORD_SRC=/home/packer/pam-d-common-password
   PAM_D_COMMON_PASSWORD_DEST=/etc/pam.d/common-password
+  PAM_D_SYSTEM_AUTH_SRC=/home/packer/pam-d-system-auth
+  PAM_D_SYSTEM_AUTH_DEST=/etc/pam.d/system-auth
+  PAM_D_SYSTEM_PASSWORD_SRC=/home/packer/pam-d-system-password
+  PAM_D_SYSTEM_PASSWORD_DEST=/etc/pam.d/system-password
   PAM_D_SU_SRC=/home/packer/pam-d-su
   PAM_D_SU_DEST=/etc/pam.d/su
   PROFILE_D_CIS_SH_SRC=/home/packer/profile-d-cis.sh
@@ -61,6 +65,18 @@ copyPackerFiles() {
   NVIDIA_DEVICE_PLUGIN_SERVICE_DEST=/etc/systemd/system/nvidia-device-plugin.service
   DISK_QUEUE_SERVICE_SRC=/home/packer/disk_queue.service
   DISK_QUEUE_SERVICE_DEST=/etc/systemd/system/disk_queue.service
+  CGROUP_MEMORY_TELEMETRY_SERVICE_SRC=/home/packer/cgroup-memory-telemetry.service
+  CGROUP_MEMORY_TELEMETRY_SERVICE_DEST=/etc/systemd/system/cgroup-memory-telemetry.service
+  CGROUP_MEMORY_TELEMETRY_SCRIPT_SRC=/home/packer/cgroup-memory-telemetry.sh
+  CGROUP_MEMORY_TELEMETRY_SCRIPT_DEST=/opt/scripts/cgroup-memory-telemetry.sh
+  CGROUP_MEMORY_TELEMETRY_TIMER_SRC=/home/packer/cgroup-memory-telemetry.timer
+  CGROUP_MEMORY_TELEMETRY_TIMER_DEST=/etc/systemd/system/cgroup-memory-telemetry.timer
+  CGROUP_PRESSURE_TELEMETRY_SERVICE_SRC=/home/packer/cgroup-pressure-telemetry.service
+  CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST=/etc/systemd/system/cgroup-pressure-telemetry.service
+  CGROUP_PRESSURE_TELEMETRY_SCRIPT_SRC=/home/packer/cgroup-pressure-telemetry.sh
+  CGROUP_PRESSURE_TELEMETRY_SCRIPT_DEST=/opt/scripts/cgroup-pressure-telemetry.sh
+  CGROUP_PRESSURE_TELEMETRY_TIMER_SRC=/home/packer/cgroup-pressure-telemetry.timer
+  CGROUP_PRESSURE_TELEMETRY_TIMER_DEST=/etc/systemd/system/cgroup-pressure-telemetry.timer
   UPDATE_CERTS_SERVICE_SRC=/home/packer/update_certs.service
   UPDATE_CERTS_SERVICE_DEST=/etc/systemd/system/update_certs.service
   UPDATE_CERTS_PATH_SRC=/home/packer/update_certs.path
@@ -91,7 +107,7 @@ copyPackerFiles() {
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
   VHD_CLEANUP_SCRIPT_SRC=/home/packer/cleanup-vhd.sh
   VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
-  
+
   CSE_REDACT_SRC=/home/packer/cse_redact_cloud_config.py
   CSE_REDACT_DEST=/opt/azure/containers/provision_redact_cloud_config.py
   cpAndMode $CSE_REDACT_SRC $CSE_REDACT_DEST 0744
@@ -159,7 +175,7 @@ copyPackerFiles() {
   CSE_MAIN_SRC=/home/packer/provision.sh
   CSE_MAIN_DEST=/opt/azure/containers/provision.sh
   cpAndMode $CSE_MAIN_SRC $CSE_MAIN_DEST 0744
-  
+
   CSE_START_SRC=/home/packer/provision_start.sh
   CSE_START_DEST=/opt/azure/containers/provision_start.sh
   cpAndMode $CSE_START_SRC $CSE_START_DEST 0744
@@ -186,6 +202,7 @@ copyPackerFiles() {
 
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
+
   if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     SSHD_CONFIG_SRC=/home/packer/sshd_config_1604
   elif [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
@@ -205,7 +222,7 @@ copyPackerFiles() {
   if [[ ${UBUNTU_RELEASE} == "22.04" ]]; then
     PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth-2204
   fi
-  
+
   cpAndMode $KUBELET_SERVICE_SRC $KUBELET_SERVICE_DEST 600
   cpAndMode $BLOCK_WIRESERVER_SRC $BLOCK_WIRESERVER_DEST 755
   cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
@@ -213,11 +230,9 @@ copyPackerFiles() {
   cpAndMode $RSYSLOG_CONFIG_SRC $RSYSLOG_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_CONFIG_SRC $ETC_ISSUE_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_NET_CONFIG_SRC $ETC_ISSUE_NET_CONFIG_DEST 644
-  cpAndMode $SSHD_CONFIG_SRC $SSHD_CONFIG_DEST 644
+  cpAndMode $SSHD_CONFIG_SRC $SSHD_CONFIG_DEST 600
   cpAndMode $MODPROBE_CIS_SRC $MODPROBE_CIS_DEST 644
   cpAndMode $PWQUALITY_CONF_SRC $PWQUALITY_CONF_DEST 600
-  cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
-  cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
   cpAndMode $PAM_D_SU_SRC $PAM_D_SU_DEST 644
   cpAndMode $PROFILE_D_CIS_SH_SRC $PROFILE_D_CIS_SH_DEST 755
   cpAndMode $CIS_SRC $CIS_DEST 744
@@ -229,6 +244,12 @@ copyPackerFiles() {
   cpAndMode $CONTAINERD_MONITOR_SERVICE_SRC $CONTAINERD_MONITOR_SERVICE_DEST 644
   cpAndMode $CONTAINERD_MONITOR_TIMER_SRC $CONTAINERD_MONITOR_TIMER_DEST 644
   cpAndMode $DISK_QUEUE_SERVICE_SRC $DISK_QUEUE_SERVICE_DEST 644
+  cpAndMode $CGROUP_MEMORY_TELEMETRY_SERVICE_SRC $CGROUP_MEMORY_TELEMETRY_SERVICE_DEST 644
+  cpAndMode $CGROUP_MEMORY_TELEMETRY_SCRIPT_SRC $CGROUP_MEMORY_TELEMETRY_SCRIPT_DEST 755
+  cpAndMode $CGROUP_MEMORY_TELEMETRY_TIMER_SRC $CGROUP_MEMORY_TELEMETRY_TIMER_DEST 644
+  cpAndMode $CGROUP_PRESSURE_TELEMETRY_SERVICE_SRC $CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST 644
+  cpAndMode $CGROUP_PRESSURE_TELEMETRY_SCRIPT_SRC $CGROUP_PRESSURE_TELEMETRY_SCRIPT_DEST 755
+  cpAndMode $CGROUP_PRESSURE_TELEMETRY_TIMER_SRC $CGROUP_PRESSURE_TELEMETRY_TIMER_DEST 644
   cpAndMode $UPDATE_CERTS_SERVICE_SRC $UPDATE_CERTS_SERVICE_DEST 644
   cpAndMode $UPDATE_CERTS_PATH_SRC $UPDATE_CERTS_PATH_DEST 644
   cpAndMode $UPDATE_CERTS_SCRIPT_SRC $UPDATE_CERTS_SCRIPT_DEST 755
@@ -238,18 +259,31 @@ copyPackerFiles() {
   cpAndMode $CI_SYSLOG_WATCHER_PATH_SRC $CI_SYSLOG_WATCHER_PATH_DEST 644
   cpAndMode $CI_SYSLOG_WATCHER_SERVICE_SRC $CI_SYSLOG_WATCHER_SERVICE_DEST 644
   cpAndMode $CI_SYSLOG_WATCHER_SCRIPT_SRC $CI_SYSLOG_WATCHER_SCRIPT_DEST 755
+
   if [[ $OS != $MARINER_OS_NAME ]]; then
     cpAndMode $DOCKER_MONITOR_SERVICE_SRC $DOCKER_MONITOR_SERVICE_DEST 644
     cpAndMode $DOCKER_MONITOR_TIMER_SRC $DOCKER_MONITOR_TIMER_DEST 644
     cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
     cpAndMode $NVIDIA_MODPROBE_SERVICE_SRC $NVIDIA_MODPROBE_SERVICE_DEST 644
+    cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
+    cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
   fi
   if [[ $OS == $MARINER_OS_NAME ]]; then
     cpAndMode $CONTAINERD_SERVICE_SRC $CONTAINERD_SERVICE_DEST 644
+
+    # MarinerV2 uses system-auth and system-password instead of common-auth and common-password.
+    if [[ ${OS_VERSION} == "2.0" ]]; then
+      cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
+      cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
+    else
+      cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
+      cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
+    fi
   fi
-  if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+
+  if grep -q "fullgpu" <<<"$FEATURE_FLAGS"; then
     cpAndMode $NVIDIA_DOCKER_DAEMON_SRC $NVIDIA_DOCKER_DAEMON_DEST 644
-    if grep -q "gpudaemon" <<< "$FEATURE_FLAGS"; then
+    if grep -q "gpudaemon" <<<"$FEATURE_FLAGS"; then
       cpAndMode $NVIDIA_DEVICE_PLUGIN_SERVICE_SRC $NVIDIA_DEVICE_PLUGIN_SERVICE_DEST 644
     fi
   fi
@@ -262,6 +296,8 @@ copyPackerFiles() {
 }
 
 cpAndMode() {
-  src=$1; dest=$2; mode=$3
+  src=$1
+  dest=$2
+  mode=$3
   DIR=$(dirname "$dest") && mkdir -p ${DIR} && cp $src $dest && chmod $mode $dest || exit $ERR_PACKER_COPY_FILE
 }

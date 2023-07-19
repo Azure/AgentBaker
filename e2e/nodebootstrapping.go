@@ -4,20 +4,24 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/Azure/agentbaker/pkg/agent"
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
 type nodeBootstrappingFn func(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
 
-func getNodeBootstrappingFn(e2eMode string) nodeBootstrappingFn {
+func getNodeBootstrapping(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
 	switch e2eMode {
 	case "coverage":
-		return getNodeBootstrappingForCoverage
+		return getNodeBootstrappingForCoverage(ctx, nbc)
 	default:
-		return getNodeBootstrappingForValidation
+		return getNodeBootstrappingForValidation(ctx, nbc)
 	}
 }
 
@@ -54,4 +58,41 @@ func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeB
 		return nil, err
 	}
 	return nodeBootstrapping, nil
+}
+
+func getBaseNodeBootstrappingConfiguration(
+	ctx context.Context,
+	cloud *azureClient,
+	suiteConfig *suiteConfig,
+	clusterParams clusterParameters) (*datamodel.NodeBootstrappingConfiguration, error) {
+	nbc := baseTemplate()
+	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = clusterParams["/etc/kubernetes/certs/ca.crt"]
+
+	bootstrapKubeconfig := clusterParams["/var/lib/kubelet/bootstrap-kubeconfig"]
+
+	bootstrapToken, err := extractKeyValuePair("token", bootstrapKubeconfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract bootstrap token via regex: %w", err)
+	}
+
+	bootstrapToken, err = strconv.Unquote(bootstrapToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unquote bootstrap token: %w", err)
+	}
+
+	server, err := extractKeyValuePair("server", bootstrapKubeconfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract fqdn via regex: %w", err)
+	}
+	tokens := strings.Split(server, ":")
+	if len(tokens) != 3 {
+		return nil, fmt.Errorf("expected 3 tokens from fqdn %q, got %d", server, len(tokens))
+	}
+	// strip off the // prefix from https://
+	fqdn := tokens[1][2:]
+
+	nbc.KubeletClientTLSBootstrapToken = &bootstrapToken
+	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = fqdn
+
+	return nbc, nil
 }

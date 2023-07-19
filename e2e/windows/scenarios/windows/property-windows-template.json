@@ -3,7 +3,7 @@
     "properties": {
       "orchestratorProfile": {
         "orchestratorType": "Kubernetes",
-        "orchestratorVersion": "1.23.12",
+        "orchestratorVersion": "${orchestratorVersion}",
         "kubernetesConfig": {
           "networkPlugin": "azure",
           "loadBalancerSku": "Standard",
@@ -61,7 +61,7 @@
     }
   },
   "K8sComponents": {
-    "WindowsPackageURL": "https://acs-mirror.azureedge.net/kubernetes/v1.23.12/windowszip/v1.23.12-1int.zip"
+    "WindowsPackageURL": "${windowsPackageURL}"
   },
   "AgentPoolProfile": {
     "name": "winnp",
@@ -92,13 +92,12 @@
     "--cloud-provider": "external",
     "--enforce-node-allocatable": "\"\"\"\"",
     "--eviction-hard": "\"\"\"\"",
-    "--feature-gates": "CSIMigration=true,CSIMigrationAzureDisk=true,CSIMigrationAzureFile=true,DelegateFSGroupToCSIDriver=true,DynamicKubeletConfig=false",
+    "--feature-gates": "DelegateFSGroupToCSIDriver=true,DynamicKubeletConfig=false",
     "--hairpin-mode": "promiscuous-bridge",
     "--kube-reserved": "cpu=100m,memory=3891Mi",
     "--kubeconfig": "c:\\k\\config",
     "--max-pods": "30",
-    "--network-plugin": "azure",
-    "--pod-infra-container-image": "kubletwin/pause",
+    "--pod-infra-container-image": "mcr.microsoft.com/oss/kubernetes/pause:3.9",
     "--resolv-conf": "\"\"\"\"",
     "--rotate-certificates": "true",
     "--tls-cipher-suites": "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256"

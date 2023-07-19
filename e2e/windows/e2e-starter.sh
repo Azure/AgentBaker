@@ -8,7 +8,7 @@ log "Starting e2e tests"
 
 # Create a resource group for the cluster
 log "Creating resource group"
-RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME"-"$WINDOWS_E2E_IMAGE"-v2
+RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION"
 
 rgStartTime=$(date +%s)
 az group create -l $LOCATION -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID -ojson
@@ -23,7 +23,7 @@ if [ -n "$out" ]; then
     provisioning_state=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson | jq '.provisioningState' | tr -d "\"")
     MC_RG_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_$LOCATION"
     exists=$(az group exists -n $MC_RG_NAME)
-    if [ "$exists" == "false" ] || [ "$provisioning_state" == "Failed" ]; then
+    if [ "$exists" == "false" ] || [ "$provisioning_state" == "Failed" ] || [ "$provisioning_state" == "Canceled" ]; then
         # The cluster is in a broken state
         log "Cluster $CLUSTER_NAME is in an unusable state, deleting..."
         clusterDeleteStartTime=$(date +%s)
@@ -40,6 +40,29 @@ if [ -n "$out" ]; then
             log "Cluster created by other pipeline successfully"
         else
             err "Other pipeline failed to create the cluster. Current state of cluster is $provisioning_state."
+            exit 1
+        fi
+    elif [ "$provisioning_state" == "Updating" ]; then
+        # Other pipeline is updating this cluster
+        log "Cluster $CLUSTER_NAME is being updated, waiting for ready"
+        az aks wait --name $CLUSTER_NAME --resource-group $RESOURCE_GROUP_NAME --updated --interval 60 --timeout 1800
+        provisioning_state=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson | jq '.provisioningState' | tr -d "\"")
+        if [ "$provisioning_state" == "Succeeded" ]; then
+            log "Cluster updated by other pipeline successfully"
+        else
+            err "Other pipeline failed to update the cluster. Current state of cluster is $provisioning_state."
+            exit 1
+        fi
+    elif [ "$provisioning_state" == "Deleting" ]; then
+        log "Cluster $CLUSTER_NAME is being deleted, waiting for ready"
+        az aks wait --name $CLUSTER_NAME --resource-group $RESOURCE_GROUP_NAME --deleted --interval 60 --timeout 1800
+        retval=0
+        az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson || retval=$?
+        if [ "$retval" -ne 0  ]; then
+            log "Cluster deleted successfully"
+            create_cluster="true"
+        else
+            err "Failed to delete the cluster."
             exit 1
         fi
     fi
@@ -83,11 +106,16 @@ az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" 
 MC_VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
 CLUSTER_ID=$(echo $MC_VMSS_NAME | cut -d '-' -f3)
 
+backfill_clean_storage_container
 if [ "$create_cluster" == "true" ]; then
-    create_storage_account
+    create_storage_container
     upload_linux_file_to_storage_account
+    if [ "$WINDOWS_E2E_IMAGE" == "2019-containerd" ]; then
+        cleanupOutdatedFiles
+    fi
 fi
 download_linux_file_from_storage_account
+log "Download of linux file from storage account completed"
 
 set +x
 addJsonToFile "apiserverCrt" "$(cat apiserver.crt)"
@@ -113,3 +141,4 @@ set +x
 $(jq -r 'keys[] as $k | "export \($k)=\(.[$k])"' fields.json)
 envsubst < percluster_template.json > percluster_config.json
 jq -s '.[0] * .[1]' nodebootstrapping_template.json percluster_config.json > nodebootstrapping_config.json
+log "Node bootstrapping config generated"

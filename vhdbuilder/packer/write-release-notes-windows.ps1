@@ -77,7 +77,33 @@ Log "`thttps://docs.microsoft.com/en-us/windows/deployment/update/waas-wu-settin
 $wuRegistryKeys = @(
     "HKLM:SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate",
     "HKLM:SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU",
-    "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State"
+    "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State",
+    "HKLM:\SYSTEM\CurrentControlSet\Services\wcifs",
+    "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides",
+    "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters"
+)
+
+$wuRegistryNames = @(
+    "NoAutoUpdate",
+    "EnableCompartmentNamespace",
+    "HNSControlFlag",
+    "HnsPolicyUpdateChange",
+    "HnsNatAllowRuleUpdateChange",
+    "HnsAclUpdateChange",
+    "HnsNpmRefresh",
+    "HnsNodeToClusterIpv6",
+    "HNSNpmIpsetLimitChange",
+    "HNSLbNatDupRuleChange",
+    "WcifsSOPCountDisabled",
+    "3105872524",
+    "2629306509",
+    "3508525708",
+    "1995963020",
+    "189519500",
+    "VfpEvenPodDistributionIsEnabled",
+    "VfpIpv6DipsPrintingIsEnabled",
+    "3230913164",
+    "3398685324"
 )
 
 foreach ($key in $wuRegistryKeys) {
@@ -85,28 +111,22 @@ foreach ($key in $wuRegistryKeys) {
     Get-Item -Path $key |
     Select-Object -ExpandProperty property |
     ForEach-Object {
-        Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
+        if ($wuRegistryNames -contains $_) {
+            Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
+        }
     }
 }
 Log ""
 
-if ($env:containerRuntime -eq 'docker') {
-    Log "Docker Info"
-    $dockerVersion = (docker --version) | Out-String
-    Log ("Version: {0}" -f $dockerVersion)
-    Log "Images:"
-    Log (docker images --format='{{json .}}' | ConvertFrom-Json | Format-Table Repository, Tag, ID)
-} else {
-    Log "ContainerD Info"
-    # starting containerd for printing containerD info, the same way as we pre-pull containerD images in configure-windows-vhd.ps1
-    Start-Job -Name containerd -ScriptBlock { containerd.exe }
-    $containerDVersion = (ctr.exe --version) | Out-String
-    Log ("Version: {0}" -f $containerDVersion)
-    Log "Images:"
-    Log (ctr.exe -n k8s.io image ls)
-    Stop-Job  -Name containerd
-    Remove-Job -Name containerd
-}
+Log "ContainerD Info"
+# starting containerd for printing containerD info, the same way as we pre-pull containerD images in configure-windows-vhd.ps1
+Start-Job -Name containerd -ScriptBlock { containerd.exe }
+$containerDVersion = (ctr.exe --version) | Out-String
+Log ("Version: {0}" -f $containerDVersion)
+Log "Images:"
+Log (ctr.exe -n k8s.io image ls)
+Stop-Job  -Name containerd
+Remove-Job -Name containerd
 Log ""
 
 Log "Cached Files:"
