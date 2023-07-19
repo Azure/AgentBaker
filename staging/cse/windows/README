@@ -13,8 +13,8 @@
 1. Run below commands to build a test package
 ```bash
 branchName="master"
-currentCseVersion="v0.0.27" # `WindowsCSEScriptsPackage` defined in `parts/windows/kuberneteswindowssetup.ps1`
-testCseVersion="v0.0.27.1" # Test package name. NOTE: Please do not use the official package format and earlier used version.
+currentCseVersion="v0.0.29" # `WindowsCSEScriptsPackage` defined in `parts/windows/kuberneteswindowssetup.ps1`
+testCseVersion="v0.0.29.0" # Test package name. NOTE: Please do not use the official package format and earlier used version.
 url="https://raw.githubusercontent.com/Azure/AgentBaker/$branchName/staging/cse/windows"
 
 mkdir -p temp-work-folder/aks-windows-cse
@@ -54,6 +54,13 @@ popd
 
 # AKS Windows CSE Scripts Package
 All files except *.test.ps1 and README will be published in AKS Windows CSE Scripts Package.
+
+## v0.0.29
+- chore: remove unused function #3415
+- chore: cleanup docker in Windows CSE scripts #3403
+- feat: collect dump files #3437
+- fix: fix the bug in collect-windows-logs.ps1 #3442
+- fix: fix wrong log in Windows debug script #3446
 
 ## v0.0.27
 - feat: clear existing images tags in non-AzureChinaCloud #3422
