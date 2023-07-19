@@ -15,9 +15,9 @@ function CollectLogsFromDirectory {
       Compress-Archive -LiteralPath $path -DestinationPath $tempFile
       # Compress-Archive will not generate any target file if the source directory is empty
       if (Test-Path $tempFile) {
-        Write-Host "Ignore since there is no log in $path"
         return $tempFile
       }
+      Write-Host "Ignore since there is no log in $path"
     } else {
       Write-Host "Path $path does not exist"
     }
