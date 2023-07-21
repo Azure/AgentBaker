@@ -182,6 +182,7 @@ var FabricManagerGPUSizes = map[string]bool{
 const (
 	OSSKUCBLMariner = "CBLMariner"
 	OSSKUMariner    = "Mariner"
+	OSSKUAzureLinux = "AzureLinux"
 )
 
 // Feature Flags.
