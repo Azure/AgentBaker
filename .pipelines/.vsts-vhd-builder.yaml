@@ -190,7 +190,9 @@ stages:
             -e LOCATION="${AZURE_LOCATION}" \
             -e OS_TYPE="Linux" \
             -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-            -e CLASSIC_SAS_TOKEN="$(SAS_TOKEN)" \
+            -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
+            -e OUTPUT_STORAGE_ACCOUNT_NAME=${OUTPUT_STORAGE_ACCOUNT_NAME} \
+            -e OUTPUT_STORAGE_CONTAINER_NAME=${OUTPUT_STORAGE_CONTAINER_NAME} \
             -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
             -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
             -e CAPTURED_SIG_VERSION=${captured_sig_version} \
