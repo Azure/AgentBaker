@@ -73,7 +73,7 @@ EVENT_JSON=$( jq -n \
     --arg Version       "1.23" \
     --arg TaskName      "${TASK_NAME}" \
     --arg EventLevel    "${eventlevel}" \
-    --argjson Message    "${message_string}" \
+    --arg Message    "${message_string}" \
     --arg EventPid      "0" \
     --arg EventTid      "0" \
     '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
