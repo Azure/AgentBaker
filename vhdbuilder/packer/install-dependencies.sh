@@ -46,12 +46,15 @@ fi
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
 else
+  updateAptWithMicrosoftPkg
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # jq - for manipulation JSON data
   # iptables - required to run containerd
   # netcat - network comms with API server
   # dnsutils - contains nslookup, to query API server DNS
-  required_pkg_list=(jq iptables netcat dnsutils)
+  # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
+  BLOBFUSE2_VERSION="2.0.4"
+  required_pkg_list=(jq iptables netcat dnsutils "blobfuse2="${BLOBFUSE2_VERSION} fuse3)
   for apt_package in ${required_pkg_list[*]}; do
       if ! apt_get_install 30 1 600 $apt_package; then
           journalctl --no-pager -u $apt_package
@@ -344,6 +347,22 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   systemctlEnableAndStart nvidia-device-plugin || exit 1
 fi
 fi
+
+mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
+
+systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
+systemctl enable cgroup-memory-telemetry.service || exit 1
+systemctl restart cgroup-memory-telemetry.service
+
+CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
+if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
+  systemctlEnableAndStart cgroup-pressure-telemetry.timer || exit 1
+  systemctl enable cgroup-pressure-telemetry.service || exit 1
+  systemctl restart cgroup-pressure-telemetry.service
+fi
+
+cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
+rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space

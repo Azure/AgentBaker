@@ -15,6 +15,12 @@
 // linux/cloud-init/artifacts/bind-mount.service
 // linux/cloud-init/artifacts/bind-mount.sh
 // linux/cloud-init/artifacts/block_wireserver.sh
+// linux/cloud-init/artifacts/cgroup-memory-telemetry.service
+// linux/cloud-init/artifacts/cgroup-memory-telemetry.sh
+// linux/cloud-init/artifacts/cgroup-memory-telemetry.timer
+// linux/cloud-init/artifacts/cgroup-pressure-telemetry.service
+// linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh
+// linux/cloud-init/artifacts/cgroup-pressure-telemetry.timer
 // linux/cloud-init/artifacts/ci-syslog-watcher.path
 // linux/cloud-init/artifacts/ci-syslog-watcher.service
 // linux/cloud-init/artifacts/ci-syslog-watcher.sh
@@ -529,6 +535,595 @@ func linuxCloudInitArtifactsBlock_wireserverSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/block_wireserver.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCgroupMemoryTelemetryService = []byte(`[Unit]
+Description=Emit system cgroup memory telemetry
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/scripts/cgroup-memory-telemetry.sh`)
+
+func linuxCloudInitArtifactsCgroupMemoryTelemetryServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCgroupMemoryTelemetryService, nil
+}
+
+func linuxCloudInitArtifactsCgroupMemoryTelemetryService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCgroupMemoryTelemetryServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-memory-telemetry.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCgroupMemoryTelemetrySh = []byte(`#!/bin/bash
+
+set -o nounset
+set -o pipefail
+
+EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+EVENTS_FILE_NAME=$(date +%s%3N)
+STARTTIME=$(date)
+STARTTIME_FORMATTED=$(date +"%F %T.%3N")
+ENDTIME_FORMATTED=$(date +"%F %T.%3N")
+CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
+eventlevel="Microsoft.Azure.Extensions.CustomScript-1.23"
+
+CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)
+KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)
+
+if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
+
+    VERSION="cgroupv2"
+    TASK_NAME="AKS.Runtime.memory_telemetry_cgroupv2"
+    CGROUP="/sys/fs/cgroup"
+
+    memory_string=$( jq -n \
+        --arg SYSTEM_SLICE_MEMORY "$(if [ -f "${CGROUP}/system.slice/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/system.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/system.slice/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
+        --arg AZURE_SLICE_MEMORY "$(if [ -f "${CGROUP}/azure.slice/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
+        --arg KUBEPODS_SLICE_MEMORY "$(if [ -f "${CGROUP}/kubepods.slice/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/kubepods.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/kubepods.slice/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
+        --arg USER_SLICE_MEMORY "$(if [ -f "${CGROUP}/user.slice/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/user.slice/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/user.slice/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
+        --arg CONTAINERD_MEMORY "$(if [ -f "${CGROUP}/${CSLICE}/containerd.service/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
+        --arg KUBELET_MEMORY "$(if [ -f "${CGROUP}/${KSLICE}/kubelet.service/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
+        --arg EMPLOYED_MEMORY "$(if [ -f "${CGROUP}/memory.stat" ]; then echo $(expr $(cat ${CGROUP}/memory.stat | awk '/^file /{print $2}') + $(cat ${CGROUP}/memory.stat | awk '/^anon /{print $2}')); else echo "Not Found"; fi)" \
+        --arg CAPACITY_MEMORY "$(grep MemTotal /proc/meminfo | awk '{print $2}')" \
+        --arg KUBEPODS_CGROUP_MEMORY_MAX "$(if [ -f "${CGROUP}/kubepods.slice/memory.max" ]; then cat ${CGROUP}/kubepods.slice/memory.max; else echo "Not Found"; fi)" \
+        '{ system_slice_memory: $SYSTEM_SLICE_MEMORY, azure_slice_memory: $AZURE_SLICE_MEMORY, kubepods_slice_memory: $KUBEPODS_SLICE_MEMORY, user_slice_memory: $USER_SLICE_MEMORY, containerd_service_memory: $CONTAINERD_MEMORY, kubelet_service_memory: $KUBELET_MEMORY, cgroup_memory: $EMPLOYED_MEMORY, cgroup_capacity_memory: $CAPACITY_MEMORY, kubepods_max_memory: $KUBEPODS_CGROUP_MEMORY_MAX } | tostring'
+    )
+    
+elif [ "$CGROUP_VERSION" = "tmpfs" ]; then
+
+    VERSION="cgroupv1"
+    TASK_NAME="AKS.Runtime.memory_telemetry_cgroupv1"
+    CGROUP="/sys/fs/cgroup/memory"
+
+    memory_string=$( jq -n \
+        --arg SYSTEM_SLICE_MEMORY "$(if [ -f ${CGROUP}/system.slice/memory.stat ]; then expr $(cat ${CGROUP}/system.slice/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/system.slice/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
+        --arg AZURE_SLICE_MEMORY "$(if [ -f ${CGROUP}/azure.slice/memory.stat ]; then expr $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/azure.slice/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
+        --arg KUBEPODS_SLICE_MEMORY "$(if [ -f ${CGROUP}/kubepods/memory.stat ]; then expr $(cat ${CGROUP}/kubepods/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/kubepods/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
+        --arg USER_SLICE_MEMORY "$(if [ -f ${CGROUP}/user.slice/memory.stat ]; then expr $(cat ${CGROUP}/user.slice/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/user.slice/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
+        --arg CONTAINERD_MEMORY "$(if [ -f ${CGROUP}/${CSLICE}/containerd.service/memory.stat ]; then expr $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/${CSLICE}/containerd.service/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
+        --arg KUBELET_MEMORY "$(if [ -f ${CGROUP}/${KSLICE}/kubelet.service/memory.stat ]; then expr $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/${KSLICE}/kubelet.service/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
+        --arg EMPLOYED_MEMORY "$(if [ -f ${CGROUP}/memory.stat ]; then expr $(cat ${CGROUP}/memory.stat | awk '/^total_cache /{print $2}') + $(cat ${CGROUP}/memory.stat | awk '/^total_rss /{print $2}'); else echo "Not Found"; fi)" \
+        --arg CAPACITY_MEMORY "$(grep MemTotal /proc/meminfo | awk '{print $2}' | awk '{print $1 * 1024}')" \
+        --arg KUBEPODS_CGROUP_MEMORY_MAX "$(if [ -f ${CGROUP}/kubepods/memory.limit_in_bytes ]; then cat ${CGROUP}/kubepods/memory.limit_in_bytes; else echo "Not Found"; fi)" \
+        '{ system_slice_memory: $SYSTEM_SLICE_MEMORY, azure_slice_memory: $AZURE_SLICE_MEMORY, kubepods_slice_memory: $KUBEPODS_SLICE_MEMORY, user_slice_memory: $USER_SLICE_MEMORY, containerd_service_memory: $CONTAINERD_MEMORY, kubelet_service_memory: $KUBELET_MEMORY, cgroup_memory: $EMPLOYED_MEMORY, cgroup_capacity_memory: $CAPACITY_MEMORY, kubepods_max_memory: $KUBEPODS_CGROUP_MEMORY_MAX } | tostring'
+    )
+
+else
+    echo "Unexpected cgroup type. Exiting"
+    exit 1
+fi
+
+memory_string=$(echo $memory_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+message_string=$( jq -n \
+    --arg CGROUPV "${VERSION}" \
+    --argjson MEMORY "$(echo $memory_string)" \
+    '{ CgroupVersion: $CGROUPV, Memory: $MEMORY } | tostring'
+)
+
+message_string=$(echo $message_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+EVENT_JSON=$( jq -n \
+    --arg Timestamp     "${STARTTIME_FORMATTED}" \
+    --arg OperationId   "${ENDTIME_FORMATTED}" \
+    --arg Version       "1.23" \
+    --arg TaskName      "${TASK_NAME}" \
+    --arg EventLevel    "${eventlevel}" \
+    --argjson Message    "${message_string}" \
+    --arg EventPid      "0" \
+    --arg EventTid      "0" \
+    '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
+)
+
+echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json`)
+
+func linuxCloudInitArtifactsCgroupMemoryTelemetryShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCgroupMemoryTelemetrySh, nil
+}
+
+func linuxCloudInitArtifactsCgroupMemoryTelemetrySh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCgroupMemoryTelemetryShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-memory-telemetry.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCgroupMemoryTelemetryTimer = []byte(`[Unit]
+Description=emit memory telemetry
+
+[Timer]
+OnBootSec=0min
+OnCalendar=*-*-* *:0/5:0
+Unit=cgroup-memory-telemetry.service
+
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsCgroupMemoryTelemetryTimerBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCgroupMemoryTelemetryTimer, nil
+}
+
+func linuxCloudInitArtifactsCgroupMemoryTelemetryTimer() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCgroupMemoryTelemetryTimerBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-memory-telemetry.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCgroupPressureTelemetryService = []byte(`[Unit]
+Description=Emit system cgroup pressure telemetry
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/scripts/cgroup-pressure-telemetry.sh`)
+
+func linuxCloudInitArtifactsCgroupPressureTelemetryServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCgroupPressureTelemetryService, nil
+}
+
+func linuxCloudInitArtifactsCgroupPressureTelemetryService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCgroupPressureTelemetryServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-pressure-telemetry.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCgroupPressureTelemetrySh = []byte(`#!/bin/bash
+
+set -o nounset
+set -o pipefail
+
+EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+EVENTS_FILE_NAME=$(date +%s%3N)
+STARTTIME=$(date)
+STARTTIME_FORMATTED=$(date +"%F %T.%3N")
+ENDTIME_FORMATTED=$(date +"%F %T.%3N")
+CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
+eventlevel="Microsoft.Azure.Extensions.CustomScript-1.23"
+
+CGROUP="/sys/fs/cgroup"
+CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)
+KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)
+
+if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
+
+    VERSION="cgroupv2"
+    TASK_NAME="AKS.Runtime.pressure_telemetry_cgroupv2"
+
+    cgroup_cpu_pressure=$(cat ${CGROUP}/cpu.pressure)
+    cgroup_memory_pressure=$(cat ${CGROUP}/memory.pressure)
+    cgroup_io_pressure=$(cat ${CGROUP}/io.pressure)
+
+    cgroup_cpu_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    cgroup_memory_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $cgroup_memory_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $cgroup_memory_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $cgroup_memory_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $cgroup_memory_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $cgroup_memory_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $cgroup_memory_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $cgroup_memory_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $cgroup_memory_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    cgroup_io_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $cgroup_io_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $cgroup_io_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $cgroup_io_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $cgroup_io_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $cgroup_io_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $cgroup_io_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $cgroup_io_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $cgroup_io_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    cgroup_cpu_pressures=$(echo $cgroup_cpu_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    cgroup_memory_pressures=$(echo $cgroup_memory_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    cgroup_io_pressures=$(echo $cgroup_io_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+    cgroup_pressure=$( jq -n \
+    --argjson CPU_PRESSURE "$(echo $cgroup_cpu_pressures)" \
+    --argjson MEMORY_PRESSURE "$(echo $cgroup_memory_pressures)" \
+    --argjson IO_PRESSURE "$(echo $cgroup_io_pressures)" \
+    '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
+    )
+
+    SYSTEMSLICE="${CGROUP}/system.slice"
+    system_slice_cpu_pressure=$(cat $SYSTEMSLICE/cpu.pressure)
+    system_slice_memory_pressure=$(cat $SYSTEMSLICE/memory.pressure)
+    system_slice_io_pressure=$(cat $SYSTEMSLICE/io.pressure)
+
+    system_slice_cpu_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    system_slice_memory_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $system_slice_memory_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $system_slice_memory_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $system_slice_memory_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $system_slice_memory_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $system_slice_memory_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $system_slice_memory_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $system_slice_memory_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $system_slice_memory_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    system_slice_io_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $system_slice_io_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $system_slice_io_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $system_slice_io_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $system_slice_io_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $system_slice_io_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $system_slice_io_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $system_slice_io_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $system_slice_io_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    system_slice_cpu_pressures=$(echo $system_slice_cpu_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    system_slice_memory_pressures=$(echo $system_slice_memory_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    system_slice_io_pressures=$(echo $system_slice_io_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+    system_slice_pressure=$( jq -n \
+    --argjson CPU_PRESSURE "$(echo $system_slice_cpu_pressures)" \
+    --argjson MEMORY_PRESSURE "$(echo $system_slice_memory_pressures)" \
+    --argjson IO_PRESSURE "$(echo $system_slice_io_pressures)" \
+    '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
+    )
+
+    AZURESLICE="${CGROUP}/azure.slice"
+    azure_slice_cpu_pressure=$(cat $AZURESLICE/cpu.pressure)
+    azure_slice_memory_pressure=$(cat $AZURESLICE/memory.pressure)
+    azure_slice_io_pressure=$(cat $AZURESLICE/io.pressure)
+
+    azure_slice_cpu_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    azure_slice_memory_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $azure_slice_memory_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $azure_slice_memory_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $azure_slice_memory_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $azure_slice_memory_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $azure_slice_memory_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $azure_slice_memory_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $azure_slice_memory_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $azure_slice_memory_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    azure_slice_io_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $azure_slice_io_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $azure_slice_io_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $azure_slice_io_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $azure_slice_io_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $azure_slice_io_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $azure_slice_io_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $azure_slice_io_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $azure_slice_io_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    azure_slice_cpu_pressures=$(echo $azure_slice_cpu_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    azure_slice_memory_pressures=$(echo $azure_slice_memory_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    azure_slice_io_pressures=$(echo $azure_slice_io_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+    azure_slice_pressure=$( jq -n \
+    --argjson CPU_PRESSURE "$(echo $azure_slice_cpu_pressures)" \
+    --argjson MEMORY_PRESSURE "$(echo $azure_slice_memory_pressures)" \
+    --argjson IO_PRESSURE "$(echo $azure_slice_io_pressures)" \
+    '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
+    )
+
+    KUBEPODSSLICE="${CGROUP}/kubepods.slice"
+    kubepods_slice_cpu_pressure=$(cat $KUBEPODSSLICE/cpu.pressure)
+    kubepods_slice_memory_pressure=$(cat $KUBEPODSSLICE/memory.pressure)
+    kubepods_slice_io_pressure=$(cat $KUBEPODSSLICE/io.pressure)
+
+    kubepods_slice_cpu_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    kubepods_slice_memory_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $kubepods_slice_memory_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $kubepods_slice_memory_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $kubepods_slice_memory_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $kubepods_slice_memory_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $kubepods_slice_memory_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $kubepods_slice_memory_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $kubepods_slice_memory_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $kubepods_slice_memory_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    kubepods_slice_io_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $kubepods_slice_io_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $kubepods_slice_io_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $kubepods_slice_io_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $kubepods_slice_io_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $kubepods_slice_io_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $kubepods_slice_io_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $kubepods_slice_io_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $kubepods_slice_io_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    kubepods_slice_cpu_pressures=$(echo $kubepods_slice_cpu_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    kubepods_slice_memory_pressures=$(echo $kubepods_slice_memory_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    kubepods_slice_io_pressures=$(echo $kubepods_slice_io_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+    kubepods_slice_pressure=$( jq -n \
+    --argjson CPU_PRESSURE "$(echo $kubepods_slice_cpu_pressures)" \
+    --argjson MEMORY_PRESSURE "$(echo $kubepods_slice_memory_pressures)" \
+    --argjson IO_PRESSURE "$(echo $kubepods_slice_io_pressures)" \
+    '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
+    )
+
+    KUBELETSERVICE="${CGROUP}/${KSLICE}/kubelet.service"
+    kubelet_service_cpu_pressure=$(cat $KUBELETSERVICE/cpu.pressure)
+    kubelet_service_memory_pressure=$(cat $KUBELETSERVICE/memory.pressure)
+    kubelet_service_io_pressure=$(cat $KUBELETSERVICE/io.pressure)
+
+    kubelet_service_cpu_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    kubelet_service_memory_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $kubelet_service_memory_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $kubelet_service_memory_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $kubelet_service_memory_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $kubelet_service_memory_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $kubelet_service_memory_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $kubelet_service_memory_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $kubelet_service_memory_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $kubelet_service_memory_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    kubelet_service_io_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $kubelet_service_io_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $kubelet_service_io_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $kubelet_service_io_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $kubelet_service_io_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $kubelet_service_io_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $kubelet_service_io_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $kubelet_service_io_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $kubelet_service_io_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    kubelet_service_cpu_pressures=$(echo $kubelet_service_cpu_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    kubelet_service_memory_pressures=$(echo $kubelet_service_memory_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    kubelet_service_io_pressures=$(echo $kubelet_service_io_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+    kubelet_service_pressure=$( jq -n \
+    --argjson CPU_PRESSURE "$(echo $kubelet_service_cpu_pressures)" \
+    --argjson MEMORY_PRESSURE "$(echo $kubelet_service_memory_pressures)" \
+    --argjson IO_PRESSURE "$(echo $kubelet_service_io_pressures)" \
+    '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
+    )
+
+    CONTAINERDSERVICE="${CGROUP}/${CSLICE}/containerd.service"
+    containerd_service_cpu_pressure=$(cat $CONTAINERDSERVICE/cpu.pressure)
+    containerd_service_memory_pressure=$(cat $CONTAINERDSERVICE/memory.pressure)
+    containerd_service_io_pressure=$(cat $CONTAINERDSERVICE/io.pressure)
+
+    containerd_service_cpu_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    containerd_service_memory_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $containerd_service_memory_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $containerd_service_memory_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $containerd_service_memory_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $containerd_service_memory_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $containerd_service_memory_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $containerd_service_memory_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $containerd_service_memory_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $containerd_service_memory_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    containerd_service_io_pressures=$( jq -n \
+    --arg SOME_AVG10 "$(echo $containerd_service_io_pressure | awk -F "=" '{print $2}' | awk '{print $1}')" \
+    --arg SOME_AVG60 "$(echo $containerd_service_io_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
+    --arg SOME_AVG300 "$(echo $containerd_service_io_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
+    --arg SOME_TOTAL "$(echo $containerd_service_io_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
+    --arg FULL_AVG10 "$(echo $containerd_service_io_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
+    --arg FULL_AVG60 "$(echo $containerd_service_io_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
+    --arg FULL_AVG300 "$(echo $containerd_service_io_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
+    --arg FULL_TOTAL "$(echo $containerd_service_io_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    )
+
+    containerd_service_cpu_pressures=$(echo $containerd_service_cpu_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    containerd_service_memory_pressures=$(echo $containerd_service_memory_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    containerd_service_io_pressures=$(echo $containerd_service_io_pressures | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+    containerd_service_pressure=$( jq -n \
+    --argjson CPU_PRESSURE "$(echo $containerd_service_cpu_pressures)" \
+    --argjson MEMORY_PRESSURE "$(echo $containerd_service_memory_pressures)" \
+    --argjson IO_PRESSURE "$(echo $containerd_service_io_pressures)" \
+    '{ CPUPressure: $CPU_PRESSURE, MemoryPressure: $MEMORY_PRESSURE, IOPressure: $IO_PRESSURE } | tostring'
+    )
+
+    cgroup_pressure=$(echo $system_slice_pressure | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    system_slice_pressure=$(echo $system_slice_pressure | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    azure_slice_pressure=$(echo $azure_slice_pressure | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    kubepods_slice_pressure=$(echo $kubepods_slice_pressure | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    kubelet_service_pressure=$(echo $kubelet_service_pressure | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+    containerd_service_pressure=$(echo $containerd_service_pressure | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+    pressure_string=$( jq -n \
+    --argjson CGROUP "$(echo $cgroup_pressure)" \
+    --argjson SYSTEMSLICE "$(echo $system_slice_pressure)" \
+    --argjson AZURESLICE "$(echo $azure_slice_pressure)" \
+    --argjson KUBEPODSSLICE "$(echo $kubepods_slice_pressure)" \
+    --argjson KUBELETSERVICE "$(echo $kubelet_service_pressure)" \
+    --argjson CONTAINERDSERVICE "$(echo $containerd_service_pressure)" \
+    '{ cgroup_pressure: $CGROUP, system_slice_pressure: $SYSTEMSLICE, azure_slice_pressure: $AZURESLICE, kubepods_slice_pressure: $KUBEPODSSLICE, kubelet_service_pressure: $KUBELETSERVICE, containerd_service_pressure: $CONTAINERDSERVICE } | tostring'
+    )
+
+    pressure_string=$(echo $pressure_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+    message_string=$( jq -n \
+        --arg CGROUPV "${VERSION}" \
+        --argjson PRESSURE "$(echo $pressure_string)" \
+        '{ CgroupVersion: $CGROUPV, Pressure: $PRESSURE } | tostring'
+    )
+
+else
+    echo "Unexpected cgroup type. Exiting"
+    exit 1
+fi
+
+
+message_string=$(echo $message_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
+
+EVENT_JSON=$( jq -n \
+    --arg Timestamp     "${STARTTIME_FORMATTED}" \
+    --arg OperationId   "${ENDTIME_FORMATTED}" \
+    --arg Version       "1.23" \
+    --arg TaskName      "${TASK_NAME}" \
+    --arg EventLevel    "${eventlevel}" \
+    --argjson Message       "${message_string}" \
+    --arg EventPid      "0" \
+    --arg EventTid      "0" \
+    '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
+)
+
+echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json`)
+
+func linuxCloudInitArtifactsCgroupPressureTelemetryShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCgroupPressureTelemetrySh, nil
+}
+
+func linuxCloudInitArtifactsCgroupPressureTelemetrySh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCgroupPressureTelemetryShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsCgroupPressureTelemetryTimer = []byte(`[Unit]
+Description=emit pressure telemetry
+
+[Timer]
+OnBootSec=0min
+OnCalendar=*-*-* *:0/5:0
+Unit=cgroup-pressure-telemetry.service
+
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsCgroupPressureTelemetryTimerBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsCgroupPressureTelemetryTimer, nil
+}
+
+func linuxCloudInitArtifactsCgroupPressureTelemetryTimer() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsCgroupPressureTelemetryTimerBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/cgroup-pressure-telemetry.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2004,6 +2599,8 @@ systemctl_restart() {
         if [ $i -eq $retries ]; then
             return 1
         else
+            systemctl status $svcname --no-pager -l
+            journalctl -u $svcname
             sleep $wait_sleep
         fi
     done
@@ -4167,11 +4764,15 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "versions": [
             "1.24.9-hotfix.20230612",
             "1.24.10-hotfix.20230612",
+            "1.24.15",
             "1.25.5-hotfix.20230612",
             "1.25.6-hotfix.20230612",
+            "1.25.11",
             "1.26.0-hotfix.20230612",
             "1.26.3-hotfix.20230612",
-            "1.27.1-hotfix.20230612"
+            "1.26.6",
+            "1.27.1-hotfix.20230612",
+            "1.27.3"
         ]
     },
     "_template": {
@@ -5819,7 +6420,7 @@ installDeps() {
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
-    BLOBFUSE2_VERSION="2.0.3"
+    BLOBFUSE2_VERSION="2.0.4"
 
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
@@ -6651,7 +7252,6 @@ $global:ContainerdSdnPluginUrl = "{{GetParameter "windowsSdnPluginURL"}}"
 $global:DockerVersion = "{{GetParameter "windowsDockerVersion"}}"
 
 ## ContainerD Usage
-$global:ContainerRuntime = "{{GetParameter "containerRuntime"}}"
 $global:DefaultContainerdWindowsSandboxIsolation = "{{GetParameter "defaultContainerdWindowsSandboxIsolation"}}"
 $global:ContainerdWindowsRuntimeHandlers = "{{GetParameter "containerdWindowsRuntimeHandlers"}}"
 
@@ -6698,7 +7298,7 @@ $global:ExcludeMasterFromStandardLB = "{{GetVariable "excludeMasterFromStandardL
 # Windows defaults, not changed by aks-engine
 $global:CacheDir = "c:\akse-cache"
 $global:KubeDir = "c:\k"
-$global:HNSModule = [Io.path]::Combine("$global:KubeDir", "hns.psm1")
+$global:HNSModule = [Io.path]::Combine("$global:KubeDir", "hns.v2.psm1")
 
 $global:KubeDnsSearchPath = "svc.cluster.local"
 
@@ -6748,7 +7348,6 @@ $global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("{{GetVariable
 # Base64 representation of ZIP archive
 $zippedFiles = "{{ GetKubernetesWindowsAgentFunctions }}"
 
-$useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
 $fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
 
@@ -6759,10 +7358,6 @@ $global:HNSRemediatorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetHnsRem
 $global:LogGeneratorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetLogGeneratorIntervalInMinutes}}");
 
 $global:EnableIncreaseDynamicPortRange = $false
-
-if ($useContainerD) {
-    $global:HNSModule = [Io.path]::Combine("$global:KubeDir", "hns.v2.psm1")
-}
 
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
@@ -6782,7 +7377,7 @@ try
         return
     }
    
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.26.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.29.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -6853,20 +7448,16 @@ try
         Get-KubeBinaries -KubeBinariesURL $global:WindowsKubeBinariesURL
     }
 
-    if ($useContainerD) {
-        Write-Log "Installing ContainerD"
-        $cniBinPath = $global:AzureCNIBinDir
-        $cniConfigPath = $global:AzureCNIConfDir
-        if ($global:NetworkPlugin -eq "kubenet") {
-            $cniBinPath = $global:CNIPath
-            $cniConfigPath = $global:CNIConfigPath
-        }
-        Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir -KubernetesVersion $global:KubeBinariesVersion
-    } else {
-        Write-Log "Install docker"
-        Install-Docker -DockerVersion $global:DockerVersion
-        Set-DockerLogFileOptions
+    Write-Log "Installing ContainerD"
+    $cniBinPath = $global:AzureCNIBinDir
+    $cniConfigPath = $global:AzureCNIConfDir
+    if ($global:NetworkPlugin -eq "kubenet") {
+        $cniBinPath = $global:CNIPath
+        $cniConfigPath = $global:CNIConfigPath
     }
+    Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir -KubernetesVersion $global:KubeBinariesVersion
+
+    Retag-ImagesForAzureChinaCloud -TargetEnvironment $TargetEnvironment
 
     # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
     Write-Log "Write Azure cloud provider config"
@@ -6934,23 +7525,8 @@ try
         -AgentCertificate $global:AgentCertificate
 
     if ($global:EnableHostsConfigAgent) {
-            Write-Log "Starting hosts config agent"
-            New-HostsConfigService
-        }
-
-    Write-Log "Create the Pause Container kubletwin/pause"
-    New-InfraContainer -KubeDir $global:KubeDir -ContainerRuntime $global:ContainerRuntime
-
-    if (-not (Test-ContainerImageExists -Image "kubletwin/pause" -ContainerRuntime $global:ContainerRuntime)) {
-        Write-Log "Could not find container with name kubletwin/pause"
-        if ($useContainerD) {
-            $o = ctr -n k8s.io image list
-            Write-Log $o
-        } else {
-            $o = docker image list
-            Write-Log $o
-        }
-        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_PAUSE_IMAGE_NOT_EXIST -ErrorMessage "kubletwin/pause container does not exist!"
+        Write-Log "Starting hosts config agent"
+        New-HostsConfigService
     }
 
     Write-Log "Configuring networking with NetworkPlugin:$global:NetworkPlugin"
@@ -6988,8 +7564,7 @@ try
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
 
     Install-KubernetesServices `+"`"+`
-        -KubeDir $global:KubeDir `+"`"+`
-        -ContainerRuntime $global:ContainerRuntime
+        -KubeDir $global:KubeDir
 
     Write-Log "Disable Internet Explorer compat mode and set homepage"
     Set-Explorer
@@ -7001,7 +7576,7 @@ try
     PREPROVISION_EXTENSION
 
     Write-Log "Update service failure actions"
-    Update-ServiceFailureActions -ContainerRuntime $global:ContainerRuntime
+    Update-ServiceFailureActions
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
     Register-NodeResetScriptTask
@@ -7534,6 +8109,12 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
 	"linux/cloud-init/artifacts/bind-mount.sh":                             linuxCloudInitArtifactsBindMountSh,
 	"linux/cloud-init/artifacts/block_wireserver.sh":                       linuxCloudInitArtifactsBlock_wireserverSh,
+	"linux/cloud-init/artifacts/cgroup-memory-telemetry.service":           linuxCloudInitArtifactsCgroupMemoryTelemetryService,
+	"linux/cloud-init/artifacts/cgroup-memory-telemetry.sh":                linuxCloudInitArtifactsCgroupMemoryTelemetrySh,
+	"linux/cloud-init/artifacts/cgroup-memory-telemetry.timer":             linuxCloudInitArtifactsCgroupMemoryTelemetryTimer,
+	"linux/cloud-init/artifacts/cgroup-pressure-telemetry.service":         linuxCloudInitArtifactsCgroupPressureTelemetryService,
+	"linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh":              linuxCloudInitArtifactsCgroupPressureTelemetrySh,
+	"linux/cloud-init/artifacts/cgroup-pressure-telemetry.timer":           linuxCloudInitArtifactsCgroupPressureTelemetryTimer,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.path":                    linuxCloudInitArtifactsCiSyslogWatcherPath,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.service":                 linuxCloudInitArtifactsCiSyslogWatcherService,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.sh":                      linuxCloudInitArtifactsCiSyslogWatcherSh,
@@ -7671,6 +8252,12 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
 				"bind-mount.sh":                             &bintree{linuxCloudInitArtifactsBindMountSh, map[string]*bintree{}},
 				"block_wireserver.sh":                       &bintree{linuxCloudInitArtifactsBlock_wireserverSh, map[string]*bintree{}},
+				"cgroup-memory-telemetry.service":           &bintree{linuxCloudInitArtifactsCgroupMemoryTelemetryService, map[string]*bintree{}},
+				"cgroup-memory-telemetry.sh":                &bintree{linuxCloudInitArtifactsCgroupMemoryTelemetrySh, map[string]*bintree{}},
+				"cgroup-memory-telemetry.timer":             &bintree{linuxCloudInitArtifactsCgroupMemoryTelemetryTimer, map[string]*bintree{}},
+				"cgroup-pressure-telemetry.service":         &bintree{linuxCloudInitArtifactsCgroupPressureTelemetryService, map[string]*bintree{}},
+				"cgroup-pressure-telemetry.sh":              &bintree{linuxCloudInitArtifactsCgroupPressureTelemetrySh, map[string]*bintree{}},
+				"cgroup-pressure-telemetry.timer":           &bintree{linuxCloudInitArtifactsCgroupPressureTelemetryTimer, map[string]*bintree{}},
 				"ci-syslog-watcher.path":                    &bintree{linuxCloudInitArtifactsCiSyslogWatcherPath, map[string]*bintree{}},
 				"ci-syslog-watcher.service":                 &bintree{linuxCloudInitArtifactsCiSyslogWatcherService, map[string]*bintree{}},
 				"ci-syslog-watcher.sh":                      &bintree{linuxCloudInitArtifactsCiSyslogWatcherSh, map[string]*bintree{}},

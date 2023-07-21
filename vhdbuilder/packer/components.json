@@ -4,7 +4,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.8.18"
+        "1.8.19"
       ]
     },
     {
@@ -35,8 +35,8 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.39",
         "v1.4.44.2",
+        "v1.4.44.3",
         "v1.5.5"
       ]
     },
@@ -196,7 +196,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.8.6"
+        "v1.8.8"
       ]
     },
     {
@@ -228,8 +228,10 @@
       "multiArchVersions": [
         "v1.24.2",
         "v1.24.3",
+        "v1.26.3-2",
         "v1.26.3.1",
-        "v1.28.0-1"
+        "v1.28.0-1",
+        "v1.28.0-2"
       ]
     },
     {

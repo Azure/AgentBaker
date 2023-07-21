@@ -153,16 +153,6 @@ function Disable-WindowsUpdates {
     Set-ItemProperty -Path $AutoUpdatePath -Name NoAutoUpdate -Value 1 | Out-Null
 }
 
-function Retag-ImageForAzureChinaCloud {
-    Param(
-        [string]
-        $imageUrl
-    )
-    Write-Log "Retagging image $imageUrl for AzureChinaCloud"
-    $retagImageUrl=$image.replace('mcr.microsoft.com', 'mcr.azk8s.cn')
-    ctr.exe -n k8s.io image tag $imageUrl $retagImageUrl
-}
-
 function Get-ContainerImages {
     Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
     foreach ($image in $imagesToPull) {
@@ -192,8 +182,6 @@ function Get-ContainerImages {
                 & crictl.exe pull $image
             } -ErrorMessage "Failed to pull image $image"
         }
-
-        Retag-ImageForAzureChinaCloud -imageUrl $image
     }
     Stop-Job  -Name containerd
     Remove-Job -Name containerd
@@ -342,8 +330,8 @@ function Update-Registry {
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name EnableCompartmentNamespace -Value 1 -Type DWORD
 
     if ($env:WindowsSKU -Like '2019*') {
-        Write-Log "Enable a HNS fix (0x40) in 2022-11B and another HNS fix (0x10)"
-        $hnsControlFlag=0x50
+        Write-Log "Keep the HNS fix (0x10) even though it is enabled by default. Windows are still using HNSControlFlag and may need it in the future."
+        $hnsControlFlag=0x10
         $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -ErrorAction Ignore)
         if (![string]::IsNullOrEmpty($currentValue)) {
             Write-Log "The current value of HNSControlFlag is $currentValue"
@@ -516,6 +504,32 @@ function Update-Registry {
             Write-Log "The current value of 3398685324 is $currentValue"
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3398685324 -Value 1 -Type DWORD
+
+        Write-Log "Enable 4 fixes in 2023-07B"
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNodeToClusterIpv6 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HnsNodeToClusterIpv6 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNodeToClusterIpv6 -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSNpmIpsetLimitChange -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HNSNpmIpsetLimitChange is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSNpmIpsetLimitChange -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSLbNatDupRuleChange -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HNSLbNatDupRuleChange is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSLbNatDupRuleChange -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpIpv6DipsPrintingIsEnabled -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of VfpIpv6DipsPrintingIsEnabled is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpIpv6DipsPrintingIsEnabled -Value 1 -Type DWORD
     }
 }
 

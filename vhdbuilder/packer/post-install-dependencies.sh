@@ -31,6 +31,13 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   retrycmd_if_failure 10 2 60 apt-get -y autoclean || exit 1
   retrycmd_if_failure 10 2 60 apt-get -y autoremove --purge || exit 1
   retrycmd_if_failure 10 2 60 apt-get -y clean || exit 1
+
+  # Final step, if 1804 or FIPS, log ua status, detach UA and clean up
+  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+    # 'ua status' for logging
+    ua status
+    detachAndCleanUpUA
+  fi
 fi
 
 # shellcheck disable=SC2129
