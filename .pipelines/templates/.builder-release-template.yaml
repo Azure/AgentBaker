@@ -87,6 +87,8 @@ steps:
         -e IMAGE_VERSION=${IMAGE_VERSION} \
         ${CONTAINER_IMAGE} make -f packer.mk run-packer
     displayName: Building VHD
+    env:
+      CLIENT_SECRET: $(CLIENT_SECRET)
   - script: |
         OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
         MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
@@ -119,6 +121,8 @@ steps:
         -e GIT_BRANCH=$(Build.SourceBranch) \
         ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD Tests
+    env:
+      CLIENT_SECRET: $(CLIENT_SECRET)
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'trivy-report-${{ parameters.artifactName }}'
