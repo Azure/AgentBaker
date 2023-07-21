@@ -52,14 +52,10 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0",
     # azuredisk-csi:v1.28 is only for AKS 1.27+, v1.26 is for other AKS versions
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.5",
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.0",
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.1",
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.0-windows-hp",
     # azurefile-csi:v1.28 is only for AKS 1.27+, v1.24, v1.26 is for other AKS versions
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.2",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.3",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.3",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.0",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.0-windows-hp",
     # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.4",
@@ -80,6 +76,7 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.10",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.2",
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.3",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.5"
 )
 
@@ -104,7 +101,8 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.25.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.26.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.27.zip"
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.27.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.29.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.

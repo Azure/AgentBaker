@@ -989,7 +989,7 @@ func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfigurat
 }
 
 func isMariner(osSku string) bool {
-	return osSku == datamodel.OSSKUCBLMariner || osSku == datamodel.OSSKUMariner
+	return osSku == datamodel.OSSKUCBLMariner || osSku == datamodel.OSSKUMariner || osSku == datamodel.OSSKUAzureLinux
 }
 
 const sysctlTemplateString = `# This is a partial workaround to this upstream Kubernetes issue:
