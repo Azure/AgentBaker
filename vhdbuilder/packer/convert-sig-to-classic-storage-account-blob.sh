@@ -1,6 +1,8 @@
 #!/bin/bash -e
 
 required_env_vars=(
+    "CLASSIC_SA_CONNECTION_STRING"
+    "OUTPUT_STORAGE_CONTAINER_NAME"
     "SUBSCRIPTION_ID"
     "RESOURCE_GROUP_NAME"
     "CAPTURED_SIG_VERSION"
@@ -9,6 +11,22 @@ required_env_vars=(
     "SIG_IMAGE_NAME"
 )
 
+start_date=$(date +"%Y-%m-%dT00:00Z" -d "-1 day")
+expiry_date=$(date +"%Y-%m-%dT00:00Z" -d "+1 year")
+if [[ "${OS_NAME,,}" != "windows" ]]; then
+    [ -z "${OUTPUT_STORAGE_CONTAINER_NAME}" ] && echo "OUTPUT_STORAGE_CONTAINER_NAME should be set..." && exit 1
+    echo "storage container name: ${OUTPUT_STORAGE_CONTAINER_NAME}"
+    # max of 7 day expiration time when using user delegation SAS
+    storage_sas_token=$(az storage container generate-sas --name ${OUTPUT_STORAGE_CONTAINER_NAME} --permissions acwlr --connection-string ${CLASSIC_SA_CONNECTION_STRING} --start ${start_date} --expiry ${expiry_date} | tr -d '"')
+else
+    # we still need to use the original connection string when not using a system-assigned identity on 1ES pools
+    storage_sas_token=$(az storage container generate-sas --name vhds --permissions acwlr --connection-string ${CLASSIC_SA_CONNECTION_STRING} --start ${start_date} --expiry ${expiry_date} | tr -d '"')
+fi
+
+if [ "$storage_sas_token" == "" ]; then
+    echo "sas_token is empty"
+    exit 1
+fi
 
 for v in "${required_env_vars[@]}"
 do
@@ -70,7 +88,7 @@ sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --
 
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
-azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd${CLASSIC_SAS_TOKEN}" --recursive=true
+azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd?${storage_sas_token}" --recursive=true
 
 echo "Uploaded $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
