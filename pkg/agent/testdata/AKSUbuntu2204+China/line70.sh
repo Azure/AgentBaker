@@ -579,6 +579,7 @@ configGPUDrivers() {
     elif [[ $OS == $MARINER_OS_NAME ]]; then
         downloadGPUDrivers
         installNvidiaContainerRuntime
+        enableNvidiaPersistenceMode
     else 
         echo "os $OS not supported at this time. skipping configGPUDrivers"
         exit 1
@@ -589,12 +590,6 @@ configGPUDrivers() {
         retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 
-    # Noticed that NVIDIA driver version R515 and later versions will experience long loading time of nvidia-smi on 
-    # ND A100-v4 and NDm A100-v4 series. For now, use the workaround solution to enable NVIDIA persistence mode which 
-    # will accelerate the loading time of future nvidia-smi operations
-    if [[ $OS == $MARINER_OS_NAME ]]; then
-        retrycmd_if_failure 120 5 35 nvidia-persistenced --persistence-mode || exit $ERR_GPU_DRIVERS_START_FAIL
-    fi
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     

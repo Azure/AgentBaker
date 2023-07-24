@@ -60,6 +60,28 @@ installNvidiaContainerRuntime() {
     done
 }
 
+enableNvidiaPersistenceMode() {
+    PERSISTENCED_SERVICE_FILE_PATH="/etc/systemd/system/nvidia-persistenced.service"
+    touch ${PERSISTENCED_SERVICE_FILE_PATH}
+    cat << EOF > ${PERSISTENCED_SERVICE_FILE_PATH} 
+[Unit]
+Description=NVIDIA Persistence Daemon
+Wants=syslog.target
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/nvidia-persistenced --verbose
+ExecStopPost=/bin/rm -rf /var/run/nvidia-persistenced
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl enable nvidia-persistenced.service || exit 1
+    systemctl restart nvidia-persistenced.service || exit 1
+}
+
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     CONTAINERD_VERSION=$1
