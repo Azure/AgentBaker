@@ -525,6 +525,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/check-outbound-network.sh",
+      "destination": "/home/packer/check-outbound-network.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/check-outbound-network.service",
+      "destination": "/home/packer/check-outbound-network.service"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/notice.txt",
       "destination": "/home/packer/NOTICE.txt"
     },
