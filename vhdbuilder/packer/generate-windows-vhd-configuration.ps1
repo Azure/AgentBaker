@@ -57,6 +57,7 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.3",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.3",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.0-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.1-windows-hp",
     # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.4",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
