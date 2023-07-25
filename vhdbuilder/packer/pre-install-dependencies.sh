@@ -47,6 +47,7 @@ systemctlEnableAndStart logrotate.timer || exit 1
 rm -f /etc/cron.daily/logrotate
 
 systemctlEnableAndStart sync-container-logs.service || exit 1
+systemctlEnableAndStart userdata.service || exit 1
 
 # First handle Mariner + FIPS
 if [[ ${OS} == ${MARINER_OS_NAME} ]]; then

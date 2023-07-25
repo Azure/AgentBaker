@@ -535,6 +535,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/userdata.service",
+      "destination": "/home/packer/userdata.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/userdata.sh",
+      "destination": "/home/packer/userdata.sh"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/notice.txt",
       "destination": "/home/packer/NOTICE.txt"
     },

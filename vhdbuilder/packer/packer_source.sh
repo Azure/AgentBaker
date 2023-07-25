@@ -83,6 +83,10 @@ copyPackerFiles() {
   UPDATE_CERTS_PATH_DEST=/etc/systemd/system/update_certs.path
   UPDATE_CERTS_SCRIPT_SRC=/home/packer/update_certs.sh
   UPDATE_CERTS_SCRIPT_DEST=/opt/scripts/update_certs.sh
+  USERDATA_SERVICE_SRC=/home/packer/userdata.service
+  USERDATA_SERVICE_DEST=/etc/systemd/system/userdata.service
+  USERDATA_SCRIPT_SRC=/home/packer/userdata.sh
+  USERDATA_SCRIPT_DEST=/opt/scripts/userdata.sh
   CI_SYSLOG_WATCHER_PATH_SRC=/home/packer/ci-syslog-watcher.path
   CI_SYSLOG_WATCHER_PATH_DEST=/etc/systemd/system/ci-syslog-watcher.path
   CI_SYSLOG_WATCHER_SERVICE_SRC=/home/packer/ci-syslog-watcher.service
