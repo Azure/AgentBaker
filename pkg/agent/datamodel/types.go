@@ -2114,8 +2114,9 @@ type SecurityProfile struct {
 }
 
 type PrivateEgress struct {
-	Enabled      bool   `json:"enabled"`
-	ProxyAddress string `json:"proxyAddress"`
+	Enabled                 bool   `json:"enabled"`
+	ContainerRegistryServer string `json:"containerRegistryServer"`
+	ProxyAddress            string `json:"proxyAddress"`
 }
 
 func (s *SecurityProfile) GetProxyAddress() string {
