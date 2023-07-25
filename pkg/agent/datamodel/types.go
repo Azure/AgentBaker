@@ -2119,14 +2119,10 @@ type PrivateEgress struct {
 }
 
 func (s *SecurityProfile) GetProxyAddress() string {
-	if s == nil {
-		return ""
+	if s != nil && s.PrivateEgress != nil && s.PrivateEgress.Enabled {
+		return s.PrivateEgress.ProxyAddress
 	}
-	privateEgress := s.PrivateEgress
-	if privateEgress == nil || !privateEgress.Enabled {
-		return ""
-	}
-	return privateEgress.ProxyAddress
+	return ""
 }
 
 // SecurityProfile end.
