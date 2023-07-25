@@ -92,6 +92,11 @@
     },
     {
       "type": "file",
+      "source": "private.tar.gz",
+      "destination": "/home/packer/private.tar.gz"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_install.sh",
       "destination": "/home/packer/provision_installs.sh"
     },

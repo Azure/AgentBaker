@@ -408,4 +408,15 @@ for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
 done
 
+# private binaries
+mkdir /tmp/artifacts
+tar -tvzf /home/packer/private.tar.gz
+tar -xvzf /home/packer/private.tar.gz -C /tmp/artifacts || exit 1
+# this triggers shellcheck because we rely on interpolation inside double vars,
+# inside single vars, but it works because the entire single var command is
+# invoked with `bash -c` and the double quoted vars are expanded.
+find /tmp/artifacts -type f -print0 | xargs -I{} bash -c 'src="{}"; dst="/$(echo {} | cut -d\/ -f4-)"; echo "src=$src, dst=$dst"; mkdir -p $(dirname "$dst") && mv "$src" "$dst" || exit 1'
+ls -al /usr/local/bin
+rm -r /tmp/artifacts
+
 echo "install-dependencies step completed successfully"

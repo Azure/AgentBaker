@@ -30,6 +30,25 @@ steps:
       cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
     displayName: setup cue
   - bash: |
+        echo "Logging into Azure with agent VM MSI..."
+        mkdir -p private/usr/local/bin
+        az login --identity
+        for version in "${HOTFIX_VERSIONS}"; do
+          patch_version="$(echo ${version} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)"
+          patch_no_v="$(echo ${patch_version} | cut -d"v" -f2)"
+          az storage blob download \
+          --auth-mod login \
+          --account-name ${PRIVATE_STORAGE_ACCOUNT} \
+          --container "kubernetes" \
+          --name $(printf "%s/binaries/node/linux/amd64/kubelet" ${version}) \
+          --file private/usr/local/bin/kubelet-${patch_no_v}
+          chown root:root private/usr/local/bin/kubelet-${patch_no_v}
+          chmod a+x private/usr/local/bin/kubelet-${patch_no_v}
+        done
+        tar -C private -czvf private.tar.gz .
+        tar -tzvf ./private.tar.gz
+    displayName: download binaries
+  - bash: |
       SKU_NAME=${OS_VERSION} && \
       if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
       if [[ ${OS_VERSION} == "V2" && ${ARCHITECTURE,,} == "arm64" && ${OS_SKU} == "CBLMariner" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
