@@ -39,6 +39,16 @@ downloadGPUDrivers() {
     fi
 }
 
+installNvidiaFabricManager() {
+    # Check the NVIDIA driver version installed and install nvidia-fabric-manager
+    NVIDIA_DRIVER_VERSION=$(cut -d - -f 2 <<< "$(rpm -qa cuda)")
+    for nvidia_package in nvidia-fabric-manager-${NVIDIA_DRIVER_VERSION} nvidia-fabric-manager-devel-${NVIDIA_DRIVER_VERSION}; do
+      if ! dnf_install 30 1 600 $nvidia_package; then
+        exit $ERR_APT_INSTALL_TIMEOUT
+      fi
+    done
+}
+
 installNvidiaContainerRuntime() {
     MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION="3.11.0"
     MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.11.0"
@@ -48,6 +58,28 @@ installNvidiaContainerRuntime() {
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
+}
+
+enableNvidiaPersistenceMode() {
+    PERSISTENCED_SERVICE_FILE_PATH="/etc/systemd/system/nvidia-persistenced.service"
+    touch ${PERSISTENCED_SERVICE_FILE_PATH}
+    cat << EOF > ${PERSISTENCED_SERVICE_FILE_PATH} 
+[Unit]
+Description=NVIDIA Persistence Daemon
+Wants=syslog.target
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/nvidia-persistenced --verbose
+ExecStopPost=/bin/rm -rf /var/run/nvidia-persistenced
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl enable nvidia-persistenced.service || exit 1
+    systemctl restart nvidia-persistenced.service || exit 1
 }
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
