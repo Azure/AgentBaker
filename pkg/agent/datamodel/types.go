@@ -763,6 +763,7 @@ type Properties struct {
 	FeatureFlags            *FeatureFlags            `json:"featureFlags,omitempty"`
 	CustomCloudEnv          *CustomCloudEnv          `json:"customCloudEnv,omitempty"`
 	CustomConfiguration     *CustomConfiguration     `json:"customConfiguration,omitempty"`
+	SecurityProfile         *SecurityProfile         `json:"securityProfile,omitempty"`
 }
 
 // ContainerService complies with the ARM model of resource definition in a JSON template.
@@ -2106,3 +2107,26 @@ func (a *AgentPoolProfile) IsDisableWindowsOutboundNat() bool {
 		a.AgentPoolWindowsProfile.DisableOutboundNat != nil &&
 		*a.AgentPoolWindowsProfile.DisableOutboundNat
 }
+
+// SecurityProfile begin.
+type SecurityProfile struct {
+	PrivateEgress *PrivateEgress `json:"privateEgress,omitempty"`
+}
+
+type PrivateEgress struct {
+	Enabled      bool   `json:"enabled"`
+	ProxyAddress string `json:"proxyAddress"`
+}
+
+func (s *SecurityProfile) GetProxyAddress() string {
+	if s == nil {
+		return ""
+	}
+	privateEgress := s.PrivateEgress
+	if privateEgress == nil || !privateEgress.Enabled {
+		return ""
+	}
+	return privateEgress.ProxyAddress
+}
+
+// SecurityProfile end.
