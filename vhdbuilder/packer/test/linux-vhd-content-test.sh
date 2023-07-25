@@ -504,7 +504,7 @@ testCronPermissions() {
   local test="testCronPermissions"
   echo "$test:Start"
 
-  declare -A required_pathss=(
+  declare -A required_paths=(
     ['/etc/cron.allow']=640
     ['/etc/cron.hourly']=600
     ['/etc/cron.daily']=600
@@ -522,7 +522,7 @@ testCronPermissions() {
   )
 
   echo "$test: Checking required paths"
-  for path in "${!required_path[@]}"; do
+  for path in "${!required_paths[@]}"; do
     checkPathPermissions $test $path ${required_paths[$path]} 1
   done
 
