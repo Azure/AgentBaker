@@ -989,7 +989,7 @@ func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfigurat
 }
 
 func isMariner(osSku string) bool {
-	return osSku == datamodel.OSSKUCBLMariner || osSku == datamodel.OSSKUMariner
+	return osSku == datamodel.OSSKUCBLMariner || osSku == datamodel.OSSKUMariner || osSku == datamodel.OSSKUAzureLinux
 }
 
 const sysctlTemplateString = `# This is a partial workaround to this upstream Kubernetes issue:
@@ -1200,6 +1200,12 @@ root = "{{GetDataDir}}"{{- end}}
       runtime_type = "io.containerd.spin-v0-5-1.v1"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]
       runtime_type = "io.containerd.slight-v0-5-1.v1"
+	[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-8-0]
+      runtime_type = "io.containerd.spin-v0-8-0.v1"
+	[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-8-0]
+      runtime_type = "io.containerd.slight-v0-8-0.v1"
+	[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.wws-v0-8-0]
+      runtime_type = "io.containerd.wws-v0-8-0.v1"
     {{- end}}
   {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
   [plugins."io.containerd.grpc.v1.cri".cni]
@@ -1269,6 +1275,12 @@ root = "{{GetDataDir}}"{{- end}}
       runtime_type = "io.containerd.spin-v0-5-1.v1"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]
       runtime_type = "io.containerd.slight-v0-5-1.v1"
+	[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-7-0]
+      runtime_type = "io.containerd.spin-v0-7-0.v1"
+	[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-7-0]
+      runtime_type = "io.containerd.slight-v0-7-0.v1"
+	[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.wws-v0-7-0]
+      runtime_type = "io.containerd.wws-v0-7-0.v1"
     {{- end}}
   {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
   [plugins."io.containerd.grpc.v1.cri".cni]

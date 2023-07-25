@@ -161,6 +161,9 @@ EOF
         # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
         # ND96 seems to require fabric manager *even when not using mig partitions*
         # while it fails to install on NC24.
+        if [[ $OS == $MARINER_OS_NAME ]]; then
+            logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
+        fi
         logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 

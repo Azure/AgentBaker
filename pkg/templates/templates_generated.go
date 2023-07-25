@@ -2319,6 +2319,7 @@ configGPUDrivers() {
     elif [[ $OS == $MARINER_OS_NAME ]]; then
         downloadGPUDrivers
         installNvidiaContainerRuntime
+        enableNvidiaPersistenceMode
     else 
         echo "os $OS not supported at this time. skipping configGPUDrivers"
         exit 1
@@ -2328,6 +2329,7 @@ configGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
+
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
     
@@ -2790,7 +2792,7 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
-CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1"
+CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1 v0.8.0"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 CURL_OUTPUT=/tmp/curl_verbose.out
@@ -2857,8 +2859,10 @@ downloadContainerdWasmShims() {
         if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT)
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT)
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT)
             chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
             chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
+            chmod 755 "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1"
         fi
     done
 }
@@ -3357,6 +3361,9 @@ EOF
         # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
         # ND96 seems to require fabric manager *even when not using mig partitions*
         # while it fails to install on NC24.
+        if [[ $OS == $MARINER_OS_NAME ]]; then
+            logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
+        fi
         logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 
@@ -4924,6 +4931,16 @@ downloadGPUDrivers() {
     fi
 }
 
+installNvidiaFabricManager() {
+    # Check the NVIDIA driver version installed and install nvidia-fabric-manager
+    NVIDIA_DRIVER_VERSION=$(cut -d - -f 2 <<< "$(rpm -qa cuda)")
+    for nvidia_package in nvidia-fabric-manager-${NVIDIA_DRIVER_VERSION} nvidia-fabric-manager-devel-${NVIDIA_DRIVER_VERSION}; do
+      if ! dnf_install 30 1 600 $nvidia_package; then
+        exit $ERR_APT_INSTALL_TIMEOUT
+      fi
+    done
+}
+
 installNvidiaContainerRuntime() {
     MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION="3.11.0"
     MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.11.0"
@@ -4933,6 +4950,28 @@ installNvidiaContainerRuntime() {
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
+}
+
+enableNvidiaPersistenceMode() {
+    PERSISTENCED_SERVICE_FILE_PATH="/etc/systemd/system/nvidia-persistenced.service"
+    touch ${PERSISTENCED_SERVICE_FILE_PATH}
+    cat << EOF > ${PERSISTENCED_SERVICE_FILE_PATH} 
+[Unit]
+Description=NVIDIA Persistence Daemon
+Wants=syslog.target
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/nvidia-persistenced --verbose
+ExecStopPost=/bin/rm -rf /var/run/nvidia-persistenced
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl enable nvidia-persistenced.service || exit 1
+    systemctl restart nvidia-persistenced.service || exit 1
 }
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
@@ -7252,7 +7291,6 @@ $global:ContainerdSdnPluginUrl = "{{GetParameter "windowsSdnPluginURL"}}"
 $global:DockerVersion = "{{GetParameter "windowsDockerVersion"}}"
 
 ## ContainerD Usage
-$global:ContainerRuntime = "{{GetParameter "containerRuntime"}}"
 $global:DefaultContainerdWindowsSandboxIsolation = "{{GetParameter "defaultContainerdWindowsSandboxIsolation"}}"
 $global:ContainerdWindowsRuntimeHandlers = "{{GetParameter "containerdWindowsRuntimeHandlers"}}"
 
@@ -7299,7 +7337,7 @@ $global:ExcludeMasterFromStandardLB = "{{GetVariable "excludeMasterFromStandardL
 # Windows defaults, not changed by aks-engine
 $global:CacheDir = "c:\akse-cache"
 $global:KubeDir = "c:\k"
-$global:HNSModule = [Io.path]::Combine("$global:KubeDir", "hns.psm1")
+$global:HNSModule = [Io.path]::Combine("$global:KubeDir", "hns.v2.psm1")
 
 $global:KubeDnsSearchPath = "svc.cluster.local"
 
@@ -7349,7 +7387,6 @@ $global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("{{GetVariable
 # Base64 representation of ZIP archive
 $zippedFiles = "{{ GetKubernetesWindowsAgentFunctions }}"
 
-$useContainerD = ($global:ContainerRuntime -eq "containerd")
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
 $fipsEnabled = [System.Convert]::ToBoolean("{{ FIPSEnabled }}")
 
@@ -7360,10 +7397,6 @@ $global:HNSRemediatorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetHnsRem
 $global:LogGeneratorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetLogGeneratorIntervalInMinutes}}");
 
 $global:EnableIncreaseDynamicPortRange = $false
-
-if ($useContainerD) {
-    $global:HNSModule = [Io.path]::Combine("$global:KubeDir", "hns.v2.psm1")
-}
 
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
@@ -7383,7 +7416,7 @@ try
         return
     }
    
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.27.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.29.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -7454,20 +7487,14 @@ try
         Get-KubeBinaries -KubeBinariesURL $global:WindowsKubeBinariesURL
     }
 
-    if ($useContainerD) {
-        Write-Log "Installing ContainerD"
-        $cniBinPath = $global:AzureCNIBinDir
-        $cniConfigPath = $global:AzureCNIConfDir
-        if ($global:NetworkPlugin -eq "kubenet") {
-            $cniBinPath = $global:CNIPath
-            $cniConfigPath = $global:CNIConfigPath
-        }
-        Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir -KubernetesVersion $global:KubeBinariesVersion
-    } else {
-        Write-Log "Install docker"
-        Install-Docker -DockerVersion $global:DockerVersion
-        Set-DockerLogFileOptions
+    Write-Log "Installing ContainerD"
+    $cniBinPath = $global:AzureCNIBinDir
+    $cniConfigPath = $global:AzureCNIConfDir
+    if ($global:NetworkPlugin -eq "kubenet") {
+        $cniBinPath = $global:CNIPath
+        $cniConfigPath = $global:CNIConfigPath
     }
+    Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir -KubernetesVersion $global:KubeBinariesVersion
 
     Retag-ImagesForAzureChinaCloud -TargetEnvironment $TargetEnvironment
 
@@ -7576,8 +7603,7 @@ try
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
 
     Install-KubernetesServices `+"`"+`
-        -KubeDir $global:KubeDir `+"`"+`
-        -ContainerRuntime $global:ContainerRuntime
+        -KubeDir $global:KubeDir
 
     Write-Log "Disable Internet Explorer compat mode and set homepage"
     Set-Explorer
@@ -7589,7 +7615,7 @@ try
     PREPROVISION_EXTENSION
 
     Write-Log "Update service failure actions"
-    Update-ServiceFailureActions -ContainerRuntime $global:ContainerRuntime
+    Update-ServiceFailureActions
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
     Register-NodeResetScriptTask
