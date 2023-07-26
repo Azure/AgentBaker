@@ -28,11 +28,11 @@ installDeps() {
 installKataDeps() {
     if [[ $OS_VERSION == "2.0" ]]; then
 
-      # debug!
+      # temp! pending merge of https://github.com/microsoft/CBL-Mariner/pull/5765
       wget "https://mitchzhu.blob.core.windows.net/public/initramfs-2.0-13.cm2.x86_64.rpm" -O initramfs-2.0-13.cm2.x86_64.rpm
 
       rpm -Uhv initramfs-2.0-13.cm2.x86_64.rpm
-      # !debug
+      # !temp
 
       for dnf_package in cargo opa parted qemu-img moby-runc python3-devel python3-pip hvloader kernel-mshv cloud-hypervisor kata-containers moby-containerd-cc; do
         if ! dnf_install 30 1 600 $dnf_package; then
@@ -40,7 +40,19 @@ installKataDeps() {
         fi
       done
 
-      echo "Install UVM build pipeline artifacts"
+      # temp! pending update to latest kernel-mshv in Mariner Core
+      wget "https://mitchzhu.blob.core.windows.net/public/kernel-mshv-5.15.118.mshv4-1000.g594942f4.lv2.x86_64.rpm" -O kernel-mshv-5.15.118.mshv4-1000.g594942f4.lv2.x86_64.rpm
+
+      rpm -Uhv kernel-mshv-5.15.118.mshv4-1000.g594942f4.lv2.x86_64.rpm
+      # !temp
+
+      echo "Copy UVM build pipeline artifacts"
+      wget "https://mitchzhu.blob.core.windows.net/public/igvm-measurement" -O igvm-measurement
+      wget "https://mitchzhu.blob.core.windows.net/public/igvm.bin" -O igvm.bin
+      wget "https://mitchzhu.blob.core.windows.net/public/kata-containers-initrd.img" -O kata-containers-initrd.img
+      wget "https://mitchzhu.blob.core.windows.net/public/cloud-hypervisor-igvm" -O cloud-hypervisor-igvm
+      wget "https://mitchzhu.blob.core.windows.net/public/kata-containers.img" -O kata-containers.img
+
       mkdir -p /opt/confidential-containers/share/kata-containers/
       mv igvm-debug.bin /opt/confidential-containers/share/kata-containers/igvm-debug.bin
       mv igvm-measurement /opt/confidential-containers/share/kata-containers/igvm-measurement
