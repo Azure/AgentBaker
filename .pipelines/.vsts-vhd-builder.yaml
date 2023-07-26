@@ -121,6 +121,7 @@ stages:
             -e ARCHITECTURE=${ARCHITECTURE} \
             -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
             -e SGX_INSTALL=${SGX_INSTALL} \
+            -e GIT_BRANCH=$(Build.SourceBranch) \
             ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
           displayName: Run VHD Tests
         - task: PublishPipelineArtifact@0
