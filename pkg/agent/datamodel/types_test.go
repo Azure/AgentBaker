@@ -2496,3 +2496,44 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 		})
 	}
 }
+
+func TestSecurityProfileGetProxyAddress(t *testing.T) {
+	testProxyAddress := "https://test-private-egress-proxy"
+	cases := []struct {
+		name            string
+		securityProfile *SecurityProfile
+		expected        string
+	}{
+		{
+			name:            "SecurityProfile nil",
+			securityProfile: nil,
+			expected:        "",
+		},
+		{
+			name:            "PrivateEgress nil",
+			securityProfile: &SecurityProfile{},
+			expected:        "",
+		},
+		{
+			name:            "PrivateEgress disabled",
+			securityProfile: &SecurityProfile{PrivateEgress: &PrivateEgress{Enabled: false}},
+			expected:        "",
+		},
+		{
+			name:            "PrivateEgress enabled",
+			securityProfile: &SecurityProfile{PrivateEgress: &PrivateEgress{Enabled: true, ProxyAddress: testProxyAddress}},
+			expected:        testProxyAddress,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			actual := c.securityProfile.GetProxyAddress()
+			if c.expected != actual {
+				t.Fatalf("test case: %s, expected: %s. Got: %s.", c.name, c.expected, actual)
+			}
+		})
+	}
+}
