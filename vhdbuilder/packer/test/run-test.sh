@@ -110,6 +110,8 @@ if [ "$OS_TYPE" == "Linux" ]; then
     ENABLE_FIPS="false"
   fi
 
+  # If the pipeline that called this didn't set a branch, default to master.
+  GIT_BRANCH="${GIT_BRANCH:-refs/heads/master}"
   SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
   for i in $(seq 1 3); do
     ret=$(az vm run-command invoke --command-id RunShellScript \
