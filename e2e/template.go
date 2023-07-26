@@ -28,7 +28,7 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 				ProvisioningState: "",
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
 					OrchestratorType:    "Kubernetes",
-					OrchestratorVersion: "1.24.0",
+					OrchestratorVersion: "1.26.0",
 					KubernetesConfig: &datamodel.KubernetesConfig{
 						KubernetesImageBase:               "",
 						MCRKubernetesImageBase:            "",
@@ -45,8 +45,8 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 						UserAssignedID:                    "",
 						UserAssignedClientID:              "",
 						CustomHyperkubeImage:              "",
-						CustomKubeProxyImage:              "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.0.1",
-						CustomKubeBinaryURL:               "https://acs-mirror.azureedge.net/kubernetes/v1.24.0/binaries/kubernetes-node-linux-amd64.tar.gz",
+						CustomKubeProxyImage:              "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.0.1",
+						CustomKubeBinaryURL:               "https://acs-mirror.azureedge.net/kubernetes/v1.26.0/binaries/kubernetes-node-linux-amd64.tar.gz",
 						MobyVersion:                       "",
 						ContainerdVersion:                 "",
 						WindowsNodeBinariesURL:            "",
