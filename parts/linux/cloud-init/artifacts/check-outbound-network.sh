@@ -38,32 +38,41 @@ logs_to_events() {
 }
 
 # Check access to management.azure.com endpoint
-client_id=$(cat /etc/kubernetes/azure.json | jq -r '.userAssignedIdentityID')
-if [ -z $client_id ]; then
-    echo "Are you running inside Kubernetes?"
-fi
-subscription_id=$(cat /etc/kubernetes/azure.json | jq -r '.subscriptionId')
-location=$(cat /etc/kubernetes/azure.json | jq -r '.location')
-node_resource_group=$(cat /etc/kubernetes/azure.json | jq -r '.resourceGroup')
-resource_group=$(echo $node_resource_group | cut -d '_' -f 2)
-cluster_name=$(echo $node_resource_group | cut -d '_' -f 3)
-
-resource="https://management.azure.com"
-metadata_endpoint="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&client_id=${client_id}&resource=${resource}/"
-tmp_file="/tmp/managedCluster.json"
-result=$(curl -s -o $tmp_file -w "%{http_code}" -H Metadata:true $metadata_endpoint)
-if [ $result -ne 200 ]; then
-    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to send metadata endpoint request with returned status code $result'" 
+azure_config=$(cat /etc/kubernetes/azure.json)
+if [ -z $azure_config ]; then
+    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to read azure.json file. Are you running inside Kubernetes?'"
+    exit 1
 fi
 
-access_token=$(cat $tmp_file | jq -r .access_token)
-clusterEndpoint="${resource}/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.ContainerService/managedClusters/${cluster_name}?api-version=2023-04-01"
-res=$(curl -X GET -H "Authorization: Bearer $access_token" -H "Content-Type:application/json" -s -o $tmp_file -w "%{http_code}" $clusterEndpoint)
-if [ $res -eq 200 ]; then
-    logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully pinged $resource with returned status code $res'"
-    fqdn=$(cat $tmp_file | jq -r .properties.fqdn)
+aad_client_id=$(echo $azure_config | jq -r '.aadClientId')
+aad_client_secret=$(echo $azure_config | jq -r '.aadClientSecret')
+if [ $aad_client_id == "msi" ] && [ $aad_client_secret == "msi" ]; then
+    client_id=$(echo $azure_config | jq -r '.userAssignedIdentityID')
+    subscription_id=$(echo $azure_config | jq -r '.subscriptionId')
+    location=$(echo $azure_config | jq -r '.location')
+    node_resource_group=$(echo $azure_config | jq -r '.resourceGroup')
+    resource_group=$(echo $node_resource_group | cut -d '_' -f 2)
+    cluster_name=$(echo $node_resource_group | cut -d '_' -f 3)
+
+    resource="https://management.azure.com"
+    metadata_endpoint="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&client_id=${client_id}&resource=${resource}/"
+    tmp_file="/tmp/managedCluster.json"
+    result=$(curl -s -o $tmp_file -w "%{http_code}" -H Metadata:true $metadata_endpoint)
+    if [ $result -ne 200 ]; then
+        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to send metadata endpoint request with returned status code $result'" 
+    fi
+
+    access_token=$(cat $tmp_file | jq -r .access_token)
+    clusterEndpoint="${resource}/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.ContainerService/managedClusters/${cluster_name}?api-version=2023-04-01"
+    res=$(curl -X GET -H "Authorization: Bearer $access_token" -H "Content-Type:application/json" -s -o $tmp_file -w "%{http_code}" $clusterEndpoint)
+    if [ $res -eq 200 ]; then
+        logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully pinged $resource with returned status code $res'"
+        fqdn=$(cat $tmp_file | jq -r .properties.fqdn)
+    else 
+        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to ping $resource with returned status code $res'" 
+    fi
 else 
-    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to ping $resource with returned status code $res'" 
+    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Unable to check access to management.azure.com endpoint'"
 fi
 
 # Set the URLs to ping
