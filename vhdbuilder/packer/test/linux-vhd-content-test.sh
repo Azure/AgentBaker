@@ -476,13 +476,35 @@ testNetworkSettings() {
   echo "$test:End"
 }
 
+# Ensures that the content /etc/profile.d/umask.sh is correct, per code in
+# <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
+testUmaskSettings() {
+  local test="testUmaskSettings"
+  local settings_file=/etc/profile.d/umask.sh
+  local expected_settings_file_content='umask 027'
+  echo "$test:Start"
+
+  # If the settings file exists, it must just be a single line that sets umask properly.
+  if [[ -f "${settings_file}" && -s "${settings_file}" ]]; then
+    echo "${test}: Checking that ${settings_file} contains '${expected_settings_file_content}'"
+
+    if ! diff "${settings_file}" <(echo "${expected_settings_file_content}") ; then
+      err $test "The content of the file '${settings_file}' must exactly match '${expected_settings_file_content}'. See above for differences"
+    fi
+  else
+    echo "${test}: Settings file '${settings_file}' does not exist or is empty, so not testing contents."
+  fi
+
+  echo "$test:End"
+}
+
 # Tests that the modes on the cron-related files and directories in /etc are set correctly, per the
 # function assignFilePermissions in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
 testCronPermissions() {
   local test="testCronPermissions"
   echo "$test:Start"
 
-  declare -A required_pathss=(
+  declare -A required_paths=(
     ['/etc/cron.allow']=640
     ['/etc/cron.hourly']=600
     ['/etc/cron.daily']=600
@@ -500,7 +522,7 @@ testCronPermissions() {
   )
 
   echo "$test: Checking required paths"
-  for path in "${!required_path[@]}"; do
+  for path in "${!required_paths[@]}"; do
     checkPathPermissions $test $path ${required_paths[$path]} 1
   done
 
@@ -832,3 +854,4 @@ testCoreDumpSettings
 testNfsServerService
 testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
+testUmaskSettings
