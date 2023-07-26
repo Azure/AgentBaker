@@ -38,12 +38,12 @@ logs_to_events() {
 }
 
 # Check access to management.azure.com endpoint
-azure_config=$(cat /etc/kubernetes/azure.json)
-if [ -z $azure_config ]; then
-    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to read azure.json file. Are you running inside Kubernetes?'"
+if ! [ -e "/etc/kubernetes/azure.json" ]; then
+    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to find azure.json file. Are you running inside Kubernetes?'"
     exit 1
 fi
 
+azure_config=$(cat /etc/kubernetes/azure.json)
 aad_client_id=$(echo $azure_config | jq -r '.aadClientId')
 aad_client_secret=$(echo $azure_config | jq -r '.aadClientSecret')
 if [ $aad_client_id == "msi" ] && [ $aad_client_secret == "msi" ]; then
