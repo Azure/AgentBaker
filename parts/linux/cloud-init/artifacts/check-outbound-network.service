@@ -3,4 +3,4 @@ Description=Check outbound connectivity from node to certain endpoints
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash /opt/scripts/check-outbound-network.sh
+ExecStart=/bin/bash /usr/local/bin/check-outbound-network.sh

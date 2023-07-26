@@ -110,7 +110,7 @@ copyPackerFiles() {
   CHECK_OUTBOUND_NETWORK_SCRIPT_SRC=/home/packer/check-outbound-network.sh
   CHECK_OUTBOUND_NETWORK_SCRIPT_DEST=/usr/local/bin/check-outbound-network.sh
   CHECK_OUTBOUND_NETWORK_SERVICE_SRC=/home/packer/check-outbound-network.service
-  CHECK_OUTBOUND_NETWORK_SERVICE_DEST=/usr/local/bin/check-outbound-network.service
+  CHECK_OUTBOUND_NETWORK_SERVICE_DEST=/etc/systemd/system/check-outbound-network.service
 
   CSE_REDACT_SRC=/home/packer/cse_redact_cloud_config.py
   CSE_REDACT_DEST=/opt/azure/containers/provision_redact_cloud_config.py
