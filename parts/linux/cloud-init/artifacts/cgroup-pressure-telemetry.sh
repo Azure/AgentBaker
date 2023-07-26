@@ -3,6 +3,8 @@
 set -o nounset
 set -o pipefail
 
+find /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/ -mtime +5 -type f -delete
+
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 EVENTS_FILE_NAME=$(date +%s%3N)
 STARTTIME=$(date)
@@ -29,11 +31,7 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     --arg SOME_AVG60 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
     --arg SOME_AVG300 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
     --arg SOME_TOTAL "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
-    --arg FULL_AVG10 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
-    --arg FULL_AVG60 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
-    --arg FULL_AVG300 "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
-    --arg FULL_TOTAL "$(echo $cgroup_cpu_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
-    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL } | tostring'
     )
 
     cgroup_memory_pressures=$( jq -n \
@@ -81,11 +79,7 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     --arg SOME_AVG60 "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
     --arg SOME_AVG300 "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
     --arg SOME_TOTAL "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
-    --arg FULL_AVG10 "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
-    --arg FULL_AVG60 "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
-    --arg FULL_AVG300 "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
-    --arg FULL_TOTAL "$(echo $system_slice_cpu_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
-    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL } | tostring'
     )
 
     system_slice_memory_pressures=$( jq -n \
@@ -133,11 +127,7 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     --arg SOME_AVG60 "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
     --arg SOME_AVG300 "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
     --arg SOME_TOTAL "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
-    --arg FULL_AVG10 "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
-    --arg FULL_AVG60 "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
-    --arg FULL_AVG300 "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
-    --arg FULL_TOTAL "$(echo $azure_slice_cpu_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
-    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL } | tostring'
     )
 
     azure_slice_memory_pressures=$( jq -n \
@@ -185,11 +175,7 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     --arg SOME_AVG60 "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
     --arg SOME_AVG300 "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
     --arg SOME_TOTAL "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
-    --arg FULL_AVG10 "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
-    --arg FULL_AVG60 "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
-    --arg FULL_AVG300 "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
-    --arg FULL_TOTAL "$(echo $kubepods_slice_cpu_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
-    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL } | tostring'
     )
 
     kubepods_slice_memory_pressures=$( jq -n \
@@ -237,11 +223,7 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     --arg SOME_AVG60 "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
     --arg SOME_AVG300 "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
     --arg SOME_TOTAL "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
-    --arg FULL_AVG10 "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
-    --arg FULL_AVG60 "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
-    --arg FULL_AVG300 "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
-    --arg FULL_TOTAL "$(echo $kubelet_service_cpu_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
-    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL } | tostring'
     )
 
     kubelet_service_memory_pressures=$( jq -n \
@@ -289,11 +271,7 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     --arg SOME_AVG60 "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $3}' | awk '{print $1}')" \
     --arg SOME_AVG300 "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $4}' | awk '{print $1}')" \
     --arg SOME_TOTAL "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $5}' | awk '{print $1}')" \
-    --arg FULL_AVG10 "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $6}' | awk '{print $1}')" \
-    --arg FULL_AVG60 "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $7}' | awk '{print $1}')" \
-    --arg FULL_AVG300 "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $8}' | awk '{print $1}')" \
-    --arg FULL_TOTAL "$(echo $containerd_service_cpu_pressure | awk -F "=" '{print $9}' | awk '{print $1}')" \
-    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL, full_avg10: $FULL_AVG10, full_avg60: $FULL_AVG60, full_avg300: $FULL_AVG300, full_total: $FULL_TOTAL } | tostring'
+    '{ some_avg10: $SOME_AVG10, some_avg60: $SOME_AVG60, some_avg300: $SOME_AVG300, some_total: $SOME_TOTAL } | tostring'
     )
 
     containerd_service_memory_pressures=$( jq -n \
@@ -370,7 +348,7 @@ EVENT_JSON=$( jq -n \
     --arg Version       "1.23" \
     --arg TaskName      "${TASK_NAME}" \
     --arg EventLevel    "${eventlevel}" \
-    --argjson Message       "${message_string}" \
+    --arg Message       "${message_string}" \
     --arg EventPid      "0" \
     --arg EventTid      "0" \
     '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
