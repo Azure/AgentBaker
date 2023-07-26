@@ -140,8 +140,8 @@ enableMarinerKata() {
     export my_blkid=$(blkid)
     echo $my_blkid
 
-    # Add DOM0 boot entry above default
-    sudo sed -i -e 's@menuentry "CBL-Mariner"@menuentry "Dom0_legacy" {\n    search --no-floppy --set=root --file /EFI/Microsoft/Boot/bootmgfw.efi\n        chainloader /EFI/Microsoft/Boot/bootmgfw.efi\n}\n\nmenuentry "CBL-Mariner"@'  /boot/grub2/grub.cfg
+    sudo sed -i -e 's@load_env -f \$bootprefix\/mariner.cfg@load_env -f \$bootprefix\/mariner-mshv.cfg\nload_env -f $bootprefix\/mariner.cfg\n@'  /boot/grub2/grub.cfg
+    sudo sed -i -e 's@menuentry "CBL-Mariner"@menuentry "Dom0" {\n    search --no-floppy --set=root --file /HvLoader.efi\n    chainloader /HvLoader.efi lxhvloader.dll MSHV_ROOT=\\\\Windows MSHV_ENABLE=TRUE MSHV_SCHEDULER_TYPE=ROOT MSHV_X2APIC_POLICY=ENABLE MSHV_LOAD_OPTION=INCLUDETRACEMETADATA=1\n    boot\n    search --no-floppy --label rootfs --set=root\n    linux /boot/$mariner_linux_mshv $systemd_cmdline root=$rootdevice\n    if [ -f /boot/$mariner_initrd_mshv ]; then\n    initrd /boot/$mariner_initrd_mshv\n    fi\n}\n\nmenuentry "CBL-Mariner"@'  /boot/grub2/grub.cfg
 
     SERVICE_FILEPATH="/etc/systemd/system/set-kataconfig.service"
     touch ${SERVICE_FILEPATH}
