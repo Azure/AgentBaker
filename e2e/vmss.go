@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
@@ -189,7 +190,7 @@ func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []b
 
 	// Private key in PEM format
 	privatePEMBytes = pem.EncodeToMemory(&privBlock)
-
+	fmt.Println("private key in pem:", string(privatePEMBytes))
 	return
 }
 
@@ -198,6 +199,10 @@ func getVmssName(r *mrand.Rand) string {
 }
 
 func getBaseVMSSModel(name, location, mcResourceGroupName, subnetID, sshPublicKey, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
+	encodedCseCmd := base64.StdEncoding.EncodeToString([]byte(cseCmd))
+	fmt.Println("csecmd is : ", cseCmd)
+	fmt.Println("encoded csecmd is : ", encodedCseCmd)
+	fmt.Println("len of encoded csecmd is : ", len(encodedCseCmd))
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(location),
 		SKU: &armcompute.SKU{
@@ -210,27 +215,27 @@ func getBaseVMSSModel(name, location, mcResourceGroupName, subnetID, sshPublicKe
 				Mode: to.Ptr(armcompute.UpgradeModeManual),
 			},
 			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
-				ExtensionProfile: &armcompute.VirtualMachineScaleSetExtensionProfile{
-					Extensions: []*armcompute.VirtualMachineScaleSetExtension{
-						{
-							Name: to.Ptr("vmssCSE"),
-							Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
-								Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
-								Type:                    to.Ptr("CustomScript"),
-								TypeHandlerVersion:      to.Ptr("2.0"),
-								AutoUpgradeMinorVersion: to.Ptr(true),
-								Settings:                map[string]interface{}{},
-								ProtectedSettings: map[string]interface{}{
-									"commandToExecute": cseCmd,
-								},
-							},
-						},
-					},
-				},
+				// ExtensionProfile: &armcompute.VirtualMachineScaleSetExtensionProfile{
+				// 	Extensions: []*armcompute.VirtualMachineScaleSetExtension{
+				// 		{
+				// 			Name: to.Ptr("vmssCSE"),
+				// 			Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
+				// 				Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
+				// 				Type:                    to.Ptr("CustomScript"),
+				// 				TypeHandlerVersion:      to.Ptr("2.0"),
+				// 				AutoUpgradeMinorVersion: to.Ptr(true),
+				// 				Settings:                map[string]interface{}{},
+				// 				ProtectedSettings: map[string]interface{}{
+				// 					"commandToExecute": cseCmd,
+				// 				},
+				// 			},
+				// 		},
+				// 	},
+				// },
 				OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{
 					ComputerNamePrefix: to.Ptr(name),
 					AdminUsername:      to.Ptr("azureuser"),
-					CustomData:         &customData,
+					//CustomData:         &customData,
 					LinuxConfiguration: &armcompute.LinuxConfiguration{
 						SSH: &armcompute.SSHConfiguration{
 							PublicKeys: []*armcompute.SSHPublicKey{
@@ -242,6 +247,7 @@ func getBaseVMSSModel(name, location, mcResourceGroupName, subnetID, sshPublicKe
 						},
 					},
 				},
+				UserData: to.Ptr(encodedCseCmd),
 				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
 					ImageReference: &armcompute.ImageReference{
 						ID: to.Ptr(scenario.DefaultImageVersionIDs["ubuntu1804"]),
