@@ -1023,7 +1023,14 @@ oom_score = 0
 				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh2=8192"))
 				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh3=16384"))
 				Expect(sysctlContent).To(ContainSubstring("net.ipv4.ip_local_reserved_ports=65330"))
-			}))
+			}),
+		Entry("AKSUbuntu2204 with SecurityProfile", "AKSUbuntu2204+SecurityProfile", "1.26.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					// TODO add PrivateEgress
+				}
+			}, nil),
+	)
 })
 
 var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
@@ -1317,7 +1324,14 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		Entry("AKSWindows2019 with k8s version 1.19 + FIPS", "AKSWindows2019+K8S119+FIPS", "1.19.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.FIPSEnabled = true
-			}))
+			}),
+		Entry("AKSWindows2019 with SecurityProfile", "AKSWindows2019+SecurityProfile", "1.26.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					// TODO add PrivateEgress
+				}
+			}),
+	)
 
 })
 
