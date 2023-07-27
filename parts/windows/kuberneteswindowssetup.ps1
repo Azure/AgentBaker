@@ -134,6 +134,7 @@ $global:UseInstanceMetadata = "{{GetVariable "useInstanceMetadata"}}"
 $global:LoadBalancerSku = "{{GetVariable "loadBalancerSku"}}"
 $global:ExcludeMasterFromStandardLB = "{{GetVariable "excludeMasterFromStandardLB"}}"
 
+$global:PrivateEgressProxyAddress = "{{PrivateEgressProxyAddress}}"
 
 # Windows defaults, not changed by aks-engine
 $global:CacheDir = "c:\akse-cache"
@@ -216,7 +217,11 @@ try
         Write-Log "The script has been executed before, will exit without doing anything."
         return
     }
-   
+
+    # This involes using proxy, log the config before fetching packages
+    Write-Log "PrivateEgressProxyAddress is '$global:PrivateEgressProxyAddress'"
+    # TODO update to use proxy
+
     $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.29.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"

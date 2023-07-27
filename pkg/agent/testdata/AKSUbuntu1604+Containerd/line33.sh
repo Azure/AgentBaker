@@ -56,6 +56,10 @@ if [[ "${DISABLE_SSH}" == "true" ]]; then
     disableSSH || exit $ERR_DISABLE_SSH
 fi
 
+# This involes using proxy, log the config before fetching packages
+echo "PRIVATE_EGRESS_PROXY_ADDRESS: ${PRIVATE_EGRESS_PROXY_ADDRESS}"
+# TODO update to use proxy
+
 if [[ "${SHOULD_CONFIGURE_HTTP_PROXY}" == "true" ]]; then
     if [[ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" == "true" ]]; then
         configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
