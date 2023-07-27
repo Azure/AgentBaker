@@ -76,7 +76,7 @@ else
 fi
 
 # Set the URLs to ping
-urlLists=("https://mcr.microsoft.com" "https://login.microsoftonline.com" "https://packages.microsoft.com")
+urlLists=("mcr.microsoft.com" "login.microsoftonline.com" "packages.microsoft.com" "acs-mirror.azureedge.net")
 
 # Set the number of times to retry before logging an error
 retries=3
@@ -86,11 +86,22 @@ delay=5
 
 for url in ${urlLists[@]};
 do
+    # Check DNS 
+    nslookup $url
+    if [ $? -ne 0 ]; then
+        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to resolve $url'"
+        continue
+    fi
+
     i=0
     while true;
     do
         # Ping the URLs and capture the response code
-        response=$(curl -s -o /dev/null -w "%{http_code}" $url -L)
+        fullUrl="https://${url}"
+        if [ $url == "acs-mirror.azureedge.net" ]; then
+            fullUrl="https://${url}/azure-cni/v1.4.43/binaries/azure-vnet-cni-linux-amd64-v1.4.43.tgz"
+        fi
+        response=$(curl -s -o /dev/null -w "%{http_code}" $fullUrl -L)
 
         if [ $response -eq 200 ]; then
             logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully pinged $url with returned status code $response'"
