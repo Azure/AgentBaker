@@ -2,6 +2,7 @@
 Description=Curl userdata from IMDS and run csecmd
 DefaultDependencies=no
 After=systemd-networkd-wait-online.service
+Before=cloud-init.service
 
 [Service]
 Type=oneshot
