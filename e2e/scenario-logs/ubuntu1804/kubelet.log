@@ -1,0 +1,393 @@
+-- Logs begin at Thu 2023-07-27 08:28:37 UTC, end at Thu 2023-07-27 08:29:38 UTC. --
+Jul 27 08:29:14 abtestjxwc000000 systemd[1]: Starting Kubelet...
+Jul 27 08:29:14 abtestjxwc000000 ebtables[3270]: Bridge table: nat
+Jul 27 08:29:14 abtestjxwc000000 ebtables[3270]: Bridge chain: PREROUTING, entries: 0, policy: ACCEPT
+Jul 27 08:29:14 abtestjxwc000000 ebtables[3270]: Bridge chain: OUTPUT, entries: 0, policy: ACCEPT
+Jul 27 08:29:14 abtestjxwc000000 ebtables[3270]: Bridge chain: POSTROUTING, entries: 0, policy: ACCEPT
+Jul 27 08:29:14 abtestjxwc000000 iptables[3276]: Chain PREROUTING (policy ACCEPT)
+Jul 27 08:29:14 abtestjxwc000000 iptables[3276]: target     prot opt source               destination
+Jul 27 08:29:14 abtestjxwc000000 iptables[3276]: Chain INPUT (policy ACCEPT)
+Jul 27 08:29:14 abtestjxwc000000 iptables[3276]: target     prot opt source               destination
+Jul 27 08:29:14 abtestjxwc000000 iptables[3276]: Chain OUTPUT (policy ACCEPT)
+Jul 27 08:29:14 abtestjxwc000000 iptables[3276]: target     prot opt source               destination
+Jul 27 08:29:14 abtestjxwc000000 iptables[3276]: Chain POSTROUTING (policy ACCEPT)
+Jul 27 08:29:14 abtestjxwc000000 iptables[3276]: target     prot opt source               destination
+Jul 27 08:29:14 abtestjxwc000000 systemd[1]: Started Kubelet.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --enable-server has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --volume-plugin-dir has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --runtime-request-timeout has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --container-runtime has been deprecated, will be removed in 1.27 as the only valid value is 'remote'
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --address has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --anonymous-auth has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --authentication-token-webhook has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --authorization-mode has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --cgroups-per-qos has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --client-ca-file has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --cloud-config has been deprecated, will be removed in 1.24 or later, in favor of removing cloud provider code from Kubelet.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --cloud-provider has been deprecated, will be removed in 1.24 or later, in favor of removing cloud provider code from Kubelet.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --cluster-dns has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --cluster-domain has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --enforce-node-allocatable has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --event-qps has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --eviction-hard has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --feature-gates has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --image-gc-high-threshold has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --image-gc-low-threshold has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --keep-terminated-pod-volumes has been deprecated, will be removed in a future version
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --kube-reserved has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --max-pods has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --node-status-update-frequency has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --pod-infra-container-image has been deprecated, will be removed in 1.27. Image garbage collector will get sandbox image information from CRI.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --pod-manifest-path has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --pod-max-pids has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --protect-kernel-defaults has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --read-only-port has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --resolv-conf has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --rotate-certificates has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --streaming-connection-idle-timeout has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --tls-cert-file has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --tls-cipher-suites has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: Flag --tls-private-key-file has been deprecated, This parameter should be set via the config file specified by the Kubelet's --config flag. See https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/ for more information.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.449127    3282 server.go:193] "--pod-infra-container-image will not be pruned by the image garbage collector in kubelet and should also be set in the remote runtime"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.449475    3282 flags.go:64] FLAG: --add-dir-header="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.449777    3282 flags.go:64] FLAG: --address="0.0.0.0"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.449786    3282 flags.go:64] FLAG: --allowed-unsafe-sysctls="[]"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.449865    3282 flags.go:64] FLAG: --alsologtostderr="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.450011    3282 flags.go:64] FLAG: --anonymous-auth="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.450412    3282 flags.go:64] FLAG: --application-metrics-count-limit="100"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.450522    3282 flags.go:64] FLAG: --authentication-token-webhook="true"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.450530    3282 flags.go:64] FLAG: --authentication-token-webhook-cache-ttl="2m0s"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.450752    3282 flags.go:64] FLAG: --authorization-mode="Webhook"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.450901    3282 flags.go:64] FLAG: --authorization-webhook-cache-authorized-ttl="5m0s"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.450981    3282 flags.go:64] FLAG: --authorization-webhook-cache-unauthorized-ttl="30s"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451128    3282 flags.go:64] FLAG: --azure-container-registry-config="/etc/kubernetes/azure.json"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451203    3282 flags.go:64] FLAG: --boot-id-file="/proc/sys/kernel/random/boot_id"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451213    3282 flags.go:64] FLAG: --bootstrap-kubeconfig="/var/lib/kubelet/bootstrap-kubeconfig"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451218    3282 flags.go:64] FLAG: --cert-dir="/var/lib/kubelet/pki"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451223    3282 flags.go:64] FLAG: --cgroup-driver="cgroupfs"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451228    3282 flags.go:64] FLAG: --cgroup-root=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451232    3282 flags.go:64] FLAG: --cgroups-per-qos="true"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451237    3282 flags.go:64] FLAG: --client-ca-file="/etc/kubernetes/certs/ca.crt"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451242    3282 flags.go:64] FLAG: --cloud-config="/etc/kubernetes/azure.json"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451247    3282 flags.go:64] FLAG: --cloud-provider="azure"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451251    3282 flags.go:64] FLAG: --cluster-dns="[10.0.0.10]"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451260    3282 flags.go:64] FLAG: --cluster-domain="cluster.local"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451265    3282 flags.go:64] FLAG: --config=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451271    3282 flags.go:64] FLAG: --container-hints="/etc/cadvisor/container_hints.json"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451412    3282 flags.go:64] FLAG: --container-log-max-files="5"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451620    3282 flags.go:64] FLAG: --container-log-max-size="10Mi"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451694    3282 flags.go:64] FLAG: --container-runtime="remote"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451768    3282 flags.go:64] FLAG: --container-runtime-endpoint="unix:///run/containerd/containerd.sock"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451847    3282 flags.go:64] FLAG: --containerd="/run/containerd/containerd.sock"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.451971    3282 flags.go:64] FLAG: --containerd-namespace="k8s.io"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452073    3282 flags.go:64] FLAG: --contention-profiling="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452091    3282 flags.go:64] FLAG: --cpu-cfs-quota="true"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452097    3282 flags.go:64] FLAG: --cpu-cfs-quota-period="100ms"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452102    3282 flags.go:64] FLAG: --cpu-manager-policy="none"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452107    3282 flags.go:64] FLAG: --cpu-manager-policy-options=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452114    3282 flags.go:64] FLAG: --cpu-manager-reconcile-period="10s"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452119    3282 flags.go:64] FLAG: --enable-controller-attach-detach="true"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452239    3282 flags.go:64] FLAG: --enable-debugging-handlers="true"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452378    3282 flags.go:64] FLAG: --enable-load-reader="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452429    3282 flags.go:64] FLAG: --enable-server="true"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452481    3282 flags.go:64] FLAG: --enforce-node-allocatable="[pods]"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452568    3282 flags.go:64] FLAG: --event-burst="10"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452574    3282 flags.go:64] FLAG: --event-qps="0"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452579    3282 flags.go:64] FLAG: --event-storage-age-limit="default=0"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452584    3282 flags.go:64] FLAG: --event-storage-event-limit="default=0"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452589    3282 flags.go:64] FLAG: --eviction-hard="memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452685    3282 flags.go:64] FLAG: --eviction-max-pod-grace-period="0"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452732    3282 flags.go:64] FLAG: --eviction-minimum-reclaim=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452778    3282 flags.go:64] FLAG: --eviction-pressure-transition-period="5m0s"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452825    3282 flags.go:64] FLAG: --eviction-soft=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452830    3282 flags.go:64] FLAG: --eviction-soft-grace-period=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452883    3282 flags.go:64] FLAG: --exit-on-lock-contention="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452928    3282 flags.go:64] FLAG: --experimental-allocatable-ignore-eviction="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452973    3282 flags.go:64] FLAG: --experimental-kernel-memcg-notification="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.452979    3282 flags.go:64] FLAG: --experimental-mounter-path=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453029    3282 flags.go:64] FLAG: --fail-swap-on="true"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453074    3282 flags.go:64] FLAG: --feature-gates="DisableAcceleratorUsageMetrics=false,RotateKubeletServerCertificate=true"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453212    3282 flags.go:64] FLAG: --file-check-frequency="20s"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453337    3282 flags.go:64] FLAG: --global-housekeeping-interval="1m0s"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453347    3282 flags.go:64] FLAG: --hairpin-mode="promiscuous-bridge"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453432    3282 flags.go:64] FLAG: --healthz-bind-address="127.0.0.1"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453441    3282 flags.go:64] FLAG: --healthz-port="10248"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453446    3282 flags.go:64] FLAG: --help="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453492    3282 flags.go:64] FLAG: --hostname-override=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453536    3282 flags.go:64] FLAG: --housekeeping-interval="10s"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453542    3282 flags.go:64] FLAG: --http-check-frequency="20s"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453547    3282 flags.go:64] FLAG: --image-credential-provider-bin-dir=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453636    3282 flags.go:64] FLAG: --image-credential-provider-config=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453643    3282 flags.go:64] FLAG: --image-gc-high-threshold="85"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453689    3282 flags.go:64] FLAG: --image-gc-low-threshold="80"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453743    3282 flags.go:64] FLAG: --image-service-endpoint=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453748    3282 flags.go:64] FLAG: --iptables-drop-bit="15"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453794    3282 flags.go:64] FLAG: --iptables-masquerade-bit="14"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453844    3282 flags.go:64] FLAG: --keep-terminated-pod-volumes="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453850    3282 flags.go:64] FLAG: --kernel-memcg-notification="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453856    3282 flags.go:64] FLAG: --kube-api-burst="10"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453861    3282 flags.go:64] FLAG: --kube-api-content-type="application/vnd.kubernetes.protobuf"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453866    3282 flags.go:64] FLAG: --kube-api-qps="5"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453870    3282 flags.go:64] FLAG: --kube-reserved="cpu=100m,memory=1638Mi"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453878    3282 flags.go:64] FLAG: --kube-reserved-cgroup=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453883    3282 flags.go:64] FLAG: --kubeconfig="/var/lib/kubelet/kubeconfig"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.453888    3282 flags.go:64] FLAG: --kubelet-cgroups=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.454913    3282 flags.go:64] FLAG: --lock-file=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.454918    3282 flags.go:64] FLAG: --log-backtrace-at=":0"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.454925    3282 flags.go:64] FLAG: --log-cadvisor-usage="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.454930    3282 flags.go:64] FLAG: --log-dir=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.454935    3282 flags.go:64] FLAG: --log-file=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.454939    3282 flags.go:64] FLAG: --log-file-max-size="1800"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.454944    3282 flags.go:64] FLAG: --log-flush-frequency="5s"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.454950    3282 flags.go:64] FLAG: --log-json-info-buffer-size="0"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.454958    3282 flags.go:64] FLAG: --log-json-split-stream="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.454963    3282 flags.go:64] FLAG: --logging-format="text"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.454968    3282 flags.go:64] FLAG: --logtostderr="true"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.454973    3282 flags.go:64] FLAG: --machine-id-file="/etc/machine-id,/var/lib/dbus/machine-id"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.454978    3282 flags.go:64] FLAG: --make-iptables-util-chains="true"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.454983    3282 flags.go:64] FLAG: --manifest-url=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.454987    3282 flags.go:64] FLAG: --manifest-url-header=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.454995    3282 flags.go:64] FLAG: --master-service-namespace="default"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455006    3282 flags.go:64] FLAG: --max-open-files="1000000"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455013    3282 flags.go:64] FLAG: --max-pods="110"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455020    3282 flags.go:64] FLAG: --maximum-dead-containers="-1"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455025    3282 flags.go:64] FLAG: --maximum-dead-containers-per-container="1"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455030    3282 flags.go:64] FLAG: --memory-manager-policy="None"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455140    3282 flags.go:64] FLAG: --minimum-container-ttl-duration="0s"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455194    3282 flags.go:64] FLAG: --minimum-image-ttl-duration="2m0s"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455244    3282 flags.go:64] FLAG: --node-ip=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455288    3282 flags.go:64] FLAG: --node-labels="agentpool=nodepool2,kubernetes.azure.com/agentpool=nodepool2,kubernetes.azure.com/mode=system,kubernetes.azure.com/node-image-version=AKSUbuntu-1804gen2containerd-2022.01.19"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455302    3282 flags.go:64] FLAG: --node-status-max-images="50"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455307    3282 flags.go:64] FLAG: --node-status-update-frequency="10s"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455312    3282 flags.go:64] FLAG: --one-output="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455317    3282 flags.go:64] FLAG: --oom-score-adj="-999"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455322    3282 flags.go:64] FLAG: --pod-cidr=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455327    3282 flags.go:64] FLAG: --pod-infra-container-image="mcr.microsoft.com/oss/kubernetes/pause:3.6"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455332    3282 flags.go:64] FLAG: --pod-manifest-path="/etc/kubernetes/manifests"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455337    3282 flags.go:64] FLAG: --pod-max-pids="-1"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455342    3282 flags.go:64] FLAG: --pods-per-core="0"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455347    3282 flags.go:64] FLAG: --port="10250"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455412    3282 flags.go:64] FLAG: --protect-kernel-defaults="true"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455417    3282 flags.go:64] FLAG: --provider-id=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455421    3282 flags.go:64] FLAG: --qos-reserved=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455509    3282 flags.go:64] FLAG: --read-only-port="0"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455515    3282 flags.go:64] FLAG: --register-node="true"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455520    3282 flags.go:64] FLAG: --register-schedulable="true"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455569    3282 flags.go:64] FLAG: --register-with-taints=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455658    3282 flags.go:64] FLAG: --registry-burst="10"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455703    3282 flags.go:64] FLAG: --registry-qps="5"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455787    3282 flags.go:64] FLAG: --reserved-cpus=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455794    3282 flags.go:64] FLAG: --reserved-memory=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455799    3282 flags.go:64] FLAG: --resolv-conf="/run/systemd/resolve/resolv.conf"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455884    3282 flags.go:64] FLAG: --root-dir="/var/lib/kubelet"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455967    3282 flags.go:64] FLAG: --rotate-certificates="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.455975    3282 flags.go:64] FLAG: --rotate-server-certificates="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456021    3282 flags.go:64] FLAG: --runonce="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456066    3282 flags.go:64] FLAG: --runtime-cgroups="/system.slice/containerd.service"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456121    3282 flags.go:64] FLAG: --runtime-request-timeout="15m0s"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456207    3282 flags.go:64] FLAG: --seccomp-default="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456213    3282 flags.go:64] FLAG: --serialize-image-pulls="true"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456218    3282 flags.go:64] FLAG: --skip-headers="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456262    3282 flags.go:64] FLAG: --skip-log-headers="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456362    3282 flags.go:64] FLAG: --stderrthreshold="2"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456450    3282 flags.go:64] FLAG: --storage-driver-buffer-duration="1m0s"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456458    3282 flags.go:64] FLAG: --storage-driver-db="cadvisor"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456463    3282 flags.go:64] FLAG: --storage-driver-host="localhost:8086"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456510    3282 flags.go:64] FLAG: --storage-driver-password="root"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456557    3282 flags.go:64] FLAG: --storage-driver-secure="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456562    3282 flags.go:64] FLAG: --storage-driver-table="stats"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456567    3282 flags.go:64] FLAG: --storage-driver-user="root"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456571    3282 flags.go:64] FLAG: --streaming-connection-idle-timeout="4h0m0s"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456576    3282 flags.go:64] FLAG: --sync-frequency="1m0s"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456629    3282 flags.go:64] FLAG: --system-cgroups=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456681    3282 flags.go:64] FLAG: --system-reserved=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456731    3282 flags.go:64] FLAG: --system-reserved-cgroup=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456781    3282 flags.go:64] FLAG: --tls-cert-file="/etc/kubernetes/certs/kubeletserver.crt"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.456863    3282 flags.go:64] FLAG: --tls-cipher-suites="[TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256]"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.457041    3282 flags.go:64] FLAG: --tls-min-version=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.457087    3282 flags.go:64] FLAG: --tls-private-key-file="/etc/kubernetes/certs/kubeletserver.key"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.457135    3282 flags.go:64] FLAG: --topology-manager-policy="none"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.457181    3282 flags.go:64] FLAG: --topology-manager-scope="container"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.457232    3282 flags.go:64] FLAG: --v="2"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.457365    3282 flags.go:64] FLAG: --version="false"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.457446    3282 flags.go:64] FLAG: --vmodule=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.457492    3282 flags.go:64] FLAG: --volume-plugin-dir="/etc/kubernetes/volumeplugins"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.457499    3282 flags.go:64] FLAG: --volume-stats-agg-period="1m0s"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.600847    3282 mount_linux.go:222] Detected OS with systemd
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.601061    3282 server.go:399] "Kubelet version" kubeletVersion="v1.24.0"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.601078    3282 server.go:401] "Golang settings" GOGC="" GOMAXPROCS="" GOTRACEBACK=""
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.601143    3282 feature_gate.go:245] feature gates: &{map[DisableAcceleratorUsageMetrics:false RotateKubeletServerCertificate:true]}
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.601220    3282 feature_gate.go:245] feature gates: &{map[DisableAcceleratorUsageMetrics:false RotateKubeletServerCertificate:true]}
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: W0727 08:29:14.601356    3282 plugins.go:132] WARNING: azure built-in cloud provider is now deprecated. The Azure provider is deprecated and will be removed in a future release. Please use https://github.com/kubernetes-sigs/cloud-provider-azure
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.601978    3282 azure_auth.go:117] azure: using client_id+client_secret to retrieve access token
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602011    3282 azure.go:453] Azure cloudprovider using try backoff: retries=6, exponent=1.500000, duration=5, jitter=1.000000
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602051    3282 azure_interfaceclient.go:63] Azure InterfacesClient (read ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602059    3282 azure_interfaceclient.go:66] Azure InterfacesClient (write ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602071    3282 azure_vmsizeclient.go:63] Azure VirtualMachineSizesClient (read ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602077    3282 azure_vmsizeclient.go:66] Azure VirtualMachineSizesClient (write ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602089    3282 azure_snapshotclient.go:64] Azure SnapshotClient (read ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602095    3282 azure_snapshotclient.go:67] Azure SnapshotClient (write ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602104    3282 azure_storageaccountclient.go:69] Azure StorageAccountClient (read ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602110    3282 azure_storageaccountclient.go:72] Azure StorageAccountClient (write ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602121    3282 azure_diskclient.go:69] Azure DisksClient (read ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602128    3282 azure_diskclient.go:72] Azure DisksClient (write ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602137    3282 azure_vmclient.go:64] Azure VirtualMachine client (read ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602142    3282 azure_vmclient.go:67] Azure VirtualMachine client (write ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602150    3282 azure_vmssclient.go:64] Azure VirtualMachineScaleSetClient (read ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602156    3282 azure_vmssclient.go:67] Azure VirtualMachineScaleSetClient (write ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602165    3282 azure_vmssvmclient.go:65] Azure vmssVM client (read ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602170    3282 azure_vmssvmclient.go:68] Azure vmssVM client (write ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602181    3282 azure_routeclient.go:62] Azure RoutesClient (read ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602188    3282 azure_routeclient.go:65] Azure RoutesClient (write ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602196    3282 azure_subnetclient.go:63] Azure SubnetsClient (read ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602201    3282 azure_subnetclient.go:66] Azure SubnetsClient (write ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602210    3282 azure_routetableclient.go:62] Azure RouteTablesClient (read ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602215    3282 azure_routetableclient.go:65] Azure RouteTablesClient (write ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602224    3282 azure_loadbalancerclient.go:64] Azure LoadBalancersClient (read ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602229    3282 azure_loadbalancerclient.go:67] Azure LoadBalancersClient (write ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602238    3282 azure_securitygroupclient.go:64] Azure SecurityGroupsClient (read ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602243    3282 azure_securitygroupclient.go:67] Azure SecurityGroupsClient (write ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602252    3282 azure_publicipclient.go:64] Azure PublicIPAddressesClient (read ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602258    3282 azure_publicipclient.go:67] Azure PublicIPAddressesClient (write ops) using rate limit config: QPS=10, bucket=100
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602297    3282 server.go:541] "Successfully initialized cloud provider" cloudProvider="azure" cloudConfigFile="/etc/kubernetes/azure.json"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602318    3282 server.go:978] "Cloud provider determined current node" nodeName="abtestjxwc000000"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.602350    3282 bootstrap.go:119] "Using bootstrap kubeconfig to generate TLS client cert, key and kubeconfig file"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.605366    3282 bootstrap.go:150] "No valid private key and/or certificate found, reusing existing private key or creating a new one"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.661003    3282 bootstrap.go:355] "Waiting for client certificate to be issued"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.677772    3282 csr.go:262] certificate signing request node-csr-xIG7WnO3H8y5jIUxIBQhwSzIQL86BqS-JtfumcAy-gE is approved, waiting to be issued
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.689128    3282 csr.go:258] certificate signing request node-csr-xIG7WnO3H8y5jIUxIBQhwSzIQL86BqS-JtfumcAy-gE is issued
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.694269    3282 dynamic_cafile_content.go:119] "Loaded a new CA Bundle and Verifier" name="client-ca-bundle::/etc/kubernetes/certs/ca.crt"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.698445    3282 dynamic_cafile_content.go:157] "Starting controller" name="client-ca-bundle::/etc/kubernetes/certs/ca.crt"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.698946    3282 manager.go:165] cAdvisor running in container: "/system.slice/kubelet.service"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.699586    3282 fs.go:133] Filesystem UUIDs: map[59108db9-06fc-4c15-b69a-7abd82e324bf:/dev/sda1 9F22-48B9:/dev/sda15 a4353fc3-782a-4e62-9808-e040fa4460cb:/dev/sdb1]
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.699779    3282 fs.go:134] Filesystem partitions: map[/dev/sda1:{mountpoint:/ major:8 minor:1 fsType:ext4 blockSize:0} /dev/sdb1:{mountpoint:/mnt major:8 minor:17 fsType:ext4 blockSize:0} /dev/shm:{mountpoint:/dev/shm major:0 minor:26 fsType:tmpfs blockSize:0} /run:{mountpoint:/run major:0 minor:25 fsType:tmpfs blockSize:0} /run/lock:{mountpoint:/run/lock major:0 minor:27 fsType:tmpfs blockSize:0} /sys/fs/cgroup:{mountpoint:/sys/fs/cgroup major:0 minor:28 fsType:tmpfs blockSize:0}]
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.699953    3282 nvidia.go:61] NVIDIA setup failed: no NVIDIA devices found
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.714300    3282 manager.go:214] Machine: {Timestamp:2023-07-27 08:29:14.714102175 +0000 UTC m=+0.349265182 CPUVendorID:GenuineIntel NumCores:2 NumPhysicalCores:2 NumSockets:1 CpuFrequency:2095078 MemoryCapacity:7274479616 MemoryByType:map[] NVMInfo:{MemoryModeCapacity:0 AppDirectModeCapacity:0 AvgPowerBudget:0} HugePages:[{PageSize:1048576 NumPages:0} {PageSize:2048 NumPages:0}] MachineID:01fca518297d4ef39d0d33b91f339800 SystemUUID:a1719149-2269-4812-b16c-74046b3140bb BootID:e08db7ec-66f2-42b6-969e-d59a46c55bad Filesystems:[{Device:/run DeviceMajor:0 DeviceMinor:25 Capacity:727449600 Type:vfs Inodes:887998 HasInodes:true} {Device:/dev/sda1 DeviceMajor:8 DeviceMinor:1 Capacity:532608356352 Type:vfs Inodes:66060288 HasInodes:true} {Device:/dev/shm DeviceMajor:0 DeviceMinor:26 Capacity:3637239808 Type:vfs Inodes:887998 HasInodes:true} {Device:/run/lock DeviceMajor:0 DeviceMinor:27 Capacity:5242880 Type:vfs Inodes:887998 HasInodes:true} {Device:/sys/fs/cgroup DeviceMajor:0 DeviceMinor:28 Capacity:3637239808 Type:vfs Inodes:887998 HasInodes:true} {Device:/dev/sdb1 DeviceMajor:8 DeviceMinor:17 Capacity:14685315072 Type:vfs Inodes:917504 HasInodes:true}] DiskMap:map[8:0:{Name:sda Major:8 Minor:0 Size:549755813888 Scheduler:none} 8:16:{Name:sdb Major:8 Minor:16 Size:15032385536 Scheduler:none}] NetworkDevices:[{Name:eth0 MacAddress:00:22:48:2d:f7:bc Speed:50000 Mtu:1500}] Topology:[{Id:0 Memory:7274479616 HugePages:[{PageSize:1048576 NumPages:0} {PageSize:2048 NumPages:0}] Cores:[{Id:0 Threads:[0] Caches:[{Id:0 Size:32768 Type:Data Level:1} {Id:0 Size:32768 Type:Instruction Level:1} {Id:0 Size:1048576 Type:Unified Level:2}] UncoreCaches:[] SocketID:0} {Id:1 Threads:[1] Caches:[{Id:1 Size:32768 Type:Data Level:1} {Id:1 Size:32768 Type:Instruction Level:1} {Id:1 Size:1048576 Type:Unified Level:2}] UncoreCaches:[] SocketID:0}] Caches:[{Id:0 Size:37486592 Type:Unified Level:3}]}] CloudProvider:Azure InstanceType:Unknown InstanceID:a1719149-2269-4812-b16c-74046b3140bb}
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.714465    3282 manager_no_libpfm.go:29] cAdvisor is build without cgo and/or libpfm support. Perf event counters are not available.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.717631    3282 manager.go:230] Version: {KernelVersion:5.4.0-1112-azure ContainerOsVersion:Ubuntu 18.04.6 LTS DockerVersion: DockerAPIVersion: CadvisorVersion: CadvisorRevision:}
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.717810    3282 server.go:648] "--cgroups-per-qos enabled, but --cgroup-root was not specified.  defaulting to /"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.723252    3282 container_manager_linux.go:262] "Container manager verified user specified cgroup-root exists" cgroupRoot=[]
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.723349    3282 container_manager_linux.go:267] "Creating Container Manager object based on Node Config" nodeConfig={RuntimeCgroupsName:/system.slice/containerd.service SystemCgroupsName: KubeletCgroupsName: KubeletOOMScoreAdj:-999 ContainerRuntime: CgroupsPerQOS:true CgroupRoot:/ CgroupDriver:cgroupfs KubeletRootDir:/var/lib/kubelet ProtectKernelDefaults:true NodeAllocatableConfig:{KubeReservedCgroupName: SystemReservedCgroupName: ReservedSystemCPUs: EnforceNodeAllocatable:map[pods:{}] KubeReserved:map[cpu:{i:{value:100 scale:-3} d:{Dec:<nil>} s:100m Format:DecimalSI} memory:{i:{value:1717567488 scale:0} d:{Dec:<nil>} s:1638Mi Format:BinarySI}] SystemReserved:map[] HardEvictionThresholds:[{Signal:memory.available Operator:LessThan Value:{Quantity:750Mi Percentage:0} GracePeriod:0s MinReclaim:<nil>} {Signal:nodefs.available Operator:LessThan Value:{Quantity:<nil> Percentage:0.1} GracePeriod:0s MinReclaim:<nil>} {Signal:nodefs.inodesFree Operator:LessThan Value:{Quantity:<nil> Percentage:0.05} GracePeriod:0s MinReclaim:<nil>}]} QOSReserved:map[] ExperimentalCPUManagerPolicy:none ExperimentalCPUManagerPolicyOptions:map[] ExperimentalTopologyManagerScope:container ExperimentalCPUManagerReconcilePeriod:10s ExperimentalMemoryManagerPolicy:None ExperimentalMemoryManagerReservedMemory:[] ExperimentalPodPidsLimit:-1 EnforceCPULimits:true CPUCFSQuotaPeriod:100ms ExperimentalTopologyManagerPolicy:none}
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.723376    3282 topology_manager.go:133] "Creating topology manager with policy per scope" topologyPolicyName="none" topologyScopeName="container"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.723390    3282 container_manager_linux.go:302] "Creating device plugin manager" devicePluginEnabled=true
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.723412    3282 manager.go:141] "Creating Device Plugin manager" path="/var/lib/kubelet/device-plugins/kubelet.sock"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.723506    3282 state_mem.go:36] "Initialized new in-memory state store"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.807371    3282 remote_runtime.go:118] "Using CRI v1 runtime API"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.830123    3282 remote_image.go:91] "Using CRI v1 image API"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.830168    3282 server.go:978] "Cloud provider determined current node" nodeName="abtestjxwc000000"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.830188    3282 server.go:1119] "Using root directory" path="/var/lib/kubelet"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.830245    3282 kubelet.go:376] "Attempting to sync node with API server"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.830260    3282 kubelet.go:267] "Adding static pod path" path="/etc/kubernetes/manifests"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.830274    3282 file.go:68] "Watching path" path="/etc/kubernetes/manifests"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.830289    3282 kubelet.go:278] "Adding apiserver pod source"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.830312    3282 apiserver.go:42] "Waiting for node sync before watching apiserver pods"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.832340    3282 kuberuntime_manager.go:239] "Container runtime initialized" containerRuntime="containerd" version="1.7.1+azure-1" apiVersion="v1"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.832745    3282 azure_auth.go:117] azure: using client_id+client_secret to retrieve access token
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: W0727 08:29:14.832940    3282 probe.go:268] Flexvolume plugin directory at /etc/kubernetes/volumeplugins does not exist. Recreating.
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833058    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/aws-ebs"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833078    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/gce-pd"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833089    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/cinder"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833099    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/azure-disk"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833108    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/azure-file"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833118    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/vsphere-volume"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833134    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/portworx-volume"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833143    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/rbd"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833158    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/empty-dir"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833168    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/git-repo"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833177    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/host-path"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833186    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/nfs"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833196    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/secret"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833207    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/iscsi"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833216    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/glusterfs"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833226    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/quobyte"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833235    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/cephfs"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833244    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/downward-api"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833256    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/fc"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833265    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/flocker"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833275    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/configmap"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833284    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/projected"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833293    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/local-volume"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833302    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/storageos"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833319    3282 plugins.go:634] "Loaded volume plugin" pluginName="kubernetes.io/csi"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.833561    3282 server.go:1181] "Started kubelet"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: E0727 08:29:14.835739    3282 cri_stats_provider.go:455] "Failed to get the info of the filesystem with mountpoint" err="unable to find data in memory cache" mountpoint="/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: E0727 08:29:14.835786    3282 kubelet.go:1298] "Image garbage collection failed once. Stats initialization may not have completed yet" err="invalid capacity 0 on image filesystem"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.836204    3282 server.go:150] "Starting to listen" address="0.0.0.0" port=10250
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.837871    3282 server.go:410] "Adding debug handlers to kubelet server"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.840834    3282 fs_resource_analyzer.go:67] "Starting FS ResourceAnalyzer"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.849290    3282 volume_manager.go:287] "The desired_state_of_world populator starts"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.849312    3282 volume_manager.go:289] "Starting Kubelet Volume Manager"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.849370    3282 desired_state_of_world_populator.go:145] "Desired state populator starts to run"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: E0727 08:29:14.868423    3282 kubelet.go:2344] "Container runtime network not ready" networkReady="NetworkReady=false reason:NetworkPluginNotReady message:Network plugin returns error: cni plugin not initialized"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.868513    3282 factory.go:55] Registering systemd factory
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.874715    3282 factory.go:145] Registering containerd factory
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.874800    3282 factory.go:103] Registering Raw factory
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.874853    3282 manager.go:1203] Started watching for new ooms in manager
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.875528    3282 manager.go:304] Starting recovery of all containers
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: E0727 08:29:14.884094    3282 nodelease.go:49] "Failed to get node when trying to set owner ref to the node lease" err="nodes \"abtestjxwc000000\" not found" node="abtestjxwc000000"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.905016    3282 manager.go:309] Recovery completed
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.909907    3282 nodeinfomanager.go:401] Failed to publish CSINode: nodes "abtestjxwc000000" not found
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.944535    3282 nodeinfomanager.go:401] Failed to publish CSINode: nodes "abtestjxwc000000" not found
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.957454    3282 kubelet_node_status.go:352] "Setting node annotation to enable volume controller attach/detach"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.957753    3282 kubelet_node_status.go:400] "Adding label from cloud provider" labelKey="beta.kubernetes.io/instance-type" labelValue="Standard_DS2_v2"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.957906    3282 kubelet_node_status.go:402] "Adding node label from cloud provider" labelKey="node.kubernetes.io/instance-type" labelValue="Standard_DS2_v2"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.958025    3282 kubelet_node_status.go:413] "Adding node label from cloud provider" labelKey="failure-domain.beta.kubernetes.io/zone" labelValue="0"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.958161    3282 kubelet_node_status.go:415] "Adding node label from cloud provider" labelKey="topology.kubernetes.io/zone" labelValue="0"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.958265    3282 kubelet_node_status.go:419] "Adding node label from cloud provider" labelKey="failure-domain.beta.kubernetes.io/region" labelValue="eastus"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.958404    3282 kubelet_node_status.go:421] "Adding node label from cloud provider" labelKey="topology.kubernetes.io/region" labelValue="eastus"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: E0727 08:29:14.958725    3282 kubelet.go:2419] "Error getting node" err="node \"abtestjxwc000000\" not found"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.961899    3282 kubelet_node_status.go:563] "Recording event message for node" node="abtestjxwc000000" event="NodeHasSufficientMemory"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.962320    3282 kubelet_node_status.go:563] "Recording event message for node" node="abtestjxwc000000" event="NodeHasNoDiskPressure"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.962335    3282 kubelet_node_status.go:563] "Recording event message for node" node="abtestjxwc000000" event="NodeHasSufficientPID"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.962412    3282 kubelet_node_status.go:70] "Attempting to register node" node="abtestjxwc000000"
+Jul 27 08:29:14 abtestjxwc000000 kubelet[3282]: I0727 08:29:14.993812    3282 kubelet_node_status.go:73] "Successfully registered node" node="abtestjxwc000000"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.040439    3282 cpu_manager.go:213] "Starting CPU manager" policy="none"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.040463    3282 cpu_manager.go:214] "Reconciling" reconcilePeriod="10s"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.040481    3282 state_mem.go:36] "Initialized new in-memory state store"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.062699    3282 kuberuntime_manager.go:1095] "Updating runtime config through cri with podcidr" CIDR="10.244.161.0/24"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.064383    3282 kubelet_network.go:60] "Updating Pod CIDR" originalPodCIDR="" newPodCIDR="10.244.161.0/24"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.141782    3282 kubelet_network_linux.go:76] "Initialized protocol iptables rules." protocol=IPv4
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.256207    3282 kubelet_network_linux.go:76] "Initialized protocol iptables rules." protocol=IPv6
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.256245    3282 status_manager.go:161] "Starting to sync pod status with apiserver"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.256264    3282 kubelet.go:1974] "Starting kubelet main sync loop"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: E0727 08:29:15.256390    3282 kubelet.go:1998] "Skipping pod synchronization" err="[container runtime status check may not have completed yet, PLEG is not healthy: pleg has yet to be successful]"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.296786    3282 policy_none.go:49] "None policy: Start"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.297775    3282 memory_manager.go:168] "Starting memorymanager" policy="None"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.297808    3282 state_mem.go:35] "Initializing new in-memory state store"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.358462    3282 manager.go:247] "Starting Device Plugin manager"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.358559    3282 manager.go:610] "Failed to read data from checkpoint" checkpoint="kubelet_internal_checkpoint" err="checkpoint is not found"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.358758    3282 manager.go:289] "Serving device plugin registration server on socket" path="/var/lib/kubelet/device-plugins/kubelet.sock"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.358823    3282 kubelet.go:2060] "SyncLoop ADD" source="file" pods=[]
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.360638    3282 plugin_watcher.go:52] "Plugin Watcher Start" path="/var/lib/kubelet/plugins_registry"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.360724    3282 plugin_manager.go:112] "The desired_state_of_world populator (plugin watcher) starts"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.360733    3282 plugin_manager.go:114] "Starting Kubelet Plugin Manager"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.377907    3282 kubelet_node_status.go:563] "Recording event message for node" node="abtestjxwc000000" event="NodeReady"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.832072    3282 apiserver.go:52] "Watching apiserver"
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.835708    3282 kubelet.go:2060] "SyncLoop ADD" source="api" pods=[]
+Jul 27 08:29:15 abtestjxwc000000 kubelet[3282]: I0727 08:29:15.880281    3282 reconciler.go:157] "Reconciler: start to sync state"
+Jul 27 08:29:19 abtestjxwc000000 kubelet[3282]: I0727 08:29:19.996436    3282 kubelet.go:2060] "SyncLoop ADD" source="api" pods=[default/abtestjxwc000000-nginx]
+Jul 27 08:29:19 abtestjxwc000000 kubelet[3282]: I0727 08:29:19.996478    3282 topology_manager.go:200] "Topology Admit Handler"
+Jul 27 08:29:20 abtestjxwc000000 kubelet[3282]: I0727 08:29:20.109383    3282 reconciler.go:270] "operationExecutor.VerifyControllerAttachedVolume started for volume \"kube-api-access-gnz28\" (UniqueName: \"kubernetes.io/projected/0d1a282f-38f6-4013-aaea-fa0e912929dd-kube-api-access-gnz28\") pod \"abtestjxwc000000-nginx\" (UID: \"0d1a282f-38f6-4013-aaea-fa0e912929dd\") " pod="default/abtestjxwc000000-nginx"
+Jul 27 08:29:20 abtestjxwc000000 kubelet[3282]: I0727 08:29:20.210087    3282 reconciler.go:245] "operationExecutor.MountVolume started for volume \"kube-api-access-gnz28\" (UniqueName: \"kubernetes.io/projected/0d1a282f-38f6-4013-aaea-fa0e912929dd-kube-api-access-gnz28\") pod \"abtestjxwc000000-nginx\" (UID: \"0d1a282f-38f6-4013-aaea-fa0e912929dd\") " pod="default/abtestjxwc000000-nginx"
+Jul 27 08:29:20 abtestjxwc000000 kubelet[3282]: I0727 08:29:20.255753    3282 operation_generator.go:703] "MountVolume.SetUp succeeded for volume \"kube-api-access-gnz28\" (UniqueName: \"kubernetes.io/projected/0d1a282f-38f6-4013-aaea-fa0e912929dd-kube-api-access-gnz28\") pod \"abtestjxwc000000-nginx\" (UID: \"0d1a282f-38f6-4013-aaea-fa0e912929dd\") " pod="default/abtestjxwc000000-nginx"
+Jul 27 08:29:20 abtestjxwc000000 kubelet[3282]: I0727 08:29:20.312147    3282 kuberuntime_manager.go:469] "No sandbox for pod can be found. Need to start a new one" pod="default/abtestjxwc000000-nginx"
+Jul 27 08:29:23 abtestjxwc000000 kubelet[3282]: I0727 08:29:23.063112    3282 provider.go:102] Refreshing cache for provider: *credentialprovider.defaultDockerConfigProvider
+Jul 27 08:29:23 abtestjxwc000000 kubelet[3282]: I0727 08:29:23.063233    3282 provider.go:82] Docker config file not found: couldn't find valid .dockercfg after checking in [/var/lib/kubelet   /]
+Jul 27 08:29:23 abtestjxwc000000 kubelet[3282]: I0727 08:29:23.063266    3282 azure_credentials.go:260] image(mcr.microsoft.com/oss/nginx/nginx) is not from ACR, return empty authentication
+Jul 27 08:29:23 abtestjxwc000000 kubelet[3282]: I0727 08:29:23.269581    3282 kubelet.go:2098] "SyncLoop (PLEG): event for pod" pod="default/abtestjxwc000000-nginx" event=&{ID:0d1a282f-38f6-4013-aaea-fa0e912929dd Type:ContainerStarted Data:f351585bcd5f2100f01240e7680c0b03d2b406ae324e54ba4c29ce2061ba18b0}
+Jul 27 08:29:28 abtestjxwc000000 kubelet[3282]: I0727 08:29:28.280156    3282 kubelet.go:2098] "SyncLoop (PLEG): event for pod" pod="default/abtestjxwc000000-nginx" event=&{ID:0d1a282f-38f6-4013-aaea-fa0e912929dd Type:ContainerStarted Data:d835589ab4f9256773bb669b45449191891d58296da81edf17e0b8df1cce7b41}
+Jul 27 08:29:30 abtestjxwc000000 kubelet[3282]: I0727 08:29:30.259148    3282 kubelet.go:2076] "SyncLoop DELETE" source="api" pods=[default/abtestjxwc000000-nginx]
+Jul 27 08:29:30 abtestjxwc000000 kubelet[3282]: I0727 08:29:30.283786    3282 kuberuntime_container.go:722] "Killing container with a grace period" pod="default/abtestjxwc000000-nginx" podUID=0d1a282f-38f6-4013-aaea-fa0e912929dd containerName="nginx" containerID="containerd://d835589ab4f9256773bb669b45449191891d58296da81edf17e0b8df1cce7b41" gracePeriod=30
+Jul 27 08:29:35 abtestjxwc000000 kubelet[3282]: I0727 08:29:35.198726    3282 reconciler.go:192] "operationExecutor.UnmountVolume started for volume \"kube-api-access-gnz28\" (UniqueName: \"kubernetes.io/projected/0d1a282f-38f6-4013-aaea-fa0e912929dd-kube-api-access-gnz28\") pod \"0d1a282f-38f6-4013-aaea-fa0e912929dd\" (UID: \"0d1a282f-38f6-4013-aaea-fa0e912929dd\") "
+Jul 27 08:29:35 abtestjxwc000000 kubelet[3282]: I0727 08:29:35.203440    3282 operation_generator.go:856] UnmountVolume.TearDown succeeded for volume "kubernetes.io/projected/0d1a282f-38f6-4013-aaea-fa0e912929dd-kube-api-access-gnz28" (OuterVolumeSpecName: "kube-api-access-gnz28") pod "0d1a282f-38f6-4013-aaea-fa0e912929dd" (UID: "0d1a282f-38f6-4013-aaea-fa0e912929dd"). InnerVolumeSpecName "kube-api-access-gnz28". PluginName "kubernetes.io/projected", VolumeGidValue ""
+Jul 27 08:29:35 abtestjxwc000000 kubelet[3282]: I0727 08:29:35.293655    3282 generic.go:296] "Generic (PLEG): container finished" podID=0d1a282f-38f6-4013-aaea-fa0e912929dd containerID="d835589ab4f9256773bb669b45449191891d58296da81edf17e0b8df1cce7b41" exitCode=0
+Jul 27 08:29:35 abtestjxwc000000 kubelet[3282]: I0727 08:29:35.293702    3282 kubelet.go:2098] "SyncLoop (PLEG): event for pod" pod="default/abtestjxwc000000-nginx" event=&{ID:0d1a282f-38f6-4013-aaea-fa0e912929dd Type:ContainerDied Data:d835589ab4f9256773bb669b45449191891d58296da81edf17e0b8df1cce7b41}
+Jul 27 08:29:35 abtestjxwc000000 kubelet[3282]: I0727 08:29:35.293725    3282 kubelet.go:2098] "SyncLoop (PLEG): event for pod" pod="default/abtestjxwc000000-nginx" event=&{ID:0d1a282f-38f6-4013-aaea-fa0e912929dd Type:ContainerDied Data:f351585bcd5f2100f01240e7680c0b03d2b406ae324e54ba4c29ce2061ba18b0}
+Jul 27 08:29:35 abtestjxwc000000 kubelet[3282]: I0727 08:29:35.293760    3282 scope.go:110] "RemoveContainer" containerID="d835589ab4f9256773bb669b45449191891d58296da81edf17e0b8df1cce7b41"
+Jul 27 08:29:35 abtestjxwc000000 kubelet[3282]: I0727 08:29:35.299790    3282 reconciler.go:312] "Volume detached for volume \"kube-api-access-gnz28\" (UniqueName: \"kubernetes.io/projected/0d1a282f-38f6-4013-aaea-fa0e912929dd-kube-api-access-gnz28\") on node \"abtestjxwc000000\" DevicePath \"\""
+Jul 27 08:29:35 abtestjxwc000000 kubelet[3282]: I0727 08:29:35.317676    3282 scope.go:110] "RemoveContainer" containerID="d835589ab4f9256773bb669b45449191891d58296da81edf17e0b8df1cce7b41"
+Jul 27 08:29:35 abtestjxwc000000 kubelet[3282]: E0727 08:29:35.318383    3282 remote_runtime.go:604] "ContainerStatus from runtime service failed" err="rpc error: code = NotFound desc = an error occurred when try to find container \"d835589ab4f9256773bb669b45449191891d58296da81edf17e0b8df1cce7b41\": not found" containerID="d835589ab4f9256773bb669b45449191891d58296da81edf17e0b8df1cce7b41"
+Jul 27 08:29:35 abtestjxwc000000 kubelet[3282]: I0727 08:29:35.318421    3282 pod_container_deletor.go:52] "DeleteContainer returned error" containerID={Type:containerd ID:d835589ab4f9256773bb669b45449191891d58296da81edf17e0b8df1cce7b41} err="failed to get container status \"d835589ab4f9256773bb669b45449191891d58296da81edf17e0b8df1cce7b41\": rpc error: code = NotFound desc = an error occurred when try to find container \"d835589ab4f9256773bb669b45449191891d58296da81edf17e0b8df1cce7b41\": not found"
+Jul 27 08:29:35 abtestjxwc000000 kubelet[3282]: I0727 08:29:35.322740    3282 kubelet.go:2076] "SyncLoop DELETE" source="api" pods=[default/abtestjxwc000000-nginx]
+Jul 27 08:29:35 abtestjxwc000000 kubelet[3282]: I0727 08:29:35.330721    3282 kubelet.go:2070] "SyncLoop REMOVE" source="api" pods=[default/abtestjxwc000000-nginx]
+Jul 27 08:29:37 abtestjxwc000000 kubelet[3282]: I0727 08:29:37.262259    3282 kubelet_volumes.go:160] "Cleaned up orphaned pod volumes dir" podUID=0d1a282f-38f6-4013-aaea-fa0e912929dd path="/var/lib/kubelet/pods/0d1a282f-38f6-4013-aaea-fa0e912929dd/volumes"
