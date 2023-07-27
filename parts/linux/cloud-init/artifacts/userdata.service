@@ -1,10 +1,10 @@
 [Unit]
 Description=Curl userdata from IMDS and run csecmd
-After=systemd-networkd.service
+After=cloud-init-local.service
 
 [Service]
 Type=oneshot
 ExecStart=/bin/bash /opt/scripts/userdata.sh
 
 [Install]
-WantedBy=systemd-networkd.service
+WantedBy=cloud-init-local.service
