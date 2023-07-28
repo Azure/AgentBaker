@@ -48,12 +48,6 @@ installKataDeps() {
       rpm -ihv kernel-uvm-devel.x86_64.rpm
       rpm -ihv kata-containers-cc.x86_64.rpm
 
-      # temp! pending update to latest kernel-mshv in Mariner Core
-      wget "https://mitchzhu.blob.core.windows.net/public/kernel-mshv-5.15.118.mshv4-1000.g594942f4.lv2.x86_64.rpm" -O kernel-mshv-5.15.118.mshv4-1000.g594942f4.lv2.x86_64.rpm
-
-      rpm -Uhv --nodeps kernel-mshv-5.15.118.mshv4-1000.g594942f4.lv2.x86_64.rpm
-      # !temp
-
       echo "Create snapshotter dir"
       mkdir -p /var/lib/containerd/io.containerd.snapshotter.v1.tardev/staging
 
