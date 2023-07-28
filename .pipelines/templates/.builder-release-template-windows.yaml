@@ -68,6 +68,7 @@ steps:
       -e WINDOWS_BASE_IMAGE_URL=${WINDOWS_BASE_IMAGE_URL} \
       -e WINDOWS_NANO_IMAGE_URL=${WINDOWS_NANO_IMAGE_URL} \
       -e WINDOWS_CORE_IMAGE_URL=${WINDOWS_CORE_IMAGE_URL} \
+      -e WINDOWS_PRIVATE_PACKAGES_URL=${WINDOWS_PRIVATE_PACKAGES_URL} \
       ${CONTAINER_IMAGE} make -f packer.mk run-packer-windows
     displayName: Building windows VHD
 
