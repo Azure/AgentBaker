@@ -3220,8 +3220,31 @@ python3 /opt/azure/containers/provision_redact_cloud_config.py \
     --cloud-config-path /var/lib/cloud/instance/cloud-config.txt \
     --output-path ${LOG_DIR}/cloud-config.txt
 
-# WIDALY DEBUG
-touch /var/log/azure/widalytestdebug.log
+# WIDALY: hacks to get read/write counts by process during the first 10 minutes of node startup.
+# Output is written every 10 seconds to /var/log/azure/iotrace.log
+cat <<EOF > /usr/local/bin/iotrace.sh
+#!/usr/bin/env bash
+
+set -xe
+
+bpftrace -o /var/log/azure/iotrace.log -e 'tracepoint:syscalls:sys_exit_read { @reads[comm] = count(); } tracepoint:syscalls:sys_exit_write { @writes[comm] = count(); } interval:s:10 { time("%H:%M:%S\n"); print(@reads); print(@writes); zero(@reads); zero(@writes); }  interval:s:600 { exit(); }'
+
+EOF
+chmod +x /usr/local/bin/iotrace.sh
+
+cat <<EOF > /etc/systemd/system/iotrace.service
+[Unit]
+Description=Trace IO on node startup
+
+[Service]
+ExecStart=/usr/local/bin/iotrace.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable iotrace
+systemctl start iotrace
 
 UBUNTU_RELEASE=$(lsb_release -r -s)
 if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
