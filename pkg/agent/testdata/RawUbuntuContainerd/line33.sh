@@ -32,7 +32,7 @@ cat <<EOF > /usr/local/bin/iotrace.sh
 
 set -xe
 
-bpftrace -o /var/log/azure/iotrace.log -e 'tracepoint:syscalls:sys_exit_read { @reads[comm] = count(); } tracepoint:syscalls:sys_exit_write { @writes[comm] = count(); } interval:s:10 { time("%H:%M:%S\n"); print(@reads); print(@writes); zero(@reads); zero(@writes); }  interval:s:600 { exit(); }'
+bpftrace -o /var/log/azure/iotrace.log -e 'tracepoint:syscalls:sys_exit_read { @reads[comm,pid] = count(); } tracepoint:syscalls:sys_exit_write { @writes[comm,pid] = count(); } interval:s:10 { time("%H:%M:%S\n"); print(@reads); print(@writes); clear(@reads); clear(@writes); }  interval:s:600 { exit(); }'
 
 EOF
 chmod +x /usr/local/bin/iotrace.sh
