@@ -104,7 +104,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-state-metrics:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.6.0"
+        "v2.9.2"
       ]
     },
     {
