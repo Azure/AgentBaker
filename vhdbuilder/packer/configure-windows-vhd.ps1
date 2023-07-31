@@ -203,6 +203,24 @@ function Get-FilesToCacheOnVHD {
     }
 }
 
+function Get-PrivatePackagesToCacheOnVHD {
+    if (![string]::IsNullOrEmpty($env:WindowsPrivatePackagesURL)) {
+        Write-Log "Caching private packages on VHD"
+    
+        $dir = "c:\akse-cache\private-packages"
+        New-Item -ItemType Directory $dir -Force | Out-Null
+
+        $urls = $env:WindowsPrivatePackagesURL.Split(",")
+        foreach ($url in $urls) {
+            $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
+            $dest = [IO.Path]::Combine($dir, $fileName)
+
+            Write-Log "Downloading a private package to $dest"
+            DownloadFileWithRetry -URL $url -Dest $dest -redactUrl
+        }
+    }
+}
+
 function Install-ContainerD {
     # installing containerd during VHD building is to cache container images into the VHD,
     # and the containerd to managed customer containers after provisioning the vm is not necessary
@@ -581,6 +599,7 @@ try{
             Update-Registry
             Get-ContainerImages
             Get-FilesToCacheOnVHD
+            Get-PrivatePackagesToCacheOnVHD
             Remove-Item -Path c:\windows-vhd-configuration.ps1
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
         }
