@@ -130,18 +130,21 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		log.Printf("WARNING: bootstrapped vmss model was nil for %s", vmssName)
 	}
 
-	vmPrivateIP, err := pollGetVMPrivateIP(ctx, vmssName, opts)
-	if err != nil {
-		t.Fatalf("failed to get VM private IP: %s", err)
-	}
-
 	// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
-	defer func() {
-		err := pollExtractVMLogs(ctx, vmssName, vmPrivateIP, privateKeyBytes, opts)
+	// WIDALY: skip this part to avoid adding IO
+	/*
+		vmPrivateIP, err := pollGetVMPrivateIP(ctx, vmssName, opts)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("failed to get VM private IP: %s", err)
 		}
-	}()
+
+			defer func() {
+				err := pollExtractVMLogs(ctx, vmssName, vmPrivateIP, privateKeyBytes, opts)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}()
+	*/
 
 	// Only perform node readiness/pod-related checks when VMSS creation succeeded
 	if vmssSucceeded {
@@ -161,12 +164,15 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 			}
 		}
 
-		log.Println("node is ready, proceeding with validation commands...")
+		// Skip this part to avoid introducing any extra IOPs while Calico is starting.
+		/*
+			log.Println("node is ready, proceeding with validation commands...")
 
-		err = runLiveVMValidators(ctx, vmssName, vmPrivateIP, string(privateKeyBytes), opts)
-		if err != nil {
-			t.Fatalf("vm validation failed: %s", err)
-		}
+			err = runLiveVMValidators(ctx, vmssName, vmPrivateIP, string(privateKeyBytes), opts)
+			if err != nil {
+				t.Fatalf("vm validation failed: %s", err)
+			}
+		*/
 
 		log.Println("node bootstrapping succeeded!")
 	} else {

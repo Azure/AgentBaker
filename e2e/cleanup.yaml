@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cleanup
+spec:
+  selector:
+    matchLabels:
+      app: cleanup
+  template:
+    metadata:
+      labels:
+        app: cleanup
+    spec:
+      tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - effect: NoSchedule
+        operator: Exists
+      - effect: NoExecute
+        operator: Exists
+      - effect: NoExecute
+        key: node.kubernetes.io/not-ready
+        operator: Exists
+      hostNetwork: true
+      containers:
+        - name: cleanup
+          image: alpine
+          imagePullPolicy: IfNotPresent
+          command:
+          - sh
+          - -c
+          - "rm -f /host/opt/cni/bin/calico-ipam /host/opt/cni/bin/calico /host/opt/cni/bin/flannel /host/opt/cni/bin/install /host/etc/cni/net.d/10-calico.conflist /host/etc/cni/net.d/calico-kubeconfig /host/driver/uds && sleep 100000000"
+          volumeMounts:
+          - mountPath: /host/opt/cni/bin
+            name: cni-bin-dir
+          - mountPath: /host/etc/cni/net.d
+            name: cni-net-dir
+          - mountPath: /host/driver
+            name: flexvol-driver-host
+      volumes:
+      - hostPath:
+          path: /opt/cni/bin
+          type: ""
+        name: cni-bin-dir
+      - hostPath:
+          path: /etc/cni/net.d
+          type: ""
+        name: cni-net-dir
+      - hostPath:
+          path: /etc/kubernetes/volumeplugins/nodeagent~uds
+          type: DirectoryOrCreate
+        name: flexvol-driver-host
