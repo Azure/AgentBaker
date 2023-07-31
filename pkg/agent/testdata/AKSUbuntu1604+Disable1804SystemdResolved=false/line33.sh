@@ -65,7 +65,7 @@ fi
 
 
 if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
-    configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
+    configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
 fi
 
 if [[ -n "${OUTBOUND_COMMAND}" ]]; then
