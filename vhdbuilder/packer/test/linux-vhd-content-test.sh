@@ -479,23 +479,30 @@ testNetworkSettings() {
 # Ensures that the content /etc/profile.d/umask.sh is correct, per code in
 # <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
 testUmaskSettings() {
-  local test="testUmaskSettings"
-  local settings_file=/etc/profile.d/umask.sh
-  local expected_settings_file_content='umask 027'
-  echo "$test:Start"
+    local test="testUmaskSettings"
+    local settings_file=/etc/profile.d/umask.sh
+    local expected_settings_file_content='umask 027'
+    echo "$test:Start"
 
-  # If the settings file exists, it must just be a single line that sets umask properly.
-  if [[ -f "${settings_file}" && -s "${settings_file}" ]]; then
-    echo "${test}: Checking that ${settings_file} contains '${expected_settings_file_content}'"
+    # If the settings file exists, it must just be a single line that sets umask properly.
+    if [[ -f "${settings_file}" ]]; then
+        echo "${test}: Checking that the contents of ${settings_file} is exactly '${expected_settings_file_content}'"
 
-    if ! diff "${settings_file}" <(echo "${expected_settings_file_content}") ; then
-      err $test "The content of the file '${settings_file}' must exactly match '${expected_settings_file_content}'. See above for differences"
+        # Command substitution (like file_contents=$(cat "${settings_file}")) strips trailing newlines, so we use mapfile instead.
+        # This creates an array of the lines in the file, and then we join them back together by expanding the array into a single string.
+        local file_contents_array=()
+        mapfile <"${settings_file}" file_contents_array
+        local file_contents="${file_contents_array[*]}"
+        if [[ "${file_contents}" != "${expected_settings_file_content}" ]]; then
+            err $test "The content of the file '${settings_file}' is '${file_contents}', which does not exactly match '${expected_settings_file_content}'. "
+        else
+            echo "${test}: The content of the file '${settings_file}' exactly matches the expected contents '${expected_settings_file_content}'."
+        fi
+    else
+        echo "${test}: Settings file '${settings_file}' does not exist, so not testing contents."
     fi
-  else
-    echo "${test}: Settings file '${settings_file}' does not exist or is empty, so not testing contents."
-  fi
 
-  echo "$test:End"
+    echo "$test:End"
 }
 
 # Tests that the modes on the cron-related files and directories in /etc are set correctly, per the
