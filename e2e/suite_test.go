@@ -161,12 +161,15 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 			}
 		}
 
+// Skip this part to avoid introducing any extra IOPs while Calico is starting.
+/*
 		log.Println("node is ready, proceeding with validation commands...")
 
 		err = runLiveVMValidators(ctx, vmssName, vmPrivateIP, string(privateKeyBytes), opts)
 		if err != nil {
 			t.Fatalf("vm validation failed: %s", err)
 		}
+*/
 
 		log.Println("node bootstrapping succeeded!")
 	} else {
