@@ -268,27 +268,6 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/external-dns:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "v0.10.2"
-      ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/defaultbackend:*",
-      "amd64OnlyVersions": [
-        "1.4"
-      ],
-      "multiArchVersions": []
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "v1.2.1"
-      ]
-    },
-    {
       "downloadURL": "mcr.microsoft.com/aks/aks-app-routing-operator:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": []
