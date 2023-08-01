@@ -76,8 +76,8 @@ $global:imagesToPull += @(
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
     "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.10",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.2",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.3",
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.4",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.5"
 )
 
