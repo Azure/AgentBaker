@@ -1027,7 +1027,10 @@ oom_score = 0
 		Entry("AKSUbuntu2204 with SecurityProfile", "AKSUbuntu2204+SecurityProfile", "1.26.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
-					// TODO add PrivateEgress
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:      true,
+						ProxyAddress: "https://test-pe-proxy",
+					},
 				}
 			}, nil),
 	)
@@ -1328,7 +1331,10 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		Entry("AKSWindows2019 with SecurityProfile", "AKSWindows2019+SecurityProfile", "1.26.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
-					// TODO add PrivateEgress
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:      true,
+						ProxyAddress: "https://test-pe-proxy",
+					},
 				}
 			}),
 	)

@@ -1716,6 +1716,7 @@ CONTAINERD_CONFIG_CONTENT="{{GetContainerdConfigContent}}"
 CONTAINERD_CONFIG_NO_GPU_CONTENT="{{GetContainerdConfigNoGPUContent}}"
 IS_KATA="{{IsKata}}"
 SYSCTL_CONTENT="{{GetSysctlContent}}"
+PRIVATE_EGRESS_PROXY_ADDRESS="{{GetPrivateEgressProxyAddress}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -3252,6 +3253,10 @@ if [[ "${DISABLE_SSH}" == "true" ]]; then
     disableSSH || exit $ERR_DISABLE_SSH
 fi
 
+# This involes using proxy, log the config before fetching packages
+echo "private egress proxy address is '${PRIVATE_EGRESS_PROXY_ADDRESS}'"
+# TODO update to use proxy
+
 if [[ "${SHOULD_CONFIGURE_HTTP_PROXY}" == "true" ]]; then
     if [[ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" == "true" ]]; then
         configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
@@ -3261,7 +3266,7 @@ fi
 
 
 if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
-    configureCustomCaCertificate || $ERR_UPDATE_CA_CERTS
+    configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
 fi
 
 if [[ -n "${OUTBOUND_COMMAND}" ]]; then
@@ -7340,6 +7345,7 @@ $global:UseInstanceMetadata = "{{GetVariable "useInstanceMetadata"}}"
 $global:LoadBalancerSku = "{{GetVariable "loadBalancerSku"}}"
 $global:ExcludeMasterFromStandardLB = "{{GetVariable "excludeMasterFromStandardLB"}}"
 
+$global:PrivateEgressProxyAddress = "{{GetPrivateEgressProxyAddress}}"
 
 # Windows defaults, not changed by aks-engine
 $global:CacheDir = "c:\akse-cache"
@@ -7422,7 +7428,11 @@ try
         Write-Log "The script has been executed before, will exit without doing anything."
         return
     }
-   
+
+    # This involes using proxy, log the config before fetching packages
+    Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
+    # TODO update to use proxy
+
     $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.29.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
