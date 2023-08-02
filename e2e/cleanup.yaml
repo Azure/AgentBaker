@@ -22,6 +22,7 @@ spec:
   - effect: NoExecute
     key: node.kubernetes.io/not-ready
     operator: Exists
+  hostNetwork: true
   containers:
     - name: cleanup
       image: alpine
