@@ -1697,7 +1697,7 @@ CUSTOM_SEARCH_REALM_USER="{{GetSearchDomainRealmUser}}"
 CUSTOM_SEARCH_REALM_PASSWORD="{{GetSearchDomainRealmPassword}}"
 MESSAGE_OF_THE_DAY="{{GetMessageOfTheDay}}"
 HAS_KUBELET_DISK_TYPE="{{HasKubeletDiskType}}"
-NEEDS_CGROUPV2="{{IsCgroupV2}}"
+NEEDS_CGROUPV2="{{Is2204VHD}}"
 TLS_BOOTSTRAP_TOKEN="{{GetTLSBootstrapTokenForKubeConfig}}"
 KUBELET_FLAGS="{{GetKubeletConfigKeyVals}}"
 NETWORK_POLICY="{{GetParameter "networkPolicy"}}"
@@ -2313,7 +2313,7 @@ configGPUDrivers() {
         fi
     elif [[ $OS == $MARINER_OS_NAME ]]; then
         downloadGPUDrivers
-        #installNvidiaContainerRuntime
+        installNvidiaContainerRuntime
         enableNvidiaPersistenceMode
     else 
         echo "os $OS not supported at this time. skipping configGPUDrivers"

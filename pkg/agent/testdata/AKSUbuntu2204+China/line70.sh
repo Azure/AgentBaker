@@ -578,7 +578,7 @@ configGPUDrivers() {
         fi
     elif [[ $OS == $MARINER_OS_NAME ]]; then
         downloadGPUDrivers
-        #installNvidiaContainerRuntime
+        installNvidiaContainerRuntime
         enableNvidiaPersistenceMode
     else 
         echo "os $OS not supported at this time. skipping configGPUDrivers"
