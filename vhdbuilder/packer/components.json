@@ -35,8 +35,8 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.44.2",
         "v1.4.44.3",
+        "v1.4.44.4",
         "v1.5.5"
       ]
     },
@@ -254,27 +254,6 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.11.1"
-      ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/external-dns:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "v0.10.2"
-      ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/defaultbackend:*",
-      "amd64OnlyVersions": [
-        "1.4"
-      ],
-      "multiArchVersions": []
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/ingress/nginx-ingress-controller:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "v1.2.1"
       ]
     },
     {
