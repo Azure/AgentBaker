@@ -945,6 +945,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"ShouldEnableCustomData": func() bool {
 			return !config.DisableCustomData
 		},
+		"GetPrivateEgressProxyAddress": func() string {
+			return config.ContainerService.Properties.SecurityProfile.GetProxyAddress()
+		},
 	}
 }
 
