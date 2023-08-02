@@ -23,9 +23,7 @@ func calico() *Scenario {
 				vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
 					ID: to.Ptr(DefaultImageVersionIDs["ubuntu2204"]),
 				}
-				// TODO: when I change this I get an error
-				//     "message": "The selected VM size 'Standard_D4_v2' cannot boot Hypervisor Generation '2'. If this was a Create operation please check that the Hypervisor Generation of the Image matches the Hypervisor Generation of the selected VM Size. If this was an Update operation please select a Hypervisor Generation '2' VM Size. For more information, see https://aka.ms/azuregen2vm"
-				//vmss.SKU.Name = to.Ptr("Standard_D4_v3")
+				vmss.SKU.Name = to.Ptr("Standard_D4s_v3")
 			},
 		},
 	}
