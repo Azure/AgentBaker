@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cleanup
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchFields:
+          - key: metadata.name
+            operator: In
+            values:
+              - bash
+              - -c
+              - "rm -f /opt/cni/bin/{calico-ipam,calico,flannel,install} /etc/cni/net.d/{10-calico.conflist,calico-kubeconfig}"
+  containers:
+    image: alpine
+    imagePullPolicy: IfNotPresent
+    command:
+    - /opt/cni/bin/install
+    volumeMounts:
+    - mountPath: /host/opt/cni/bin
+      name: cni-bin-dir
+    - mountPath: /host/etc/cni/net.d
+      name: cni-net-dir
+  volumes:
+  - hostPath:
+      path: /opt/cni/bin
+      type: ""
+    name: cni-bin-dir
+  - hostPath:
+      path: /etc/cni/net.d
+      type: ""
+    name: cni-net-dir
