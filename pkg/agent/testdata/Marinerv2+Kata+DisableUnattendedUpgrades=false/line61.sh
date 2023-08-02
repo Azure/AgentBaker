@@ -39,6 +39,17 @@ downloadGPUDrivers() {
     fi
 }
 
+createNvidiaSymlinkToAllDeviceNodes() {
+    NVIDIA_DEV_CHAR="/lib/udev/rules.d/71-nvidia-dev-char.rules"
+    touch "${NVIDIA_DEV_CHAR}"
+    cat << EOF > "${NVIDIA_DEV_CHAR}"
+# This will create /dev/char symlinks to all device nodes
+ACTION=="add", DEVPATH=="/bus/pci/drivers/nvidia", RUN+="/usr/bin/nvidia-ctk system create-dev-char-symlinks --create-all"
+EOF
+
+    /usr/bin/nvidia-ctk system create-dev-char-symlinks --create-all
+}
+
 installNvidiaFabricManager() {
     # Check the NVIDIA driver version installed and install nvidia-fabric-manager
     NVIDIA_DRIVER_VERSION=$(cut -d - -f 2 <<< "$(rpm -qa cuda)")

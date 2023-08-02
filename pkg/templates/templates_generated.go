@@ -2313,20 +2313,21 @@ configGPUDrivers() {
         fi
     elif [[ $OS == $MARINER_OS_NAME ]]; then
         downloadGPUDrivers
-        installNvidiaContainerRuntime
+        #installNvidiaContainerRuntime
         enableNvidiaPersistenceMode
     else 
         echo "os $OS not supported at this time. skipping configGPUDrivers"
         exit 1
     fi
 
-    # validate on host, already done inside container.
-    if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    fi
-
+    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+
+    # Fix the NVIDIA /dev/char link issue
+    if [[ $OS == $MARINER_OS_NAME ]]; then
+        createNvidiaSymlinkToAllDeviceNodes
+    fi
     
     # reload containerd/dockerd
     if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
@@ -4924,6 +4925,17 @@ downloadGPUDrivers() {
     if ! dnf_install 30 1 600 cuda-${CUDA_VERSION}; then
       exit $ERR_APT_INSTALL_TIMEOUT
     fi
+}
+
+createNvidiaSymlinkToAllDeviceNodes() {
+    NVIDIA_DEV_CHAR="/lib/udev/rules.d/71-nvidia-dev-char.rules"
+    touch "${NVIDIA_DEV_CHAR}"
+    cat << EOF > "${NVIDIA_DEV_CHAR}"
+# This will create /dev/char symlinks to all device nodes
+ACTION=="add", DEVPATH=="/bus/pci/drivers/nvidia", RUN+="/usr/bin/nvidia-ctk system create-dev-char-symlinks --create-all"
+EOF
+
+    /usr/bin/nvidia-ctk system create-dev-char-symlinks --create-all
 }
 
 installNvidiaFabricManager() {
