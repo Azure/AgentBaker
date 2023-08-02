@@ -27,6 +27,7 @@ python3 /opt/azure/containers/provision_redact_cloud_config.py \
 
 # WIDALY: hacks to get read/write counts by process during the first 10 minutes of node startup.
 # Output is written every 10 seconds to /var/log/azure/iotrace.log
+# TODO: also trace CPU? that could be contended as well
 cat <<EOF > /usr/local/bin/iotrace.sh
 #!/usr/bin/env bash
 
