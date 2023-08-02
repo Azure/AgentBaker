@@ -11,19 +11,20 @@ spec:
           - key: metadata.name
             operator: In
             values:
-              - bash
-              - -c
-              - "rm -f /opt/cni/bin/{calico-ipam,calico,flannel,install} /etc/cni/net.d/{10-calico.conflist,calico-kubeconfig}"
+              - aks-bignp-27337109-vmss000000
   containers:
-    image: alpine
-    imagePullPolicy: IfNotPresent
-    command:
-    - /opt/cni/bin/install
-    volumeMounts:
-    - mountPath: /host/opt/cni/bin
-      name: cni-bin-dir
-    - mountPath: /host/etc/cni/net.d
-      name: cni-net-dir
+    - name: cleanup
+      image: alpine
+      imagePullPolicy: IfNotPresent
+      command:
+      - sh
+      - -c
+      - "rm -f /host/opt/cni/bin/calico-ipam /host/opt/cni/bin/calico /host/opt/cni/bin/flannel /host/opt/cni/bin/install /host/etc/cni/net.d/10-calico.conflist /host/etc/cni/net.d/calico-kubeconfig"
+      volumeMounts:
+      - mountPath: /host/opt/cni/bin
+        name: cni-bin-dir
+      - mountPath: /host/etc/cni/net.d
+        name: cni-net-dir
   volumes:
   - hostPath:
       path: /opt/cni/bin
