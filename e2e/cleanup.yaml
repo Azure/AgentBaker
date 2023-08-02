@@ -11,7 +11,17 @@ spec:
           - key: metadata.name
             operator: In
             values:
-              - aks-bignp-27337109-vmss000000
+              - NODE
+    tolerations:
+    - key: CriticalAddonsOnly
+      operator: Exists
+    - effect: NoSchedule
+      operator: Exists
+    - effect: NoExecute
+      operator: Exists
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
   containers:
     - name: cleanup
       image: alpine
