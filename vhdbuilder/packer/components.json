@@ -82,7 +82,7 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "3.1.10"
+        "3.1.11"
       ]
     },
     {
@@ -109,46 +109,36 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/cni:*",
-      "amd64OnlyVersions": [
-        "v3.8.9.3"
-      ],
       "multiArchVersions": [
-        "v3.23.3",
+        "v3.24.6",
         "v3.24.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/node:*",
-      "amd64OnlyVersions": [
-        "v3.8.9.5"
-      ],
       "multiArchVersions": [
-        "v3.23.3",
+        "v3.24.6",
         "v3.24.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/typha:*",
-      "amd64OnlyVersions": [
-        "v3.8.9"
-      ],
       "multiArchVersions": [
-        "v3.23.3",
+        "v3.24.6",
         "v3.24.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:*",
-      "amd64OnlyVersions": [],
       "multiArchVersions": [
+        "v3.24.6",
         "v3.24.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:*",
-      "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.23.3",
+        "v3.24.6",
         "v3.24.0"
       ]
     },
@@ -171,9 +161,8 @@
       "downloadURL": "mcr.microsoft.com/oss/tigera/operator:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.23.8",
-        "v1.27.12",
-        "v1.28.0"
+        "v1.28.0",
+        "v1.28.13"
       ]
     },
     {
