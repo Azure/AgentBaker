@@ -46,6 +46,24 @@ fi
 azure_config=$(cat /etc/kubernetes/azure.json)
 aad_client_id=$(echo $azure_config | jq -r '.aadClientId')
 aad_client_secret=$(echo $azure_config | jq -r '.aadClientSecret')
+resource="management.azure.com"
+nslookup $resource > /tmp/nslookup.log
+if [ $? -eq 0 ]; then
+    logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to endpoint $resource'"
+else
+    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to endpoint $resource'"
+    nameserver=$(cat /tmp/nslookup.log | grep "Server" | awk '{print $2}')
+    echo "Checking resolv.conf for nameserver $nameserver"
+    cat /etc/resolv.conf | grep $nameserver 
+    if [ $? -ne 0 ]; then
+        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - FAILURE: Nameserver $nameserver wasn't added to /etc/resolv.conf'"
+    fi
+    cat /run/systemd/resolve/resolv.conf | grep $nameserver 
+    if [ $? -ne 0 ]; then
+        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - FAILURE: Nameserver $nameserver wasn't added to /run/systemd/resolve/resolv.conf'"
+    fi
+    exit 1
+fi
 if [ $aad_client_id == "msi" ] && [ $aad_client_secret == "msi" ]; then
     client_id=$(echo $azure_config | jq -r '.userAssignedIdentityID')
     subscription_id=$(echo $azure_config | jq -r '.subscriptionId')
@@ -54,22 +72,30 @@ if [ $aad_client_id == "msi" ] && [ $aad_client_secret == "msi" ]; then
     resource_group=$(echo $node_resource_group | cut -d '_' -f 2)
     cluster_name=$(echo $node_resource_group | cut -d '_' -f 3)
 
-    resource="https://management.azure.com"
-    metadata_endpoint="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&client_id=${client_id}&resource=${resource}/"
+    metadata_endpoint="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&client_id=${client_id}&resource=https://${resource}/"
     tmp_file="/tmp/managedCluster.json"
     result=$(curl -s -o $tmp_file -w "%{http_code}" -H Metadata:true $metadata_endpoint)
-    if [ $result -ne 200 ]; then
+    if [ $result -eq 200 ]; then
+        logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully sent metadata endpoint request with returned status code $result'"
+    else
         logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to send metadata endpoint request with returned status code $result'" 
     fi
 
     access_token=$(cat $tmp_file | jq -r .access_token)
-    clusterEndpoint="${resource}/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.ContainerService/managedClusters/${cluster_name}?api-version=2023-04-01"
+    clusterEndpoint="https://${resource}/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.ContainerService/managedClusters/${cluster_name}?api-version=2023-04-01"
     res=$(curl -X GET -H "Authorization: Bearer $access_token" -H "Content-Type:application/json" -s -o $tmp_file -w "%{http_code}" $clusterEndpoint)
     if [ $res -eq 200 ]; then
-        logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully pinged $resource with returned status code $res'"
+        logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled $resource with returned status code $res'"
         fqdn=$(cat $tmp_file | jq -r .properties.fqdn)
+        fullUrl="https://${fqdn}/healthz"
+        res=$(curl -s -o /dev/null -w "%{http_code}" --cacert /etc/kubernetes/certs/apiserver.crt --cert /etc/kubernetes/certs/client.crt --key /etc/kubernetes/certs/client.key $fullUrl)
+        if $res -eq 200 ]; then
+            logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled apiserver $fqdn with returned status code $res'"
+        else 
+            logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl apiserver $fqdn with returned status code $res'" 
+        fi
     else 
-        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to ping $resource with returned status code $res'" 
+        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $resource for cluster information with returned status code $res'" 
     fi
 else 
     logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Unable to check access to management.azure.com endpoint'"
@@ -87,9 +113,11 @@ delay=5
 for url in ${urlLists[@]};
 do
     # Check DNS 
-    nslookup $url
-    if [ $? -ne 0 ]; then
-        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to resolve $url'"
+    nslookup $url > /dev/null
+    if [ $? -eq 0 ]; then
+        logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to endpoint $url'"
+    else
+        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to endpoint $url'"
         continue
     fi
 
@@ -97,14 +125,15 @@ do
     while true;
     do
         # Ping the URLs and capture the response code
-        fullUrl="https://${url}"
         if [ $url == "acs-mirror.azureedge.net" ]; then
             fullUrl="https://${url}/azure-cni/v1.4.43/binaries/azure-vnet-cni-linux-amd64-v1.4.43.tgz"
+            response=$(curl -I -s -o /dev/null -w "%{http_code}" $fullUrl -L)
+        else
+            response=$(curl -s -o /dev/null -w "%{http_code}" "https://$url" -L)
         fi
-        response=$(curl -s -o /dev/null -w "%{http_code}" $fullUrl -L)
 
         if [ $response -eq 200 ]; then
-            logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully pinged $url with returned status code $response'"
+            logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled $url with returned status code $response'"
             break
         else 
             # If the response code is not 200, increment the error count
@@ -113,7 +142,7 @@ do
 
         # If we have reached the maximum number of retries, log an error
         if [[ $i -eq $retries ]]; then
-            logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to ping $url after $retries attempts with returned status code $response'" 
+            logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $url after $retries attempts with returned status code $response'" 
             break
         fi
 
