@@ -47,6 +47,8 @@ switch -Regex ($windowsSku) {
 $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
     "mcr.microsoft.com/oss/kubernetes/pause:3.9",
+    # This is for test purpose only to reduce the test duration.
+    "mcr.microsoft.com/windows/servercore/iis:latest",
     # CSI. Owner: andyzhangx (Andy Zhang)
     "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.10.0",
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0",

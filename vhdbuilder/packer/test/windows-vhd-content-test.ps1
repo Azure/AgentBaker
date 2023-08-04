@@ -209,8 +209,9 @@ function Test-ImagesPulled {
     #    only image reference as a workaround
     $pulledImages = (ctr.exe -n k8s.io image ls -q | Select-String -notmatch "sha256:.*" | % { $_.Line } )
 
-    if(Compare-Object $targetImagesToPull $pulledImages) {
-        Write-ErrorWithTimestamp "images to pull do not equal images cached $targetImagesToPull != $pulledImages."
+    $result = (Compare-Object $targetImagesToPull $pulledImages)
+    if($result) {
+        Write-ErrorWithTimestamp "images to pull do not equal images cached $(($result).InputObject) ."
         exit 1
     }
 }
