@@ -90,10 +90,12 @@ $wuRegistryNames = @(
     "HnsPolicyUpdateChange",
     "HnsNatAllowRuleUpdateChange",
     "HnsAclUpdateChange",
+    "HNSFixExtensionUponRehydration",
     "HnsNpmRefresh",
     "HnsNodeToClusterIpv6",
     "HNSNpmIpsetLimitChange",
     "HNSLbNatDupRuleChange",
+    "HNSUpdatePolicyForEndpointChange",
     "WcifsSOPCountDisabled",
     "3105872524",
     "2629306509",
@@ -103,7 +105,8 @@ $wuRegistryNames = @(
     "VfpEvenPodDistributionIsEnabled",
     "VfpIpv6DipsPrintingIsEnabled",
     "3230913164",
-    "3398685324"
+    "3398685324",
+    "87798413"
 )
 
 foreach ($key in $wuRegistryKeys) {

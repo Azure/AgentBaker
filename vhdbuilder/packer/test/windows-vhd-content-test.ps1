@@ -331,6 +331,21 @@ function Test-RegistryAdded {
             Write-ErrorWithTimestamp "The registry for VfpIpv6DipsPrintingIsEnabled is not added"
             exit 1
         }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSUpdatePolicyForEndpointChange)
+        if ($result.HNSUpdatePolicyForEndpointChange -ne 1) {
+            Write-ErrorWithTimestamp "The registry for HNSUpdatePolicyForEndpointChange is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSFixExtensionUponRehydration)
+        if ($result.HNSFixExtensionUponRehydration -ne 1) {
+            Write-ErrorWithTimestamp "The registry for HNSFixExtensionUponRehydration is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 87798413)
+        if ($result.87798413 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 87798413 is not added"
+            exit 1
+        }
     }
 }
 
