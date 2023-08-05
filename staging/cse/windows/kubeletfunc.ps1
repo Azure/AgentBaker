@@ -44,7 +44,7 @@ function Write-AzureConfig {
         $UseContainerD = $false
     )
 
-    if ( -Not $PrimaryAvailabilitySetName -And -Not $PrimaryScaleSetName ) {
+    if ( $VmType -eq "vmss" -And -Not $PrimaryAvailabilitySetName -And -Not $PrimaryScaleSetName ) {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG -ErrorMessage "Either PrimaryAvailabilitySetName or PrimaryScaleSetName must be set"
     }
 
