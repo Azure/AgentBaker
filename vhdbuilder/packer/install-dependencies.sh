@@ -222,9 +222,6 @@ installAndConfigureArtifactStreaming() {
   sudo apt install libnl-3-dev libnl-genl-3-dev libc6 libssl3 -y
 
   echo "  - [installed] libnl-3-dev, libnl-genl-3-dev, libc6 and libssl3" >> ${VHD_LOGS_FILEPATH}
-
-  sudo /opt/acr/tools/overlaybd/install.sh || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
-  sudo /opt/acr/tools/overlaybd/enable-http-auth.sh || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
 }
 
 if [[ ( "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" ) && ( "${CPU_ARCH}" == "amd64" ) ]]; then
