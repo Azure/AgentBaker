@@ -38,13 +38,14 @@ logs_to_events() {
     fi
 }
 
-# Check access to management.azure.com endpoint
+
 if ! [ -e "/etc/kubernetes/azure.json" ]; then
     logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to find azure.json file. Are you running inside Kubernetes?'"
     exit 1
 fi
-
 azure_config=$(cat /etc/kubernetes/azure.json)
+
+# Check DNS 
 resource="management.azure.com"
 nslookup $resource > /tmp/nslookup.log
 if [ $? -eq 0 ]; then
@@ -55,43 +56,50 @@ else
     echo "Checking resolv.conf for nameserver $nameserver"
     cat /etc/resolv.conf | grep $nameserver 
     if [ $? -ne 0 ]; then
-        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - FAILURE: Nameserver $nameserver wasn't added to /etc/resolv.conf'"
+        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - FAILURE: Nameserver $nameserver wasn't found in /etc/resolv.conf'"
     fi
     cat /run/systemd/resolve/resolv.conf | grep $nameserver 
     if [ $? -ne 0 ]; then
-        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - FAILURE: Nameserver $nameserver wasn't added to /run/systemd/resolve/resolv.conf'"
+        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - FAILURE: Nameserver $nameserver wasn't found in /run/systemd/resolve/resolv.conf'"
     fi
     exit 1
 fi
 
+# Check access to management.azure.com endpoint
 metadata_endpoint="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://${resource}/"
 tmp_file="/tmp/accessToken.json"
 result=$(curl -s -o $tmp_file -w "%{http_code}" -H Metadata:true $metadata_endpoint)
 if [ $result -eq 200 ]; then
     logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully sent metadata endpoint request with returned status code $result'"
+    access_token=$(cat $tmp_file | jq -r .access_token)
+    test_endpoint="https://${resource}/providers/Microsoft.ContainerService/operations?api-version=2023-05-01"
+    res=$(curl -X GET -H "Authorization: Bearer $access_token" -H "Content-Type:application/json" -s -o /dev/null -w "%{http_code}" $test_endpoint)
+    if [ $res -eq 200 ]; then
+        logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled $resource with returned status code $res'"
+    else 
+        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $resource with returned status code $res'" 
+    fi
 else
-    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to send metadata endpoint request with returned status code $result'" 
+    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to send metadata endpoint request with returned status code $result. Can't check access to $resource'" 
 fi
 
-access_token=$(cat $tmp_file | jq -r .access_token)
-test_endpoint="https://${resource}/providers/Microsoft.ContainerService/operations?api-version=2023-05-01"
-res=$(curl -X GET -H "Authorization: Bearer $access_token" -H "Content-Type:application/json" -s -o /dev/null -w "%{http_code}" $test_endpoint)
-if [ $res -eq 200 ]; then
-    logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled $resource with returned status code $res'"
-else 
-    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $resource for cluster information with returned status code $res'" 
-fi
-
-fullUrl="https://${FQDN}/healthz"
-res=$(curl -s -o /dev/null -w "%{http_code}" --cacert /etc/kubernetes/certs/apiserver.crt --cert /etc/kubernetes/certs/client.crt --key /etc/kubernetes/certs/client.key $fullUrl)
-if [ $res -eq 200 ]; then
-    logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled apiserver $FQDN with returned status code $res'"
-else 
-    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl apiserver $FQDN with returned status code $res'" 
+# Check access to apiserver
+nslookup $FQDN > /dev/null
+if [ $? -eq 0 ]; then
+    logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to endpoint $url'"
+    fullUrl="https://${FQDN}/healthz"
+    res=$(curl -s -o /dev/null -w "%{http_code}" --cacert /etc/kubernetes/certs/apiserver.crt --cert /etc/kubernetes/certs/client.crt --key /etc/kubernetes/certs/client.key $fullUrl)
+    if [ $res -eq 200 ]; then
+        logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled apiserver $FQDN with returned status code $res'"
+    else 
+        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl apiserver $FQDN with returned status code $res'" 
+    fi
+else
+    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to endpoint $url'"
 fi
 
 # Set the URLs to ping
-urlLists=("mcr.microsoft.com" "login.microsoftonline.com" "packages.microsoft.com" "acs-mirror.azureedge.net")
+urlLists=("mcr.microsoft.com" "login.microsoftonline.com" "packages.microsoft.com" "acs-mirror.azureedge.net" $FQDN)
 
 # Set the number of times to retry before logging an error
 retries=3
