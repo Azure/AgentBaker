@@ -210,7 +210,6 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 
 try
 {
-    Write-Log "Test AgentBaker Windowss E2E pipeline log"
     Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
     # Exit early if the script has been executed

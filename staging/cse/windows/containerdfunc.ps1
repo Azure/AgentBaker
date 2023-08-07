@@ -131,6 +131,8 @@ function Install-Containerd {
     $KubeDir
   )
 
+  Write-Log "Test Windows AgentBaker E2E Logs"
+
   $svc = Get-Service -Name containerd -ErrorAction SilentlyContinue
   if ($null -ne $svc) {
     Write-Log "Stoping containerd service"
