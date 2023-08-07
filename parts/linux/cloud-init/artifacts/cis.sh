@@ -1,4 +1,6 @@
 #!/bin/bash
+# This gets us the error codes we use and the os and such.
+source /home/packer/provision_source.sh
 
 assignRootPW() {
     if grep '^root:[!*]:' /etc/shadow; then
@@ -59,7 +61,9 @@ assignFilePermissions() {
         chmod 0600 /etc/crontab || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     fi
     for filepath in /etc/cron.hourly /etc/cron.daily /etc/cron.weekly /etc/cron.monthly /etc/cron.d; do
-        chmod 0600 $filepath || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+        if [[ -e $filepath ]]; then
+            chmod 0600 $filepath || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+        fi
     done
 
     # Docs: https://www.man7.org/linux/man-pages/man1/crontab.1.html
@@ -153,11 +157,62 @@ configureCoreDump() {
     replaceOrAppendCoreDump ProcessSizeMax 0
 }
 
+fixUmaskSettings() {
+    # CIS requires the default UMASK for account creation to be set to 027, so change that in /etc/login.defs.
+    replaceOrAppendLoginDefs UMASK 027
+
+    # It also requires that nothing in etc/profile.d sets umask to anything less restrictive than that.
+    # Mariner sets umask directly in /etc/profile after sourcing everything in /etc/profile.d. But it also has /etc/profile.d/umask.sh
+    # which sets umask (but is then ignored). We don't want to simply delete /etc/profile.d/umask.sh, because if we take an update to
+    # the package that supplies it, it would just be copied over again.
+    # This is complicated by an oddity/bug in the auditing script cis uses, which will flag line in a file with the work umask in the file name
+    # that doesn't set umask correctly. So we can't just comment out all the lines or have any comments that explain what we're doing.
+    # So since we can't delete the file, we just overwrite it with the correct umask setting. This duplicates what /etc/profile does, but
+    # it does no harm and works with the tools.
+    # Note that we use printf to avoid a trailing newline.
+    local umask_sh="/etc/profile.d/umask.sh"
+    if [[ "${OS}" == "${MARINER_OS_NAME}" && "${OS_VERSION}" == "2.0" && -f "${umask_sh}" ]]; then
+        printf "umask 027" >${umask_sh}
+    fi
+}
+
+function maskNfsServer() {
+    # If nfs-server.service exists, we need to mask it per CIS requirement.
+    # Note that on ubuntu systems, it isn't installed but on mariner we need it
+    # due to a dependency, but disable it by default.
+    if systemctl list-unit-files nfs-server.service >/dev/null; then
+        systemctl --now mask nfs-server || $ERR_SYSTEMCTL_MASK_FAIL
+    fi
+}
+
+function addFailLockDir() {
+    # Mariner V2 uses pamd faillocking, which requires a directory to store the faillock files.
+    # Default is /var/run/faillock, but that's a tmpfs, so we need to use /var/log/faillock instead.
+    # But we need to leave settings alone for other skus.
+    if [[ "${OS}" == "${MARINER_OS_NAME}" && "${OS_VERSION}" == "2.0" ]]; then
+        # Replace or append the dir setting in /etc/security/faillock.conf
+        # Docs: https://www.man7.org/linux/man-pages/man5/faillock.conf.5.html
+        #
+        # Search pattern is:
+        # '^#{0,1} {0,1}' -- Line starts with 0 or 1 '#' followed by 0 or 1 space
+        # 'dir\s+'        -- Then the setting name followed by one or more whitespace characters
+        # '.*$'           -- Then 0 or nore of any character which is the end of the line.
+        #
+        # This is based on a combination of the syntax for the file and real examples we've found.
+        local fail_lock_dir="/var/log/faillock"
+        mkdir -p ${fail_lock_dir}
+        replaceOrAppendSetting "^#{0,1} {0,1}dir\s+.*$" "dir = ${fail_lock_dir}" /etc/security/faillock.conf
+    fi
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
     assignFilePermissions
     configureCoreDump
+    fixUmaskSettings
+    maskNfsServer
+    addFailLockDir
 }
 
 applyCIS

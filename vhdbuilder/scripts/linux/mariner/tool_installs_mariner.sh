@@ -14,6 +14,12 @@ installBcc() {
     dnf_install 120 5 25 bcc-examples || exit $ERR_BCC_INSTALL_TIMEOUT
 }
 
+installBpftrace() {
+    echo "Installing bpftrace ..."
+    dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
+    dnf_install 120 5 25 bpftrace || exit $ERR_BCC_INSTALL_TIMEOUT
+}
+
 addMarinerNvidiaRepo() {
     if [[ $OS_VERSION == "2.0" ]]; then 
         MARINER_NVIDIA_REPO_FILEPATH="/etc/yum.repos.d/mariner-nvidia.repo"
@@ -64,6 +70,7 @@ if [[ $OS_VERSION == "2.0" ]]; then
     cat << EOF >> ${CONFIG_FILEPATH}
 
     [DHCPv4]
+    UseDomains=true
     SendRelease=false
 EOF
 fi
@@ -87,6 +94,16 @@ disableDNFAutomatic() {
     systemctl stop dnf-automatic-install.timer || exit 1
     systemctl disable dnf-automatic-install.timer || exit 1
     systemctl mask dnf-automatic-install.timer || exit 1
+}
+
+disableTimesyncd() {
+    # Disable and Mask timesyncd to prevent it from interfering with chronyd's work
+    systemctl stop systemd-timesyncd || exit 1
+    systemctl disable systemd-timesyncd || exit 1
+    systemctl mask systemd-timesyncd || exit 1
+    
+    # Before we return, make sure that chronyd is running
+    systemctlEnableAndStart chronyd || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 # Regardless of UU mode, ensure check-restart is running

@@ -76,7 +76,15 @@ else
   TARGET_COMMAND_STRING=""
   if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     TARGET_COMMAND_STRING+="--size Standard_D2pds_v5"
-  elif [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
+  elif [[ "${FEATURE_FLAGS,,}" == "kata" ]]; then
+    TARGET_COMMAND_STRING="--size Standard_D4ds_v5"
+  fi
+
+  if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
+    if [[ -n "$TARGET_COMMAND_STRING" ]]; then
+      # To take care of Mariner Kata TL images
+      TARGET_COMMAND_STRING+=" "
+    fi
     TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
   fi
 
@@ -102,13 +110,15 @@ if [ "$OS_TYPE" == "Linux" ]; then
     ENABLE_FIPS="false"
   fi
 
+  # If the pipeline that called this didn't set a branch, default to master.
+  GIT_BRANCH="${GIT_BRANCH:-refs/heads/master}"
   SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
   for i in $(seq 1 3); do
     ret=$(az vm run-command invoke --command-id RunShellScript \
       --name $VM_NAME \
       --resource-group $RESOURCE_GROUP_NAME \
       --scripts @$SCRIPT_PATH \
-      --parameters ${CONTAINER_RUNTIME} ${OS_VERSION} ${ENABLE_FIPS} ${OS_SKU}) && break
+      --parameters ${CONTAINER_RUNTIME} ${OS_VERSION} ${ENABLE_FIPS} ${OS_SKU} ${GIT_BRANCH}) && break
     echo "${i}: retrying az vm run-command"
   done
   # The error message for a Linux VM run-command is as follows:

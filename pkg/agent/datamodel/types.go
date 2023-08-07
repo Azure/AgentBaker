@@ -160,9 +160,6 @@ const (
 	AKSUbuntuFipsContainerd1804Gen2     Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
 	AKSUbuntuFipsContainerd2004         Distro = "aks-ubuntu-fips-containerd-20.04"
 	AKSUbuntuFipsContainerd2004Gen2     Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
-	AKSUbuntuFipsGPUContainerd1804      Distro = "aks-ubuntu-fips-gpu-containerd-18.04"
-	AKSUbuntuFipsGPUContainerd1804Gen2  Distro = "aks-ubuntu-fips-gpu-containerd-18.04-gen2"
-	AKSUbuntuArm64Containerd1804Gen2    Distro = "aks-ubuntu-arm64-containerd-18.04-gen2"
 	AKSUbuntuEdgeZoneContainerd1804     Distro = "aks-ubuntu-edgezone-containerd-18.04"
 	AKSUbuntuEdgeZoneContainerd1804Gen2 Distro = "aks-ubuntu-edgezone-containerd-18.04-gen2"
 	AKSUbuntuEdgeZoneContainerd2204     Distro = "aks-ubuntu-edgezone-containerd-22.04"
@@ -173,10 +170,13 @@ const (
 	AKSUbuntuArm64Containerd2204Gen2    Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 	AKSCBLMarinerV2Arm64Gen2            Distro = "aks-cblmariner-v2-arm64-gen2"
 	AKSUbuntuContainerd2204TLGen2       Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
-	RHEL                                Distro = "rhel"
-	CoreOS                              Distro = "coreos"
-	AKS1604Deprecated                   Distro = "aks"      // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
-	AKS1804Deprecated                   Distro = "aks-1804" // deprecated AKS 18.04 distro. Equivalent to aks-ubuntu-18.04.
+	AKSUbuntuMinimalContainerd2204      Distro = "aks-ubuntu-minimal-containerd-22.04"
+	AKSUbuntuMinimalContainerd2204Gen2  Distro = "aks-ubuntu-minimal-containerd-22.04-gen2"
+
+	RHEL              Distro = "rhel"
+	CoreOS            Distro = "coreos"
+	AKS1604Deprecated Distro = "aks"      // deprecated AKS 16.04 distro. Equivalent to aks-ubuntu-16.04.
+	AKS1804Deprecated Distro = "aks-1804" // deprecated AKS 18.04 distro. Equivalent to aks-ubuntu-18.04.
 
 	// Windows string const.
 	// AKSWindows2019 stands for distro of windows server 2019 SIG image with docker.
@@ -221,9 +221,6 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsContainerd2004,
 	AKSUbuntuFipsContainerd2004Gen2,
-	AKSUbuntuFipsGPUContainerd1804,
-	AKSUbuntuFipsGPUContainerd1804Gen2,
-	AKSUbuntuArm64Containerd1804Gen2,
 	AKSUbuntuEdgeZoneContainerd1804,
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSUbuntuEdgeZoneContainerd2204,
@@ -234,6 +231,8 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSUbuntuContainerd2204TLGen2,
+	AKSUbuntuMinimalContainerd2204,
+	AKSUbuntuMinimalContainerd2204Gen2,
 }
 
 type CustomConfigurationComponent string
@@ -653,6 +652,14 @@ type CustomLinuxOSConfig struct {
 	TransparentHugePageEnabled string        `json:"transparentHugePageEnabled,omitempty"`
 	TransparentHugePageDefrag  string        `json:"transparentHugePageDefrag,omitempty"`
 	SwapFileSizeMB             *int32        `json:"swapFileSizeMB,omitempty"`
+	UlimitConfig               *UlimitConfig `json:"ulimitConfig,omitempty"`
+}
+
+func (c *CustomLinuxOSConfig) GetUlimitConfig() *UlimitConfig {
+	if c == nil {
+		return nil
+	}
+	return c.UlimitConfig
 }
 
 // SysctlConfig represents sysctl configs in customLinuxOsConfig.
@@ -685,6 +692,11 @@ type SysctlConfig struct {
 	VMMaxMapCount                  *int32 `json:"vmMaxMapCount,omitempty"`
 	VMSwappiness                   *int32 `json:"vmSwappiness,omitempty"`
 	VMVfsCachePressure             *int32 `json:"vmVfsCachePressure,omitempty"`
+}
+
+type UlimitConfig struct {
+	MaxLockedMemory string `json:"maxLockedMemory ,omitempty"`
+	NoFile          string `json:"noFile,omitempty"`
 }
 
 type CustomConfiguration struct {
@@ -725,6 +737,13 @@ type AgentPoolProfile struct {
 	AgentPoolWindowsProfile *AgentPoolWindowsProfile `json:"agentPoolWindowsProfile,omitempty"`
 }
 
+func (a *AgentPoolProfile) GetCustomLinuxOSConfig() *CustomLinuxOSConfig {
+	if a == nil {
+		return nil
+	}
+	return a.CustomLinuxOSConfig
+}
+
 // Properties represents the AKS cluster definition.
 type Properties struct {
 	ClusterID               string
@@ -744,6 +763,7 @@ type Properties struct {
 	FeatureFlags            *FeatureFlags            `json:"featureFlags,omitempty"`
 	CustomCloudEnv          *CustomCloudEnv          `json:"customCloudEnv,omitempty"`
 	CustomConfiguration     *CustomConfiguration     `json:"customConfiguration,omitempty"`
+	SecurityProfile         *SecurityProfile         `json:"securityProfile,omitempty"`
 }
 
 // ContainerService complies with the ARM model of resource definition in a JSON template.
@@ -1607,6 +1627,7 @@ type NodeBootstrappingConfiguration struct {
 	CustomCATrustConfig            *CustomCATrustConfig
 	DisableUnattendedUpgrades      bool
 	SSHStatus                      SSHStatus
+	DisableCustomData              bool
 }
 
 type SSHStatus int
@@ -2086,3 +2107,23 @@ func (a *AgentPoolProfile) IsDisableWindowsOutboundNat() bool {
 		a.AgentPoolWindowsProfile.DisableOutboundNat != nil &&
 		*a.AgentPoolWindowsProfile.DisableOutboundNat
 }
+
+// SecurityProfile begin.
+type SecurityProfile struct {
+	PrivateEgress *PrivateEgress `json:"privateEgress,omitempty"`
+}
+
+type PrivateEgress struct {
+	Enabled                 bool   `json:"enabled"`
+	ContainerRegistryServer string `json:"containerRegistryServer"`
+	ProxyAddress            string `json:"proxyAddress"`
+}
+
+func (s *SecurityProfile) GetProxyAddress() string {
+	if s != nil && s.PrivateEgress != nil && s.PrivateEgress.Enabled {
+		return s.PrivateEgress.ProxyAddress
+	}
+	return ""
+}
+
+// SecurityProfile end.

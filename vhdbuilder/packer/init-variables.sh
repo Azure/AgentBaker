@@ -15,6 +15,20 @@ else
 	CAPTURED_SIG_VERSION="1.${CREATE_TIME}.$RANDOM"
 fi
 
+if [ -z "${POOL_NAME}" ]; then
+	echo "POOL_NAME is not set, can't compute vnet_rg_name for packer templates"
+	exit 1
+fi
+
+vnet_rg_name=""
+if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
+	vnet_rg_name="nodesigprod-agent-pool"
+else
+	vnet_rg_name="nodesigtest-agent-pool"
+fi
+
+echo "vnet_rg_name set to: ${vnet_rg_name}"
+
 echo "CAPTURED_SIG_VERSION set to: ${CAPTURED_SIG_VERSION}"
 
 echo "Subscription ID: ${SUBSCRIPTION_ID}"
@@ -82,6 +96,10 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}CVM
 		fi
 
+		if [[ "${IMG_SKU}" == *"minimal"* ]]; then
+			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Minimal
+		fi
+		
 		if [[ "${OS_SKU}" == "CBLMariner" ]]; then
 			SIG_IMAGE_NAME=CBLMariner${SIG_IMAGE_NAME}
 		fi
@@ -157,64 +175,6 @@ else
 	echo "Skipping SIG check for $MODE, os-type: ${OS_TYPE}"
 fi
 
-# Image import from storage account. Required to build CBLMarinerV1 Gen2 & CBLMarinerV2Kata images.
-if [[ "$OS_SKU" == "CBLMariner" ]]; then
-	if [[ ("$OS_VERSION" == "V1" && "$HYPERV_GENERATION" == "V2") || "$OS_VERSION" == "V2kata" ]]; then
-		if [[ $OS_VERSION == "V2kata" ]]; then
-			IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_KATA}
-		else
-			if [[ $HYPERV_GENERATION == "V2" ]]; then
-				IMPORT_IMAGE_URL=${IMPORT_IMAGE_URL_GEN2}
-			fi
-		fi
-
-		expiry_date=$(date -u -d "10 minutes" '+%Y-%m-%dT%H:%MZ')
-		sas_token=$(az storage account generate-sas --account-name $STORAGE_ACCOUNT_NAME --permissions rcw --resource-types o --services b --expiry ${expiry_date} | tr -d '"')
-
-		IMPORTED_IMAGE_NAME=imported-$CREATE_TIME-$RANDOM
-		IMPORTED_IMAGE_URL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/system/$IMPORTED_IMAGE_NAME.vhd"
-		DESTINATION_WITH_SAS="${IMPORTED_IMAGE_URL}?${sas_token}"
-
-		echo Importing VHD from $IMPORT_IMAGE_URL
-		azcopy-preview copy $IMPORT_IMAGE_URL $DESTINATION_WITH_SAS
-
-		# hyperv-gen2 packer builds require that the imported image is hosted in a SIG
-		if [[ $HYPERV_GENERATION == "V2" ]]; then
-			echo "Creating new image for imported vhd ${IMPORTED_IMAGE_URL}"
-			az image create \
-				--resource-group $AZURE_RESOURCE_GROUP_NAME \
-				--name $IMPORTED_IMAGE_NAME \
-				--source $IMPORTED_IMAGE_URL \
-				--location $AZURE_LOCATION \
-				--hyper-v-generation V2 \
-				--os-type Linux
-
-			echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
-			az sig image-definition create \
-				--resource-group $AZURE_RESOURCE_GROUP_NAME \
-				--gallery-name $SIG_GALLERY_NAME \
-				--gallery-image-definition $IMPORTED_IMAGE_NAME \
-				--location $AZURE_LOCATION \
-				--os-type Linux \
-				--publisher microsoft-aks \
-				--offer $IMPORTED_IMAGE_NAME \
-				--sku $OS_SKU \
-				--hyper-v-generation V2 \
-				--os-state generalized \
-				--description "Imported image for AKS Packer build" \
-
-			echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
-			az sig image-version create \
-				--location $AZURE_LOCATION \
-				--resource-group $AZURE_RESOURCE_GROUP_NAME \
-				--gallery-name $SIG_GALLERY_NAME \
-				--gallery-image-definition $IMPORTED_IMAGE_NAME \
-				--gallery-image-version 1.0.0 \
-				--managed-image $IMPORTED_IMAGE_NAME
-		fi
-	fi
-fi
-
 # considerations to also add the windows support here instead of an extra script to initialize windows variables:
 # 1. we can demonstrate the whole user defined parameters all at once
 # 2. help us keep in mind that changes of these variables will influence both windows and linux VHD building
@@ -228,6 +188,7 @@ WINDOWS_IMAGE_VERSION=""
 WINDOWS_IMAGE_URL=""
 windows_servercore_image_url=""
 windows_nanoserver_image_url=""
+windows_private_packages_url=""
 # shellcheck disable=SC2236
 if [ "$OS_TYPE" == "Windows" ]; then
 	imported_windows_image_name=""
@@ -367,6 +328,12 @@ if [ "$OS_TYPE" == "Windows" ]; then
 		echo "WINDOWS_CORE_IMAGE_URL is set in pipeline variables"
 		windows_servercore_image_url="${WINDOWS_CORE_IMAGE_URL}"
 	fi
+
+	# Set windows private packages url if the pipeline variable is set
+	if [ -n "${WINDOWS_PRIVATE_PACKAGES_URL}" ]; then
+		echo "WINDOWS_PRIVATE_PACKAGES_URL is set in pipeline variables"
+		windows_private_packages_url="${WINDOWS_PRIVATE_PACKAGES_URL}"
+	fi
 fi
 
 cat <<EOF > vhdbuilder/packer/settings.json
@@ -393,6 +360,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "os_disk_size_gb": "${os_disk_size_gb}",
   "nano_image_url": "${windows_nanoserver_image_url}",
   "core_image_url": "${windows_servercore_image_url}",
+  "windows_private_packages_url": "${windows_private_packages_url}",
   "windows_sigmode_source_subscription_id": "${windows_sigmode_source_subscription_id}",
   "windows_sigmode_source_resource_group_name": "${windows_sigmode_source_resource_group_name}",
   "windows_sigmode_source_gallery_name": "${windows_sigmode_source_gallery_name}",
@@ -400,7 +368,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "windows_sigmode_source_image_version": "${windows_sigmode_source_image_version}",
   "vnet_name": "nodesig-pool-vnet",
   "subnet_name": "packer",
-  "vnet_resource_group_name": "nodesigtest-agent-pool"
+  "vnet_resource_group_name": "${vnet_rg_name}"
 }
 EOF
 

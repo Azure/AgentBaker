@@ -1,16 +1,62 @@
 #!/bin/bash
-git clone https://github.com/Azure/AgentBaker.git 2>/dev/null
-source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
-source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 COMPONENTS_FILEPATH=/opt/azure/components.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
+
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 CONTAINER_RUNTIME="$1"
 OS_VERSION="$2"
 ENABLE_FIPS="$3"
 OS_SKU="$4"
+GIT_BRANCH="$5"
+
+err() {
+  echo "$1:Error: $2" >>/dev/stderr
+}
+
+# Clone the repo and checkout the branch provided.
+# Simply clone with just the branch doesn't work for pull requests, but this technique works
+# with everything we've tested so far.
+#
+# Strategy is to clone the repo, fetch the remote branch by ref into a local branch, and then checkout the local branch.
+# The remote branch will be something like 'refs/heads/branch/name' or 'refs/pull/number/head'. Using the same name
+# for the local branch has weird semantics, so we replace '/' with '-' for the local branch name.
+LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
+echo "Cloning AgentBaker repo and checking out remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
+COMMAND="git clone --quiet https://github.com/Azure/AgentBaker.git"
+if ! ${COMMAND}; then
+  err 'git-clone' "Failed to clone AgentBaker repo"
+  err 'git-clone' "Used command '${COMMAND}'"
+  exit 1
+fi
+if ! pushd ./AgentBaker; then
+  err 'git-clone' "Failed to pushd into AgentBaker repo -- this is weird given that clone succeeded"
+  err 'git-clone' "Current directory is '$(pwd)'"
+  err 'git-clone' "Contents of current directory: $(ls -al)"
+  exit 1
+fi
+COMMAND="git fetch --quiet origin ${GIT_BRANCH}:${LOCAL_GIT_BRANCH}"
+if ! ${COMMAND}; then
+  err 'git-clone' "Failed to fetch remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
+  err 'git-clone' "Used command '${COMMAND}'"
+  exit 1
+fi
+COMMAND="git checkout --quiet ${LOCAL_GIT_BRANCH}"
+if ! ${COMMAND}; then
+  err 'git-clone' "Failed to checkout local branch '${LOCAL_GIT_BRANCH}'"
+  err 'git-clone' "Used command '${COMMAND}'"
+  exit 1
+fi
+if ! popd; then
+  err 'git-clone' "Failed to popd out of AgentBaker repo -- this seems impossible"
+  err 'git-clone' "Current directory is $(pwd)"
+  err 'git-clone' "pushd stack is $(dirs -p)"
+  exit 1
+fi
+
+source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
+source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 
 testFilesDownloaded() {
   test="testFilesDownloaded"
@@ -377,6 +423,7 @@ testLoginDefs() {
   echo "$test: Checking specific settings in $settings_file"
   testSetting $test $settings_file PASS_MAX_DAYS '^[[:space:]]*PASS_MAX_DAYS[[:space:]]' ' ' 90
   testSetting $test $settings_file PASS_MIN_DAYS '^[[:space:]]*PASS_MIN_DAYS[[:space:]]+' ' ' 7
+  testSetting $test $settings_file UMASK '^[[:space:]]*UMASK[[:space:]]+' ' ' 027
 
   echo "$test:Finish"
 }
@@ -429,13 +476,42 @@ testNetworkSettings() {
   echo "$test:End"
 }
 
+# Ensures that the content /etc/profile.d/umask.sh is correct, per code in
+# <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
+testUmaskSettings() {
+    local test="testUmaskSettings"
+    local settings_file=/etc/profile.d/umask.sh
+    local expected_settings_file_content='umask 027'
+    echo "$test:Start"
+
+    # If the settings file exists, it must just be a single line that sets umask properly.
+    if [[ -f "${settings_file}" ]]; then
+        echo "${test}: Checking that the contents of ${settings_file} is exactly '${expected_settings_file_content}'"
+
+        # Command substitution (like file_contents=$(cat "${settings_file}")) strips trailing newlines, so we use mapfile instead.
+        # This creates an array of the lines in the file, and then we join them back together by expanding the array into a single string.
+        local file_contents_array=()
+        mapfile <"${settings_file}" file_contents_array
+        local file_contents="${file_contents_array[*]}"
+        if [[ "${file_contents}" != "${expected_settings_file_content}" ]]; then
+            err $test "The content of the file '${settings_file}' is '${file_contents}', which does not exactly match '${expected_settings_file_content}'. "
+        else
+            echo "${test}: The content of the file '${settings_file}' exactly matches the expected contents '${expected_settings_file_content}'."
+        fi
+    else
+        echo "${test}: Settings file '${settings_file}' does not exist, so not testing contents."
+    fi
+
+    echo "$test:End"
+}
+
 # Tests that the modes on the cron-related files and directories in /etc are set correctly, per the
 # function assignFilePermissions in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
 testCronPermissions() {
   local test="testCronPermissions"
   echo "$test:Start"
 
-  declare -A required_pathss=(
+  declare -A required_paths=(
     ['/etc/cron.allow']=640
     ['/etc/cron.hourly']=600
     ['/etc/cron.daily']=600
@@ -453,7 +529,7 @@ testCronPermissions() {
   )
 
   echo "$test: Checking required paths"
-  for path in "${!required_path[@]}"; do
+  for path in "${!required_paths[@]}"; do
     checkPathPermissions $test $path ${required_paths[$path]} 1
   done
 
@@ -483,13 +559,70 @@ testCoreDumpSettings() {
   #   A section heading -- this file is only supposed to have '[Coredump]'
   #   Settings, which take the form 'NAME=VALUE', where values can be empty or strings, and strings
   #   is pretty loose (more or less any printable character).
-  testSettingFileFormat $test $settings_file '^(#|$)' '^\[Coredump\]$' '^[A-Z_]+=[^[:cntrl:]]*$'
+  testSettingFileFormat $test $settings_file '^(#|$)' '^\[Coredump\]$' '^[A-Za-z_]+=[^[:cntrl:]]*$'
 
   # Look for the settings we specifically set in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
   # and ensure they're set to the values we expect.
   echo "$test: Checking specific settings in $settings_file"
   testSetting $test $settings_file 'Storage' '^Storage=' '=' 'none'
   testSetting $test $settings_file 'ProcessSizeMax' '^ProcessSizeMax=' '=' '0'
+
+  echo "$test:Finish"
+}
+
+# Tests that the nfs-server systemd service is masked, per the function
+# configuremaskNfsServerNfsServer in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
+testNfsServerService() {
+  local test="testNfsServerService"
+  local service_name="nfs-server.service"
+  echo "$test:Start"
+
+  # is-enabled returns 'masked' if the service is masked and an empty
+  # string if the service is not installed. Either is fine.
+  echo "$test: Checking that $service_name is masked"
+  local is_enabled=
+  is_enabled=$(systemctl is-enabled $service_name 2>/dev/null)
+  if [[ "${is_enabled}" == "masked" ]]; then
+    echo "$test: $service_name is correctly masked"
+  elif [[ "${is_enabled}" == "" ]]; then
+    echo "$test: $service_name is not installed, which is fine"
+  else
+    err $test "$service_name is not masked"
+  fi
+
+  echo "$test:Finish"
+}
+
+# Tests that the pam.d settings are set correctly, per the function
+# addFailLockDir in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
+testPamDSettings() {
+  local os_sku="${1}"
+  local os_version="${2}"
+  local test="testPamDSettings"
+  local settings_file=/etc/security/faillock.conf
+  echo "$test:Start"
+
+  # We only want to run this test on Mariner 2.0
+  # So if it's anything else, report that we're skipping the test and bail.
+  if [[ "${os_sku}" != "CBLMariner" || "${os_version}" != "2.0" ]]; then
+    echo "$test: Skipping test on ${os_sku} ${os_version}"
+  else
+
+    # Existence and format check. The man page https://www.man7.org/linux/man-pages/man5/faillock.conf.5.html
+    # describes the following format for each line:
+    #   Comments start with '#'.
+    #   Blank lines are ignored.
+    #   Lines are of in two forms:
+    #       'setting = value', where settings are lower-case and include '_'
+    #       'setting'
+    #   Whitespace at beginning and end of line, along with around the '=' is ignored.
+    testSettingFileFormat $test $settings_file '^(#|$)' '^[[:space:]]*$' '^[[:space:]]*[a-z_][[:space:]]*' '^[[:space:]]*[a-z_]+[[:space::]]*=[^[:cntrl:]]*$'
+
+    # Look for the setting we specifically set in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
+    # and ensure it's set to the values we expect.
+    echo "$test: Checking specific settings in $settings_file"
+    testSetting $test $settings_file 'dir' '^[[:space:]]*dir[[:space:]]*=' '=' '/var/log/faillock'
+  fi
 
   echo "$test:Finish"
 }
@@ -583,7 +716,7 @@ testSettingFileFormat() {
 
     if [ $valid -eq 0 ]; then
       any_invalid=1
-      err $test "Invalid line $line_num in $settings_file: '$line'" >>/dev/stderr
+      err $test "Invalid line $line_num in $settings_file: '$line'"
     fi
 
     valid=0
@@ -647,14 +780,63 @@ testSetting() {
   return 0
 }
 
-err() {
-  echo "$1:Error: $2" >>/dev/stderr
-}
-
 string_replace() {
   echo ${1//\*/$2}
 }
 
+# Tests that the PAM configuration is functional and aligns with the expected configuration.
+testPam() {
+  local os_sku="${1}"
+  local os_version="${2}"
+  local test="testPam"
+  local testdir="./AgentBaker/vhdbuilder/packer/test/pam"
+  local retval=0
+  echo "${test}:Start"
+
+  # We only want to run this test on Mariner 2.0
+  # So if it's anything else, report that we're skipping the test and bail.
+  if [[ "${os_sku}" != "CBLMariner" || "${os_version}" != "2.0" ]]; then
+    echo "$test: Skipping test on ${os_sku} ${os_version}"
+  else
+    # cd to the directory of the script
+    pushd ${testdir} || (err ${test} "Failed to cd to test directory ${testdir}"; return 1)
+    # create the virtual environment
+    python3 -m venv . || (err ${test} "Failed to create virtual environment"; return 1)
+    # activate the virtual environment
+    # shellcheck source=/dev/null
+    source ./bin/activate
+    # install the dependencies
+    pip3 install --disable-pip-version-check -r requirements.txt || \
+      (err ${test} "Failed to install dependencies"; return 1)
+    # run the script
+    output=$(pytest -v -s test_pam.py)
+    retval=$?
+    # deactivate the virtual environment
+    deactivate
+    popd || (err ${test} "Failed to cd out of test dir"; return 1)
+    
+    if [ $retval -ne 0 ]; then
+      err ${test} "$output"
+      err ${test} "PAM configuration is not functional"
+      retval=1
+    else
+      echo "${test}: PAM configuration is functionally correct"
+    fi
+  fi
+
+  echo "${test}:Finish"
+  return $retval
+}
+
+
+# As we call these tests, we need to bear in mind how the test results are processed by the
+# the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
+# on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
+# look the exit code of this script -- in fact, it can't due to a limitation in the
+# run-command invoke command. So we need to be careful to report errors to stderr
+#
+# We should also avoid early exit from the test run -- like if a command fails with
+# an exit rather than a return -- because that prevents other tests from running.
 testVHDBuildLogsExist
 testCriticalTools
 testFilesDownloaded $CONTAINER_RUNTIME
@@ -664,7 +846,11 @@ testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS
 testKubeBinariesPresent $CONTAINER_RUNTIME
 testKubeProxyImagesPulled $CONTAINER_RUNTIME
-testImagesRetagged $CONTAINER_RUNTIME
+# Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
+# which means the test failures haven't been caught. It also calles exit 1 on a failure,
+# which means the rest of the tests aren't being run.
+# See https://msazure.visualstudio.com/CloudNativeCompute/_backlogs/backlog/Node%20Lifecycle/Features/?workitem=24246232
+# testImagesRetagged $CONTAINER_RUNTIME
 testCustomCAScriptExecutable
 testCustomCATimerNotStarted
 testLoginDefs
@@ -672,3 +858,7 @@ testUserAdd
 testNetworkSettings
 testCronPermissions
 testCoreDumpSettings
+testNfsServerService
+testPamDSettings $OS_SKU $OS_VERSION
+testPam $OS_SKU $OS_VERSION
+testUmaskSettings

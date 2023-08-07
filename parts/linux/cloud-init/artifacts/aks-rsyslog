@@ -1,5 +1,6 @@
 /var/log/syslog
 /var/log/messages
+/var/log/secure
 /var/log/kern.log
 {
   rotate 5

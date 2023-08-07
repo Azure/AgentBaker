@@ -16,7 +16,7 @@ func InitScenarioTable(scenariosToRun map[string]bool) Table {
 	return table
 }
 
-// Is called internally by the scenario package to get each scenario's respective config as one long slice.
+// This function is called internally by the scenario package to get each e2e scenario's respective config as one long slice.
 // To add a sceneario, implement a new function in a separate file that returns a *Scenario and add
 // its return value to the slice returned by this function.
 func scenarios() []*Scenario {
@@ -41,5 +41,6 @@ func scenarios() []*Scenario {
 		ubuntu1804gpu_azurecni(),
 		marinerv2gpu_azurecni(),
 		ubuntu2204gpuNoDriver(),
+		ubuntu2204CustomCATrust(),
 	}
 }

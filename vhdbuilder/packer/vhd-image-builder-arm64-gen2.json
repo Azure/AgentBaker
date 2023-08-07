@@ -13,6 +13,7 @@
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
     "image_version": "{{env `IMAGE_VERSION`}}",
     "os_version": "{{env `OS_VERSION`}}",
+    "sku_name": "{{env `SKU_NAME`}}",
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
@@ -349,6 +350,36 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.sh",
+      "destination": "/home/packer/cgroup-memory-telemetry.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.service",
+      "destination": "/home/packer/cgroup-memory-telemetry.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.timer",
+      "destination": "/home/packer/cgroup-memory-telemetry.timer"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh",
+      "destination": "/home/packer/cgroup-pressure-telemetry.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.service",
+      "destination": "/home/packer/cgroup-pressure-telemetry.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.timer",
+      "destination": "/home/packer/cgroup-pressure-telemetry.timer"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/update_certs.service",
       "destination": "/home/packer/update_certs.service"
     },
@@ -542,7 +573,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo IMAGE_VERSION={{user `image_version`}} CONTAINER_RUNTIME={{user `container_runtime`}} /bin/bash -ux /home/packer/list-images.sh"
+        "sudo SKU_NAME={{user `sku_name`}} IMAGE_VERSION={{user `image_version`}} CONTAINER_RUNTIME={{user `container_runtime`}} /bin/bash -ux /home/packer/list-images.sh"
       ]
     },
     {

@@ -7,9 +7,16 @@ import (
 )
 
 func marinerv2CustomSysctls() *Scenario {
-	customSysctls := map[string]int{
-		"net.netfilter.nf_conntrack_max":     250000,
-		"net.netfilter.nf_conntrack_buckets": 100352,
+	customSysctls := map[string]string{
+		"net.ipv4.ip_local_port_range":       "32768 62535",
+		"net.netfilter.nf_conntrack_max":     "2097152",
+		"net.netfilter.nf_conntrack_buckets": "524288",
+		"net.ipv4.tcp_keepalive_intvl":       "90",
+		"net.ipv4.ip_local_reserved_ports":   "",
+	}
+	customContainerdUlimits := map[string]string{
+		"LimitMEMLOCK": "75000",
+		"LimitNOFILE":  "1048",
 	}
 	return &Scenario{
 		Name:        "marinerv2-custom-sysctls",
@@ -20,8 +27,14 @@ func marinerv2CustomSysctls() *Scenario {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
-						NetNetfilterNfConntrackMax:     to.Ptr(int32(customSysctls["net.netfilter.nf_conntrack_max"])),
-						NetNetfilterNfConntrackBuckets: to.Ptr(int32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
+						NetNetfilterNfConntrackMax:     to.Ptr(stringToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
+						NetNetfilterNfConntrackBuckets: to.Ptr(stringToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
+						NetIpv4IpLocalPortRange:        customSysctls["net.ipv4.ip_local_port_range"],
+						NetIpv4TcpkeepaliveIntvl:       to.Ptr(stringToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
+					},
+					UlimitConfig: &datamodel.UlimitConfig{
+						MaxLockedMemory: customContainerdUlimits["LimitMEMLOCK"],
+						NoFile:          customContainerdUlimits["LimitNOFILE"],
 					},
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
@@ -36,6 +49,7 @@ func marinerv2CustomSysctls() *Scenario {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				SysctlConfigValidator(customSysctls),
+				UlimitValidator(customContainerdUlimits),
 			},
 		},
 	}

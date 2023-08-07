@@ -100,7 +100,8 @@
                 "WindowsSKU={{user `windows_sku`}}",
                 "CustomizedDiskSize={{user `os_disk_size_gb`}}",
                 "WindowsNanoServerImageURL={{user `nano_image_url`}}",
-                "WindowsServerCoreImageURL={{user `core_image_url`}}"
+                "WindowsServerCoreImageURL={{user `core_image_url`}}",
+                "WindowsPrivatePackagesURL={{user `windows_private_packages_url`}}"
             ],
             "type": "powershell",
             "scripts": [
@@ -131,10 +132,22 @@
             "script": "vhdbuilder/packer/write-release-notes-windows.ps1"
         },
         {
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
+            "type": "powershell",
+            "script": "vhdbuilder/packer/list-images.ps1"
+        },
+        {
             "type": "file",
             "direction": "download",
             "source": "c:\\release-notes.txt",
             "destination": "release-notes.txt"
+        },
+        {
+            "type": "file",
+            "direction": "download",
+            "source": "c:\\image-bom.json",
+            "destination": "image-bom.json"
         },
         {
             "elevated_user": "packer",

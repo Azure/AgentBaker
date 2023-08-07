@@ -26,14 +26,27 @@ installDeps() {
 }
 
 downloadGPUDrivers() {
-    # uname -r in Mariner will return %{version}-%{release}.%{mariner_version_postfix}
-    # Need to process the return value of "uname -r" to get the %{version} value
-    KERNEL_VERSION=$(cut -d - -f 1 <<< "$(uname -r)")
+    # Mariner CUDA rpm name comes in the following format:
+    #
+    # cuda-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
+    #
+    # Before installing cuda, check the active kernel version (uname -r) and use that to determine which cuda to install
+    KERNEL_VERSION=$(uname -r | sed 's/-/./g')
     CUDA_VERSION="*_${KERNEL_VERSION}*"
 
     if ! dnf_install 30 1 600 cuda-${CUDA_VERSION}; then
       exit $ERR_APT_INSTALL_TIMEOUT
     fi
+}
+
+installNvidiaFabricManager() {
+    # Check the NVIDIA driver version installed and install nvidia-fabric-manager
+    NVIDIA_DRIVER_VERSION=$(cut -d - -f 2 <<< "$(rpm -qa cuda)")
+    for nvidia_package in nvidia-fabric-manager-${NVIDIA_DRIVER_VERSION} nvidia-fabric-manager-devel-${NVIDIA_DRIVER_VERSION}; do
+      if ! dnf_install 30 1 600 $nvidia_package; then
+        exit $ERR_APT_INSTALL_TIMEOUT
+      fi
+    done
 }
 
 installNvidiaContainerRuntime() {
@@ -47,9 +60,26 @@ installNvidiaContainerRuntime() {
     done
 }
 
-installSGXDrivers() {
-    echo "SGX drivers not yet supported for Mariner"
-    exit $ERR_SGX_DRIVERS_START_FAIL
+enableNvidiaPersistenceMode() {
+    PERSISTENCED_SERVICE_FILE_PATH="/etc/systemd/system/nvidia-persistenced.service"
+    touch ${PERSISTENCED_SERVICE_FILE_PATH}
+    cat << EOF > ${PERSISTENCED_SERVICE_FILE_PATH} 
+[Unit]
+Description=NVIDIA Persistence Daemon
+Wants=syslog.target
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/nvidia-persistenced --verbose
+ExecStopPost=/bin/rm -rf /var/run/nvidia-persistenced
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl enable nvidia-persistenced.service || exit 1
+    systemctl restart nvidia-persistenced.service || exit 1
 }
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works

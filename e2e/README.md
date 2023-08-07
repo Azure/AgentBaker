@@ -24,6 +24,9 @@ To run the Go implementation of the E2E test suite locally, simply use `e2e-loca
 SCENARIOS_TO_RUN=base,gpu ./e2e-local.sh
 ```
 
+`KEEP_VMSS` can also be optionally specified to have the test suite retain the bootstrapped VMSS VMs for further debugging. When this option is specified, the private SSH key used to bootstrap the VMs will be included within each scenario's log bundle.
+NOTE: if this option is specified please make sure to manually delete your bootstrapped VMs later. Though, all bootstrapped VMs will eventually be deleted by the ACS test GC regardless.
+
 **Note that when using `e2e-local.sh`, a timeout value of 30 minutes is applied to the `go test` command.**
 
 You may also run the test command yourself assuming you've properly setup the required environment variables like so:
@@ -39,6 +42,11 @@ The top-level package of the Golang E2E implementation is named `e2e_test` and i
 The `e2e_test` package has a dependency on subpackage located in the [scenario](scenario/) directory. Package `scenario` is where all E2E scenarios are defined, each in their own separate files. This package also defines common [types](scenario/types.go) related to scenario and scenario configuration, as well as the hard-coded list of SIG version IDs located in [images.go](scenario/images.go) used for testing different OS distros. Package `scenario` also contains the implementation of common cluster selectors and mutators within [clusterconfiguration.go](scenario/clusterconfiguration.go), though each scenario could define their own implementations if needed.
 
 The primary testing function is located in [suite_test.go](suite_test.go), which is run by `go test ...`.
+
+## Updating the Test Images
+The [images.go](scenario/images.go) file contains the hard-coded references to a set of delete-locked SIG versions used by the e2e scenarios.
+
+**If you decide to update some or all of these SIG versions, you need to make sure to add delete locks to each one via the Azure Portal so they don't get automatically deleted and eventually cause failuires**
 
 ## Scenarios
 

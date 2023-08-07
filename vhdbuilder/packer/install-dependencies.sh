@@ -42,16 +42,25 @@ APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
 
-installDeps
-
-# CVM breaks on kernel image updates due to nullboot package post-install.
-# it relies on boot measurements from real tpm hardware.
-# building on a real CVM would solve this, but packer doesn't support it.
-# we could make upstream changes but that takes time, and we are broken now.
-# so we just hold the kernel image packages for now on CVM.
-# this still allows us base image and package updates on a weekly cadence.
-if [ "$OS" == "$UBUNTU_OS_NAME" ] && [ "$IMG_SKU" != "20_04-lts-cvm" ]; then
-  apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
+# If the IMG_SKU does not contain "minimal", installDeps normally
+if [[ "$IMG_SKU" != *"minimal"* ]]; then
+  installDeps
+else
+  updateAptWithMicrosoftPkg
+  # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
+  # jq - for manipulation JSON data
+  # iptables - required to run containerd
+  # netcat - network comms with API server
+  # dnsutils - contains nslookup, to query API server DNS
+  # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
+  BLOBFUSE2_VERSION="2.0.5"
+  required_pkg_list=(jq iptables netcat dnsutils "blobfuse2="${BLOBFUSE2_VERSION} fuse3)
+  for apt_package in ${required_pkg_list[*]}; do
+      if ! apt_get_install 30 1 600 $apt_package; then
+          journalctl --no-pager -u $apt_package
+          exit $ERR_APT_INSTALL_TIMEOUT
+      fi
+  done
 fi
 
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
@@ -111,6 +120,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
       enableMarinerKata
     fi
+    disableTimesyncd
     disableDNFAutomatic
     enableCheckRestart
     activateNfConntrack
@@ -280,8 +290,8 @@ unpackAzureCNI() {
 
 #must be both amd64/arm64 images
 VNET_CNI_VERSIONS="
+1.5.5
 1.4.43
-1.4.35
 "
 
 
@@ -295,8 +305,8 @@ done
 #UNITE swift and overlay versions?
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 SWIFT_CNI_VERSIONS="
+1.5.5
 1.4.43
-1.4.35
 "
 
 for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
@@ -307,8 +317,8 @@ for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
 done
 
 OVERLAY_CNI_VERSIONS="
+1.5.5
 1.4.43
-1.4.35
 "
 
 for OVERLAY_CNI_VERSION in $OVERLAY_CNI_VERSIONS; do
@@ -362,49 +372,23 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
 
   systemctlEnableAndStart nvidia-device-plugin || exit 1
 fi
-
-installSGX=${SGX_INSTALL:-"False"}
-if [[ ${installSGX} == "True" ]]; then
-    SGX_DEVICE_PLUGIN_VERSIONS="1.0"
-    for SGX_DEVICE_PLUGIN_VERSION in ${SGX_DEVICE_PLUGIN_VERSIONS}; do
-        CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-device-plugin:${SGX_DEVICE_PLUGIN_VERSION}"
-        pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-        echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    done
-
-    SGX_PLUGIN_VERSIONS="
-    1.1
-    "
-    for SGX_PLUGIN_VERSION in ${SGX_PLUGIN_VERSIONS}; do
-        CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-plugin:${SGX_PLUGIN_VERSION}"
-        pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-        echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    done
-
-    SGX_WEBHOOK_VERSIONS="
-    1.1
-    "
-    for SGX_WEBHOOK_VERSION in ${SGX_WEBHOOK_VERSIONS}; do
-        CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-webhook:${SGX_WEBHOOK_VERSION}"
-        pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-        echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    done
-
-    SGX_QUOTE_HELPER_VERSIONS="3.3"
-    for SGX_QUOTE_HELPER_VERSION in ${SGX_QUOTE_HELPER_VERSIONS}; do
-        CONTAINER_IMAGE="mcr.microsoft.com/aks/acc/sgx-attestation:${SGX_QUOTE_HELPER_VERSION}"
-        pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-        echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    done
-fi
 fi
 
-NGINX_VERSIONS="1.21.6"
-for NGINX_VERSION in ${NGINX_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}"
-    pullContainerImage ${cliTool} mcr.microsoft.com/oss/nginx/nginx:${NGINX_VERSION}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
+mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
+
+systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
+systemctl enable cgroup-memory-telemetry.service || exit 1
+systemctl restart cgroup-memory-telemetry.service
+
+CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
+if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
+  systemctlEnableAndStart cgroup-pressure-telemetry.timer || exit 1
+  systemctl enable cgroup-pressure-telemetry.service || exit 1
+  systemctl restart cgroup-pressure-telemetry.service
+fi
+
+cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
+rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
