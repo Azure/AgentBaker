@@ -211,7 +211,7 @@ installAndConfigureArtifactStreaming() {
   UBUNTU_VERSION_CLEANED="${UBUNTU_RELEASE//.}"
   MIRROR_PROXY_URL="https://acrmirrordev.blob.core.windows.net/bin/Release-${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
   
-  retrycmd_if_failure 10 5 60 "wget $MIRROR_PROXY_URL" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+  retrycmd_if_failure 10 5 60 wget $MIRROR_PROXY_URL || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
   
   apt_get_install 30 1 600 "./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
   systemctl stop acr-mirror.service
