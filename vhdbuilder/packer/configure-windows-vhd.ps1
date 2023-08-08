@@ -548,6 +548,27 @@ function Update-Registry {
             Write-Log "The current value of VfpIpv6DipsPrintingIsEnabled is $currentValue"
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpIpv6DipsPrintingIsEnabled -Value 1 -Type DWORD
+
+        Write-Log "Enable 3 fixes in 2023-08B"
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSUpdatePolicyForEndpointChange -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HNSUpdatePolicyForEndpointChange is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSUpdatePolicyForEndpointChange -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSFixExtensionUponRehydration -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HNSFixExtensionUponRehydration is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSFixExtensionUponRehydration -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 87798413 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 87798413 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 87798413 -Value 1 -Type DWORD
+
     }
 }
 
