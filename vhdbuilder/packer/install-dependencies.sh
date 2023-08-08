@@ -211,19 +211,17 @@ installAndConfigureArtifactStreaming() {
   UBUNTU_VERSION_CLEANED="${UBUNTU_RELEASE//.}"
   MIRROR_PROXY_URL="https://acrmirrordev.blob.core.windows.net/bin/Release-${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
   
-  wget $MIRROR_PROXY_URL || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+  retrycmd_if_failure 10 5 60 "wget $MIRROR_PROXY_URL" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+  
   apt_get_install 30 1 600 "./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
   systemctl stop acr-mirror.service
 
-  echo "  - [installed] acr mirror-proxy v${MIRROR_PROXY_VERSION}" >> ${VHD_LOGS_FILEPATH}
   rm "./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
-
-  sudo apt install libnl-3-dev libnl-genl-3-dev libc6 libssl3 -y
-
-  echo "  - [installed] libnl-3-dev, libnl-genl-3-dev, libc6 and libssl3" >> ${VHD_LOGS_FILEPATH}
 }
 
-if [[ ( "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" ) && ( "${CPU_ARCH}" == "amd64" ) ]]; then
+UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
+if [ $UBUNTU_MAJOR_VERSION -ge 20 ]; then
+  # install and configure artifact streaming
   installAndConfigureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
 fi
 
