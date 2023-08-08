@@ -206,7 +206,6 @@ EOF
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 
 installAndConfigureArtifactStreaming() {
-  pushd /tmp || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
   # download acr-mirror proxy
   MIRROR_PROXY_VERSION='19'
   UBUNTU_VERSION_CLEANED="${UBUNTU_RELEASE//.}"
@@ -214,10 +213,10 @@ installAndConfigureArtifactStreaming() {
   
   wget $MIRROR_PROXY_URL || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
   apt_get_install 30 1 600 "./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb" || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+  systemctl stop acr-mirror.service
 
   echo "  - [installed] acr mirror-proxy v${MIRROR_PROXY_VERSION}" >> ${VHD_LOGS_FILEPATH}
   rm "./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
-  popd || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
 
   sudo apt install libnl-3-dev libnl-genl-3-dev libc6 libssl3 -y
 
