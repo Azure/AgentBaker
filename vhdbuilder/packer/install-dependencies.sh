@@ -126,6 +126,21 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     activateNfConntrack
 fi
 
+installAndConfigureArtifactStreaming() {
+  # download acr-mirror proxy
+  MIRROR_PROXY_VERSION='19'
+  UBUNTU_VERSION_CLEANED="${UBUNTU_RELEASE//.}"
+  MIRROR_DOWNLOAD_PATH="./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
+  MIRROR_PROXY_URL="https://acrmirrordev.blob.core.windows.net/bin/Release-${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
+  
+  retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL}
+  
+  apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+  systemctl stop acr-mirror.service
+
+  rm "./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
+}
+
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
 if [ $UBUNTU_MAJOR_VERSION -ge 20 ]; then
   # install and configure artifact streaming
@@ -211,20 +226,6 @@ EOF
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 
-installAndConfigureArtifactStreaming() {
-  # download acr-mirror proxy
-  MIRROR_PROXY_VERSION='19'
-  UBUNTU_VERSION_CLEANED="${UBUNTU_RELEASE//.}"
-  MIRROR_DOWNLOAD_PATH="./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
-  MIRROR_PROXY_URL="https://acrmirrordev.blob.core.windows.net/bin/Release-${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
-  
-  retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL}
-  
-  apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
-  systemctl stop acr-mirror.service
-
-  rm "./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
-}
 
 
 string_replace() {
