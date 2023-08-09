@@ -174,7 +174,7 @@ installAndConfigureArtifactStreaming() {
 }
 
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
-if [ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 && $UBUNTU_MAJOR_VERSION -ge 20 ]; then
+if [ $OS == $UBUNTU_OS_NAME ] && [ $(isARM64)  != 1 ] && [ $UBUNTU_MAJOR_VERSION -ge 20 ]; then
   # install and configure artifact streaming
   installAndConfigureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
 fi
