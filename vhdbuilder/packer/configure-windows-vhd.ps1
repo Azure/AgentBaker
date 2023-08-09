@@ -604,6 +604,7 @@ try{
     switch ($env:ProvisioningPhase) {
         "1" {
             Write-Log "Performing actions for provisioning phase 1"
+            Get-MpComputerStatus
             Expand-OS-Partition
             Exclude-ReservedUDPSourcePort
             Disable-WindowsUpdates
@@ -633,4 +634,5 @@ try{
 finally {
     Get-SystemDriveDiskInfo
     Get-DefenderPreferenceInfo
+    Get-MpComputerStatus
 }
