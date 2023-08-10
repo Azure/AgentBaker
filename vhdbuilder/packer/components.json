@@ -108,6 +108,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/cni:*",
+      "amd64OnlyVersions": null,
       "multiArchVersions": [
         "v3.24.6",
         "v3.24.0"
@@ -115,6 +116,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/node:*",
+      "amd64OnlyVersions": null,
       "multiArchVersions": [
         "v3.24.6",
         "v3.24.0"
@@ -122,6 +124,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/typha:*",
+      "amd64OnlyVersions": null,
       "multiArchVersions": [
         "v3.24.6",
         "v3.24.0"
@@ -129,6 +132,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:*",
+      "amd64OnlyVersions": null,
       "multiArchVersions": [
         "v3.24.6",
         "v3.24.0"
@@ -136,6 +140,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:*",
+      "amd64OnlyVersions": null,
       "multiArchVersions": [
         "v3.24.6",
         "v3.24.0"
@@ -183,7 +188,10 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
-      "amd64OnlyVersions": [],
+      "amd64OnlyVersions": [
+        "1.7.1-hotfix.20200403-1",
+        "1.7.1-hotfix.20200403.1"
+      ],
       "multiArchVersions": [
         "v1.8.8"
       ]
@@ -206,7 +214,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.26.5-1",
+        "v1.26.5",
+        "v1.26.5-2",
         "v1.26.6",
         "v1.28.1",
         "v1.28.2"
@@ -219,6 +228,7 @@
         "v1.24.3",
         "v1.24.4",
         "v1.26.3-2",
+        "v1.26.3-4",
         "v1.26.4",
         "v1.28.1"
       ]
@@ -228,11 +238,11 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.19.5",
-        "v1.19.5-3",
+        "v1.19.5-4",
         "v1.21.4",
-        "v1.21.4-1",
+        "v1.21.4-2",
         "v1.22.1",
-        "v1.22.1-1"
+        "v1.22.1-2"
       ]
     },
     {
