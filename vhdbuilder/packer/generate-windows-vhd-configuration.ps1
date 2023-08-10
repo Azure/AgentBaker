@@ -59,8 +59,8 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.1-windows-hp",
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.2-windows-hp",
     # azurefile-csi:v1.28 is only for AKS 1.27+, v1.24, v1.26 is for other AKS versions
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.3",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.4",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.5",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.3",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.4",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.1-windows-hp",
