@@ -172,6 +172,7 @@ const (
 	AKSUbuntuContainerd2204TLGen2       Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
 	AKSUbuntuMinimalContainerd2204      Distro = "aks-ubuntu-minimal-containerd-22.04"
 	AKSUbuntuMinimalContainerd2204Gen2  Distro = "aks-ubuntu-minimal-containerd-22.04-gen2"
+	AKSUbuntuEgressContainerd2204Gen2   Distro = "aks-ubuntu-egress-containerd-22.04-gen2"
 
 	RHEL              Distro = "rhel"
 	CoreOS            Distro = "coreos"
