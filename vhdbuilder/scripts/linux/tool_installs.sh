@@ -5,6 +5,7 @@ ERR_IOVISOR_APT_KEY_TIMEOUT=169 {{/* Timeout waiting for IOVisor apt-key */}}
 ERR_BCC_INSTALL_TIMEOUT=170 {{/* Timeout waiting for bcc install */}}
 ERR_BPFTRACE_BIN_DOWNLOAD_FAIL=171 {{/* Failed to download bpftrace binary */}}
 ERR_BPFTRACE_TOOLS_DOWNLOAD_FAIL=172 {{/* Failed to download bpftrace default programs */}}
+ERR_BPFTRACE_TOOLS_INSTALL_TIMEOUT=173 {{/* Failed to install bpftrace default programs */}}
 
 BPFTRACE_DOWNLOADS_DIR="/opt/bpftrace/downloads"
 UBUNTU_CODENAME=$(lsb_release -c -s)
