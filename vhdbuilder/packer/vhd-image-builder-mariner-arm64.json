@@ -372,6 +372,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cni-telemetry.py",
+      "destination": "/home/packer/cni-telemetry.py"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cni-telemetry.service",
+      "destination": "/home/packer/cni-telemetry.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mariner/update_certs_mariner.service",
       "destination": "/home/packer/update_certs.service"
     },

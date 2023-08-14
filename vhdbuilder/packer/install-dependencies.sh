@@ -386,6 +386,8 @@ fi
 cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
 rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
+systemctlEnableAndStart cni-telemetry.service || exit 1
+
 # this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.

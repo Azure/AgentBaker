@@ -1,0 +1,11 @@
+[Unit]
+Description=Emit CNI telemetry
+
+[Service]
+Type=simple
+RemainAfterExit=true
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/usr/bin/python3 /opt/scripts/cni-telemetry.py
+
+[Install]
+WantedBy=multi-user.target
