@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -31,7 +33,14 @@ import (
 ***
 *** # download ONLY 1604,1804,1804-containerd release notes from this run ID.
 *** autonotes --build 40968951 --include 1604,1804,1804-containerd
+*** # download ONLY 2019-containerd release notes from this run ID.
+*** autonotes --build 76289801 --include 2019-containerd
 ***
+*** # download everything EXCEPT 2022-containerd-gen2 release notes from this run ID.
+*** autonotes --build 76289801 --ignore 2022-containerd-gen2
+***
+*** # download ONLY 2022-containerd,2022-containerd-gen2 release notes from this run ID.
+*** autonotes --build 76289801 --include 2022-containerd,2022-containerd-gen2
 **/
 
 func main() {
@@ -80,8 +89,35 @@ func run(ctx context.Context, cancel context.CancelFunc, fl *flags) []error {
 
 	enforceInclude := len(include) > 0
 
+	// Get windows base image versions frpm the updated windows-image.env
+	var wsImageVersionFilePath = filepath.Join("vhdbuilder", "packer", "windows-image.env")
+	fmt.Printf("%s\n", wsImageVersionFilePath);
+	file, err := os.Open(wsImageVersionFilePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fmt.Printf("line is %s\n", line)
+		if strings.Contains(line, "WINDOWS_2019_BASE_IMAGE_VERSION=") {
+			wsImageVersions["2019-containerd"] = strings.Split(line, "=")[1]
+		} else if strings.Contains(line, "WINDOWS_2022_BASE_IMAGE_VERSION=") {
+			wsImageVersions["2022-containerd"] = strings.Split(line, "=")[1]
+		} else if strings.Contains(line, "WINDOWS_2022_GEN2_BASE_IMAGE_VERSION=") {
+			wsImageVersions["2022-containerd-gen2"] = strings.Split(line, "=")[1]
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+
 	artifactsToDownload := map[string]string{}
 	for key, value := range artifactToPath {
+		fmt.Printf("%s - %s\n", key, value);
 		if ignore[key] {
 			continue
 		}
@@ -91,13 +127,24 @@ func run(ctx context.Context, cancel context.CancelFunc, fl *flags) []error {
 		}
 
 		artifactsToDownload[key] = value
+		fmt.Printf("To download %s - %s\n", key, value);
+
 	}
 
 	var errc = make(chan error)
 	var done = make(chan struct{})
 
 	for sku, path := range artifactsToDownload {
-		go getReleaseNotes(sku, path, fl, errc, done)
+
+		if strings.Contains(path, "AKSWindows") {
+			fmt.Printf("%s\n", path);
+			length := len(wsImageVersions[sku])
+			var wsDate = time.Now().Format("060102")
+			version := wsImageVersions[sku][0:length - 6] + wsDate
+			go getReleaseNotesWindows(sku, path, fl, errc, done, version)
+		} else {
+			go getReleaseNotes(sku, path, fl, errc, done)
+		}
 	}
 
 	var errs []error
@@ -253,6 +300,65 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 	}
 }
 
+func getReleaseNotesWindows(sku, path string, fl *flags, errc chan<- error, done chan<- struct{}, version string) {
+	defer func() { done <- struct{}{} }()
+
+	// working directory, need one per sku because the file name is
+	// always "release-notes.txt" so they all overwrite each other.
+	tmpdir, err := ioutil.TempDir("", "releasenotes")
+	if err != nil {
+		errc <- fmt.Errorf("failed to create temp working directory: %w", err)
+	}
+	defer os.RemoveAll(tmpdir)
+
+	releaseNotesName := fmt.Sprintf("vhd-release-notes-%s", sku)
+	releaseNotesFileIn := filepath.Join(tmpdir, "release-notes.txt")
+	imageListName := fmt.Sprintf("vhd-image-bom-%s", sku)
+	imageListFileIn := filepath.Join(tmpdir, "image-bom.json")
+
+	artifactsDirOut := filepath.Join(fl.path, path)
+	releaseNotesFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s.txt", version))
+	imageListFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s-image-list.json", version))
+	
+	if err := os.MkdirAll(filepath.Dir(artifactsDirOut), 0644); err != nil {
+		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
+		return
+	}
+
+	if err := os.MkdirAll(artifactsDirOut, 0644); err != nil {
+		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
+		return
+	}
+	
+	fmt.Printf("downloading releaseNotes '%s' from build '%s'\n", releaseNotesName, fl.build)
+
+	cmd := exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", releaseNotesName)
+	if stdout, err := cmd.CombinedOutput(); err != nil {
+		if err != nil {
+			errc <- fmt.Errorf("failed to download az devops releaseNotes for sku %s, err: %s, output: %s", sku, err, string(stdout))
+		}
+		return
+	}
+
+	if err := os.Rename(releaseNotesFileIn, releaseNotesFileOut); err != nil {
+		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", releaseNotesFileIn, releaseNotesFileOut, err)
+		return
+	}
+
+	cmd = exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", imageListName)
+	if stdout, err := cmd.CombinedOutput(); err != nil {
+		if err != nil {
+			errc <- fmt.Errorf("failed to download az devops imageList for sku %s, err: %s, output: %s", sku, err, string(stdout))
+		}
+		return
+	}
+
+	if err := os.Rename(imageListFileIn, imageListFileOut); err != nil {
+		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", imageListFileIn, imageListFileOut, err)
+		return
+	}
+}
+
 func stripWhitespace(str string) string {
 	var b strings.Builder
 	b.Grow(len(str))
@@ -274,7 +380,8 @@ type flags struct {
 
 var defaultPath = filepath.Join("vhdbuilder", "release-notes")
 var defaultDate = strings.Split(time.Now().Format("200601.02"), " ")[0] + ".0"
-
+var wsImageVersions = make(map[string]string)
+	
 // why does ubuntu use subfolders and mariner doesn't
 // there are dependencies on the folder structure but it would
 // be nice to fix this.
@@ -301,4 +408,7 @@ var artifactToPath = map[string]string{
 	"2204-gen2-containerd":              filepath.Join("AKSUbuntu", "gen2", "2204containerd"),
 	"2204-arm64-gen2-containerd":        filepath.Join("AKSUbuntu", "gen2", "2204arm64containerd"),
 	"2204-tl-gen2-containerd":           filepath.Join("AKSUbuntu", "gen2", "2204tlcontainerd"),
+	"2019-containerd":                filepath.Join("AKSWindows", "2019-containerd"),
+	"2022-containerd":                filepath.Join("AKSWindows", "2022-containerd"),
+	"2022-containerd-gen2":           filepath.Join("AKSWindows", "2022-containerd-gen2"),	
 }
