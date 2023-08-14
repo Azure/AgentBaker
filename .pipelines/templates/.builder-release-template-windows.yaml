@@ -32,6 +32,11 @@ steps:
       else \
         echo "use release date as build date"; branchName=$(Build.SourceBranchName); BUILD_DATE=${branchName: -6}; \
       fi && \
+      echo "Default BUILD_DATE is $BUILD_DATE" && \
+      if [[ -n "${CUSTOM_BUILD_DATE}" ]]; then \
+        echo "set BUILD_DATE to ${CUSTOM_BUILD_DATE}"; \
+        BUILD_DATE=${CUSTOM_BUILD_DATE}; \
+      fi
       echo "Set build date to $BUILD_DATE" && \
       echo "##vso[task.setvariable variable=BUILD_DATE]$BUILD_DATE"
     displayName: Get Build Mode
