@@ -8,9 +8,6 @@ parameters:
   displayName: Image Bump + Branch Cutting
   type: boolean
   default: true
-- name: GithubPat
-  type: string
-  default: ""
 
 steps:
 - bash: |
@@ -24,7 +21,7 @@ steps:
         echo "Bumping windows VHD base image version"
         /bin/bash vhdbuilder/scripts/windows/automate_version_bump.sh $MAPPED_GITHUB_PAT $GITHUB_USER_NAME $CHERRY_PICK_COMMIT_ID
   env:
-        MAPPED_GITHUB_PAT: ${{ parameters.GithubPat }}
+        MAPPED_GITHUB_PAT: $(GITHUB_PAT)
   displayName: 'Image Version Bumping'
   condition: eq('${{ parameters.ImageBump }}', true)
   
