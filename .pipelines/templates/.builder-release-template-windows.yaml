@@ -32,6 +32,11 @@ steps:
       else \
         echo "use release date as build date"; branchName=$(Build.SourceBranchName); BUILD_DATE=${branchName: -6}; \
       fi && \
+      echo "Default BUILD_DATE is $BUILD_DATE" && \
+      if [[ -n "${CUSTOM_BUILD_DATE}" ]]; then \
+        echo "set BUILD_DATE to ${CUSTOM_BUILD_DATE}"; \
+        BUILD_DATE=${CUSTOM_BUILD_DATE}; \
+      fi
       echo "Set build date to $BUILD_DATE" && \
       echo "##vso[task.setvariable variable=BUILD_DATE]$BUILD_DATE"
     displayName: Get Build Mode
@@ -68,6 +73,7 @@ steps:
       -e WINDOWS_BASE_IMAGE_URL=${WINDOWS_BASE_IMAGE_URL} \
       -e WINDOWS_NANO_IMAGE_URL=${WINDOWS_NANO_IMAGE_URL} \
       -e WINDOWS_CORE_IMAGE_URL=${WINDOWS_CORE_IMAGE_URL} \
+      -e WINDOWS_PRIVATE_PACKAGES_URL=${WINDOWS_PRIVATE_PACKAGES_URL} \
       ${CONTAINER_IMAGE} make -f packer.mk run-packer-windows
     displayName: Building windows VHD
 
@@ -129,7 +135,9 @@ steps:
         -e RESOURCE_GROUP_NAME="${PROD_BUILD_AZURE_RESOURCE_GROUP_NAME}" \
         -e LOCATION="${PROD_BUILD_AZURE_LOCATION}" \
         -e OS_TYPE="Windows" \
-        -e CLASSIC_SAS_TOKEN="$(STORAGE_ACCT_SAS_TOKEN)" \
+        -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
+        -e OUTPUT_STORAGE_ACCOUNT_NAME=${OUTPUT_STORAGE_ACCOUNT_NAME} \
+        -e OUTPUT_STORAGE_CONTAINER_NAME=${OUTPUT_STORAGE_CONTAINER_NAME} \
         -e CLASSIC_BLOB="$(STORAGE_ACCT_BLOB_URL)" \
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
         -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \

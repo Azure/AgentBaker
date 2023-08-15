@@ -61,7 +61,9 @@ assignFilePermissions() {
         chmod 0600 /etc/crontab || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     fi
     for filepath in /etc/cron.hourly /etc/cron.daily /etc/cron.weekly /etc/cron.monthly /etc/cron.d; do
-        chmod 0600 $filepath || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+        if [[ -e $filepath ]]; then
+            chmod 0600 $filepath || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
+        fi
     done
 
     # Docs: https://www.man7.org/linux/man-pages/man1/crontab.1.html
@@ -155,8 +157,23 @@ configureCoreDump() {
     replaceOrAppendCoreDump ProcessSizeMax 0
 }
 
-fixDefaultUmaskForAccountCreation() {
+fixUmaskSettings() {
+    # CIS requires the default UMASK for account creation to be set to 027, so change that in /etc/login.defs.
     replaceOrAppendLoginDefs UMASK 027
+
+    # It also requires that nothing in etc/profile.d sets umask to anything less restrictive than that.
+    # Mariner sets umask directly in /etc/profile after sourcing everything in /etc/profile.d. But it also has /etc/profile.d/umask.sh
+    # which sets umask (but is then ignored). We don't want to simply delete /etc/profile.d/umask.sh, because if we take an update to
+    # the package that supplies it, it would just be copied over again.
+    # This is complicated by an oddity/bug in the auditing script cis uses, which will flag line in a file with the work umask in the file name
+    # that doesn't set umask correctly. So we can't just comment out all the lines or have any comments that explain what we're doing.
+    # So since we can't delete the file, we just overwrite it with the correct umask setting. This duplicates what /etc/profile does, but
+    # it does no harm and works with the tools.
+    # Note that we use printf to avoid a trailing newline.
+    local umask_sh="/etc/profile.d/umask.sh"
+    if [[ "${OS}" == "${MARINER_OS_NAME}" && "${OS_VERSION}" == "2.0" && -f "${umask_sh}" ]]; then
+        printf "umask 027" >${umask_sh}
+    fi
 }
 
 function maskNfsServer() {
@@ -193,7 +210,7 @@ applyCIS() {
     assignRootPW
     assignFilePermissions
     configureCoreDump
-    fixDefaultUmaskForAccountCreation
+    fixUmaskSettings
     maskNfsServer
     addFailLockDir
 }

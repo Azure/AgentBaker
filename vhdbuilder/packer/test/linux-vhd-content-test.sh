@@ -476,13 +476,42 @@ testNetworkSettings() {
   echo "$test:End"
 }
 
+# Ensures that the content /etc/profile.d/umask.sh is correct, per code in
+# <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
+testUmaskSettings() {
+    local test="testUmaskSettings"
+    local settings_file=/etc/profile.d/umask.sh
+    local expected_settings_file_content='umask 027'
+    echo "$test:Start"
+
+    # If the settings file exists, it must just be a single line that sets umask properly.
+    if [[ -f "${settings_file}" ]]; then
+        echo "${test}: Checking that the contents of ${settings_file} is exactly '${expected_settings_file_content}'"
+
+        # Command substitution (like file_contents=$(cat "${settings_file}")) strips trailing newlines, so we use mapfile instead.
+        # This creates an array of the lines in the file, and then we join them back together by expanding the array into a single string.
+        local file_contents_array=()
+        mapfile <"${settings_file}" file_contents_array
+        local file_contents="${file_contents_array[*]}"
+        if [[ "${file_contents}" != "${expected_settings_file_content}" ]]; then
+            err $test "The content of the file '${settings_file}' is '${file_contents}', which does not exactly match '${expected_settings_file_content}'. "
+        else
+            echo "${test}: The content of the file '${settings_file}' exactly matches the expected contents '${expected_settings_file_content}'."
+        fi
+    else
+        echo "${test}: Settings file '${settings_file}' does not exist, so not testing contents."
+    fi
+
+    echo "$test:End"
+}
+
 # Tests that the modes on the cron-related files and directories in /etc are set correctly, per the
 # function assignFilePermissions in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
 testCronPermissions() {
   local test="testCronPermissions"
   echo "$test:Start"
 
-  declare -A required_pathss=(
+  declare -A required_paths=(
     ['/etc/cron.allow']=640
     ['/etc/cron.hourly']=600
     ['/etc/cron.daily']=600
@@ -500,7 +529,7 @@ testCronPermissions() {
   )
 
   echo "$test: Checking required paths"
-  for path in "${!required_path[@]}"; do
+  for path in "${!required_paths[@]}"; do
     checkPathPermissions $test $path ${required_paths[$path]} 1
   done
 
@@ -755,6 +784,51 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
+# Tests that the PAM configuration is functional and aligns with the expected configuration.
+testPam() {
+  local os_sku="${1}"
+  local os_version="${2}"
+  local test="testPam"
+  local testdir="./AgentBaker/vhdbuilder/packer/test/pam"
+  local retval=0
+  echo "${test}:Start"
+
+  # We only want to run this test on Mariner 2.0
+  # So if it's anything else, report that we're skipping the test and bail.
+  if [[ "${os_sku}" != "CBLMariner" || "${os_version}" != "2.0" ]]; then
+    echo "$test: Skipping test on ${os_sku} ${os_version}"
+  else
+    # cd to the directory of the script
+    pushd ${testdir} || (err ${test} "Failed to cd to test directory ${testdir}"; return 1)
+    # create the virtual environment
+    python3 -m venv . || (err ${test} "Failed to create virtual environment"; return 1)
+    # activate the virtual environment
+    # shellcheck source=/dev/null
+    source ./bin/activate
+    # install the dependencies
+    pip3 install --disable-pip-version-check -r requirements.txt || \
+      (err ${test} "Failed to install dependencies"; return 1)
+    # run the script
+    output=$(pytest -v -s test_pam.py)
+    retval=$?
+    # deactivate the virtual environment
+    deactivate
+    popd || (err ${test} "Failed to cd out of test dir"; return 1)
+    
+    if [ $retval -ne 0 ]; then
+      err ${test} "$output"
+      err ${test} "PAM configuration is not functional"
+      retval=1
+    else
+      echo "${test}: PAM configuration is functionally correct"
+    fi
+  fi
+
+  echo "${test}:Finish"
+  return $retval
+}
+
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -786,3 +860,5 @@ testCronPermissions
 testCoreDumpSettings
 testNfsServerService
 testPamDSettings $OS_SKU $OS_VERSION
+testPam $OS_SKU $OS_VERSION
+testUmaskSettings
