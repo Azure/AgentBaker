@@ -257,6 +257,7 @@
       "downloadURL": "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
+        "v3.13.0",
         "v3.11.1"
       ]
     },
