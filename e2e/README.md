@@ -10,6 +10,8 @@ From a high-level, each E2E scenario makes a call out to the primary node-bootst
 
 ## Running Locally
 
+**Note: if you have changed code or artifacts used to generate custom data or custom script extension payloads, you should first run `make generate` from the root of the AgentBaker repository.**
+
 To run the Go implementation of the E2E test suite locally, simply use `e2e-local.sh`. This script will setup the call to `go test` for you while also implementing default logic for a set of required environment variables used to interact with Azure. These required environment variables include:
 
 - `SUBSCRIPTION_ID` - default `8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8`
@@ -143,8 +145,3 @@ See the docs [here](https://go.dev/testing/coverage/#panicprof).
 ```bash
   go tool covdata percent -i=./cmd/somedata
 ```
-        
-        
-       
-
-
