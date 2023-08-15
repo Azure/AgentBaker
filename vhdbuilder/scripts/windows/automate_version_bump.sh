@@ -6,7 +6,7 @@ source vhdbuilder/scripts/windows/automate_helpers.sh
 
 az login --identity
 
-pr_title="VHDVersion Bumping"
+pr_purpose="VHDVersion Bumping"
 
 branch_name=""
 
@@ -52,7 +52,7 @@ create_image_bump_pr() {
     update_image_version
 
     set +x
-    create_pull_request $new_image_version $github_access_token $branch_name $pr_title
+    create_pull_request $new_image_version $github_access_token $branch_name $pr_purpose
     set -x
 }
 
