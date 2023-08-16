@@ -14,8 +14,6 @@ set +x
 github_access_token=$1
 set -x
 
-echo $3
-echo "$3"
 cherry_pick_commit_id=$3
 
 # This function finds the latest windows VHD base Image version from the command az vm image show
@@ -50,7 +48,9 @@ create_image_bump_pr() {
     else
         create_branch $branch_name
     fi
-    cherry_pick $cherry_pick_commit_id
+    if [[ -n "$cherry_pick_commit_id" ]]; then
+        cherry_pick $cherry_pick_commit_id
+    fi
     update_image_version
 
     set +x
