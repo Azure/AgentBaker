@@ -5,6 +5,9 @@
     .DESCRIPTION
         Produces a JSON image BOM for a Windows VHD
 #>
+$windowsSKU = $env:WindowsSKU
+$windowsImageVersion = $env:WindowsImageVersion
+
 $ErrorActionPreference = "Stop"
 
 $imageBomJsonFilePath = "c:\image-bom.json"
@@ -96,7 +99,17 @@ foreach($image in $imageList) {
 Stop-Job  -Name containerd
 Remove-Job -Name containerd
 
-$bomList | ConvertTo-Json | set-content $imageBomJsonFilePath
+$imageBom=$(echo $bomList | ConvertTo-Json)
+
+$listResult = @"
+{
+        "sku": "$windowsSKU",
+        "imageVersion": "$windowsImageVersion",
+        "imageBom": $imageBom
+}
+"@
+
+echo $listResult | ConvertFrom-Json | ConvertTo-Json -Depth 3 | set-content $imageBomJsonFilePath
 
 # Ensure proper encoding is set for JSON image BOM
 [IO.File]::ReadAllText($imageBomJsonFilePath) | Out-File -Encoding utf8 $imageBomJsonFilePath
