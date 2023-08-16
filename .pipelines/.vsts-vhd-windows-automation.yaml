@@ -19,7 +19,7 @@ steps:
   displayName: 'az devops login'
 - bash: |
         echo "Bumping windows VHD base image version"
-        /bin/bash vhdbuilder/scripts/windows/automate_version_bump.sh $MAPPED_GITHUB_PAT $GITHUB_USER_NAME $CHERRY_PICK_COMMIT_ID
+        /bin/bash vhdbuilder/scripts/windows/automate_version_bump.sh $MAPPED_GITHUB_PAT $GITHUB_USER_NAME "$CHERRY_PICK_COMMIT_ID"
   env:
         MAPPED_GITHUB_PAT: $(GITHUB_PAT)
   displayName: 'Image Version Bumping'
