@@ -191,6 +191,7 @@ const (
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker.
 	AKSWindows2019PIR        Distro = "aks-windows-2019-pir"
 	CustomizedImage          Distro = "CustomizedImage"
+	CustomizedImageKata      Distro = "CustomizedImageKata"
 	CustomizedWindowsOSImage Distro = "CustomizedWindowsOSImage"
 
 	// USNatCloud is a const string reference identifier for USNat.
@@ -262,7 +263,7 @@ func (d Distro) Is2204VHDDistro() bool {
 }
 
 func (d Distro) IsKataDistro() bool {
-	return d == AKSCBLMarinerV2Gen2Kata
+	return d == AKSCBLMarinerV2Gen2Kata || d == CustomizedImageKata
 }
 
 /*
