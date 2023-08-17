@@ -40,6 +40,13 @@ update_image_version() {
     sed -i "s/$line/WINDOWS_2022_GEN2_BASE_IMAGE_VERSION=$latest_image_version_2022_g2/g" vhdbuilder/packer/windows-image.env
 }
 
+cherry_pick() {
+    if [ -n "$1" ]; then
+        echo "Cherry-picked commit id is \"$1\""
+        git cherry-pick $1
+    fi
+}
+
 create_image_bump_pr() {
     if [ `git branch --list $branch_name` ]; then
         git checkout master
@@ -49,7 +56,7 @@ create_image_bump_pr() {
         create_branch $branch_name
     fi
     if [[ -n "$cherry_pick_commit_id" ]]; then
-        cherry_pick $cherry_pick_commit_id
+        cherry_pick "$cherry_pick_commit_id"
     fi
     update_image_version
 
