@@ -209,6 +209,62 @@ Total: 5 (HIGH: 5, CRITICAL: 0)
 │                                    │                │          │                        │                  │ https://avd.aquasec.com/nvd/cve-2022-41723                 │
 └────────────────────────────────────┴────────────────┴──────────┴────────────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
 
+mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.7.4-main-08-11-2023-6de2ec55 (cbl-mariner 2.0.20230805)
+=============================================================================================================================================
+Total: 0 (HIGH: 0, CRITICAL: 0)
+
+
+opt/microsoft/otelcollector/otelcollector (gobinary)
+====================================================
+Total: 2 (HIGH: 2, CRITICAL: 0)
+
+┌────────────────────────────────┬────────────────┬──────────┬──────────────────────┬──────────────────┬──────────────────────────────────────────────────┐
+│            Library             │ Vulnerability  │ Severity │  Installed Version   │  Fixed Version   │                      Title                       │
+├────────────────────────────────┼────────────────┼──────────┼──────────────────────┼──────────────────┼──────────────────────────────────────────────────┤
+│ github.com/docker/distribution │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible  │ 2.8.2-beta.1     │ DoS from malicious API request                   │
+│                                │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-2253        │
+├────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────┤
+│ github.com/docker/docker       │ CVE-2023-28840 │          │ v23.0.1+incompatible │ 23.0.3, 20.10.24 │ Encrypted overlay network may be unauthenticated │
+│                                │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-28840       │
+└────────────────────────────────┴────────────────┴──────────┴──────────────────────┴──────────────────┴──────────────────────────────────────────────────┘
+
+opt/promconfigvalidator (gobinary)
+==================================
+Total: 2 (HIGH: 2, CRITICAL: 0)
+
+┌────────────────────────────────┬────────────────┬──────────┬──────────────────────┬──────────────────┬──────────────────────────────────────────────────┐
+│            Library             │ Vulnerability  │ Severity │  Installed Version   │  Fixed Version   │                      Title                       │
+├────────────────────────────────┼────────────────┼──────────┼──────────────────────┼──────────────────┼──────────────────────────────────────────────────┤
+│ github.com/docker/distribution │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible  │ 2.8.2-beta.1     │ DoS from malicious API request                   │
+│                                │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-2253        │
+├────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────┤
+│ github.com/docker/docker       │ CVE-2023-28840 │          │ v23.0.1+incompatible │ 23.0.3, 20.10.24 │ Encrypted overlay network may be unauthenticated │
+│                                │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-28840       │
+└────────────────────────────────┴────────────────┴──────────┴──────────────────────┴──────────────────┴──────────────────────────────────────────────────┘
+
+usr/bin/telegraf (gobinary)
+===========================
+Total: 5 (HIGH: 5, CRITICAL: 0)
+
+┌────────────────────────────────────┬────────────────┬──────────┬────────────────────────┬──────────────────┬────────────────────────────────────────────────────────────┐
+│              Library               │ Vulnerability  │ Severity │   Installed Version    │  Fixed Version   │                           Title                            │
+├────────────────────────────────────┼────────────────┼──────────┼────────────────────────┼──────────────────┼────────────────────────────────────────────────────────────┤
+│ github.com/docker/distribution     │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible    │ 2.8.2-beta.1     │ DoS from malicious API request                             │
+│                                    │                │          │                        │                  │ https://avd.aquasec.com/nvd/cve-2023-2253                  │
+├────────────────────────────────────┼────────────────┤          ├────────────────────────┼──────────────────┼────────────────────────────────────────────────────────────┤
+│ github.com/docker/docker           │ CVE-2023-28840 │          │ v20.10.17+incompatible │ 23.0.3, 20.10.24 │ Encrypted overlay network may be unauthenticated           │
+│                                    │                │          │                        │                  │ https://avd.aquasec.com/nvd/cve-2023-28840                 │
+├────────────────────────────────────┼────────────────┤          ├────────────────────────┼──────────────────┼────────────────────────────────────────────────────────────┤
+│ github.com/opencontainers/runc     │ CVE-2023-27561 │          │ v1.1.3                 │ 1.1.5            │ volume mount race condition (regression of CVE-2019-19921) │
+│                                    │                │          │                        │                  │ https://avd.aquasec.com/nvd/cve-2023-27561                 │
+├────────────────────────────────────┼────────────────┤          ├────────────────────────┼──────────────────┼────────────────────────────────────────────────────────────┤
+│ github.com/snowflakedb/gosnowflake │ CVE-2023-34231 │          │ v1.6.13                │ 1.6.19           │ Snowflake Golang Driver vulnerable to Command Injection    │
+│                                    │                │          │                        │                  │ https://avd.aquasec.com/nvd/cve-2023-34231                 │
+├────────────────────────────────────┼────────────────┤          ├────────────────────────┼──────────────────┼────────────────────────────────────────────────────────────┤
+│ golang.org/x/net                   │ CVE-2022-41723 │          │ v0.5.0                 │ 0.7.0            │ avoid quadratic complexity in HPACK decoding               │
+│                                    │                │          │                        │                  │ https://avd.aquasec.com/nvd/cve-2022-41723                 │
+└────────────────────────────────────┴────────────────┴──────────┴────────────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
+
 mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.11 (cbl-mariner 2.0.20230630)
 =========================================================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
@@ -477,12 +533,12 @@ mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.2 (alpine 3.15.1)
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
-mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.3 (alpine 3.15.1)
+mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.4 (alpine 3.15.1)
 ==========================================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
-mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.4 (alpine 3.15.1)
+mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.5 (alpine 3.15.1)
 ==========================================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
@@ -1605,6 +1661,11 @@ Total: 5 (HIGH: 5, CRITICAL: 0)
 └───────────────────┴────────────────┴──────────┴────────────────────────────────────┴───────────────────────────────────┴─────────────────────────────────────────────────────────────┘
 
 mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.11.1 (debian 11.6)
+========================================================================
+Total: 0 (HIGH: 0, CRITICAL: 0)
+
+
+mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.13.0 (debian 11.7)
 ========================================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
