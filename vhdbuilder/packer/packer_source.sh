@@ -43,6 +43,8 @@ copyPackerFiles() {
   DOCKER_MONITOR_TIMER_DEST=/etc/systemd/system/docker-monitor.timer
   CONTAINERD_EXEC_START_SRC=/home/packer/containerd_exec_start.conf
   CONTAINERD_EXEC_START_DEST=/etc/systemd/system/containerd.service.d/exec_start.conf
+  CONTAINERD_OVERRIDE_SRC=/home/packer/containerd-override.conf
+  CONTAINERD_OVERRIDE_DEST=/etc/systemd/system/containerd.service.d/override.conf
   CONTAINERD_MONITOR_SERVICE_SRC=/home/packer/containerd-monitor.service
   CONTAINERD_MONITOR_SERVICE_DEST=/etc/systemd/system/containerd-monitor.service
   CONTAINERD_MONITOR_TIMER_SRC=/home/packer/containerd-monitor.timer
@@ -241,6 +243,7 @@ copyPackerFiles() {
   cpAndMode $HEALTH_MONITOR_SRC $HEALTH_MONITOR_DEST 544
   cpAndMode $MIG_PARTITION_SRC $MIG_PARTITION_DEST 544
   cpAndMode $CONTAINERD_EXEC_START_SRC $CONTAINERD_EXEC_START_DEST 644
+  cpAndMode $CONTAINERD_OVERRIDE_SRC $CONTAINERD_OVERRIDE_DEST 644
   cpAndMode $CONTAINERD_MONITOR_SERVICE_SRC $CONTAINERD_MONITOR_SERVICE_DEST 644
   cpAndMode $CONTAINERD_MONITOR_TIMER_SRC $CONTAINERD_MONITOR_TIMER_DEST 644
   cpAndMode $DISK_QUEUE_SERVICE_SRC $DISK_QUEUE_SERVICE_DEST 644

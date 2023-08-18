@@ -27,6 +27,7 @@
 // linux/cloud-init/artifacts/cis.sh
 // linux/cloud-init/artifacts/containerd-monitor.service
 // linux/cloud-init/artifacts/containerd-monitor.timer
+// linux/cloud-init/artifacts/containerd-override.conf
 // linux/cloud-init/artifacts/containerd.service
 // linux/cloud-init/artifacts/containerd_exec_start.conf
 // linux/cloud-init/artifacts/crictl.yaml
@@ -1484,6 +1485,26 @@ func linuxCloudInitArtifactsContainerdMonitorTimer() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd-monitor.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsContainerdOverrideConf = []byte(`[Service]
+ExecStart=
+ExecStart=/usr/bin/containerd -l debug
+`)
+
+func linuxCloudInitArtifactsContainerdOverrideConfBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsContainerdOverrideConf, nil
+}
+
+func linuxCloudInitArtifactsContainerdOverrideConf() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsContainerdOverrideConfBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd-override.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -8182,6 +8203,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
 	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
 	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
+	"linux/cloud-init/artifacts/containerd-override.conf":                  linuxCloudInitArtifactsContainerdOverrideConf,
 	"linux/cloud-init/artifacts/containerd.service":                        linuxCloudInitArtifactsContainerdService,
 	"linux/cloud-init/artifacts/containerd_exec_start.conf":                linuxCloudInitArtifactsContainerd_exec_startConf,
 	"linux/cloud-init/artifacts/crictl.yaml":                               linuxCloudInitArtifactsCrictlYaml,
@@ -8325,6 +8347,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
 				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
 				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
+				"containerd-override.conf":                  &bintree{linuxCloudInitArtifactsContainerdOverrideConf, map[string]*bintree{}},
 				"containerd.service":                        &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},
 				"containerd_exec_start.conf":                &bintree{linuxCloudInitArtifactsContainerd_exec_startConf, map[string]*bintree{}},
 				"crictl.yaml":                               &bintree{linuxCloudInitArtifactsCrictlYaml, map[string]*bintree{}},
