@@ -7,6 +7,33 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
+# WIDALY: hacks to run iostat from node startup.
+# Output is written to /var/log/azure/iostat.log
+cat <<EOF > /usr/local/bin/iostat.sh
+#!/usr/bin/env bash
+
+set -xe
+
+iostat -ty 1 >> /var/log/azure/iostat.log
+
+EOF
+
+chmod +x /usr/local/bin/iostat.sh
+
+cat <<EOF > /etc/systemd/system/iostat.service
+[Unit]
+Description=Report IO on node startup
+
+[Service]
+ExecStart=/usr/local/bin/iostat.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable iostat
+systemctl start iostat
+
 aptmarkWALinuxAgent hold &
 
 # Setup logs for upload to host
@@ -24,32 +51,6 @@ ln -s /var/log/azure/cluster-provision.log \
 python3 /opt/azure/containers/provision_redact_cloud_config.py \
     --cloud-config-path /var/lib/cloud/instance/cloud-config.txt \
     --output-path ${LOG_DIR}/cloud-config.txt
-
-# WIDALY: hacks to get read/write counts by process during the first 10 minutes of node startup.
-# Output is written every 10 seconds to /var/log/azure/iotrace.log
-cat <<EOF > /usr/local/bin/iotrace.sh
-#!/usr/bin/env bash
-
-set -xe
-
-bpftrace -o /var/log/azure/iotrace.log -e 'tracepoint:block:block_rq_issue { @biorqcount = count(); @biorqbytes = sum(args->bytes); }  tracepoint:syscalls:sys_exit_read { @reads[comm,pid] = count(); } tracepoint:syscalls:sys_exit_write { @writes[comm,pid] = count(); } interval:s:10 { time("%H:%M:%S\n"); print(@biorqcount); zero(@biorqcount); print(@biorqbytes); zero(@biorqbytes); print(@reads); clear(@reads); print(@writes); clear(@writes); }  interval:s:600 { exit(); }'
-
-EOF
-chmod +x /usr/local/bin/iotrace.sh
-
-cat <<EOF > /etc/systemd/system/iotrace.service
-[Unit]
-Description=Trace IO on node startup
-
-[Service]
-ExecStart=/usr/local/bin/iotrace.sh
-
-[Install]
-WantedBy=multi-user.target
-EOF
-systemctl daemon-reload
-systemctl enable iotrace
-systemctl start iotrace
 
 UBUNTU_RELEASE=$(lsb_release -r -s)
 if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
