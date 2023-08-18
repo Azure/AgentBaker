@@ -1496,7 +1496,7 @@ Description=containerd daemon
 After=network.target
 [Service]
 ExecStartPre=/sbin/modprobe overlay
-ExecStart=/usr/bin/containerd
+ExecStart=/usr/bin/containerd -l debug
 Delegate=yes
 KillMode=process
 Restart=always
