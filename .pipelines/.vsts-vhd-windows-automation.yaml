@@ -7,10 +7,14 @@ parameters:
 - name: ImageBump
   displayName: Image Bump + Branch Cutting
   type: boolean
-  default: true
+  default: false
 - name: GithubUserName
   displayName: The user name of the owner to push changes
   type: string
+- name: ArtifactTrigger
+  displayName: SIG Artifact Trigger
+  type: boolean
+  default: false
 
 steps:
 - bash: |
@@ -27,4 +31,8 @@ steps:
         MAPPED_GITHUB_PAT: $(GITHUB_PAT)
   displayName: 'Image Version Bumping'
   condition: eq('${{ parameters.ImageBump }}', true)
-  
+- bash: |
+        echo "Triggering windows VHD build ev2 artifacts pipeline"
+        /bin/bash vhdbuilder/scripts/windows/automate_ev2_pipeline_trigger.sh $BUILD_ID
+  displayName: 'ev2 Artifact Pipeline Trigger'
+  condition: eq('${{ parameters.ArtifactTrigger }}', true)
