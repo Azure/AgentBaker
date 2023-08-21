@@ -26,6 +26,9 @@ parameters:
   type: boolean
   default: False
 
+# Use variable group "ab-vhd-windows-prod" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
+# Use variable group "ab-vhd-windows-test" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
+
 stages:
   - stage: build_vhd_2019_containerd
     dependsOn: []
