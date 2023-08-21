@@ -143,7 +143,7 @@ az group export --resource-group $MC_RESOURCE_GROUP_NAME --resource-ids $VMSS_RE
 # TODO: use prod image
 # IMAGE_REFERENCE=$(jq -c '.resources[0].properties.virtualMachineProfile.storageProfile.imageReference.id' test.json)
 # IMAGE_REFERENCE="[concat(parameters('galleries_AKSWindows_externalid'), '/images/windows-e2e-test-$WINDOWS_E2E_IMAGE/versions/2023.02.07')]"
-IMAGE_REFERENCE=$(az sig image-version list --gallery-image-definition "windows-e2e-test-$WINDOWS_E2E_IMAGE" --gallery-name "AKSWindows" --resource-group "akswinvhdbuilderrg" | jq -r '.[].id[-1]')
+IMAGE_REFERENCE=$(az sig image-version list --gallery-image-definition "windows-e2e-test-$WINDOWS_E2E_IMAGE" --gallery-name $IMAGE_GALLERY_NAME --resource-group $IMAGE_RESOURCE_GROUP --subscription $IMAGE_SUBSCRIPTION_ID  | jq -r '.[-1].id')
 IMAGE_EXTERNALID="/subscriptions/$IMAGE_SUBSCRIPTION_ID/resourceGroups/akswinvhdbuilderrg/providers/Microsoft.Compute/galleries/AKSWindows"
 WINDOWS_VNET=$(jq -c '.parameters | with_entries( select(.key|contains("vnet")))' test.json)
 WINDOWS_LOADBALANCER=$(jq -c '.parameters | with_entries( select(.key|contains("loadBalancers")))' test.json)
