@@ -140,8 +140,8 @@ MC_WIN_VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(n
 VMSS_RESOURCE_Id=$(az resource show --resource-group $MC_RESOURCE_GROUP_NAME --name $MC_WIN_VMSS_NAME --resource-type Microsoft.Compute/virtualMachineScaleSets --query id --output tsv)
 
 az group export --resource-group $MC_RESOURCE_GROUP_NAME --resource-ids $VMSS_RESOURCE_Id --include-parameter-default-value > test.json
-IMAGE_REFERENCE=$(az sig image-version list --gallery-image-definition "windows-e2e-test-$WINDOWS_E2E_IMAGE" --gallery-name $IMAGE_GALLERY_NAME --resource-group $IMAGE_RESOURCE_GROUP --subscription $IMAGE_SUBSCRIPTION_ID  | jq -r '.[-1].id')
-IMAGE_EXTERNALID="/subscriptions/$IMAGE_SUBSCRIPTION_ID/resourceGroups/akswinvhdbuilderrg/providers/Microsoft.Compute/galleries/AKSWindows"
+IMAGE_REFERENCE="[concat(parameters('galleries_AKSWindows_externalid'), '/images/windows-e2e-test-$WINDOWS_E2E_IMAGE/versions/latest')]"
+IMAGE_EXTERNALID="/subscriptions/$IMAGE_SUBSCRIPTION_ID/resourceGroups/$IMAGE_RESOURCE_GROUP/providers/Microsoft.Compute/galleries/$IMAGE_GALLERY_NAME"
 WINDOWS_VNET=$(jq -c '.parameters | with_entries( select(.key|contains("vnet")))' test.json)
 WINDOWS_LOADBALANCER=$(jq -c '.parameters | with_entries( select(.key|contains("loadBalancers")))' test.json)
 WINDOWS_IDENTITY=$(jq -c '.resources[0] | with_entries( select(.key|contains("identity")))' test.json)
