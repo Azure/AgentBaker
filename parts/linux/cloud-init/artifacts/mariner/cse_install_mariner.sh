@@ -25,6 +25,17 @@ installDeps() {
     fi
 }
 
+installKataDeps() {
+    if [[ $OS_VERSION != "1.0" ]]; then
+      # TODO - remove kernel-uvm-devel once we build the vanilla Kata UVM in our UVM build pipeline
+      for dnf_package in kernel-mshv hvloader mshv-bootloader-lx mshv cloud-hypervisor cloud-hypervisor-cvm moby-containerd-cc kata-containers kata-containers-cc kernel-uvm kernel-uvm-cvm kernel-uvm-devel; do
+        if ! dnf_install 30 1 600 $dnf_package; then
+          exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+      done
+    fi
+}
+
 downloadGPUDrivers() {
     # Mariner CUDA rpm name comes in the following format:
     #
