@@ -26,9 +26,6 @@ parameters:
   type: boolean
   default: True
 
-variables:
-  CONTAINER_IMAGE:  'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
-
 stages:
   - stage: build_vhd_2019_containerd
     dependsOn: []
