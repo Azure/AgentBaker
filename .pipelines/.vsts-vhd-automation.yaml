@@ -20,6 +20,8 @@ parameters:
 steps:
 - bash: |
         echo "Removing existing go environment"
+        type go
+        go env
         sudo rm -r /usr/local/go
         GOLANG_VERSION=$(curl -s 'https://go.dev/VERSION?m=text' | head -n 1)
         echo "Downloading ${GOLANG_VERSION}"
