@@ -22,7 +22,7 @@ steps:
         echo "Removing existing go environment"
         type go
         go env
-        sudo rm -r /usr/local/go.20
+        sudo rm -r /usr/local/go1.20
         GOLANG_VERSION=$(curl -s 'https://go.dev/VERSION?m=text' | head -n 1)
         echo "Downloading ${GOLANG_VERSION}"
         curl -O "https://dl.google.com/go/${GOLANG_VERSION}.linux-amd64.tar.gz"
