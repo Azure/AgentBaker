@@ -4,6 +4,7 @@ set -o nounset
 set -o pipefail
 
 FQDN=$1
+CUSTOM_ENDPOINT=${2:-''}
 EVENTS_LOGGING_DIR="/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/"
 
 logs_to_events() {
@@ -74,7 +75,7 @@ if [ $result -eq 200 ]; then
     access_token=$(cat $tmp_file | jq -r .access_token)
     test_endpoint="https://${resource}/providers/Microsoft.ContainerService/operations?api-version=2023-05-01"
     res=$(curl -X GET -H "Authorization: Bearer $access_token" -H "Content-Type:application/json" -s -o /dev/null -w "%{http_code}" $test_endpoint)
-    if [ $res -eq 200 ]; then
+    if [ $res -ge 200 ] && [ $res -lt 400 ]; then
         logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled $resource with returned status code $res'"
     else 
         logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $resource with returned status code $res'" 
@@ -86,10 +87,10 @@ fi
 # Check access to apiserver
 nslookup $FQDN > /dev/null
 if [ $? -eq 0 ]; then
-    logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to endpoint $url'"
+    logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to endpoint $FQDN'"
     fullUrl="https://${FQDN}/healthz"
     res=$(curl -s -o /dev/null -w "%{http_code}" --cacert /etc/kubernetes/certs/apiserver.crt --cert /etc/kubernetes/certs/client.crt --key /etc/kubernetes/certs/client.key $fullUrl)
-    if [ $res -eq 200 ]; then
+    if [ $res -ge 200 ] && [ $res -lt 400 ]; then
         logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled apiserver $FQDN with returned status code $res'"
     else 
         logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl apiserver $FQDN with returned status code $res'" 
@@ -99,7 +100,7 @@ else
 fi
 
 # Set the URLs to ping
-urlLists=("mcr.microsoft.com" "login.microsoftonline.com" "packages.microsoft.com" "acs-mirror.azureedge.net" $FQDN)
+urlLists=("mcr.microsoft.com" "login.microsoftonline.com" "packages.microsoft.com" "acs-mirror.azureedge.net")
 
 # Set the number of times to retry before logging an error
 retries=3
@@ -129,14 +130,13 @@ do
             response=$(curl -s -o /dev/null -w "%{http_code}" "https://$url" -L)
         fi
 
-        if [ $response -eq 200 ]; then
+        if [ $response -ge 200 ] && [ $response -lt 400 ]; then
             logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled $url with returned status code $response'"
             break
-        else 
-            # If the response code is not 200, increment the error count
-            i=$(( $i + 1 ))
         fi
 
+        # If the response code is not 200, increment the error count
+        i=$(( $i + 1 ))
         # If we have reached the maximum number of retries, log an error
         if [[ $i -eq $retries ]]; then
             logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $url after $retries attempts with returned status code $response'" 
@@ -148,4 +148,35 @@ do
     done
 done
 
+if [ ! -z "$CUSTOM_ENDPOINT" ]; then
+    echo "Checking additional endpoints ..."  
+    extraUrlList=($(echo $CUSTOM_ENDPOINT | tr "," "\n"))
+    for url in "${extraUrlList[@]}"
+    do
+        nslookup $url > /dev/null
+        if [ $? -eq 0 ]; then
+            logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to endpoint $url'"
+        else
+            logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to endpoint $url'"
+            continue
+        fi
+        
+        i=0
+        while true;
+        do
+            response=$(curl -s -o /dev/null -w "%{http_code}" "https://$url" -L)
+            if [ $response -ge 200 ] && [ $response -lt 400 ]; then
+                logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled $url with returned status code $response'"
+                break
+            fi
 
+            i=$(( $i + 1 ))
+            if [[ $i -eq $retries ]]; then
+                logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $url after $retries attempts with returned status code $response'" 
+                break
+            fi
+
+            sleep $delay
+        done
+    done
+fi
