@@ -146,7 +146,7 @@ WINDOWS_LOADBALANCER=$(jq -c '.parameters | with_entries( select(.key|contains("
 WINDOWS_IDENTITY=$(jq -c '.resources[0] | with_entries( select(.key|contains("identity")))' test.json)
 WINDOWS_SKU=$(jq -c '.resources[0] | with_entries( select(.key|contains("sku")))' test.json)
 WINDOWS_OSDISK=$(jq -c '.resources[0].properties.virtualMachineProfile.storageProfile | with_entries( select(.key|contains("osDisk")))' test.json)
-NETWORK_PROPERTIES=$(jq -c '.resources[0].properties.virtualMachineProfile.networkProfile.neitworkInterfaceConfigurations[0] | with_entries( select(.key|contains("properties")))' test.json)
+NETWORK_PROPERTIES=$(jq -c '.resources[0].properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[0] | with_entries( select(.key|contains("properties")))' test.json)
 CUSTOM_DATA=$(cat scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-$SCENARIO_NAME-cloud-init.txt)
 CSE_CMD=$(cat scenarios/$SCENARIO_NAME/$WINDOWS_E2E_IMAGE-$SCENARIO_NAME-cseCmd)
 
