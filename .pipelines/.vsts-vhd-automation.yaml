@@ -22,15 +22,15 @@ steps:
         echo "Removing existing go environment"
         type go
         go env
-        sudo rm -r /usr/local/go
+        sudo rm -r /usr/bin/go
         GOLANG_VERSION=$(curl -s 'https://go.dev/VERSION?m=text' | head -n 1)
         echo "Downloading ${GOLANG_VERSION}"
         curl -O "https://dl.google.com/go/${GOLANG_VERSION}.linux-amd64.tar.gz"
 
         echo "unpacking go"
-        sudo mkdir -p /usr/local/go
-        sudo chown -R "$(whoami):$(whoami)" /usr/local/go 
-        sudo tar -xvf "${GOLANG_VERSION}.linux-amd64.tar.gz" -C /usr/local
+        sudo mkdir -p /usr/bin/go
+        sudo chown -R "$(whoami):$(whoami)" /usr/bin/go 
+        sudo tar -xvf "${GOLANG_VERSION}.linux-amd64.tar.gz" -C /usr/bin
         rm "${GOLANG_VERSION}.linux-amd64.tar.gz"
   displayName: 'Clean up go environment'
 - bash: |
