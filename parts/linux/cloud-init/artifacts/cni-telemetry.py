@@ -3,6 +3,7 @@
 from datetime import datetime
 import json
 import os
+import subprocess
 import sys
 import time
 
@@ -78,10 +79,25 @@ def emit_event(msg):
     print("Wrote event", path)
 
 
+def get_kubelet_start_ts():
+    # Get kubelet.service ExecMainStartTime in seconds since the Unix epoch.
+    stdout = subprocess.check_output("systemctl show kubelet.service -p ExecMainStartTimestamp | sed -e 's/ExecMainStartTimestamp=//g' | awk '{ printf(\"%s %s\", $2, $3) }' | xargs -I %% date --date=\"%%\" '+%s'", shell=True)
+    return int(stdout.decode("utf8").strip())
+
+
+def format_ts(ts):
+    return datetime.utcfromtimestamp(ts).isoformat(sep=" ", timespec="milliseconds")
+
+
 if __name__ == "__main__":
     # Wait for walinuxagent to create the events logging directory.
     if not retry(ensure_events_logging_dir_exists, failure_val=False):
         print("Directory {} was not created".format(EVENTS_LOGGING_DIR))
+        sys.exit(1)
+
+    kubelet_start_ts = retry(get_kubelet_start_ts)
+    if kubelet_start_ts is None:
+        print("Could not retrieve kubelet start time")
         sys.exit(1)
 
     ts = retry(get_earliest_cni_conflist_create_ts)
@@ -92,11 +108,20 @@ if __name__ == "__main__":
         emit_event({
             "CNIConflistFound": False,
             "CNIConflistCreateTimestamp": None,
+            "KubeletStartTimestamp": None,
+            "DurationFromKubeletStartInSeconds": None,
         })
+    elif ts < kubelet_start_ts:
+        # CNI conflist should always be created after kubelet.
+        # If not, then something unexpected happened, and we can't
+        # trust this data.
+        print("Kublet start_ts {} is after CNI create timestamp {}, abort", kubelet_start_ts, ts)
+        sys.exit(1)
     else:
         print("Emitting event that CNI conflist found with timestamp")
-        cni_ts = datetime.utcfromtimestamp(ts).isoformat(sep=" ", timespec="milliseconds")
         emit_event({
             "CNIConflistFound": True,
-            "CNIConflistCreateTimestamp": cni_ts,
+            "KubeletStartTimestamp": format_ts(kubelet_start_ts),
+            "CNIConflistCreateTimestamp": format_ts(ts),
+            "DurationFromKubeletStartInSeconds": int(ts - kubelet_start_ts),
         })
