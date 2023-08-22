@@ -19,6 +19,7 @@ parameters:
 
 steps:
 - bash: |
+        set -x
         echo "Removing existing go environment"
         type go
         go env
