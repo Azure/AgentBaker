@@ -24,6 +24,9 @@ steps:
         go env
         which go
         go version
+        hash -l
+        rehash
+        hash -l
         sudo rm -r /usr/local/go1.20
         GOLANG_VERSION=$(curl -s 'https://go.dev/VERSION?m=text' | head -n 1)
         echo "Downloading ${GOLANG_VERSION}"
