@@ -236,7 +236,7 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 				EtcdDownloadURLBase:                  "",
 				KubeBinariesSASURLBase:               "https://acs-mirror.azureedge.net/kubernetes/",
 				WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
-				CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",
+				CNIPluginsDownloadURL:                "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.9.1.tgz",
 				VnetCNILinuxPluginsDownloadURL:       "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
 				VnetCNIWindowsPluginsDownloadURL:     "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip",
 				ContainerdDownloadURLBase:            "https://storage.googleapis.com/cri-containerd-release/",
