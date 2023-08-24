@@ -3204,7 +3204,13 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
-#aptmarkWALinuxAgent hold &
+sleep 60
+echo "WIDALY DEBUG 1: $(date)"
+
+aptmarkWALinuxAgent hold &
+
+sleep 60
+echo "WIDALY DEBUG 2: $(date)"
 
 # Setup logs for upload to host
 LOG_DIR=/var/log/azure/aks
@@ -3216,11 +3222,17 @@ ln -s /var/log/azure/cluster-provision.log \
       /opt/azure/vhd-install.complete \
       ${LOG_DIR}/
 
+sleep 60
+echo "WIDALY DEBUG 3: $(date)"
+
 # Redact the necessary secrets from cloud-config.txt so we don't expose any sensitive information
 # when cloud-config.txt gets included within log bundles
 python3 /opt/azure/containers/provision_redact_cloud_config.py \
     --cloud-config-path /var/lib/cloud/instance/cloud-config.txt \
     --output-path ${LOG_DIR}/cloud-config.txt
+
+sleep 60
+echo "WIDALY DEBUG 4: $(date)"
 
 UBUNTU_RELEASE=$(lsb_release -r -s)
 if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
@@ -3228,6 +3240,9 @@ if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     echo $?
     sudo systemctl restart systemd-timesyncd
 fi
+
+sleep 60
+echo "WIDALY DEBUG 5: $(date)"
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
@@ -3257,6 +3272,9 @@ fi
 echo "private egress proxy address is '${PRIVATE_EGRESS_PROXY_ADDRESS}'"
 # TODO update to use proxy
 
+sleep 60
+echo "WIDALY DEBUG 6: $(date)"
+
 if [[ "${SHOULD_CONFIGURE_HTTP_PROXY}" == "true" ]]; then
     if [[ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" == "true" ]]; then
         configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
@@ -3264,10 +3282,15 @@ if [[ "${SHOULD_CONFIGURE_HTTP_PROXY}" == "true" ]]; then
     configureEtcEnvironment
 fi
 
+sleep 60
+echo "WIDALY DEBUG 7: $(date)"
 
 if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
 fi
+
+sleep 60
+echo "WIDALY DEBUG 8: $(date)"
 
 if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     if [[ -n "${PROXY_VARS}" ]]; then
@@ -3276,14 +3299,23 @@ if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
 fi
 
+sleep 60
+echo "WIDALY DEBUG 9: $(date)"
+
 # Bring in OS-related vars
 source /etc/os-release
 
+sleep 60
+echo "WIDALY DEBUG 10: $(date)"
+
 # Mandb is not currently available on MarinerV1
-#if [[ ${ID} != "mariner" ]]; then
-#    echo "Removing man-db auto-update flag file..."
-#    logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
-#fi
+if [[ ${ID} != "mariner" ]]; then
+    echo "Removing man-db auto-update flag file..."
+    logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
+fi
+
+sleep 60
+echo "WIDALY DEBUG 11: $(date)"
 
 export -f should_skip_nvidia_drivers
 skip_nvidia_driver_install=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_nvidia_drivers)
@@ -3293,45 +3325,75 @@ if [[ "$ret" != "0" ]]; then
     exit $ERR_NVIDIA_DRIVER_INSTALL
 fi
 
+sleep 60
+echo "WIDALY DEBUG 12: $(date)"
+
 if [[ "${GPU_NODE}" != "true" ]] || [[ "${skip_nvidia_driver_install}" == "true" ]]; then
     logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
 fi
 
+sleep 60
+echo "WIDALY DEBUG 13: $(date)"
+
 logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
+
+sleep 60
+echo "WIDALY DEBUG 14: $(date)"
 
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
-#VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
-#if [ -f $VHD_LOGS_FILEPATH ]; then
-#    echo "detected golden image pre-install"
-#    logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
-#    FULL_INSTALL_REQUIRED=false
-#else
-#    if [[ "${IS_VHD}" = true ]]; then
-#        echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
-#        exit $ERR_VHD_FILE_NOT_FOUND
-#    fi
-#    FULL_INSTALL_REQUIRED=true
-#fi
+sleep 60
+echo "WIDALY DEBUG 15: $(date)"
 
-#if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
-#    logs_to_events "AKS.CSE.installDeps" installDeps
-#else
-#    echo "Golden image; skipping dependencies installation"
-#fi
+VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
+if [ -f $VHD_LOGS_FILEPATH ]; then
+    echo "detected golden image pre-install"
+    logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
+    FULL_INSTALL_REQUIRED=false
+else
+    if [[ "${IS_VHD}" = true ]]; then
+        echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
+        exit $ERR_VHD_FILE_NOT_FOUND
+    fi
+    FULL_INSTALL_REQUIRED=true
+fi
+
+sleep 60
+echo "WIDALY DEBUG 16: $(date)"
+
+if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
+    logs_to_events "AKS.CSE.installDeps" installDeps
+else
+    echo "Golden image; skipping dependencies installation"
+fi
+
+sleep 60
+echo "WIDALY DEBUG 17: $(date)"
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
 if [ "${NEEDS_CONTAINERD}" == "true" ] && [ "${TELEPORT_ENABLED}" == "true" ]; then 
     logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
 fi
 
+sleep 60
+echo "WIDALY DEBUG 18: $(date)"
+
 setupCNIDirs
 
+sleep 60
+echo "WIDALY DEBUG 19: $(date)"
+
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
+
+sleep 60
+echo "WIDALY DEBUG 20: $(date)"
 
 if [ "${IS_KRUSTLET}" == "true" ]; then
     logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
 fi
+
+sleep 60
+echo "WIDALY DEBUG 21: $(date)"
 
 # By default, never reboot new nodes.
 REBOOTREQUIRED=false
@@ -3388,32 +3450,55 @@ fi
 
 echo $(date),$(hostname), "End configuring GPU drivers"
 
+sleep 60
+echo "WIDALY DEBUG 22: $(date)"
+
 if [ "${NEEDS_DOCKER_LOGIN}" == "true" ]; then
     set +x
     docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET "${AZURE_PRIVATE_REGISTRY_SERVER}"
     set -x
 fi
 
+sleep 60
+echo "WIDALY DEBUG 23: $(date)"
+
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
+sleep 60
+echo "WIDALY DEBUG 24: $(date)"
+
 createKubeManifestDir
+
+sleep 60
+echo "WIDALY DEBUG 25: $(date)"
 
 if [ "${HAS_CUSTOM_SEARCH_DOMAIN}" == "true" ]; then
     "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 fi
 
+sleep 60
+echo "WIDALY DEBUG 26: $(date)"
 
 # for drop ins, so they don't all have to check/create the dir
 mkdir -p "/etc/systemd/system/kubelet.service.d"
 
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
+sleep 60
+echo "WIDALY DEBUG 27: $(date)"
+
 logs_to_events "AKS.CSE.configureCNI" configureCNI
+
+sleep 60
+echo "WIDALY DEBUG 28: $(date)"
 
 # configure and enable dhcpv6 for dual stack feature
 if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
 fi
+
+sleep 60
+echo "WIDALY DEBUG 29: $(date)"
 
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     # containerd should not be configured until cni has been configured first
@@ -3422,9 +3507,15 @@ else
     logs_to_events "AKS.CSE.ensureDocker" ensureDocker
 fi
 
+sleep 60
+echo "WIDALY DEBUG 30: $(date)"
+
 if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
     echo "${MESSAGE_OF_THE_DAY}" | base64 -d > /etc/motd
 fi
+
+sleep 60
+echo "WIDALY DEBUG 31: $(date)"
 
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017
@@ -3433,17 +3524,29 @@ if [[ "${TARGET_CLOUD}" == "AzureChinaCloud" ]]; then
     retagMCRImagesForChina
 fi
 
+sleep 60
+echo "WIDALY DEBUG 32: $(date)"
+
 if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true" ]]; then
     logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
 fi
+
+sleep 60
+echo "WIDALY DEBUG 33: $(date)"
 
 if [ "${SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE}" == "true" ]; then
     logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
 fi
 
+sleep 60
+echo "WIDALY DEBUG 34: $(date)"
+
 if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
     logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 fi
+
+sleep 60
+echo "WIDALY DEBUG 35: $(date)"
 
 if [ "${NEEDS_CGROUPV2}" == "true" ]; then
     tee "/etc/systemd/system/kubelet.service.d/10-cgroupv2.conf" > /dev/null <<EOF
@@ -3451,6 +3554,9 @@ if [ "${NEEDS_CGROUPV2}" == "true" ]; then
 Environment="KUBELET_CGROUP_FLAGS=--cgroup-driver=systemd"
 EOF
 fi
+
+sleep 60
+echo "WIDALY DEBUG 36: $(date)"
 
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     # gross, but the backticks make it very hard to do in Go
@@ -3486,16 +3592,28 @@ After=bind-mount.service
 EOF
 fi
 
+sleep 60
+echo "WIDALY DEBUG 37: $(date)"
+
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
+
+sleep 60
+echo "WIDALY DEBUG 38: $(date)"
 
 if [ "${NEEDS_CONTAINERD}" == "true" ] &&  [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" == "true" ]; then
   logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
 fi
 
+sleep 60
+echo "WIDALY DEBUG 39: $(date)"
+
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
 fi
+
+sleep 60
+echo "WIDALY DEBUG 40: $(date)"
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -3506,6 +3624,9 @@ if $FULL_INSTALL_REQUIRED; then
 fi
 
 VALIDATION_ERR=0
+
+sleep 60
+echo "WIDALY DEBUG 41: $(date)"
 
 # Edge case scenarios:
 # high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster)
@@ -3540,62 +3661,71 @@ else
     logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
-#if [[ ${ID} != "mariner" ]]; then
-#    echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
-#    createManDbAutoUpdateFlagFile
-#    /usr/bin/mandb && echo "man-db finished updates at $(date)" &
-#fi
+sleep 60
+echo "WIDALY DEBUG 42: $(date)"
 
-#if $REBOOTREQUIRED; then
-#    echo 'reboot required, rebooting node in 1 minute'
-#    /bin/bash -c "shutdown -r 1 &"
-#    if [[ $OS == $UBUNTU_OS_NAME ]]; then
-#        # logs_to_events should not be run on & commands
-#        aptmarkWALinuxAgent unhold &
-#    fi
-#else
-#    if [[ $OS == $UBUNTU_OS_NAME ]]; then
-#        # logs_to_events should not be run on & commands
-#        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
-#            UU_CONFIG_DIR="/etc/apt/apt.conf.d/99periodic"
-#            mkdir -p "$(dirname "${UU_CONFIG_DIR}")"
-#            touch "${UU_CONFIG_DIR}"
-#            chmod 0644 "${UU_CONFIG_DIR}"
-#            echo 'APT::Periodic::Update-Package-Lists "1";' >> "${UU_CONFIG_DIR}"
-#            echo 'APT::Periodic::Unattended-Upgrade "1";' >> "${UU_CONFIG_DIR}"
-#            systemctl unmask apt-daily.service apt-daily-upgrade.service
-#            systemctl enable apt-daily.service apt-daily-upgrade.service
-#            systemctl enable apt-daily.timer apt-daily-upgrade.timer
-#            systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer            
-#            # this is the DOWNLOAD service
-#            # meaning we are wasting IO without even triggering an upgrade 
-#            # -________________-
-#            systemctl restart --no-block apt-daily.service
-#            
-#        fi
-#        aptmarkWALinuxAgent unhold &
-#    elif [[ $OS == $MARINER_OS_NAME ]]; then
-#        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
-#            if [ "${IS_KATA}" == "true" ]; then
-#                # Currently kata packages must be updated as a unit (including the kernel which requires a reboot). This can
-#                # only be done reliably via image updates as of now so never enable automatic updates.
-#                echo 'EnableUnattendedUpgrade is not supported by kata images, will not be enabled'
-#            else
-#                # By default the dnf-automatic is service is notify only in Mariner.
-#                # Enable the automatic install timer and the check-restart timer.
-#                # Stop the notify only dnf timer since we've enabled the auto install one.
-#                # systemctlDisableAndStop adds .service to the end which doesn't work on timers.
-#                systemctl disable dnf-automatic-notifyonly.timer
-#                systemctl stop dnf-automatic-notifyonly.timer
-#                # At 6:00:00 UTC (1 hour random fuzz) download and install package updates.
-#                systemctl unmask dnf-automatic-install.service || exit $ERR_SYSTEMCTL_START_FAIL
-#                systemctl unmask dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
-#                systemctlEnableAndStart dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
-#                # The check-restart service which will inform kured of required restarts should already be running
-#            fi
-#        fi
-#    fi
-#fi
+if [[ ${ID} != "mariner" ]]; then
+    echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
+    createManDbAutoUpdateFlagFile
+    /usr/bin/mandb && echo "man-db finished updates at $(date)" &
+fi
+
+sleep 60
+echo "WIDALY DEBUG 43: $(date)"
+
+if $REBOOTREQUIRED; then
+    echo 'reboot required, rebooting node in 1 minute'
+    /bin/bash -c "shutdown -r 1 &"
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        # logs_to_events should not be run on & commands
+        aptmarkWALinuxAgent unhold &
+    fi
+else
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        # logs_to_events should not be run on & commands
+        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
+            UU_CONFIG_DIR="/etc/apt/apt.conf.d/99periodic"
+            mkdir -p "$(dirname "${UU_CONFIG_DIR}")"
+            touch "${UU_CONFIG_DIR}"
+            chmod 0644 "${UU_CONFIG_DIR}"
+            echo 'APT::Periodic::Update-Package-Lists "1";' >> "${UU_CONFIG_DIR}"
+            echo 'APT::Periodic::Unattended-Upgrade "1";' >> "${UU_CONFIG_DIR}"
+            systemctl unmask apt-daily.service apt-daily-upgrade.service
+            systemctl enable apt-daily.service apt-daily-upgrade.service
+            systemctl enable apt-daily.timer apt-daily-upgrade.timer
+            systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer            
+            # this is the DOWNLOAD service
+            # meaning we are wasting IO without even triggering an upgrade 
+            # -________________-
+            systemctl restart --no-block apt-daily.service
+            
+        fi
+        aptmarkWALinuxAgent unhold &
+    elif [[ $OS == $MARINER_OS_NAME ]]; then
+        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
+            if [ "${IS_KATA}" == "true" ]; then
+                # Currently kata packages must be updated as a unit (including the kernel which requires a reboot). This can
+                # only be done reliably via image updates as of now so never enable automatic updates.
+                echo 'EnableUnattendedUpgrade is not supported by kata images, will not be enabled'
+            else
+                # By default the dnf-automatic is service is notify only in Mariner.
+                # Enable the automatic install timer and the check-restart timer.
+                # Stop the notify only dnf timer since we've enabled the auto install one.
+                # systemctlDisableAndStop adds .service to the end which doesn't work on timers.
+                systemctl disable dnf-automatic-notifyonly.timer
+                systemctl stop dnf-automatic-notifyonly.timer
+                # At 6:00:00 UTC (1 hour random fuzz) download and install package updates.
+                systemctl unmask dnf-automatic-install.service || exit $ERR_SYSTEMCTL_START_FAIL
+                systemctl unmask dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
+                systemctlEnableAndStart dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
+                # The check-restart service which will inform kured of required restarts should already be running
+            fi
+        fi
+    fi
+fi
+
+sleep 60
+echo "WIDALY DEBUG 44: $(date)"
 
 echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
 echo $(date),$(hostname), endcustomscript>>/opt/m
