@@ -7,7 +7,7 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
-#aptmarkWALinuxAgent hold &
+aptmarkWALinuxAgent hold &
 
 # Setup logs for upload to host
 LOG_DIR=/var/log/azure/aks
@@ -83,10 +83,10 @@ fi
 source /etc/os-release
 
 # Mandb is not currently available on MarinerV1
-#if [[ ${ID} != "mariner" ]]; then
-#    echo "Removing man-db auto-update flag file..."
-#    logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
-#fi
+if [[ ${ID} != "mariner" ]]; then
+    echo "Removing man-db auto-update flag file..."
+    logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
+fi
 
 export -f should_skip_nvidia_drivers
 skip_nvidia_driver_install=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_nvidia_drivers)
@@ -104,24 +104,24 @@ logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
-#VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
-#if [ -f $VHD_LOGS_FILEPATH ]; then
-#    echo "detected golden image pre-install"
-#    logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
-#    FULL_INSTALL_REQUIRED=false
-#else
-#    if [[ "${IS_VHD}" = true ]]; then
-#        echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
-#        exit $ERR_VHD_FILE_NOT_FOUND
-#    fi
-#    FULL_INSTALL_REQUIRED=true
-#fi
+VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
+if [ -f $VHD_LOGS_FILEPATH ]; then
+    echo "detected golden image pre-install"
+    logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
+    FULL_INSTALL_REQUIRED=false
+else
+    if [[ "${IS_VHD}" = true ]]; then
+        echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
+        exit $ERR_VHD_FILE_NOT_FOUND
+    fi
+    FULL_INSTALL_REQUIRED=true
+fi
 
-#if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
-#    logs_to_events "AKS.CSE.installDeps" installDeps
-#else
-#    echo "Golden image; skipping dependencies installation"
-#fi
+if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
+    logs_to_events "AKS.CSE.installDeps" installDeps
+else
+    echo "Golden image; skipping dependencies installation"
+fi
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
 if [ "${NEEDS_CONTAINERD}" == "true" ] && [ "${TELEPORT_ENABLED}" == "true" ]; then 
@@ -343,62 +343,62 @@ else
     logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
-#if [[ ${ID} != "mariner" ]]; then
-#    echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
-#    createManDbAutoUpdateFlagFile
-#    /usr/bin/mandb && echo "man-db finished updates at $(date)" &
-#fi
+if [[ ${ID} != "mariner" ]]; then
+    echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
+    createManDbAutoUpdateFlagFile
+    /usr/bin/mandb && echo "man-db finished updates at $(date)" &
+fi
 
-#if $REBOOTREQUIRED; then
-#    echo 'reboot required, rebooting node in 1 minute'
-#    /bin/bash -c "shutdown -r 1 &"
-#    if [[ $OS == $UBUNTU_OS_NAME ]]; then
-#        # logs_to_events should not be run on & commands
-#        aptmarkWALinuxAgent unhold &
-#    fi
-#else
-#    if [[ $OS == $UBUNTU_OS_NAME ]]; then
-#        # logs_to_events should not be run on & commands
-#        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
-#            UU_CONFIG_DIR="/etc/apt/apt.conf.d/99periodic"
-#            mkdir -p "$(dirname "${UU_CONFIG_DIR}")"
-#            touch "${UU_CONFIG_DIR}"
-#            chmod 0644 "${UU_CONFIG_DIR}"
-#            echo 'APT::Periodic::Update-Package-Lists "1";' >> "${UU_CONFIG_DIR}"
-#            echo 'APT::Periodic::Unattended-Upgrade "1";' >> "${UU_CONFIG_DIR}"
-#            systemctl unmask apt-daily.service apt-daily-upgrade.service
-#            systemctl enable apt-daily.service apt-daily-upgrade.service
-#            systemctl enable apt-daily.timer apt-daily-upgrade.timer
-#            systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer            
-#            # this is the DOWNLOAD service
-#            # meaning we are wasting IO without even triggering an upgrade 
-#            # -________________-
-#            systemctl restart --no-block apt-daily.service
-#            
-#        fi
-#        aptmarkWALinuxAgent unhold &
-#    elif [[ $OS == $MARINER_OS_NAME ]]; then
-#        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
-#            if [ "${IS_KATA}" == "true" ]; then
-#                # Currently kata packages must be updated as a unit (including the kernel which requires a reboot). This can
-#                # only be done reliably via image updates as of now so never enable automatic updates.
-#                echo 'EnableUnattendedUpgrade is not supported by kata images, will not be enabled'
-#            else
-#                # By default the dnf-automatic is service is notify only in Mariner.
-#                # Enable the automatic install timer and the check-restart timer.
-#                # Stop the notify only dnf timer since we've enabled the auto install one.
-#                # systemctlDisableAndStop adds .service to the end which doesn't work on timers.
-#                systemctl disable dnf-automatic-notifyonly.timer
-#                systemctl stop dnf-automatic-notifyonly.timer
-#                # At 6:00:00 UTC (1 hour random fuzz) download and install package updates.
-#                systemctl unmask dnf-automatic-install.service || exit $ERR_SYSTEMCTL_START_FAIL
-#                systemctl unmask dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
-#                systemctlEnableAndStart dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
-#                # The check-restart service which will inform kured of required restarts should already be running
-#            fi
-#        fi
-#    fi
-#fi
+if $REBOOTREQUIRED; then
+    echo 'reboot required, rebooting node in 1 minute'
+    /bin/bash -c "shutdown -r 1 &"
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        # logs_to_events should not be run on & commands
+        aptmarkWALinuxAgent unhold &
+    fi
+else
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        # logs_to_events should not be run on & commands
+        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
+            UU_CONFIG_DIR="/etc/apt/apt.conf.d/99periodic"
+            mkdir -p "$(dirname "${UU_CONFIG_DIR}")"
+            touch "${UU_CONFIG_DIR}"
+            chmod 0644 "${UU_CONFIG_DIR}"
+            echo 'APT::Periodic::Update-Package-Lists "1";' >> "${UU_CONFIG_DIR}"
+            echo 'APT::Periodic::Unattended-Upgrade "1";' >> "${UU_CONFIG_DIR}"
+            systemctl unmask apt-daily.service apt-daily-upgrade.service
+            systemctl enable apt-daily.service apt-daily-upgrade.service
+            systemctl enable apt-daily.timer apt-daily-upgrade.timer
+            systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer            
+            # this is the DOWNLOAD service
+            # meaning we are wasting IO without even triggering an upgrade 
+            # -________________-
+            systemctl restart --no-block apt-daily.service
+            
+        fi
+        aptmarkWALinuxAgent unhold &
+    elif [[ $OS == $MARINER_OS_NAME ]]; then
+        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
+            if [ "${IS_KATA}" == "true" ]; then
+                # Currently kata packages must be updated as a unit (including the kernel which requires a reboot). This can
+                # only be done reliably via image updates as of now so never enable automatic updates.
+                echo 'EnableUnattendedUpgrade is not supported by kata images, will not be enabled'
+            else
+                # By default the dnf-automatic is service is notify only in Mariner.
+                # Enable the automatic install timer and the check-restart timer.
+                # Stop the notify only dnf timer since we've enabled the auto install one.
+                # systemctlDisableAndStop adds .service to the end which doesn't work on timers.
+                systemctl disable dnf-automatic-notifyonly.timer
+                systemctl stop dnf-automatic-notifyonly.timer
+                # At 6:00:00 UTC (1 hour random fuzz) download and install package updates.
+                systemctl unmask dnf-automatic-install.service || exit $ERR_SYSTEMCTL_START_FAIL
+                systemctl unmask dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
+                systemctlEnableAndStart dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
+                # The check-restart service which will inform kured of required restarts should already be running
+            fi
+        fi
+    fi
+fi
 
 echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
 echo $(date),$(hostname), endcustomscript>>/opt/m
