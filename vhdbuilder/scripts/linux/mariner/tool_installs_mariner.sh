@@ -152,22 +152,6 @@ enableMarinerKata() {
     sudo sed -i -e 's@load_env -f \$bootprefix\/mariner.cfg@load_env -f \$bootprefix\/mariner-mshv.cfg\nload_env -f $bootprefix\/mariner.cfg\n@'  /boot/grub2/grub.cfg
     sudo sed -i -e 's@menuentry "CBL-Mariner"@menuentry "Dom0" {\n    search --no-floppy --set=root --file /HvLoader.efi\n    chainloader /HvLoader.efi lxhvloader.dll MSHV_ROOT=\\\\Windows MSHV_ENABLE=TRUE MSHV_SCHEDULER_TYPE=ROOT MSHV_X2APIC_POLICY=ENABLE MSHV_SEV_SNP=TRUE MSHV_LOAD_OPTION=INCLUDETRACEMETADATA=1\n    boot\n    search --no-floppy --fs-uuid '"$boot_uuid"' --set=root\n    linux $bootprefix/$mariner_linux_mshv $mariner_cmdline_mshv $systemd_cmdline root=$rootdevice\n    if [ -f $bootprefix/$mariner_initrd_mshv ]; then\n    initrd $bootprefix/$mariner_initrd_mshv\n    fi\n}\n\nmenuentry "CBL-Mariner"@'  /boot/grub2/grub.cfg
 
-    SERVICE_FILEPATH="/etc/systemd/system/set-kataconfig.service"
-    touch ${SERVICE_FILEPATH}
-    cat << EOF > ${SERVICE_FILEPATH}
-[Unit]
-Description=Apply Kata Config once provisioning is complete
-After=containerd.service
-
-[Service]
-Type=simple
-ExecStart=/bin/bash /setupkata.sh
-RemainAfterExit=no
-
-[Install]
-RequiredBy=kubelet.service
-EOF
-
     systemctlEnableAndStart set-kataconfig || exit $ERR_SYSTEMCTL_START_FAIL
 
     # generate initrd for guest
