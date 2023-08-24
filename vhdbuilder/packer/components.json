@@ -218,6 +218,7 @@
       "multiArchVersions": [
         "v1.26.5-1",
         "v1.26.6",
+        "v1.26.6-1",
         "v1.28.2",
         "v1.28.3"
       ]
@@ -238,12 +239,12 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.19.5-3",
         "v1.19.5-4",
-        "v1.21.4-1",
+        "v1.19.5-5",
         "v1.21.4-2",
-        "v1.22.1-1",
-        "v1.22.1-2"
+        "v1.21.4-3",
+        "v1.22.1-2",
+        "v1.22.1-3"
       ]
     },
     {
