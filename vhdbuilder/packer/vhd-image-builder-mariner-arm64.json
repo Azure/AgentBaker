@@ -367,6 +367,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/iotrace.service",
+      "destination": "/home/packer/iotrace.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/iotrace.sh",
+      "destination": "/home/packer/iotrace.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.timer",
       "destination": "/home/packer/cgroup-pressure-telemetry.timer"
     },
