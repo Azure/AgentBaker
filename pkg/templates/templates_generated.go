@@ -3204,13 +3204,36 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
-sleep 60
-echo "WIDALY DEBUG 1: $(date)"
+
+for i in $(seq 1 3600); do
+    if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
+        grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
+    fi
+    if [ $i -eq 3600 ]; then
+        exit $ERR_FILE_WATCH_TIMEOUT
+    else
+        sleep 1
+    fi
+done
+sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
+source "${CSE_HELPERS_FILEPATH}"
+
+source "${CSE_DISTRO_HELPERS_FILEPATH}"
+source "${CSE_INSTALL_FILEPATH}"
+source "${CSE_DISTRO_INSTALL_FILEPATH}"
+source "${CSE_CONFIG_FILEPATH}"
+
+if [[ "${DISABLE_SSH}" == "true" ]]; then
+    disableSSH || exit $ERR_DISABLE_SSH
+fi
 
 aptmarkWALinuxAgent hold &
 
 sleep 60
-echo "WIDALY DEBUG 2: $(date)"
+echo "WIDALY DEBUG 1: $(date)"
+
+#sleep 60
+#echo "WIDALY DEBUG 2: $(date)"
 
 # Setup logs for upload to host
 LOG_DIR=/var/log/azure/aks
@@ -3246,27 +3269,6 @@ echo "WIDALY DEBUG 5: $(date)"
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
-for i in $(seq 1 3600); do
-    if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
-        grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
-    fi
-    if [ $i -eq 3600 ]; then
-        exit $ERR_FILE_WATCH_TIMEOUT
-    else
-        sleep 1
-    fi
-done
-sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
-source "${CSE_HELPERS_FILEPATH}"
-
-source "${CSE_DISTRO_HELPERS_FILEPATH}"
-source "${CSE_INSTALL_FILEPATH}"
-source "${CSE_DISTRO_INSTALL_FILEPATH}"
-source "${CSE_CONFIG_FILEPATH}"
-
-if [[ "${DISABLE_SSH}" == "true" ]]; then
-    disableSSH || exit $ERR_DISABLE_SSH
-fi
 
 # This involes using proxy, log the config before fetching packages
 echo "private egress proxy address is '${PRIVATE_EGRESS_PROXY_ADDRESS}'"
