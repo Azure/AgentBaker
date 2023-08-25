@@ -3900,7 +3900,7 @@ func linuxCloudInitArtifactsCse_send_logsPy() (*asset, error) {
 
 var _linuxCloudInitArtifactsCse_startSh = []byte(`CSE_STARTTIME=$(date)
 CSE_STARTTIME_FORMATTED=$(date +"%F %T.%3N")
-timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
+timeout -k5s 120m /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
 OUTPUT=$(tail -c 3000 "/var/log/azure/cluster-provision.log")
@@ -3993,7 +3993,8 @@ else
     upload_logs &
 fi
 
-exit $EXIT_CODE`)
+exit $EXIT_CODE
+`)
 
 func linuxCloudInitArtifactsCse_startShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_startSh, nil
