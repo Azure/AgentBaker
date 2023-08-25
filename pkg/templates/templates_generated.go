@@ -51,6 +51,8 @@
 // linux/cloud-init/artifacts/health-monitor.sh
 // linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh
 // linux/cloud-init/artifacts/init-aks-custom-cloud.sh
+// linux/cloud-init/artifacts/iotrace.service
+// linux/cloud-init/artifacts/iotrace.sh
 // linux/cloud-init/artifacts/ipv6_nftables
 // linux/cloud-init/artifacts/ipv6_nftables.service
 // linux/cloud-init/artifacts/ipv6_nftables.sh
@@ -4601,6 +4603,54 @@ func linuxCloudInitArtifactsInitAksCustomCloudSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsIotraceService = []byte(`[Unit]
+Description=Trace IO on node startup
+
+[Service]
+ExecStart=/opt/scripts/iotrace.sh
+
+[Install]
+WantedBy=multi-user.target
+
+`)
+
+func linuxCloudInitArtifactsIotraceServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsIotraceService, nil
+}
+
+func linuxCloudInitArtifactsIotraceService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsIotraceServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/iotrace.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsIotraceSh = []byte(`#!/usr/bin/env bash
+
+set -xe
+
+bpftrace -o /var/log/azure/iotrace.log -e 'tracepoint:block:block_rq_issue { @biorqcount[comm,pid] = count(); @biorqbytes[comm,pid] = sum(args->bytes); }  tracepoint:syscalls:sys_exit_read { @reads[comm,pid] = count(); } tracepoint:syscalls:sys_exit_write { @writes[comm,pid] = count(); } interval:s:10 { printf("----\n"); time("%H:%M:%S\n"); print(@biorqcount); zero(@biorqcount); print(@biorqbytes); zero(@biorqbytes); print(@reads); clear(@reads); print(@writes); clear(@writes); } tracepoint:syscalls:sys_enter_exec* { join(args->argv); }'
+`)
+
+func linuxCloudInitArtifactsIotraceShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsIotraceSh, nil
+}
+
+func linuxCloudInitArtifactsIotraceSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsIotraceShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/iotrace.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsIpv6_nftables = []byte(`define slb_lla = fe80::1234:5678:9abc
 define slb_gua = 2603:1062:0:1:fe80:1234:5678:9abc
 
@@ -8323,6 +8373,8 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/health-monitor.sh":                         linuxCloudInitArtifactsHealthMonitorSh,
 	"linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh":          linuxCloudInitArtifactsInitAksCustomCloudMarinerSh,
 	"linux/cloud-init/artifacts/init-aks-custom-cloud.sh":                  linuxCloudInitArtifactsInitAksCustomCloudSh,
+	"linux/cloud-init/artifacts/iotrace.service":                           linuxCloudInitArtifactsIotraceService,
+	"linux/cloud-init/artifacts/iotrace.sh":                                linuxCloudInitArtifactsIotraceSh,
 	"linux/cloud-init/artifacts/ipv6_nftables":                             linuxCloudInitArtifactsIpv6_nftables,
 	"linux/cloud-init/artifacts/ipv6_nftables.service":                     linuxCloudInitArtifactsIpv6_nftablesService,
 	"linux/cloud-init/artifacts/ipv6_nftables.sh":                          linuxCloudInitArtifactsIpv6_nftablesSh,
@@ -8466,6 +8518,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"health-monitor.sh":                         &bintree{linuxCloudInitArtifactsHealthMonitorSh, map[string]*bintree{}},
 				"init-aks-custom-cloud-mariner.sh":          &bintree{linuxCloudInitArtifactsInitAksCustomCloudMarinerSh, map[string]*bintree{}},
 				"init-aks-custom-cloud.sh":                  &bintree{linuxCloudInitArtifactsInitAksCustomCloudSh, map[string]*bintree{}},
+				"iotrace.service":                           &bintree{linuxCloudInitArtifactsIotraceService, map[string]*bintree{}},
+				"iotrace.sh":                                &bintree{linuxCloudInitArtifactsIotraceSh, map[string]*bintree{}},
 				"ipv6_nftables":                             &bintree{linuxCloudInitArtifactsIpv6_nftables, map[string]*bintree{}},
 				"ipv6_nftables.service":                     &bintree{linuxCloudInitArtifactsIpv6_nftablesService, map[string]*bintree{}},
 				"ipv6_nftables.sh":                          &bintree{linuxCloudInitArtifactsIpv6_nftablesSh, map[string]*bintree{}},
