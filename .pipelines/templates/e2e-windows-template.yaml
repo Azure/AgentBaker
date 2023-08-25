@@ -24,7 +24,7 @@ jobs:
     - bash: pip install -Iv azure-cli==2.45.0 --extra-index-url https://azurecliprod.blob.core.windows.net/edge
       displayName: use specified version of az cli
     - bash: |
-        az login --service-principal -u $(BUILD_CLIENT_ID) -p $(BUILD_CLIENT_SECRET)) --tenant $(BUILD_TENANT_ID)
+        az login --service-principal -u $(BUILD_CLIENT_ID) -p $(BUILD_CLIENT_SECRET) --tenant $(BUILD_TENANT_ID)
         az account set -s $(BUILD_SUBSCRIPTION_ID)
       displayName: az login
     - bash: bash .pipelines/scripts/setup_go.sh
