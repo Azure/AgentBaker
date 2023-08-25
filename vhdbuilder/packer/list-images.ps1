@@ -34,7 +34,7 @@ foreach($image in $imageList) {
         $isExist=$false
         foreach($bom in $bomList) {
             if ($bom.id -eq $id) {
-                $bom.repoDigests = $repoDigests
+                $bom.repoDigests += $repoDigests
                 $isExist=$true
                 break
             }
