@@ -8,34 +8,34 @@ log "Starting e2e tests"
 
 # Create a resource group for the cluster
 log "Creating resource group"
-RESOURCE_GROUP_NAME="$RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION"
+E2E_RESOURCE_GROUP_NAME="$E2E_RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION"
 
 rgStartTime=$(date +%s)
-az group create -l $LOCATION -n $RESOURCE_GROUP_NAME --subscription $SUBSCRIPTION_ID -ojson
+az group create -l $BUILD_AZURE_LOCATION -n $E2E_RESOURCE_GROUP_NAME --subscription $E2E_SUBSCRIPTION_ID -ojson
 rgEndTime=$(date +%s)
 log "Created resource group in $((rgEndTime-rgStartTime)) seconds"
 
 # Check if there exists a cluster in the RG. If yes, check if the MC_RG associated with it still exists.
 # MC_RG gets deleted due to ACS-Test Garbage Collection but the cluster hangs around
-out=$(az aks list -g $RESOURCE_GROUP_NAME -ojson | jq '.[].name')
+out=$(az aks list -g $E2E_RESOURCE_GROUP_NAME -ojson | jq '.[].name')
 create_cluster="false"
 if [ -n "$out" ]; then
-    provisioning_state=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson | jq '.provisioningState' | tr -d "\"")
-    MC_RG_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_$LOCATION"
+    provisioning_state=$(az aks show -n $E2E_CLUSTER_NAME -g $E2E_RESOURCE_GROUP_NAME -ojson | jq '.provisioningState' | tr -d "\"")
+    MC_RG_NAME="MC_${E2E_RESOURCE_GROUP_NAME}_${E2E_CLUSTER_NAME}_$BUILD_AZURE_LOCATION"
     exists=$(az group exists -n $MC_RG_NAME)
     if [ "$exists" == "false" ] || [ "$provisioning_state" == "Failed" ] || [ "$provisioning_state" == "Canceled" ]; then
         # The cluster is in a broken state
-        log "Cluster $CLUSTER_NAME is in an unusable state, deleting..."
+        log "Cluster $E2E_CLUSTER_NAME is in an unusable state, deleting..."
         clusterDeleteStartTime=$(date +%s)
-        az aks delete -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME --yes
+        az aks delete -n $E2E_CLUSTER_NAME -g $E2E_RESOURCE_GROUP_NAME --yes
         clusterDeleteEndTime=$(date +%s)
-        log "Deleted cluster $CLUSTER_NAME in $((clusterDeleteEndTime-clusterDeleteStartTime)) seconds"
+        log "Deleted cluster $E2E_CLUSTER_NAME in $((clusterDeleteEndTime-clusterDeleteStartTime)) seconds"
         create_cluster="true"
     elif [ "$provisioning_state" == "Creating" ]; then
         # Other pipeline is creating this cluster
-        log "Cluster $CLUSTER_NAME is being created, waiting for ready"
-        az aks wait --name $CLUSTER_NAME --resource-group $RESOURCE_GROUP_NAME --created --interval 60 --timeout 1800
-        provisioning_state=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson | jq '.provisioningState' | tr -d "\"")
+        log "Cluster $E2E_CLUSTER_NAME is being created, waiting for ready"
+        az aks wait --name $E2E_CLUSTER_NAME --resource-group $E2E_RESOURCE_GROUP_NAME --created --interval 60 --timeout 1800
+        provisioning_state=$(az aks show -n $E2E_CLUSTER_NAME -g $E2E_RESOURCE_GROUP_NAME -ojson | jq '.provisioningState' | tr -d "\"")
         if [ "$provisioning_state" == "Succeeded" ]; then
             log "Cluster created by other pipeline successfully"
         else
@@ -44,9 +44,9 @@ if [ -n "$out" ]; then
         fi
     elif [ "$provisioning_state" == "Updating" ]; then
         # Other pipeline is updating this cluster
-        log "Cluster $CLUSTER_NAME is being updated, waiting for ready"
-        az aks wait --name $CLUSTER_NAME --resource-group $RESOURCE_GROUP_NAME --updated --interval 60 --timeout 1800
-        provisioning_state=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson | jq '.provisioningState' | tr -d "\"")
+        log "Cluster $E2E_CLUSTER_NAME is being updated, waiting for ready"
+        az aks wait --name $E2E_CLUSTER_NAME --resource-group $E2E_RESOURCE_GROUP_NAME --updated --interval 60 --timeout 1800
+        provisioning_state=$(az aks show -n $E2E_CLUSTER_NAME -g $E2E_RESOURCE_GROUP_NAME -ojson | jq '.provisioningState' | tr -d "\"")
         if [ "$provisioning_state" == "Succeeded" ]; then
             log "Cluster updated by other pipeline successfully"
         else
@@ -54,10 +54,10 @@ if [ -n "$out" ]; then
             exit 1
         fi
     elif [ "$provisioning_state" == "Deleting" ]; then
-        log "Cluster $CLUSTER_NAME is being deleted, waiting for ready"
-        az aks wait --name $CLUSTER_NAME --resource-group $RESOURCE_GROUP_NAME --deleted --interval 60 --timeout 1800
+        log "Cluster $E2E_CLUSTER_NAME is being deleted, waiting for ready"
+        az aks wait --name $E2E_CLUSTER_NAME --resource-group $E2E_RESOURCE_GROUP_NAME --deleted --interval 60 --timeout 1800
         retval=0
-        az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson || retval=$?
+        az aks show -n $E2E_CLUSTER_NAME -g $E2E_RESOURCE_GROUP_NAME -ojson || retval=$?
         if [ "$retval" -ne 0  ]; then
             log "Cluster deleted successfully"
             create_cluster="true"
@@ -72,18 +72,18 @@ fi
 
 # Create the AKS cluster and get the kubeconfig
 if [ "$create_cluster" == "true" ]; then
-    log "Creating cluster $CLUSTER_NAME"
+    log "Creating cluster $E2E_CLUSTER_NAME"
     clusterCreateStartTime=$(date +%s)
     retval=0
     
-    az aks create -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure -ojson || retval=$?
+    az aks create -g $E2E_RESOURCE_GROUP_NAME -n $E2E_CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure -ojson || retval=$?
 
     if [ "$retval" -ne 0  ]; then
-        log "Other pipelines may be creating cluster $CLUSTER_NAME, waiting for ready"
+        log "Other pipelines may be creating cluster $E2E_CLUSTER_NAME, waiting for ready"
         create_cluster="false"
-        az aks wait --name $CLUSTER_NAME --resource-group $RESOURCE_GROUP_NAME --created --interval 60 --timeout 1800
+        az aks wait --name $E2E_CLUSTER_NAME --resource-group $E2E_RESOURCE_GROUP_NAME --created --interval 60 --timeout 1800
     fi
-    provisioning_state=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson | jq '.provisioningState' | tr -d "\"")
+    provisioning_state=$(az aks show -n $E2E_CLUSTER_NAME -g $E2E_RESOURCE_GROUP_NAME -ojson | jq '.provisioningState' | tr -d "\"")
     if [ "$provisioning_state" == "Succeeded" ]; then
         log "Created cluster successfully"
     else
@@ -91,19 +91,19 @@ if [ "$create_cluster" == "true" ]; then
         exit 1
     fi
     clusterCreateEndTime=$(date +%s)
-    log "Created cluster $CLUSTER_NAME in $((clusterCreateEndTime-clusterCreateStartTime)) seconds"
+    log "Created cluster $E2E_CLUSTER_NAME in $((clusterCreateEndTime-clusterCreateStartTime)) seconds"
 fi
 
-az aks get-credentials -g $RESOURCE_GROUP_NAME -n $CLUSTER_NAME --file kubeconfig --overwrite-existing
+az aks get-credentials -g $E2E_RESOURCE_GROUP_NAME -n $E2E_CLUSTER_NAME --file kubeconfig --overwrite-existing
 KUBECONFIG=$(pwd)/kubeconfig
 export KUBECONFIG
 
 # Store the contents of az aks show to a file to reduce API call overhead
-az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP_NAME -ojson > cluster_info.json
+az aks show -n $E2E_CLUSTER_NAME -g $E2E_RESOURCE_GROUP_NAME -ojson > cluster_info.json
 
-MC_RESOURCE_GROUP_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_eastus"
-az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -otable
-MC_VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
+MC_E2E_RESOURCE_GROUP_NAME="MC_${E2E_RESOURCE_GROUP_NAME}_${E2E_CLUSTER_NAME}_eastus"
+az vmss list -g $MC_E2E_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -otable
+MC_VMSS_NAME=$(az vmss list -g $MC_E2E_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
 CLUSTER_ID=$(echo $MC_VMSS_NAME | cut -d '-' -f3)
 
 backfill_clean_storage_container
@@ -132,9 +132,9 @@ getAgentPoolProfileValues
 getFQDN
 getMSIResourceID
 
-addJsonToFile "mcRGName" $MC_RESOURCE_GROUP_NAME
+addJsonToFile "mcRGName" $MC_E2E_RESOURCE_GROUP_NAME
 addJsonToFile "clusterID" $CLUSTER_ID
-addJsonToFile "subID" $SUBSCRIPTION_ID
+addJsonToFile "subID" $E2E_SUBSCRIPTION_ID
 
 set +x
 # shellcheck disable=SC2091

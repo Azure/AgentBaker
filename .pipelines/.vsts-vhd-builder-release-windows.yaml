@@ -26,7 +26,7 @@ parameters:
   type: boolean
   default: True
 
-# Use variable group "ab-vhd-windows-prod" and link it to the pipeline "AKS Windows VHD Build"
+# Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 
 stages:
   - stage: build_vhd_2019_containerd

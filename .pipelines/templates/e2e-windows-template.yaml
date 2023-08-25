@@ -24,8 +24,8 @@ jobs:
     - bash: pip install -Iv azure-cli==2.45.0 --extra-index-url https://azurecliprod.blob.core.windows.net/edge
       displayName: use specified version of az cli
     - bash: |
-        az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
-        az account set -s $(AZURE_SUBSCRIPTION_ID)
+        az login --service-principal -u $(BUILD_CLIENT_ID) -p $(BUILD_CLIENT_SECRET)) --tenant $(BUILD_TENANT_ID)
+        az account set -s $(BUILD_SUBSCRIPTION_ID)
       displayName: az login
     - bash: bash .pipelines/scripts/setup_go.sh
       displayName: setup go
@@ -46,7 +46,7 @@ jobs:
           fi
         else
           if [[ -z "${KUBERNETES_VERSION}" ]]; then
-            KUBERNETES_VERSION=$(az aks get-versions -l $LOCATION --query "orchestrators[?default==\`true\`].orchestratorVersion" -otsv)
+            KUBERNETES_VERSION=$(az aks get-versions -l $BUILD_AZURE_LOCATION --query "orchestrators[?default==\`true\`].orchestratorVersion" -otsv)
             echo "Using default kubernetes version ${KUBERNETES_VERSION} for the windows package"
           fi
           export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
@@ -61,7 +61,7 @@ jobs:
         bash ./e2e-starter.sh
         bash e2e-create-windows-nodepool.sh
       env:
-        MAPPED_ACCOUNT_KEY: $(STORAGE_ACCOUNT_KEY)
+        MAPPED_ACCOUNT_KEY: $(E2E_STORAGE_ACCOUNT_KEY)
       displayName: Setup Test Cluster
     - publish: $(System.DefaultWorkingDirectory)/${{ parameters.windowsImage }}
       artifact: ${{ parameters.windowsImage }}-clusterConfig
@@ -87,8 +87,8 @@ jobs:
     - bash: pip install -Iv azure-cli==2.45.0 --extra-index-url https://azurecliprod.blob.core.windows.net/edge
       displayName: use specified version of az cli
     - bash: |
-        az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
-        az account set -s $(AZURE_SUBSCRIPTION_ID)
+        az login --service-principal -u $(BUILD_CLIENT_ID) -p $(BUILD_CLIENT_SECRET) --tenant $(BUILD_TENANT_ID)
+        az account set -s $(BUILD_SUBSCRIPTION_ID)
       displayName: az login
     - bash: |
         export SCENARIO_NAME
@@ -100,7 +100,7 @@ jobs:
           export WINDOWS_PACKAGE_VERSION=$(echo $windowsPackageURL | grep -oP '(?<=/v)\d+\.\d+\.\d+' | head -1)
         else
           if [[ -z "${KUBERNETES_VERSION}" ]]; then
-            KUBERNETES_VERSION=$(az aks get-versions -l $LOCATION --query "orchestrators[?default==\`true\`].orchestratorVersion" -otsv)
+            KUBERNETES_VERSION=$(az aks get-versions -l $BUILD_AZURE_LOCATION --query "orchestrators[?default==\`true\`].orchestratorVersion" -otsv)
             echo "Using default kubernetes version ${KUBERNETES_VERSION} for the windows package"
           fi
           export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
@@ -112,7 +112,7 @@ jobs:
         cd $WINDOWS_E2E_IMAGE
         bash e2e-scenario.sh
       env:
-        MAPPED_ACCOUNT_KEY: $(STORAGE_ACCOUNT_KEY)
+        MAPPED_ACCOUNT_KEY: $(E2E_STORAGE_ACCOUNT_KEY)
     - publish: $(System.DefaultWorkingDirectory)/${{ parameters.windowsImage }}/$(SCENARIO_NAME)-logs
       artifact: ${{ parameters.windowsImage }}-$(SCENARIO_NAME)-logs
       condition: always()
