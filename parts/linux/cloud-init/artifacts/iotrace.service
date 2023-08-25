@@ -1,0 +1,9 @@
+[Unit]
+Description=Trace IO on node startup
+
+[Service]
+ExecStart=/opt/scripts/iotrace.sh
+
+[Install]
+WantedBy=multi-user.target
+
