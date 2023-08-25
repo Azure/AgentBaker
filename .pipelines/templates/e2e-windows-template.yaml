@@ -25,7 +25,7 @@ jobs:
       displayName: use specified version of az cli
     - bash: |
         az login --service-principal -u $(BUILD_CLIENT_ID) -p $(BUILD_CLIENT_SECRET) --tenant $(BUILD_TENANT_ID)
-        az account set -s $(BUILD_SUBSCRIPTION_ID)
+        az account set -s $(E2E_SUBSCRIPTION_ID)
       displayName: az login
     - bash: bash .pipelines/scripts/setup_go.sh
       displayName: setup go
@@ -88,7 +88,7 @@ jobs:
       displayName: use specified version of az cli
     - bash: |
         az login --service-principal -u $(BUILD_CLIENT_ID) -p $(BUILD_CLIENT_SECRET) --tenant $(BUILD_TENANT_ID)
-        az account set -s $(BUILD_SUBSCRIPTION_ID)
+        az account set -s $(E2E_SUBSCRIPTION_ID)
       displayName: az login
     - bash: |
         export SCENARIO_NAME
