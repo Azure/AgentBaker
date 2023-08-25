@@ -32,6 +32,13 @@
       ]
     },
     {
+      "downloadURL": "mcr.microsoft.com/mirror/docker/library/busybox:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "1.35"
+      ]
+    },
+    {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
