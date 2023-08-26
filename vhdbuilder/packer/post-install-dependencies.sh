@@ -12,6 +12,11 @@ source /home/packer/tool_installs_distro.sh
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
+# WIDALY HACK: disable ext4 lazy init
+echo "WIDALY: setting rootflags=noinit_itable"
+sed -i "/^GRUB_CMDLINE_LINUX=/c\GRUB_CMDLINE_LINUX=\"rootflags=noinit_itable,discard,errors=remount-ro\"" /etc/default/grub
+update-grub
+
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
 MAX_BLOCK_COUNT=30298176 # 30 GB
 
