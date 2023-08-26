@@ -4,7 +4,7 @@ LOCALBIN		= $(shell pwd)/bin
 all: install
 
 .PHONY: install
-install: $(LOCALBIN)/go-bindata $(LOCALBIN)/gox $(LOCALBIN)/ginkgo $(LOCALBIN)/golangci-lint $(LOCALBIN)/cue
+install: $(LOCALBIN)/go-bindata $(LOCALBIN)/gox $(LOCALBIN)/ginkgo $(LOCALBIN)/golangci-lint $(LOCALBIN)/cue $(LOCALBIN)/buf
 	@echo > /dev/null
 
 $(LOCALBIN)/go-bindata:
@@ -21,6 +21,10 @@ $(LOCALBIN)/golangci-lint:
 
 $(LOCALBIN)/cue:
 	GOBIN=$(LOCALBIN) $(GO) install cuelang.org/go/cmd/cue@v0.4.2
+
+$(LOCALBIN)/buf:
+	curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.26.1/buf-$(shell uname -s)-$(shell uname -m)" -o $(LOCALBIN)/buf && \
+	chmod +x $(LOCALBIN)/buf
 
 .PHONY: reload
 reload: clean install
