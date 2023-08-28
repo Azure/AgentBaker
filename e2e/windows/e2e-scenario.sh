@@ -15,14 +15,14 @@ collect-logs() {
     VMSS_INSTANCE_ID="$(az vmss list-instances --name $DEPLOYMENT_VMSS_NAME -g $E2E_MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
     set +x
     expiryTime=$(date --date="2 day" +%Y-%m-%d)
-    token=$(az storage container generate-sas --account-name $E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwld' --expiry $expiryTime --name $E2E_STORAGE_LOG_CONTAINER --https-only)
+    token=$(az storage container generate-sas --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwld' --expiry $expiryTime --name $AZURE_E2E_STORAGE_LOG_CONTAINER --https-only)
     # Use .ps1 file to run scripts since single quotes of parameters for --scripts would fail in check-shell
     az vmss run-command invoke --command-id RunPowerShellScript \
         --resource-group $E2E_MC_RESOURCE_GROUP_NAME \
         --name $DEPLOYMENT_VMSS_NAME \
         --instance-id $VMSS_INSTANCE_ID \
         --scripts @upload-cse-logs.ps1 \
-        --parameters arg1=$E2E_STORAGE_ACCOUNT_NAME arg2=$E2E_STORAGE_LOG_CONTAINER arg3=$DEPLOYMENT_VMSS_NAME arg4=$token || retval=$?
+        --parameters arg1=$AZURE_E2E_STORAGE_ACCOUNT_NAME arg2=$AZURE_E2E_STORAGE_LOG_CONTAINER arg3=$DEPLOYMENT_VMSS_NAME arg4=$token || retval=$?
     if [ "$retval" -ne 0 ]; then
         err "Failed in uploading cse logs. Error code is $retval."
     fi
@@ -30,12 +30,12 @@ collect-logs() {
     tokenWithoutQuote=${token//\"}
     # use array to pass shellcheck
     array=(azcopy_*)
-    ${array[0]}/azcopy copy "https://${E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE-CustomDataSetupScript.log || retval=$?
+    ${array[0]}/azcopy copy "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE-CustomDataSetupScript.log || retval=$?
     if [ "$retval" -ne 0 ]; then
         err "Failed in downloading cse logs. Error code is $retval."
     else
         log "Collect cse logs done"
-        ${array[0]}/azcopy rm "https://${E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" || retval=$?
+        ${array[0]}/azcopy rm "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" || retval=$?
         if [ "$retval" -ne 0 ]; then
             err "Failed in deleting cse logs in remote storage. Error code is $retval."
         fi
@@ -43,7 +43,7 @@ collect-logs() {
     set -x
 }
 
-E2E_RESOURCE_GROUP_NAME="$E2E_RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION"
+E2E_RESOURCE_GROUP_NAME="$AZURE_E2E_RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION"
 
 DEPLOYMENT_VMSS_NAME="$(mktemp -u winXXXXX | tr '[:upper:]' '[:lower:]')"
 export DEPLOYMENT_VMSS_NAME
@@ -60,10 +60,10 @@ log "Zip cse packages done"
 
 set +x
 expiryTime=$(date --date="2 day" +%Y-%m-%d)
-token=$(az storage container generate-sas --account-name $E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwld' --expiry $expiryTime --name $E2E_STORAGE_PACKAGE_CONTAINER)
+token=$(az storage container generate-sas --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwld' --expiry $expiryTime --name $AZURE_E2E_STORAGE_PACKAGE_CONTAINER)
 tokenWithoutQuote=${token//\"}
 
-csePackageURL="https://${E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${E2E_STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
+csePackageURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
 export csePackageURL
 
 cd ../../../$WINDOWS_E2E_IMAGE
@@ -76,7 +76,7 @@ for i in $(seq 1 10); do
     if [[ "$listResult" != *"$noExistStr"* ]]; then
         log "Cse package with the same exists, retry $i to use new name..."
         timeStamp=$(date +%s)
-        csePackageURL="https://${E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${E2E_STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
+        csePackageURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
         listResult=$(${array[0]}/azcopy list $csePackageURL --running-tally)
         continue
     fi
@@ -115,7 +115,7 @@ WINDOWS_PASSWORD=$({
 set -x
 echo $WINDOWS_PASSWORD
 
-E2E_MC_RESOURCE_GROUP_NAME="MC_${E2E_RESOURCE_GROUP_NAME}_${E2E_CLUSTER_NAME}_eastus"
+E2E_MC_RESOURCE_GROUP_NAME="MC_${E2E_RESOURCE_GROUP_NAME}_${AZURE_E2E_CLUSTER_NAME}_eastus"
 
 KUBECONFIG=$(pwd)/kubeconfig
 export KUBECONFIG
@@ -140,7 +140,7 @@ MC_WIN_VMSS_NAME=$(az vmss list -g $E2E_MC_RESOURCE_GROUP_NAME --query "[?contai
 VMSS_RESOURCE_Id=$(az resource show --resource-group $E2E_MC_RESOURCE_GROUP_NAME --name $MC_WIN_VMSS_NAME --resource-type Microsoft.Compute/virtualMachineScaleSets --query id --output tsv)
 
 az group export --resource-group $E2E_MC_RESOURCE_GROUP_NAME --resource-ids $VMSS_RESOURCE_Id --include-parameter-default-value > test.json
-IMAGE_REFERENCE="/subscriptions/$BUILD_SUBSCRIPTION_ID/resourceGroups/$BUILD_AZURE_RESOURCE_GROUP_NAME/providers/Microsoft.Compute/galleries/$BUILD_GALLERY_NAME/images/windows-e2e-test-$WINDOWS_E2E_IMAGE/versions/latest"
+IMAGE_REFERENCE="/subscriptions/$AZURE_BUILD_SUBSCRIPTION_ID/resourceGroups/$AZURE_BUILD_RESOURCE_GROUP_NAME/providers/Microsoft.Compute/galleries/$AZURE_BUILD_GALLERY_NAME/images/windows-e2e-test-$WINDOWS_E2E_IMAGE/versions/latest"
 WINDOWS_VNET=$(jq -c '.parameters | with_entries( select(.key|contains("vnet")))' test.json)
 WINDOWS_LOADBALANCER=$(jq -c '.parameters | with_entries( select(.key|contains("loadBalancers")))' test.json)
 WINDOWS_IDENTITY=$(jq -c '.resources[0] | with_entries( select(.key|contains("identity")))' test.json)
