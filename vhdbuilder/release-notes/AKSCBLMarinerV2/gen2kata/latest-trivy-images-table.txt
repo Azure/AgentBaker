@@ -104,31 +104,39 @@ Total: 2 (HIGH: 2, CRITICAL: 0)
 
 opt/microsoft/otelcollector/otelcollector (gobinary)
 ====================================================
-Total: 2 (HIGH: 2, CRITICAL: 0)
+Total: 3 (HIGH: 3, CRITICAL: 0)
 
-┌────────────────────────────────┬────────────────┬──────────┬──────────────────────┬──────────────────┬──────────────────────────────────────────────────┐
-│            Library             │ Vulnerability  │ Severity │  Installed Version   │  Fixed Version   │                      Title                       │
-├────────────────────────────────┼────────────────┼──────────┼──────────────────────┼──────────────────┼──────────────────────────────────────────────────┤
-│ github.com/docker/distribution │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible  │ 2.8.2-beta.1     │ DoS from malicious API request                   │
-│                                │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-2253        │
-├────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────┤
-│ github.com/docker/docker       │ CVE-2023-28840 │          │ v23.0.1+incompatible │ 23.0.3, 20.10.24 │ Encrypted overlay network may be unauthenticated │
-│                                │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-28840       │
-└────────────────────────────────┴────────────────┴──────────┴──────────────────────┴──────────────────┴──────────────────────────────────────────────────┘
+┌────────────────────────────────────┬────────────────┬──────────┬──────────────────────┬──────────────────┬──────────────────────────────────────────────────────────────┐
+│              Library               │ Vulnerability  │ Severity │  Installed Version   │  Fixed Version   │                            Title                             │
+├────────────────────────────────────┼────────────────┼──────────┼──────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ github.com/docker/distribution     │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible  │ 2.8.2-beta.1     │ DoS from malicious API request                               │
+│                                    │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-2253                    │
+├────────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ github.com/docker/docker           │ CVE-2023-28840 │          │ v23.0.1+incompatible │ 23.0.3, 20.10.24 │ Encrypted overlay network may be unauthenticated             │
+│                                    │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-28840                   │
+├────────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ github.com/prometheus/alertmanager │ CVE-2023-40577 │          │ v0.25.0              │ 0.25.1           │ Alertmanager handles alerts sent by client applications such │
+│                                    │                │          │                      │                  │ as the Pr ......                                             │
+│                                    │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-40577                   │
+└────────────────────────────────────┴────────────────┴──────────┴──────────────────────┴──────────────────┴──────────────────────────────────────────────────────────────┘
 
 opt/promconfigvalidator (gobinary)
 ==================================
-Total: 2 (HIGH: 2, CRITICAL: 0)
+Total: 3 (HIGH: 3, CRITICAL: 0)
 
-┌────────────────────────────────┬────────────────┬──────────┬──────────────────────┬──────────────────┬──────────────────────────────────────────────────┐
-│            Library             │ Vulnerability  │ Severity │  Installed Version   │  Fixed Version   │                      Title                       │
-├────────────────────────────────┼────────────────┼──────────┼──────────────────────┼──────────────────┼──────────────────────────────────────────────────┤
-│ github.com/docker/distribution │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible  │ 2.8.2-beta.1     │ DoS from malicious API request                   │
-│                                │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-2253        │
-├────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────┤
-│ github.com/docker/docker       │ CVE-2023-28840 │          │ v23.0.1+incompatible │ 23.0.3, 20.10.24 │ Encrypted overlay network may be unauthenticated │
-│                                │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-28840       │
-└────────────────────────────────┴────────────────┴──────────┴──────────────────────┴──────────────────┴──────────────────────────────────────────────────┘
+┌────────────────────────────────────┬────────────────┬──────────┬──────────────────────┬──────────────────┬──────────────────────────────────────────────────────────────┐
+│              Library               │ Vulnerability  │ Severity │  Installed Version   │  Fixed Version   │                            Title                             │
+├────────────────────────────────────┼────────────────┼──────────┼──────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ github.com/docker/distribution     │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible  │ 2.8.2-beta.1     │ DoS from malicious API request                               │
+│                                    │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-2253                    │
+├────────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ github.com/docker/docker           │ CVE-2023-28840 │          │ v23.0.1+incompatible │ 23.0.3, 20.10.24 │ Encrypted overlay network may be unauthenticated             │
+│                                    │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-28840                   │
+├────────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ github.com/prometheus/alertmanager │ CVE-2023-40577 │          │ v0.25.0              │ 0.25.1           │ Alertmanager handles alerts sent by client applications such │
+│                                    │                │          │                      │                  │ as the Pr ......                                             │
+│                                    │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-40577                   │
+└────────────────────────────────────┴────────────────┴──────────┴──────────────────────┴──────────────────┴──────────────────────────────────────────────────────────────┘
 
 usr/bin/telegraf (gobinary)
 ===========================
@@ -160,31 +168,39 @@ Total: 0 (HIGH: 0, CRITICAL: 0)
 
 opt/microsoft/otelcollector/otelcollector (gobinary)
 ====================================================
-Total: 2 (HIGH: 2, CRITICAL: 0)
+Total: 3 (HIGH: 3, CRITICAL: 0)
 
-┌────────────────────────────────┬────────────────┬──────────┬──────────────────────┬──────────────────┬──────────────────────────────────────────────────┐
-│            Library             │ Vulnerability  │ Severity │  Installed Version   │  Fixed Version   │                      Title                       │
-├────────────────────────────────┼────────────────┼──────────┼──────────────────────┼──────────────────┼──────────────────────────────────────────────────┤
-│ github.com/docker/distribution │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible  │ 2.8.2-beta.1     │ DoS from malicious API request                   │
-│                                │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-2253        │
-├────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────┤
-│ github.com/docker/docker       │ CVE-2023-28840 │          │ v23.0.1+incompatible │ 23.0.3, 20.10.24 │ Encrypted overlay network may be unauthenticated │
-│                                │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-28840       │
-└────────────────────────────────┴────────────────┴──────────┴──────────────────────┴──────────────────┴──────────────────────────────────────────────────┘
+┌────────────────────────────────────┬────────────────┬──────────┬──────────────────────┬──────────────────┬──────────────────────────────────────────────────────────────┐
+│              Library               │ Vulnerability  │ Severity │  Installed Version   │  Fixed Version   │                            Title                             │
+├────────────────────────────────────┼────────────────┼──────────┼──────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ github.com/docker/distribution     │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible  │ 2.8.2-beta.1     │ DoS from malicious API request                               │
+│                                    │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-2253                    │
+├────────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ github.com/docker/docker           │ CVE-2023-28840 │          │ v23.0.1+incompatible │ 23.0.3, 20.10.24 │ Encrypted overlay network may be unauthenticated             │
+│                                    │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-28840                   │
+├────────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ github.com/prometheus/alertmanager │ CVE-2023-40577 │          │ v0.25.0              │ 0.25.1           │ Alertmanager handles alerts sent by client applications such │
+│                                    │                │          │                      │                  │ as the Pr ......                                             │
+│                                    │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-40577                   │
+└────────────────────────────────────┴────────────────┴──────────┴──────────────────────┴──────────────────┴──────────────────────────────────────────────────────────────┘
 
 opt/promconfigvalidator (gobinary)
 ==================================
-Total: 2 (HIGH: 2, CRITICAL: 0)
+Total: 3 (HIGH: 3, CRITICAL: 0)
 
-┌────────────────────────────────┬────────────────┬──────────┬──────────────────────┬──────────────────┬──────────────────────────────────────────────────┐
-│            Library             │ Vulnerability  │ Severity │  Installed Version   │  Fixed Version   │                      Title                       │
-├────────────────────────────────┼────────────────┼──────────┼──────────────────────┼──────────────────┼──────────────────────────────────────────────────┤
-│ github.com/docker/distribution │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible  │ 2.8.2-beta.1     │ DoS from malicious API request                   │
-│                                │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-2253        │
-├────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────┤
-│ github.com/docker/docker       │ CVE-2023-28840 │          │ v23.0.1+incompatible │ 23.0.3, 20.10.24 │ Encrypted overlay network may be unauthenticated │
-│                                │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-28840       │
-└────────────────────────────────┴────────────────┴──────────┴──────────────────────┴──────────────────┴──────────────────────────────────────────────────┘
+┌────────────────────────────────────┬────────────────┬──────────┬──────────────────────┬──────────────────┬──────────────────────────────────────────────────────────────┐
+│              Library               │ Vulnerability  │ Severity │  Installed Version   │  Fixed Version   │                            Title                             │
+├────────────────────────────────────┼────────────────┼──────────┼──────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ github.com/docker/distribution     │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible  │ 2.8.2-beta.1     │ DoS from malicious API request                               │
+│                                    │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-2253                    │
+├────────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ github.com/docker/docker           │ CVE-2023-28840 │          │ v23.0.1+incompatible │ 23.0.3, 20.10.24 │ Encrypted overlay network may be unauthenticated             │
+│                                    │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-28840                   │
+├────────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ github.com/prometheus/alertmanager │ CVE-2023-40577 │          │ v0.25.0              │ 0.25.1           │ Alertmanager handles alerts sent by client applications such │
+│                                    │                │          │                      │                  │ as the Pr ......                                             │
+│                                    │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-40577                   │
+└────────────────────────────────────┴────────────────┴──────────┴──────────────────────┴──────────────────┴──────────────────────────────────────────────────────────────┘
 
 usr/bin/telegraf (gobinary)
 ===========================
@@ -216,31 +232,39 @@ Total: 0 (HIGH: 0, CRITICAL: 0)
 
 opt/microsoft/otelcollector/otelcollector (gobinary)
 ====================================================
-Total: 2 (HIGH: 2, CRITICAL: 0)
+Total: 3 (HIGH: 3, CRITICAL: 0)
 
-┌────────────────────────────────┬────────────────┬──────────┬──────────────────────┬──────────────────┬──────────────────────────────────────────────────┐
-│            Library             │ Vulnerability  │ Severity │  Installed Version   │  Fixed Version   │                      Title                       │
-├────────────────────────────────┼────────────────┼──────────┼──────────────────────┼──────────────────┼──────────────────────────────────────────────────┤
-│ github.com/docker/distribution │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible  │ 2.8.2-beta.1     │ DoS from malicious API request                   │
-│                                │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-2253        │
-├────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────┤
-│ github.com/docker/docker       │ CVE-2023-28840 │          │ v23.0.1+incompatible │ 23.0.3, 20.10.24 │ Encrypted overlay network may be unauthenticated │
-│                                │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-28840       │
-└────────────────────────────────┴────────────────┴──────────┴──────────────────────┴──────────────────┴──────────────────────────────────────────────────┘
+┌────────────────────────────────────┬────────────────┬──────────┬──────────────────────┬──────────────────┬──────────────────────────────────────────────────────────────┐
+│              Library               │ Vulnerability  │ Severity │  Installed Version   │  Fixed Version   │                            Title                             │
+├────────────────────────────────────┼────────────────┼──────────┼──────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ github.com/docker/distribution     │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible  │ 2.8.2-beta.1     │ DoS from malicious API request                               │
+│                                    │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-2253                    │
+├────────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ github.com/docker/docker           │ CVE-2023-28840 │          │ v23.0.1+incompatible │ 23.0.3, 20.10.24 │ Encrypted overlay network may be unauthenticated             │
+│                                    │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-28840                   │
+├────────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ github.com/prometheus/alertmanager │ CVE-2023-40577 │          │ v0.25.0              │ 0.25.1           │ Alertmanager handles alerts sent by client applications such │
+│                                    │                │          │                      │                  │ as the Pr ......                                             │
+│                                    │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-40577                   │
+└────────────────────────────────────┴────────────────┴──────────┴──────────────────────┴──────────────────┴──────────────────────────────────────────────────────────────┘
 
 opt/promconfigvalidator (gobinary)
 ==================================
-Total: 2 (HIGH: 2, CRITICAL: 0)
+Total: 3 (HIGH: 3, CRITICAL: 0)
 
-┌────────────────────────────────┬────────────────┬──────────┬──────────────────────┬──────────────────┬──────────────────────────────────────────────────┐
-│            Library             │ Vulnerability  │ Severity │  Installed Version   │  Fixed Version   │                      Title                       │
-├────────────────────────────────┼────────────────┼──────────┼──────────────────────┼──────────────────┼──────────────────────────────────────────────────┤
-│ github.com/docker/distribution │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible  │ 2.8.2-beta.1     │ DoS from malicious API request                   │
-│                                │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-2253        │
-├────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────┤
-│ github.com/docker/docker       │ CVE-2023-28840 │          │ v23.0.1+incompatible │ 23.0.3, 20.10.24 │ Encrypted overlay network may be unauthenticated │
-│                                │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-28840       │
-└────────────────────────────────┴────────────────┴──────────┴──────────────────────┴──────────────────┴──────────────────────────────────────────────────┘
+┌────────────────────────────────────┬────────────────┬──────────┬──────────────────────┬──────────────────┬──────────────────────────────────────────────────────────────┐
+│              Library               │ Vulnerability  │ Severity │  Installed Version   │  Fixed Version   │                            Title                             │
+├────────────────────────────────────┼────────────────┼──────────┼──────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ github.com/docker/distribution     │ CVE-2023-2253  │ HIGH     │ v2.8.1+incompatible  │ 2.8.2-beta.1     │ DoS from malicious API request                               │
+│                                    │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-2253                    │
+├────────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ github.com/docker/docker           │ CVE-2023-28840 │          │ v23.0.1+incompatible │ 23.0.3, 20.10.24 │ Encrypted overlay network may be unauthenticated             │
+│                                    │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-28840                   │
+├────────────────────────────────────┼────────────────┤          ├──────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
+│ github.com/prometheus/alertmanager │ CVE-2023-40577 │          │ v0.25.0              │ 0.25.1           │ Alertmanager handles alerts sent by client applications such │
+│                                    │                │          │                      │                  │ as the Pr ......                                             │
+│                                    │                │          │                      │                  │ https://avd.aquasec.com/nvd/cve-2023-40577                   │
+└────────────────────────────────────┴────────────────┴──────────┴──────────────────────┴──────────────────┴──────────────────────────────────────────────────────────────┘
 
 usr/bin/telegraf (gobinary)
 ===========================
@@ -521,17 +545,12 @@ mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.6 (alpine 3.15.1)
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
-mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.1 (alpine 3.15.1)
-==========================================================================
-Total: 0 (HIGH: 0, CRITICAL: 0)
-
-
 mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.2 (alpine 3.15.1)
 ==========================================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
-mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.5 (alpine 3.15.1)
+mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.3 (alpine 3.15.1)
 ==========================================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
@@ -541,7 +560,7 @@ mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.6 (alpine 3.15.1)
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
-mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.4 (alpine 3.15.1)
+mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.7 (alpine 3.18.3)
 ==========================================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
@@ -551,7 +570,7 @@ mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.5 (alpine 3.15.1)
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
-mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.1 (alpine 3.15.1)
+mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.6 (alpine 3.18.3)
 ==========================================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
@@ -561,9 +580,14 @@ mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.2 (alpine 3.15.1)
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
+mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.3 (alpine 3.18.3)
+==========================================================================
+Total: 0 (HIGH: 0, CRITICAL: 0)
+
+
 mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.19.5 (debian 11.7)
 ===================================================================
-Total: 29 (HIGH: 29, CRITICAL: 0)
+Total: 31 (HIGH: 31, CRITICAL: 0)
 
 ┌────────────────┬────────────────┬──────────┬───────────────────┬──────────────────┬──────────────────────────────────────────────────────────────┐
 │    Library     │ Vulnerability  │ Severity │ Installed Version │  Fixed Version   │                            Title                             │
@@ -588,6 +612,13 @@ Total: 29 (HIGH: 29, CRITICAL: 0)
 │                │ CVE-2023-2007  │          │                   │                  │ DPT I2O controller TOCTOU information disclosure             │
 │                │                │          │                   │                  │ vulnerability                                                │
 │                │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2007                    │
+│                ├────────────────┤          │                   ├──────────────────┼──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-20569 │          │                   │ 5.10.179-5       │ Return Address Predictor velunerability leading to           │
+│                │                │          │                   │                  │ information disclosure                                       │
+│                │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-20569                   │
+│                ├────────────────┤          │                   ├──────────────────┼──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-20588 │          │                   │ 5.10.191-1       │ division-by-zero may resulting in loss of confidentiality    │
+│                │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-20588                   │
 │                ├────────────────┤          │                   │                  ├──────────────────────────────────────────────────────────────┤
 │                │ CVE-2023-2124  │          │                   │                  │ OOB access in the Linux kernel's XFS subsystem               │
 │                │                │          │                   │                  │ https://avd.aquasec.com/nvd/cve-2023-2124                    │
@@ -674,7 +705,7 @@ Total: 29 (HIGH: 29, CRITICAL: 0)
 
 mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.19.5-3 (debian 11.7)
 =====================================================================
-Total: 19 (HIGH: 19, CRITICAL: 0)
+Total: 21 (HIGH: 21, CRITICAL: 0)
 
 ┌────────────────┬────────────────┬──────────┬───────────────────┬───────────────┬──────────────────────────────────────────────────────────────┐
 │    Library     │ Vulnerability  │ Severity │ Installed Version │ Fixed Version │                            Title                             │
@@ -689,6 +720,13 @@ Total: 19 (HIGH: 19, CRITICAL: 0)
 │                │ CVE-2023-2007  │          │                   │               │ DPT I2O controller TOCTOU information disclosure             │
 │                │                │          │                   │               │ vulnerability                                                │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-2007                    │
+│                ├────────────────┤          │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-20569 │          │                   │ 5.10.179-5    │ Return Address Predictor velunerability leading to           │
+│                │                │          │                   │               │ information disclosure                                       │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-20569                   │
+│                ├────────────────┤          │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-20588 │          │                   │ 5.10.191-1    │ division-by-zero may resulting in loss of confidentiality    │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-20588                   │
 │                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
 │                │ CVE-2023-2124  │          │                   │               │ OOB access in the Linux kernel's XFS subsystem               │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-2124                    │
@@ -752,7 +790,7 @@ Total: 19 (HIGH: 19, CRITICAL: 0)
 
 mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.21.4 (debian 11.7)
 ===================================================================
-Total: 22 (HIGH: 22, CRITICAL: 0)
+Total: 24 (HIGH: 24, CRITICAL: 0)
 
 ┌────────────────┬────────────────┬──────────┬───────────────────┬───────────────┬──────────────────────────────────────────────────────────────┐
 │    Library     │ Vulnerability  │ Severity │ Installed Version │ Fixed Version │                            Title                             │
@@ -767,6 +805,13 @@ Total: 22 (HIGH: 22, CRITICAL: 0)
 │                │ CVE-2023-2007  │          │                   │               │ DPT I2O controller TOCTOU information disclosure             │
 │                │                │          │                   │               │ vulnerability                                                │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-2007                    │
+│                ├────────────────┤          │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-20569 │          │                   │ 5.10.179-5    │ Return Address Predictor velunerability leading to           │
+│                │                │          │                   │               │ information disclosure                                       │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-20569                   │
+│                ├────────────────┤          │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-20588 │          │                   │ 5.10.191-1    │ division-by-zero may resulting in loss of confidentiality    │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-20588                   │
 │                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
 │                │ CVE-2023-2124  │          │                   │               │ OOB access in the Linux kernel's XFS subsystem               │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-2124                    │
@@ -839,7 +884,7 @@ Total: 22 (HIGH: 22, CRITICAL: 0)
 
 mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.21.4-1 (debian 11.7)
 =====================================================================
-Total: 19 (HIGH: 19, CRITICAL: 0)
+Total: 21 (HIGH: 21, CRITICAL: 0)
 
 ┌────────────────┬────────────────┬──────────┬───────────────────┬───────────────┬──────────────────────────────────────────────────────────────┐
 │    Library     │ Vulnerability  │ Severity │ Installed Version │ Fixed Version │                            Title                             │
@@ -854,6 +899,13 @@ Total: 19 (HIGH: 19, CRITICAL: 0)
 │                │ CVE-2023-2007  │          │                   │               │ DPT I2O controller TOCTOU information disclosure             │
 │                │                │          │                   │               │ vulnerability                                                │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-2007                    │
+│                ├────────────────┤          │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-20569 │          │                   │ 5.10.179-5    │ Return Address Predictor velunerability leading to           │
+│                │                │          │                   │               │ information disclosure                                       │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-20569                   │
+│                ├────────────────┤          │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-20588 │          │                   │ 5.10.191-1    │ division-by-zero may resulting in loss of confidentiality    │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-20588                   │
 │                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
 │                │ CVE-2023-2124  │          │                   │               │ OOB access in the Linux kernel's XFS subsystem               │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-2124                    │
@@ -917,7 +969,7 @@ Total: 19 (HIGH: 19, CRITICAL: 0)
 
 mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.22.1 (debian 11.7)
 ===================================================================
-Total: 22 (HIGH: 22, CRITICAL: 0)
+Total: 24 (HIGH: 24, CRITICAL: 0)
 
 ┌────────────────┬────────────────┬──────────┬───────────────────┬───────────────┬──────────────────────────────────────────────────────────────┐
 │    Library     │ Vulnerability  │ Severity │ Installed Version │ Fixed Version │                            Title                             │
@@ -932,6 +984,13 @@ Total: 22 (HIGH: 22, CRITICAL: 0)
 │                │ CVE-2023-2007  │          │                   │               │ DPT I2O controller TOCTOU information disclosure             │
 │                │                │          │                   │               │ vulnerability                                                │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-2007                    │
+│                ├────────────────┤          │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-20569 │          │                   │ 5.10.179-5    │ Return Address Predictor velunerability leading to           │
+│                │                │          │                   │               │ information disclosure                                       │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-20569                   │
+│                ├────────────────┤          │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-20588 │          │                   │ 5.10.191-1    │ division-by-zero may resulting in loss of confidentiality    │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-20588                   │
 │                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
 │                │ CVE-2023-2124  │          │                   │               │ OOB access in the Linux kernel's XFS subsystem               │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-2124                    │
@@ -1004,7 +1063,7 @@ Total: 22 (HIGH: 22, CRITICAL: 0)
 
 mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.22.1-1 (debian 11.7)
 =====================================================================
-Total: 19 (HIGH: 19, CRITICAL: 0)
+Total: 21 (HIGH: 21, CRITICAL: 0)
 
 ┌────────────────┬────────────────┬──────────┬───────────────────┬───────────────┬──────────────────────────────────────────────────────────────┐
 │    Library     │ Vulnerability  │ Severity │ Installed Version │ Fixed Version │                            Title                             │
@@ -1019,6 +1078,13 @@ Total: 19 (HIGH: 19, CRITICAL: 0)
 │                │ CVE-2023-2007  │          │                   │               │ DPT I2O controller TOCTOU information disclosure             │
 │                │                │          │                   │               │ vulnerability                                                │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-2007                    │
+│                ├────────────────┤          │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-20569 │          │                   │ 5.10.179-5    │ Return Address Predictor velunerability leading to           │
+│                │                │          │                   │               │ information disclosure                                       │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-20569                   │
+│                ├────────────────┤          │                   ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-20588 │          │                   │ 5.10.191-1    │ division-by-zero may resulting in loss of confidentiality    │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-20588                   │
 │                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
 │                │ CVE-2023-2124  │          │                   │               │ OOB access in the Linux kernel's XFS subsystem               │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-2124                    │
@@ -1143,37 +1209,12 @@ mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.8
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
-mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.18 (debian 11.6)
-================================================================================
-Total: 0 (HIGH: 0, CRITICAL: 0)
-
-
-mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.20 (debian 11.7)
-================================================================================
-Total: 0 (HIGH: 0, CRITICAL: 0)
-
-
-mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.21 (debian 11.7)
-================================================================================
-Total: 0 (HIGH: 0, CRITICAL: 0)
-
-
-mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.12 (debian 11.6)
-================================================================================
-Total: 0 (HIGH: 0, CRITICAL: 0)
-
-
-mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.14 (debian 11.7)
-================================================================================
-Total: 0 (HIGH: 0, CRITICAL: 0)
-
-
 mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.15 (debian 11.7)
 ================================================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
-mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.10 (debian 11.7)
+mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.18 (debian 11.7)
 ================================================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
@@ -1183,17 +1224,22 @@ mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.11 (debian 11.7)
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
-mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.8 (debian 11.6)
-===============================================================================
-Total: 0 (HIGH: 0, CRITICAL: 0)
-
-
-mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.4 (debian 11.7)
-===============================================================================
+mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.14 (debian 11.7)
+================================================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
 mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.5 (debian 11.7)
+===============================================================================
+Total: 0 (HIGH: 0, CRITICAL: 0)
+
+
+mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.8 (debian 11.7)
+===============================================================================
+Total: 0 (HIGH: 0, CRITICAL: 0)
+
+
+mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.0 (debian 11.7)
 ===============================================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
@@ -1961,6 +2007,11 @@ Total: 1 (HIGH: 1, CRITICAL: 0)
 │ github.com/docker/distribution │ CVE-2023-2253 │ HIGH     │ v2.8.1+incompatible │ 2.8.2-beta.1  │ DoS from malicious API request            │
 │                                │               │          │                     │               │ https://avd.aquasec.com/nvd/cve-2023-2253 │
 └────────────────────────────────┴───────────────┴──────────┴─────────────────────┴───────────────┴───────────────────────────────────────────┘
+
+mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.0 (debian 11.7)
+=================================================================
+Total: 0 (HIGH: 0, CRITICAL: 0)
+
 
 mcr.microsoft.com/oss/kubernetes/kube-state-metrics:v2.9.2 (debian 11.7)
 ========================================================================
