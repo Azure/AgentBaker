@@ -3492,6 +3492,39 @@ if [ "${NEEDS_CONTAINERD}" == "true" ] &&  [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS
   logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
 fi
 
+# "Warm" disk caches by reading the binaries used by CNI daemonsets.
+# This runs synchronously just before kubelet starts to ensure the cache is warm.
+# If we did this for real, we'd want this to happen in parallel to other CSE setup operations
+# to avoid delaying CSE completion.
+read_to_warm_cache() {
+    find "/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/" -name "$1" -type f | xargs wc -l
+}
+warm_cni_binaries() {
+    echo "warming cache for CNI binaries, start $(date)"
+
+    # Azure CNS
+    read_to_warm_cache "dropgz"
+    read_to_warm_cache "azure-cns"
+
+    # Calico
+    read_to_warm_cache "flexvol"
+    read_to_warm_cache "flexvol.sh"
+    read_to_warm_cache "bandwidth"
+    read_to_warm_cache "calico"
+    read_to_warm_cache "calico-ipam"
+    read_to_warm_cache "calico-node"
+    read_to_warm_cache "flannel"
+    read_to_warm_cache "host-local"
+    read_to_warm_cache "install"
+    read_to_warm_cache "loopback"
+    read_to_warm_cache "portmap"
+    read_to_warm_cache "tuning"
+
+    echo "warming cache for CNI binaries, end $(date)"
+}
+warm_cni_binaries
+warm_cni_binaries # call a second time so we can compare time before/after warming
+
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
