@@ -21,6 +21,7 @@ func InitScenarioTable(scenariosToRun map[string]bool) Table {
 // its return value to the slice returned by this function.
 func scenarios() []*Scenario {
 	return []*Scenario{
+		calico(),
 		ubuntu1804(),
 		ubuntu2204(),
 		marinerv1(),
