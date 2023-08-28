@@ -47,6 +47,7 @@ switch -Regex ($windowsSku) {
 $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
     "mcr.microsoft.com/oss/kubernetes/pause:3.9",
+    "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808",
     # This is for test purpose only to reduce the test duration.
     "mcr.microsoft.com/windows/servercore/iis:latest",
     # CSI. Owner: andyzhangx (Andy Zhang)
@@ -55,31 +56,28 @@ $global:imagesToPull += @(
     # azuredisk-csi:v1.28 is only for AKS 1.27+, v1.26 is for other AKS versions
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.5",
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.6",
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.1-windows-hp",
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.2-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.3-windows-hp",
     # azurefile-csi:v1.28 is only for AKS 1.27+, v1.24, v1.26 is for other AKS versions
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.3",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.4",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.3",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.4",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.1-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.6",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.7",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.5",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.6",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.2-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.3-windows-hp",
     # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.4",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
     # Azure cloud node manager. Owner: nilo19 (Qi Ni)
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.18", # for k8s 1.24.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.20", # for k8s 1.24.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.24.21", # for k8s 1.24.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.12", # for k8s 1.25.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.14", # for k8s 1.25.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.15", # for k8s 1.25.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.8", # for k8s 1.26.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.10", # for k8s 1.26.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.18", # for k8s 1.25.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.11", # for k8s 1.26.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.4", # for k8s 1.27.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.14", # for k8s 1.26.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.5", # for k8s 1.27.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.8", # for k8s 1.27.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.0", # for k8s 1.28.x
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.11",
+    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.12",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.3",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.4",
@@ -154,6 +152,7 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.1/windowszip/v1.27.1-1int.zip"
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.1-hotfix.20230612/windowszip/v1.27.1-hotfix.20230612-1int.zip"
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.3/windowszip/v1.27.3-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.28.0/windowszip/v1.28.0-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         # Azure CNI v1 (legacy) upgrading from v1.4.35 to v1.5.6

@@ -160,15 +160,14 @@ done
 
 installAndConfigureArtifactStreaming() {
   # download acr-mirror proxy
-  MIRROR_PROXY_VERSION='19'
+  MIRROR_PROXY_VERSION='7'
   UBUNTU_VERSION_CLEANED="${UBUNTU_RELEASE//.}"
   MIRROR_DOWNLOAD_PATH="./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
-  MIRROR_PROXY_URL="https://acrmirrordev.blob.core.windows.net/bin/Release-${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
+  MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/Release-${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
   
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL}
   
   apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
-  systemctl disable acr-mirror.service
 
   rm "./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
 }
@@ -288,6 +287,7 @@ unpackAzureCNI() {
 #must be both amd64/arm64 images
 VNET_CNI_VERSIONS="
 1.5.5
+1.4.43.1
 1.4.43
 "
 
@@ -303,6 +303,7 @@ done
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 SWIFT_CNI_VERSIONS="
 1.5.5
+1.4.43.1
 1.4.43
 "
 
@@ -312,19 +313,6 @@ for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
     unpackAzureCNI $VNET_CNI_PLUGINS_URL
     echo "  - Azure Swift CNI version ${SWIFT_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
-
-OVERLAY_CNI_VERSIONS="
-1.5.5
-1.4.43
-"
-
-for OVERLAY_CNI_VERSION in $OVERLAY_CNI_VERSIONS; do
-    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${OVERLAY_CNI_VERSION}/binaries/azure-vnet-cni-overlay-linux-${CPU_ARCH}-v${OVERLAY_CNI_VERSION}.tgz"
-    downloadAzureCNI
-    unpackAzureCNI $VNET_CNI_PLUGINS_URL
-    echo "  - Azure Overlay CNI version ${OVERLAY_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-
 
 # After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
 MULTI_ARCH_CNI_PLUGIN_VERSIONS="

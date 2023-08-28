@@ -134,6 +134,10 @@
         {
             "elevated_user": "packer",
             "elevated_password": "{{.WinRMPassword}}",
+            "environment_vars": [
+                "WindowsSKU={{user `windows_sku`}}",
+                "WindowsImageVersion={{user `windows_image_version`}}"
+            ],
             "type": "powershell",
             "script": "vhdbuilder/packer/list-images.ps1"
         },
