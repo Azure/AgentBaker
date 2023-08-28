@@ -2551,7 +2551,7 @@ retrycmd_get_tarball() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            timeout 60 curl -fsSLv $url -o $tarball 2>&1 | tee $CURL_OUTPUT >/dev/null
+            timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1
             if [[ $? != 0 ]]; then
                 cat $CURL_OUTPUT
             fi
@@ -4780,7 +4780,8 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
             "1.26.3-hotfix.20230612",
             "1.26.6",
             "1.27.1-hotfix.20230612",
-            "1.27.3"
+            "1.27.3",
+            "1.28.0"
         ]
     },
     "_template": {
