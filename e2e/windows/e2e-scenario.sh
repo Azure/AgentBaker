@@ -12,13 +12,13 @@ collect-logs() {
     local retval
     retval=0
     mkdir -p $SCENARIO_NAME-logs
-    VMSS_INSTANCE_ID="$(az vmss list-instances --name $DEPLOYMENT_VMSS_NAME -g $MC_E2E_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
+    VMSS_INSTANCE_ID="$(az vmss list-instances --name $DEPLOYMENT_VMSS_NAME -g $E2E_MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
     set +x
     expiryTime=$(date --date="2 day" +%Y-%m-%d)
     token=$(az storage container generate-sas --account-name $E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwld' --expiry $expiryTime --name $E2E_STORAGE_LOG_CONTAINER --https-only)
     # Use .ps1 file to run scripts since single quotes of parameters for --scripts would fail in check-shell
     az vmss run-command invoke --command-id RunPowerShellScript \
-        --resource-group $MC_E2E_RESOURCE_GROUP_NAME \
+        --resource-group $E2E_MC_RESOURCE_GROUP_NAME \
         --name $DEPLOYMENT_VMSS_NAME \
         --instance-id $VMSS_INSTANCE_ID \
         --scripts @upload-cse-logs.ps1 \
@@ -115,7 +115,7 @@ WINDOWS_PASSWORD=$({
 set -x
 echo $WINDOWS_PASSWORD
 
-MC_E2E_RESOURCE_GROUP_NAME="MC_${E2E_RESOURCE_GROUP_NAME}_${E2E_CLUSTER_NAME}_eastus"
+E2E_MC_RESOURCE_GROUP_NAME="MC_${E2E_RESOURCE_GROUP_NAME}_${E2E_CLUSTER_NAME}_eastus"
 
 KUBECONFIG=$(pwd)/kubeconfig
 export KUBECONFIG
@@ -124,7 +124,7 @@ clientCertificate=$(grep "client-certificate-data" $KUBECONFIG | awk '{print $2}
 
 tee $SCENARIO_NAME-vmss.json > /dev/null <<EOF
 {
-    "group": "${MC_E2E_RESOURCE_GROUP_NAME}",
+    "group": "${E2E_MC_RESOURCE_GROUP_NAME}",
     "vmss": "${DEPLOYMENT_VMSS_NAME}"
 }
 EOF
@@ -136,10 +136,10 @@ jq -s '.[0] * .[1]' $WINDOWS_E2E_IMAGE-nodebootstrapping_config_for_windows.json
 
 go test -tags bash_e2e -run TestE2EWindows
 
-MC_WIN_VMSS_NAME=$(az vmss list -g $MC_E2E_RESOURCE_GROUP_NAME --query "[?contains(name, 'winnp')]" -ojson | jq -r '.[0].name')
-VMSS_RESOURCE_Id=$(az resource show --resource-group $MC_E2E_RESOURCE_GROUP_NAME --name $MC_WIN_VMSS_NAME --resource-type Microsoft.Compute/virtualMachineScaleSets --query id --output tsv)
+MC_WIN_VMSS_NAME=$(az vmss list -g $E2E_MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'winnp')]" -ojson | jq -r '.[0].name')
+VMSS_RESOURCE_Id=$(az resource show --resource-group $E2E_MC_RESOURCE_GROUP_NAME --name $MC_WIN_VMSS_NAME --resource-type Microsoft.Compute/virtualMachineScaleSets --query id --output tsv)
 
-az group export --resource-group $MC_E2E_RESOURCE_GROUP_NAME --resource-ids $VMSS_RESOURCE_Id --include-parameter-default-value > test.json
+az group export --resource-group $E2E_MC_RESOURCE_GROUP_NAME --resource-ids $VMSS_RESOURCE_Id --include-parameter-default-value > test.json
 IMAGE_REFERENCE="/subscriptions/$BUILD_SUBSCRIPTION_ID/resourceGroups/$BUILD_AZURE_RESOURCE_GROUP_NAME/providers/Microsoft.Compute/galleries/$BUILD_GALLERY_NAME/images/windows-e2e-test-$WINDOWS_E2E_IMAGE/versions/latest"
 WINDOWS_VNET=$(jq -c '.parameters | with_entries( select(.key|contains("vnet")))' test.json)
 WINDOWS_LOADBALANCER=$(jq -c '.parameters | with_entries( select(.key|contains("loadBalancers")))' test.json)
@@ -166,7 +166,7 @@ jq --argjson JsonForVnet "$WINDOWS_VNET" \
 
 retval=0
 set +e
-az deployment group create --resource-group $MC_E2E_RESOURCE_GROUP_NAME \
+az deployment group create --resource-group $E2E_MC_RESOURCE_GROUP_NAME \
          --template-file $DEPLOYMENT_VMSS_NAME-deployment.json || retval=$?
 set -e
 log "Deployment of windows vmss succeeded."
@@ -192,7 +192,7 @@ cat $SCENARIO_NAME-vmss.json
 
 VMSS_INSTANCE_NAME=$(az vmss list-instances \
                     -n ${DEPLOYMENT_VMSS_NAME} \
-                    -g $MC_E2E_RESOURCE_GROUP_NAME \
+                    -g $E2E_MC_RESOURCE_GROUP_NAME \
                     -ojson | \
                     jq -r '.[].osProfile.computerName')
 export VMSS_INSTANCE_NAME

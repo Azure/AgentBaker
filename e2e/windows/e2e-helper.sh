@@ -64,9 +64,9 @@ create_storage_container() {
 
 upload_linux_file_to_storage_account() {
     local retval=0
-    MC_E2E_RESOURCE_GROUP_NAME="MC_${E2E_RESOURCE_GROUP_NAME}_${E2E_CLUSTER_NAME}_$BUILD_AZURE_LOCATION"
-    MC_VMSS_NAME=$(az vmss list -g $MC_E2E_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
-    VMSS_INSTANCE_ID="$(az vmss list-instances --name $MC_VMSS_NAME -g $MC_E2E_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
+    E2E_MC_RESOURCE_GROUP_NAME="MC_${E2E_RESOURCE_GROUP_NAME}_${E2E_CLUSTER_NAME}_$BUILD_AZURE_LOCATION"
+    MC_VMSS_NAME=$(az vmss list -g $E2E_MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
+    VMSS_INSTANCE_ID="$(az vmss list-instances --name $MC_VMSS_NAME -g $E2E_MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
 
     set +x
     expiryTime=$(date --date="2 day" +%Y-%m-%d)
@@ -74,7 +74,7 @@ upload_linux_file_to_storage_account() {
     linuxFileURL="https://${E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${WINDOWS_E2E_STORAGE_CONTAINER}/${MC_VMSS_NAME}-linux-file.zip?${token}"
 
     az vmss run-command invoke --command-id RunShellScript \
-        --resource-group $MC_E2E_RESOURCE_GROUP_NAME \
+        --resource-group $E2E_MC_RESOURCE_GROUP_NAME \
         --name $MC_VMSS_NAME \
         --instance-id $VMSS_INSTANCE_ID \
         --scripts "cat /etc/kubernetes/azure.json > /home/fields.json; cat /etc/kubernetes/certs/apiserver.crt | base64 -w 0 > /home/apiserver.crt; cat /etc/kubernetes/certs/ca.crt | base64 -w 0 > /home/ca.crt; cat /etc/kubernetes/certs/client.key | base64 -w 0 > /home/client.key; cat /var/lib/kubelet/bootstrap-kubeconfig > /home/bootstrap-kubeconfig; cd /home; zip file.zip fields.json apiserver.crt ca.crt client.key bootstrap-kubeconfig; wget https://aka.ms/downloadazcopy-v10-linux; tar -xvf downloadazcopy-v10-linux; cd ./azcopy_*; ./azcopy copy /home/file.zip $linuxFileURL" || retval=$?
