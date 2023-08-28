@@ -102,6 +102,8 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 						CustomNodeLabels: map[string]string{
 							"kubernetes.azure.com/mode":               "system",
 							"kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19",
+							"kubernetes.io/os":                        "linux",
+							"kubernetes.azure.com/cluster":            "testcluster",
 						},
 						PreprovisionExtension: nil,
 						KubernetesConfig: &datamodel.KubernetesConfig{
@@ -273,6 +275,8 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 			CustomNodeLabels: map[string]string{
 				"kubernetes.azure.com/mode":               "system",
 				"kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19",
+				"kubernetes.io/os":                        "linux",
+				"kubernetes.azure.com/cluster":            "testcluster",
 			},
 			PreprovisionExtension: nil,
 			KubernetesConfig: &datamodel.KubernetesConfig{
