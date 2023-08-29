@@ -19,21 +19,21 @@ exec_on_host() {
 backfill_clean_storage_container() {
     set +x
     # Get supported kubernetes versions
-    versions=$(az aks get-versions --location $LOCATION --query "orchestrators[].orchestratorVersion" -o tsv)
+    versions=$(az aks get-versions --location $AZURE_BUILD_LOCATION --query "orchestrators[].orchestratorVersion" -o tsv)
     k8s_versions=${versions//./}
 
     # Get container names e.g. akswinstore2022-1256 (for this $container_version would be "1256")
-    container_names=$(az storage container list --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --query "[?starts_with(name, 'akswinstore')].name" -o tsv)
+    container_names=$(az storage container list --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --query "[?starts_with(name, 'akswinstore')].name" -o tsv)
     # Check if the container version is still supported and delete the container if not
     for container_name in $container_names; do
         container_version=$(echo $container_name | cut -d '-' -f 2- | awk '{print tolower($0)}')
         echo "container version is $container_version"
         if [[ $k8s_versions == *"$container_version"* ]]; then
-            echo "The version $container_version is available in the $LOCATION region."
+            echo "The version $container_version is available in the $AZURE_BUILD_LOCATION region."
         else
-            echo "The version $container_version is not available in the $LOCATION region."
+            echo "The version $container_version is not available in the $AZURE_BUILD_LOCATION region."
             echo "Deleting the container."
-            az storage container delete --name $container_name --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY
+            az storage container delete --name $container_name --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY
             echo "Deletion completed."
         fi
     done
@@ -45,17 +45,17 @@ create_storage_container() {
     set +x
 
     # check if the storage container exists and create one if not
-    exists=$(az storage container exists --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --name $WINDOWS_E2E_STORAGE_CONTAINER)
+    exists=$(az storage container exists --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --name $WINDOWS_E2E_STORAGE_CONTAINER)
     if [[ $exists == *false* ]]; then
-        az storage container create -n $WINDOWS_E2E_STORAGE_CONTAINER --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY
-        echo "Created storage container $WINDOWS_E2E_STORAGE_CONTAINER in $STORAGE_ACCOUNT_NAME"
+        az storage container create -n $WINDOWS_E2E_STORAGE_CONTAINER --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY
+        echo "Created storage container $WINDOWS_E2E_STORAGE_CONTAINER in $AZURE_E2E_STORAGE_ACCOUNT_NAME"
     else
         # check if the storage container is empty and delete the blobs within one by one if not
-        blob_list=$(az storage blob list --account-name $STORAGE_ACCOUNT_NAME --container-name $WINDOWS_E2E_STORAGE_CONTAINER --account-key $MAPPED_ACCOUNT_KEY -o json | jq -r '.[] | .name')
+        blob_list=$(az storage blob list --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --container-name $WINDOWS_E2E_STORAGE_CONTAINER --account-key $MAPPED_ACCOUNT_KEY -o json | jq -r '.[] | .name')
         if [[ -n $blob_list ]]; then
             for blob in $blob_list; do
-                az storage blob delete --account-name $STORAGE_ACCOUNT_NAME --container-name $WINDOWS_E2E_STORAGE_CONTAINER --account-key $MAPPED_ACCOUNT_KEY --name $blob
-                echo "Deleted blob $blob from storage container $WINDOWS_E2E_STORAGE_CONTAINER in the storage account $STORAGE_ACCOUNT_NAME"
+                az storage blob delete --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --container-name $WINDOWS_E2E_STORAGE_CONTAINER --account-key $MAPPED_ACCOUNT_KEY --name $blob
+                echo "Deleted blob $blob from storage container $WINDOWS_E2E_STORAGE_CONTAINER in the storage account $AZURE_E2E_STORAGE_ACCOUNT_NAME"
             done
         fi
     fi
@@ -64,17 +64,18 @@ create_storage_container() {
 
 upload_linux_file_to_storage_account() {
     local retval=0
-    MC_RESOURCE_GROUP_NAME="MC_${RESOURCE_GROUP_NAME}_${CLUSTER_NAME}_$LOCATION"
-    MC_VMSS_NAME=$(az vmss list -g $MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
-    VMSS_INSTANCE_ID="$(az vmss list-instances --name $MC_VMSS_NAME -g $MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
+    E2E_RESOURCE_GROUP_NAME="$AZURE_E2E_RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE-$K8S_VERSION"
+    E2E_MC_RESOURCE_GROUP_NAME="MC_${E2E_RESOURCE_GROUP_NAME}_${AZURE_E2E_CLUSTER_NAME}_$AZURE_BUILD_LOCATION"
+    MC_VMSS_NAME=$(az vmss list -g $E2E_MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
+    VMSS_INSTANCE_ID="$(az vmss list-instances --name $MC_VMSS_NAME -g $E2E_MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
 
     set +x
     expiryTime=$(date --date="2 day" +%Y-%m-%d)
-    token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'w' --expiry $expiryTime --name $WINDOWS_E2E_STORAGE_CONTAINER)
-    linuxFileURL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${WINDOWS_E2E_STORAGE_CONTAINER}/${MC_VMSS_NAME}-linux-file.zip?${token}"
+    token=$(az storage container generate-sas --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'w' --expiry $expiryTime --name $WINDOWS_E2E_STORAGE_CONTAINER)
+    linuxFileURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${WINDOWS_E2E_STORAGE_CONTAINER}/${MC_VMSS_NAME}-linux-file.zip?${token}"
 
     az vmss run-command invoke --command-id RunShellScript \
-        --resource-group $MC_RESOURCE_GROUP_NAME \
+        --resource-group $E2E_MC_RESOURCE_GROUP_NAME \
         --name $MC_VMSS_NAME \
         --instance-id $VMSS_INSTANCE_ID \
         --scripts "cat /etc/kubernetes/azure.json > /home/fields.json; cat /etc/kubernetes/certs/apiserver.crt | base64 -w 0 > /home/apiserver.crt; cat /etc/kubernetes/certs/ca.crt | base64 -w 0 > /home/ca.crt; cat /etc/kubernetes/certs/client.key | base64 -w 0 > /home/client.key; cat /var/lib/kubelet/bootstrap-kubeconfig > /home/bootstrap-kubeconfig; cd /home; zip file.zip fields.json apiserver.crt ca.crt client.key bootstrap-kubeconfig; wget https://aka.ms/downloadazcopy-v10-linux; tar -xvf downloadazcopy-v10-linux; cd ./azcopy_*; ./azcopy copy /home/file.zip $linuxFileURL" || retval=$?
@@ -95,9 +96,9 @@ download_linux_file_from_storage_account() {
 
     set +x
 
-    token=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rl' --expiry $expiryTime --name $WINDOWS_E2E_STORAGE_CONTAINER)
+    token=$(az storage container generate-sas --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rl' --expiry $expiryTime --name $WINDOWS_E2E_STORAGE_CONTAINER)
     tokenWithoutQuote=${token//\"}
-    linuxFileURL="https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${WINDOWS_E2E_STORAGE_CONTAINER}/${MC_VMSS_NAME}-linux-file.zip?${tokenWithoutQuote}"
+    linuxFileURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${WINDOWS_E2E_STORAGE_CONTAINER}/${MC_VMSS_NAME}-linux-file.zip?${tokenWithoutQuote}"
 
     array=(azcopy_*)
     noExistStr="File count: 0"
@@ -167,13 +168,13 @@ cleanupOutdatedFiles() {
 
     for CONTAINER_NAME in "${CONTAINER_LIST[@]}"
     do 
-        result=$(az storage blob list -c $CONTAINER_NAME --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY -o json \
+        result=$(az storage blob list -c $CONTAINER_NAME --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY -o json \
         | jq -r --arg time "$dateOfdeadline" '.[] | select(.properties.creationTime < $time)' \
         | jq -r '.name')
 
         for item in $result
         do
-            az storage blob delete -c $CONTAINER_NAME --account-name $STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY -n $item
+            az storage blob delete -c $CONTAINER_NAME --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY -n $item
             echo "Deleted $item in $CONTAINER_NAME"
         done
     done

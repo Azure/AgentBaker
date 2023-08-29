@@ -13,8 +13,7 @@ pr:
     - 'parts/windows/*'
     - 'staging/cse/windows/*'
 
-variables:
-- group: ab-e2e-windows
+# Use variable group "ab-windows-ms-tenant" and link it to the pipeline "Agentbaker Windows E2E"
 
 pool:
   # uncomment this if the auto teardown pool is down.
