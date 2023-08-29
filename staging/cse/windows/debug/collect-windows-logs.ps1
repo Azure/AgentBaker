@@ -1,6 +1,32 @@
 # NOTE: Please also update staging/cse/windows/provisioningscripts/loggenerator.ps1 when collecting new logs.
 $ProgressPreference = "SilentlyContinue"
 
+function CollectLogsFromDirectory {
+  Param(
+      [Parameter(Mandatory=$true)]
+      [String] $path,
+      [Parameter(Mandatory=$true)]
+      [String] $targetFileName
+  )
+  try {
+    $tempFile="$ENV:TEMP\$targetFileName"
+    if (Test-Path $path) {
+      Write-Host "Collecting logs from $path"
+      Compress-Archive -LiteralPath $path -DestinationPath $tempFile
+      # Compress-Archive will not generate any target file if the source directory is empty
+      if (Test-Path $tempFile) {
+        return $tempFile
+      }
+      Write-Host "Ignore since there is no log in $path"
+    } else {
+      Write-Host "Path $path does not exist"
+    }
+  } catch {
+    Write-Host "Failed to collect logs from $path"
+  }
+  return ""
+}
+
 $lockedFiles = @(
   "kubelet.err.log",
   "kubelet.log",
@@ -77,7 +103,7 @@ $lockedFiles | Foreach-Object {
 }
 
 Write-Host "Exporting ETW events to CSV files"
-$scm = Get-WinEvent -FilterHashtable @{logname = 'System'; ProviderName = 'Service Control Manager' } | Where-Object { $_.Message -Like "*docker*" -or $_.Message -Like "*kub*" } | Select-Object -Property TimeCreated, Id, LevelDisplayName, Message
+$scm = Get-WinEvent -FilterHashtable @{logname = 'System'; ProviderName = 'Service Control Manager' } | Where-Object { $_.Message -Like "*containerd*" -or $_.Message -Like "*kub*" } | Select-Object -Property TimeCreated, Id, LevelDisplayName, Message
 # 2004 = resource exhaustion, other 5 events related to reboots
 $reboots = Get-WinEvent -ErrorAction Ignore -FilterHashtable @{logname = 'System'; id = 1074, 1076, 2004, 6005, 6006, 6008 } | Select-Object -Property TimeCreated, Id, LevelDisplayName, Message
 $crashes = Get-WinEvent -ErrorAction Ignore -FilterHashtable @{logname = 'Application'; ProviderName = 'Windows Error Reporting' } | Select-Object -Property TimeCreated, Id, LevelDisplayName, Message
@@ -85,13 +111,6 @@ $scm + $reboots + $crashes | Sort-Object TimeCreated | Export-CSV -Path "$ENV:TE
 $paths += "$ENV:TEMP\\$($timeStamp)_services.csv"
 Get-WinEvent -LogName Microsoft-Windows-Hyper-V-Compute-Operational | Select-Object -Property TimeCreated, Id, LevelDisplayName, Message | Sort-Object TimeCreated | Export-Csv -Path "$ENV:TEMP\\$($timeStamp)_hyper-v-compute-operational.csv"
 $paths += "$ENV:TEMP\\$($timeStamp)_hyper-v-compute-operational.csv"
-if ([System.Diagnostics.EventLog]::SourceExists("Docker")) {
-  get-eventlog -LogName Application -Source Docker | Select-Object Index, TimeGenerated, EntryType, Message | Sort-Object Index | Export-CSV -Path "$ENV:TEMP\\$($timeStamp)_docker.csv"
-  $paths += "$ENV:TEMP\\$($timeStamp)_docker.csv"
-}
-else {
-  Write-Host "Docker events are not available"
-}
 
 Write-Host "Collecting gMSAv2 related logs"
 # CCGPlugin (Windows gMSAv2)
@@ -274,6 +293,20 @@ if ($res) {
 }
 else {
   Write-Host "vmcompute process not availabel"
+}
+
+# Collect dump files
+$tempFile=(CollectLogsFromDirectory -path "C:\ProgramData\Microsoft\Windows\WER" -targetFileName "WER-$($timeStamp).zip")
+if ($tempFile -ne "") {
+  $paths += $tempFile
+}
+$tempFile=(CollectLogsFromDirectory -path "C:\Windows\Minidump" -targetFileName "Minidump-$($timeStamp).zip")
+if ($tempFile -ne "") {
+  $paths += $tempFile
+}
+$tempFile=(CollectLogsFromDirectory -path "C:\Windows\SystemTemp" -targetFileName "SystemTemp-$($timeStamp).zip")
+if ($tempFile -ne "") {
+  $paths += $tempFile
 }
 
 Write-Host "Compressing all logs to $zipName"

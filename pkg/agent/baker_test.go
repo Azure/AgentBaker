@@ -1023,7 +1023,17 @@ oom_score = 0
 				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh2=8192"))
 				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh3=16384"))
 				Expect(sysctlContent).To(ContainSubstring("net.ipv4.ip_local_reserved_ports=65330"))
-			}))
+			}),
+		Entry("AKSUbuntu2204 with SecurityProfile", "AKSUbuntu2204+SecurityProfile", "1.26.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:      true,
+						ProxyAddress: "https://test-pe-proxy",
+					},
+				}
+			}, nil),
+	)
 })
 
 var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
@@ -1150,7 +1160,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			"--max-pods":                          "30",
 			"--network-plugin":                    "cni",
 			"--node-status-update-frequency":      "10s",
-			"--pod-infra-container-image":         "kubletwin/pause",
+			"--pod-infra-container-image":         "mcr.microsoft.com/oss/kubernetes/pause:3.9",
 			"--pod-max-pids":                      "-1",
 			"--read-only-port":                    "0",
 			"--resolv-conf":                       `""`,
@@ -1317,7 +1327,17 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		Entry("AKSWindows2019 with k8s version 1.19 + FIPS", "AKSWindows2019+K8S119+FIPS", "1.19.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.FIPSEnabled = true
-			}))
+			}),
+		Entry("AKSWindows2019 with SecurityProfile", "AKSWindows2019+SecurityProfile", "1.26.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:      true,
+						ProxyAddress: "https://test-pe-proxy",
+					},
+				}
+			}),
+	)
 
 })
 

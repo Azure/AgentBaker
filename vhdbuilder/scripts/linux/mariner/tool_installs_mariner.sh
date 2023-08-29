@@ -14,6 +14,12 @@ installBcc() {
     dnf_install 120 5 25 bcc-examples || exit $ERR_BCC_INSTALL_TIMEOUT
 }
 
+installBpftrace() {
+    echo "Installing bpftrace ..."
+    dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
+    dnf_install 120 5 25 bpftrace || exit $ERR_BCC_INSTALL_TIMEOUT
+}
+
 addMarinerNvidiaRepo() {
     if [[ $OS_VERSION == "2.0" ]]; then 
         MARINER_NVIDIA_REPO_FILEPATH="/etc/yum.repos.d/mariner-nvidia.repo"

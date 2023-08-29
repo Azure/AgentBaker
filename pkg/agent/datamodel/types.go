@@ -180,6 +180,7 @@ const (
 	AKSUbuntuContainerd2204TLGen2       Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
 	AKSUbuntuMinimalContainerd2204      Distro = "aks-ubuntu-minimal-containerd-22.04"
 	AKSUbuntuMinimalContainerd2204Gen2  Distro = "aks-ubuntu-minimal-containerd-22.04-gen2"
+	AKSUbuntuEgressContainerd2204Gen2   Distro = "aks-ubuntu-egress-containerd-22.04-gen2"
 
 	RHEL              Distro = "rhel"
 	CoreOS            Distro = "coreos"
@@ -277,7 +278,8 @@ func (d Distro) Is2204VHDDistro() bool {
 }
 
 func (d Distro) IsKataDistro() bool {
-	return d == AKSCBLMarinerV2Gen2Kata || d == AKSCBLMarinerV2Gen2KataCgroupV2 || d == AKSCBLMarinerV2KataGen2TL || d == AKSCBLMarinerV2KataGen2TLCgroupV2
+	return d == AKSCBLMarinerV2Gen2Kata || d == AKSCBLMarinerV2Gen2KataCgroupV2 ||
+		d == AKSCBLMarinerV2KataGen2TL || d == AKSCBLMarinerV2KataGen2TLCgroupV2
 }
 
 /*
@@ -779,6 +781,7 @@ type Properties struct {
 	FeatureFlags            *FeatureFlags            `json:"featureFlags,omitempty"`
 	CustomCloudEnv          *CustomCloudEnv          `json:"customCloudEnv,omitempty"`
 	CustomConfiguration     *CustomConfiguration     `json:"customConfiguration,omitempty"`
+	SecurityProfile         *SecurityProfile         `json:"securityProfile,omitempty"`
 }
 
 // ContainerService complies with the ARM model of resource definition in a JSON template.
@@ -2122,3 +2125,23 @@ func (a *AgentPoolProfile) IsDisableWindowsOutboundNat() bool {
 		a.AgentPoolWindowsProfile.DisableOutboundNat != nil &&
 		*a.AgentPoolWindowsProfile.DisableOutboundNat
 }
+
+// SecurityProfile begin.
+type SecurityProfile struct {
+	PrivateEgress *PrivateEgress `json:"privateEgress,omitempty"`
+}
+
+type PrivateEgress struct {
+	Enabled                 bool   `json:"enabled"`
+	ContainerRegistryServer string `json:"containerRegistryServer"`
+	ProxyAddress            string `json:"proxyAddress"`
+}
+
+func (s *SecurityProfile) GetProxyAddress() string {
+	if s != nil && s.PrivateEgress != nil && s.PrivateEgress.Enabled {
+		return s.PrivateEgress.ProxyAddress
+	}
+	return ""
+}
+
+// SecurityProfile end.

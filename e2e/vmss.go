@@ -20,8 +20,9 @@ import (
 )
 
 const (
-	vmssNameTemplate                    = "abtest%s"
-	listVMSSNetworkInterfaceURLTemplate = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
+	vmssNameTemplate                         = "abtest%s"
+	listVMSSNetworkInterfaceURLTemplate      = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
+	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
 )
 
 func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
@@ -53,7 +54,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName st
 }
 
 func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
-	model := getBaseVMSSModel(vmssName, opts.suiteConfig.location, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, opts.clusterConfig.subnetId, string(publicKeyBytes), customData, cseCmd)
+	model := getBaseVMSSModel(vmssName, opts.suiteConfig.location, opts.suiteConfig.subscription, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, opts.clusterConfig.subnetId, string(publicKeyBytes), customData, cseCmd)
 
 	isAzureCNI, err := opts.clusterConfig.isAzureCNI()
 	if err != nil {
@@ -197,7 +198,7 @@ func getVmssName(r *mrand.Rand) string {
 	return fmt.Sprintf(vmssNameTemplate, randomLowercaseString(r, 4))
 }
 
-func getBaseVMSSModel(name, location, mcResourceGroupName, subnetID, sshPublicKey, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
+func getBaseVMSSModel(name, location, subscription, mcResourceGroupName, subnetID, sshPublicKey, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(location),
 		SKU: &armcompute.SKU{
@@ -268,7 +269,8 @@ func getBaseVMSSModel(name, location, mcResourceGroupName, subnetID, sshPublicKe
 												{
 													ID: to.Ptr(
 														fmt.Sprintf(
-															"/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool",
+															loadBalancerBackendAddressPoolIDTemplate,
+															subscription,
 															mcResourceGroupName,
 														),
 													),
