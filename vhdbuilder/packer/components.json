@@ -117,6 +117,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/cni:*",
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.24.6",
         "v3.24.0"
@@ -124,6 +125,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/node:*",
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.24.6",
         "v3.24.0"
@@ -131,6 +133,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/typha:*",
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.24.6",
         "v3.24.0"
@@ -138,6 +141,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:*",
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.24.6",
         "v3.24.0"
@@ -145,6 +149,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:*",
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.24.6",
         "v3.24.0"
@@ -233,12 +238,12 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.19.5",
         "v1.19.5-3",
-        "v1.21.4",
+        "v1.19.5-4",
         "v1.21.4-1",
-        "v1.22.1",
-        "v1.22.1-1"
+        "v1.21.4-2",
+        "v1.22.1-1",
+        "v1.22.1-2"
       ]
     },
     {

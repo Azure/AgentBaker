@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -31,8 +34,25 @@ import (
 ***
 *** # download ONLY 1604,1804,1804-containerd release notes from this run ID.
 *** autonotes --build 40968951 --include 1604,1804,1804-containerd
+*** # download ONLY 2019-containerd release notes from this run ID.
+*** autonotes --build 76289801 --include 2019-containerd
 ***
+*** # download everything EXCEPT 2022-containerd-gen2 release notes from this run ID.
+*** autonotes --build 76289801 --ignore 2022-containerd-gen2
+***
+*** # download ONLY 2022-containerd,2022-containerd-gen2 release notes from this run ID.
+*** autonotes --build 76289801 --include 2022-containerd,2022-containerd-gen2
 **/
+
+type VhdPublishingInfo struct {
+	VhdUrl            string `json:"vhd_url"`
+	OsName            string `json:"os_name"`
+	SkuName           string `json:"sku_name"`
+	OfferName         string `json:"offer_name"`
+	HypervGeneration  string `json:"hyperv_generation"`
+	ImageArchitecture string `json:"image_architecture"`
+	ImageVersion      string `json:"image_version"`
+}
 
 func main() {
 	var fl flags
@@ -41,7 +61,6 @@ func main() {
 	flag.StringVar(&fl.ignore, "ignore", "", "ignore release notes for these VHDs")
 	flag.StringVar(&fl.path, "path", defaultPath, "output path to root of VHD notes")
 	flag.StringVar(&fl.date, "date", defaultDate, "date of VHD build in format YYYYMM.DD.0")
-
 	flag.Parse()
 
 	int := make(chan os.Signal, 1)
@@ -80,8 +99,33 @@ func run(ctx context.Context, cancel context.CancelFunc, fl *flags) []error {
 
 	enforceInclude := len(include) > 0
 
+	// Get windows base image versions frpm the updated windows-image.env
+	var wsImageVersionFilePath = filepath.Join("vhdbuilder", "packer", "windows-image.env")
+	file, err := os.Open(wsImageVersionFilePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, "WINDOWS_2019_BASE_IMAGE_VERSION=") {
+			wsImageVersions["2019-containerd"] = strings.Split(line, "=")[1]
+		} else if strings.Contains(line, "WINDOWS_2022_BASE_IMAGE_VERSION=") {
+			wsImageVersions["2022-containerd"] = strings.Split(line, "=")[1]
+		} else if strings.Contains(line, "WINDOWS_2022_GEN2_BASE_IMAGE_VERSION=") {
+			wsImageVersions["2022-containerd-gen2"] = strings.Split(line, "=")[1]
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+
 	artifactsToDownload := map[string]string{}
 	for key, value := range artifactToPath {
+		fmt.Printf("%s - %s\n", key, value)
 		if ignore[key] {
 			continue
 		}
@@ -97,7 +141,12 @@ func run(ctx context.Context, cancel context.CancelFunc, fl *flags) []error {
 	var done = make(chan struct{})
 
 	for sku, path := range artifactsToDownload {
-		go getReleaseNotes(sku, path, fl, errc, done)
+
+		if strings.Contains(path, "AKSWindows") {
+			go getReleaseNotesWindows(sku, path, fl, errc, done)
+		} else {
+			go getReleaseNotes(sku, path, fl, errc, done)
+		}
 	}
 
 	var errs []error
@@ -253,6 +302,98 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 	}
 }
 
+func getReleaseNotesWindows(sku, path string, fl *flags, errc chan<- error, done chan<- struct{}) {
+	defer func() { done <- struct{}{} }()
+
+	// working directory, need one per sku because the file name is
+	// always "release-notes.txt" so they all overwrite each other.
+	tmpdir, err := ioutil.TempDir("", "releasenotes")
+	if err != nil {
+		errc <- fmt.Errorf("failed to create temp working directory: %w", err)
+	}
+	defer os.RemoveAll(tmpdir)
+
+	releaseNotesName := fmt.Sprintf("vhd-release-notes-%s", sku)
+	releaseNotesFileIn := filepath.Join(tmpdir, "release-notes.txt")
+	imageListName := fmt.Sprintf("vhd-image-bom-%s", sku)
+	imageListFileIn := filepath.Join(tmpdir, "image-bom.json")
+	publishingInfoName := fmt.Sprintf("publishing-info-%s", sku)
+	publishingInfoFileIn := filepath.Join(tmpdir, "vhd-publishing-info.json")
+
+	// download publishing info artifact and get sigImageVersion from the json output
+	fmt.Printf("downloading publishing info '%s' from build '%s'\n", publishingInfoName, fl.build)
+
+	cmd := exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", publishingInfoName)
+	if stdout, err := cmd.CombinedOutput(); err != nil {
+		if err != nil {
+			errc <- fmt.Errorf("failed to download az devops publishing info for sku %s, err: %s, output: %s", sku, err, string(stdout))
+		}
+		return
+	}
+
+	contents, err := ioutil.ReadFile(publishingInfoFileIn)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// read the "image_version" from "vhd-publishing-info.json"
+	// parse the JSON contents
+	var info VhdPublishingInfo
+	err = json.Unmarshal(contents, &info)
+	if err != nil {
+		panic(err)
+	}
+
+	sigImageVersion := info.ImageVersion
+	// print the image version
+	fmt.Printf("The sig image version read from vhd-publishing-info.json artifact is %s\n", sigImageVersion)
+
+	artifactsDirOut := filepath.Join(fl.path, path)
+	releaseNotesFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s.txt", sigImageVersion))
+	imageListFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s-image-list.json", sigImageVersion))
+
+	if err := os.MkdirAll(filepath.Dir(artifactsDirOut), 0644); err != nil {
+		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
+		return
+	}
+
+	if err := os.MkdirAll(artifactsDirOut, 0644); err != nil {
+		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
+		return
+	}
+
+	fmt.Printf("downloading releaseNotes '%s' from build '%s'\n", releaseNotesName, fl.build)
+
+	cmd = exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", releaseNotesName)
+	if stdout, err := cmd.CombinedOutput(); err != nil {
+		if err != nil {
+			errc <- fmt.Errorf("failed to download az devops releaseNotes for sku %s, err: %s, output: %s", sku, err, string(stdout))
+		}
+		return
+	}
+
+	if err := os.Rename(releaseNotesFileIn, releaseNotesFileOut); err != nil {
+		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", releaseNotesFileIn, releaseNotesFileOut, err)
+		return
+	}
+
+	fmt.Printf("downloading imageList '%s' from build '%s'\n", imageListName, fl.build)
+
+	cmd = exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", imageListName)
+	if stdout, err := cmd.CombinedOutput(); err != nil {
+		if err != nil {
+			errc <- fmt.Errorf("failed to download az devops imageList for sku %s, err: %s, output: %s", sku, err, string(stdout))
+		}
+		return
+	}
+
+	if err := os.Rename(imageListFileIn, imageListFileOut); err != nil {
+		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", imageListFileIn, imageListFileOut, err)
+		return
+	}
+}
+
 func stripWhitespace(str string) string {
 	var b strings.Builder
 	b.Grow(len(str))
@@ -274,6 +415,7 @@ type flags struct {
 
 var defaultPath = filepath.Join("vhdbuilder", "release-notes")
 var defaultDate = strings.Split(time.Now().Format("200601.02"), " ")[0] + ".0"
+var wsImageVersions = make(map[string]string)
 
 // why does ubuntu use subfolders and mariner doesn't
 // there are dependencies on the folder structure but it would
@@ -301,4 +443,7 @@ var artifactToPath = map[string]string{
 	"2204-gen2-containerd":              filepath.Join("AKSUbuntu", "gen2", "2204containerd"),
 	"2204-arm64-gen2-containerd":        filepath.Join("AKSUbuntu", "gen2", "2204arm64containerd"),
 	"2204-tl-gen2-containerd":           filepath.Join("AKSUbuntu", "gen2", "2204tlcontainerd"),
+	"2019-containerd":                   filepath.Join("AKSWindows", "2019-containerd"),
+	"2022-containerd":                   filepath.Join("AKSWindows", "2022-containerd"),
+	"2022-containerd-gen2":              filepath.Join("AKSWindows", "2022-containerd-gen2"),
 }
