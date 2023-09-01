@@ -20,6 +20,10 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 				GalleryName:   "akscblmariner",
 				ResourceGroup: "resourcegroup",
 			},
+			"AKSAzureLinux": SIGGalleryConfig{
+				GalleryName:   "aksazurelinux",
+				ResourceGroup: "resourcegroup",
+			},
 			"AKSWindows": SIGGalleryConfig{
 				GalleryName:   "AKSWindows",
 				ResourceGroup: "AKS-Windows",
