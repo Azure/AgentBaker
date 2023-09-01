@@ -220,19 +220,19 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
-	AKSCBLMarinerV2CgroupV2,
+	AKSAzureLinuxV2,
 	AKSCBLMarinerV2Gen2,
-	AKSCBLMarinerV2Gen2CgroupV2,
+	AKSAzureLinuxV2Gen2,
 	AKSCBLMarinerV2FIPS,
-	AKSCBLMarinerV2FIPSCgroupV2,
+	AKSAzureLinuxV2FIPS,
 	AKSCBLMarinerV2Gen2FIPS,
-	AKSCBLMarinerV2Gen2FIPSCgroupV2,
+	AKSAzureLinuxV2Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
-	AKSCBLMarinerV2Gen2KataCgroupV2,
+	AKSAzureLinuxV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
-	AKSCBLMarinerV2Gen2TLCgroupV2,
+	AKSAzureLinuxV2Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
-	AKSCBLMarinerV2KataGen2TLCgroupV2,
+	AKSAzureLinuxV2KataGen2TL,
 	AKSUbuntuFipsContainerd1804,
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsContainerd2004,
@@ -246,7 +246,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSCBLMarinerV2Arm64Gen2,
-	AKSCBLMarinerV2Arm64Gen2CgroupV2,
+	AKSAzureLinuxV2Arm64Gen2,
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuMinimalContainerd2204,
 	AKSUbuntuMinimalContainerd2204Gen2,
@@ -278,8 +278,8 @@ func (d Distro) Is2204VHDDistro() bool {
 }
 
 func (d Distro) IsKataDistro() bool {
-	return d == AKSCBLMarinerV2Gen2Kata || d == AKSCBLMarinerV2Gen2KataCgroupV2 ||
-		d == AKSCBLMarinerV2KataGen2TL || d == AKSCBLMarinerV2KataGen2TLCgroupV2
+	return d == AKSCBLMarinerV2Gen2Kata || d == AKSAzureLinuxV2Gen2Kata ||
+		d == AKSCBLMarinerV2KataGen2TL || d == AKSAzureLinuxV2KataGen2TL
 }
 
 /*
