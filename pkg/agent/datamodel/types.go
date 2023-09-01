@@ -278,7 +278,8 @@ func (d Distro) Is2204VHDDistro() bool {
 }
 
 func (d Distro) IsKataDistro() bool {
-	return d == AKSCBLMarinerV2Gen2Kata || d == AKSCBLMarinerV2Gen2KataCgroupV2 || d == AKSCBLMarinerV2KataGen2TL || d == AKSCBLMarinerV2KataGen2TLCgroupV2
+	return d == AKSCBLMarinerV2Gen2Kata || d == AKSCBLMarinerV2Gen2KataCgroupV2 ||
+		d == AKSCBLMarinerV2KataGen2TL || d == AKSCBLMarinerV2KataGen2TLCgroupV2
 }
 
 /*

@@ -290,17 +290,17 @@ var AvailableWindowsPIRDistros = []Distro{
 
 // SIG const.
 const (
-	AKSSIGImagePublisher               string = "microsoft-aks"
-	AKSWindowsGalleryName              string = "AKSWindows"
-	AKSWindowsResourceGroup            string = "AKS-Windows"
-	AKSUbuntuGalleryName               string = "AKSUbuntu"
-	AKSUbuntuResourceGroup             string = "AKS-Ubuntu"
-	AKSAzureLinuxGalleryName           string = "AKSCBLMariner"
-	AKSAzureLinuxResourceGroup         string = "AKS-CBLMariner"
-	AKSAzureLinuxCgroupV2GalleryName   string = "AKSAzureLinux"
-	AKSAzureLinuxCgroupV2ResourceGroup string = "AKS-AzureLinux"
-	AKSUbuntuEdgeZoneGalleryName       string = "AKSUbuntuEdgeZone"
-	AKSUbuntuEdgeZoneResourceGroup     string = "AKS-Ubuntu-EdgeZone"
+	AKSSIGImagePublisher           string = "microsoft-aks"
+	AKSWindowsGalleryName          string = "AKSWindows"
+	AKSWindowsResourceGroup        string = "AKS-Windows"
+	AKSUbuntuGalleryName           string = "AKSUbuntu"
+	AKSUbuntuResourceGroup         string = "AKS-Ubuntu"
+	AKSCBLMarinerGalleryName       string = "AKSCBLMariner"
+	AKSCBLMarinerResourceGroup     string = "AKS-CBLMariner"
+	AKSAzureLinuxGalleryName       string = "AKSAzureLinux"
+	AKSAzureLinuxResourceGroup     string = "AKS-AzureLinux"
+	AKSUbuntuEdgeZoneGalleryName   string = "AKSUbuntuEdgeZone"
+	AKSUbuntuEdgeZoneResourceGroup string = "AKS-Ubuntu-EdgeZone"
 )
 
 const (
@@ -508,120 +508,120 @@ var (
 	}
 
 	SIGCBLMarinerV1ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V1",
 		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2Gen1ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2",
 		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2Gen1CgroupV2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxCgroupV2ResourceGroup,
-		Gallery:       AKSAzureLinuxCgroupV2GalleryName,
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2cgroupv2",
 		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2gen2",
 		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2CgroupV2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxCgroupV2ResourceGroup,
-		Gallery:       AKSAzureLinuxCgroupV2GalleryName,
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2cgroupv2",
 		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2Gen1FIPSImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2fips",
 		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2Gen1FIPSCgroupV2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxCgroupV2ResourceGroup,
-		Gallery:       AKSAzureLinuxCgroupV2GalleryName,
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2fipscgroupv2",
 		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2Gen2FIPSImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2gen2fips",
 		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2Gen2FIPSCgroupV2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxCgroupV2ResourceGroup,
-		Gallery:       AKSAzureLinuxCgroupV2GalleryName,
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2fipscgroupv2",
 		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2KataImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2katagen2",
 		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2KataCgroupV2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxCgroupV2ResourceGroup,
-		Gallery:       AKSAzureLinuxCgroupV2GalleryName,
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2katagen2cgroupv2",
 		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2Arm64ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2gen2arm64",
 		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2Arm64CgroupV2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxCgroupV2ResourceGroup,
-		Gallery:       AKSAzureLinuxCgroupV2GalleryName,
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2arm64cgroupv2",
 		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2TLImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2gen2TL",
 		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2TLCgroupV2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxCgroupV2ResourceGroup,
-		Gallery:       AKSAzureLinuxCgroupV2GalleryName,
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2TLcgroupv2",
 		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2KataGen2TLImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
+		ResourceGroup: AKSCBLMarinerResourceGroup,
+		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2katagen2TL",
 		Version:       CBLMarinerV2KataGen2TLSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2KataGen2TLCgroupV2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxCgroupV2ResourceGroup,
-		Gallery:       AKSAzureLinuxCgroupV2GalleryName,
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2katagen2TLcgroupv2",
 		Version:       CBLMarinerV2KataGen2TLSIGImageVersion,
 	}
