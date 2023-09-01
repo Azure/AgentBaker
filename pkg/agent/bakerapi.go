@@ -69,6 +69,9 @@ func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distr
 	if imageConfig, ok := sigConfig.SigUbuntuImageConfig[distro]; ok {
 		return &imageConfig
 	}
+	if imageConfig, ok := sigConfig.SigCBLMarinerImageConfig[distro]; ok {
+		return &imageConfig
+	}
 	if imageConfig, ok := sigConfig.SigAzureLinuxImageConfig[distro]; ok {
 		return &imageConfig
 	}
@@ -105,6 +108,10 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 
 	allDistros := map[datamodel.Distro]datamodel.SigImageConfig{}
 	for distro, sigConfig := range allAzureSigConfig.SigWindowsImageConfig {
+		allDistros[distro] = sigConfig
+	}
+
+	for distro, sigConfig := range allAzureSigConfig.SigCBLMarinerImageConfig {
 		allDistros[distro] = sigConfig
 	}
 
