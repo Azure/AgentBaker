@@ -153,16 +153,6 @@ function Disable-WindowsUpdates {
     Set-ItemProperty -Path $AutoUpdatePath -Name NoAutoUpdate -Value 1 | Out-Null
 }
 
-function Retag-ImageForAzureChinaCloud {
-    Param(
-        [string]
-        $imageUrl
-    )
-    Write-Log "Retagging image $imageUrl for AzureChinaCloud"
-    $retagImageUrl=$image.replace('mcr.microsoft.com', 'mcr.azk8s.cn')
-    ctr.exe -n k8s.io image tag $imageUrl $retagImageUrl
-}
-
 function Get-ContainerImages {
     Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
     foreach ($image in $imagesToPull) {
@@ -192,8 +182,6 @@ function Get-ContainerImages {
                 & crictl.exe pull $image
             } -ErrorMessage "Failed to pull image $image"
         }
-
-        Retag-ImageForAzureChinaCloud -imageUrl $image
     }
     Stop-Job  -Name containerd
     Remove-Job -Name containerd
@@ -211,6 +199,24 @@ function Get-FilesToCacheOnVHD {
 
             Write-Log "Downloading $URL to $dest"
             DownloadFileWithRetry -URL $URL -Dest $dest
+        }
+    }
+}
+
+function Get-PrivatePackagesToCacheOnVHD {
+    if (![string]::IsNullOrEmpty($env:WindowsPrivatePackagesURL)) {
+        Write-Log "Caching private packages on VHD"
+    
+        $dir = "c:\akse-cache\private-packages"
+        New-Item -ItemType Directory $dir -Force | Out-Null
+
+        $urls = $env:WindowsPrivatePackagesURL.Split(",")
+        foreach ($url in $urls) {
+            $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
+            $dest = [IO.Path]::Combine($dir, $fileName)
+
+            Write-Log "Downloading a private package to $dest"
+            DownloadFileWithRetry -URL $url -Dest $dest -redactUrl
         }
     }
 }
@@ -542,6 +548,27 @@ function Update-Registry {
             Write-Log "The current value of VfpIpv6DipsPrintingIsEnabled is $currentValue"
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpIpv6DipsPrintingIsEnabled -Value 1 -Type DWORD
+
+        Write-Log "Enable 3 fixes in 2023-08B"
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSUpdatePolicyForEndpointChange -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HNSUpdatePolicyForEndpointChange is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSUpdatePolicyForEndpointChange -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSFixExtensionUponRehydration -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HNSFixExtensionUponRehydration is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSFixExtensionUponRehydration -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 87798413 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 87798413 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 87798413 -Value 1 -Type DWORD
+
     }
 }
 
@@ -593,6 +620,7 @@ try{
             Update-Registry
             Get-ContainerImages
             Get-FilesToCacheOnVHD
+            Get-PrivatePackagesToCacheOnVHD
             Remove-Item -Path c:\windows-vhd-configuration.ps1
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
         }

@@ -1,7 +1,6 @@
 ﻿# NOTE: We do not log in this script since we do not have log rotation for the generated logs now.
 
 $Global:ClusterConfiguration = ConvertFrom-Json ((Get-Content "c:\k\kubeclusterconfig.json" -ErrorAction Stop) | out-string)
-$global:ContainerRuntime = $Global:ClusterConfiguration.Cri.Name
 $aksLogFolder="C:\WindowsAzure\Logs\aks"
 $isInitializing=$False
 $LogPath="c:\k\loggenerator.log"

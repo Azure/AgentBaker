@@ -188,6 +188,7 @@ WINDOWS_IMAGE_VERSION=""
 WINDOWS_IMAGE_URL=""
 windows_servercore_image_url=""
 windows_nanoserver_image_url=""
+windows_private_packages_url=""
 # shellcheck disable=SC2236
 if [ "$OS_TYPE" == "Windows" ]; then
 	imported_windows_image_name=""
@@ -327,6 +328,12 @@ if [ "$OS_TYPE" == "Windows" ]; then
 		echo "WINDOWS_CORE_IMAGE_URL is set in pipeline variables"
 		windows_servercore_image_url="${WINDOWS_CORE_IMAGE_URL}"
 	fi
+
+	# Set windows private packages url if the pipeline variable is set
+	if [ -n "${WINDOWS_PRIVATE_PACKAGES_URL}" ]; then
+		echo "WINDOWS_PRIVATE_PACKAGES_URL is set in pipeline variables"
+		windows_private_packages_url="${WINDOWS_PRIVATE_PACKAGES_URL}"
+	fi
 fi
 
 cat <<EOF > vhdbuilder/packer/settings.json
@@ -353,6 +360,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "os_disk_size_gb": "${os_disk_size_gb}",
   "nano_image_url": "${windows_nanoserver_image_url}",
   "core_image_url": "${windows_servercore_image_url}",
+  "windows_private_packages_url": "${windows_private_packages_url}",
   "windows_sigmode_source_subscription_id": "${windows_sigmode_source_subscription_id}",
   "windows_sigmode_source_resource_group_name": "${windows_sigmode_source_resource_group_name}",
   "windows_sigmode_source_gallery_name": "${windows_sigmode_source_gallery_name}",

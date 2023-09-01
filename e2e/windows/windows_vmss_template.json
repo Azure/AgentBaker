@@ -5,10 +5,6 @@
         "virtualMachineScaleSets_akswin30_name": {
             "defaultValue": "",
             "type": "string"
-        },
-        "galleries_AKSWindows_externalid": {
-            "defaultValue": "",
-            "type": "String"
         }
     },
     "resources": [
