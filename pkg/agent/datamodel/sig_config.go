@@ -683,7 +683,7 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 
 func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
-		AKSCBLMarinerV1:		   SIGCBLMarinerV1ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV1:           SIGCBLMarinerV1ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2:           SIGCBLMarinerV2Gen1ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2:       SIGCBLMarinerV2Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2FIPS:       SIGCBLMarinerV2Gen1FIPSImageConfigTemplate.WithOptions(opts...),
