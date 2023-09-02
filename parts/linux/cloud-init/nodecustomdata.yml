@@ -120,20 +120,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
-- path: /etc/systemd/system/mig-partition.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "migPartitionSystemdService"}}
-
-- path: /opt/azure/containers/mig-partition.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
-
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
   encoding: gzip

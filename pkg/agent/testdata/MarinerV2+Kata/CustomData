@@ -102,20 +102,6 @@ write_files:
   content: !!binary |
     H4sIAAAAAAAA/4yUz2/aMBTH7/krnlgP7cH11u1W5QBtQKgUKhK0A0XIcR7FwnlB9jNtt+5/n8KPbrS0IqfY/nx/WHryeESGJ9E1eu3Mkk1F8U3I0SJHVxUVpt65UzxPnoxnH8vgnbSVVlbmhuRii/5UxD4m5MfKLURF1hCes3IPyKArYmUIXXHu0a2Mxqg5Y3TH49E43fxNoiF6Vo5jZR/Vs98tU9TxRZTQyriKSiRuG4uxRNaywJkKll+bfoGOUxpnwQKjKw2p+oZwmnY7WTK8PYvSoDV6nzwZTllx8PG3H9+j5Al1WkfdOYzXV8+Vn4OslizVr+BQvvb2u6xzPz+gKxeFcSCWIFfKSWvy12rHsJrMR12EhoaZwRhOTssqEMMLPDhcwn3jbdJ9A17gUYOwZyAswleYwCXwHAk2sWu5ELmh4l3N9xuXMDONQ+23NqVaoPBz5fC9W7SvE9LXSsxZ5RY9CAZStYc1ng+iZvkWpVCiM3on+qf6YHjhPoLtJwRS7SbqyUO3d0JVgcKqHK2PGye/b0atpJdk0/7gOpn2mq2kl/5p7AlW8cX+urKhRLG04cGQKIzbDGjdwhEyerkhNoD/T3uyC8t66bQ1GGRpNmzeTdu9Zic9hF0N+u1uZ9ru9pJPoazZ7SfD6yOY6XDUz7q3G7uDZGc4GH1SaX0QReMueVbWTtYvBhat57gMlo0IHt32BYj+BgAA//9EVf0vkwQAAA==
 
-- path: /etc/systemd/system/mig-partition.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    H4sIAAAAAAAA/0TOwWqDQBDG8fs+xR56NZs8gAfbWhFaK7HSg0iYmIkZ0FmZnQ1NS9+9mEuvf358fF3LpL15xjAILUqe02xZppt9Kws7eD7TGAXWbj3b6konApvttltb1K0xXYNypQF7s8egIJp6Ts5AUxQ0+RcOzRprwdTFIO5I7Pi+kYSZbDLTaHf/Lr2DI4SLdX5RB99R0A2eFYhRgptpTBYQpfXQJlzsw09Rt4eyaj6y6ik/1Pv3l/I1/zWmKzkoTFNvPoEVT4+3dI6TUhIDykZBRlTzFwAA///GvdrK/QAAAA==
-
-- path: /opt/azure/containers/mig-partition.sh
-  permissions: "0544"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    H4sIAAAAAAAA/4SS0YubQBDG3/0rvpp76BVTa3ulXI4+lN41CE0MJelrWddRh5pd2V1tQsj/XjRcIiSgDMLOzu+bj5mdvAlTVmEqbOl5k2Wyfpnhe2MMKVftAyxbzlig4tQIs8eWi2ktjKMMb0vnajsLw4Jd2aTvpd6Gy9/xc/wtvFTdQwqltMM/bf6iNromU+2RkhSNJegcriToxmWi05yvNsgMt2TQkrGslTdZJ8/JDBtLw+avfpxGpnuN7oIdawWROzJ9TqS6JbC1TfdHzjvK4C3i+Z/Vr+RH/PPl690hOnpSWMLdYZA/ghU8APAX8Twq/Pv+0H2qH8jUbrnzg6ksGNFjcBVn4OnpLPRxVOgh6OMW/GkMfgxuNn0Y4z7for6MUR8GFE6zenchSJYafrd4gVZUfFotK+uEktQ9hJwr8i/1O3aIhkbICuldNZb8PwAA//+R/AassAIAAA==
-
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
   encoding: gzip
