@@ -2812,6 +2812,9 @@ installContainerRuntime() {
         local containerd_version
         if [ -f "$MANIFEST_FILEPATH" ]; then
             containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+            if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+                containerd_version="$(jq -r '.containerd.pinned."1804"' "$MANIFEST_FILEPATH")"
+            fi
         else
             echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
         fi
@@ -4742,15 +4745,21 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadLocation": "/opt/containerd/downloads",
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/${UBUNTU_CODENAME}/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu${UBUNTU_RELEASE}u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [],
-        "edge": "1.7.1-1"
+        "pinned": {
+            "1804": "1.7.1-1"
+        },
+        "edge": "1.7.5-1"
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "downloadLocation": "/opt/runc/downloads",
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [],
+        "pinned": {
+            "1804": "1.1.7"
+        },
         "installed": {
-            "default": "1.1.7"
+            "default": "1.1.9"
         }
     },
     "nvidia-container-runtime": {
@@ -6552,7 +6561,11 @@ installStandaloneContainerd() {
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.7.1"
+        # pin 18.04 to 1.7.1
+        CONTAINERD_VERSION="1.7.5"
+        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+            CONTAINERD_VERSION="1.7.1"
+        fi
         CONTAINERD_PATCH_VERSION="1"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
@@ -6589,6 +6602,7 @@ installStandaloneContainerd() {
 }
 
 downloadContainerdFromVersion() {
+    # Patch version isn't used here...?
     CONTAINERD_VERSION=$1
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     # Adding updateAptWithMicrosoftPkg since AB e2e uses an older image version with uncached containerd 1.6 so it needs to download from testing repo.
@@ -6643,7 +6657,11 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.1.7+azure-ubuntu${UBUNTU_RELEASE}"
+        # pin 1804 to 1.1.7
+        TARGET_VERSION="1.1.9-ubuntu${UBUNTU_RELEASE}"
+        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+            TARGET_VERSION="1.1.7+azure-ubuntu${UBUNTU_RELEASE}"
+        fi
     fi
 
     if [[ $(isARM64) == 1 ]]; then
@@ -6655,7 +6673,11 @@ ensureRunc() {
 
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-    CLEANED_TARGET_VERSION=${TARGET_VERSION%+*} # removes the +azure-ubuntu18.04u1 (or similar) suffix
+
+    CLEANED_TARGET_VERSION=${TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar) 
+    if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+        CLEANED_TARGET_VERSION=${TARGET_VERSION%+*} # removes the +azure-ubuntu18.04u1 (or similar) suffix
+    fi
 
     if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
         echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
