@@ -809,8 +809,8 @@ func GetAzurePublicSIGConfigForTest() SIGAzureEnvironmentSpecConfig {
 		SigTenantID:                  AzurePublicCloudSigTenantID,
 		SubscriptionID:               AzurePublicCloudSigSubscription,
 		SigUbuntuImageConfig:         getSigUbuntuImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
-		SigCBLMarinerImageConfig:	  getSigCBLMarinerImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
-		SigAzureLinuxImageConfig:	  getSigAzureLinuxImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
+		SigCBLMarinerImageConfig:     getSigCBLMarinerImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
+		SigAzureLinuxImageConfig:     getSigAzureLinuxImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigWindowsImageConfig:        getSigWindowsImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigUbuntuEdgeZoneImageConfig: getSigUbuntuEdgeZoneImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 	}
