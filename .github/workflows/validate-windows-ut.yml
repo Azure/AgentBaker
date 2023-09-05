@@ -7,7 +7,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Perform a Pester test from the tests.ps1 file
         shell: powershell
         run: |
