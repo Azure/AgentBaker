@@ -53,7 +53,7 @@ else
   # netcat - network comms with API server
   # dnsutils - contains nslookup, to query API server DNS
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
-  BLOBFUSE2_VERSION="2.0.5"
+  BLOBFUSE2_VERSION="2.1.0"
   required_pkg_list=(jq iptables netcat dnsutils "blobfuse2="${BLOBFUSE2_VERSION} fuse3)
   for apt_package in ${required_pkg_list[*]}; do
       if ! apt_get_install 30 1 600 $apt_package; then
@@ -288,6 +288,7 @@ unpackAzureCNI() {
 #must be both amd64/arm64 images
 VNET_CNI_VERSIONS="
 1.5.5
+1.4.43.1
 1.4.43
 "
 
@@ -303,6 +304,7 @@ done
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 SWIFT_CNI_VERSIONS="
 1.5.5
+1.4.43.1
 1.4.43
 "
 
@@ -312,19 +314,6 @@ for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
     unpackAzureCNI $VNET_CNI_PLUGINS_URL
     echo "  - Azure Swift CNI version ${SWIFT_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
-
-OVERLAY_CNI_VERSIONS="
-1.5.5
-1.4.43
-"
-
-for OVERLAY_CNI_VERSION in $OVERLAY_CNI_VERSIONS; do
-    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${OVERLAY_CNI_VERSION}/binaries/azure-vnet-cni-overlay-linux-${CPU_ARCH}-v${OVERLAY_CNI_VERSION}.tgz"
-    downloadAzureCNI
-    unpackAzureCNI $VNET_CNI_PLUGINS_URL
-    echo "  - Azure Overlay CNI version ${OVERLAY_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-
 
 # After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
 MULTI_ARCH_CNI_PLUGIN_VERSIONS="

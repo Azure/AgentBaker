@@ -52,13 +52,8 @@ endif
 endif
 
 az-login:
-ifeq (${OS_TYPE},Windows)
-	@echo "Logging into Azure with service principal..."
-	@az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
-else
 	@echo "Logging into Azure with agent VM MSI..."
 	@az login --identity
-endif
 	@az account set -s ${SUBSCRIPTION_ID}
 
 init-packer:
@@ -68,7 +63,7 @@ run-packer: az-login
 	@packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
 
 run-packer-windows: az-login
-	@packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer-windows | tee -a packer-output)
+	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer-windows | tee -a packer-output)
 
 cleanup: az-login
 	@./vhdbuilder/packer/cleanup.sh

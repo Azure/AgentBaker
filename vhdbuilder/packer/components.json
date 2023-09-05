@@ -32,6 +32,13 @@
       ]
     },
     {
+      "downloadURL": "mcr.microsoft.com/mirror/docker/library/busybox:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "1.35"
+      ]
+    },
+    {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
@@ -45,6 +52,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v0.0.4",
+        "v0.0.4.1",
         "v0.0.9"
       ]
     },
@@ -109,6 +117,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/cni:*",
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.24.6",
         "v3.24.0"
@@ -116,6 +125,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/node:*",
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.24.6",
         "v3.24.0"
@@ -123,6 +133,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/typha:*",
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.24.6",
         "v3.24.0"
@@ -130,6 +141,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:*",
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.24.6",
         "v3.24.0"
@@ -137,6 +149,7 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:*",
+      "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.24.6",
         "v3.24.0"
@@ -169,17 +182,13 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.24.18",
-        "v1.24.20",
-        "v1.24.21",
-        "v1.25.12",
-        "v1.25.14",
         "v1.25.15",
-        "v1.26.8",
-        "v1.26.10",
+        "v1.25.18",
         "v1.26.11",
-        "v1.27.4",
-        "v1.27.5"
+        "v1.26.14",
+        "v1.27.5",
+        "v1.27.8",
+        "v1.28.0"
       ]
     },
     {
@@ -209,32 +218,32 @@
       "multiArchVersions": [
         "v1.26.5-1",
         "v1.26.6",
-        "v1.28.1",
-        "v1.28.2"
+        "v1.28.2",
+        "v1.28.3"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.24.5",
         "v1.24.6",
-        "v1.26.4",
+        "v1.24.7",
         "v1.26.5",
-        "v1.28.1",
-        "v1.28.2"
+        "v1.26.6",
+        "v1.28.2",
+        "v1.28.3"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.19.5",
         "v1.19.5-3",
-        "v1.21.4",
+        "v1.19.5-4",
         "v1.21.4-1",
-        "v1.22.1",
-        "v1.22.1-1"
+        "v1.21.4-2",
+        "v1.22.1-1",
+        "v1.22.1-2"
       ]
     },
     {
@@ -313,6 +322,7 @@
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
         "1.5.5",
+        "1.4.43.1",
         "1.4.43"
       ]
     },
@@ -322,15 +332,7 @@
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
         "1.5.5",
-        "1.4.43"
-      ]
-    },
-    {
-      "fileName": "azure-vnet-cni-overlay-linux-amd64-v*",
-      "downloadLocation": "/opt/cni/downloads",
-      "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
-      "versions": [
-        "1.5.5",
+        "1.4.43.1",
         "1.4.43"
       ]
     },
