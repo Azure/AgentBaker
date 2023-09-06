@@ -305,6 +305,13 @@
       "multiArchVersions": [
         "master.221011.1"
       ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes/windows-gmsa-webhook:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "v0.7.1"
+      ]
     }
   ],
   "DownloadFiles": [
