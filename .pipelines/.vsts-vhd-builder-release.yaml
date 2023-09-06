@@ -30,64 +30,64 @@ parameters:
   displayName: Build MarinerV2 Gen1
   type: boolean
   default: true
-- name: buildMarinerV2gen1CgroupV2
-  displayName: Build MarinerV2 Gen1 CgroupV2
+- name: buildAzureLinuxV2gen1
+  displayName: Build AzureLinuxV2 Gen1
   type: boolean
   default: true
 - name: buildMarinerV2gen2
   displayName: Build MarinerV2 Gen2
   type: boolean
   default: true
-- name: buildMarinerV2gen2CgroupV2
-  displayName: Build MarinerV2 Gen2 CgroupV2
+- name: buildAzureLinuxV2gen2
+  displayName: Build AzureLinuxV2 Gen2
   type: boolean
   default: true
 - name: buildMarinerV2gen1fips
   displayName: Build MarinerV2 Gen1 FIPS 
   type: boolean
   default: true
-- name: buildMarinerV2gen1fipsCgroupV2
-  displayName: Build MarinerV2 Gen1 FIPS CgroupV2
+- name: buildAzureLinuxV2gen1fips
+  displayName: Build AzureLinuxV2 Gen1 FIPS
   type: boolean
   default: true
 - name: buildMarinerV2gen2fips
   displayName: Build MarinerV2 Gen2 FIPS 
   type: boolean
   default: true
-- name: buildMarinerV2gen2fipsCgroupV2
-  displayName: Build MarinerV2 Gen2 FIPS CgroupV2
+- name: buildAzureLinuxV2gen2fips
+  displayName: Build AzureLinuxV2 Gen2 FIPS
   type: boolean
   default: true
 - name: buildMarinerV2gen2kata
   displayName: Build MarinerV2 Gen2 Kata
   type: boolean
   default: true
-- name: buildMarinerV2gen2kataCgroupV2
-  displayName: Build MarinerV2 Gen2 Kata CgroupV2
+- name: buildAzureLinuxV2gen2kata
+  displayName: Build AzureLinuxV2 Gen2 Kata
   type: boolean
   default: true
 - name: buildMarinerV2ARM64
   displayName: Build MarinerV2 Gen2 - ARM64
   type: boolean
   default: true
-- name: buildMarinerV2ARM64CgroupV2
-  displayName: Build MarinerV2 Gen2 - ARM64 CgroupV2
+- name: buildAzureLinuxV2ARM64
+  displayName: Build AzureLinuxV2 Gen2 - ARM64
   type: boolean
   default: true
 - name: buildMarinerV2gen2TrustedLaunch
   displayName: Build MarinerV2 Gen2 - Trusted Launch
   type: boolean
   default: true
-- name: buildMarinerV2gen2TrustedLaunchCgroupV2
-  displayName: Build MarinerV2 Gen2 - Trusted Launch CgroupV2
+- name: buildAzureLinuxV2gen2TrustedLaunch
+  displayName: Build AzureLinuxV2 Gen2 - Trusted Launch
   type: boolean
   default: true
 - name: buildMarinerV2gen2kataTrustedLaunch
   displayName: Build MarinerV2 Gen2 Kata - Trusted Launch
   type: boolean
   default: false
-- name: buildMarinerV2gen2kataTrustedLaunchCgroupV2
-  displayName: Build MarinerV2 Gen2 Kata - Trusted Launch CgroupV2
+- name: buildAzureLinuxV2gen2kataTrustedLaunch
+  displayName: Build AzureLinuxV2 Gen2 Kata - Trusted Launch
   type: boolean
   default: false
 - name: build1804fipscontainerd
@@ -332,9 +332,9 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen1
-  - stage: build_vhd_marinerv2_gen1_cgroupv2
+  - stage: build_vhd_azurelinuxv2_gen1
     dependsOn: []
-    condition: eq('${{ parameters.buildMarinerV2gen1CgroupV2 }}', true)
+    condition: eq('${{ parameters.buildAzureLinuxV2gen1 }}', true)
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -358,7 +358,7 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
-            artifactName: marinerv2-gen1-cgroupv2
+            artifactName: azurelinuxv2-gen1
   - stage: build_vhd_marinerv2_gen2
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen2 }}', true)
@@ -386,9 +386,9 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen2
-  - stage: build_vhd_marinerv2_gen2_cgroupv2
+  - stage: build_vhd_azurelinuxv2_gen2
     dependsOn: []
-    condition: eq('${{ parameters.buildMarinerV2gen2CgroupV2 }}', true)
+    condition: eq('${{ parameters.buildAzureLinuxV2gen2 }}', true)
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -412,7 +412,7 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
-            artifactName: marinerv2-gen2-cgroupv2
+            artifactName: azurelinuxv2-gen2
   - stage: build_vhd_marinerv2_gen1_fips
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen1fips }}', true)
@@ -440,9 +440,9 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen1-fips
-  - stage: build_vhd_marinerv2_gen1_fips_cgroupv2
+  - stage: build_vhd_azurelinuxv2_gen1_fips
     dependsOn: []
-    condition: eq('${{ parameters.buildMarinerV2gen1fipsCgroupV2 }}', true)
+    condition: eq('${{ parameters.buildAzureLinuxV2gen1fips }}', true)
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -466,7 +466,7 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
-            artifactName: marinerv2-gen1-fips-cgroupv2
+            artifactName: azurelinuxv2-gen1-fips
   - stage: build_vhd_marinerv2_gen2_fips
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen2fips }}', true)
@@ -494,9 +494,9 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen2-fips
-  - stage: build_vhd_marinerv2_gen2_fips_cgroupv2
+  - stage: build_vhd_azurelinuxv2_gen2_fips
     dependsOn: []
-    condition: eq('${{ parameters.buildMarinerV2gen2fipsCgroupV2 }}', true)
+    condition: eq('${{ parameters.buildAzureLinuxV2gen2fips }}', true)
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -520,7 +520,7 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
-            artifactName: marinerv2-gen2-fips-cgroupv2
+            artifactName: azurelinuxv2-gen2-fips
   - stage: build_vhd_mariner2_arm64
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2ARM64 }}', true)
@@ -548,9 +548,9 @@ stages:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: marinerv2-gen2-arm64
-  - stage: build_vhd_mariner2_arm64_cgroupv2
+  - stage: build_vhd_azurelinuxv2_arm64
     dependsOn: []
-    condition: eq('${{ parameters.buildMarinerV2ARM64CgroupV2 }}', true)
+    condition: eq('${{ parameters.buildAzureLinuxV2ARM64 }}', true)
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -574,7 +574,7 @@ stages:
         displayName: Setup Build Variables
       - template: ./templates/.builder-release-template.yaml
         parameters:
-          artifactName: marinerv2-gen2-arm64-cgroupv2
+          artifactName: azurelinuxv2-gen2-arm64
   - stage: build_vhd_marinerv2_gen2_kata
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen2kata }}', true)
@@ -602,9 +602,9 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen2-kata
-  - stage: build_vhd_marinerv2_gen2_kata_cgroupv2
+  - stage: build_vhd_azurelinuxv2_gen2_kata
     dependsOn: []
-    condition: eq('${{ parameters.buildMarinerV2gen2kataCgroupV2 }}', true)
+    condition: eq('${{ parameters.buildAzureLinuxV2gen2kata }}', true)
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -628,7 +628,7 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
-            artifactName: marinerv2-gen2-kata-cgroupv2
+            artifactName: azurelinuxv2-gen2-kata
   - stage: build_vhd_marinerv2_gen2_trustedlaunch
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen2TrustedLaunch }}', true)
@@ -656,9 +656,9 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen2-trustedlaunch
-  - stage: build_vhd_marinerv2_gen2_trustedlaunch_cgroupv2
+  - stage: build_vhd_azurelinuxv2_gen2_trustedlaunch
     dependsOn: []
-    condition: eq('${{ parameters.buildMarinerV2gen2TrustedLaunchCgroupV2 }}', true)
+    condition: eq('${{ parameters.buildAzureLinuxV2gen2TrustedLaunch }}', true)
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -682,7 +682,7 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
-            artifactName: marinerv2-gen2-trustedlaunch-cgroupv2
+            artifactName: azurelinuxv2-gen2-trustedlaunch
   - stage: build_vhd_marinerv2_gen2_kata_trustedlaunch
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen2kataTrustedLaunch }}', true)
@@ -710,9 +710,9 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen2-kata-trustedlaunch
-  - stage: build_vhd_marinerv2_gen2_kata_trustedlaunch_cgroupv2
+  - stage: build_vhd_azurelinuxv2_gen2_kata_trustedlaunch
     dependsOn: []
-    condition: eq('${{ parameters.buildMarinerV2gen2kataTrustedLaunchCgroupV2 }}', true)
+    condition: eq('${{ parameters.buildAzureLinuxV2gen2kataTrustedLaunch }}', true)
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -736,7 +736,7 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
-            artifactName: marinerv2-gen2-kata-trustedlaunch-cgroupv2
+            artifactName: azurelinuxv2-gen2-kata-trustedlaunch
   - stage: build_vhd_1804_fips_containerd
     dependsOn: []
     condition: eq('${{ parameters.build1804fipscontainerd }}', true)
