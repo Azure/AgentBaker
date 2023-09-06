@@ -27,7 +27,7 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	scenarios := scenario.InitScenarioTable(suiteConfig.scenariosToRun)
+	scenarios := scenario.InitScenarioTable(suiteConfig.scenariosToRun, suiteConfig.scenariosToExclude)
 	if len(scenarios) < 1 {
 		t.Fatal("at least one scenario must be selected to run the e2e suite")
 	}

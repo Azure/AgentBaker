@@ -26,6 +26,8 @@ To run the Go implementation of the E2E test suite locally, simply use `e2e-loca
 SCENARIOS_TO_RUN=base,gpu ./e2e-local.sh
 ```
 
+Furthermore, `SCENARIOS_TO_EXCLUDE` may also optionally be set to specify the set of scenarios which will be excluded from the testing session as a commma-separated list. If both `SCENARIOS_TO_RUN` and `SCENARIOS_TO_EXCLUDE` are specified, `SCENARIOS_TO_RUN` will take precedence.
+
 `KEEP_VMSS` can also be optionally specified to have the test suite retain the bootstrapped VMSS VMs for further debugging. When this option is specified, the private SSH key used to bootstrap the VMs will be included within each scenario's log bundle.
 NOTE: if this option is specified please make sure to manually delete your bootstrapped VMs later. Though, all bootstrapped VMs will eventually be deleted by the ACS test GC regardless.
 
