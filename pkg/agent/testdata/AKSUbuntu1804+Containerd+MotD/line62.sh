@@ -230,10 +230,15 @@ ensureRunc() {
 
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
+    CLEANED_TARGET_VERSION=${TARGET_VERSION}
 
-    CLEANED_TARGET_VERSION=${TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar) 
     if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-        CLEANED_TARGET_VERSION=${TARGET_VERSION%+*} # removes the +azure-ubuntu18.04u1 (or similar) suffix
+        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%+*} # removes the +azure-ubuntu18.04u1 (or similar) suffix
+    else
+        # after upgrading to 1.1.9, CURRENT_VERSION will also include the patch version (such as 1.1.9-1), so we trim it off
+        # since we only care about the major and minor versions when determining if we need to install it
+        CURRENT_VERSION=${CURRENT_VERSION%-*} # removes the -1 patch version (or similar)
+        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar) 
     fi
 
     if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
