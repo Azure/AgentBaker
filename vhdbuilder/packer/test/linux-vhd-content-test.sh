@@ -241,7 +241,7 @@ testChrony() {
   fi
 
   #test if chrony corrects time
-  if [ $os_sku == 'CBLMariner' || $os_sku == 'AzureLinux' ]; then
+  if [[ "$os_sku" == "CBLMariner" || "$os_sku" == "AzureLinux" ]]; then
     echo $test "exiting without checking chrony time correction"
     echo $test "reenable after Mariner updates the chrony config in base image"
     echo "$test:Finish"
