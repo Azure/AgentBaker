@@ -27,18 +27,17 @@ installDeps() {
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
-    BLOBFUSE2_VERSION="2.0.5"
+    BLOBFUSE2_VERSION="2.1.0"
 
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
     fi
 
+    pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
     if [[ $(isARM64) != 1 ]]; then
-        # blobfuse is not present in ARM64
         # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
         # for 22.04, fuse3 is installed. for all others, fuse is installed
         # for 16.04, installed blobfuse1.3.7, for all others except 22.04, installed blobfuse1.4.5
-        pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
         if [[ "${OSVERSION}" == "22.04" ]]; then
             pkg_list+=(fuse3)
         else
@@ -119,7 +118,11 @@ installStandaloneContainerd() {
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.7.1"
+        # pin 18.04 to 1.7.1
+        CONTAINERD_VERSION="1.7.5"
+        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+            CONTAINERD_VERSION="1.7.1"
+        fi
         CONTAINERD_PATCH_VERSION="1"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
@@ -156,6 +159,7 @@ installStandaloneContainerd() {
 }
 
 downloadContainerdFromVersion() {
+    # Patch version isn't used here...?
     CONTAINERD_VERSION=$1
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     # Adding updateAptWithMicrosoftPkg since AB e2e uses an older image version with uncached containerd 1.6 so it needs to download from testing repo.
@@ -210,7 +214,11 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.1.7+azure-ubuntu${UBUNTU_RELEASE}"
+        # pin 1804 to 1.1.7
+        TARGET_VERSION="1.1.9-ubuntu${UBUNTU_RELEASE}"
+        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+            TARGET_VERSION="1.1.7+azure-ubuntu${UBUNTU_RELEASE}"
+        fi
     fi
 
     if [[ $(isARM64) == 1 ]]; then
@@ -222,7 +230,16 @@ ensureRunc() {
 
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-    CLEANED_TARGET_VERSION=${TARGET_VERSION%+*} # removes the +azure-ubuntu18.04u1 (or similar) suffix
+    CLEANED_TARGET_VERSION=${TARGET_VERSION}
+
+    if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%+*} # removes the +azure-ubuntu18.04u1 (or similar) suffix
+    else
+        # after upgrading to 1.1.9, CURRENT_VERSION will also include the patch version (such as 1.1.9-1), so we trim it off
+        # since we only care about the major and minor versions when determining if we need to install it
+        CURRENT_VERSION=${CURRENT_VERSION%-*} # removes the -1 patch version (or similar)
+        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar) 
+    fi
 
     if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
         echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."

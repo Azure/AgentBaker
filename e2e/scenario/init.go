@@ -5,13 +5,20 @@ import (
 )
 
 // Initializes and returns the set of scenarios comprising the E2E suite in table-form.
-func InitScenarioTable(scenariosToRun map[string]bool) Table {
+func InitScenarioTable(include, exclude map[string]bool) Table {
 	table := Table{}
 	for _, scenario := range scenarios() {
-		if scenariosToRun == nil || scenariosToRun[scenario.Name] {
-			log.Printf("will run E2E scenario %q: %s", scenario.Name, scenario.Description)
-			table[scenario.Name] = scenario
+		if include != nil {
+			if !include[scenario.Name] {
+				continue
+			}
+		} else if exclude != nil {
+			if exclude[scenario.Name] {
+				continue
+			}
 		}
+		log.Printf("will run E2E scenario %q: %s", scenario.Name, scenario.Description)
+		table[scenario.Name] = scenario
 	}
 	return table
 }
