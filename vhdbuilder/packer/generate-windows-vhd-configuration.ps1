@@ -45,8 +45,6 @@ switch -Regex ($windowsSku) {
 }
 
 $global:imagesToPull += @(
-    "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
-    "mcr.microsoft.com/oss/kubernetes/pause:3.9",
     "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808",
     # This is for test purpose only to reduce the test duration.
     "mcr.microsoft.com/windows/servercore/iis:latest",
