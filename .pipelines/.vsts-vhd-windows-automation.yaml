@@ -15,6 +15,14 @@ parameters:
   displayName: Release Notes
   type: boolean
   default: false
+- name: VHDProdTrigger
+  displayName: VHD Production Trigger
+  type: boolean
+  default: false
+- name: dryrun
+  displayName: Dry run
+  type: boolean
+  default: False
 
 steps:
 - bash: |
@@ -50,4 +58,16 @@ steps:
         MAPPED_ADO_PAT: $(ADO_PAT)
   displayName: 'Release Notes'
   condition: eq('${{ parameters.ReleaseNotes }}', true)
-  
+- bash: |
+        echo "Triggering windows VHD production pipeline (containerd & docker)"
+        if [[ -n "$CUSTOM_BUILD_DATE" ]]; then
+          build_date=$CUSTOM_BUILD_DATE
+        else
+          build_date=$(date +%Y.%m.%d)
+        fi
+        echo "date for SIG_IMAGE_VERSION to build latest test image for Agentbaker Windows E2E  pipeline is $build_date"
+        /bin/bash vhdbuilder/scripts/windows/automate_vhd_production_trigger.sh ${{parameters.dryrun}} $build_date '${{ parameters.GithubUserName }}' $MAPPED_GITHUB_PAT 
+  displayName: 'Windows VHD Production'
+  condition: eq('${{ parameters.VHDProdTrigger }}', true)
+  env:
+        MAPPED_GITHUB_PAT: $(GITHUB_PAT)
