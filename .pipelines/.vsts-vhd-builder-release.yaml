@@ -341,7 +341,7 @@ stages:
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-            echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
+            echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
             echo '##vso[task.setvariable variable=OS_VERSION]V2'
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
@@ -395,7 +395,7 @@ stages:
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-            echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
+            echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
             echo '##vso[task.setvariable variable=OS_VERSION]V2'
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
@@ -449,7 +449,7 @@ stages:
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-            echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
+            echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
             echo '##vso[task.setvariable variable=OS_VERSION]V2'
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
@@ -503,7 +503,7 @@ stages:
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-            echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
+            echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
             echo '##vso[task.setvariable variable=OS_VERSION]V2'
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
@@ -557,7 +557,7 @@ stages:
       steps:
       - bash: |
           echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-          echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
+          echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
           echo '##vso[task.setvariable variable=OS_VERSION]V2'
           echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
           echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
@@ -611,7 +611,7 @@ stages:
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-            echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
+            echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
             echo '##vso[task.setvariable variable=OS_VERSION]V2kata'
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
@@ -665,7 +665,7 @@ stages:
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-            echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
+            echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
             echo '##vso[task.setvariable variable=OS_VERSION]V2'
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
@@ -719,7 +719,7 @@ stages:
       steps:
         - bash: |
             echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-            echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
+            echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
             echo '##vso[task.setvariable variable=OS_VERSION]V2kata'
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
