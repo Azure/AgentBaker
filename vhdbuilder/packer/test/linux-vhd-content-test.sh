@@ -604,7 +604,7 @@ testPamDSettings() {
 
   # We only want to run this test on Mariner 2.0
   # So if it's anything else, report that we're skipping the test and bail.
-  if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "Azurelinux" || "${os_version}" != "2.0" ]]; then
+  if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" ]]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
   else
 
@@ -795,7 +795,7 @@ testPam() {
 
   # We only want to run this test on Mariner 2.0
   # So if it's anything else, report that we're skipping the test and bail.
-  if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" || "${os_version}" != "2.0" ]]; then
+  if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" ]]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
   else
     # cd to the directory of the script

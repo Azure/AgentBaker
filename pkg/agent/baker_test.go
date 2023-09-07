@@ -691,7 +691,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 		}, nil),
 
-		Entry("AzureLinux v2 with kata", "AzureLinuxV2+Kata", "1.23.8", func(config *datamodel.NodeBootstrappingConfiguration) {
+		Entry("AzureLinux v2 with kata", "AzureLinuxV2+Kata", "1.28.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.OSSKU = "AzureLinux"
 			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV2Gen2Kata
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -733,21 +733,21 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				config.DisableUnattendedUpgrades = false
 			}, nil),
 
-		Entry("AzureLinux v2 with DisableUnattendedUpgrades=true", "AzureLinuxv2+DisableUnattendedUpgrades=true", "1.23.8",
+		Entry("AzureLinux v2 with DisableUnattendedUpgrades=true", "AzureLinuxv2+DisableUnattendedUpgrades=true", "1.28.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.OSSKU = "AzureLinux"
 				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV2Gen2
 				config.DisableUnattendedUpgrades = true
 			}, nil),
 
-		Entry("AzureLinux v2 with DisableUnattendedUpgrades=false", "AzureLinuxv2+DisableUnattendedUpgrades=false", "1.23.8",
+		Entry("AzureLinux v2 with DisableUnattendedUpgrades=false", "AzureLinuxv2+DisableUnattendedUpgrades=false", "1.28.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.OSSKU = "AzureLinux"
 				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV2Gen2
 				config.DisableUnattendedUpgrades = false
 			}, nil),
 
-		Entry("AzureLinux v2 with kata and DisableUnattendedUpgrades=true", "AzureLinuxv2+Kata+DisableUnattendedUpgrades=true", "1.23.8",
+		Entry("AzureLinux v2 with kata and DisableUnattendedUpgrades=true", "AzureLinuxv2+Kata+DisableUnattendedUpgrades=true", "1.28.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.OSSKU = "AzureLinux"
 				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV2Gen2Kata
@@ -757,7 +757,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				config.DisableUnattendedUpgrades = true
 			}, nil),
 
-		Entry("AzureLinux v2 with kata and DisableUnattendedUpgrades=false", "AzureLinuxv2+Kata+DisableUnattendedUpgrades=false", "1.23.8",
+		Entry("AzureLinux v2 with kata and DisableUnattendedUpgrades=false", "AzureLinuxv2+Kata+DisableUnattendedUpgrades=false", "1.28.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.OSSKU = "AzureLinux"
 				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV2Gen2Kata

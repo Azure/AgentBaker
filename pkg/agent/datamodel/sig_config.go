@@ -311,6 +311,10 @@ const (
 	// DO NOT MODIFY: used for freezing linux images for Egress test.
 	FrozenLinuxSIGImageVersionForEgressTest string = "2022.10.03"
 
+	// CBLMarinerV1 pinned to the last image build as Mariner 1.0 is out
+	//  of support and image builds have stopped.
+	FrozenCBLMarinerV1SIGImageVersionForDeprecation string = "202308.28.0"
+
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
 	Windows2019SIGImageVersion string = "17763.2019.221114"
 	Windows2022SIGImageVersion string = "20348.2022.221114"
@@ -512,7 +516,7 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V1",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenCBLMarinerV1SIGImageVersionForDeprecation,
 	}
 
 	SIGCBLMarinerV2Gen1ImageConfigTemplate = SigImageConfigTemplate{
