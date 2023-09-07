@@ -1,3 +1,4 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)
 pool:
   # uncomment this if the auto teardown pool is down.
   # vmImage: ubuntu-22.04
@@ -15,39 +16,63 @@ parameters:
   displayName: Release Notes
   type: boolean
   default: false
+- name: ArtifactTrigger
+  displayName: SIG Artifact Trigger
+  type: boolean
+  default: false
 
-steps:
-- bash: |
-        az extension add -n azure-devops
-        echo $MAPPED_ADO_PAT | az devops login --organization=https://dev.azure.com/msazure
-        az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
-  env:
-        MAPPED_ADO_PAT: $(ADO_PAT)
-  displayName: 'az devops login'
-- bash: |
-        echo "Bumping windows VHD base image version"
-        /bin/bash vhdbuilder/scripts/windows/automate_version_bump.sh $MAPPED_GITHUB_PAT '${{ parameters.GithubUserName }}' "$CHERRY_PICK_COMMIT_ID"
-  env:
-        MAPPED_GITHUB_PAT: $(GITHUB_PAT)
-  displayName: 'Image Version Bumping'
-  condition: eq('${{ parameters.ImageBump }}', true)
-- bash: |
-        echo "PR for Release Notes"
-        az extension add -n azure-devops
-        echo $MAPPED_ADO_PAT | az devops login --organization=https://dev.azure.com/msazure
-        az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
-        cd vhdbuilder/release-notes/autonotes
-        VER=$(go version)
-        echo "Go version is $VER"
-        go install .
-        cd ../../..
-        echo "go run autonotes to shuffle release note files from Azure Pipelines into the AgentBaker repo structure"
-        go run vhdbuilder/release-notes/autonotes/main.go --build $BUILD_ID --include 2019-containerd,2022-containerd,2022-containerd-gen2
-        echo "run bash to create pull request for the shuffled release note files"
-        /bin/bash vhdbuilder/scripts/windows/automate_release_notes.sh $BUILD_ID $MAPPED_GITHUB_PAT '${{ parameters.GithubUserName }}'
-  env:
-        MAPPED_GITHUB_PAT: $(GITHUB_PAT)
-        MAPPED_ADO_PAT: $(ADO_PAT)
-  displayName: 'Release Notes'
-  condition: eq('${{ parameters.ReleaseNotes }}', true)
-  
+stages:
+  - stage: bump_version
+    dependsOn: []
+    condition: eq('${{ parameters.ImageBump }}', true)
+    jobs:
+    - job: bump
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+                az extension add -n azure-devops
+                echo $MAPPED_ADO_PAT | az devops login --organization=https://dev.azure.com/msazure
+                az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
+          env:
+                MAPPED_ADO_PAT: $(ADO_PAT)
+          displayName: 'az devops login'
+        - bash: |
+                echo "Bumping windows VHD base image version"
+                /bin/bash vhdbuilder/scripts/windows/automate_version_bump.sh $MAPPED_GITHUB_PAT '${{ parameters.GithubUserName }}' "$CHERRY_PICK_COMMIT_ID"
+          env:
+                MAPPED_GITHUB_PAT: $(GITHUB_PAT)
+          displayName: 'Image Version Bumping'
+          condition: eq('${{ parameters.ImageBump }}', true)
+
+  - stage: ev2_artifact
+    dependsOn: []
+    condition: eq('${{ parameters.ArtifactTrigger }}', true)
+    jobs:
+    - job: ev2
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+                az extension add -n azure-devops
+                echo $MAPPED_ADO_PAT | az devops login --organization=https://dev.azure.com/msazure
+                az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
+          env:
+                MAPPED_ADO_PAT: $(ADO_PAT)
+          displayName: 'az devops login'
+        - bash: |
+                echo "Triggering windows VHD build ev2 artifacts pipeline"
+                az login --identity
+                pipeline_id="322622"
+                echo "Build ID for the release is $BUILD_ID"
+                run_id=$(az pipelines run --id $pipeline_id --variables VHD_PIPELINE_RUN_ID=$BUILD_ID | jq -r '.id')
+                while ! az pipelines runs show --id $run_id | grep -q '"result": "succeeded"'; do
+                    echo "ev2 artifacts still running for build $BUILD_ID"
+                    sleep 100
+                done
+                echo "ev2 artifacts successfully built for build $BUILD_ID"
+                echo "Windows images artifacts: https://msazure.visualstudio.com/CloudNativeCompute/_build/results?buildId=$run_id&view=results"
+                echo "Build Number is $(Build.BuildNumber)"
+                echo "##vso[task.setvariable variable=RUN_ID]$run_id"
+                echo "Set run id to $BUILD_ID for the template"
+          displayName: 'ev2 Artifact Pipeline Trigger'
+          condition: eq('${{ parameters.ArtifactTrigger }}', true)
+        - template: ./templates/.builder-release-template-windows-ev2.yaml
