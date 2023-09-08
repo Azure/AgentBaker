@@ -45,8 +45,6 @@ switch -Regex ($windowsSku) {
 }
 
 $global:imagesToPull += @(
-    "mcr.microsoft.com/oss/kubernetes/pause:3.6-hotfix.20220114",
-    "mcr.microsoft.com/oss/kubernetes/pause:3.9",
     "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808",
     # This is for test purpose only to reduce the test duration.
     "mcr.microsoft.com/windows/servercore/iis:latest",
@@ -59,12 +57,12 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.2-windows-hp",
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.3-windows-hp",
     # azurefile-csi:v1.28 is only for AKS 1.27+, v1.24, v1.26 is for other AKS versions
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.6",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.7",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.5",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.9",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.6",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.2-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.7",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.3-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.4-windows-hp",
     # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.4",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
