@@ -189,10 +189,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						GalleryName:   "akscblmariner",
 						ResourceGroup: "resourcegroup",
 					},
-					"AKSAzureLinux": {
-						GalleryName:   "aksazurelinux",
-						ResourceGroup: "resourcegroup",
-					},
 					"AKSWindows": {
 						GalleryName:   "AKSWindows",
 						ResourceGroup: "AKS-Windows",
@@ -691,14 +687,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 		}, nil),
 
-		Entry("AzureLinux v2 with kata", "AzureLinuxV2+Kata", "1.28.0", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.OSSKU = "AzureLinux"
-			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV2Gen2Kata
-			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
-				ContainerRuntime: datamodel.Containerd,
-			}
-		}, nil),
-
 		Entry("Mariner v2 with DisableUnattendedUpgrades=true", "Marinerv2+DisableUnattendedUpgrades=true", "1.23.8",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.OSSKU = "Mariner"
@@ -727,40 +715,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.OSSKU = "Mariner"
 				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSCBLMarinerV2Gen2Kata
-				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
-					ContainerRuntime: datamodel.Containerd,
-				}
-				config.DisableUnattendedUpgrades = false
-			}, nil),
-
-		Entry("AzureLinux v2 with DisableUnattendedUpgrades=true", "AzureLinuxv2+DisableUnattendedUpgrades=true", "1.28.0",
-			func(config *datamodel.NodeBootstrappingConfiguration) {
-				config.OSSKU = "AzureLinux"
-				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV2Gen2
-				config.DisableUnattendedUpgrades = true
-			}, nil),
-
-		Entry("AzureLinux v2 with DisableUnattendedUpgrades=false", "AzureLinuxv2+DisableUnattendedUpgrades=false", "1.28.0",
-			func(config *datamodel.NodeBootstrappingConfiguration) {
-				config.OSSKU = "AzureLinux"
-				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV2Gen2
-				config.DisableUnattendedUpgrades = false
-			}, nil),
-
-		Entry("AzureLinux v2 with kata and DisableUnattendedUpgrades=true", "AzureLinuxv2+Kata+DisableUnattendedUpgrades=true", "1.28.0",
-			func(config *datamodel.NodeBootstrappingConfiguration) {
-				config.OSSKU = "AzureLinux"
-				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV2Gen2Kata
-				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
-					ContainerRuntime: datamodel.Containerd,
-				}
-				config.DisableUnattendedUpgrades = true
-			}, nil),
-
-		Entry("AzureLinux v2 with kata and DisableUnattendedUpgrades=false", "AzureLinuxv2+Kata+DisableUnattendedUpgrades=false", "1.28.0",
-			func(config *datamodel.NodeBootstrappingConfiguration) {
-				config.OSSKU = "AzureLinux"
-				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSAzureLinuxV2Gen2Kata
 				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 					ContainerRuntime: datamodel.Containerd,
 				}
@@ -1241,10 +1195,6 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 					},
 					"AKSCBLMariner": {
 						GalleryName:   "akscblmariner",
-						ResourceGroup: "resourcegroup",
-					},
-					"AKSAzureLinux": {
-						GalleryName:   "aksazurelinux",
 						ResourceGroup: "resourcegroup",
 					},
 					"AKSWindows": {

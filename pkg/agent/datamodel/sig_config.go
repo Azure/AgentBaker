@@ -112,22 +112,13 @@ var AvailableContainerdDistros = []Distro{
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
-	AKSAzureLinuxV2,
 	AKSCBLMarinerV2Gen2,
-	AKSAzureLinuxV2Gen2,
 	AKSCBLMarinerV2FIPS,
-	AKSAzureLinuxV2FIPS,
 	AKSCBLMarinerV2Gen2FIPS,
-	AKSAzureLinuxV2Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
-	AKSAzureLinuxV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
-	AKSAzureLinuxV2Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
-	AKSAzureLinuxV2KataGen2TL,
 	AKSUbuntuArm64Containerd2204Gen2,
-	AKSCBLMarinerV2Arm64Gen2,
-	AKSAzureLinuxV2Arm64Gen2,
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
@@ -161,39 +152,19 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
 	AKSUbuntuMinimalContainerd2204Gen2,
-	AKSCBLMarinerV2Gen2,
-	AKSAzureLinuxV2Gen2,
-	AKSCBLMarinerV2Gen2FIPS,
-	AKSAzureLinuxV2Gen2FIPS,
-	AKSCBLMarinerV2Gen2Kata,
-	AKSAzureLinuxV2Gen2Kata,
-	AKSCBLMarinerV2Gen2TL,
-	AKSAzureLinuxV2Gen2TL,
-	AKSCBLMarinerV2KataGen2TL,
-	AKSAzureLinuxV2KataGen2TL,
-	AKSCBLMarinerV2Arm64Gen2,
-	AKSAzureLinuxV2Arm64Gen2,
 }
 
 //nolint:gochecknoglobals
-var AvailableAzureLinuxDistros = []Distro{
+var AvailableCBLMarinerDistros = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
-	AKSAzureLinuxV2,
 	AKSCBLMarinerV2Gen2,
-	AKSAzureLinuxV2Gen2,
 	AKSCBLMarinerV2FIPS,
-	AKSAzureLinuxV2FIPS,
 	AKSCBLMarinerV2Gen2FIPS,
-	AKSAzureLinuxV2Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
-	AKSAzureLinuxV2Gen2Kata,
 	AKSCBLMarinerV2Arm64Gen2,
-	AKSAzureLinuxV2Arm64Gen2,
 	AKSCBLMarinerV2Gen2TL,
-	AKSAzureLinuxV2Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
-	AKSAzureLinuxV2KataGen2TL,
 }
 
 // IsContainerdSKU returns true if distro type is containerd-enabled.
@@ -222,8 +193,8 @@ func (d Distro) IsGen2Distro() bool {
 	}
 	return false
 }
-func (d Distro) IsAzureLinuxDistro() bool {
-	for _, distro := range AvailableAzureLinuxDistros {
+func (d Distro) IsCBLMarinerDistro() bool {
+	for _, distro := range AvailableCBLMarinerDistros {
 		if d == distro {
 			return true
 		}
@@ -298,8 +269,6 @@ const (
 	AKSUbuntuResourceGroup         string = "AKS-Ubuntu"
 	AKSCBLMarinerGalleryName       string = "AKSCBLMariner"
 	AKSCBLMarinerResourceGroup     string = "AKS-CBLMariner"
-	AKSAzureLinuxGalleryName       string = "AKSAzureLinux"
-	AKSAzureLinuxResourceGroup     string = "AKS-AzureLinux"
 	AKSUbuntuEdgeZoneGalleryName   string = "AKSUbuntuEdgeZone"
 	AKSUbuntuEdgeZoneResourceGroup string = "AKS-Ubuntu-EdgeZone"
 )
@@ -526,23 +495,9 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	SIGAzureLinuxV2Gen1ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
-		Definition:    "V2",
-		Version:       LinuxSIGImageVersion,
-	}
-
-	SIGCBLMarinerV2Gen2ImageConfigTemplate = SigImageConfigTemplate{
+	SIGCBLMarinerV2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
-		Definition:    "V2gen2",
-		Version:       LinuxSIGImageVersion,
-	}
-
-	SIGAzureLinuxV2Gen2ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2",
 		Version:       LinuxSIGImageVersion,
 	}
@@ -554,23 +509,9 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	SIGAzureLinuxV2Gen1FIPSImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
-		Definition:    "V2fips",
-		Version:       LinuxSIGImageVersion,
-	}
-
 	SIGCBLMarinerV2Gen2FIPSImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
-		Definition:    "V2gen2fips",
-		Version:       LinuxSIGImageVersion,
-	}
-
-	SIGAzureLinuxV2Gen2FIPSImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2fips",
 		Version:       LinuxSIGImageVersion,
 	}
@@ -582,23 +523,9 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	SIGAzureLinuxV2KataImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
-		Definition:    "V2katagen2",
-		Version:       LinuxSIGImageVersion,
-	}
-
 	SIGCBLMarinerV2Arm64ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
-		Definition:    "V2gen2arm64",
-		Version:       LinuxSIGImageVersion,
-	}
-
-	SIGAzureLinuxV2Arm64ImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2arm64",
 		Version:       LinuxSIGImageVersion,
 	}
@@ -610,23 +537,9 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
-	SIGAzureLinuxV2TLImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
-		Definition:    "V2gen2TL",
-		Version:       LinuxSIGImageVersion,
-	}
-
 	SIGCBLMarinerV2KataGen2TLImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
-		Definition:    "V2katagen2TL",
-		Version:       CBLMarinerV2KataGen2TLSIGImageVersion,
-	}
-
-	SIGAzureLinuxV2KataGen2TLImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2katagen2TL",
 		Version:       CBLMarinerV2KataGen2TLSIGImageVersion,
 	}
@@ -685,31 +598,17 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuEgressContainerd2204Gen2:  SIGUbuntuEgressContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
-
 func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
 		AKSCBLMarinerV1:           SIGCBLMarinerV1ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2:           SIGCBLMarinerV2Gen1ImageConfigTemplate.WithOptions(opts...),
-		AKSCBLMarinerV2Gen2:       SIGCBLMarinerV2Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSCBLMarinerV2Gen2:       SIGCBLMarinerV2ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2FIPS:       SIGCBLMarinerV2Gen1FIPSImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2FIPS:   SIGCBLMarinerV2Gen2FIPSImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2Kata:   SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Arm64Gen2:  SIGCBLMarinerV2Arm64ImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2Gen2TL:     SIGCBLMarinerV2TLImageConfigTemplate.WithOptions(opts...),
 		AKSCBLMarinerV2KataGen2TL: SIGCBLMarinerV2KataGen2TLImageConfigTemplate.WithOptions(opts...),
-	}
-}
-
-func getSigAzureLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
-	return map[Distro]SigImageConfig{
-		AKSAzureLinuxV2:           SIGAzureLinuxV2Gen1ImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2Gen2:       SIGAzureLinuxV2Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2FIPS:       SIGAzureLinuxV2Gen1FIPSImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2Gen2FIPS:   SIGAzureLinuxV2Gen2FIPSImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2Gen2Kata:   SIGAzureLinuxV2KataImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2Arm64Gen2:  SIGAzureLinuxV2Arm64ImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2Gen2TL:     SIGAzureLinuxV2TLImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2KataGen2TL: SIGAzureLinuxV2KataGen2TLImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
@@ -786,12 +685,6 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 	}
 	c.SigCBLMarinerImageConfig = getSigCBLMarinerImageConfigMapWithOpts(fromACSCBLMariner)
 
-	fromACSAzureLinux, err := withACSSIGConfig(sigConfig, "AKSAzureLinux")
-	if err != nil {
-		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSAzureLinux: %w", err)
-	}
-	c.SigAzureLinuxImageConfig = getSigAzureLinuxImageConfigMapWithOpts(fromACSAzureLinux)
-
 	fromACSWindows, err := withACSSIGConfig(sigConfig, "AKSWindows")
 	if err != nil {
 		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for Windows: %w", err)
@@ -814,7 +707,6 @@ func GetAzurePublicSIGConfigForTest() SIGAzureEnvironmentSpecConfig {
 		SubscriptionID:               AzurePublicCloudSigSubscription,
 		SigUbuntuImageConfig:         getSigUbuntuImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigCBLMarinerImageConfig:     getSigCBLMarinerImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
-		SigAzureLinuxImageConfig:     getSigAzureLinuxImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigWindowsImageConfig:        getSigWindowsImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 		SigUbuntuEdgeZoneImageConfig: getSigUbuntuEdgeZoneImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 	}
