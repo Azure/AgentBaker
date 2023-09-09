@@ -104,11 +104,15 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 			SIG_IMAGE_NAME=CBLMariner${SIG_IMAGE_NAME}
 		fi
 
+		if [[ "${OS_SKU}" == "AzureLinux" ]]; then
+			SIG_IMAGE_NAME=AzureLinux${SIG_IMAGE_NAME}
+		fi
+
 		if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
 			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}TL
 		fi
 
-		if [[ "${HYPERV_GENERATION,,}" == "v2" && ("${OS_SKU}" == "CBLMariner" || "${OS_SKU}" == "Ubuntu") ]]; then
+		if [[ "${HYPERV_GENERATION,,}" == "v2" && ("${OS_SKU}" == "CBLMariner" || "${OS_SKU}" == "AzureLinux" || "${OS_SKU}" == "Ubuntu") ]]; then
 			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Gen2
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, using auto-generated value: ${SIG_IMAGE_NAME}"

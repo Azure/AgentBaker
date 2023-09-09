@@ -423,6 +423,10 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 					GalleryName:   "akscblmariner",
 					ResourceGroup: "resourcegroup",
 				},
+				"AKSAzureLinux": {
+					GalleryName:   "aksazurelinux",
+					ResourceGroup: "resourcegroup",
+				},
 				"AKSWindows": {
 					GalleryName:   "AKSWindows",
 					ResourceGroup: "AKS-Windows",

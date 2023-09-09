@@ -230,7 +230,7 @@ testChrony() {
   #test chrony is running
   #if mariner check chronyd, else check chrony
   os_chrony="chrony"
-  if [[ "$os_sku" == "CBLMariner" ]]; then
+  if [[ "$os_sku" == "CBLMariner" || "$os_sku" == "AzureLinux" ]]; then
     os_chrony="chronyd"
   fi
   status=$(systemctl show -p SubState --value $os_chrony)
@@ -241,7 +241,7 @@ testChrony() {
   fi
 
   #test if chrony corrects time
-  if [ $os_sku == 'CBLMariner' ]; then
+  if [[ "$os_sku" == "CBLMariner" || "$os_sku" == "AzureLinux" ]]; then
     echo $test "exiting without checking chrony time correction"
     echo $test "reenable after Mariner updates the chrony config in base image"
     echo "$test:Finish"
@@ -604,7 +604,7 @@ testPamDSettings() {
 
   # We only want to run this test on Mariner 2.0
   # So if it's anything else, report that we're skipping the test and bail.
-  if [[ "${os_sku}" != "CBLMariner" || "${os_version}" != "2.0" ]]; then
+  if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" ]]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
   else
 
@@ -795,7 +795,7 @@ testPam() {
 
   # We only want to run this test on Mariner 2.0
   # So if it's anything else, report that we're skipping the test and bail.
-  if [[ "${os_sku}" != "CBLMariner" || "${os_version}" != "2.0" ]]; then
+  if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" ]]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
   else
     # cd to the directory of the script
