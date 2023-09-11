@@ -159,7 +159,8 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/operator-generic:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.10"
+        "1.12.10",
+        "1.13.5"
       ]
     },
     {
@@ -167,7 +168,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.12.10",
-        "1.12.10-1"
+        "1.12.10-1",
+        "1.13.5"
       ]
     },
     {
@@ -227,12 +229,12 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.24.6",
         "v1.24.7",
-        "v1.26.5",
+        "v1.24.9",
         "v1.26.6",
-        "v1.28.2",
-        "v1.28.3"
+        "v1.26.7",
+        "v1.28.3",
+        "v1.28.4"
       ]
     },
     {
