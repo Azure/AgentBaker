@@ -901,7 +901,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return gpuNeedsFabricManager(profile.VMSize)
 		},
 		"GPUDriverVersion": func() string {
-			return getGPUDriverVersion(profile.VMSize)
+			return GetGPUDriverVersion(profile.VMSize)
 		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			// Only need to enable HNSRemediator for Windows 2019
@@ -964,7 +964,7 @@ func getPortRangeEndValue(portRange string) int {
 // they typically use GRID, not CUDA drivers, and will fail to install CUDA drivers.
 // NVv1 seems to run with CUDA, NVv5 requires GRID.
 // NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?).
-func getGPUDriverVersion(size string) string {
+func GetGPUDriverVersion(size string) string {
 	if useGridDrivers(size) {
 		return datamodel.Nvidia510GridDriverVersion
 	}
