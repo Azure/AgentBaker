@@ -530,7 +530,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2",
-		Version:       LinuxSIGImageVersion,
+		Version:       "202309.11.0",
 	}
 
 	SIGCBLMarinerV2Gen2ImageConfigTemplate = SigImageConfigTemplate{
@@ -544,7 +544,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2",
-		Version:       LinuxSIGImageVersion,
+		Version:       "202309.11.0",
 	}
 
 	SIGCBLMarinerV2Gen1FIPSImageConfigTemplate = SigImageConfigTemplate{
@@ -558,7 +558,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2fips",
-		Version:       LinuxSIGImageVersion,
+		Version:       "202309.11.0",
 	}
 
 	SIGCBLMarinerV2Gen2FIPSImageConfigTemplate = SigImageConfigTemplate{
@@ -572,7 +572,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2fips",
-		Version:       LinuxSIGImageVersion,
+		Version:       "202309.11.0",
 	}
 
 	SIGCBLMarinerV2KataImageConfigTemplate = SigImageConfigTemplate{
@@ -586,7 +586,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2katagen2",
-		Version:       LinuxSIGImageVersion,
+		Version:       "202309.11.0",
 	}
 
 	SIGCBLMarinerV2Arm64ImageConfigTemplate = SigImageConfigTemplate{
@@ -600,7 +600,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2arm64",
-		Version:       LinuxSIGImageVersion,
+		Version:       "202309.11.0",
 	}
 
 	SIGCBLMarinerV2TLImageConfigTemplate = SigImageConfigTemplate{
@@ -614,7 +614,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2TL",
-		Version:       LinuxSIGImageVersion,
+		Version:       "202309.11.0",
 	}
 
 	SIGCBLMarinerV2KataGen2TLImageConfigTemplate = SigImageConfigTemplate{
