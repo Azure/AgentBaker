@@ -124,7 +124,6 @@ var AvailableContainerdDistros = []Distro{
 	AKSCBLMarinerV2Gen2TL,
 	AKSAzureLinuxV2Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
-	AKSAzureLinuxV2KataGen2TL,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
@@ -170,7 +169,6 @@ var AvailableGen2Distros = []Distro{
 	AKSCBLMarinerV2Gen2TL,
 	AKSAzureLinuxV2Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
-	AKSAzureLinuxV2KataGen2TL,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
 }
@@ -193,7 +191,6 @@ var AvailableAzureLinuxDistros = []Distro{
 	AKSCBLMarinerV2Gen2TL,
 	AKSAzureLinuxV2Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
-	AKSAzureLinuxV2KataGen2TL,
 }
 
 // IsContainerdSKU returns true if distro type is containerd-enabled.
@@ -624,13 +621,6 @@ var (
 		Version:       CBLMarinerV2KataGen2TLSIGImageVersion,
 	}
 
-	SIGAzureLinuxV2KataGen2TLImageConfigTemplate = SigImageConfigTemplate{
-		ResourceGroup: AKSAzureLinuxResourceGroup,
-		Gallery:       AKSAzureLinuxGalleryName,
-		Definition:    "V2katagen2TL",
-		Version:       CBLMarinerV2KataGen2TLSIGImageVersion,
-	}
-
 	SIGWindows2019ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
@@ -702,14 +692,13 @@ func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 
 func getSigAzureLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
-		AKSAzureLinuxV2:           SIGAzureLinuxV2Gen1ImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2Gen2:       SIGAzureLinuxV2Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2FIPS:       SIGAzureLinuxV2Gen1FIPSImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2Gen2FIPS:   SIGAzureLinuxV2Gen2FIPSImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2Gen2Kata:   SIGAzureLinuxV2KataImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2Arm64Gen2:  SIGAzureLinuxV2Arm64ImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2Gen2TL:     SIGAzureLinuxV2TLImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2KataGen2TL: SIGAzureLinuxV2KataGen2TLImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV2:          SIGAzureLinuxV2Gen1ImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV2Gen2:      SIGAzureLinuxV2Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV2FIPS:      SIGAzureLinuxV2Gen1FIPSImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV2Gen2FIPS:  SIGAzureLinuxV2Gen2FIPSImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV2Gen2Kata:  SIGAzureLinuxV2KataImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV2Arm64Gen2: SIGAzureLinuxV2Arm64ImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV2Gen2TL:    SIGAzureLinuxV2TLImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
