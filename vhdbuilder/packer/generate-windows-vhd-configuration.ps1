@@ -148,9 +148,10 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.0/windowszip/v1.28.0-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
-        # Azure CNI v1 (legacy) upgrading from v1.4.35 to v1.5.6
+        # Azure CNI v1 (legacy)
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.5.6/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.5.6.zip",
+        "https://acs-mirror.azureedge.net/azure-cni/v1.5.6.1/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.5.6.1.zip",
         # Azure CNI v2 (pod subnet) upgrading from v1.4.35 to v1.5.5
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.4.35.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.5.5/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.5.5.zip",
