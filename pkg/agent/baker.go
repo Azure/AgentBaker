@@ -474,7 +474,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"IsMariner": func() bool {
 			// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner
-			return profile.Distro.IsCBLMarinerDistro() || isMariner(config.OSSKU)
+			return profile.Distro.IsAzureLinuxDistro() || isMariner(config.OSSKU)
 		},
 		"IsKata": func() bool {
 			return profile.Distro.IsKataDistro()
