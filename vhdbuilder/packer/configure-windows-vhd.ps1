@@ -107,7 +107,7 @@ function Invoke-Executable {
     }
 
     Write-Log "Exhausted retries for $Executable $ArgList"
-    exit 1
+    throw "Exhausted retries for $Executable $ArgList"
 }
 
 function Expand-OS-Partition {
@@ -153,21 +153,12 @@ function Disable-WindowsUpdates {
     Set-ItemProperty -Path $AutoUpdatePath -Name NoAutoUpdate -Value 1 | Out-Null
 }
 
-function Retag-ImageForAzureChinaCloud {
-    Param(
-        [string]
-        $imageUrl
-    )
-    Write-Log "Retagging image $imageUrl for AzureChinaCloud"
-    $retagImageUrl=$image.replace('mcr.microsoft.com', 'mcr.azk8s.cn')
-    ctr.exe -n k8s.io image tag $imageUrl $retagImageUrl
-}
-
 function Get-ContainerImages {
     Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
     foreach ($image in $imagesToPull) {
-        if (($image.Contains("mcr.microsoft.com/windows/servercore") -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
-            ($image.Contains("mcr.microsoft.com/windows/nanoserver") -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL))) {
+        $imagePrefix = $image.Split(":")[0]
+        if (($imagePrefix -eq "mcr.microsoft.com/windows/servercore" -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
+            ($imagePrefix -eq "mcr.microsoft.com/windows/nanoserver" -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL))) {
             $url=""
             if ($image.Contains("mcr.microsoft.com/windows/servercore")) {
                 $url=$env:WindowsServerCoreImageURL
@@ -192,8 +183,6 @@ function Get-ContainerImages {
                 & crictl.exe pull $image
             } -ErrorMessage "Failed to pull image $image"
         }
-
-        Retag-ImageForAzureChinaCloud -imageUrl $image
     }
     Stop-Job  -Name containerd
     Remove-Job -Name containerd
@@ -211,6 +200,24 @@ function Get-FilesToCacheOnVHD {
 
             Write-Log "Downloading $URL to $dest"
             DownloadFileWithRetry -URL $URL -Dest $dest
+        }
+    }
+}
+
+function Get-PrivatePackagesToCacheOnVHD {
+    if (![string]::IsNullOrEmpty($env:WindowsPrivatePackagesURL)) {
+        Write-Log "Caching private packages on VHD"
+    
+        $dir = "c:\akse-cache\private-packages"
+        New-Item -ItemType Directory $dir -Force | Out-Null
+
+        $urls = $env:WindowsPrivatePackagesURL.Split(",")
+        foreach ($url in $urls) {
+            $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
+            $dest = [IO.Path]::Combine($dir, $fileName)
+
+            Write-Log "Downloading a private package to $dest"
+            DownloadFileWithRetry -URL $url -Dest $dest -redactUrl
         }
     }
 }
@@ -285,13 +292,13 @@ function Install-WindowsPatches {
                     }
                     default {
                         Write-Log "Error during install of $fileName. ExitCode: $($proc.ExitCode)"
-                        exit 1
+                        throw "Error during install of $fileName. ExitCode: $($proc.ExitCode)"
                     }
                 }
             }
             default {
                 Write-Log "Installing patches with extension $fileExtension is not currently supported."
-                exit 1
+                throw "Installing patches with extension $fileExtension is not currently supported."
             }
         }
     }
@@ -342,8 +349,8 @@ function Update-Registry {
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name EnableCompartmentNamespace -Value 1 -Type DWORD
 
     if ($env:WindowsSKU -Like '2019*') {
-        Write-Log "Enable a HNS fix (0x40) in 2022-11B and another HNS fix (0x10)"
-        $hnsControlFlag=0x50
+        Write-Log "Keep the HNS fix (0x10) even though it is enabled by default. Windows are still using HNSControlFlag and may need it in the future."
+        $hnsControlFlag=0x10
         $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -ErrorAction Ignore)
         if (![string]::IsNullOrEmpty($currentValue)) {
             Write-Log "The current value of HNSControlFlag is $currentValue"
@@ -516,6 +523,78 @@ function Update-Registry {
             Write-Log "The current value of 3398685324 is $currentValue"
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3398685324 -Value 1 -Type DWORD
+
+        Write-Log "Enable 4 fixes in 2023-07B"
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNodeToClusterIpv6 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HnsNodeToClusterIpv6 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNodeToClusterIpv6 -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSNpmIpsetLimitChange -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HNSNpmIpsetLimitChange is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSNpmIpsetLimitChange -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSLbNatDupRuleChange -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HNSLbNatDupRuleChange is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSLbNatDupRuleChange -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpIpv6DipsPrintingIsEnabled -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of VfpIpv6DipsPrintingIsEnabled is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpIpv6DipsPrintingIsEnabled -Value 1 -Type DWORD
+
+        Write-Log "Enable 3 fixes in 2023-08B"
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSUpdatePolicyForEndpointChange -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HNSUpdatePolicyForEndpointChange is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSUpdatePolicyForEndpointChange -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSFixExtensionUponRehydration -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HNSFixExtensionUponRehydration is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSFixExtensionUponRehydration -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 87798413 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 87798413 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 87798413 -Value 1 -Type DWORD
+
+        Write-Log "Enable 4 fixes in 2023-09B"
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4289201804 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 4289201804 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4289201804 -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1355135117 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 1355135117 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1355135117 -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name RemoveSourcePortPreservationForRest -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of RemoveSourcePortPreservationForRest is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name RemoveSourcePortPreservationForRest -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2214038156 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 2214038156 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2214038156 -Value 1 -Type DWORD
     }
 }
 
@@ -544,6 +623,39 @@ function Exclude-ReservedUDPSourcePort()
     Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "add", "excludedportrange", "udp", "65330", "1", "persistent")
 }
 
+function Get-LatestWindowsDefenderPlatformUpdate {
+    $downloadFilePath = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), "Mpupdate.exe")
+ 
+    $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
+    $latestDefenderProductVersion = ([xml]((Invoke-WebRequest -UseBasicParsing -Uri:"$global:defenderUpdateInfoUrl").Content)).versions.platform
+ 
+    if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
+        Write-Log "Update started. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+        DownloadFileWithRetry -URL $global:defenderUpdateUrl -Dest $downloadFilePath
+        $proc = Start-Process -PassThru -FilePath $downloadFilePath -Wait
+        Start-Sleep -Seconds 10
+        switch ($proc.ExitCode) {
+            0 {
+                Write-Log "Finished update of $downloadFilePath"
+            }
+            default {
+                Write-Log "Error during update of $downloadFilePath. ExitCode: $($proc.ExitCode)"
+                throw "Error during update of $downloadFilePath. ExitCode: $($proc.ExitCode)"
+            }
+        }
+        $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
+        if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
+            throw "Update failed. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+        }
+        else {
+            Write-Log "Update succeeded. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+        }
+    }
+    else {
+        Write-Log "Update not required. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+    }
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -553,6 +665,7 @@ try{
             Write-Log "Performing actions for provisioning phase 1"
             Expand-OS-Partition
             Exclude-ReservedUDPSourcePort
+            Get-LatestWindowsDefenderPlatformUpdate
             Disable-WindowsUpdates
             Set-WinRmServiceDelayedStart
             Update-DefenderSignatures
@@ -567,12 +680,13 @@ try{
             Update-Registry
             Get-ContainerImages
             Get-FilesToCacheOnVHD
+            Get-PrivatePackagesToCacheOnVHD
             Remove-Item -Path c:\windows-vhd-configuration.ps1
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"
-            exit 1
+            throw "Unable to determine provisiong phase... exiting"
         }
     }
 }

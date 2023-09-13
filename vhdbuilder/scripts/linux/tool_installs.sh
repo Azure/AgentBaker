@@ -5,37 +5,10 @@ ERR_IOVISOR_APT_KEY_TIMEOUT=169 {{/* Timeout waiting for IOVisor apt-key */}}
 ERR_BCC_INSTALL_TIMEOUT=170 {{/* Timeout waiting for bcc install */}}
 ERR_BPFTRACE_BIN_DOWNLOAD_FAIL=171 {{/* Failed to download bpftrace binary */}}
 ERR_BPFTRACE_TOOLS_DOWNLOAD_FAIL=172 {{/* Failed to download bpftrace default programs */}}
+ERR_BPFTRACE_TOOLS_INSTALL_TIMEOUT=173 {{/* Failed to install bpftrace default programs */}}
 
 BPFTRACE_DOWNLOADS_DIR="/opt/bpftrace/downloads"
 UBUNTU_CODENAME=$(lsb_release -c -s)
-
-installBpftrace() {
-    local version="v0.9.4"
-    local bpftrace_bin="bpftrace"
-    local bpftrace_tools="bpftrace-tools.tar"
-    local bpftrace_url="https://upstreamartifacts.azureedge.net/$bpftrace_bin/$version"
-    local bpftrace_filepath="/usr/local/bin/$bpftrace_bin"
-    local tools_filepath="/usr/local/share/$bpftrace_bin"
-    if [[ -f "$bpftrace_filepath" ]]; then
-        installed_version="$($bpftrace_bin -V | cut -d' ' -f2)"
-        if [[ "$version" == "$installed_version" ]]; then
-            return
-        fi
-        rm "$bpftrace_filepath"
-        if [[ -d "$tools_filepath" ]]; then
-            rm -r  "$tools_filepath"
-        fi
-    fi
-    mkdir -p "$tools_filepath"
-    install_dir="$BPFTRACE_DOWNLOADS_DIR/$version"
-    mkdir -p "$install_dir"
-    download_path="$install_dir/$bpftrace_tools"
-    retrycmd_if_failure 30 5 60 curl -fSL -o "$bpftrace_filepath" "$bpftrace_url/$bpftrace_bin" || exit $ERR_BPFTRACE_BIN_DOWNLOAD_FAIL
-    retrycmd_if_failure 30 5 60 curl -fSL -o "$download_path" "$bpftrace_url/$bpftrace_tools" || exit $ERR_BPFTRACE_TOOLS_DOWNLOAD_FAIL
-    tar -xvf "$download_path" -C "$tools_filepath"
-    chmod +x "$bpftrace_filepath"
-    chmod -R +x "$tools_filepath/tools"
-}
 
 ensureGPUDrivers() {
     configGPUDrivers
@@ -68,4 +41,8 @@ disableSystemdIptables() {
 
     # Mask the iptables service to prevent it from ever re-enabling and breaking pod networking.
     systemctl mask iptables || exit $ERR_DISBALE_IPTABLES
+}
+
+enableCgroupV2forAzureLinux() {
+    sed -i 's/systemd.legacy_systemd_cgroup_controller=yes systemd.unified_cgroup_hierarchy=0//g' /boot/systemd.cfg
 }

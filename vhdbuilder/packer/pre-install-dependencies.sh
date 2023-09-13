@@ -82,13 +82,11 @@ else
     echo "Install FIPS for Ubuntu SKU"
     installFIPS
   fi
+fi
 
-  # Final step, if 1804 or FIPS, log ua status, detach UA and clean up
-  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
-    # 'ua status' for logging
-    ua status
-    detachAndCleanUpUA
-  fi
+# Handle Azure Linux + CgroupV2
+if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
+  enableCgroupV2forAzureLinux
 fi
 
 echo "pre-install-dependencies step finished successfully"

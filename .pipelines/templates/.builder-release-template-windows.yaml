@@ -32,6 +32,11 @@ steps:
       else \
         echo "use release date as build date"; branchName=$(Build.SourceBranchName); BUILD_DATE=${branchName: -6}; \
       fi && \
+      echo "Default BUILD_DATE is $BUILD_DATE" && \
+      if [[ -n "${CUSTOM_BUILD_DATE}" ]]; then \
+        echo "set BUILD_DATE to ${CUSTOM_BUILD_DATE}"; \
+        BUILD_DATE=${CUSTOM_BUILD_DATE}; \
+      fi
       echo "Set build date to $BUILD_DATE" && \
       echo "##vso[task.setvariable variable=BUILD_DATE]$BUILD_DATE"
     displayName: Get Build Mode
@@ -41,13 +46,13 @@ steps:
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
-      -e POOL_NAME=$(PROD_POOL_NAME) \
-      -e CLIENT_ID=${PROD_BUILD_CLIENT_ID} \
-      -e CLIENT_SECRET="$(PROD_BUILD_CLIENT_SECRET)" \
-      -e TENANT_ID=${PROD_BUILD_TENANT_ID} \
-      -e SUBSCRIPTION_ID="${PROD_BUILD_SUBSCRIPTION_ID}" \
-      -e AZURE_RESOURCE_GROUP_NAME=${PROD_BUILD_AZURE_RESOURCE_GROUP_NAME} \
-      -e AZURE_LOCATION=${PROD_BUILD_AZURE_LOCATION} \
+      -e POOL_NAME=$(AZURE_POOL_NAME) \
+      -e CLIENT_ID=${AZURE_BUILD_CLIENT_ID} \
+      -e CLIENT_SECRET="$(AZURE_BUILD_CLIENT_SECRET)" \
+      -e TENANT_ID=${AZURE_BUILD_TENANT_ID} \
+      -e SUBSCRIPTION_ID="${AZURE_BUILD_SUBSCRIPTION_ID}" \
+      -e AZURE_RESOURCE_GROUP_NAME=${AZURE_BUILD_RESOURCE_GROUP_NAME} \
+      -e AZURE_LOCATION=${AZURE_BUILD_LOCATION} \
       -e AZURE_VM_SIZE=${AZURE_VM_SIZE} \
       -e GIT_BRANCH=$(Build.SourceBranchName) \
       -e GIT_REPO=$(Build.Repository.Uri) \
@@ -68,7 +73,8 @@ steps:
       -e WINDOWS_BASE_IMAGE_URL=${WINDOWS_BASE_IMAGE_URL} \
       -e WINDOWS_NANO_IMAGE_URL=${WINDOWS_NANO_IMAGE_URL} \
       -e WINDOWS_CORE_IMAGE_URL=${WINDOWS_CORE_IMAGE_URL} \
-      ${CONTAINER_IMAGE} make -f packer.mk run-packer-windows
+      -e WINDOWS_PRIVATE_PACKAGES_URL=${WINDOWS_PRIVATE_PACKAGES_URL} \
+      ${AZURE_CONTAINER_IMAGE} make -f packer.mk run-packer-windows
     displayName: Building windows VHD
 
 # Note: use -a to grep MANAGED_SIG_ID (packer-output should be read as a binary file in Linux)
@@ -79,14 +85,14 @@ steps:
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${PROD_BUILD_CLIENT_ID} \
-      -e CLIENT_SECRET="$(PROD_BUILD_CLIENT_SECRET)" \
-      -e TENANT_ID=${PROD_BUILD_TENANT_ID} \
-      -e SUBSCRIPTION_ID="${PROD_BUILD_SUBSCRIPTION_ID}" \
-      -e AZURE_RESOURCE_GROUP_NAME=${PROD_BUILD_AZURE_RESOURCE_GROUP_NAME} \
+      -e CLIENT_ID=${AZURE_BUILD_CLIENT_ID} \
+      -e CLIENT_SECRET="$(AZURE_BUILD_CLIENT_SECRET)" \
+      -e TENANT_ID=${AZURE_BUILD_TENANT_ID} \
+      -e SUBSCRIPTION_ID="${AZURE_BUILD_SUBSCRIPTION_ID}" \
+      -e AZURE_RESOURCE_GROUP_NAME=${AZURE_BUILD_RESOURCE_GROUP_NAME} \
       -e OS_DISK_URI=${OS_DISK_URI} \
       -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
-      -e AZURE_LOCATION=${PROD_BUILD_AZURE_LOCATION} \
+      -e AZURE_LOCATION=${AZURE_BUILD_LOCATION} \
       -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
       -e WINDOWS_SKU=$(WINDOWS_SKU) \
       -e OS_TYPE="Windows" \
@@ -97,7 +103,7 @@ steps:
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
       -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
       -e ARCHITECTURE=${ARCHITECTURE} \
-      ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
+      ${AZURE_CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD cache test
 
 # We can upload release notes for check-in pr and sig mode to validate whether it is expected.
@@ -122,20 +128,22 @@ steps:
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
-        -e CLIENT_ID=${PROD_BUILD_CLIENT_ID} \
-        -e CLIENT_SECRET="$(PROD_BUILD_CLIENT_SECRET)" \
-        -e TENANT_ID=${PROD_BUILD_TENANT_ID} \
-        -e SUBSCRIPTION_ID="${PROD_BUILD_SUBSCRIPTION_ID}" \
-        -e RESOURCE_GROUP_NAME="${PROD_BUILD_AZURE_RESOURCE_GROUP_NAME}" \
-        -e LOCATION="${PROD_BUILD_AZURE_LOCATION}" \
+        -e CLIENT_ID=${AZURE_BUILD_CLIENT_ID} \
+        -e CLIENT_SECRET="$(AZURE_BUILD_CLIENT_SECRET)" \
+        -e TENANT_ID=${AZURE_BUILD_TENANT_ID} \
+        -e SUBSCRIPTION_ID="${AZURE_BUILD_SUBSCRIPTION_ID}" \
+        -e RESOURCE_GROUP_NAME="${AZURE_BUILD_RESOURCE_GROUP_NAME}" \
+        -e LOCATION="${AZURE_BUILD_LOCATION}" \
         -e OS_TYPE="Windows" \
-        -e CLASSIC_SAS_TOKEN="$(STORAGE_ACCT_SAS_TOKEN)" \
+        -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
+        -e OUTPUT_STORAGE_ACCOUNT_NAME=${OUTPUT_STORAGE_ACCOUNT_NAME} \
+        -e OUTPUT_STORAGE_CONTAINER_NAME=${OUTPUT_STORAGE_CONTAINER_NAME} \
         -e CLASSIC_BLOB="$(STORAGE_ACCT_BLOB_URL)" \
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
         -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
         -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
         -e CAPTURED_SIG_VERSION=${captured_sig_version} \
-        ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
+        ${AZURE_CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
 
@@ -158,12 +166,12 @@ steps:
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${PROD_BUILD_CLIENT_ID} \
-      -e CLIENT_SECRET="$(PROD_BUILD_CLIENT_SECRET)" \
-      -e TENANT_ID=${PROD_BUILD_TENANT_ID} \
-      -e SUBSCRIPTION_ID="${PROD_BUILD_SUBSCRIPTION_ID}" \
+      -e CLIENT_ID=${AZURE_BUILD_CLIENT_ID} \
+      -e CLIENT_SECRET="$(AZURE_BUILD_CLIENT_SECRET)" \
+      -e TENANT_ID=${AZURE_BUILD_TENANT_ID} \
+      -e SUBSCRIPTION_ID="${AZURE_BUILD_SUBSCRIPTION_ID}" \
       -e SA_NAME=${SA_NAME} \
-      -e AZURE_RESOURCE_GROUP_NAME=${PROD_BUILD_AZURE_RESOURCE_GROUP_NAME} \
+      -e AZURE_RESOURCE_GROUP_NAME=${AZURE_BUILD_RESOURCE_GROUP_NAME} \
       -e PKR_RG_NAME=${PKR_RG_NAME} \
       -e MODE=$(MODE) \
       -e DRY_RUN=${DRY_RUN} \
@@ -176,7 +184,7 @@ steps:
       -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
       -e SIG_FOR_PRODUCTION=${SIG_FOR_PRODUCTION} \
       -e OS_TYPE="Windows" \
-      ${CONTAINER_IMAGE} make -f packer.mk cleanup
+      ${AZURE_CONTAINER_IMAGE} make -f packer.mk cleanup
     displayName: Clean Up Packer Generated Resources
     condition: always()
 
@@ -210,7 +218,7 @@ steps:
       -e IMAGE_VERSION=${IMAGE_VERSION} \
       -e HYPERV_GENERATION=${HYPERV_GENERATION} \
       -e OS_TYPE="Windows" \
-      ${CONTAINER_IMAGE} make -f packer.mk generate-sas
+      ${AZURE_CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), 
                    eq(variables.SIG_FOR_PRODUCTION, 'True'))

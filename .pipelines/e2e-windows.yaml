@@ -1,4 +1,5 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_e2e
+trigger: none
 
 pr:
   branches:
@@ -10,14 +11,14 @@ pr:
     - '.pipelines/*'
     - 'e2e/windows/*'
     - 'parts/windows/*'
+    - 'staging/cse/windows/*'
 
-variables:
-- group: ab-e2e-windows
+# Use variable group "ab-windows-ms-tenant" and link it to the pipeline "Agentbaker Windows E2E"
 
 pool:
   # uncomment this if the auto teardown pool is down.
   # vmImage: ubuntu-22.04
-  name: $(1ES_DevInfra_Auto_TearDown_Pool_Name)
+  name: $(AZURE_POOL_NAME)
 
 parameters:
 - name: test2019containerd
