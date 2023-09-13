@@ -21,8 +21,8 @@ $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containe
 # SSUs improve the reliability of the update process to mitigate potential issues while installing the LCU.
 
 # defenderUpdateUrl refers to the latest windows defender platform update
-# defenderUpdateInfoUrl refers to the info of latest windows defender platform update
 $global:defenderUpdateUrl = "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64"
+# defenderUpdateInfoUrl refers to the info of latest windows defender platform update
 $global:defenderUpdateInfoUrl = "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64&action=info"
 
 switch -Regex ($windowsSku) {
