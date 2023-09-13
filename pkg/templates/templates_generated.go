@@ -2480,6 +2480,7 @@ ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 # Error insufficient disk space for 
 
 ERR_TELEPORTD_DOWNLOAD_ERR=150 # Error downloading teleportd binary
 ERR_TELEPORTD_INSTALL_ERR=151 # Error installing teleportd binary
+ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL=152 # Error downloading or installing mirror proxy and overlaybd components
 
 ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
 ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
@@ -2551,7 +2552,7 @@ retrycmd_get_tarball() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            timeout 60 curl -fsSLv $url -o $tarball 2>&1 | tee $CURL_OUTPUT >/dev/null
+            timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1
             if [[ $? != 0 ]]; then
                 cat $CURL_OUTPUT
             fi
@@ -2812,6 +2813,9 @@ installContainerRuntime() {
         local containerd_version
         if [ -f "$MANIFEST_FILEPATH" ]; then
             containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+            if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+                containerd_version="$(jq -r '.containerd.pinned."1804"' "$MANIFEST_FILEPATH")"
+            fi
         else
             echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
         fi
@@ -4742,15 +4746,21 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadLocation": "/opt/containerd/downloads",
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/${UBUNTU_CODENAME}/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu${UBUNTU_RELEASE}u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [],
-        "edge": "1.7.1-1"
+        "pinned": {
+            "1804": "1.7.1-1"
+        },
+        "edge": "1.7.5-1"
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "downloadLocation": "/opt/runc/downloads",
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [],
+        "pinned": {
+            "1804": "1.1.7"
+        },
         "installed": {
-            "default": "1.1.7"
+            "default": "1.1.9"
         }
     },
     "nvidia-container-runtime": {
@@ -4780,7 +4790,8 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
             "1.26.3-hotfix.20230612",
             "1.26.6",
             "1.27.1-hotfix.20230612",
-            "1.27.3"
+            "1.27.3",
+            "1.28.0"
         ]
     },
     "_template": {
@@ -6466,23 +6477,22 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
-    pkg_list=(apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r))
+    pkg_list=(apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
 
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
-    BLOBFUSE2_VERSION="2.0.3"
+    BLOBFUSE2_VERSION="2.1.0"
 
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
     fi
 
+    pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
     if [[ $(isARM64) != 1 ]]; then
-        # blobfuse is not present in ARM64
         # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
         # for 22.04, fuse3 is installed. for all others, fuse is installed
         # for 16.04, installed blobfuse1.3.7, for all others except 22.04, installed blobfuse1.4.5
-        pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
         if [[ "${OSVERSION}" == "22.04" ]]; then
             pkg_list+=(fuse3)
         else
@@ -6563,7 +6573,11 @@ installStandaloneContainerd() {
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.7.1"
+        # pin 18.04 to 1.7.1
+        CONTAINERD_VERSION="1.7.5"
+        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+            CONTAINERD_VERSION="1.7.1"
+        fi
         CONTAINERD_PATCH_VERSION="1"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
@@ -6600,6 +6614,7 @@ installStandaloneContainerd() {
 }
 
 downloadContainerdFromVersion() {
+    # Patch version isn't used here...?
     CONTAINERD_VERSION=$1
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     # Adding updateAptWithMicrosoftPkg since AB e2e uses an older image version with uncached containerd 1.6 so it needs to download from testing repo.
@@ -6654,7 +6669,11 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.1.7+azure-ubuntu${UBUNTU_RELEASE}"
+        # pin 1804 to 1.1.7
+        TARGET_VERSION="1.1.9-ubuntu${UBUNTU_RELEASE}"
+        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+            TARGET_VERSION="1.1.7+azure-ubuntu${UBUNTU_RELEASE}"
+        fi
     fi
 
     if [[ $(isARM64) == 1 ]]; then
@@ -6666,7 +6685,16 @@ ensureRunc() {
 
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-    CLEANED_TARGET_VERSION=${TARGET_VERSION%+*} # removes the +azure-ubuntu18.04u1 (or similar) suffix
+    CLEANED_TARGET_VERSION=${TARGET_VERSION}
+
+    if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%+*} # removes the +azure-ubuntu18.04u1 (or similar) suffix
+    else
+        # after upgrading to 1.1.9, CURRENT_VERSION will also include the patch version (such as 1.1.9-1), so we trim it off
+        # since we only care about the major and minor versions when determining if we need to install it
+        CURRENT_VERSION=${CURRENT_VERSION%-*} # removes the -1 patch version (or similar)
+        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar) 
+    fi
 
     if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
         echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."

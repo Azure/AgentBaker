@@ -36,6 +36,9 @@ installContainerRuntime() {
         local containerd_version
         if [ -f "$MANIFEST_FILEPATH" ]; then
             containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+            if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+                containerd_version="$(jq -r '.containerd.pinned."1804"' "$MANIFEST_FILEPATH")"
+            fi
         else
             echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
         fi

@@ -53,7 +53,7 @@ else
   # netcat - network comms with API server
   # dnsutils - contains nslookup, to query API server DNS
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
-  BLOBFUSE2_VERSION="2.0.3"
+  BLOBFUSE2_VERSION="2.1.0"
   required_pkg_list=(jq iptables netcat dnsutils "blobfuse2="${BLOBFUSE2_VERSION} fuse3)
   for apt_package in ${required_pkg_list[*]}; do
       if ! apt_get_install 30 1 600 $apt_package; then
@@ -132,7 +132,12 @@ echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEP
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
 containerd_manifest="$(jq .containerd manifest.json)" || exit $?
+
 installed_version="$(echo ${containerd_manifest} | jq -r '.edge')"
+if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+  installed_version="$(echo ${containerd_manifest} | jq -r '.pinned."1804"')"
+fi
+  
 containerd_version="$(echo "$installed_version" | cut -d- -f1)"
 containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
 installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
@@ -157,6 +162,26 @@ for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
   downloadCrictl ${CRICTL_VERSION}
   echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
+
+installAndConfigureArtifactStreaming() {
+  # download acr-mirror proxy
+  MIRROR_PROXY_VERSION='7'
+  UBUNTU_VERSION_CLEANED="${UBUNTU_RELEASE//.}"
+  MIRROR_DOWNLOAD_PATH="./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
+  MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/Release-${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
+  
+  retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL}
+  
+  apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+
+  rm "./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
+}
+
+UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
+if [ $OS == $UBUNTU_OS_NAME ] && [ $(isARM64)  != 1 ] && [ $UBUNTU_MAJOR_VERSION -ge 20 ]; then
+  # install and configure artifact streaming
+  installAndConfigureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+fi
 
 KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
 
@@ -204,6 +229,8 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
 EOF
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
+
+
 
 string_replace() {
   echo ${1//\*/$2}
@@ -265,6 +292,7 @@ unpackAzureCNI() {
 #must be both amd64/arm64 images
 VNET_CNI_VERSIONS="
 1.5.5
+1.4.43.1
 1.4.43
 "
 
@@ -280,6 +308,7 @@ done
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 SWIFT_CNI_VERSIONS="
 1.5.5
+1.4.43.1
 1.4.43
 "
 
@@ -289,19 +318,6 @@ for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
     unpackAzureCNI $VNET_CNI_PLUGINS_URL
     echo "  - Azure Swift CNI version ${SWIFT_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
-
-OVERLAY_CNI_VERSIONS="
-1.5.5
-1.4.43
-"
-
-for OVERLAY_CNI_VERSION in $OVERLAY_CNI_VERSIONS; do
-    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${OVERLAY_CNI_VERSION}/binaries/azure-vnet-cni-overlay-linux-${CPU_ARCH}-v${OVERLAY_CNI_VERSION}.tgz"
-    downloadAzureCNI
-    unpackAzureCNI $VNET_CNI_PLUGINS_URL
-    echo "  - Azure Overlay CNI version ${OVERLAY_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-
 
 # After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
 MULTI_ARCH_CNI_PLUGIN_VERSIONS="

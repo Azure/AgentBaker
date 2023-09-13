@@ -2,7 +2,7 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
 pool:
-  name: $(PROD_POOL_NAME)
+  name: $(AZURE_POOL_NAME)
 
 parameters:
 - name: build2019containerd
@@ -26,8 +26,8 @@ parameters:
   type: boolean
   default: False
 
-variables:
-- group: ab-vhd-windows-prod
+# Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
+# Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
 
 stages:
   - stage: build_vhd_2019_containerd

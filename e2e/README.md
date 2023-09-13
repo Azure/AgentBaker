@@ -10,6 +10,8 @@ From a high-level, each E2E scenario makes a call out to the primary node-bootst
 
 ## Running Locally
 
+**Note: if you have changed code or artifacts used to generate custom data or custom script extension payloads, you should first run `make generate` from the root of the AgentBaker repository.**
+
 To run the Go implementation of the E2E test suite locally, simply use `e2e-local.sh`. This script will setup the call to `go test` for you while also implementing default logic for a set of required environment variables used to interact with Azure. These required environment variables include:
 
 - `SUBSCRIPTION_ID` - default `8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8`
@@ -23,6 +25,8 @@ To run the Go implementation of the E2E test suite locally, simply use `e2e-loca
 ```bash
 SCENARIOS_TO_RUN=base,gpu ./e2e-local.sh
 ```
+
+Furthermore, `SCENARIOS_TO_EXCLUDE` may also optionally be set to specify the set of scenarios which will be excluded from the testing session as a commma-separated list. If both `SCENARIOS_TO_RUN` and `SCENARIOS_TO_EXCLUDE` are specified, `SCENARIOS_TO_RUN` will take precedence.
 
 `KEEP_VMSS` can also be optionally specified to have the test suite retain the bootstrapped VMSS VMs for further debugging. When this option is specified, the private SSH key used to bootstrap the VMs will be included within each scenario's log bundle.
 NOTE: if this option is specified please make sure to manually delete your bootstrapped VMs later. Though, all bootstrapped VMs will eventually be deleted by the ACS test GC regardless.
@@ -143,8 +147,3 @@ See the docs [here](https://go.dev/testing/coverage/#panicprof).
 ```bash
   go tool covdata percent -i=./cmd/somedata
 ```
-        
-        
-       
-
-

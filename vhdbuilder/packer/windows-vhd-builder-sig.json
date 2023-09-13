@@ -38,8 +38,6 @@
             "image_sku": "{{user `windows_image_sku`}}",
             "image_version": "{{user `windows_image_version`}}",
             "image_url": "{{user `windows_image_url`}}",
-            "managed_image_resource_group_name": "{{user `resource_group_name`}}",
-            "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
             "shared_image_gallery": {
               "subscription": "{{user `windows_sigmode_source_subscription_id`}}",
               "resource_group": "{{user `windows_sigmode_source_resource_group_name`}}",
@@ -134,6 +132,10 @@
         {
             "elevated_user": "packer",
             "elevated_password": "{{.WinRMPassword}}",
+            "environment_vars": [
+                "WindowsSKU={{user `windows_sku`}}",
+                "WindowsImageVersion={{user `windows_image_version`}}"
+            ],
             "type": "powershell",
             "script": "vhdbuilder/packer/list-images.ps1"
         },

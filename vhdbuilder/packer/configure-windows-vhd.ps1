@@ -107,7 +107,7 @@ function Invoke-Executable {
     }
 
     Write-Log "Exhausted retries for $Executable $ArgList"
-    exit 1
+    throw "Exhausted retries for $Executable $ArgList"
 }
 
 function Expand-OS-Partition {
@@ -156,8 +156,9 @@ function Disable-WindowsUpdates {
 function Get-ContainerImages {
     Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
     foreach ($image in $imagesToPull) {
-        if (($image.Contains("mcr.microsoft.com/windows/servercore") -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
-            ($image.Contains("mcr.microsoft.com/windows/nanoserver") -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL))) {
+        $imagePrefix = $image.Split(":")[0]
+        if (($imagePrefix -eq "mcr.microsoft.com/windows/servercore" -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
+            ($imagePrefix -eq "mcr.microsoft.com/windows/nanoserver" -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL))) {
             $url=""
             if ($image.Contains("mcr.microsoft.com/windows/servercore")) {
                 $url=$env:WindowsServerCoreImageURL
@@ -291,13 +292,13 @@ function Install-WindowsPatches {
                     }
                     default {
                         Write-Log "Error during install of $fileName. ExitCode: $($proc.ExitCode)"
-                        exit 1
+                        throw "Error during install of $fileName. ExitCode: $($proc.ExitCode)"
                     }
                 }
             }
             default {
                 Write-Log "Installing patches with extension $fileExtension is not currently supported."
-                exit 1
+                throw "Installing patches with extension $fileExtension is not currently supported."
             }
         }
     }
@@ -548,6 +549,52 @@ function Update-Registry {
             Write-Log "The current value of VfpIpv6DipsPrintingIsEnabled is $currentValue"
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpIpv6DipsPrintingIsEnabled -Value 1 -Type DWORD
+
+        Write-Log "Enable 3 fixes in 2023-08B"
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSUpdatePolicyForEndpointChange -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HNSUpdatePolicyForEndpointChange is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSUpdatePolicyForEndpointChange -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSFixExtensionUponRehydration -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HNSFixExtensionUponRehydration is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSFixExtensionUponRehydration -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 87798413 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 87798413 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 87798413 -Value 1 -Type DWORD
+
+        Write-Log "Enable 4 fixes in 2023-09B"
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4289201804 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 4289201804 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4289201804 -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1355135117 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 1355135117 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1355135117 -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name RemoveSourcePortPreservationForRest -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of RemoveSourcePortPreservationForRest is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name RemoveSourcePortPreservationForRest -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2214038156 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 2214038156 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2214038156 -Value 1 -Type DWORD
     }
 }
 
@@ -576,6 +623,39 @@ function Exclude-ReservedUDPSourcePort()
     Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "add", "excludedportrange", "udp", "65330", "1", "persistent")
 }
 
+function Get-LatestWindowsDefenderPlatformUpdate {
+    $downloadFilePath = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), "Mpupdate.exe")
+ 
+    $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
+    $latestDefenderProductVersion = ([xml]((Invoke-WebRequest -UseBasicParsing -Uri:"$global:defenderUpdateInfoUrl").Content)).versions.platform
+ 
+    if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
+        Write-Log "Update started. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+        DownloadFileWithRetry -URL $global:defenderUpdateUrl -Dest $downloadFilePath
+        $proc = Start-Process -PassThru -FilePath $downloadFilePath -Wait
+        Start-Sleep -Seconds 10
+        switch ($proc.ExitCode) {
+            0 {
+                Write-Log "Finished update of $downloadFilePath"
+            }
+            default {
+                Write-Log "Error during update of $downloadFilePath. ExitCode: $($proc.ExitCode)"
+                throw "Error during update of $downloadFilePath. ExitCode: $($proc.ExitCode)"
+            }
+        }
+        $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
+        if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
+            throw "Update failed. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+        }
+        else {
+            Write-Log "Update succeeded. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+        }
+    }
+    else {
+        Write-Log "Update not required. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+    }
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -585,6 +665,7 @@ try{
             Write-Log "Performing actions for provisioning phase 1"
             Expand-OS-Partition
             Exclude-ReservedUDPSourcePort
+            Get-LatestWindowsDefenderPlatformUpdate
             Disable-WindowsUpdates
             Set-WinRmServiceDelayedStart
             Update-DefenderSignatures
@@ -605,7 +686,7 @@ try{
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"
-            exit 1
+            throw "Unable to determine provisiong phase... exiting"
         }
     }
 }
