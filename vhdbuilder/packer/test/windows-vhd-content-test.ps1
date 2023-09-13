@@ -405,7 +405,7 @@ function Test-ExcludeUDPSourcePort {
     }
 }
 
-function Test-WindowsDefenderUpdate {
+function Test-WindowsDefenderPlatformUpdate {
     $defenderUpdateURI = "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64"
  
     $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
@@ -424,5 +424,5 @@ Test-RegistryAdded
 Test-DefenderSignature
 Test-AzureExtensions
 Test-ExcludeUDPSourcePort
-Test-WindowsDefenderUpdate
+Test-WindowsDefenderPlatformUpdate
 Remove-Item -Path c:\windows-vhd-configuration.ps1

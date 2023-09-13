@@ -623,24 +623,23 @@ function Exclude-ReservedUDPSourcePort()
     Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "add", "excludedportrange", "udp", "65330", "1", "persistent")
 }
 
-function Get-LatestWindowsDefenderUpdate {
-    $defenderUpdateURI = "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64"
+function Get-LatestWindowsDefenderPlatformUpdate {
     $downloadFilePath = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), "Mpupdate.exe")
  
     $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
-    $latestDefenderProductVersion = ([xml]((Invoke-WebRequest -UseBasicParsing -Uri:"$defenderUpdateURI&action=info").Content)).versions.platform
+    $latestDefenderProductVersion = ([xml]((Invoke-WebRequest -UseBasicParsing -Uri:"$global:defenderUpdateInfoUrl").Content)).versions.platform
  
     if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
+        Write-Log "Update started. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
         if (-not (Test-Path -Path $downloadFilePath)) {
             New-Item -Path $downloadFilePath -ItemType File -Force | Out-Null
         }
-        Invoke-WebRequest -UseBasicParsing -Uri $defenderUpdateURI -OutFile $downloadFilePath
+        DownloadFileWithRetry -URL $global:defenderUpdateUrl -Dest $downloadFilePath
         Start-Process -FilePath $downloadFilePath -Wait
         Start-Sleep -Seconds 10
         $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
         if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
-            Write-Log "Update failed. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
-            exit 1
+            throw "Update failed. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
         }
         else {
             Write-Log "Update succeeded. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
@@ -660,7 +659,7 @@ try{
             Write-Log "Performing actions for provisioning phase 1"
             Expand-OS-Partition
             Exclude-ReservedUDPSourcePort
-            Get-LatestWindowsDefenderUpdate
+            Get-LatestWindowsDefenderPlatformUpdate
             Disable-WindowsUpdates
             Set-WinRmServiceDelayedStart
             Update-DefenderSignatures

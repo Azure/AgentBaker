@@ -20,6 +20,10 @@ $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containe
 # You must install the April 22, 2021 servicing stack update (SSU) (KB5001407) before installing the latest cumulative update (LCU).
 # SSUs improve the reliability of the update process to mitigate potential issues while installing the LCU.
 
+# defenderUpdateUrlrefers to the latest windows defender platform update
+$global:defenderUpdateUrl = "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64"
+$global:defenderUpdateInfoUrl = "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64&action=info"
+
 switch -Regex ($windowsSku) {
     "2019-containerd" {
         $global:patchUrls = @()
