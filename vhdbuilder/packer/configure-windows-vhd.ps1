@@ -107,7 +107,7 @@ function Invoke-Executable {
     }
 
     Write-Log "Exhausted retries for $Executable $ArgList"
-    exit 1
+    throw "Exhausted retries for $Executable $ArgList"
 }
 
 function Expand-OS-Partition {
@@ -292,13 +292,13 @@ function Install-WindowsPatches {
                     }
                     default {
                         Write-Log "Error during install of $fileName. ExitCode: $($proc.ExitCode)"
-                        exit 1
+                        throw "Error during install of $fileName. ExitCode: $($proc.ExitCode)"
                     }
                 }
             }
             default {
                 Write-Log "Installing patches with extension $fileExtension is not currently supported."
-                exit 1
+                throw "Installing patches with extension $fileExtension is not currently supported."
             }
         }
     }
@@ -632,7 +632,7 @@ function Get-LatestWindowsDefenderPlatformUpdate {
     if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
         Write-Log "Update started. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
         DownloadFileWithRetry -URL $global:defenderUpdateUrl -Dest $downloadFilePath
-        $proc = Start-Process -FilePath $downloadFilePath -Wait
+        $proc = Start-Process -PassThru -FilePath $downloadFilePath -Wait
         Start-Sleep -Seconds 10
         switch ($proc.ExitCode) {
             0 {
@@ -640,7 +640,7 @@ function Get-LatestWindowsDefenderPlatformUpdate {
             }
             default {
                 Write-Log "Error during update of $downloadFilePath. ExitCode: $($proc.ExitCode)"
-                exit 1
+                throw "Error during update of $downloadFilePath. ExitCode: $($proc.ExitCode)"
             }
         }
         $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
@@ -686,7 +686,7 @@ try{
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"
-            exit 1
+            throw "Unable to determine provisiong phase... exiting"
         }
     }
 }
