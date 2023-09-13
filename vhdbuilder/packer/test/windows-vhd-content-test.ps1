@@ -61,7 +61,7 @@ function Start-Job-To-Expected-State {
         } while ($cnt -lt $MaxRetryCount)
 
         Write-ErrorWithTimestamp "Cannot start $JobName"
-        throw "Cannot start $JobName"
+        exit 1
     }
 }
 
@@ -177,7 +177,7 @@ function Test-FilesToCacheOnVHD
     }
     if ($invalidFiles.count -gt 0 -Or $missingPaths.count -gt 0) {
         Write-ErrorWithTimestamp "cache files base paths $missingPaths or(and) cached files $invalidFiles are invalid"
-        throw "cache files base paths $missingPaths or(and) cached files $invalidFiles are invalid"
+        exit 1
     }
 
 }
@@ -192,7 +192,7 @@ function Test-PatchInstalled {
     $lostPatched = @($patchIDs | Where-Object {$currenHotfixes -notcontains $_})
     if($lostPatched.count -ne 0) {
         Write-ErrorWithTimestamp "$lostPatched is(are) not installed"
-        throw "$lostPatched is(are) not installed"
+        exit 1
     }
 }
 
@@ -212,7 +212,7 @@ function Test-ImagesPulled {
     $result = (Compare-Object $targetImagesToPull $pulledImages)
     if($result) {
         Write-ErrorWithTimestamp "images to pull do not equal images cached $(($result).InputObject) ."
-        throw "images to pull do not equal images cached $(($result).InputObject) ."
+        exit 1
     }
 }
 
@@ -220,131 +220,131 @@ function Test-RegistryAdded {
     $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name EnableCompartmentNamespace)
     if ($result.EnableCompartmentNamespace -ne 1) {
         Write-ErrorWithTimestamp "The registry for SMB Resolution Fix for containerD is not added"
-        throw "The registry for SMB Resolution Fix for containerD is not added"
+        exit 1
     }
 
     if ($env:WindowsSKU -Like '2019*') {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag)
         if (($result.HNSControlFlag -band 0x10) -ne 0x10) {
             Write-ErrorWithTimestamp "The registry for the two HNS fixes is not added"
-            throw "The registry for the two HNS fixes is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\wcifs" -Name WcifsSOPCountDisabled)
         if ($result.WcifsSOPCountDisabled -ne 0) {
             Write-ErrorWithTimestamp "The registry for the WCIFS fix in 2022-10B is not added"
-            throw "The registry for the WCIFS fix in 2022-10B is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsPolicyUpdateChange)
         if ($result.HnsPolicyUpdateChange -ne 1) {
             Write-ErrorWithTimestamp "The registry for HnsPolicyUpdateChange is not added"
-            throw "The registry for HnsPolicyUpdateChange is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNatAllowRuleUpdateChange)
         if ($result.HnsNatAllowRuleUpdateChange -ne 1) {
             Write-ErrorWithTimestamp "The registry for HnsNatAllowRuleUpdateChange is not added"
-            throw "The registry for HnsNatAllowRuleUpdateChange is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3105872524)
         if ($result.3105872524 -ne 1) {
             Write-ErrorWithTimestamp "The registry for 3105872524 is not added"
-            throw "The registry for 3105872524 is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled)
         if ($result.VfpEvenPodDistributionIsEnabled -ne 1) {
             Write-ErrorWithTimestamp "The registry for VfpEvenPodDistributionIsEnabled is not added"
-            throw "The registry for VfpEvenPodDistributionIsEnabled is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3230913164)
         if ($result.3230913164 -ne 1) {
             Write-ErrorWithTimestamp "The registry for 3230913164 is not added"
-            throw "The registry for 3230913164 is not added"
+            exit 1
         }
     }
     if ($env:WindowsSKU -Like '2022*') {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2629306509)
         if ($result.2629306509 -ne 1) {
             Write-ErrorWithTimestamp "The registry for the WCIFS fix in 2022-10B is not added"
-            throw "The registry for the WCIFS fix in 2022-10B is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsPolicyUpdateChange)
         if ($result.HnsPolicyUpdateChange -ne 1) {
             Write-ErrorWithTimestamp "The registry for HnsPolicyUpdateChange is not added"
-            throw "The registry for HnsPolicyUpdateChange is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNatAllowRuleUpdateChange)
         if ($result.HnsNatAllowRuleUpdateChange -ne 1) {
             Write-ErrorWithTimestamp "The registry for HnsNatAllowRuleUpdateChange is not added"
-            throw "The registry for HnsNatAllowRuleUpdateChange is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3508525708)
         if ($result.3508525708 -ne 1) {
             Write-ErrorWithTimestamp "The registry for 3508525708 is not added"
-            throw "The registry for 3508525708 is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsAclUpdateChange)
         if ($result.HnsAclUpdateChange -ne 1) {
             Write-ErrorWithTimestamp "The registry for HnsAclUpdateChange is not added"
-            throw "The registry for HnsAclUpdateChange is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNpmRefresh)
         if ($result.HnsNpmRefresh -ne 1) {
             Write-ErrorWithTimestamp "The registry for HnsNpmRefresh is not added"
-            throw "The registry for HnsNpmRefresh is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1995963020)
         if ($result.1995963020 -ne 1) {
             Write-ErrorWithTimestamp "The registry for 1995963020 is not added"
-            throw "The registry for 1995963020 is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 189519500)
         if ($result.189519500 -ne 1) {
             Write-ErrorWithTimestamp "The registry for 189519500 is not added"
-            throw "The registry for 189519500 is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled)
         if ($result.VfpEvenPodDistributionIsEnabled -ne 1) {
             Write-ErrorWithTimestamp "The registry for VfpEvenPodDistributionIsEnabled is not added"
-            throw "The registry for VfpEvenPodDistributionIsEnabled is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3398685324)
         if ($result.3398685324 -ne 1) {
             Write-ErrorWithTimestamp "The registry for 3398685324 is not added"
-            throw "The registry for 3398685324 is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNodeToClusterIpv6)
         if ($result.HnsNodeToClusterIpv6 -ne 1) {
             Write-ErrorWithTimestamp "The registry for HnsNodeToClusterIpv6 is not added"
-            throw "The registry for HnsNodeToClusterIpv6 is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSNpmIpsetLimitChange)
         if ($result.HNSNpmIpsetLimitChange -ne 1) {
             Write-ErrorWithTimestamp "The registry for HNSNpmIpsetLimitChange is not added"
-            throw "The registry for HNSNpmIpsetLimitChange is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSLbNatDupRuleChange)
         if ($result.HNSLbNatDupRuleChange -ne 1) {
             Write-ErrorWithTimestamp "The registry for HNSLbNatDupRuleChange is not added"
-            throw "The registry for HNSLbNatDupRuleChange is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpIpv6DipsPrintingIsEnabled)
         if ($result.VfpIpv6DipsPrintingIsEnabled -ne 1) {
             Write-ErrorWithTimestamp "The registry for VfpIpv6DipsPrintingIsEnabled is not added"
-            throw "The registry for VfpIpv6DipsPrintingIsEnabled is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSUpdatePolicyForEndpointChange)
         if ($result.HNSUpdatePolicyForEndpointChange -ne 1) {
             Write-ErrorWithTimestamp "The registry for HNSUpdatePolicyForEndpointChange is not added"
-            throw "The registry for HNSUpdatePolicyForEndpointChange is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSFixExtensionUponRehydration)
         if ($result.HNSFixExtensionUponRehydration -ne 1) {
             Write-ErrorWithTimestamp "The registry for HNSFixExtensionUponRehydration is not added"
-            throw "The registry for HNSFixExtensionUponRehydration is not added"
+            exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 87798413)
         if ($result.87798413 -ne 1) {
             Write-ErrorWithTimestamp "The registry for 87798413 is not added"
-            throw "The registry for 87798413 is not added"
+            exit 1
         }
 
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4289201804)
@@ -377,7 +377,7 @@ function Test-DefenderSignature {
     $mpPreference = Get-MpPreference
     if (-not ($mpPreference -and ($mpPreference.SignatureFallbackOrder -eq "MicrosoftUpdateServer|MMPC") -and [string]::IsNullOrEmpty($mpPreference.SignatureDefinitionUpdateFileSharesSources))) {
         Write-ErrorWithTimestamp "The Windows Defender has wrong Signature. SignatureFallbackOrder: $($mpPreference.SignatureFallbackOrder). SignatureDefinitionUpdateFileSharesSources: $($mpPreference.SignatureDefinitionUpdateFileSharesSources)"
-        throw "The Windows Defender has wrong Signature. SignatureFallbackOrder: $($mpPreference.SignatureFallbackOrder). SignatureDefinitionUpdateFileSharesSources: $($mpPreference.SignatureDefinitionUpdateFileSharesSources)"
+        exit 1
     }
 }
 
@@ -392,7 +392,7 @@ function Test-AzureExtensions {
     $compareResult = (Compare-Object $expectedExtensions $actualExtensions)
     if ($compareResult) {
         Write-ErrorWithTimestamp "Azure extensions are not expected. Details: $($compareResult | Out-String)"
-        throw "Azure extensions are not expected. Details: $($compareResult | Out-String)"
+        exit 1
     }
 }
 
@@ -401,7 +401,7 @@ function Test-ExcludeUDPSourcePort {
     $result = $(netsh int ipv4 show excludedportrange udp | findstr.exe 65330)
     if (-not $result) {
         Write-ErrorWithTimestamp "The UDP source port 65330 is not excluded."
-        throw "The UDP source port 65330 is not excluded."
+        exit 1
     }
 }
 
@@ -411,7 +411,7 @@ function Test-WindowsDefenderPlatformUpdate {
  
     if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
         Write-ErrorWithTimestamp "Update failed. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
-        throw "Update failed. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+        exit 1
     }
 }
 
