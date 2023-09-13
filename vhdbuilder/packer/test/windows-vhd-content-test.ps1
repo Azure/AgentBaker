@@ -405,6 +405,19 @@ function Test-ExcludeUDPSourcePort {
     }
 }
 
+function Test-WindowsDefenderUpdate {
+    $defenderUpdateURI = "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64"
+    $downloadFilePath = "c:\temp\Mpupdate.exe"
+ 
+    $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
+    $latestDefenderProductVersion = ([xml]((Invoke-WebRequest -UseBasicParsing -Uri:"$defenderUpdateURI&action=info").Content)).versions.platform
+ 
+    if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
+        Write-ErrorWithTimestamp "Update failed. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+        exit 1
+    }
+}
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
@@ -412,4 +425,5 @@ Test-RegistryAdded
 Test-DefenderSignature
 Test-AzureExtensions
 Test-ExcludeUDPSourcePort
+Test-WindowsDefenderUpdate
 Remove-Item -Path c:\windows-vhd-configuration.ps1

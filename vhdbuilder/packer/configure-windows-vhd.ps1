@@ -623,6 +623,34 @@ function Exclude-ReservedUDPSourcePort()
     Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "add", "excludedportrange", "udp", "65330", "1", "persistent")
 }
 
+function Get-LatestWindowsDefenderUpdate {
+    $defenderUpdateURI = "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64"
+    $downloadFilePath = "c:\temp\Mpupdate.exe"
+ 
+    $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
+    $latestDefenderProductVersion = ([xml]((Invoke-WebRequest -UseBasicParsing -Uri:"$defenderUpdateURI&action=info").Content)).versions.platform
+ 
+    if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
+        if (-not (Test-Path -Path $downloadFilePath)) {
+            New-Item -Path $downloadFilePath -ItemType File -Force | Out-Null
+        }
+        Invoke-WebRequest -UseBasicParsing -Uri $defenderUpdateURI -OutFile $downloadFilePath
+        Start-Process -FilePath $downloadFilePath -Wait
+        Start-Sleep -Seconds 10
+        $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
+        if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
+            Write-Log "Update failed. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+            exit 1
+        }
+        else {
+            Write-Log "Update succeeded. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+        }
+    }
+    else {
+        Write-Log "Update not required. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+    }
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -632,6 +660,7 @@ try{
             Write-Log "Performing actions for provisioning phase 1"
             Expand-OS-Partition
             Exclude-ReservedUDPSourcePort
+            Get-LatestWindowsDefenderUpdate
             Disable-WindowsUpdates
             Set-WinRmServiceDelayedStart
             Update-DefenderSignatures
