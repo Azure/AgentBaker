@@ -595,12 +595,6 @@ function Update-Registry {
             Write-Log "The current value of 2214038156 is $currentValue"
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2214038156 -Value 1 -Type DWORD
-
-        $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers" -ErrorAction Ignore)
-        if (!$regPath) {
-            Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers"
-            New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers"
-        }
     }
 }
 
