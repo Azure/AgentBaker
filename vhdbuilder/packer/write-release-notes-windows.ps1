@@ -80,8 +80,7 @@ $wuRegistryKeys = @(
     "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State",
     "HKLM:\SYSTEM\CurrentControlSet\Services\wcifs",
     "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides",
-    "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters",
-    "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers"
+    "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters"
 )
 
 $wuRegistryNames = @(
