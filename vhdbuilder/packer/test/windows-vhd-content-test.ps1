@@ -405,6 +405,16 @@ function Test-ExcludeUDPSourcePort {
     }
 }
 
+function Test-WindowsDefenderPlatformUpdate {
+    $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
+    $latestDefenderProductVersion = ([xml]((Invoke-WebRequest -UseBasicParsing -Uri:"$global:defenderUpdateInfoUrl").Content)).versions.platform
+ 
+    if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
+        Write-ErrorWithTimestamp "Update failed. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+        exit 1
+    }
+}
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
@@ -412,4 +422,5 @@ Test-RegistryAdded
 Test-DefenderSignature
 Test-AzureExtensions
 Test-ExcludeUDPSourcePort
+Test-WindowsDefenderPlatformUpdate
 Remove-Item -Path c:\windows-vhd-configuration.ps1
