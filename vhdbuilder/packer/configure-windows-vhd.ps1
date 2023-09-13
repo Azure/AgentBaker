@@ -625,7 +625,7 @@ function Exclude-ReservedUDPSourcePort()
 
 function Get-LatestWindowsDefenderUpdate {
     $defenderUpdateURI = "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64"
-    $downloadFilePath = "c:\temp\Mpupdate.exe"
+    $downloadFilePath = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), "Mpupdate.exe")
  
     $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
     $latestDefenderProductVersion = ([xml]((Invoke-WebRequest -UseBasicParsing -Uri:"$defenderUpdateURI&action=info").Content)).versions.platform
