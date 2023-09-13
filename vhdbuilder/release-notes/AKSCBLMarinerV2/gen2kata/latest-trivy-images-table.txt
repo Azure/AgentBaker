@@ -22,6 +22,11 @@ Total: 2 (HIGH: 2, CRITICAL: 0)
 │           │               │          │                   │                  │                                                            │
 └───────────┴───────────────┴──────────┴───────────────────┴──────────────────┴────────────────────────────────────────────────────────────┘
 
+mcr.microsoft.com/aks/ip-masq-agent-v2:v0.1.8 (debian 12.1)
+===========================================================
+Total: 0 (HIGH: 0, CRITICAL: 0)
+
+
 mcr.microsoft.com/aks/msi/addon-token-adapter:master.221118.2 (debian 11.5)
 ===========================================================================
 Total: 8 (HIGH: 8, CRITICAL: 0)
@@ -448,6 +453,11 @@ mcr.microsoft.com/oss/cilium/cilium:1.12.10-1 (ubuntu 20.04)
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
+mcr.microsoft.com/oss/cilium/cilium:1.13.5 (ubuntu 22.04)
+=========================================================
+Total: 0 (HIGH: 0, CRITICAL: 0)
+
+
 mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.5-1 (alpine 3.15.1)
 ============================================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
@@ -473,18 +483,13 @@ mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.3 (alpine 3.15.1)
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
-mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.6 (alpine 3.15.1)
-==========================================================================
-Total: 0 (HIGH: 0, CRITICAL: 0)
-
-
 mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.7 (alpine 3.18.3)
 ==========================================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
-mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.5 (alpine 3.15.1)
-==========================================================================
+mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.9 (debian 11.7)
+========================================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
@@ -493,8 +498,8 @@ mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.6 (alpine 3.18.3)
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
-mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.2 (alpine 3.15.1)
-==========================================================================
+mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.7 (debian 11.7)
+========================================================================
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
@@ -503,9 +508,14 @@ mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.3 (alpine 3.18.3)
 Total: 0 (HIGH: 0, CRITICAL: 0)
 
 
+mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.4 (debian 11.7)
+========================================================================
+Total: 0 (HIGH: 0, CRITICAL: 0)
+
+
 mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.19.5-4 (debian 11.7)
 =====================================================================
-Total: 20 (HIGH: 20, CRITICAL: 0)
+Total: 23 (HIGH: 23, CRITICAL: 0)
 
 ┌────────────────┬────────────────┬──────────┬───────────────────┬───────────────┬──────────────────────────────────────────────────────────────┐
 │    Library     │ Vulnerability  │ Severity │ Installed Version │ Fixed Version │                            Title                             │
@@ -564,7 +574,7 @@ Total: 20 (HIGH: 20, CRITICAL: 0)
 │                │                │          │                   │               │ tcf_change_indev function...                                 │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-3776                    │
 │                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
-│                │ CVE-2023-3777  │          │                   │               │ [netfilter: nf_tables: skip bound chain on rule flush]       │
+│                │ CVE-2023-3777  │          │                   │               │ nf_tables UAF                                                │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-3777                    │
 │                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
 │                │ CVE-2023-4004  │          │                   │               │ use-after-free due to improper element removal in            │
@@ -581,6 +591,17 @@ Total: 20 (HIGH: 20, CRITICAL: 0)
 │                │ CVE-2023-4147  │          │                   │               │ nf_tables_newrule when adding a rule with NFTA_RULE_CHAIN_ID │
 │                │                │          │                   │               │ leads to use-after-free                                      │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-4147                    │
+│                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-4206  │          │                   │               │ cls_route component can be exploited to achieve local        │
+│                │                │          │                   │               │ privilege escalation                                         │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-4206                    │
+│                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-4207  │          │                   │               │ A use-after-free vulnerability in the Linux kernel's cls_fw  │
+│                │                │          │                   │               │ component that can be...                                     │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-4207                    │
+│                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-4208  │          │                   │               │ cls_u32 UAF                                                  │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-4208                    │
 └────────────────┴────────────────┴──────────┴───────────────────┴───────────────┴──────────────────────────────────────────────────────────────┘
 
 mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.19.5-5 (debian 11.7)
@@ -590,7 +611,7 @@ Total: 0 (HIGH: 0, CRITICAL: 0)
 
 mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.21.4-2 (debian 11.7)
 =====================================================================
-Total: 20 (HIGH: 20, CRITICAL: 0)
+Total: 23 (HIGH: 23, CRITICAL: 0)
 
 ┌────────────────┬────────────────┬──────────┬───────────────────┬───────────────┬──────────────────────────────────────────────────────────────┐
 │    Library     │ Vulnerability  │ Severity │ Installed Version │ Fixed Version │                            Title                             │
@@ -649,7 +670,7 @@ Total: 20 (HIGH: 20, CRITICAL: 0)
 │                │                │          │                   │               │ tcf_change_indev function...                                 │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-3776                    │
 │                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
-│                │ CVE-2023-3777  │          │                   │               │ [netfilter: nf_tables: skip bound chain on rule flush]       │
+│                │ CVE-2023-3777  │          │                   │               │ nf_tables UAF                                                │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-3777                    │
 │                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
 │                │ CVE-2023-4004  │          │                   │               │ use-after-free due to improper element removal in            │
@@ -666,6 +687,17 @@ Total: 20 (HIGH: 20, CRITICAL: 0)
 │                │ CVE-2023-4147  │          │                   │               │ nf_tables_newrule when adding a rule with NFTA_RULE_CHAIN_ID │
 │                │                │          │                   │               │ leads to use-after-free                                      │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-4147                    │
+│                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-4206  │          │                   │               │ cls_route component can be exploited to achieve local        │
+│                │                │          │                   │               │ privilege escalation                                         │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-4206                    │
+│                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-4207  │          │                   │               │ A use-after-free vulnerability in the Linux kernel's cls_fw  │
+│                │                │          │                   │               │ component that can be...                                     │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-4207                    │
+│                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-4208  │          │                   │               │ cls_u32 UAF                                                  │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-4208                    │
 └────────────────┴────────────────┴──────────┴───────────────────┴───────────────┴──────────────────────────────────────────────────────────────┘
 
 mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.21.4-3 (debian 11.7)
@@ -675,7 +707,7 @@ Total: 0 (HIGH: 0, CRITICAL: 0)
 
 mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.22.1-2 (debian 11.7)
 =====================================================================
-Total: 20 (HIGH: 20, CRITICAL: 0)
+Total: 23 (HIGH: 23, CRITICAL: 0)
 
 ┌────────────────┬────────────────┬──────────┬───────────────────┬───────────────┬──────────────────────────────────────────────────────────────┐
 │    Library     │ Vulnerability  │ Severity │ Installed Version │ Fixed Version │                            Title                             │
@@ -734,7 +766,7 @@ Total: 20 (HIGH: 20, CRITICAL: 0)
 │                │                │          │                   │               │ tcf_change_indev function...                                 │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-3776                    │
 │                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
-│                │ CVE-2023-3777  │          │                   │               │ [netfilter: nf_tables: skip bound chain on rule flush]       │
+│                │ CVE-2023-3777  │          │                   │               │ nf_tables UAF                                                │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-3777                    │
 │                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
 │                │ CVE-2023-4004  │          │                   │               │ use-after-free due to improper element removal in            │
@@ -751,6 +783,17 @@ Total: 20 (HIGH: 20, CRITICAL: 0)
 │                │ CVE-2023-4147  │          │                   │               │ nf_tables_newrule when adding a rule with NFTA_RULE_CHAIN_ID │
 │                │                │          │                   │               │ leads to use-after-free                                      │
 │                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-4147                    │
+│                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-4206  │          │                   │               │ cls_route component can be exploited to achieve local        │
+│                │                │          │                   │               │ privilege escalation                                         │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-4206                    │
+│                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-4207  │          │                   │               │ A use-after-free vulnerability in the Linux kernel's cls_fw  │
+│                │                │          │                   │               │ component that can be...                                     │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-4207                    │
+│                ├────────────────┤          │                   │               ├──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-4208  │          │                   │               │ cls_u32 UAF                                                  │
+│                │                │          │                   │               │ https://avd.aquasec.com/nvd/cve-2023-4208                    │
 └────────────────┴────────────────┴──────────┴───────────────────┴───────────────┴──────────────────────────────────────────────────────────────┘
 
 mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.22.1-3 (debian 11.7)
