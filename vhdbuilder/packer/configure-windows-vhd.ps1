@@ -570,7 +570,7 @@ function Update-Registry {
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 87798413 -Value 1 -Type DWORD
 
-        Write-Log "Enable 4 fixes and 1 memory benefit in 2023-09B"
+        Write-Log "Enable 4 fixes in 2023-09B"
 
         $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4289201804 -ErrorAction Ignore)
         if (![string]::IsNullOrEmpty($currentValue)) {
