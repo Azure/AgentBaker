@@ -264,7 +264,7 @@ func IsKubernetesVersionGe(actualVersion, version string) bool {
 }
 
 // IsAzureLinuxCgroupv2 returns true if the VHD distro is Azure Linux and the Kubernetes
-// version is greater than or equal to 1.28.0
+// version is greater than or equal to 1.28.0.
 func IsAzureLinuxCgroupv2(config *datamodel.NodeBootstrappingConfiguration) bool {
 	if isMariner(config.OSSKU) {
 		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.28.0") {
