@@ -631,12 +631,18 @@ function Get-LatestWindowsDefenderPlatformUpdate {
  
     if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
         Write-Log "Update started. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
-        if (-not (Test-Path -Path $downloadFilePath)) {
-            New-Item -Path $downloadFilePath -ItemType File -Force | Out-Null
-        }
         DownloadFileWithRetry -URL $global:defenderUpdateUrl -Dest $downloadFilePath
-        Start-Process -FilePath $downloadFilePath -Wait
+        $proc = Start-Process -FilePath $downloadFilePath -Wait
         Start-Sleep -Seconds 10
+        switch ($proc.ExitCode) {
+            0 {
+                Write-Log "Finished update of $downloadFilePath"
+            }
+            default {
+                Write-Log "Error during update of $downloadFilePath. ExitCode: $($proc.ExitCode)"
+                exit 1
+            }
+        }
         $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
         if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
             throw "Update failed. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
