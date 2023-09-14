@@ -193,6 +193,17 @@ var AvailableAzureLinuxDistros = []Distro{
 	AKSCBLMarinerV2KataGen2TL,
 }
 
+//nolint:gochecknoglobals
+var AvailableAzureLinuxCgroupV2Distros = []Distro{
+	AKSAzureLinuxV2,
+	AKSAzureLinuxV2Gen2,
+	AKSAzureLinuxV2FIPS,
+	AKSAzureLinuxV2Gen2FIPS,
+	AKSAzureLinuxV2Gen2Kata,
+	AKSAzureLinuxV2Arm64Gen2,
+	AKSAzureLinuxV2Gen2TL,
+}
+
 // IsContainerdSKU returns true if distro type is containerd-enabled.
 func (d Distro) IsContainerdDistro() bool {
 	for _, distro := range AvailableContainerdDistros {
