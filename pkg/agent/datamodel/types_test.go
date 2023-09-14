@@ -1044,7 +1044,8 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.expected != c.ap.IsAzureLinuxCgroupV2VHDDistro() {
-				t.Fatalf("Got unexpected AgentPoolProfile.IsAzureLinuxCgroupV2VHDDistro() result. Expected: %t. Got: %t.", c.expected, c.ap.IsAzureLinuxCgroupV2VHDDistro())
+				t.Fatalf("Got unexpected AgentPoolProfile.IsAzureLinuxCgroupV2VHDDistro() result. Expected: %t. Got: %t.",
+					c.expected, c.ap.IsAzureLinuxCgroupV2VHDDistro())
 			}
 		})
 	}
