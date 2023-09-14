@@ -947,6 +947,110 @@ func TestAgentPoolProfileIs2204VHDDistro(t *testing.T) {
 	}
 }
 
+func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
+	cases := []struct {
+		name     string
+		ap       AgentPoolProfile
+		expected bool
+	}{
+		{
+			name: "Azure Linux V2 Gen1 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV2,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V2 Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV2Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V2 Gen2 ARM64 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV2Arm64Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V2 Gen1 FIPS VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV2FIPS,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V2 Gen2 FIPS VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV2Gen2FIPS,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V2 Gen2 TrustedLaunch VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV2Gen2TL,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V2 Gen2 Kata VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV2Gen2Kata,
+			},
+			expected: true,
+		},
+		{
+			name: "CBLMariner V2 Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSCBLMarinerV2Gen2,
+			},
+			expected: false,
+		},
+		{
+			name: "CBLMariner V2 Gen1 FIPS VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSCBLMarinerV2FIPS,
+			},
+			expected: false,
+		},
+		{
+			name: "CBLMariner V2 Gen2 ARM64 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSCBLMarinerV2Arm64Gen2,
+			},
+			expected: false,
+		},
+		{
+			name: "CBLMariner V2 Gen2 TrustedLaunch VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSCBLMarinerV2Gen2TL,
+			},
+			expected: false,
+		},
+		{
+			name: "18.04 Ubuntu VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd1804,
+			},
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			if c.expected != c.ap.IsAzureLinuxCgroupV2VHDDistro() {
+				t.Fatalf("Got unexpected AgentPoolProfile.IsAzureLinuxCgroupV2VHDDistro() result. Expected: %t. Got: %t.",
+					c.expected, c.ap.IsAzureLinuxCgroupV2VHDDistro())
+			}
+		})
+	}
+}
+
 func TestIsCustomVNET(t *testing.T) {
 	cases := []struct {
 		p             Properties
