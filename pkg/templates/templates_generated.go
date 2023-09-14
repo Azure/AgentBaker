@@ -2321,13 +2321,14 @@ configGPUDrivers() {
         exit 1
     fi
 
-    # validate on host, already done inside container.
-    if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    fi
-
+    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+
+    # Fix the NVIDIA /dev/char link issue
+    if [[ $OS == $MARINER_OS_NAME ]]; then
+        createNvidiaSymlinkToAllDeviceNodes
+    fi
     
     # reload containerd/dockerd
     if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
@@ -4790,7 +4791,8 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
             "1.26.6",
             "1.27.1-hotfix.20230612",
             "1.27.3",
-            "1.28.0"
+            "1.28.0",
+            "1.28.1"
         ]
     },
     "_template": {
@@ -4942,6 +4944,17 @@ downloadGPUDrivers() {
     fi
 }
 
+createNvidiaSymlinkToAllDeviceNodes() {
+    NVIDIA_DEV_CHAR="/lib/udev/rules.d/71-nvidia-dev-char.rules"
+    touch "${NVIDIA_DEV_CHAR}"
+    cat << EOF > "${NVIDIA_DEV_CHAR}"
+# This will create /dev/char symlinks to all device nodes
+ACTION=="add", DEVPATH=="/bus/pci/drivers/nvidia", RUN+="/usr/bin/nvidia-ctk system create-dev-char-symlinks --create-all"
+EOF
+
+    /usr/bin/nvidia-ctk system create-dev-char-symlinks --create-all
+}
+
 installNvidiaFabricManager() {
     # Check the NVIDIA driver version installed and install nvidia-fabric-manager
     NVIDIA_DRIVER_VERSION=$(cut -d - -f 2 <<< "$(rpm -qa cuda)")
@@ -4953,8 +4966,8 @@ installNvidiaFabricManager() {
 }
 
 installNvidiaContainerRuntime() {
-    MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION="3.11.0"
-    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.11.0"
+    MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION="3.13.0"
+    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.13.5"
     
     for nvidia_package in nvidia-container-runtime-${MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION} nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-base-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
       if ! dnf_install 30 1 600 $nvidia_package; then
@@ -7449,7 +7462,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.29.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.30.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
