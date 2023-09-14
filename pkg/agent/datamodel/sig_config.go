@@ -325,17 +325,11 @@ type sigVersion struct {
 //go:embed linux_sig_version.json
 var linuxVersionJSONContentsEmbedded string
 
-//go:embed edge_zone_sig_version.json
-var edgeZoneJSONContentsEmbedded string
-
 //go:embed mariner_v2_kata_gen2_tl_sig_version.json
 var marinerV2KataGen2TLJSONContentsEmbedded string
 
 //nolint:gochecknoglobals
 var LinuxSIGImageVersion = getSIGVersionFromEmbeddedString(linuxVersionJSONContentsEmbedded)
-
-//nolint:gochecknoglobals
-var EdgeZoneSIGImageVersion = getSIGVersionFromEmbeddedString(edgeZoneJSONContentsEmbedded)
 
 //nolint:gochecknoglobals
 var CBLMarinerV2KataGen2TLSIGImageVersion = getSIGVersionFromEmbeddedString(marinerV2KataGen2TLJSONContentsEmbedded)
@@ -717,7 +711,7 @@ func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[D
 		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
 		Gallery:       AKSUbuntuEdgeZoneGalleryName,
 		Definition:    "1804containerd",
-		Version:       EdgeZoneSIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	// This image is using a specific resource group and gallery name for edge zone scenario.
@@ -725,7 +719,7 @@ func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[D
 		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
 		Gallery:       AKSUbuntuEdgeZoneGalleryName,
 		Definition:    "1804gen2containerd",
-		Version:       EdgeZoneSIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	// This image is using a specific resource group and gallery name for edge zone scenario.
@@ -733,7 +727,7 @@ func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[D
 		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
 		Gallery:       AKSUbuntuEdgeZoneGalleryName,
 		Definition:    "2204containerd",
-		Version:       EdgeZoneSIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	// This image is using a specific resource group and gallery name for edge zone scenario.
@@ -741,7 +735,7 @@ func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[D
 		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
 		Gallery:       AKSUbuntuEdgeZoneGalleryName,
 		Definition:    "2204gen2containerd",
-		Version:       EdgeZoneSIGImageVersion,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	return map[Distro]SigImageConfig{
