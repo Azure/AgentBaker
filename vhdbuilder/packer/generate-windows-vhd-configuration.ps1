@@ -20,6 +20,11 @@ $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containe
 # You must install the April 22, 2021 servicing stack update (SSU) (KB5001407) before installing the latest cumulative update (LCU).
 # SSUs improve the reliability of the update process to mitigate potential issues while installing the LCU.
 
+# defenderUpdateUrl refers to the latest windows defender platform update
+$global:defenderUpdateUrl = "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64"
+# defenderUpdateInfoUrl refers to the info of latest windows defender platform update
+$global:defenderUpdateInfoUrl = "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64&action=info"
+
 switch -Regex ($windowsSku) {
     "2019-containerd" {
         $global:patchUrls = @()
@@ -52,17 +57,19 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.10.0",
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0",
     # azuredisk-csi:v1.28 is only for AKS 1.27+, v1.26 is for other AKS versions
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.5",
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.6",
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.2-windows-hp",
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.3-windows-hp",
+    # azuredisk-csi:v1.29 is only for AKS 1.28+
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.0-windows-hp",
     # azurefile-csi:v1.28 is only for AKS 1.27+, v1.24, v1.26 is for other AKS versions
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.6",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.7",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.5",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.6",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.2-windows-hp",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.3-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.9",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.10",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.7",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.8",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.4-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.5-windows-hp",
+    # azurefile-csi:v1.29 is only for AKS 1.28+
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.0-windows-hp",
     # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.4",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
@@ -101,10 +108,9 @@ $global:map = @{
         "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/hns.v2.psm1",
         "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.25.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.26.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.27.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.29.zip"
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.29.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.30.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
@@ -145,12 +151,14 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.26.6-hotfix.20230728/windowszip/v1.26.6-hotfix.20230728-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.1-hotfix.20230728/windowszip/v1.27.1-hotfix.20230728-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.3-hotfix.20230728/windowszip/v1.27.3-hotfix.20230728-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.28.0/windowszip/v1.28.0-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.28.0/windowszip/v1.28.0-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.28.1/windowszip/v1.28.1-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
-        # Azure CNI v1 (legacy) upgrading from v1.4.35 to v1.5.6
+        # Azure CNI v1 (legacy)
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.5.6/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.5.6.zip",
+        "https://acs-mirror.azureedge.net/azure-cni/v1.5.6.1/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.5.6.1.zip",
         # Azure CNI v2 (pod subnet) upgrading from v1.4.35 to v1.5.5
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.4.35.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.5.5/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.5.5.zip",

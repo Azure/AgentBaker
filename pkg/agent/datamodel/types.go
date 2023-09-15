@@ -150,11 +150,17 @@ const (
 	AKSUbuntuGPUContainerd1804Gen2      Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
 	AKSCBLMarinerV1                     Distro = "aks-cblmariner-v1"
 	AKSCBLMarinerV2                     Distro = "aks-cblmariner-v2"
+	AKSAzureLinuxV2                     Distro = "aks-azurelinux-v2"
 	AKSCBLMarinerV2Gen2                 Distro = "aks-cblmariner-v2-gen2"
+	AKSAzureLinuxV2Gen2                 Distro = "aks-azurelinux-v2-gen2"
 	AKSCBLMarinerV2FIPS                 Distro = "aks-cblmariner-v2-fips"
+	AKSAzureLinuxV2FIPS                 Distro = "aks-azurelinux-v2-fips"
 	AKSCBLMarinerV2Gen2FIPS             Distro = "aks-cblmariner-v2-gen2-fips"
+	AKSAzureLinuxV2Gen2FIPS             Distro = "aks-azurelinux-v2-gen2-fips"
 	AKSCBLMarinerV2Gen2Kata             Distro = "aks-cblmariner-v2-gen2-kata"
+	AKSAzureLinuxV2Gen2Kata             Distro = "aks-azurelinux-v2-gen2-kata"
 	AKSCBLMarinerV2Gen2TL               Distro = "aks-cblmariner-v2-gen2-tl"
+	AKSAzureLinuxV2Gen2TL               Distro = "aks-azurelinux-v2-gen2-tl"
 	AKSCBLMarinerV2KataGen2TL           Distro = "aks-cblmariner-v2-kata-gen2-tl"
 	AKSUbuntuFipsContainerd1804         Distro = "aks-ubuntu-fips-containerd-18.04"
 	AKSUbuntuFipsContainerd1804Gen2     Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
@@ -169,6 +175,7 @@ const (
 	AKSUbuntuContainerd2004CVMGen2      Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
 	AKSUbuntuArm64Containerd2204Gen2    Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 	AKSCBLMarinerV2Arm64Gen2            Distro = "aks-cblmariner-v2-arm64-gen2"
+	AKSAzureLinuxV2Arm64Gen2            Distro = "aks-azurelinux-v2-arm64-gen2"
 	AKSUbuntuContainerd2204TLGen2       Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
 	AKSUbuntuMinimalContainerd2204      Distro = "aks-ubuntu-minimal-containerd-22.04"
 	AKSUbuntuMinimalContainerd2204Gen2  Distro = "aks-ubuntu-minimal-containerd-22.04-gen2"
@@ -212,11 +219,17 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuGPUContainerd1804Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
+	AKSAzureLinuxV2,
 	AKSCBLMarinerV2Gen2,
+	AKSAzureLinuxV2Gen2,
 	AKSCBLMarinerV2FIPS,
+	AKSAzureLinuxV2FIPS,
 	AKSCBLMarinerV2Gen2FIPS,
+	AKSAzureLinuxV2Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
+	AKSAzureLinuxV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
+	AKSAzureLinuxV2Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
 	AKSUbuntuFipsContainerd1804,
 	AKSUbuntuFipsContainerd1804Gen2,
@@ -231,6 +244,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSCBLMarinerV2Arm64Gen2,
+	AKSAzureLinuxV2Arm64Gen2,
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuMinimalContainerd2204,
 	AKSUbuntuMinimalContainerd2204Gen2,
@@ -261,8 +275,17 @@ func (d Distro) Is2204VHDDistro() bool {
 	return false
 }
 
+func (d Distro) IsAzureLinuxCgroupV2VHDDistro() bool {
+	for _, distro := range AvailableAzureLinuxCgroupV2Distros {
+		if d == distro {
+			return true
+		}
+	}
+	return false
+}
+
 func (d Distro) IsKataDistro() bool {
-	return d == AKSCBLMarinerV2Gen2Kata
+	return d == AKSCBLMarinerV2Gen2Kata || d == AKSAzureLinuxV2Gen2Kata || d == AKSCBLMarinerV2KataGen2TL
 }
 
 /*
@@ -1075,6 +1098,11 @@ func (a *AgentPoolProfile) IsVHDDistro() bool {
 // Is2204VHDDistro returns true if the distro uses 2204 VHD.
 func (a *AgentPoolProfile) Is2204VHDDistro() bool {
 	return a.Distro.Is2204VHDDistro()
+}
+
+// IsAzureLinuxCgroupV2VHDDistro returns true if the distro uses Azure Linux CgrpupV2 VHD.
+func (a *AgentPoolProfile) IsAzureLinuxCgroupV2VHDDistro() bool {
+	return a.Distro.IsAzureLinuxCgroupV2VHDDistro()
 }
 
 // IsCustomVNET returns true if the customer brought their own VNET.

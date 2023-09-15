@@ -114,6 +114,10 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				GalleryName:   "akscblmariner",
 				ResourceGroup: "resourcegroup",
 			},
+			"AKSAzureLinux": {
+				GalleryName:   "aksazurelinux",
+				ResourceGroup: "resourcegroup",
+			},
 			"AKSWindows": {
 				GalleryName:   "akswindows",
 				ResourceGroup: "resourcegroup",
