@@ -42,6 +42,8 @@ steps:
     displayName: Get Build Mode
 
   - script: |
+      branch=$(Build.SourceBranch)
+      branch=$(echo "${branch}" | sed 's/refs\/heads\///g')
       echo MODE=$(MODE) && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -54,7 +56,7 @@ steps:
       -e AZURE_RESOURCE_GROUP_NAME=${AZURE_BUILD_RESOURCE_GROUP_NAME} \
       -e AZURE_LOCATION=${AZURE_BUILD_LOCATION} \
       -e AZURE_VM_SIZE=${AZURE_VM_SIZE} \
-      -e GIT_BRANCH=$(Build.SourceBranchName) \
+      -e GIT_BRANCH=$branch \
       -e GIT_REPO=$(Build.Repository.Uri) \
       -e GIT_VERSION=$(Build.SourceVersion) \
       -e BUILD_ID=$(Build.BuildId) \
