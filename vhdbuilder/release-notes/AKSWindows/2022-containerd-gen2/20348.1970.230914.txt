@@ -1,7 +1,7 @@
 ﻿Build Number: 20230914.1_v20230913_79640708
 Build Id:     79640708
 Build Repo:   https://github.com/Azure/AgentBaker
-Build Branch: v20230913
+Build Branch: windows/v20230913
 Commit:       4cb01cf51f0f345424d370baec8e269f4c1ddbe9
 
 VHD ID:      45810f7f-8c19-479a-977c-4a1c722f7f4e
