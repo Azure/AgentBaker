@@ -141,8 +141,8 @@ copyPackerFiles() {
     KATA_INITRD_DEST=$KATA_CONFIG_DIR/kata-containers-initrd.img
     cpAndMode $KATA_INITRD_SRC $KATA_INITRD_DEST 0755
 
-    KATACC_INITRD_SRC=/home/packer/kata-containers-initrd.img
-    KATACC_INITRD_DEST=$KATACC_CONFIG_DIR/kata-containers-initrd.img
+    KATACC_INITRD_SRC=/home/packer/kata-containers.img
+    KATACC_INITRD_DEST=/kata-containers.img
     cpAndMode $KATACC_INITRD_SRC $KATACC_INITRD_DEST 0755
 
     REF_INFO_SRC=/home/packer/reference-info-base64

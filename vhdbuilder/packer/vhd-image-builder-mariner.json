@@ -509,8 +509,8 @@
     },
     {
       "type": "file",
-      "source": "kata-containers-initrd.img",
-      "destination": "/home/packer/kata-containers-initrd.img"
+      "source": "kata-containers.img",
+      "destination": "/home/packer/kata-containers.img"
     },
     {
       "type": "file",

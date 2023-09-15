@@ -32,7 +32,7 @@ steps:
         **/kata-containers-igvm-debug.img**
         **/igvm-measurement**
         **/kata-containers-igvm.img**
-        **/kata-containers-initrd.img**
+        **/kata-containers.img**
         **/kata-containers-initrd-base.img**
         **/reference-info-base64**
       downloadPath: $(Build.SourcesDirectory)
