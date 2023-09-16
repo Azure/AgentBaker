@@ -65,5 +65,6 @@ SC2153
 SC2129
 SC2286
 SC2048
+SC2016
 "
 shellcheck $(printf -- "-e %s " $IGNORED) $filesToCheck
