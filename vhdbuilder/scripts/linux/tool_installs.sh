@@ -42,3 +42,7 @@ disableSystemdIptables() {
     # Mask the iptables service to prevent it from ever re-enabling and breaking pod networking.
     systemctl mask iptables || exit $ERR_DISBALE_IPTABLES
 }
+
+enableCgroupV2forAzureLinux() {
+    sed -i 's/systemd.legacy_systemd_cgroup_controller=yes systemd.unified_cgroup_hierarchy=0//g' /boot/systemd.cfg
+}
