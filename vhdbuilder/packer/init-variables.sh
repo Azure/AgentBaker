@@ -16,28 +16,18 @@ else
 fi
 
 if [ -z "${POOL_NAME}" ]; then
-	echo "POOL_NAME is not set, can't compute VNET_RG_NAME for packer templates"
+	echo "POOL_NAME is not set, can't compute vnet_rg_name for packer templates"
 	exit 1
 fi
 
-if [ -z "${VNET_RG_NAME}" ]; then 
-	VNET_RG_NAME=""
-	if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
-		VNET_RG_NAME="nodesigprod-agent-pool"
-	else
-		VNET_RG_NAME="nodesigtest-agent-pool"
-	fi
+vnet_rg_name=""
+if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
+	vnet_rg_name="nodesigprod-agent-pool"
+else
+	vnet_rg_name="nodesigtest-agent-pool"
 fi
 
-if [ -z "${VNET_NAME}" ]; then
-	VNET_NAME="nodesig-pool-vnet"
-fi
-
-if [ -z "${SUBNET_NAME}" ]; then
-	SUBNET_NAME="packer"
-fi
-
-echo "VNET_RG_NAME set to: ${VNET_RG_NAME}"
+echo "vnet_rg_name set to: ${vnet_rg_name}"
 
 echo "CAPTURED_SIG_VERSION set to: ${CAPTURED_SIG_VERSION}"
 
@@ -114,15 +104,11 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 			SIG_IMAGE_NAME=CBLMariner${SIG_IMAGE_NAME}
 		fi
 
-		if [[ "${OS_SKU}" == "AzureLinux" ]]; then
-			SIG_IMAGE_NAME=AzureLinux${SIG_IMAGE_NAME}
-		fi
-
 		if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
 			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}TL
 		fi
 
-		if [[ "${HYPERV_GENERATION,,}" == "v2" && ("${OS_SKU}" == "CBLMariner" || "${OS_SKU}" == "AzureLinux" || "${OS_SKU}" == "Ubuntu") ]]; then
+		if [[ "${HYPERV_GENERATION,,}" == "v2" && ("${OS_SKU}" == "CBLMariner" || "${OS_SKU}" == "Ubuntu") ]]; then
 			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Gen2
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, using auto-generated value: ${SIG_IMAGE_NAME}"
@@ -380,9 +366,9 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "windows_sigmode_source_gallery_name": "${windows_sigmode_source_gallery_name}",
   "windows_sigmode_source_image_name": "${windows_sigmode_source_image_name}",
   "windows_sigmode_source_image_version": "${windows_sigmode_source_image_version}",
-  "vnet_name": "${VNET_NAME}",
-  "subnet_name": "${SUBNET_NAME}",
-  "vnet_resource_group_name": "${VNET_RG_NAME}"
+  "vnet_name": "nodesig-pool-vnet",
+  "subnet_name": "packer",
+  "vnet_resource_group_name": "${vnet_rg_name}"
 }
 EOF
 
