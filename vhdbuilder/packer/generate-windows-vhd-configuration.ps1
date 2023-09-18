@@ -57,17 +57,19 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.10.0",
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0",
     # azuredisk-csi:v1.28 is only for AKS 1.27+, v1.26 is for other AKS versions
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.5",
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.6",
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.2-windows-hp",
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.3-windows-hp",
+    # azuredisk-csi:v1.29 is only for AKS 1.28+
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.0-windows-hp",
     # azurefile-csi:v1.28 is only for AKS 1.27+, v1.24, v1.26 is for other AKS versions
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.7",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.9",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.6",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.10",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.7",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.3-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.8",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.4-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.5-windows-hp",
+    # azurefile-csi:v1.29 is only for AKS 1.28+
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.0-windows-hp",
     # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.4",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
@@ -80,7 +82,7 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.8", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.0", # for k8s 1.28.x
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.12",
+    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.13",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.3",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.4",
@@ -106,10 +108,9 @@ $global:map = @{
         "https://github.com/microsoft/SDN/raw/d9eaf8f330b9c8119c792ba3768bcf4c2da86123/Kubernetes/windows/hns.v2.psm1",
         "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.25.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.26.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.27.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.29.zip"
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.29.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.30.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
