@@ -143,7 +143,7 @@ copyPackerFiles() {
 
     KATACC_IMAGE_SRC=/home/packer/kata-containers.img
     KATACC_IMAGE_DEST=$KATACC_CONFIG_DIR/kata-containers.img
-    cpAndMode $KATACC_INITRD_SRC $KATACC_IMAGE_DEST 0755
+    cpAndMode $KATACC_IMAGE_SRC $KATACC_IMAGE_DEST 0755
 
     REF_INFO_SRC=/home/packer/reference-info-base64
     REF_INFO_DEST=$KATACC_CONFIG_DIR/reference-info-base64
