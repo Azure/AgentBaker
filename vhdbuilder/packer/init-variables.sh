@@ -16,18 +16,28 @@ else
 fi
 
 if [ -z "${POOL_NAME}" ]; then
-	echo "POOL_NAME is not set, can't compute vnet_rg_name for packer templates"
+	echo "POOL_NAME is not set, can't compute VNET_RG_NAME for packer templates"
 	exit 1
 fi
 
-vnet_rg_name=""
-if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
-	vnet_rg_name="nodesigprod-agent-pool"
-else
-	vnet_rg_name="nodesigtest-agent-pool"
+if [ -z "${VNET_RG_NAME}" ]; then 
+	VNET_RG_NAME=""
+	if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
+		VNET_RG_NAME="nodesigprod-agent-pool"
+	else
+		VNET_RG_NAME="nodesigtest-agent-pool"
+	fi
 fi
 
-echo "vnet_rg_name set to: ${vnet_rg_name}"
+if [ -z "${VNET_NAME}" ]; then
+	VNET_NAME="nodesig-pool-vnet"
+fi
+
+if [ -z "${SUBNET_NAME}" ]; then
+	SUBNET_NAME="packer"
+fi
+
+echo "VNET_RG_NAME set to: ${VNET_RG_NAME}"
 
 echo "CAPTURED_SIG_VERSION set to: ${CAPTURED_SIG_VERSION}"
 
@@ -370,9 +380,9 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "windows_sigmode_source_gallery_name": "${windows_sigmode_source_gallery_name}",
   "windows_sigmode_source_image_name": "${windows_sigmode_source_image_name}",
   "windows_sigmode_source_image_version": "${windows_sigmode_source_image_version}",
-  "vnet_name": "nodesig-pool-vnet",
-  "subnet_name": "packer",
-  "vnet_resource_group_name": "${vnet_rg_name}"
+  "vnet_name": "${VNET_NAME}",
+  "subnet_name": "${SUBNET_NAME}",
+  "vnet_resource_group_name": "${VNET_RG_NAME}"
 }
 EOF
 
