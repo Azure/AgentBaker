@@ -17,6 +17,26 @@ steps:
       vstsFeedPackage: asc-baseline
       vstsPackageVersion: '1.1.0-268'
       downloadDirectory: vhdbuilder/packer
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download Kata CC UVM artifact'
+    inputs:
+      source: specific
+      project: CloudNativeCompute
+      pipeline: $(UVM_PIPELINE_ID)
+      runVersion: specific
+      runId: $(UVM_RUN_ID)
+      artifactName: 'drop_build_and_sign_build_and_sign'
+      downloadType: 'single'
+      itemPattern: |
+        **/igvm-debug-measurement**
+        **/kata-containers-igvm-debug.img**
+        **/igvm-measurement**
+        **/kata-containers-igvm.img**
+        **/kata-containers-initrd.img**
+        **/kata-containers-initrd-base.img**
+        **/reference-info-base64**
+      downloadPath: $(Build.SourcesDirectory)
+    condition: eq(variables.OS_SKU, 'CBLMariner')
   - bash: |
       pwd
       ls -R

@@ -1189,6 +1189,29 @@ root = "{{GetDataDir}}"{{- end}}
     {{- if IsKata }}
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
       runtime_type = "io.containerd.kata.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli]
+      runtime_type = "io.containerd.runc.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli.options]
+      NoPivotRoot = false
+      NoNewKeyring = false
+      ShimCgroup = ""
+      IoUid = 0
+      IoGid = 0
+      BinaryName = "/usr/bin/kata-runtime"
+      Root = ""
+      CriuPath = ""
+      SystemdCgroup = false
+    [proxy_plugins]
+      [proxy_plugins.tardev]
+        type = "snapshot"
+        address = "/run/containerd/tardev-snapshotter.sock"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
+      snapshotter = "tardev"
+      runtime_type = "io.containerd.kata-cc.v2"
+      privileged_without_host_devices = true
+      pod_annotations = ["io.katacontainers.*"]
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
+      ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
     {{- end}}
     {{- if IsKrustlet }}
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
@@ -1264,6 +1287,29 @@ root = "{{GetDataDir}}"{{- end}}
     {{- if IsKata }}
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
       runtime_type = "io.containerd.kata.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli]
+      runtime_type = "io.containerd.runc.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli.options]
+      NoPivotRoot = false
+      NoNewKeyring = false
+      ShimCgroup = ""
+      IoUid = 0
+      IoGid = 0
+      BinaryName = "/usr/bin/kata-runtime"
+      Root = ""
+      CriuPath = ""
+      SystemdCgroup = false
+    [proxy_plugins]
+      [proxy_plugins.tardev]
+        type = "snapshot"
+        address = "/run/containerd/tardev-snapshotter.sock"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
+      snapshotter = "tardev"
+      runtime_type = "io.containerd.kata-cc.v2"
+      privileged_without_host_devices = true
+      pod_annotations = ["io.katacontainers.*"]
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
+      ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
     {{- end}}
     {{- if IsKrustlet }}
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]

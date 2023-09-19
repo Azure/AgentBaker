@@ -143,12 +143,16 @@ EOF
 }
 
 enableMarinerKata() {
-    # Enable the mshv boot path
-    sudo sed -i -e 's@menuentry "CBL-Mariner"@menuentry "Dom0" {\n    search --no-floppy --set=root --file /EFI/Microsoft/Boot/bootmgfw.efi\n        chainloader /EFI/Microsoft/Boot/bootmgfw.efi\n}\n\nmenuentry "CBL-Mariner"@'  /boot/grub2/grub.cfg
+    echo "Contents of blkid output"
+    export my_blkid=$(blkid)
+    echo $my_blkid
 
-    # kata-osbuilder-generate is responsible for triggering the kata-osbuilder.sh script, which uses
-    # dracut to generate an initrd for the nested VM using binaries from the Mariner host OS.
-    systemctlEnableAndStart kata-osbuilder-generate
+    export boot_uuid=$(sudo grep -o -m 1 '[0-9a-f]\{8\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{12\}' /boot/efi/boot/grub2/grub.cfg)
+
+    sudo sed -i -e 's@load_env -f \$bootprefix\/mariner.cfg@load_env -f \$bootprefix\/mariner-mshv.cfg\nload_env -f $bootprefix\/mariner.cfg\n@'  /boot/grub2/grub.cfg
+    sudo sed -i -e 's@menuentry "CBL-Mariner"@menuentry "Dom0" {\n    search --no-floppy --set=root --file /HvLoader.efi\n    chainloader /HvLoader.efi lxhvloader.dll MSHV_ROOT=\\\\Windows MSHV_ENABLE=TRUE MSHV_SCHEDULER_TYPE=ROOT MSHV_X2APIC_POLICY=ENABLE MSHV_SEV_SNP=TRUE MSHV_LOAD_OPTION=INCLUDETRACEMETADATA=1\n    boot\n    search --no-floppy --fs-uuid '"$boot_uuid"' --set=root\n    linux $bootprefix/$mariner_linux_mshv $mariner_cmdline_mshv $systemd_cmdline root=$rootdevice\n    if [ -f $bootprefix/$mariner_initrd_mshv ]; then\n    initrd $bootprefix/$mariner_initrd_mshv\n    fi\n}\n\nmenuentry "CBL-Mariner"@'  /boot/grub2/grub.cfg
+
+    systemctlEnableAndStart set-kataconfig || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 activateNfConntrack() {

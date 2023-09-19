@@ -124,6 +124,40 @@ copyPackerFiles() {
   PVT_HOST_SVC_DEST=/etc/systemd/system/reconcile-private-hosts.service
   cpAndMode $CSE_REDACT_SRC $CSE_REDACT_DEST 600
 
+  if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+    # KataCC SPEC file assumes kata config points to the files exactly under this path
+    KATA_CONFIG_DIR=/var/cache/kata-containers/osbuilder-images/kernel-uvm/
+    KATACC_CONFIG_DIR=/opt/confidential-containers/share/kata-containers
+
+    IGVM_DEBUG_BIN_SRC=/home/packer/kata-containers-igvm-debug.img
+    IGVM_DEBUG_BIN_DEST=$KATACC_CONFIG_DIR/kata-containers-igvm-debug.img
+    cpAndMode $IGVM_DEBUG_BIN_SRC $IGVM_DEBUG_BIN_DEST 0755
+
+    IGVM_BIN_SRC=/home/packer/kata-containers-igvm.img
+    IGVM_BIN_DEST=$KATACC_CONFIG_DIR/kata-containers-igvm.img
+    cpAndMode $IGVM_BIN_SRC $IGVM_BIN_DEST 0755
+
+    KATA_INITRD_SRC=/home/packer/kata-containers-initrd-base.img
+    KATA_INITRD_DEST=$KATA_CONFIG_DIR/kata-containers-initrd.img
+    cpAndMode $KATA_INITRD_SRC $KATA_INITRD_DEST 0755
+
+    KATACC_INITRD_SRC=/home/packer/kata-containers-initrd.img
+    KATACC_INITRD_DEST=$KATACC_CONFIG_DIR/kata-containers-initrd.img
+    cpAndMode $KATACC_INITRD_SRC $KATACC_INITRD_DEST 0755
+
+    REF_INFO_SRC=/home/packer/reference-info-base64
+    REF_INFO_DEST=$KATACC_CONFIG_DIR/reference-info-base64
+    cpAndMode $REF_INFO_SRC $REF_INFO_DEST 0755
+
+    SET_KATA_CONFIG_SRC=/home/packer/set-kataconfig.service
+    SET_KATA_CONFIG_DEST=/etc/systemd/system/set-kataconfig.service
+    cpAndMode $SET_KATA_CONFIG_SRC $SET_KATA_CONFIG_DEST 0755
+
+    SETUP_KATA_SRC=/home/packer/setupkata.sh
+    SETUP_KATA_DEST=/setupkata.sh
+    cpAndMode $SETUP_KATA_SRC $SETUP_KATA_DEST 0755
+  fi
+
   MIG_PART_SRC=/home/packer/mig-partition.service
   MIG_PART_DEST=/etc/systemd/system/mig-partition.service
   cpAndMode $MIG_PART_SRC $MIG_PART_DEST 600

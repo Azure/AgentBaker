@@ -125,6 +125,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/setupkata.sh",
+      "destination": "/home/packer/setupkata.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_main.sh",
       "destination": "/home/packer/provision.sh"
     },
@@ -482,6 +487,36 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/containerd.service",
       "destination": "/home/packer/containerd.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/set-kataconfig.service",
+      "destination": "/home/packer/set-kataconfig.service"
+    },
+    {
+      "type": "file",
+      "source": "kata-containers-igvm-debug.img",
+      "destination": "/home/packer/kata-containers-igvm-debug.img"
+    },
+    {
+      "type": "file",
+      "source": "kata-containers-igvm.img",
+      "destination": "/home/packer/kata-containers-igvm.img"
+    },
+    {
+      "type": "file",
+      "source": "kata-containers-initrd-base.img",
+      "destination": "/home/packer/kata-containers-initrd-base.img"
+    },
+    {
+      "type": "file",
+      "source": "kata-containers-initrd.img",
+      "destination": "/home/packer/kata-containers-initrd.img"
+    },
+    {
+      "type": "file",
+      "source": "reference-info-base64",
+      "destination": "/home/packer/reference-info-base64"
     },
     {
       "type": "file",
