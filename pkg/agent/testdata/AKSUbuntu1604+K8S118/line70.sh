@@ -74,8 +74,8 @@ configureEtcEnvironment() {
     chmod 0644 /etc/systemd/system.conf.d/proxy.conf
 
     mkdir -p  /etc/apt/apt.conf.d
-    chmod 0644 /etc/apt/apt.conf.d/95proxy
     touch /etc/apt/apt.conf.d/95proxy
+    chmod 0644 /etc/apt/apt.conf.d/95proxy
 
     # TODO(ace): this pains me but quick and dirty refactor
     echo "[Manager]" >> /etc/systemd/system.conf.d/proxy.conf
