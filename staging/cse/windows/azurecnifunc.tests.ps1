@@ -1,7 +1,7 @@
 BeforeAll {
     . $PSScriptRoot\..\..\..\parts\windows\windowscsehelper.ps1
     . $PSCommandPath.Replace('.tests.ps1','.ps1')
-  }
+}
 
 Describe 'GetBroadestRangesForEachAddress' {
 
@@ -44,6 +44,8 @@ Describe 'Set-AzureCNIConfig' {
             $json = $json | ConvertTo-Json -depth 20
             return $json
         }
+
+        Mock Get-WindowsVersion -MockWith { return "ltsc2022" }
     }
 
     AfterEach {
@@ -91,21 +93,103 @@ Describe 'Set-AzureCNIConfig' {
     }
 
     Context 'DisableOutboundNAT' {
-        It "Should replace OutboundNAT with LoopbackDSR" {
-            $global:IsDisableWindowsOutboundNat = $true
-            Set-Default-AzureCNI "AzureCNI.Default.conflist"
+        Context "Should replace OutboundNAT with LoopbackDSR for WS2019" {
+            BeforeEach {
+                Mock Get-WindowsVersion -MockWith { return "1809" }
 
-            Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
-                -KubeDnsSearchPath $kubeDnsSearchPath `
-                -KubeClusterCIDR $kubeClusterCIDR `
-                -KubeServiceCIDR $kubeServiceCIDR `
-                -VNetCIDR $vNetCIDR `
-                -IsDualStackEnabled $isDualStackEnabled
+                Mock Set-ItemProperty -MockWith {
+                    Param(
+                        $Path,
+                        $Name,
+                        $Type,
+                        $Value
+                    )
+                    Write-Host "Set-ItemProperty -Path $Path -Name $Name -Type $Type -Value $Value"
+                } -Verifiable
+            }
 
-            $actualConfigJson = Read-Format-Json $azureCNIConfigFile
-            $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.DisableOutboundNat.conflist"))
-            $diffence = Compare-Object $actualConfigJson $expectedConfigJson
-            $diffence | Should -Be $null
+            It "Should clear 0x10 in HNSControlFlag when HNSControlFlag exists" {
+				Mock Get-ItemProperty -MockWith {
+					Param(
+					  $Path,
+					  $Name,
+					  $ErrorAction
+					)
+					Write-Host "Get-ItemProperty -Path $Path -Name $Name : Return 0x50"
+					return [PSCustomObject]@{
+						HNSControlFlag = 0x50
+					}
+				} -Verifiable
+				
+                $global:IsDisableWindowsOutboundNat = $true
+                Set-Default-AzureCNI "AzureCNI.Default.conflist"
+    
+                Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
+                    -KubeDnsSearchPath $kubeDnsSearchPath `
+                    -KubeClusterCIDR $kubeClusterCIDR `
+                    -KubeServiceCIDR $kubeServiceCIDR `
+                    -VNetCIDR $vNetCIDR `
+                    -IsDualStackEnabled $isDualStackEnabled
+				Assert-MockCalled -CommandName "Get-ItemProperty" -Exactly -Times 1 -ParameterFilter { $Path -eq "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -and $Name -eq "HNSControlFlag" }
+				Assert-MockCalled -CommandName "Set-ItemProperty" -Exactly -Times 1 -ParameterFilter { $Path -eq "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -and $Name -eq "HNSControlFlag" -and $Type -eq "DWORD" -and $Value -eq 0x40 }
+    
+                $actualConfigJson = Read-Format-Json $azureCNIConfigFile
+                $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.DisableOutboundNat.conflist"))
+                $diffence = Compare-Object $actualConfigJson $expectedConfigJson
+                $diffence | Should -Be $null
+            }
+
+            It "Should set HNSControlFlag to 0 when HNSControlFlag does not exist" {
+                Mock Get-ItemProperty -MockWith {
+                    Param(
+                        $Path,
+                        $Name,
+                        $ErrorAction
+                    )
+                    Write-Host "Get-ItemProperty -Path $Path -Name $Name : Return null"
+                    return $null
+                } -Verifiable
+
+                $global:IsDisableWindowsOutboundNat = $true
+                Set-Default-AzureCNI "AzureCNI.Default.conflist"
+    
+                Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
+                    -KubeDnsSearchPath $kubeDnsSearchPath `
+                    -KubeClusterCIDR $kubeClusterCIDR `
+                    -KubeServiceCIDR $kubeServiceCIDR `
+                    -VNetCIDR $vNetCIDR `
+                    -IsDualStackEnabled $isDualStackEnabled
+				Assert-MockCalled -CommandName "Get-ItemProperty" -Exactly -Times 1 -ParameterFilter { $Path -eq "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -and $Name -eq "HNSControlFlag" -and $ErrorAction -eq "Ignore" }
+				Assert-MockCalled -CommandName "Set-ItemProperty" -Exactly -Times 1 -ParameterFilter { $Path -eq "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -and $Name -eq "HNSControlFlag" -and $Type -eq "DWORD" -and $Value -eq 0 }
+    
+                $actualConfigJson = Read-Format-Json $azureCNIConfigFile
+                $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.DisableOutboundNat.conflist"))
+                $diffence = Compare-Object $actualConfigJson $expectedConfigJson
+                $diffence | Should -Be $null
+            }
+        }
+
+        Context "Should replace OutboundNAT with LoopbackDSR for WS2022" {
+            BeforeEach {
+                Mock Get-WindowsVersion -MockWith { return "ltsc2022" }
+            }
+            
+            It "Should not touch registry" {
+                $global:IsDisableWindowsOutboundNat = $true
+                Set-Default-AzureCNI "AzureCNI.Default.conflist"
+
+                Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
+                    -KubeDnsSearchPath $kubeDnsSearchPath `
+                    -KubeClusterCIDR $kubeClusterCIDR `
+                    -KubeServiceCIDR $kubeServiceCIDR `
+                    -VNetCIDR $vNetCIDR `
+                    -IsDualStackEnabled $isDualStackEnabled
+    
+                $actualConfigJson = Read-Format-Json $azureCNIConfigFile
+                $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.DisableOutboundNat.conflist"))
+                $diffence = Compare-Object $actualConfigJson $expectedConfigJson
+                $diffence | Should -Be $null
+            }
         }
     }
 
