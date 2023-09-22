@@ -114,9 +114,16 @@ steps:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
         targetPath: 'release-notes.txt'
 
+# Use jq to reformat the image-bom.json file
+  - bash: |
+      sudo chmod 777 image-bom.json
+      jq . image-bom.json > tmp.json
+      mv tmp.json image-bom.json
+    displayName: Reformat image bom file
+
 # We can upload image bom json for check-in pr and sig mode to validate whether it is expected.
   - task: PublishPipelineArtifact@0
-    inputs:
+    inputs:          
         artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
         targetPath: 'image-bom.json'
 
