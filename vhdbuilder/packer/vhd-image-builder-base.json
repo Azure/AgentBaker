@@ -235,6 +235,21 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh",
+      "destination": "/home/packer/ubuntu-snapshot-update.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.service",
+      "destination": "/home/packer/snapshot-update.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.timer",
+      "destination": "/home/packer/snapshot-update.timer"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cis.sh",
       "destination": "/home/packer/cis.sh"
     },

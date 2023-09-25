@@ -89,6 +89,9 @@
 // linux/cloud-init/artifacts/teleportd.service
 // linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
 // linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh
+// linux/cloud-init/artifacts/ubuntu/snapshot-update.service
+// linux/cloud-init/artifacts/ubuntu/snapshot-update.timer
+// linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh
 // linux/cloud-init/artifacts/update_certs.path
 // linux/cloud-init/artifacts/update_certs.service
 // linux/cloud-init/artifacts/update_certs.sh
@@ -2253,6 +2256,10 @@ EOF
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
 }
 
+ensureSnapshotUpdate() {
+    systemctlEnableAndStart snapshot-update.timer || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
+}
+
 ensureMigPartition(){
     mkdir -p /etc/systemd/system/mig-partition.service.d/
     touch /etc/systemd/system/mig-partition.service.d/10-mig-profile.conf
@@ -2553,6 +2560,7 @@ ERR_DISABLE_SSH=172 # Error disabling ssh service
 
 ERR_VHD_REBOOT_REQUIRED=200 # Reserved for VHD reboot required exit condition
 ERR_NO_PACKAGES_FOUND=201 # Reserved for no security packages found exit condition
+ERR_SNAPSHOT_UPDATE_START_FAIL=202 # snapshot-update could not be started by systemctl
 
 ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
 
@@ -3580,6 +3588,10 @@ fi
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
+fi
+
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+    logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
 fi
 
 if $FULL_INSTALL_REQUIRED; then
@@ -6830,6 +6842,179 @@ func linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsUbuntuSnapshotUpdateService = []byte(`[Unit]
+Description=Snapshot Update Service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/azure/containers/ubuntu-snapshot-update.sh`)
+
+func linuxCloudInitArtifactsUbuntuSnapshotUpdateServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUbuntuSnapshotUpdateService, nil
+}
+
+func linuxCloudInitArtifactsUbuntuSnapshotUpdateService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUbuntuSnapshotUpdateServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ubuntu/snapshot-update.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsUbuntuSnapshotUpdateTimer = []byte(`[Unit]
+Description=Runs snapshot update script periodically
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=10min
+
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsUbuntuSnapshotUpdateTimerBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUbuntuSnapshotUpdateTimer, nil
+}
+
+func linuxCloudInitArtifactsUbuntuSnapshotUpdateTimer() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUbuntuSnapshotUpdateTimerBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ubuntu/snapshot-update.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsUbuntuUbuntuSnapshotUpdateSh = []byte(`#!/usr/bin/env bash
+
+set -o nounset
+set -e
+
+# source apt_get_update
+source /opt/azure/containers/provision_source_distro.sh
+
+# Execute unattended-upgrade
+unattended_upgrade() {
+  retries=10
+  for i in $(seq 1 $retries); do
+    unattended-upgrade -v && break
+    if [ $i -eq $retries ]; then
+      return 1
+    else sleep 5
+    fi
+  done
+  echo Executed unattended upgrade $i times
+}
+
+# Determinate is the given option present in the cfg file
+cfg_has_option() {
+    file=$1
+    option=$2
+    line=$(sed -n "/^$option:/ p" "$file")
+    [ -n "$line" ]
+}
+
+# Set an option in a cfg file
+cfg_set_option() {
+    file=$1
+    option=$2
+    value=$3
+    if ! cfg_has_option "$file" "$option"; then
+        echo "$option: $value" >> "$file"
+    else
+        sed -i 's/'"$option"':.*$/'"$option: $value"'/g' "$file"
+    fi
+}
+
+KUBECTL="/usr/local/bin/kubectl --kubeconfig /var/lib/kubelet/kubeconfig"
+
+source_list_path=/etc/apt/sources.list
+source_list_backup_path=/etc/apt/sources.list.backup
+cloud_cfg_path=/etc/cloud/cloud.cfg
+
+# At startup, we need to wait for kubelet to finish TLS bootstrapping to create the kubeconfig file.
+while [ ! -f /var/lib/kubelet/kubeconfig ]; do
+    echo 'Waiting for TLS bootstrapping'
+    sleep 3
+done
+
+node_name=$(hostname)
+if [ -z "${node_name}" ]; then
+    echo "cannot get node name"
+    exit 1
+fi
+
+# retrieve golden timestamp from node annotation
+golden_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-golden-timestamp']}")
+if [ -z "${golden_timestamp}" ]; then
+    echo "golden timestamp is not set, skip live patching"
+    exit 0
+fi
+echo "golden timestamp is: ${golden_timestamp}"
+
+current_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-current-timestamp']}")
+if [ -n "${current_timestamp}" ]; then
+    echo "current timestamp is: ${current_timestamp}"
+
+    if [[ "${golden_timestamp}" == "${current_timestamp}" ]]; then
+        echo "golden and current timestamp is the same, nothing to patch"
+        exit 0
+    fi
+fi
+
+old_source_list=$(cat ${source_list_path})
+# upgrade from base image to a timestamp
+# e.g. replace https://snapshot.ubuntu.com/ubuntu/ with https://snapshot.ubuntu.com/ubuntu/20230727T000000Z
+sed -i 's/http:\/\/azure.archive.ubuntu.com\/ubuntu\//https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
+# upgrade from one timestamp to another timestamp
+sed -i 's/https:\/\/snapshot.ubuntu.com\/ubuntu\/\([0-9]\{8\}T[0-9]\{6\}Z\)/https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
+# preserve the sources.list changes
+option=apt_preserve_sources_list
+option_value=true
+cfg_set_option ${cloud_cfg_path} ${option} ${option_value}
+
+new_source_list=$(cat ${source_list_path})
+if [[ "${old_source_list}" != "${new_source_list}" ]]; then
+    # save old sources.list
+    echo "$old_source_list" > ${source_list_backup_path}
+    echo "/etc/apt/sources.list is updated:"
+    diff ${source_list_backup_path} ${source_list_path} || true
+fi
+
+if ! apt_get_update; then
+    echo "apt_get_update failed"
+    exit 1
+fi
+if ! unattended_upgrade; then
+    echo "unattended_upgrade failed"
+    exit 1
+fi
+
+# update current timestamp
+$KUBECTL annotate --overwrite node ${node_name} kubernetes.azure.com/live-patching-current-timestamp=${golden_timestamp}
+
+echo snapshot update completed successfully
+`)
+
+func linuxCloudInitArtifactsUbuntuUbuntuSnapshotUpdateShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUbuntuUbuntuSnapshotUpdateSh, nil
+}
+
+func linuxCloudInitArtifactsUbuntuUbuntuSnapshotUpdateSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUbuntuUbuntuSnapshotUpdateShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsUpdate_certsPath = []byte(`[Unit]
 Description=Monitor the cert directory for changes
 
@@ -7064,6 +7249,27 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
+
+- path: /opt/azure/containers/ubuntu-snapshot-update.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "snapshotUpdateScript"}}
+
+- path: /etc/systemd/system/snapshot-update.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "snapshotUpdateService"}}
+
+- path: /etc/systemd/system/snapshot-update.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "snapshotUpdateTimer"}}
 
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
@@ -8384,6 +8590,9 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/teleportd.service":                         linuxCloudInitArtifactsTeleportdService,
 	"linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh,
 	"linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh,
+	"linux/cloud-init/artifacts/ubuntu/snapshot-update.service":            linuxCloudInitArtifactsUbuntuSnapshotUpdateService,
+	"linux/cloud-init/artifacts/ubuntu/snapshot-update.timer":              linuxCloudInitArtifactsUbuntuSnapshotUpdateTimer,
+	"linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh":          linuxCloudInitArtifactsUbuntuUbuntuSnapshotUpdateSh,
 	"linux/cloud-init/artifacts/update_certs.path":                         linuxCloudInitArtifactsUpdate_certsPath,
 	"linux/cloud-init/artifacts/update_certs.service":                      linuxCloudInitArtifactsUpdate_certsService,
 	"linux/cloud-init/artifacts/update_certs.sh":                           linuxCloudInitArtifactsUpdate_certsSh,
@@ -8528,8 +8737,11 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"sysctl-d-60-CIS.conf":            &bintree{linuxCloudInitArtifactsSysctlD60CisConf, map[string]*bintree{}},
 				"teleportd.service":               &bintree{linuxCloudInitArtifactsTeleportdService, map[string]*bintree{}},
 				"ubuntu": &bintree{nil, map[string]*bintree{
-					"cse_helpers_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh, map[string]*bintree{}},
-					"cse_install_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh, map[string]*bintree{}},
+					"cse_helpers_ubuntu.sh":     &bintree{linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh, map[string]*bintree{}},
+					"cse_install_ubuntu.sh":     &bintree{linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh, map[string]*bintree{}},
+					"snapshot-update.service":   &bintree{linuxCloudInitArtifactsUbuntuSnapshotUpdateService, map[string]*bintree{}},
+					"snapshot-update.timer":     &bintree{linuxCloudInitArtifactsUbuntuSnapshotUpdateTimer, map[string]*bintree{}},
+					"ubuntu-snapshot-update.sh": &bintree{linuxCloudInitArtifactsUbuntuUbuntuSnapshotUpdateSh, map[string]*bintree{}},
 				}},
 				"update_certs.path":    &bintree{linuxCloudInitArtifactsUpdate_certsPath, map[string]*bintree{}},
 				"update_certs.service": &bintree{linuxCloudInitArtifactsUpdate_certsService, map[string]*bintree{}},
