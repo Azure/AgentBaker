@@ -480,7 +480,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return profile.Distro.IsKataDistro()
 		},
 		"IsCustomImage": func() bool {
-			return profile.Distro == datamodel.CustomizedImage
+			return profile.Distro == datamodel.CustomizedImage || profile.Distro == datamodel.CustomizedImageKata
 		},
 		"EnableHostsConfigAgent": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&

@@ -39,7 +39,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context,
 	}
 
 	distro := config.AgentPoolProfile.Distro
-	if distro == datamodel.CustomizedWindowsOSImage || distro == datamodel.CustomizedImage {
+	if distro == datamodel.CustomizedWindowsOSImage || distro == datamodel.CustomizedImage || distro == datamodel.CustomizedImageKata {
 		return nodeBootstrapping, nil
 	}
 
