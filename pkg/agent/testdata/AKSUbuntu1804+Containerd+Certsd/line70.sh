@@ -74,8 +74,8 @@ configureEtcEnvironment() {
     chmod 0644 /etc/systemd/system.conf.d/proxy.conf
 
     mkdir -p  /etc/apt/apt.conf.d
-    chmod 0644 /etc/apt/apt.conf.d/95proxy
     touch /etc/apt/apt.conf.d/95proxy
+    chmod 0644 /etc/apt/apt.conf.d/95proxy
 
     # TODO(ace): this pains me but quick and dirty refactor
     echo "[Manager]" >> /etc/systemd/system.conf.d/proxy.conf
@@ -585,13 +585,14 @@ configGPUDrivers() {
         exit 1
     fi
 
-    # validate on host, already done inside container.
-    if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    fi
-
+    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+
+    # Fix the NVIDIA /dev/char link issue
+    if [[ $OS == $MARINER_OS_NAME ]]; then
+        createNvidiaSymlinkToAllDeviceNodes
+    fi
     
     # reload containerd/dockerd
     if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then

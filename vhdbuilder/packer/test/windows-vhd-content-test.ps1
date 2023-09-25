@@ -346,6 +346,30 @@ function Test-RegistryAdded {
             Write-ErrorWithTimestamp "The registry for 87798413 is not added"
             exit 1
         }
+
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4289201804)
+        if ($result.4289201804 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 4289201804 is not added"
+            exit 1
+        }
+
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1355135117)
+        if ($result.1355135117 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 1355135117 is not added"
+            exit 1
+        }
+
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name RemoveSourcePortPreservationForRest)
+        if ($result.RemoveSourcePortPreservationForRest -ne 1) {
+            Write-ErrorWithTimestamp "The registry for RemoveSourcePortPreservationForRest is not added"
+            exit 1
+        }
+
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2214038156)
+        if ($result.2214038156 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 2214038156 is not added"
+            exit 1
+        }
     }
 }
 
@@ -381,6 +405,16 @@ function Test-ExcludeUDPSourcePort {
     }
 }
 
+function Test-WindowsDefenderPlatformUpdate {
+    $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
+    $latestDefenderProductVersion = ([xml]((Invoke-WebRequest -UseBasicParsing -Uri:"$global:defenderUpdateInfoUrl").Content)).versions.platform
+ 
+    if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
+        Write-ErrorWithTimestamp "Update failed. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+        exit 1
+    }
+}
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
@@ -388,4 +422,5 @@ Test-RegistryAdded
 Test-DefenderSignature
 Test-AzureExtensions
 Test-ExcludeUDPSourcePort
+Test-WindowsDefenderPlatformUpdate
 Remove-Item -Path c:\windows-vhd-configuration.ps1

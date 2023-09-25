@@ -114,6 +114,10 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				GalleryName:   "akscblmariner",
 				ResourceGroup: "resourcegroup",
 			},
+			"AKSAzureLinux": {
+				GalleryName:   "aksazurelinux",
+				ResourceGroup: "resourcegroup",
+			},
 			"AKSWindows": {
 				GalleryName:   "akswindows",
 				ResourceGroup: "resourcegroup",
@@ -200,6 +204,15 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		It("should not return an error for customized image", func() {
 			config.AgentPoolProfile.Distro = datamodel.CustomizedImage
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should not return an error for customized kata image", func() {
+			config.AgentPoolProfile.Distro = datamodel.CustomizedImageKata
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
 

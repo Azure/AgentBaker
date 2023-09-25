@@ -36,6 +36,9 @@ installContainerRuntime() {
         local containerd_version
         if [ -f "$MANIFEST_FILEPATH" ]; then
             containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+            if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+                containerd_version="$(jq -r '.containerd.pinned."1804"' "$MANIFEST_FILEPATH")"
+            fi
         else
             echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
         fi
@@ -183,7 +186,7 @@ installCNI() {
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
     else
         if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
-            downloadCNI
+            logs_to_events "AKS.CSE.installCNI.downloadCNI" downloadCNI
         fi
 
         tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
@@ -203,7 +206,7 @@ installAzureCNI() {
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
     else
         if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
-            downloadAzureCNI
+            logs_to_events "AKS.CSE.installAzureCNI.downloadAzureCNI" downloadAzureCNI
         fi
 
         tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR

@@ -53,7 +53,7 @@ else
   # netcat - network comms with API server
   # dnsutils - contains nslookup, to query API server DNS
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
-  BLOBFUSE2_VERSION="2.0.5"
+  BLOBFUSE2_VERSION="2.1.0"
   required_pkg_list=(jq iptables netcat dnsutils "blobfuse2="${BLOBFUSE2_VERSION} fuse3)
   for apt_package in ${required_pkg_list[*]}; do
       if ! apt_get_install 30 1 600 $apt_package; then
@@ -132,7 +132,12 @@ echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEP
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
 containerd_manifest="$(jq .containerd manifest.json)" || exit $?
+
 installed_version="$(echo ${containerd_manifest} | jq -r '.edge')"
+if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+  installed_version="$(echo ${containerd_manifest} | jq -r '.pinned."1804"')"
+fi
+  
 containerd_version="$(echo "$installed_version" | cut -d- -f1)"
 containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
 installStandaloneContainerd ${containerd_version} ${containerd_patch_version}

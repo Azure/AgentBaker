@@ -1697,7 +1697,7 @@ CUSTOM_SEARCH_REALM_USER="{{GetSearchDomainRealmUser}}"
 CUSTOM_SEARCH_REALM_PASSWORD="{{GetSearchDomainRealmPassword}}"
 MESSAGE_OF_THE_DAY="{{GetMessageOfTheDay}}"
 HAS_KUBELET_DISK_TYPE="{{HasKubeletDiskType}}"
-NEEDS_CGROUPV2="{{Is2204VHD}}"
+NEEDS_CGROUPV2="{{IsCgroupV2}}"
 TLS_BOOTSTRAP_TOKEN="{{GetTLSBootstrapTokenForKubeConfig}}"
 KUBELET_FLAGS="{{GetKubeletConfigKeyVals}}"
 NETWORK_POLICY="{{GetParameter "networkPolicy"}}"
@@ -1810,8 +1810,8 @@ configureEtcEnvironment() {
     chmod 0644 /etc/systemd/system.conf.d/proxy.conf
 
     mkdir -p  /etc/apt/apt.conf.d
-    chmod 0644 /etc/apt/apt.conf.d/95proxy
     touch /etc/apt/apt.conf.d/95proxy
+    chmod 0644 /etc/apt/apt.conf.d/95proxy
 
     # TODO(ace): this pains me but quick and dirty refactor
     echo "[Manager]" >> /etc/systemd/system.conf.d/proxy.conf
@@ -2321,13 +2321,14 @@ configGPUDrivers() {
         exit 1
     fi
 
-    # validate on host, already done inside container.
-    if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    fi
-
+    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+
+    # Fix the NVIDIA /dev/char link issue
+    if [[ $OS == $MARINER_OS_NAME ]]; then
+        createNvidiaSymlinkToAllDeviceNodes
+    fi
     
     # reload containerd/dockerd
     if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
@@ -2812,6 +2813,9 @@ installContainerRuntime() {
         local containerd_version
         if [ -f "$MANIFEST_FILEPATH" ]; then
             containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+            if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+                containerd_version="$(jq -r '.containerd.pinned."1804"' "$MANIFEST_FILEPATH")"
+            fi
         else
             echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
         fi
@@ -2959,7 +2963,7 @@ installCNI() {
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
     else
         if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
-            downloadCNI
+            logs_to_events "AKS.CSE.installCNI.downloadCNI" downloadCNI
         fi
 
         tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
@@ -2979,7 +2983,7 @@ installAzureCNI() {
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
     else
         if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
-            downloadAzureCNI
+            logs_to_events "AKS.CSE.installAzureCNI.downloadAzureCNI" downloadAzureCNI
         fi
 
         tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
@@ -4742,15 +4746,21 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadLocation": "/opt/containerd/downloads",
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/${UBUNTU_CODENAME}/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu${UBUNTU_RELEASE}u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [],
-        "edge": "1.7.1-1"
+        "pinned": {
+            "1804": "1.7.1-1"
+        },
+        "edge": "1.7.5-1"
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "downloadLocation": "/opt/runc/downloads",
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [],
+        "pinned": {
+            "1804": "1.1.7"
+        },
         "installed": {
-            "default": "1.1.7"
+            "default": "1.1.9"
         }
     },
     "nvidia-container-runtime": {
@@ -4781,7 +4791,8 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
             "1.26.6",
             "1.27.1-hotfix.20230612",
             "1.27.3",
-            "1.28.0"
+            "1.28.0",
+            "1.28.1"
         ]
     },
     "_template": {
@@ -4933,6 +4944,17 @@ downloadGPUDrivers() {
     fi
 }
 
+createNvidiaSymlinkToAllDeviceNodes() {
+    NVIDIA_DEV_CHAR="/lib/udev/rules.d/71-nvidia-dev-char.rules"
+    touch "${NVIDIA_DEV_CHAR}"
+    cat << EOF > "${NVIDIA_DEV_CHAR}"
+# This will create /dev/char symlinks to all device nodes
+ACTION=="add", DEVPATH=="/bus/pci/drivers/nvidia", RUN+="/usr/bin/nvidia-ctk system create-dev-char-symlinks --create-all"
+EOF
+
+    /usr/bin/nvidia-ctk system create-dev-char-symlinks --create-all
+}
+
 installNvidiaFabricManager() {
     # Check the NVIDIA driver version installed and install nvidia-fabric-manager
     NVIDIA_DRIVER_VERSION=$(cut -d - -f 2 <<< "$(rpm -qa cuda)")
@@ -4944,8 +4966,8 @@ installNvidiaFabricManager() {
 }
 
 installNvidiaContainerRuntime() {
-    MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION="3.11.0"
-    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.11.0"
+    MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION="3.13.0"
+    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.13.5"
     
     for nvidia_package in nvidia-container-runtime-${MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION} nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-base-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
       if ! dnf_install 30 1 600 $nvidia_package; then
@@ -6461,18 +6483,17 @@ installDeps() {
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
-    BLOBFUSE2_VERSION="2.0.5"
+    BLOBFUSE2_VERSION="2.1.0"
 
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
     fi
 
+    pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
     if [[ $(isARM64) != 1 ]]; then
-        # blobfuse is not present in ARM64
         # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
         # for 22.04, fuse3 is installed. for all others, fuse is installed
         # for 16.04, installed blobfuse1.3.7, for all others except 22.04, installed blobfuse1.4.5
-        pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
         if [[ "${OSVERSION}" == "22.04" ]]; then
             pkg_list+=(fuse3)
         else
@@ -6553,7 +6574,11 @@ installStandaloneContainerd() {
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.7.1"
+        # pin 18.04 to 1.7.1
+        CONTAINERD_VERSION="1.7.5"
+        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+            CONTAINERD_VERSION="1.7.1"
+        fi
         CONTAINERD_PATCH_VERSION="1"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
@@ -6590,6 +6615,7 @@ installStandaloneContainerd() {
 }
 
 downloadContainerdFromVersion() {
+    # Patch version isn't used here...?
     CONTAINERD_VERSION=$1
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     # Adding updateAptWithMicrosoftPkg since AB e2e uses an older image version with uncached containerd 1.6 so it needs to download from testing repo.
@@ -6644,7 +6670,11 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.1.7+azure-ubuntu${UBUNTU_RELEASE}"
+        # pin 1804 to 1.1.7
+        TARGET_VERSION="1.1.9-ubuntu${UBUNTU_RELEASE}"
+        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+            TARGET_VERSION="1.1.7+azure-ubuntu${UBUNTU_RELEASE}"
+        fi
     fi
 
     if [[ $(isARM64) == 1 ]]; then
@@ -6656,7 +6686,16 @@ ensureRunc() {
 
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-    CLEANED_TARGET_VERSION=${TARGET_VERSION%+*} # removes the +azure-ubuntu18.04u1 (or similar) suffix
+    CLEANED_TARGET_VERSION=${TARGET_VERSION}
+
+    if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%+*} # removes the +azure-ubuntu18.04u1 (or similar) suffix
+    else
+        # after upgrading to 1.1.9, CURRENT_VERSION will also include the patch version (such as 1.1.9-1), so we trim it off
+        # since we only care about the major and minor versions when determining if we need to install it
+        CURRENT_VERSION=${CURRENT_VERSION%-*} # removes the -1 patch version (or similar)
+        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar) 
+    fi
 
     if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
         echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
@@ -7423,7 +7462,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.29.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.31.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl

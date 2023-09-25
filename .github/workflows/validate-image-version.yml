@@ -5,7 +5,7 @@ jobs:
   validate-image-version:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - run: |
         make validate-image-version
       name: Verify image versions to be pulled
