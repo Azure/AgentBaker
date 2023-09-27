@@ -351,6 +351,7 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 		EnableNvidia:                   false,
 		EnableACRTeleportPlugin:        false,
 		TeleportdPluginURL:             "",
+		EnableArtifactStreaming:        true,
 		ContainerdVersion:              "",
 		RuncVersion:                    "",
 		ContainerdPackageURL:           "",

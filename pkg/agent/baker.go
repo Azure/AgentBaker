@@ -696,6 +696,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"TeleportEnabled": func() bool {
 			return config.EnableACRTeleportPlugin
 		},
+		"ArtifactStreamingEnabled": func() bool {
+			return config.EnableArtifactStreaming
+		},
 		"HasDCSeriesSKU": func() bool {
 			return cs.Properties.HasDCSeriesSKU()
 		},

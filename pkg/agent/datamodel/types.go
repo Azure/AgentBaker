@@ -1632,6 +1632,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableKubeletConfigFile       bool
 	EnableNvidia                  bool
 	EnableACRTeleportPlugin       bool
+	EnableArtifactStreaming       bool
 	TeleportdPluginURL            string
 	ContainerdVersion             string
 	RuncVersion                   string

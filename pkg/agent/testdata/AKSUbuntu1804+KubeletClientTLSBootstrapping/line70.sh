@@ -306,6 +306,11 @@ ensureContainerd() {
   if [ "${TELEPORT_ENABLED}" == "true" ]; then
     ensureTeleportd
   fi
+  if [ "${ARTIFACT_STREAMING_ENABLED}" == "true" ]; then
+    echo "ARTIFACT STREAMING is enabled, running test function for artifact streaming"
+    ensureArtifactStreaming
+  fi
+  
   mkdir -p "/etc/systemd/system/containerd.service.d" 
   tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
 [Service]
@@ -340,6 +345,14 @@ ensureTeleportd() {
     systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
+ensureArtifactStreaming(){
+    touch /etc/default/artifact-streaming.test
+    echo "in ensureArtifactStreaming"
+    if [[ "${UBUNTU_RELEASE}" == "22.04" && ( "${CPU_ARCH}" == "amd64" ) ]]; then
+        sudo /opt/acr/tools/overlaybd/install.sh || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+        sudo /opt/acr/tools/overlaybd/enable-http-auth.sh || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+    fi   
+}
 ensureDocker() {
     DOCKER_SERVICE_EXEC_START_FILE=/etc/systemd/system/docker.service.d/exec_start.conf
     usermod -aG docker ${ADMINUSER}
