@@ -358,8 +358,9 @@ func IsKubeletConfigFileEnabled(cs *datamodel.ContainerService, profile *datamod
 			IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0"))
 }
 
-// IsKubeletClientTLSBootstrappingEnabled get if kubelet client TLS bootstrapping is enabled.
-func IsKubeletClientTLSBootstrappingEnabled(tlsBootstrapToken *string) bool {
+// IsTLSBootstrappingEnabledWithHardCodedToken returns true if the specified TLS bootstrap token is non-nil, meaning
+// we will use it to perform TLS bootstrapping.
+func IsTLSBootstrappingEnabledWithHardCodedToken(tlsBootstrapToken *string) bool {
 	return tlsBootstrapToken != nil
 }
 
