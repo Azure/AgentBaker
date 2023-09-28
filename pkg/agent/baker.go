@@ -312,7 +312,7 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 }
 
 func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
-	if IsKubeletClientTLSBootstrappingEnabled(config.KubeletClientTLSBootstrapToken) {
+	if IsTLSBootstrappingEnabledWithHardCodedToken(config.KubeletClientTLSBootstrapToken) {
 		// backfill proper flags for Windows agent node TLS bootstrapping
 		if config.KubeletConfig == nil {
 			config.KubeletConfig = make(map[string]string)
@@ -378,10 +378,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsKubeletConfigFileEnabled": func() bool {
 			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)
 		},
-		"IsKubeletClientTLSBootstrappingEnabled": func() bool {
-			return config.EnableSecureTLSBootstrapping || IsKubeletClientTLSBootstrappingEnabled(config.KubeletClientTLSBootstrapToken)
+		"EnableTLSBootstrapping": func() bool {
+			// this will be true when we get a hard-coded TLS bootstrap token in the NodeBootstrappingConfiguration
+			// to use for performing TLS bootstrapping
+			return IsTLSBootstrappingEnabledWithHardCodedToken(config.KubeletClientTLSBootstrapToken)
 		},
 		"EnableSecureTLSBootstrapping": func() bool {
+			// this will be true when we can perform TLS bootstrapping without the use of a hard-coded bootstrap token
 			return config.EnableSecureTLSBootstrapping
 		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
