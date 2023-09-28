@@ -359,7 +359,7 @@ func IsKubeletConfigFileEnabled(cs *datamodel.ContainerService, profile *datamod
 }
 
 // IsTLSBootstrappingEnabledWithHardCodedToken returns true if the specified TLS bootstrap token is non-nil, meaning
-// we will use it to perform TLS bootstrapping
+// we will use it to perform TLS bootstrapping.
 func IsTLSBootstrappingEnabledWithHardCodedToken(tlsBootstrapToken *string) bool {
 	return tlsBootstrapToken != nil
 }
