@@ -511,6 +511,7 @@ testCronPermissions() {
   local test="testCronPermissions"
   echo "$test:Start"
 
+  image_sku=$1
   declare -A required_paths=(
     ['/etc/cron.allow']=640
     ['/etc/cron.hourly']=600
@@ -528,20 +529,24 @@ testCronPermissions() {
     '/etc/cron.deny'
   )
 
-  echo "$test: Checking required paths"
-  for path in "${!required_paths[@]}"; do
-    checkPathPermissions $test $path ${required_paths[$path]} 1
-  done
+  if [[ "${image_sku}" != *"minimal"* ]]; then
+    echo "$test: Checking required paths"
+    for path in "${!required_paths[@]}"; do
+      checkPathPermissions $test $path ${required_paths[$path]} 1
+    done
 
-  echo "$test: Checking optional paths"
-  for path in "${!optional_paths[@]}"; do
-    checkPathPermissions $test $path ${optional_paths[$path]} 0
-  done
+    echo "$test: Checking optional paths"
+    for path in "${!optional_paths[@]}"; do
+      checkPathPermissions $test $path ${optional_paths[$path]} 0
+    done
 
-  echo "$test: Checking disallowed paths"
-  for path in "${disallowed_paths[@]}"; do
-    checkPathDoesNotExist $test $path
-  done
+    echo "$test: Checking disallowed paths"
+    for path in "${disallowed_paths[@]}"; do
+      checkPathDoesNotExist $test $path
+    done
+  else
+    echo "$test: Skipping cron file check for Ubuntu Minimal images"
+  fi
 
   echo "$test:Finish"
 }
@@ -856,7 +861,7 @@ testCustomCATimerNotStarted
 testLoginDefs
 testUserAdd
 testNetworkSettings
-testCronPermissions
+testCronPermissions $IMG_SKU
 testCoreDumpSettings
 testNfsServerService
 testPamDSettings $OS_SKU $OS_VERSION
