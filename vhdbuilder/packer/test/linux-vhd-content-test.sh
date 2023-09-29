@@ -10,6 +10,7 @@ OS_VERSION="$2"
 ENABLE_FIPS="$3"
 OS_SKU="$4"
 GIT_BRANCH="$5"
+IMG_SKU="$6"
 
 err() {
   echo "$1:Error: $2" >>/dev/stderr
@@ -511,7 +512,7 @@ testCronPermissions() {
   local test="testCronPermissions"
   echo "$test:Start"
 
-  image_sku=$1
+  image_sku="${1}"
   declare -A required_paths=(
     ['/etc/cron.allow']=640
     ['/etc/cron.hourly']=600
