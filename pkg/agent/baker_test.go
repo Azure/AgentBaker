@@ -675,6 +675,13 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(caCRT).NotTo(BeEmpty())
 			}),
 
+		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled", "AKSUbuntu2204+SecureTLSBoostrapping", "1.25.6",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.EnableSecureTLSBootstrapping = true
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
+			}),
+
 		Entry("AKSUbuntu1804 with DisableCustomData = true", "AKSUbuntu1804+DisableCustomData", "1.19.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
