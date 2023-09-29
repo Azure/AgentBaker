@@ -62,11 +62,11 @@ function Set-AzureCNIConfig
             Value = $valueObj
         }
 
-        # $configJson.plugins[0].AdditionalArgs[0] is OutboundNAT. Replace OutBoundNAT with LoopbackDSR for IMDS.
+        # $configJson.plugins[0].AdditionalArgs[0] is OutboundNAT.
+        Write-Log "Replace OutBoundNAT with LoopbackDSR for IMDS acess."
         $configJson.plugins[0].AdditionalArgs[0] = $jsonContent
 
-        # TODO: Remove it after Windows OS fixes the issue.
-        # WS2022 has fix, so only need to update registry for WS2019.
+        # Update the corresponding system regkey for DisableWindowsOutboundNat feature.
         $osVersion = Get-WindowsVersion
         if ($osVersion -eq "1809"){
             Write-Log "Update RegKey to disable the incompatible HNSControlFlag (0x10) for feature DisableWindowsOutboundNat"
@@ -77,12 +77,24 @@ function Set-AzureCNIConfig
                 # Set the bit to 0 if the bit is 1
                 if ([int]$currentValue.HNSControlFlag -band $hnsControlFlag) {
                     $hnsControlFlag=([int]$currentValue.HNSControlFlag -bxor $hnsControlFlag)
+                    Write-Log "HNSControlFlag is updated to $hnsControlFlag to clear the bit 0x10"
                     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Type DWORD -Value $hnsControlFlag
                 }
             } else {
                 # Set 0 to disable all features under HNSControlFlag (0x10 defaults enable)
+                Write-Log "HNSControlFlag is set to 0 to clear the bit 0x10"
                 Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Type DWORD -Value 0
             }
+        } elseif ($osVersion -eq "ltsc2022") {
+            Write-Log "SourcePortPreservationForHostPort is set to 0"
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name SourcePortPreservationForHostPort -Type DWORD -Value 0
+        }
+        # Restart hns service if it is exsting and running, to make the system regkey change effective.
+        $hnsServiceName = 'hns'
+        $hnsService = Get-Service -Name $hnsServiceName -ErrorAction SilentlyContinue
+        if ($hnsService -and $hnsService.Status -eq 'Running') {
+            Write-Log "hns service is already running. Restart hns."
+            Restart-Service -Name $hnsServiceName
         }
     } else {
         # Fill in DNS information for kubernetes.
