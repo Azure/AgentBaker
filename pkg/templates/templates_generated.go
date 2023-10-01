@@ -1639,6 +1639,7 @@ ENABLE_HOSTS_CONFIG_AGENT="{{EnableHostsConfigAgent}}"
 DISABLE_SSH="{{ShouldDisableSSH}}"
 NEEDS_CONTAINERD="{{NeedsContainerd}}"
 TELEPORT_ENABLED="{{TeleportEnabled}}"
+ARTIFACT_STREAMING_ENABLED="{{ArtifactStreamingEnabled}}"
 SHOULD_CONFIGURE_HTTP_PROXY="{{ShouldConfigureHTTPProxy}}"
 SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
 HTTP_PROXY_TRUSTED_CA="{{GetHTTPProxyCA}}"
@@ -2043,6 +2044,7 @@ ensureContainerd() {
   if [ "${TELEPORT_ENABLED}" == "true" ]; then
     ensureTeleportd
   fi
+
   mkdir -p "/etc/systemd/system/containerd.service.d" 
   tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
 [Service]
@@ -2057,6 +2059,16 @@ EOF
     echo "Generating containerd config..."
     echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   fi
+
+  systemctl start acr-mirror.service
+  sudo /opt/acr/tools/overlaybd/install.sh
+  sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
+  modprobe target_core_user
+  curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd'
+  systemctl enable /opt/overlaybd/overlaybd-tcmu.service
+  systemctl enable /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+  systemctl start overlaybd-tcmu
+  systemctl start overlaybd-snapshotter
 
   tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
 net.ipv4.ip_forward = 1
