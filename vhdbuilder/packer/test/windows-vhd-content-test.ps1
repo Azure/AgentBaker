@@ -143,10 +143,7 @@ function Test-FilesToCacheOnVHD
                             "calico-windows",
                             "azure-vnet-cni-singletenancy-windows-amd64",
                             "azure-vnet-cni-singletenancy-swift-windows-amd64",
-                            "azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
-                            "azure-vnet-cni-singletenancy-windows-amd64-v1.5.5.zip",
-                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35_Win2019OverlayFix.zip",
-                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.5.5.zip",
+                            "azure-vnet-cni-singletenancy-overlay-windows-amd64",
                             # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
                             # so we can ignore the different hash values.
                             "v1.26.0-1int.zip"
