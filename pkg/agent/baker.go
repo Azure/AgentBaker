@@ -953,6 +953,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetPrivateEgressProxyAddress": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetProxyAddress()
 		},
+		"IsArtifactStreamingEnabled": func() bool {
+			return config.EnableArtifactStreaming
+		},
 	}
 }
 
