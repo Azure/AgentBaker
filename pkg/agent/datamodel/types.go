@@ -1633,6 +1633,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableNvidia                  bool
 	EnableACRTeleportPlugin       bool
 	TeleportdPluginURL            string
+	EnableArtifactStreaming       bool
 	ContainerdVersion             string
 	RuncVersion                   string
 	// ContainerdPackageURL and RuncPackageURL are beneficial for testing non-official.
