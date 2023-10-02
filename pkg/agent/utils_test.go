@@ -441,7 +441,7 @@ func TestGetKubeletConfigFileCustomKCShouldOverrideValuesPassedInKc(t *testing.T
 	}
 }
 
-func TestIsKubeletClientTLSBootstrappingEnabled(t *testing.T) {
+func TestIsTLSBootstrappingEnabledWithHardCodedToken(t *testing.T) {
 	cases := []struct {
 		tlsBootstrapToken *string
 		expected          bool
@@ -460,7 +460,7 @@ func TestIsKubeletClientTLSBootstrappingEnabled(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		actual := IsKubeletClientTLSBootstrappingEnabled(c.tlsBootstrapToken)
+		actual := IsTLSBootstrappingEnabledWithHardCodedToken(c.tlsBootstrapToken)
 		if actual != c.expected {
 			t.Errorf("%s: expected=%t, actual=%t", c.reason, c.expected, actual)
 		}
