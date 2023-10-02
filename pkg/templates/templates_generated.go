@@ -1716,7 +1716,7 @@ KUBENET_TEMPLATE="{{GetKubenetTemplate}}"
 CONTAINERD_CONFIG_CONTENT="{{GetContainerdConfigContent}}"
 CONTAINERD_CONFIG_NO_GPU_CONTENT="{{GetContainerdConfigNoGPUContent}}"
 IS_KATA="{{IsKata}}"
-ENABLE_ARTIFACT_STREAMING="{{EnableArtifactStreaming}}"
+ARTIFACT_STREAMING_ENABLED="{{IsArtifactStreamingEnabled}}"
 SYSCTL_CONTENT="{{GetSysctlContent}}"
 PRIVATE_EGRESS_PROXY_ADDRESS="{{GetPrivateEgressProxyAddress}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
