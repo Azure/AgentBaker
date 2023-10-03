@@ -965,7 +965,7 @@ oom_score = 0
 				Expect(containerdConfigFileContent).To(ContainSubstring(expectedOverlaybdPlugin))
 			},
 		),
-		Entry("AKSUbuntu2204 without artifact streaming", "AKSUbuntu1804+NoArtifactStreaming", "1.25.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+		Entry("AKSUbuntu2204 w/o artifact streaming", "AKSUbuntu1804+NoArtifactStreaming", "1.25.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableArtifactStreaming = false
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
