@@ -116,7 +116,7 @@ func (c *Components) ToImageList() []string {
 /*
 NewKubeProxyImagesFromFile loads kube-proxy image config from the given file
 and returns a KubeProxyImages object.
-The given file should be a KubeProxyImages object.
+The given file should be a KubeProxyImages object, and should be in JSON format.
 The given file should be in JSON format.
 */
 func NewKubeProxyImagesFromFile(path string) (*KubeProxyImages, error) {
