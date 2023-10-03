@@ -347,10 +347,10 @@ ensureTeleportd() {
 ensureArtifactStreaming() {
   systemctl enable acr-mirror.service
   systemctl start acr-mirror.service
-  sudo /opt/acr/tools/overlaybd/install.sh || exit ERR_ARTIFACT_STREAMING_INSTALL
-  sudo /opt/acr/tools/overlaybd/enable-http-auth.sh || exit ERR_ARTIFACT_STREAMING_INSTALL
+  sudo /opt/acr/tools/overlaybd/install.sh
+  sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
   modprobe target_core_user
-  curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd' -O || exit ERR_ARTIFACT_STREAMING_INSTALL
+  curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd' -O
   systemctl enable /opt/overlaybd/overlaybd-tcmu.service
   systemctl enable /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
   systemctl start overlaybd-tcmu
