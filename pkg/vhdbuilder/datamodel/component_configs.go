@@ -41,7 +41,7 @@ type DockerKubeProxyImages struct {
 	ContainerImages []*ContainerImage `json:"ContainerImages"`
 }
 
-func loadJsonFromFile(path string, v interface{}) error {
+func loadJSONFromFile(path string, v interface{}) error {
 	configFile, err := os.Open(path)
 	defer configFile.Close()
 
@@ -74,7 +74,7 @@ func toImageList(downloadURL string, imageTagList []string) ([]string, error) {
 func NewComponentsFromFile(path string) (*Components, error) {
 	ret := &Components{}
 
-	err := loadJsonFromFile(path, ret)
+	err := loadJSONFromFile(path, ret)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (c *Components) ToImageList() []string {
 func NewKubeProxyImagesFromFile(path string) (*KubeProxyImages, error) {
 	ret := &KubeProxyImages{}
 
-	err := loadJsonFromFile(path, ret)
+	err := loadJSONFromFile(path, ret)
 	if err != nil {
 		return nil, err
 	}
