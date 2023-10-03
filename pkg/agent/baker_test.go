@@ -916,6 +916,79 @@ oom_score = 0
 				Expect(containerdConfigFileContent).To(ContainSubstring(expectedShimConfig))
 			},
 		),
+		Entry("AKSUbuntu2204 with artifact streaming", "AKSUbuntu1804+ArtifactStreaming", "1.25.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.EnableArtifactStreaming = true
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+			config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.25.7"
+		},
+			func(o *nodeBootstrappingOutput) {
+
+				Expect(o.vars["CONTAINERD_CONFIG_CONTENT"]).NotTo(BeEmpty())
+				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
+				Expect(err).To(BeNil())
+				expectedOverlaybdConfig := `version = 2
+oom_score = 0
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = ""
+  [plugins."io.containerd.grpc.v1.cri".containerd]
+    snapshotter = "overlaybd"
+    disable_snapshot_annotations = false
+    default_runtime_name = "runc"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    config_path = "/etc/containerd/certs.d"
+  [plugins."io.containerd.grpc.v1.cri".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[metrics]
+  address = "0.0.0.0:10257"
+[proxy_plugins]
+  [proxy_plugins.overlaybd]
+    type = "snapshot"
+    address = "/run/overlaybd-snapshotter/overlaybd.sock"
+`
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedOverlaybdConfig))
+				expectedOverlaybdPlugin := `[proxy_plugins]
+  [proxy_plugins.overlaybd]
+    type = "snapshot"
+    address = "/run/overlaybd-snapshotter/overlaybd.sock"`
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedOverlaybdPlugin))
+			},
+		),
+		Entry("AKSUbuntu2204 w/o artifact streaming", "AKSUbuntu1804+NoArtifactStreaming", "1.25.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.EnableArtifactStreaming = false
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+			config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+		},
+			func(o *nodeBootstrappingOutput) {
+
+				Expect(o.vars["CONTAINERD_CONFIG_CONTENT"]).NotTo(BeEmpty())
+				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
+				Expect(err).To(BeNil())
+				expectedOverlaybdConfig := `[plugins."io.containerd.grpc.v1.cri".containerd]
+    snapshotter = "overlaybd"
+    disable_snapshot_annotations = false
+    default_runtime_name = "runc"`
+				Expect(containerdConfigFileContent).NotTo(ContainSubstring(expectedOverlaybdConfig))
+				expectedOverlaybdPlugin := `[proxy_plugins]
+  [proxy_plugins.overlaybd]
+    type = "snapshot"
+    address = "/run/overlaybd-snapshotter/overlaybd.sock"`
+				Expect(containerdConfigFileContent).NotTo(ContainSubstring(expectedOverlaybdPlugin))
+			},
+		),
 		Entry("AKSUbuntu1804 with NoneCNI", "AKSUbuntu1804+NoneCNI", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
@@ -998,6 +1071,57 @@ oom_score = 0
     X-Meta-Source-Client = ["azure/aks"]
 [metrics]
   address = "0.0.0.0:10257"
+`
+
+				Expect(containerdConfigFileContent).To(Equal(expectedShimConfig))
+			}),
+		Entry("AKSUbuntu2204 containerd with multi-instance GPU and artifact streaming", "AKSUbuntu2204+Containerd+MIG+ArtifactStreaming", "1.19.13",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2204
+				config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.25.7"
+				config.EnableArtifactStreaming = true
+				config.AgentPoolProfile.VMSize = "Standard_ND96asr_v4"
+				// the purpose of this unit test is to ensure the containerd config
+				// does not use the nvidia container runtime when skipping the
+				// GPU driver install, since it will fail to run even non-GPU
+				// pods, as it will not be installed.
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+				config.GPUInstanceProfile = "MIG7g"
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]).NotTo(BeEmpty())
+				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
+				Expect(err).To(BeNil())
+				expectedShimConfig := `version = 2
+oom_score = 0
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = ""
+  [plugins."io.containerd.grpc.v1.cri".containerd]
+    snapshotter = "overlaybd"
+    disable_snapshot_annotations = false
+    default_runtime_name = "runc"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    config_path = "/etc/containerd/certs.d"
+  [plugins."io.containerd.grpc.v1.cri".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[metrics]
+  address = "0.0.0.0:10257"
+[proxy_plugins]
+  [proxy_plugins.overlaybd]
+    type = "snapshot"
+    address = "/run/overlaybd-snapshotter/overlaybd.sock"
 `
 
 				Expect(containerdConfigFileContent).To(Equal(expectedShimConfig))
