@@ -1167,7 +1167,7 @@ root = "{{GetDataDir}}"{{- end}}
     snapshotter = "teleportd"
     disable_snapshot_annotations = false
     {{- end}}
-	{{- if IsArtifactStreamingEnabled }}
+    {{- if IsArtifactStreamingEnabled }}
     snapshotter = "overlaybd"
     disable_snapshot_annotations = false
     {{- end}}
@@ -1267,7 +1267,7 @@ root = "{{GetDataDir}}"{{- end}}
     snapshotter = "teleportd"
     disable_snapshot_annotations = false
     {{- end}}
-	{{- if IsArtifactStreamingEnabled }}
+    {{- if IsArtifactStreamingEnabled }}
     snapshotter = "overlaybd"
     disable_snapshot_annotations = false
     {{- end}}
