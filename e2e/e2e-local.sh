@@ -4,7 +4,7 @@ set -euxo pipefail
 
 : "${SUBSCRIPTION_ID:=8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8}" #Azure Container Service - Test Subscription
 : "${RESOURCE_GROUP_NAME:=agentbaker-e2e-tests}"
-: "${LOCATION:=eastus}"
+: "${LOCATION:=southcentralus}"
 : "${CLUSTER_NAME:=agentbaker-e2e-test-cluster}"
 : "${AZURE_TENANT_ID:=72f988bf-86f1-41af-91ab-2d7cd011db47}"
 : "${TIMEOUT:=30m}"

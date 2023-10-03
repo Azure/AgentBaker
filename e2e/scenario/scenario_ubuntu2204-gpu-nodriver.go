@@ -16,7 +16,7 @@ func ubuntu2204gpuNoDriver() *Scenario {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.AgentPoolProfile.VMSize = "Standard_ND96isr_H100_v5"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
@@ -26,7 +26,7 @@ func ubuntu2204gpuNoDriver() *Scenario {
 					// deliberately case mismatched to agentbaker logic to check case insensitivity
 					"SkipGPUDriverInstall": to.Ptr("true"),
 				}
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = to.Ptr("Standard_ND96isr_H100_v5")
 				vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
 					ID: to.Ptr(DefaultImageVersionIDs["ubuntu2204"]),
 				}

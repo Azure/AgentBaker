@@ -417,7 +417,7 @@ func getBaseClusterModel(clusterName, location string) armcontainerservice.Manag
 				{
 					Name:         to.Ptr("nodepool1"),
 					Count:        to.Ptr[int32](2),
-					VMSize:       to.Ptr("Standard_DS2_v2"),
+					VMSize:       to.Ptr("Standard_ND96isr_v5"),
 					MaxPods:      to.Ptr[int32](110),
 					OSType:       to.Ptr(armcontainerservice.OSTypeLinux),
 					Type:         to.Ptr(armcontainerservice.AgentPoolTypeVirtualMachineScaleSets),

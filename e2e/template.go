@@ -18,7 +18,7 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 	return &datamodel.NodeBootstrappingConfiguration{
 		ContainerService: &datamodel.ContainerService{
 			ID:       "",
-			Location: "eastus",
+			Location: "southcentralus",
 			Name:     "",
 			Plan:     nil,
 			Tags:     map[string]string(nil),
@@ -89,7 +89,7 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 					{
 						Name:                "nodepool2",
-						VMSize:              "Standard_DS1_v2",
+						VMSize:              "Standard_ND96isr_v5",
 						KubeletDiskType:     "",
 						WorkloadRuntime:     "",
 						DNSPrefix:           "",
@@ -260,7 +260,7 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 		},
 		AgentPoolProfile: &datamodel.AgentPoolProfile{
 			Name:                "nodepool2",
-			VMSize:              "Standard_DS1_v2",
+			VMSize:              "Standard_ND96isr_v5",
 			KubeletDiskType:     "",
 			WorkloadRuntime:     "",
 			DNSPrefix:           "",
