@@ -9,7 +9,7 @@ import (
 )
 
 // CreateMockContainerService returns a mock container service for testing purposes.
-func CreateMockContainerService(containerServiceName, orchestratorVersion string, masterCount, agentCount int, certs bool) *ContainerService {
+func CreateMockContainerService(containerServiceName, orchestratorVersion string, agentCount int, certs bool) *ContainerService {
 	cs := ContainerService{}
 	cs.ID = uuid.Must(uuid.NewRandom()).String()
 	cs.Location = "eastus"
