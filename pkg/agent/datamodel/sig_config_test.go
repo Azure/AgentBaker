@@ -211,13 +211,13 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntuMinimalContainerd2204.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntuMinimalContainerd2204.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntuMinimalContainerd2204.Definition).To(Equal("2204minimalcontainerd"))
-		Expect(aksUbuntuMinimalContainerd2204.Version).To(Equal("202306.30.0"))
+		Expect(aksUbuntuMinimalContainerd2204.Version).To(Equal("202310.02.0"))
 
 		aksUbuntuMinimalContainerd2204Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuMinimalContainerd2204Gen2]
 		Expect(aksUbuntuMinimalContainerd2204Gen2.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntuMinimalContainerd2204Gen2.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntuMinimalContainerd2204Gen2.Definition).To(Equal("2204gen2minimalcontainerd"))
-		Expect(aksUbuntuMinimalContainerd2204Gen2.Version).To(Equal("202306.30.0"))
+		Expect(aksUbuntuMinimalContainerd2204Gen2.Version).To(Equal("202310.02.0"))
 
 		aksUbuntuEgressContainerd2204Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuEgressContainerd2204Gen2]
 		Expect(aksUbuntuEgressContainerd2204Gen2.ResourceGroup).To(Equal("resourcegroup"))
