@@ -916,6 +916,29 @@ oom_score = 0
 				Expect(containerdConfigFileContent).To(ContainSubstring(expectedShimConfig))
 			},
 		),
+		Entry("AKSUbuntu2204 with artifact streaming", "AKSUbuntu1804+ArtifactStreaming", "1.25.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.EnableArtifactStreaming = true
+			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+				ContainerRuntime: datamodel.Containerd,
+			}
+		},
+			func(o *nodeBootstrappingOutput) {
+
+				Expect(o.vars["CONTAINERD_CONFIG_CONTENT"]).NotTo(BeEmpty())
+				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
+				Expect(err).To(BeNil())
+				expectedOverlaybdConfig := `[plugins."io.containerd.grpc.v1.cri".containerd]
+    snapshotter = "overlaybd"
+    disable_snapshot_annotations = false
+    default_runtime_name = "runc"`
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedOverlaybdConfig))
+				expectedOverlaybdPlugin := `[proxy_plugins]
+  [proxy_plugins.overlaybd]
+    type = "snapshot"
+    address = "/run/overlaybd-snapshotter/overlaybd.sock"`
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedOverlaybdPlugin))
+			},
+		),
 		Entry("AKSUbuntu1804 with NoneCNI", "AKSUbuntu1804+NoneCNI", "1.20.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Containerd,
