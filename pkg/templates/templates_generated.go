@@ -2050,6 +2050,10 @@ ensureContainerd() {
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
+  if [ "${ARTIFACT_STREAMING_ENABLED}" == "true" ]; then
+    logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
+  fi
+
   mkdir -p /etc/containerd
   if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" == "true" ]]; then
     echo "Generating non-GPU containerd config for GPU node due to VM tags"
@@ -2076,6 +2080,19 @@ ensureNoDupOnPromiscuBridge() {
 
 ensureTeleportd() {
     systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
+ensureArtifactStreaming() {
+  systemctl enable acr-mirror.service
+  systemctl start acr-mirror.service
+  sudo /opt/acr/tools/overlaybd/install.sh
+  sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
+  modprobe target_core_user
+  curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd' -O
+  systemctl enable /opt/overlaybd/overlaybd-tcmu.service
+  systemctl enable /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+  systemctl start overlaybd-tcmu
+  systemctl start overlaybd-snapshotter
 }
 
 ensureDocker() {
@@ -2482,7 +2499,8 @@ ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 # Error insufficient disk space for 
 
 ERR_TELEPORTD_DOWNLOAD_ERR=150 # Error downloading teleportd binary
 ERR_TELEPORTD_INSTALL_ERR=151 # Error installing teleportd binary
-ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL=152 # Error downloading or installing mirror proxy and overlaybd components
+ERR_ARTIFACT_STREAMING_DOWNLOAD=152 # Error downloading mirror proxy and overlaybd components
+ERR_ARTIFACT_STREAMING_INSTALL=153 # Error installing mirror proxy and overlaybd components
 
 ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
 ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
