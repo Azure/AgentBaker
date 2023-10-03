@@ -2050,6 +2050,10 @@ ensureContainerd() {
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
+  if [ "${ARTIFACT_STREAMING_ENABLED}" == "true" ]; then
+    ensureArtifactStreaming || $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+  fi
+
   mkdir -p /etc/containerd
   if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" == "true" ]]; then
     echo "Generating non-GPU containerd config for GPU node due to VM tags"
@@ -2076,6 +2080,18 @@ ensureNoDupOnPromiscuBridge() {
 
 ensureTeleportd() {
     systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
+ensureArtifactStreaming() {
+  systemctl start acr-mirror.service
+  sudo /opt/acr/tools/overlaybd/install.sh
+  sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
+  modprobe target_core_user
+  curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd'
+  systemctl enable /opt/overlaybd/overlaybd-tcmu.service
+  systemctl enable /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+  systemctl start overlaybd-tcmu
+  systemctl start overlaybd-snapshotter
 }
 
 ensureDocker() {
