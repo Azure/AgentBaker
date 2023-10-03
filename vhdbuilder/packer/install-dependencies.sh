@@ -166,9 +166,9 @@ installAndConfigureArtifactStreaming() {
   MIRROR_DOWNLOAD_PATH="./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
   MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/Release-${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
   
-  retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL}
+  retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOADL}
   
-  apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+  apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
 
   rm "./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
 }
@@ -176,7 +176,7 @@ installAndConfigureArtifactStreaming() {
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
 if [ $OS == $UBUNTU_OS_NAME ] && [ $(isARM64)  != 1 ] && [ $UBUNTU_MAJOR_VERSION -ge 20 ]; then
   # install and configure artifact streaming
-  installAndConfigureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+  installAndConfigureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
 fi
 
 KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
