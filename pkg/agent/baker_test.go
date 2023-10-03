@@ -81,7 +81,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						VMSize:              "Standard_DS1_v2",
 						StorageProfile:      "ManagedDisks",
 						OSType:              datamodel.Linux,
-						VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1", //nolint:lll
+						VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
 						AvailabilityProfile: datamodel.VirtualMachineScaleSets,
 						Distro:              datamodel.AKSUbuntu1604,
 					},
@@ -332,7 +332,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			Expect(o.vars["CLI_TOOL"]).To(Equal("ctr"))
 			Expect(o.vars["CONTAINERD_PACKAGE_URL"]).To(Equal("containerd-package-url"))
 		}),
-		//nolint:lll
+
 		Entry("AKSUbuntu11604 with docker and containerd package url", "AKSUbuntu1604+Docker", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 				ContainerRuntime: datamodel.Docker,
@@ -1262,7 +1262,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 						VMSize:              "Standard_D2s_v3",
 						StorageProfile:      "ManagedDisks",
 						OSType:              datamodel.Windows,
-						VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-36873793/subnet/aks-subnet", //nolint:lll
+						VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-36873793/subnet/aks-subnet",
 						WindowsNameVersion:  "v2",
 						AvailabilityProfile: datamodel.VirtualMachineScaleSets,
 						CustomNodeLabels:    map[string]string{"kubernetes.azure.com/node-image-version": "AKSWindows-2019-17763.1577.201111"},
