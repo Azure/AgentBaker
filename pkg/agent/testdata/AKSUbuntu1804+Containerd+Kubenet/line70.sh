@@ -313,7 +313,7 @@ ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
   if [ "${ARTIFACT_STREAMING_ENABLED}" == "true" ]; then
-    ensureArtifactStreaming || $ERR_ARTIFACT_STREAMING_INSTALL
+    logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || $ERR_ARTIFACT_STREAMING_INSTALL
   fi
 
   mkdir -p /etc/containerd
