@@ -2525,7 +2525,7 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 				ImageGcLowThreshold:  to.Int32Ptr(60),
 				ImageGcHighThreshold: to.Int32Ptr(80),
 			},
-			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`, //nolint:lll
+			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`,
 		},
 		{
 			name: "custom configuration overrides default KubeletConfig",
@@ -2552,7 +2552,7 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
 				ContainerLogMaxFiles:  to.Int32Ptr(20),
 			},
-			expected: `"--address=127.0.0.1", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi"`, //nolint:lll
+			expected: `"--address=127.0.0.1", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi"`,
 		},
 		{
 			name: "custom configuration does not override default KubeletConfig",
