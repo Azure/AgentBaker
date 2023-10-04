@@ -1,6 +1,6 @@
 {
   "SchemaVersion": 2,
-  "ArtifactName": "pkrvm8lp6e7iu2i",
+  "ArtifactName": "pkrvmi0l0kv2uqp",
   "ArtifactType": "filesystem",
   "Metadata": {
     "OS": {
@@ -20,59 +20,11 @@
   },
   "Results": [
     {
-      "Target": "pkrvm8lp6e7iu2i (ubuntu 20.04)",
+      "Target": "pkrvmi0l0kv2uqp (ubuntu 20.04)",
       "Class": "os-pkgs",
       "Type": "ubuntu",
       "Vulnerabilities": [
         {
-          "VulnerabilityID": "CVE-2023-20588",
-          "PkgID": "linux-azure-5.15-cloud-tools-5.15.0-1039@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-azure-5.15-cloud-tools-5.15.0-1039",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-20588",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "division-by-zero may resulting in loss of confidentiality",
-          "Description": "\nA division-by-zero error on some AMD processors can potentially return speculative data resulting in loss of confidentiality. \n\n\n\n\n\n\n\n",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-369"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-              "V3Score": 5.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:C/C:H/I:N/A:N",
-              "V3Score": 6
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-20588",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-20588",
-            "https://git.kernel.org/linus/77245f1c3c6495521f6a3af082696ee2f8ce3921",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-20588",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6384-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://www.amd.com/en/corporate/product-security/bulletin/AMD-SB-7007",
-            "https://www.amd.com/en/resources/product-security/bulletin/amd-sb-7007.html",
-            "https://www.cve.org/CVERecord?id=CVE-2023-20588",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-08T18:15:00Z",
-          "LastModifiedDate": "2023-09-18T17:57:00Z"
-        },
-        {
           "VulnerabilityID": "CVE-2023-20593",
           "PkgID": "linux-azure-5.15-cloud-tools-5.15.0-1039@5.15.0-1039.46~20.04.1",
           "PkgName": "linux-azure-5.15-cloud-tools-5.15.0-1039",
@@ -118,8 +70,6 @@
             "http://www.openwall.com/lists/oss-security/2023/08/08/8",
             "http://www.openwall.com/lists/oss-security/2023/08/16/4",
             "http://www.openwall.com/lists/oss-security/2023/08/16/5",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/11",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/9",
             "http://xenbits.xen.org/xsa/advisory-433.html",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/security/cve/CVE-2023-20593",
@@ -177,7 +127,7 @@
             "https://www.debian.org/security/2023/dsa-5462"
           ],
           "PublishedDate": "2023-07-24T20:15:00Z",
-          "LastModifiedDate": "2023-09-23T00:15:00Z"
+          "LastModifiedDate": "2023-08-27T03:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-21400",
@@ -278,7 +228,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://kernel.dance/90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://linux.oracle.com/cve/CVE-2023-3090.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4377.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3090",
             "https://security.netapp.com/advisory/ntap-20230731-0002/",
@@ -546,7 +496,7 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35001",
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://linux.oracle.com/cve/CVE-2023-35001.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://lists.debian.org/debian-lts-announce/2023/08/msg00001.html",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RGZC5XOANA75OJ4XARBBXYSLDKUIJI5E/",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/UPHI46ROSSLVAV4R5LJWJYU747JGOS6D/",
@@ -618,7 +568,7 @@
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
             "https://linux.oracle.com/cve/CVE-2023-35788.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4819.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
             "https://security.netapp.com/advisory/ntap-20230714-0002/",
@@ -886,7 +836,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit?id=0323bce598eea038714f941ce2b22541c46d488f",
             "https://kernel.dance/0323bce598eea038714f941ce2b22541c46d488f",
             "https://linux.oracle.com/cve/CVE-2023-3776.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3776",
             "https://ubuntu.com/security/notices/USN-6285-1",
             "https://ubuntu.com/security/notices/USN-6309-1",
@@ -1007,9 +957,6 @@
             "https://access.redhat.com/errata/RHSA-2023:5069",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/errata/RHSA-2023:5093",
-            "https://access.redhat.com/errata/RHSA-2023:5221",
-            "https://access.redhat.com/errata/RHSA-2023:5244",
-            "https://access.redhat.com/errata/RHSA-2023:5255",
             "https://access.redhat.com/security/cve/CVE-2023-4004",
             "https://bugzilla.redhat.com/2181891",
             "https://bugzilla.redhat.com/2213260",
@@ -1026,7 +973,7 @@
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://git.kernel.org/linus/87b5a5c209405cb6b57424cdfa226a6dbd349232 (6.5-rc3)",
             "https://linux.oracle.com/cve/CVE-2023-4004.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-4004",
             "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230719190824.21196-1-fw@strlen.de/",
             "https://ubuntu.com/security/notices/USN-6315-1",
@@ -1044,7 +991,7 @@
             "https://www.debian.org/security/2023/dsa-5492"
           ],
           "PublishedDate": "2023-07-31T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
+          "LastModifiedDate": "2023-09-12T16:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-4015",
@@ -1101,207 +1048,6 @@
           "LastModifiedDate": "2023-09-11T17:59:00Z"
         },
         {
-          "VulnerabilityID": "CVE-2023-40283",
-          "PkgID": "linux-azure-5.15-cloud-tools-5.15.0-1039@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-azure-5.15-cloud-tools-5.15.0-1039",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-40283",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "use-after-free in l2cap_sock_release in net/bluetooth/l2cap_sock.c",
-          "Description": "An issue was discovered in l2cap_sock_release in net/bluetooth/l2cap_sock.c in the Linux kernel before 6.4.10. There is a use-after-free because the children of an sk are mishandled.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-40283",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.4.10",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-40283",
-            "https://git.kernel.org/linus/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1 (6.5-rc1)",
-            "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://github.com/torvalds/linux/commit/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-40283",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-40283",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-14T03:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4128",
-          "PkgID": "linux-azure-5.15-cloud-tools-5.15.0-1039@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-azure-5.15-cloud-tools-5.15.0-1039",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4128",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "cls_fw, cls_u32 and cls_route",
-          "Description": "A use-after-free flaw was found in net/sched/cls_fw.c in classifiers (cls_fw, cls_u32, and cls_route) in the Linux Kernel. This flaw allows a local attacker to perform a local privilege escalation due to incorrect handling of the existing filter, leading to a kernel information leak issue.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/errata/RHSA-2023:5235",
-            "https://access.redhat.com/errata/RHSA-2023:5238",
-            "https://access.redhat.com/security/cve/CVE-2023-4128",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2225511",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4128",
-            "https://git.kernel.org/linus/3044b16e7c6fe5d24b1cdbcf1bd0a9d92d1ebd81 (6.5-rc5)",
-            "https://git.kernel.org/linus/76e42ae831991c828cffa8c37736ebfb831ad5ec (6.5-rc5)",
-            "https://git.kernel.org/linus/b80b829e9e2c1b3f7aae34855e04d8f6ecaf13c8 (6.5-rc5)",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/344H6HO6SSC4KT7PDFXSDIXKMKHISSGF/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/3TYLSJ2SAI7RF56ZLQ5CQWCJLVJSD73Q/",
-            "https://lore.kernel.org/netdev/193d6cdf-d6c9-f9be-c36a-b2a7551d5fb6@mojatatu.com/",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4128",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4128",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-10T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4569",
-          "PkgID": "linux-azure-5.15-cloud-tools-5.15.0-1039@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-azure-5.15-cloud-tools-5.15.0-1039",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4569",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "information leak in nft_set_catchall_flush in net/netfilter/nf_tables_api.c",
-          "Description": "A memory leak flaw was found in nft_set_catchall_flush in net/netfilter/nf_tables_api.c in the Linux Kernel. This issue may allow a local attacker to cause a double-deactivations of catchall elements, which results in a memory leak.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-401"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 5.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-              "V3Score": 5.5
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-4569",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2235470",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4569",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4569",
-            "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230812110526.49808-1-fw@strlen.de/",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6384-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4569",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-28T22:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-20588",
-          "PkgID": "linux-azure-5.15-headers-5.15.0-1039@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-azure-5.15-headers-5.15.0-1039",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-20588",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "division-by-zero may resulting in loss of confidentiality",
-          "Description": "\nA division-by-zero error on some AMD processors can potentially return speculative data resulting in loss of confidentiality. \n\n\n\n\n\n\n\n",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-369"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-              "V3Score": 5.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:C/C:H/I:N/A:N",
-              "V3Score": 6
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-20588",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-20588",
-            "https://git.kernel.org/linus/77245f1c3c6495521f6a3af082696ee2f8ce3921",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-20588",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6384-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://www.amd.com/en/corporate/product-security/bulletin/AMD-SB-7007",
-            "https://www.amd.com/en/resources/product-security/bulletin/amd-sb-7007.html",
-            "https://www.cve.org/CVERecord?id=CVE-2023-20588",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-08T18:15:00Z",
-          "LastModifiedDate": "2023-09-18T17:57:00Z"
-        },
-        {
           "VulnerabilityID": "CVE-2023-20593",
           "PkgID": "linux-azure-5.15-headers-5.15.0-1039@5.15.0-1039.46~20.04.1",
           "PkgName": "linux-azure-5.15-headers-5.15.0-1039",
@@ -1347,8 +1093,6 @@
             "http://www.openwall.com/lists/oss-security/2023/08/08/8",
             "http://www.openwall.com/lists/oss-security/2023/08/16/4",
             "http://www.openwall.com/lists/oss-security/2023/08/16/5",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/11",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/9",
             "http://xenbits.xen.org/xsa/advisory-433.html",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/security/cve/CVE-2023-20593",
@@ -1406,7 +1150,7 @@
             "https://www.debian.org/security/2023/dsa-5462"
           ],
           "PublishedDate": "2023-07-24T20:15:00Z",
-          "LastModifiedDate": "2023-09-23T00:15:00Z"
+          "LastModifiedDate": "2023-08-27T03:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-21400",
@@ -1507,7 +1251,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://kernel.dance/90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://linux.oracle.com/cve/CVE-2023-3090.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4377.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3090",
             "https://security.netapp.com/advisory/ntap-20230731-0002/",
@@ -1775,7 +1519,7 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35001",
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://linux.oracle.com/cve/CVE-2023-35001.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://lists.debian.org/debian-lts-announce/2023/08/msg00001.html",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RGZC5XOANA75OJ4XARBBXYSLDKUIJI5E/",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/UPHI46ROSSLVAV4R5LJWJYU747JGOS6D/",
@@ -1847,7 +1591,7 @@
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
             "https://linux.oracle.com/cve/CVE-2023-35788.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4819.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
             "https://security.netapp.com/advisory/ntap-20230714-0002/",
@@ -2115,7 +1859,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit?id=0323bce598eea038714f941ce2b22541c46d488f",
             "https://kernel.dance/0323bce598eea038714f941ce2b22541c46d488f",
             "https://linux.oracle.com/cve/CVE-2023-3776.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3776",
             "https://ubuntu.com/security/notices/USN-6285-1",
             "https://ubuntu.com/security/notices/USN-6309-1",
@@ -2236,9 +1980,6 @@
             "https://access.redhat.com/errata/RHSA-2023:5069",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/errata/RHSA-2023:5093",
-            "https://access.redhat.com/errata/RHSA-2023:5221",
-            "https://access.redhat.com/errata/RHSA-2023:5244",
-            "https://access.redhat.com/errata/RHSA-2023:5255",
             "https://access.redhat.com/security/cve/CVE-2023-4004",
             "https://bugzilla.redhat.com/2181891",
             "https://bugzilla.redhat.com/2213260",
@@ -2255,7 +1996,7 @@
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://git.kernel.org/linus/87b5a5c209405cb6b57424cdfa226a6dbd349232 (6.5-rc3)",
             "https://linux.oracle.com/cve/CVE-2023-4004.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-4004",
             "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230719190824.21196-1-fw@strlen.de/",
             "https://ubuntu.com/security/notices/USN-6315-1",
@@ -2273,7 +2014,7 @@
             "https://www.debian.org/security/2023/dsa-5492"
           ],
           "PublishedDate": "2023-07-31T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
+          "LastModifiedDate": "2023-09-12T16:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-4015",
@@ -2330,207 +2071,6 @@
           "LastModifiedDate": "2023-09-11T17:59:00Z"
         },
         {
-          "VulnerabilityID": "CVE-2023-40283",
-          "PkgID": "linux-azure-5.15-headers-5.15.0-1039@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-azure-5.15-headers-5.15.0-1039",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-40283",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "use-after-free in l2cap_sock_release in net/bluetooth/l2cap_sock.c",
-          "Description": "An issue was discovered in l2cap_sock_release in net/bluetooth/l2cap_sock.c in the Linux kernel before 6.4.10. There is a use-after-free because the children of an sk are mishandled.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-40283",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.4.10",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-40283",
-            "https://git.kernel.org/linus/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1 (6.5-rc1)",
-            "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://github.com/torvalds/linux/commit/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-40283",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-40283",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-14T03:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4128",
-          "PkgID": "linux-azure-5.15-headers-5.15.0-1039@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-azure-5.15-headers-5.15.0-1039",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4128",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "cls_fw, cls_u32 and cls_route",
-          "Description": "A use-after-free flaw was found in net/sched/cls_fw.c in classifiers (cls_fw, cls_u32, and cls_route) in the Linux Kernel. This flaw allows a local attacker to perform a local privilege escalation due to incorrect handling of the existing filter, leading to a kernel information leak issue.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/errata/RHSA-2023:5235",
-            "https://access.redhat.com/errata/RHSA-2023:5238",
-            "https://access.redhat.com/security/cve/CVE-2023-4128",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2225511",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4128",
-            "https://git.kernel.org/linus/3044b16e7c6fe5d24b1cdbcf1bd0a9d92d1ebd81 (6.5-rc5)",
-            "https://git.kernel.org/linus/76e42ae831991c828cffa8c37736ebfb831ad5ec (6.5-rc5)",
-            "https://git.kernel.org/linus/b80b829e9e2c1b3f7aae34855e04d8f6ecaf13c8 (6.5-rc5)",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/344H6HO6SSC4KT7PDFXSDIXKMKHISSGF/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/3TYLSJ2SAI7RF56ZLQ5CQWCJLVJSD73Q/",
-            "https://lore.kernel.org/netdev/193d6cdf-d6c9-f9be-c36a-b2a7551d5fb6@mojatatu.com/",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4128",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4128",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-10T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4569",
-          "PkgID": "linux-azure-5.15-headers-5.15.0-1039@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-azure-5.15-headers-5.15.0-1039",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4569",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "information leak in nft_set_catchall_flush in net/netfilter/nf_tables_api.c",
-          "Description": "A memory leak flaw was found in nft_set_catchall_flush in net/netfilter/nf_tables_api.c in the Linux Kernel. This issue may allow a local attacker to cause a double-deactivations of catchall elements, which results in a memory leak.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-401"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 5.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-              "V3Score": 5.5
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-4569",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2235470",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4569",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4569",
-            "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230812110526.49808-1-fw@strlen.de/",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6384-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4569",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-28T22:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-20588",
-          "PkgID": "linux-azure-5.15-tools-5.15.0-1039@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-azure-5.15-tools-5.15.0-1039",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-20588",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "division-by-zero may resulting in loss of confidentiality",
-          "Description": "\nA division-by-zero error on some AMD processors can potentially return speculative data resulting in loss of confidentiality. \n\n\n\n\n\n\n\n",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-369"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-              "V3Score": 5.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:C/C:H/I:N/A:N",
-              "V3Score": 6
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-20588",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-20588",
-            "https://git.kernel.org/linus/77245f1c3c6495521f6a3af082696ee2f8ce3921",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-20588",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6384-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://www.amd.com/en/corporate/product-security/bulletin/AMD-SB-7007",
-            "https://www.amd.com/en/resources/product-security/bulletin/amd-sb-7007.html",
-            "https://www.cve.org/CVERecord?id=CVE-2023-20588",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-08T18:15:00Z",
-          "LastModifiedDate": "2023-09-18T17:57:00Z"
-        },
-        {
           "VulnerabilityID": "CVE-2023-20593",
           "PkgID": "linux-azure-5.15-tools-5.15.0-1039@5.15.0-1039.46~20.04.1",
           "PkgName": "linux-azure-5.15-tools-5.15.0-1039",
@@ -2576,8 +2116,6 @@
             "http://www.openwall.com/lists/oss-security/2023/08/08/8",
             "http://www.openwall.com/lists/oss-security/2023/08/16/4",
             "http://www.openwall.com/lists/oss-security/2023/08/16/5",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/11",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/9",
             "http://xenbits.xen.org/xsa/advisory-433.html",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/security/cve/CVE-2023-20593",
@@ -2635,7 +2173,7 @@
             "https://www.debian.org/security/2023/dsa-5462"
           ],
           "PublishedDate": "2023-07-24T20:15:00Z",
-          "LastModifiedDate": "2023-09-23T00:15:00Z"
+          "LastModifiedDate": "2023-08-27T03:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-21400",
@@ -2736,7 +2274,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://kernel.dance/90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://linux.oracle.com/cve/CVE-2023-3090.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4377.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3090",
             "https://security.netapp.com/advisory/ntap-20230731-0002/",
@@ -3004,7 +2542,7 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35001",
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://linux.oracle.com/cve/CVE-2023-35001.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://lists.debian.org/debian-lts-announce/2023/08/msg00001.html",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RGZC5XOANA75OJ4XARBBXYSLDKUIJI5E/",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/UPHI46ROSSLVAV4R5LJWJYU747JGOS6D/",
@@ -3076,7 +2614,7 @@
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
             "https://linux.oracle.com/cve/CVE-2023-35788.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4819.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
             "https://security.netapp.com/advisory/ntap-20230714-0002/",
@@ -3344,7 +2882,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit?id=0323bce598eea038714f941ce2b22541c46d488f",
             "https://kernel.dance/0323bce598eea038714f941ce2b22541c46d488f",
             "https://linux.oracle.com/cve/CVE-2023-3776.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3776",
             "https://ubuntu.com/security/notices/USN-6285-1",
             "https://ubuntu.com/security/notices/USN-6309-1",
@@ -3465,9 +3003,6 @@
             "https://access.redhat.com/errata/RHSA-2023:5069",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/errata/RHSA-2023:5093",
-            "https://access.redhat.com/errata/RHSA-2023:5221",
-            "https://access.redhat.com/errata/RHSA-2023:5244",
-            "https://access.redhat.com/errata/RHSA-2023:5255",
             "https://access.redhat.com/security/cve/CVE-2023-4004",
             "https://bugzilla.redhat.com/2181891",
             "https://bugzilla.redhat.com/2213260",
@@ -3484,7 +3019,7 @@
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://git.kernel.org/linus/87b5a5c209405cb6b57424cdfa226a6dbd349232 (6.5-rc3)",
             "https://linux.oracle.com/cve/CVE-2023-4004.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-4004",
             "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230719190824.21196-1-fw@strlen.de/",
             "https://ubuntu.com/security/notices/USN-6315-1",
@@ -3502,7 +3037,7 @@
             "https://www.debian.org/security/2023/dsa-5492"
           ],
           "PublishedDate": "2023-07-31T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
+          "LastModifiedDate": "2023-09-12T16:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-4015",
@@ -3559,207 +3094,6 @@
           "LastModifiedDate": "2023-09-11T17:59:00Z"
         },
         {
-          "VulnerabilityID": "CVE-2023-40283",
-          "PkgID": "linux-azure-5.15-tools-5.15.0-1039@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-azure-5.15-tools-5.15.0-1039",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-40283",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "use-after-free in l2cap_sock_release in net/bluetooth/l2cap_sock.c",
-          "Description": "An issue was discovered in l2cap_sock_release in net/bluetooth/l2cap_sock.c in the Linux kernel before 6.4.10. There is a use-after-free because the children of an sk are mishandled.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-40283",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.4.10",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-40283",
-            "https://git.kernel.org/linus/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1 (6.5-rc1)",
-            "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://github.com/torvalds/linux/commit/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-40283",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-40283",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-14T03:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4128",
-          "PkgID": "linux-azure-5.15-tools-5.15.0-1039@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-azure-5.15-tools-5.15.0-1039",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4128",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "cls_fw, cls_u32 and cls_route",
-          "Description": "A use-after-free flaw was found in net/sched/cls_fw.c in classifiers (cls_fw, cls_u32, and cls_route) in the Linux Kernel. This flaw allows a local attacker to perform a local privilege escalation due to incorrect handling of the existing filter, leading to a kernel information leak issue.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/errata/RHSA-2023:5235",
-            "https://access.redhat.com/errata/RHSA-2023:5238",
-            "https://access.redhat.com/security/cve/CVE-2023-4128",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2225511",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4128",
-            "https://git.kernel.org/linus/3044b16e7c6fe5d24b1cdbcf1bd0a9d92d1ebd81 (6.5-rc5)",
-            "https://git.kernel.org/linus/76e42ae831991c828cffa8c37736ebfb831ad5ec (6.5-rc5)",
-            "https://git.kernel.org/linus/b80b829e9e2c1b3f7aae34855e04d8f6ecaf13c8 (6.5-rc5)",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/344H6HO6SSC4KT7PDFXSDIXKMKHISSGF/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/3TYLSJ2SAI7RF56ZLQ5CQWCJLVJSD73Q/",
-            "https://lore.kernel.org/netdev/193d6cdf-d6c9-f9be-c36a-b2a7551d5fb6@mojatatu.com/",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4128",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4128",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-10T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4569",
-          "PkgID": "linux-azure-5.15-tools-5.15.0-1039@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-azure-5.15-tools-5.15.0-1039",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4569",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "information leak in nft_set_catchall_flush in net/netfilter/nf_tables_api.c",
-          "Description": "A memory leak flaw was found in nft_set_catchall_flush in net/netfilter/nf_tables_api.c in the Linux Kernel. This issue may allow a local attacker to cause a double-deactivations of catchall elements, which results in a memory leak.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-401"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 5.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-              "V3Score": 5.5
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-4569",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2235470",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4569",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4569",
-            "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230812110526.49808-1-fw@strlen.de/",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6384-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4569",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-28T22:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-20588",
-          "PkgID": "linux-cloud-tools-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-cloud-tools-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-20588",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "division-by-zero may resulting in loss of confidentiality",
-          "Description": "\nA division-by-zero error on some AMD processors can potentially return speculative data resulting in loss of confidentiality. \n\n\n\n\n\n\n\n",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-369"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-              "V3Score": 5.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:C/C:H/I:N/A:N",
-              "V3Score": 6
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-20588",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-20588",
-            "https://git.kernel.org/linus/77245f1c3c6495521f6a3af082696ee2f8ce3921",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-20588",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6384-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://www.amd.com/en/corporate/product-security/bulletin/AMD-SB-7007",
-            "https://www.amd.com/en/resources/product-security/bulletin/amd-sb-7007.html",
-            "https://www.cve.org/CVERecord?id=CVE-2023-20588",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-08T18:15:00Z",
-          "LastModifiedDate": "2023-09-18T17:57:00Z"
-        },
-        {
           "VulnerabilityID": "CVE-2023-20593",
           "PkgID": "linux-cloud-tools-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
           "PkgName": "linux-cloud-tools-5.15.0-1039-azure",
@@ -3805,8 +3139,6 @@
             "http://www.openwall.com/lists/oss-security/2023/08/08/8",
             "http://www.openwall.com/lists/oss-security/2023/08/16/4",
             "http://www.openwall.com/lists/oss-security/2023/08/16/5",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/11",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/9",
             "http://xenbits.xen.org/xsa/advisory-433.html",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/security/cve/CVE-2023-20593",
@@ -3864,7 +3196,7 @@
             "https://www.debian.org/security/2023/dsa-5462"
           ],
           "PublishedDate": "2023-07-24T20:15:00Z",
-          "LastModifiedDate": "2023-09-23T00:15:00Z"
+          "LastModifiedDate": "2023-08-27T03:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-21400",
@@ -3965,7 +3297,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://kernel.dance/90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://linux.oracle.com/cve/CVE-2023-3090.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4377.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3090",
             "https://security.netapp.com/advisory/ntap-20230731-0002/",
@@ -4233,7 +3565,7 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35001",
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://linux.oracle.com/cve/CVE-2023-35001.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://lists.debian.org/debian-lts-announce/2023/08/msg00001.html",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RGZC5XOANA75OJ4XARBBXYSLDKUIJI5E/",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/UPHI46ROSSLVAV4R5LJWJYU747JGOS6D/",
@@ -4305,7 +3637,7 @@
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
             "https://linux.oracle.com/cve/CVE-2023-35788.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4819.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
             "https://security.netapp.com/advisory/ntap-20230714-0002/",
@@ -4573,7 +3905,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit?id=0323bce598eea038714f941ce2b22541c46d488f",
             "https://kernel.dance/0323bce598eea038714f941ce2b22541c46d488f",
             "https://linux.oracle.com/cve/CVE-2023-3776.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3776",
             "https://ubuntu.com/security/notices/USN-6285-1",
             "https://ubuntu.com/security/notices/USN-6309-1",
@@ -4694,9 +4026,6 @@
             "https://access.redhat.com/errata/RHSA-2023:5069",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/errata/RHSA-2023:5093",
-            "https://access.redhat.com/errata/RHSA-2023:5221",
-            "https://access.redhat.com/errata/RHSA-2023:5244",
-            "https://access.redhat.com/errata/RHSA-2023:5255",
             "https://access.redhat.com/security/cve/CVE-2023-4004",
             "https://bugzilla.redhat.com/2181891",
             "https://bugzilla.redhat.com/2213260",
@@ -4713,7 +4042,7 @@
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://git.kernel.org/linus/87b5a5c209405cb6b57424cdfa226a6dbd349232 (6.5-rc3)",
             "https://linux.oracle.com/cve/CVE-2023-4004.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-4004",
             "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230719190824.21196-1-fw@strlen.de/",
             "https://ubuntu.com/security/notices/USN-6315-1",
@@ -4731,7 +4060,7 @@
             "https://www.debian.org/security/2023/dsa-5492"
           ],
           "PublishedDate": "2023-07-31T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
+          "LastModifiedDate": "2023-09-12T16:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-4015",
@@ -4786,207 +4115,6 @@
           ],
           "PublishedDate": "2023-09-06T14:15:00Z",
           "LastModifiedDate": "2023-09-11T17:59:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-40283",
-          "PkgID": "linux-cloud-tools-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-cloud-tools-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-40283",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "use-after-free in l2cap_sock_release in net/bluetooth/l2cap_sock.c",
-          "Description": "An issue was discovered in l2cap_sock_release in net/bluetooth/l2cap_sock.c in the Linux kernel before 6.4.10. There is a use-after-free because the children of an sk are mishandled.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-40283",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.4.10",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-40283",
-            "https://git.kernel.org/linus/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1 (6.5-rc1)",
-            "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://github.com/torvalds/linux/commit/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-40283",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-40283",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-14T03:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4128",
-          "PkgID": "linux-cloud-tools-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-cloud-tools-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4128",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "cls_fw, cls_u32 and cls_route",
-          "Description": "A use-after-free flaw was found in net/sched/cls_fw.c in classifiers (cls_fw, cls_u32, and cls_route) in the Linux Kernel. This flaw allows a local attacker to perform a local privilege escalation due to incorrect handling of the existing filter, leading to a kernel information leak issue.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/errata/RHSA-2023:5235",
-            "https://access.redhat.com/errata/RHSA-2023:5238",
-            "https://access.redhat.com/security/cve/CVE-2023-4128",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2225511",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4128",
-            "https://git.kernel.org/linus/3044b16e7c6fe5d24b1cdbcf1bd0a9d92d1ebd81 (6.5-rc5)",
-            "https://git.kernel.org/linus/76e42ae831991c828cffa8c37736ebfb831ad5ec (6.5-rc5)",
-            "https://git.kernel.org/linus/b80b829e9e2c1b3f7aae34855e04d8f6ecaf13c8 (6.5-rc5)",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/344H6HO6SSC4KT7PDFXSDIXKMKHISSGF/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/3TYLSJ2SAI7RF56ZLQ5CQWCJLVJSD73Q/",
-            "https://lore.kernel.org/netdev/193d6cdf-d6c9-f9be-c36a-b2a7551d5fb6@mojatatu.com/",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4128",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4128",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-10T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4569",
-          "PkgID": "linux-cloud-tools-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-cloud-tools-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4569",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "information leak in nft_set_catchall_flush in net/netfilter/nf_tables_api.c",
-          "Description": "A memory leak flaw was found in nft_set_catchall_flush in net/netfilter/nf_tables_api.c in the Linux Kernel. This issue may allow a local attacker to cause a double-deactivations of catchall elements, which results in a memory leak.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-401"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 5.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-              "V3Score": 5.5
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-4569",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2235470",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4569",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4569",
-            "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230812110526.49808-1-fw@strlen.de/",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6384-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4569",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-28T22:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-20588",
-          "PkgID": "linux-cloud-tools-common@5.4.0-150.167",
-          "PkgName": "linux-cloud-tools-common",
-          "InstalledVersion": "5.4.0-150.167",
-          "FixedVersion": "5.4.0-163.180",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-20588",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "division-by-zero may resulting in loss of confidentiality",
-          "Description": "\nA division-by-zero error on some AMD processors can potentially return speculative data resulting in loss of confidentiality. \n\n\n\n\n\n\n\n",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-369"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-              "V3Score": 5.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:C/C:H/I:N/A:N",
-              "V3Score": 6
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-20588",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-20588",
-            "https://git.kernel.org/linus/77245f1c3c6495521f6a3af082696ee2f8ce3921",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-20588",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6384-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://www.amd.com/en/corporate/product-security/bulletin/AMD-SB-7007",
-            "https://www.amd.com/en/resources/product-security/bulletin/amd-sb-7007.html",
-            "https://www.cve.org/CVERecord?id=CVE-2023-20588",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-08T18:15:00Z",
-          "LastModifiedDate": "2023-09-18T17:57:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-20593",
@@ -5034,8 +4162,6 @@
             "http://www.openwall.com/lists/oss-security/2023/08/08/8",
             "http://www.openwall.com/lists/oss-security/2023/08/16/4",
             "http://www.openwall.com/lists/oss-security/2023/08/16/5",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/11",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/9",
             "http://xenbits.xen.org/xsa/advisory-433.html",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/security/cve/CVE-2023-20593",
@@ -5093,7 +4219,7 @@
             "https://www.debian.org/security/2023/dsa-5462"
           ],
           "PublishedDate": "2023-07-24T20:15:00Z",
-          "LastModifiedDate": "2023-09-23T00:15:00Z"
+          "LastModifiedDate": "2023-08-27T03:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-3090",
@@ -5140,7 +4266,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://kernel.dance/90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://linux.oracle.com/cve/CVE-2023-3090.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4377.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3090",
             "https://security.netapp.com/advisory/ntap-20230731-0002/",
@@ -5333,7 +4459,7 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35001",
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://linux.oracle.com/cve/CVE-2023-35001.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://lists.debian.org/debian-lts-announce/2023/08/msg00001.html",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RGZC5XOANA75OJ4XARBBXYSLDKUIJI5E/",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/UPHI46ROSSLVAV4R5LJWJYU747JGOS6D/",
@@ -5405,7 +4531,7 @@
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
             "https://linux.oracle.com/cve/CVE-2023-35788.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4819.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
             "https://security.netapp.com/advisory/ntap-20230714-0002/",
@@ -5604,7 +4730,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit?id=0323bce598eea038714f941ce2b22541c46d488f",
             "https://kernel.dance/0323bce598eea038714f941ce2b22541c46d488f",
             "https://linux.oracle.com/cve/CVE-2023-3776.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3776",
             "https://ubuntu.com/security/notices/USN-6285-1",
             "https://ubuntu.com/security/notices/USN-6309-1",
@@ -5633,161 +4759,6 @@
           ],
           "PublishedDate": "2023-07-21T21:15:00Z",
           "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-40283",
-          "PkgID": "linux-cloud-tools-common@5.4.0-150.167",
-          "PkgName": "linux-cloud-tools-common",
-          "InstalledVersion": "5.4.0-150.167",
-          "FixedVersion": "5.4.0-163.180",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-40283",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "use-after-free in l2cap_sock_release in net/bluetooth/l2cap_sock.c",
-          "Description": "An issue was discovered in l2cap_sock_release in net/bluetooth/l2cap_sock.c in the Linux kernel before 6.4.10. There is a use-after-free because the children of an sk are mishandled.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-40283",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.4.10",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-40283",
-            "https://git.kernel.org/linus/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1 (6.5-rc1)",
-            "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://github.com/torvalds/linux/commit/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-40283",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-40283",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-14T03:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4128",
-          "PkgID": "linux-cloud-tools-common@5.4.0-150.167",
-          "PkgName": "linux-cloud-tools-common",
-          "InstalledVersion": "5.4.0-150.167",
-          "FixedVersion": "5.4.0-163.180",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4128",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "cls_fw, cls_u32 and cls_route",
-          "Description": "A use-after-free flaw was found in net/sched/cls_fw.c in classifiers (cls_fw, cls_u32, and cls_route) in the Linux Kernel. This flaw allows a local attacker to perform a local privilege escalation due to incorrect handling of the existing filter, leading to a kernel information leak issue.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/errata/RHSA-2023:5235",
-            "https://access.redhat.com/errata/RHSA-2023:5238",
-            "https://access.redhat.com/security/cve/CVE-2023-4128",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2225511",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4128",
-            "https://git.kernel.org/linus/3044b16e7c6fe5d24b1cdbcf1bd0a9d92d1ebd81 (6.5-rc5)",
-            "https://git.kernel.org/linus/76e42ae831991c828cffa8c37736ebfb831ad5ec (6.5-rc5)",
-            "https://git.kernel.org/linus/b80b829e9e2c1b3f7aae34855e04d8f6ecaf13c8 (6.5-rc5)",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/344H6HO6SSC4KT7PDFXSDIXKMKHISSGF/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/3TYLSJ2SAI7RF56ZLQ5CQWCJLVJSD73Q/",
-            "https://lore.kernel.org/netdev/193d6cdf-d6c9-f9be-c36a-b2a7551d5fb6@mojatatu.com/",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4128",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4128",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-10T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-20588",
-          "PkgID": "linux-headers-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-headers-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-20588",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "division-by-zero may resulting in loss of confidentiality",
-          "Description": "\nA division-by-zero error on some AMD processors can potentially return speculative data resulting in loss of confidentiality. \n\n\n\n\n\n\n\n",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-369"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-              "V3Score": 5.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:C/C:H/I:N/A:N",
-              "V3Score": 6
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-20588",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-20588",
-            "https://git.kernel.org/linus/77245f1c3c6495521f6a3af082696ee2f8ce3921",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-20588",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6384-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://www.amd.com/en/corporate/product-security/bulletin/AMD-SB-7007",
-            "https://www.amd.com/en/resources/product-security/bulletin/amd-sb-7007.html",
-            "https://www.cve.org/CVERecord?id=CVE-2023-20588",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-08T18:15:00Z",
-          "LastModifiedDate": "2023-09-18T17:57:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-20593",
@@ -5835,8 +4806,6 @@
             "http://www.openwall.com/lists/oss-security/2023/08/08/8",
             "http://www.openwall.com/lists/oss-security/2023/08/16/4",
             "http://www.openwall.com/lists/oss-security/2023/08/16/5",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/11",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/9",
             "http://xenbits.xen.org/xsa/advisory-433.html",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/security/cve/CVE-2023-20593",
@@ -5894,7 +4863,7 @@
             "https://www.debian.org/security/2023/dsa-5462"
           ],
           "PublishedDate": "2023-07-24T20:15:00Z",
-          "LastModifiedDate": "2023-09-23T00:15:00Z"
+          "LastModifiedDate": "2023-08-27T03:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-21400",
@@ -5995,7 +4964,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://kernel.dance/90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://linux.oracle.com/cve/CVE-2023-3090.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4377.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3090",
             "https://security.netapp.com/advisory/ntap-20230731-0002/",
@@ -6263,7 +5232,7 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35001",
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://linux.oracle.com/cve/CVE-2023-35001.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://lists.debian.org/debian-lts-announce/2023/08/msg00001.html",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RGZC5XOANA75OJ4XARBBXYSLDKUIJI5E/",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/UPHI46ROSSLVAV4R5LJWJYU747JGOS6D/",
@@ -6335,7 +5304,7 @@
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
             "https://linux.oracle.com/cve/CVE-2023-35788.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4819.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
             "https://security.netapp.com/advisory/ntap-20230714-0002/",
@@ -6603,7 +5572,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit?id=0323bce598eea038714f941ce2b22541c46d488f",
             "https://kernel.dance/0323bce598eea038714f941ce2b22541c46d488f",
             "https://linux.oracle.com/cve/CVE-2023-3776.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3776",
             "https://ubuntu.com/security/notices/USN-6285-1",
             "https://ubuntu.com/security/notices/USN-6309-1",
@@ -6724,9 +5693,6 @@
             "https://access.redhat.com/errata/RHSA-2023:5069",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/errata/RHSA-2023:5093",
-            "https://access.redhat.com/errata/RHSA-2023:5221",
-            "https://access.redhat.com/errata/RHSA-2023:5244",
-            "https://access.redhat.com/errata/RHSA-2023:5255",
             "https://access.redhat.com/security/cve/CVE-2023-4004",
             "https://bugzilla.redhat.com/2181891",
             "https://bugzilla.redhat.com/2213260",
@@ -6743,7 +5709,7 @@
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://git.kernel.org/linus/87b5a5c209405cb6b57424cdfa226a6dbd349232 (6.5-rc3)",
             "https://linux.oracle.com/cve/CVE-2023-4004.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-4004",
             "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230719190824.21196-1-fw@strlen.de/",
             "https://ubuntu.com/security/notices/USN-6315-1",
@@ -6761,7 +5727,7 @@
             "https://www.debian.org/security/2023/dsa-5492"
           ],
           "PublishedDate": "2023-07-31T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
+          "LastModifiedDate": "2023-09-12T16:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-4015",
@@ -6818,207 +5784,6 @@
           "LastModifiedDate": "2023-09-11T17:59:00Z"
         },
         {
-          "VulnerabilityID": "CVE-2023-40283",
-          "PkgID": "linux-headers-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-headers-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-40283",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "use-after-free in l2cap_sock_release in net/bluetooth/l2cap_sock.c",
-          "Description": "An issue was discovered in l2cap_sock_release in net/bluetooth/l2cap_sock.c in the Linux kernel before 6.4.10. There is a use-after-free because the children of an sk are mishandled.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-40283",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.4.10",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-40283",
-            "https://git.kernel.org/linus/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1 (6.5-rc1)",
-            "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://github.com/torvalds/linux/commit/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-40283",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-40283",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-14T03:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4128",
-          "PkgID": "linux-headers-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-headers-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4128",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "cls_fw, cls_u32 and cls_route",
-          "Description": "A use-after-free flaw was found in net/sched/cls_fw.c in classifiers (cls_fw, cls_u32, and cls_route) in the Linux Kernel. This flaw allows a local attacker to perform a local privilege escalation due to incorrect handling of the existing filter, leading to a kernel information leak issue.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/errata/RHSA-2023:5235",
-            "https://access.redhat.com/errata/RHSA-2023:5238",
-            "https://access.redhat.com/security/cve/CVE-2023-4128",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2225511",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4128",
-            "https://git.kernel.org/linus/3044b16e7c6fe5d24b1cdbcf1bd0a9d92d1ebd81 (6.5-rc5)",
-            "https://git.kernel.org/linus/76e42ae831991c828cffa8c37736ebfb831ad5ec (6.5-rc5)",
-            "https://git.kernel.org/linus/b80b829e9e2c1b3f7aae34855e04d8f6ecaf13c8 (6.5-rc5)",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/344H6HO6SSC4KT7PDFXSDIXKMKHISSGF/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/3TYLSJ2SAI7RF56ZLQ5CQWCJLVJSD73Q/",
-            "https://lore.kernel.org/netdev/193d6cdf-d6c9-f9be-c36a-b2a7551d5fb6@mojatatu.com/",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4128",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4128",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-10T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4569",
-          "PkgID": "linux-headers-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-headers-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4569",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "information leak in nft_set_catchall_flush in net/netfilter/nf_tables_api.c",
-          "Description": "A memory leak flaw was found in nft_set_catchall_flush in net/netfilter/nf_tables_api.c in the Linux Kernel. This issue may allow a local attacker to cause a double-deactivations of catchall elements, which results in a memory leak.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-401"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 5.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-              "V3Score": 5.5
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-4569",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2235470",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4569",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4569",
-            "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230812110526.49808-1-fw@strlen.de/",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6384-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4569",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-28T22:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-20588",
-          "PkgID": "linux-modules-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-modules-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-20588",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "division-by-zero may resulting in loss of confidentiality",
-          "Description": "\nA division-by-zero error on some AMD processors can potentially return speculative data resulting in loss of confidentiality. \n\n\n\n\n\n\n\n",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-369"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-              "V3Score": 5.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:C/C:H/I:N/A:N",
-              "V3Score": 6
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-20588",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-20588",
-            "https://git.kernel.org/linus/77245f1c3c6495521f6a3af082696ee2f8ce3921",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-20588",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6384-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://www.amd.com/en/corporate/product-security/bulletin/AMD-SB-7007",
-            "https://www.amd.com/en/resources/product-security/bulletin/amd-sb-7007.html",
-            "https://www.cve.org/CVERecord?id=CVE-2023-20588",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-08T18:15:00Z",
-          "LastModifiedDate": "2023-09-18T17:57:00Z"
-        },
-        {
           "VulnerabilityID": "CVE-2023-20593",
           "PkgID": "linux-modules-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
           "PkgName": "linux-modules-5.15.0-1039-azure",
@@ -7064,8 +5829,6 @@
             "http://www.openwall.com/lists/oss-security/2023/08/08/8",
             "http://www.openwall.com/lists/oss-security/2023/08/16/4",
             "http://www.openwall.com/lists/oss-security/2023/08/16/5",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/11",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/9",
             "http://xenbits.xen.org/xsa/advisory-433.html",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/security/cve/CVE-2023-20593",
@@ -7123,7 +5886,7 @@
             "https://www.debian.org/security/2023/dsa-5462"
           ],
           "PublishedDate": "2023-07-24T20:15:00Z",
-          "LastModifiedDate": "2023-09-23T00:15:00Z"
+          "LastModifiedDate": "2023-08-27T03:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-21400",
@@ -7224,7 +5987,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://kernel.dance/90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://linux.oracle.com/cve/CVE-2023-3090.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4377.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3090",
             "https://security.netapp.com/advisory/ntap-20230731-0002/",
@@ -7492,7 +6255,7 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35001",
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://linux.oracle.com/cve/CVE-2023-35001.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://lists.debian.org/debian-lts-announce/2023/08/msg00001.html",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RGZC5XOANA75OJ4XARBBXYSLDKUIJI5E/",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/UPHI46ROSSLVAV4R5LJWJYU747JGOS6D/",
@@ -7564,7 +6327,7 @@
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
             "https://linux.oracle.com/cve/CVE-2023-35788.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4819.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
             "https://security.netapp.com/advisory/ntap-20230714-0002/",
@@ -7832,7 +6595,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit?id=0323bce598eea038714f941ce2b22541c46d488f",
             "https://kernel.dance/0323bce598eea038714f941ce2b22541c46d488f",
             "https://linux.oracle.com/cve/CVE-2023-3776.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3776",
             "https://ubuntu.com/security/notices/USN-6285-1",
             "https://ubuntu.com/security/notices/USN-6309-1",
@@ -7953,9 +6716,6 @@
             "https://access.redhat.com/errata/RHSA-2023:5069",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/errata/RHSA-2023:5093",
-            "https://access.redhat.com/errata/RHSA-2023:5221",
-            "https://access.redhat.com/errata/RHSA-2023:5244",
-            "https://access.redhat.com/errata/RHSA-2023:5255",
             "https://access.redhat.com/security/cve/CVE-2023-4004",
             "https://bugzilla.redhat.com/2181891",
             "https://bugzilla.redhat.com/2213260",
@@ -7972,7 +6732,7 @@
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://git.kernel.org/linus/87b5a5c209405cb6b57424cdfa226a6dbd349232 (6.5-rc3)",
             "https://linux.oracle.com/cve/CVE-2023-4004.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-4004",
             "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230719190824.21196-1-fw@strlen.de/",
             "https://ubuntu.com/security/notices/USN-6315-1",
@@ -7990,7 +6750,7 @@
             "https://www.debian.org/security/2023/dsa-5492"
           ],
           "PublishedDate": "2023-07-31T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
+          "LastModifiedDate": "2023-09-12T16:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-4015",
@@ -8047,207 +6807,6 @@
           "LastModifiedDate": "2023-09-11T17:59:00Z"
         },
         {
-          "VulnerabilityID": "CVE-2023-40283",
-          "PkgID": "linux-modules-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-modules-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-40283",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "use-after-free in l2cap_sock_release in net/bluetooth/l2cap_sock.c",
-          "Description": "An issue was discovered in l2cap_sock_release in net/bluetooth/l2cap_sock.c in the Linux kernel before 6.4.10. There is a use-after-free because the children of an sk are mishandled.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-40283",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.4.10",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-40283",
-            "https://git.kernel.org/linus/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1 (6.5-rc1)",
-            "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://github.com/torvalds/linux/commit/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-40283",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-40283",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-14T03:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4128",
-          "PkgID": "linux-modules-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-modules-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4128",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "cls_fw, cls_u32 and cls_route",
-          "Description": "A use-after-free flaw was found in net/sched/cls_fw.c in classifiers (cls_fw, cls_u32, and cls_route) in the Linux Kernel. This flaw allows a local attacker to perform a local privilege escalation due to incorrect handling of the existing filter, leading to a kernel information leak issue.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/errata/RHSA-2023:5235",
-            "https://access.redhat.com/errata/RHSA-2023:5238",
-            "https://access.redhat.com/security/cve/CVE-2023-4128",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2225511",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4128",
-            "https://git.kernel.org/linus/3044b16e7c6fe5d24b1cdbcf1bd0a9d92d1ebd81 (6.5-rc5)",
-            "https://git.kernel.org/linus/76e42ae831991c828cffa8c37736ebfb831ad5ec (6.5-rc5)",
-            "https://git.kernel.org/linus/b80b829e9e2c1b3f7aae34855e04d8f6ecaf13c8 (6.5-rc5)",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/344H6HO6SSC4KT7PDFXSDIXKMKHISSGF/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/3TYLSJ2SAI7RF56ZLQ5CQWCJLVJSD73Q/",
-            "https://lore.kernel.org/netdev/193d6cdf-d6c9-f9be-c36a-b2a7551d5fb6@mojatatu.com/",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4128",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4128",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-10T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4569",
-          "PkgID": "linux-modules-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-modules-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4569",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "information leak in nft_set_catchall_flush in net/netfilter/nf_tables_api.c",
-          "Description": "A memory leak flaw was found in nft_set_catchall_flush in net/netfilter/nf_tables_api.c in the Linux Kernel. This issue may allow a local attacker to cause a double-deactivations of catchall elements, which results in a memory leak.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-401"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 5.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-              "V3Score": 5.5
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-4569",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2235470",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4569",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4569",
-            "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230812110526.49808-1-fw@strlen.de/",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6384-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4569",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-28T22:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-20588",
-          "PkgID": "linux-modules-extra-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-modules-extra-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-20588",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "division-by-zero may resulting in loss of confidentiality",
-          "Description": "\nA division-by-zero error on some AMD processors can potentially return speculative data resulting in loss of confidentiality. \n\n\n\n\n\n\n\n",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-369"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-              "V3Score": 5.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:C/C:H/I:N/A:N",
-              "V3Score": 6
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-20588",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-20588",
-            "https://git.kernel.org/linus/77245f1c3c6495521f6a3af082696ee2f8ce3921",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-20588",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6384-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://www.amd.com/en/corporate/product-security/bulletin/AMD-SB-7007",
-            "https://www.amd.com/en/resources/product-security/bulletin/amd-sb-7007.html",
-            "https://www.cve.org/CVERecord?id=CVE-2023-20588",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-08T18:15:00Z",
-          "LastModifiedDate": "2023-09-18T17:57:00Z"
-        },
-        {
           "VulnerabilityID": "CVE-2023-20593",
           "PkgID": "linux-modules-extra-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
           "PkgName": "linux-modules-extra-5.15.0-1039-azure",
@@ -8293,8 +6852,6 @@
             "http://www.openwall.com/lists/oss-security/2023/08/08/8",
             "http://www.openwall.com/lists/oss-security/2023/08/16/4",
             "http://www.openwall.com/lists/oss-security/2023/08/16/5",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/11",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/9",
             "http://xenbits.xen.org/xsa/advisory-433.html",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/security/cve/CVE-2023-20593",
@@ -8352,7 +6909,7 @@
             "https://www.debian.org/security/2023/dsa-5462"
           ],
           "PublishedDate": "2023-07-24T20:15:00Z",
-          "LastModifiedDate": "2023-09-23T00:15:00Z"
+          "LastModifiedDate": "2023-08-27T03:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-21400",
@@ -8453,7 +7010,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://kernel.dance/90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://linux.oracle.com/cve/CVE-2023-3090.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4377.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3090",
             "https://security.netapp.com/advisory/ntap-20230731-0002/",
@@ -8721,7 +7278,7 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35001",
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://linux.oracle.com/cve/CVE-2023-35001.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://lists.debian.org/debian-lts-announce/2023/08/msg00001.html",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RGZC5XOANA75OJ4XARBBXYSLDKUIJI5E/",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/UPHI46ROSSLVAV4R5LJWJYU747JGOS6D/",
@@ -8793,7 +7350,7 @@
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
             "https://linux.oracle.com/cve/CVE-2023-35788.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4819.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
             "https://security.netapp.com/advisory/ntap-20230714-0002/",
@@ -9061,7 +7618,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit?id=0323bce598eea038714f941ce2b22541c46d488f",
             "https://kernel.dance/0323bce598eea038714f941ce2b22541c46d488f",
             "https://linux.oracle.com/cve/CVE-2023-3776.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3776",
             "https://ubuntu.com/security/notices/USN-6285-1",
             "https://ubuntu.com/security/notices/USN-6309-1",
@@ -9182,9 +7739,6 @@
             "https://access.redhat.com/errata/RHSA-2023:5069",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/errata/RHSA-2023:5093",
-            "https://access.redhat.com/errata/RHSA-2023:5221",
-            "https://access.redhat.com/errata/RHSA-2023:5244",
-            "https://access.redhat.com/errata/RHSA-2023:5255",
             "https://access.redhat.com/security/cve/CVE-2023-4004",
             "https://bugzilla.redhat.com/2181891",
             "https://bugzilla.redhat.com/2213260",
@@ -9201,7 +7755,7 @@
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://git.kernel.org/linus/87b5a5c209405cb6b57424cdfa226a6dbd349232 (6.5-rc3)",
             "https://linux.oracle.com/cve/CVE-2023-4004.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-4004",
             "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230719190824.21196-1-fw@strlen.de/",
             "https://ubuntu.com/security/notices/USN-6315-1",
@@ -9219,7 +7773,7 @@
             "https://www.debian.org/security/2023/dsa-5492"
           ],
           "PublishedDate": "2023-07-31T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
+          "LastModifiedDate": "2023-09-12T16:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-4015",
@@ -9276,207 +7830,6 @@
           "LastModifiedDate": "2023-09-11T17:59:00Z"
         },
         {
-          "VulnerabilityID": "CVE-2023-40283",
-          "PkgID": "linux-modules-extra-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-modules-extra-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-40283",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "use-after-free in l2cap_sock_release in net/bluetooth/l2cap_sock.c",
-          "Description": "An issue was discovered in l2cap_sock_release in net/bluetooth/l2cap_sock.c in the Linux kernel before 6.4.10. There is a use-after-free because the children of an sk are mishandled.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-40283",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.4.10",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-40283",
-            "https://git.kernel.org/linus/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1 (6.5-rc1)",
-            "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://github.com/torvalds/linux/commit/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-40283",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-40283",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-14T03:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4128",
-          "PkgID": "linux-modules-extra-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-modules-extra-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4128",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "cls_fw, cls_u32 and cls_route",
-          "Description": "A use-after-free flaw was found in net/sched/cls_fw.c in classifiers (cls_fw, cls_u32, and cls_route) in the Linux Kernel. This flaw allows a local attacker to perform a local privilege escalation due to incorrect handling of the existing filter, leading to a kernel information leak issue.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/errata/RHSA-2023:5235",
-            "https://access.redhat.com/errata/RHSA-2023:5238",
-            "https://access.redhat.com/security/cve/CVE-2023-4128",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2225511",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4128",
-            "https://git.kernel.org/linus/3044b16e7c6fe5d24b1cdbcf1bd0a9d92d1ebd81 (6.5-rc5)",
-            "https://git.kernel.org/linus/76e42ae831991c828cffa8c37736ebfb831ad5ec (6.5-rc5)",
-            "https://git.kernel.org/linus/b80b829e9e2c1b3f7aae34855e04d8f6ecaf13c8 (6.5-rc5)",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/344H6HO6SSC4KT7PDFXSDIXKMKHISSGF/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/3TYLSJ2SAI7RF56ZLQ5CQWCJLVJSD73Q/",
-            "https://lore.kernel.org/netdev/193d6cdf-d6c9-f9be-c36a-b2a7551d5fb6@mojatatu.com/",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4128",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4128",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-10T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4569",
-          "PkgID": "linux-modules-extra-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-modules-extra-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4569",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "information leak in nft_set_catchall_flush in net/netfilter/nf_tables_api.c",
-          "Description": "A memory leak flaw was found in nft_set_catchall_flush in net/netfilter/nf_tables_api.c in the Linux Kernel. This issue may allow a local attacker to cause a double-deactivations of catchall elements, which results in a memory leak.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-401"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 5.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-              "V3Score": 5.5
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-4569",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2235470",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4569",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4569",
-            "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230812110526.49808-1-fw@strlen.de/",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6384-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4569",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-28T22:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-20588",
-          "PkgID": "linux-tools-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-tools-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-20588",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "division-by-zero may resulting in loss of confidentiality",
-          "Description": "\nA division-by-zero error on some AMD processors can potentially return speculative data resulting in loss of confidentiality. \n\n\n\n\n\n\n\n",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-369"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-              "V3Score": 5.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:C/C:H/I:N/A:N",
-              "V3Score": 6
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-20588",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-20588",
-            "https://git.kernel.org/linus/77245f1c3c6495521f6a3af082696ee2f8ce3921",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-20588",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6384-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://www.amd.com/en/corporate/product-security/bulletin/AMD-SB-7007",
-            "https://www.amd.com/en/resources/product-security/bulletin/amd-sb-7007.html",
-            "https://www.cve.org/CVERecord?id=CVE-2023-20588",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-08T18:15:00Z",
-          "LastModifiedDate": "2023-09-18T17:57:00Z"
-        },
-        {
           "VulnerabilityID": "CVE-2023-20593",
           "PkgID": "linux-tools-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
           "PkgName": "linux-tools-5.15.0-1039-azure",
@@ -9522,8 +7875,6 @@
             "http://www.openwall.com/lists/oss-security/2023/08/08/8",
             "http://www.openwall.com/lists/oss-security/2023/08/16/4",
             "http://www.openwall.com/lists/oss-security/2023/08/16/5",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/11",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/9",
             "http://xenbits.xen.org/xsa/advisory-433.html",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/security/cve/CVE-2023-20593",
@@ -9581,7 +7932,7 @@
             "https://www.debian.org/security/2023/dsa-5462"
           ],
           "PublishedDate": "2023-07-24T20:15:00Z",
-          "LastModifiedDate": "2023-09-23T00:15:00Z"
+          "LastModifiedDate": "2023-08-27T03:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-21400",
@@ -9682,7 +8033,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://kernel.dance/90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://linux.oracle.com/cve/CVE-2023-3090.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4377.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3090",
             "https://security.netapp.com/advisory/ntap-20230731-0002/",
@@ -9950,7 +8301,7 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35001",
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://linux.oracle.com/cve/CVE-2023-35001.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://lists.debian.org/debian-lts-announce/2023/08/msg00001.html",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RGZC5XOANA75OJ4XARBBXYSLDKUIJI5E/",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/UPHI46ROSSLVAV4R5LJWJYU747JGOS6D/",
@@ -10022,7 +8373,7 @@
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
             "https://linux.oracle.com/cve/CVE-2023-35788.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4819.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
             "https://security.netapp.com/advisory/ntap-20230714-0002/",
@@ -10290,7 +8641,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit?id=0323bce598eea038714f941ce2b22541c46d488f",
             "https://kernel.dance/0323bce598eea038714f941ce2b22541c46d488f",
             "https://linux.oracle.com/cve/CVE-2023-3776.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3776",
             "https://ubuntu.com/security/notices/USN-6285-1",
             "https://ubuntu.com/security/notices/USN-6309-1",
@@ -10411,9 +8762,6 @@
             "https://access.redhat.com/errata/RHSA-2023:5069",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/errata/RHSA-2023:5093",
-            "https://access.redhat.com/errata/RHSA-2023:5221",
-            "https://access.redhat.com/errata/RHSA-2023:5244",
-            "https://access.redhat.com/errata/RHSA-2023:5255",
             "https://access.redhat.com/security/cve/CVE-2023-4004",
             "https://bugzilla.redhat.com/2181891",
             "https://bugzilla.redhat.com/2213260",
@@ -10430,7 +8778,7 @@
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://git.kernel.org/linus/87b5a5c209405cb6b57424cdfa226a6dbd349232 (6.5-rc3)",
             "https://linux.oracle.com/cve/CVE-2023-4004.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-4004",
             "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230719190824.21196-1-fw@strlen.de/",
             "https://ubuntu.com/security/notices/USN-6315-1",
@@ -10448,7 +8796,7 @@
             "https://www.debian.org/security/2023/dsa-5492"
           ],
           "PublishedDate": "2023-07-31T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
+          "LastModifiedDate": "2023-09-12T16:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-4015",
@@ -10503,207 +8851,6 @@
           ],
           "PublishedDate": "2023-09-06T14:15:00Z",
           "LastModifiedDate": "2023-09-11T17:59:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-40283",
-          "PkgID": "linux-tools-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-tools-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-40283",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "use-after-free in l2cap_sock_release in net/bluetooth/l2cap_sock.c",
-          "Description": "An issue was discovered in l2cap_sock_release in net/bluetooth/l2cap_sock.c in the Linux kernel before 6.4.10. There is a use-after-free because the children of an sk are mishandled.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-40283",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.4.10",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-40283",
-            "https://git.kernel.org/linus/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1 (6.5-rc1)",
-            "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://github.com/torvalds/linux/commit/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-40283",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-40283",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-14T03:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4128",
-          "PkgID": "linux-tools-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-tools-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4128",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "cls_fw, cls_u32 and cls_route",
-          "Description": "A use-after-free flaw was found in net/sched/cls_fw.c in classifiers (cls_fw, cls_u32, and cls_route) in the Linux Kernel. This flaw allows a local attacker to perform a local privilege escalation due to incorrect handling of the existing filter, leading to a kernel information leak issue.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/errata/RHSA-2023:5235",
-            "https://access.redhat.com/errata/RHSA-2023:5238",
-            "https://access.redhat.com/security/cve/CVE-2023-4128",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2225511",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4128",
-            "https://git.kernel.org/linus/3044b16e7c6fe5d24b1cdbcf1bd0a9d92d1ebd81 (6.5-rc5)",
-            "https://git.kernel.org/linus/76e42ae831991c828cffa8c37736ebfb831ad5ec (6.5-rc5)",
-            "https://git.kernel.org/linus/b80b829e9e2c1b3f7aae34855e04d8f6ecaf13c8 (6.5-rc5)",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/344H6HO6SSC4KT7PDFXSDIXKMKHISSGF/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/3TYLSJ2SAI7RF56ZLQ5CQWCJLVJSD73Q/",
-            "https://lore.kernel.org/netdev/193d6cdf-d6c9-f9be-c36a-b2a7551d5fb6@mojatatu.com/",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4128",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4128",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-10T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4569",
-          "PkgID": "linux-tools-5.15.0-1039-azure@5.15.0-1039.46~20.04.1",
-          "PkgName": "linux-tools-5.15.0-1039-azure",
-          "InstalledVersion": "5.15.0-1039.46~20.04.1",
-          "FixedVersion": "5.15.0-1047.54~20.04.1",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4569",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "information leak in nft_set_catchall_flush in net/netfilter/nf_tables_api.c",
-          "Description": "A memory leak flaw was found in nft_set_catchall_flush in net/netfilter/nf_tables_api.c in the Linux Kernel. This issue may allow a local attacker to cause a double-deactivations of catchall elements, which results in a memory leak.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-401"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 5.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-              "V3Score": 5.5
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-4569",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2235470",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4569",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4569",
-            "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230812110526.49808-1-fw@strlen.de/",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6384-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4569",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-28T22:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-20588",
-          "PkgID": "linux-tools-common@5.4.0-150.167",
-          "PkgName": "linux-tools-common",
-          "InstalledVersion": "5.4.0-150.167",
-          "FixedVersion": "5.4.0-163.180",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-20588",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "division-by-zero may resulting in loss of confidentiality",
-          "Description": "\nA division-by-zero error on some AMD processors can potentially return speculative data resulting in loss of confidentiality. \n\n\n\n\n\n\n\n",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-369"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-              "V3Score": 5.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:C/C:H/I:N/A:N",
-              "V3Score": 6
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-20588",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-20588",
-            "https://git.kernel.org/linus/77245f1c3c6495521f6a3af082696ee2f8ce3921",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-20588",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6384-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://www.amd.com/en/corporate/product-security/bulletin/AMD-SB-7007",
-            "https://www.amd.com/en/resources/product-security/bulletin/amd-sb-7007.html",
-            "https://www.cve.org/CVERecord?id=CVE-2023-20588",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-08T18:15:00Z",
-          "LastModifiedDate": "2023-09-18T17:57:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-20593",
@@ -10751,8 +8898,6 @@
             "http://www.openwall.com/lists/oss-security/2023/08/08/8",
             "http://www.openwall.com/lists/oss-security/2023/08/16/4",
             "http://www.openwall.com/lists/oss-security/2023/08/16/5",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/11",
-            "http://www.openwall.com/lists/oss-security/2023/09/22/9",
             "http://xenbits.xen.org/xsa/advisory-433.html",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/security/cve/CVE-2023-20593",
@@ -10810,7 +8955,7 @@
             "https://www.debian.org/security/2023/dsa-5462"
           ],
           "PublishedDate": "2023-07-24T20:15:00Z",
-          "LastModifiedDate": "2023-09-23T00:15:00Z"
+          "LastModifiedDate": "2023-08-27T03:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-3090",
@@ -10857,7 +9002,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://kernel.dance/90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://linux.oracle.com/cve/CVE-2023-3090.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4377.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3090",
             "https://security.netapp.com/advisory/ntap-20230731-0002/",
@@ -11050,7 +9195,7 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-35001",
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://linux.oracle.com/cve/CVE-2023-35001.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://lists.debian.org/debian-lts-announce/2023/08/msg00001.html",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RGZC5XOANA75OJ4XARBBXYSLDKUIJI5E/",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/UPHI46ROSSLVAV4R5LJWJYU747JGOS6D/",
@@ -11122,7 +9267,7 @@
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
             "https://linux.oracle.com/cve/CVE-2023-35788.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4819.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
             "https://security.netapp.com/advisory/ntap-20230714-0002/",
@@ -11321,7 +9466,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit?id=0323bce598eea038714f941ce2b22541c46d488f",
             "https://kernel.dance/0323bce598eea038714f941ce2b22541c46d488f",
             "https://linux.oracle.com/cve/CVE-2023-3776.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3776",
             "https://ubuntu.com/security/notices/USN-6285-1",
             "https://ubuntu.com/security/notices/USN-6309-1",
@@ -11350,113 +9495,6 @@
           ],
           "PublishedDate": "2023-07-21T21:15:00Z",
           "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-40283",
-          "PkgID": "linux-tools-common@5.4.0-150.167",
-          "PkgName": "linux-tools-common",
-          "InstalledVersion": "5.4.0-150.167",
-          "FixedVersion": "5.4.0-163.180",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-40283",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "use-after-free in l2cap_sock_release in net/bluetooth/l2cap_sock.c",
-          "Description": "An issue was discovered in l2cap_sock_release in net/bluetooth/l2cap_sock.c in the Linux kernel before 6.4.10. There is a use-after-free because the children of an sk are mishandled.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-40283",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.4.10",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-40283",
-            "https://git.kernel.org/linus/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1 (6.5-rc1)",
-            "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://github.com/torvalds/linux/commit/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-40283",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-40283",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-14T03:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4128",
-          "PkgID": "linux-tools-common@5.4.0-150.167",
-          "PkgName": "linux-tools-common",
-          "InstalledVersion": "5.4.0-150.167",
-          "FixedVersion": "5.4.0-163.180",
-          "Layer": {},
-          "SeveritySource": "ubuntu",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4128",
-          "DataSource": {
-            "ID": "ubuntu",
-            "Name": "Ubuntu CVE Tracker",
-            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
-          },
-          "Title": "cls_fw, cls_u32 and cls_route",
-          "Description": "A use-after-free flaw was found in net/sched/cls_fw.c in classifiers (cls_fw, cls_u32, and cls_route) in the Linux Kernel. This flaw allows a local attacker to perform a local privilege escalation due to incorrect handling of the existing filter, leading to a kernel information leak issue.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/errata/RHSA-2023:5235",
-            "https://access.redhat.com/errata/RHSA-2023:5238",
-            "https://access.redhat.com/security/cve/CVE-2023-4128",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2225511",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4128",
-            "https://git.kernel.org/linus/3044b16e7c6fe5d24b1cdbcf1bd0a9d92d1ebd81 (6.5-rc5)",
-            "https://git.kernel.org/linus/76e42ae831991c828cffa8c37736ebfb831ad5ec (6.5-rc5)",
-            "https://git.kernel.org/linus/b80b829e9e2c1b3f7aae34855e04d8f6ecaf13c8 (6.5-rc5)",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/344H6HO6SSC4KT7PDFXSDIXKMKHISSGF/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/3TYLSJ2SAI7RF56ZLQ5CQWCJLVJSD73Q/",
-            "https://lore.kernel.org/netdev/193d6cdf-d6c9-f9be-c36a-b2a7551d5fb6@mojatatu.com/",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4128",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4128",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-10T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
         }
       ]
     },
@@ -12167,81 +10205,6 @@
       ]
     },
     {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/bandwidth",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/bridge",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/dhcp",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/firewall",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/host-device",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/host-local",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/ipvlan",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/loopback",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/macvlan",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/portmap",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/ptp",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/sbr",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/tuning",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/vlan",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/vrf",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
       "Target": "usr/local/bin/crictl",
       "Class": "lang-pkgs",
       "Type": "gobinary",
@@ -12300,96 +10263,6 @@
           "LastModifiedDate": "2023-09-15T21:15:00Z"
         },
         {
-          "VulnerabilityID": "CVE-2022-27664",
-          "PkgName": "golang.org/x/net",
-          "InstalledVersion": "v0.0.0-20220722155237-a158d28d115b",
-          "FixedVersion": "0.0.0-20220906165146-f3363e06e74c",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-27664",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "handle server errors after sending GOAWAY",
-          "Description": "In net/http in Go before 1.18.6 and 1.19.x before 1.19.1, attackers can cause a denial of service because an HTTP/2 connection can hang during closing if shutdown were preempted by a fatal error.",
-          "Severity": "HIGH",
-          "CVSS": {
-            "bitnami": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            },
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 6.5
-            }
-          },
-          "References": [
-            "https://access.redhat.com/errata/RHSA-2023:2357",
-            "https://access.redhat.com/security/cve/CVE-2022-27664",
-            "https://bugzilla.redhat.com/2107371",
-            "https://bugzilla.redhat.com/2107374",
-            "https://bugzilla.redhat.com/2107383",
-            "https://bugzilla.redhat.com/2107386",
-            "https://bugzilla.redhat.com/2107388",
-            "https://bugzilla.redhat.com/2113814",
-            "https://bugzilla.redhat.com/2124669",
-            "https://bugzilla.redhat.com/2132868",
-            "https://bugzilla.redhat.com/2132872",
-            "https://bugzilla.redhat.com/2161274",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=1913333",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=1913338",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2107371",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2107374",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2107383",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2107386",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2107388",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2113814",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2124669",
-            "https://cs.opensource.google/go/x/net",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-28851",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-28852",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-1705",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-27664",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-30630",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-30632",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-30635",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-32148",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-32189",
-            "https://errata.almalinux.org/9/ALSA-2023-2357.html",
-            "https://errata.rockylinux.org/RLSA-2022:7129",
-            "https://github.com/golang/go/commit/5bc9106458fc07851ac324a4157132a91b1f3479 (go1.18.6)",
-            "https://github.com/golang/go/commit/9cfe4e258b1c9d4a04a42539c21c7bdb2e227824 (go1.19.1)",
-            "https://github.com/golang/go/issues/54658",
-            "https://go.dev/cl/428735",
-            "https://go.dev/issue/54658",
-            "https://groups.google.com/g/golang-announce",
-            "https://groups.google.com/g/golang-announce/c/x49AQzIVX-s",
-            "https://groups.google.com/g/golang-announce/c/x49AQzIVX-s/m/0tgO0pjiBQAJ",
-            "https://linux.oracle.com/cve/CVE-2022-27664.html",
-            "https://linux.oracle.com/errata/ELSA-2023-2802.html",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/JXKTHIGE5F576MAPFYCIJXNRGBSPISUF/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/TXS2OQ57KZC5XZKK5UW4SYKPVQAHIOJX/",
-            "https://nvd.nist.gov/vuln/detail/CVE-2022-27664",
-            "https://pkg.go.dev/vuln/GO-2022-0969",
-            "https://security.gentoo.org/glsa/202209-26",
-            "https://security.netapp.com/advisory/ntap-20220923-0004/",
-            "https://ubuntu.com/security/notices/USN-6038-1",
-            "https://www.cve.org/CVERecord?id=CVE-2022-27664"
-          ],
-          "PublishedDate": "2022-09-06T18:15:00Z",
-          "LastModifiedDate": "2022-10-28T12:42:00Z"
-        },
-        {
           "VulnerabilityID": "CVE-2022-41721",
           "PkgName": "golang.org/x/net",
           "InstalledVersion": "v0.0.0-20220722155237-a158d28d115b",
@@ -12434,60 +10307,6 @@
           ],
           "PublishedDate": "2023-01-13T23:15:00Z",
           "LastModifiedDate": "2023-08-27T03:15:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2022-41723",
-          "PkgName": "golang.org/x/net",
-          "InstalledVersion": "v0.0.0-20220722155237-a158d28d115b",
-          "FixedVersion": "0.7.0",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-41723",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "avoid quadratic complexity in HPACK decoding",
-          "Description": "A maliciously crafted HTTP/2 stream could cause excessive CPU consumption in the HPACK decoder, sufficient to cause a denial of service from a small number of small requests.",
-          "Severity": "HIGH",
-          "CVSS": {
-            "bitnami": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            },
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2022-41723",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-41723",
-            "https://github.com/advisories/GHSA-vvpx-j8f3-3w6h",
-            "https://go.dev/cl/468135",
-            "https://go.dev/cl/468295",
-            "https://go.dev/issue/57855",
-            "https://groups.google.com/g/golang-announce/c/V0aBFqaFs_E",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/4MA5XS5DAOJ5PKKNG5TUXKPQOFHT5VBC/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RGW7GE2Z32ZT47UFAQFDRQE33B7Q7LMT/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RLBQ3A7ROLEQXQLXFDLNJ7MYPKG5GULE/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/XX3IMUTZKRQ73PBZM4E2JP4BKYH4C6XE/",
-            "https://nvd.nist.gov/vuln/detail/CVE-2022-41723",
-            "https://pkg.go.dev/vuln/GO-2023-1571",
-            "https://vuln.go.dev/ID/GO-2023-1571.json",
-            "https://www.cve.org/CVERecord?id=CVE-2022-41723"
-          ],
-          "PublishedDate": "2023-02-28T18:15:00Z",
-          "LastModifiedDate": "2023-08-08T14:22:00Z"
         },
         {
           "VulnerabilityID": "CVE-2022-32149",
