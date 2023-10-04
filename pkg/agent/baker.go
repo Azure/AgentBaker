@@ -1167,6 +1167,10 @@ root = "{{GetDataDir}}"{{- end}}
     snapshotter = "teleportd"
     disable_snapshot_annotations = false
     {{- end}}
+    {{- if IsArtifactStreamingEnabled }}
+    snapshotter = "overlaybd"
+    disable_snapshot_annotations = false
+    {{- end}}
     {{- if IsNSeriesSKU }}
     default_runtime_name = "nvidia-container-runtime"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
@@ -1238,6 +1242,12 @@ root = "{{GetDataDir}}"{{- end}}
     type = "snapshot"
     address = "/run/teleportd/snapshotter.sock"
 {{- end}}
+{{- if IsArtifactStreamingEnabled }}
+[proxy_plugins]
+  [proxy_plugins.overlaybd]
+    type = "snapshot"
+    address = "/run/overlaybd-snapshotter/overlaybd.sock"
+{{- end}}
 `
 
 // this pains me, but to make it respect mutability of vmss tags,
@@ -1255,6 +1265,10 @@ root = "{{GetDataDir}}"{{- end}}
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if TeleportEnabled }}
     snapshotter = "teleportd"
+    disable_snapshot_annotations = false
+    {{- end}}
+    {{- if IsArtifactStreamingEnabled }}
+    snapshotter = "overlaybd"
     disable_snapshot_annotations = false
     {{- end}}
     default_runtime_name = "runc"
@@ -1312,6 +1326,12 @@ root = "{{GetDataDir}}"{{- end}}
   [proxy_plugins.teleportd]
     type = "snapshot"
     address = "/run/teleportd/snapshotter.sock"
+{{- end}}
+{{- if IsArtifactStreamingEnabled }}
+[proxy_plugins]
+  [proxy_plugins.overlaybd]
+    type = "snapshot"
+    address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 `
 
