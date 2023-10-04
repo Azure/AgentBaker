@@ -92,32 +92,14 @@ fi
 if [[ "${UBUNTU_RELEASE}" == "22.04" ]]; then
   echo "Logging the currently running kernel: $(uname -r)"
   echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg --list | grep 'linux-image\|linux-headers'
-
-  # Get the list of current kernel packages and headers
-  kernel_packages=($(dpkg --list | grep 'linux-image\|linux-headers' | awk '{print $2}'))
-  packages_to_remove=""
-
-  # Iterate through the kernel packages and headers and add ALL to remove list
-  for package in "${kernel_packages[@]}"; do
-      packages_to_remove+=" $package"
-  done
-
-  # Remove the unwanted kernel packages and headers
-  if [ -n "$packages_to_remove" ]; then
-      echo "Removing the following packages:$packages_to_remove"
-      apt-get purge -y $packages_to_remove
-      apt-get autoremove
-      echo "Kernel cleanup completed."
-  else
-      echo "No packages to remove. Keeping specified kernel versions."
-  fi
-
+  
+  DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
   echo "After purging kernel, dpkg list sould be empty"; dpkg --list | grep 'linux-image\|linux-headers'
 
   # Install lts-22.04 kernel
-  apt-get install -y linux-image-azure-lts-22.04 linux-headers-azure-lts-22.04
-
+  DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-azure-lts-22.04 linux-cloud-tools-azure-lts-22.04 linux-headers-azure-lts-22.04 linux-modules-extra-azure-lts-22.04 linux-tools-azure-lts-22.04
   echo "After installing new kernel, here is a list of kernels/headers installed"; dpkg --list | grep 'linux-image\|linux-headers'
+  
   update-grub
 fi
 
