@@ -202,7 +202,7 @@ func getBaseVMSSModel(name, location, subscription, mcResourceGroupName, subnetI
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(location),
 		SKU: &armcompute.SKU{
-			Name:     to.Ptr("Standard_DS2_v2"),
+			Name:     to.Ptr("Standard_ND96isr_H100_v5"),
 			Capacity: to.Ptr[int64](1),
 		},
 		Properties: &armcompute.VirtualMachineScaleSetProperties{
