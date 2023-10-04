@@ -10,7 +10,7 @@ import (
 // TODO(ace): minimize the actual required defaults.
 // this is what we previously used for bash e2e from e2e/nodebootstrapping_template.json.
 // which itself was extracted from baker_test.go logic, which was inherited from aks-engine.
-func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
+func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 	var (
 		trueConst  = true
 		falseConst = false
@@ -18,7 +18,7 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 	return &datamodel.NodeBootstrappingConfiguration{
 		ContainerService: &datamodel.ContainerService{
 			ID:       "",
-			Location: "eastus",
+			Location: location,
 			Name:     "",
 			Plan:     nil,
 			Tags:     map[string]string(nil),

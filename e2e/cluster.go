@@ -57,10 +57,10 @@ func isExistingResourceGroup(ctx context.Context, cloud *azureClient, resourceGr
 	return rgExistence.Success, nil
 }
 
-func ensureResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupName string) error {
-	log.Printf("ensuring resource group %q...", resourceGroupName)
+func ensureResourceGroup(ctx context.Context, cloud *azureClient, suiteConfig *suiteConfig) error {
+	log.Printf("ensuring resource group %q...", suiteConfig.resourceGroupName)
 
-	rgExists, err := isExistingResourceGroup(ctx, cloud, resourceGroupName)
+	rgExists, err := isExistingResourceGroup(ctx, cloud, suiteConfig.resourceGroupName)
 	if err != nil {
 		return err
 	}
@@ -68,15 +68,15 @@ func ensureResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupN
 	if !rgExists {
 		_, err = cloud.resourceGroupClient.CreateOrUpdate(
 			ctx,
-			resourceGroupName,
+			suiteConfig.resourceGroupName,
 			armresources.ResourceGroup{
-				Location: to.Ptr(e2eTestLocation),
-				Name:     to.Ptr(resourceGroupName),
+				Location: to.Ptr(suiteConfig.location),
+				Name:     to.Ptr(suiteConfig.resourceGroupName),
 			},
 			nil)
 
 		if err != nil {
-			return fmt.Errorf("failed to create RG %q: %w", resourceGroupName, err)
+			return fmt.Errorf("failed to create RG %q: %w", suiteConfig.resourceGroupName, err)
 		}
 	}
 
