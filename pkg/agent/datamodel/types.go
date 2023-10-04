@@ -1127,7 +1127,7 @@ func (a *AgentPoolProfile) IsAvailabilitySets() bool {
 }
 
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile.
-func (a *AgentPoolProfile) GetKubernetesLabels(deprecated bool, nvidiaEnabled bool, fipsEnabled bool, osSku string) string {
+func (a *AgentPoolProfile) GetKubernetesLabels() string {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("agentpool=%s", a.Name))
 	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/agentpool=%s", a.Name))
