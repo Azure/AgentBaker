@@ -89,4 +89,32 @@ if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; 
   enableCgroupV2forAzureLinux
 fi
 
+uname -r
+apt-get install -y linux-image-azure-lts-22.04
+echo "before kernel purge"
+dpkg --list | grep 'linux-image'
+KEEP_KERNEL=("5.15.0-1049-azure" "linux-image-azure-lts-22.04")
+kernel_packages=$(dpkg --list | grep linux-image | awk '{print $2}')
+packages_to_remove=""
+
+# Iterate through the kernel packages
+for package in $kernel_packages; do
+    if [[ ! " ${KEEP_KERNEL[@]} " =~ " $package " ]]; then
+        packages_to_remove+=" $package"
+    fi
+done
+
+# Remove the unwanted kernel packages
+if [ -n "$packages_to_remove" ]; then
+    echo "Removing the following packages:$packages_to_remove"
+    apt-get autoremove --purge -y $packages_to_remove
+    update-grub
+    echo "Kernel cleanup completed."
+else
+    echo "No packages to remove. Keeping specified kernel versions."
+fi
+
+echo "after kernel purge"
+dpkg --list | grep 'linux-image'
+
 echo "pre-install-dependencies step finished successfully"
