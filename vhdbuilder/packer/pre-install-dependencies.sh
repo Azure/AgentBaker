@@ -105,7 +105,7 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" ]]; then
   # Remove the unwanted kernel packages and headers
   if [ -n "$packages_to_remove" ]; then
       echo "Removing the following packages:$packages_to_remove"
-      apt-get --purge -y $packages_to_remove
+      apt-get purge -y $packages_to_remove
       apt-get autoremove
       echo "Kernel cleanup completed."
   else
