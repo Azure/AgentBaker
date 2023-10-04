@@ -1,11 +1,11 @@
 {
   "SchemaVersion": 2,
-  "ArtifactName": "pkrvmmqkppclmka",
+  "ArtifactName": "pkrvm4n8fxka39w",
   "ArtifactType": "filesystem",
   "Metadata": {
     "OS": {
       "Family": "cbl-mariner",
-      "Name": "2.0.20230904"
+      "Name": "2.0.20230823"
     },
     "ImageConfig": {
       "architecture": "",
@@ -20,7 +20,7 @@
   },
   "Results": [
     {
-      "Target": "pkrvmmqkppclmka (cbl-mariner 2.0.20230904)",
+      "Target": "pkrvm4n8fxka39w (cbl-mariner 2.0.20230823)",
       "Class": "os-pkgs",
       "Type": "cbl-mariner",
       "Vulnerabilities": [
@@ -62,8 +62,6 @@
             "https://security.netapp.com/advisory/ntap-20230824-0004/",
             "https://ubuntu.com/security/notices/USN-6173-1",
             "https://ubuntu.com/security/notices/USN-6338-1",
-            "https://ubuntu.com/security/notices/USN-6338-2",
-            "https://ubuntu.com/security/notices/USN-6344-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-32250",
             "https://www.zerodayinitiative.com/advisories/ZDI-23-698/"
           ],
@@ -146,19 +144,11 @@
             "https://git.kernel.org/linus/02f76c401d17e409ed45bf7887148fcc22c93c85 (6.4-rc3)",
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/fs/ksmbd?id=02f76c401d17e409ed45bf7887148fcc22c93c85",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-38426",
-            "https://security.netapp.com/advisory/ntap-20230915-0010/",
             "https://ubuntu.com/security/notices/USN-6338-1",
-            "https://ubuntu.com/security/notices/USN-6338-2",
-            "https://ubuntu.com/security/notices/USN-6339-1",
-            "https://ubuntu.com/security/notices/USN-6339-2",
-            "https://ubuntu.com/security/notices/USN-6339-3",
-            "https://ubuntu.com/security/notices/USN-6339-4",
-            "https://ubuntu.com/security/notices/USN-6344-1",
-            "https://ubuntu.com/security/notices/USN-6350-1",
-            "https://ubuntu.com/security/notices/USN-6351-1"
+            "https://ubuntu.com/security/notices/USN-6339-1"
           ],
           "PublishedDate": "2023-07-18T00:15:00Z",
-          "LastModifiedDate": "2023-09-15T14:15:00Z"
+          "LastModifiedDate": "2023-07-27T16:08:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-38427",
@@ -230,14 +220,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-38428",
             "https://security.netapp.com/advisory/ntap-20230831-0001/",
             "https://ubuntu.com/security/notices/USN-6338-1",
-            "https://ubuntu.com/security/notices/USN-6338-2",
-            "https://ubuntu.com/security/notices/USN-6339-1",
-            "https://ubuntu.com/security/notices/USN-6339-2",
-            "https://ubuntu.com/security/notices/USN-6339-3",
-            "https://ubuntu.com/security/notices/USN-6339-4",
-            "https://ubuntu.com/security/notices/USN-6344-1",
-            "https://ubuntu.com/security/notices/USN-6350-1",
-            "https://ubuntu.com/security/notices/USN-6351-1"
+            "https://ubuntu.com/security/notices/USN-6339-1"
           ],
           "PublishedDate": "2023-07-18T00:15:00Z",
           "LastModifiedDate": "2023-08-31T19:15:00Z"
@@ -274,14 +257,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/fs/ksmbd?id=443d61d1fa9faa60ef925513d83742902390100f",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-38429",
             "https://ubuntu.com/security/notices/USN-6338-1",
-            "https://ubuntu.com/security/notices/USN-6338-2",
-            "https://ubuntu.com/security/notices/USN-6339-1",
-            "https://ubuntu.com/security/notices/USN-6339-2",
-            "https://ubuntu.com/security/notices/USN-6339-3",
-            "https://ubuntu.com/security/notices/USN-6339-4",
-            "https://ubuntu.com/security/notices/USN-6344-1",
-            "https://ubuntu.com/security/notices/USN-6350-1",
-            "https://ubuntu.com/security/notices/USN-6351-1"
+            "https://ubuntu.com/security/notices/USN-6339-1"
           ],
           "PublishedDate": "2023-07-18T00:15:00Z",
           "LastModifiedDate": "2023-07-27T16:11:00Z"
@@ -395,47 +371,6 @@
           ],
           "PublishedDate": "2023-07-18T00:15:00Z",
           "LastModifiedDate": "2023-08-31T19:15:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2022-0850",
-          "PkgName": "kernel",
-          "InstalledVersion": "5.15.112.1-2.cm2",
-          "FixedVersion": "5.15.126.1-1.cm2",
-          "Layer": {},
-          "SeveritySource": "cbl-mariner",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-0850",
-          "DataSource": {
-            "ID": "cbl-mariner",
-            "Name": "CBL-Mariner Vulnerability Data",
-            "URL": "https://github.com/microsoft/CBL-MarinerVulnerabilityData"
-          },
-          "Title": "information leak in copy_page_to_iter() in iov_iter.c",
-          "Description": "A vulnerability was found in linux kernel, where an information leak occurs via ext4_extent_header to userspace.",
-          "Severity": "HIGH",
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:H",
-              "V3Score": 7.1
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:H",
-              "V3Score": 7.1
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2022-0850",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2060606",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-0850",
-            "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=ce3aba43599f0b50adbebff133df8d08a3d5fffe",
-            "https://linux.oracle.com/cve/CVE-2022-0850.html",
-            "https://linux.oracle.com/errata/ELSA-2022-9852.html",
-            "https://nvd.nist.gov/vuln/detail/CVE-2022-0850",
-            "https://syzkaller.appspot.com/bug?id=78e9ad0e6952a3ca16e8234724b2fa92d041b9b8",
-            "https://ubuntu.com/security/notices/USN-5650-1",
-            "https://www.cve.org/CVERecord?id=CVE-2022-0850"
-          ],
-          "PublishedDate": "2022-08-29T15:15:00Z",
-          "LastModifiedDate": "2023-08-25T15:24:00Z"
         },
         {
           "VulnerabilityID": "CVE-2022-45884",
@@ -612,53 +547,10 @@
             "https://ubuntu.com/security/notices/USN-6300-1",
             "https://ubuntu.com/security/notices/USN-6311-1",
             "https://ubuntu.com/security/notices/USN-6332-1",
-            "https://ubuntu.com/security/notices/USN-6347-1",
             "https://www.cve.org/CVERecord?id=CVE-2022-48502"
           ],
           "PublishedDate": "2023-05-31T20:15:00Z",
           "LastModifiedDate": "2023-07-03T16:15:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-2007",
-          "PkgName": "kernel",
-          "InstalledVersion": "5.15.112.1-2.cm2",
-          "FixedVersion": "5.15.126.1-1.cm2",
-          "Layer": {},
-          "SeveritySource": "cbl-mariner",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-2007",
-          "DataSource": {
-            "ID": "cbl-mariner",
-            "Name": "CBL-Mariner Vulnerability Data",
-            "URL": "https://github.com/microsoft/CBL-MarinerVulnerabilityData"
-          },
-          "Title": "DPT I2O controller TOCTOU information disclosure vulnerability",
-          "Description": "The specific flaw exists within the DPT I2O Controller driver. The issue results from the lack of proper locking when performing operations on an object. An attacker can leverage this in conjunction with other vulnerabilities to escalate privileges and execute arbitrary code in the context of the kernel.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-667"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:C/C:H/I:N/A:L",
-              "V3Score": 6.7
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-2007",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-2007",
-            "https://github.com/torvalds/linux/commit/b04e75a4a8a81887386a0d2dbf605a48e779d2a0",
-            "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-2007",
-            "https://www.cve.org/CVERecord?id=CVE-2023-2007",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.zerodayinitiative.com/advisories/ZDI-23-440/"
-          ],
-          "PublishedDate": "2023-04-24T23:15:00Z",
-          "LastModifiedDate": "2023-08-19T18:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-2124",
@@ -690,16 +582,16 @@
             }
           },
           "References": [
-            "https://access.redhat.com/errata/RHSA-2023:4541",
+            "https://access.redhat.com/errata/RHSA-2023:3723",
             "https://access.redhat.com/security/cve/CVE-2023-2124",
-            "https://bugzilla.redhat.com/2147364",
-            "https://bugzilla.redhat.com/2181847",
+            "https://bugzilla.redhat.com/2179000",
+            "https://bugzilla.redhat.com/2187308",
             "https://bugzilla.redhat.com/2187439",
             "https://bugzilla.redhat.com/2188396",
-            "https://bugzilla.redhat.com/2188470",
             "https://bugzilla.redhat.com/2192589",
+            "https://bugzilla.redhat.com/2196105",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-2124",
-            "https://errata.almalinux.org/8/ALSA-2023-4541.html",
+            "https://errata.almalinux.org/9/ALSA-2023-3723.html",
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/fs/xfs/xfs_buf_item_recover.c?h=v6.4-rc1\u0026id=22ed903eee23a5b174e240f1cdfa9acf393a5210",
             "https://linux.oracle.com/cve/CVE-2023-2124.html",
             "https://linux.oracle.com/errata/ELSA-2023-4517.html",
@@ -723,7 +615,6 @@
             "https://ubuntu.com/security/notices/USN-6331-1",
             "https://ubuntu.com/security/notices/USN-6332-1",
             "https://ubuntu.com/security/notices/USN-6337-1",
-            "https://ubuntu.com/security/notices/USN-6347-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-2124",
             "https://www.debian.org/security/2023/dsa-5448",
             "https://www.debian.org/security/2023/dsa-5480",
@@ -808,7 +699,7 @@
             "https://www.openwall.com/lists/oss-security/2023/05/08/3"
           ],
           "PublishedDate": "2023-06-01T01:15:00Z",
-          "LastModifiedDate": "2023-09-12T19:41:00Z"
+          "LastModifiedDate": "2023-07-03T16:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-28464",
@@ -881,7 +772,6 @@
             }
           },
           "References": [
-            "http://packetstormsecurity.com/files/174577/Kernel-Live-Patch-Security-Notice-LSN-0097-1.html",
             "https://access.redhat.com/errata/RHSA-2023:4378",
             "https://access.redhat.com/security/cve/CVE-2023-3090",
             "https://bugzilla.redhat.com/2151317",
@@ -908,13 +798,12 @@
             "https://ubuntu.com/security/notices/USN-6255-1",
             "https://ubuntu.com/security/notices/USN-6260-1",
             "https://ubuntu.com/security/notices/USN-6261-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-3090",
             "https://www.debian.org/security/2023/dsa-5448",
             "https://www.debian.org/security/2023/dsa-5480"
           ],
           "PublishedDate": "2023-06-28T20:15:00Z",
-          "LastModifiedDate": "2023-09-11T19:15:00Z"
+          "LastModifiedDate": "2023-08-19T18:16:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-3111",
@@ -1021,56 +910,10 @@
             "https://ubuntu.com/security/notices/USN-6331-1",
             "https://ubuntu.com/security/notices/USN-6332-1",
             "https://ubuntu.com/security/notices/USN-6337-1",
-            "https://ubuntu.com/security/notices/USN-6347-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-3141"
           ],
           "PublishedDate": "2023-06-09T20:15:00Z",
           "LastModifiedDate": "2023-07-27T21:15:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-32247",
-          "PkgName": "kernel",
-          "InstalledVersion": "5.15.112.1-2.cm2",
-          "FixedVersion": "5.15.126.1-1.cm2",
-          "Layer": {},
-          "SeveritySource": "cbl-mariner",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-32247",
-          "DataSource": {
-            "ID": "cbl-mariner",
-            "Name": "CBL-Mariner Vulnerability Data",
-            "URL": "https://github.com/microsoft/CBL-MarinerVulnerabilityData"
-          },
-          "Title": "session setup memory exhaustion denial-of-service vulnerability",
-          "Description": "A flaw was found in the Linux kernel's ksmbd, a high-performance in-kernel SMB server. The specific flaw exists within the handling of SMB2_SESSION_SETUP commands. The issue results from the lack of control of resource consumption. An attacker can leverage this vulnerability to create a denial-of-service condition on the system.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-401"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-32247",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2219803",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-32247",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-32247",
-            "https://security.netapp.com/advisory/ntap-20230915-0011/",
-            "https://ubuntu.com/security/notices/USN-6338-1",
-            "https://ubuntu.com/security/notices/USN-6338-2",
-            "https://ubuntu.com/security/notices/USN-6344-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-32247",
-            "https://www.zerodayinitiative.com/advisories/ZDI-CAN-20478/"
-          ],
-          "PublishedDate": "2023-07-24T16:15:00Z",
-          "LastModifiedDate": "2023-09-15T14:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-32248",
@@ -1107,17 +950,15 @@
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-32248",
             "https://git.kernel.org/linus/3ac00a2ab69b34189942afa9e862d5170cdcb018 (6.4-rc1)",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-32248",
-            "https://security.netapp.com/advisory/ntap-20230915-0006/",
             "https://ubuntu.com/security/notices/USN-6283-1",
             "https://ubuntu.com/security/notices/USN-6300-1",
             "https://ubuntu.com/security/notices/USN-6311-1",
             "https://ubuntu.com/security/notices/USN-6332-1",
-            "https://ubuntu.com/security/notices/USN-6347-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-32248",
             "https://www.zerodayinitiative.com/advisories/ZDI-CAN-20479/"
           ],
           "PublishedDate": "2023-07-24T16:15:00Z",
-          "LastModifiedDate": "2023-09-15T14:15:00Z"
+          "LastModifiedDate": "2023-08-02T14:12:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-3268",
@@ -1165,10 +1006,6 @@
             "https://ubuntu.com/security/notices/USN-6311-1",
             "https://ubuntu.com/security/notices/USN-6332-1",
             "https://ubuntu.com/security/notices/USN-6340-1",
-            "https://ubuntu.com/security/notices/USN-6340-2",
-            "https://ubuntu.com/security/notices/USN-6347-1",
-            "https://ubuntu.com/security/notices/USN-6349-1",
-            "https://ubuntu.com/security/notices/USN-6357-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-3268",
             "https://www.debian.org/security/2023/dsa-5448",
             "https://www.debian.org/security/2023/dsa-5480"
@@ -1216,14 +1053,13 @@
             "https://github.com/lrh2000/StackRot",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/U6AAA64CUPSMBW6XDTXPQJ3KQWYQ4K7L/",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3269",
-            "https://security.netapp.com/advisory/ntap-20230908-0001/",
             "https://ubuntu.com/security/notices/USN-6249-1",
             "https://ubuntu.com/security/notices/USN-6250-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-3269",
             "https://www.openwall.com/lists/oss-security/2023/07/05/1"
           ],
           "PublishedDate": "2023-07-11T12:15:00Z",
-          "LastModifiedDate": "2023-09-08T17:15:00Z"
+          "LastModifiedDate": "2023-08-26T00:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-3312",
@@ -1338,7 +1174,6 @@
             }
           },
           "References": [
-            "http://packetstormsecurity.com/files/174577/Kernel-Live-Patch-Security-Notice-LSN-0097-1.html",
             "https://access.redhat.com/security/cve/CVE-2023-3389",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-3389",
             "https://git.kernel.org/linus/9ca9fb24d5febccea354089c41f96a8ad0d853f8",
@@ -1360,7 +1195,7 @@
             "https://www.debian.org/security/2023/dsa-5480"
           ],
           "PublishedDate": "2023-06-28T20:15:00Z",
-          "LastModifiedDate": "2023-09-11T19:15:00Z"
+          "LastModifiedDate": "2023-08-19T18:16:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-3390",
@@ -1392,28 +1227,13 @@
             }
           },
           "References": [
-            "http://packetstormsecurity.com/files/174577/Kernel-Live-Patch-Security-Notice-LSN-0097-1.html",
-            "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/security/cve/CVE-2023-3390",
-            "https://bugzilla.redhat.com/2181891",
-            "https://bugzilla.redhat.com/2213260",
-            "https://bugzilla.redhat.com/2213455",
-            "https://bugzilla.redhat.com/2217845",
-            "https://bugzilla.redhat.com/2220892",
-            "https://bugzilla.redhat.com/2220893",
-            "https://bugzilla.redhat.com/2225097",
-            "https://bugzilla.redhat.com/2225198",
-            "https://bugzilla.redhat.com/2225239",
-            "https://bugzilla.redhat.com/2225275",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-3390",
-            "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://git.kernel.org/linus/1240eb93f0616b21c675416516ff3d74798fdc97",
             "https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/commit/?id=1240eb93f0616b21c675416516ff3d74798fdc97",
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=1240eb93f0616b21c675416516ff3d74798fdc97",
             "https://kernel.dance/#1240eb93f0616b21c675416516ff3d74798fdc97",
             "https://kernel.dance/1240eb93f0616b21c675416516ff3d74798fdc97",
-            "https://linux.oracle.com/cve/CVE-2023-3390.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://lists.debian.org/debian-lts-announce/2023/08/msg00001.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3390",
             "https://security.netapp.com/advisory/ntap-20230818-0004/",
@@ -1426,13 +1246,12 @@
             "https://ubuntu.com/security/notices/USN-6260-1",
             "https://ubuntu.com/security/notices/USN-6261-1",
             "https://ubuntu.com/security/notices/USN-6285-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-3390",
             "https://www.debian.org/security/2023/dsa-5448",
             "https://www.debian.org/security/2023/dsa-5461"
           ],
           "PublishedDate": "2023-06-28T21:15:00Z",
-          "LastModifiedDate": "2023-09-11T19:15:00Z"
+          "LastModifiedDate": "2023-08-18T14:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-35788",
@@ -1464,7 +1283,6 @@
             }
           },
           "References": [
-            "http://packetstormsecurity.com/files/174577/Kernel-Live-Patch-Security-Notice-LSN-0097-1.html",
             "http://www.openwall.com/lists/oss-security/2023/06/17/1",
             "https://access.redhat.com/errata/RHSA-2023:4378",
             "https://access.redhat.com/security/cve/CVE-2023-35788",
@@ -1501,7 +1319,7 @@
             "https://www.openwall.com/lists/oss-security/2023/06/12/1"
           ],
           "PublishedDate": "2023-06-16T21:15:00Z",
-          "LastModifiedDate": "2023-09-11T19:15:00Z"
+          "LastModifiedDate": "2023-08-19T18:16:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-35823",
@@ -1549,10 +1367,6 @@
             "https://ubuntu.com/security/notices/USN-6311-1",
             "https://ubuntu.com/security/notices/USN-6332-1",
             "https://ubuntu.com/security/notices/USN-6340-1",
-            "https://ubuntu.com/security/notices/USN-6340-2",
-            "https://ubuntu.com/security/notices/USN-6347-1",
-            "https://ubuntu.com/security/notices/USN-6349-1",
-            "https://ubuntu.com/security/notices/USN-6357-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-35823"
           ],
           "PublishedDate": "2023-06-18T22:15:00Z",
@@ -1606,10 +1420,6 @@
             "https://ubuntu.com/security/notices/USN-6311-1",
             "https://ubuntu.com/security/notices/USN-6332-1",
             "https://ubuntu.com/security/notices/USN-6340-1",
-            "https://ubuntu.com/security/notices/USN-6340-2",
-            "https://ubuntu.com/security/notices/USN-6347-1",
-            "https://ubuntu.com/security/notices/USN-6349-1",
-            "https://ubuntu.com/security/notices/USN-6357-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-35824"
           ],
           "PublishedDate": "2023-06-18T22:15:00Z",
@@ -1707,10 +1517,6 @@
             "https://ubuntu.com/security/notices/USN-6311-1",
             "https://ubuntu.com/security/notices/USN-6332-1",
             "https://ubuntu.com/security/notices/USN-6340-1",
-            "https://ubuntu.com/security/notices/USN-6340-2",
-            "https://ubuntu.com/security/notices/USN-6347-1",
-            "https://ubuntu.com/security/notices/USN-6349-1",
-            "https://ubuntu.com/security/notices/USN-6357-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-35828"
           ],
           "PublishedDate": "2023-06-18T22:15:00Z",
@@ -1760,7 +1566,6 @@
             "https://ubuntu.com/security/notices/USN-6300-1",
             "https://ubuntu.com/security/notices/USN-6311-1",
             "https://ubuntu.com/security/notices/USN-6332-1",
-            "https://ubuntu.com/security/notices/USN-6347-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-35829"
           ],
           "PublishedDate": "2023-06-18T22:15:00Z",
@@ -1815,10 +1620,6 @@
             "https://ubuntu.com/security/notices/USN-6330-1",
             "https://ubuntu.com/security/notices/USN-6331-1",
             "https://ubuntu.com/security/notices/USN-6332-1",
-            "https://ubuntu.com/security/notices/USN-6346-1",
-            "https://ubuntu.com/security/notices/USN-6348-1",
-            "https://ubuntu.com/security/notices/USN-6357-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-3609",
             "https://www.debian.org/security/2023/dsa-5480"
           ],
@@ -1855,24 +1656,10 @@
             }
           },
           "References": [
-            "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/security/cve/CVE-2023-3610",
-            "https://bugzilla.redhat.com/2181891",
-            "https://bugzilla.redhat.com/2213260",
-            "https://bugzilla.redhat.com/2213455",
-            "https://bugzilla.redhat.com/2217845",
-            "https://bugzilla.redhat.com/2220892",
-            "https://bugzilla.redhat.com/2220893",
-            "https://bugzilla.redhat.com/2225097",
-            "https://bugzilla.redhat.com/2225198",
-            "https://bugzilla.redhat.com/2225239",
-            "https://bugzilla.redhat.com/2225275",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-3610",
-            "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit?id=4bedf9eee016286c835e3d8fa981ddece5338795",
             "https://kernel.dance/4bedf9eee016286c835e3d8fa981ddece5338795",
-            "https://linux.oracle.com/cve/CVE-2023-3610.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://lists.debian.org/debian-lts-announce/2023/08/msg00001.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3610",
             "https://security.googleblog.com/2023/06/learnings-from-kctf-vrps-42-linux.html",
@@ -1885,8 +1672,6 @@
             "https://ubuntu.com/security/notices/USN-6328-1",
             "https://ubuntu.com/security/notices/USN-6330-1",
             "https://ubuntu.com/security/notices/USN-6332-1",
-            "https://ubuntu.com/security/notices/USN-6348-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-3610",
             "https://www.debian.org/security/2023/dsa-5461"
           ],
@@ -1929,7 +1714,6 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=3e337087c3b5805fe0b8a46ba622a962880b5d64",
             "https://kernel.dance/3e337087c3b5805fe0b8a46ba622a962880b5d64",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3611",
-            "https://security.netapp.com/advisory/ntap-20230908-0002/",
             "https://ubuntu.com/security/notices/USN-6285-1",
             "https://ubuntu.com/security/notices/USN-6309-1",
             "https://ubuntu.com/security/notices/USN-6315-1",
@@ -1946,17 +1730,11 @@
             "https://ubuntu.com/security/notices/USN-6332-1",
             "https://ubuntu.com/security/notices/USN-6341-1",
             "https://ubuntu.com/security/notices/USN-6342-1",
-            "https://ubuntu.com/security/notices/USN-6342-2",
-            "https://ubuntu.com/security/notices/USN-6346-1",
-            "https://ubuntu.com/security/notices/USN-6348-1",
-            "https://ubuntu.com/security/notices/USN-6357-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-3611",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
+            "https://www.debian.org/security/2023/dsa-5480"
           ],
           "PublishedDate": "2023-07-21T21:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:15:00Z"
+          "LastModifiedDate": "2023-08-19T18:17:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-3776",
@@ -1988,25 +1766,11 @@
             }
           },
           "References": [
-            "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/security/cve/CVE-2023-3776",
-            "https://bugzilla.redhat.com/2181891",
-            "https://bugzilla.redhat.com/2213260",
-            "https://bugzilla.redhat.com/2213455",
-            "https://bugzilla.redhat.com/2217845",
-            "https://bugzilla.redhat.com/2220892",
-            "https://bugzilla.redhat.com/2220893",
-            "https://bugzilla.redhat.com/2225097",
-            "https://bugzilla.redhat.com/2225198",
-            "https://bugzilla.redhat.com/2225239",
-            "https://bugzilla.redhat.com/2225275",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-3776",
-            "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://git.kernel.org/linus/0323bce598eea038714f941ce2b22541c46d488f (6.5-rc2)",
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit?id=0323bce598eea038714f941ce2b22541c46d488f",
             "https://kernel.dance/0323bce598eea038714f941ce2b22541c46d488f",
-            "https://linux.oracle.com/cve/CVE-2023-3776.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3776",
             "https://ubuntu.com/security/notices/USN-6285-1",
             "https://ubuntu.com/security/notices/USN-6309-1",
@@ -2024,17 +1788,11 @@
             "https://ubuntu.com/security/notices/USN-6332-1",
             "https://ubuntu.com/security/notices/USN-6341-1",
             "https://ubuntu.com/security/notices/USN-6342-1",
-            "https://ubuntu.com/security/notices/USN-6342-2",
-            "https://ubuntu.com/security/notices/USN-6346-1",
-            "https://ubuntu.com/security/notices/USN-6348-1",
-            "https://ubuntu.com/security/notices/USN-6357-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-3776",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
+            "https://www.debian.org/security/2023/dsa-5480"
           ],
           "PublishedDate": "2023-07-21T21:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
+          "LastModifiedDate": "2023-08-19T18:17:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-3812",
@@ -2107,29 +1865,10 @@
             }
           },
           "References": [
-            "https://access.redhat.com/errata/RHSA-2023:4961",
-            "https://access.redhat.com/errata/RHSA-2023:4962",
-            "https://access.redhat.com/errata/RHSA-2023:4967",
-            "https://access.redhat.com/errata/RHSA-2023:5069",
-            "https://access.redhat.com/errata/RHSA-2023:5091",
-            "https://access.redhat.com/errata/RHSA-2023:5093",
             "https://access.redhat.com/security/cve/CVE-2023-4004",
-            "https://bugzilla.redhat.com/2181891",
-            "https://bugzilla.redhat.com/2213260",
-            "https://bugzilla.redhat.com/2213455",
-            "https://bugzilla.redhat.com/2217845",
-            "https://bugzilla.redhat.com/2220892",
-            "https://bugzilla.redhat.com/2220893",
-            "https://bugzilla.redhat.com/2225097",
-            "https://bugzilla.redhat.com/2225198",
-            "https://bugzilla.redhat.com/2225239",
-            "https://bugzilla.redhat.com/2225275",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2225275",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4004",
-            "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://git.kernel.org/linus/87b5a5c209405cb6b57424cdfa226a6dbd349232 (6.5-rc3)",
-            "https://linux.oracle.com/cve/CVE-2023-4004.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-4004",
             "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230719190824.21196-1-fw@strlen.de/",
             "https://ubuntu.com/security/notices/USN-6315-1",
@@ -2140,61 +1879,11 @@
             "https://ubuntu.com/security/notices/USN-6328-1",
             "https://ubuntu.com/security/notices/USN-6330-1",
             "https://ubuntu.com/security/notices/USN-6332-1",
-            "https://ubuntu.com/security/notices/USN-6348-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-4004",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
+            "https://www.debian.org/security/2023/dsa-5480"
           ],
           "PublishedDate": "2023-07-31T17:15:00Z",
-          "LastModifiedDate": "2023-09-12T16:15:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-40283",
-          "PkgName": "kernel",
-          "InstalledVersion": "5.15.112.1-2.cm2",
-          "FixedVersion": "5.15.126.1-1.cm2",
-          "Layer": {},
-          "SeveritySource": "cbl-mariner",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-40283",
-          "DataSource": {
-            "ID": "cbl-mariner",
-            "Name": "CBL-Mariner Vulnerability Data",
-            "URL": "https://github.com/microsoft/CBL-MarinerVulnerabilityData"
-          },
-          "Title": "use-after-free in l2cap_sock_release in net/bluetooth/l2cap_sock.c",
-          "Description": "An issue was discovered in l2cap_sock_release in net/bluetooth/l2cap_sock.c in the Linux kernel before 6.4.10. There is a use-after-free because the children of an sk are mishandled.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7.8
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-40283",
-            "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.4.10",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-40283",
-            "https://git.kernel.org/linus/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1 (6.5-rc1)",
-            "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://github.com/torvalds/linux/commit/1728137b33c00d5a2b5110ed7aafb42e7c32e4a1",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-40283",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://www.cve.org/CVERecord?id=CVE-2023-40283",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
-          ],
-          "PublishedDate": "2023-08-14T03:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
+          "LastModifiedDate": "2023-08-19T18:17:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-4128",
@@ -2228,23 +1917,15 @@
           "References": [
             "https://access.redhat.com/security/cve/CVE-2023-4128",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2225511",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4128",
-            "https://git.kernel.org/linus/3044b16e7c6fe5d24b1cdbcf1bd0a9d92d1ebd81 (6.5-rc5)",
-            "https://git.kernel.org/linus/76e42ae831991c828cffa8c37736ebfb831ad5ec (6.5-rc5)",
-            "https://git.kernel.org/linus/b80b829e9e2c1b3f7aae34855e04d8f6ecaf13c8 (6.5-rc5)",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/344H6HO6SSC4KT7PDFXSDIXKMKHISSGF/",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/3TYLSJ2SAI7RF56ZLQ5CQWCJLVJSD73Q/",
             "https://lore.kernel.org/netdev/193d6cdf-d6c9-f9be-c36a-b2a7551d5fb6@mojatatu.com/",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-4128",
-            "https://ubuntu.com/security/notices/USN-6343-1",
-            "https://ubuntu.com/security/notices/USN-6383-1",
-            "https://ubuntu.com/security/notices/USN-6385-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-4128",
-            "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492"
+            "https://www.debian.org/security/2023/dsa-5480"
           ],
           "PublishedDate": "2023-08-10T17:15:00Z",
-          "LastModifiedDate": "2023-09-10T12:16:00Z"
+          "LastModifiedDate": "2023-08-19T18:17:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-4147",
@@ -2276,115 +1957,19 @@
             }
           },
           "References": [
-            "https://access.redhat.com/errata/RHSA-2023:5069",
-            "https://access.redhat.com/errata/RHSA-2023:5091",
-            "https://access.redhat.com/errata/RHSA-2023:5093",
             "https://access.redhat.com/security/cve/CVE-2023-4147",
-            "https://bugzilla.redhat.com/2181891",
-            "https://bugzilla.redhat.com/2213260",
-            "https://bugzilla.redhat.com/2213455",
-            "https://bugzilla.redhat.com/2217845",
-            "https://bugzilla.redhat.com/2220892",
-            "https://bugzilla.redhat.com/2220893",
-            "https://bugzilla.redhat.com/2225097",
-            "https://bugzilla.redhat.com/2225198",
-            "https://bugzilla.redhat.com/2225239",
-            "https://bugzilla.redhat.com/2225275",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2225239",
-            "https://errata.almalinux.org/9/ALSA-2023-5091.html",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4147",
+            "https://git.kernel.org/linus/0ebc1064e4874d5987722a2ddbc18f94aa53b211 (6.5-rc4)",
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=0ebc1064e4874d5987722a2ddbc18f94aa53b211",
-            "https://linux.oracle.com/cve/CVE-2023-4147.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-4147",
+            "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230723144148.26231-1-pablo@netfilter.org/",
             "https://www.cve.org/CVERecord?id=CVE-2023-4147",
             "https://www.debian.org/security/2023/dsa-5480",
-            "https://www.debian.org/security/2023/dsa-5492",
             "https://www.spinics.net/lists/stable/msg671573.html"
           ],
           "PublishedDate": "2023-08-07T14:15:00Z",
-          "LastModifiedDate": "2023-09-12T16:15:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4387",
-          "PkgName": "kernel",
-          "InstalledVersion": "5.15.112.1-2.cm2",
-          "FixedVersion": "5.15.126.1-1.cm2",
-          "Layer": {},
-          "SeveritySource": "cbl-mariner",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4387",
-          "DataSource": {
-            "ID": "cbl-mariner",
-            "Name": "CBL-Mariner Vulnerability Data",
-            "URL": "https://github.com/microsoft/CBL-MarinerVulnerabilityData"
-          },
-          "Title": "use-after-free in vmxnet3_rq_alloc_rx_buf()",
-          "Description": "A use-after-free flaw was found in vmxnet3_rq_alloc_rx_buf in drivers/net/vmxnet3/vmxnet3_drv.c in VMware's vmxnet3 ethernet NIC driver in the Linux Kernel. This issue could allow a local attacker to crash the system due to a double-free while cleaning up vmxnet3_rq_cleanup_all, which could also lead to a kernel information leak problem.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:H",
-              "V3Score": 7.1
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:H",
-              "V3Score": 7.1
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-4387",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2219270",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4387",
-            "https://git.kernel.org/linus/9e7fef9521e73ca8afd7da9e58c14654b02dfad8 (5.18)",
-            "https://github.com/torvalds/linux/commit/9e7fef9521e73ca8afd7da9e58c14654b02dfad8",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4387",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4387"
-          ],
-          "PublishedDate": "2023-08-16T19:15:00Z",
-          "LastModifiedDate": "2023-09-18T13:15:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2023-4389",
-          "PkgName": "kernel",
-          "InstalledVersion": "5.15.112.1-2.cm2",
-          "FixedVersion": "5.15.126.1-1.cm2",
-          "Layer": {},
-          "SeveritySource": "cbl-mariner",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2023-4389",
-          "DataSource": {
-            "ID": "cbl-mariner",
-            "Name": "CBL-Mariner Vulnerability Data",
-            "URL": "https://github.com/microsoft/CBL-MarinerVulnerabilityData"
-          },
-          "Title": "double free in btrfs_get_root_ref()",
-          "Description": "A flaw was found in btrfs_get_root_ref in fs/btrfs/disk-io.c in the btrfs filesystem in the Linux Kernel due to a double decrement of the reference count. This issue may allow a local attacker with user privilege to crash the system or may lead to leaked internal kernel information.",
-          "Severity": "HIGH",
-          "CweIDs": [
-            "CWE-416"
-          ],
-          "CVSS": {
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:H",
-              "V3Score": 7.1
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 7
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-4389",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2219271",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4389",
-            "https://git.kernel.org/linus/168a2f776b9762f4021421008512dd7ab7474df1 (5.18-rc3)",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-4389",
-            "https://patchwork.kernel.org/project/linux-btrfs/patch/20220324134454.15192-1-baijiaju1990@gmail.com/",
-            "https://www.cve.org/CVERecord?id=CVE-2023-4389"
-          ],
-          "PublishedDate": "2023-08-16T19:15:00Z",
-          "LastModifiedDate": "2023-08-22T22:51:00Z"
+          "LastModifiedDate": "2023-08-19T18:17:00Z"
         }
       ]
     },
@@ -3144,13 +2729,12 @@
             "https://github.com/moby/moby/security/advisories/GHSA-6wrf-mxfj-pf5p",
             "https://github.com/moby/moby/security/advisories/GHSA-vwm3-crmr-xfxw",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/LYZOKMMVX4SIEHPJW3SJUQGMO5YZCPHC/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/XNF4OLYZRQE75EB5TW5N42FSXHBXGWFE/",
             "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/ZTE4ITXXPIWZEQ4HYQCB6N6GZIMWXDAI/",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-28840",
             "https://www.cve.org/CVERecord?id=CVE-2023-28840"
           ],
           "PublishedDate": "2023-04-04T22:15:00Z",
-          "LastModifiedDate": "2023-09-15T21:15:00Z"
+          "LastModifiedDate": "2023-09-05T03:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2022-41721",
@@ -4777,16 +4361,6 @@
           "LastModifiedDate": "2023-06-29T16:15:00Z"
         }
       ]
-    },
-    {
-      "Target": "usr/local/bin/kubelet-1.28.0",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "usr/local/bin/kubelet-1.28.1",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
     }
   ]
 }

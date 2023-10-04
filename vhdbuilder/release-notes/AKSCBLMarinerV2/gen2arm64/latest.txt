@@ -1,4 +1,4 @@
-Starting build on  Wed Sep 20 00:31:48 UTC 2023
+Starting build on  Wed Sep 6 17:32:52 UTC 2023
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - containerd-wasm-shims v0.3.0 v0.5.1 v0.8.0
   - [installed] containerd v1.7.5-1
@@ -28,10 +28,11 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:v0.0.33-hotfix.20221110
   - mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.4
   - mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.13
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.12
   - mcr.microsoft.com/aks/msi/addon-token-adapter:master.221118.2
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.7.2-main-06-26-2023-6ee07896
+  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.7.2-main-07-28-2023-0efd3e4e
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.7.4-main-08-11-2023-6de2ec55
-  - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.7.5-main-09-12-2023-8fbde9ca
   - mcr.microsoft.com/oss/kubernetes/kube-state-metrics:v2.9.2
   - mcr.microsoft.com/oss/calico/cni:v3.24.6
   - mcr.microsoft.com/oss/calico/cni:v3.24.0
@@ -44,10 +45,8 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/calico/kube-controllers:v3.24.6
   - mcr.microsoft.com/oss/calico/kube-controllers:v3.24.0
   - mcr.microsoft.com/oss/cilium/operator-generic:1.12.10
-  - mcr.microsoft.com/oss/cilium/operator-generic:1.13.5
   - mcr.microsoft.com/oss/cilium/cilium:1.12.10
   - mcr.microsoft.com/oss/cilium/cilium:1.12.10-1
-  - mcr.microsoft.com/oss/cilium/cilium:1.13.5
   - mcr.microsoft.com/oss/tigera/operator:v1.28.0
   - mcr.microsoft.com/oss/tigera/operator:v1.28.13
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.15
@@ -60,24 +59,23 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.8.8
   - mcr.microsoft.com/oss/kubernetes/ip-masq-agent:v2.5.0.12
   - mcr.microsoft.com/aks/ip-masq-agent-v2:v0.1.7
-  - mcr.microsoft.com/aks/ip-masq-agent-v2:v0.1.8
+  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.5-1
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.6
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.6-1
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.2
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.3
-  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.0
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.9
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.10
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.7
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.8
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.4
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.5
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.0
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.6
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.7
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.5
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.6
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.2
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.3
+  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.19.5-4
   - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.19.5-5
+  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.21.4-2
   - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.21.4-3
+  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.22.1-2
   - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.22.1-3
-  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.22.2
-  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.23.0
   - mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.10.0
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0
   - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.13.0
@@ -109,7 +107,6 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.1-hotfix.20230612
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.3
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.0
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.1
 kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  49040644 Aug 26  2022 /usr/local/bin/crictl
 -rwxr-xr-x 1 root root 112518232 Jun 12 19:27 /usr/local/bin/kubelet-1.24.9
@@ -136,17 +133,15 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  46465024 Jun 19 17:05 /usr/local/bin/kubectl-1.26.6
 -rwxr-xr-x 1 root root 105185280 Aug 16 01:05 /usr/local/bin/kubelet-1.28.0
 -rwxr-xr-x 1 root root  47710208 Aug 16 01:05 /usr/local/bin/kubectl-1.28.0
--rwxr-xr-x 1 root root 105185280 Aug 29 16:06 /usr/local/bin/kubelet-1.28.1
--rwxr-xr-x 1 root root  47710208 Aug 29 16:06 /usr/local/bin/kubectl-1.28.1
--r-xr--r-- 1 root root      2462 Sep 20 00:31 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root       705 Sep 20 00:31 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root  33595200 Sep 20 00:34 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root  44976688 Sep 20 00:34 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root  43353240 Sep 20 00:37 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root  49910128 Sep 20 00:37 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root root  51531936 Sep 20 00:39 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
--rwxr-xr-x 1 root root  57806112 Sep 20 00:39 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root root  38155688 Sep 20 00:39 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
+-r-xr--r-- 1 root root      2462 Sep  6 17:32 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root       705 Sep  6 17:32 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  33595200 Sep  6 17:35 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root  44976688 Sep  6 17:35 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root  43353240 Sep  6 17:37 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root  49910128 Sep  6 17:37 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root  51531936 Sep  6 17:40 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root  57806112 Sep  6 17:40 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root  38155688 Sep  6 17:40 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
 === Installed Packages Begin
 filesystem-1.1-15.cm2.aarch64
 glibc-2.35-4.cm2.aarch64
@@ -169,7 +164,7 @@ libsepol-3.2-2.cm2.aarch64
 xz-5.2.5-1.cm2.aarch64
 kmod-29-1.cm2.aarch64
 kernel-5.15.126.1-1.cm2.aarch64
-mariner-release-2.0-50.cm2.noarch
+mariner-release-2.0-49.cm2.noarch
 shim-unsigned-15.4-2.cm2.aarch64
 grub2-efi-binary-2.06-10.cm2.aarch64
 popt-1.18-1.cm2.aarch64
@@ -192,7 +187,7 @@ lz4-1.9.3-1.cm2.aarch64
 systemd-rpm-macros-250.3-17.cm2.noarch
 libcap-ng-0.8.2-2.cm2.aarch64
 audit-libs-3.0.6-7.cm2.aarch64
-json-c-0.15-2.cm2.aarch64
+json-c-0.15-1.cm2.aarch64
 cracklib-2.9.7-5.cm2.aarch64
 cracklib-dicts-2.9.7-5.cm2.aarch64
 pam-1.5.1-5.cm2.aarch64
@@ -351,8 +346,8 @@ python3-packaging-21.3-1.cm2.noarch
 python3-cryptography-3.3.2-4.cm2.aarch64
 python3-pyOpenSSL-18.0.0-8.cm2.noarch
 python3-requests-2.27.1-6.cm2.noarch
-cloud-init-23.2-3.cm2.noarch
-cloud-init-azure-kvp-23.2-3.cm2.noarch
+cloud-init-23.2-2.cm2.noarch
+cloud-init-azure-kvp-23.2-2.cm2.noarch
 gptfdisk-1.0.8-1.cm2.aarch64
 mpfr-4.1.0-1.cm2.aarch64
 gawk-5.1.0-2.cm2.aarch64
@@ -674,7 +669,7 @@ devtmpfs        4.0M     0  4.0M   0% /dev
 tmpfs           7.7G     0  7.7G   0% /dev/shm
 tmpfs           3.1G  8.7M  3.1G   1% /run
 tmpfs           4.0M     0  4.0M   0% /sys/fs/cgroup
-/dev/sda3        29G   19G  8.8G  69% /
+/dev/sda3        29G   18G   11G  64% /
 tmpfs           7.7G  4.0K  7.7G   1% /tmp
 /dev/sda2       459M   61M  369M  15% /boot
 /dev/sda1        64M  2.3M   62M   4% /boot/efi
@@ -682,10 +677,10 @@ tmpfs           7.7G  4.0K  7.7G   1% /tmp
 tmpfs           1.6G     0  1.6G   0% /run/user/1000
 Using kernel:
 Linux version 5.15.126.1-1.cm2 (root@CBL-Mariner) (gcc (GCC) 11.2.0, GNU ld (GNU Binutils) 2.37) #1 SMP Wed Aug 23 01:26:29 UTC 2023
-Install completed successfully on  Wed Sep 20 00:59:20 UTC 2023
-VSTS Build NUMBER: 20230920.1_master_79938466
-VSTS Build ID: 79938466
-Commit: 2d5f3f9e08312385bab9a94397974244b84169c4
+Install completed successfully on  Wed Sep 6 17:51:57 UTC 2023
+VSTS Build NUMBER: 20230906.2_master_79246835
+VSTS Build ID: 79246835
+Commit: a57fe0aa8b5011a081a877537e2200f213c02567
 Ubuntu version: 
 Hyperv generation: V2
 Feature flags: None
@@ -693,7 +688,7 @@ Container runtime: containerd
 FIPS enabled: false
 === os-release Begin
 NAME="Common Base Linux Mariner"
-VERSION="2.0.20230904"
+VERSION="2.0.20230823"
 ID=mariner
 VERSION_ID="2.0"
 PRETTY_NAME="CBL-Mariner/Linux"
