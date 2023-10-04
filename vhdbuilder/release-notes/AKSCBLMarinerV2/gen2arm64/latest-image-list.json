@@ -1,6 +1,6 @@
 {
   "sku": "V2gen2arm64",
-  "imageVersion": "202309.20.0",
+  "imageVersion": "202310.04.0",
   "imageBom": [
     {
       "id": "sha256:029e28acfa0a78d29a9be5f20a060c87a74ec8523f525522acb9411121866b3b",
@@ -472,15 +472,6 @@
       ]
     },
     {
-      "id": "sha256:8bb22d37b02463894fb0d8865a7bc672efcf0d44fe14223d59cbc068b59a2885",
-      "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.3"
-      ],
-      "repoDigests": [
-        "sha256:ee9dd3435201d10c94592931c0a1abe99ad798f326377a20b3aa5b9c78823ca7"
-      ]
-    },
-    {
       "id": "sha256:8ec703a8caf9c4c6a93fb453dacf8502e16de202a4d701dffdddd634372196d0",
       "repoTags": [
         "mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.4"
@@ -766,6 +757,15 @@
       ],
       "repoDigests": [
         "sha256:5bdca218525efca22174a2a36c82b1aae8fcfb79ace7207504724db459bf9c55"
+      ]
+    },
+    {
+      "id": "sha256:e2a81bc093a979098fc038f4677ea58c5c0cd50e894e2f38f15c8549899333e7",
+      "repoTags": [
+        "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.5"
+      ],
+      "repoDigests": [
+        "sha256:60f580a8dcdf2f4da2779299aec05ec5ff777f18674bc6e71e4d37cdade96c26"
       ]
     },
     {

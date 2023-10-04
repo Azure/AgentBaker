@@ -1,6 +1,6 @@
 {
   "sku": "V2fips",
-  "imageVersion": "202309.20.0",
+  "imageVersion": "202310.04.0",
   "imageBom": [
     {
       "id": "sha256:000406c7f9c774211444d551be8dfd3bb64183f05f14a700034dd00491d287fa",
@@ -108,15 +108,6 @@
       ],
       "repoDigests": [
         "sha256:c6cfe82826f2ed3cd4d21ccbe5fd99e6fa30458e5cf8e8b49c55c51931f9c5ba"
-      ]
-    },
-    {
-      "id": "sha256:1dc532976c518c12a59aa2f17a8cc33abcafccbd583edc1312e5856e72045f70",
-      "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.3"
-      ],
-      "repoDigests": [
-        "sha256:ee9dd3435201d10c94592931c0a1abe99ad798f326377a20b3aa5b9c78823ca7"
       ]
     },
     {
@@ -351,6 +342,15 @@
       ],
       "repoDigests": [
         "sha256:71d38a4bceed0fc7f391736e1f1eedd204261d9538d337f0cd099019c4f36ec5"
+      ]
+    },
+    {
+      "id": "sha256:752adc372480a91ab05d5ada562c4701ab21095179fad41a0aef28bc136c8aaa",
+      "repoTags": [
+        "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.5"
+      ],
+      "repoDigests": [
+        "sha256:60f580a8dcdf2f4da2779299aec05ec5ff777f18674bc6e71e4d37cdade96c26"
       ]
     },
     {
