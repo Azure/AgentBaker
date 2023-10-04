@@ -16,15 +16,9 @@ import (
 
 const (
 	managedClusterResourceType = "Microsoft.ContainerService/managedClusters"
-)
 
-// This map is used during cluster creation to check what VM size should
-// be used to create the single default agentpool used for running cluster essentials
-// and the jumpbox pods/resources.
-var locationToDefaultClusterAgentPoolVMSize = map[string]string{
-	"eastus":         "Standard_DS2_v2",
-	"southcentralus": "Standard_ND96isr_H100_v5",
-}
+	vmSizeStandardDS2v2 = "Standard_DS2_v2"
+)
 
 type clusterParameters map[string]string
 
@@ -54,6 +48,22 @@ func (c clusterConfig) maxPodsPerNode() (int, error) {
 
 func (c clusterConfig) needsPreparation() bool {
 	return c.kube == nil || c.parameters == nil || c.subnetId == ""
+}
+
+// This map is used during cluster creation to check what VM size should
+// be used to create the single default agentpool used for running cluster essentials
+// and the jumpbox pods/resources. This is mainly need for regions where we can't use
+// the default Standard_DS2_v2 VM size due to quota/capacity.
+var locationToDefaultClusterAgentPoolVMSize = map[string]string{
+	// TODO: add mapping for southcentralus to perform h100 testing
+}
+
+func getDefaultAgentPoolVMSize(location string) string {
+	defaultAgentPoolVMSize, hasDefaultAgentPoolVMSizeForLocation := locationToDefaultClusterAgentPoolVMSize[location]
+	if !hasDefaultAgentPoolVMSizeForLocation {
+		defaultAgentPoolVMSize = vmSizeStandardDS2v2
+	}
+	return defaultAgentPoolVMSize
 }
 
 func isExistingResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupName string) (bool, error) {
@@ -244,10 +254,7 @@ func createMissingClusters(
 	var newConfigs []clusterConfig
 	for _, scenario := range scenarios {
 		if !hasViableConfig(scenario, *clusterConfigs) && !hasViableConfig(scenario, newConfigs) {
-			newClusterModel, err := getNewClusterModelForScenario(generateClusterName(r), suiteConfig.location, scenario)
-			if err != nil {
-				return fmt.Errorf("unable to get new cluster model for scenario: %w", err)
-			}
+			newClusterModel := getNewClusterModelForScenario(generateClusterName(r), suiteConfig.location, scenario)
 			newConfigs = append(newConfigs, clusterConfig{cluster: &newClusterModel, isNewCluster: true})
 		}
 	}
@@ -397,10 +404,7 @@ func prepareClusterModelForRecreate(r *mrand.Rand, clusterModel *armcontainerser
 		return nil, fmt.Errorf("unable to prepare cluster model for recreate, got nil network profile/plugin")
 	}
 
-	newModel, err := getBaseClusterModel(generateClusterName(r), *clusterModel.Location)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get cluster base model for recreate: %w", err)
-	}
+	newModel := getBaseClusterModel(generateClusterName(r), *clusterModel.Location)
 
 	// patch new model according to original model properties
 	newModel.Properties.NetworkProfile = &armcontainerservice.NetworkProfile{
@@ -410,26 +414,22 @@ func prepareClusterModelForRecreate(r *mrand.Rand, clusterModel *armcontainerser
 	return &newModel, nil
 }
 
-func getNewClusterModelForScenario(clusterName, location string, scenario *scenario.Scenario) (armcontainerservice.ManagedCluster, error) {
-	baseModel, err := getBaseClusterModel(clusterName, location)
-	if err != nil {
-		return armcontainerservice.ManagedCluster{}, fmt.Errorf("unable to get new cluster base model for scenario %s: %w", scenario.Name, err)
-	}
+func getNewClusterModelForScenario(clusterName, location string, scenario *scenario.Scenario) armcontainerservice.ManagedCluster {
+	baseModel := getBaseClusterModel(clusterName, location)
 	if scenario.ClusterMutator != nil {
 		scenario.ClusterMutator(&baseModel)
 	}
-	return baseModel, nil
+	return baseModel
 }
 
 func generateClusterName(r *mrand.Rand) string {
 	return fmt.Sprintf(testClusterNameTemplate, randomLowercaseString(r, 5))
 }
 
-func getBaseClusterModel(clusterName, location string) (armcontainerservice.ManagedCluster, error) {
-	defaultAgentPoolVMSize, hasDefaultAgentPoolVMSizeForLocation := locationToDefaultClusterAgentPoolVMSize[location]
-	if !hasDefaultAgentPoolVMSizeForLocation {
-		return armcontainerservice.ManagedCluster{}, fmt.Errorf("unable to find entry for default test cluster agentpool vm size for region: %s", location)
-	}
+func getBaseClusterModel(clusterName, location string) armcontainerservice.ManagedCluster {
+	defaultAgentPoolVMSize := getDefaultAgentPoolVMSize(location)
+	log.Printf("will attempt to use VM size %q for default agentpool of cluster %q", defaultAgentPoolVMSize, clusterName)
+
 	return armcontainerservice.ManagedCluster{
 		Name:     to.Ptr(clusterName),
 		Location: to.Ptr(location),
@@ -454,5 +454,5 @@ func getBaseClusterModel(clusterName, location string) (armcontainerservice.Mana
 		Identity: &armcontainerservice.ManagedClusterIdentity{
 			Type: to.Ptr(armcontainerservice.ResourceIdentityTypeSystemAssigned),
 		},
-	}, nil
+	}
 }
