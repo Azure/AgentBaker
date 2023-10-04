@@ -94,11 +94,11 @@ apt-get install -y linux-image-azure-lts-22.04
 echo "before kernel purge"
 dpkg --list | grep 'linux-image'
 KEEP_KERNEL=("5.15.0-1049-azure" "linux-image-azure-lts-22.04")
-kernel_packages=$(dpkg --list | grep linux-image | awk '{print $2}')
+kernel_packages=($(dpkg --list | grep linux-image | awk '{print $2}'))
 packages_to_remove=""
 
 # Iterate through the kernel packages
-for package in $kernel_packages; do
+for package in "${kernel_packages[@]}"; do
     if [[ ! " ${KEEP_KERNEL[@]} " =~ " $package " ]]; then
         packages_to_remove+=" $package"
     fi
