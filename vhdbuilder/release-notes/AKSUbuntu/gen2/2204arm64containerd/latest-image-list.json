@@ -1,6 +1,6 @@
 {
   "sku": "2204gen2arm64containerd",
-  "imageVersion": "202309.26.0",
+  "imageVersion": "202309.20.0",
   "imageBom": [
     {
       "id": "sha256:029e28acfa0a78d29a9be5f20a060c87a74ec8523f525522acb9411121866b3b",

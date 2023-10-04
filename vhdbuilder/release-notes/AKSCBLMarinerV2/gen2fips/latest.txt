@@ -1,4 +1,4 @@
-Starting build on  Tue Sep 26 00:52:43 UTC 2023
+Starting build on  Wed Sep 20 00:28:14 UTC 2023
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - containerd-wasm-shims v0.3.0 v0.5.1 v0.8.0
   - [installed] containerd v1.7.5-1
@@ -138,15 +138,15 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  49864704 Aug 16 01:05 /usr/local/bin/kubectl-1.28.0
 -rwxr-xr-x 1 root root 110764032 Aug 29 16:06 /usr/local/bin/kubelet-1.28.1
 -rwxr-xr-x 1 root root  49864704 Aug 29 16:06 /usr/local/bin/kubectl-1.28.1
--r-xr--r-- 1 root root      2462 Sep 26 00:52 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root       705 Sep 26 00:52 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root  36014944 Sep 26 00:55 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root  47622592 Sep 26 00:55 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root  45334640 Sep 26 00:58 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root  52232184 Sep 26 00:58 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root root  53775024 Sep 26 01:00 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
--rwxr-xr-x 1 root root  60175432 Sep 26 01:00 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root root  39369104 Sep 26 01:00 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
+-r-xr--r-- 1 root root      2462 Sep 20 00:28 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root       705 Sep 20 00:28 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  36014944 Sep 20 00:31 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root  47622592 Sep 20 00:31 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root  45334640 Sep 20 00:34 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root  52232184 Sep 20 00:34 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root  53775024 Sep 20 00:36 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root  60175432 Sep 20 00:36 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root  39369104 Sep 20 00:36 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
 === Installed Packages Begin
 filesystem-1.1-15.cm2.x86_64
 glibc-2.35-4.cm2.x86_64
@@ -688,10 +688,10 @@ tmpfs           3.3G  4.0K  3.3G   1% /tmp
 tmpfs           668M     0  668M   0% /run/user/1000
 Using kernel:
 Linux version 5.15.126.1-1.cm2 (root@CBL-Mariner) (gcc (GCC) 11.2.0, GNU ld (GNU Binutils) 2.37) #1 SMP Wed Aug 23 01:21:36 UTC 2023
-Install completed successfully on  Tue Sep 26 01:14:37 UTC 2023
-VSTS Build NUMBER: 20230926.1_master_80242674
-VSTS Build ID: 80242674
-Commit: 2b3f1ebb46ea5d6319765e8a1c862811edf2c128
+Install completed successfully on  Wed Sep 20 00:59:12 UTC 2023
+VSTS Build NUMBER: 20230920.1_master_79938466
+VSTS Build ID: 79938466
+Commit: 2d5f3f9e08312385bab9a94397974244b84169c4
 Ubuntu version: 
 Hyperv generation: V2
 Feature flags: None
