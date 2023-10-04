@@ -1,6 +1,6 @@
 {
   "SchemaVersion": 2,
-  "ArtifactName": "pkrvmr61fpfrye6",
+  "ArtifactName": "pkrvmmqkppclmka",
   "ArtifactType": "filesystem",
   "Metadata": {
     "OS": {
@@ -20,7 +20,7 @@
   },
   "Results": [
     {
-      "Target": "pkrvmr61fpfrye6 (cbl-mariner 2.0.20230904)",
+      "Target": "pkrvmmqkppclmka (cbl-mariner 2.0.20230904)",
       "Class": "os-pkgs",
       "Type": "cbl-mariner",
       "Vulnerabilities": [
@@ -95,8 +95,8 @@
               "V3Score": 8.1
             },
             "redhat": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 8.1
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "V3Score": 9.8
             }
           },
           "References": [
@@ -173,7 +173,7 @@
             "Name": "CBL-Mariner Vulnerability Data",
             "URL": "https://github.com/microsoft/CBL-MarinerVulnerabilityData"
           },
-          "Title": "integer underflow and out-of-bounds read in deassemble_neg_contexts",
+          "Title": "An issue was discovered in the Linux kernel before 6.3.8. fs/smb/serve ...",
           "Description": "An issue was discovered in the Linux kernel before 6.3.8. fs/smb/server/smb2pdu.c in ksmbd has an integer underflow and out-of-bounds read in deassemble_neg_contexts.",
           "Severity": "CRITICAL",
           "CweIDs": [
@@ -184,21 +184,15 @@
             "nvd": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
               "V3Score": 9.8
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
-              "V3Score": 9.8
             }
           },
           "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-38427",
             "https://cdn.kernel.org/pub/linux/kernel/v6.x/ChangeLog-6.3.8",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-38427",
             "https://git.kernel.org/linus/f1a411873c85b642f13b01f21b534c2bab81fc1b (6.4-rc6)",
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/fs/smb/server?id=f1a411873c85b642f13b01f21b534c2bab81fc1b",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-38427",
-            "https://security.netapp.com/advisory/ntap-20230824-0011/",
-            "https://www.cve.org/CVERecord?id=CVE-2023-38427"
+            "https://security.netapp.com/advisory/ntap-20230824-0011/"
           ],
           "PublishedDate": "2023-07-18T00:15:00Z",
           "LastModifiedDate": "2023-08-24T19:15:00Z"
@@ -696,16 +690,16 @@
             }
           },
           "References": [
-            "https://access.redhat.com/errata/RHSA-2023:3723",
+            "https://access.redhat.com/errata/RHSA-2023:4541",
             "https://access.redhat.com/security/cve/CVE-2023-2124",
-            "https://bugzilla.redhat.com/2179000",
-            "https://bugzilla.redhat.com/2187308",
+            "https://bugzilla.redhat.com/2147364",
+            "https://bugzilla.redhat.com/2181847",
             "https://bugzilla.redhat.com/2187439",
             "https://bugzilla.redhat.com/2188396",
+            "https://bugzilla.redhat.com/2188470",
             "https://bugzilla.redhat.com/2192589",
-            "https://bugzilla.redhat.com/2196105",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-2124",
-            "https://errata.almalinux.org/9/ALSA-2023-3723.html",
+            "https://errata.almalinux.org/8/ALSA-2023-4541.html",
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/fs/xfs/xfs_buf_item_recover.c?h=v6.4-rc1\u0026id=22ed903eee23a5b174e240f1cdfa9acf393a5210",
             "https://linux.oracle.com/cve/CVE-2023-2124.html",
             "https://linux.oracle.com/errata/ELSA-2023-4517.html",
@@ -901,7 +895,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://kernel.dance/90cbed5247439a966b645b34eb0a2e037836ea8e",
             "https://linux.oracle.com/cve/CVE-2023-3090.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4377.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3090",
             "https://security.netapp.com/advisory/ntap-20230731-0002/",
@@ -1485,7 +1479,7 @@
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c",
             "https://git.kernel.org/linus/4d56304e5827c8cc8cc18c75343d283af7c4825c (6.4-rc5)",
             "https://linux.oracle.com/cve/CVE-2023-35788.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-4819.html",
             "https://lists.debian.org/debian-lts-announce/2023/07/msg00030.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-35788",
             "https://security.netapp.com/advisory/ntap-20230714-0002/",
@@ -2012,7 +2006,7 @@
             "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit?id=0323bce598eea038714f941ce2b22541c46d488f",
             "https://kernel.dance/0323bce598eea038714f941ce2b22541c46d488f",
             "https://linux.oracle.com/cve/CVE-2023-3776.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-3776",
             "https://ubuntu.com/security/notices/USN-6285-1",
             "https://ubuntu.com/security/notices/USN-6309-1",
@@ -2119,9 +2113,6 @@
             "https://access.redhat.com/errata/RHSA-2023:5069",
             "https://access.redhat.com/errata/RHSA-2023:5091",
             "https://access.redhat.com/errata/RHSA-2023:5093",
-            "https://access.redhat.com/errata/RHSA-2023:5221",
-            "https://access.redhat.com/errata/RHSA-2023:5244",
-            "https://access.redhat.com/errata/RHSA-2023:5255",
             "https://access.redhat.com/security/cve/CVE-2023-4004",
             "https://bugzilla.redhat.com/2181891",
             "https://bugzilla.redhat.com/2213260",
@@ -2138,7 +2129,7 @@
             "https://errata.almalinux.org/9/ALSA-2023-5091.html",
             "https://git.kernel.org/linus/87b5a5c209405cb6b57424cdfa226a6dbd349232 (6.5-rc3)",
             "https://linux.oracle.com/cve/CVE-2023-4004.html",
-            "https://linux.oracle.com/errata/ELSA-2023-5244.html",
+            "https://linux.oracle.com/errata/ELSA-2023-5069.html",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-4004",
             "https://patchwork.ozlabs.org/project/netfilter-devel/patch/20230719190824.21196-1-fw@strlen.de/",
             "https://ubuntu.com/security/notices/USN-6315-1",
@@ -2156,7 +2147,7 @@
             "https://www.debian.org/security/2023/dsa-5492"
           ],
           "PublishedDate": "2023-07-31T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
+          "LastModifiedDate": "2023-09-12T16:15:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-40283",
@@ -2198,9 +2189,6 @@
             "https://ubuntu.com/security/notices/USN-6343-1",
             "https://ubuntu.com/security/notices/USN-6383-1",
             "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-40283",
             "https://www.debian.org/security/2023/dsa-5480",
             "https://www.debian.org/security/2023/dsa-5492"
@@ -2238,8 +2226,6 @@
             }
           },
           "References": [
-            "https://access.redhat.com/errata/RHSA-2023:5235",
-            "https://access.redhat.com/errata/RHSA-2023:5238",
             "https://access.redhat.com/security/cve/CVE-2023-4128",
             "https://bugzilla.redhat.com/show_bug.cgi?id=2225511",
             "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-4128",
@@ -2253,15 +2239,12 @@
             "https://ubuntu.com/security/notices/USN-6343-1",
             "https://ubuntu.com/security/notices/USN-6383-1",
             "https://ubuntu.com/security/notices/USN-6385-1",
-            "https://ubuntu.com/security/notices/USN-6386-1",
-            "https://ubuntu.com/security/notices/USN-6387-1",
-            "https://ubuntu.com/security/notices/USN-6388-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-4128",
             "https://www.debian.org/security/2023/dsa-5480",
             "https://www.debian.org/security/2023/dsa-5492"
           ],
           "PublishedDate": "2023-08-10T17:15:00Z",
-          "LastModifiedDate": "2023-09-19T16:15:00Z"
+          "LastModifiedDate": "2023-09-10T12:16:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-4147",
@@ -2357,7 +2340,6 @@
             "https://git.kernel.org/linus/9e7fef9521e73ca8afd7da9e58c14654b02dfad8 (5.18)",
             "https://github.com/torvalds/linux/commit/9e7fef9521e73ca8afd7da9e58c14654b02dfad8",
             "https://nvd.nist.gov/vuln/detail/CVE-2023-4387",
-            "https://ubuntu.com/security/notices/USN-6388-1",
             "https://www.cve.org/CVERecord?id=CVE-2023-4387"
           ],
           "PublishedDate": "2023-08-16T19:15:00Z",
@@ -3113,81 +3095,6 @@
       ]
     },
     {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/bandwidth",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/bridge",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/dhcp",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/firewall",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/host-device",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/host-local",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/ipvlan",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/loopback",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/macvlan",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/portmap",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/ptp",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/sbr",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/tuning",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/vlan",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
-      "Target": "opt/cni/downloads/cni-plugins-linux-amd64-v1.1.1/vrf",
-      "Class": "lang-pkgs",
-      "Type": "gobinary"
-    },
-    {
       "Target": "usr/local/bin/crictl",
       "Class": "lang-pkgs",
       "Type": "gobinary",
@@ -3246,96 +3153,6 @@
           "LastModifiedDate": "2023-09-15T21:15:00Z"
         },
         {
-          "VulnerabilityID": "CVE-2022-27664",
-          "PkgName": "golang.org/x/net",
-          "InstalledVersion": "v0.0.0-20220722155237-a158d28d115b",
-          "FixedVersion": "0.0.0-20220906165146-f3363e06e74c",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-27664",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "handle server errors after sending GOAWAY",
-          "Description": "In net/http in Go before 1.18.6 and 1.19.x before 1.19.1, attackers can cause a denial of service because an HTTP/2 connection can hang during closing if shutdown were preempted by a fatal error.",
-          "Severity": "HIGH",
-          "CVSS": {
-            "bitnami": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            },
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 6.5
-            }
-          },
-          "References": [
-            "https://access.redhat.com/errata/RHSA-2023:2357",
-            "https://access.redhat.com/security/cve/CVE-2022-27664",
-            "https://bugzilla.redhat.com/2107371",
-            "https://bugzilla.redhat.com/2107374",
-            "https://bugzilla.redhat.com/2107383",
-            "https://bugzilla.redhat.com/2107386",
-            "https://bugzilla.redhat.com/2107388",
-            "https://bugzilla.redhat.com/2113814",
-            "https://bugzilla.redhat.com/2124669",
-            "https://bugzilla.redhat.com/2132868",
-            "https://bugzilla.redhat.com/2132872",
-            "https://bugzilla.redhat.com/2161274",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=1913333",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=1913338",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2107371",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2107374",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2107383",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2107386",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2107388",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2113814",
-            "https://bugzilla.redhat.com/show_bug.cgi?id=2124669",
-            "https://cs.opensource.google/go/x/net",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-28851",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-28852",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-1705",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-27664",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-30630",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-30632",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-30635",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-32148",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-32189",
-            "https://errata.almalinux.org/9/ALSA-2023-2357.html",
-            "https://errata.rockylinux.org/RLSA-2022:7129",
-            "https://github.com/golang/go/commit/5bc9106458fc07851ac324a4157132a91b1f3479 (go1.18.6)",
-            "https://github.com/golang/go/commit/9cfe4e258b1c9d4a04a42539c21c7bdb2e227824 (go1.19.1)",
-            "https://github.com/golang/go/issues/54658",
-            "https://go.dev/cl/428735",
-            "https://go.dev/issue/54658",
-            "https://groups.google.com/g/golang-announce",
-            "https://groups.google.com/g/golang-announce/c/x49AQzIVX-s",
-            "https://groups.google.com/g/golang-announce/c/x49AQzIVX-s/m/0tgO0pjiBQAJ",
-            "https://linux.oracle.com/cve/CVE-2022-27664.html",
-            "https://linux.oracle.com/errata/ELSA-2023-2802.html",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/JXKTHIGE5F576MAPFYCIJXNRGBSPISUF/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/TXS2OQ57KZC5XZKK5UW4SYKPVQAHIOJX/",
-            "https://nvd.nist.gov/vuln/detail/CVE-2022-27664",
-            "https://pkg.go.dev/vuln/GO-2022-0969",
-            "https://security.gentoo.org/glsa/202209-26",
-            "https://security.netapp.com/advisory/ntap-20220923-0004/",
-            "https://ubuntu.com/security/notices/USN-6038-1",
-            "https://www.cve.org/CVERecord?id=CVE-2022-27664"
-          ],
-          "PublishedDate": "2022-09-06T18:15:00Z",
-          "LastModifiedDate": "2022-10-28T12:42:00Z"
-        },
-        {
           "VulnerabilityID": "CVE-2022-41721",
           "PkgName": "golang.org/x/net",
           "InstalledVersion": "v0.0.0-20220722155237-a158d28d115b",
@@ -3380,60 +3197,6 @@
           ],
           "PublishedDate": "2023-01-13T23:15:00Z",
           "LastModifiedDate": "2023-08-27T03:15:00Z"
-        },
-        {
-          "VulnerabilityID": "CVE-2022-41723",
-          "PkgName": "golang.org/x/net",
-          "InstalledVersion": "v0.0.0-20220722155237-a158d28d115b",
-          "FixedVersion": "0.7.0",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-41723",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "avoid quadratic complexity in HPACK decoding",
-          "Description": "A maliciously crafted HTTP/2 stream could cause excessive CPU consumption in the HPACK decoder, sufficient to cause a denial of service from a small number of small requests.",
-          "Severity": "HIGH",
-          "CVSS": {
-            "bitnami": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            },
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://access.redhat.com/security/cve/CVE-2022-41723",
-            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-41723",
-            "https://github.com/advisories/GHSA-vvpx-j8f3-3w6h",
-            "https://go.dev/cl/468135",
-            "https://go.dev/cl/468295",
-            "https://go.dev/issue/57855",
-            "https://groups.google.com/g/golang-announce/c/V0aBFqaFs_E",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/4MA5XS5DAOJ5PKKNG5TUXKPQOFHT5VBC/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RGW7GE2Z32ZT47UFAQFDRQE33B7Q7LMT/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RLBQ3A7ROLEQXQLXFDLNJ7MYPKG5GULE/",
-            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/XX3IMUTZKRQ73PBZM4E2JP4BKYH4C6XE/",
-            "https://nvd.nist.gov/vuln/detail/CVE-2022-41723",
-            "https://pkg.go.dev/vuln/GO-2023-1571",
-            "https://vuln.go.dev/ID/GO-2023-1571.json",
-            "https://www.cve.org/CVERecord?id=CVE-2022-41723"
-          ],
-          "PublishedDate": "2023-02-28T18:15:00Z",
-          "LastModifiedDate": "2023-08-08T14:22:00Z"
         },
         {
           "VulnerabilityID": "CVE-2022-32149",
