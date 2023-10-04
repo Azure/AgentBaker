@@ -16,6 +16,8 @@ import (
 
 const (
 	managedClusterResourceType = "Microsoft.ContainerService/managedClusters"
+
+	vmSizeStandardDS2v2 = "Standard_DS2_v2"
 )
 
 type clusterParameters map[string]string
@@ -48,6 +50,22 @@ func (c clusterConfig) needsPreparation() bool {
 	return c.kube == nil || c.parameters == nil || c.subnetId == ""
 }
 
+// This map is used during cluster creation to check what VM size should
+// be used to create the single default agentpool used for running cluster essentials
+// and the jumpbox pods/resources. This is mainly need for regions where we can't use
+// the default Standard_DS2_v2 VM size due to quota/capacity.
+var locationToDefaultClusterAgentPoolVMSize = map[string]string{
+	// TODO: add mapping for southcentralus to perform h100 testing
+}
+
+func getDefaultAgentPoolVMSize(location string) string {
+	defaultAgentPoolVMSize, hasDefaultAgentPoolVMSizeForLocation := locationToDefaultClusterAgentPoolVMSize[location]
+	if !hasDefaultAgentPoolVMSizeForLocation {
+		defaultAgentPoolVMSize = vmSizeStandardDS2v2
+	}
+	return defaultAgentPoolVMSize
+}
+
 func isExistingResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupName string) (bool, error) {
 	rgExistence, err := cloud.resourceGroupClient.CheckExistence(ctx, resourceGroupName, nil)
 	if err != nil {
@@ -57,10 +75,11 @@ func isExistingResourceGroup(ctx context.Context, cloud *azureClient, resourceGr
 	return rgExistence.Success, nil
 }
 
-func ensureResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupName string) error {
-	log.Printf("ensuring resource group %q...", resourceGroupName)
+func ensureResourceGroup(ctx context.Context, cloud *azureClient, suiteConfig *suiteConfig) error {
+	suiteConfig.resourceGroupName = fmt.Sprintf(abe2eResourceGroupNameTemplate, suiteConfig.location)
+	log.Printf("ensuring resource group %q...", suiteConfig.resourceGroupName)
 
-	rgExists, err := isExistingResourceGroup(ctx, cloud, resourceGroupName)
+	rgExists, err := isExistingResourceGroup(ctx, cloud, suiteConfig.resourceGroupName)
 	if err != nil {
 		return err
 	}
@@ -68,15 +87,15 @@ func ensureResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupN
 	if !rgExists {
 		_, err = cloud.resourceGroupClient.CreateOrUpdate(
 			ctx,
-			resourceGroupName,
+			suiteConfig.resourceGroupName,
 			armresources.ResourceGroup{
-				Location: to.Ptr(e2eTestLocation),
-				Name:     to.Ptr(resourceGroupName),
+				Location: to.Ptr(suiteConfig.location),
+				Name:     to.Ptr(suiteConfig.resourceGroupName),
 			},
 			nil)
 
 		if err != nil {
-			return fmt.Errorf("failed to create RG %q: %w", resourceGroupName, err)
+			return fmt.Errorf("failed to create RG %q: %w", suiteConfig.resourceGroupName, err)
 		}
 	}
 
@@ -408,6 +427,9 @@ func generateClusterName(r *mrand.Rand) string {
 }
 
 func getBaseClusterModel(clusterName, location string) armcontainerservice.ManagedCluster {
+	defaultAgentPoolVMSize := getDefaultAgentPoolVMSize(location)
+	log.Printf("will attempt to use VM size %q for default agentpool of cluster %q", defaultAgentPoolVMSize, clusterName)
+
 	return armcontainerservice.ManagedCluster{
 		Name:     to.Ptr(clusterName),
 		Location: to.Ptr(location),
@@ -417,7 +439,7 @@ func getBaseClusterModel(clusterName, location string) armcontainerservice.Manag
 				{
 					Name:         to.Ptr("nodepool1"),
 					Count:        to.Ptr[int32](2),
-					VMSize:       to.Ptr("Standard_DS2_v2"),
+					VMSize:       to.Ptr(defaultAgentPoolVMSize),
 					MaxPods:      to.Ptr[int32](110),
 					OSType:       to.Ptr(armcontainerservice.OSTypeLinux),
 					Type:         to.Ptr(armcontainerservice.AgentPoolTypeVirtualMachineScaleSets),
