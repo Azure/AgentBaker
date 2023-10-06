@@ -37,7 +37,7 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := ensureResourceGroup(ctx, cloud, suiteConfig.resourceGroupName); err != nil {
+	if err := ensureResourceGroup(ctx, cloud, suiteConfig); err != nil {
 		t.Fatal(err)
 	}
 
