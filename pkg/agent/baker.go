@@ -387,6 +387,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
 		},
+		"GetAADServerApplicationID": func() string {
+			return config.AADServerApplicationID
+		},
 		"GetKubeletConfigKeyVals": func() string {
 			return GetOrderedKubeletConfigFlagString(config.KubeletConfig, cs, profile, config.EnableKubeletConfigFile)
 		},
