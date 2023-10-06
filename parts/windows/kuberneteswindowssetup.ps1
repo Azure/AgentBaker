@@ -178,7 +178,7 @@ $global:AlwaysPullWindowsPauseImage = [System.Convert]::ToBoolean("{{GetVariable
 $global:WindowsCalicoPackageURL = "{{GetVariable "windowsCalicoPackageURL" }}";
 
 ## GPU install
-$global:InstallGPUDriver = "{{GetParameter "installGPUDriver"}}"
+$global:ConfigGPUDriverIfNeeded = "{{GetVariable "configGPUDriverIfNeeded"}}";
 
 # GMSA
 $global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
@@ -459,7 +459,7 @@ try
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
     }
 
-    if ($global:InstallGPUDriver) {
+    if ($global:ConfigGPUDriverIfNeeded) {
         Write-Log "Start GPU installation"
         Start-InstallGPUDriver
     }
