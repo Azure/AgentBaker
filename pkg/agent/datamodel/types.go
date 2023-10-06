@@ -1650,19 +1650,22 @@ type NodeBootstrappingConfiguration struct {
 	// instead we create a modified bootstrap kubeconfig which points towards the STLS bootstrap client-go
 	// credential plugin installed on the VHD, which will be responsible for generating TLS bootstrap tokens on the fly
 	EnableSecureTLSBootstrapping bool
-	FIPSEnabled                  bool
-	HTTPProxyConfig              *HTTPProxyConfig
-	KubeletConfig                map[string]string
-	KubeproxyConfig              map[string]string
-	EnableRuncShimV2             bool
-	GPUInstanceProfile           string
-	PrimaryScaleSetName          string
-	SIGConfig                    SIGConfig
-	IsARM64                      bool
-	CustomCATrustConfig          *CustomCATrustConfig
-	DisableUnattendedUpgrades    bool
-	SSHStatus                    SSHStatus
-	DisableCustomData            bool
+	// AADServerApplicationID - passed to the secure TLS bootstrap client-go credential plugin so it can correctly generate JWTs
+	// to authenticate with the bootstrap server
+	AADServerApplicationID    string
+	FIPSEnabled               bool
+	HTTPProxyConfig           *HTTPProxyConfig
+	KubeletConfig             map[string]string
+	KubeproxyConfig           map[string]string
+	EnableRuncShimV2          bool
+	GPUInstanceProfile        string
+	PrimaryScaleSetName       string
+	SIGConfig                 SIGConfig
+	IsARM64                   bool
+	CustomCATrustConfig       *CustomCATrustConfig
+	DisableUnattendedUpgrades bool
+	SSHStatus                 SSHStatus
+	DisableCustomData         bool
 }
 
 type SSHStatus int
