@@ -16,9 +16,8 @@ type suiteConfig struct {
 
 func newSuiteConfig() (*suiteConfig, error) {
 	var environment = map[string]string{
-		"SUBSCRIPTION_ID":     "",
-		"LOCATION":            "",
-		"RESOURCE_GROUP_NAME": "",
+		"SUBSCRIPTION_ID": "",
+		"LOCATION":        "",
 	}
 
 	for k := range environment {
@@ -30,11 +29,10 @@ func newSuiteConfig() (*suiteConfig, error) {
 	}
 
 	config := &suiteConfig{
-		subscription:      environment["SUBSCRIPTION_ID"],
-		location:          environment["LOCATION"],
-		resourceGroupName: environment["RESOURCE_GROUP_NAME"],
-		scenariosToRun:    strToBoolMap(os.Getenv("SCENARIOS_TO_RUN")),
-		keepVMSS:          os.Getenv("KEEP_VMSS") == "true",
+		subscription:   environment["SUBSCRIPTION_ID"],
+		location:       environment["LOCATION"],
+		scenariosToRun: strToBoolMap(os.Getenv("SCENARIOS_TO_RUN")),
+		keepVMSS:       os.Getenv("KEEP_VMSS") == "true",
 	}
 
 	include := os.Getenv("SCENARIOS_TO_RUN")
