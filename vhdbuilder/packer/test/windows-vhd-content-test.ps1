@@ -256,6 +256,11 @@ function Test-RegistryAdded {
             Write-ErrorWithTimestamp "The registry for 3230913164 is not added"
             exit 1
         }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpNotReuseTcpOneWayFlowIsEnabled)
+        if ($result.VfpNotReuseTcpOneWayFlowIsEnabled -ne 1) {
+            Write-ErrorWithTimestamp "The registry for VfpNotReuseTcpOneWayFlowIsEnabled is not added"
+            exit 1
+        }
     }
     if ($env:WindowsSKU -Like '2022*') {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2629306509)
@@ -365,6 +370,22 @@ function Test-RegistryAdded {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2214038156)
         if ($result.2214038156 -ne 1) {
             Write-ErrorWithTimestamp "The registry for 2214038156 is not added"
+            exit 1
+        }
+
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1673770637)
+        if ($result.1673770637 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 1673770637 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpNotReuseTcpOneWayFlowIsEnabled)
+        if ($result.VfpNotReuseTcpOneWayFlowIsEnabled -ne 1) {
+            Write-ErrorWithTimestamp "The registry for VfpNotReuseTcpOneWayFlowIsEnabled is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name FwPerfImprovementChange)
+        if ($result.FwPerfImprovementChange -ne 1) {
+            Write-ErrorWithTimestamp "The registry for FwPerfImprovementChange is not added"
             exit 1
         }
     }
