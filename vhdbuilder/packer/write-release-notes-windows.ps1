@@ -110,7 +110,10 @@ $wuRegistryNames = @(
     "4289201804",
     "1355135117",
     "RemoveSourcePortPreservationForRest",
-    "2214038156"
+    "2214038156",
+    "VfpNotReuseTcpOneWayFlowIsEnabled",
+    "1673770637",
+    "FwPerfImprovementChange"
 )
 
 foreach ($key in $wuRegistryKeys) {
