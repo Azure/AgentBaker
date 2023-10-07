@@ -166,8 +166,8 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.10",
         "1.12.10-1",
+        "1.12.10-2",
         "1.13.5"
       ]
     },
@@ -218,8 +218,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.26.6",
         "v1.26.6-1",
+        "v1.26.6-2",
         "v1.28.2",
         "v1.28.3",
         "v1.29.0"
