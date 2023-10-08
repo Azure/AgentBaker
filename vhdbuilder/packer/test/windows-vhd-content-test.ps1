@@ -179,6 +179,46 @@ function Test-FilesToCacheOnVHD
 
 }
 
+function Test-ValidateAllSignature {
+    Test-ValidateSinglePackageSignature "c:\akse-cache\containerd\"
+    Test-ValidateSinglePackageSignature "c:\akse-cache\csi-proxy\"
+    Test-ValidateSinglePackageSignature "c:\akse-cache\win-vnet-cni\"
+    Test-ValidateSinglePackageSignature "c:\akse-cache\calico\"
+}
+
+function Test-ValidateSinglePackageSignature {
+    param (
+        $dir
+    )
+
+    foreach ($URL in $map[$dir]) {
+        $fileName = [IO.Path]::GetFileName($URL)
+        $dest = [IO.Path]::Combine($dir, $fileName)
+
+        if(![System.IO.File]::Exists($dest)) {
+            Write-ErrorWithTimestamp "File $dest does not exist"
+            $invalidFiles = $invalidFiles + $dest
+            continue
+        }
+
+        $installDir="c:\SignatureCheck"
+        New-Item -ItemType Directory $installDir -Force | Out-Null
+        if ($fileName.endswith(".zip")) {
+            Expand-Archive -path $dest -DestinationPath $installDir -Force
+        } else {
+            tar -xzf $dest -C $installDir
+        }
+
+        $BinaryFileCount = (Get-ChildItem -Path $installDir -Recurse -File -Filter *.exe).Count
+        $SignatureCount = (Get-ChildItem -Path $installDir -Recurse -File -Filter *.exe | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -eq "Valid"}).Count
+        if ($BinaryFileCount -ne $SignatureCount) {
+            Write-ErrorWithTimestamp "some of cached binaries in package $URL are invalid"
+            exit 1
+        }
+        Remove-Item -Path $installDir -Force -Recurse
+    }
+}
+
 function Test-PatchInstalled {
     $hotfix = Get-HotFix
     $currenHotfixes = @()
@@ -434,6 +474,7 @@ function Test-WindowsDefenderPlatformUpdate {
 }
 
 Test-FilesToCacheOnVHD
+Test-ValidateAllSignature
 Test-PatchInstalled
 Test-ImagesPulled
 Test-RegistryAdded
