@@ -93,7 +93,7 @@ Describe 'Set-AzureCNIConfig' {
     }
 
     Context 'DisableOutboundNAT' {
-        Context "Should replace OutboundNAT with LoopbackDSR for WS2019" {
+        Context "WS2019 should replace OutboundNAT with LoopbackDSR and update regkey HNSControlFlag" {
             BeforeEach {
                 Mock Get-WindowsVersion -MockWith { return "1809" }
 
@@ -169,12 +169,21 @@ Describe 'Set-AzureCNIConfig' {
             }
         }
 
-        Context "Should replace OutboundNAT with LoopbackDSR for WS2022" {
+        Context "WS2022 should replace OutboundNAT with LoopbackDSR and update regkey SourcePortPreservationForHostPort" {
             BeforeEach {
                 Mock Get-WindowsVersion -MockWith { return "ltsc2022" }
+                Mock Set-ItemProperty -MockWith {
+                    Param(
+                        $Path,
+                        $Name,
+                        $Type,
+                        $Value
+                    )
+                    Write-Host "Set-ItemProperty -Path $Path -Name $Name -Type $Type -Value $Value"
+                } -Verifiable
             }
             
-            It "Should not touch registry" {
+            It "Should update SourcePortPreservationForHostPort to 0" {
                 $global:IsDisableWindowsOutboundNat = $true
                 Set-Default-AzureCNI "AzureCNI.Default.conflist"
 
@@ -184,7 +193,9 @@ Describe 'Set-AzureCNIConfig' {
                     -KubeServiceCIDR $kubeServiceCIDR `
                     -VNetCIDR $vNetCIDR `
                     -IsDualStackEnabled $isDualStackEnabled
-    
+
+                Assert-MockCalled -CommandName "Set-ItemProperty" -Exactly -Times 1 -ParameterFilter { $Path -eq "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -and $Name -eq "SourcePortPreservationForHostPort" -and $Type -eq "DWORD" -and $Value -eq 0 }
+
                 $actualConfigJson = Read-Format-Json $azureCNIConfigFile
                 $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.DisableOutboundNat.conflist"))
                 $diffence = Compare-Object $actualConfigJson $expectedConfigJson
