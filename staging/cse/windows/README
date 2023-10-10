@@ -55,6 +55,9 @@ popd
 # AKS Windows CSE Scripts Package
 All files except *.test.ps1 and README will be published in AKS Windows CSE Scripts Package.
 
+## v0.0.32
+chore: update regkey for disabling OutboundNAT on WS2022 nodes #3655
+
 ## v0.0.31
 fix: WS2022 support disabling OutboundNAT without updating regkey in CSE #3621
 chore: use Get-WindowsVersion for os version check #3630
