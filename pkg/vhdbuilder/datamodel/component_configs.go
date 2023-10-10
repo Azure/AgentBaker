@@ -131,11 +131,17 @@ func processProxyImages(image *ContainerImage, ret *[]string) error {
 
 	if image.Amd64OnlyVersions != nil {
 		amd64OnlyImageList, err = toImageList(image.DownloadURL, image.Amd64OnlyVersions)
+		if err != nil {
+			return err
+		}
 		*ret = append(*ret, amd64OnlyImageList...)
 	}
 
 	if image.MultiArchVersions != nil {
 		multiArchImageList, err = toImageList(image.DownloadURL, image.MultiArchVersions)
+		if err != nil {
+			return err
+		}
 		*ret = append(*ret, multiArchImageList...)
 	}
 	return err
