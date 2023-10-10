@@ -143,10 +143,7 @@ function Test-FilesToCacheOnVHD
                             "calico-windows",
                             "azure-vnet-cni-singletenancy-windows-amd64",
                             "azure-vnet-cni-singletenancy-swift-windows-amd64",
-                            "azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
-                            "azure-vnet-cni-singletenancy-windows-amd64-v1.5.5.zip",
-                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35_Win2019OverlayFix.zip",
-                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.5.5.zip",
+                            "azure-vnet-cni-singletenancy-overlay-windows-amd64",
                             # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
                             # so we can ignore the different hash values.
                             "v1.26.0-1int.zip"
@@ -259,6 +256,11 @@ function Test-RegistryAdded {
             Write-ErrorWithTimestamp "The registry for 3230913164 is not added"
             exit 1
         }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpNotReuseTcpOneWayFlowIsEnabled)
+        if ($result.VfpNotReuseTcpOneWayFlowIsEnabled -ne 1) {
+            Write-ErrorWithTimestamp "The registry for VfpNotReuseTcpOneWayFlowIsEnabled is not added"
+            exit 1
+        }
     }
     if ($env:WindowsSKU -Like '2022*') {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2629306509)
@@ -368,6 +370,22 @@ function Test-RegistryAdded {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2214038156)
         if ($result.2214038156 -ne 1) {
             Write-ErrorWithTimestamp "The registry for 2214038156 is not added"
+            exit 1
+        }
+
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1673770637)
+        if ($result.1673770637 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 1673770637 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpNotReuseTcpOneWayFlowIsEnabled)
+        if ($result.VfpNotReuseTcpOneWayFlowIsEnabled -ne 1) {
+            Write-ErrorWithTimestamp "The registry for VfpNotReuseTcpOneWayFlowIsEnabled is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name FwPerfImprovementChange)
+        if ($result.FwPerfImprovementChange -ne 1) {
+            Write-ErrorWithTimestamp "The registry for FwPerfImprovementChange is not added"
             exit 1
         }
     }

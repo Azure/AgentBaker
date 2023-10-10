@@ -1679,7 +1679,9 @@ HTTP_PROXY_URLS="{{GetHTTPProxy}}"
 HTTPS_PROXY_URLS="{{GetHTTPSProxy}}"
 NO_PROXY_URLS="{{GetNoProxy}}"
 PROXY_VARS="{{GetProxyVariables}}"
-CLIENT_TLS_BOOTSTRAPPING_ENABLED="{{IsKubeletClientTLSBootstrappingEnabled}}"
+ENABLE_TLS_BOOTSTRAPPING="{{EnableTLSBootstrapping}}"
+ENABLE_SECURE_TLS_BOOTSTRAPPING="{{EnableSecureTLSBootstrapping}}"
+SECURE_TLS_BOOTSTRAP_AAD_SERVER_APPLICATION_ID="{{GetSecureTLSBootstrapAADServerApplicationID}}"
 DHCPV6_SERVICE_FILEPATH="{{GetDHCPv6ServiceCSEScriptFilepath}}"
 DHCPV6_CONFIG_FILEPATH="{{GetDHCPv6ConfigCSEScriptFilepath}}"
 THP_ENABLED="{{GetTransparentHugePageEnabled}}"
@@ -1715,6 +1717,7 @@ KUBENET_TEMPLATE="{{GetKubenetTemplate}}"
 CONTAINERD_CONFIG_CONTENT="{{GetContainerdConfigContent}}"
 CONTAINERD_CONFIG_NO_GPU_CONTENT="{{GetContainerdConfigNoGPUContent}}"
 IS_KATA="{{IsKata}}"
+ARTIFACT_STREAMING_ENABLED="{{IsArtifactStreamingEnabled}}"
 SYSCTL_CONTENT="{{GetSysctlContent}}"
 PRIVATE_EGRESS_PROXY_ADDRESS="{{GetPrivateEgressProxyAddress}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
@@ -2048,6 +2051,10 @@ ensureContainerd() {
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
+  if [ "${ARTIFACT_STREAMING_ENABLED}" == "true" ]; then
+    logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
+  fi
+
   mkdir -p /etc/containerd
   if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" == "true" ]]; then
     echo "Generating non-GPU containerd config for GPU node due to VM tags"
@@ -2074,6 +2081,19 @@ ensureNoDupOnPromiscuBridge() {
 
 ensureTeleportd() {
     systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
+ensureArtifactStreaming() {
+  systemctl enable acr-mirror.service
+  systemctl start acr-mirror.service
+  sudo /opt/acr/tools/overlaybd/install.sh
+  sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
+  modprobe target_core_user
+  curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd' -O
+  systemctl enable /opt/overlaybd/overlaybd-tcmu.service
+  systemctl enable /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+  systemctl start overlaybd-tcmu
+  systemctl start overlaybd-snapshotter
 }
 
 ensureDocker() {
@@ -2118,7 +2138,7 @@ ensureKubelet() {
     echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
     chmod 0600 "${KUBE_CA_FILE}"
     
-    if [ "${CLIENT_TLS_BOOTSTRAPPING_ENABLED}" == "true" ]; then
+    if [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
         touch "${KUBELET_TLS_DROP_IN}"
@@ -2480,7 +2500,8 @@ ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE=131 # Error insufficient disk space for 
 
 ERR_TELEPORTD_DOWNLOAD_ERR=150 # Error downloading teleportd binary
 ERR_TELEPORTD_INSTALL_ERR=151 # Error installing teleportd binary
-ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL=152 # Error downloading or installing mirror proxy and overlaybd components
+ERR_ARTIFACT_STREAMING_DOWNLOAD=152 # Error downloading mirror proxy and overlaybd components
+ERR_ARTIFACT_STREAMING_INSTALL=153 # Error installing mirror proxy and overlaybd components
 
 ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
 ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
@@ -2963,7 +2984,7 @@ installCNI() {
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
     else
         if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
-            downloadCNI
+            logs_to_events "AKS.CSE.installCNI.downloadCNI" downloadCNI
         fi
 
         tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
@@ -2983,7 +3004,7 @@ installAzureCNI() {
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
     else
         if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
-            downloadAzureCNI
+            logs_to_events "AKS.CSE.installAzureCNI.downloadAzureCNI" downloadAzureCNI
         fi
 
         tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
@@ -7108,7 +7129,7 @@ write_files:
     AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
 {{- end}}
 
-{{ if IsKubeletClientTLSBootstrappingEnabled -}}
+{{ if EnableTLSBootstrapping -}}
 - path: /var/lib/kubelet/bootstrap-kubeconfig
   permissions: "0644"
   owner: root
@@ -7462,7 +7483,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.31.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.32.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl

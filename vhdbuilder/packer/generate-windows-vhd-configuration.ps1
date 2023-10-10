@@ -82,10 +82,10 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.8", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.0", # for k8s 1.28.x
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.13",
+    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.14",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.3",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.4",
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.5",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.5"
 )
 
@@ -109,8 +109,8 @@ $global:map = @{
         "https://globalcdn.nuget.org/packages/microsoft.applicationinsights.2.11.0.nupkg",
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.29.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.30.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.31.zip"
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.31.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.32.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
@@ -156,15 +156,13 @@ $global:map = @{
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         # Azure CNI v1 (legacy)
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.5.6/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.5.6.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.5.6.1/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.5.6.1.zip",
-        # Azure CNI v2 (pod subnet) upgrading from v1.4.35 to v1.5.5
+        # Azure CNI v2 (pod subnet) upgrading from v1.4.35 to v1.4.39.1
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.4.35.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.5.5/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.5.5.zip",
-        # Azure CNI for Overlay upgrading from v1.4.35_Win2019OverlayFix to v1.5.5
+        "https://acs-mirror.azureedge.net/azure-cni/v1.4.39.1/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.4.39.1.zip",
+        # Azure CNI for Overlay upgrading from v1.4.35_Win2019OverlayFix to v1.4.39.1
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.35_Win2019OverlayFix/binaries/azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35_Win2019OverlayFix.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.5.5/binaries/azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.5.5.zip"
+        "https://acs-mirror.azureedge.net/azure-cni/v1.4.39.1/binaries/azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.39.1.zip"
     );
     "c:\akse-cache\calico\" = @(
         "https://acs-mirror.azureedge.net/calico-node/v3.21.6/binaries/calico-windows-v3.21.6.zip",

@@ -42,8 +42,8 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.44.3",
         "v1.4.44.4",
+        "v1.4.44.5",
         "v1.5.5"
       ]
     },
@@ -89,7 +89,7 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "3.1.13"
+        "3.1.14"
       ]
     },
     {
@@ -103,8 +103,8 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "6.7.4-main-08-11-2023-6de2ec55",
-        "6.7.5-main-09-12-2023-8fbde9ca"
+        "6.7.5-main-09-12-2023-8fbde9ca",
+        "6.7.7-main-10-06-2023-b75a076c"
       ]
     },
     {
@@ -166,8 +166,8 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.10",
         "1.12.10-1",
+        "1.12.10-2",
         "1.13.5"
       ]
     },
@@ -218,8 +218,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.26.6",
         "v1.26.6-1",
+        "v1.26.6-2",
         "v1.28.2",
         "v1.28.3",
         "v1.29.0"

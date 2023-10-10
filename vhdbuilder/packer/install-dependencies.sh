@@ -48,13 +48,9 @@ if [[ "$IMG_SKU" != *"minimal"* ]]; then
 else
   updateAptWithMicrosoftPkg
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
-  # jq - for manipulation JSON data
-  # iptables - required to run containerd
-  # netcat - network comms with API server
-  # dnsutils - contains nslookup, to query API server DNS
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
   BLOBFUSE2_VERSION="2.1.0"
-  required_pkg_list=(jq iptables netcat dnsutils "blobfuse2="${BLOBFUSE2_VERSION} fuse3)
+  required_pkg_list=("blobfuse2="${BLOBFUSE2_VERSION} fuse3)
   for apt_package in ${required_pkg_list[*]}; do
       if ! apt_get_install 30 1 600 $apt_package; then
           journalctl --no-pager -u $apt_package
@@ -165,14 +161,14 @@ done
 
 installAndConfigureArtifactStreaming() {
   # download acr-mirror proxy
-  MIRROR_PROXY_VERSION='7'
+  MIRROR_PROXY_VERSION='9'
   UBUNTU_VERSION_CLEANED="${UBUNTU_RELEASE//.}"
   MIRROR_DOWNLOAD_PATH="./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
   MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/Release-${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
   
-  retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL}
+  retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOADL}
   
-  apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+  apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
 
   rm "./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
 }
@@ -180,7 +176,7 @@ installAndConfigureArtifactStreaming() {
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
 if [ $OS == $UBUNTU_OS_NAME ] && [ $(isARM64)  != 1 ] && [ $UBUNTU_MAJOR_VERSION -ge 20 ]; then
   # install and configure artifact streaming
-  installAndConfigureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD_INSTALL
+  installAndConfigureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
 fi
 
 KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT

@@ -312,7 +312,7 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 }
 
 func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
-	if IsKubeletClientTLSBootstrappingEnabled(config.KubeletClientTLSBootstrapToken) {
+	if IsTLSBootstrappingEnabledWithHardCodedToken(config.KubeletClientTLSBootstrapToken) {
 		// backfill proper flags for Windows agent node TLS bootstrapping
 		if config.KubeletConfig == nil {
 			config.KubeletConfig = make(map[string]string)
@@ -356,12 +356,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
 		},
 		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile) string {
-			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
-				false, config.EnableNvidia, config.FIPSEnabled, config.OSSKU)
+			return profile.GetKubernetesLabels()
 		},
 		"GetAgentKubernetesLabelsDeprecated": func(profile *datamodel.AgentPoolProfile) string {
-			return profile.GetKubernetesLabels(normalizeResourceGroupNameForLabel(config.ResourceGroupName),
-				true, config.EnableNvidia, config.FIPSEnabled, config.OSSKU)
+			return profile.GetKubernetesLabels()
 		},
 		"GetGPUInstanceProfile": func() string {
 			return config.GPUInstanceProfile
@@ -378,11 +376,19 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsKubeletConfigFileEnabled": func() bool {
 			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)
 		},
-		"IsKubeletClientTLSBootstrappingEnabled": func() bool {
-			return IsKubeletClientTLSBootstrappingEnabled(config.KubeletClientTLSBootstrapToken)
+		"EnableTLSBootstrapping": func() bool {
+			// this will be true when we get a hard-coded TLS bootstrap token in the NodeBootstrappingConfiguration to use for performing TLS bootstrapping.
+			return IsTLSBootstrappingEnabledWithHardCodedToken(config.KubeletClientTLSBootstrapToken)
+		},
+		"EnableSecureTLSBootstrapping": func() bool {
+			// this will be true when we can perform TLS bootstrapping without the use of a hard-coded bootstrap token.
+			return config.EnableSecureTLSBootstrapping
 		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
+		},
+		"GetSecureTLSBootstrapAADServerApplicationID": func() string {
+			return config.SecureTLSBootstrapAADServerApplicationID
 		},
 		"GetKubeletConfigKeyVals": func() string {
 			return GetOrderedKubeletConfigFlagString(config.KubeletConfig, cs, profile, config.EnableKubeletConfigFile)
@@ -480,7 +486,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return profile.Distro.IsKataDistro()
 		},
 		"IsCustomImage": func() bool {
-			return profile.Distro == datamodel.CustomizedImage
+			return profile.Distro == datamodel.CustomizedImage || profile.Distro == datamodel.CustomizedImageKata
 		},
 		"EnableHostsConfigAgent": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
@@ -948,6 +954,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetPrivateEgressProxyAddress": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetProxyAddress()
 		},
+		"IsArtifactStreamingEnabled": func() bool {
+			return config.EnableArtifactStreaming
+		},
 	}
 }
 
@@ -1159,6 +1168,10 @@ root = "{{GetDataDir}}"{{- end}}
     snapshotter = "teleportd"
     disable_snapshot_annotations = false
     {{- end}}
+    {{- if IsArtifactStreamingEnabled }}
+    snapshotter = "overlaybd"
+    disable_snapshot_annotations = false
+    {{- end}}
     {{- if IsNSeriesSKU }}
     default_runtime_name = "nvidia-container-runtime"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
@@ -1230,6 +1243,12 @@ root = "{{GetDataDir}}"{{- end}}
     type = "snapshot"
     address = "/run/teleportd/snapshotter.sock"
 {{- end}}
+{{- if IsArtifactStreamingEnabled }}
+[proxy_plugins]
+  [proxy_plugins.overlaybd]
+    type = "snapshot"
+    address = "/run/overlaybd-snapshotter/overlaybd.sock"
+{{- end}}
 `
 
 // this pains me, but to make it respect mutability of vmss tags,
@@ -1247,6 +1266,10 @@ root = "{{GetDataDir}}"{{- end}}
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if TeleportEnabled }}
     snapshotter = "teleportd"
+    disable_snapshot_annotations = false
+    {{- end}}
+    {{- if IsArtifactStreamingEnabled }}
+    snapshotter = "overlaybd"
     disable_snapshot_annotations = false
     {{- end}}
     default_runtime_name = "runc"
@@ -1304,6 +1327,12 @@ root = "{{GetDataDir}}"{{- end}}
   [proxy_plugins.teleportd]
     type = "snapshot"
     address = "/run/teleportd/snapshotter.sock"
+{{- end}}
+{{- if IsArtifactStreamingEnabled }}
+[proxy_plugins]
+  [proxy_plugins.overlaybd]
+    type = "snapshot"
+    address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 `
 

@@ -198,6 +198,7 @@ const (
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker.
 	AKSWindows2019PIR        Distro = "aks-windows-2019-pir"
 	CustomizedImage          Distro = "CustomizedImage"
+	CustomizedImageKata      Distro = "CustomizedImageKata"
 	CustomizedWindowsOSImage Distro = "CustomizedWindowsOSImage"
 
 	// USNatCloud is a const string reference identifier for USNat.
@@ -285,7 +286,7 @@ func (d Distro) IsAzureLinuxCgroupV2VHDDistro() bool {
 }
 
 func (d Distro) IsKataDistro() bool {
-	return d == AKSCBLMarinerV2Gen2Kata || d == AKSAzureLinuxV2Gen2Kata || d == AKSCBLMarinerV2KataGen2TL
+	return d == AKSCBLMarinerV2Gen2Kata || d == AKSAzureLinuxV2Gen2Kata || d == AKSCBLMarinerV2KataGen2TL || d == CustomizedImageKata
 }
 
 /*
@@ -1126,7 +1127,7 @@ func (a *AgentPoolProfile) IsAvailabilitySets() bool {
 }
 
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile.
-func (a *AgentPoolProfile) GetKubernetesLabels(rg string, deprecated bool, nvidiaEnabled bool, fipsEnabled bool, osSku string) string {
+func (a *AgentPoolProfile) GetKubernetesLabels() string {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("agentpool=%s", a.Name))
 	buf.WriteString(fmt.Sprintf(",kubernetes.azure.com/agentpool=%s", a.Name))
@@ -1632,6 +1633,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableNvidia                  bool
 	EnableACRTeleportPlugin       bool
 	TeleportdPluginURL            string
+	EnableArtifactStreaming       bool
 	ContainerdVersion             string
 	RuncVersion                   string
 	// ContainerdPackageURL and RuncPackageURL are beneficial for testing non-official.
@@ -1644,19 +1646,26 @@ type NodeBootstrappingConfiguration struct {
 	kubeconfig. */
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping.
 	KubeletClientTLSBootstrapToken *string
-	FIPSEnabled                    bool
-	HTTPProxyConfig                *HTTPProxyConfig
-	KubeletConfig                  map[string]string
-	KubeproxyConfig                map[string]string
-	EnableRuncShimV2               bool
-	GPUInstanceProfile             string
-	PrimaryScaleSetName            string
-	SIGConfig                      SIGConfig
-	IsARM64                        bool
-	CustomCATrustConfig            *CustomCATrustConfig
-	DisableUnattendedUpgrades      bool
-	SSHStatus                      SSHStatus
-	DisableCustomData              bool
+	// EnableSecureTLSBootstraping - when this feature is enabled we don't hard-code TLS bootstrap tokens at all,
+	// instead we create a modified bootstrap kubeconfig which points towards the STLS bootstrap client-go
+	// credential plugin installed on the VHD, which will be responsible for generating TLS bootstrap tokens on the fly
+	EnableSecureTLSBootstrapping bool
+	// SecureTLSBootstrapAADServerApplicationID - passed to the secure TLS bootstrap client-go credential plugin so it can correctly generate JWTs
+	// to authenticate with the bootstrap server
+	SecureTLSBootstrapAADServerApplicationID string
+	FIPSEnabled                              bool
+	HTTPProxyConfig                          *HTTPProxyConfig
+	KubeletConfig                            map[string]string
+	KubeproxyConfig                          map[string]string
+	EnableRuncShimV2                         bool
+	GPUInstanceProfile                       string
+	PrimaryScaleSetName                      string
+	SIGConfig                                SIGConfig
+	IsARM64                                  bool
+	CustomCATrustConfig                      *CustomCATrustConfig
+	DisableUnattendedUpgrades                bool
+	SSHStatus                                SSHStatus
+	DisableCustomData                        bool
 }
 
 type SSHStatus int
