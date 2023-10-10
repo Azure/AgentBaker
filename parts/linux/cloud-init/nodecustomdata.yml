@@ -276,7 +276,16 @@ write_files:
     AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
 {{- end}}
 
-{{ if EnableTLSBootstrapping -}}
+{{ if (or EnableSecureTLSBootstrapping EnableTLSBootstrapping) -}}
+- path: /etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+{{- end}}
+
+{{ if (or EnableSecureTLSBootstrapping EnableTLSBootstrapping) -}}
 - path: /var/lib/kubelet/bootstrap-kubeconfig
   permissions: "0644"
   owner: root
@@ -291,7 +300,15 @@ write_files:
     users:
     - name: kubelet-bootstrap
       user:
+      {{- if EnableSecureTLSBootstrapping }}
+        exec:
+          apiVersion: client.authentication.k8s.io/v1
+          command: /opt/azure/containers/tls-bootstrap-client -next-proto aks-tls-bootstrap -aad-resource {{GetSecureTLSBootstrapAADServerApplicationID}}
+          interactiveMode: Never
+          provideClusterInfo: true
+      {{- else }}
         token: "{{GetTLSBootstrapTokenForKubeConfig}}"
+      {{- end }}
     contexts:
     - context:
         cluster: localcluster

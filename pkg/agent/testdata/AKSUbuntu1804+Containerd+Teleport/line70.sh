@@ -154,7 +154,6 @@ EOF
   systemctl restart containerd
 }
 
-
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
@@ -398,8 +397,8 @@ ensureKubelet() {
     mkdir -p "$(dirname "${KUBE_CA_FILE}")"
     echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
     chmod 0600 "${KUBE_CA_FILE}"
-    
-    if [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
+
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ] || [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
         touch "${KUBELET_TLS_DROP_IN}"
@@ -408,6 +407,37 @@ ensureKubelet() {
 [Service]
 Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
 EOF
+    fi
+
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+        SECURE_BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+        mkdir -p "$(dirname "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}")"
+        touch "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}"
+        chmod 0644 "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}"
+        tee "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://${API_SERVER_NAME}:443
+users:
+- name: kubelet-bootstrap
+  user:
+    exec:
+        apiVersion: client.authentication.k8s.io/v1
+        command: /opt/azure/containers/tls-bootstrap-client -next-proto aks-tls-bootstrap -aad-resource ${SECURE_TLS_BOOTSTRAP_AAD_SERVER_APPLICATION_ID}
+        interactiveMode: Never
+        provideClusterInfo: true
+contexts:
+- context:
+    cluster: localcluster
+    user: kubelet-bootstrap
+  name: bootstrap-context
+current-context: bootstrap-context
+EOF
+    elif [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
         BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
         mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
         touch "${BOOTSTRAP_KUBECONFIG_FILE}"
@@ -457,6 +487,7 @@ contexts:
 current-context: localclustercontext
 EOF
     fi
+    
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
 #!/bin/bash
