@@ -16,7 +16,10 @@ cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
 
 cloud-init status --wait
 
-# TODO - Set the repoDepotEndpoint in a .repo file if package update becomes necessary
+# TODO - need somebody to verify these commands in AGC.
+# This command should be ran manually and then verified if packages can be installed correctly - for example "dnf install -y vim"
+repoDepotEndpoint="${REPO_DEPOT_ENDPOINT}"
+sudo sed -i "s,https://packages\.microsoft\.com/cbl-mariner/\$releasever/prod,$repoDepotEndpoint/mariner,g" /etc/yum.repos.d/*.repo
 
 # Set the chrony config to use the PHC /dev/ptp0 clock
 cat > /etc/chrony.conf <<EOF
