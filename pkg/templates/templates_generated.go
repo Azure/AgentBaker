@@ -7178,15 +7178,6 @@ write_files:
 {{- end}}
 
 {{ if (or EnableSecureTLSBootstrapping EnableTLSBootstrapping) -}}
-- path: /etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    [Service]
-    Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
-{{- end}}
-
-{{ if (or EnableSecureTLSBootstrapping EnableTLSBootstrapping) -}}
 - path: /var/lib/kubelet/bootstrap-kubeconfig
   permissions: "0644"
   owner: root

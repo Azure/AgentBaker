@@ -665,7 +665,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
 				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
 				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
-				tlsBootstrapDropin := o.files["/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"].value
 				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
 				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
 
@@ -675,9 +674,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(tlsBootstrapDropin).ToNot(BeEmpty())
 				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
 				Expect(caCRT).NotTo(BeEmpty())
-
-				//nolint:lll
-				Expect(tlsBootstrapDropin).To(ContainSubstring("KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"))
 
 				Expect(bootstrapKubeconfig).To(ContainSubstring("token"))
 				Expect(bootstrapKubeconfig).To(ContainSubstring("07401b.f395accd246ae52d"))
@@ -691,11 +687,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}, func(o *nodeBootstrappingOutput) {
 				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
 				Expect(o.vars["SECURE_TLS_BOOTSTRAP_AAD_SERVER_APPLICATION_ID"]).To(Equal("appID"))
-
-				tlsBootstrapDropin := o.files["/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"].value
-				Expect(tlsBootstrapDropin).ToNot(BeEmpty())
-				//nolint:lll
-				Expect(tlsBootstrapDropin).To(ContainSubstring("KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"))
 
 				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
 				Expect(bootstrapKubeconfig).ToNot(BeEmpty())

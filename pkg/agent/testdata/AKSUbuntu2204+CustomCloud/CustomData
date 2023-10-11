@@ -243,8 +243,6 @@ write_files:
     KUBELET_NODE_LABELS=agentpool=agent2,kubernetes.azure.com/agentpool=agent2
     AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/akscustom.json
 
-
-
 - path: /var/lib/kubelet/kubeconfig
   permissions: "0644"
   owner: root

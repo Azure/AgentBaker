@@ -242,13 +242,6 @@ write_files:
     NETWORK_POLICY=
     KUBELET_NODE_LABELS=agentpool=agent2,kubernetes.azure.com/agentpool=agent2
 
-- path: /etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    [Service]
-    Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
-
 - path: /var/lib/kubelet/bootstrap-kubeconfig
   permissions: "0644"
   owner: root

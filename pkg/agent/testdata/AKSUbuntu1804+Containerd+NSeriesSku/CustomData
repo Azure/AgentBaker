@@ -250,8 +250,6 @@ write_files:
     KUBELET_IMAGE=hyperkube-amd64:v1.15.7
     KUBELET_NODE_LABELS=agentpool=agent2,kubernetes.azure.com/agentpool=agent2
 
-
-
 - path: /var/lib/kubelet/kubeconfig
   permissions: "0644"
   owner: root
