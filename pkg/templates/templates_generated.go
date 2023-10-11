@@ -2165,7 +2165,7 @@ users:
   user:
     exec:
         apiVersion: client.authentication.k8s.io/v1
-        command: /opt/azure/containers/tls-bootstrap-client -next-proto aks-tls-bootstrap -aad-resource ${SECURE_TLS_BOOTSTRAP_AAD_SERVER_APPLICATION_ID}
+        command: /opt/azure/containers/tls-bootstrap-client bootstrap --next-proto aks-tls-bootstrap --aad-resource ${SECURE_TLS_BOOTSTRAP_AAD_SERVER_APPLICATION_ID}
         interactiveMode: Never
         provideClusterInfo: true
 contexts:
@@ -2902,10 +2902,10 @@ downloadCNI() {
 
 downloadSecureTLSBootstrapKubeletExecPlugin() {
     local plugin_download_path="/opt/azure/containers/tls-bootstrap-client"
-    local plugin_version="v0.1.0-alpha.1"
-    local kubelet_plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${plugin_version}/linux/amd64/tls-bootstrap-client"
+    local plugin_version="v0.1.0-alpha.2"
+    local plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${plugin_version}/linux/amd64/tls-bootstrap-client"
     if [[ $(isARM64) == 1 ]]; then
-        kubelet_plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${plugin_version}/linux/arm64/tls-bootstrap-client"
+        plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${plugin_version}/linux/arm64/tls-bootstrap-client"
     fi
 
     mkdir -p /opt/azure/containers
@@ -7207,7 +7207,7 @@ write_files:
       {{- if EnableSecureTLSBootstrapping }}
         exec:
           apiVersion: client.authentication.k8s.io/v1
-          command: /opt/azure/containers/tls-bootstrap-client -next-proto aks-tls-bootstrap -aad-resource {{GetSecureTLSBootstrapAADServerApplicationID}}
+          command: /opt/azure/containers/tls-bootstrap-client bootstrap --next-proto aks-tls-bootstrap --aad-resource {{GetSecureTLSBootstrapAADServerApplicationID}}
           interactiveMode: Never
           provideClusterInfo: true
       {{- else }}

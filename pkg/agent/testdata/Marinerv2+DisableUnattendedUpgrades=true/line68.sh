@@ -427,7 +427,7 @@ users:
   user:
     exec:
         apiVersion: client.authentication.k8s.io/v1
-        command: /opt/azure/containers/tls-bootstrap-client -next-proto aks-tls-bootstrap -aad-resource ${SECURE_TLS_BOOTSTRAP_AAD_SERVER_APPLICATION_ID}
+        command: /opt/azure/containers/tls-bootstrap-client bootstrap --next-proto aks-tls-bootstrap --aad-resource ${SECURE_TLS_BOOTSTRAP_AAD_SERVER_APPLICATION_ID}
         interactiveMode: Never
         provideClusterInfo: true
 contexts:

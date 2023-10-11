@@ -73,10 +73,10 @@ downloadCNI() {
 
 downloadSecureTLSBootstrapKubeletExecPlugin() {
     local plugin_download_path="/opt/azure/containers/tls-bootstrap-client"
-    local plugin_version="v0.1.0-alpha.1"
-    local kubelet_plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${plugin_version}/linux/amd64/tls-bootstrap-client"
+    local plugin_version="v0.1.0-alpha.2"
+    local plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${plugin_version}/linux/amd64/tls-bootstrap-client"
     if [[ $(isARM64) == 1 ]]; then
-        kubelet_plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${plugin_version}/linux/arm64/tls-bootstrap-client"
+        plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${plugin_version}/linux/arm64/tls-bootstrap-client"
     fi
 
     mkdir -p /opt/azure/containers
