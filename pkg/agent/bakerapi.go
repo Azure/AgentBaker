@@ -23,7 +23,10 @@ func NewAgentBaker() (AgentBaker, error) {
 
 type agentBakerImpl struct{}
 
-func (agentBaker *agentBakerImpl) GetNodeBootstrapping(_ context.Context,
+// TODO figure out where / if ctx needs to be used
+//
+//nolint:revive // keep ctx until we figure out if it's needed
+func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context,
 	config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
 	// validate and fix input before passing config to the template generator.
 	if config.AgentPoolProfile.IsWindows() {
