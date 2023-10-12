@@ -16,7 +16,12 @@ cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
 
 cloud-init status --wait
 
-# TODO - Set the repoDepotEndpoint in a .repo file if package update becomes necessary
+marinerRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
+for f in /etc/yum.repos.d/*.repo
+do
+    sed -i -e "s|https://packages.microsoft.com|${marinerRepoDepotEndpoint}/mariner/packages.microsoft.com|" $f
+    echo "## REPO - $f - MODIFIED"
+done
 
 # Set the chrony config to use the PHC /dev/ptp0 clock
 cat > /etc/chrony.conf <<EOF
