@@ -677,7 +677,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 				Expect(bootstrapKubeconfig).To(ContainSubstring("token"))
 				Expect(bootstrapKubeconfig).To(ContainSubstring("07401b.f395accd246ae52d"))
-				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("command: /opt/azure/containers/tls-bootstrap-client"))
+				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
 			}),
 
 		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled", "AKSUbuntu2204+SecureTLSBoostrapping", "1.25.6",
@@ -691,7 +691,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
 				Expect(bootstrapKubeconfig).ToNot(BeEmpty())
 				Expect(bootstrapKubeconfig).To(ContainSubstring("apiVersion: client.authentication.k8s.io/v1"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("command: /opt/azure/containers/tls-bootstrap-client bootstrap --next-proto aks-tls-bootstrap --aad-resource appID"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client bootstrap --next-proto aks-tls-bootstrap --aad-resource appID"))
 				Expect(bootstrapKubeconfig).To(ContainSubstring("interactiveMode: Never"))
 				Expect(bootstrapKubeconfig).To(ContainSubstring("provideClusterInfo: true"))
 				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("token:"))
