@@ -11,12 +11,11 @@ message Configuration {
   // only required until Secure TLS bootstrapping in place
   // would use kubelet identity after that.
   string tls_bootstrap_token = 3;
-  
 
   // cluster/user config
   string kubernetes_version = 4; // Q: can this be auto-detected? Or is this part of specifying the desired node version?
     // removed kubernetesHyperkubeSpec
-  string kube_binary_url = 6;
+  string kube_binary_url = 6;      // maybe we can combine this and custom_kube_binary_url later once we figure out the logic of how they are used.
   string custom_kube_binary_url = 7;
   string kubeproxy_url = 8;
   ApiServerConfig apiserver_config = 9;
@@ -24,20 +23,15 @@ message Configuration {
   string resource_group = 11;
   string location = 12;
   string vm_type = 13;
-  string subnet = 14;
-  string network_security_group = 15;
-  VirtualNetworkConfig virtual_network_config = 16;
-  string route_table = 17;
+  
+  
+  
   string primary_availability_set = 18;
   string primary_scale_set = 19;
-  string service_principal_client_id = 20;
-  string vnet_cni_plugins_url = 21;
-  string cni_plugins_url = 22;
+  
   CloudProviderConfig cloud_provider_config = 23;
   IdentityConfiguration identity_configuration = 5;
-  NetworkPluginType network_plugin = 6;
-  NetworkPolicyType network_policy = 7;
-  NetworkMode network_mode = 8;
+
   RuncConfig runc_config = 9;
 
   // ... and a bunch of user-specified config
@@ -56,20 +50,14 @@ message Configuration {
   TeleportConfig teleport_config = 13;
   // removed NEEDS_CONTAINERD because it's always needed now
 
-
   HTTPProxyConfig http_proxy_configuration = 8;
-
   repeated string trusted_certificate_authorities = 9;
-
   FeatureState ssh_status = 10;
   FeatureState unattended_upgrade_status = 11;
-
   string message_of_the_day = 12;
   string swap_file_size_mb = 13;
   SysctlConfig sysctls = 14;
-
   KubeletConfiguration kubelet_configuration = 15;
-
   optional string gpu_instance_profile = 16;
   FEATURE_STATE_ENABLED hosts_config_agent_status = 17;
 }
@@ -194,7 +182,7 @@ enum LoadBalancerSku {
 enum NetworkMode {
   NETWORK_MODE_UNSPECIFIED = 0;
   NETWORK_MODE_L2Bridge = 1;
-  //could be more
+  //could be more. Needs to check.
 }
 
 message ApiServerConfig {
@@ -206,8 +194,9 @@ message ApiServerConfig {
 message GpuConfig {
   FEATURE_STATE_ENABLED status = 1;
   FEATURE_STATE_ENABLED is_mig_node = 2;
-  FEATURE_STATE_ENABLED config_gpu_driver_if_needed = 3;
-  FEATURE_STATE_ENABLED enable_gpu_device_plugin_if_needed = 4;
+  FEATURE_STATE_ENABLED config_gpu_driver_if_needed = 3;    //we can revise this name later when we clearly understand what it's doing
+  FEATURE_STATE_ENABLED enable_gpu_device_plugin_if_needed = 4; //we can revise this name later when we clearly understand what it's doing
+  FEATURE_STATE_ENABLED fabric_manager_status = 5;  //consider just extracting vm_size since both GPUNeedsFabricManager and getGPUDriverVersion are just depending ont vm_size.
 }
 
 message ContainerdConfig {
@@ -224,4 +213,16 @@ message TeleportConfig {
 message RuncConfig {
   string runc_version = 1;
   string runc_package_url = 2;
+}
+
+message NetworkConfig {
+  NetworkPluginType network_plugin = 6;
+  NetworkPolicyType network_policy = 7;
+  NetworkMode network_mode = 8;
+  string network_security_group = 15;
+  VirtualNetworkConfig virtual_network_config = 16;
+  string vnet_cni_plugins_url = 21;
+  string cni_plugins_url = 22;
+  string subnet = 14;
+  string route_table = 17;
 }
