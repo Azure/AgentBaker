@@ -4951,6 +4951,16 @@ installDeps() {
     fi
 }
 
+installKataDeps() {
+    if [[ $OS_VERSION != "1.0" ]]; then
+      for dnf_package in kernel-mshv hvloader mshv-bootloader-lx mshv cloud-hypervisor cloud-hypervisor-cvm moby-containerd-cc kata-containers kata-containers-cc kernel-uvm kernel-uvm-cvm; do
+        if ! dnf_install 30 1 600 $dnf_package; then
+          exit $ERR_APT_INSTALL_TIMEOUT
+        fi
+      done
+    fi
+}
+
 downloadGPUDrivers() {
     # Mariner CUDA rpm name comes in the following format:
     #
@@ -8091,6 +8101,7 @@ function Get-WindowsVersion {
     switch ($buildNumber) {
         "17763" { return "1809" }
         "20348" { return "ltsc2022" }
+        "25398" { return "ltsc2022" } # Only for test of partner team now. Will remove it further.
         Default {
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER -ErrorMessage "Failed to find the windows build number: $buildNumber"
         }
