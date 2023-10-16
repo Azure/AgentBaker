@@ -180,10 +180,13 @@ function Test-FilesToCacheOnVHD
 }
 
 function Test-ValidateAllSignature {
-    Test-ValidateSinglePackageSignature "c:\akse-cache\containerd\"
-    Test-ValidateSinglePackageSignature "c:\akse-cache\csi-proxy\"
-    Test-ValidateSinglePackageSignature "c:\akse-cache\win-vnet-cni\"
-    Test-ValidateSinglePackageSignature "c:\akse-cache\calico\"
+    foreach ($dir in $map.Keys) {
+        # Skip the validation of k8s pacakges since win-bridge.exe is not signed yet
+        if ($dir.StartsWith("c:\akse-cache\win-k8s\")) {
+            continue
+        }
+        Test-ValidateSinglePackageSignature $dir
+    }
 }
 
 function Test-ValidateSinglePackageSignature {
@@ -205,8 +208,11 @@ function Test-ValidateSinglePackageSignature {
         New-Item -ItemType Directory $installDir -Force | Out-Null
         if ($fileName.endswith(".zip")) {
             Expand-Archive -path $dest -DestinationPath $installDir -Force
-        } else {
+        } else if ($fileName.endswith(".tar.gz")) {
             tar -xzf $dest -C $installDir
+        } else {
+            # Skip the validation of github scripts
+            continue
         }
 
         $BinaryFileCount = (Get-ChildItem -Path $installDir -Recurse -File -Filter *.exe).Count
