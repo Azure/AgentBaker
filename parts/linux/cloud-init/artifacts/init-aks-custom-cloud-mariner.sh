@@ -17,11 +17,15 @@ cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
 cloud-init status --wait
 
 marinerRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
-for f in /etc/yum.repos.d/*.repo
-do
-    sed -i -e "s|https://packages.microsoft.com|${marinerRepoDepotEndpoint}/mariner/packages.microsoft.com|" $f
-    echo "## REPO - $f - MODIFIED"
-done
+if [[ "$marinerRepoDepotEndpoint" == "" ]]; then
+  >&2 echo "repo depot endpoint empty while running custom-cloud init script"
+else
+  for f in /etc/yum.repos.d/*.repo
+  do
+      sed -i -e "s|https://packages.microsoft.com|${marinerRepoDepotEndpoint}/mariner/packages.microsoft.com|" $f
+      echo "## REPO - $f - MODIFIED"
+  done
+fi
 
 # Set the chrony config to use the PHC /dev/ptp0 clock
 cat > /etc/chrony.conf <<EOF
