@@ -6,60 +6,58 @@ package agentbaker.v1;
 message Configuration {
   // System Configuration
   
-  string cluster_certificate_authority = 2;
+  string cluster_certificate_authority = 1;
 
   // only required until Secure TLS bootstrapping in place
   // would use kubelet identity after that.
-  string tls_bootstrap_token = 3;
+  string tls_bootstrap_token = 2;
 
   // cluster/user config
-  string kubernetes_version = 4; // Q: can this be auto-detected? Or is this part of specifying the desired node version?
+  string kubernetes_version = 3; // Q: can this be auto-detected? Or is this part of specifying the desired node version?
     // removed kubernetesHyperkubeSpec
-  string kube_binary_url = 6;      // maybe we can combine this and custom_kube_binary_url later once we figure out the logic of how they are used.
-  string custom_kube_binary_url = 7;
-  string kubeproxy_url = 8;
-  ApiServerConfig apiserver_config = 9;
-  string subscription_id = 10;
-  string resource_group = 11;
-  string location = 12;
-  string vm_type = 13;
+  string kube_binary_url = 4;      // maybe we can combine this and custom_kube_binary_url later once we figure out the logic of how they are used.
+  string custom_kube_binary_url = 5;
+  string kubeproxy_url = 6;
+  ApiServerConfig apiserver_config = 7;
+  string subscription_id = 8;
+  string resource_group = 9;
+  string location = 10;
+  string vm_type = 11;  
   
+  string primary_availability_set = 12;
+  string primary_scale_set = 13;
   
-  
-  string primary_availability_set = 18;
-  string primary_scale_set = 19;
-  
-  CloudProviderConfig cloud_provider_config = 23;
-  IdentityConfiguration identity_configuration = 5;
+  CloudProviderConfig cloud_provider_config = 14;
+  IdentityConfiguration identity_configuration = 15;
 
-  RuncConfig runc_config = 9;
+  RuncConfig runc_config = 16;
 
   // ... and a bunch of user-specified config
-  string repo_depot_endpoint = 4;
-  string linux_admin_username = 5;
+  string repo_depot_endpoint = 17;
+  string linux_admin_username = 18;
     // removed mobyVersion
-  string tenant_id = 6;
-  bool use_instance_metadata = 7;
-  LoadBalancerConfig load_balancer_config = 8;
+  string tenant_id = 19;
+  bool use_instance_metadata = 20;
+  LoadBalancerConfig load_balancer_config = 21;
     // removed containerRuntime
     // removed cliTool because docker is deprecated. Only "ctr" will be supported.
-  ContainerdConfig containerd_config = 9;
-  bool is_vhd = 10;
-  GpuConfig gpu_config = 11;
-  bool is_sgx_node = 12;
-  TeleportConfig teleport_config = 13;
+  ContainerdConfig containerd_config = 22;
+  bool is_vhd = 23;
+  GpuConfig gpu_config = 24;
+  bool is_sgx_node = 25;
+  TeleportConfig teleport_config = 26;
   // removed NEEDS_CONTAINERD because it's always needed now
 
-  HTTPProxyConfig http_proxy_configuration = 8;
-  repeated string trusted_certificate_authorities = 9;
-  FeatureState ssh_status = 10;
-  FeatureState unattended_upgrade_status = 11;
-  string message_of_the_day = 12;
-  string swap_file_size_mb = 13;
-  SysctlConfig sysctls = 14;
-  KubeletConfiguration kubelet_configuration = 15;
-  optional string gpu_instance_profile = 16;
-  FEATURE_STATE_ENABLED hosts_config_agent_status = 17;
+  HTTPProxyConfig http_proxy_configuration = 27;
+  repeated string trusted_certificate_authorities = 28;
+  FeatureState ssh_status = 29;
+  FeatureState unattended_upgrade_status = 30;
+  string message_of_the_day = 31;
+  string swap_file_size_mb = 32;
+  SysctlConfig sysctls = 33;
+  KubeletConfiguration kubelet_configuration = 34;
+  optional string gpu_instance_profile = 35;
+  FeatureState hosts_config_agent_status = 36;
 }
 
 message KubeletConfiguration {
@@ -118,7 +116,7 @@ message HTTPProxyConfig {
   FeatureState http_proxy_ca_config_status = 6;
   string http_proxy_trusted_ca = 7;
   FeatureState custom_ca_trust_status = 8;
-  int custom_ca_trust_count = 9;
+  int32 custom_ca_trust_count = 9;
   repeated string custom_ca_certs = 10;
 }
 
@@ -146,31 +144,30 @@ message VirtualNetworkConfig {
 message CloudProviderConfig {
   CloudProviderBackoffConfig cloud_provider_backoff_config = 1;
   CloudProviderRateLimitConfig cloud_provider_rate_limit_config = 2;
-  bool cloud_provider_disable_out_bound_SNAT = 3;
-
+  bool cloud_provider_disable_out_bound_snat = 3;
 }
 
 message CloudProviderBackoffConfig {
-  FEATURE_STATE_ENABLED status = 1;
+  FeatureState status = 1;
   string mode = 2;
-  int retries = 3;
-  float64 exponent = 4;
-  int duration = 5;
-  float64 jitter = 6;
+  int32 retries = 3;
+  double exponent = 4;
+  int32 duration = 5;
+  double jitter = 6;
 }
 
 message CloudProviderRateLimitConfig {
-  FEATURE_STATE_ENABLED status = 1;
-  float64 qps = 2;
-  float64 qps_write = 3;
-  int bucket = 4;
-  int bucket_write = 5;  
+  FeatureState status = 1;
+  double qps = 2;
+  double qps_write = 3;
+  int32 bucket = 4;
+  int32 bucket_write = 5;  
 }
 
 message LoadBalancerConfig {
   LoadBalancerSku load_balancer_sku = 8;
   bool exclude_master_from_standard_load_balancer = 9;
-  int max_load_balancer_rule_count = 10;
+  int32 max_load_balancer_rule_count = 10;
 }
 
 enum LoadBalancerSku {
@@ -181,32 +178,32 @@ enum LoadBalancerSku {
 
 enum NetworkMode {
   NETWORK_MODE_UNSPECIFIED = 0;
-  NETWORK_MODE_L2Bridge = 1;
+  NETWORK_MODE_L2BRIDGE = 1;
   //could be more. Needs to check.
 }
 
 message ApiServerConfig {
-  string apiserver_public_key = 9;
-  string apiserver_name = 10;
-  string api_server_endpoint = 11;
+  string apiserver_public_key = 1;
+  string apiserver_name = 2;
+  string api_server_endpoint = 3;
 }
 
 message GpuConfig {
-  FEATURE_STATE_ENABLED status = 1;
-  FEATURE_STATE_ENABLED is_mig_node = 2;
-  FEATURE_STATE_ENABLED config_gpu_driver_if_needed = 3;    //we can revise this name later when we clearly understand what it's doing
-  FEATURE_STATE_ENABLED enable_gpu_device_plugin_if_needed = 4; //we can revise this name later when we clearly understand what it's doing
-  FEATURE_STATE_ENABLED fabric_manager_status = 5;  //consider just extracting vm_size since both GPUNeedsFabricManager and getGPUDriverVersion are just depending ont vm_size.
+  FeatureState status = 1;
+  FeatureState is_mig_node = 2;
+  FeatureState config_gpu_driver_if_needed = 3;    //we can revise this name later when we clearly understand what it's doing
+  FeatureState enable_gpu_device_plugin_if_needed = 4; //we can revise this name later when we clearly understand what it's doing
+  FeatureState fabric_manager_status = 5;  //consider just extracting vm_size since both GPUNeedsFabricManager and getGPUDriverVersion are just depending ont vm_size.
 }
 
 message ContainerdConfig {
-  string containerd_download_url_base = 9;
-  string containerd_version = 10;
-  string containerd_package_url = 11;
+  string containerd_download_url_base = 1;
+  string containerd_version = 2;
+  string containerd_package_url = 3;
 }
 
 message TeleportConfig {
-  FEATURE_STATE_ENABLED status = 1;
+  FeatureState status = 1;
   string teleportd_plugin_download_url = 2;
 }
 
@@ -216,13 +213,13 @@ message RuncConfig {
 }
 
 message NetworkConfig {
-  NetworkPluginType network_plugin = 6;
-  NetworkPolicyType network_policy = 7;
-  NetworkMode network_mode = 8;
-  string network_security_group = 15;
-  VirtualNetworkConfig virtual_network_config = 16;
-  string vnet_cni_plugins_url = 21;
-  string cni_plugins_url = 22;
-  string subnet = 14;
-  string route_table = 17;
+  NetworkPluginType network_plugin = 1;
+  NetworkPolicyType network_policy = 2;
+  NetworkMode network_mode = 3;
+  string network_security_group = 4;
+  VirtualNetworkConfig virtual_network_config = 5;
+  string vnet_cni_plugins_url = 6;
+  string cni_plugins_url = 7;
+  string subnet = 8;
+  string route_table = 9;
 }
