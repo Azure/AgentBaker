@@ -49,16 +49,15 @@ message Configuration {
   // removed NEEDS_CONTAINERD because it's always needed now
 
   HttpProxyConfig http_proxy_configuration = 27;
-  repeated string trusted_certificate_authorities = 28;
-  FeatureState ssh_status = 29;
-  FeatureState unattended_upgrade_status = 30;
-  string message_of_the_day = 31;
-  string swap_file_size_mb = 32;
-  SysctlConfig sysctls = 33;
-  KubeletConfiguration kubelet_configuration = 34;
-  optional string gpu_instance_profile = 35;
-  FeatureState hosts_config_agent_status = 36;
-  CustomCaTrustConfig custom_ca_trust_config = 37;
+  FeatureState ssh_status = 28;
+  FeatureState unattended_upgrade_status = 29;
+  string message_of_the_day = 30;
+  string swap_file_size_mb = 31;
+  SysctlConfig sysctls = 32;
+  KubeletConfiguration kubelet_configuration = 33;
+  optional string gpu_instance_profile = 34;
+  FeatureState hosts_config_agent_status = 35;
+  CustomCaTrustConfig custom_ca_trust_config = 36;
 }
 
 message KubeletConfiguration {
