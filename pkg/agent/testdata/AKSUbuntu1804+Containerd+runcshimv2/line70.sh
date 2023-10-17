@@ -355,6 +355,7 @@ ensureArtifactStreaming() {
   systemctl enable /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
   systemctl start overlaybd-tcmu
   systemctl start overlaybd-snapshotter
+  systemctl start acr-nodemon
 }
 
 ensureDocker() {
