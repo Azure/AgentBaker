@@ -48,7 +48,7 @@ message Configuration {
   TeleportConfig teleport_config = 26;
   // removed NEEDS_CONTAINERD because it's always needed now
 
-  HTTPProxyConfig http_proxy_configuration = 27;
+  HttpProxyConfig http_proxy_configuration = 27;
   repeated string trusted_certificate_authorities = 28;
   FeatureState ssh_status = 29;
   FeatureState unattended_upgrade_status = 30;
@@ -58,6 +58,7 @@ message Configuration {
   KubeletConfiguration kubelet_configuration = 34;
   optional string gpu_instance_profile = 35;
   FeatureState hosts_config_agent_status = 36;
+  CustomCaTrustConfig custom_ca_trust_config = 37;
 }
 
 message KubeletConfiguration {
@@ -107,7 +108,7 @@ enum NetworkPolicyType {
   NETWORK_POLICY_TYPE_CALICO = 3;
 }
 
-message HTTPProxyConfig {
+message HttpProxyConfig {
   optional string http_proxy = 1;
   optional string https_proxy = 2;
   repeated string no_proxy = 3;
@@ -115,9 +116,12 @@ message HTTPProxyConfig {
   FeatureState http_proxy_config_status = 5;
   FeatureState http_proxy_ca_config_status = 6;
   string http_proxy_trusted_ca = 7;
-  FeatureState custom_ca_trust_status = 8;
-  int32 custom_ca_trust_count = 9;
-  repeated string custom_ca_certs = 10;
+}
+
+message CustomCaTrustConfig {
+  FeatureState custom_ca_trust_status = 1;
+  int32 custom_ca_trust_count = 2;
+  repeated string custom_ca_certs = 3;
 }
 
 enum KubeletDiskType {
