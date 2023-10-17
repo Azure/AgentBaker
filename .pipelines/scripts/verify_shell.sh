@@ -17,7 +17,7 @@ if [[ "${installed}" -ne 0 ]]; then
         sudo apt-get install shellcheck -y
     elif [[ "${DISTRO}" == "darwin" ]]; then
         brew install cabal-install shellcheck
-    else 
+    else
         echo "distro ${DISTRO} not supported at this time. skipping shellcheck"
         exit 1
     fi
