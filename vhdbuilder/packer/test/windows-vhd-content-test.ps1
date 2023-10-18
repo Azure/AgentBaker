@@ -207,6 +207,10 @@ function Test-ValidateSinglePackageSignature {
         $installDir="c:\SignatureCheck"
         New-Item -ItemType Directory $installDir -Force | Out-Null
         if ($fileName.endswith(".zip")) {
+            # Skip v0.0.31 and v0.0.32 of windows cse script package since some binaries in them are not signed
+            if ($fileName.endswith("v0.0.31.zip") -or $fileName.endswith("v0.0.32.zip")) {
+                continue
+            }
             Expand-Archive -path $dest -DestinationPath $installDir -Force
         } else if ($fileName.endswith(".tar.gz")) {
             tar -xzf $dest -C $installDir
@@ -215,8 +219,8 @@ function Test-ValidateSinglePackageSignature {
             continue
         }
 
-        $BinaryFileCount = (Get-ChildItem -Path $installDir -Recurse -File -Filter *.exe).Count
-        $SignatureCount = (Get-ChildItem -Path $installDir -Recurse -File -Filter *.exe | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -eq "Valid"}).Count
+        $BinaryFileCount = (Get-ChildItem -Path $installDir -Recurse -File -Include "*.exe", "*.ps1", "*.psm1").Count
+        $SignatureCount = (Get-ChildItem -Path $installDir -Recurse -File -Include "*.exe", "*.ps1", "*.psm1" | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -eq "Valid"}).Count
         if ($BinaryFileCount -ne $SignatureCount) {
             Write-ErrorWithTimestamp "some of cached binaries in package $URL are invalid"
             exit 1
