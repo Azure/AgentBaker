@@ -678,10 +678,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled", "AKSUbuntu2204+SecureTLSBoostrapping", "1.25.6",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableSecureTLSBootstrapping = true
-				config.SecureTLSBootstrapAADServerApplicationID = "appID"
 			}, func(o *nodeBootstrappingOutput) {
 				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
-				Expect(o.vars["SECURE_TLS_BOOTSTRAP_AAD_SERVER_APPLICATION_ID"]).To(Equal("appID"))
 			}),
 
 		Entry("AKSUbuntu1804 with DisableCustomData = true", "AKSUbuntu1804+DisableCustomData", "1.19.0",
