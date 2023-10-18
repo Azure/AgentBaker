@@ -2093,6 +2093,7 @@ ensureArtifactStreaming() {
   systemctl enable /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
   systemctl start overlaybd-tcmu
   systemctl start overlaybd-snapshotter
+  systemctl start acr-nodemon
 }
 
 ensureDocker() {
@@ -7501,7 +7502,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.32.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.33.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
