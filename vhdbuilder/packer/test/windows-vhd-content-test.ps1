@@ -212,7 +212,7 @@ function Test-ValidateSinglePackageSignature {
                 continue
             }
             Expand-Archive -path $dest -DestinationPath $installDir -Force
-        } else if ($fileName.endswith(".tar.gz")) {
+        } elseif ($fileName.endswith(".tar.gz")) {
             tar -xzf $dest -C $installDir
         } else {
             # Skip the validation of github scripts
