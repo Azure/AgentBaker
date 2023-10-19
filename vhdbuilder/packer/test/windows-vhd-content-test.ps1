@@ -261,8 +261,7 @@ function Test-ValidateSinglePackageSignature {
         if ($NotSignedList.Count -ne 0) {
             foreach ($NotSignedFile in $NotSignedList) {
                 $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
-                if (($SkipMapForSignature.ContainsKey($fileName) -and ($SkipMapForSignature[$fileName].Length -ne 0) -and !$SkipMapForSignature[$fileName].Contains($NotSignedFileName)) 
-                        -or !$SkipMapForSignature.ContainsKey($fileName)) {
+                if (($SkipMapForSignature.ContainsKey($fileName) -and ($SkipMapForSignature[$fileName].Length -ne 0) -and !$SkipMapForSignature[$fileName].Contains($NotSignedFileName)) -or !$SkipMapForSignature.ContainsKey($fileName)) {
                     if ($NotSignedResult.ContainsKey($fileName)) {
                         $NotSignedResult[$fileName]+=@($NotSignedFileName)
                     } else {
