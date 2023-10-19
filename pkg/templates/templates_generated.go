@@ -1681,7 +1681,7 @@ NO_PROXY_URLS="{{GetNoProxy}}"
 PROXY_VARS="{{GetProxyVariables}}"
 ENABLE_TLS_BOOTSTRAPPING="{{EnableTLSBootstrapping}}"
 ENABLE_SECURE_TLS_BOOTSTRAPPING="{{EnableSecureTLSBootstrapping}}"
-SECURE_TLS_BOOTSTRAP_AAD_SERVER_APPLICATION_ID="{{GetSecureTLSBootstrapAADServerApplicationID}}"
+CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID="{{GetCustomSecureTLSBootstrapAADServerAppID}}"
 DHCPV6_SERVICE_FILEPATH="{{GetDHCPv6ServiceCSEScriptFilepath}}"
 DHCPV6_CONFIG_FILEPATH="{{GetDHCPv6ConfigCSEScriptFilepath}}"
 THP_ENABLED="{{GetTransparentHugePageEnabled}}"
@@ -2093,6 +2093,7 @@ ensureArtifactStreaming() {
   systemctl enable /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
   systemctl start overlaybd-tcmu
   systemctl start overlaybd-snapshotter
+  systemctl start acr-nodemon
 }
 
 ensureDocker() {
@@ -2149,6 +2150,10 @@ EOF
     fi
 
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+        SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID="6dae42f8-4368-4678-94ff-3960e28e3630"
+        if [[ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID" ]]; then
+            SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID=$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID
+        fi
         SECURE_BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
         mkdir -p "$(dirname "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}")"
         touch "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}"
@@ -2166,7 +2171,7 @@ users:
   user:
     exec:
         apiVersion: client.authentication.k8s.io/v1
-        command: /opt/azure/tlsbootstrap/tls-bootstrap-client bootstrap --next-proto aks-tls-bootstrap --aad-resource ${SECURE_TLS_BOOTSTRAP_AAD_SERVER_APPLICATION_ID}
+        command: /opt/azure/tlsbootstrap/tls-bootstrap-client bootstrap --next-proto aks-tls-bootstrap --aad-resource ${SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID}
         interactiveMode: Never
         provideClusterInfo: true
 contexts:
@@ -4388,7 +4393,16 @@ cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
 
 cloud-init status --wait
 
-# TODO - Set the repoDepotEndpoint in a .repo file if package update becomes necessary
+marinerRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
+if [[ "$marinerRepoDepotEndpoint" == "" ]]; then
+  >&2 echo "repo depot endpoint empty while running custom-cloud init script"
+else
+  for f in /etc/yum.repos.d/*.repo
+  do
+      sed -i -e "s|https://packages.microsoft.com|${marinerRepoDepotEndpoint}/mariner/packages.microsoft.com|" $f
+      echo "## REPO - $f - MODIFIED"
+  done
+fi
 
 # Set the chrony config to use the PHC /dev/ptp0 clock
 cat > /etc/chrony.conf <<EOF
@@ -7207,7 +7221,11 @@ write_files:
       {{- if EnableSecureTLSBootstrapping }}
         exec:
           apiVersion: client.authentication.k8s.io/v1
-          command: /opt/azure/tlsbootstrap/tls-bootstrap-client bootstrap --next-proto aks-tls-bootstrap --aad-resource {{GetSecureTLSBootstrapAADServerApplicationID}}
+{{- if GetCustomSecureTLSBootstrapAADServerAppID}}
+          command: /opt/azure/tlsbootstrap/tls-bootstrap-client bootstrap --next-proto aks-tls-bootstrap --aad-resource {{GetCustomSecureTLSBootstrapAADServerAppID}}
+{{- else}}
+          command: /opt/azure/tlsbootstrap/tls-bootstrap-client bootstrap --next-proto aks-tls-bootstrap --aad-resource 6dae42f8-4368-4678-94ff-3960e28e3630
+{{- end}}
           interactiveMode: Never
           provideClusterInfo: true
       {{- else }}
@@ -7551,7 +7569,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.32.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.33.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
