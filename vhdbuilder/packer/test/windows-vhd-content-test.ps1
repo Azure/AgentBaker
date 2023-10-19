@@ -273,6 +273,7 @@ function Test-ValidateSinglePackageSignature {
     }
 
     if ($NotSignedResult.Count -ne 0) {
+        $NotSignedResult = (echo $NotSignedResult | Format-Table | Out-String)
         Write-ErrorWithTimestamp "Binaries in $NotSignedResult are not signed"
         exit 1
     }
