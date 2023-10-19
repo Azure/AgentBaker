@@ -162,7 +162,7 @@ done
 
 installAndConfigureArtifactStreaming() {
   # download acr-mirror proxy
-  MIRROR_PROXY_VERSION='0.2.2'
+  MIRROR_PROXY_VERSION='0.2.3'
   UBUNTU_VERSION_CLEANED="${UBUNTU_RELEASE//.}"
   MIRROR_DOWNLOAD_PATH="./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
   MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
