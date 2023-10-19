@@ -411,9 +411,9 @@ EOF
     fi
 
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
-        SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID="6dae42f8-4368-4678-94ff-3960e28e3630"
-        if [[ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID" ]]; then
-            SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID=$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID
+        AAD_RESOURCE="6dae42f8-4368-4678-94ff-3960e28e3630"
+        if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID" ]; then
+            AAD_RESOURCE=$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID
         fi
         SECURE_BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
         mkdir -p "$(dirname "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}")"
@@ -432,7 +432,7 @@ users:
   user:
     exec:
         apiVersion: client.authentication.k8s.io/v1
-        command: /opt/azure/tlsbootstrap/tls-bootstrap-client bootstrap --next-proto aks-tls-bootstrap --aad-resource ${SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID}
+        command: /opt/azure/tlsbootstrap/tls-bootstrap-client bootstrap --next-proto aks-tls-bootstrap --aad-resource ${AAD_RESOURCE}
         interactiveMode: Never
         provideClusterInfo: true
 contexts:
