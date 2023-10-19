@@ -283,13 +283,9 @@ retagContainerImage() {
 
 retagMCRImagesForChina() {
     # retag all the mcr for mooncake
-    if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-        # shellcheck disable=SC2016
-        allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
-    else
-        # shellcheck disable=SC2016
-        allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
-    fi
+    # shellcheck disable=SC2016
+    allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
+
     if [[ "${allMCRImages}" == "" ]]; then
         echo "failed to find mcr images for retag"
         return
@@ -299,11 +295,7 @@ retagMCRImagesForChina() {
         # shellcheck disable=SC2001
         retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
         # can't use CLI_TOOL because crictl doesn't support retagging.
-        if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-            retagContainerImage "ctr" ${mcrImage} ${retagMCRImage}
-        else
-            retagContainerImage "docker" ${mcrImage} ${retagMCRImage}
-        fi
+        retagContainerImage "ctr" ${mcrImage} ${retagMCRImage}
     done
 }
 
