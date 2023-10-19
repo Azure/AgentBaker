@@ -2848,6 +2848,7 @@ SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR="/opt/azure/tlsbootstrap"
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1 v0.8.0"
+SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION="v0.1.0-alpha.2"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 CURL_OUTPUT=/tmp/curl_verbose.out
@@ -2906,10 +2907,9 @@ downloadCNI() {
 }
 
 downloadSecureTLSBootstrapKubeletExecPlugin() {
-    local plugin_version="v0.1.0-alpha.2"
-    local plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${plugin_version}/linux/amd64/tls-bootstrap-client"
+    local plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION}/linux/amd64/tls-bootstrap-client"
     if [[ $(isARM64) == 1 ]]; then
-        plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${plugin_version}/linux/arm64/tls-bootstrap-client"
+        plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION}/linux/arm64/tls-bootstrap-client"
     fi
 
     mkdir -p $SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR
