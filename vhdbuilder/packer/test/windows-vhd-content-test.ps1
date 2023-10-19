@@ -260,11 +260,13 @@ function Test-ValidateSinglePackageSignature {
         $NotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Include "*.exe", "*.ps1", "*.psm1" | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -ne "Valid"})
         if ($NotSignedList.Count -ne 0) {
             foreach ($NotSignedFile in $NotSignedList) {
-                if (($SkipMapForSignature.ContainsKey($fileName) -and !$SkipMapForSignature[$fileName].Contains($NotSignedFile)) -or !$SkipMapForSignature.ContainsKey($fileName)) {
+                $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
+                if (($SkipMapForSignature.ContainsKey($fileName) -and ($SkipMapForSignature[$fileName].Length -ne 0) -and !$SkipMapForSignature[$fileName].Contains($NotSignedFileName)) 
+                        -or !$SkipMapForSignature.ContainsKey($fileName)) {
                     if ($NotSignedResult.ContainsKey($fileName)) {
-                        $NotSignedResult[$fileName]+=@($NotSignedFile)
+                        $NotSignedResult[$fileName]+=@($NotSignedFileName)
                     } else {
-                        $NotSignedResult[$fileName]=@($NotSignedFile)
+                        $NotSignedResult[$fileName]=@($NotSignedFileName)
                     }
                 }
             }
