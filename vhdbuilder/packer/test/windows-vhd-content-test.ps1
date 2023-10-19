@@ -12,7 +12,7 @@ param (
 # We use parameters for test script so we set environment variables before importing c:\windows-vhd-configuration.ps1 to reuse it
 $env:WindowsSKU=$windowsSKU
 
-$env:SkipMapForSignature=@{
+$SkipMapForSignature=@{
     "aks-windows-cse-scripts-v0.0.31.zip"=@();
     "aks-windows-cse-scripts-v0.0.32.zip"=@();
     "v1.24.9-hotfix.20230728-1int.zip"=@(
@@ -56,7 +56,7 @@ $env:SkipMapForSignature=@{
     )
 }
 
-$env:NotSignedResult=@{}
+$NotSignedResult=@{}
 
 . c:\windows-vhd-configuration.ps1
 
@@ -260,11 +260,11 @@ function Test-ValidateSinglePackageSignature {
         $NotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Include "*.exe", "*.ps1", "*.psm1" | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -ne "Valid"})
         if ($NotSignedList.Count -ne 0) {
             foreach ($NotSignedFile in $NotSignedList) {
-                if (($env:SkipMapForSignature.ContainsKey($fileName) -and !$env:SkipMapForSignature[$fileName].Contains($NotSignedFile)) -or !$env:SkipMapForSignature.ContainsKey($fileName)) {
-                    if ($env:NotSignedResult.ContainsKey($fileName)) {
-                        $env:NotSignedResult[$fileName]+=@($NotSignedFile)
+                if (($SkipMapForSignature.ContainsKey($fileName) -and !$SkipMapForSignature[$fileName].Contains($NotSignedFile)) -or !$SkipMapForSignature.ContainsKey($fileName)) {
+                    if ($NotSignedResult.ContainsKey($fileName)) {
+                        $NotSignedResult[$fileName]+=@($NotSignedFile)
                     } else {
-                        $env:NotSignedResult[$fileName]=@($NotSignedFile)
+                        $NotSignedResult[$fileName]=@($NotSignedFile)
                     }
                 }
             }
@@ -272,8 +272,8 @@ function Test-ValidateSinglePackageSignature {
         Remove-Item -Path $installDir -Force -Recurse
     }
 
-    if ($env:NotSignedResult.Count -ne 0) {
-        Write-ErrorWithTimestamp "Binaries in $env:NotSignedResult are not signed"
+    if ($NotSignedResult.Count -ne 0) {
+        Write-ErrorWithTimestamp "Binaries in $NotSignedResult are not signed"
         exit 1
     }
 }
