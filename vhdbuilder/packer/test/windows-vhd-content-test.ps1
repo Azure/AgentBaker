@@ -12,6 +12,52 @@ param (
 # We use parameters for test script so we set environment variables before importing c:\windows-vhd-configuration.ps1 to reuse it
 $env:WindowsSKU=$windowsSKU
 
+$env:SkipMapForSignature=@{
+    "aks-windows-cse-scripts-v0.0.31.zip"=@();
+    "aks-windows-cse-scripts-v0.0.32.zip"=@();
+    "v1.24.9-hotfix.20230728-1int.zip"=@(
+        "win-bridge.exe"
+    );
+    "v1.24.10-hotfix.20230728-1int.zip"=@(
+        "win-bridge.exe"
+    );
+    "v1.24.15-hotfix.20230728-1int.zip"=@(
+        "win-bridge.exe"
+    );
+    "v1.25.5-hotfix.20230728-1int.zip"=@(
+        "win-bridge.exe"
+    );
+    "v1.25.6-hotfix.20230728-1int.zip"=@(
+        "win-bridge.exe"
+    );
+    "v1.25.11-hotfix.20230728-1int.zip"=@(
+        "win-bridge.exe"
+    );
+    "v1.26.0-hotfix.20230728-1int.zip"=@(
+        "win-bridge.exe"
+    );
+    "v1.26.3-hotfix.20230728-1int.zip"=@(
+        "win-bridge.exe"
+    );
+    "v1.26.6-hotfix.20230728-1int.zip"=@(
+        "win-bridge.exe"
+    );
+    "v1.27.1-hotfix.20230728-1int.zip"=@(
+        "win-bridge.exe"
+    );
+    "v1.27.3-hotfix.20230728-1int.zip"=@(
+        "win-bridge.exe"
+    );
+    "v1.28.0-1int.zip"=@(
+        "win-bridge.exe"
+    );
+    "v1.28.1-1int.zip"=@(
+        "win-bridge.exe"
+    )
+}
+
+$env:NotSignedResult=@{}
+
 . c:\windows-vhd-configuration.ps1
 
 filter Timestamp { "$(Get-Date -Format o): $_" }
@@ -181,10 +227,6 @@ function Test-FilesToCacheOnVHD
 
 function Test-ValidateAllSignature {
     foreach ($dir in $map.Keys) {
-        # Skip the validation of k8s pacakges since win-bridge.exe is not signed yet
-        if ($dir.StartsWith("c:\akse-cache\win-k8s\")) {
-            continue
-        }
         Test-ValidateSinglePackageSignature $dir
     }
 }
@@ -207,10 +249,6 @@ function Test-ValidateSinglePackageSignature {
         $installDir="c:\SignatureCheck"
         New-Item -ItemType Directory $installDir -Force | Out-Null
         if ($fileName.endswith(".zip")) {
-            # Skip v0.0.31 and v0.0.32 of windows cse script package since some binaries in them are not signed
-            if ($fileName.endswith("v0.0.31.zip") -or $fileName.endswith("v0.0.32.zip")) {
-                continue
-            }
             Expand-Archive -path $dest -DestinationPath $installDir -Force
         } elseif ($fileName.endswith(".tar.gz")) {
             tar -xzf $dest -C $installDir
@@ -219,13 +257,24 @@ function Test-ValidateSinglePackageSignature {
             continue
         }
 
-        $BinaryFileCount = (Get-ChildItem -Path $installDir -Recurse -File -Include "*.exe", "*.ps1", "*.psm1").Count
-        $SignatureCount = (Get-ChildItem -Path $installDir -Recurse -File -Include "*.exe", "*.ps1", "*.psm1" | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -eq "Valid"}).Count
-        if ($BinaryFileCount -ne $SignatureCount) {
-            Write-ErrorWithTimestamp "some of cached binaries in package $URL are invalid"
-            exit 1
+        $NotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Include "*.exe", "*.ps1", "*.psm1" | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -ne "Valid"})
+        if ($NotSignedList.Count -ne 0) {
+            foreach ($NotSignedFile in $NotSignedList) {
+                if (($env:SkipMapForSignature.ContainsKey($fileName) -and !$env:SkipMapForSignature[$fileName].Contains($NotSignedFile)) -or !$env:SkipMapForSignature.ContainsKey($fileName)) {
+                    if ($env:NotSignedResult.ContainsKey($fileName)) {
+                        $env:NotSignedResult[$fileName]+=@($NotSignedFile)
+                    } else {
+                        $env:NotSignedResult[$fileName]=@($NotSignedFile)
+                    }
+                }
+            }
         }
         Remove-Item -Path $installDir -Force -Recurse
+    }
+
+    if ($env:NotSignedResult.Count -ne 0) {
+        Write-ErrorWithTimestamp "Binaries in $env:NotSignedResult are not signed"
+        exit 1
     }
 }
 
