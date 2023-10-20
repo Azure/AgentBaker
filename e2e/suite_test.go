@@ -132,8 +132,8 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		log.Printf("WARNING: bootstrapped vmss model was nil for %s", vmssName)
 	}
 
-	defer func() {
-		if opts.suiteConfig.keepVMSS {
+	if opts.suiteConfig.keepVMSS {
+		defer func() {
 			log.Printf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
 			if vmssModel != nil {
 				log.Printf("retained vmss resource ID: %q", *vmssModel.ID)
@@ -143,8 +143,8 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 			if err := writeToFile(filepath.Join(opts.loggingDir, "sshkey"), string(privateKeyBytes)); err != nil {
 				t.Fatalf("failed to write retained vmss %q private ssh key to disk: %s", vmssName, err)
 			}
-		}
-	}()
+		}()
+	}
 
 	vmPrivateIP, err := pollGetVMPrivateIP(ctx, vmssName, opts)
 	if err != nil {
