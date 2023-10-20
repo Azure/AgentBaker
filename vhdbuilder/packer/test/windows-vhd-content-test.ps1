@@ -62,7 +62,7 @@ $SkipMapForSignature=@{
 # NotSignedResult is used to record unsigned files that we think should be signed
 $NotSignedResult=@{}
 
-# AllNotSignedFiles is used to record all unsigned files in vhd cache
+# AllNotSignedFiles is used to record all unsigned files in vhd cache and we exclude files in SkipMapForSignature
 $AllNotSignedFiles=@{}
 
 . c:\windows-vhd-configuration.ps1
@@ -247,20 +247,18 @@ function Test-ValidateSinglePackageSignature {
         $fileName = [IO.Path]::GetFileName($URL)
         $dest = [IO.Path]::Combine($dir, $fileName)
 
-        if(![System.IO.File]::Exists($dest)) {
-            Write-ErrorWithTimestamp "File $dest does not exist"
-            $invalidFiles = $invalidFiles + $dest
-            continue
-        }
-
         $installDir="c:\SignatureCheck"
         New-Item -ItemType Directory $installDir -Force | Out-Null
         if ($fileName.endswith(".zip")) {
             Expand-Archive -path $dest -DestinationPath $installDir -Force
         } elseif ($fileName.endswith(".tar.gz")) {
             tar -xzf $dest -C $installDir
+        } else {
+            Write-ErrorWithTimestamp "Unknown package suffix"
+            exit 1
         }
 
+        # Check signature for 4 types of files and record unsigned files
         $NotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Include "*.exe", "*.ps1", "*.psm1", "*.dll" | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -ne "Valid"})
         if ($NotSignedList.Count -ne 0) {
             foreach ($NotSignedFile in $NotSignedList) {
@@ -275,13 +273,16 @@ function Test-ValidateSinglePackageSignature {
             }
         }
 
+        # Check signature for all types of files and record unsigned files
         $AllNotSignedList = (Get-ChildItem -Path $installDir -Recurse -File | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -ne "Valid"})
         foreach ($NotSignedFile in $AllNotSignedList) {
             $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
-            if ($AllNotSignedFiles.ContainsKey($fileName)) {
-                $AllNotSignedFiles[$fileName]+=@($NotSignedFileName)
-            } else {
-                $AllNotSignedFiles[$fileName]=@($NotSignedFileName)
+            if (($SkipMapForSignature.ContainsKey($fileName) -and ($SkipMapForSignature[$fileName].Length -ne 0) -and !$SkipMapForSignature[$fileName].Contains($NotSignedFileName)) -or !$SkipMapForSignature.ContainsKey($fileName)) {
+                if ($AllNotSignedFiles.ContainsKey($fileName)) {
+                    $AllNotSignedFiles[$fileName]+=@($NotSignedFileName)
+                } else {
+                    $AllNotSignedFiles[$fileName]=@($NotSignedFileName)
+                }
             }
         }
 
