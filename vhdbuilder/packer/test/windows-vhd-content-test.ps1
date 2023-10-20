@@ -255,9 +255,6 @@ function Test-ValidateSinglePackageSignature {
             Expand-Archive -path $dest -DestinationPath $installDir -Force
         } elseif ($fileName.endswith(".tar.gz")) {
             tar -xzf $dest -C $installDir
-        } else {
-            # Skip the validation of github scripts
-            continue
         }
 
         $NotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Include "*.exe", "*.ps1", "*.psm1" | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -ne "Valid"})
