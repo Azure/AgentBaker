@@ -690,8 +690,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
 				Expect(bootstrapKubeconfig).ToNot(BeEmpty())
 				Expect(bootstrapKubeconfig).To(ContainSubstring("apiVersion: client.authentication.k8s.io/v1"))
-				//nolint:lll
-				Expect(bootstrapKubeconfig).To(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client bootstrap --next-proto aks-tls-bootstrap --aad-resource 6dae42f8-4368-4678-94ff-3960e28e3630"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("- bootstrap"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("--next-proto=aks-tls-bootstrap"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("--aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630"))
 				Expect(bootstrapKubeconfig).To(ContainSubstring("interactiveMode: Never"))
 				Expect(bootstrapKubeconfig).To(ContainSubstring("provideClusterInfo: true"))
 				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("token:"))
@@ -708,7 +710,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
 				Expect(bootstrapKubeconfig).ToNot(BeEmpty())
 				Expect(bootstrapKubeconfig).To(ContainSubstring("apiVersion: client.authentication.k8s.io/v1"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client bootstrap --next-proto aks-tls-bootstrap --aad-resource appID"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("- bootstrap"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("--next-proto=aks-tls-bootstrap"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("--aad-resource=appID"))
 				Expect(bootstrapKubeconfig).To(ContainSubstring("interactiveMode: Never"))
 				Expect(bootstrapKubeconfig).To(ContainSubstring("provideClusterInfo: true"))
 				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("token:"))

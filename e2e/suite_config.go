@@ -3,6 +3,14 @@ package e2e_test
 import (
 	"fmt"
 	"os"
+	"strings"
+)
+
+const (
+	suiteConfigStringTemplate = `subscription: %[1]s,
+location: %[2]s,
+resource group: %[3]s,
+keep vmss: %[4]t`
 )
 
 type suiteConfig struct {
@@ -14,7 +22,12 @@ type suiteConfig struct {
 	keepVMSS           bool
 }
 
+func (c suiteConfig) String() string {
+	return fmt.Sprintf(suiteConfigStringTemplate, c.subscription, c.location, c.resourceGroupName, c.keepVMSS)
+}
+
 func newSuiteConfig() (*suiteConfig, error) {
+	// required environment variables
 	var environment = map[string]string{
 		"SUBSCRIPTION_ID": "",
 		"LOCATION":        "",
@@ -29,10 +42,9 @@ func newSuiteConfig() (*suiteConfig, error) {
 	}
 
 	config := &suiteConfig{
-		subscription:   environment["SUBSCRIPTION_ID"],
-		location:       environment["LOCATION"],
-		scenariosToRun: strToBoolMap(os.Getenv("SCENARIOS_TO_RUN")),
-		keepVMSS:       os.Getenv("KEEP_VMSS") == "true",
+		subscription: environment["SUBSCRIPTION_ID"],
+		location:     environment["LOCATION"],
+		keepVMSS:     strings.EqualFold(os.Getenv("KEEP_VMSS"), "true"),
 	}
 
 	include := os.Getenv("SCENARIOS_TO_RUN")

@@ -432,7 +432,11 @@ users:
   user:
     exec:
         apiVersion: client.authentication.k8s.io/v1
-        command: /opt/azure/tlsbootstrap/tls-bootstrap-client bootstrap --next-proto aks-tls-bootstrap --aad-resource ${AAD_RESOURCE}
+        command: /opt/azure/tlsbootstrap/tls-bootstrap-client
+        args:
+        - bootstrap
+        - --next-proto=aks-tls-bootstrap
+        - --aad-resource=${AAD_RESOURCE}
         interactiveMode: Never
         provideClusterInfo: true
 contexts:
