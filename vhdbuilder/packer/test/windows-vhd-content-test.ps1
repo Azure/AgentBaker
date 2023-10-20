@@ -59,7 +59,11 @@ $SkipMapForSignature=@{
     )
 }
 
+# NotSignedResult is used to record unsigned files that we think should be signed
 $NotSignedResult=@{}
+
+# AllNotSignedFiles is used to record all unsigned files in vhd cache
+$AllNotSignedFiles=@{}
 
 . c:\windows-vhd-configuration.ps1
 
@@ -270,8 +274,22 @@ function Test-ValidateSinglePackageSignature {
                 }
             }
         }
+
+        $AllNotSignedList = (Get-ChildItem -Path $installDir -Recurse -File | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -ne "Valid"})
+        foreach ($NotSignedFile in $AllNotSignedList) {
+            $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
+            if ($AllNotSignedFiles.ContainsKey($fileName)) {
+                $AllNotSignedFiles[$fileName]+=@($NotSignedFileName)
+            } else {
+                $AllNotSignedFiles[$fileName]=@($NotSignedFileName)
+            }
+        }
+
         Remove-Item -Path $installDir -Force -Recurse
     }
+
+    $AllNotSignedFiles = (echo $AllNotSignedFiles | Format-Table | Out-String)
+    Write-Output "All not signed file in cached packages are: $AllNotSignedFiles"
 
     if ($NotSignedResult.Count -ne 0) {
         $NotSignedResult = (echo $NotSignedResult | Format-Table | Out-String)
