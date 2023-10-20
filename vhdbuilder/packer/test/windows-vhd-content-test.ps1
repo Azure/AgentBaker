@@ -257,7 +257,7 @@ function Test-ValidateSinglePackageSignature {
             tar -xzf $dest -C $installDir
         }
 
-        $NotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Include "*.exe", "*.ps1", "*.psm1" | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -ne "Valid"})
+        $NotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Include "*.exe", "*.ps1", "*.psm1", "*.dll" | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -ne "Valid"})
         if ($NotSignedList.Count -ne 0) {
             foreach ($NotSignedFile in $NotSignedList) {
                 $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
