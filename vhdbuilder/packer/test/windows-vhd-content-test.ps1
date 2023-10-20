@@ -12,6 +12,9 @@ param (
 # We use parameters for test script so we set environment variables before importing c:\windows-vhd-configuration.ps1 to reuse it
 $env:WindowsSKU=$windowsSKU
 
+# We skip the signature validation of following scripts for known issues
+# Some scripts in aks-windows-cse-scripts-v0.0.31.zip and aks-windows-cse-scripts-v0.0.32.zip are not signed, and this issue is fixed in aks-windows-cse-scripts-v0.0.33.zip
+# win-bridge.exe is not signed in these k8s packages, and it will be removed from k8s package in the future
 $SkipMapForSignature=@{
     "aks-windows-cse-scripts-v0.0.31.zip"=@();
     "aks-windows-cse-scripts-v0.0.32.zip"=@();
@@ -254,9 +257,7 @@ function Test-ValidateSinglePackageSignature {
             tar -xzf $dest -C $installDir
         } else {
             # Skip the validation of github scripts
-            # continue
-            
-            Copy-Item $dest -Destination $installDir
+            continue
         }
 
         $NotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Include "*.exe", "*.ps1", "*.psm1" | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -ne "Valid"})
