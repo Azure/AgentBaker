@@ -1651,8 +1651,7 @@ type NodeBootstrappingConfiguration struct {
 	// credential plugin installed on the VHD, which will be responsible for generating TLS bootstrap tokens on the fly
 	EnableSecureTLSBootstrapping bool
 	// CustomSecureTLSBootstrapAADServerAppID serves as an optional override of the AAD server application ID
-	// used by the secure TLS bootstrap client-go credential plugin to use when requesting JWT tokens
-	// from AAD to authenticate with the bootstrap server
+	// used by the secure TLS bootstrap client-go credential plugin when requesting JWTs from AAD
 	CustomSecureTLSBootstrapAADServerAppID string
 	FIPSEnabled                            bool
 	HTTPProxyConfig                        *HTTPProxyConfig
