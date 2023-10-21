@@ -1,6 +1,6 @@
 {
   "SchemaVersion": 2,
-  "ArtifactName": "pkrvm793rreglpg",
+  "ArtifactName": "pkrvmpjqblwqg95",
   "ArtifactType": "filesystem",
   "Metadata": {
     "OS": {
@@ -20,7 +20,7 @@
   },
   "Results": [
     {
-      "Target": "pkrvm793rreglpg (cbl-mariner 2.0.20231004)",
+      "Target": "pkrvmpjqblwqg95 (cbl-mariner 2.0.20231004)",
       "Class": "os-pkgs",
       "Type": "cbl-mariner"
     },
