@@ -289,11 +289,11 @@ function Test-ValidateSinglePackageSignature {
         Remove-Item -Path $installDir -Force -Recurse
     }
 
-    $AllNotSignedFiles = (echo $AllNotSignedFiles | Format-Table -AutoSize | Out-String)
+    $AllNotSignedFiles = (echo $AllNotSignedFiles | Format-Table -AutoSize -Wrap | Out-String)
     Write-Output "Under folder $dir, all not signed file in cached packages are: $AllNotSignedFiles"
 
     if ($NotSignedResult.Count -ne 0) {
-        $NotSignedResult = (echo $NotSignedResult | Format-Table -AutoSize | Out-String)
+        $NotSignedResult = (echo $NotSignedResult | Format-Table -AutoSize -Wrap | Out-String)
         Write-ErrorWithTimestamp "Under folder $dir, binaries in $NotSignedResult are not signed"
         exit 1
     }
