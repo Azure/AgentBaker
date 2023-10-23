@@ -59,12 +59,6 @@ $SkipMapForSignature=@{
     )
 }
 
-# NotSignedResult is used to record unsigned files that we think should be signed
-$NotSignedResult=@{}
-
-# AllNotSignedFiles is used to record all unsigned files in vhd cache and we exclude files in SkipMapForSignature
-$AllNotSignedFiles=@{}
-
 . c:\windows-vhd-configuration.ps1
 
 filter Timestamp { "$(Get-Date -Format o): $_" }
@@ -243,6 +237,12 @@ function Test-ValidateSinglePackageSignature {
         $dir
     )
 
+    # NotSignedResult is used to record unsigned files that we think should be signed
+    $NotSignedResult=@{}
+
+    # AllNotSignedFiles is used to record all unsigned files in vhd cache and we exclude files in SkipMapForSignature
+    $AllNotSignedFiles=@{}
+
     foreach ($URL in $map[$dir]) {
         $fileName = [IO.Path]::GetFileName($URL)
         $dest = [IO.Path]::Combine($dir, $fileName)
@@ -289,11 +289,11 @@ function Test-ValidateSinglePackageSignature {
         Remove-Item -Path $installDir -Force -Recurse
     }
 
-    $AllNotSignedFiles = (echo $AllNotSignedFiles | Format-Table | Out-String)
+    $AllNotSignedFiles = (echo $AllNotSignedFiles | Format-Table -AutoSize | Out-String)
     Write-Output "All not signed file in cached packages are: $AllNotSignedFiles"
 
     if ($NotSignedResult.Count -ne 0) {
-        $NotSignedResult = (echo $NotSignedResult | Format-Table | Out-String)
+        $NotSignedResult = (echo $NotSignedResult | Format-Table -AutoSize | Out-String)
         Write-ErrorWithTimestamp "Binaries in $NotSignedResult are not signed"
         exit 1
     }
