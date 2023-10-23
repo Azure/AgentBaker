@@ -290,11 +290,11 @@ function Test-ValidateSinglePackageSignature {
     }
 
     $AllNotSignedFiles = (echo $AllNotSignedFiles | Format-Table -AutoSize | Out-String)
-    Write-Output "All not signed file in cached packages are: $AllNotSignedFiles"
+    Write-Output "Under folder $dir, all not signed file in cached packages are: $AllNotSignedFiles"
 
     if ($NotSignedResult.Count -ne 0) {
         $NotSignedResult = (echo $NotSignedResult | Format-Table -AutoSize | Out-String)
-        Write-ErrorWithTimestamp "Binaries in $NotSignedResult are not signed"
+        Write-ErrorWithTimestamp "Under folder $dir, binaries in $NotSignedResult are not signed"
         exit 1
     }
 }
