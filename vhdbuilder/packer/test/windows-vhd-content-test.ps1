@@ -259,7 +259,7 @@ function Test-ValidateSinglePackageSignature {
         }
 
         # Check signature for 4 types of files and record unsigned files
-        $includeList = {"*.exe", "*.ps1", "*.psm1", "*.dll"}
+        $includeList = @("*.exe", "*.ps1", "*.psm1", "*.dll")
         $NotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Include $includeList | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -ne "Valid"})
         if ($NotSignedList.Count -ne 0) {
             foreach ($NotSignedFile in $NotSignedList) {
@@ -275,7 +275,7 @@ function Test-ValidateSinglePackageSignature {
         }
 
         # Check signature for all types of files except some known types and record unsigned files
-        $excludeList = {"*.man", "*.reg", "*.md", "*.toml", "*.cmd", "*.template", "*.txt", "*.wprp", "*.yaml", "*.json", "NOTICE", "*.config"}
+        $excludeList = @("*.man", "*.reg", "*.md", "*.toml", "*.cmd", "*.template", "*.txt", "*.wprp", "*.yaml", "*.json", "NOTICE", "*.config")
         $AllNotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Exclude $excludeList | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -ne "Valid"})
         foreach ($NotSignedFile in $AllNotSignedList) {
             $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
