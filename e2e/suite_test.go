@@ -23,6 +23,8 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	log.Printf("suite config:\n%s", suiteConfig.String())
+
 	if err := createE2ELoggingDir(); err != nil {
 		t.Fatal(err)
 	}
@@ -130,6 +132,20 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		log.Printf("WARNING: bootstrapped vmss model was nil for %s", vmssName)
 	}
 
+	if opts.suiteConfig.keepVMSS {
+		defer func() {
+			log.Printf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
+			if vmssModel != nil {
+				log.Printf("retained vmss resource ID: %q", *vmssModel.ID)
+			} else {
+				log.Printf("WARNING: model of retained vmss %q is nil", vmssName)
+			}
+			if err := writeToFile(filepath.Join(opts.loggingDir, "sshkey"), string(privateKeyBytes)); err != nil {
+				t.Fatalf("failed to write retained vmss %q private ssh key to disk: %s", vmssName, err)
+			}
+		}()
+	}
+
 	vmPrivateIP, err := pollGetVMPrivateIP(ctx, vmssName, opts)
 	if err != nil {
 		t.Fatalf("failed to get VM private IP: %s", err)
@@ -171,17 +187,5 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		log.Println("node bootstrapping succeeded!")
 	} else {
 		t.Fatal("vmss was unable to be properly created and bootstrapped")
-	}
-
-	if opts.suiteConfig.keepVMSS {
-		log.Printf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
-		if vmssModel != nil {
-			log.Printf("retained vmss resource ID: %q", *vmssModel.ID)
-		} else {
-			log.Printf("WARNING: model of retained vmss %q is nil", vmssName)
-		}
-		if err := writeToFile(filepath.Join(opts.loggingDir, "sshkey"), string(privateKeyBytes)); err != nil {
-			t.Fatalf("failed to write retained vmss %q private ssh key to disk: %s", vmssName, err)
-		}
 	}
 }
