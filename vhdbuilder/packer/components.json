@@ -164,7 +164,6 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.10-1",
         "1.12.10-2",
         "1.13.5"
       ]
