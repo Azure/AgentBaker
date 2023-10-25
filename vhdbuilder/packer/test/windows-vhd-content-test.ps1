@@ -291,8 +291,10 @@ function Test-ValidateSinglePackageSignature {
         Remove-Item -Path $installDir -Force -Recurse
     }
 
-    $AllNotSignedFiles = (echo $AllNotSignedFiles | ConvertTo-Json -Compress)
-    Write-Output "Under folder $dir, all not signed file in cached packages are: $AllNotSignedFiles"
+    if ($AllNotSignedFiles.Count -ne 0) {
+        $AllNotSignedFiles = (echo $AllNotSignedFiles | ConvertTo-Json -Compress)
+        Write-Output "Under folder $dir, all not signed file in cached packages are: $AllNotSignedFiles"
+    }
 
     if ($NotSignedResult.Count -ne 0) {
         $NotSignedResult = (echo $NotSignedResult | ConvertTo-Json -Compress)
