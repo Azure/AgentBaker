@@ -348,6 +348,8 @@ ensureArtifactStreaming() {
   systemctl start acr-mirror.service
   sudo /opt/acr/tools/overlaybd/install.sh
   sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
+  sudo /opt/acr/tools/overlaybd/config.sh download.enable false
+  sudo /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
   modprobe target_core_user
   curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd' -O
   systemctl enable /opt/overlaybd/overlaybd-tcmu.service
@@ -512,6 +514,10 @@ EOF
 iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
 EOF
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
+}
+
+ensureSnapshotUpdate() {
+    systemctlEnableAndStart snapshot-update.timer || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
 }
 
 ensureMigPartition(){
