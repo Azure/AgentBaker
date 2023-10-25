@@ -4883,9 +4883,6 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadLocation": "",
         "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz",
         "versions": [
-            "1.24.9-hotfix.20230612",
-            "1.24.10-hotfix.20230612",
-            "1.24.15",
             "1.25.5-hotfix.20230612",
             "1.25.6-hotfix.20230612",
             "1.25.11",
