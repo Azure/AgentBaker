@@ -59,12 +59,6 @@ $SkipMapForSignature=@{
     )
 }
 
-# NotSignedResult is used to record unsigned files that we think should be signed
-$NotSignedResult=@{}
-
-# AllNotSignedFiles is used to record all unsigned files in vhd cache and we exclude files in SkipMapForSignature
-$AllNotSignedFiles=@{}
-
 . c:\windows-vhd-configuration.ps1
 
 filter Timestamp { "$(Get-Date -Format o): $_" }
@@ -243,6 +237,12 @@ function Test-ValidateSinglePackageSignature {
         $dir
     )
 
+    # NotSignedResult is used to record unsigned files that we think should be signed
+    $NotSignedResult=@{}
+
+    # AllNotSignedFiles is used to record all unsigned files in vhd cache and we exclude files in SkipMapForSignature
+    $AllNotSignedFiles=@{}
+
     foreach ($URL in $map[$dir]) {
         $fileName = [IO.Path]::GetFileName($URL)
         $dest = [IO.Path]::Combine($dir, $fileName)
@@ -259,7 +259,8 @@ function Test-ValidateSinglePackageSignature {
         }
 
         # Check signature for 4 types of files and record unsigned files
-        $NotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Include "*.exe", "*.ps1", "*.psm1", "*.dll" | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -ne "Valid"})
+        $includeList = @("*.exe", "*.ps1", "*.psm1", "*.dll")
+        $NotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Include $includeList | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -ne "Valid"})
         if ($NotSignedList.Count -ne 0) {
             foreach ($NotSignedFile in $NotSignedList) {
                 $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
@@ -273,8 +274,9 @@ function Test-ValidateSinglePackageSignature {
             }
         }
 
-        # Check signature for all types of files and record unsigned files
-        $AllNotSignedList = (Get-ChildItem -Path $installDir -Recurse -File | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -ne "Valid"})
+        # Check signature for all types of files except some known types and record unsigned files
+        $excludeList = @("*.man", "*.reg", "*.md", "*.toml", "*.cmd", "*.template", "*.txt", "*.wprp", "*.yaml", "*.json", "NOTICE", "*.config", "*.conflist")
+        $AllNotSignedList = (Get-ChildItem -Path $installDir -Recurse -File -Exclude $excludeList | ForEach-object {Get-AuthenticodeSignature $_.FullName} | Where-Object {$_.status -ne "Valid"})
         foreach ($NotSignedFile in $AllNotSignedList) {
             $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
             if (($SkipMapForSignature.ContainsKey($fileName) -and ($SkipMapForSignature[$fileName].Length -ne 0) -and !$SkipMapForSignature[$fileName].Contains($NotSignedFileName)) -or !$SkipMapForSignature.ContainsKey($fileName)) {
@@ -289,12 +291,14 @@ function Test-ValidateSinglePackageSignature {
         Remove-Item -Path $installDir -Force -Recurse
     }
 
-    $AllNotSignedFiles = (echo $AllNotSignedFiles | Format-Table | Out-String)
-    Write-Output "All not signed file in cached packages are: $AllNotSignedFiles"
+    if ($AllNotSignedFiles.Count -ne 0) {
+        $AllNotSignedFiles = (echo $AllNotSignedFiles | ConvertTo-Json -Compress)
+        Write-Output "Under folder $dir, all not signed file in cached packages are: $AllNotSignedFiles"
+    }
 
     if ($NotSignedResult.Count -ne 0) {
-        $NotSignedResult = (echo $NotSignedResult | Format-Table | Out-String)
-        Write-ErrorWithTimestamp "Binaries in $NotSignedResult are not signed"
+        $NotSignedResult = (echo $NotSignedResult | ConvertTo-Json -Compress)
+        Write-ErrorWithTimestamp "Under folder $dir, binaries in $NotSignedResult are not signed"
         exit 1
     }
 }
