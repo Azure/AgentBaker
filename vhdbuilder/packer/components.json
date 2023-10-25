@@ -73,7 +73,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.3.4"
+        "v1.3.4",
+        "v1.3.4-1"
       ]
     },
     {
@@ -163,7 +164,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.12.10-2",
-        "1.13.5"
+        "1.13.5",
+        "1.13.5-1"
       ]
     },
     {
@@ -177,11 +179,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.25.15",
         "v1.25.18",
-        "v1.26.11",
         "v1.26.14",
-        "v1.27.5",
         "v1.27.8",
         "v1.28.0"
       ]
@@ -227,6 +226,7 @@
         "v1.24.10",
         "v1.24.11",
         "v1.26.8",
+        "v1.26.8-1",
         "v1.26.9",
         "v1.28.5",
         "v1.28.6",
@@ -239,12 +239,16 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.19.5-5",
+        "v1.19.5-7",
         "v1.19.6",
         "v1.21.4-3",
+        "v1.21.4-5",
         "v1.21.5",
         "v1.22.2",
+        "v1.22.2-3",
         "v1.22.3",
         "v1.23.0",
+        "v1.23.0-3",
         "v1.23.1"
       ]
     },

@@ -108,10 +108,15 @@ installBpftrace() {
 }
 
 disableNtpAndTimesyncdInstallChrony() {
-    # Disable systemd-timesyncd
-    systemctl_stop 20 30 120 systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
-    systemctl disable systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
-
+    # Disable systemd-timesyncd if present
+    status=$(systemctl show -p SubState --value systemd-timesyncd)
+    if [ $status == 'dead' ]; then
+        echo "systemd-timesyncd is removed, no need to disable"
+    else
+        systemctl_stop 20 30 120 systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
+        systemctl disable systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
+    fi
+    
     # Disable ntp if present
     status=$(systemctl show -p SubState --value ntp)
     if [ $status == 'dead' ]; then
