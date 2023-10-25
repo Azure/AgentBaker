@@ -177,22 +177,30 @@ installAndConfigureArtifactStreamingUbuntu() {
   rm "./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
 }
 
-installAndConfigureArtifactStreamingAzLinux() {
+installACRMirrorProxy() {
+  # arguments: package name, package extension
+  PACKAGE_NAME=$1
+  PACKAGE_EXTENSION=$2
   MIRROR_PROXY_VERSION='0.2.3'
-  MIRROR_DOWNLOAD_PATH="./acr-mirror-mariner.rpm"
-  MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/${MIRROR_PROXY_VERSION}/acr-mirror-mariner.rpm"
-  retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOADL}
-  rpm -i $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+  MIRROR_DOWNLOAD_PATH="./$1.$2"
+  MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
+  retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
+  if [ "$2" == "deb" ]; then
+    apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+  elif [ "$2" == "rpm" ]; then
+    dnf_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+  fi
+  rm $MIRROR_DOWNLOAD_PATH
 }
 
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
 if [ $OS == $UBUNTU_OS_NAME ] && [ $(isARM64)  != 1 ] && [ $UBUNTU_MAJOR_VERSION -ge 20 ]; then
   # install and configure artifact streaming
-  installAndConfigureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+  installACRMirrorProxy acr-mirror-${UBUNTU_RELEASE//.} deb
 fi
 
 if [ $OS == $MARINER_OS_NAME ]  && [ $OS_VERSION == "2.0" ]; then
-  installAndConfigureArtifactStreamingAzLinux || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
+  installACRMirrorProxy acr-mirror-mariner rpm
 fi
 
 KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
