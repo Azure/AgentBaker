@@ -516,6 +516,10 @@ EOF
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
 }
 
+ensureSnapshotUpdate() {
+    systemctlEnableAndStart snapshot-update.timer || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
+}
+
 ensureMigPartition(){
     mkdir -p /etc/systemd/system/mig-partition.service.d/
     touch /etc/systemd/system/mig-partition.service.d/10-mig-profile.conf
