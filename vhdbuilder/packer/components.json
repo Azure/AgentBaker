@@ -40,18 +40,16 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.44.4",
         "v1.4.44.5",
-        "v1.5.5"
+        "v1.5.11"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/cni-dropgz:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.0.4",
         "v0.0.4.1",
-        "v0.0.9"
+        "v0.0.11"
       ]
     },
     {
@@ -73,7 +71,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.3.4"
+        "v1.3.4",
+        "v1.3.4-1"
       ]
     },
     {
@@ -101,7 +100,6 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "6.7.5-main-09-12-2023-8fbde9ca",
         "6.7.7-main-10-06-2023-b75a076c",
         "6.8.0-main-10-20-2023-182f67d4",
         "6.8.0-main-10-20-2023-182f67d4-targetallocator",
@@ -163,7 +161,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.12.10-2",
-        "1.13.5"
+        "1.13.5",
+        "1.13.5-1"
       ]
     },
     {
@@ -177,11 +176,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.25.15",
         "v1.25.18",
-        "v1.26.11",
         "v1.26.14",
-        "v1.27.5",
         "v1.27.8",
         "v1.28.0"
       ]
@@ -227,6 +223,7 @@
         "v1.24.10",
         "v1.24.11",
         "v1.26.8",
+        "v1.26.8-1",
         "v1.26.9",
         "v1.28.5",
         "v1.28.6",
@@ -239,12 +236,16 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.19.5-5",
+        "v1.19.5-7",
         "v1.19.6",
         "v1.21.4-3",
+        "v1.21.4-5",
         "v1.21.5",
         "v1.22.2",
+        "v1.22.2-3",
         "v1.22.3",
         "v1.23.0",
+        "v1.23.0-3",
         "v1.23.1"
       ]
     },
@@ -334,9 +335,8 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.5.5",
-        "1.4.43.1",
-        "1.4.43"
+        "1.5.11",
+        "1.4.43.1"
       ]
     },
     {
@@ -344,9 +344,8 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.5.5",
-        "1.4.43.1",
-        "1.4.43"
+        "1.5.11",
+        "1.4.43.1"
       ]
     },
     {
