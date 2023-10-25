@@ -6,11 +6,6 @@
         "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v*",
         "amd64OnlyVersions": [],
         "multiArchVersions": [
-          "1.24.10-hotfix.20230612",
-          "1.24.10-hotfix.20230612-1",
-          "1.24.15",
-          "1.24.15-1",
-          "1.24.9-hotfix.20230612",
           "1.25.11-hotfix.20230728-2",
           "1.25.11-hotfix.20231009-4",
           "1.25.5-hotfix.20230612",
