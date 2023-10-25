@@ -71,6 +71,9 @@ const (
 	reconcilePrivateHostsService              = "linux/cloud-init/artifacts/reconcile-private-hosts.service"
 	bindMountScript                           = "linux/cloud-init/artifacts/bind-mount.sh"
 	bindMountSystemdService                   = "linux/cloud-init/artifacts/bind-mount.service"
+	snapshotUpdateScript                      = "linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh"
+	snapshotUpdateSystemdService              = "linux/cloud-init/artifacts/ubuntu/snapshot-update.service"
+	snapshotUpdateSystemdTimer                = "linux/cloud-init/artifacts/ubuntu/snapshot-update.timer"
 	migPartitionScript                        = "linux/cloud-init/artifacts/mig-partition.sh"
 	migPartitionSystemdService                = "linux/cloud-init/artifacts/mig-partition.service"
 
