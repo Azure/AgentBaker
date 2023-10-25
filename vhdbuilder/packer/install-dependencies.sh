@@ -163,21 +163,7 @@ for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
   echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-installAndConfigureArtifactStreamingUbuntu() {
-  # download acr-mirror proxy
-  MIRROR_PROXY_VERSION='0.2.3'
-  UBUNTU_VERSION_CLEANED="${UBUNTU_RELEASE//.}"
-  MIRROR_DOWNLOAD_PATH="./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
-  MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
-  
-  retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOADL}
-  
-  apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-
-  rm "./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
-}
-
-installACRMirrorProxy() {
+installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
   PACKAGE_NAME=$1
   PACKAGE_EXTENSION=$2
@@ -195,12 +181,11 @@ installACRMirrorProxy() {
 
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
 if [ $OS == $UBUNTU_OS_NAME ] && [ $(isARM64)  != 1 ] && [ $UBUNTU_MAJOR_VERSION -ge 20 ]; then
-  # install and configure artifact streaming
-  installACRMirrorProxy acr-mirror-${UBUNTU_RELEASE//.} deb
+  installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
 fi
 
 if [ $OS == $MARINER_OS_NAME ]  && [ $OS_VERSION == "2.0" ]; then
-  installACRMirrorProxy acr-mirror-mariner rpm
+  installAndConfigureArtifactStreaming acr-mirror-mariner rpm
 fi
 
 KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
