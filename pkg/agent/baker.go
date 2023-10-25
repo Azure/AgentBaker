@@ -473,7 +473,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.HostedMasterProfile.FQDN
 		},
 		"IsAzureCNI": func() bool {
-			return cs.Properties.OrchestratorProfile.IsAzureCNI()
+			return cs.Properties.OrchestratorProfile.IsAzureCNI($HOME/.kube)
 		},
 		"IsNoneCNI": func() bool {
 			return cs.Properties.OrchestratorProfile.IsNoneCNI()
@@ -978,7 +978,8 @@ func getGPUDriverVersion(size string) string {
 		return datamodel.Nvidia510GridDriverVersion
 	}
 	if isStandardNCv1(size) {
-		return datamodel.Nvidia470CudaDriverVersion
+		return datamodel.Nvidia510CudaDriverVersion
+		// return datamodel.Nvidia470CudaDriverVersion
 	}
 	return datamodel.Nvidia525CudaDriverVersion
 }
