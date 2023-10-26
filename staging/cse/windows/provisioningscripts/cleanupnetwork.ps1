@@ -58,7 +58,8 @@ if ($global:NetworkPlugin -eq "azure") {
         "c:\windows\system32\azure-vnet-ipam.json",
         "c:\windows\system32\azure-vnet-ipam.json.lock"
         "c:\windows\system32\azure-vnet-ipamv6.json",
-        "c:\windows\system32\azure-vnet-ipamv6.json.lock"
+        "c:\windows\system32\azure-vnet-ipamv6.json.lock",
+        "c:\k\azurecns\azure-endpoints.json"
     )
 
     foreach ($file in $filesToRemove) {
