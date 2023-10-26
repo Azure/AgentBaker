@@ -56,6 +56,18 @@ $SkipMapForSignature=@{
     );
     "v1.28.1-1int.zip"=@(
         "win-bridge.exe"
+    );
+    "v1.25.15-1int.zip"=@(
+        "win-bridge.exe"
+    );
+    "v1.26.10-1int.zip"=@(
+        "win-bridge.exe"
+    );
+    "v1.27.7-1int.zip"=@(
+        "win-bridge.exe"
+    );
+    "v1.28.3-1int.zip"=@(
+        "win-bridge.exe"
     )
 }
 
