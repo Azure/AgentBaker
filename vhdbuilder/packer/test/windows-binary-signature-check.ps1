@@ -19,6 +19,7 @@ $env:WindowsSKU=$windowsSKU
 # win-bridge.exe is not signed in these k8s packages, and it will be removed from k8s package in the future
 $SkipMapForSignature=@{
     "aks-windows-cse-scripts-v0.0.31.zip"=@();
+    "aks-windows-cse-scripts-v0.0.32.zip"=@();
     "v1.24.9-hotfix.20230728-1int.zip"=@(
         "win-bridge.exe"
     );
@@ -41,6 +42,9 @@ $SkipMapForSignature=@{
         "win-bridge.exe"
     );
     "v1.26.0-hotfix.20230728-1int.zip"=@(
+        "win-bridge.exe"
+    );
+    "v1.26.3-hotfix.20230728-1int.zip"=@(
         "win-bridge.exe"
     );
     "v1.26.6-hotfix.20230728-1int.zip"=@(
