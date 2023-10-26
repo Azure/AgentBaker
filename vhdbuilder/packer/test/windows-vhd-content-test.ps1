@@ -36,6 +36,9 @@ $SkipMapForSignature=@{
     "v1.25.11-hotfix.20230728-1int.zip"=@(
         "win-bridge.exe"
     );
+    "v1.25.15-1int.zip"=@(
+        "win-bridge.exe"
+    );
     "v1.26.0-hotfix.20230728-1int.zip"=@(
         "win-bridge.exe"
     );
@@ -45,25 +48,22 @@ $SkipMapForSignature=@{
     "v1.26.6-hotfix.20230728-1int.zip"=@(
         "win-bridge.exe"
     );
+    "v1.26.10-1int.zip"=@(
+        "win-bridge.exe"
+    );
     "v1.27.1-hotfix.20230728-1int.zip"=@(
         "win-bridge.exe"
     );
     "v1.27.3-hotfix.20230728-1int.zip"=@(
         "win-bridge.exe"
     );
+    "v1.27.7-1int.zip"=@(
+        "win-bridge.exe"
+    );
     "v1.28.0-1int.zip"=@(
         "win-bridge.exe"
     );
     "v1.28.1-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.25.15-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.26.10-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.27.7-1int.zip"=@(
         "win-bridge.exe"
     );
     "v1.28.3-1int.zip"=@(
