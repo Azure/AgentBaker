@@ -25,9 +25,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/coredns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.10.1",
         "v1.8.7",
-        "v1.9.3",
         "v1.9.4"
       ]
     },
@@ -42,18 +40,16 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.44.4",
         "v1.4.44.5",
-        "v1.5.5"
+        "v1.5.11"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/cni-dropgz:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.0.4",
         "v0.0.4.1",
-        "v0.0.9"
+        "v0.0.11"
       ]
     },
     {
@@ -75,7 +71,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.3.4"
+        "v1.3.4",
+        "v1.3.4-1"
       ]
     },
     {
@@ -103,8 +100,10 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "6.7.5-main-09-12-2023-8fbde9ca",
-        "6.7.7-main-10-06-2023-b75a076c"
+        "6.7.7-main-10-06-2023-b75a076c",
+        "6.8.0-main-10-20-2023-182f67d4",
+        "6.8.0-main-10-20-2023-182f67d4-targetallocator",
+        "6.8.0-main-10-20-2023-182f67d4-cfg"
       ]
     },
     {
@@ -118,40 +117,35 @@
       "downloadURL": "mcr.microsoft.com/oss/calico/cni:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.24.6",
-        "v3.24.0"
+        "v3.24.6"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/node:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.24.6",
-        "v3.24.0"
+        "v3.24.6"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/typha:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.24.6",
-        "v3.24.0"
+        "v3.24.6"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.24.6",
-        "v3.24.0"
+        "v3.24.6"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.24.6",
-        "v3.24.0"
+        "v3.24.6"
       ]
     },
     {
@@ -166,16 +160,15 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.10-1",
         "1.12.10-2",
-        "1.13.5"
+        "1.13.5",
+        "1.13.5-1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/tigera/operator:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.28.0",
         "v1.28.13"
       ]
     },
@@ -183,11 +176,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.25.15",
         "v1.25.18",
-        "v1.26.11",
         "v1.26.14",
-        "v1.27.5",
         "v1.27.8",
         "v1.28.0"
       ]
@@ -218,24 +208,27 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.26.6-1",
         "v1.26.6-2",
-        "v1.28.2",
+        "v1.26.7",
         "v1.28.3",
-        "v1.29.0"
+        "v1.28.4",
+        "v1.29.0",
+        "v1.29.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.24.9",
         "v1.24.10",
-        "v1.26.7",
+        "v1.24.11",
         "v1.26.8",
-        "v1.28.4",
+        "v1.26.8-1",
+        "v1.26.9",
         "v1.28.5",
-        "v1.29.0"
+        "v1.28.6",
+        "v1.29.0",
+        "v1.29.1"
       ]
     },
     {
@@ -243,24 +236,33 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.19.5-5",
+        "v1.19.5-7",
+        "v1.19.6",
         "v1.21.4-3",
-        "v1.22.1-3",
+        "v1.21.4-5",
+        "v1.21.5",
         "v1.22.2",
-        "v1.23.0"
+        "v1.22.2-3",
+        "v1.22.3",
+        "v1.23.0",
+        "v1.23.0-3",
+        "v1.23.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.10.0"
+        "v2.10.0",
+        "v2.11.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.8.0"
+        "v2.8.0",
+        "v2.9.0"
       ]
     },
     {
@@ -333,9 +335,8 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.5.5",
-        "1.4.43.1",
-        "1.4.43"
+        "1.5.11",
+        "1.4.43.1"
       ]
     },
     {
@@ -343,9 +344,8 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.5.5",
-        "1.4.43.1",
-        "1.4.43"
+        "1.5.11",
+        "1.4.43.1"
       ]
     },
     {

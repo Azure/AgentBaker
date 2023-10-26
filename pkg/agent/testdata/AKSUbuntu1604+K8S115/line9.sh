@@ -82,6 +82,7 @@ ERR_ARTIFACT_STREAMING_INSTALL=153 # Error installing mirror proxy and overlaybd
 
 ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
 ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
+ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_TIMEOUT=169 # Timeout waiting for secure TLS bootrstrap kubelet exec plugin download
 
 ERR_DISBALE_IPTABLES=170 # Error disabling iptables service
 
@@ -90,6 +91,7 @@ ERR_DISABLE_SSH=172 # Error disabling ssh service
 
 ERR_VHD_REBOOT_REQUIRED=200 # Reserved for VHD reboot required exit condition
 ERR_NO_PACKAGES_FOUND=201 # Reserved for no security packages found exit condition
+ERR_SNAPSHOT_UPDATE_START_FAIL=202 # snapshot-update could not be started by systemctl
 
 ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
 

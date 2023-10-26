@@ -134,6 +134,27 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
 
+- path: /opt/azure/containers/ubuntu-snapshot-update.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "snapshotUpdateScript"}}
+
+- path: /etc/systemd/system/snapshot-update.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "snapshotUpdateService"}}
+
+- path: /etc/systemd/system/snapshot-update.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "snapshotUpdateTimer"}}
+
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
   encoding: gzip
@@ -276,7 +297,7 @@ write_files:
     AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
 {{- end}}
 
-{{ if EnableTLSBootstrapping -}}
+{{ if (or EnableSecureTLSBootstrapping EnableTLSBootstrapping) -}}
 - path: /var/lib/kubelet/bootstrap-kubeconfig
   permissions: "0644"
   owner: root
@@ -291,7 +312,23 @@ write_files:
     users:
     - name: kubelet-bootstrap
       user:
+      {{- if EnableSecureTLSBootstrapping }}
+        exec:
+          apiVersion: client.authentication.k8s.io/v1
+          command: /opt/azure/tlsbootstrap/tls-bootstrap-client
+          args:
+          - bootstrap
+          - --next-proto=aks-tls-bootstrap
+          {{- if GetCustomSecureTLSBootstrapAADServerAppID}}
+          - --aad-resource={{GetCustomSecureTLSBootstrapAADServerAppID}}
+          {{- else}}
+          - --aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630
+          {{- end}}
+          interactiveMode: Never
+          provideClusterInfo: true
+      {{- else }}
         token: "{{GetTLSBootstrapTokenForKubeConfig}}"
+      {{- end }}
     contexts:
     - context:
         cluster: localcluster

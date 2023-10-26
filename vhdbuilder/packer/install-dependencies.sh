@@ -123,6 +123,9 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     activateNfConntrack
 fi
 
+downloadSecureTLSBootstrapKubeletExecPlugin
+echo "  - secure-tls-bootstrap-kubelet-exec-plugin ${SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
+
 downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
 
@@ -162,10 +165,10 @@ done
 
 installAndConfigureArtifactStreaming() {
   # download acr-mirror proxy
-  MIRROR_PROXY_VERSION='9'
+  MIRROR_PROXY_VERSION='0.2.3'
   UBUNTU_VERSION_CLEANED="${UBUNTU_RELEASE//.}"
   MIRROR_DOWNLOAD_PATH="./acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
-  MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/Release-${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
+  MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/${MIRROR_PROXY_VERSION}/acr-mirror-${UBUNTU_VERSION_CLEANED}.deb"
   
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOADL}
   
@@ -288,9 +291,8 @@ unpackAzureCNI() {
 
 #must be both amd64/arm64 images
 VNET_CNI_VERSIONS="
-1.5.5
+1.5.11
 1.4.43.1
-1.4.43
 "
 
 
@@ -304,9 +306,8 @@ done
 #UNITE swift and overlay versions?
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 SWIFT_CNI_VERSIONS="
-1.5.5
+1.5.11
 1.4.43.1
-1.4.43
 "
 
 for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do

@@ -136,6 +136,10 @@ if [ "${IS_KRUSTLET}" == "true" ]; then
     logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
 fi
 
+if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+    logs_to_events "AKS.CSE.downloadSecureTLSBootstrapKubeletExecPlugin" downloadSecureTLSBootstrapKubeletExecPlugin
+fi
+
 # By default, never reboot new nodes.
 REBOOTREQUIRED=false
 
@@ -298,6 +302,10 @@ fi
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
+fi
+
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+    logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
 fi
 
 if $FULL_INSTALL_REQUIRED; then
