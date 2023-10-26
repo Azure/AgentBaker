@@ -8,56 +8,58 @@ message Configuration {
   
   string cluster_certificate_authority = 1;
 
-  // only required until Secure TLS bootstrapping in place
-  // would use kubelet identity after that.
-  string tls_bootstrap_token = 2;
-
   // cluster/user config
-  string kubernetes_version = 3; // Q: can this be auto-detected? Or is this part of specifying the desired node version?
+  string kubernetes_version = 2; // Q: can this be auto-detected? Or is this part of specifying the desired node version?
     // removed kubernetesHyperkubeSpec
-  string kube_binary_url = 4;      // maybe we can combine this and custom_kube_binary_url later once we figure out the logic of how they are used.
-  string custom_kube_binary_url = 5;
-  string kubeproxy_url = 6;
-  ApiServerConfig apiserver_config = 7;
-  string subscription_id = 8;
-  string resource_group = 9;
-  string location = 10;
-  string vm_type = 11;  
+  string kube_binary_url = 3;      // maybe we can combine this and custom_kube_binary_url later once we figure out the logic of how they are used.
+  string custom_kube_binary_url = 4;
+  string kubeproxy_url = 5;
+  ApiServerConfig apiserver_config = 6;
+  string subscription_id = 7;
+  string resource_group = 8;
+  string location = 9;
+  string vm_type = 10;  
   
-  string primary_availability_set = 12;
-  string primary_scale_set = 13;
+  string primary_availability_set = 11;
+  string primary_scale_set = 12;
   
-  CloudProviderConfig cloud_provider_config = 14;
-  IdentityConfiguration identity_configuration = 15;
+  CloudProviderConfig cloud_provider_config = 13;
+  IdentityConfiguration identity_configuration = 14;
 
-  RuncConfig runc_config = 16;
+  RuncConfig runc_config = 15;
 
   // ... and a bunch of user-specified config
-  string repo_depot_endpoint = 17;
-  string linux_admin_username = 18;
+  string repo_depot_endpoint = 16;
+  string linux_admin_username = 17;
     // removed mobyVersion
-  string tenant_id = 19;
-  bool use_instance_metadata = 20;
-  LoadBalancerConfig load_balancer_config = 21;
+  string tenant_id = 18;
+  bool use_instance_metadata = 19;
+  LoadBalancerConfig load_balancer_config = 20;
     // removed containerRuntime
     // removed cliTool because docker is deprecated. Only "ctr" will be supported.
-  ContainerdConfig containerd_config = 22;
-  bool is_vhd = 23;
-  GpuConfig gpu_config = 24;
-  bool is_sgx_node = 25;
-  TeleportConfig teleport_config = 26;
+  ContainerdConfig containerd_config = 21;
+  bool is_vhd = 22;
+  GpuConfig gpu_config = 23;
+  bool is_sgx_node = 24;
+  TeleportConfig teleport_config = 25;
   // removed NEEDS_CONTAINERD because it's always needed now
 
-  HttpProxyConfig http_proxy_configuration = 27;
-  FeatureState ssh_status = 28;
-  FeatureState unattended_upgrade_status = 29;
-  string message_of_the_day = 30;
-  string swap_file_size_mb = 31;
-  SysctlConfig sysctls = 32;
-  KubeletConfiguration kubelet_configuration = 33;
-  optional string gpu_instance_profile = 34;
-  FeatureState hosts_config_agent_status = 35;
-  CustomCaTrustConfig custom_ca_trust_config = 36;
+  HttpProxyConfig http_proxy_configuration = 26;
+  FeatureState ssh_status = 27;
+  FeatureState unattended_upgrade_status = 28;
+  string message_of_the_day = 29;
+  SysctlConfig sysctls = 30;
+  KubeletConfiguration kubelet_configuration = 31;
+  optional string gpu_instance_profile = 32;
+  FeatureState hosts_config_agent_status = 33;
+  CustomCaTrustConfig custom_ca_trust_config = 34;
+  FeatureState artifact_streaming_status = 35;
+  CustomLinuxOSConfig custom_linux_os_config = 36;
+  CustomSearchDomain custom_search_domain = 37;
+  TLSBootstrapping tls_bootstrapping = 38;
+  FeatureState ipv6_dual_stack_enabled = 39;
+  string private_egress_proxy_address = 40;
+  ServicePrincipal service_principal = 41;
 }
 
 message KubeletConfiguration {
@@ -67,6 +69,7 @@ message KubeletConfiguration {
   repeated Taint taints = 3;
   repeated Taint startup_taints = 4;
   KubeletDiskType kubelet_disk_type = 5;
+  string kubelet_config_file_content = 6; // analyze this further but looks like this will be needed
 }
 
 message SysctlConfig {
@@ -197,6 +200,8 @@ message GpuConfig {
   FeatureState config_gpu_driver_if_needed = 3;    //we can revise this name later when we clearly understand what it's doing
   FeatureState enable_gpu_device_plugin_if_needed = 4; //we can revise this name later when we clearly understand what it's doing
   FeatureState fabric_manager_status = 5;  //consider just extracting vm_size since both GPUNeedsFabricManager and getGPUDriverVersion are just depending ont vm_size.
+  string gpu_driver_version = 6; // this depends only on VM size as stated above, can probably be placed on the VHD, sync with Ganesh on this
+  string gpu_instance_profile = 7; // this is tied to MIG, clean this up once there is clarity
 }
 
 message ContainerdConfig {
@@ -225,4 +230,40 @@ message NetworkConfig {
   string cni_plugins_url = 7;
   string subnet = 8;
   string route_table = 9;
+}
+
+message CustomLinuxOSConfig {
+  bool should_config_swap_file = 1;
+  bool should_config_transparent_hugepage = 2;
+  bool should_config_containerd_ulimits = 3;
+  string containerd_ulimits = 4;
+  string swap_file_size_mb = 5;
+  string transparent_hugepage = 6;
+  string transparent_defrag = 7;
+}
+
+message CustomSearchDomain {
+  string custom_search_domain_name = 1;
+  string custom_search_domain_realm_user = 2;
+  string custom_search_domain_realm_password = 3;
+}
+
+message TLSBootstrapping {
+  // discuss whether this should be featureState or bool
+  // understand how defaulting works for enum, because we want default to be false
+  FeatureState tls_bootstrapping = 1;
+  FeatureState secure_tls_bootstrapping = 2;
+  string tls_bootstrap_token = 3;
+}
+
+message CustomCloudConfig {
+  string target_environment = 1;
+  string target_cloud = 2;  // can probably get rid of this, analyze more
+  bool is_custom_cloud = 3; 
+}
+
+message ServicePrincipal {
+  string service_principal_file_content = 1;
+  string kubelet_client_key = 2;
+  string kubelet_client_cert = 3;
 }
