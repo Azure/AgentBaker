@@ -335,8 +335,8 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.5.11",
-        "1.4.43.1"
+        "1.5.13",
+        "v1.4.44.5"
       ]
     },
     {
@@ -344,8 +344,8 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.5.11",
-        "1.4.43.1"
+        "1.5.13",
+        "v1.4.44.5"
       ]
     },
     {
@@ -353,7 +353,7 @@
       "downloadLocation": "/opt/crictl/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v*/binaries",
       "versions": [
-        "1.25.0"
+        "1.28.0"
       ],
       "targetContainerRuntime": "containerd"
     }
