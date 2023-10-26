@@ -1,0 +1,24 @@
+
+steps:
+- bash: |
+        echo "Build Number is: $(Build.BuildNumber)"
+        echo "Build Id is: $(Build.BuildId)"
+        echo "BUILD_BUILDNUMBER: ${BUILD_BUILDNUMBER}"
+        echo "run_id is $RUN_ID"
+        
+        echo "##vso[task.setvariable variable=BUILD_BUILDNUMBER]$(Build.BuildNumber)"
+        
+        echo "##vso[task.setvariable variable=RELEASE_RELEASENAME]$(Build.BuildNumber)"
+        
+        echo "##vso[task.setvariable variable=RELEASE_ARTIFACTS_EV2_ARTIFACTS_BUILDNUMBER]$(Build.BuildNumber)"
+        
+        echo "Release Release Name is :$(Release.ReleaseName) ${RELEASE_RELEASENAME}"
+        
+        echo "Release Artifact ev2 Build Number is ${RELEASE_ARTIFACTS_EV2_ARTIFACTS_BUILDNUMBER} $(Release.Artifacts.ev2_artifacts.BuildNumber)"
+        
+        response=$(az pipelines release create --artifact-metadata-list "ev2_artifacts=$RUN_ID" --definition-name "[EV2][VT4.1.mod] AKS Windows VHD SIG release" --description "windows VHD sig release" --detect true --open --output json)
+        echo "release response is"
+        echo $response
+        release_id=$(echo $response | jq -r '.id')
+        echo "Windows VHD SIG release: https://msazure.visualstudio.com/CloudNativeCompute/_releaseProgress?_a=release-pipeline-progress&releaseId=$release_id"
+  displayName: 'ev2 pipeline release'
