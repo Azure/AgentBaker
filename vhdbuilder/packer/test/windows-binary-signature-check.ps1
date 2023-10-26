@@ -2,7 +2,7 @@
     .SYNOPSIS
         verify the signature of binaries in windows vhd cached packages
     .DESCRIPTION
-        This script is used to verify the signature of binaries in windows vhd cached packages`
+        This script is used to verify the signature of binaries in windows vhd cached packages
 #>
 
 param (
