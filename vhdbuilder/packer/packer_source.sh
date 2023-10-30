@@ -105,6 +105,12 @@ copyPackerFiles() {
   RECONCILE_PRIVATE_HOSTS_DEST=/opt/azure/containers/reconcilePrivateHosts.sh
   KUBELET_SERVICE_SRC=/home/packer/kubelet.service
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
+  USU_SH_SRC=/home/packer/ubuntu-snapshot-update.sh
+  USU_SH_DEST=/opt/azure/containers/ubuntu-snapshot-update.sh
+  USU_SERVICE_SRC=/home/packer/snapshot-update.service
+  USU_SERVICE_DEST=/etc/systemd/system/snapshot-update.service
+  USU_TIMER_SRC=/home/packer/snapshot-update.timer
+  USU_TIMER_DEST=/etc/systemd/system/snapshot-update.timer
   VHD_CLEANUP_SCRIPT_SRC=/home/packer/cleanup-vhd.sh
   VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
 
@@ -123,6 +129,32 @@ copyPackerFiles() {
   PVT_HOST_SVC_SRC=/home/packer/reconcile-private-hosts.service
   PVT_HOST_SVC_DEST=/etc/systemd/system/reconcile-private-hosts.service
   cpAndMode $CSE_REDACT_SRC $CSE_REDACT_DEST 600
+
+  if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+    # KataCC SPEC file assumes kata config points to the files exactly under this path
+    KATA_CONFIG_DIR=/var/cache/kata-containers/osbuilder-images/kernel-uvm/
+    KATACC_CONFIG_DIR=/opt/confidential-containers/share/kata-containers
+
+    IGVM_DEBUG_BIN_SRC=/home/packer/kata-containers-igvm-debug.img
+    IGVM_DEBUG_BIN_DEST=$KATACC_CONFIG_DIR/kata-containers-igvm-debug.img
+    cpAndMode $IGVM_DEBUG_BIN_SRC $IGVM_DEBUG_BIN_DEST 0755
+
+    IGVM_BIN_SRC=/home/packer/kata-containers-igvm.img
+    IGVM_BIN_DEST=$KATACC_CONFIG_DIR/kata-containers-igvm.img
+    cpAndMode $IGVM_BIN_SRC $IGVM_BIN_DEST 0755
+
+    KATA_INITRD_SRC=/home/packer/kata-containers-initrd-base.img
+    KATA_INITRD_DEST=$KATA_CONFIG_DIR/kata-containers-initrd.img
+    cpAndMode $KATA_INITRD_SRC $KATA_INITRD_DEST 0755
+
+    KATACC_IMAGE_SRC=/home/packer/kata-containers.img
+    KATACC_IMAGE_DEST=$KATACC_CONFIG_DIR/kata-containers.img
+    cpAndMode $KATACC_IMAGE_SRC $KATACC_IMAGE_DEST 0755
+
+    REF_INFO_SRC=/home/packer/reference-info-base64
+    REF_INFO_DEST=$KATACC_CONFIG_DIR/reference-info-base64
+    cpAndMode $REF_INFO_SRC $REF_INFO_DEST 0755
+  fi
 
   MIG_PART_SRC=/home/packer/mig-partition.service
   MIG_PART_DEST=/etc/systemd/system/mig-partition.service
@@ -267,6 +299,9 @@ copyPackerFiles() {
     cpAndMode $NVIDIA_MODPROBE_SERVICE_SRC $NVIDIA_MODPROBE_SERVICE_DEST 644
     cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
     cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
+    cpAndMode $USU_SH_SRC $USU_SH_DEST 544
+    cpAndMode $USU_SERVICE_SRC $USU_SERVICE_DEST 644
+    cpAndMode $USU_TIMER_SRC $USU_TIMER_DEST 644
   fi
   if [[ $OS == $MARINER_OS_NAME ]]; then
     cpAndMode $CONTAINERD_SERVICE_SRC $CONTAINERD_SERVICE_DEST 644

@@ -76,7 +76,6 @@ func isExistingResourceGroup(ctx context.Context, cloud *azureClient, resourceGr
 }
 
 func ensureResourceGroup(ctx context.Context, cloud *azureClient, suiteConfig *suiteConfig) error {
-	suiteConfig.resourceGroupName = fmt.Sprintf(abe2eResourceGroupNameTemplate, suiteConfig.location)
 	log.Printf("ensuring resource group %q...", suiteConfig.resourceGroupName)
 
 	rgExists, err := isExistingResourceGroup(ctx, cloud, suiteConfig.resourceGroupName)
