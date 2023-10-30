@@ -144,6 +144,8 @@ function Update-DefenderPreferences {
     Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-vnet.exe"
     Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\AzureNetworkContainer.exe"
     Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\CnsWrapperService.exe"
+    Add-MpPreference -ExclusionPath "C:\k\azurecns\azure-endpoints.json"
+    Add-MpPreference -ExclusionPath "C:\k\azure-vnet.log"
 
     if ($global:EnableCsiProxy) {
         Add-MpPreference -ExclusionProcess "c:\k\csi-proxy.exe"
