@@ -1,0 +1,18 @@
+name: Windows Binary Signature Check
+on: pull_request
+
+jobs:
+  check-signature:
+    name: Check Windows Binary Signature
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Geneate windows vhd configuration
+        shell: powershell
+        run: |
+          ./vhdbuilder/packer/generate-windows-vhd-configuration.ps1
+      - name: Run check script
+        shell: powershell
+        run: |
+          ./vhdbuilder/packer/test/windows-binary-signature-check.ps1 2022-containerd

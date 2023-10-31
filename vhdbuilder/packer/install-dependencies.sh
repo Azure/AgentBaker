@@ -19,6 +19,7 @@ COMPONENTS_FILEPATH=/opt/azure/components.json
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
 
+echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
 # other VHDs use grub-pc, not grub-efi
 if [[ "${UBUNTU_RELEASE}" == "20.04" ]] && [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
@@ -296,9 +297,8 @@ unpackAzureCNI() {
 
 #must be both amd64/arm64 images
 VNET_CNI_VERSIONS="
-1.5.5
+1.5.11
 1.4.43.1
-1.4.43
 "
 
 
@@ -312,9 +312,8 @@ done
 #UNITE swift and overlay versions?
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 SWIFT_CNI_VERSIONS="
-1.5.5
+1.5.11
 1.4.43.1
-1.4.43
 "
 
 for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
