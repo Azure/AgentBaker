@@ -185,7 +185,7 @@ if [ $OS == $UBUNTU_OS_NAME ] && [ $(isARM64)  != 1 ] && [ $UBUNTU_MAJOR_VERSION
   installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
 fi
 
-if [ $OS == $MARINER_OS_NAME ]  && [ $OS_VERSION == "2.0" ] && [ $(isARM64)  != 1 ] && [[ ${ENABLE_FIPS,,} == "true" ]]; then
+if [ $OS == $MARINER_OS_NAME ]  && [ $OS_VERSION == "2.0" ] && [ $(isARM64)  != 1 ] && [[ ${ENABLE_FIPS,,} != "true" ]]; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
 fi
 
