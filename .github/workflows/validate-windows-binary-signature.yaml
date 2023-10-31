@@ -1,10 +1,14 @@
-name: Windows Binary Signature Check
-on: pull_request
+name: Windows Files and Images Check
+on: 
+  pull_request:
+    paths:
+      - 'vhdbuilder/packer/test/windows-files-check.ps1'
+      - 'vhdbuilder/packer/generate-windows-vhd-configuration.ps1'
 
 jobs:
-  check-signature:
-    name: Check Windows Binary Signature
-    runs-on: windows-latest
+  check-files-forws2019:
+    name: Check Windows Files and Images
+    runs-on: windows-2019
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
@@ -12,7 +16,21 @@ jobs:
         shell: powershell
         run: |
           ./vhdbuilder/packer/generate-windows-vhd-configuration.ps1
-      - name: Run check script
+      - name: Run check script for 2019-containerd
         shell: powershell
         run: |
-          ./vhdbuilder/packer/test/windows-binary-signature-check.ps1 2022-containerd
+          ./vhdbuilder/packer/test/windows-files-check.ps1 2019-containerd
+  check-files-for-ws2022:
+    name: Check Windows Files and Images
+    runs-on: windows-2022
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Geneate windows vhd configuration
+        shell: powershell
+        run: |
+          ./vhdbuilder/packer/generate-windows-vhd-configuration.ps1
+      - name: Run check script for 2022-containerd
+        shell: powershell
+        run: |
+          ./vhdbuilder/packer/test/windows-files-check.ps1 2022-containerd

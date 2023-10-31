@@ -73,11 +73,54 @@ $SkipMapForSignature=@{
     )
 }
 
+# MisMatchFile is used to record files whose hash values are different on Global and MoonCake
+$MisMatchFile=@{}
+
 # NotSignedResult is used to record unsigned files that we think should be signed
 $NotSignedResult=@{}
 
 # AllNotSignedFiles is used to record all unsigned files in vhd cache and we exclude files in SkipMapForSignature
 $AllNotSignedFiles=@{}
+
+function Start-Job-To-Expected-State {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position=0, Mandatory=$true)]
+        [string]$JobName,
+
+        [Parameter(Position=1, Mandatory=$true)]
+        [scriptblock]$ScriptBlock,
+
+        [Parameter(Position=2, Mandatory=$false)]
+        [string]$ExpectedState = 'Running',
+
+        [Parameter(Position=3, Mandatory=$false)]
+        [int]$MaxRetryCount = 10,
+
+        [Parameter(Position=4, Mandatory=$false)]
+        [int]$DelaySecond = 10
+    )
+
+    Begin {
+        $cnt = 0
+    }
+
+    Process {
+
+
+        Start-Job -Name $JobName -ScriptBlock $ScriptBlock
+
+        do {
+            Start-Sleep $DelaySecond
+            $job = (Get-Job -Name $JobName)
+            if ($job -and ($job.State -Match $ExpectedState)) { return }
+            $cnt++
+        } while ($cnt -lt $MaxRetryCount)
+
+        Write-Error "Cannot start $JobName"
+        exit 1
+    }
+}
 
 function DownloadFileWithRetry {
     param (
@@ -122,11 +165,6 @@ function Test-ValidateSinglePackageSignature {
     foreach ($URL in $map[$dir]) {
         $fileName = [IO.Path]::GetFileName($URL)
         $dest = [IO.Path]::Combine($dir, $fileName)
-        if (!(Test-Path $dir)) {
-            New-Item -ItemType Directory $dir -Force | Out-Null
-        }
-
-        DownloadFileWithRetry -URL $URL -Dest $dest -redactUrl
 
         $installDir="c:\SignatureCheck"
         if (!(Test-Path $installDir)) {
@@ -179,4 +217,152 @@ function Test-ValidateSinglePackageSignature {
     }
 }
 
+function Test-ValidateSingleFileOnMoonCake {
+    param (
+        $dir
+    )
+
+    $excludeHashComparisionListInAzureChinaCloud = @(
+        "calico-windows",
+        "azure-vnet-cni-singletenancy-windows-amd64",
+        "azure-vnet-cni-singletenancy-swift-windows-amd64",
+        "azure-vnet-cni-singletenancy-overlay-windows-amd64",
+        # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
+        # so we can ignore the different hash values.
+        "v1.26.0-1int.zip"
+    )
+
+    foreach ($URL in $map[$dir]) {
+        $fileName = [IO.Path]::GetFileName($URL)
+        $dest = [IO.Path]::Combine($dir, $fileName)
+        if (!(Test-Path $dir)) {
+            New-Item -ItemType Directory $dir -Force | Out-Null
+        }
+
+        DownloadFileWithRetry -URL $URL -Dest $dest -redactUrl
+        $globalFileSize = (Get-Item $dest).length
+        
+        $isIgnore=$False
+        foreach($excludePackage in $excludeHashComparisionListInAzureChinaCloud) {
+            if ($URL.Contains($excludePackage)) {
+                $isIgnore=$true
+                break
+            }
+        }
+        if ($isIgnore) {
+            continue
+        }
+
+        if ($URL.StartsWith("https://acs-mirror.azureedge.net/")) {
+            $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
+
+            $mooncakeFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
+
+            if ($globalFileSize -ne $mooncakeFileSize) {
+                $MisMatchFile[$URL]=$mcURL
+            }
+        }
+    }
+}
+
+function Test-ValidateFilesOnMoonCake {
+    foreach ($dir in $map.Keys) {
+        Test-ValidateSingleFileOnMoonCake $dir
+    }
+
+    if ($MisMatchFile.Count -ne 0) {
+        $MisMatchFile = (echo $MisMatchFile | ConvertTo-Json -Compress)
+        Write-Error "The following files have different sizes on global and mooncake: $MisMatchFile"
+    }
+}
+
+function Retry-Command {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position=0, Mandatory=$true)]
+        [scriptblock]$ScriptBlock,
+
+        [Parameter(Position=1, Mandatory=$true)]
+        [string]$ErrorMessage,
+
+        [Parameter(Position=2, Mandatory=$false)]
+        [int]$Maximum = 5,
+
+        [Parameter(Position=3, Mandatory=$false)]
+        [int]$Delay = 10
+    )
+
+    Begin {
+        $cnt = 0
+    }
+
+    Process {
+        do {
+            $cnt++
+            try {
+                $ScriptBlock.Invoke()
+                if ($LASTEXITCODE) {
+                    throw "Retry $cnt : $ErrorMessage"
+                }
+                return
+            } catch {
+                Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
+                if ($_.Exception.InnerException.Message.Contains("There is not enough space on the disk. (0x70)")) {
+                    Write-Error "Exit retry since there is not enough space on the disk"
+                    break
+                }
+                Start-Sleep $Delay
+            }
+        } while ($cnt -lt $Maximum)
+
+        # Throw an error after $Maximum unsuccessful invocations. Doesn't need
+        # a condition, since the function returns upon successful invocation.
+        throw 'All retries failed. $ErrorMessage'
+    }
+}
+
+function Test-PullImages {
+    Write-Output "Test-PullImages."
+
+    $containerdFileName = [IO.Path]::GetFileName($global:defaultContainerdPackageUrl)
+    $dest = [IO.Path]::Combine("c:\akse-cache\containerd\", $containerdFileName)
+
+    $installDir="c:\program files\containerd"
+    if (!(Test-Path $installDir)) {
+        New-Item -ItemType Directory $installDir -Force | Out-Null
+    }
+    if ($containerdFilename.endswith(".zip")) {
+        Expand-Archive -path $dest -DestinationPath $installDir -Force
+    } else {
+        tar -xzf $dest -C $installDir
+        mv -Force $installDir\bin\* $installDir
+        Remove-Item -Path $installDir\bin -Force -Recurse
+    }
+
+    $newPaths = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine) + ";$installDir"
+    [Environment]::SetEnvironmentVariable("Path", $newPaths, [EnvironmentVariableTarget]::Machine)
+    $env:Path += ";$installDir"
+
+    $containerdConfigPath = [Io.Path]::Combine($installDir, "config.toml")
+    # enabling discard_unpacked_layers allows GC to remove layers from the content store after
+    # successfully unpacking these layers to the snapshotter to reduce the disk space caching Windows containerd images
+    (containerd config default)  | %{$_ -replace "discard_unpacked_layers = false", "discard_unpacked_layers = true"}  | Out-File  -FilePath $containerdConfigPath -Encoding ascii
+
+    Get-Content $containerdConfigPath
+
+    Start-Job -Name containerd -ScriptBlock { containerd.exe }
+   
+    Write-Output "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
+    foreach ($image in $imagesToPull) {
+        Write-Output "Pulling image $image"
+        Retry-Command -ScriptBlock {
+            & crictl.exe pull $image
+        } -ErrorMessage "Failed to pull image $image"
+    }
+    Stop-Job  -Name containerd
+    Remove-Job -Name containerd
+}
+
+Test-ValidateFilesOnMoonCake
 Test-ValidateAllSignature
+Test-PullImages
