@@ -100,8 +100,6 @@ generate: bootstrap
 	popd \
 	)
 	GENERATE_TEST_DATA="true" go test ./pkg/agent...
-	@echo "compiling proto files in ./pkg/proto/ to pb.go files"
-	@$(MAKE) compile-proto-files
 	@echo "running validate-shell to make sure generated cse scripts are correct"
 	@$(MAKE) validate-shell
 
