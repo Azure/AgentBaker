@@ -375,6 +375,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "nano_image_url": "${windows_nanoserver_image_url}",
   "core_image_url": "${windows_servercore_image_url}",
   "windows_private_packages_url": "${windows_private_packages_url}",
+  "windows_system_info_database": "${WINDOWS_SYSTEM_INFO_DATABASE}",
   "windows_sigmode_source_subscription_id": "${windows_sigmode_source_subscription_id}",
   "windows_sigmode_source_resource_group_name": "${windows_sigmode_source_resource_group_name}",
   "windows_sigmode_source_gallery_name": "${windows_sigmode_source_gallery_name}",
