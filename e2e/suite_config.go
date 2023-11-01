@@ -3,6 +3,20 @@ package e2e_test
 import (
 	"fmt"
 	"os"
+	"strings"
+)
+
+const (
+	subscriptionIdEnvironmentVarName     = "SUBSCRIPTION_ID"
+	locationEnvironmentVarName           = "LOCATION"
+	keepVMSSEnvironmentVarName           = "KEEP_VMSS"
+	scenariosToRunEnvironmentVarName     = "SCENARIOS_TO_RUN"
+	scenariosToExcludeEnvironmentVarName = "SCENARIOS_TO_EXCLUDE"
+
+	suiteConfigStringTemplate = `subscription: %[1]s,
+location: %[2]s,
+resource group: %[3]s,
+keep vmss: %[4]t`
 )
 
 type suiteConfig struct {
@@ -14,10 +28,15 @@ type suiteConfig struct {
 	keepVMSS           bool
 }
 
+func (c *suiteConfig) String() string {
+	return fmt.Sprintf(suiteConfigStringTemplate, c.subscription, c.location, c.resourceGroupName, c.keepVMSS)
+}
+
 func newSuiteConfig() (*suiteConfig, error) {
+	// required environment variables
 	var environment = map[string]string{
-		"SUBSCRIPTION_ID": "",
-		"LOCATION":        "",
+		subscriptionIdEnvironmentVarName: "",
+		locationEnvironmentVarName:       "",
 	}
 
 	for k := range environment {
@@ -29,14 +48,14 @@ func newSuiteConfig() (*suiteConfig, error) {
 	}
 
 	config := &suiteConfig{
-		subscription:   environment["SUBSCRIPTION_ID"],
-		location:       environment["LOCATION"],
-		scenariosToRun: strToBoolMap(os.Getenv("SCENARIOS_TO_RUN")),
-		keepVMSS:       os.Getenv("KEEP_VMSS") == "true",
+		subscription:      environment[subscriptionIdEnvironmentVarName],
+		location:          environment[locationEnvironmentVarName],
+		resourceGroupName: fmt.Sprintf(abe2eResourceGroupNameTemplate, environment[locationEnvironmentVarName]),
+		keepVMSS:          strings.EqualFold(os.Getenv(keepVMSSEnvironmentVarName), "true"),
 	}
 
-	include := os.Getenv("SCENARIOS_TO_RUN")
-	exclude := os.Getenv("SCENARIOS_TO_EXCLUDE")
+	include := os.Getenv(scenariosToRunEnvironmentVarName)
+	exclude := os.Getenv(scenariosToExcludeEnvironmentVarName)
 
 	// enforce SCENARIOS_TO_RUN over SCENARIOS_TO_EXCLUDE
 	if include != "" {

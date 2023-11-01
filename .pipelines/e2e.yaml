@@ -25,7 +25,7 @@ jobs:
       export PATH="/usr/local/go/bin:$PATH"
       go version
       cd e2e
-      go test -timeout 30m -v -run Test_All ./
+      go test -timeout 45m -v -run Test_All ./
     displayName: Run AgentBaker E2E
   - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
     artifact: scenario-logs

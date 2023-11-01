@@ -90,9 +90,8 @@ $global:imagesToPull += @(
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
     "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.15",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.4",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.5",
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.5.5"
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.5.11"
 )
 
 $global:map = @{
@@ -136,13 +135,17 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.25.5-hotfix.20230728/windowszip/v1.25.5-hotfix.20230728-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.25.6-hotfix.20230728/windowszip/v1.25.6-hotfix.20230728-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.25.11-hotfix.20230728/windowszip/v1.25.11-hotfix.20230728-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.25.15/windowszip/v1.25.15-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.26.0-hotfix.20230728/windowszip/v1.26.0-hotfix.20230728-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.26.3-hotfix.20230728/windowszip/v1.26.3-hotfix.20230728-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.26.6-hotfix.20230728/windowszip/v1.26.6-hotfix.20230728-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.26.10/windowszip/v1.26.10-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.1-hotfix.20230728/windowszip/v1.27.1-hotfix.20230728-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.3-hotfix.20230728/windowszip/v1.27.3-hotfix.20230728-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.27.7/windowszip/v1.27.7-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.0/windowszip/v1.28.0-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.28.1/windowszip/v1.28.1-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.28.1/windowszip/v1.28.1-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.28.3/windowszip/v1.28.3-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         # Azure CNI v1 (legacy)

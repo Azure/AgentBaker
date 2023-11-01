@@ -1,11 +1,9 @@
 [Unit]
-Description=enabledhcpv6
-After=network-online.target
+Description=Runs snapshot update script periodically
 
-[Service]
-Type=oneshot
-ExecStart=/opt/azure/containers/enable-dhcpv6.sh
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=10min
 
 [Install]
 WantedBy=multi-user.target
-#EOF

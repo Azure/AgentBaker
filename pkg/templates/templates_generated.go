@@ -89,6 +89,9 @@
 // linux/cloud-init/artifacts/teleportd.service
 // linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
 // linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh
+// linux/cloud-init/artifacts/ubuntu/snapshot-update.service
+// linux/cloud-init/artifacts/ubuntu/snapshot-update.timer
+// linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh
 // linux/cloud-init/artifacts/update_certs.path
 // linux/cloud-init/artifacts/update_certs.service
 // linux/cloud-init/artifacts/update_certs.sh
@@ -1681,6 +1684,7 @@ NO_PROXY_URLS="{{GetNoProxy}}"
 PROXY_VARS="{{GetProxyVariables}}"
 ENABLE_TLS_BOOTSTRAPPING="{{EnableTLSBootstrapping}}"
 ENABLE_SECURE_TLS_BOOTSTRAPPING="{{EnableSecureTLSBootstrapping}}"
+CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID="{{GetCustomSecureTLSBootstrapAADServerAppID}}"
 DHCPV6_SERVICE_FILEPATH="{{GetDHCPv6ServiceCSEScriptFilepath}}"
 DHCPV6_CONFIG_FILEPATH="{{GetDHCPv6ConfigCSEScriptFilepath}}"
 THP_ENABLED="{{GetTransparentHugePageEnabled}}"
@@ -1892,7 +1896,6 @@ EOF
   systemctl restart containerd
 }
 
-
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
@@ -2087,6 +2090,8 @@ ensureArtifactStreaming() {
   systemctl start acr-mirror.service
   sudo /opt/acr/tools/overlaybd/install.sh
   sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
+  sudo /opt/acr/tools/overlaybd/config.sh download.enable false
+  sudo /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
   modprobe target_core_user
   curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd' -O
   systemctl enable /opt/overlaybd/overlaybd-tcmu.service
@@ -2137,8 +2142,8 @@ ensureKubelet() {
     mkdir -p "$(dirname "${KUBE_CA_FILE}")"
     echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
     chmod 0600 "${KUBE_CA_FILE}"
-    
-    if [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
+
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ] || [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
         touch "${KUBELET_TLS_DROP_IN}"
@@ -2147,6 +2152,45 @@ ensureKubelet() {
 [Service]
 Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
 EOF
+    fi
+
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+        AAD_RESOURCE="6dae42f8-4368-4678-94ff-3960e28e3630"
+        if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID" ]; then
+            AAD_RESOURCE=$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID
+        fi
+        SECURE_BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+        mkdir -p "$(dirname "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}")"
+        touch "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}"
+        chmod 0644 "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}"
+        tee "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://${API_SERVER_NAME}:443
+users:
+- name: kubelet-bootstrap
+  user:
+    exec:
+        apiVersion: client.authentication.k8s.io/v1
+        command: /opt/azure/tlsbootstrap/tls-bootstrap-client
+        args:
+        - bootstrap
+        - --next-proto=aks-tls-bootstrap
+        - --aad-resource=${AAD_RESOURCE}
+        interactiveMode: Never
+        provideClusterInfo: true
+contexts:
+- context:
+    cluster: localcluster
+    user: kubelet-bootstrap
+  name: bootstrap-context
+current-context: bootstrap-context
+EOF
+    elif [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
         BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
         mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
         touch "${BOOTSTRAP_KUBECONFIG_FILE}"
@@ -2196,6 +2240,7 @@ contexts:
 current-context: localclustercontext
 EOF
     fi
+    
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
 #!/bin/bash
@@ -2211,6 +2256,10 @@ EOF
 iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
 EOF
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
+}
+
+ensureSnapshotUpdate() {
+    systemctlEnableAndStart snapshot-update.timer || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
 }
 
 ensureMigPartition(){
@@ -2403,8 +2452,7 @@ disableSSH() {
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
 }
 
-#EOF
-`)
+#EOF`)
 
 func linuxCloudInitArtifactsCse_configShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_configSh, nil
@@ -2505,6 +2553,7 @@ ERR_ARTIFACT_STREAMING_INSTALL=153 # Error installing mirror proxy and overlaybd
 
 ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
 ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
+ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_TIMEOUT=169 # Timeout waiting for secure TLS bootrstrap kubelet exec plugin download
 
 ERR_DISBALE_IPTABLES=170 # Error disabling iptables service
 
@@ -2513,6 +2562,7 @@ ERR_DISABLE_SSH=172 # Error disabling ssh service
 
 ERR_VHD_REBOOT_REQUIRED=200 # Reserved for VHD reboot required exit condition
 ERR_NO_PACKAGES_FOUND=201 # Reserved for no security packages found exit condition
+ERR_SNAPSHOT_UPDATE_START_FAIL=202 # snapshot-update could not be started by systemctl
 
 ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
 
@@ -2778,8 +2828,7 @@ should_skip_nvidia_drivers() {
     should_skip=$(echo "$body" | jq -e '.compute.tagsList | map(select(.name | test("SkipGpuDriverInstall"; "i")))[0].value // "false" | test("true"; "i")')
     echo "$should_skip" # true or false
 }
-#HELPERSEOF
-`)
+#HELPERSEOF`)
 
 func linuxCloudInitArtifactsCse_helpersShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_helpersSh, nil
@@ -2809,6 +2858,8 @@ CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
+SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR="/opt/azure/tlsbootstrap"
+SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION="v0.1.0-alpha.2"
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1 v0.8.0"
@@ -2867,6 +2918,22 @@ downloadCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+}
+
+downloadSecureTLSBootstrapKubeletExecPlugin() {
+    local plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION}/linux/amd64/tls-bootstrap-client"
+    if [[ $(isARM64) == 1 ]]; then
+        plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION}/linux/arm64/tls-bootstrap-client"
+    fi
+
+    mkdir -p $SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR
+    plugin_download_path="${SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR}/tls-bootstrap-client"
+
+    if [ ! -f "$plugin_download_path" ]; then
+        retrycmd_if_failure 30 5 60 curl -fSL -o "$plugin_download_path" "$plugin_url" || exit $ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_TIMEOUT
+        chown -R root:root "$SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR"
+        chmod -R 755 "$SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR"
+    fi
 }
 
 downloadContainerdWasmShims() {
@@ -3202,8 +3269,7 @@ datasource:
         apply_network_config: false
 EOF
 }
-#EOF
-`)
+#EOF`)
 
 func linuxCloudInitArtifactsCse_installShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_installSh, nil
@@ -3356,6 +3422,10 @@ logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
 if [ "${IS_KRUSTLET}" == "true" ]; then
     logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
+fi
+
+if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+    logs_to_events "AKS.CSE.downloadSecureTLSBootstrapKubeletExecPlugin" downloadSecureTLSBootstrapKubeletExecPlugin
 fi
 
 # By default, never reboot new nodes.
@@ -3522,6 +3592,10 @@ if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
 fi
 
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+    logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
+fi
+
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         # mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 
@@ -3629,8 +3703,7 @@ mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 exit $VALIDATION_ERR
 
 
-#EOF
-`)
+#EOF`)
 
 func linuxCloudInitArtifactsCse_mainShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_mainSh, nil
@@ -4810,19 +4883,20 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadLocation": "",
         "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz",
         "versions": [
-            "1.24.9-hotfix.20230612",
-            "1.24.10-hotfix.20230612",
-            "1.24.15",
             "1.25.5-hotfix.20230612",
             "1.25.6-hotfix.20230612",
             "1.25.11",
+            "1.25.15",
             "1.26.0-hotfix.20230612",
             "1.26.3-hotfix.20230612",
             "1.26.6",
+            "1.26.10",
             "1.27.1-hotfix.20230612",
             "1.27.3",
+            "1.27.7",
             "1.28.0",
-            "1.28.1"
+            "1.28.1",
+            "1.28.3"
         ]
     },
     "_template": {
@@ -6771,6 +6845,179 @@ func linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsUbuntuSnapshotUpdateService = []byte(`[Unit]
+Description=Snapshot Update Service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/azure/containers/ubuntu-snapshot-update.sh`)
+
+func linuxCloudInitArtifactsUbuntuSnapshotUpdateServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUbuntuSnapshotUpdateService, nil
+}
+
+func linuxCloudInitArtifactsUbuntuSnapshotUpdateService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUbuntuSnapshotUpdateServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ubuntu/snapshot-update.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsUbuntuSnapshotUpdateTimer = []byte(`[Unit]
+Description=Runs snapshot update script periodically
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=10min
+
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsUbuntuSnapshotUpdateTimerBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUbuntuSnapshotUpdateTimer, nil
+}
+
+func linuxCloudInitArtifactsUbuntuSnapshotUpdateTimer() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUbuntuSnapshotUpdateTimerBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ubuntu/snapshot-update.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsUbuntuUbuntuSnapshotUpdateSh = []byte(`#!/usr/bin/env bash
+
+set -o nounset
+set -e
+
+# source apt_get_update
+source /opt/azure/containers/provision_source_distro.sh
+
+# Execute unattended-upgrade
+unattended_upgrade() {
+  retries=10
+  for i in $(seq 1 $retries); do
+    unattended-upgrade -v && break
+    if [ $i -eq $retries ]; then
+      return 1
+    else sleep 5
+    fi
+  done
+  echo Executed unattended upgrade $i times
+}
+
+# Determinate is the given option present in the cfg file
+cfg_has_option() {
+    file=$1
+    option=$2
+    line=$(sed -n "/^$option:/ p" "$file")
+    [ -n "$line" ]
+}
+
+# Set an option in a cfg file
+cfg_set_option() {
+    file=$1
+    option=$2
+    value=$3
+    if ! cfg_has_option "$file" "$option"; then
+        echo "$option: $value" >> "$file"
+    else
+        sed -i 's/'"$option"':.*$/'"$option: $value"'/g' "$file"
+    fi
+}
+
+KUBECTL="/usr/local/bin/kubectl --kubeconfig /var/lib/kubelet/kubeconfig"
+
+source_list_path=/etc/apt/sources.list
+source_list_backup_path=/etc/apt/sources.list.backup
+cloud_cfg_path=/etc/cloud/cloud.cfg
+
+# At startup, we need to wait for kubelet to finish TLS bootstrapping to create the kubeconfig file.
+while [ ! -f /var/lib/kubelet/kubeconfig ]; do
+    echo 'Waiting for TLS bootstrapping'
+    sleep 3
+done
+
+node_name=$(hostname)
+if [ -z "${node_name}" ]; then
+    echo "cannot get node name"
+    exit 1
+fi
+
+# retrieve golden timestamp from node annotation
+golden_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-golden-timestamp']}")
+if [ -z "${golden_timestamp}" ]; then
+    echo "golden timestamp is not set, skip live patching"
+    exit 0
+fi
+echo "golden timestamp is: ${golden_timestamp}"
+
+current_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-current-timestamp']}")
+if [ -n "${current_timestamp}" ]; then
+    echo "current timestamp is: ${current_timestamp}"
+
+    if [[ "${golden_timestamp}" == "${current_timestamp}" ]]; then
+        echo "golden and current timestamp is the same, nothing to patch"
+        exit 0
+    fi
+fi
+
+old_source_list=$(cat ${source_list_path})
+# upgrade from base image to a timestamp
+# e.g. replace https://snapshot.ubuntu.com/ubuntu/ with https://snapshot.ubuntu.com/ubuntu/20230727T000000Z
+sed -i 's/http:\/\/azure.archive.ubuntu.com\/ubuntu\//https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
+# upgrade from one timestamp to another timestamp
+sed -i 's/https:\/\/snapshot.ubuntu.com\/ubuntu\/\([0-9]\{8\}T[0-9]\{6\}Z\)/https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
+# preserve the sources.list changes
+option=apt_preserve_sources_list
+option_value=true
+cfg_set_option ${cloud_cfg_path} ${option} ${option_value}
+
+new_source_list=$(cat ${source_list_path})
+if [[ "${old_source_list}" != "${new_source_list}" ]]; then
+    # save old sources.list
+    echo "$old_source_list" > ${source_list_backup_path}
+    echo "/etc/apt/sources.list is updated:"
+    diff ${source_list_backup_path} ${source_list_path} || true
+fi
+
+if ! apt_get_update; then
+    echo "apt_get_update failed"
+    exit 1
+fi
+if ! unattended_upgrade; then
+    echo "unattended_upgrade failed"
+    exit 1
+fi
+
+# update current timestamp
+$KUBECTL annotate --overwrite node ${node_name} kubernetes.azure.com/live-patching-current-timestamp=${golden_timestamp}
+
+echo snapshot update completed successfully
+`)
+
+func linuxCloudInitArtifactsUbuntuUbuntuSnapshotUpdateShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsUbuntuUbuntuSnapshotUpdateSh, nil
+}
+
+func linuxCloudInitArtifactsUbuntuUbuntuSnapshotUpdateSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsUbuntuUbuntuSnapshotUpdateShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsUpdate_certsPath = []byte(`[Unit]
 Description=Monitor the cert directory for changes
 
@@ -7006,6 +7253,27 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
 
+- path: /opt/azure/containers/ubuntu-snapshot-update.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "snapshotUpdateScript"}}
+
+- path: /etc/systemd/system/snapshot-update.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "snapshotUpdateService"}}
+
+- path: /etc/systemd/system/snapshot-update.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "snapshotUpdateTimer"}}
+
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
   encoding: gzip
@@ -7148,7 +7416,7 @@ write_files:
     AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
 {{- end}}
 
-{{ if EnableTLSBootstrapping -}}
+{{ if (or EnableSecureTLSBootstrapping EnableTLSBootstrapping) -}}
 - path: /var/lib/kubelet/bootstrap-kubeconfig
   permissions: "0644"
   owner: root
@@ -7163,7 +7431,23 @@ write_files:
     users:
     - name: kubelet-bootstrap
       user:
+      {{- if EnableSecureTLSBootstrapping }}
+        exec:
+          apiVersion: client.authentication.k8s.io/v1
+          command: /opt/azure/tlsbootstrap/tls-bootstrap-client
+          args:
+          - bootstrap
+          - --next-proto=aks-tls-bootstrap
+          {{- if GetCustomSecureTLSBootstrapAADServerAppID}}
+          - --aad-resource={{GetCustomSecureTLSBootstrapAADServerAppID}}
+          {{- else}}
+          - --aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630
+          {{- end}}
+          interactiveMode: Never
+          provideClusterInfo: true
+      {{- else }}
         token: "{{GetTLSBootstrapTokenForKubeConfig}}"
+      {{- end }}
     contexts:
     - context:
         cluster: localcluster
@@ -8309,6 +8593,9 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/teleportd.service":                         linuxCloudInitArtifactsTeleportdService,
 	"linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh,
 	"linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh,
+	"linux/cloud-init/artifacts/ubuntu/snapshot-update.service":            linuxCloudInitArtifactsUbuntuSnapshotUpdateService,
+	"linux/cloud-init/artifacts/ubuntu/snapshot-update.timer":              linuxCloudInitArtifactsUbuntuSnapshotUpdateTimer,
+	"linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh":          linuxCloudInitArtifactsUbuntuUbuntuSnapshotUpdateSh,
 	"linux/cloud-init/artifacts/update_certs.path":                         linuxCloudInitArtifactsUpdate_certsPath,
 	"linux/cloud-init/artifacts/update_certs.service":                      linuxCloudInitArtifactsUpdate_certsService,
 	"linux/cloud-init/artifacts/update_certs.sh":                           linuxCloudInitArtifactsUpdate_certsSh,
@@ -8453,8 +8740,11 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"sysctl-d-60-CIS.conf":            &bintree{linuxCloudInitArtifactsSysctlD60CisConf, map[string]*bintree{}},
 				"teleportd.service":               &bintree{linuxCloudInitArtifactsTeleportdService, map[string]*bintree{}},
 				"ubuntu": &bintree{nil, map[string]*bintree{
-					"cse_helpers_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh, map[string]*bintree{}},
-					"cse_install_ubuntu.sh": &bintree{linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh, map[string]*bintree{}},
+					"cse_helpers_ubuntu.sh":     &bintree{linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh, map[string]*bintree{}},
+					"cse_install_ubuntu.sh":     &bintree{linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh, map[string]*bintree{}},
+					"snapshot-update.service":   &bintree{linuxCloudInitArtifactsUbuntuSnapshotUpdateService, map[string]*bintree{}},
+					"snapshot-update.timer":     &bintree{linuxCloudInitArtifactsUbuntuSnapshotUpdateTimer, map[string]*bintree{}},
+					"ubuntu-snapshot-update.sh": &bintree{linuxCloudInitArtifactsUbuntuUbuntuSnapshotUpdateSh, map[string]*bintree{}},
 				}},
 				"update_certs.path":    &bintree{linuxCloudInitArtifactsUpdate_certsPath, map[string]*bintree{}},
 				"update_certs.service": &bintree{linuxCloudInitArtifactsUpdate_certsService, map[string]*bintree{}},

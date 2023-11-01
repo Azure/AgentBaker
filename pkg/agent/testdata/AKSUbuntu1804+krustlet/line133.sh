@@ -1,9 +1,6 @@
 [Unit]
-Description=Bind mount kubelet data
-[Service]
-Restart=on-failure
-RemainAfterExit=yes
-ExecStart=/bin/bash /opt/azure/containers/bind-mount.sh
+Description=Snapshot Update Service
 
-[Install]
-WantedBy=multi-user.target
+[Service]
+Type=oneshot
+ExecStart=/opt/azure/containers/ubuntu-snapshot-update.sh

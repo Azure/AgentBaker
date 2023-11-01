@@ -665,14 +665,19 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
 				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
 				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
-				bootstrapKubeConfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
+				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
 				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
 
 				Expect(etcDefaultKubelet).NotTo(BeEmpty())
-				Expect(bootstrapKubeConfig).NotTo(BeEmpty())
+				Expect(bootstrapKubeconfig).NotTo(BeEmpty())
 				Expect(kubeletSh).NotTo(BeEmpty())
+				Expect(tlsBootstrapDropin).ToNot(BeEmpty())
 				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
 				Expect(caCRT).NotTo(BeEmpty())
+
+				Expect(bootstrapKubeconfig).To(ContainSubstring("token"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("07401b.f395accd246ae52d"))
+				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
 			}),
 
 		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled", "AKSUbuntu2204+SecureTLSBoostrapping", "1.25.6",
@@ -680,6 +685,38 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				config.EnableSecureTLSBootstrapping = true
 			}, func(o *nodeBootstrappingOutput) {
 				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
+				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID"]).To(BeEmpty())
+
+				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
+				Expect(bootstrapKubeconfig).ToNot(BeEmpty())
+				Expect(bootstrapKubeconfig).To(ContainSubstring("apiVersion: client.authentication.k8s.io/v1"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("- bootstrap"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("--next-proto=aks-tls-bootstrap"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("--aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("interactiveMode: Never"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("provideClusterInfo: true"))
+				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("token:"))
+			}),
+
+		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled using custom AAD server application ID", "AKSUbuntu2204+SecureTLSBootstrapping+CustomAADResource", "1.25.6",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.EnableSecureTLSBootstrapping = true
+				config.CustomSecureTLSBootstrapAADServerAppID = "appID"
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
+				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID"]).To(Equal("appID"))
+
+				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
+				Expect(bootstrapKubeconfig).ToNot(BeEmpty())
+				Expect(bootstrapKubeconfig).To(ContainSubstring("apiVersion: client.authentication.k8s.io/v1"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("- bootstrap"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("--next-proto=aks-tls-bootstrap"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("--aad-resource=appID"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("interactiveMode: Never"))
+				Expect(bootstrapKubeconfig).To(ContainSubstring("provideClusterInfo: true"))
+				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("token:"))
 			}),
 
 		Entry("AKSUbuntu1804 with DisableCustomData = true", "AKSUbuntu1804+DisableCustomData", "1.19.0",
