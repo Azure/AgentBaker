@@ -28,6 +28,8 @@ parameters:
 
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 
+# No need to change this release pipeline
+
 stages:
   - stage: build_vhd_2019_containerd
     dependsOn: []

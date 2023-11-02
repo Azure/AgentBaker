@@ -684,6 +684,31 @@ function Get-LatestWindowsDefenderPlatformUpdate {
     }
 }
 
+function Upload-WindowsSystemInfo {
+    # "powershell systeminfo"
+    if ($systemInfo.type == "official") {
+        Write-Log "Skip uploading system info for official builds: $systemInfo.release"
+        return
+    } else if (![string]::IsNullOrEmpty($env:WindowsPrivatePackagesURL)) {
+        Write-Log "Upload system info for non-official builds: $systemInfo.release"
+
+        $connectionString = $env:WindowsPrivatePackagesURL
+        try {
+            $document = @{
+                "sigImageName" = $sigImageName
+                "systemInfo" = $systemInfo
+            }
+            Connect-AzCosmosDBAccount $connectionString
+            $container = Get-AzCosmosDBContainer -DatabaseName "SystemInfo"
+            $container | Add-AzCosmosDBItem -Item $document -PartitionKey $document.$partitionKey
+            Disconnect-AzCosmosDBAccount -AccountName $accountName
+            Write-Log "Upload system info succeeded: $document"
+        } catch {
+            Write-Log "Error occurred: $_"
+        }
+    } 
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -709,6 +734,7 @@ try{
             Get-ContainerImages
             Get-FilesToCacheOnVHD
             Get-PrivatePackagesToCacheOnVHD
+            Upload-WindowsSystemInfo
             Remove-Item -Path c:\windows-vhd-configuration.ps1
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
         }
