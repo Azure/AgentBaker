@@ -173,6 +173,7 @@ $global:CSEScriptsPackageUrl = "{{GetVariable "windowsCSEScriptsPackageURL" }}";
 # These windows nvidia gpu driver are used by windows cse
 $global:GpuDriverCudaURL = "{{GetVariable "windowsGpuDriverCudaURL" }}";
 $global:GpuDriverGridURL = "{{GetVariable "windowsGpuDriverGridURL" }}";
+$global:GpuDriverCertURL = "{{GetVariable "windowsGpuDriverCertURL" }}";
 
 # PauseImage
 $global:WindowsPauseImageURL = "{{GetVariable "windowsPauseImageURL" }}";
@@ -467,6 +468,7 @@ try
     $DriverUrlConfig = [PSCustomObject]@{
         GpuDriverCudaURL = $global:GpuDriverCudaURL
         GpuDriverGridURL = $global:GpuDriverGridURL
+        GpuDriverCertURL = $global:GpuDriverCertURL
     }
 
     $RebootNeeded = Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -DriverUrlConfig $DriverUrlConfig

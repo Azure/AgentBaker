@@ -134,9 +134,11 @@ function Select-Driver {
 
     $GpuDriverCudaURL = $DriverUrlConfig.GpuDriverCudaURL
     $GpuDriverGridURL = $DriverUrlConfig.GpuDriverGridURL
+    $GpuDriverCertURL = $DriverUrlConfig.GpuDriverCertURL
     
     Write-Log "cuda gpu url is set to $GpuDriverCudaURL"
     Write-Log "grid gpu url is set to $GpuDriverGridURL"
+    Write-Log "gpu cert url is set to $GpuDriverCertURL"
   
     # Set some default values
     $Driver = @{
@@ -180,7 +182,7 @@ function Select-Driver {
     }
   
     # Get the certificate url
-    $Driver.CertificateUrl = "https://download.microsoft.com/download/7/1/F/71FB7755-D899-4FD9-AC05-2216EE8102AC/nvidia.cer"
+    $Driver.CertificateUrl = $GpuDriverCertURL
 
     if ($Index.Driver -eq 0) {
         $Driver.SetupFolder = "C:\NVIDIA\DisplayDriver\CUDA"
