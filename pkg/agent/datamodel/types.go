@@ -502,8 +502,9 @@ type WindowsProfile struct {
 	//nolint:revive, stylecheck // keep field names the same as RP
 	WindowsGmsaPackageUrl          string  `json:"windowsGmsaPackageUrl,omitempty"`
 	CseScriptsPackageURL           string  `json:"cseScriptsPackageURL,omitempty"`
-	GpuDriverCudaURL               string  `json:"gpuDriverCudaURL,omitempty"`
-	GpuDriverGridURL               string  `json:"gpuDriverGridURL,omitempty"`
+	GpuDriverCudaURL               string  `json:"gpuDriverCudaUrl,omitempty"`
+	GpuDriverGridURL               string  `json:"gpuDriverGridUrl,omitempty"`
+	GpuDriverCertURL               string  `json:"gpuDriverCertUrl,omitempty"`
 	HnsRemediatorIntervalInMinutes *uint32 `json:"hnsRemediatorIntervalInMinutes,omitempty"`
 	LogGeneratorIntervalInMinutes  *uint32 `json:"logGeneratorIntervalInMinutes,omitempty"`
 }
