@@ -1,6 +1,6 @@
 {
   "SchemaVersion": 2,
-  "ArtifactName": "pkrvm6o85y7d82h",
+  "ArtifactName": "pkrvm4uyvpc8q0w",
   "ArtifactType": "filesystem",
   "Metadata": {
     "OS": {
@@ -20,7 +20,7 @@
   },
   "Results": [
     {
-      "Target": "pkrvm6o85y7d82h (ubuntu 18.04)",
+      "Target": "pkrvm4uyvpc8q0w (ubuntu 18.04)",
       "Class": "os-pkgs",
       "Type": "ubuntu"
     },
@@ -92,7 +92,7 @@
             "Name": "GitHub Security Advisory Go",
             "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
           },
-          "Title": "compressed archives can result in OOM conditions",
+          "Title": "Rekor's compressed archives can result in OOM conditions",
           "Description": "Rekor is an open source software supply chain transparency log. Rekor prior to version 1.1.1 may crash due to out of memory (OOM) conditions caused by reading archive metadata files into memory without checking their sizes first. Verification of a JAR file submitted to Rekor can cause an out of memory crash if files within the META-INF directory of the JAR are sufficiently large. Parsing of an APK file submitted to Rekor can cause an out of memory crash if the .SIGN or .PKGINFO files within the APK are sufficiently large. The OOM crash has been patched in Rekor version 1.1.1. There are no known workarounds.",
           "Severity": "HIGH",
           "CweIDs": [
@@ -106,88 +106,17 @@
             "nvd": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "redhat": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
-            "https://access.redhat.com/security/cve/CVE-2023-30551",
             "https://github.com/sigstore/rekor",
             "https://github.com/sigstore/rekor/commit/cf42ace82667025fe128f7a50cf6b4cdff51cc48",
             "https://github.com/sigstore/rekor/releases/tag/v1.1.1",
             "https://github.com/sigstore/rekor/security/advisories/GHSA-2h5h-59f5-c5x9",
-            "https://nvd.nist.gov/vuln/detail/CVE-2023-30551",
-            "https://www.cve.org/CVERecord?id=CVE-2023-30551"
+            "https://nvd.nist.gov/vuln/detail/CVE-2023-30551"
           ],
           "PublishedDate": "2023-05-08T16:15:00Z",
           "LastModifiedDate": "2023-05-12T16:27:00Z"
-        },
-        {
-          "VulnerabilityID": "GHSA-m425-mq94-257g",
-          "PkgName": "google.golang.org/grpc",
-          "InstalledVersion": "v1.54.0",
-          "FixedVersion": "1.56.3, 1.57.1, 1.58.3",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://github.com/advisories/GHSA-m425-mq94-257g",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "gRPC-Go HTTP/2 Rapid Reset vulnerability",
-          "Description": "### Impact\nIn affected releases of gRPC-Go, it is possible for an attacker to send HTTP/2 requests, cancel them, and send subsequent requests, which is valid by the HTTP/2 protocol, but would cause the gRPC-Go server to launch more concurrent method handlers than the configured maximum stream limit.\n\n### Patches\nThis vulnerability was addressed by #6703 and has been included in patch releases: 1.56.3, 1.57.1, 1.58.3.  It is also included in the latest release, 1.59.0.\n\nAlong with applying the patch, users should also ensure they are using the `grpc.MaxConcurrentStreams` server option to apply a limit to the server's resources used for any single connection.\n\n### Workarounds\nNone.\n\n### References\n#6703\n",
-          "Severity": "HIGH",
-          "CVSS": {
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://github.com/grpc/grpc-go",
-            "https://github.com/grpc/grpc-go/commit/f2180b4d5403d2210b30b93098eb7da31c05c721",
-            "https://github.com/grpc/grpc-go/pull/6703",
-            "https://github.com/grpc/grpc-go/security/advisories/GHSA-m425-mq94-257g"
-          ]
-        }
-      ]
-    },
-    {
-      "Target": "opt/azure/tlsbootstrap/tls-bootstrap-client",
-      "Class": "lang-pkgs",
-      "Type": "gobinary",
-      "Vulnerabilities": [
-        {
-          "VulnerabilityID": "GHSA-m425-mq94-257g",
-          "PkgName": "google.golang.org/grpc",
-          "InstalledVersion": "v1.57.0",
-          "FixedVersion": "1.56.3, 1.57.1, 1.58.3",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://github.com/advisories/GHSA-m425-mq94-257g",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "gRPC-Go HTTP/2 Rapid Reset vulnerability",
-          "Description": "### Impact\nIn affected releases of gRPC-Go, it is possible for an attacker to send HTTP/2 requests, cancel them, and send subsequent requests, which is valid by the HTTP/2 protocol, but would cause the gRPC-Go server to launch more concurrent method handlers than the configured maximum stream limit.\n\n### Patches\nThis vulnerability was addressed by #6703 and has been included in patch releases: 1.56.3, 1.57.1, 1.58.3.  It is also included in the latest release, 1.59.0.\n\nAlong with applying the patch, users should also ensure they are using the `grpc.MaxConcurrentStreams` server option to apply a limit to the server's resources used for any single connection.\n\n### Workarounds\nNone.\n\n### References\n#6703\n",
-          "Severity": "HIGH",
-          "CVSS": {
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://github.com/grpc/grpc-go",
-            "https://github.com/grpc/grpc-go/commit/f2180b4d5403d2210b30b93098eb7da31c05c721",
-            "https://github.com/grpc/grpc-go/pull/6703",
-            "https://github.com/grpc/grpc-go/security/advisories/GHSA-m425-mq94-257g"
-          ]
         }
       ]
     },
@@ -249,35 +178,6 @@
           ],
           "PublishedDate": "2023-02-28T18:15:00Z",
           "LastModifiedDate": "2023-08-08T14:22:00Z"
-        },
-        {
-          "VulnerabilityID": "GHSA-m425-mq94-257g",
-          "PkgName": "google.golang.org/grpc",
-          "InstalledVersion": "v1.52.0",
-          "FixedVersion": "1.56.3, 1.57.1, 1.58.3",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://github.com/advisories/GHSA-m425-mq94-257g",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "gRPC-Go HTTP/2 Rapid Reset vulnerability",
-          "Description": "### Impact\nIn affected releases of gRPC-Go, it is possible for an attacker to send HTTP/2 requests, cancel them, and send subsequent requests, which is valid by the HTTP/2 protocol, but would cause the gRPC-Go server to launch more concurrent method handlers than the configured maximum stream limit.\n\n### Patches\nThis vulnerability was addressed by #6703 and has been included in patch releases: 1.56.3, 1.57.1, 1.58.3.  It is also included in the latest release, 1.59.0.\n\nAlong with applying the patch, users should also ensure they are using the `grpc.MaxConcurrentStreams` server option to apply a limit to the server's resources used for any single connection.\n\n### Workarounds\nNone.\n\n### References\n#6703\n",
-          "Severity": "HIGH",
-          "CVSS": {
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://github.com/grpc/grpc-go",
-            "https://github.com/grpc/grpc-go/commit/f2180b4d5403d2210b30b93098eb7da31c05c721",
-            "https://github.com/grpc/grpc-go/pull/6703",
-            "https://github.com/grpc/grpc-go/security/advisories/GHSA-m425-mq94-257g"
-          ]
         }
       ]
     },
@@ -404,48 +304,200 @@
       ]
     },
     {
-      "Target": "opt/cni/downloads/azure-vnet-cni-linux-amd64-v1.5.11/azure-vnet",
+      "Target": "opt/cni/downloads/azure-vnet-cni-linux-amd64-v1.4.43/azure-vnet",
       "Class": "lang-pkgs",
       "Type": "gobinary",
       "Vulnerabilities": [
         {
-          "VulnerabilityID": "GHSA-m425-mq94-257g",
-          "PkgName": "google.golang.org/grpc",
-          "InstalledVersion": "v1.54.0",
-          "FixedVersion": "1.56.3, 1.57.1, 1.58.3",
+          "VulnerabilityID": "CVE-2022-41723",
+          "PkgName": "golang.org/x/net",
+          "InstalledVersion": "v0.4.0",
+          "FixedVersion": "0.7.0",
           "Layer": {},
           "SeveritySource": "ghsa",
-          "PrimaryURL": "https://github.com/advisories/GHSA-m425-mq94-257g",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-41723",
           "DataSource": {
             "ID": "ghsa",
             "Name": "GitHub Security Advisory Go",
             "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
           },
-          "Title": "gRPC-Go HTTP/2 Rapid Reset vulnerability",
-          "Description": "### Impact\nIn affected releases of gRPC-Go, it is possible for an attacker to send HTTP/2 requests, cancel them, and send subsequent requests, which is valid by the HTTP/2 protocol, but would cause the gRPC-Go server to launch more concurrent method handlers than the configured maximum stream limit.\n\n### Patches\nThis vulnerability was addressed by #6703 and has been included in patch releases: 1.56.3, 1.57.1, 1.58.3.  It is also included in the latest release, 1.59.0.\n\nAlong with applying the patch, users should also ensure they are using the `grpc.MaxConcurrentStreams` server option to apply a limit to the server's resources used for any single connection.\n\n### Workarounds\nNone.\n\n### References\n#6703\n",
+          "Title": "avoid quadratic complexity in HPACK decoding",
+          "Description": "A maliciously crafted HTTP/2 stream could cause excessive CPU consumption in the HPACK decoder, sufficient to cause a denial of service from a small number of small requests.",
           "Severity": "HIGH",
           "CVSS": {
+            "bitnami": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
             "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
+            "nvd": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
+            "redhat": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
             }
           },
           "References": [
-            "https://github.com/grpc/grpc-go",
-            "https://github.com/grpc/grpc-go/commit/f2180b4d5403d2210b30b93098eb7da31c05c721",
-            "https://github.com/grpc/grpc-go/pull/6703",
-            "https://github.com/grpc/grpc-go/security/advisories/GHSA-m425-mq94-257g"
-          ]
+            "https://access.redhat.com/security/cve/CVE-2022-41723",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-41723",
+            "https://github.com/advisories/GHSA-vvpx-j8f3-3w6h",
+            "https://go.dev/cl/468135",
+            "https://go.dev/cl/468295",
+            "https://go.dev/issue/57855",
+            "https://groups.google.com/g/golang-announce/c/V0aBFqaFs_E",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/4MA5XS5DAOJ5PKKNG5TUXKPQOFHT5VBC/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RGW7GE2Z32ZT47UFAQFDRQE33B7Q7LMT/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RLBQ3A7ROLEQXQLXFDLNJ7MYPKG5GULE/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/XX3IMUTZKRQ73PBZM4E2JP4BKYH4C6XE/",
+            "https://nvd.nist.gov/vuln/detail/CVE-2022-41723",
+            "https://pkg.go.dev/vuln/GO-2023-1571",
+            "https://vuln.go.dev/ID/GO-2023-1571.json",
+            "https://www.cve.org/CVERecord?id=CVE-2022-41723"
+          ],
+          "PublishedDate": "2023-02-28T18:15:00Z",
+          "LastModifiedDate": "2023-08-08T14:22:00Z"
         }
       ]
     },
     {
-      "Target": "opt/cni/downloads/azure-vnet-cni-linux-amd64-v1.5.11/azure-vnet-ipam",
+      "Target": "opt/cni/downloads/azure-vnet-cni-linux-amd64-v1.4.43/azure-vnet-ipam",
+      "Class": "lang-pkgs",
+      "Type": "gobinary",
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2022-41723",
+          "PkgName": "golang.org/x/net",
+          "InstalledVersion": "v0.4.0",
+          "FixedVersion": "0.7.0",
+          "Layer": {},
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-41723",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory Go",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
+          },
+          "Title": "avoid quadratic complexity in HPACK decoding",
+          "Description": "A maliciously crafted HTTP/2 stream could cause excessive CPU consumption in the HPACK decoder, sufficient to cause a denial of service from a small number of small requests.",
+          "Severity": "HIGH",
+          "CVSS": {
+            "bitnami": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
+            "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
+            "nvd": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2022-41723",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-41723",
+            "https://github.com/advisories/GHSA-vvpx-j8f3-3w6h",
+            "https://go.dev/cl/468135",
+            "https://go.dev/cl/468295",
+            "https://go.dev/issue/57855",
+            "https://groups.google.com/g/golang-announce/c/V0aBFqaFs_E",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/4MA5XS5DAOJ5PKKNG5TUXKPQOFHT5VBC/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RGW7GE2Z32ZT47UFAQFDRQE33B7Q7LMT/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RLBQ3A7ROLEQXQLXFDLNJ7MYPKG5GULE/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/XX3IMUTZKRQ73PBZM4E2JP4BKYH4C6XE/",
+            "https://nvd.nist.gov/vuln/detail/CVE-2022-41723",
+            "https://pkg.go.dev/vuln/GO-2023-1571",
+            "https://vuln.go.dev/ID/GO-2023-1571.json",
+            "https://www.cve.org/CVERecord?id=CVE-2022-41723"
+          ],
+          "PublishedDate": "2023-02-28T18:15:00Z",
+          "LastModifiedDate": "2023-08-08T14:22:00Z"
+        }
+      ]
+    },
+    {
+      "Target": "opt/cni/downloads/azure-vnet-cni-linux-amd64-v1.4.43/azure-vnet-ipamv6",
+      "Class": "lang-pkgs",
+      "Type": "gobinary",
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2022-41723",
+          "PkgName": "golang.org/x/net",
+          "InstalledVersion": "v0.4.0",
+          "FixedVersion": "0.7.0",
+          "Layer": {},
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-41723",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory Go",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
+          },
+          "Title": "avoid quadratic complexity in HPACK decoding",
+          "Description": "A maliciously crafted HTTP/2 stream could cause excessive CPU consumption in the HPACK decoder, sufficient to cause a denial of service from a small number of small requests.",
+          "Severity": "HIGH",
+          "CVSS": {
+            "bitnami": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
+            "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
+            "nvd": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2022-41723",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-41723",
+            "https://github.com/advisories/GHSA-vvpx-j8f3-3w6h",
+            "https://go.dev/cl/468135",
+            "https://go.dev/cl/468295",
+            "https://go.dev/issue/57855",
+            "https://groups.google.com/g/golang-announce/c/V0aBFqaFs_E",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/4MA5XS5DAOJ5PKKNG5TUXKPQOFHT5VBC/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RGW7GE2Z32ZT47UFAQFDRQE33B7Q7LMT/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RLBQ3A7ROLEQXQLXFDLNJ7MYPKG5GULE/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/XX3IMUTZKRQ73PBZM4E2JP4BKYH4C6XE/",
+            "https://nvd.nist.gov/vuln/detail/CVE-2022-41723",
+            "https://pkg.go.dev/vuln/GO-2023-1571",
+            "https://vuln.go.dev/ID/GO-2023-1571.json",
+            "https://www.cve.org/CVERecord?id=CVE-2022-41723"
+          ],
+          "PublishedDate": "2023-02-28T18:15:00Z",
+          "LastModifiedDate": "2023-08-08T14:22:00Z"
+        }
+      ]
+    },
+    {
+      "Target": "opt/cni/downloads/azure-vnet-cni-linux-amd64-v1.5.5/azure-vnet",
       "Class": "lang-pkgs",
       "Type": "gobinary"
     },
     {
-      "Target": "opt/cni/downloads/azure-vnet-cni-linux-amd64-v1.5.11/azure-vnet-ipamv6",
+      "Target": "opt/cni/downloads/azure-vnet-cni-linux-amd64-v1.5.5/azure-vnet-ipam",
+      "Class": "lang-pkgs",
+      "Type": "gobinary"
+    },
+    {
+      "Target": "opt/cni/downloads/azure-vnet-cni-linux-amd64-v1.5.5/azure-vnet-ipamv6",
       "Class": "lang-pkgs",
       "Type": "gobinary"
     },
@@ -507,35 +559,6 @@
           ],
           "PublishedDate": "2023-02-28T18:15:00Z",
           "LastModifiedDate": "2023-08-08T14:22:00Z"
-        },
-        {
-          "VulnerabilityID": "GHSA-m425-mq94-257g",
-          "PkgName": "google.golang.org/grpc",
-          "InstalledVersion": "v1.52.0",
-          "FixedVersion": "1.56.3, 1.57.1, 1.58.3",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://github.com/advisories/GHSA-m425-mq94-257g",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "gRPC-Go HTTP/2 Rapid Reset vulnerability",
-          "Description": "### Impact\nIn affected releases of gRPC-Go, it is possible for an attacker to send HTTP/2 requests, cancel them, and send subsequent requests, which is valid by the HTTP/2 protocol, but would cause the gRPC-Go server to launch more concurrent method handlers than the configured maximum stream limit.\n\n### Patches\nThis vulnerability was addressed by #6703 and has been included in patch releases: 1.56.3, 1.57.1, 1.58.3.  It is also included in the latest release, 1.59.0.\n\nAlong with applying the patch, users should also ensure they are using the `grpc.MaxConcurrentStreams` server option to apply a limit to the server's resources used for any single connection.\n\n### Workarounds\nNone.\n\n### References\n#6703\n",
-          "Severity": "HIGH",
-          "CVSS": {
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://github.com/grpc/grpc-go",
-            "https://github.com/grpc/grpc-go/commit/f2180b4d5403d2210b30b93098eb7da31c05c721",
-            "https://github.com/grpc/grpc-go/pull/6703",
-            "https://github.com/grpc/grpc-go/security/advisories/GHSA-m425-mq94-257g"
-          ]
         }
       ]
     },
@@ -601,43 +624,134 @@
       ]
     },
     {
-      "Target": "opt/cni/downloads/azure-vnet-cni-swift-linux-amd64-v1.5.11/azure-vnet",
+      "Target": "opt/cni/downloads/azure-vnet-cni-swift-linux-amd64-v1.4.43/azure-vnet",
       "Class": "lang-pkgs",
       "Type": "gobinary",
       "Vulnerabilities": [
         {
-          "VulnerabilityID": "GHSA-m425-mq94-257g",
-          "PkgName": "google.golang.org/grpc",
-          "InstalledVersion": "v1.54.0",
-          "FixedVersion": "1.56.3, 1.57.1, 1.58.3",
+          "VulnerabilityID": "CVE-2022-41723",
+          "PkgName": "golang.org/x/net",
+          "InstalledVersion": "v0.4.0",
+          "FixedVersion": "0.7.0",
           "Layer": {},
           "SeveritySource": "ghsa",
-          "PrimaryURL": "https://github.com/advisories/GHSA-m425-mq94-257g",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-41723",
           "DataSource": {
             "ID": "ghsa",
             "Name": "GitHub Security Advisory Go",
             "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
           },
-          "Title": "gRPC-Go HTTP/2 Rapid Reset vulnerability",
-          "Description": "### Impact\nIn affected releases of gRPC-Go, it is possible for an attacker to send HTTP/2 requests, cancel them, and send subsequent requests, which is valid by the HTTP/2 protocol, but would cause the gRPC-Go server to launch more concurrent method handlers than the configured maximum stream limit.\n\n### Patches\nThis vulnerability was addressed by #6703 and has been included in patch releases: 1.56.3, 1.57.1, 1.58.3.  It is also included in the latest release, 1.59.0.\n\nAlong with applying the patch, users should also ensure they are using the `grpc.MaxConcurrentStreams` server option to apply a limit to the server's resources used for any single connection.\n\n### Workarounds\nNone.\n\n### References\n#6703\n",
+          "Title": "avoid quadratic complexity in HPACK decoding",
+          "Description": "A maliciously crafted HTTP/2 stream could cause excessive CPU consumption in the HPACK decoder, sufficient to cause a denial of service from a small number of small requests.",
           "Severity": "HIGH",
           "CVSS": {
+            "bitnami": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
             "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
+            "nvd": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
+            "redhat": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
             }
           },
           "References": [
-            "https://github.com/grpc/grpc-go",
-            "https://github.com/grpc/grpc-go/commit/f2180b4d5403d2210b30b93098eb7da31c05c721",
-            "https://github.com/grpc/grpc-go/pull/6703",
-            "https://github.com/grpc/grpc-go/security/advisories/GHSA-m425-mq94-257g"
-          ]
+            "https://access.redhat.com/security/cve/CVE-2022-41723",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-41723",
+            "https://github.com/advisories/GHSA-vvpx-j8f3-3w6h",
+            "https://go.dev/cl/468135",
+            "https://go.dev/cl/468295",
+            "https://go.dev/issue/57855",
+            "https://groups.google.com/g/golang-announce/c/V0aBFqaFs_E",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/4MA5XS5DAOJ5PKKNG5TUXKPQOFHT5VBC/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RGW7GE2Z32ZT47UFAQFDRQE33B7Q7LMT/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RLBQ3A7ROLEQXQLXFDLNJ7MYPKG5GULE/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/XX3IMUTZKRQ73PBZM4E2JP4BKYH4C6XE/",
+            "https://nvd.nist.gov/vuln/detail/CVE-2022-41723",
+            "https://pkg.go.dev/vuln/GO-2023-1571",
+            "https://vuln.go.dev/ID/GO-2023-1571.json",
+            "https://www.cve.org/CVERecord?id=CVE-2022-41723"
+          ],
+          "PublishedDate": "2023-02-28T18:15:00Z",
+          "LastModifiedDate": "2023-08-08T14:22:00Z"
         }
       ]
     },
     {
-      "Target": "opt/cni/downloads/azure-vnet-cni-swift-linux-amd64-v1.5.11/azure-vnet-ipam",
+      "Target": "opt/cni/downloads/azure-vnet-cni-swift-linux-amd64-v1.4.43/azure-vnet-ipam",
+      "Class": "lang-pkgs",
+      "Type": "gobinary",
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2022-41723",
+          "PkgName": "golang.org/x/net",
+          "InstalledVersion": "v0.4.0",
+          "FixedVersion": "0.7.0",
+          "Layer": {},
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2022-41723",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory Go",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
+          },
+          "Title": "avoid quadratic complexity in HPACK decoding",
+          "Description": "A maliciously crafted HTTP/2 stream could cause excessive CPU consumption in the HPACK decoder, sufficient to cause a denial of service from a small number of small requests.",
+          "Severity": "HIGH",
+          "CVSS": {
+            "bitnami": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
+            "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
+            "nvd": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2022-41723",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-41723",
+            "https://github.com/advisories/GHSA-vvpx-j8f3-3w6h",
+            "https://go.dev/cl/468135",
+            "https://go.dev/cl/468295",
+            "https://go.dev/issue/57855",
+            "https://groups.google.com/g/golang-announce/c/V0aBFqaFs_E",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/4MA5XS5DAOJ5PKKNG5TUXKPQOFHT5VBC/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RGW7GE2Z32ZT47UFAQFDRQE33B7Q7LMT/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/RLBQ3A7ROLEQXQLXFDLNJ7MYPKG5GULE/",
+            "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/XX3IMUTZKRQ73PBZM4E2JP4BKYH4C6XE/",
+            "https://nvd.nist.gov/vuln/detail/CVE-2022-41723",
+            "https://pkg.go.dev/vuln/GO-2023-1571",
+            "https://vuln.go.dev/ID/GO-2023-1571.json",
+            "https://www.cve.org/CVERecord?id=CVE-2022-41723"
+          ],
+          "PublishedDate": "2023-02-28T18:15:00Z",
+          "LastModifiedDate": "2023-08-08T14:22:00Z"
+        }
+      ]
+    },
+    {
+      "Target": "opt/cni/downloads/azure-vnet-cni-swift-linux-amd64-v1.5.5/azure-vnet",
+      "Class": "lang-pkgs",
+      "Type": "gobinary"
+    },
+    {
+      "Target": "opt/cni/downloads/azure-vnet-cni-swift-linux-amd64-v1.5.5/azure-vnet-ipam",
       "Class": "lang-pkgs",
       "Type": "gobinary"
     },
@@ -797,10 +911,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -816,7 +926,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         },
         {
           "VulnerabilityID": "CVE-2022-27664",
@@ -1059,35 +1169,6 @@
           ],
           "PublishedDate": "2022-10-14T15:15:00Z",
           "LastModifiedDate": "2022-10-18T17:41:00Z"
-        },
-        {
-          "VulnerabilityID": "GHSA-m425-mq94-257g",
-          "PkgName": "google.golang.org/grpc",
-          "InstalledVersion": "v1.47.0",
-          "FixedVersion": "1.56.3, 1.57.1, 1.58.3",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://github.com/advisories/GHSA-m425-mq94-257g",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "gRPC-Go HTTP/2 Rapid Reset vulnerability",
-          "Description": "### Impact\nIn affected releases of gRPC-Go, it is possible for an attacker to send HTTP/2 requests, cancel them, and send subsequent requests, which is valid by the HTTP/2 protocol, but would cause the gRPC-Go server to launch more concurrent method handlers than the configured maximum stream limit.\n\n### Patches\nThis vulnerability was addressed by #6703 and has been included in patch releases: 1.56.3, 1.57.1, 1.58.3.  It is also included in the latest release, 1.59.0.\n\nAlong with applying the patch, users should also ensure they are using the `grpc.MaxConcurrentStreams` server option to apply a limit to the server's resources used for any single connection.\n\n### Workarounds\nNone.\n\n### References\n#6703\n",
-          "Severity": "HIGH",
-          "CVSS": {
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://github.com/grpc/grpc-go",
-            "https://github.com/grpc/grpc-go/commit/f2180b4d5403d2210b30b93098eb7da31c05c721",
-            "https://github.com/grpc/grpc-go/pull/6703",
-            "https://github.com/grpc/grpc-go/security/advisories/GHSA-m425-mq94-257g"
-          ]
         }
       ]
     },
@@ -1797,10 +1878,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -1816,7 +1893,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-45142",
@@ -1841,10 +1918,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -1860,36 +1933,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
-        },
-        {
-          "VulnerabilityID": "GHSA-m425-mq94-257g",
-          "PkgName": "google.golang.org/grpc",
-          "InstalledVersion": "v1.47.0",
-          "FixedVersion": "1.56.3, 1.57.1, 1.58.3",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://github.com/advisories/GHSA-m425-mq94-257g",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "gRPC-Go HTTP/2 Rapid Reset vulnerability",
-          "Description": "### Impact\nIn affected releases of gRPC-Go, it is possible for an attacker to send HTTP/2 requests, cancel them, and send subsequent requests, which is valid by the HTTP/2 protocol, but would cause the gRPC-Go server to launch more concurrent method handlers than the configured maximum stream limit.\n\n### Patches\nThis vulnerability was addressed by #6703 and has been included in patch releases: 1.56.3, 1.57.1, 1.58.3.  It is also included in the latest release, 1.59.0.\n\nAlong with applying the patch, users should also ensure they are using the `grpc.MaxConcurrentStreams` server option to apply a limit to the server's resources used for any single connection.\n\n### Workarounds\nNone.\n\n### References\n#6703\n",
-          "Severity": "HIGH",
-          "CVSS": {
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://github.com/grpc/grpc-go",
-            "https://github.com/grpc/grpc-go/commit/f2180b4d5403d2210b30b93098eb7da31c05c721",
-            "https://github.com/grpc/grpc-go/pull/6703",
-            "https://github.com/grpc/grpc-go/security/advisories/GHSA-m425-mq94-257g"
-          ]
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         }
       ]
     },
@@ -2029,10 +2073,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -2048,7 +2088,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-45142",
@@ -2073,10 +2113,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -2092,7 +2128,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         },
         {
           "VulnerabilityID": "CVE-2022-41723",
@@ -2147,35 +2183,6 @@
           ],
           "PublishedDate": "2023-02-28T18:15:00Z",
           "LastModifiedDate": "2023-08-08T14:22:00Z"
-        },
-        {
-          "VulnerabilityID": "GHSA-m425-mq94-257g",
-          "PkgName": "google.golang.org/grpc",
-          "InstalledVersion": "v1.47.0",
-          "FixedVersion": "1.56.3, 1.57.1, 1.58.3",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://github.com/advisories/GHSA-m425-mq94-257g",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "gRPC-Go HTTP/2 Rapid Reset vulnerability",
-          "Description": "### Impact\nIn affected releases of gRPC-Go, it is possible for an attacker to send HTTP/2 requests, cancel them, and send subsequent requests, which is valid by the HTTP/2 protocol, but would cause the gRPC-Go server to launch more concurrent method handlers than the configured maximum stream limit.\n\n### Patches\nThis vulnerability was addressed by #6703 and has been included in patch releases: 1.56.3, 1.57.1, 1.58.3.  It is also included in the latest release, 1.59.0.\n\nAlong with applying the patch, users should also ensure they are using the `grpc.MaxConcurrentStreams` server option to apply a limit to the server's resources used for any single connection.\n\n### Workarounds\nNone.\n\n### References\n#6703\n",
-          "Severity": "HIGH",
-          "CVSS": {
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://github.com/grpc/grpc-go",
-            "https://github.com/grpc/grpc-go/commit/f2180b4d5403d2210b30b93098eb7da31c05c721",
-            "https://github.com/grpc/grpc-go/pull/6703",
-            "https://github.com/grpc/grpc-go/security/advisories/GHSA-m425-mq94-257g"
-          ]
         }
       ]
     },
@@ -2315,10 +2322,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -2334,7 +2337,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-45142",
@@ -2359,10 +2362,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -2378,7 +2377,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         },
         {
           "VulnerabilityID": "CVE-2022-41723",
@@ -2433,35 +2432,6 @@
           ],
           "PublishedDate": "2023-02-28T18:15:00Z",
           "LastModifiedDate": "2023-08-08T14:22:00Z"
-        },
-        {
-          "VulnerabilityID": "GHSA-m425-mq94-257g",
-          "PkgName": "google.golang.org/grpc",
-          "InstalledVersion": "v1.47.0",
-          "FixedVersion": "1.56.3, 1.57.1, 1.58.3",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://github.com/advisories/GHSA-m425-mq94-257g",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "gRPC-Go HTTP/2 Rapid Reset vulnerability",
-          "Description": "### Impact\nIn affected releases of gRPC-Go, it is possible for an attacker to send HTTP/2 requests, cancel them, and send subsequent requests, which is valid by the HTTP/2 protocol, but would cause the gRPC-Go server to launch more concurrent method handlers than the configured maximum stream limit.\n\n### Patches\nThis vulnerability was addressed by #6703 and has been included in patch releases: 1.56.3, 1.57.1, 1.58.3.  It is also included in the latest release, 1.59.0.\n\nAlong with applying the patch, users should also ensure they are using the `grpc.MaxConcurrentStreams` server option to apply a limit to the server's resources used for any single connection.\n\n### Workarounds\nNone.\n\n### References\n#6703\n",
-          "Severity": "HIGH",
-          "CVSS": {
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://github.com/grpc/grpc-go",
-            "https://github.com/grpc/grpc-go/commit/f2180b4d5403d2210b30b93098eb7da31c05c721",
-            "https://github.com/grpc/grpc-go/pull/6703",
-            "https://github.com/grpc/grpc-go/security/advisories/GHSA-m425-mq94-257g"
-          ]
         }
       ]
     },
@@ -2601,10 +2571,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -2620,7 +2586,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-45142",
@@ -2645,10 +2611,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -2664,7 +2626,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         },
         {
           "VulnerabilityID": "CVE-2022-41723",
@@ -2719,35 +2681,6 @@
           ],
           "PublishedDate": "2023-02-28T18:15:00Z",
           "LastModifiedDate": "2023-08-08T14:22:00Z"
-        },
-        {
-          "VulnerabilityID": "GHSA-m425-mq94-257g",
-          "PkgName": "google.golang.org/grpc",
-          "InstalledVersion": "v1.49.0",
-          "FixedVersion": "1.56.3, 1.57.1, 1.58.3",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://github.com/advisories/GHSA-m425-mq94-257g",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "gRPC-Go HTTP/2 Rapid Reset vulnerability",
-          "Description": "### Impact\nIn affected releases of gRPC-Go, it is possible for an attacker to send HTTP/2 requests, cancel them, and send subsequent requests, which is valid by the HTTP/2 protocol, but would cause the gRPC-Go server to launch more concurrent method handlers than the configured maximum stream limit.\n\n### Patches\nThis vulnerability was addressed by #6703 and has been included in patch releases: 1.56.3, 1.57.1, 1.58.3.  It is also included in the latest release, 1.59.0.\n\nAlong with applying the patch, users should also ensure they are using the `grpc.MaxConcurrentStreams` server option to apply a limit to the server's resources used for any single connection.\n\n### Workarounds\nNone.\n\n### References\n#6703\n",
-          "Severity": "HIGH",
-          "CVSS": {
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://github.com/grpc/grpc-go",
-            "https://github.com/grpc/grpc-go/commit/f2180b4d5403d2210b30b93098eb7da31c05c721",
-            "https://github.com/grpc/grpc-go/pull/6703",
-            "https://github.com/grpc/grpc-go/security/advisories/GHSA-m425-mq94-257g"
-          ]
         }
       ]
     },
@@ -2887,10 +2820,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -2906,7 +2835,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-45142",
@@ -2931,10 +2860,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -2950,36 +2875,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
-        },
-        {
-          "VulnerabilityID": "GHSA-m425-mq94-257g",
-          "PkgName": "google.golang.org/grpc",
-          "InstalledVersion": "v1.49.0",
-          "FixedVersion": "1.56.3, 1.57.1, 1.58.3",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://github.com/advisories/GHSA-m425-mq94-257g",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "gRPC-Go HTTP/2 Rapid Reset vulnerability",
-          "Description": "### Impact\nIn affected releases of gRPC-Go, it is possible for an attacker to send HTTP/2 requests, cancel them, and send subsequent requests, which is valid by the HTTP/2 protocol, but would cause the gRPC-Go server to launch more concurrent method handlers than the configured maximum stream limit.\n\n### Patches\nThis vulnerability was addressed by #6703 and has been included in patch releases: 1.56.3, 1.57.1, 1.58.3.  It is also included in the latest release, 1.59.0.\n\nAlong with applying the patch, users should also ensure they are using the `grpc.MaxConcurrentStreams` server option to apply a limit to the server's resources used for any single connection.\n\n### Workarounds\nNone.\n\n### References\n#6703\n",
-          "Severity": "HIGH",
-          "CVSS": {
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://github.com/grpc/grpc-go",
-            "https://github.com/grpc/grpc-go/commit/f2180b4d5403d2210b30b93098eb7da31c05c721",
-            "https://github.com/grpc/grpc-go/pull/6703",
-            "https://github.com/grpc/grpc-go/security/advisories/GHSA-m425-mq94-257g"
-          ]
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         }
       ]
     },
@@ -3061,10 +2957,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -3080,7 +2972,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-45142",
@@ -3105,10 +2997,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -3124,36 +3012,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
-        },
-        {
-          "VulnerabilityID": "GHSA-m425-mq94-257g",
-          "PkgName": "google.golang.org/grpc",
-          "InstalledVersion": "v1.49.0",
-          "FixedVersion": "1.56.3, 1.57.1, 1.58.3",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://github.com/advisories/GHSA-m425-mq94-257g",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "gRPC-Go HTTP/2 Rapid Reset vulnerability",
-          "Description": "### Impact\nIn affected releases of gRPC-Go, it is possible for an attacker to send HTTP/2 requests, cancel them, and send subsequent requests, which is valid by the HTTP/2 protocol, but would cause the gRPC-Go server to launch more concurrent method handlers than the configured maximum stream limit.\n\n### Patches\nThis vulnerability was addressed by #6703 and has been included in patch releases: 1.56.3, 1.57.1, 1.58.3.  It is also included in the latest release, 1.59.0.\n\nAlong with applying the patch, users should also ensure they are using the `grpc.MaxConcurrentStreams` server option to apply a limit to the server's resources used for any single connection.\n\n### Workarounds\nNone.\n\n### References\n#6703\n",
-          "Severity": "HIGH",
-          "CVSS": {
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://github.com/grpc/grpc-go",
-            "https://github.com/grpc/grpc-go/commit/f2180b4d5403d2210b30b93098eb7da31c05c721",
-            "https://github.com/grpc/grpc-go/pull/6703",
-            "https://github.com/grpc/grpc-go/security/advisories/GHSA-m425-mq94-257g"
-          ]
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         }
       ]
     },
@@ -3293,10 +3152,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -3312,7 +3167,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-45142",
@@ -3337,10 +3192,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -3356,36 +3207,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
-        },
-        {
-          "VulnerabilityID": "GHSA-m425-mq94-257g",
-          "PkgName": "google.golang.org/grpc",
-          "InstalledVersion": "v1.51.0",
-          "FixedVersion": "1.56.3, 1.57.1, 1.58.3",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://github.com/advisories/GHSA-m425-mq94-257g",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "gRPC-Go HTTP/2 Rapid Reset vulnerability",
-          "Description": "### Impact\nIn affected releases of gRPC-Go, it is possible for an attacker to send HTTP/2 requests, cancel them, and send subsequent requests, which is valid by the HTTP/2 protocol, but would cause the gRPC-Go server to launch more concurrent method handlers than the configured maximum stream limit.\n\n### Patches\nThis vulnerability was addressed by #6703 and has been included in patch releases: 1.56.3, 1.57.1, 1.58.3.  It is also included in the latest release, 1.59.0.\n\nAlong with applying the patch, users should also ensure they are using the `grpc.MaxConcurrentStreams` server option to apply a limit to the server's resources used for any single connection.\n\n### Workarounds\nNone.\n\n### References\n#6703\n",
-          "Severity": "HIGH",
-          "CVSS": {
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://github.com/grpc/grpc-go",
-            "https://github.com/grpc/grpc-go/commit/f2180b4d5403d2210b30b93098eb7da31c05c721",
-            "https://github.com/grpc/grpc-go/pull/6703",
-            "https://github.com/grpc/grpc-go/security/advisories/GHSA-m425-mq94-257g"
-          ]
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         }
       ]
     },
@@ -3467,10 +3289,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -3486,7 +3304,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-45142",
@@ -3511,10 +3329,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -3530,36 +3344,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
-        },
-        {
-          "VulnerabilityID": "GHSA-m425-mq94-257g",
-          "PkgName": "google.golang.org/grpc",
-          "InstalledVersion": "v1.51.0",
-          "FixedVersion": "1.56.3, 1.57.1, 1.58.3",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://github.com/advisories/GHSA-m425-mq94-257g",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "gRPC-Go HTTP/2 Rapid Reset vulnerability",
-          "Description": "### Impact\nIn affected releases of gRPC-Go, it is possible for an attacker to send HTTP/2 requests, cancel them, and send subsequent requests, which is valid by the HTTP/2 protocol, but would cause the gRPC-Go server to launch more concurrent method handlers than the configured maximum stream limit.\n\n### Patches\nThis vulnerability was addressed by #6703 and has been included in patch releases: 1.56.3, 1.57.1, 1.58.3.  It is also included in the latest release, 1.59.0.\n\nAlong with applying the patch, users should also ensure they are using the `grpc.MaxConcurrentStreams` server option to apply a limit to the server's resources used for any single connection.\n\n### Workarounds\nNone.\n\n### References\n#6703\n",
-          "Severity": "HIGH",
-          "CVSS": {
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://github.com/grpc/grpc-go",
-            "https://github.com/grpc/grpc-go/commit/f2180b4d5403d2210b30b93098eb7da31c05c721",
-            "https://github.com/grpc/grpc-go/pull/6703",
-            "https://github.com/grpc/grpc-go/security/advisories/GHSA-m425-mq94-257g"
-          ]
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         }
       ]
     },
@@ -3591,10 +3376,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -3610,7 +3391,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-45142",
@@ -3635,10 +3416,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -3654,36 +3431,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
-        },
-        {
-          "VulnerabilityID": "GHSA-m425-mq94-257g",
-          "PkgName": "google.golang.org/grpc",
-          "InstalledVersion": "v1.54.0",
-          "FixedVersion": "1.56.3, 1.57.1, 1.58.3",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://github.com/advisories/GHSA-m425-mq94-257g",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "gRPC-Go HTTP/2 Rapid Reset vulnerability",
-          "Description": "### Impact\nIn affected releases of gRPC-Go, it is possible for an attacker to send HTTP/2 requests, cancel them, and send subsequent requests, which is valid by the HTTP/2 protocol, but would cause the gRPC-Go server to launch more concurrent method handlers than the configured maximum stream limit.\n\n### Patches\nThis vulnerability was addressed by #6703 and has been included in patch releases: 1.56.3, 1.57.1, 1.58.3.  It is also included in the latest release, 1.59.0.\n\nAlong with applying the patch, users should also ensure they are using the `grpc.MaxConcurrentStreams` server option to apply a limit to the server's resources used for any single connection.\n\n### Workarounds\nNone.\n\n### References\n#6703\n",
-          "Severity": "HIGH",
-          "CVSS": {
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://github.com/grpc/grpc-go",
-            "https://github.com/grpc/grpc-go/commit/f2180b4d5403d2210b30b93098eb7da31c05c721",
-            "https://github.com/grpc/grpc-go/pull/6703",
-            "https://github.com/grpc/grpc-go/security/advisories/GHSA-m425-mq94-257g"
-          ]
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         }
       ]
     },
@@ -3715,10 +3463,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -3734,7 +3478,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         },
         {
           "VulnerabilityID": "CVE-2023-45142",
@@ -3759,10 +3503,6 @@
             "ghsa": {
               "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
               "V3Score": 7.5
-            },
-            "nvd": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
             }
           },
           "References": [
@@ -3778,36 +3518,7 @@
             "https://nvd.nist.gov/vuln/detail/CVE-2023-45142"
           ],
           "PublishedDate": "2023-10-12T17:15:00Z",
-          "LastModifiedDate": "2023-10-18T18:27:00Z"
-        },
-        {
-          "VulnerabilityID": "GHSA-m425-mq94-257g",
-          "PkgName": "google.golang.org/grpc",
-          "InstalledVersion": "v1.54.0",
-          "FixedVersion": "1.56.3, 1.57.1, 1.58.3",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://github.com/advisories/GHSA-m425-mq94-257g",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "gRPC-Go HTTP/2 Rapid Reset vulnerability",
-          "Description": "### Impact\nIn affected releases of gRPC-Go, it is possible for an attacker to send HTTP/2 requests, cancel them, and send subsequent requests, which is valid by the HTTP/2 protocol, but would cause the gRPC-Go server to launch more concurrent method handlers than the configured maximum stream limit.\n\n### Patches\nThis vulnerability was addressed by #6703 and has been included in patch releases: 1.56.3, 1.57.1, 1.58.3.  It is also included in the latest release, 1.59.0.\n\nAlong with applying the patch, users should also ensure they are using the `grpc.MaxConcurrentStreams` server option to apply a limit to the server's resources used for any single connection.\n\n### Workarounds\nNone.\n\n### References\n#6703\n",
-          "Severity": "HIGH",
-          "CVSS": {
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://github.com/grpc/grpc-go",
-            "https://github.com/grpc/grpc-go/commit/f2180b4d5403d2210b30b93098eb7da31c05c721",
-            "https://github.com/grpc/grpc-go/pull/6703",
-            "https://github.com/grpc/grpc-go/security/advisories/GHSA-m425-mq94-257g"
-          ]
+          "LastModifiedDate": "2023-10-12T19:42:00Z"
         }
       ]
     },
@@ -4115,35 +3826,6 @@
           ],
           "PublishedDate": "2022-10-14T15:15:00Z",
           "LastModifiedDate": "2022-10-18T17:41:00Z"
-        },
-        {
-          "VulnerabilityID": "GHSA-m425-mq94-257g",
-          "PkgName": "google.golang.org/grpc",
-          "InstalledVersion": "v1.29.0",
-          "FixedVersion": "1.56.3, 1.57.1, 1.58.3",
-          "Layer": {},
-          "SeveritySource": "ghsa",
-          "PrimaryURL": "https://github.com/advisories/GHSA-m425-mq94-257g",
-          "DataSource": {
-            "ID": "ghsa",
-            "Name": "GitHub Security Advisory Go",
-            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
-          },
-          "Title": "gRPC-Go HTTP/2 Rapid Reset vulnerability",
-          "Description": "### Impact\nIn affected releases of gRPC-Go, it is possible for an attacker to send HTTP/2 requests, cancel them, and send subsequent requests, which is valid by the HTTP/2 protocol, but would cause the gRPC-Go server to launch more concurrent method handlers than the configured maximum stream limit.\n\n### Patches\nThis vulnerability was addressed by #6703 and has been included in patch releases: 1.56.3, 1.57.1, 1.58.3.  It is also included in the latest release, 1.59.0.\n\nAlong with applying the patch, users should also ensure they are using the `grpc.MaxConcurrentStreams` server option to apply a limit to the server's resources used for any single connection.\n\n### Workarounds\nNone.\n\n### References\n#6703\n",
-          "Severity": "HIGH",
-          "CVSS": {
-            "ghsa": {
-              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
-              "V3Score": 7.5
-            }
-          },
-          "References": [
-            "https://github.com/grpc/grpc-go",
-            "https://github.com/grpc/grpc-go/commit/f2180b4d5403d2210b30b93098eb7da31c05c721",
-            "https://github.com/grpc/grpc-go/pull/6703",
-            "https://github.com/grpc/grpc-go/security/advisories/GHSA-m425-mq94-257g"
-          ]
         }
       ]
     }

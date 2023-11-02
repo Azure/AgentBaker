@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package nbcontract.v1;
+package agentbaker.v1;
 
 // illustrative division only
 message Configuration {

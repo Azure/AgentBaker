@@ -5,5 +5,5 @@ managed:
     default: github.com/Azure/AgentBaker
 plugins:
   - plugin: buf.build/protocolbuffers/go
-    out: ./
+    out: gen
     opt: paths=source_relative
