@@ -1,7 +1,9 @@
 function Start-InstallGPUDriver {
     param(
-        [Parameter(Mandatory = $false)]
-        [bool]$EnableInstall
+        [Parameter(Mandatory = $true)]
+        [bool]$EnableInstall,
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$DriverUrlConfig
     )
   
     if (-not $EnableInstall) {
@@ -32,7 +34,7 @@ function Start-InstallGPUDriver {
         Write-Log "Attempting to install Nvidia driver..."
   
         # Get the SetupTarget based on the input
-        $Setup = Get-Setup
+        $Setup = Get-Setup -DriverUrlConfig $DriverUrlConfig
         $SetupTarget = $Setup.Target
         $Reboot.Needed = $Setup.RebootNeeded
         Write-Log "Setup complete"
@@ -90,10 +92,15 @@ function Start-InstallGPUDriver {
 }
   
 function Get-Setup {
+    param(
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$DriverUrlConfig
+    )
+
     [OutputType([hashtable])]
       
     # Choose driver and specific properties
-    $Driver = Select-Driver
+    $Driver = Select-Driver -DriverUrlConfig $DriverUrlConfig
       
     if ($Driver.Url -eq $null -or $Driver.CertificateUrl -eq $null) {
         $ErrorMsg = "DriverURL or DriverCertificateURL are not properly specified."
@@ -120,6 +127,16 @@ function Get-Setup {
   
 function Select-Driver {
     [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$DriverUrlConfig
+    )
+
+    $GpuDriverCudaURL = $DriverUrlConfig.GpuDriverCudaURL
+    $GpuDriverGridURL = $DriverUrlConfig.GpuDriverGridURL
+    
+    Write-Log "cuda gpu url is set to $GpuDriverCudaURL"
+    Write-Log "grid gpu url is set to $GpuDriverGridURL"
   
     # Set some default values
     $Driver = @{
@@ -133,19 +150,6 @@ function Select-Driver {
     $Index = @{
         OS = 0 # Windows
     }
-  
-    # Get OS
-    # Using the following instead of VM vmetadata ( $Compute.sku -match ('.*2016-Datacenter.*|.*RS.*Pro.*') ) # 2016, Win 10
-    # to accomodate various image publishers and their SKUs
-    $OSMajorVersion = (Get-CimInstance Win32_OperatingSystem).version.split('.')[0]
-    if ( $OSMajorVersion -eq 10 ) {
-        # Win 2016, Win 10
-        $Index.OSVersion = 0
-    }
-    else {
-        # ( $OSMajorVersion -eq 6 ) Win 2012 R2
-        $Index.OSVersion = 1
-    }  
   
     try {
         $Compute = Get-VmData
@@ -175,40 +179,19 @@ function Select-Driver {
         }
     }
   
-  
-    # Download and read the resources table
-    Get-DriverFile $Driver.ResourceUrl $Driver.ResourceFile
-    $Resources = (Get-Content $Driver.ResourceFile) -join "`n" | ConvertFrom-JSON
-  
     # Get the certificate url
-    $Driver.CertificateUrl = $Resources.OS[$Index.OS].Certificate.FwLink
-  
-    # Get the driver version
-    $Driver.ObjectArray = $Resources.OS[$Index.OS].Version[$Index.OSVersion].Driver[$Index.Driver].Version
-    $Driver.Object = $Driver.ObjectArray[0] # latest driver
-  
-    $Driver.Version = $Driver.Object.Num
-    $Driver.Url = $Driver.Object.FwLink
-  
-  
-    # $Driver.SetupFolder is set based on OS and Driver Type
-    # This cannot be made standard currently as there doesn't seem to be a way to pass the extraction/setup folder in silent mode
+    $Driver.CertificateUrl = "https://download.microsoft.com/download/7/1/F/71FB7755-D899-4FD9-AC05-2216EE8102AC/nvidia.cer"
+
     if ($Index.Driver -eq 0) {
-        # CUDA
-        if ($Index.OSVersion -eq 0) {
-            # Win 2016, Win 10
-            $Driver.SetupFolder = "C:\NVIDIA\DisplayDriver\$($Driver.Version)\Win10_64\International"
-        }
-        else {
-            # Win 2012 R2
-            $Driver.SetupFolder = "C:\NVIDIA\DisplayDriver\$($Driver.Version)\Win8_Win7_64\International"
-        }
+        $Driver.SetupFolder = "C:\NVIDIA\DisplayDriver\CUDA"
+        $Driver.Url = $GpuDriverCudaURL
+        Write-Log "cuda driver is chosen"
     }
     else {
-        # GRID
-        $Driver.SetupFolder = "C:\NVIDIA\$($Driver.Version)"
+        $Driver.SetupFolder = "C:\NVIDIA\DisplayDriver\GRID"
+        $Driver.Url = $GpuDriverGridURL
+        Write-Log "grid driver is chosen"
     }
-  
   
     return $Driver
 }

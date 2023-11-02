@@ -241,9 +241,6 @@ try
         Write-Log "CSEScriptsPackageUrl is set to $global:CSEScriptsPackageUrl"
     }
 
-    Write-Log "cuda gpu url is set to $global:GpuDriverCudaURL"
-    Write-Log "grid gpu url is set to $global:GpuDriverGridURL"
-
     # Download CSE function scripts
     Write-Log "Getting CSE scripts"
     $tempfile = 'c:\csescripts.zip'
@@ -467,7 +464,12 @@ try
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
     }
     
-    $RebootNeeded = Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded
+    $DriverUrlConfig = [PSCustomObject]@{
+        GpuDriverCudaURL = $global:GpuDriverCudaURL
+        GpuDriverGridURL = $global:GpuDriverGridURL
+    }
+
+    $RebootNeeded = Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -DriverUrlConfig $DriverUrlConfig
 
     if (Test-Path $CacheDir)
     {
