@@ -167,8 +167,8 @@ $global:EnableHostsConfigAgent = [System.Convert]::ToBoolean("false");
 $global:CSEScriptsPackageUrl = "";
 
 # These windows nvidia gpu driver are used by windows cse
-$global:GpuDriverCudaUrl = "";
-$global:GpuDriverGridUrl = "";
+$global:GpuDriverCudaURL = "";
+$global:GpuDriverGridURL = "";
 
 # PauseImage
 $global:WindowsPauseImageURL = "mcr.microsoft.com/oss/kubernetes/pause:1.4.0";
@@ -237,8 +237,8 @@ try
         Write-Log "CSEScriptsPackageUrl is set to $global:CSEScriptsPackageUrl"
     }
 
-    Write-Log "cuda gpu url is set to $global:GpuDriverCudaUrl"
-    Write-Log "grid gpu url is set to $global:GpuDriverGridUrl"
+    Write-Log "cuda gpu url is set to $global:GpuDriverCudaURL"
+    Write-Log "grid gpu url is set to $global:GpuDriverGridURL"
 
     # Download CSE function scripts
     Write-Log "Getting CSE scripts"

@@ -7735,8 +7735,8 @@ $global:EnableHostsConfigAgent = [System.Convert]::ToBoolean("{{ EnableHostsConf
 $global:CSEScriptsPackageUrl = "{{GetVariable "windowsCSEScriptsPackageURL" }}";
 
 # These windows nvidia gpu driver are used by windows cse
-$global:GpuDriverCudaUrl = "{{GetVariable "windowsGpuDriverCudaUrl" }}";
-$global:GpuDriverGridUrl = "{{GetVariable "windowsGpuDriverGridUrl" }}";
+$global:GpuDriverCudaURL = "{{GetVariable "windowsGpuDriverCudaURL" }}";
+$global:GpuDriverGridURL = "{{GetVariable "windowsGpuDriverGridURL" }}";
 
 # PauseImage
 $global:WindowsPauseImageURL = "{{GetVariable "windowsPauseImageURL" }}";
@@ -7805,8 +7805,8 @@ try
         Write-Log "CSEScriptsPackageUrl is set to $global:CSEScriptsPackageUrl"
     }
 
-    Write-Log "cuda gpu url is set to $global:GpuDriverCudaUrl"
-    Write-Log "grid gpu url is set to $global:GpuDriverGridUrl"
+    Write-Log "cuda gpu url is set to $global:GpuDriverCudaURL"
+    Write-Log "grid gpu url is set to $global:GpuDriverGridURL"
 
     # Download CSE function scripts
     Write-Log "Getting CSE scripts"
