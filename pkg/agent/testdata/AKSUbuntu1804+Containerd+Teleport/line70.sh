@@ -350,6 +350,7 @@ ensureArtifactStreaming() {
   sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
   sudo /opt/acr/tools/overlaybd/config.sh download.enable false
   sudo /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
+  sudo /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
   modprobe target_core_user
   curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd' -O
   systemctl enable /opt/overlaybd/overlaybd-tcmu.service
