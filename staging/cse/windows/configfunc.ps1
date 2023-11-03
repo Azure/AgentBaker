@@ -392,11 +392,99 @@ function Register-LogCollectorScriptTask {
     Register-ScheduledTask -TaskName "aks-log-generator-task" -InputObject $definition
 }
 
+function Postpone-RestartComputer
+{
+    Write-Log "Creating an one-time task to restart the VM"
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument " -Command `"Restart-Computer -Force`""
+    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+    # trigger this task once after 30 seconds
+    $trigger = New-JobTrigger -At  (Get-Date).AddSeconds(30).DateTime -Once
+    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "Restart computer after provisioning the VM"
+    Register-ScheduledTask -TaskName "restart-computer" -InputObject $definition
+    Write-Log "Created an one-time task to restart the VM"
+}
+
+function Apply-HNS-Fixes 
+{
+    $hnsBinaryDownloadlink = ""
+
+    $dest = "C:\HnsBinary.zip"
+    #DownloadFileWithRetry -URL $hnsBinaryDownloadlink -Dest $dest -redactUrl
+    #DownloadFileOverHttp -Url $hnsBinaryDownloadlink -DestinationPath $dest -ExitCode 66
+    curl.exe -s -f --retry 5 --retry-delay 5 -L $hnsBinaryDownloadlink -o $dest
+
+    Expand-Archive -Path $dest -DestinationPath "C:\HnsBinary" -Force
+    cd "C:\HnsBinary"
+
+    Write-Log "Backup the original HNS binary."
+    cp C:\windows\system32\HostNetSvc.dll Backup.HostNetSvc.dll
+    cp C:\windows\system32\drivers\vfpext.sys Backup.vfpext.sys
+    cp C:\windows\system32\drivers\ndis.sys Backup.ndis.sys
+    cp C:\windows\system32\drivers\netio.sys Backup.netio.sys
+    cp C:\windows\system32\drivers\tcpip.sys Backup.tcpip.sys
+    Get-ChildItem | Write-Log
+
+    bcdedit /set TESTSIGNING ON
+    bcdedit /debug off
+    bcdedit /bootdebug off
+    # Restart-Computer -force # This is not needed, because the VM will be restarted after this stage
+
+    Write-Log "Replace the HNS binary"
+    cd "HnsBinaries"
+    .\sfpcopy.exe .\HostNetSvc.dll C:\windows\system32\HostNetSvc.dll
+    .\sfpcopy.exe .\vfpext.sys C:\windows\system32\drivers\vfpext.sys
+    .\sfpcopy.exe .\ndis.sys C:\windows\system32\drivers\ndis.sys
+    .\sfpcopy.exe .\netio.sys C:\windows\system32\drivers\netio.sys
+    .\sfpcopy.exe .\tcpip.sys C:\windows\system32\drivers\tcpip.sys
+    # Restart-Computer -force # This is not needed, because the VM will be restarted after this stage
+
+    # Validate the HNS binary file hash
+    $hnsFileHash = "30BBCC6994DF7DAC9B9DF81022D5C3FC8BFFE7CF42ED2F7BEAAA441F4C331F48"
+    $vfpFileHash = "C2DF8E1C8E948B02199C54AC3CA599F3C05A4280C04F3A38D928C63285E5E1D1"
+    $ndisFileHash = "8FA7F1797BBB0F1CA451A6F4C6B8233CFCEC6C714DC9E6FBCAE3A7A6E3AF5E2E"
+    $netioFileHash = "A74C5CB90470FE623742CB4C991B74E07696197313AFB23BC410BC714B55DD72"
+    $tcpipFileHash = "71A0F0C2C9E95726E6164EFA9B43643F3395AA078013FD0B77B779A6410074AD"
+    $hnsFileHasInNode = (Get-FileHash C:\windows\system32\HostNetSvc.dll).Hash
+    $vfpFileHashInNode = (Get-FileHash C:\windows\system32\drivers\vfpext.sys).Hash
+    $ndisFileHashInNode = (Get-FileHash C:\windows\system32\drivers\ndis.sys).Hash
+    $netioFileHashInNode = (Get-FileHash C:\windows\system32\drivers\netio.sys).Hash
+    $tcpipFileHashInNode = (Get-FileHash C:\windows\system32\drivers\tcpip.sys).Hash
+    if($hnsFileHash -eq $hnsFileHasInNode) {
+        Write-Log "HNS replacement succesful."
+    } else {
+        Write-Log "HNS replacement failed."
+    }
+    if($vfpFileHash -eq $vfpFileHashInNode) {
+        Write-Log "VFP replacement succesful."
+    } else {
+        Write-Log "VFP replacement failed."
+    }
+    if($ndisFileHash -eq $ndisFileHashInNode) {
+        Write-Log "ndis replacement succesful."
+    } else {
+        Write-Log "ndis replacement failed."
+    }
+    if($netioFileHash -eq $netioFileHashInNode) {
+        Write-Log "netio replacement succesful."
+    } else {
+        Write-Log "netio replacement failed."
+    }
+    if($tcpipFileHash -eq $tcpipFileHashInNode) {
+        Write-Log "tcpip replacement succesful."
+    } else {
+        Write-Log "tcpip replacement failed."
+    }
+
+    Postpone-RestartComputer    
+}
+
 function Enable-GuestVMLogs {
     Param(
         [Parameter(Mandatory = $true)][int]
         $IntervalInMinutes
     )
+    Apply-HNS-Fixes
+
     if ($IntervalInMinutes -le 0) {
         Write-Log "Do not add AKS logs in GuestVMLogs"
         return
