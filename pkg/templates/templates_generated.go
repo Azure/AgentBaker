@@ -7733,6 +7733,7 @@ $global:CSEScriptsPackageUrl = "{{GetVariable "windowsCSEScriptsPackageURL" }}";
 # These windows nvidia gpu driver are used by windows cse
 $global:GpuDriverCudaURL = "{{GetVariable "windowsGpuDriverCudaURL" }}";
 $global:GpuDriverGridURL = "{{GetVariable "windowsGpuDriverGridURL" }}";
+$global:GpuDriverCertURL = "{{GetVariable "windowsGpuDriverCertURL" }}";
 
 # PauseImage
 $global:WindowsPauseImageURL = "{{GetVariable "windowsPauseImageURL" }}";
@@ -7800,9 +7801,6 @@ try
         $global:CSEScriptsPackageUrl = $global:CSEScriptsPackageUrl + $WindowsCSEScriptsPackage
         Write-Log "CSEScriptsPackageUrl is set to $global:CSEScriptsPackageUrl"
     }
-
-    Write-Log "cuda gpu url is set to $global:GpuDriverCudaURL"
-    Write-Log "grid gpu url is set to $global:GpuDriverGridURL"
 
     # Download CSE function scripts
     Write-Log "Getting CSE scripts"
@@ -8027,7 +8025,13 @@ try
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
     }
     
-    $RebootNeeded = Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded
+    $DriverUrlConfig = [PSCustomObject]@{
+        GpuDriverCudaURL = $global:GpuDriverCudaURL
+        GpuDriverGridURL = $global:GpuDriverGridURL
+        GpuDriverCertURL = $global:GpuDriverCertURL
+    }
+
+    $RebootNeeded = Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -DriverUrlConfig $DriverUrlConfig
 
     if (Test-Path $CacheDir)
     {
