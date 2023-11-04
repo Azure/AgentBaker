@@ -61,7 +61,7 @@ func main() {
 	flag.StringVar(&fl.ignore, "ignore", "", "ignore release notes for these VHDs")
 	flag.StringVar(&fl.path, "path", defaultPath, "output path to root of VHD notes")
 	flag.StringVar(&fl.date, "date", defaultDate, "date of VHD build in format YYYYMM.DD.0")
-	flag.BoolVar(&fl.includeLatest, "include-latest", true, "if enabled, create/update the latest version of each release artifact for each SKU")
+	flag.BoolVar(&fl.skipLatest, "skip-latest", false, "if set, skip creating/updating the latest version of each release artifact for each SKU")
 
 	flag.Parse()
 
@@ -339,7 +339,7 @@ func (a buildArtifact) process(fl *flags, outdir, tmpdir string) error {
 		return fmt.Errorf("failed to rename file %s to %s, err: %s", tempPath, outPath, err)
 	}
 
-	if fl.includeLatest {
+	if !fl.skipLatest {
 		data, err := os.ReadFile(outPath)
 		if err != nil {
 			return fmt.Errorf("failed to read file %s for copying, err: %s", outPath, err)
@@ -355,12 +355,12 @@ func (a buildArtifact) process(fl *flags, outdir, tmpdir string) error {
 }
 
 type flags struct {
-	build         string
-	include       string // CSV of the map keys below.
-	ignore        string // CSV of the map keys below.
-	path          string // output path
-	date          string // date of vhd build
-	includeLatest bool   // whether to include creating/updating latest version of each artifact for each SKU
+	build      string
+	include    string // CSV of the map keys below.
+	ignore     string // CSV of the map keys below.
+	path       string // output path
+	date       string // date of vhd build
+	skipLatest bool   // whether to skip creating/updating latest version of each artifact for each SKU
 }
 
 var defaultPath = filepath.Join("vhdbuilder", "release-notes")
