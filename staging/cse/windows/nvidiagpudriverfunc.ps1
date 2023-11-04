@@ -132,12 +132,10 @@ function Select-Driver {
         [PSCustomObject]$DriverUrlConfig
     )
 
-    $GpuDriverCudaURL = $DriverUrlConfig.GpuDriverCudaURL
-    $GpuDriverGridURL = $DriverUrlConfig.GpuDriverGridURL
+    $GpuDriverURL = $DriverUrlConfig.GpuDriverURL
     $GpuDriverCertURL = $DriverUrlConfig.GpuDriverCertURL
     
-    Write-ConsoleLog "cuda gpu url is set to $GpuDriverCudaURL"
-    Write-ConsoleLog "grid gpu url is set to $GpuDriverGridURL"
+    Write-ConsoleLog "gpu url is set to $GpuDriverURL"
     Write-ConsoleLog "gpu cert url is set to $GpuDriverCertURL"
   
     # Set some default values
@@ -180,17 +178,7 @@ function Select-Driver {
   
     # Get the certificate url
     $Driver.CertificateUrl = $GpuDriverCertURL
-
-    if ($Index.Driver -eq 0) {
-        $Driver.SetupFolder = "C:\NVIDIA\DisplayDriver\CUDA"
-        $Driver.Url = $GpuDriverCudaURL
-        Write-ConsoleLog "cuda driver is chosen"
-    }
-    else {
-        $Driver.SetupFolder = "C:\NVIDIA\DisplayDriver\GRID"
-        $Driver.Url = $GpuDriverGridURL
-        Write-ConsoleLog "grid driver is chosen"
-    }
+    $Driver.Url = $GpuDriverURL
   
     return $Driver
 }
