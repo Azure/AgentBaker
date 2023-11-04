@@ -170,7 +170,7 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 
 	// working directory, need one per sku because the file name is
 	// always "release-notes.txt" so they all overwrite each other.
-	tmpdir, err := os.MkdirTemp("", "releasenotes")
+	tmpdir, err := ioutil.TempDir("", "releasenotes")
 	if err != nil {
 		errc <- fmt.Errorf("failed to create temp working directory: %w", err)
 	}
