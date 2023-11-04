@@ -23,8 +23,8 @@ configure_az_devops() {
 create_branch() {
     # Create PR branch
     echo "Create branch named $1"
-    git checkout master
-    git pull
+    # git checkout master
+    # git pull
     git checkout -b $1
 }
 
