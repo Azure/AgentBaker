@@ -166,9 +166,8 @@ $global:EnableHostsConfigAgent = [System.Convert]::ToBoolean("false");
 # These scripts are used by cse
 $global:CSEScriptsPackageUrl = "";
 
-# These windows nvidia gpu driver are used by windows cse
-$global:GpuDriverCudaURL = "";
-$global:GpuDriverGridURL = "";
+# The windows nvidia gpu driver related urls are used by windows cse
+$global:GpuDriverURL = "";
 $global:GpuDriverCertURL = "";
 
 # PauseImage
@@ -456,8 +455,7 @@ try
     }
     
     $DriverUrlConfig = [PSCustomObject]@{
-        GpuDriverCudaURL = $global:GpuDriverCudaURL
-        GpuDriverGridURL = $global:GpuDriverGridURL
+        GpuDriverURL = $global:GpuDriverURL
         GpuDriverCertURL = $global:GpuDriverCertURL
     }
 
@@ -494,7 +492,7 @@ try
     $timer.Stop()
     Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
 
-    if ($RebootNeeded) {
+    if ($RebootNeeded -eq $true) {
         Postpone-RestartComputer
     }
 }
