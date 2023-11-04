@@ -322,7 +322,7 @@ type buildArtifact struct {
 	tempName string
 	// outName is the versioned name of the artifact file to be uploaded
 	outName string
-	// latestName is the latest name of the artifact to uploaded
+	// latestName is the latest name of the artifact file to be uploaded
 	latestName string
 }
 
