@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euxo pipefail
 
+SKIP_LATEST="${SKIP_LATEST:-false}"
+
 source vhdbuilder/scripts/automate_helpers.sh
 
 echo "Image version for release notes is $1"
@@ -26,7 +28,11 @@ generate_release_notes() {
             fi
         done
         echo "SKUs for release notes are $included_skus"
-        go run vhdbuilder/release-notes/autonotes/main.go --build $build_id --date $image_version --include ${included_skus%?}
+        if [ "${SKIP_LATEST,,}" == "true" ]; then
+            go run vhdbuilder/release-notes/autonotes/main.go --skip-latest --build $build_id --date $image_version --include ${included_skus%?}
+        else
+            go run vhdbuilder/release-notes/autonotes/main.go --build $build_id --date $image_version --include ${included_skus%?}
+        fi
     done
 }
 
