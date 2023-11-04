@@ -28,8 +28,6 @@ generate_release_notes() {
             fi
         done
         echo "SKUs for release notes are $included_skus"
-        go run vhdbuilder/release-notes/autonotes/main.go -h
-        cat vhdbuilder/release-notes/autonotes/main.go
         if [ "${SKIP_LATEST,,}" == "true" ]; then
             go run vhdbuilder/release-notes/autonotes/main.go --skip-latest --build $build_id --date $image_version --include ${included_skus%?}
         else

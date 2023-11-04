@@ -206,7 +206,7 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 	}
 
 	for _, artifact := range artifacts {
-		if err := artifact.process(fl, tmpdir, artifactsDirOut); err != nil {
+		if err := artifact.process(fl, artifactsDirOut, tmpdir); err != nil {
 			errc <- fmt.Errorf("failed to process VHD build artifact %s: %w", artifact.name, err)
 		}
 	}
