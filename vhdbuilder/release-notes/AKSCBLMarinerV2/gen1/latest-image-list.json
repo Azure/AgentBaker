@@ -1,6 +1,6 @@
 {
   "sku": "V2",
-  "imageVersion": "202310.26.0",
+  "imageVersion": "202310.30.0",
   "imageBom": [
     {
       "id": "sha256:03e6a745f125aa9213a0f33131b1ee5b4958746cfd87b9ce5109ef7224d02516",
@@ -363,6 +363,15 @@
       ]
     },
     {
+      "id": "sha256:6c74a0ce8cade910318dd84184dda6171685014a93cd9a207800190e5bfdd938",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.3"
+      ],
+      "repoDigests": [
+        "sha256:ffb1373df193653c63e39cfb125caff70215823601855601bf5e19c3ff2c4059"
+      ]
+    },
+    {
       "id": "sha256:6c824ba2b106f63b6815c9fe13a8cde0a4de431024bde9fdb32d670a53d20a7c",
       "repoTags": [
         "mcr.microsoft.com/containernetworking/azure-cns:v1.5.11"
@@ -462,6 +471,15 @@
       ]
     },
     {
+      "id": "sha256:7be64068f352f1a66a48d7712857325ce171c6b0dc8ec41843213b564f624b81",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.25.15"
+      ],
+      "repoDigests": [
+        "sha256:c330699cf0bc91b542b69cc62613003b92933c30578c6035679e15c491816d03"
+      ]
+    },
+    {
       "id": "sha256:7c29d61dc51def3464c694c32d85cff4775ae007b50856c047d332872455b095",
       "repoTags": [
         "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.1"
@@ -543,6 +561,15 @@
       ]
     },
     {
+      "id": "sha256:920a68fa906ab0ce00495342a177eb8a0dde781847f4560e34ad0bc6048816e6",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.7"
+      ],
+      "repoDigests": [
+        "sha256:d9546b07a9d36b743b0a5c5158eabae67d397aadf44e2f4f5a2a1dd9c57b9c0c"
+      ]
+    },
+    {
       "id": "sha256:923badb8ff2d384b7ec7a1b7b2a9ff0ebfd574c3fbd50b8ddf9a00929dcd5f0a",
       "repoTags": [
         "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.4"
@@ -567,6 +594,15 @@
       ],
       "repoDigests": [
         "sha256:602aa87bc2e31eb743ba637f16ded3f7e808f0962c2a7523b496924e4263ee1e"
+      ]
+    },
+    {
+      "id": "sha256:9ebbec3d50e0db6948edfd8e19622597b296662fa78f333944f7038a37667668",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.10"
+      ],
+      "repoDigests": [
+        "sha256:90963269a35ecec0eb1035c26a3c083f86870123e30476eca36d0752c0b500f7"
       ]
     },
     {
