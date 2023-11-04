@@ -170,13 +170,23 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 
 	// working directory, need one per sku because the file name is
 	// always "release-notes.txt" so they all overwrite each other.
-	tmpdir, err := ioutil.TempDir("", "releasenotes")
+	tmpdir, err := os.MkdirTemp("", "releasenotes")
 	if err != nil {
 		errc <- fmt.Errorf("failed to create temp working directory: %w", err)
 	}
 	defer os.RemoveAll(tmpdir)
 
 	artifactsDirOut := filepath.Join(fl.path, path)
+
+	if err := os.MkdirAll(filepath.Dir(artifactsDirOut), 0644); err != nil {
+		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
+		return
+	}
+
+	if err := os.MkdirAll(artifactsDirOut, 0644); err != nil {
+		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
+		return
+	}
 
 	artifacts := []buildArtifact{
 		{
