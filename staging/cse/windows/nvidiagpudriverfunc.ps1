@@ -7,11 +7,11 @@ function Start-InstallGPUDriver {
     )
   
     if (-not $EnableInstall) {
-        Write-Log "ConfigGPUDriverIfNeeded is false. GPU driver installation skipped as per configuration."
+        Write-ConsoleLog "ConfigGPUDriverIfNeeded is false. GPU driver installation skipped as per configuration."
         return $false
     }
   
-    Write-Log "ConfigGPUDriverIfNeeded is true. GPU driver installation started as per configuration."
+    Write-ConsoleLog "ConfigGPUDriverIfNeeded is true. GPU driver installation started as per configuration."
   
     $RebootNeeded = $false
   
@@ -31,18 +31,18 @@ function Start-InstallGPUDriver {
             Needed = $false
         }
   
-        Write-Log "Attempting to install Nvidia driver..."
+        Write-ConsoleLog "Attempting to install Nvidia driver..."
   
         # Get the SetupTarget based on the input
         $Setup = Get-Setup -DriverUrlConfig $DriverUrlConfig
         $SetupTarget = $Setup.Target
         $Reboot.Needed = $Setup.RebootNeeded
-        Write-Log "Setup complete"
+        Write-ConsoleLog "Setup complete"
   
         Add-DriverCertificate $Setup.CertificateUrl
-        Write-Log "Certificate in store"
+        Write-ConsoleLog "Certificate in store"
   
-        Write-Log "Installing $SetupTarget ..."
+        Write-ConsoleLog "Installing $SetupTarget ..."
         try {
             $InstallLogFolder = "$LogFolder\NvidiaInstallLog"
             $Arguments = "-s -n -log:$InstallLogFolder -loglevel:6"
@@ -55,29 +55,29 @@ function Start-InstallGPUDriver {
             # check if installation was successful
             if ($p.ExitCode -eq 0 -or $p.ExitCode -eq 1) {
                 # 1 is issued when reboot is required after success
-                Write-Log "GPU Driver Installation Success. Code: $($p.ExitCode)"
+                Write-ConsoleLog "GPU Driver Installation Success. Code: $($p.ExitCode)"
             }
             else {
                 $ErrorMsg = "GPU Driver Installation Failed! Code: $($p.ExitCode)"
-                Write-Log $ErrorMsg
+                Write-ConsoleLog $ErrorMsg
                 Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_FAILED -ErrorMessage $ErrorMsg
             }
   
             if ($Reboot.Needed -or $p.ExitCode -eq 1) {
-                Write-Log "Reboot is needed for this GPU Driver..."
+                Write-ConsoleLog "Reboot is needed for this GPU Driver..."
                 $RebootNeeded = $true
             }
             return $RebootNeeded
         }
         catch [System.TimeoutException] {
             $ErrorMsg = "Timeout $Timeout s exceeded. Stopping the installation process. Reboot for another attempt."
-            Write-Log $ErrorMsg
+            Write-ConsoleLog $ErrorMsg
             Stop-Process -InputObject $p -Force
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_TIMEOUT -ErrorMessage $ErrorMsg
         }
         catch {
             $ErrorMsg = "Exception: $($_.ToString())"
-            Write-Log $ErrorMsg # the status file may get over-written when the agent re-attempts this step
+            Write-ConsoleLog $ErrorMsg # the status file may get over-written when the agent re-attempts this step
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_FAILED -ErrorMessage $ErrorMsg
         }
       
@@ -86,7 +86,7 @@ function Start-InstallGPUDriver {
         $FatalError += $_
         $errorCount = $FatalError.Count
         $ErrorMsg = "A fatal error occurred. Number of errors: $errorCount. Error details: $($_ | Out-String)"
-        Write-Log $ErrorMsg
+        Write-ConsoleLog $ErrorMsg
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_FAILED -ErrorMessage $ErrorMsg
     }
 }
@@ -104,7 +104,7 @@ function Get-Setup {
       
     if ($Driver.Url -eq $null -or $Driver.CertificateUrl -eq $null) {
         $ErrorMsg = "DriverURL or DriverCertificateURL are not properly specified."
-        Write-Log $ErrorMsg
+        Write-ConsoleLog $ErrorMsg
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_SET -ErrorMessage $ErrorMsg
     }
       
@@ -136,17 +136,14 @@ function Select-Driver {
     $GpuDriverGridURL = $DriverUrlConfig.GpuDriverGridURL
     $GpuDriverCertURL = $DriverUrlConfig.GpuDriverCertURL
     
-    Write-Log "cuda gpu url is set to $GpuDriverCudaURL"
-    Write-Log "grid gpu url is set to $GpuDriverGridURL"
-    Write-Log "gpu cert url is set to $GpuDriverCertURL"
+    Write-ConsoleLog "cuda gpu url is set to $GpuDriverCudaURL"
+    Write-ConsoleLog "grid gpu url is set to $GpuDriverGridURL"
+    Write-ConsoleLog "gpu cert url is set to $GpuDriverCertURL"
   
     # Set some default values
     $Driver = @{
         # Hard coding the FwLink for resources.json
-        ResourceUrl  = "https://go.microsoft.com/fwlink/?linkid=2181101"
-        ResourceFile = "$PSScriptRoot\..\resources.json"
         InstallExe   = "install.exe"
-        SetupExe     = "setup.exe"
         RebootNeeded = $false
     }
     $Index = @{
@@ -159,7 +156,7 @@ function Select-Driver {
     }
     catch {
         $ErrorMsg = "Failed to query the SKU information."
-        Write-Log $ErrorMsg
+        Write-ConsoleLog $ErrorMsg
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_SKU_INFO_NOT_FOUND -ErrorMessage $ErrorMsg
     }
   
@@ -187,12 +184,12 @@ function Select-Driver {
     if ($Index.Driver -eq 0) {
         $Driver.SetupFolder = "C:\NVIDIA\DisplayDriver\CUDA"
         $Driver.Url = $GpuDriverCudaURL
-        Write-Log "cuda driver is chosen"
+        Write-ConsoleLog "cuda driver is chosen"
     }
     else {
         $Driver.SetupFolder = "C:\NVIDIA\DisplayDriver\GRID"
         $Driver.Url = $GpuDriverGridURL
-        Write-Log "grid driver is chosen"
+        Write-ConsoleLog "grid driver is chosen"
     }
   
     return $Driver
@@ -214,7 +211,7 @@ function Get-VmData {
             if ($RetryCount -gt $RetryCountMax) {
                 $Loop = $false
                 $ErrorMsg = "Failed to retrieve VM metadata after $RetryCountMax attempts. Exiting! More information on troubleshooting is available at https://aka.ms/NvidiaGpuDriverWindowsExtensionTroubleshoot"
-                Write-Log $ErrorMsg
+                Write-ConsoleLog $ErrorMsg
                 Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_SKU_INFO_NOT_FOUND -ErrorMessage $ErrorMsg
             }
             else {
@@ -247,13 +244,13 @@ function Get-DriverFile {
         $wc = New-Object System.Net.WebClient
         $start_time = Get-Date
         $wc.DownloadFile($source, $dest)
-        Write-Log "Time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)"
+        Write-ConsoleLog "Time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)"
   
         # Reset Security Protocols
         [Net.ServicePointManager]::SecurityProtocol = $protocols
     }
   
-    Write-Log "Downloading from $source to $dest"
+    Write-ConsoleLog "Downloading from $source to $dest"
   
     # Retry to overcome failure in downloading
     $Loop = $true
@@ -268,7 +265,7 @@ function Get-DriverFile {
             if ($RetryCount -gt $RetryCountMax) {
                 $Loop = $false
                 $ErrorMsg = "Failed to download $source after $RetryCountMax attempts. Exiting! More information on troubleshooting is available at https://aka.ms/NvidiaGpuDriverWindowsExtensionTroubleshoot"
-                Write-Log $ErrorMsg
+                Write-ConsoleLog $ErrorMsg
                 Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE -ErrorMessage $ErrorMsg
             }
             else {
@@ -288,7 +285,7 @@ function Add-DriverCertificate {
   
     $Cert = Get-DriverCertificate $link
   
-    Write-Log 'Adding Certificate ...'
+    Write-ConsoleLog 'Adding Certificate ...'
     $Store = Get-Item $Cert.Store
     $Store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
     $ImportedCert = Import-Certificate -Filepath $Cert.File -CertStoreLocation $Cert.Store
@@ -297,24 +294,24 @@ function Add-DriverCertificate {
     if ($CertInStore) {
         # Perform additional validation checks on the certificate
         if ($CertInStore.NotAfter -gt (Get-Date)) {
-            Write-Log 'Certificate is valid and has not expired.'
+            Write-ConsoleLog 'Certificate is valid and has not expired.'
         }
         else {
-            Write-Log 'Certificate has expired.'
+            Write-ConsoleLog 'Certificate has expired.'
         }
   
         # Check if the certificate is trusted
         if ($CertInStore.Verify()) {
-            Write-Log 'Certificate is trusted.'
+            Write-ConsoleLog 'Certificate is trusted.'
         }
         else {
-            Write-Log 'Certificate is not trusted.'
+            Write-ConsoleLog 'Certificate is not trusted.'
         }
     }
     else {
-        Write-Log 'Certificate is not valid.'
+        Write-ConsoleLog 'Certificate is not valid.'
     }
-    Write-Log 'Certificate added.'
+    Write-ConsoleLog 'Certificate added.'
     $Store.Close()
 }
    
@@ -341,4 +338,9 @@ function Get-DriverCertificate {
     $Cert.NewObject.Import($Cert.File)
   
     return $Cert
+}
+
+function Write-ConsoleLog($message) {
+    $msg = $message | Timestamp
+    Write-Host $msg
 }
