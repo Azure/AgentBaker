@@ -1,6 +1,6 @@
 {
   "sku": "V2gen2arm64",
-  "imageVersion": "202310.26.0",
+  "imageVersion": "202310.31.0",
   "imageBom": [
     {
       "id": "sha256:01ec396b029cc8357242562fd84655596f26dbee086c252748e4ef52a03eba27",
@@ -535,6 +535,33 @@
       ]
     },
     {
+      "id": "sha256:91254d305c27c75cfc5ba8c7f4e12eb423fa2bbf302bd37e2403c1ce71b7fe15",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.25.15"
+      ],
+      "repoDigests": [
+        "sha256:c330699cf0bc91b542b69cc62613003b92933c30578c6035679e15c491816d03"
+      ]
+    },
+    {
+      "id": "sha256:919a3ae0374d648349517bc39ec2d59c097bb6dfda774e904d0814a65b50af5d",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.3"
+      ],
+      "repoDigests": [
+        "sha256:ffb1373df193653c63e39cfb125caff70215823601855601bf5e19c3ff2c4059"
+      ]
+    },
+    {
+      "id": "sha256:9378e11debaf7fddc84ff36b2104abc3d84c2c0b1edcfb91ec4d3cc6de405388",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.7"
+      ],
+      "repoDigests": [
+        "sha256:d9546b07a9d36b743b0a5c5158eabae67d397aadf44e2f4f5a2a1dd9c57b9c0c"
+      ]
+    },
+    {
       "id": "sha256:958daa840178ef2797d0ffb900bafe599cf9ebb2f39054ec74c92b4dd5742cc5",
       "repoTags": [
         "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.22.3"
@@ -577,6 +604,15 @@
       ],
       "repoDigests": [
         "sha256:85d6c6392611b523514a7158f1ad590be20b8920e0bc54fd5d5b30bf802e1be6"
+      ]
+    },
+    {
+      "id": "sha256:a2f47882b3b66831c4dacea7c1b4405d4b4dddb252045721b8cad733dcd4c7ea",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.10"
+      ],
+      "repoDigests": [
+        "sha256:90963269a35ecec0eb1035c26a3c083f86870123e30476eca36d0752c0b500f7"
       ]
     },
     {
