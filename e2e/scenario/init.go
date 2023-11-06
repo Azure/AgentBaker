@@ -52,5 +52,6 @@ func scenarios() []*Scenario {
 		azurelinuxv2gpu_azurecni(),
 		ubuntu2204gpuNoDriver(),
 		ubuntu2204CustomCATrust(),
+		ubuntu2204ArtifactStreaming(),
 	}
 }
