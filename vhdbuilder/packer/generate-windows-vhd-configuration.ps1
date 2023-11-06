@@ -84,6 +84,7 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.15",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.5",
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.50",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.11"
 )
 
