@@ -124,9 +124,6 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     activateNfConntrack
 fi
 
-downloadSecureTLSBootstrapKubeletExecPlugin
-echo "  - secure-tls-bootstrap-kubelet-exec-plugin ${SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
-
 downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
 
