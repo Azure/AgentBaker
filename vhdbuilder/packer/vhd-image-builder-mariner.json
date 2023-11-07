@@ -266,6 +266,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/dump-vhd-disk.sh",
+      "destination": "/home/packer/dump-vhd-disk.sh"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/components.json",
       "destination": "/home/packer/components.json"
     },
@@ -597,6 +602,7 @@
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
+        "sudo /bin/bash -eux /home/packer/dump-vhd-disk.sh",
         "sudo /usr/bin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
     }
