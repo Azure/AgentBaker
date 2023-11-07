@@ -15,32 +15,29 @@ function Start-InstallGPUDriver {
   
     $RebootNeeded = $false
   
-    if (-not $PSScriptRoot) {
-        $PSScriptRoot = Split-Path $MyInvocation.InvocationName
-    }
-    if ( -not $env:Path.Contains( "$PSScriptRoot;") ) {
-        $env:Path = "$PSScriptRoot;$env:Path"
-    }
+    $RootDir = "C:\AzureData\Windows"
   
     try {
         $FatalError = @()
   
-        $LogFolder = "$PSScriptRoot\.."
-  
-        $Reboot = @{
-            Needed = $false
-        }
+        $LogFolder = "$RootDir\.."
   
         Write-ConsoleLog "Attempting to install Nvidia driver..."
   
         # Get the SetupTarget based on the input
         $Setup = Get-Setup -DriverUrlConfig $DriverUrlConfig
         $SetupTarget = $Setup.Target
-        $Reboot.Needed = $Setup.RebootNeeded
         Write-ConsoleLog "Setup complete"
-  
-        Add-DriverCertificate $Setup.CertificateUrl
-        Write-ConsoleLog "Certificate in store"
+        $IsSignatureValid = VerifySignature $Setup.Target 
+        if ($IsSignatureValid -eq $false) {
+            $ErrorMsg = "Signature embedded in $($Setup.Target) is not valid."
+            Write-ConsoleLog $ErrorMsg
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_FAILED -ErrorMessage $ErrorMsg
+        }
+        else {
+            Write-ConsoleLog "Signature embedded in $($Setup.Target) is valid."
+        }
+
   
         Write-ConsoleLog "Installing $SetupTarget ..."
         try {
@@ -63,7 +60,7 @@ function Start-InstallGPUDriver {
                 Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_FAILED -ErrorMessage $ErrorMsg
             }
   
-            if ($Reboot.Needed -or $p.ExitCode -eq 1) {
+            if ($Setup.RebootNeeded -or $p.ExitCode -eq 1) {
                 Write-ConsoleLog "Reboot is needed for this GPU Driver..."
                 $RebootNeeded = $true
             }
@@ -102,18 +99,17 @@ function Get-Setup {
     # Choose driver and specific properties
     $Driver = Select-Driver -DriverUrlConfig $DriverUrlConfig
       
-    if ($Driver.Url -eq $null -or $Driver.CertificateUrl -eq $null) {
-        $ErrorMsg = "DriverURL or DriverCertificateURL are not properly specified."
+    if ($Driver.Url -eq $null) {
+        $ErrorMsg = "DriverURL is not properly specified."
         Write-ConsoleLog $ErrorMsg
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_SET -ErrorMessage $ErrorMsg
     }
       
     $Setup = @{
-        RebootNeeded   = $Driver.RebootNeeded
-        CertificateUrl = $Driver.CertificateUrl
+        RebootNeeded = $Driver.RebootNeeded
     }
           
-    $InstallFolder = "$PSScriptRoot\.."
+    $InstallFolder = "$RootDir\.."
       
     $source = $Driver.Url
     $dest = "$InstallFolder\$($Driver.InstallExe)"
@@ -133,10 +129,8 @@ function Select-Driver {
     )
 
     $GpuDriverURL = $DriverUrlConfig.GpuDriverURL
-    $GpuDriverCertURL = $DriverUrlConfig.GpuDriverCertURL
     
     Write-ConsoleLog "gpu url is set to $GpuDriverURL"
-    Write-ConsoleLog "gpu cert url is set to $GpuDriverCertURL"
   
     # Set some default values
     $Driver = @{
@@ -176,8 +170,6 @@ function Select-Driver {
         }
     }
   
-    # Get the certificate url
-    $Driver.CertificateUrl = $GpuDriverCertURL
     $Driver.Url = $GpuDriverURL
   
     return $Driver
@@ -263,71 +255,25 @@ function Get-DriverFile {
         }
     } while ($Loop)
 }
-  
-function Add-DriverCertificate {
-    param(
-        [Parameter(Mandatory = $True)]
-        [ValidateNotNullOrEmpty()]
-        [string] $link
-    )
-  
-    $Cert = Get-DriverCertificate $link
-  
-    Write-ConsoleLog 'Adding Certificate ...'
-    $Store = Get-Item $Cert.Store
-    $Store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-    $ImportedCert = Import-Certificate -Filepath $Cert.File -CertStoreLocation $Cert.Store
-    $CertInStore = $Store.Certificates | Where-Object { $_.Thumbprint -eq $ImportedCert.Thumbprint }
-  
-    if ($CertInStore) {
-        # Perform additional validation checks on the certificate
-        if ($CertInStore.NotAfter -gt (Get-Date)) {
-            Write-ConsoleLog 'Certificate is valid and has not expired.'
-        }
-        else {
-            Write-ConsoleLog 'Certificate has expired.'
-        }
-  
-        # Check if the certificate is trusted
-        if ($CertInStore.Verify()) {
-            Write-ConsoleLog 'Certificate is trusted.'
-        }
-        else {
-            Write-ConsoleLog 'Certificate is not trusted.'
-        }
-    }
-    else {
-        Write-ConsoleLog 'Certificate is not valid.'
-    }
-    Write-ConsoleLog 'Certificate added.'
-    $Store.Close()
-}
-   
-function Get-DriverCertificate {
-    param(
-        [Parameter(Mandatory = $True)]
-        [ValidateNotNullOrEmpty()]
-        [string] $link
-    )
-  
-    # Defaults
-    $Cert = @{
-        File      = "$PSScriptRoot\..\nvidia.cer"
-        Store     = "Cert:\LocalMachine\TrustedPublisher\"
-        NewObject = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
-    }
-  
-    # Download the .cer file
-    $source = $link
-    $dest = $Cert.File
-    Get-DriverFile $source $dest
-  
-    # New Certificate object to check for properties
-    $Cert.NewObject.Import($Cert.File)
-  
-    return $Cert
-}
+function VerifySignature([string] $targetFile) {
+    Write-Log "VerifySignature - Start"
+    Write-Log "Verifying signature for $targetFile"
+    $fileCertificate = Get-AuthenticodeSignature $targetFile
 
+    if ($fileCertificate.Status -ne "Valid") {
+        Write-ConsoleLog "Signature for $targetFile is not valid"
+        return $false
+    }
+
+    if ($fileCertificate.SignerCertificate.Subject -eq $fileCertificate.SignerCertificate.Issuer) {
+        Write-ConsoleLog "Signer certificate's Subject matches the Issuer: The certificate is self-signed"
+        return $false
+    }
+
+    Write-Log "Signature for $targetFile is valid and is not self-signed"
+    Write-Log "VerifySignature - End"
+    return $true
+}
 function Write-ConsoleLog($message) {
     $msg = $message | Timestamp
     Write-Host $msg
