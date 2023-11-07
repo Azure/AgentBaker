@@ -227,6 +227,7 @@ function Get-PrivatePackagesToCacheOnVHD {
         }
 
         Remove-Item -Path ".\azcopy" -Force -Recurse
+        Remove-Item -Path ".\azcopy.zip" -Force
     }
 }
 
