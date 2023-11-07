@@ -28,14 +28,14 @@ function Start-InstallGPUDriver {
         $Setup = Get-Setup -DriverUrlConfig $DriverUrlConfig
         $SetupTarget = $Setup.Target
         Write-ConsoleLog "Setup complete"
-        $IsSignatureValid = VerifySignature $Setup.Target 
+        $IsSignatureValid = VerifySignature $SetupTarget 
         if ($IsSignatureValid -eq $false) {
-            $ErrorMsg = "Signature embedded in $($Setup.Target) is not valid."
+            $ErrorMsg = "Signature embedded in $($SetupTarget) is not valid."
             Write-ConsoleLog $ErrorMsg
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_FAILED -ErrorMessage $ErrorMsg
         }
         else {
-            Write-ConsoleLog "Signature embedded in $($Setup.Target) is valid."
+            Write-ConsoleLog "Signature embedded in $($SetupTarget) is valid."
         }
 
   
@@ -95,53 +95,18 @@ function Get-Setup {
     )
 
     [OutputType([hashtable])]
+    
+    $GpuDriverURL = $DriverUrlConfig.GpuDriverURL
       
-    # Choose driver and specific properties
-    $Driver = Select-Driver -DriverUrlConfig $DriverUrlConfig
-      
-    if ($Driver.Url -eq $null) {
+    if ($GpuDriverURL -eq $null) {
         $ErrorMsg = "DriverURL is not properly specified."
         Write-ConsoleLog $ErrorMsg
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_SET -ErrorMessage $ErrorMsg
     }
-      
-    $Setup = @{
-        RebootNeeded = $Driver.RebootNeeded
-    }
-          
-    $InstallFolder = "$RootDir\.."
-      
-    $source = $Driver.Url
-    $dest = "$InstallFolder\$($Driver.InstallExe)"
-  
-    Get-DriverFile $source $dest
-  
-    $Setup.Target = "$InstallFolder\$($Driver.InstallExe)"
-  
-    return $Setup
-}
-  
-function Select-Driver {
-    [OutputType([hashtable])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [PSCustomObject]$DriverUrlConfig
-    )
 
-    $GpuDriverURL = $DriverUrlConfig.GpuDriverURL
-    
     Write-ConsoleLog "gpu url is set to $GpuDriverURL"
-  
-    # Set some default values
-    $Driver = @{
-        # Hard coding the FwLink for resources.json
-        InstallExe   = "install.exe"
-        RebootNeeded = $false
-    }
-    $Index = @{
-        OS = 0 # Windows
-    }
-  
+
+    # check if vm size is nv series. if so, set RebootNeeded to be true
     try {
         $Compute = Get-VmData
         $vmSize = $Compute.vmSize
@@ -151,28 +116,15 @@ function Select-Driver {
         Write-ConsoleLog $ErrorMsg
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_SKU_INFO_NOT_FOUND -ErrorMessage $ErrorMsg
     }
-  
-    # Not an AzureStack scenario
-    if ($vmSize -ne $null) {
-        if ( ($Compute.vmSize -Match "_NC") -or
-          ($Compute.vmSize -Match "_ND") ) {
-            # Override if GRID driver is desired on ND or NC VMs
-            $Index.Driver = 0 # CUDA
-        }
-        elseif ( $Compute.vmSize -Match "_NV" ) {
-            # NV or Grid on ND or Grid on NC
-            $Index.Driver = 1 # GRID
-            $Driver.RebootNeeded = $true
-        }
-        else {
-            $ErrorMsg = "VM type $($Compute.vmSize) is not an N-series VM. Not attempting to deploy extension! More information on troubleshooting is available at https://aka.ms/NvidiaGpuDriverWindowsExtensionTroubleshoot"
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_VM_SIZE_NOT_SUPPORTED -ErrorMessage $ErrorMsg
-        }
+      
+    $Setup = @{
+        RebootNeeded = ($vmSize -ne $null -and $Compute.vmSize -match "_NV")
+        Target       = "$RootDir\..\install.exe"
     }
+
+    Get-DriverFile $GpuDriverURL $Setup.Target
   
-    $Driver.Url = $GpuDriverURL
-  
-    return $Driver
+    return $Setup
 }
   
 function Get-VmData {
@@ -195,7 +147,9 @@ function Get-VmData {
                 Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_SKU_INFO_NOT_FOUND -ErrorMessage $ErrorMsg
             }
             else {
-                Start-Sleep -Seconds ($RetryCount * 2 + 1)
+                $retryInSeconds = $RetryCount * 2 + 1
+                Write-ConsoleLog "Attempt $RetryCount of $RetryCountMax failed. Retrying in $retryInSeconds seconds."
+                Start-Sleep -Seconds ($retryInSeconds)
                 $RetryCount++
             }
         }
@@ -214,21 +168,6 @@ function Get-DriverFile {
         [ValidateNotNullOrEmpty()]
         [string] $dest
     )
-    
-    function GetUsingWebClient {
-        # Store Security Protocols
-        $protocols = [Net.ServicePointManager]::SecurityProtocol
-        # Add Tls12 to Security Protocols
-        [Net.ServicePointManager]::SecurityProtocol = ([Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12)
-  
-        $wc = New-Object System.Net.WebClient
-        $start_time = Get-Date
-        $wc.DownloadFile($source, $dest)
-        Write-ConsoleLog "Time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)"
-  
-        # Reset Security Protocols
-        [Net.ServicePointManager]::SecurityProtocol = $protocols
-    }
   
     Write-ConsoleLog "Downloading from $source to $dest"
   
@@ -238,8 +177,10 @@ function Get-DriverFile {
     $RetryCountMax = 10
     do {
         try {
-            GetUsingWebClient
+            Get-UsingWebClient -Url $source -OutputPath $dest
             $Loop = $false
+            Write-ConsoleLog "Downloaded file successfully."
+            break
         }
         catch {
             if ($RetryCount -gt $RetryCountMax) {
@@ -255,9 +196,32 @@ function Get-DriverFile {
         }
     } while ($Loop)
 }
+function Get-UsingWebClient {
+    param (
+        [string] $Url,
+        [string] $OutputPath
+    )
+
+    try {
+        # Store Security Protocols
+        $protocols = [Net.ServicePointManager]::SecurityProtocol
+        # Add Tls12 to Security Protocols
+        [Net.ServicePointManager]::SecurityProtocol = ([Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12)
+
+        $wc = New-Object System.Net.WebClient
+        $start_time = Get-Date
+        $wc.DownloadFile($Url, $OutputPath)
+        Write-ConsoleLog "Time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)"
+    }
+    finally {
+        # Reset Security Protocols
+        [Net.ServicePointManager]::SecurityProtocol = $protocols
+    }
+}
+
 function VerifySignature([string] $targetFile) {
-    Write-Log "VerifySignature - Start"
-    Write-Log "Verifying signature for $targetFile"
+    Write-ConsoleLog "VerifySignature - Start"
+    Write-ConsoleLog "Verifying signature for $targetFile"
     $fileCertificate = Get-AuthenticodeSignature $targetFile
 
     if ($fileCertificate.Status -ne "Valid") {
@@ -270,8 +234,8 @@ function VerifySignature([string] $targetFile) {
         return $false
     }
 
-    Write-Log "Signature for $targetFile is valid and is not self-signed"
-    Write-Log "VerifySignature - End"
+    Write-ConsoleLog "Signature for $targetFile is valid and is not self-signed"
+    Write-ConsoleLog "VerifySignature - End"
     return $true
 }
 function Write-ConsoleLog($message) {
