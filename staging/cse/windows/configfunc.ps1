@@ -11,15 +11,21 @@ function Set-TelemetrySetting
 }
 
 # Resize the system partition to the max available size. Azure can resize a managed disk, but the VM still needs to extend the partition boundary
+# This approach was recommended by the Windows Storage team to avoid performance delay when calling Get-PartitionSupportedSize
 function Resize-OSDrive
 {
     try {
         $osDrive = ((Get-WmiObject Win32_OperatingSystem -ErrorAction Stop).SystemDrive).TrimEnd(":")
-        $size = (Get-Partition -DriveLetter $osDrive -ErrorAction Stop).Size
-        $maxSize = (Get-PartitionSupportedSize -DriveLetter $osDrive -ErrorAction Stop).SizeMax
-        if ($size -lt $maxSize)
+
+        # Ensure the OS volume needs to be expanded, diskpart will fail if the partition is already expanded
+        $osDisk = Get-Volume $osDrive | Get-Partition | Get-Disk
+        if ($osDisk.Size - $osDisk.AllocatedSize -gt 1GB)
         {
-            Resize-Partition -DriveLetter $osDrive -Size $maxSize -ErrorAction Stop
+            # Create a diskpart script (text file) that will select the OS volume, extend it and exit.
+            $diskpartScriptPath = [String]::Format("{0}\\diskpart_extendOSVol.script", $env:temp)
+            [String]::Format("select volume {0}`nextend`nexit", $osDrive) | Out-File -Encoding "UTF8" $diskpartScriptPath
+            Invoke-Executable -Executable "diskpart.exe" -ArgList @("/s", $diskpartScriptPath) -ExitCode $global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE
+            Remove-Item -Path $diskpartScriptPath -Force
         }
     } catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE -ErrorMessage "Failed to resize os drive. Error: $_"
