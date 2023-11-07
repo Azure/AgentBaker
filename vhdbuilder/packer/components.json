@@ -320,8 +320,7 @@
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
         "1.5.11",
-        "1.5.13",
-        "1.4.44.5"
+        "1.4.43.1"
       ]
     },
     {
@@ -330,8 +329,7 @@
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
         "1.5.11",
-        "1.5.13",
-        "1.4.44.5"
+        "1.4.43.1"
       ]
     },
     {
