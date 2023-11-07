@@ -52,6 +52,7 @@ steps:
         /bin/bash vhdbuilder/scripts/automate_release_notes.sh $(IMAGE_VERSION) "${BUILD_ID[@]}" $MAPPED_GITHUB_PAT
   env:
         MAPPED_GITHUB_PAT: $(GITHUB_PAT)
+        SKIP_LATEST: $(SKIP_LATEST_RELEASE_NOTES_UPDATE)
   displayName: 'Release Notes'
   condition: eq('${{ parameters.ReleaseNotes }}', true)
 - bash: |

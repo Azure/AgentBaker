@@ -41,6 +41,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.4.44.5",
+        "v1.4.50",
         "v1.5.11"
       ]
     },
@@ -56,7 +57,7 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.45.1"
+        "v1.4.45.3"
       ]
     },
     {
@@ -100,10 +101,12 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "6.7.7-main-10-06-2023-b75a076c",
         "6.8.0-main-10-20-2023-182f67d4",
         "6.8.0-main-10-20-2023-182f67d4-targetallocator",
-        "6.8.0-main-10-20-2023-182f67d4-cfg"
+        "6.8.0-main-10-20-2023-182f67d4-cfg",
+        "6.8.1-main-11-03-2023-c061beb4",
+        "6.8.1-main-11-03-2023-c061beb4-targetallocator",
+        "6.8.1-main-11-03-2023-c061beb4-cfg"
       ]
     },
     {
@@ -190,13 +193,6 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/ip-masq-agent:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "v2.5.0.12"
-      ]
-    },
-    {
       "downloadURL": "mcr.microsoft.com/aks/ip-masq-agent-v2:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
@@ -208,11 +204,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.26.6-2",
         "v1.26.7",
-        "v1.28.3",
         "v1.28.4",
-        "v1.29.0",
         "v1.29.1"
       ]
     },
@@ -220,14 +213,9 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.24.10",
         "v1.24.11",
-        "v1.26.8",
-        "v1.26.8-1",
         "v1.26.9",
-        "v1.28.5",
         "v1.28.6",
-        "v1.29.0",
         "v1.29.1"
       ]
     },
@@ -235,17 +223,9 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.19.5-5",
-        "v1.19.5-7",
         "v1.19.6",
-        "v1.21.4-3",
-        "v1.21.4-5",
         "v1.21.5",
-        "v1.22.2",
-        "v1.22.2-3",
         "v1.22.3",
-        "v1.23.0",
-        "v1.23.0-3",
         "v1.23.1"
       ]
     },

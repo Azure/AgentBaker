@@ -61,6 +61,8 @@ func main() {
 	flag.StringVar(&fl.ignore, "ignore", "", "ignore release notes for these VHDs")
 	flag.StringVar(&fl.path, "path", defaultPath, "output path to root of VHD notes")
 	flag.StringVar(&fl.date, "date", defaultDate, "date of VHD build in format YYYYMM.DD.0")
+	flag.BoolVar(&fl.skipLatest, "skip-latest", false, "if set, skip creating/updating the latest version of each release artifact for each SKU")
+
 	flag.Parse()
 
 	int := make(chan os.Signal, 1)
@@ -168,34 +170,13 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 
 	// working directory, need one per sku because the file name is
 	// always "release-notes.txt" so they all overwrite each other.
-	tmpdir, err := ioutil.TempDir("", "releasenotes")
+	tmpdir, err := os.MkdirTemp("", "releasenotes")
 	if err != nil {
 		errc <- fmt.Errorf("failed to create temp working directory: %w", err)
 	}
 	defer os.RemoveAll(tmpdir)
 
-	releaseNotesName := fmt.Sprintf("vhd-release-notes-%s", sku)
-	releaseNotesFileIn := filepath.Join(tmpdir, "release-notes.txt")
-	imageListName := fmt.Sprintf("vhd-image-bom-%s", sku)
-	imageListFileIn := filepath.Join(tmpdir, "image-bom.json")
-
-	trivyReportName := fmt.Sprintf("trivy-report-%s", sku)
-	trivyReportFileIn := filepath.Join(tmpdir, "trivy-report.json")
-	trivyTableName := fmt.Sprintf("trivy-images-table-%s", sku)
-	trivyReportTableIn := filepath.Join(tmpdir, "trivy-images-table.txt")
-
 	artifactsDirOut := filepath.Join(fl.path, path)
-	releaseNotesFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s.txt", fl.date))
-	imageListFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s-image-list.json", fl.date))
-
-	trivyReportFileOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s-trivy-report.json", fl.date))
-	trivyReportTableOut := filepath.Join(artifactsDirOut, fmt.Sprintf("%s-trivy-images-table.txt", fl.date))
-
-	latestReleaseNotesFile := filepath.Join(artifactsDirOut, "latest.txt")
-	latestImageListFile := filepath.Join(artifactsDirOut, "latest-image-list.json")
-
-	latestTrivyReportFile := filepath.Join(artifactsDirOut, "latest-trivy-report.json")
-	latestTrivyReportTable := filepath.Join(artifactsDirOut, "latest-trivy-images-table.txt")
 
 	if err := os.MkdirAll(filepath.Dir(artifactsDirOut), 0644); err != nil {
 		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
@@ -207,98 +188,38 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 		return
 	}
 
-	fmt.Printf("downloading releaseNotes '%s' from build '%s'\n", releaseNotesName, fl.build)
+	artifacts := []buildArtifact{
+		{
+			name:       fmt.Sprintf("vhd-release-notes-%s", sku),
+			tempName:   "release-notes.txt",
+			outName:    fmt.Sprintf("%s.txt", fl.date),
+			latestName: "latest.txt",
+		},
+		{
+			name:       fmt.Sprintf("vhd-image-bom-%s", sku),
+			tempName:   "image-bom.json",
+			outName:    fmt.Sprintf("%s-image-list.json", fl.date),
+			latestName: "latest-image-list.json",
+		},
+		{
+			name:       fmt.Sprintf("trivy-report-%s", sku),
+			tempName:   "trivy-report.json",
+			outName:    fmt.Sprintf("%s-trivy-report.json", fl.date),
+			latestName: "latest-trivy-report.json",
+		},
+		{
+			name:       fmt.Sprintf("trivy-images-table-%s", sku),
+			tempName:   "trivy-images-table.txt",
+			outName:    fmt.Sprintf("%s-trivy-images-table.txt", fl.date),
+			latestName: "latest-trivy-images-table.txt",
+		},
+	}
 
-	cmd := exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", releaseNotesName)
-	if stdout, err := cmd.CombinedOutput(); err != nil {
-		if err != nil {
-			errc <- fmt.Errorf("failed to download az devops releaseNotes for sku %s, err: %s, output: %s", sku, err, string(stdout))
+	for _, artifact := range artifacts {
+		if err := artifact.process(fl, artifactsDirOut, tmpdir); err != nil {
+			errc <- fmt.Errorf("failed to process VHD build artifact %s: %w", artifact.name, err)
+			return
 		}
-		return
-	}
-
-	if err := os.Rename(releaseNotesFileIn, releaseNotesFileOut); err != nil {
-		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", releaseNotesFileIn, releaseNotesFileOut, err)
-		return
-	}
-
-	data, err := os.ReadFile(releaseNotesFileOut)
-	if err != nil {
-		errc <- fmt.Errorf("failed to read file %s for copying, err: %s", releaseNotesFileOut, err)
-	}
-
-	err = os.WriteFile(latestReleaseNotesFile, data, 0644)
-	if err != nil {
-		errc <- fmt.Errorf("failed to write file %s for copying, err: %s", releaseNotesFileOut, err)
-	}
-
-	cmd = exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", imageListName)
-	if stdout, err := cmd.CombinedOutput(); err != nil {
-		if err != nil {
-			errc <- fmt.Errorf("failed to download az devops imageList for sku %s, err: %s, output: %s", sku, err, string(stdout))
-		}
-		return
-	}
-
-	if err := os.Rename(imageListFileIn, imageListFileOut); err != nil {
-		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", imageListFileIn, imageListFileOut, err)
-		return
-	}
-
-	data, err = os.ReadFile(imageListFileOut)
-	if err != nil {
-		errc <- fmt.Errorf("failed to read file %s for copying, err: %s", imageListFileOut, err)
-	}
-
-	err = os.WriteFile(latestImageListFile, data, 0644)
-	if err != nil {
-		errc <- fmt.Errorf("failed to write file %s for copying, err: %s", latestImageListFile, err)
-	}
-
-	cmd = exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", trivyReportName)
-	if stdout, err := cmd.CombinedOutput(); err != nil {
-		if err != nil {
-			errc <- fmt.Errorf("failed to download az devops trivy report for sku %s, err: %s, output: %s", sku, err, string(stdout))
-		}
-		return
-	}
-
-	if err := os.Rename(trivyReportFileIn, trivyReportFileOut); err != nil {
-		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", trivyReportFileIn, trivyReportFileOut, err)
-		return
-	}
-
-	data, err = os.ReadFile(trivyReportFileOut)
-	if err != nil {
-		errc <- fmt.Errorf("failed to read file %s for copying, err: %s", trivyReportFileOut, err)
-	}
-
-	err = os.WriteFile(latestTrivyReportFile, data, 0644)
-	if err != nil {
-		errc <- fmt.Errorf("failed to write file %s for copying, err: %s", latestTrivyReportFile, err)
-	}
-
-	cmd = exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", trivyTableName)
-	if stdout, err := cmd.CombinedOutput(); err != nil {
-		if err != nil {
-			errc <- fmt.Errorf("failed to download az devops trivy report table for sku %s, err: %s, output: %s", sku, err, string(stdout))
-		}
-		return
-	}
-
-	if err := os.Rename(trivyReportTableIn, trivyReportTableOut); err != nil {
-		errc <- fmt.Errorf("failed to rename file %s to %s, err: %s", trivyReportTableIn, trivyReportTableOut, err)
-		return
-	}
-
-	data, err = os.ReadFile(trivyReportTableOut)
-	if err != nil {
-		errc <- fmt.Errorf("failed to read file %s for copying, err: %s", trivyReportTableOut, err)
-	}
-
-	err = os.WriteFile(latestTrivyReportTable, data, 0644)
-	if err != nil {
-		errc <- fmt.Errorf("failed to write file %s for copying, err: %s", latestTrivyReportTable, err)
 	}
 }
 
@@ -405,12 +326,52 @@ func stripWhitespace(str string) string {
 	return b.String()
 }
 
+type buildArtifact struct {
+	// name is the name of the artifact used to download from ADO
+	name string
+	// tempName is the name of the actual file contained within the artifact bundle we want to extract
+	tempName string
+	// outName is the versioned name of the artifact file to be uploaded
+	outName string
+	// latestName is the latest name of the artifact file to be uploaded
+	latestName string
+}
+
+func (a buildArtifact) process(fl *flags, outdir, tmpdir string) error {
+	tempPath := filepath.Join(tmpdir, a.tempName)
+	outPath := filepath.Join(outdir, a.outName)
+
+	cmd := exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", tmpdir, "--artifact-name", a.name)
+	if stdout, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to download az devops releaseNotes %s, err: %s, output: %s", a.name, err, string(stdout))
+	}
+
+	if err := os.Rename(tempPath, outPath); err != nil {
+		return fmt.Errorf("failed to rename file %s to %s, err: %s", tempPath, outPath, err)
+	}
+
+	if !fl.skipLatest {
+		data, err := os.ReadFile(outPath)
+		if err != nil {
+			return fmt.Errorf("failed to read file %s for copying, err: %s", outPath, err)
+		}
+
+		latestPath := filepath.Join(outdir, a.latestName)
+		if err = os.WriteFile(latestPath, data, 0644); err != nil {
+			return fmt.Errorf("failed to copy data from file %s to latest version %s, err: %s", outPath, latestPath, err)
+		}
+	}
+
+	return nil
+}
+
 type flags struct {
-	build   string
-	include string // CSV of the map keys below.
-	ignore  string // CSV of the map keys below.
-	path    string // output path
-	date    string // date of vhd build
+	build      string
+	include    string // CSV of the map keys below.
+	ignore     string // CSV of the map keys below.
+	path       string // output path
+	date       string // date of vhd build
+	skipLatest bool   // whether to skip creating/updating latest version of each artifact for each SKU
 }
 
 var defaultPath = filepath.Join("vhdbuilder", "release-notes")
