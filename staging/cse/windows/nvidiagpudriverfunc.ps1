@@ -94,6 +94,7 @@ function Get-Setup {
     [OutputType([hashtable])]
     
     $GpuDriverURL = $DriverConfig.GpuDriverURL
+    $fileName = [IO.Path]::GetFileName($GpuDriverURL)
       
     if ($GpuDriverURL -eq $null) {
         $ErrorMsg = "DriverURL is not properly specified."
@@ -116,10 +117,11 @@ function Get-Setup {
       
     $Setup = @{
         RebootNeeded = ($vmSize -ne $null -and $Compute.vmSize -match "_NV")
-        Target       = "$RootDir\..\install.exe"
+        Target       = "$RootDir\..\$fileName"
     }
 
-    Get-DriverFile $GpuDriverURL $Setup.Target
+    Write-Log "Downloading from $GpuDriverURL to $($Setup.Target)"
+    DownloadFileOverHttp -Url $GpuDriverURL -DestinationPath $Setup.Target -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE
   
     return $Setup
 }
@@ -153,67 +155,6 @@ function Get-VmData {
     } while ($Loop)
   
     return $Compute
-}
-  
-function Get-DriverFile {
-    param(
-        [Parameter(Mandatory = $True)]
-        [ValidateNotNullOrEmpty()]
-        [string] $source,
-    
-        [Parameter(Mandatory = $True)]
-        [ValidateNotNullOrEmpty()]
-        [string] $dest
-    )
-  
-    Write-Log "Downloading from $source to $dest"
-  
-    # Retry to overcome failure in downloading
-    $Loop = $true
-    $RetryCount = 0
-    $RetryCountMax = 10
-    do {
-        try {
-            Get-UsingWebClient -Url $source -OutputPath $dest
-            $Loop = $false
-            Write-Log "Downloaded file successfully."
-            break
-        }
-        catch {
-            if ($RetryCount -gt $RetryCountMax) {
-                $Loop = $false
-                $ErrorMsg = "Failed to download $source after $RetryCountMax attempts. Exiting! More information on troubleshooting is available at https://aka.ms/NvidiaGpuDriverWindowsExtensionTroubleshoot"
-                Write-Log $ErrorMsg
-                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE -ErrorMessage $ErrorMsg
-            }
-            else {
-                Start-Sleep -Seconds ($RetryCount * 2 + 1)
-                $RetryCount++
-            }
-        }
-    } while ($Loop)
-}
-function Get-UsingWebClient {
-    param (
-        [string] $Url,
-        [string] $OutputPath
-    )
-
-    try {
-        # Store Security Protocols
-        $protocols = [Net.ServicePointManager]::SecurityProtocol
-        # Add Tls12 to Security Protocols
-        [Net.ServicePointManager]::SecurityProtocol = ([Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12)
-
-        $wc = New-Object System.Net.WebClient
-        $start_time = Get-Date
-        $wc.DownloadFile($Url, $OutputPath)
-        Write-Log "Time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)"
-    }
-    finally {
-        # Reset Security Protocols
-        [Net.ServicePointManager]::SecurityProtocol = $protocols
-    }
 }
 
 function VerifySignature([string] $targetFile) {
