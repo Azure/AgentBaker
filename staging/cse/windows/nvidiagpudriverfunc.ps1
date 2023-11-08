@@ -7,11 +7,11 @@ function Start-InstallGPUDriver {
     )
   
     if (-not $EnableInstall) {
-        Write-ConsoleLog "ConfigGPUDriverIfNeeded is false. GPU driver installation skipped as per configuration."
+        Write-Log "ConfigGPUDriverIfNeeded is false. GPU driver installation skipped as per configuration."
         return
     }
   
-    Write-ConsoleLog "ConfigGPUDriverIfNeeded is true. GPU driver installation started as per configuration."
+    Write-Log "ConfigGPUDriverIfNeeded is true. GPU driver installation started as per configuration."
   
     $RootDir = "C:\AzureData\Windows"
   
@@ -20,24 +20,24 @@ function Start-InstallGPUDriver {
   
         $LogFolder = "$RootDir\.."
   
-        Write-ConsoleLog "Attempting to install Nvidia driver..."
+        Write-Log "Attempting to install Nvidia driver..."
   
         # Get the SetupTarget based on the input
         $Setup = Get-Setup -DriverConfig $DriverConfig
         $SetupTarget = $Setup.Target
-        Write-ConsoleLog "Setup complete"
+        Write-Log "Setup complete"
         $IsSignatureValid = VerifySignature $SetupTarget 
         if ($IsSignatureValid -eq $false) {
             $ErrorMsg = "Signature embedded in $($SetupTarget) is not valid."
-            Write-ConsoleLog $ErrorMsg
+            Write-Log $ErrorMsg
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_FAILED -ErrorMessage $ErrorMsg
         }
         else {
-            Write-ConsoleLog "Signature embedded in $($SetupTarget) is valid."
+            Write-Log "Signature embedded in $($SetupTarget) is valid."
         }
 
   
-        Write-ConsoleLog "Installing $SetupTarget ..."
+        Write-Log "Installing $SetupTarget ..."
         try {
             $InstallLogFolder = "$LogFolder\NvidiaInstallLog"
             $Arguments = "-s -n -log:$InstallLogFolder -loglevel:6"
@@ -50,28 +50,28 @@ function Start-InstallGPUDriver {
             # check if installation was successful
             if ($p.ExitCode -eq 0 -or $p.ExitCode -eq 1) {
                 # 1 is issued when reboot is required after success
-                Write-ConsoleLog "GPU Driver Installation Success. Code: $($p.ExitCode)"
+                Write-Log "GPU Driver Installation Success. Code: $($p.ExitCode)"
             }
             else {
                 $ErrorMsg = "GPU Driver Installation Failed! Code: $($p.ExitCode)"
-                Write-ConsoleLog $ErrorMsg
+                Write-Log $ErrorMsg
                 Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_FAILED -ErrorMessage $ErrorMsg
             }
   
             if ($Setup.RebootNeeded -or $p.ExitCode -eq 1) {
-                Write-ConsoleLog "Reboot is needed for this GPU Driver..."
+                Write-Log "Reboot is needed for this GPU Driver..."
                 $DriverConfig.RebootNeeded = $true
             }
         }
         catch [System.TimeoutException] {
             $ErrorMsg = "Timeout $Timeout s exceeded. Stopping the installation process. Reboot for another attempt."
-            Write-ConsoleLog $ErrorMsg
+            Write-Log $ErrorMsg
             Stop-Process -InputObject $p -Force
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_TIMEOUT -ErrorMessage $ErrorMsg
         }
         catch {
             $ErrorMsg = "Exception: $($_.ToString())"
-            Write-ConsoleLog $ErrorMsg # the status file may get over-written when the agent re-attempts this step
+            Write-Log $ErrorMsg # the status file may get over-written when the agent re-attempts this step
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_FAILED -ErrorMessage $ErrorMsg
         }
       
@@ -80,7 +80,7 @@ function Start-InstallGPUDriver {
         $FatalError += $_
         $errorCount = $FatalError.Count
         $ErrorMsg = "A fatal error occurred. Number of errors: $errorCount. Error details: $($_ | Out-String)"
-        Write-ConsoleLog $ErrorMsg
+        Write-Log $ErrorMsg
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_FAILED -ErrorMessage $ErrorMsg
     }
 }
@@ -97,11 +97,11 @@ function Get-Setup {
       
     if ($GpuDriverURL -eq $null) {
         $ErrorMsg = "DriverURL is not properly specified."
-        Write-ConsoleLog $ErrorMsg
+        Write-Log $ErrorMsg
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_SET -ErrorMessage $ErrorMsg
     }
 
-    Write-ConsoleLog "gpu url is set to $GpuDriverURL"
+    Write-Log "gpu url is set to $GpuDriverURL"
 
     # check if vm size is nv series. if so, set RebootNeeded to be true
     try {
@@ -110,7 +110,7 @@ function Get-Setup {
     }
     catch {
         $ErrorMsg = "Failed to query the SKU information."
-        Write-ConsoleLog $ErrorMsg
+        Write-Log $ErrorMsg
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_SKU_INFO_NOT_FOUND -ErrorMessage $ErrorMsg
     }
       
@@ -140,12 +140,12 @@ function Get-VmData {
             if ($RetryCount -gt $RetryCountMax) {
                 $Loop = $false
                 $ErrorMsg = "Failed to retrieve VM metadata after $RetryCountMax attempts. Exiting! More information on troubleshooting is available at https://aka.ms/NvidiaGpuDriverWindowsExtensionTroubleshoot"
-                Write-ConsoleLog $ErrorMsg
+                Write-Log $ErrorMsg
                 Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_SKU_INFO_NOT_FOUND -ErrorMessage $ErrorMsg
             }
             else {
                 $retryInSeconds = $RetryCount * 2 + 1
-                Write-ConsoleLog "Attempt $RetryCount of $RetryCountMax failed. Retrying in $retryInSeconds seconds."
+                Write-Log "Attempt $RetryCount of $RetryCountMax failed. Retrying in $retryInSeconds seconds."
                 Start-Sleep -Seconds ($retryInSeconds)
                 $RetryCount++
             }
@@ -166,7 +166,7 @@ function Get-DriverFile {
         [string] $dest
     )
   
-    Write-ConsoleLog "Downloading from $source to $dest"
+    Write-Log "Downloading from $source to $dest"
   
     # Retry to overcome failure in downloading
     $Loop = $true
@@ -176,14 +176,14 @@ function Get-DriverFile {
         try {
             Get-UsingWebClient -Url $source -OutputPath $dest
             $Loop = $false
-            Write-ConsoleLog "Downloaded file successfully."
+            Write-Log "Downloaded file successfully."
             break
         }
         catch {
             if ($RetryCount -gt $RetryCountMax) {
                 $Loop = $false
                 $ErrorMsg = "Failed to download $source after $RetryCountMax attempts. Exiting! More information on troubleshooting is available at https://aka.ms/NvidiaGpuDriverWindowsExtensionTroubleshoot"
-                Write-ConsoleLog $ErrorMsg
+                Write-Log $ErrorMsg
                 Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE -ErrorMessage $ErrorMsg
             }
             else {
@@ -208,7 +208,7 @@ function Get-UsingWebClient {
         $wc = New-Object System.Net.WebClient
         $start_time = Get-Date
         $wc.DownloadFile($Url, $OutputPath)
-        Write-ConsoleLog "Time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)"
+        Write-Log "Time taken: $((Get-Date).Subtract($start_time).Seconds) second(s)"
     }
     finally {
         # Reset Security Protocols
@@ -217,25 +217,21 @@ function Get-UsingWebClient {
 }
 
 function VerifySignature([string] $targetFile) {
-    Write-ConsoleLog "VerifySignature - Start"
-    Write-ConsoleLog "Verifying signature for $targetFile"
+    Write-Log "VerifySignature - Start"
+    Write-Log "Verifying signature for $targetFile"
     $fileCertificate = Get-AuthenticodeSignature $targetFile
 
     if ($fileCertificate.Status -ne "Valid") {
-        Write-ConsoleLog "Signature for $targetFile is not valid"
+        Write-Log "Signature for $targetFile is not valid"
         return $false
     }
 
     if ($fileCertificate.SignerCertificate.Subject -eq $fileCertificate.SignerCertificate.Issuer) {
-        Write-ConsoleLog "Signer certificate's Subject matches the Issuer: The certificate is self-signed"
+        Write-Log "Signer certificate's Subject matches the Issuer: The certificate is self-signed"
         return $false
     }
 
-    Write-ConsoleLog "Signature for $targetFile is valid and is not self-signed"
-    Write-ConsoleLog "VerifySignature - End"
+    Write-Log "Signature for $targetFile is valid and is not self-signed"
+    Write-Log "VerifySignature - End"
     return $true
-}
-function Write-ConsoleLog($message) {
-    $msg = $message | Timestamp
-    Write-Host $msg
 }
