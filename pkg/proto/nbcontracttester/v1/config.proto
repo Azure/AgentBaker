@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package nbcontracttester.v1;
+
+message Configuration {
+  string cluster_certificate_authority = 1;
+  string repo_depot_endpoint = 2;
+  string linux_admin_username = 3;
+  string moby_version = 4;
+  string tenant_id = 5;
+  string kubernetes_version = 6;
+  string hyperkube_url = 7;
+  string kube_binary_url = 8;
+  string custom_kube_binary_url = 9;
+  string kubeproxy_url = 10;
+  string apiserver_public_key = 11;
+  string subscription_id = 12;
+  string resource_group = 13;
+  string location = 14;
+  string vm_type = 15;  
+  string subnet = 16;
+  string network_security_group = 17;
+  string virtual_network_name = 18;
+  string virtual_network_resource_group = 19;
+  string route_table = 20;
+  string primary_availability_set = 21;
+  string primary_scale_set = 22;
+  string service_principal_client_id = 23;
+  string network_plugin = 24;
+  string network_policy = 25;
+  string vnet_cni_plugins_url = 26;
+  string cni_plugins_url = 27;
+  string cloud_provider_backoff = 28;
+  string cloud_provider_backoff_mode = 29;
+  string cloud_provider_backoff_retries = 30;
+  string cloud_provider_backoff_exponent = 31;
+  string cloud_provider_backoff_duration = 32;
+  string cloud_provider_backoff_jitter = 33;
+  string cloud_provider_ratelimit = 34;
+  string cloud_provider_ratelimit_qps = 35;
+  string cloud_provider_ratelimit_qps_write = 36;
+  string cloud_provider_ratelimit_bucket = 37;
+  string cloud_provider_ratelimit_bucket_write = 38;
+  string load_balancer_disable_outbound_snat = 39;
+  string use_managed_identity_extension = 40;
+  string use_instance_metadata = 41;
+  string load_balancer_sku = 42;
+  string exclude_master_from_standard_load_balancer = 43;
+  string max_load_balancer_rule_count = 44;
+  string container_runtime = 45;
+  string cli_tool = 46;
+  string containerd_download_url_base = 47;
+  string network_mode = 48;
+  string user_assigned_identity_id = 49;
+  string api_server_name = 50;
+  string is_vhd = 51;
+  string gpu_node = 52;
+  string sgx_node = 53;
+  string mig_node = 54;
+  string config_gpu_driver_if_needed = 55;
+  string enable_gpu_device_plugin_if_needed = 56;
+  string teleportd_plugin_download_url = 57;
+  string containerd_version = 58;
+  string containerd_package_url = 59;
+  string runc_version = 60;
+  string runc_package_url = 61;
+  string enable_hosts_config_agent = 62;
+  string disable_ssh = 63;
+  string needs_containerd = 64;
+  string teleport_enabled = 65;
+  string should_config_http_proxy = 66;
+  string should_config_http_proxy_ca = 67;
+  string http_proxy_trusted_ca = 68;
+  CustomCaTrustConfig custom_ca_trust_config = 69;
+  string provision_output = 70;
+}
+
+  message CustomCaTrustConfig {  
+  int32 custom_ca_trust_count = 2;
+  repeated string custom_ca_certs = 3;
+}

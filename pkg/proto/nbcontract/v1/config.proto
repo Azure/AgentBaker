@@ -5,7 +5,6 @@ package nbcontract.v1;
 // illustrative division only
 message Configuration {
   // System Configuration
-  
   string cluster_certificate_authority = 1;
 
   // only required until Secure TLS bootstrapping in place
@@ -58,6 +57,7 @@ message Configuration {
   optional string gpu_instance_profile = 34;
   FeatureState hosts_config_agent_status = 35;
   CustomCaTrustConfig custom_ca_trust_config = 36;
+  string provision_output = 37;
 }
 
 message KubeletConfiguration {
@@ -171,6 +171,7 @@ message LoadBalancerConfig {
   LoadBalancerSku load_balancer_sku = 1;
   bool exclude_master_from_standard_load_balancer = 2;
   int32 max_load_balancer_rule_count = 3;
+  bool load_balancer_disable_outbound_snat = 4;
 }
 
 enum LoadBalancerSku {
