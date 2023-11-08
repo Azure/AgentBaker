@@ -28,22 +28,16 @@ Describe 'Adjust-DynamicPortRange' {
 }
 
 Describe 'Resize-OSDrive' {
-    BeforeAll{
-        Mock Resize-Partition -MockWith {
-            Param(
-              $DriveLetter,
-              $Size
-            )
-            Write-Host "Resize-Partition $DriveLetter $Size $ErrorAction"
-        } -Verifiable
+    BeforeEach {
+        Mock Invoke-Executable
+    }
 
-        Mock Get-Partition -MockWith {
-            Param(
-              $DriveLetter
-            )
-                Write-Host "Get-Partition $DriveLetter $ErrorAction"
+    BeforeAll{
+        Mock Get-Disk -MockWith {
+            Write-Host "Get-Disk $ErrorAction"
                 $valueObj = [PSCustomObject]@{
-                    Size = 1024*1024
+                    Size = 1024*1024;
+                    AllocatedSize = 1024*1024
                 }
                 return $valueObj
         } -Verifiable
@@ -55,57 +49,58 @@ Describe 'Resize-OSDrive' {
             )
             Write-Host "Set-ExitCode $ExitCode $ErrorMessage"
         } -Verifiable
+
+        Mock Invoke-Executable {
+            Param(
+                $Executable,
+                $ArgList,
+                $ExitCode
+            )
+            Write-Host "Invoke-Executable $Executable $ArgList $ExitCode"
+        } -Verifiable
     }
     
     Context 'success' {
-        It "Should call Resize-Partition once" {
-            Mock Get-PartitionSupportedSize -MockWith {
-                Param(
-                  $DriveLetter
-                )
-                Write-Host "Get-PartitionSupportedSize $DriveLetter $ErrorAction"
+        It "Should call Invoke-Executable to Diskpart once" {
+            Mock Get-Disk -MockWith {
+                Write-Host "Get-Disk Size: 512GB, AllocatedSize: 30GB $ErrorAction"
                 $valueObj = [PSCustomObject]@{
-                    SizeMax = 4*1024*1024
+                    Size = 512GB;
+                    AllocatedSize = 30GB
                 }
                 return $valueObj
             } -Verifiable
-
             Resize-OSDrive
-            Assert-MockCalled -CommandName "Resize-Partition" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Invoke-Executable" -Exactly -Times 1
             Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 0
         }
 
-        It "Should not call Resize-Partition" {
-            Mock Get-PartitionSupportedSize -MockWith {
-                Param(
-                  $DriveLetter
-                )
-                Write-Host "Get-PartitionSupportedSize $DriveLetter $ErrorAction"
+        It "Should not call Invoke-Executable to Diskpart once" {
+            Mock Get-Disk -MockWith {
+                Write-Host "Get-Disk Size: 30GB, AllocatedSize: 30GB $ErrorAction"
                 $valueObj = [PSCustomObject]@{
-                    SizeMax = 1024*1024
+                    Size = 30GB;
+                    AllocatedSize = 30GB
                 }
                 return $valueObj
             } -Verifiable
 
             Resize-OSDrive
-            Assert-MockCalled -CommandName "Resize-Partition" -Exactly -Times 0
+            Assert-MockCalled -CommandName "Invoke-Executable" -Exactly -Times 0
             Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 0
         }
     }
 
     Context 'fail' {
         BeforeEach {
-            Mock Get-Partition -MockWith {
-                Param(
-                  $DriveLetter
-                )
-                throw "Get-Partition $DriveLetter $ErrorAction"
+            Mock Get-Disk -MockWith {
+                throw "Get-Disk $ErrorAction"
             } -Verifiable
         }
 
-        It "Should not call Resize-Partition" {
+        It "Should not call Invoke-Executable" {
             Resize-OSDrive
-            Assert-MockCalled -CommandName "Resize-Partition" -Exactly -Times 0
+            Assert-MockCalled -CommandName "Invoke-Executable" -Exactly -Times 0
             Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE }
         }
     }
