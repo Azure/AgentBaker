@@ -459,13 +459,13 @@ try
         Write-Log "Start calico installation"
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
     }
-    
-    $DriverUrlConfig = [PSCustomObject]@{
+
+    $GpuDriverConfig = [PSCustomObject]@{
         GpuDriverURL = $global:GpuDriverURL
-        GpuDriverCertURL = $global:GpuDriverCertURL
+        RebootNeeded = $false
     }
 
-    $RebootNeeded = Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -DriverUrlConfig $DriverUrlConfig
+    Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -DriverConfig $GpuDriverConfig
 
     if (Test-Path $CacheDir)
     {
@@ -498,7 +498,7 @@ try
     $timer.Stop()
     Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
 
-    if ($RebootNeeded -eq $true) {
+    if ($GpuDriverConfig.RebootNeeded -eq $true) {
         Postpone-RestartComputer
     }
 }
