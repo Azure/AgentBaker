@@ -18,7 +18,7 @@ function Resize-OSDrive
         $osDrive = ((Get-WmiObject Win32_OperatingSystem -ErrorAction Stop).SystemDrive).TrimEnd(":")
 
         # Ensure the OS volume needs to be expanded, diskpart will fail if the partition is already expanded
-        $osDisk = Get-Volume $osDrive | Get-Partition | Get-Disk
+        $osDisk = Get-Partition -DriveLetter $osDrive | Get-Disk
         if ($osDisk.Size - $osDisk.AllocatedSize -gt 1GB)
         {
             # Create a diskpart script (text file) that will select the OS volume, extend it and exit.
