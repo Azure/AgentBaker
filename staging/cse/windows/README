@@ -55,6 +55,10 @@ popd
 # AKS Windows CSE Scripts Package
 All files except *.test.ps1 and README will be published in AKS Windows CSE Scripts Package.
 
+## v0.0.34
+feat: adding changes to AgentBaker for Stateless CNI on Windows #3704
+chore: update the MaxRetryCount to 60 in Check-APIServerConnectivity of Windows CSE #3737
+
 ## v0.0.33
 update signature of binaries in windows cse script package
 
