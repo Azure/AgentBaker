@@ -1,5 +1,5 @@
 ﻿{
-    "sku": "2022-containerd-gen2",
+    "sku": "windows-2022-containerd-gen2",
     "imageVersion": "20348.1970.230905",
     "imageBom": [
         {
