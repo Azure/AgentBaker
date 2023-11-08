@@ -7,7 +7,7 @@ on:
       - 'vhdbuilder/packer/generate-windows-vhd-configuration.ps1'
 
 jobs:
-  check-files-forws2019:
+  check-files-for-ws2019:
     name: Check Windows Files and Images
     runs-on: windows-2019
     steps:

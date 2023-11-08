@@ -73,7 +73,7 @@ $SkipMapForSignature=@{
     )
 }
 
-# MisMatchFile is used to record files whose hash values are different on Global and MoonCake
+# MisMatchFile is used to record files whose file sizes are different on Global and MoonCake
 $MisMatchFile=@{}
 
 # NotSignedResult is used to record unsigned files that we think should be signed
@@ -217,10 +217,14 @@ function Test-ValidateSinglePackageSignature {
     }
 }
 
-function Test-ValidateSingleFileOnMoonCake {
+function Test-CompareSingleDir {
     param (
         $dir
     )
+
+    if (!(Test-Path $dir)) {
+        New-Item -ItemType Directory $dir -Force | Out-Null
+    }
 
     $excludeHashComparisionListInAzureChinaCloud = @(
         "calico-windows",
@@ -235,9 +239,6 @@ function Test-ValidateSingleFileOnMoonCake {
     foreach ($URL in $map[$dir]) {
         $fileName = [IO.Path]::GetFileName($URL)
         $dest = [IO.Path]::Combine($dir, $fileName)
-        if (!(Test-Path $dir)) {
-            New-Item -ItemType Directory $dir -Force | Out-Null
-        }
 
         DownloadFileWithRetry -URL $URL -Dest $dest -redactUrl
         $globalFileSize = (Get-Item $dest).length
@@ -265,9 +266,10 @@ function Test-ValidateSingleFileOnMoonCake {
     }
 }
 
-function Test-ValidateFilesOnMoonCake {
+# Compare Files on Global and MoonCake
+function Test-CompareFiles {
     foreach ($dir in $map.Keys) {
-        Test-ValidateSingleFileOnMoonCake $dir
+        Test-CompareSingleDir $dir
     }
 
     if ($MisMatchFile.Count -ne 0) {
@@ -321,9 +323,7 @@ function Retry-Command {
     }
 }
 
-function Test-PullImages {
-    Write-Output "Test-PullImages."
-
+function Install-Containerd {
     $containerdFileName = [IO.Path]::GetFileName($global:defaultContainerdPackageUrl)
     $dest = [IO.Path]::Combine("c:\akse-cache\containerd\", $containerdFileName)
 
@@ -351,6 +351,14 @@ function Test-PullImages {
     Get-Content $containerdConfigPath
 
     Start-Job -Name containerd -ScriptBlock { containerd.exe }
+}
+
+function Test-PullImages {
+    Write-Output "Install Containerd."
+
+    Install-Containerd
+
+    Write-Output "Test-PullImages."
    
     Write-Output "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
     foreach ($image in $imagesToPull) {
@@ -358,11 +366,13 @@ function Test-PullImages {
         Retry-Command -ScriptBlock {
             & crictl.exe pull $image
         } -ErrorMessage "Failed to pull image $image"
+
+        crictl.exe rmi $image
     }
     Stop-Job  -Name containerd
     Remove-Job -Name containerd
 }
 
-Test-ValidateFilesOnMoonCake
+Test-CompareFiles
 Test-ValidateAllSignature
 Test-PullImages
