@@ -3,17 +3,15 @@ function Start-InstallGPUDriver {
         [Parameter(Mandatory = $true)]
         [bool]$EnableInstall,
         [Parameter(Mandatory = $true)]
-        [PSCustomObject]$DriverUrlConfig
+        [PSCustomObject]$DriverConfig
     )
   
     if (-not $EnableInstall) {
         Write-ConsoleLog "ConfigGPUDriverIfNeeded is false. GPU driver installation skipped as per configuration."
-        return $false
+        return
     }
   
     Write-ConsoleLog "ConfigGPUDriverIfNeeded is true. GPU driver installation started as per configuration."
-  
-    $RebootNeeded = $false
   
     $RootDir = "C:\AzureData\Windows"
   
@@ -25,7 +23,7 @@ function Start-InstallGPUDriver {
         Write-ConsoleLog "Attempting to install Nvidia driver..."
   
         # Get the SetupTarget based on the input
-        $Setup = Get-Setup -DriverUrlConfig $DriverUrlConfig
+        $Setup = Get-Setup -DriverConfig $DriverConfig
         $SetupTarget = $Setup.Target
         Write-ConsoleLog "Setup complete"
         $IsSignatureValid = VerifySignature $SetupTarget 
@@ -62,9 +60,8 @@ function Start-InstallGPUDriver {
   
             if ($Setup.RebootNeeded -or $p.ExitCode -eq 1) {
                 Write-ConsoleLog "Reboot is needed for this GPU Driver..."
-                $RebootNeeded = $true
+                $DriverConfig.RebootNeeded = $true
             }
-            return $RebootNeeded
         }
         catch [System.TimeoutException] {
             $ErrorMsg = "Timeout $Timeout s exceeded. Stopping the installation process. Reboot for another attempt."
@@ -91,12 +88,12 @@ function Start-InstallGPUDriver {
 function Get-Setup {
     param(
         [Parameter(Mandatory = $true)]
-        [PSCustomObject]$DriverUrlConfig
+        [PSCustomObject]$DriverConfig
     )
 
     [OutputType([hashtable])]
     
-    $GpuDriverURL = $DriverUrlConfig.GpuDriverURL
+    $GpuDriverURL = $DriverConfig.GpuDriverURL
       
     if ($GpuDriverURL -eq $null) {
         $ErrorMsg = "DriverURL is not properly specified."
