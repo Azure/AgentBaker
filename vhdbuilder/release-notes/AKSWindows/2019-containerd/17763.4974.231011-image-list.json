@@ -1,5 +1,5 @@
 {
-  "sku": "2019-containerd",
+  "sku": "windows-2019-containerd",
   "imageVersion": "17763.4974.231003",
   "imageBom": [
     {

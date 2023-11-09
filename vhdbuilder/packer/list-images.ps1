@@ -103,7 +103,7 @@ $imageBom=$(echo $bomList | ConvertTo-Json)
 
 $listResult = @"
 {
-        "sku": "$windowsSKU",
+        "sku": "windows-$windowsSKU",
         "imageVersion": "$windowsImageVersion",
         "imageBom": $imageBom
 }
