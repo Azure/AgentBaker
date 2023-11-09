@@ -207,6 +207,8 @@ $global:LogGeneratorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetLogGene
 
 $global:EnableIncreaseDynamicPortRange = $false
 
+$global:RebootNeeded = $false
+
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
@@ -466,7 +468,6 @@ try
 
     $GpuDriverConfig = [PSCustomObject]@{
         GpuDriverURL = $global:GpuDriverURL
-        RebootNeeded = $false
     }
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -DriverConfig $GpuDriverConfig
@@ -502,7 +503,7 @@ try
     $timer.Stop()
     Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
 
-    if ($GpuDriverConfig.RebootNeeded -eq $true) {
+    if ($global:RebootNeeded -eq $true) {
         Postpone-RestartComputer
     }
 }

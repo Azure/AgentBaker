@@ -60,7 +60,7 @@ function Start-InstallGPUDriver {
   
             if ($Setup.RebootNeeded -or $p.ExitCode -eq 1) {
                 Write-Log "Reboot is needed for this GPU Driver..."
-                $DriverConfig.RebootNeeded = $true
+                $global:RebootNeeded = $true
             }
         }
         catch [System.TimeoutException] {
