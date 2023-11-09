@@ -165,8 +165,9 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.12.10-2",
+        "1.12.10-3",
         "1.13.5",
-        "1.13.5-1"
+        "1.13.5-2"
       ]
     },
     {
@@ -188,7 +189,10 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
-      "amd64OnlyVersions": [],
+      "amd64OnlyVersions": [
+        "1.7.1-hotfix.20200403-1",
+        "1.7.1-hotfix.20200403.1"
+      ],
       "multiArchVersions": [
         "v1.8.8"
       ]
@@ -224,6 +228,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
+        "v1.19.5-5",
+        "v1.19.5-7",
         "v1.19.6",
         "v1.21.5",
         "v1.22.3",
