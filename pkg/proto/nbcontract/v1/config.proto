@@ -14,7 +14,6 @@ message Configuration {
 
   // cluster/user config
   string kubernetes_version = 3; // Q: can this be auto-detected? Or is this part of specifying the desired node version?
-    // removed kubernetesHyperkubeSpec
   string kube_binary_url = 4;      // maybe we can combine this and custom_kube_binary_url later once we figure out the logic of how they are used.
   string custom_kube_binary_url = 5;
   string kubeproxy_url = 6;
@@ -35,19 +34,14 @@ message Configuration {
   // ... and a bunch of user-specified config
   string repo_depot_endpoint = 17;
   string linux_admin_username = 18;
-    // removed mobyVersion
   string tenant_id = 19;
   bool use_instance_metadata = 20;
   LoadBalancerConfig load_balancer_config = 21;
-    // removed containerRuntime
-    // removed cliTool because docker is deprecated. Only "ctr" will be supported.
   ContainerdConfig containerd_config = 22;
   bool is_vhd = 23;
   GpuConfig gpu_config = 24;
   bool is_sgx_node = 25;
   TeleportConfig teleport_config = 26;
-  // removed NEEDS_CONTAINERD because it's always needed now
-
   HttpProxyConfig http_proxy_configuration = 27;
   FeatureState ssh_status = 28;
   FeatureState unattended_upgrade_status = 29;
@@ -58,6 +52,13 @@ message Configuration {
   optional string gpu_instance_profile = 34;
   FeatureState hosts_config_agent_status = 35;
   CustomCaTrustConfig custom_ca_trust_config = 36;
+  string provision_output = 37;
+  string hyperkube_url = 38; //will be removed later
+  string moby_version = 39; //will be removed later
+  string container_runtime = 40; //will be removed later
+  string cli_tool = 41;  //will be removed later
+  string needs_containerd = 42; //will be removed later
+
 }
 
 message KubeletConfiguration {
@@ -84,6 +85,7 @@ message IdentityConfiguration {
   string service_principal_id = 2;
   string service_principal_secret = 3;
   string assigned_identity_id = 4;  //could be user or system assigned, depending on the type
+  string use_managed_identity_extension = 5;
 }
 
 enum IdentityType {
