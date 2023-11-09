@@ -211,14 +211,23 @@ function Get-PrivatePackagesToCacheOnVHD {
         $dir = "c:\akse-cache\private-packages"
         New-Item -ItemType Directory $dir -Force | Out-Null
 
+        Write-Log "Downloading azcopy"
+        Invoke-WebRequest -UseBasicParsing "https://aka.ms/downloadazcopy-v10-windows" -OutFile azcopy.zip
+        Expand-Archive -Path azcopy.zip -DestinationPath ".\azcopy" -Force
+        $env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
+        $env:AZCOPY_MSI_RESOURCE_STRING=$env:WindowsMSIResourceString
+
         $urls = $env:WindowsPrivatePackagesURL.Split(",")
         foreach ($url in $urls) {
             $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
             $dest = [IO.Path]::Combine($dir, $fileName)
 
             Write-Log "Downloading a private package to $dest"
-            DownloadFileWithRetry -URL $url -Dest $dest -redactUrl
+            .\azcopy\*\azcopy.exe copy $URL $dest
         }
+
+        Remove-Item -Path ".\azcopy" -Force -Recurse
+        Remove-Item -Path ".\azcopy.zip" -Force
     }
 }
 

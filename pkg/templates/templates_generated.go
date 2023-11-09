@@ -2092,6 +2092,8 @@ ensureArtifactStreaming() {
   sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
   sudo /opt/acr/tools/overlaybd/config.sh download.enable false
   sudo /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
+  sudo /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
+  sudo /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
   modprobe target_core_user
   curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd' -O
   systemctl enable /opt/overlaybd/overlaybd-tcmu.service
@@ -7786,7 +7788,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.33.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.34.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
