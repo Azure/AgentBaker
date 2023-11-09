@@ -57,7 +57,7 @@ message Configuration {
   string moby_version = 39; //will be removed later
   string container_runtime = 40; //will be removed later
   string cli_tool = 41;  //will be removed later
-  string needs_containerd = 42; //will be removed later
+  bool needs_containerd = 42; //will be removed later
 
 }
 
