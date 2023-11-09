@@ -73,8 +73,8 @@ $SkipMapForSignature=@{
     )
 }
 
-# MisMatchFile is used to record files whose file sizes are different on Global and MoonCake
-$MisMatchFile=@{}
+# MisMatchFiles is used to record files whose file sizes are different on Global and MoonCake
+$MisMatchFiles=@{}
 
 # NotSignedResult is used to record unsigned files that we think should be signed
 $NotSignedResult=@{}
@@ -260,7 +260,7 @@ function Test-CompareSingleDir {
             $mooncakeFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
 
             if ($globalFileSize -ne $mooncakeFileSize) {
-                $MisMatchFile[$URL]=$mcURL
+                $MisMatchFiles[$URL]=$mcURL
             }
         }
     }
@@ -272,9 +272,9 @@ function Test-CompareFiles {
         Test-CompareSingleDir $dir
     }
 
-    if ($MisMatchFile.Count -ne 0) {
-        $MisMatchFile = (echo $MisMatchFile | ConvertTo-Json -Compress)
-        Write-Error "The following files have different sizes on global and mooncake: $MisMatchFile"
+    if ($MisMatchFiles.Count -ne 0) {
+        $MisMatchFiles = (echo $MisMatchFiles | ConvertTo-Json -Compress)
+        Write-Error "The following files have different sizes on global and mooncake: $MisMatchFiles"
     }
 }
 
@@ -310,8 +310,7 @@ function Retry-Command {
             } catch {
                 Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
                 if ($_.Exception.InnerException.Message.Contains("There is not enough space on the disk. (0x70)")) {
-                    Write-Error "Exit retry since there is not enough space on the disk"
-                    break
+                    throw "Exit retry since there is not enough space on the disk"
                 }
                 Start-Sleep $Delay
             }
@@ -369,8 +368,6 @@ function Test-PullImages {
 
         crictl.exe rmi $image
     }
-    Stop-Job  -Name containerd
-    Remove-Job -Name containerd
 }
 
 Test-CompareFiles
