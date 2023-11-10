@@ -42,7 +42,7 @@ foreach($image in $imageList) {
         if (-not $isExist) {
             # This should never happen
             # We need to handle id and repoTags in the first loop and then handle repoDigests in the second loop if this occurs
-            throw "Cannot find image id $id in bomList"
+            throw "Cannot find image id $id in bomList AAAAAAAAA"
         }
     } else {
         # Get id and repoTags
