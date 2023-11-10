@@ -11,7 +11,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/metrics-server:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.6.3"
+        "v0.6.2"
       ]
     },
     {
