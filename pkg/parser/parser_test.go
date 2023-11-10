@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestPar(t *testing.T) {
+func TestParse(t *testing.T) {
 	config := parse()
 	if config == nil {
 		t.Fatalf("it's nil :(")
