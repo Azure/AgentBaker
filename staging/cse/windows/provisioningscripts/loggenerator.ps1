@@ -87,15 +87,6 @@ $kLogFiles | Foreach-Object {
     Create-SymbolLinkFile -SrcFile (Join-Path "C:\k\" $_) -DestFile (Join-Path $aksLogFolder $_)
 }
 
-$nvidiaInstallLogFolder="C:\AzureData\NvidiaInstallLog"
-if (Test-Path $nvidiaInstallLogFolder) {
-    $logFiles=Get-ChildItem (Join-Path $nvidiaInstallLogFolder *.log)
-    $logFiles | Foreach-Object {
-        $fileName = [IO.Path]::GetFileName($_)
-        Create-SymbolLinkFile -SrcFile (Join-Path $nvidiaInstallLogFolder $fileName) -DestFile (Join-Path $aksLogFolder $fileName)
-    }
-}
-
 $calicoLogFolder="C:\CalicoWindows\logs\"
 if (Test-Path $calicoLogFolder) {
     $calicoLogFiles = @(

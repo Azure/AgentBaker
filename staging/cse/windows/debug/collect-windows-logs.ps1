@@ -309,12 +309,6 @@ if ($tempFile -ne "") {
   $paths += $tempFile
 }
 
-#Collect Nvidia log files
-$tempFile=(CollectLogsFromDirectory -path "C:\AzureData\NvidiaInstallLog" -targetFileName "NvidiaInstallLog-$($timeStamp).zip")
-if ($tempFile -ne "") {
-  $paths += $tempFile
-}
-
 Write-Host "Compressing all logs to $zipName"
 $paths | Format-Table FullName, Length -AutoSize
 Compress-Archive -LiteralPath $paths -DestinationPath $zipName
