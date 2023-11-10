@@ -6,12 +6,17 @@ pr:
     - master
   paths:
     include:
-    - .pipelines/.vsts-vhd-builder.yaml
-    - parts/linux/cloud-init/artifacts/manifest.json
+    - schemas
     - vhdbuilder/packer
     - vhdbuilder/scripts/linux
+    - .pipelines/.vsts-vhd-builder.yaml
+    - parts/linux/cloud-init/artifacts/manifest.json
+    - packer.mk
     exclude:
     - vhdbuilder/packer/*.ps1
+    - vhdbuilder/packer/test/*.ps1
+    - vhdbuilder/packer/*windows*
+    - vhdbuilder/packer/test/*windows*
 
 pool:
   name: $(POOL_NAME)
