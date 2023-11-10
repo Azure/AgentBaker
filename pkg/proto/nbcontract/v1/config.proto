@@ -47,37 +47,36 @@ message Configuration {
   FeatureState unattended_upgrade_status = 29;
   string message_of_the_day = 30;
   string swap_file_size_mb = 31;
-  SysctlConfig sysctls = 32;
-  KubeletConfiguration kubelet_configuration = 33;
-  optional string gpu_instance_profile = 34;
-  FeatureState hosts_config_agent_status = 35;
-  CustomCaTrustConfig custom_ca_trust_config = 36;
-  string provision_output = 37;
-  string hyperkube_url = 38; //will be removed later
-  string moby_version = 39; //will be removed later
-  string container_runtime = 40; //will be removed later
-  string cli_tool = 41;  //will be removed later
-  bool needs_containerd = 42; //will be removed later
-  bool is_krustlet = 43; //can be removed, this only depends on workload runtime, which is a better contract input
-  bool needs_docker_login = 44; //useless, will remove
-  FeatureState ipv6_dual_stack_enabled = 45; //seems very specific to RP, discuss with Alex wrt Karpenter
-  string outbound_command = 46; //this is const depending on cloud, can be removed later with smart refactoring
-  bool enable_unattended_upgrade = 47; //seems the current API is messed up with naming, fix soon
-  bool ensure_no_dupe_promiscuous_bridge = 48; //this is little weird, check cse_cmd.sh for actual condition
-  CustomSearchDomain custom_search_domain = 49;
-  CustomLinuxOSConfig custom_linux_os_config = 50;
+  KubeletConfiguration kubelet_configuration = 32;
+  optional string gpu_instance_profile = 33;
+  FeatureState hosts_config_agent_status = 34;
+  CustomCaTrustConfig custom_ca_trust_config = 35;
+  string provision_output = 36;
+  string hyperkube_url = 37; //will be removed later
+  string moby_version = 38; //will be removed later
+  string container_runtime = 39; //will be removed later
+  string cli_tool = 40;  //will be removed later
+  bool needs_containerd = 41; //will be removed later
+  bool is_krustlet = 42; //can be removed, this only depends on workload runtime, which is a better contract input
+  bool needs_docker_login = 43; //useless, will remove
+  FeatureState ipv6_dual_stack_enabled = 44; //seems very specific to RP, discuss with Alex wrt Karpenter
+  string outbound_command = 45; //this is const depending on cloud, can be removed later with smart refactoring
+  bool enable_unattended_upgrade = 46; //seems the current API is messed up with naming, fix soon
+  bool ensure_no_dupe_promiscuous_bridge = 47; //this is little weird, check cse_cmd.sh for actual condition
+  CustomSearchDomain custom_search_domain = 48;
+  CustomLinuxOSConfig custom_linux_os_config = 49;
 
-  CustomCloudConfig custom_cloud_config = 51;
+  CustomCloudConfig custom_cloud_config = 50;
   
   //we do not need these in the final contract, these are consts
-  string cse_helper_filepath = 52;
-  string cse_distro_helper_filepath = 53;
-  string cse_install_filepath = 54;
-  string cse_distro_install_filepath = 55;
-  string cse_config_filepath = 56;
+  string cse_helper_filepath = 51;
+  string cse_distro_helper_filepath = 52;
+  string cse_install_filepath = 53;
+  string cse_distro_install_filepath = 54;
+  string cse_config_filepath = 55;
 
-  string azure_private_registry_server = 57;
-  string private_egress_proxy_address = 59;
+  string azure_private_registry_server = 56;
+  string private_egress_proxy_address = 57;
 }
 
 message KubeletConfiguration {
