@@ -8025,11 +8025,7 @@ try
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
     }
 
-    $GpuDriverConfig = [PSCustomObject]@{
-        GpuDriverURL = $global:GpuDriverURL
-    }
-
-    Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -DriverConfig $GpuDriverConfig
+    Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
 
     if (Test-Path $CacheDir)
     {
@@ -8223,6 +8219,10 @@ $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_VM_SIZE_NOT_SUPPORTED=55
 $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_SET=56
 $global:WINDOWS_CSE_ERROR_SKU_INFO_NOT_FOUND=57
 $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE=58
+$global:WINDOWS_CSE_ERROR_INVALID_SIGNATURE=59
+$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_EXCEPTION=60
+$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE=61
+
 
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version

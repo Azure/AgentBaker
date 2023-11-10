@@ -465,11 +465,7 @@ try
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
     }
 
-    $GpuDriverConfig = [PSCustomObject]@{
-        GpuDriverURL = $global:GpuDriverURL
-    }
-
-    Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -DriverConfig $GpuDriverConfig
+    Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
 
     if (Test-Path $CacheDir)
     {
