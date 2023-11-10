@@ -1,5 +1,22 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_$(OS_SKU)$(OS_VERSION)_$(HYPERV_GENERATION)_$(FEATURE_FLAGS)_$(Build.SourceBranchName)
 trigger: none
+pr:
+  branches:
+    include:
+    - master
+  paths:
+    include:
+    - schemas
+    - vhdbuilder/packer
+    - vhdbuilder/scripts/linux
+    - .pipelines/.vsts-vhd-builder.yaml
+    - parts/linux/cloud-init/artifacts/manifest.json
+    - packer.mk
+    exclude:
+    - vhdbuilder/packer/*.ps1
+    - vhdbuilder/packer/test/*.ps1
+    - vhdbuilder/packer/*windows*
+    - vhdbuilder/packer/test/*windows*
 
 pool:
   name: $(POOL_NAME)
