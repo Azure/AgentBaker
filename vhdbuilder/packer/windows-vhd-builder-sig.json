@@ -20,7 +20,8 @@
         "windows_patch_url": "{{env `WINDOWS_PATCH_URL`}}",
         "vnet_name": "{{env `VNET_NAME`}}",
         "subnet_name": "{{env `SUBNET_NAME`}}",
-        "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}"
+        "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}",
+        "windows_msi_resource_string": "{{env `WINDOWS_MSI_RESOURCE_STRING`}}"
     },
     "builders": [
         {
@@ -68,10 +69,7 @@
             },
             "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
             "virtual_network_name": "{{user `vnet_name`}}",
-            "virtual_network_subnet_name": "{{user `subnet_name`}}",
-            "user_assigned_managed_identities": [
-                "{{user `windows_msi_resource_string`}}"
-            ]
+            "virtual_network_subnet_name": "{{user `subnet_name`}}"
         }
     ],
     "provisioners": [
