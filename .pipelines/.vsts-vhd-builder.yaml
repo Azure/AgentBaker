@@ -11,8 +11,7 @@ pr:
     - vhdbuilder/packer
     - vhdbuilder/scripts/linux
     exclude:
-    - vhdbuilder/packer/*windows*
-    - vhdbuilder/packer/test/*windows*
+    - vhdbuilder/packer/*.ps1
 
 pool:
   name: $(POOL_NAME)
