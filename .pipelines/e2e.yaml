@@ -33,6 +33,8 @@ jobs:
   - bash: |
       set -x
 
+      echo "dummy change"
+
       vmssResourceIds=""
       for vmssModel in e2e/scenario-logs/*/vmssId.txt; do
         resourceId=$(cat ${vmssModel})
