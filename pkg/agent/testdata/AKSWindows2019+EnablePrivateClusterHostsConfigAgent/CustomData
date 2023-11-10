@@ -168,7 +168,6 @@ $global:CSEScriptsPackageUrl = "";
 
 # The windows nvidia gpu driver related urls are used by windows cse
 $global:GpuDriverURL = "";
-$global:GpuDriverCertURL = "";
 
 # PauseImage
 $global:WindowsPauseImageURL = "mcr.microsoft.com/oss/kubernetes/pause:1.4.0";

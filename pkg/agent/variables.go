@@ -111,7 +111,6 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"windowsSecureTlsEnabled":              cs.Properties.WindowsProfile.IsWindowsSecureTlsEnabled(),
 		"windowsGmsaPackageUrl":                cs.Properties.WindowsProfile.WindowsGmsaPackageUrl,
 		"windowsGpuDriverURL":                  cs.Properties.WindowsProfile.GpuDriverURL,
-		"windowsGpuDriverCertURL":              cs.Properties.WindowsProfile.GpuDriverCertURL,
 		"windowsCSEScriptsPackageURL":          cs.Properties.WindowsProfile.CseScriptsPackageURL,
 		"isDisableWindowsOutboundNat":          strconv.FormatBool(config.AgentPoolProfile.IsDisableWindowsOutboundNat()),
 	}

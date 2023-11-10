@@ -7732,7 +7732,6 @@ $global:CSEScriptsPackageUrl = "{{GetVariable "windowsCSEScriptsPackageURL" }}";
 
 # The windows nvidia gpu driver related urls are used by windows cse
 $global:GpuDriverURL = "{{GetVariable "windowsGpuDriverURL" }}";
-$global:GpuDriverCertURL = "{{GetVariable "windowsGpuDriverCertURL" }}";
 
 # PauseImage
 $global:WindowsPauseImageURL = "{{GetVariable "windowsPauseImageURL" }}";

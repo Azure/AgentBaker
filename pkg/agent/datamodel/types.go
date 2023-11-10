@@ -503,7 +503,6 @@ type WindowsProfile struct {
 	WindowsGmsaPackageUrl          string  `json:"windowsGmsaPackageUrl,omitempty"`
 	CseScriptsPackageURL           string  `json:"cseScriptsPackageURL,omitempty"`
 	GpuDriverURL                   string  `json:"gpuDriverUrl,omitempty"`
-	GpuDriverCertURL               string  `json:"gpuDriverCertUrl,omitempty"`
 	HnsRemediatorIntervalInMinutes *uint32 `json:"hnsRemediatorIntervalInMinutes,omitempty"`
 	LogGeneratorIntervalInMinutes  *uint32 `json:"logGeneratorIntervalInMinutes,omitempty"`
 }
