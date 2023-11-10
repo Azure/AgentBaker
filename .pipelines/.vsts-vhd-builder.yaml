@@ -1,5 +1,18 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_$(OS_SKU)$(OS_VERSION)_$(HYPERV_GENERATION)_$(FEATURE_FLAGS)_$(Build.SourceBranchName)
 trigger: none
+pr:
+  branches:
+    include:
+    - master
+  paths:
+    include:
+    - .pipelines/.vsts-vhd-builder.yaml
+    - parts/linux/cloud-init/artifacts/manifest.json
+    - vhdbuilder/packer/components.json
+    - vhdbuilder/packer/pre-install-dependencies.sh
+    - vhdbuilder/packer/install-dependencies.sh
+    - vhdbuilder/packer/post-install-dependencies.sh
+    - vhdbuilder/packer/test/run-test.sh
 
 pool:
   name: $(POOL_NAME)
