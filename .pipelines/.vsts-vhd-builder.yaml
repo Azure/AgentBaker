@@ -14,9 +14,9 @@ pr:
     - packer.mk
     exclude:
     - vhdbuilder/packer/*.ps1
-    - vhdbuilder/packer/test/*.ps1
+    - vhdbuilder/packer/**/*.ps1
     - vhdbuilder/packer/*windows*
-    - vhdbuilder/packer/test/*windows*
+    - vhdbuilder/packer/**/*windows*
 
 pool:
   name: $(POOL_NAME)
