@@ -89,10 +89,6 @@ message KubeletConfiguration {
   KubeletDiskType kubelet_disk_type = 5;
 }
 
-message SysctlConfig {
-  repeated Sysctl sysctls = 1;
-}
-
 enum FeatureState {
   FEATURE_STATE_UNSPECIFIED = 0;
   FEATURE_STATE_ENABLED = 1;
@@ -153,11 +149,6 @@ enum KubeletDiskType {
 message Taint {
   string key = 1;
   string effect = 2;
-}
-
-message Sysctl {
-  string token = 1;
-  string value = 2;
 }
 
 message VirtualNetworkConfig {
@@ -259,10 +250,11 @@ message CustomLinuxOSConfig {
   bool should_config_swap_file = 1;
   bool should_config_transparent_hugepage = 2;
   bool should_config_containerd_ulimits = 3;
-  string containerd_ulimits = 4;
   string swap_file_size_mb = 5;
   string transparent_hugepage = 6;
   string transparent_defrag = 7;
+  optional SysctlConfig sysctl_config = 8;
+  optional UlimitConfig ulimit_config = 9;
 }
 
 message TLSBootstrapping {
@@ -277,4 +269,40 @@ message CustomCloudConfig {
   string target_environment = 1;
   string target_cloud = 2;  // can probably get rid of this, analyze more
   bool is_custom_cloud = 3; 
+}
+
+message SysctlConfig {
+  optional int32 NetCoreSomaxconn = 1;
+  optional int32 NetCoreNetdevMaxBacklog = 2;
+  optional int32 NetCoreRmemDefault = 3;
+  optional int32 NetCoreRmemMax = 4;
+  optional int32 NetCoreWmemDefault = 5;
+  optional int32 NetCoreWmemMax = 6;
+  optional int32 NetCoreOptmemMax = 7;
+  optional int32 NetIpv4TcpMaxSynBacklog = 8;
+  optional int32 NetIpv4TcpMaxTwBuckets = 9;
+  optional int32 NetIpv4TcpFinTimeout = 10;
+  optional int32 NetIpv4TcpKeepaliveTime = 11;
+  optional int32 NetIpv4TcpKeepaliveProbes = 12;
+  optional int32 NetIpv4TcpkeepaliveIntvl = 13;
+  optional bool NetIpv4TcpTwReuse = 14;
+  string NetIpv4IpLocalPortRange = 15;
+  optional int32 NetIpv4NeighDefaultGcThresh1 = 16;
+  optional int32 NetIpv4NeighDefaultGcThresh2 = 17;
+  optional int32 NetIpv4NeighDefaultGcThresh3 = 18;
+  optional int32 NetNetfilterNfConntrackMax = 19;
+  optional int32 NetNetfilterNfConntrackBuckets = 20;
+  optional int32 FsInotifyMaxUserWatches = 21;
+  optional int32 FsFileMax = 22;
+  optional int32 FsAioMaxNr = 23;
+  optional int32 FsNrOpen = 24;
+  optional int32 KernelThreadsMax = 25;
+  optional int32 VMMaxMapCount = 26;
+  optional int32 VMSwappiness = 27;
+  optional int32 VMVfsCachePressure = 28;
+}
+
+message UlimitConfig {
+  optional string NoFile = 1;
+  optional string MaxLockedMemory = 2; 
 }
