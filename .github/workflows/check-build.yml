@@ -1,0 +1,16 @@
+name: WaitOnVHDBuild
+on:
+  push:
+    branches:
+      - main
+jobs:
+  publish:
+    name: Wait for VHD build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for VHD build
+        uses: lewagon/wait-on-check-action@v1.3.1
+        with:
+          ref: master
+          check-name: 'Azure Pipelines / AKS Linux VHD Build - PR check-in gate'
+          wait-interval: 3600
