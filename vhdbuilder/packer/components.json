@@ -50,7 +50,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v0.0.4.1",
-        "v0.0.11"
+        "v0.0.11",
+        "v0.0.15"
       ]
     },
     {
@@ -249,8 +250,8 @@
       "downloadURL": "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.13.3",
-        "v3.11.1"
+        "v3.13.4",
+        "v3.13.3"
       ]
     },
     {
@@ -267,18 +268,16 @@
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.2.1",
-        "1.1.0",
-        "1.0.1"
+        "1.2.2",
+        "1.2.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.2.1",
-        "1.1.0",
-        "1.0.1"
+        "1.2.2",
+        "1.2.1"
       ]
     },
     {
@@ -333,7 +332,7 @@
       "downloadLocation": "/opt/crictl/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v*/binaries",
       "versions": [
-        "1.25.0"
+        "1.28.0"
       ],
       "targetContainerRuntime": "containerd"
     }
