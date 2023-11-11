@@ -320,6 +320,11 @@ removeContainerImage() {
 
 cleanUpImages() {
     local targetImage=$1
+    if [[ "$targetImage" == "kube-proxy" ]]; then
+        echo "keeping all the kube-proxy images around to be able to use when needed w/o downloading again"
+        return
+    fi
+
     export targetImage
     function cleanupImagesRun() {
         if [ "${NEEDS_CONTAINERD}" == "true" ]; then
@@ -349,9 +354,7 @@ cleanUpImages() {
 }
 
 cleanUpKubeProxyImages() {
-    echo $(date),$(hostname), startCleanUpKubeProxyImages
-    cleanUpImages "kube-proxy"
-    echo $(date),$(hostname), endCleanUpKubeProxyImages
+    echo "keeping all the kube-proxy images around to be able to use when needed w/o downloading again"
 }
 
 cleanupRetaggedImages() {

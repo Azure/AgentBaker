@@ -1,4 +1,5 @@
 #!/bin/bash
+echo "install-dependencies.sh...start"
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"
@@ -23,7 +24,7 @@ echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
 # other VHDs use grub-pc, not grub-efi
 if [[ "${UBUNTU_RELEASE}" == "20.04" ]] && [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
-  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT 
+  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   wait_for_apt_locks
   apt_get_install 30 1 600 grub-efi || exit 1
 fi
@@ -100,7 +101,7 @@ tee "${CONTAINERD_SERVICE_DIR}/exec_start.conf" > /dev/null <<EOF
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
-tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
+tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF
 net.ipv4.ip_forward = 1
 net.ipv4.conf.all.forwarding = 1
 net.ipv6.conf.all.forwarding = 1
@@ -135,7 +136,7 @@ installed_version="$(echo ${containerd_manifest} | jq -r '.edge')"
 if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
   installed_version="$(echo ${containerd_manifest} | jq -r '.pinned."1804"')"
 fi
-  
+
 containerd_version="$(echo "$installed_version" | cut -d- -f1)"
 containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
 installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
@@ -206,13 +207,13 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
   mkdir -p /opt/{actions,gpu}
   ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
     ret=$?
     if [[ "$ret" != "0" ]]; then
       echo "Failed to install GPU driver, exiting..."
       exit $ret
     fi
-  fi    
+  fi
 fi
 
 systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
@@ -287,7 +288,7 @@ unpackAzureCNI() {
   local URL=$1
   CNI_TGZ_TMP=${URL##*/}
   CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
-  mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" 
+  mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
   tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR/$CNI_DIR_TMP
   rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
   echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
@@ -395,10 +396,95 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
   pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
   ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
-  
+
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
+
+# download and setup azcopy to use to download private packages with MSI auth
+getAzCopyCurrentPath() {
+  if [[ -f ./azcopy ]]; then
+    echo "./azcopy already exists"
+  else
+    echo "get azcopy at \"${PWD}\"...start"
+    # Download and extract
+    azcopydownloadurl="https://aka.ms/downloadazcopy-v10-linux"
+    if [[ $(isARM64) == 1 ]]; then
+      azcopydownloadurl="https://aka.ms/downloadazcopy-v10-linux-arm64"
+    fi
+    wget "$azcopydownloadurl" -O "downloadazcopy"
+    tar -xvf ./downloadazcopy
+
+    rm -f ./azcopy
+    cp ./azcopy_linux_*/azcopy ./azcopy
+    chmod +x ./azcopy
+
+    rm -f downloadazcopy
+    rm -rf ./azcopy_linux_*/
+    echo "get azcopy...done"
+  fi
+}
+
+# download the given tgz package and extract/import the container image
+importContainerImageTGZ() {
+  CONTAINER_IMAGE_TGZ=$1
+
+  if out=$(ctr --namespace k8s.io image import ${CONTAINER_IMAGE_TGZ}); then # ctr should be there by default now, don't have to handle crictl/docker tools
+    container_image=$(echo $out | cut -d' ' -f 2)
+    echo "imported image $container_image from $CONTAINER_IMAGE_TGZ"
+    retagImageForAllClouds "$CLI_TOOL" "$container_image"
+  else
+    echo "error importing container image from $CONTAINER_IMAGE_TGZ"
+    exit 1
+  fi
+}
+
+# download kubernetes package from the given URL using MSI for auth for azcopy
+# if it is a kube-proxy package, extract image from the downloaded package
+cacheKubePackageFromPrivateUrl() {
+  KUBE_PRIVATE_BINARY_URL=$1
+  IS_KUBE_PROXY_PKG=$2
+
+  echo "process private package url: $KUBE_PRIVATE_BINARY_URL"
+
+  mkdir -p ${K8S_CACHE_DIR} # /opt/kubernetes/downloads/private-packages
+
+  if [[ "$IS_KUBE_PROXY_PKG" == true ]]; then
+    # save kube-proxy pkg with the same/given package name
+    K8S_TGZ_NAME=${KUBE_PRIVATE_BINARY_URL##*/}
+  else
+    # save kube pkg with version number from the url path, this convention is used to find the cached package at run-time
+    K8S_TGZ_NAME=$(echo "$KUBE_PRIVATE_BINARY_URL" | grep -o -P '(?<=\/kubernetes\/).*(?=\/binaries\/)').tar.gz
+  fi
+
+  # use azcopy with MSI instead of curl to download packages
+  getAzCopyCurrentPath
+
+  export AZCOPY_AUTO_LOGIN_TYPE="MSI"
+  export AZCOPY_MSI_RESOURCE_STRING="$LINUX_MSI_RESOURCE_IDS"
+
+  cachedpkg="${K8S_CACHE_DIR}/${K8S_TGZ_NAME}"
+  echo "download private package ${KUBE_PRIVATE_BINARY_URL} and store as ${cachedpkg}"
+  if ! ./azcopy copy "${KUBE_PRIVATE_BINARY_URL}" "${cachedpkg}"; then
+    exit 1
+  fi
+
+  if [[ "$IS_KUBE_PROXY_PKG" == true ]]; then
+    echo "extract container image from ${K8S_TGZ_NAME}"
+    importContainerImageTGZ "${cachedpkg}"
+  fi
+}
+
+# use private_kube_proxy_images to download packages from the given url and extract images
+if [[ -n ${PRIVATE_KUBE_PROXY_IMAGES} ]]; then
+  echo "process private kube-proxy images urls...${PRIVATE_KUBE_PROXY_IMAGES}"
+  IFS=',' read -ra PRIVATE_IMAGES <<< "${PRIVATE_KUBE_PROXY_IMAGES}"
+
+  for private_image in "${PRIVATE_IMAGES[@]}"; do
+    echo "download and import kube-proxy image: ${private_image}"
+    cacheKubePackageFromPrivateUrl "$private_image" true
+  done
+fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # remove snapd, which is not used by container stack
@@ -413,17 +499,29 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
 fi
 
+# use the private_packages_url to download and cache packages
+if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
+  IFS=',' read -ra PRIVATE_URLS <<< "${PRIVATE_PACKAGES_URL}"
+
+  for private_url in "${PRIVATE_URLS[@]}"; do
+    echo "download kube package from ${private_url}"
+    cacheKubePackageFromPrivateUrl "$private_url" false
+  done
+fi
+
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
-# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. 
+# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
 KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
 
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
   extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
 done
+
+rm -f ./azcopy # cleanup immediately after usage will retrun in two downloads
 
 echo "install-dependencies step completed successfully"

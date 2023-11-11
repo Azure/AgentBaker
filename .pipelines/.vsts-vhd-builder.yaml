@@ -106,4 +106,3 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen2
-    

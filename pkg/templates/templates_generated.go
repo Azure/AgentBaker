@@ -1585,6 +1585,7 @@ KUBERNETES_VERSION={{GetParameter "kubernetesVersion"}}
 HYPERKUBE_URL={{GetParameter "kubernetesHyperkubeSpec"}}
 KUBE_BINARY_URL={{GetParameter "kubeBinaryURL"}}
 CUSTOM_KUBE_BINARY_URL={{GetParameter "customKubeBinaryURL"}}
+PRIVATE_KUBE_BINARY_URL="{{GetLinuxPrivatePackageURL}}"
 KUBEPROXY_URL={{GetParameter "kubeProxySpec"}}
 APISERVER_PUBLIC_KEY={{GetParameter "apiServerCertificate"}}
 SUBSCRIPTION_ID={{GetVariable "subscriptionId"}}
@@ -2844,6 +2845,7 @@ CRICTL_BIN_DIR="/usr/local/bin"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
+K8S_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR="/opt/azure/tlsbootstrap"
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION="v0.1.0-alpha.2"
@@ -3074,9 +3076,32 @@ extractKubeBinaries() {
     rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
 }
 
-installKubeletKubectlAndKubeProxy() {
+extractPrivateKubeBinaries() {
+    K8S_VERSION=$1
+    KUBE_BINARY_URL=$2
 
+    K8S_TGZ_TMP=${KUBE_BINARY_URL##*/}
+    CACHED_PKG="${K8S_CACHE_DIR}/${K8S_TGZ_TMP}"
+
+    if [[ -f "${CACHED_PKG}" ]]; then
+        echo "cached package ${CACHED_PKG} is found, will use that"
+    else
+        echo "cached package ${CACHED_PKG} not found"
+        return 1
+    fi
+
+    retrycmd_get_tarball 120 5 "${CACHED_PKG}" ${KUBE_BINARY_URL} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+    tar --transform="s|.*|&-${K8S_VERSION}|" --show-transformed-names -xzvf "${CACHED_PKG}" \
+        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
+    # TODO: confirm
+    # rm -f "$K8S_CACHE_DIR/${K8S_TGZ_TMP}" // don't delete the cached package
+}
+
+installKubeletKubectlAndKubeProxy() {
     CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"
+    PRIVATE_KUBE_BINARY_DOWNLOAD_URL="${PRIVATE_KUBE_BINARY_URL:=}"
+    echo "using private url: ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}, custom url: ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}"
+
     if [[ ! -z ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} ]]; then
         # remove the kubelet binaries to make sure the only binary left is from the CUSTOM_KUBE_BINARY_DOWNLOAD_URL
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
@@ -3085,7 +3110,10 @@ installKubeletKubectlAndKubeProxy() {
         # kube binaries used by AKS and Kubernetes upstream.
         # TODO(mainred): let's see if necessary to auto-detect the path of kubelet
         logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}
-
+    elif [[ ! -z ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL} ]]; then
+        # remove the kubelet binaries to make sure the only binary left is from the PRIVATE_KUBE_BINARY_DOWNLOAD_URL
+        rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
+        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractPrivateKubeBinaries" extractPrivateKubeBinaries ${KUBERNETES_VERSION} ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}
     else
         if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
@@ -3118,7 +3146,7 @@ retagContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
     RETAG_IMAGE_URL=$3
-    echo "retaging from ${CONTAINER_IMAGE_URL} to ${RETAG_IMAGE_URL} using ${CLI_TOOL}"
+    echo "retagging from ${CONTAINER_IMAGE_URL} to ${RETAG_IMAGE_URL} using ${CLI_TOOL}"
     if [[ ${CLI_TOOL} == "ctr" ]]; then
         ctr --namespace k8s.io image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
@@ -3158,14 +3186,50 @@ removeContainerImage() {
     CONTAINER_IMAGE_URL=$2
     if [[ "${CLI_TOOL}" == "docker" ]]; then
         docker image rm $CONTAINER_IMAGE_URL
+    elif [[ "${CLI_TOOL}" == "ctr" ]]; then
+        ctr -n k8s.io image rm $CONTAINER_IMAGE_URL
     else
         # crictl should always be present
         crictl rmi $CONTAINER_IMAGE_URL
     fi
 }
 
+# retag the given image with mcr.microsoft.* base for all the clouds
+# TODO: current code tags all the images for Mooncake but not for AGC cloud, confirm if still needed
+retagImageForAllClouds() {
+    CLI_TOOL=$1
+    CONTAINER_IMAGE=$2
+
+    echo "retagging image: $CONTAINER_IMAGE to mcr.microsoft.* base for all clouds"
+    base=$(echo $CONTAINER_IMAGE | cut -d "/" -f1)
+
+    if [[ "$base" =~  "mcr.microsoft."* ]]; then # path is required to be <base>/oss/kubernetes/kube-proxy:<version> for kube-proxy images
+      echo "$CONTAINER_IMAGE is already an mcr image, don't need to re-tag"
+      return
+    fi
+
+    clouds=(
+        "mcr.microsoft.com"           # public
+        "mcr.azk8s.cn"                # mooncake
+        "mcr.microsoft.eaglex.ic.gov" # usnat # have to confirm egressing usnat and ussec endpoints
+        "mcr.microsoft.scloud"        # ussec
+    )
+    for cloud in "${clouds[@]}"; do
+        newtag=${CONTAINER_IMAGE/$base/"$cloud"}
+        echo "retagging with tool: \"$CLI_TOOL\", current image: \"$CONTAINER_IMAGE\", new image: \"$newtag\""
+        retagContainerImage "$CLI_TOOL" "$CONTAINER_IMAGE" "$newtag"
+    done
+
+    removeContainerImage "$CLI_TOOL" "$CONTAINER_IMAGE"
+}
+
 cleanUpImages() {
     local targetImage=$1
+    if [[ "$targetImage" == "kube-proxy" ]]; then
+        echo "keeping all the kube-proxy images around to be able to use when needed w/o downloading again"
+        return
+    fi
+
     export targetImage
     function cleanupImagesRun() {
         if [ "${NEEDS_CONTAINERD}" == "true" ]; then
@@ -3195,9 +3259,7 @@ cleanUpImages() {
 }
 
 cleanUpKubeProxyImages() {
-    echo $(date),$(hostname), startCleanUpKubeProxyImages
-    cleanUpImages "kube-proxy"
-    echo $(date),$(hostname), endCleanUpKubeProxyImages
+    echo "keeping all the kube-proxy images around to be able to use when needed w/o downloading again"
 }
 
 cleanupRetaggedImages() {
@@ -3268,7 +3330,7 @@ func linuxCloudInitArtifactsCse_installSh() (*asset, error) {
 
 var _linuxCloudInitArtifactsCse_mainSh = []byte(`#!/bin/bash
 # Timeout waiting for a file
-ERR_FILE_WATCH_TIMEOUT=6 
+ERR_FILE_WATCH_TIMEOUT=6
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
       echo "Already ran to success exiting..."
@@ -3372,7 +3434,6 @@ logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
-    echo "detected golden image pre-install"
     logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
@@ -3390,7 +3451,7 @@ else
 fi
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
-if [ "${NEEDS_CONTAINERD}" == "true" ] && [ "${TELEPORT_ENABLED}" == "true" ]; then 
+if [ "${NEEDS_CONTAINERD}" == "true" ] && [ "${TELEPORT_ENABLED}" == "true" ]; then
     logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
 fi
 
@@ -3419,7 +3480,7 @@ if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" != "true" ]]
 [Service]
 Environment="MIG_STRATEGY=--mig-strategy single"
 ExecStart=
-ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY    
+ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
 EOF
         fi
         logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
@@ -3451,7 +3512,7 @@ EOF
         # while commands such as `+"`"+`nvidia-smi -q`+"`"+` will show mismatched current/pending mig mode.
         # this will not be required per nvidia for next gen H100.
         REBOOTREQUIRED=true
-        
+
         # this service applies the partitioning scheme with nvidia-smi.
         # we should consider moving to mig-parted which is simpler/newer.
         # we couldn't because of old drivers but that has long been fixed.
@@ -3490,7 +3551,7 @@ fi
 
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     # containerd should not be configured until cni has been configured first
-    logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
+    logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd
 else
     logs_to_events "AKS.CSE.ensureDocker" ensureDocker
 fi
@@ -3541,7 +3602,7 @@ if [ "${NEEDS_CONTAINERD}" == "true" ]; then
 [Service]
 Environment="KUBELET_CONTAINERD_FLAGS=--runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
 EOF
-    
+
     if ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.27.0"; then
         tee "/etc/systemd/system/kubelet.service.d/10-container-runtime-flag.conf" > /dev/null <<'EOF'
 [Service]
@@ -3575,7 +3636,7 @@ fi
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        # mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 
+        # mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635
         echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind
         sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind\n" /etc/rc.local
     fi
@@ -3642,12 +3703,12 @@ else
             systemctl unmask apt-daily.service apt-daily-upgrade.service
             systemctl enable apt-daily.service apt-daily-upgrade.service
             systemctl enable apt-daily.timer apt-daily-upgrade.timer
-            systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer            
+            systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer
             # this is the DOWNLOAD service
-            # meaning we are wasting IO without even triggering an upgrade 
+            # meaning we are wasting IO without even triggering an upgrade
             # -________________-
             systemctl restart --no-block apt-daily.service
-            
+
         fi
         aptmarkWALinuxAgent unhold &
     elif [[ $OS == $MARINER_OS_NAME ]]; then

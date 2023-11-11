@@ -10,6 +10,7 @@ CRICTL_BIN_DIR="/usr/local/bin"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
+K8S_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR="/opt/azure/tlsbootstrap"
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION="v0.1.0-alpha.2"
@@ -235,14 +236,37 @@ extractKubeBinaries() {
     rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
 }
 
-installKubeletKubectlAndKubeProxy() {
+extractPrivateKubeBinaries() {
+    K8S_VERSION=$1
+    KUBE_BINARY_URL=$2
 
+    K8S_TGZ_TMP=${KUBE_BINARY_URL##*/}
+    CACHED_PKG="${K8S_CACHE_DIR}/${K8S_TGZ_TMP}"
+
+    if [[ -f "${CACHED_PKG}" ]]; then
+        echo "cached package ${CACHED_PKG} is found, will use that"
+    else
+        echo "cached package ${CACHED_PKG} not found"
+        return 1
+    fi
+
+    retrycmd_get_tarball 120 5 "${CACHED_PKG}" ${KUBE_BINARY_URL} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+    tar --transform="s|.*|&-${K8S_VERSION}|" --show-transformed-names -xzvf "${CACHED_PKG}" \
+        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
+}
+
+installKubeletKubectlAndKubeProxy() {
     CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"
+    PRIVATE_KUBE_BINARY_DOWNLOAD_URL="${PRIVATE_KUBE_BINARY_URL:=}"
+    echo "using private url: ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}, custom url: ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}"
+
     if [[ ! -z ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} ]]; then
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
 
         logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}
-
+    elif [[ ! -z ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL} ]]; then
+        rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
+        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractPrivateKubeBinaries" extractPrivateKubeBinaries ${KUBERNETES_VERSION} ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}
     else
         if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
@@ -275,7 +299,7 @@ retagContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
     RETAG_IMAGE_URL=$3
-    echo "retaging from ${CONTAINER_IMAGE_URL} to ${RETAG_IMAGE_URL} using ${CLI_TOOL}"
+    echo "retagging from ${CONTAINER_IMAGE_URL} to ${RETAG_IMAGE_URL} using ${CLI_TOOL}"
     if [[ ${CLI_TOOL} == "ctr" ]]; then
         ctr --namespace k8s.io image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
@@ -310,13 +334,47 @@ removeContainerImage() {
     CONTAINER_IMAGE_URL=$2
     if [[ "${CLI_TOOL}" == "docker" ]]; then
         docker image rm $CONTAINER_IMAGE_URL
+    elif [[ "${CLI_TOOL}" == "ctr" ]]; then
+        ctr -n k8s.io image rm $CONTAINER_IMAGE_URL
     else
         crictl rmi $CONTAINER_IMAGE_URL
     fi
 }
 
+retagImageForAllClouds() {
+    CLI_TOOL=$1
+    CONTAINER_IMAGE=$2
+
+    echo "retagging image: $CONTAINER_IMAGE to mcr.microsoft.* base for all clouds"
+    base=$(echo $CONTAINER_IMAGE | cut -d "/" -f1)
+
+    if [[ "$base" =~  "mcr.microsoft."* ]]; then 
+      echo "$CONTAINER_IMAGE is already an mcr image, don't need to re-tag"
+      return
+    fi
+
+    clouds=(
+        "mcr.microsoft.com"           
+        "mcr.azk8s.cn"                
+        "mcr.microsoft.eaglex.ic.gov" # usnat 
+        "mcr.microsoft.scloud"        
+    )
+    for cloud in "${clouds[@]}"; do
+        newtag=${CONTAINER_IMAGE/$base/"$cloud"}
+        echo "retagging with tool: \"$CLI_TOOL\", current image: \"$CONTAINER_IMAGE\", new image: \"$newtag\""
+        retagContainerImage "$CLI_TOOL" "$CONTAINER_IMAGE" "$newtag"
+    done
+
+    removeContainerImage "$CLI_TOOL" "$CONTAINER_IMAGE"
+}
+
 cleanUpImages() {
     local targetImage=$1
+    if [[ "$targetImage" == "kube-proxy" ]]; then
+        echo "keeping all the kube-proxy images around to be able to use when needed w/o downloading again"
+        return
+    fi
+
     export targetImage
     function cleanupImagesRun() {
         if [ "${NEEDS_CONTAINERD}" == "true" ]; then
@@ -346,9 +404,7 @@ cleanUpImages() {
 }
 
 cleanUpKubeProxyImages() {
-    echo $(date),$(hostname), startCleanUpKubeProxyImages
-    cleanUpImages "kube-proxy"
-    echo $(date),$(hostname), endCleanUpKubeProxyImages
+    echo "keeping all the kube-proxy images around to be able to use when needed w/o downloading again"
 }
 
 cleanupRetaggedImages() {
