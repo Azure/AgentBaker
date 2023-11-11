@@ -35,7 +35,7 @@ parameters:
   type: boolean
   default: true
 - name: buildMarinerV2gen1fips
-  displayName: Build MarinerV2 Gen1 FIPS 
+  displayName: Build MarinerV2 Gen1 FIPS
   type: boolean
   default: true
 - name: buildAzureLinuxV2gen1fips
@@ -43,7 +43,7 @@ parameters:
   type: boolean
   default: true
 - name: buildMarinerV2gen2fips
-  displayName: Build MarinerV2 Gen2 FIPS 
+  displayName: Build MarinerV2 Gen2 FIPS
   type: boolean
   default: true
 - name: buildAzureLinuxV2gen2fips
@@ -134,7 +134,7 @@ parameters:
 variables:
 - name: CONTAINER_IMAGE
   value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
-  
+
 pool:
   name: $(POOL_NAME)
 
@@ -160,6 +160,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -186,6 +187,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -211,6 +213,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -237,6 +240,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -264,6 +268,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -291,6 +296,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -318,6 +324,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -345,6 +352,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -372,6 +380,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -399,6 +408,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -426,6 +436,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -453,6 +464,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -480,6 +492,7 @@ stages:
           echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
           echo '##vso[task.setvariable variable=SGX_INSTALL]False'
           echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
+          echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
         displayName: Setup Build Variables
       - template: ./templates/.builder-release-template.yaml
         parameters:
@@ -507,6 +520,7 @@ stages:
           echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
           echo '##vso[task.setvariable variable=SGX_INSTALL]False'
           echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+          echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
         displayName: Setup Build Variables
       - template: ./templates/.builder-release-template.yaml
         parameters:
@@ -534,6 +548,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -561,6 +576,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -588,6 +604,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -615,6 +632,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -642,6 +660,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -669,6 +688,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -695,6 +715,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -722,6 +743,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -748,6 +770,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -775,6 +798,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -802,6 +826,7 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -827,6 +852,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -853,6 +879,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -879,6 +906,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -905,6 +933,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -931,6 +960,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -957,6 +987,7 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
+            echo '##vso[task.setvariable variable=PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:

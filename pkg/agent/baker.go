@@ -708,6 +708,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetHyperkubeImageReference": func() string {
 			return config.K8sComponents.HyperkubeImageURL
 		},
+		"GetLinuxPrivatePackageURL": func() string {
+			return config.K8sComponents.LinuxPrivatePackageURL
+		},
 		"GetTargetEnvironment": func() string {
 			if cs.IsAKSCustomCloud() {
 				return cs.Properties.CustomCloudEnv.Name

@@ -20,7 +20,7 @@ if [ -z "${POOL_NAME}" ]; then
 	exit 1
 fi
 
-if [ -z "${VNET_RG_NAME}" ]; then 
+if [ -z "${VNET_RG_NAME}" ]; then
 	VNET_RG_NAME=""
 	if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
 		VNET_RG_NAME="nodesigprod-agent-pool"
@@ -98,7 +98,7 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 	else
 		echo "Using provided SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
 	fi
-	
+
 	# Ensure the image-definition name
 	if [[ -z "${SIG_IMAGE_NAME}" ]]; then
 		SIG_IMAGE_NAME=${OS_VERSION//./}
@@ -109,7 +109,7 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 		if [[ "${IMG_SKU}" == *"minimal"* ]]; then
 			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Minimal
 		fi
-		
+
 		if [[ "${OS_SKU}" == "CBLMariner" ]]; then
 			SIG_IMAGE_NAME=CBLMariner${SIG_IMAGE_NAME}
 		fi
@@ -204,6 +204,8 @@ windows_servercore_image_url=""
 windows_nanoserver_image_url=""
 windows_private_packages_url=""
 windows_msi_resource_string=${WINDOWS_MSI_RESOURCE_STRING}
+private_packages_url=""
+
 # shellcheck disable=SC2236
 if [ "$OS_TYPE" == "Windows" ]; then
 	imported_windows_image_name=""
@@ -297,7 +299,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 			--hyper-v-generation $HYPERV_GENERATION \
 			--os-type ${OS_TYPE}
 
-		# create a gallery image definition $IMPORTED_IMAGE_NAME	
+		# create a gallery image definition $IMPORTED_IMAGE_NAME
 		echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
 		# Need to specifiy hyper-v-generation to support Gen 2
 		az sig image-definition create \
@@ -312,7 +314,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 			--offer $IMPORTED_IMAGE_NAME \
 			--os-state generalized \
 			--description "Imported image for AKS Packer build"
-			
+
 		# create a image version defaulting to 1.0.0 for $IMPORTED_IMAGE_NAME
 		echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
 		az sig image-version create \
@@ -351,6 +353,12 @@ if [ "$OS_TYPE" == "Windows" ]; then
 	fi
 fi
 
+# Set windows private packages url if the pipeline variable is set
+if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
+	echo "PRIVATE_PACKAGES_URL is set in pipeline variables"
+	private_packages_url="${PRIVATE_PACKAGES_URL}"
+fi
+
 cat <<EOF > vhdbuilder/packer/settings.json
 {
   "subscription_id":  "${SUBSCRIPTION_ID}",
@@ -384,7 +392,8 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vnet_name": "${VNET_NAME}",
   "subnet_name": "${SUBNET_NAME}",
   "vnet_resource_group_name": "${VNET_RG_NAME}",
-  "windows_msi_resource_string": "${windows_msi_resource_string}"
+  "windows_msi_resource_string": "${windows_msi_resource_string}",
+  "private_packages_url": "${private_packages_url}"
 }
 EOF
 

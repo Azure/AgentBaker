@@ -10,6 +10,7 @@ CRICTL_BIN_DIR="/usr/local/bin"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
+K8S_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR="/opt/azure/tlsbootstrap"
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION="v0.1.0-alpha.2"
@@ -245,9 +246,52 @@ extractKubeBinaries() {
     rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
 }
 
+extractPrivateKubeBinaries() {
+    K8S_VERSION=$1
+    KUBE_BINARY_URL=$2
+
+    #mkdir -p ${K8S_CACHE_DIR}
+    K8S_TGZ_TMP=${KUBE_BINARY_URL##*/}
+    CACHED_PKG="${K8S_CACHE_DIR}/${K8S_TGZ_TMP}"
+
+    if [[ -f "${CACHED_PKG}" ]]; then
+        echo "cached package ${CACHED_PKG} is found, will use that"
+    else
+        echo "cached package ${CACHED_PKG} not found"
+        return 1
+    fi
+
+    retrycmd_get_tarball 120 5 "${CACHED_PKG}" ${KUBE_BINARY_URL} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+    tar --transform="s|.*|&-${K8S_VERSION}|" --show-transformed-names -xzvf "${CACHED_PKG}" \
+        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
+    # rm -f "$K8S_CACHE_DIR/${K8S_TGZ_TMP}" // why delete?
+}
+
+cacheKubePackageFromPrivateUrl() {
+    KUBE_PRIVATE_BINARY_URL=$1
+
+    echo "process private package url: $KUBE_PRIVATE_BINARY_URL"
+
+    mkdir -p ${K8S_CACHE_DIR} # /opt/kubernetes/downloads/private-packages
+
+    K8S_TGZ_TMP=${KUBE_PRIVATE_BINARY_URL##*/}
+    ### temp for testing ###
+    K8S_TGZ_TMP=$(echo "$KUBE_PRIVATE_BINARY_URL" | grep -o -P '(?<=\/kubernetes\/).*(?=\/binaries\/)').tar.gz
+    echo "temp package: $K8S_TGZ_TMP"
+    ######
+
+    echo "download private package ${KUBE_PRIVATE_BINARY_URL} and store as ${K8S_CACHE_DIR}/${K8S_TGZ_TMP}...start"
+    retrycmd_get_tarball 120 5 "${K8S_CACHE_DIR}/${K8S_TGZ_TMP}" ${KUBE_PRIVATE_BINARY_URL} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+    echo "download private package ${KUBE_PRIVATE_BINARY_URL} and store as ${K8S_CACHE_DIR}/${K8S_TGZ_TMP}...done"
+}
+
 installKubeletKubectlAndKubeProxy() {
+    echo "+++check PRIVATE_KUBE_BINARY_URL: ${PRIVATE_KUBE_BINARY_URL}"
 
     CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"
+    PRIVATE_KUBE_BINARY_DOWNLOAD_URL="${PRIVATE_KUBE_BINARY_URL:=}"
+    echo "using private url: ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL} custom url: ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}"
+
     if [[ ! -z ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} ]]; then
         # remove the kubelet binaries to make sure the only binary left is from the CUSTOM_KUBE_BINARY_DOWNLOAD_URL
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
@@ -256,7 +300,10 @@ installKubeletKubectlAndKubeProxy() {
         # kube binaries used by AKS and Kubernetes upstream.
         # TODO(mainred): let's see if necessary to auto-detect the path of kubelet
         logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}
-
+    elif [[ ! -z ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL} ]]; then
+        # remove the kubelet binaries to make sure the only binary left is from the PRIVATE_KUBE_BINARY_DOWNLOAD_URL
+        rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
+        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractPrivateKubeBinaries" extractPrivateKubeBinaries ${KUBERNETES_VERSION} ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}
     else
         if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released

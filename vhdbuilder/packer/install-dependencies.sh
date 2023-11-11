@@ -1,16 +1,19 @@
 #!/bin/bash
+echo "install-dependencies.sh...start"
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
+echo "install-dependencies.sh...source...start"
 source /home/packer/provision_installs.sh
 source /home/packer/provision_installs_distro.sh
 source /home/packer/provision_source.sh
 source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
+echo "install-dependencies.sh...source...done"
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
@@ -23,7 +26,7 @@ echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
 # other VHDs use grub-pc, not grub-efi
 if [[ "${UBUNTU_RELEASE}" == "20.04" ]] && [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
-  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT 
+  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   wait_for_apt_locks
   apt_get_install 30 1 600 grub-efi || exit 1
 fi
@@ -100,7 +103,7 @@ tee "${CONTAINERD_SERVICE_DIR}/exec_start.conf" > /dev/null <<EOF
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
-tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
+tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF
 net.ipv4.ip_forward = 1
 net.ipv4.conf.all.forwarding = 1
 net.ipv6.conf.all.forwarding = 1
@@ -135,7 +138,7 @@ installed_version="$(echo ${containerd_manifest} | jq -r '.edge')"
 if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
   installed_version="$(echo ${containerd_manifest} | jq -r '.pinned."1804"')"
 fi
-  
+
 containerd_version="$(echo "$installed_version" | cut -d- -f1)"
 containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
 installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
@@ -205,13 +208,13 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
   mkdir -p /opt/{actions,gpu}
   ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
     ret=$?
     if [[ "$ret" != "0" ]]; then
       echo "Failed to install GPU driver, exiting..."
       exit $ret
     fi
-  fi    
+  fi
 fi
 
 systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
@@ -286,7 +289,7 @@ unpackAzureCNI() {
   local URL=$1
   CNI_TGZ_TMP=${URL##*/}
   CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
-  mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" 
+  mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
   tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR/$CNI_DIR_TMP
   rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
   echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
@@ -394,7 +397,7 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
   pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
   ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
-  
+
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
@@ -412,12 +415,25 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
 fi
 
+echo "install-dependencies: LINUX_PRIVATE_PACKAGES_URL: ${PRIVATE_PACKAGES_URL}"
+# use the private_packages_url to download and cache packages
+echo "private packages url vlaue...$PRIVATE_PACKAGES_URL"
+if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
+  echo "process private packages url...${PRIVATE_PACKAGES_URL}"
+  IFS=',' read -ra PRIVATE_URLS <<< "${PRIVATE_PACKAGES_URL}"
+  for private_url in "${PRIVATE_URLS[@]}"; do
+    echo "download package from...$private_url...start"
+    cacheKubePackageFromPrivateUrl "$private_url"
+    echo "download package from...$private_url...done"
+  done
+fi
+
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
-# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. 
+# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
 KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
 
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
