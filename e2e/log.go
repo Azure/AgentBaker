@@ -23,7 +23,7 @@ func createE2ELoggingDir() error {
 	return createDirIfNeeded(e2eLogsDir)
 }
 
-func createVMLogsDir(caseName string) (string, error) {
+func createScenarioLoggingDir(caseName string) (string, error) {
 	logDir := filepath.Join(e2eLogsDir, caseName)
 	return logDir, createDirIfNeeded(logDir)
 }

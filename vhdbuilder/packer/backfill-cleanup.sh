@@ -10,10 +10,6 @@ if [[ "${MODE}" != "windowsVhdMode" ]]; then
   exit 0
 fi
 
-if [[ "${BACKFILL_RESOURCE_DELETION}" == "False" ]]; then
-  exit 0
-fi
-
 # attempt to clean up Windows managed images and SIG image versions created over a week ago in SIG_GALLERY_NAME (cannot be the production gallery)
 # this can be used in PR check-in pipelines together with a set SIG_GALLERY_NAME from which we'd like to free up resources
 if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${SIG_GALLERY_NAME}" != "AKSWindows" ]]; then
