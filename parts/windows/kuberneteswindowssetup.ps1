@@ -332,7 +332,7 @@ try
     # In case of AKSCustomCloud, customer cloud env will be loaded from azurestackcloud.json 
     {{if IsAKSCustomCloud}}
     $azureStackConfigFile = [io.path]::Combine($global:KubeDir, "azurestackcloud.json")
-    $env:AZURE_ENVIRONMENT_FILEPATH = $azureStackConfigFile
+    [Environment]::SetEnvironmentVariable("AZURE_ENVIRONMENT_FILEPATH", $azureStackConfigFile, [EnvironmentVariableTarget]::Machine)
     $envJSON = "{{ GetBase64EncodedEnvironmentJSON }}"
     [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
 
