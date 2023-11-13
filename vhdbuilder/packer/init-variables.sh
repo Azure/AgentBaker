@@ -203,7 +203,12 @@ WINDOWS_IMAGE_URL=""
 windows_servercore_image_url=""
 windows_nanoserver_image_url=""
 windows_private_packages_url=""
-windows_msi_resource_string=${WINDOWS_MSI_RESOURCE_STRING}
+
+windows_msi_resource_string=()
+if [ -n "${WINDOWS_MSI_RESOURCE_STRING}" ]; then
+	windows_msi_resource_string+=${WINDOWS_MSI_RESOURCE_STRING}
+fi
+
 # shellcheck disable=SC2236
 if [ "$OS_TYPE" == "Windows" ]; then
 	imported_windows_image_name=""
