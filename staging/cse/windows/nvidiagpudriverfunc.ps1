@@ -32,8 +32,10 @@ function Start-InstallGPUDriver {
 
     Write-Log "Attempting to install Nvidia driver..."
 
-    Prepare-Installation -GpuDriverURL $GpuDriverURL -Target $Target
-    Write-Log "Setup complete"
+    Write-Log "Downloading from $GpuDriverURL to $Target"
+    DownloadFileOverHttp -Url $GpuDriverURL -DestinationPath $Target -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE
+    Write-Log "Installer download complete"
+    
     $IsSignatureValid = VerifySignature $Target 
     if ($IsSignatureValid -eq $false) {
         $ErrorMsg = "Signature embedded in $($Target) is not valid."
@@ -80,23 +82,6 @@ function Start-InstallGPUDriver {
         Write-Log $ErrorMsg # the status file may get over-written when the agent re-attempts this step
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_EXCEPTION -ErrorMessage $ErrorMsg
     }
-}
-  
-function Prepare-Installation {
-    [OutputType([hashtable])]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$GpuDriverURL,
-        [Parameter(Mandatory = $true)]
-        [string]$Target
-    )
-
-    $fileName = [IO.Path]::GetFileName($GpuDriverURL)
-
-    Write-Log "gpu url is set to $GpuDriverURL"
-
-    Write-Log "Downloading from $GpuDriverURL to $Target"
-    DownloadFileOverHttp -Url $GpuDriverURL -DestinationPath $Target -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE
 }
 
 function Set-RebootNeeded {
