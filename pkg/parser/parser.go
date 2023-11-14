@@ -10,7 +10,7 @@ import (
 var (
 	//go:embed cse_cmd.sh.gtpl
 	bootstrapTrigger         string
-	bootstrapTriggerTemplate = template.Must(template.New("triggerBootstrapScript").Parse(bootstrapTrigger))
+	bootstrapTriggerTemplate = template.Must(template.New("triggerBootstrapScript").Parse(bootstrapTrigger)) //nolint:gochecknoglobals
 )
 
 func executeBootstrapTemplate() (string, error) {
