@@ -206,7 +206,7 @@ windows_private_packages_url=""
 
 windows_msi_resource_string=()
 if [ -n "${WINDOWS_MSI_RESOURCE_STRING}" ]; then
-	windows_msi_resource_string+=${WINDOWS_MSI_RESOURCE_STRING}
+	windows_msi_resource_string+=(${WINDOWS_MSI_RESOURCE_STRING})
 fi
 
 # shellcheck disable=SC2236
