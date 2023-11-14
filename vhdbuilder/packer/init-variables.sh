@@ -204,11 +204,11 @@ windows_servercore_image_url=""
 windows_nanoserver_image_url=""
 windows_private_packages_url=""
 
-# windows_msi_resource_string is an array that will be used to build windows vm
+# windows_msi_resource_strings is an array that will be used to build windows vm
 # set the default value os this array as empty to unblock the case where WINDOWS_MSI_RESOURCE_STRING is not set
-windows_msi_resource_string=()
+windows_msi_resource_strings=()
 if [ -n "${WINDOWS_MSI_RESOURCE_STRING}" ]; then
-	windows_msi_resource_string+=(${WINDOWS_MSI_RESOURCE_STRING})
+	windows_msi_resource_strings+=(${WINDOWS_MSI_RESOURCE_STRING})
 fi
 
 # shellcheck disable=SC2236
@@ -391,7 +391,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vnet_name": "${VNET_NAME}",
   "subnet_name": "${SUBNET_NAME}",
   "vnet_resource_group_name": "${VNET_RG_NAME}",
-  "windows_msi_resource_string": "${windows_msi_resource_string}"
+  "windows_msi_resource_strings": "${windows_msi_resource_strings}"
 }
 EOF
 
