@@ -16,7 +16,7 @@ var (
 func executeBootstrapTemplate() (string, error) {
 	var buffer bytes.Buffer
 	if err := bootstrapTriggerTemplate.Execute(&buffer, nil); err != nil {
-		return "", fmt.Errorf("error executing bootstrap trigger template: %w", err)
+		return "", err
 	}
 	return buffer.String(), nil
 }
