@@ -1,7 +1,6 @@
 package main
 
 import (
-	_ "embed"
 	"github.com/Azure/agentbaker/pkg/parser"
 )
 
