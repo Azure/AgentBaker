@@ -1,3 +1,10 @@
-#!/bin/bash
-echo "hello"
-#This is a simple placeholder script, but will eventually resemble what cse_cmd.sh looks today
+ADMINUSER = "{{.LinuxAdminUsername}}"
+PROVISION_OUTPUT = "{{.ProvisionOutput}}"
+REPO_DEPOT_ENDPOINT ="{{.RepoDepotEndpoint}}"
+MOBY_VERSION = "{{.MobyVersion}}"
+TENANT_ID = "{{.TenantId}}"
+KUBERNETES_VERSION = "{{.KubernetesVersion}}"
+HYPERKUBE_URL = "{{.HyperkubeUrl}}"
+KUBE_BINARY_URL = "{{.KubeBinaryUrl}}"
+CUSTOM_KUBE_BINARY_URL = "{{.CustomKubeBinaryUrl}}"
+KUBEPROXY_URL = "{{.KubeproxyUrl}}
