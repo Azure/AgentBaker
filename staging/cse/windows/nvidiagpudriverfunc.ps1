@@ -32,8 +32,7 @@ function Start-InstallGPUDriver {
 
     Write-Log "Attempting to install Nvidia driver..."
 
-    # Get the SetupTarget based on the input
-    $Setup = Prepare-Installation -GpuDriverURL $GpuDriverURL -Target $Target
+    Prepare-Installation -GpuDriverURL $GpuDriverURL -Target $Target
     Write-Log "Setup complete"
     $IsSignatureValid = VerifySignature $Target 
     if ($IsSignatureValid -eq $false) {
@@ -98,8 +97,6 @@ function Prepare-Installation {
 
     Write-Log "Downloading from $GpuDriverURL to $Target"
     DownloadFileOverHttp -Url $GpuDriverURL -DestinationPath $Target -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE
-  
-    return $Setup
 }
 
 function Set-RebootNeeded {
