@@ -2,7 +2,8 @@ function Start-InstallGPUDriver {
     param(
         [Parameter(Mandatory = $true)]
         [bool]$EnableInstall,
-        [Parameter(Mandatory = $true)]
+        # when the vm size does not have gpu, this value is an empty string.
+        [Parameter(Mandatory = $false)]
         [string]$GpuDriverURL
     )
   
