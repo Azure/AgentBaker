@@ -204,6 +204,8 @@ windows_servercore_image_url=""
 windows_nanoserver_image_url=""
 windows_private_packages_url=""
 
+# windows_msi_resource_string is an array that will be used to build windows vm
+# set the default value os this array as empty to unblock the case where WINDOWS_MSI_RESOURCE_STRING is not set
 windows_msi_resource_string=()
 if [ -n "${WINDOWS_MSI_RESOURCE_STRING}" ]; then
 	windows_msi_resource_string+=(${WINDOWS_MSI_RESOURCE_STRING})
