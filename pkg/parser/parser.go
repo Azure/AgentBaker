@@ -3,7 +3,7 @@ package parser
 import (
 	"bytes"
 	_ "embed"
-	"fmt"
+	"log"
 	"text/template"
 )
 
@@ -26,8 +26,8 @@ func executeBootstrapTemplate() (string, error) {
 func Parse() {
 	triggerBootstrapScript, err := executeBootstrapTemplate()
 	if err != nil {
-		fmt.Errorf("failed to execute the template")
+		log.Printf("Failed to execute the template: %v", err)
 	}
 
-	fmt.Println(triggerBootstrapScript)
+	log.Println(triggerBootstrapScript)
 }
