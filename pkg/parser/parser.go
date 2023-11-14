@@ -22,7 +22,7 @@ func executeBootstrapTemplate() (string, error) {
 }
 
 // this function will eventually take a pointer to the bootstrap contract struct.
-// it will then emplate out the variables into the final bootstrap trigger script.
+// it will then template out the variables into the final bootstrap trigger script.
 func Parse() {
 	triggerBootstrapScript, err := executeBootstrapTemplate()
 	if err != nil {
