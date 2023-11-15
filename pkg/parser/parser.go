@@ -14,7 +14,8 @@ var (
 	//go:embed cse_cmd.sh.gtpl
 	bootstrapTrigger         string
 	bootstrapTriggerTemplate = template.Must(template.New("triggerBootstrapScript").Funcs(funcMap).Parse(bootstrapTrigger)) //nolint:gochecknoglobals
-	funcMap                  = template.FuncMap{
+	//nolint:gochecknoglobals
+	funcMap = template.FuncMap{
 		"getBoolStr":        getBoolStr,
 		"getInverseBoolStr": getInverseBoolStr,
 	}

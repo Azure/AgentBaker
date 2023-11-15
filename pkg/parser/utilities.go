@@ -19,5 +19,4 @@ func getBaseTemplate() *nbcontractv1.Configuration {
 		},
 		SshStatus: nbcontractv1.FeatureState_FEATURE_STATE_ENABLED,
 	}
-
 }
