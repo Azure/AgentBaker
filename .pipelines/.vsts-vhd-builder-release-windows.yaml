@@ -118,7 +118,6 @@ stages:
             -e MODE=$m \
             -e DRY_RUN=${DRY_RUN} \
             -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-            -e BACKFILL_RESOURCE_DELETION=True \
             -e OS_TYPE="Windows" \
             ${AZURE_CONTAINER_IMAGE} make -f packer.mk backfill-cleanup
           displayName: Backfill Clean Up Older Resources
