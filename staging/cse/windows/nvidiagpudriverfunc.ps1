@@ -18,6 +18,7 @@ function Start-InstallGPUDriver {
         $ErrorMsg = "DriverURL is not properly specified."
         Write-Log $ErrorMsg
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_SET -ErrorMessage $ErrorMsg
+        return
     }
 
     $fileName = [IO.Path]::GetFileName($GpuDriverURL)
@@ -25,6 +26,7 @@ function Start-InstallGPUDriver {
         $ErrorMsg = "DriverURL does not point to a exe file"
         Write-Log $ErrorMsg
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE -ErrorMessage $ErrorMsg
+        return
     }
 
     $Target = "C:\AzureData\$fileName"
@@ -41,6 +43,7 @@ function Start-InstallGPUDriver {
         $ErrorMsg = "Signature embedded in $($Target) is not valid."
         Write-Log $ErrorMsg
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INVALID_SIGNATURE -ErrorMessage $ErrorMsg
+        return
     }
     else {
         Write-Log "Signature embedded in $($Target) is valid."
@@ -52,9 +55,11 @@ function Start-InstallGPUDriver {
         $Arguments = "-s -n -log:$InstallLogFolder -loglevel:6"
     
         $p = Start-Process -FilePath $Target -ArgumentList $Arguments -PassThru
-
+        
         $Timeout = 10 * 60 # in seconds. 10 minutes for timeout of the installation
-        Wait-Process -InputObject $p -Timeout $Timeout -ErrorAction Stop
+        if (-not ($p -is [hashtable])) {
+            Wait-Process -InputObject $p -Timeout $Timeout -ErrorAction Stop
+        }
     
         # check if installation was successful
         if ($p.ExitCode -eq 0 -or $p.ExitCode -eq 1) {
@@ -66,6 +71,7 @@ function Start-InstallGPUDriver {
             $ErrorMsg = "GPU Driver Installation Failed! Code: $($p.ExitCode)"
             Write-Log $ErrorMsg
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_FAILED -ErrorMessage $ErrorMsg
+            return
         }
 
         # check if reboot is needed
