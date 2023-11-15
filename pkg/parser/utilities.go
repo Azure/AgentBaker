@@ -14,5 +14,10 @@ func getBaseTemplate() *nbcontractv1.Configuration {
 		KubeBinaryUrl:       "",
 		CustomKubeBinaryUrl: "https://acs-mirror.azureedge.net/kubernetes/v1.26.0/binaries/kubernetes-node-linux-amd64.tar.gz",
 		KubeproxyUrl:        "",
+		CustomCloudConfig: &nbcontractv1.CustomCloudConfig{
+			IsCustomCloud: false,
+		},
+		SshStatus: nbcontractv1.FeatureState_FEATURE_STATE_ENABLED,
 	}
+
 }

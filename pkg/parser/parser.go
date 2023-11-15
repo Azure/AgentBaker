@@ -13,7 +13,11 @@ import (
 var (
 	//go:embed cse_cmd.sh.gtpl
 	bootstrapTrigger         string
-	bootstrapTriggerTemplate = template.Must(template.New("triggerBootstrapScript").Parse(bootstrapTrigger)) //nolint:gochecknoglobals
+	bootstrapTriggerTemplate = template.Must(template.New("triggerBootstrapScript").Funcs(funcMap).Parse(bootstrapTrigger)) //nolint:gochecknoglobals
+	funcMap                  = template.FuncMap{
+		"getBoolStr":        getBoolStr,
+		"getInverseBoolStr": getInverseBoolStr,
+	}
 )
 
 func executeBootstrapTemplate(inputContract *nbcontractv1.Configuration) (string, error) {
@@ -31,6 +35,7 @@ func Parse() {
 	if err != nil {
 		log.Printf("Failed to marshal the nbcontractv1 to json: %v", err)
 	}
+
 	log.Println("Input Json: ")
 	log.Println(string(inputJSON))
 
@@ -42,10 +47,28 @@ func Parse() {
 	if err != nil {
 		log.Printf("Failed to unmarshal the json to nbcontractv1: %v", err)
 	}
+
 	triggerBootstrapScript, err := executeBootstrapTemplate(&inputContract)
 	if err != nil {
 		log.Printf("Failed to execute the template: %v", err)
 	}
+
 	log.Println("output env vars:")
 	log.Println(triggerBootstrapScript)
+}
+
+func getBoolStr(state nbcontractv1.FeatureState) string {
+	if state == nbcontractv1.FeatureState_FEATURE_STATE_ENABLED {
+		return "true"
+	}
+
+	return "false"
+}
+
+func getInverseBoolStr(state nbcontractv1.FeatureState) string {
+	if state == nbcontractv1.FeatureState_FEATURE_STATE_ENABLED {
+		return "false"
+	}
+
+	return "true"
 }
