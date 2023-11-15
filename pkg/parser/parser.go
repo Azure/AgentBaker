@@ -38,7 +38,7 @@ func Parse() {
 	// We can further move it to other file for unit tests later.
 
 	inputContract := nbcontractv1.Configuration{}
-	json.Unmarshal(inputJSON, &inputContract)
+	err = json.Unmarshal(inputJSON, &inputContract)
 	if err != nil {
 		log.Printf("Failed to unmarshal the json to nbcontractv1: %v", err)
 	}
@@ -48,19 +48,4 @@ func Parse() {
 	}
 	log.Println("output env vars:")
 	log.Println(triggerBootstrapScript)
-}
-
-func getBaseTemplate() *nbcontractv1.Configuration {
-	return &nbcontractv1.Configuration{
-		ProvisionOutput:     "/var/log/azure/cluster-provision-cse-output.log",
-		LinuxAdminUsername:  "azureuser",
-		RepoDepotEndpoint:   "test RepoDepotEndpoint",
-		MobyVersion:         "test moby version",
-		TenantId:            "test tenant id",
-		KubernetesVersion:   "test k8s version",
-		HyperkubeUrl:        "test hyper kube Url",
-		KubeBinaryUrl:       "test kube binary Url",
-		CustomKubeBinaryUrl: "test custom kube binary Url",
-		KubeproxyUrl:        "test kube proxy Url",
-	}
 }
