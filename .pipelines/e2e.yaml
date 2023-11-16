@@ -7,7 +7,9 @@ pr:
     - 'official/*'
   paths:
     include:
-      e2e
+      - 'e2e'
+    exclude:
+      - 'e2e/windows/*'
 
 variables:
 - group: ab-e2e
