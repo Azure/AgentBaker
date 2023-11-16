@@ -10,7 +10,7 @@ $windowsImageVersion = $env:WindowsImageVersion
 
 $ErrorActionPreference = "Stop"
 
-$imageBomJsonFilePath = "c:\image-bom.json"
+$imageBomJsonFilePath = "c:\image-list.json"
 $bomList = @()
 
 # starting containerd for printing containerD info, the same way as we pre-pull containerD images in configure-windows-vhd.ps1

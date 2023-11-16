@@ -134,19 +134,31 @@ steps:
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
         targetPath: 'release-notes.txt'
+  
+  - bash: |
+      WINDOWS_VERSION="$(grep -a "OS Version" < release-notes.txt | cut -d ":" -f 2 | tr -d "[:space:]")"
+      IMAGE_VERSION="$WINDOWS_VERSION.${BUILD_DATE}"
+      echo "##vso[task.setvariable variable=IMAGE_VERSION]$IMAGE_VERSION"
+    displayName: Get Image Version
 
 # Use jq to reformat the image-bom.json file
   - bash: |
       sudo chmod 777 image-bom.json
       jq . image-bom.json > tmp.json
-      mv tmp.json image-bom.json
-    displayName: Reformat image bom file
+      mv tmp.json ${IMAGE_VERSION}-image-list.json
+      cp release-notes.txt ${IMAGE_VERSION}.txt
+    displayName: Reformat image-bom.json and rename release-notes.txt
+
+  - task: PublishPipelineArtifact@0
+    inputs:
+        artifactName: 'vhd-release-notes-${{ parameters.artifactName }}-$(IMAGE_VERSION)'
+        targetPath: '$(IMAGE_VERSION).txt'
 
 # We can upload image bom json for check-in pr and sig mode to validate whether it is expected.
   - task: PublishPipelineArtifact@0
     inputs:          
-        artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
-        targetPath: 'image-bom.json'
+        artifactName: 'vhd-image-list-${{ parameters.artifactName }}-$(IMAGE_VERSION)'
+        targetPath: '$(IMAGE_VERSION)-image-list.json'
 
 # Moved conversion to VHD before cleanup.
 # Gen 2 packer outputs a sig in destination. This step: dest sig=>disk=>VHD in classic SA for publishing.
@@ -230,8 +242,6 @@ steps:
       OS_DISK_SAS="$(cat packer-output | grep -a "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
       VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
       SKU_NAME="windows-$WINDOWS_SKU"; fi && \
-      WINDOWS_VERSION="$(grep -a "OS Version" < release-notes.txt | cut -d ":" -f 2 | tr -d "[:space:]")" && \
-      IMAGE_VERSION="$WINDOWS_VERSION.${BUILD_DATE}" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
