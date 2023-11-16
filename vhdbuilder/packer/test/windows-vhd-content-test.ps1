@@ -261,6 +261,26 @@ function Test-RegistryAdded {
             Write-ErrorWithTimestamp "The registry for VfpNotReuseTcpOneWayFlowIsEnabled is not added"
             exit 1
         }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name CleanupReservedPorts)
+        if ($result.CleanupReservedPorts -ne 1) {
+            Write-ErrorWithTimestamp "The registry for CleanupReservedPorts is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 652313229)
+        if ($result.652313229 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 652313229 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2059235981)
+        if ($result.2059235981 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 2059235981 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3767762061)
+        if ($result.3767762061 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 3767762061 is not added"
+            exit 1
+        }
     }
     if ($env:WindowsSKU -Like '2022*') {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2629306509)
@@ -386,6 +406,41 @@ function Test-RegistryAdded {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name FwPerfImprovementChange)
         if ($result.FwPerfImprovementChange -ne 1) {
             Write-ErrorWithTimestamp "The registry for FwPerfImprovementChange is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange)
+        if ($result.PortExclusionChange -ne 1) {
+            Write-ErrorWithTimestamp "The registry for PortExclusionChange is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts)
+        if ($result.NamespaceExcludedUdpPorts -ne 1) {
+            Write-ErrorWithTimestamp "The registry for NamespaceExcludedUdpPorts is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name CleanupReservedPorts)
+        if ($result.CleanupReservedPorts -ne 1) {
+            Write-ErrorWithTimestamp "The registry for CleanupReservedPorts is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 527922829)
+        if ($result.527922829 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 527922829 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers" -Name DeltaHivePolicy)
+        if ($result.DeltaHivePolicy -ne 2) {
+            Write-ErrorWithTimestamp "The registry for DeltaHivePolicy is not equal to 2"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2193453709)
+        if ($result.2193453709 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 2193453709 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3331554445)
+        if ($result.3331554445 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 3331554445 is not added"
             exit 1
         }
     }
