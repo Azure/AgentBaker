@@ -57,6 +57,8 @@ function Start-InstallGPUDriver {
         $p = Start-Process -FilePath $Target -ArgumentList $Arguments -PassThru
         
         $Timeout = 10 * 60 # in seconds. 10 minutes for timeout of the installation
+
+        # This is for testability. Start-Process mock returns a hashtable.
         if (-not ($p -is [hashtable])) {
             Wait-Process -InputObject $p -Timeout $Timeout -ErrorAction Stop
         }

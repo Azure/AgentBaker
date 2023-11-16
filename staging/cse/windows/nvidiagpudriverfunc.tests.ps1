@@ -104,7 +104,7 @@ Describe 'Start-InstallGPUDriver' {
             Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_EXCEPTION }
         }
 
-        It "Should exit when installation code is not 0 or 1" {
+        It "Should run Wait-Process when Start-Process does not return a hashtable mock output" {
             $GpuDriverURL = 'https://example.com/gpudriver.exe'
             $TargetPath = "C:\AzureData\gpudriver.exe"
 
@@ -114,6 +114,31 @@ Describe 'Start-InstallGPUDriver' {
             Assert-MockCalled -CommandName 'VerifySignature' -Exactly -Times 1 -ParameterFilter { $targetFile -eq $TargetPath }
             Assert-MockCalled -CommandName 'Start-Process' -Exactly -Times 1 -ParameterFilter { $FilePath -eq $TargetPath }
             Assert-MockCalled -CommandName 'Wait-Process' -Exactly -Times 1
+            Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_FAILED }
+        }
+
+        It "Should exit when installation code is not 0 or 1" {
+            $GpuDriverURL = 'https://example.com/gpudriver.exe'
+            $TargetPath = "C:\AzureData\gpudriver.exe"
+
+            # The ExitCode of System.Diagnostics.Process is readonly so we have to create a custom hashtable.
+            # However, Wait-Process does not accept hastable as a parameter so we'll need to skip it in the code.
+            Mock Start-Process -MockWith {
+                param (
+                    [string]$FilePath,
+                    [string]$ArgumentList
+                )
+                $FilePath | Should -Be $TargetPath
+                $process = @{ ExitCode = 9 }
+                return $process
+            } -Verifiable
+
+            Start-InstallGPUDriver -EnableInstall $true -GpuDriverURL $GpuDriverURL
+
+            Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Exactly -Times 1 -ParameterFilter { $Url -eq $GpuDriverURL }
+            Assert-MockCalled -CommandName 'VerifySignature' -Exactly -Times 1 -ParameterFilter { $targetFile -eq $TargetPath }
+            Assert-MockCalled -CommandName 'Start-Process' -Exactly -Times 1 -ParameterFilter { $FilePath -eq $TargetPath }
+            Assert-MockCalled -CommandName 'Wait-Process' -Exactly -Times 0
             Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_FAILED }
         }
 
@@ -136,6 +161,7 @@ Describe 'Start-InstallGPUDriver' {
             Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Exactly -Times 1 -ParameterFilter { $Url -eq $GpuDriverURL }
             Assert-MockCalled -CommandName 'VerifySignature' -Exactly -Times 1 -ParameterFilter { $targetFile -eq $TargetPath }
             Assert-MockCalled -CommandName 'Start-Process' -Exactly -Times 1 -ParameterFilter { $FilePath -eq $TargetPath }
+            Assert-MockCalled -CommandName 'Wait-Process' -Exactly -Times 0
             Assert-MockCalled -CommandName 'Remove-InstallerFile' -Exactly -Times 1
             $global:RebootNeeded | Should -Be $true
         }
@@ -159,6 +185,7 @@ Describe 'Start-InstallGPUDriver' {
             Assert-MockCalled -CommandName 'DownloadFileOverHttp' -Exactly -Times 1 -ParameterFilter { $Url -eq $GpuDriverURL }
             Assert-MockCalled -CommandName 'VerifySignature' -Exactly -Times 1 -ParameterFilter { $targetFile -eq $TargetPath }
             Assert-MockCalled -CommandName 'Start-Process' -Exactly -Times 1 -ParameterFilter { $FilePath -eq $TargetPath }
+            Assert-MockCalled -CommandName 'Wait-Process' -Exactly -Times 0
             Assert-MockCalled -CommandName 'Remove-InstallerFile' -Exactly -Times 1
             Assert-MockCalled -CommandName 'Set-RebootNeeded' -Exactly -Times 1
         }
