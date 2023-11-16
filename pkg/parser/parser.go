@@ -13,12 +13,8 @@ import (
 var (
 	//go:embed cse_cmd.sh.gtpl
 	bootstrapTrigger         string
-	bootstrapTriggerTemplate = template.Must(template.New("triggerBootstrapScript").Funcs(funcMap).Parse(bootstrapTrigger)) //nolint:gochecknoglobals
-	//nolint:gochecknoglobals
-	funcMap = template.FuncMap{
-		"getBoolStr":        getBoolStr,
-		"getInverseBoolStr": getInverseBoolStr,
-	}
+	bootstrapTriggerTemplate = template.Must(template.New("triggerBootstrapScript").Funcs(getFuncMap()).Parse(bootstrapTrigger)) //nolint:gochecknoglobals
+
 )
 
 func executeBootstrapTemplate(inputContract *nbcontractv1.Configuration) (string, error) {
@@ -56,20 +52,4 @@ func Parse() {
 
 	log.Println("output env vars:")
 	log.Println(triggerBootstrapScript)
-}
-
-func getBoolStr(state nbcontractv1.FeatureState) string {
-	if state == nbcontractv1.FeatureState_FEATURE_STATE_ENABLED {
-		return "true"
-	}
-
-	return "false"
-}
-
-func getInverseBoolStr(state nbcontractv1.FeatureState) string {
-	if state == nbcontractv1.FeatureState_FEATURE_STATE_ENABLED {
-		return "false"
-	}
-
-	return "true"
 }
