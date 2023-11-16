@@ -5,6 +5,9 @@ pr:
     include:
     - main
     - 'official/*'
+  paths:
+    include:
+      e2e
 
 variables:
 - group: ab-e2e
