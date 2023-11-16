@@ -80,7 +80,8 @@ $wuRegistryKeys = @(
     "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State",
     "HKLM:\SYSTEM\CurrentControlSet\Services\wcifs",
     "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides",
-    "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters"
+    "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters",
+    "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers"
 )
 
 $wuRegistryNames = @(
@@ -113,7 +114,17 @@ $wuRegistryNames = @(
     "2214038156",
     "VfpNotReuseTcpOneWayFlowIsEnabled",
     "1673770637",
-    "FwPerfImprovementChange"
+    "FwPerfImprovementChange",
+    "CleanupReservedPorts",
+    "652313229",
+    "2059235981",
+    "3767762061",
+    "PortExclusionChange",
+    "NamespaceExcludedUdpPorts",
+    "527922829",
+    "DeltaHivePolicy",
+    "2193453709",
+    "3331554445"
 )
 
 foreach ($key in $wuRegistryKeys) {
