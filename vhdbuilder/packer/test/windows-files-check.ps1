@@ -16,61 +16,9 @@ $env:WindowsSKU=$windowsSKU
 
 # We skip the signature validation of following scripts for known issues
 # Some scripts in aks-windows-cse-scripts-v0.0.31.zip and aks-windows-cse-scripts-v0.0.32.zip are not signed, and this issue is fixed in aks-windows-cse-scripts-v0.0.33.zip
-# win-bridge.exe is not signed in these k8s packages, and it will be removed from k8s package in the future
 $SkipMapForSignature=@{
     "aks-windows-cse-scripts-v0.0.31.zip"=@();
-    "aks-windows-cse-scripts-v0.0.32.zip"=@();
-    "v1.24.9-hotfix.20230728-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.24.10-hotfix.20230728-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.24.15-hotfix.20230728-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.25.5-hotfix.20230728-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.25.6-hotfix.20230728-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.25.11-hotfix.20230728-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.25.15-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.26.0-hotfix.20230728-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.26.3-hotfix.20230728-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.26.6-hotfix.20230728-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.26.10-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.27.1-hotfix.20230728-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.27.3-hotfix.20230728-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.27.7-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.28.0-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.28.1-1int.zip"=@(
-        "win-bridge.exe"
-    );
-    "v1.28.3-1int.zip"=@(
-        "win-bridge.exe"
-    )
+    "aks-windows-cse-scripts-v0.0.32.zip"=@()
 }
 
 # MisMatchFiles is used to record files whose file sizes are different on Global and MoonCake
@@ -185,6 +133,10 @@ function Test-ValidateSinglePackageSignature {
         if ($NotSignedList.Count -ne 0) {
             foreach ($NotSignedFile in $NotSignedList) {
                 $NotSignedFileName = [IO.Path]::GetFileName($NotSignedFile.Path)
+                # win-bridge.exe is not signed in these k8s packages, and it will be removed from k8s package in the future
+                if ($NotSignedFileName -eq "win-bridge.exe") {
+                    continue
+                }
                 if (($SkipMapForSignature.ContainsKey($fileName) -and ($SkipMapForSignature[$fileName].Length -ne 0) -and !$SkipMapForSignature[$fileName].Contains($NotSignedFileName)) -or !$SkipMapForSignature.ContainsKey($fileName)) {
                     if (!$NotSignedResult.ContainsKey($dir)) {
                         $NotSignedResult[$dir]=@{}
