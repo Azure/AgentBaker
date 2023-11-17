@@ -27,7 +27,7 @@ func InitScenarioTable(include, exclude map[string]bool) Table {
 // To add a sceneario, implement a new function in a separate file that returns a *Scenario and add
 // its return value to the slice returned by this function.
 func scenarios() []*Scenario {
-	return []*Scenario{
+	scenarios := []*Scenario{
 		ubuntu1804(),
 		ubuntu2204(),
 		marinerv2(),
@@ -54,4 +54,10 @@ func scenarios() []*Scenario {
 		ubuntu2204CustomCATrust(),
 		ubuntu2204ArtifactStreaming(),
 	}
+
+	for vmSeries, _ := range DefaultGPUSeriesSKU {
+		scenarios = append(scenarios, ubuntu2204gpu(vmSeries))
+	}
+
+	return scenarios
 }
