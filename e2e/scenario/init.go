@@ -7,7 +7,10 @@ import (
 // Initializes and returns the set of scenarios comprising the E2E suite in table-form.
 func InitScenarioTable(include, exclude map[string]bool) Table {
 	table := Table{}
-	for _, scenario := range scenarios() {
+	scenarios := scenarios()
+	scenarios = append(scenarios, gpuAllVMSizeScenarios()...)
+
+	for _, scenario := range scenarios {
 		if include != nil {
 			if !include[scenario.Name] {
 				continue
@@ -27,7 +30,7 @@ func InitScenarioTable(include, exclude map[string]bool) Table {
 // To add a sceneario, implement a new function in a separate file that returns a *Scenario and add
 // its return value to the slice returned by this function.
 func scenarios() []*Scenario {
-	scenarios := []*Scenario{
+	return []*Scenario{
 		ubuntu1804(),
 		ubuntu2204(),
 		marinerv2(),
@@ -54,8 +57,12 @@ func scenarios() []*Scenario {
 		ubuntu2204CustomCATrust(),
 		ubuntu2204ArtifactStreaming(),
 	}
+}
 
-	for vmSeries, _ := range DefaultGPUSeriesSKU {
+func gpuAllVMSizeScenarios() []*Scenario {
+	scenarios := []*Scenario{}
+
+	for vmSeries, _ := range DefaultGPUSeriesVMSizes {
 		scenarios = append(scenarios, ubuntu2204gpu(vmSeries))
 	}
 

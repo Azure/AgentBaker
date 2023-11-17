@@ -10,9 +10,3 @@ var DefaultImageVersionIDs = map[string]string{
 	"marinerv2-arm64":    "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64/versions/1.1699146990.16638",
 	"azurelinuxv2-arm64": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2Arm64/versions/1.1699146999.31863",
 }
-
-var DefaultGPUSeriesSKU = map[string]string{
-	"ncv3": "Standard_NC6s_v3",
-	"a100": "Standard_NC24ads_A100_v4",
-	"a10":  "Standard_NV6ads_A10_v5",
-}
