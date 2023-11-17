@@ -7,7 +7,7 @@ steps:
       echo "Checking SourceBranch: $(Build.SourceBranch)"
       if [[ -n "${IS_RELEASE_PIPELINE}" ]]; then
         if [[ "${DRY_RUN}" = "True" ]]; then
-          ehco "This is a test build triggered from the release pipeline"
+          echo "This is a test build triggered from the release pipeline"
         else
           echo "This is a release build triggered from the release pipeline"
 
