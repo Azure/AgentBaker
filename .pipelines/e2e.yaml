@@ -25,8 +25,11 @@ jobs:
       export PATH="/usr/local/go/bin:$PATH"
       go version
       cd e2e
-      go test -timeout 45m -v -run Test_All ./
+      go test -timeout 60m -v -run Test_All ./
     displayName: Run AgentBaker E2E
+    env:
+      VHD_BUILD_ID: $(VHD_BUILD_ID)
+      ADO_PAT: $(ADO_PAT)
   - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
     artifact: scenario-logs
     condition: always()
@@ -44,5 +47,3 @@ jobs:
       fi
     displayName: ensure vmss deletion
     condition: always()
- 
- 

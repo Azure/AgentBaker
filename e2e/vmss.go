@@ -6,11 +6,13 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	mrand "math/rand"
 	"testing"
+	"time"
 
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
@@ -54,7 +56,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName st
 }
 
 func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
-	model := getBaseVMSSModel(vmssName, opts.suiteConfig.location, opts.suiteConfig.subscription, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, opts.clusterConfig.subnetId, string(publicKeyBytes), customData, cseCmd)
+	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)
 
 	isAzureCNI, err := opts.clusterConfig.isAzureCNI()
 	if err != nil {
@@ -67,12 +69,15 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 		}
 	}
 
-	if opts.scenario.VMConfigMutator != nil {
-		opts.scenario.VMConfigMutator(&model)
+	if err := opts.scenario.PrepareVMSSModel(&model); err != nil {
+		return nil, fmt.Errorf("unable to prepare model for VMSS %q: %w", vmssName, err)
 	}
 
+	vmssCtx, cancel := context.WithDeadline(ctx, time.Now().Add(createVMSSPollingTimeout))
+	defer cancel()
+
 	pollerResp, err := opts.cloud.vmssClient.BeginCreateOrUpdate(
-		ctx,
+		vmssCtx,
 		*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
 		vmssName,
 		model,
@@ -82,8 +87,13 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 		return nil, err
 	}
 
-	vmssResp, err := pollerResp.PollUntilDone(ctx, nil)
+	vmssResp, err := pollerResp.PollUntilDone(vmssCtx, &runtime.PollUntilDoneOptions{
+		Frequency: createVMSSPollingInterval,
+	})
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, fmt.Errorf("unable to create VMSS %q in alloted time of %s: %w", vmssName, createVMSSPollingTimeout.String(), err)
+		}
 		return nil, err
 	}
 
@@ -198,9 +208,9 @@ func getVmssName(r *mrand.Rand) string {
 	return fmt.Sprintf(vmssNameTemplate, randomLowercaseString(r, 4))
 }
 
-func getBaseVMSSModel(name, location, subscription, mcResourceGroupName, subnetID, sshPublicKey, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
+func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
 	return armcompute.VirtualMachineScaleSet{
-		Location: to.Ptr(location),
+		Location: to.Ptr(opts.suiteConfig.Location),
 		SKU: &armcompute.SKU{
 			Name:     to.Ptr("Standard_DS2_v2"),
 			Capacity: to.Ptr[int64](1),
@@ -245,7 +255,7 @@ func getBaseVMSSModel(name, location, subscription, mcResourceGroupName, subnetI
 				},
 				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
 					ImageReference: &armcompute.ImageReference{
-						ID: to.Ptr(scenario.DefaultImageVersionIDs["ubuntu1804"]),
+						ID: to.Ptr(string(scenario.DefaultVHDCatalog.Ubuntu1804.Gen2Containerd)),
 					},
 					OSDisk: &armcompute.VirtualMachineScaleSetOSDisk{
 						CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
@@ -270,14 +280,14 @@ func getBaseVMSSModel(name, location, subscription, mcResourceGroupName, subnetI
 													ID: to.Ptr(
 														fmt.Sprintf(
 															loadBalancerBackendAddressPoolIDTemplate,
-															subscription,
-															mcResourceGroupName,
+															opts.suiteConfig.Subscription,
+															*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
 														),
 													),
 												},
 											},
 											Subnet: &armcompute.APIEntityReference{
-												ID: to.Ptr(subnetID),
+												ID: to.Ptr(opts.clusterConfig.subnetId),
 											},
 										},
 									},
@@ -289,6 +299,28 @@ func getBaseVMSSModel(name, location, subscription, mcResourceGroupName, subnetI
 			},
 		},
 	}
+}
+
+func getPrivateIP(res listVMSSVMNetworkInterfaceResult) (string, error) {
+	if len(res.Value) > 0 {
+		v := res.Value[0]
+		if len(v.Properties.IPConfigurations) > 0 {
+			ipconfig := v.Properties.IPConfigurations[0]
+			return ipconfig.Properties.PrivateIPAddress, nil
+		}
+	}
+	return "", fmt.Errorf("unable to extract private IP address from listVMSSNetworkInterfaceResult:\n%+v", res)
+}
+
+func getVMSSNICConfig(vmss *armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSetNetworkConfiguration, error) {
+	if vmss != nil && vmss.Properties != nil &&
+		vmss.Properties.VirtualMachineProfile != nil && vmss.Properties.VirtualMachineProfile.NetworkProfile != nil {
+		networkProfile := vmss.Properties.VirtualMachineProfile.NetworkProfile
+		if len(networkProfile.NetworkInterfaceConfigurations) > 0 {
+			return networkProfile.NetworkInterfaceConfigurations[0], nil
+		}
+	}
+	return nil, fmt.Errorf("unable to extract vmss nic info, vmss model or vmss model properties were nil/empty:\n%+v", vmss)
 }
 
 type listVMSSVMNetworkInterfaceResult struct {

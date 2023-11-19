@@ -25,7 +25,7 @@ func DirectoryValidator(path string, files []string) *LiveVMValidator {
 
 func SysctlConfigValidator(customSysctls map[string]string) *LiveVMValidator {
 	keysToCheck := make([]string, len(customSysctls))
-	for k, _ := range customSysctls {
+	for k := range customSysctls {
 		keysToCheck = append(keysToCheck, k)
 	}
 	// regex used in sed command to remove extra spaces between two numerical values, used to verify correct values for

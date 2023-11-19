@@ -1,10 +1,19 @@
 package scenario
 
 import (
+	"fmt"
+
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 )
+
+// Template represents a 'scenario template' which contains common config used
+// across all scenarios, such as the VHD catalog
+type Template struct {
+	VHDCatalog
+}
 
 // Table represents a set of mappings from scenario name -> Scenario to
 // be run as a part of the test suite
@@ -31,6 +40,9 @@ type Config struct {
 	// ClusterMutator is a function which mutates a supplied cluster model such that it represents a
 	// cluster which is capable of running the scenario
 	ClusterMutator func(*armcontainerservice.ManagedCluster)
+
+	// The resource ID of the VHD used to create the vmss (currently instantiated as SIG image version).
+	VHDResourceID VHDResourceID
 
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
@@ -63,4 +75,39 @@ type LiveVMValidator struct {
 	// IsShellBuiltIn is a boolean flag which indicates whether or not the command is a shell built-in
 	// that will fail when executed with sudo - requires separate command to avoid command not found error on node
 	IsShellBuiltIn bool
+}
+
+func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappingConfiguration) {
+	if s.BootstrapConfigMutator != nil {
+		s.BootstrapConfigMutator(nbc)
+	}
+}
+
+func (s *Scenario) PrepareVMSSModel(vmss *armcompute.VirtualMachineScaleSet) error {
+	if s.VHDResourceID == "" {
+		return fmt.Errorf("VHD resource ID configured for scenario %q is empty", s.Name)
+	}
+
+	if vmss == nil {
+		vmss = &armcompute.VirtualMachineScaleSet{}
+	}
+	if vmss.Properties == nil {
+		vmss.Properties = &armcompute.VirtualMachineScaleSetProperties{}
+	}
+
+	if s.VMConfigMutator != nil {
+		s.VMConfigMutator(vmss)
+	}
+
+	if vmss.Properties.VirtualMachineProfile == nil {
+		vmss.Properties.VirtualMachineProfile = &armcompute.VirtualMachineScaleSetVMProfile{}
+	}
+	if vmss.Properties.VirtualMachineProfile.StorageProfile == nil {
+		vmss.Properties.VirtualMachineProfile.StorageProfile = &armcompute.VirtualMachineScaleSetStorageProfile{}
+	}
+	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
+		ID: to.Ptr(string(s.VHDResourceID)),
+	}
+
+	return nil
 }
