@@ -152,13 +152,13 @@ steps:
 
   - task: PublishPipelineArtifact@0
     inputs:
-        artifactName: 'vhd-release-notes-${{ parameters.artifactName }}-$(IMAGE_VERSION)'
+        artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
         targetPath: '$(IMAGE_VERSION).txt'
 
 # We can upload image bom json for check-in pr and sig mode to validate whether it is expected.
   - task: PublishPipelineArtifact@0
     inputs:          
-        artifactName: 'vhd-image-list-${{ parameters.artifactName }}-$(IMAGE_VERSION)'
+        artifactName: 'vhd-image-list-${{ parameters.artifactName }}'
         targetPath: '$(IMAGE_VERSION)-image-list.json'
 
 # Moved conversion to VHD before cleanup.
