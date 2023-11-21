@@ -201,5 +201,5 @@ func extractPublishingInfoFromZip(artifactName, zipName, targetDir string) error
 }
 
 func isMissingArtifactError(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "404 Not Found")
+	return err != nil && (strings.Contains(err.Error(), "404 Not Found") || strings.Contains(err.Error(), "was not found for build"))
 }
