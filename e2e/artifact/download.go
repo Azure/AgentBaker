@@ -14,39 +14,9 @@ import (
 
 	"github.com/Azure/agentbakere2e/suite"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/microsoft/azure-devops-go-api/azuredevops"
-	"github.com/microsoft/azure-devops-go-api/azuredevops/build"
+	ado "github.com/microsoft/azure-devops-go-api/azuredevops/v7"
+	adobuild "github.com/microsoft/azure-devops-go-api/azuredevops/v7/build"
 	"go.uber.org/multierr"
-)
-
-var (
-	defaultSKUList = []string{
-		"1804-containerd",
-		"1804-fips-containerd",
-		"1804-fips-gen2-containerd",
-		"1804-gen2-containerd",
-		"1804-gpu-containerd",
-		"2004-fips-containerd",
-		"2004-cvm-gen2-containerd",
-		"2004-fips-gen2-containerd",
-		"2204-arm64-gen2-containerd",
-		"2204-containerd",
-		"2204-gen2-containerd",
-		"2204-tl-gen2-containerd",
-		"azurelinuxv2-gen1",
-		"azurelinuxv2-gen2-arm64",
-		"azurelinuxv2-gen2",
-		"azurelinuxv2-gen2-fips",
-		"azurelinuxv2-gen2-kata",
-		"azurelinuxv2-gen2-trustedlaunch",
-		"marinerv2-gen1",
-		"marinerv2-gen1-fips",
-		"marinerv2-gen2",
-		"marinerv2-gen2-arm64",
-		"marinerv2-gen2-fips",
-		"marinerv2-gen2-kata",
-		"marinerv2-gen2-trustedlaunch",
-	}
 )
 
 type PublishingInfoDownloadOpts struct {
@@ -57,16 +27,16 @@ type PublishingInfoDownloadOpts struct {
 
 type Downloader struct {
 	basicAuth   string
-	buildClient build.Client
+	buildClient adobuild.Client
 
 	errChan  chan error
 	doneChan chan struct{}
 }
 
 func NewDownloader(ctx context.Context, suiteConfig *suite.Config) (*Downloader, error) {
-	conn := azuredevops.NewPatConnection(azureADOOrganizationURL, suiteConfig.PAT)
+	conn := ado.NewPatConnection(azureADOOrganizationURL, suiteConfig.PAT)
 
-	buildClient, err := build.NewClient(ctx, conn)
+	buildClient, err := adobuild.NewClient(ctx, conn)
 	if err != nil {
 		return nil, err
 	}
@@ -88,25 +58,20 @@ func (d *Downloader) DownloadVHDBuildPublishingInfo(ctx context.Context, opts Pu
 		return fmt.Errorf("unable to create temp directory to store zip archives: %w", err)
 	}
 
-	skuList := defaultSKUList
-	if len(opts.SKUList) > 0 {
-		skuList = opts.SKUList
+	artifactNames, err := d.getVHDPublishingInfoArtifactNames(ctx, opts)
+	if err != nil {
+		return fmt.Errorf("unable to get VHD publishing info artifact names for VHD build %d: %w", opts.BuildID, err)
 	}
 
 	d.errChan = make(chan error)
 	d.doneChan = make(chan struct{})
 
-	for _, sku := range skuList {
-		go d.downloadPublishingInfo(
-			ctx,
-			tempDir,
-			fmt.Sprintf("publishing-info-%s", sku),
-			opts,
-		)
+	for _, name := range artifactNames {
+		go d.downloadPublishingInfo(ctx, tempDir, name, opts)
 	}
 
 	var errs []error
-	for i := 0; i < len(skuList); i++ {
+	for i := 0; i < len(artifactNames); i++ {
 		select {
 		case err := <-d.errChan:
 			errs = append(errs, err)
@@ -120,16 +85,16 @@ func (d *Downloader) DownloadVHDBuildPublishingInfo(ctx context.Context, opts Pu
 
 func (d *Downloader) downloadPublishingInfo(ctx context.Context, tempDir, artifactName string, opts PublishingInfoDownloadOpts) {
 	defer func() { d.doneChan <- struct{}{} }()
-	artifact, err := d.buildClient.GetArtifact(ctx, build.GetArtifactArgs{
+	artifact, err := d.buildClient.GetArtifact(ctx, adobuild.GetArtifactArgs{
 		Project:      to.Ptr(cloudNativeComputeProject),
 		BuildId:      to.Ptr(opts.BuildID),
 		ArtifactName: to.Ptr(artifactName),
 	})
 	if err != nil {
-		if !isMissingArtifactError(err) {
-			d.errChan <- fmt.Errorf("unable get artifact info for %q: %w", artifactName, err)
+		if isMissingArtifactError(err) {
+			log.Printf("unable to download publishing info %q, not found for build ID: %d", artifactName, opts.BuildID)
 		} else {
-			log.Printf("unable to download publishing info %q, was not found for build ID: %d", artifactName, opts.BuildID)
+			d.errChan <- fmt.Errorf("unable get artifact info for %q: %w", artifactName, err)
 		}
 		return
 	}
@@ -174,6 +139,33 @@ func (d *Downloader) downloadPublishingInfo(ctx context.Context, tempDir, artifa
 	}
 }
 
+func (d *Downloader) getVHDPublishingInfoArtifactNames(ctx context.Context, opts PublishingInfoDownloadOpts) ([]string, error) {
+	var artifactNames []string
+
+	if len(opts.SKUList) > 0 {
+		for _, sku := range opts.SKUList {
+			artifactNames = append(artifactNames, fmt.Sprintf("publishing-info-%s", sku))
+		}
+		return artifactNames, nil
+	}
+
+	artifacts, err := d.buildClient.GetArtifacts(ctx, adobuild.GetArtifactsArgs{
+		Project: to.Ptr(cloudNativeComputeProject),
+		BuildId: to.Ptr(opts.BuildID),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to list build artifacts for VHD build %d: %w", opts.BuildID, err)
+	}
+
+	for _, artifact := range *artifacts {
+		if strings.HasPrefix(*artifact.Name, "publishing-info") {
+			artifactNames = append(artifactNames, *artifact.Name)
+		}
+	}
+
+	return artifactNames, nil
+}
+
 func extractPublishingInfoFromZip(artifactName, zipName, targetDir string) error {
 	archive, err := zip.OpenReader(zipName)
 	if err != nil {
@@ -209,5 +201,5 @@ func extractPublishingInfoFromZip(artifactName, zipName, targetDir string) error
 }
 
 func isMissingArtifactError(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "was not found for build")
+	return err != nil && strings.Contains(err.Error(), "404 Not Found")
 }
