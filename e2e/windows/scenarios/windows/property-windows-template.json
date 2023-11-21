@@ -82,6 +82,7 @@
     "notRebootWindowsNode": true
   },
   "PrimaryScaleSetName": "akswin30",
+  "ConfigGPUDriverIfNeeded": false,
   "KubeletConfig": {
     "--azure-container-registry-config": "c:\\k\\azure.json",
     "--bootstrap-kubeconfig": "c:\\k\\bootstrap-config",
