@@ -309,6 +309,19 @@ if ($tempFile -ne "") {
   $paths += $tempFile
 }
 
+$gpuTemp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
+New-Item -Type Directory $gpuTemp
+
+$nvidiaInstallLogFolder="C:\AzureData\NvidiaInstallLog"
+$logFiles = Get-ChildItem (Join-Path $nvidiaInstallLogFolder *.log)
+$logFiles | Foreach-Object {
+  Write-Host "Copying $_ to temp"
+  $tempFile = Copy-Item $_ $gpuTemp -Passthru -ErrorAction Ignore
+  if ($tempFile) {
+    $paths += $tempFile
+  }
+}
+
 Write-Host "Compressing all logs to $zipName"
 $paths | Format-Table FullName, Length -AutoSize
 Compress-Archive -LiteralPath $paths -DestinationPath $zipName
