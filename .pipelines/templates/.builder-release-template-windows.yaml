@@ -50,7 +50,13 @@ steps:
       if [[ "${USE_RELEASE_DATE}" = "False" ]]; then \
         echo "use current date as build date";  BUILD_DATE=$(date +"%y%m%d"); \
       else \
-        echo "use release date as build date"; BUILD_DATE=${RELEASE_DATE}; \
+        echo "use release date as build date"; \
+        echo "${RELEASE_DATE}" | grep -E '[[:digit:]]{6}'
+        if (( $? != 0 )); then
+          echo "The release date ${RELEASE_DATE} is not valid date. Release date format: YYMMDD."
+          exit 1
+        fi
+        BUILD_DATE=${RELEASE_DATE}; \
       fi && \
       echo "Default BUILD_DATE is $BUILD_DATE" && \
       if [[ -n "${CUSTOM_BUILD_DATE}" ]]; then \
