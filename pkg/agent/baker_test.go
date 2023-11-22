@@ -1739,12 +1739,20 @@ var _ = Describe("getGPUDriverVersion", func() {
 	It("should use 525 cuda with nc v3", func() {
 		Expect(getGPUDriverVersion("standard_nc6_v3")).To(Equal("cuda-525.85.12"))
 	})
-	// TODO mumanski - update these
-	//It("should use 510 grid with nv v5", func() {
-	//	Expect(getGPUDriverVersion("standard_nv6ads_a10_v5")).To(Equal("grid-510.73.08"))
-	//	Expect(getGPUDriverVersion("Standard_nv36adms_A10_V5")).To(Equal("grid-510.73.08"))
-	//})
+	It("should use 535 grid with nv v5", func() {
+		Expect(getGPUDriverVersion("standard_nv6ads_a10_v5")).To(Equal("grid-535.54.03"))
+		Expect(getGPUDriverVersion("Standard_nv36adms_A10_V5")).To(Equal("grid-535.54.03"))
+	})
 	It("should use 525 cuda with nv v1 (although we don't know if that works)", func() {
 		Expect(getGPUDriverVersion("standard_nv6")).To(Equal("cuda-525.85.12"))
+	})
+})
+
+var _ = Describe("getAKSGPUImageSha", func() {
+	It("should use newest AKSGPUGridSha with nv v5", func() {
+		Expect(getAKSGPUImageSha("standard_nv6ads_a10_v5")).To(Equal("sha-20ffa2"))
+	})
+	It("should use newest AKSGPUCudaSHA with non grid SKU", func() {
+		Expect(getAKSGPUImageSha("standard_nc6_v3")).To(Equal("sha-e8873b"))
 	})
 })
