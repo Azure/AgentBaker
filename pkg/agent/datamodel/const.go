@@ -122,6 +122,7 @@ const (
 	Nvidia510CudaDriverVersion = "cuda-510.47.03"
 	Nvidia525CudaDriverVersion = "cuda-525.85.12"
 	Nvidia510GridDriverVersion = "grid-510.73.08"
+	Nvidia535GridDriverVersion = "grid-535.54.03"
 )
 
 /* ConvergedGPUDriverSizes : these sizes use a "converged" driver to support both cuda/grid workloads.
