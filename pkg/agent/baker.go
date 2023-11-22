@@ -909,6 +909,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GPUDriverVersion": func() string {
 			return getGPUDriverVersion(profile.VMSize)
 		},
+		"GPUImageSHA": func() string {
+			return getAKSGPUImageSha(profile.VMSize)
+		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			// Only need to enable HNSRemediator for Windows 2019
 			if cs.Properties.WindowsProfile != nil && profile.Distro == datamodel.AKSWindows2019Containerd {
@@ -994,6 +997,14 @@ func useGridDrivers(size string) bool {
 
 func gpuNeedsFabricManager(size string) bool {
 	return datamodel.FabricManagerGPUSizes[strings.ToLower(size)]
+}
+
+func getAKSGPUImageSha(size string) string {
+	if useGridDrivers(size) {
+		return datamodel.AKSGPUGridSha
+	}
+	// TODO - should we rebuild all the other images?
+	return datamodel.AKSGPUCudaSHA
 }
 
 func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {

@@ -28,7 +28,7 @@ func ubuntu2204GPUGridDriver() *Scenario {
 				}
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				NvidiaSMINotInstalledValidator(),
+				NvidiaSMIInstalledValidator(),
 			},
 		},
 	}

@@ -125,6 +125,11 @@ const (
 	Nvidia535GridDriverVersion = "grid-535.54.03"
 )
 
+const (
+	AKSGPUGridSha = "sha-20ffa2"
+	AKSGPUCudaSHA = "sha-e8873b"
+)
+
 /* ConvergedGPUDriverSizes : these sizes use a "converged" driver to support both cuda/grid workloads.
 how do you figure this out? ask HPC or find out by trial and error.
 installing vanilla cuda drivers will fail to install with opaque errors.
