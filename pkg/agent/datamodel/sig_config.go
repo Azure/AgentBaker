@@ -289,6 +289,8 @@ var AvailableWindowsSIGDistros = []Distro{
 	AKSWindows2019Containerd,
 	AKSWindows2022Containerd,
 	AKSWindows2022ContainerdGen2,
+	AKSWindows23H2,
+	AKSWindows23H2Gen2,
 	CustomizedWindowsOSImage,
 }
 
@@ -326,6 +328,7 @@ const (
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
 	Windows2019SIGImageVersion string = "17763.2019.221114"
 	Windows2022SIGImageVersion string = "20348.2022.221114"
+	Windows23H2SIGImageVersion string = "25398.2022.221114"
 )
 
 type sigVersion struct {
@@ -653,6 +656,20 @@ var (
 		Definition:    "windows-2022-containerd-gen2",
 		Version:       Windows2022SIGImageVersion,
 	}
+
+	SIGWindows23H2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSWindowsResourceGroup,
+		Gallery:       AKSWindowsGalleryName,
+		Definition:    "windows-23H2",
+		Version:       Windows23H2SIGImageVersion,
+	}
+
+	SIGWindows23H2Gen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSWindowsResourceGroup,
+		Gallery:       AKSWindowsGalleryName,
+		Definition:    "windows-23H2-gen2",
+		Version:       Windows23H2SIGImageVersion,
+	}
 )
 
 func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
@@ -713,6 +730,8 @@ func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 		AKSWindows2019Containerd:     SIGWindows2019ContainerdImageConfigTemplate.WithOptions(opts...),
 		AKSWindows2022Containerd:     SIGWindows2022ContainerdImageConfigTemplate.WithOptions(opts...),
 		AKSWindows2022ContainerdGen2: SIGWindows2022ContainerdGen2ImageConfigTemplate.WithOptions(opts...),
+		AKSWindows23H2:               SIGWindows23H2ImageConfigTemplate.WithOptions(opts...),
+		AKSWindows23H2Gen2:           SIGWindows23H2Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
