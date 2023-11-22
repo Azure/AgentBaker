@@ -289,8 +289,8 @@ var AvailableWindowsSIGDistros = []Distro{
 	AKSWindows2019Containerd,
 	AKSWindows2022Containerd,
 	AKSWindows2022ContainerdGen2,
-	AKSWindows23H2Containerd,
-	AKSWindows23H2ContainerdGen2,
+	AKSWindows23H2,
+	AKSWindows23H2Gen2,
 	CustomizedWindowsOSImage,
 }
 
@@ -657,17 +657,17 @@ var (
 		Version:       Windows2022SIGImageVersion,
 	}
 
-	SIGWindows23H2ContainerdImageConfigTemplate = SigImageConfigTemplate{
+	SIGWindows23H2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
-		Definition:    "windows-23H2-containerd",
+		Definition:    "windows-23H2",
 		Version:       Windows23H2SIGImageVersion,
 	}
 
-	SIGWindows23H2ContainerdGen2ImageConfigTemplate = SigImageConfigTemplate{
+	SIGWindows23H2Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
-		Definition:    "windows-23H2-containerd-gen2",
+		Definition:    "windows-23H2-gen2",
 		Version:       Windows23H2SIGImageVersion,
 	}
 )
@@ -730,8 +730,8 @@ func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 		AKSWindows2019Containerd:     SIGWindows2019ContainerdImageConfigTemplate.WithOptions(opts...),
 		AKSWindows2022Containerd:     SIGWindows2022ContainerdImageConfigTemplate.WithOptions(opts...),
 		AKSWindows2022ContainerdGen2: SIGWindows2022ContainerdGen2ImageConfigTemplate.WithOptions(opts...),
-		AKSWindows23H2Containerd:     SIGWindows23H2ContainerdImageConfigTemplate.WithOptions(opts...),
-		AKSWindows23H2ContainerdGen2: SIGWindows23H2ContainerdGen2ImageConfigTemplate.WithOptions(opts...),
+		AKSWindows23H2:               SIGWindows23H2ImageConfigTemplate.WithOptions(opts...),
+		AKSWindows23H2Gen2:           SIGWindows23H2Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
