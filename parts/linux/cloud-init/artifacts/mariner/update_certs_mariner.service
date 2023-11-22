@@ -1,0 +1,7 @@
+[Unit]
+Description=Updates certificates copied from AKS DS
+
+[Service]
+Type=oneshot
+ExecStart=/opt/scripts/update_certs.sh /usr/share/pki/ca-trust-source/anchors update-ca-trust
+RestartSec=5

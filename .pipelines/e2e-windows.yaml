@@ -1,0 +1,153 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)_e2e
+trigger: none
+
+pr:
+  branches:
+    include:
+    - main
+    - 'official/*'
+  paths:
+    include:
+    - '.pipelines/*'
+    - 'e2e/windows/*'
+    - 'parts/windows/*'
+    - 'staging/cse/windows/*'
+
+# Use variable group "ab-windows-ms-tenant" and link it to the pipeline "Agentbaker Windows E2E"
+
+pool:
+  # uncomment this if the auto teardown pool is down.
+  # vmImage: ubuntu-22.04
+  name: $(AZURE_POOL_NAME)
+
+parameters:
+- name: test2019containerd
+  displayName: Test 2019 containerd
+  type: boolean
+  default: True
+- name: test2022containerd
+  displayName: Test 2022 containerd
+  type: boolean
+  default: True
+- name: test2022containerdgen2
+  displayName: Test 2022 containerd Gen 2
+  type: boolean
+  default: True
+- name: test2022containerdgen2gpugrid
+  displayName: Test 2022 containerd Gen 2 GPU Grid
+  type: boolean
+  default: True
+- name: test2022containerdgpucuda
+  displayName: Test 2022 containerd GPU Cuda
+  type: boolean
+  default: True
+- name: windowsGen1NcVmSize
+  displayName: Windows NC Series VM Size (gen1)
+  type: string
+  default: Standard_nc6_promo
+- name: windowsGen2NvVmSize
+  displayName: Windows NV Series VM Size (gen2)
+  type: string
+  default: Standard_NV6ads_A10_v5
+- name: test23H2
+  displayName: Test 23H2
+  type: boolean
+  default: False
+- name: test23H2gen2
+  displayName: Test 23H2 Gen 2
+  type: boolean
+  default: False
+
+stages:
+- stage: test_2019_containerd
+  dependsOn: []
+  condition: eq('${{ parameters.test2019containerd }}', True)
+  jobs:
+  - template: ./templates/e2e-windows-template.yaml
+    parameters:
+      windowsImage: 2019-containerd
+      windowsOSSKU: Windows2019
+      windowsVMSize: Standard_D2s_v3
+      windowsDistro: aks-windows-2019-containerd
+      windowsNodeImageVersion: AKSWindows-2019-containerd-test-2023.02.07
+      storageAccount: akswinstore2019
+
+- stage: test_2022_containerd
+  dependsOn: []
+  condition: eq('${{ parameters.test2022containerd }}', True)
+  jobs:
+  - template: ./templates/e2e-windows-template.yaml
+    parameters:
+      windowsImage: 2022-containerd
+      windowsOSSKU: Windows2022
+      windowsVMSize: Standard_D2_v2
+      windowsDistro: aks-windows-2022-containerd
+      windowsNodeImageVersion: AKSWindows-2022-containerd-test-2023.02.07
+      storageAccount: akswinstore2022
+
+- stage: test_2022_containerd_gen2
+  dependsOn: []
+  condition: eq('${{ parameters.test2022containerdgen2 }}', True)
+  jobs:
+  - template: ./templates/e2e-windows-template.yaml
+    parameters:
+      windowsImage: 2022-containerd-gen2
+      windowsOSSKU: Windows2022
+      windowsVMSize: Standard_DS2_v2
+      windowsDistro: aks-windows-2022-containerd-gen2
+      windowsNodeImageVersion: AKSWindows-2022-containerd-gen2-test-2023.02.07
+      storageAccount: akswinstore2022gen2
+
+- stage: test_2022_containerd_gen2_gpu_grid
+  dependsOn: []
+  condition: eq('${{ parameters.test2022containerdgen2gpugrid }}', True)
+  jobs:
+  - template: ./templates/e2e-windows-template.yaml
+    parameters:
+      windowsImage: 2022-containerd-gen2
+      windowsOSSKU: Windows2022
+      windowsVMSize: ${{ parameters.windowsGen2NvVmSize }}
+      windowsDistro: aks-windows-2022-containerd-gen2
+      windowsNodeImageVersion: AKSWindows-2022-containerd-gen2-test-2023.02.07
+      windowsGpuDriverSuffix: -grid
+      storageAccount: akswinstore2022gen2grid
+
+- stage: test_2022_containerd_gpu_cuda
+  dependsOn: []
+  condition: eq('${{ parameters.test2022containerdgpucuda }}', True)
+  jobs:
+  - template: ./templates/e2e-windows-template.yaml
+    parameters:
+      windowsImage: 2022-containerd
+      windowsOSSKU: Windows2022
+      windowsVMSize: ${{ parameters.windowsGen1NcVmSize }}
+      windowsDistro: aks-windows-2022-containerd
+      windowsNodeImageVersion: AKSWindows-2022-containerd-test-2023.02.07
+      windowsGpuDriverSuffix: -cuda
+      storageAccount: akswinstore2022cuda
+      
+- stage: test_23H2
+  dependsOn: []
+  condition: eq('${{ parameters.test23H2 }}', True)
+  jobs:
+  - template: ./templates/e2e-windows-template.yaml
+    parameters:
+      windowsImage: 23H2
+      windowsOSSKU: WindowsAnnual
+      windowsVMSize: Standard_D2_v2
+      windowsDistro: aks-windows-23H2
+      windowsNodeImageVersion: AKSWindows-23H2-test-2023.02.07
+      storageAccount: akswinstore23H2
+
+- stage: test_23H2_gen2
+  dependsOn: []
+  condition: eq('${{ parameters.test23H2gen2 }}', True)
+  jobs:
+  - template: ./templates/e2e-windows-template.yaml
+    parameters:
+      windowsImage: 23H2-gen2
+      windowsOSSKU: WindowsAnnual
+      windowsVMSize: Standard_DS2_v2
+      windowsDistro: aks-windows-23H2-gen2
+      windowsNodeImageVersion: AKSWindows-23H2-gen2-test-2023.02.07
+      storageAccount: akswinstore23H2gen2

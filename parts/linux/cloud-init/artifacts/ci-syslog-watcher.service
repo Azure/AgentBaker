@@ -1,0 +1,9 @@
+[Unit]
+Description=Update syslog config based on ContainerInsights syslog status change
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/ci-syslog-watcher.sh
+
+[Install]
+WantedBy=multi-user.target

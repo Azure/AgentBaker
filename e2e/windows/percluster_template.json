@@ -1,0 +1,24 @@
+{
+    "ContainerService": {
+        "properties": {
+            "clusterID": "${clusterID}",
+            "servicePrincipalProfile": {
+                "clientId": "${aadClientId}",
+                "secret": "${aadClientSecret}"
+            },
+            "certificateProfile": {
+                "caCertificate": "${caCrt}",
+                "apiServerCertificate": "${apiserverCrt}",
+                "clientPrivateKey": "${clientKey}"
+            },
+            "hostedMasterProfile": {
+                "fqdn": "${fqdn}"
+            }
+        }
+    },
+    "TenantID": "${tenantId}",
+    "SubscriptionID": "${subID}",
+    "ResourceGroupName": "${resourceGroup}",
+    "UserAssignedIdentityClientID": "${userAssignedIdentityID}",
+    "KubeletClientTLSBootstrapToken": "${tlsbootstraptoken}"
+} 

@@ -1,0 +1,7 @@
+#cloud-config to reenable sha1 temporarily for packer
+#TODO: remove this workaround once Packer has been updated to >= v1.8.1
+runcmd:
+  - echo -e "HostkeyAlgorithms +ssh-rsa \nPubkeyAcceptedAlgorithms +ssh-rsa" | sudo tee -a /etc/ssh/sshd_config
+  - sudo systemctl restart sshd
+  - sudo sed -i "/HostkeyAlgorithms +ssh-rsa/d" /etc/ssh/sshd_config
+  - sudo sed -i "/PubkeyAcceptedAlgorithms +ssh-rsa/d" /etc/ssh/sshd_config
