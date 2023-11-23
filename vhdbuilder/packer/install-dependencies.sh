@@ -50,7 +50,7 @@ else
   updateAptWithMicrosoftPkg
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
-  BLOBFUSE2_VERSION="2.1.1"
+  BLOBFUSE2_VERSION="2.1.2"
   required_pkg_list=("blobfuse2="${BLOBFUSE2_VERSION} fuse3)
   for apt_package in ${required_pkg_list[*]}; do
       if ! apt_get_install 30 1 600 $apt_package; then
@@ -294,8 +294,8 @@ unpackAzureCNI() {
 
 #must be both amd64/arm64 images
 VNET_CNI_VERSIONS="
-1.5.11
-1.4.43.1
+1.4.51
+1.5.15
 "
 
 
@@ -309,8 +309,8 @@ done
 #UNITE swift and overlay versions?
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 SWIFT_CNI_VERSIONS="
-1.5.11
-1.4.43.1
+1.4.51
+1.5.15
 "
 
 for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
