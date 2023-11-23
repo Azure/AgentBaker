@@ -60,15 +60,21 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.9.0",
     # azuredisk-csi:v1.28 is only for AKS 1.27+, v1.26 is for other AKS versions
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.7",
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.8",
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.4.1-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.5-windows-hp",
     # azuredisk-csi:v1.29 is only for AKS 1.28+
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.1.1-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.2-windows-hp",
     # azurefile-csi:v1.28 is only for AKS 1.27+, v1.24, v1.26 is for other AKS versions
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.11",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.9",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.10",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.6-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.7-windows-hp",
     # azurefile-csi:v1.29 is only for AKS 1.28+
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.1-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.2-windows-hp",
     # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.4",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
