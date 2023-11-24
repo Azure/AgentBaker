@@ -170,7 +170,7 @@ $global:EnableHostsConfigAgent = [System.Convert]::ToBoolean("{{ EnableHostsConf
 # These scripts are used by cse
 $global:CSEScriptsPackageUrl = "{{GetVariable "windowsCSEScriptsPackageURL" }}";
 
-# The windows nvidia gpu driver related urls are used by windows cse
+# The windows nvidia gpu driver related url is used by windows cse
 $global:GpuDriverURL = "{{GetVariable "windowsGpuDriverURL" }}";
 
 # PauseImage
