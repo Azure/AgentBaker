@@ -30,7 +30,7 @@ collect-logs() {
     tokenWithoutQuote=${token//\"}
     # use array to pass shellcheck
     array=(azcopy_*)
-    ${array[0]}/azcopy copy "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE-CustomDataSetupScript.log || retval=$?
+    ${array[0]}/azcopy copy "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-CustomDataSetupScript.log || retval=$?
     if [ "$retval" -ne 0 ]; then
         err "Failed in downloading cse logs. Error code is $retval."
     else
