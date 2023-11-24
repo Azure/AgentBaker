@@ -166,7 +166,7 @@ $global:EnableHostsConfigAgent = [System.Convert]::ToBoolean("true");
 # These scripts are used by cse
 $global:CSEScriptsPackageUrl = "";
 
-# The windows nvidia gpu driver related urls are used by windows cse
+# The windows nvidia gpu driver related url is used by windows cse
 $global:GpuDriverURL = "";
 
 # PauseImage
