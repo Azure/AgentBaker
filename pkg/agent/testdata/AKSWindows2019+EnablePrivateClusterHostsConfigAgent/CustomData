@@ -166,12 +166,18 @@ $global:EnableHostsConfigAgent = [System.Convert]::ToBoolean("true");
 # These scripts are used by cse
 $global:CSEScriptsPackageUrl = "";
 
+# The windows nvidia gpu driver related url is used by windows cse
+$global:GpuDriverURL = "";
+
 # PauseImage
 $global:WindowsPauseImageURL = "mcr.microsoft.com/oss/kubernetes/pause:1.4.0";
 $global:AlwaysPullWindowsPauseImage = [System.Convert]::ToBoolean("false");
 
 # Calico
 $global:WindowsCalicoPackageURL = "";
+
+## GPU install
+$global:ConfigGPUDriverIfNeeded = [System.Convert]::ToBoolean("true");
 
 # GMSA
 $global:WindowsGmsaPackageUrl = "";
@@ -196,6 +202,8 @@ $global:LogGeneratorIntervalInMinutes = [System.Convert]::ToUInt32("0");
 
 $global:EnableIncreaseDynamicPortRange = $false
 
+$global:RebootNeeded = $false
+
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
@@ -218,7 +226,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.34.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.35.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -243,6 +251,7 @@ try
     . c:\AzureData\windows\containerdfunc.ps1
     . c:\AzureData\windows\kubeletfunc.ps1
     . c:\AzureData\windows\kubernetesfunc.ps1
+    . c:\AzureData\windows\nvidiagpudriverfunc.ps1
 
     # Install OpenSSH if SSH enabled
     $sshEnabled = [System.Convert]::ToBoolean("true")
@@ -445,6 +454,8 @@ try
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
     }
 
+    Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
+
     if (Test-Path $CacheDir)
     {
         Write-Log "Removing aks-engine bits cache directory"
@@ -475,6 +486,10 @@ try
     }
     $timer.Stop()
     Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
+
+    if ($global:RebootNeeded -eq $true) {
+        Postpone-RestartComputer
+    }
 }
 catch
 {
