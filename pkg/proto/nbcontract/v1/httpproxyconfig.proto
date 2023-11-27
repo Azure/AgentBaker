@@ -12,5 +12,5 @@ message HTTPProxyConfig {
   repeated string NoProxy = 3;
 
   // TrustedCA repesents alternative CA certificate content
-  optional string TrustedCA = 4;
+  optional string ProxyTrustedCA = 4;
 }
