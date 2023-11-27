@@ -12,6 +12,14 @@ import (
 
 const (
 	offerNameAzureLinux = "AzureLinux"
+
+	vhdName1804Gen2                = "1804gen2containerd"
+	vhdName2204Gen2ARM64Containerd = "2204gen2arm64containerd"
+	vhdName2204Gen2Containerd      = "2204gen2containerd"
+	vhdNameAzureLinuxV2Gen2ARM64   = "azurelinuxv2gen2arm64"
+	vhdNameAzureLinuxV2Gen2        = "azurelinuxv2gen2"
+	vhdNameCBLMarinerV2Gen2ARM64   = "v2gen2arm64"
+	vhdNameCBLMarinerV2Gen2        = "v2gen2"
 )
 
 var (
@@ -66,21 +74,23 @@ type VHDCatalog struct {
 }
 
 func (c *VHDCatalog) addEntryFromPublishingInfo(info VHDPublishingInfo) {
-	switch getVHDNameFromPublishingInfo(info) {
-	case "1804gen2containerd":
-		c.Ubuntu1804.Gen2Containerd = info.CapturedImageVersionResourceID
-	case "2204gen2arm64containerd":
-		c.Ubuntu2204.Gen2Arm64Containerd = info.CapturedImageVersionResourceID
-	case "2204gen2containerd":
-		c.Ubuntu2204.Gen2Containerd = info.CapturedImageVersionResourceID
-	case "azurelinuxv2gen2arm64":
-		c.AzureLinuxV2.Gen2Arm64 = info.CapturedImageVersionResourceID
-	case "azurelinuxv2gen2":
-		c.AzureLinuxV2.Gen2 = info.CapturedImageVersionResourceID
-	case "v2gen2arm64":
-		c.CBLMarinerV2.Gen2Arm64 = info.CapturedImageVersionResourceID
-	case "v2gen2":
-		c.CBLMarinerV2.Gen2 = info.CapturedImageVersionResourceID
+	if resourceID := info.CapturedImageVersionResourceID; resourceID != "" {
+		switch getVHDNameFromPublishingInfo(info) {
+		case vhdName1804Gen2:
+			c.Ubuntu1804.Gen2Containerd = resourceID
+		case vhdName2204Gen2ARM64Containerd:
+			c.Ubuntu2204.Gen2Arm64Containerd = resourceID
+		case vhdName2204Gen2Containerd:
+			c.Ubuntu2204.Gen2Containerd = resourceID
+		case vhdNameAzureLinuxV2Gen2ARM64:
+			c.AzureLinuxV2.Gen2Arm64 = resourceID
+		case vhdNameAzureLinuxV2Gen2:
+			c.AzureLinuxV2.Gen2 = resourceID
+		case vhdNameCBLMarinerV2Gen2ARM64:
+			c.CBLMarinerV2.Gen2Arm64 = resourceID
+		case vhdNameCBLMarinerV2Gen2:
+			c.CBLMarinerV2.Gen2 = resourceID
+		}
 	}
 }
 
