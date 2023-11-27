@@ -3,7 +3,7 @@
 # MUST NOT add any shared functions in this script.
 $windowsConfig = @'
 $global:windowsSKU = $env:WindowsSKU
-$validSKU = @("2019-containerd", "2022-containerd", "2022-containerd-gen2")
+$validSKU = @("2019-containerd", "2022-containerd", "2022-containerd-gen2", "23H2", "23H2-gen2")
 if (-not ($validSKU -contains $windowsSKU)) {
     throw "Unsupported windows image SKU: $windowsSKU"
 }
@@ -47,6 +47,18 @@ switch -Regex ($windowsSku) {
             "mcr.microsoft.com/containernetworking/azure-npm:v1.4.34"
         )
     }
+    "23H2*" {
+        $global:patchUrls = @()
+        $global:patchIDs = @()
+
+        $global:imagesToPull = @(
+            "mcr.microsoft.com/windows/servercore:ltsc2022",
+            "mcr.microsoft.com/windows/nanoserver:ltsc2022",
+
+            # NPM (Network Policy Manager) Owner: jaer-tsun (Jaeryn)
+            "mcr.microsoft.com/containernetworking/azure-npm:v1.4.34"
+        )
+    }
 }
 
 $global:imagesToPull += @(
@@ -60,15 +72,21 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.9.0",
     # azuredisk-csi:v1.28 is only for AKS 1.27+, v1.26 is for other AKS versions
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.7",
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.8",
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.4.1-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.5-windows-hp",
     # azuredisk-csi:v1.29 is only for AKS 1.28+
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.1.1-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.2-windows-hp",
     # azurefile-csi:v1.28 is only for AKS 1.27+, v1.24, v1.26 is for other AKS versions
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.11",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.9",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.10",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.6-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.7-windows-hp",
     # azurefile-csi:v1.29 is only for AKS 1.28+
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.1-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.2-windows-hp",
     # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.4",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
@@ -93,7 +111,8 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.31.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.32.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.33.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.34.zip"
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.34.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.35.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.

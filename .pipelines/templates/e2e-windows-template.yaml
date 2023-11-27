@@ -14,6 +14,9 @@ parameters:
   - name: windowsNodeImageVersion
     type: string
     default: AKSWindows-2019-containerd-test-2023.02.07
+  - name: windowsGpuDriverSuffix
+    type: string
+    default:
   - name: storageAccount
     type: string
     default: storewin19
@@ -33,6 +36,7 @@ jobs:
         export WINDOWS_E2E_IMAGE=${{ parameters.windowsImage }}
         export WINDOWS_E2E_OSSKU=${{ parameters.windowsOSSKU }}
         export WINDOWS_E2E_VMSIZE=${{ parameters.windowsVMSize }}
+        export WINDOWS_GPU_DRIVER_SUFFIX=${{ parameters.windowsGpuDriverSuffix }}
         if [[ -n "${WINDOWS_PACKAGE_URL}" ]]; then
           export windowsPackageURL=$WINDOWS_PACKAGE_URL
           export WINDOWS_PACKAGE_VERSION=$(echo $windowsPackageURL | grep -oP '(?<=/v)\d+\.\d+\.\d+' | head -1)
@@ -64,7 +68,7 @@ jobs:
         MAPPED_ACCOUNT_KEY: $(AZURE_E2E_STORAGE_ACCOUNT_KEY)
       displayName: Setup Test Cluster
     - publish: $(System.DefaultWorkingDirectory)/${{ parameters.windowsImage }}
-      artifact: ${{ parameters.windowsImage }}-clusterConfig
+      artifact: ${{ parameters.windowsImage }}${{ parameters.windowsGpuDriverSuffix }}-clusterConfig
       condition: succeeded()
 
 - job: Generate_Matrix
@@ -83,7 +87,7 @@ jobs:
     maxParallel: 3
   steps:
     - download: current
-      artifact: ${{ parameters.windowsImage }}-clusterConfig
+      artifact: ${{ parameters.windowsImage }}${{ parameters.windowsGpuDriverSuffix }}-clusterConfig
     - bash: pip install -Iv azure-cli==2.45.0 --extra-index-url https://azurecliprod.blob.core.windows.net/edge
       displayName: use specified version of az cli
     - bash: |
@@ -95,6 +99,17 @@ jobs:
         export WINDOWS_E2E_IMAGE=${{ parameters.windowsImage }}
         export WINDOWS_DISTRO=${{ parameters.windowsDistro }}
         export WINDOWS_NODE_IMAGE_VERSION=${{ parameters.windowsNodeImageVersion }}
+        export WINDOWS_GPU_DRIVER_SUFFIX=${{ parameters.windowsGpuDriverSuffix }}
+        if [[ "${WINDOWS_GPU_DRIVER_SUFFIX}" == "-grid" ]]; then
+            export WINDOWS_GPU_DRIVER_URL="https://acs-mirror.azureedge.net/aks/windows/gpudrivers/grid/537.13_grid_win10_win11_server2019_server2022_dch_64bit_international_azure_swl.exe"
+            export CONFIG_GPU_DRIVER_IF_NEEDED=true
+        elif [[ "${WINDOWS_GPU_DRIVER_SUFFIX}" == "-cuda" ]]; then
+            export WINDOWS_GPU_DRIVER_URL="https://acs-mirror.azureedge.net/aks/windows/gpudrivers/cuda/473.47-data-center-tesla-desktop-winserver-2019-2016-international.exe"
+            export CONFIG_GPU_DRIVER_IF_NEEDED=true
+        else
+            export WINDOWS_GPU_DRIVER_URL=""
+            export CONFIG_GPU_DRIVER_IF_NEEDED=false
+        fi
         if [[ -n "${WINDOWS_PACKAGE_URL}" ]]; then
           export windowsPackageURL=$WINDOWS_PACKAGE_URL
           export WINDOWS_PACKAGE_VERSION=$(echo $windowsPackageURL | grep -oP '(?<=/v)\d+\.\d+\.\d+' | head -1)
@@ -108,11 +123,11 @@ jobs:
         fi
         export K8S_VERSION=${WINDOWS_PACKAGE_VERSION//./}
         mkdir -p $WINDOWS_E2E_IMAGE
-        cp -a $(Pipeline.Workspace)/${{ parameters.windowsImage }}-clusterConfig/* $WINDOWS_E2E_IMAGE
+        cp -a $(Pipeline.Workspace)/${{ parameters.windowsImage }}${{ parameters.windowsGpuDriverSuffix }}-clusterConfig/* $WINDOWS_E2E_IMAGE
         cd $WINDOWS_E2E_IMAGE
         bash e2e-scenario.sh
       env:
         MAPPED_ACCOUNT_KEY: $(AZURE_E2E_STORAGE_ACCOUNT_KEY)
     - publish: $(System.DefaultWorkingDirectory)/${{ parameters.windowsImage }}/$(SCENARIO_NAME)-logs
-      artifact: ${{ parameters.windowsImage }}-$(SCENARIO_NAME)-logs
+      artifact: ${{ parameters.windowsImage }}${{ parameters.windowsGpuDriverSuffix }}-$(SCENARIO_NAME)-logs
       condition: always()
