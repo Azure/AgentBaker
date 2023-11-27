@@ -128,7 +128,7 @@ const (
 // These SHAs will change once we update aks-gpu images in aks-gpu repository. We do that fairly rarely at this time
 // So for now these will be kept here like this.
 const (
-	AKSGPUGridSha = "sha-20ffa2"
+	AKSGPUGridSHA = "sha-20ffa2"
 	AKSGPUCudaSHA = "sha-e8873b"
 )
 

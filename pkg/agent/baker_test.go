@@ -1748,11 +1748,11 @@ var _ = Describe("getGPUDriverVersion", func() {
 	})
 })
 
-var _ = Describe("getAKSGPUImageSha", func() {
-	It("should use newest AKSGPUGridSha with nv v5", func() {
-		Expect(getAKSGPUImageSha("standard_nv6ads_a10_v5")).To(Equal("sha-20ffa2"))
+var _ = Describe("getAKSGPUImageSHA", func() {
+	It("should use newest AKSGPUGridSHA with nv v5", func() {
+		Expect(getAKSGPUImageSHA("standard_nv6ads_a10_v5")).To(Equal("sha-20ffa2"))
 	})
 	It("should use newest AKSGPUCudaSHA with non grid SKU", func() {
-		Expect(getAKSGPUImageSha("standard_nc6_v3")).To(Equal("sha-e8873b"))
+		Expect(getAKSGPUImageSHA("standard_nc6_v3")).To(Equal("sha-e8873b"))
 	})
 })

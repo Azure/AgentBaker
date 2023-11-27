@@ -910,7 +910,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return getGPUDriverVersion(profile.VMSize)
 		},
 		"GPUImageSHA": func() string {
-			return getAKSGPUImageSha(profile.VMSize)
+			return getAKSGPUImageSHA(profile.VMSize)
 		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			// Only need to enable HNSRemediator for Windows 2019
@@ -999,11 +999,11 @@ func gpuNeedsFabricManager(size string) bool {
 	return datamodel.FabricManagerGPUSizes[strings.ToLower(size)]
 }
 
-func getAKSGPUImageSha(size string) string {
+func getAKSGPUImageSHA(size string) string {
 	if useGridDrivers(size) {
-		return datamodel.AKSGPUGridSha
+		return datamodel.AKSGPUGridSHA
 	}
-	// TODO - should we rebuild all the other images?
+	// TODO (for AGANESHKUMAR?) - we rebuilt the GRID image, we should also upgrade the CUDA ones to have new versions
 	return datamodel.AKSGPUCudaSHA
 }
 
