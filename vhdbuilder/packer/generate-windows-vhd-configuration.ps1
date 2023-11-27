@@ -3,7 +3,7 @@
 # MUST NOT add any shared functions in this script.
 $windowsConfig = @'
 $global:windowsSKU = $env:WindowsSKU
-$validSKU = @("2019-containerd", "2022-containerd", "2022-containerd-gen2")
+$validSKU = @("2019-containerd", "2022-containerd", "2022-containerd-gen2", "23H2", "23H2-gen2")
 if (-not ($validSKU -contains $windowsSKU)) {
     throw "Unsupported windows image SKU: $windowsSKU"
 }
@@ -36,6 +36,18 @@ switch -Regex ($windowsSku) {
         )
     }
     "2022-containerd*" {
+        $global:patchUrls = @()
+        $global:patchIDs = @()
+
+        $global:imagesToPull = @(
+            "mcr.microsoft.com/windows/servercore:ltsc2022",
+            "mcr.microsoft.com/windows/nanoserver:ltsc2022",
+
+            # NPM (Network Policy Manager) Owner: jaer-tsun (Jaeryn)
+            "mcr.microsoft.com/containernetworking/azure-npm:v1.4.34"
+        )
+    }
+    "23H2*" {
         $global:patchUrls = @()
         $global:patchIDs = @()
 

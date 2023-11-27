@@ -49,6 +49,14 @@ parameters:
   displayName: Windows NV Series VM Size (gen2)
   type: string
   default: Standard_NV6ads_A10_v5
+- name: test23H2
+  displayName: Test 23H2
+  type: boolean
+  default: False
+- name: test23H2gen2
+  displayName: Test 23H2 Gen 2
+  type: boolean
+  default: False
 
 stages:
 - stage: test_2019_containerd
@@ -117,3 +125,29 @@ stages:
       windowsNodeImageVersion: AKSWindows-2022-containerd-test-2023.02.07
       windowsGpuDriverSuffix: -cuda
       storageAccount: akswinstore2022cuda
+      
+- stage: test_23H2
+  dependsOn: []
+  condition: eq('${{ parameters.test23H2 }}', True)
+  jobs:
+  - template: ./templates/e2e-windows-template.yaml
+    parameters:
+      windowsImage: 23H2
+      windowsOSSKU: WindowsAnnual
+      windowsVMSize: Standard_D2_v2
+      windowsDistro: aks-windows-23H2
+      windowsNodeImageVersion: AKSWindows-23H2-test-2023.02.07
+      storageAccount: akswinstore23H2
+
+- stage: test_23H2_gen2
+  dependsOn: []
+  condition: eq('${{ parameters.test23H2gen2 }}', True)
+  jobs:
+  - template: ./templates/e2e-windows-template.yaml
+    parameters:
+      windowsImage: 23H2-gen2
+      windowsOSSKU: WindowsAnnual
+      windowsVMSize: Standard_DS2_v2
+      windowsDistro: aks-windows-23H2-gen2
+      windowsNodeImageVersion: AKSWindows-23H2-gen2-test-2023.02.07
+      storageAccount: akswinstore23H2gen2
