@@ -195,6 +195,10 @@ const (
 	AKSWindows2022Containerd Distro = "aks-windows-2022-containerd"
 	// AKSWindows2022ContainerdGen2 stands for distro for windows server 2022 Gen 2 SIG image with containerd.
 	AKSWindows2022ContainerdGen2 Distro = "aks-windows-2022-containerd-gen2"
+	// AKSWindows23H2 stands for distro for windows 23H2 SIG image.
+	AKSWindows23H2 Distro = "aks-windows-23H2"
+	// AKSWindows23H2Gen2 stands for distro for windows 23H2 Gen 2 SIG image.
+	AKSWindows23H2Gen2 Distro = "aks-windows-23H2-gen2"
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker.
 	AKSWindows2019PIR        Distro = "aks-windows-2019-pir"
 	CustomizedImage          Distro = "CustomizedImage"
@@ -502,6 +506,7 @@ type WindowsProfile struct {
 	//nolint:revive, stylecheck // keep field names the same as RP
 	WindowsGmsaPackageUrl          string  `json:"windowsGmsaPackageUrl,omitempty"`
 	CseScriptsPackageURL           string  `json:"cseScriptsPackageURL,omitempty"`
+	GpuDriverURL                   string  `json:"gpuDriverUrl,omitempty"`
 	HnsRemediatorIntervalInMinutes *uint32 `json:"hnsRemediatorIntervalInMinutes,omitempty"`
 	LogGeneratorIntervalInMinutes  *uint32 `json:"logGeneratorIntervalInMinutes,omitempty"`
 }

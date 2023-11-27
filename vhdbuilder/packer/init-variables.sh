@@ -256,6 +256,22 @@ if [ "$OS_TYPE" == "Windows" ]; then
 			WINDOWS_IMAGE_VERSION=$WINDOWS_2022_GEN2_BASE_IMAGE_VERSION
 		fi
 		;;
+	"23H2" | "23H2-gen2")
+		WINDOWS_IMAGE_SKU=$WINDOWS_23H2_BASE_IMAGE_SKU
+		WINDOWS_IMAGE_VERSION=$WINDOWS_23H2_BASE_IMAGE_VERSION
+		imported_windows_image_name="windows-23H2-imported-${CREATE_TIME}-${RANDOM}"
+
+		echo "Set OS disk size"
+		if [ -n "${WINDOWS_23H2_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting os_disk_size_gb to the value in windows-image.env for 23H2: ${WINDOWS_23H2_OS_DISK_SIZE_GB}"
+			os_disk_size_gb=${WINDOWS_23H2_OS_DISK_SIZE_GB}
+		fi
+		# Default: read from the official MCR image
+		if [[ $HYPERV_GENERATION == "V2" ]]; then
+			WINDOWS_IMAGE_SKU=$WINDOWS_23H2_GEN2_BASE_IMAGE_SKU
+			WINDOWS_IMAGE_VERSION=$WINDOWS_23H2_GEN2_BASE_IMAGE_VERSION
+		fi
+		;;
 	*)
 		echo "unsupported windows sku: ${WINDOWS_SKU}"
 		exit 1
