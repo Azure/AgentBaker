@@ -49,12 +49,12 @@ parameters:
   displayName: Windows NV Series VM Size (gen2)
   type: string
   default: Standard_NV6ads_A10_v5
-- name: test23H2containerd
-  displayName: Test 23H2 containerd
+- name: test23H2
+  displayName: Test 23H2
   type: boolean
   default: False
-- name: test23H2containerdgen2
-  displayName: Test 23H2 containerd Gen 2
+- name: test23H2gen2
+  displayName: Test 23H2 Gen 2
   type: boolean
   default: False
 
