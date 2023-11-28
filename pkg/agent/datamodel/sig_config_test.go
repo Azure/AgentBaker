@@ -71,7 +71,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(azurelinux.Definition).To(Equal("V2"))
 		Expect(azurelinux.Version).To(Equal(LinuxSIGImageVersion))
 
-		Expect(len(sigConfig.SigWindowsImageConfig)).To(Equal(4))
+		Expect(len(sigConfig.SigWindowsImageConfig)).To(Equal(6))
 
 		windows2019 := sigConfig.SigWindowsImageConfig[AKSWindows2019]
 		Expect(windows2019.ResourceGroup).To(Equal("AKS-Windows"))
@@ -96,6 +96,18 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(windows2022ContainerdGen2.Gallery).To(Equal("AKSWindows"))
 		Expect(windows2022ContainerdGen2.Definition).To(Equal("windows-2022-containerd-gen2"))
 		Expect(windows2022ContainerdGen2.Version).To(Equal("20348.2022.221114"))
+
+		windows23H2 := sigConfig.SigWindowsImageConfig[AKSWindows23H2]
+		Expect(windows23H2.ResourceGroup).To(Equal("AKS-Windows"))
+		Expect(windows23H2.Gallery).To(Equal("AKSWindows"))
+		Expect(windows23H2.Definition).To(Equal("windows-23H2"))
+		Expect(windows23H2.Version).To(Equal("25398.2022.221114"))
+
+		windows23H2Gen2 := sigConfig.SigWindowsImageConfig[AKSWindows23H2Gen2]
+		Expect(windows23H2Gen2.ResourceGroup).To(Equal("AKS-Windows"))
+		Expect(windows23H2Gen2.Gallery).To(Equal("AKSWindows"))
+		Expect(windows23H2Gen2.Definition).To(Equal("windows-23H2-gen2"))
+		Expect(windows23H2Gen2.Version).To(Equal("25398.2022.221114"))
 
 		aksUbuntuArm642204Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuArm64Containerd2204Gen2]
 		Expect(aksUbuntuArm642204Gen2.ResourceGroup).To(Equal("resourcegroup"))

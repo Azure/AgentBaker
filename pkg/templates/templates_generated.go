@@ -1696,6 +1696,7 @@ KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
 KUBELET_CONFIG_FILE_CONTENT="{{GetKubeletConfigFileContentBase64}}"
 SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
 GPU_DRIVER_VERSION="{{GPUDriverVersion}}"
+GPU_IMAGE_SHA="{{GPUImageSHA}}"
 GPU_INSTANCE_PROFILE="{{GetGPUInstanceProfile}}"
 CUSTOM_SEARCH_DOMAIN_NAME="{{GetSearchDomainName}}"
 CUSTOM_SEARCH_REALM_USER="{{GetSearchDomainRealmUser}}"
@@ -2583,7 +2584,7 @@ export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
 NVIDIA_CONTAINER_RUNTIME_VERSION="3.6.0"
-export NVIDIA_DRIVER_IMAGE_SHA="sha-e8873b"
+export NVIDIA_DRIVER_IMAGE_SHA="${GPU_IMAGE_SHA:=}"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu"
 export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
@@ -6599,7 +6600,7 @@ installDeps() {
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
-    BLOBFUSE2_VERSION="2.1.1"
+    BLOBFUSE2_VERSION="2.1.2"
 
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
@@ -7736,12 +7737,18 @@ $global:EnableHostsConfigAgent = [System.Convert]::ToBoolean("{{ EnableHostsConf
 # These scripts are used by cse
 $global:CSEScriptsPackageUrl = "{{GetVariable "windowsCSEScriptsPackageURL" }}";
 
+# The windows nvidia gpu driver related url is used by windows cse
+$global:GpuDriverURL = "{{GetVariable "windowsGpuDriverURL" }}";
+
 # PauseImage
 $global:WindowsPauseImageURL = "{{GetVariable "windowsPauseImageURL" }}";
 $global:AlwaysPullWindowsPauseImage = [System.Convert]::ToBoolean("{{GetVariable "alwaysPullWindowsPauseImage" }}");
 
 # Calico
 $global:WindowsCalicoPackageURL = "{{GetVariable "windowsCalicoPackageURL" }}";
+
+## GPU install
+$global:ConfigGPUDriverIfNeeded = [System.Convert]::ToBoolean("{{GetVariable "configGPUDriverIfNeeded" }}");
 
 # GMSA
 $global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
@@ -7766,6 +7773,8 @@ $global:LogGeneratorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetLogGene
 
 $global:EnableIncreaseDynamicPortRange = $false
 
+$global:RebootNeeded = $false
+
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
@@ -7788,7 +7797,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.34.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.35.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -7813,6 +7822,7 @@ try
     . c:\AzureData\windows\containerdfunc.ps1
     . c:\AzureData\windows\kubeletfunc.ps1
     . c:\AzureData\windows\kubernetesfunc.ps1
+    . c:\AzureData\windows\nvidiagpudriverfunc.ps1
 
     # Install OpenSSH if SSH enabled
     $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
@@ -8021,6 +8031,8 @@ try
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
     }
 
+    Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
+
     if (Test-Path $CacheDir)
     {
         Write-Log "Removing aks-engine bits cache directory"
@@ -8051,6 +8063,10 @@ try
     }
     $timer.Stop()
     Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
+
+    if ($global:RebootNeeded -eq $true) {
+        Postpone-RestartComputer
+    }
 }
 catch
 {
@@ -8204,6 +8220,16 @@ $global:WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN=49 # Return this error code in csec
 $global:WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG=50 # Return this error code in csecmd.ps1 when C:\AzureData\CSEResult.log does not exist
 $global:WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS=51
 $global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE=52
+$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_FAILED=53
+$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_TIMEOUT=54
+$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_VM_SIZE_NOT_SUPPORTED=55
+$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_SET=56
+$global:WINDOWS_CSE_ERROR_GPU_SKU_INFO_NOT_FOUND=57
+$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE=58
+$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INVALID_SIGNATURE=59
+$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_EXCEPTION=60
+$global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE=61
+
 
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version
@@ -8291,6 +8317,18 @@ function Set-ExitCode
     $global:ExitCode=$ExitCode
     $global:ErrorMessage=$ErrorMessage
     exit $ExitCode
+}
+
+function Postpone-RestartComputer 
+{
+    Write-Log "Creating an one-time task to restart the VM"
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument " -Command `+"`"+`"Restart-Computer -Force`+"`"+`""
+    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+    # trigger this task once
+    $trigger = New-JobTrigger -At  (Get-Date).AddSeconds(15).DateTime -Once
+    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "Restart computer after provisioning the VM"
+    Register-ScheduledTask -TaskName "restart-computer" -InputObject $definition
+    Write-Log "Created an one-time task to restart the VM"
 }
 
 function Create-Directory
@@ -8436,8 +8474,7 @@ function Install-Containerd-Based-On-Kubernetes-Version {
     $ContainerdUrl = $ContainerdUrl + $containerdPackage
   }
   Install-Containerd -ContainerdUrl $ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
-}
-`)
+}`)
 
 func windowsWindowscsehelperPs1Bytes() ([]byte, error) {
 	return _windowsWindowscsehelperPs1, nil

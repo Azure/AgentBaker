@@ -55,6 +55,7 @@ func scenarios() []*Scenario {
 		ubuntu2204gpuNoDriver(),
 		ubuntu2204CustomCATrust(),
 		ubuntu2204ArtifactStreaming(),
+		ubuntu2204GPUGridDriver(),
 	}
 }
 

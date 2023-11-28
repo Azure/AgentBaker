@@ -909,6 +909,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GPUDriverVersion": func() string {
 			return getGPUDriverVersion(profile.VMSize)
 		},
+		"GPUImageSHA": func() string {
+			return getAKSGPUImageSHA(profile.VMSize)
+		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			// Only need to enable HNSRemediator for Windows 2019
 			if cs.Properties.WindowsProfile != nil && profile.Distro == datamodel.AKSWindows2019Containerd {
@@ -975,7 +978,7 @@ func getPortRangeEndValue(portRange string) int {
 // NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?).
 func getGPUDriverVersion(size string) string {
 	if useGridDrivers(size) {
-		return datamodel.Nvidia510GridDriverVersion
+		return datamodel.Nvidia535GridDriverVersion
 	}
 	if isStandardNCv1(size) {
 		return datamodel.Nvidia470CudaDriverVersion
@@ -994,6 +997,14 @@ func useGridDrivers(size string) bool {
 
 func gpuNeedsFabricManager(size string) bool {
 	return datamodel.FabricManagerGPUSizes[strings.ToLower(size)]
+}
+
+func getAKSGPUImageSHA(size string) string {
+	if useGridDrivers(size) {
+		return datamodel.AKSGPUGridSHA
+	}
+	// TODO (for AGANESHKUMAR?) - we rebuilt the GRID image, we should also upgrade the CUDA ones to have new versions
+	return datamodel.AKSGPUCudaSHA
 }
 
 func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {
