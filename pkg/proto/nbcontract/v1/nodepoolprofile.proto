@@ -1,0 +1,7 @@
+syntax = "proto3";
+package nbcontract.v1;
+
+message NodePoolProfile {
+  // vm_size represents the size of this node pool
+  string vm_size = 1;
+}
