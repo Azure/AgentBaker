@@ -602,12 +602,6 @@
       ]
     },
     {
-      "type": "shell",
-      "inline": [
-        "sudo /bin/bash -ux /home/packer/trivy-scan.sh"
-      ]
-    },
-    {
       "type": "file",
       "direction": "download",
       "source": "/opt/azure/containers/image-bom.json",
