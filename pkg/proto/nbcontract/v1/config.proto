@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package nbcontract.v1;
 
+import "pkg/proto/nbcontract/v1/httpproxyconfig.proto";
+
 // illustrative division only
 message Configuration {
   // System Configuration
@@ -42,46 +44,48 @@ message Configuration {
   GpuConfig gpu_config = 24;
   bool is_sgx_node = 25;
   TeleportConfig teleport_config = 26;
-  HttpProxyConfig http_proxy_configuration = 27;
-  FeatureState ssh_status = 28;
-  FeatureState unattended_upgrade_status = 29;
-  string message_of_the_day = 30;
-  string swap_file_size_mb = 31;
-  KubeletConfiguration kubelet_configuration = 32;
-  FeatureState hosts_config_agent_status = 33;
-  CustomCaTrustConfig custom_ca_trust_config = 34;
-  string provision_output = 35;
-  string hyperkube_url = 36; //will be removed later
-  string moby_version = 37; //will be removed later
-  string container_runtime = 38; //will be removed later
-  string cli_tool = 39;  //will be removed later
-  bool needs_containerd = 40; //will be removed later
-  bool is_krustlet = 41; //can be removed, this only depends on workload runtime, which is a better contract input
-  bool needs_docker_login = 42; //useless, will remove
-  FeatureState ipv6_dual_stack_enabled = 43; //seems very specific to RP, discuss with Alex wrt Karpenter
-  string outbound_command = 44; //this is const depending on cloud, can be removed later with smart refactoring
-  bool enable_unattended_upgrade = 45; //seems the current API is messed up with naming, fix soon
-  bool ensure_no_dupe_promiscuous_bridge = 46; //this is little weird, check cse_cmd.sh for actual condition
-  CustomSearchDomain custom_search_domain = 47;
-  CustomLinuxOSConfig custom_linux_os_config = 48;
+  FeatureState ssh_status = 27;
+  FeatureState unattended_upgrade_status = 28;
+  string message_of_the_day = 29;
+  string swap_file_size_mb = 30;
+  KubeletConfiguration kubelet_configuration = 31;
+  FeatureState hosts_config_agent_status = 32;
+  CustomCaTrustConfig custom_ca_trust_config = 33;
+  string provision_output = 34;
+  string hyperkube_url = 35; //will be removed later
+  string moby_version = 36; //will be removed later
+  string container_runtime = 37; //will be removed later
+  string cli_tool = 38;  //will be removed later
+  bool needs_containerd = 39; //will be removed later
+  bool is_krustlet = 40; //can be removed, this only depends on workload runtime, which is a better contract input
+  bool needs_docker_login = 41; //useless, will remove
+  FeatureState ipv6_dual_stack_enabled = 42; //seems very specific to RP, discuss with Alex wrt Karpenter
+  string outbound_command = 43; //this is const depending on cloud, can be removed later with smart refactoring
+  bool enable_unattended_upgrade = 44; //seems the current API is messed up with naming, fix soon
+  bool ensure_no_dupe_promiscuous_bridge = 45; //this is little weird, check cse_cmd.sh for actual condition
+  CustomSearchDomain custom_search_domain = 46;
+  CustomLinuxOSConfig custom_linux_os_config = 47;
 
-  CustomCloudConfig custom_cloud_config = 49;
+  CustomCloudConfig custom_cloud_config = 48;
   
   //we do not need these in the final contract, these are consts
-  string cse_helper_filepath = 50;
-  string cse_distro_helper_filepath = 51;
-  string cse_install_filepath = 52;
-  string cse_distro_install_filepath = 53;
-  string cse_config_filepath = 54;
+  string cse_helper_filepath = 49;
+  string cse_distro_helper_filepath = 50;
+  string cse_install_filepath = 51;
+  string cse_distro_install_filepath = 52;
+  string cse_config_filepath = 53;
 
-  string dhcpv6_service_filepath = 55;
-  string dhcpv6_config_filepath = 56;
+  string dhcpv6_service_filepath = 54;
+  string dhcpv6_config_filepath = 55;
 
-  string azure_private_registry_server = 57;
-  string private_egress_proxy_address = 58;
-  FeatureState artifact_streaming_enabled = 59;
-  bool is_kata = 60; // we can calculate this on the VHD, will remove from final contract
-  bool needs_cgorupv2 = 61; // we can calculate this on the VHD, will remove from final contract
+  string azure_private_registry_server = 56;
+  string private_egress_proxy_address = 57;
+  FeatureState artifact_streaming_enabled = 58;
+  bool is_kata = 59; // we can calculate this on the VHD, will remove from final contract
+  bool needs_cgorupv2 = 60; // we can calculate this on the VHD, will remove from final contract
+
+  // Here begins the final contract
+  nbcontract.v1.HTTPProxyConfig HTTPProxyConfig = 61;
 }
 
 message KubeletConfiguration {
@@ -128,16 +132,6 @@ enum NetworkPolicyType {
   NETWORK_POLICY_TYPE_NONE = 1;
   NETWORK_POLICY_TYPE_AZURE = 2;
   NETWORK_POLICY_TYPE_CALICO = 3;
-}
-
-message HttpProxyConfig {
-  optional string http_proxy = 1;
-  optional string https_proxy = 2;
-  repeated string no_proxy = 3;
-  optional string trusted_certificate_authority = 4;
-  FeatureState http_proxy_config_status = 5;
-  FeatureState http_proxy_ca_config_status = 6;
-  string http_proxy_trusted_ca = 7;
 }
 
 message CustomCaTrustConfig {
