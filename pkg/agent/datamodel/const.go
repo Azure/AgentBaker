@@ -122,6 +122,14 @@ const (
 	Nvidia510CudaDriverVersion = "cuda-510.47.03"
 	Nvidia525CudaDriverVersion = "cuda-525.85.12"
 	Nvidia510GridDriverVersion = "grid-510.73.08"
+	Nvidia535GridDriverVersion = "grid-535.54.03"
+)
+
+// These SHAs will change once we update aks-gpu images in aks-gpu repository. We do that fairly rarely at this time
+// So for now these will be kept here like this.
+const (
+	AKSGPUGridSHA = "sha-20ffa2"
+	AKSGPUCudaSHA = "sha-e8873b"
 )
 
 /* ConvergedGPUDriverSizes : these sizes use a "converged" driver to support both cuda/grid workloads.
