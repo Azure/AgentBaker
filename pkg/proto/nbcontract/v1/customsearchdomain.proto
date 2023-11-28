@@ -1,0 +1,11 @@
+syntax = "proto3";
+package nbcontract.v1;
+
+message CustomSearchDomain {
+  // Did not find much information on what this really does, but can confirm from the usage in cse_config.sh that these fields are indeed required if set on bootstrapper
+  // They are expanded in the file https://github.com/Azure/AgentBaker/blob/master/parts/linux/cloud-init/artifacts/setup-custom-search-domains.sh
+  // Given that there is a conditional in the script on whether or not these fields are present, these are marked optional, however, in RP datamodel, these arent marked optional as part of Linux Profile
+  optional string name = 1;
+  optional string realm_user = 2;
+  optional string real_password = 3;
+}

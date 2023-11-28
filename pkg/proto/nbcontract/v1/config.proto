@@ -3,6 +3,7 @@ syntax = "proto3";
 package nbcontract.v1;
 
 import "pkg/proto/nbcontract/v1/httpproxyconfig.proto";
+import "pkg/proto/nbcontract/v1/customsearchdomain.proto";
 
 // illustrative division only
 message Configuration {
@@ -63,29 +64,29 @@ message Configuration {
   string outbound_command = 43; //this is const depending on cloud, can be removed later with smart refactoring
   bool enable_unattended_upgrade = 44; //seems the current API is messed up with naming, fix soon
   bool ensure_no_dupe_promiscuous_bridge = 45; //this is little weird, check cse_cmd.sh for actual condition
-  CustomSearchDomain custom_search_domain = 46;
-  CustomLinuxOSConfig custom_linux_os_config = 47;
+  CustomLinuxOSConfig custom_linux_os_config = 46;
 
-  CustomCloudConfig custom_cloud_config = 48;
+  CustomCloudConfig custom_cloud_config = 47;
   
   //we do not need these in the final contract, these are consts
-  string cse_helper_filepath = 49;
-  string cse_distro_helper_filepath = 50;
-  string cse_install_filepath = 51;
-  string cse_distro_install_filepath = 52;
-  string cse_config_filepath = 53;
+  string cse_helper_filepath = 48;
+  string cse_distro_helper_filepath = 49;
+  string cse_install_filepath = 50;
+  string cse_distro_install_filepath = 51;
+  string cse_config_filepath = 52;
 
-  string dhcpv6_service_filepath = 54;
-  string dhcpv6_config_filepath = 55;
+  string dhcpv6_service_filepath = 53;
+  string dhcpv6_config_filepath = 54;
 
-  string azure_private_registry_server = 56;
-  string private_egress_proxy_address = 57;
-  FeatureState artifact_streaming_enabled = 58;
-  bool is_kata = 59; // we can calculate this on the VHD, will remove from final contract
-  bool needs_cgorupv2 = 60; // we can calculate this on the VHD, will remove from final contract
+  string azure_private_registry_server = 55;
+  string private_egress_proxy_address = 56;
+  FeatureState artifact_streaming_enabled = 57;
+  bool is_kata = 58; // we can calculate this on the VHD, will remove from final contract
+  bool needs_cgorupv2 = 59; // we can calculate this on the VHD, will remove from final contract
 
   // Here begins the final contract
-  nbcontract.v1.HTTPProxyConfig HTTPProxyConfig = 61;
+  nbcontract.v1.HTTPProxyConfig http_proxy_config = 60;
+  nbcontract.v1.CustomSearchDomain custom_search_domain = 61;
 }
 
 message KubeletConfiguration {
@@ -239,13 +240,6 @@ message NetworkConfig {
   string cni_plugins_url = 7;
   string subnet = 8;
   string route_table = 9;
-}
-
-message CustomSearchDomain {
-  string custom_search_domain_filepath = 1;
-  string custom_search_domain_name = 2;
-  string custom_search_domain_realm_user = 3;
-  string custom_search_domain_realm_password = 4;
 }
 
 message CustomLinuxOSConfig {
