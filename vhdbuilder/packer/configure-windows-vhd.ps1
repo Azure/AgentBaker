@@ -492,7 +492,7 @@ function Update-Registry {
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1102009996 -Value 1 -Type DWORD
     }
 
-    if ($env:WindowsSKU -Like '2022*') {
+    if (($env:WindowsSKU -Like '2022*') -or ($env:WindowsSKU -Like '23H2*')) {
         Write-Log "Enable a WCIFS fix in 2022-10B"
         $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft" -ErrorAction Ignore)
         if (!$regPath) {
