@@ -85,8 +85,8 @@ message Configuration {
   bool needs_cgorupv2 = 59; // we can calculate this on the VHD, will remove from final contract
 
   // Here begins the final contract
-  nbcontract.v1.HTTPProxyConfig http_proxy_config = 60;
-  nbcontract.v1.CustomSearchDomain custom_search_domain = 61;
+  optional nbcontract.v1.HTTPProxyConfig http_proxy_config = 60;
+  optional nbcontract.v1.CustomSearchDomain custom_search_domain = 61;
 }
 
 message KubeletConfiguration {
