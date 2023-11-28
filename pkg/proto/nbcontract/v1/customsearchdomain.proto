@@ -7,5 +7,5 @@ message CustomSearchDomain {
   // Given that there is a conditional in the script on whether or not these fields are present, these are marked optional, however, in RP datamodel, these arent marked optional as part of Linux Profile
   optional string name = 1;
   optional string realm_user = 2;
-  optional string real_password = 3;
+  optional string realm_password = 3;
 }
