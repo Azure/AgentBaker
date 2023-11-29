@@ -76,7 +76,7 @@ echo "The generated sas token works"
 # Do not log sas token
 echo "COPY ME ---> ${STORAGE_ACCT_BLOB_URL}/${VHD_NAME}?***"
 
-# Note: The offer_name is the value from OS_SKU (e.g. Ubuntu)
+# Note: The offer_name is the value from OS_SKU (eg. Ubuntu)
 if [ "${OS_NAME,,}" == "linux" ]; then
     cat <<EOF > vhd-publishing-info.json
 {
