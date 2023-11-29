@@ -87,9 +87,11 @@ $global:imagesToPull += @(
     # azurefile-csi:v1.29 is only for AKS 1.28+
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.1-windows-hp",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.2-windows-hp",
-    # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
+    # Addon of Azure secrets store. Owner: jiashun0011 (Jiashun Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.4",
+    "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.0",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
+    "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.0",
     # Azure cloud node manager. Owner: nilo19 (Qi Ni)
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.15", # for k8s 1.25.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.18", # for k8s 1.25.x
