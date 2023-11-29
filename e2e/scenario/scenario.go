@@ -52,7 +52,7 @@ func GetScenariosForSuite(ctx context.Context, suiteConfig *suite.Config) (Table
 		VHDCatalog: catalog,
 	}
 
-	for _, scenario := range scenarios(t) {
+	for _, scenario := range append(scenarios(t), gpuVMSizeScenarios(t)...) {
 		if suiteConfig.ScenariosToRun != nil {
 			if !suiteConfig.ScenariosToRun[scenario.Name] {
 				continue
@@ -100,4 +100,12 @@ func scenarios(t *Template) []*Scenario {
 		t.ubuntu2204CustomCATrust(),
 		t.ubuntu2204ArtifactStreaming(),
 	}
+}
+
+func gpuVMSizeScenarios(t *Template) []*Scenario {
+	var scenarios []*Scenario
+	for gpuSeries := range DefaultGPUSeriesVMSizes {
+		scenarios = append(scenarios, t.ubuntu2204gpu(gpuSeries))
+	}
+	return scenarios
 }

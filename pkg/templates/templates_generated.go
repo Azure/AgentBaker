@@ -1696,6 +1696,7 @@ KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
 KUBELET_CONFIG_FILE_CONTENT="{{GetKubeletConfigFileContentBase64}}"
 SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
 GPU_DRIVER_VERSION="{{GPUDriverVersion}}"
+GPU_IMAGE_SHA="{{GPUImageSHA}}"
 GPU_INSTANCE_PROFILE="{{GetGPUInstanceProfile}}"
 CUSTOM_SEARCH_DOMAIN_NAME="{{GetSearchDomainName}}"
 CUSTOM_SEARCH_REALM_USER="{{GetSearchDomainRealmUser}}"
@@ -2583,7 +2584,7 @@ export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
 NVIDIA_CONTAINER_RUNTIME_VERSION="3.6.0"
-export NVIDIA_DRIVER_IMAGE_SHA="sha-e8873b"
+export NVIDIA_DRIVER_IMAGE_SHA="${GPU_IMAGE_SHA:=}"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu"
 export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
@@ -8235,6 +8236,9 @@ $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it
 $global:StableContainerdPackage = "v1.6.21-azure.1/binaries/containerd-v1.6.21-azure.1-windows-amd64.tar.gz"
 # The latest containerd version
 $global:LatestContainerdPackage = "v1.7.1-azure.1/binaries/containerd-v1.7.1-azure.1-windows-amd64.tar.gz"
+# The latest containerd version that contains stable ABI
+$global:LatestContainerdPackagefor23H2 = "v1.7.9-azure.1/binaries/containerd-v1.7.9-azure.1-windows-amd64.tar.gz"
+
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }
@@ -8428,12 +8432,30 @@ function Assert-FileExists {
     }
 }
 
+function Get-WindowsBuildNumber {
+    return (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuild
+}
+
 function Get-WindowsVersion {
-    $buildNumber = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuild
+    $buildNumber = Get-WindowsBuildNumber
     switch ($buildNumber) {
         "17763" { return "1809" }
         "20348" { return "ltsc2022" }
-        "25398" { return "ltsc2022" } # Only for test of partner team now. Will remove it further.
+        "25398" { return "23H2" }
+        {$_ -ge "25399" -and $_ -le "30397"} { return "test2025" }
+        Default {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER -ErrorMessage "Failed to find the windows build number: $buildNumber"
+        }
+    }
+}
+
+function Get-WindowsPauseVersion {
+    $buildNumber = Get-WindowsBuildNumber
+    switch ($buildNumber) {
+        "17763" { return "1809" }
+        "20348" { return "ltsc2022" }
+        "25398" { return "ltsc2022" }
+        {$_ -ge "25399" -and $_ -le "30397"} { return "ltsc2022" }
         Default {
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER -ErrorMessage "Failed to find the windows build number: $buildNumber"
         }
@@ -8465,8 +8487,14 @@ function Install-Containerd-Based-On-Kubernetes-Version {
     Write-Log "ContainerdURL is $ContainerdUrl"
     $containerdPackage=$global:StableContainerdPackage
     if (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
-      $containerdPackage=$global:LatestContainerdPackage
-      Write-Log "Kubernetes version $KubernetesVersion is greater than or equal to $global:MinimalKubernetesVersionWithLatestContainerd so the latest containerd version $containerdPackage is used"
+      $buildNumber = Get-WindowsBuildNumber
+      if ($buildNumber -eq "25398") {
+        $containerdPackage=$global:LatestContainerdPackagefor23H2
+        Write-Log "Use latest containerd version $containerdPackage which contains stable ABI for 23H2"
+      } else {
+        $containerdPackage=$global:LatestContainerdPackage
+        Write-Log "Kubernetes version $KubernetesVersion is greater than or equal to $global:MinimalKubernetesVersionWithLatestContainerd so the latest containerd version $containerdPackage is used"
+      }
     } else {
       Write-Log "Kubernetes version $KubernetesVersion is less than $global:MinimalKubernetesVersionWithLatestContainerd so the stable containerd version $containerdPackage is used"
     }

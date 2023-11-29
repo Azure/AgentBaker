@@ -72,6 +72,24 @@ func NvidiaSMINotInstalledValidator() *LiveVMValidator {
 	}
 }
 
+func NvidiaSMIInstalledValidator() *LiveVMValidator {
+	return &LiveVMValidator{
+		Description: "assert nvidia-smi is installed",
+		Command:     "nvidia-smi",
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf(
+					"nvidia-smi installed should trigger exit 0 actual was: %q, stdout: %q, stderr: %q",
+					code,
+					stdout,
+					stderr,
+				)
+			}
+			return nil
+		},
+	}
+}
+
 func NonEmptyDirectoryValidator(dirName string) *LiveVMValidator {
 	return &LiveVMValidator{
 		Description: "assert that there are files in directory",

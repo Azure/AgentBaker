@@ -24,24 +24,17 @@ do
     fi
 done
 
-# If building a linux-based VHD, correctly set the intermediate, or "captured" SIG resource ID information so it can be used by AgentBaker E2E.
+# If building a linux-based VHD, correctly set the intermediate, or "captured" SIG image version resource ID so it can be used by AgentBaker E2E and release scripts.
 if [ "${OS_NAME,,}" == "linux" ]; then
     [ -z "$SUBSCRIPTION_ID" ] && echo "SUBSCRIPTION_ID must be set when generating publishing info for linux" && exit 1
     [ -z "$RESOURCE_GROUP_NAME" ] && echo "RESOURCE_GROUP_NAME must be set when generating publishing info for linux" && exit 1
     [ -z "$SIG_IMAGE_NAME" ] && echo "SIG_IMAGE_NAME must be set when generating publishing info for linux" && exit 1
     [ -z "$CAPTURED_SIG_VERSION" ] && echo "CAPTURED_SIG_VERSION must be set when generating publishing info for linux" && exit 1
 
-    # Default to this hard-coded value for Linux does not pass this environment variable into here
-    if [[ -z "$SIG_GALLERY_NAME" ]]; then
-        SIG_GALLERY_NAME="PackerSigGalleryEastUS"
-    fi
+    INTERMEDIATE_SIG_GALLERY_NAME="PackerSigGalleryEastUS"
 
-    if [[ -z "$SIG_IMAGE_VERSION" ]]; then
-        SIG_IMAGE_VERSION=${CAPTURED_SIG_VERSION}
-    fi
-
-    captured_sig_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
-    echo "captures SIG image version resource ID: $captured_sig_resource_id"
+    captured_sig_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${INTERMEDIATE_SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${CAPTURED_SIG_VERSION}"
+    echo "captured intermediate SIG image version resource ID: $captured_sig_resource_id"
 fi
 
 # SIG image definition for AMD64/ARM64 has subtle difference, otherwise a SIG version cannot be used to create VM/VMSS of corresponding sku.
