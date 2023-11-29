@@ -140,7 +140,7 @@ MC_WIN_VMSS_NAME=$(az vmss list -g $E2E_MC_RESOURCE_GROUP_NAME --query "[?contai
 VMSS_RESOURCE_Id=$(az resource show --resource-group $E2E_MC_RESOURCE_GROUP_NAME --name $MC_WIN_VMSS_NAME --resource-type Microsoft.Compute/virtualMachineScaleSets --query id --output tsv)
 
 az group export --resource-group $E2E_MC_RESOURCE_GROUP_NAME --resource-ids $VMSS_RESOURCE_Id --include-parameter-default-value > test.json
-IMAGE_REFERENCE="/subscriptions/$AZURE_BUILD_SUBSCRIPTION_ID/resourceGroups/$AZURE_BUILD_RESOURCE_GROUP_NAME/providers/Microsoft.Compute/galleries/$AZURE_BUILD_GALLERY_NAME/images/windows-e2e-test-$WINDOWS_E2E_IMAGE/versions/latest"
+IMAGE_REFERENCE="/subscriptions/$AZURE_BUILD_SUBSCRIPTION_ID/resourceGroups/$AZURE_BUILD_RESOURCE_GROUP_NAME/providers/Microsoft.Compute/galleries/$AZURE_BUILD_GALLERY_NAME/images/windows-e2e-test-$WINDOWS_E2E_IMAGE"
 WINDOWS_VNET=$(jq -c '.parameters | with_entries( select(.key|contains("vnet")))' test.json)
 WINDOWS_LOADBALANCER=$(jq -c '.parameters | with_entries( select(.key|contains("loadBalancers")))' test.json)
 WINDOWS_IDENTITY=$(jq -c '.resources[0] | with_entries( select(.key|contains("identity")))' test.json)
@@ -190,10 +190,18 @@ collect-logs
 
 cat $SCENARIO_NAME-vmss.json
 
-VMSS_INSTANCE_NAME=$(az vmss list-instances \
-                    -n ${DEPLOYMENT_VMSS_NAME} \
-                    -g $E2E_MC_RESOURCE_GROUP_NAME \
-                    -ojson | \
+VMSS=$(az vmss list-instances \
+        -n ${DEPLOYMENT_VMSS_NAME} \
+        -g $E2E_MC_RESOURCE_GROUP_NAME \
+        -ojson)
+VMSS_IMAGE_REFERNCE_ID=$(echo $VMSS | \
+                    jq -r '.[].storageProfile.imageReference.id')
+VMSS_IMAGE_EXACT_VERSION=$(echo $VMSS | \
+                    jq -r '.[].storageProfile.imageReference.exactVersion')
+log "imageReference.id is $VMSS_IMAGE_REFERNCE_ID"
+log "imageReference.exactVersion is $VMSS_IMAGE_EXACT_VERSION"
+
+VMSS_INSTANCE_NAME=$(echo $VMSS | \
                     jq -r '.[].osProfile.computerName')
 export VMSS_INSTANCE_NAME
 
