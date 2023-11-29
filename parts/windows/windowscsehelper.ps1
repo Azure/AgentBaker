@@ -275,7 +275,21 @@ function Get-WindowsVersion {
     switch ($buildNumber) {
         "17763" { return "1809" }
         "20348" { return "ltsc2022" }
-        "25398" { return "ltsc2022" } # Only for test of partner team now. Will remove it further.
+        "25398" { return "23H2" }
+        {$_ -ge "25399" -and $_ -le "30397"} { return "test2025" }
+        Default {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER -ErrorMessage "Failed to find the windows build number: $buildNumber"
+        }
+    }
+}
+
+function Get-WindowsPauseVersion {
+    $buildNumber = Get-WindowsBuildNumber
+    switch ($buildNumber) {
+        "17763" { return "1809" }
+        "20348" { return "ltsc2022" }
+        "25398" { return "ltsc2022" }
+        {$_ -ge "25399" -and $_ -le "30397"} { return "ltsc2022" }
         Default {
             Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER -ErrorMessage "Failed to find the windows build number: $buildNumber"
         }
