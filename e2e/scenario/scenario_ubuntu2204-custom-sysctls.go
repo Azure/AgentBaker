@@ -24,7 +24,7 @@ func (t *Template) ubuntu2204CustomSysctls() *Scenario {
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHDResourceID:   t.Ubuntu2204.Gen2Containerd,
+			VHDSelector:     t.Ubuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{

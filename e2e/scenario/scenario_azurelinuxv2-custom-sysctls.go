@@ -24,7 +24,7 @@ func (t *Template) azurelinuxv2CustomSysctls() *Scenario {
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHDResourceID:   t.AzureLinuxV2.Gen2,
+			VHDSelector:     t.AzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{

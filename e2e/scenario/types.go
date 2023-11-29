@@ -15,6 +15,13 @@ type Template struct {
 	VHDCatalog
 }
 
+// NewTemplate constructs a new template using the base VHD catalog
+func NewTemplate() *Template {
+	return &Template{
+		VHDCatalog: BaseVHDCatalog,
+	}
+}
+
 // Table represents a set of mappings from scenario name -> Scenario to
 // be run as a part of the test suite
 type Table map[string]*Scenario
@@ -41,8 +48,8 @@ type Config struct {
 	// cluster which is capable of running the scenario
 	ClusterMutator func(*armcontainerservice.ManagedCluster)
 
-	// The resource ID of the VHD used to create the vmss (currently instantiated as SIG image version).
-	VHDResourceID VHDResourceID
+	// VHDSelector is the function called by the e2e suite on the given scenario to get its VHD selection
+	VHDSelector func() VHD
 
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
@@ -84,8 +91,8 @@ func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBoot
 }
 
 func (s *Scenario) PrepareVMSSModel(vmss *armcompute.VirtualMachineScaleSet) error {
-	if s.VHDResourceID == "" {
-		return fmt.Errorf("VHD resource ID configured for scenario %q is empty", s.Name)
+	if s.VHDSelector == nil {
+		return fmt.Errorf("VHD selector configured for scenario %q is nil", s.Name)
 	}
 
 	if vmss == nil {
@@ -106,7 +113,7 @@ func (s *Scenario) PrepareVMSSModel(vmss *armcompute.VirtualMachineScaleSet) err
 		vmss.Properties.VirtualMachineProfile.StorageProfile = &armcompute.VirtualMachineScaleSetStorageProfile{}
 	}
 	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-		ID: to.Ptr(string(s.VHDResourceID)),
+		ID: to.Ptr(string(s.VHDSelector().ResourceID)),
 	}
 
 	return nil

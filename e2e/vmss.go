@@ -255,7 +255,7 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 				},
 				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
 					ImageReference: &armcompute.ImageReference{
-						ID: to.Ptr(string(scenario.DefaultVHDCatalog.Ubuntu1804.Gen2Containerd)),
+						ID: to.Ptr(string(scenario.BaseVHDCatalog.Ubuntu1804.Gen2Containerd.ResourceID)),
 					},
 					OSDisk: &armcompute.VirtualMachineScaleSetOSDisk{
 						CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),

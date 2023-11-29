@@ -13,7 +13,7 @@ func (t *Template) azurelinuxv2ARM64() *Scenario {
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHDResourceID:   t.AzureLinuxV2.Gen2Arm64,
+			VHDSelector:     t.AzureLinuxV2Gen2ARM64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-arm64-gen2"

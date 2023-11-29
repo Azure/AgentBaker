@@ -19,20 +19,6 @@ import (
 	"go.uber.org/multierr"
 )
 
-type PublishingInfoDownloadOpts struct {
-	SKUList   []string
-	TargetDir string
-	BuildID   int
-}
-
-type Downloader struct {
-	basicAuth   string
-	buildClient adobuild.Client
-
-	errChan  chan error
-	doneChan chan struct{}
-}
-
 func NewDownloader(ctx context.Context, suiteConfig *suite.Config) (*Downloader, error) {
 	conn := ado.NewPatConnection(azureADOOrganizationURL, suiteConfig.PAT)
 
@@ -142,9 +128,9 @@ func (d *Downloader) downloadPublishingInfo(ctx context.Context, tempDir, artifa
 func (d *Downloader) getVHDPublishingInfoArtifactNames(ctx context.Context, opts PublishingInfoDownloadOpts) ([]string, error) {
 	var artifactNames []string
 
-	if len(opts.SKUList) > 0 {
-		for _, sku := range opts.SKUList {
-			artifactNames = append(artifactNames, fmt.Sprintf("publishing-info-%s", sku))
+	if len(opts.Artifacts) > 0 {
+		for name := range opts.Artifacts {
+			artifactNames = append(artifactNames, fmt.Sprintf("publishing-info-%s", name))
 		}
 		return artifactNames, nil
 	}
@@ -183,13 +169,13 @@ func extractPublishingInfoFromZip(artifactName, zipName, targetDir string) error
 			}
 			defer destFile.Close()
 
-			publishingInfoFile, err := f.Open()
+			pinfo, err := f.Open()
 			if err != nil {
 				return fmt.Errorf("unable to open file %s within zip archive %s: %w", f.Name, zipName, err)
 			}
-			defer publishingInfoFile.Close()
+			defer pinfo.Close()
 
-			if _, err = io.Copy(destFile, publishingInfoFile); err != nil {
+			if _, err = io.Copy(destFile, pinfo); err != nil {
 				return fmt.Errorf("unable to copy %s from zip archive %s to destination %s: %w", f.Name, zipName, dest, err)
 			}
 
@@ -201,5 +187,7 @@ func extractPublishingInfoFromZip(artifactName, zipName, targetDir string) error
 }
 
 func isMissingArtifactError(err error) bool {
+	// there doesn't seem to be a proper error type for this,
+	// thus we need to assert on thecontents of the error msg itself
 	return err != nil && (strings.Contains(err.Error(), "404 Not Found") || strings.Contains(err.Error(), "was not found for build"))
 }

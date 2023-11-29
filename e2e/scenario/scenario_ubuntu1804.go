@@ -8,7 +8,7 @@ func (t *Template) ubuntu1804() *Scenario {
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHDResourceID:   t.Ubuntu1804.Gen2Containerd,
+			VHDSelector:     t.Ubuntu1804Gen2Containerd,
 		},
 	}
 }

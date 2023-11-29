@@ -1,13 +1,18 @@
 package scenario
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/Azure/agentbakere2e/artifact"
+	"github.com/Azure/agentbakere2e/suite"
 )
 
 const (
@@ -23,108 +28,46 @@ const (
 )
 
 var (
-	//go:embed default_vhd_catalog.json
-	embeddedDefaultVHDCatalog string
+	//go:embed base_vhd_catalog.json
+	embeddedBaseVHDCatalog string
 
-	DefaultVHDCatalog = mustGetVHDCatalogFromEmbeddedJSON(embeddedDefaultVHDCatalog)
+	BaseVHDCatalog = mustGetVHDCatalogFromEmbeddedJSON(embeddedBaseVHDCatalog)
 )
 
-type VHDResourceID string
-
-func (id VHDResourceID) Short() string {
-	sep := "Microsoft.Compute/galleries/"
-	str := string(id)
-	if strings.Contains(str, sep) && !strings.HasSuffix(str, sep) {
-		return strings.Split(str, sep)[1]
-	}
-	return str
-}
-
-// VHDPublishingInfo represents VHD configuration as parsed from arbitrary
-// vhd-publishing-info.json files produced by VHD builds
-type VHDPublishingInfo struct {
-	CapturedImageVersionResourceID VHDResourceID `json:"captured_sig_resource_id,omitempty"`
-	SKUName                        string        `json:"sku_name,omitempty"`
-	OfferName                      string        `json:"offer_name,omitempty"`
-}
-
-type Ubuntu1804 struct {
-	Gen2Containerd VHDResourceID `json:"gen2containerd,omitempty"`
-}
-
-type Ubuntu2204 struct {
-	Gen2Arm64Containerd VHDResourceID `json:"gen2arm64containerd,omitempty"`
-	Gen2Containerd      VHDResourceID `json:"gen2containerd,omitempty"`
-}
-
-type AzureLinuxV2 struct {
-	Gen2Arm64 VHDResourceID `json:"gen2arm64,omitempty"`
-	Gen2      VHDResourceID `json:"gen2,omitempty"`
-}
-
-type CBLMarinerV2 struct {
-	Gen2Arm64 VHDResourceID `json:"gen2arm64,omitempty"`
-	Gen2      VHDResourceID `json:"gen2,omitempty"`
-}
-type VHDCatalog struct {
-	Ubuntu1804   Ubuntu1804   `json:"ubuntu1804,omitempty"`
-	Ubuntu2204   Ubuntu2204   `json:"ubuntu2204,omitempty"`
-	AzureLinuxV2 AzureLinuxV2 `json:"azurelinuxv2,omitempty"`
-	CBLMarinerV2 CBLMarinerV2 `json:"cblmarinerv2,omitempty"`
-}
-
-func (c *VHDCatalog) addEntryFromPublishingInfo(info VHDPublishingInfo) {
-	if resourceID := info.CapturedImageVersionResourceID; resourceID != "" {
-		switch getVHDNameFromPublishingInfo(info) {
-		case vhdName1804Gen2:
-			c.Ubuntu1804.Gen2Containerd = resourceID
-		case vhdName2204Gen2ARM64Containerd:
-			c.Ubuntu2204.Gen2Arm64Containerd = resourceID
-		case vhdName2204Gen2Containerd:
-			c.Ubuntu2204.Gen2Containerd = resourceID
-		case vhdNameAzureLinuxV2Gen2ARM64:
-			c.AzureLinuxV2.Gen2Arm64 = resourceID
-		case vhdNameAzureLinuxV2Gen2:
-			c.AzureLinuxV2.Gen2 = resourceID
-		case vhdNameCBLMarinerV2Gen2ARM64:
-			c.CBLMarinerV2.Gen2Arm64 = resourceID
-		case vhdNameCBLMarinerV2Gen2:
-			c.CBLMarinerV2.Gen2 = resourceID
-		}
-	}
-}
-
-func (c *VHDCatalog) addEntriesFromPublishingInfos(dirName string) error {
-	absPath, err := filepath.Abs(dirName)
+func getVHDsFromBuild(ctx context.Context, suiteConfig *suite.Config, tmpl *Template, scenarios []*Scenario) error {
+	downloader, err := artifact.NewDownloader(ctx, suiteConfig)
 	if err != nil {
-		return fmt.Errorf("unable to resolve absolute path of %s: %w", dirName, err)
+		return fmt.Errorf("unable to construct new ADO artifact downloader: %w", err)
 	}
-	files, err := os.ReadDir(absPath)
+
+	artifacts := make(map[string]bool)
+	for _, scenario := range scenarios {
+		artifact := scenario.VHDSelector().ArtifactName
+		if !artifacts[artifact] {
+			artifacts[artifact] = true
+			log.Printf("will download publishing info artifact for: %q", artifact)
+		}
+	}
+
+	err = downloader.DownloadVHDBuildPublishingInfo(ctx, artifact.PublishingInfoDownloadOpts{
+		BuildID:   suiteConfig.VHDBuildID,
+		TargetDir: artifact.DefaultPublishingInfoDir,
+		Artifacts: artifacts,
+	})
+	defer os.RemoveAll(artifact.DefaultPublishingInfoDir)
 	if err != nil {
-		return fmt.Errorf("unable to read publishing infos from directory %s: %w", absPath, err)
+		return fmt.Errorf("unable to download VHD publishing info: %w", err)
 	}
 
-	for _, file := range files {
-		filePath := path.Join(absPath, file.Name())
-
-		data, err := os.ReadFile(filePath)
-		if err != nil {
-			return fmt.Errorf("unable to read publishing info file %s: %w", filePath, err)
-		}
-
-		info := VHDPublishingInfo{}
-		if err := json.Unmarshal(data, &info); err != nil {
-			return fmt.Errorf("unable to unmarshal publishing info file %s: %w", filePath, err)
-		}
-
-		c.addEntryFromPublishingInfo(info)
+	if err = tmpl.VHDCatalog.addEntriesFromPublishingInfoDir(artifact.DefaultPublishingInfoDir); err != nil {
+		return fmt.Errorf("unable to load VHD selections from publishing info dir %s: %w", artifact.DefaultPublishingInfoDir, err)
 	}
 
 	return nil
 }
 
 // 2204gen2containerd, v2gen2, azurelinuxv2gen2arm64, etc.
-func getVHDNameFromPublishingInfo(info VHDPublishingInfo) string {
+func getVHDNameFromPublishingInfo(info artifact.VHDPublishingInfo) string {
 	vhdName := strings.ToLower(info.SKUName)
 	if info.OfferName == offerNameAzureLinux {
 		// explicitly prepend 'azurelinux' to azurelinux VHD names since their SKU
@@ -145,4 +88,125 @@ func mustGetVHDCatalogFromEmbeddedJSON(rawJSON string) VHDCatalog {
 	}
 
 	return catalog
+}
+
+type VHDResourceID string
+
+func (id VHDResourceID) Short() string {
+	sep := "Microsoft.Compute/galleries/"
+	str := string(id)
+	if strings.Contains(str, sep) && !strings.HasSuffix(str, sep) {
+		return strings.Split(str, sep)[1]
+	}
+	return str
+}
+
+type VHD struct {
+	ArtifactName string        `json:"artifactName,omitempty"`
+	ResourceID   VHDResourceID `json:"resourceId,omitempty"`
+}
+
+type VHDCatalog struct {
+	Ubuntu1804   Ubuntu1804   `json:"ubuntu1804,omitempty"`
+	Ubuntu2204   Ubuntu2204   `json:"ubuntu2204,omitempty"`
+	AzureLinuxV2 AzureLinuxV2 `json:"azurelinuxv2,omitempty"`
+	CBLMarinerV2 CBLMarinerV2 `json:"cblmarinerv2,omitempty"`
+}
+
+type Ubuntu1804 struct {
+	Gen2Containerd VHD `json:"gen2containerd,omitempty"`
+}
+
+type Ubuntu2204 struct {
+	Gen2Arm64Containerd VHD `json:"gen2arm64containerd,omitempty"`
+	Gen2Containerd      VHD `json:"gen2containerd,omitempty"`
+}
+
+type AzureLinuxV2 struct {
+	Gen2Arm64 VHD `json:"gen2arm64,omitempty"`
+	Gen2      VHD `json:"gen2,omitempty"`
+}
+
+type CBLMarinerV2 struct {
+	Gen2Arm64 VHD `json:"gen2arm64,omitempty"`
+	Gen2      VHD `json:"gen2,omitempty"`
+}
+
+func (c *VHDCatalog) Ubuntu1804Gen2Containerd() VHD {
+	return c.Ubuntu1804.Gen2Containerd
+}
+
+func (c *VHDCatalog) Ubuntu2204Gen2ARM64Containerd() VHD {
+	return c.Ubuntu2204.Gen2Arm64Containerd
+}
+
+func (c *VHDCatalog) Ubuntu2204Gen2Containerd() VHD {
+	return c.Ubuntu2204.Gen2Containerd
+}
+
+func (c *VHDCatalog) AzureLinuxV2Gen2ARM64() VHD {
+	return c.AzureLinuxV2.Gen2Arm64
+}
+
+func (c *VHDCatalog) AzureLinuxV2Gen2() VHD {
+	return c.AzureLinuxV2.Gen2
+}
+
+func (c *VHDCatalog) CBLMarinerV2Gen2ARM64() VHD {
+	return c.CBLMarinerV2.Gen2Arm64
+}
+
+func (c *VHDCatalog) CBLMarinerV2Gen2() VHD {
+	return c.CBLMarinerV2.Gen2
+}
+
+func (c *VHDCatalog) addEntryFromPublishingInfo(info artifact.VHDPublishingInfo) {
+	if resourceID := info.CapturedImageVersionResourceID; resourceID != "" {
+		id := VHDResourceID(resourceID)
+		switch getVHDNameFromPublishingInfo(info) {
+		case vhdName1804Gen2:
+			c.Ubuntu1804.Gen2Containerd.ResourceID = id
+		case vhdName2204Gen2ARM64Containerd:
+			c.Ubuntu2204.Gen2Arm64Containerd.ResourceID = id
+		case vhdName2204Gen2Containerd:
+			c.Ubuntu2204.Gen2Containerd.ResourceID = id
+		case vhdNameAzureLinuxV2Gen2ARM64:
+			c.AzureLinuxV2.Gen2Arm64.ResourceID = id
+		case vhdNameAzureLinuxV2Gen2:
+			c.AzureLinuxV2.Gen2.ResourceID = id
+		case vhdNameCBLMarinerV2Gen2ARM64:
+			c.CBLMarinerV2.Gen2Arm64.ResourceID = id
+		case vhdNameCBLMarinerV2Gen2:
+			c.CBLMarinerV2.Gen2.ResourceID = id
+		}
+	}
+}
+
+func (c *VHDCatalog) addEntriesFromPublishingInfoDir(dirName string) error {
+	absPath, err := filepath.Abs(dirName)
+	if err != nil {
+		return fmt.Errorf("unable to resolve absolute path of %s: %w", dirName, err)
+	}
+	files, err := os.ReadDir(absPath)
+	if err != nil {
+		return fmt.Errorf("unable to read publishing infos from directory %s: %w", absPath, err)
+	}
+
+	for _, file := range files {
+		filePath := path.Join(absPath, file.Name())
+
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("unable to read publishing info file %s: %w", filePath, err)
+		}
+
+		info := artifact.VHDPublishingInfo{}
+		if err := json.Unmarshal(data, &info); err != nil {
+			return fmt.Errorf("unable to unmarshal publishing info file %s: %w", filePath, err)
+		}
+
+		c.addEntryFromPublishingInfo(info)
+	}
+
+	return nil
 }

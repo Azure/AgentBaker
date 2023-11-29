@@ -2,68 +2,38 @@ package scenario
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"os"
 
-	"github.com/Azure/agentbakere2e/artifact"
 	"github.com/Azure/agentbakere2e/suite"
 )
 
-// GetScenarios returns the set of scenarios comprising the E2E suite in tabular form.
+// GetScenarios returns the set of scenarios comprising the AgentBaker E2E suite.
 func GetScenariosForSuite(ctx context.Context, suiteConfig *suite.Config) (Table, error) {
 	var (
-		table   = Table{}
-		catalog = DefaultVHDCatalog
+		tmpl      = NewTemplate()
+		scenarios []*Scenario
 	)
+
+	for _, scenario := range tmpl.allScenarios() {
+		if suiteConfig.ScenariosToRun != nil && !suiteConfig.ScenariosToRun[scenario.Name] {
+			continue
+		} else if suiteConfig.ScenariosToExclude != nil && suiteConfig.ScenariosToExclude[scenario.Name] {
+			continue
+		}
+		scenarios = append(scenarios, scenario)
+	}
 
 	if suiteConfig.UseVHDsFromBuild() {
 		log.Printf("will use VHDs from specified build: %d", suiteConfig.VHDBuildID)
-
-		downloader, err := artifact.NewDownloader(ctx, suiteConfig)
-		if err != nil {
-			return nil, fmt.Errorf("unable to construct new ADO artifact downloader: %w", err)
-		}
-
-		err = downloader.DownloadVHDBuildPublishingInfo(ctx, artifact.PublishingInfoDownloadOpts{
-			BuildID:   suiteConfig.VHDBuildID,
-			TargetDir: artifact.DefaultPublishingInfoDir,
-			SKUList: []string{
-				"1804-gen2-containerd",
-				"2204-arm64-gen2-containerd",
-				"2204-gen2-containerd",
-				"azurelinuxv2-gen2-arm64",
-				"azurelinuxv2-gen2",
-				"marinerv2-gen2",
-				"marinerv2-gen2-arm64",
-			},
-		})
-		defer os.RemoveAll(artifact.DefaultPublishingInfoDir)
-		if err != nil {
-			return nil, fmt.Errorf("unable to download VHD publishing info: %w", err)
-		}
-
-		if err = catalog.addEntriesFromPublishingInfos(artifact.DefaultPublishingInfoDir); err != nil {
-			return nil, fmt.Errorf("unable to load VHD selections from publishing info dir %s: %w", artifact.DefaultPublishingInfoDir, err)
+		if err := getVHDsFromBuild(ctx, suiteConfig, tmpl, scenarios); err != nil {
+			return nil, err
 		}
 	}
 
-	t := &Template{
-		VHDCatalog: catalog,
-	}
-
-	for _, scenario := range append(scenarios(t), gpuVMSizeScenarios(t)...) {
-		if suiteConfig.ScenariosToRun != nil {
-			if !suiteConfig.ScenariosToRun[scenario.Name] {
-				continue
-			}
-		} else if suiteConfig.ScenariosToExclude != nil {
-			if suiteConfig.ScenariosToExclude[scenario.Name] {
-				continue
-			}
-		}
-		log.Printf("will run E2E scenario %q: %s; with VHD: %s", scenario.Name, scenario.Description, scenario.VHDResourceID.Short())
+	table := make(Table, len(scenarios))
+	for _, scenario := range scenarios {
 		table[scenario.Name] = scenario
+		log.Printf("will run E2E scenario %q: %s; with VHD: %s", scenario.Name, scenario.Description, scenario.VHDSelector().ResourceID.Short())
 	}
 
 	return table, nil
@@ -72,7 +42,7 @@ func GetScenariosForSuite(ctx context.Context, suiteConfig *suite.Config) (Table
 // This function is called internally by the scenario package to get each e2e scenario's respective config as one long slice.
 // To add a sceneario, implement a new method on the Template type in a separate file that returns a *Scenario and add
 // its return value to the slice returned by this function.
-func scenarios(t *Template) []*Scenario {
+func (t *Template) scenarios() []*Scenario {
 	return []*Scenario{
 		t.ubuntu1804(),
 		t.ubuntu2204(),
@@ -102,10 +72,14 @@ func scenarios(t *Template) []*Scenario {
 	}
 }
 
-func gpuVMSizeScenarios(t *Template) []*Scenario {
+func (t *Template) gpuVMSizeScenarios() []*Scenario {
 	var scenarios []*Scenario
 	for gpuSeries := range DefaultGPUSeriesVMSizes {
 		scenarios = append(scenarios, t.ubuntu2204gpu(gpuSeries))
 	}
 	return scenarios
+}
+
+func (t *Template) allScenarios() []*Scenario {
+	return append(t.scenarios(), t.gpuVMSizeScenarios()...)
 }
