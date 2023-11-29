@@ -1696,6 +1696,7 @@ KUBELET_CONFIG_FILE_ENABLED="{{IsKubeletConfigFileEnabled}}"
 KUBELET_CONFIG_FILE_CONTENT="{{GetKubeletConfigFileContentBase64}}"
 SWAP_FILE_SIZE_MB="{{GetSwapFileSizeMB}}"
 GPU_DRIVER_VERSION="{{GPUDriverVersion}}"
+GPU_IMAGE_SHA="{{GPUImageSHA}}"
 GPU_INSTANCE_PROFILE="{{GetGPUInstanceProfile}}"
 CUSTOM_SEARCH_DOMAIN_NAME="{{GetSearchDomainName}}"
 CUSTOM_SEARCH_REALM_USER="{{GetSearchDomainRealmUser}}"
@@ -2583,7 +2584,7 @@ export GPU_DEST=/usr/local/nvidia
 NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
 NVIDIA_CONTAINER_RUNTIME_VERSION="3.6.0"
-export NVIDIA_DRIVER_IMAGE_SHA="sha-e8873b"
+export NVIDIA_DRIVER_IMAGE_SHA="${GPU_IMAGE_SHA:=}"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu"
 export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
@@ -7736,12 +7737,18 @@ $global:EnableHostsConfigAgent = [System.Convert]::ToBoolean("{{ EnableHostsConf
 # These scripts are used by cse
 $global:CSEScriptsPackageUrl = "{{GetVariable "windowsCSEScriptsPackageURL" }}";
 
+# The windows nvidia gpu driver related url is used by windows cse
+$global:GpuDriverURL = "{{GetVariable "windowsGpuDriverURL" }}";
+
 # PauseImage
 $global:WindowsPauseImageURL = "{{GetVariable "windowsPauseImageURL" }}";
 $global:AlwaysPullWindowsPauseImage = [System.Convert]::ToBoolean("{{GetVariable "alwaysPullWindowsPauseImage" }}");
 
 # Calico
 $global:WindowsCalicoPackageURL = "{{GetVariable "windowsCalicoPackageURL" }}";
+
+## GPU install
+$global:ConfigGPUDriverIfNeeded = [System.Convert]::ToBoolean("{{GetVariable "configGPUDriverIfNeeded" }}");
 
 # GMSA
 $global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
@@ -7766,6 +7773,8 @@ $global:LogGeneratorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetLogGene
 
 $global:EnableIncreaseDynamicPortRange = $false
 
+$global:RebootNeeded = $false
+
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
@@ -7788,7 +7797,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.34.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.35.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -7813,6 +7822,7 @@ try
     . c:\AzureData\windows\containerdfunc.ps1
     . c:\AzureData\windows\kubeletfunc.ps1
     . c:\AzureData\windows\kubernetesfunc.ps1
+    . c:\AzureData\windows\nvidiagpudriverfunc.ps1
 
     # Install OpenSSH if SSH enabled
     $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
@@ -8021,6 +8031,8 @@ try
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
     }
 
+    Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
+
     if (Test-Path $CacheDir)
     {
         Write-Log "Removing aks-engine bits cache directory"
@@ -8051,6 +8063,10 @@ try
     }
     $timer.Stop()
     Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
+
+    if ($global:RebootNeeded -eq $true) {
+        Postpone-RestartComputer
+    }
 }
 catch
 {
@@ -8220,6 +8236,9 @@ $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it
 $global:StableContainerdPackage = "v1.6.21-azure.1/binaries/containerd-v1.6.21-azure.1-windows-amd64.tar.gz"
 # The latest containerd version
 $global:LatestContainerdPackage = "v1.7.1-azure.1/binaries/containerd-v1.7.1-azure.1-windows-amd64.tar.gz"
+# The latest containerd version that contains stable ABI
+$global:LatestContainerdPackagefor23H2 = "v1.7.9-azure.1/binaries/containerd-v1.7.9-azure.1-windows-amd64.tar.gz"
+
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }
@@ -8413,8 +8432,12 @@ function Assert-FileExists {
     }
 }
 
+function Get-WindowsBuildNumber {
+    return (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuild
+}
+
 function Get-WindowsVersion {
-    $buildNumber = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuild
+    $buildNumber = Get-WindowsBuildNumber
     switch ($buildNumber) {
         "17763" { return "1809" }
         "20348" { return "ltsc2022" }
@@ -8450,8 +8473,14 @@ function Install-Containerd-Based-On-Kubernetes-Version {
     Write-Log "ContainerdURL is $ContainerdUrl"
     $containerdPackage=$global:StableContainerdPackage
     if (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
-      $containerdPackage=$global:LatestContainerdPackage
-      Write-Log "Kubernetes version $KubernetesVersion is greater than or equal to $global:MinimalKubernetesVersionWithLatestContainerd so the latest containerd version $containerdPackage is used"
+      $buildNumber = Get-WindowsBuildNumber
+      if ($buildNumber -eq "25398") {
+        $containerdPackage=$global:LatestContainerdPackagefor23H2
+        Write-Log "Use latest containerd version $containerdPackage which contains stable ABI for 23H2"
+      } else {
+        $containerdPackage=$global:LatestContainerdPackage
+        Write-Log "Kubernetes version $KubernetesVersion is greater than or equal to $global:MinimalKubernetesVersionWithLatestContainerd so the latest containerd version $containerdPackage is used"
+      }
     } else {
       Write-Log "Kubernetes version $KubernetesVersion is less than $global:MinimalKubernetesVersionWithLatestContainerd so the stable containerd version $containerdPackage is used"
     }

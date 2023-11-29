@@ -506,6 +506,7 @@ type WindowsProfile struct {
 	//nolint:revive, stylecheck // keep field names the same as RP
 	WindowsGmsaPackageUrl          string  `json:"windowsGmsaPackageUrl,omitempty"`
 	CseScriptsPackageURL           string  `json:"cseScriptsPackageURL,omitempty"`
+	GpuDriverURL                   string  `json:"gpuDriverUrl,omitempty"`
 	HnsRemediatorIntervalInMinutes *uint32 `json:"hnsRemediatorIntervalInMinutes,omitempty"`
 	LogGeneratorIntervalInMinutes  *uint32 `json:"logGeneratorIntervalInMinutes,omitempty"`
 }
