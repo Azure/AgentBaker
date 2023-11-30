@@ -17,15 +17,15 @@ func ubuntu2204gpuNoDriver() *Scenario {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
-				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.ConfigGPUDriverIfNeeded = false
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Tags = map[string]*string{
-					// deliberately case mismatched to agentbaker logic to check case insensitivity
-					"SkipGPUDriverInstall": to.Ptr("true"),
-				}
+				// vmss.Tags = map[string]*string{
+				// 	// deliberately case mismatched to agentbaker logic to check case insensitivity
+				// 	"SkipGPUDriverInstall": to.Ptr("true"),
+				// }
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 				vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
 					ID: to.Ptr(DefaultImageVersionIDs["ubuntu2204"]),
