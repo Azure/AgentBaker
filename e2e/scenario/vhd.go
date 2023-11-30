@@ -31,6 +31,9 @@ var (
 	//go:embed base_vhd_catalog.json
 	embeddedBaseVHDCatalog string
 
+	// BaseVHDCatalog represents the base VHD catalog that every E2E suite will start off of.
+	// It contains the set of VHDs used by AgentBaker E2Es, along with the specific versions and artifact name for each.
+	// When a VHD build ID is specified, this catalog's entries will be overwritten respectively for each downloaded VHD publishing info.
 	BaseVHDCatalog = mustGetVHDCatalogFromEmbeddedJSON(embeddedBaseVHDCatalog)
 )
 
@@ -40,19 +43,19 @@ func getVHDsFromBuild(ctx context.Context, suiteConfig *suite.Config, tmpl *Temp
 		return fmt.Errorf("unable to construct new ADO artifact downloader: %w", err)
 	}
 
-	artifacts := make(map[string]bool)
+	artifactNames := make(map[string]bool)
 	for _, scenario := range scenarios {
-		artifact := scenario.VHDSelector().ArtifactName
-		if !artifacts[artifact] {
-			artifacts[artifact] = true
-			log.Printf("will download publishing info artifact for: %q", artifact)
+		artifactName := scenario.VHDSelector().ArtifactName
+		if !artifactNames[artifactName] {
+			artifactNames[artifactName] = true
+			log.Printf("will download publishing info artifact for: %q", artifactName)
 		}
 	}
 
 	err = downloader.DownloadVHDBuildPublishingInfo(ctx, artifact.PublishingInfoDownloadOpts{
-		BuildID:   suiteConfig.VHDBuildID,
-		TargetDir: artifact.DefaultPublishingInfoDir,
-		Artifacts: artifacts,
+		BuildID:       suiteConfig.VHDBuildID,
+		TargetDir:     artifact.DefaultPublishingInfoDir,
+		ArtifactNames: artifactNames,
 	})
 	defer os.RemoveAll(artifact.DefaultPublishingInfoDir)
 	if err != nil {
@@ -66,7 +69,8 @@ func getVHDsFromBuild(ctx context.Context, suiteConfig *suite.Config, tmpl *Temp
 	return nil
 }
 
-// 2204gen2containerd, v2gen2, azurelinuxv2gen2arm64, etc.
+// getVHDNameFromPublishingInfo will resolve the name of the VHD from the specified publishing info.
+// Resolved names will take the form of: 2204gen2containerd, v2gen2, azurelinuxv2gen2arm64, etc.
 func getVHDNameFromPublishingInfo(info artifact.VHDPublishingInfo) string {
 	vhdName := strings.ToLower(info.SKUName)
 	if info.OfferName == offerNameAzureLinux {
@@ -90,6 +94,8 @@ func mustGetVHDCatalogFromEmbeddedJSON(rawJSON string) VHDCatalog {
 	return catalog
 }
 
+// VHDResourceID represents a resource ID pointing to a VHD in Azure. This could be theoretically
+// be the resource ID of a managed image or SIG image version, though for now this will always be a SIG image version.
 type VHDResourceID string
 
 func (id VHDResourceID) Short() string {
@@ -101,11 +107,18 @@ func (id VHDResourceID) Short() string {
 	return str
 }
 
+// VHD represents a VHD used to run AgentBaker E2E scenarios
 type VHD struct {
-	ArtifactName string        `json:"artifactName,omitempty"`
-	ResourceID   VHDResourceID `json:"resourceId,omitempty"`
+	// ArtifactName is the name of the VHD's assocaited artifact as found in the published build aritfacts from VHD builds.
+	// This is used to template the name of the publishing info artifacts when downloading from ADO - e.g. "publishing-info-<ArtifactName>".
+	ArtifactName string `json:"artifactName,omitempty"`
+	// ResourceID is the resource ID pointing to the underlying VHD in Azure. Based on the current setup, this will always be the resource ID
+	// of an image version in a shared image gallery.
+	ResourceID VHDResourceID `json:"resourceId,omitempty"`
 }
 
+// VHDCatalog is the "catalog" used by the scenario template to offer VHD selections to each individual E2E scenario.
+// Each scenario should be configured to choose a VHD from this catalog.
 type VHDCatalog struct {
 	Ubuntu1804   Ubuntu1804   `json:"ubuntu1804,omitempty"`
 	Ubuntu2204   Ubuntu2204   `json:"ubuntu2204,omitempty"`
@@ -160,6 +173,8 @@ func (c *VHDCatalog) CBLMarinerV2Gen2() VHD {
 	return c.CBLMarinerV2.Gen2
 }
 
+// addEntryFromPublishingInfo will add an entry to the catalog based on the specified publishing info.
+// Specifically, it will overwrite resource ID of the catalog entry associated with the VHD represented by the publishing info.
 func (c *VHDCatalog) addEntryFromPublishingInfo(info artifact.VHDPublishingInfo) {
 	if resourceID := info.CapturedImageVersionResourceID; resourceID != "" {
 		id := VHDResourceID(resourceID)
@@ -182,6 +197,8 @@ func (c *VHDCatalog) addEntryFromPublishingInfo(info artifact.VHDPublishingInfo)
 	}
 }
 
+// addEntriesFromPublishingInfoDir will read all the publishing-info-*.json files from the specified directory
+// decode them, and call addEntryFromPublishingInfo respectively.
 func (c *VHDCatalog) addEntriesFromPublishingInfoDir(dirName string) error {
 	absPath, err := filepath.Abs(dirName)
 	if err != nil {

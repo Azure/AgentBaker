@@ -19,6 +19,7 @@ import (
 	"go.uber.org/multierr"
 )
 
+// NewDownloader constructs a new ADO artifact downloader using the PAT within the specified suite config.
 func NewDownloader(ctx context.Context, suiteConfig *suite.Config) (*Downloader, error) {
 	conn := ado.NewPatConnection(azureADOOrganizationURL, suiteConfig.PAT)
 
@@ -33,6 +34,8 @@ func NewDownloader(ctx context.Context, suiteConfig *suite.Config) (*Downloader,
 	}, nil
 }
 
+// DownloadVHDBuildPublishingInfo will download a set of specified VHD publishing info artifacts from a particular VHD build
+// and place them in the target directory for further consumption.
 func (d *Downloader) DownloadVHDBuildPublishingInfo(ctx context.Context, opts PublishingInfoDownloadOpts) error {
 	if err := os.MkdirAll(opts.TargetDir, os.ModePerm); err != nil {
 		return fmt.Errorf("unable to create publishing info dir %s: %w", opts.TargetDir, err)
@@ -125,11 +128,14 @@ func (d *Downloader) downloadPublishingInfo(ctx context.Context, tempDir, artifa
 	}
 }
 
+// getVHDPublishingInfoArtifactNames resolves the set of artifact names which will be downloaded from ADO.
+// If opts specifies at least one artifact name, only those will be downloaded. Otherwise, all publishing info artifacts
+// from the specified build will be downloaded.
 func (d *Downloader) getVHDPublishingInfoArtifactNames(ctx context.Context, opts PublishingInfoDownloadOpts) ([]string, error) {
 	var artifactNames []string
 
-	if len(opts.Artifacts) > 0 {
-		for name := range opts.Artifacts {
+	if len(opts.ArtifactNames) > 0 {
+		for name := range opts.ArtifactNames {
 			artifactNames = append(artifactNames, fmt.Sprintf("publishing-info-%s", name))
 		}
 		return artifactNames, nil
