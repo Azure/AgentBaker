@@ -1,8 +1,8 @@
-Starting build on  Mon Nov 13 09:07:37 UTC 2023
+Starting build on  Tue Nov 7 21:05:33 UTC 2023
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - containerd-wasm-shims v0.3.0 v0.5.1 v0.8.0
   - [installed] containerd v1.7.5-1
-  - crictl version 1.28.0
+  - crictl version 1.25.0
   - runc version 1.1.9-1
   - bpftrace v0.14.0
   - nvidia-driver=-sha-e8873b
@@ -20,7 +20,6 @@ containerd images pre-pulled:
   - mcr.microsoft.com/containernetworking/azure-cns:v1.5.11
   - mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.4.1
   - mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.11
-  - mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.15
   - mcr.microsoft.com/containernetworking/azure-npm:v1.4.45.3
   - mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:v0.0.30
   - mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:v0.0.33-hotfix.20221110
@@ -69,12 +68,14 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.11.0
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.9.0
-  - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.13.4
   - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.13.3
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.2.2
+  - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.11.1
   - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.2.1
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.2.2
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.1.0
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.0.1
   - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.2.1
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.1.0
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.0.1
   - mcr.microsoft.com/aks/aks-node-ca-watcher:master.221011.1
   - mcr.microsoft.com/oss/kubernetes/windows-gmsa-webhook:v0.7.1
   - Azure CNI version 1.5.11
@@ -104,6 +105,7 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.1
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.3
 kubelet/kubectl downloaded:
+-rwxr-xr-x 1 root root  49040644 Aug 26  2022 /usr/local/bin/crictl
 -rwxr-xr-x 1 root root 100728832 Jun 12 19:37 /usr/local/bin/kubelet-1.27.1
 -rwxr-xr-x 1 root root  47054848 Jun 12 19:37 /usr/local/bin/kubectl-1.27.1
 -rwxr-xr-x 1 root root 116765240 Jun 12 19:43 /usr/local/bin/kubelet-1.26.3
@@ -120,7 +122,6 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  43581440 Jun 19 17:04 /usr/local/bin/kubectl-1.25.11
 -rwxr-xr-x 1 root root 117384832 Jun 19 17:05 /usr/local/bin/kubelet-1.26.6
 -rwxr-xr-x 1 root root  46465024 Jun 19 17:05 /usr/local/bin/kubectl-1.26.6
--rwxr-xr-x 1 root root  52720031 Aug 14 07:10 /usr/local/bin/crictl
 -rwxr-xr-x 1 root root 105185280 Aug 16 01:05 /usr/local/bin/kubelet-1.28.0
 -rwxr-xr-x 1 root root  47710208 Aug 16 01:05 /usr/local/bin/kubectl-1.28.0
 -rwxr-xr-x 1 root root 105185280 Aug 29 16:06 /usr/local/bin/kubelet-1.28.1
@@ -133,15 +134,15 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  47710208 Oct 23 09:08 /usr/local/bin/kubectl-1.28.3
 -rwxr-xr-x 1 root root 116883648 Oct 23 17:05 /usr/local/bin/kubelet-1.26.10
 -rwxr-xr-x 1 root root  46530560 Oct 23 17:05 /usr/local/bin/kubectl-1.26.10
--r-xr--r-- 1 root root      2462 Nov 13 09:07 /usr/local/bin/health-monitor.sh
--rwxr-xr-x 1 root root       705 Nov 13 09:07 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root  33595200 Nov 13 09:15 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root  44976688 Nov 13 09:15 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root  43353240 Nov 13 09:18 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root  49910128 Nov 13 09:18 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root root  51531936 Nov 13 09:20 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
--rwxr-xr-x 1 root root  57806112 Nov 13 09:20 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root root  38155688 Nov 13 09:20 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
+-r-xr--r-- 1 root root      2462 Nov  7 21:05 /usr/local/bin/health-monitor.sh
+-rwxr-xr-x 1 root root       705 Nov  7 21:05 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  33595200 Nov  7 21:14 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root  44976688 Nov  7 21:14 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root  43353240 Nov  7 21:16 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root  49910128 Nov  7 21:16 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root  51531936 Nov  7 21:19 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root  57806112 Nov  7 21:19 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root  38155688 Nov  7 21:19 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
 === Installed Packages Begin
 Listing...
 adduser/jammy,now 3.118ubuntu5 all [installed,automatic]
@@ -297,7 +298,7 @@ keyboard-configuration/jammy,now 1.205ubuntu3 all [installed,automatic]
 keyutils/jammy,now 1.6.1-2ubuntu3 arm64 [installed]
 klibc-utils/jammy,now 2.0.10-4 arm64 [installed,automatic]
 kmod/jammy,now 29-1ubuntu1 arm64 [installed]
-kpartx/jammy-updates,now 0.8.8-1ubuntu1.22.04.3 arm64 [installed,automatic]
+kpartx/jammy-security,now 0.8.8-1ubuntu1.22.04.1 arm64 [installed,upgradable to: 0.8.8-1ubuntu1.22.04.3]
 landscape-common/jammy,now 19.12-0ubuntu13 arm64 [installed]
 less/jammy-updates,jammy-security,now 590-1ubuntu0.22.04.1 arm64 [installed,automatic]
 libacl1/jammy,now 2.3.1-1 arm64 [installed,automatic]
@@ -664,7 +665,7 @@ motd-news-config/jammy-updates,now 12ubuntu4.4 all [installed]
 mount/jammy,now 2.37.2-4ubuntu3 arm64 [installed]
 mtd-utils/jammy,now 1:2.1.4-1 arm64 [installed,automatic]
 mtr-tiny/jammy,now 0.95-1 arm64 [installed,automatic]
-multipath-tools/jammy-updates,now 0.8.8-1ubuntu1.22.04.3 arm64 [installed]
+multipath-tools/jammy-security,now 0.8.8-1ubuntu1.22.04.1 arm64 [installed,upgradable to: 0.8.8-1ubuntu1.22.04.3]
 nano/jammy,now 6.2-1 arm64 [installed,automatic]
 ncurses-base/jammy-updates,jammy-security,now 6.3-2ubuntu0.1 all [installed]
 ncurses-bin/jammy-updates,jammy-security,now 6.3-2ubuntu0.1 arm64 [installed]
@@ -895,10 +896,10 @@ UBUNTU_CODENAME=jammy
 === os-release End
 Using kernel:
 Linux version 5.15.0-1051-azure (buildd@bos01-arm64-028) (gcc (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #59-Ubuntu SMP Wed Oct 11 18:48:45 UTC 2023
-Install completed successfully on  Mon Nov 13 09:40:51 UTC 2023
-VSTS Build NUMBER: 20231113.1_master_82833258
-VSTS Build ID: 82833258
-Commit: 8a1e8237cbdc6e4673bf35da24c117f3ccc5e348
+Install completed successfully on  Tue Nov 7 21:41:25 UTC 2023
+VSTS Build NUMBER: 20231107.1_master_82561538
+VSTS Build ID: 82561538
+Commit: 4bf4b12ed5d2c575ba598f04ae7495a9220eed27
 Ubuntu version: 22.04
 Hyperv generation: V2
 Feature flags: None
