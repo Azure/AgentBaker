@@ -1,6 +1,6 @@
 {
   "sku": "2204gen2containerd",
-  "imageVersion": "202311.13.0",
+  "imageVersion": "202311.07.0",
   "imageBom": [
     {
       "id": "sha256:03e6a745f125aa9213a0f33131b1ee5b4958746cfd87b9ce5109ef7224d02516",
@@ -66,12 +66,21 @@
       ]
     },
     {
-      "id": "sha256:17bc0dcb03d2f46727f1eb97aba6115e20ce200dfffa98b15644bc3dd1113a6e",
+      "id": "sha256:0bb39340f1d49c37db54ce81258a29e165c8978d93ef1805787800a8f35d4e92",
       "repoTags": [
-        "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.2.2"
+        "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.1.0"
       ],
       "repoDigests": [
-        "sha256:2f6055bbff93d3837fe8c269d47000bd87cb3bc54002df027a6516c7df0b700d"
+        "sha256:8a92f21baf895d04e0f8576e76d2269c8a84e7b814f930596505c9031e7a220f"
+      ]
+    },
+    {
+      "id": "sha256:19282dbd5c83476b0222a1f7fe0a9b05996c2008f4683e01f66a1e5117440a61",
+      "repoTags": [
+        "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.1.0"
+      ],
+      "repoDigests": [
+        "sha256:c6cfe82826f2ed3cd4d21ccbe5fd99e6fa30458e5cf8e8b49c55c51931f9c5ba"
       ]
     },
     {
@@ -108,15 +117,6 @@
       ],
       "repoDigests": [
         "sha256:fa7aa2deeee92a253c9ebd18c5832fc55c7a1aff33f2ec2320ce80eb2205e560"
-      ]
-    },
-    {
-      "id": "sha256:353de841cfca88f5fa4f805e26c2ba506f04392f79120c35e987f3fbaf938b34",
-      "repoTags": [
-        "mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.15"
-      ],
-      "repoDigests": [
-        "sha256:9d893692a4622cb01c8e4421ecb57f30540a806efdf9224899e7ba1ddfc08628"
       ]
     },
     {
@@ -189,15 +189,6 @@
       ],
       "repoDigests": [
         "sha256:44c342f04bc1c875474c5bf10bcb9453a051c804c0205f1d7bf0a617abf6107a"
-      ]
-    },
-    {
-      "id": "sha256:4c69d46eec845230020f8facdefc06a73cec737a45b8b25eca0e67344b7c5923",
-      "repoTags": [
-        "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.13.4"
-      ],
-      "repoDigests": [
-        "sha256:28da239f57b098ac6439fad82e9bb74a5f2086de37462927cf89b0fcc1e3eef2"
       ]
     },
     {
@@ -318,6 +309,15 @@
       ]
     },
     {
+      "id": "sha256:6bad9738cb8b6625d51cb8c5e93db672ec4d5442d86793f338adf28804ce8b59",
+      "repoTags": [
+        "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.0.1"
+      ],
+      "repoDigests": [
+        "sha256:77b0b6fa4e040b00f8b68833cb95f11e4aefb7815c1f473d7b484053bc0ec555"
+      ]
+    },
+    {
       "id": "sha256:6c74a0ce8cade910318dd84184dda6171685014a93cd9a207800190e5bfdd938",
       "repoTags": [
         "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.3"
@@ -360,6 +360,15 @@
       ],
       "repoDigests": [
         "sha256:2db6e814d91ae0b952d7e9022b5578dea47275d56f91cffde1e15fc483a8261c"
+      ]
+    },
+    {
+      "id": "sha256:7825719495768a27f4a9e4d7143ac4025805c9b9d7343c492d90ec236d1282b0",
+      "repoTags": [
+        "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.0.1"
+      ],
+      "repoDigests": [
+        "sha256:fe9baa221a5c6743ecceb5cdf0c59840a0bf6cf65c4fe7030af361eff9542d16"
       ]
     },
     {
@@ -534,6 +543,15 @@
       ]
     },
     {
+      "id": "sha256:a0a819d519f697fba86b2c4a8f9a3b162157d5ecd9c3cff53a75e32371e7d271",
+      "repoTags": [
+        "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.11.1"
+      ],
+      "repoDigests": [
+        "sha256:8752217763c0b9a8a2cfc36e54f6f10482b71875cbe58074c5221a45bfc75397"
+      ]
+    },
+    {
       "id": "sha256:a0f379a1ca7c678fabf0bceac8b200dd6d6c605d042b74533ddf164035b869e4",
       "repoTags": [
         "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.8.0-main-10-20-2023-182f67d4-cfg"
@@ -604,15 +622,6 @@
       ],
       "repoDigests": [
         "sha256:bb45ca67e48be7fbe844dc3b73c49cdb086d13d40dc7fc368db1ae0fdea60f2e"
-      ]
-    },
-    {
-      "id": "sha256:ba40a99f5a82d513a5b4dbc34831c260753b6628948d065d017ad2019857c4e4",
-      "repoTags": [
-        "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.2.2"
-      ],
-      "repoDigests": [
-        "sha256:92abf88782857004a1c9e4ee640758c8c3f788a5e98cf148d382c174431689c6"
       ]
     },
     {
