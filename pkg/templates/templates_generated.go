@@ -2059,7 +2059,7 @@ EOF
   fi
 
   mkdir -p /etc/containerd
-  if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" == "true" ]]; then
+  if [[ "${GPU_NODE}" = true ]] && [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" == "false" ]]; then
     echo "Generating non-GPU containerd config for GPU node due to VM tags"
     echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   else
@@ -2441,11 +2441,9 @@ ensureGPUDrivers() {
         return
     fi
 
-    if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
-    else
-        logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
-    fi
+    logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
+    logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
+    
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
@@ -2821,16 +2819,6 @@ logs_to_events() {
     fi
 }
 
-should_skip_nvidia_drivers() {
-    set -x
-    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
-    ret=$?
-    if [ "$ret" != "0" ]; then
-      return $ret
-    fi
-    should_skip=$(echo "$body" | jq -e '.compute.tagsList | map(select(.name | test("SkipGpuDriverInstall"; "i")))[0].value // "false" | test("true"; "i")')
-    echo "$should_skip" # true or false
-}
 #HELPERSEOF`)
 
 func linuxCloudInitArtifactsCse_helpersShBytes() ([]byte, error) {
@@ -3379,15 +3367,7 @@ if [[ ${ID} != "mariner" ]]; then
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
 fi
 
-export -f should_skip_nvidia_drivers
-skip_nvidia_driver_install=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_nvidia_drivers)
-ret=$?
-if [[ "$ret" != "0" ]]; then
-    echo "Failed to determine if nvidia driver install should be skipped"
-    exit $ERR_NVIDIA_DRIVER_INSTALL
-fi
-
-if [[ "${GPU_NODE}" != "true" ]] || [[ "${skip_nvidia_driver_install}" == "true" ]]; then
+if [[ "${GPU_NODE}" != "true" ]] || [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" == "false" ]]; then
     logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
 fi
 
@@ -3435,7 +3415,7 @@ fi
 REBOOTREQUIRED=false
 
 echo $(date),$(hostname), "Start configuring GPU drivers"
-if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" != "true" ]]; then
+if [[ "${GPU_NODE}" = true ]] && [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" == "true" ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
         if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then

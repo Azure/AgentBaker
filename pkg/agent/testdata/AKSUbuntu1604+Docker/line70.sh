@@ -316,7 +316,7 @@ EOF
   fi
 
   mkdir -p /etc/containerd
-  if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" == "true" ]]; then
+  if [[ "${GPU_NODE}" = true ]] && [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" == "false" ]]; then
     echo "Generating non-GPU containerd config for GPU node due to VM tags"
     echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   else
@@ -698,11 +698,9 @@ ensureGPUDrivers() {
         return
     fi
 
-    if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
-    else
-        logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
-    fi
+    logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
+    logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
+    
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
