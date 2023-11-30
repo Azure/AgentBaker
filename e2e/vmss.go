@@ -54,7 +54,14 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName st
 }
 
 func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
-	model := getBaseVMSSModel(vmssName, opts.suiteConfig.location, opts.suiteConfig.subscription, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, opts.clusterConfig.subnetId, string(publicKeyBytes), customData, cseCmd)
+	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)
+
+	if opts.suiteConfig.buildNumber != "" {
+		if model.Tags == nil {
+			model.Tags = map[string]*string{}
+		}
+		model.Tags[buildNumberTagKey] = &opts.suiteConfig.buildNumber
+	}
 
 	isAzureCNI, err := opts.clusterConfig.isAzureCNI()
 	if err != nil {
@@ -198,9 +205,9 @@ func getVmssName(r *mrand.Rand) string {
 	return fmt.Sprintf(vmssNameTemplate, randomLowercaseString(r, 4))
 }
 
-func getBaseVMSSModel(name, location, subscription, mcResourceGroupName, subnetID, sshPublicKey, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
+func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
 	return armcompute.VirtualMachineScaleSet{
-		Location: to.Ptr(location),
+		Location: to.Ptr(opts.suiteConfig.location),
 		SKU: &armcompute.SKU{
 			Name:     to.Ptr("Standard_DS2_v2"),
 			Capacity: to.Ptr[int64](1),
@@ -270,14 +277,14 @@ func getBaseVMSSModel(name, location, subscription, mcResourceGroupName, subnetI
 													ID: to.Ptr(
 														fmt.Sprintf(
 															loadBalancerBackendAddressPoolIDTemplate,
-															subscription,
-															mcResourceGroupName,
+															opts.suiteConfig.subscription,
+															*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
 														),
 													),
 												},
 											},
 											Subnet: &armcompute.APIEntityReference{
-												ID: to.Ptr(subnetID),
+												ID: to.Ptr(opts.clusterConfig.subnetId),
 											},
 										},
 									},

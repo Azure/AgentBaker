@@ -31,6 +31,9 @@ jobs:
   - bash: |
       export PATH="/usr/local/go/bin:$PATH"
       go version
+
+      export BUILD_NUMBER=$(Build.BuildNumber)
+
       cd e2e
       go test -timeout 45m -v -run Test_All ./
     displayName: Run AgentBaker E2E

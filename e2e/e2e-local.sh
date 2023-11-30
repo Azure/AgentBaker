@@ -2,6 +2,7 @@
 
 set -euxo pipefail
 
+: "${BUILD_NUMBER:=local}"
 : "${SUBSCRIPTION_ID:=8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8}" #Azure Container Service - Test Subscription
 : "${LOCATION:=eastus}"
 : "${AZURE_TENANT_ID:=72f988bf-86f1-41af-91ab-2d7cd011db47}"
