@@ -414,7 +414,7 @@ function Test-RegistryAdded {
             exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts)
-        if ($result.NamespaceExcludedUdpPorts -ne 1) {
+        if ($result.NamespaceExcludedUdpPorts -ne "65330") {
             Write-ErrorWithTimestamp "The registry for NamespaceExcludedUdpPorts is not added"
             exit 1
         }
