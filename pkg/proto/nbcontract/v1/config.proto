@@ -5,7 +5,6 @@ package nbcontract.v1;
 import "pkg/proto/nbcontract/v1/enum.proto";
 import "pkg/proto/nbcontract/v1/httpproxyconfig.proto";
 import "pkg/proto/nbcontract/v1/gpuconfig.proto";
-import "pkg/proto/nbcontract/v1/nodepoolprofile.proto";
 
 // illustrative division only
 message Configuration {
@@ -89,7 +88,6 @@ message Configuration {
   // Here begins the final contract
   nbcontract.v1.HTTPProxyConfig HTTPProxyConfig = 61;
   nbcontract.v1.GpuConfig gpu_config = 62;
-  nbcontract.v1.NodePoolProfile node_pool_profile = 63;
 }
 
 message KubeletConfiguration {
