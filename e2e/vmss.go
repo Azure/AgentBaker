@@ -12,7 +12,6 @@ import (
 	"log"
 	mrand "math/rand"
 	"testing"
-	"time"
 
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
@@ -73,11 +72,11 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 		return nil, fmt.Errorf("unable to prepare model for VMSS %q: %w", vmssName, err)
 	}
 
-	vmssCtx, cancel := context.WithDeadline(ctx, time.Now().Add(createVMSSPollingTimeout))
+	createVMSSCtx, cancel := context.WithTimeout(ctx, createVMSSPollingTimeout)
 	defer cancel()
 
 	pollerResp, err := opts.cloud.vmssClient.BeginCreateOrUpdate(
-		vmssCtx,
+		createVMSSCtx,
 		*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
 		vmssName,
 		model,
@@ -87,7 +86,7 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 		return nil, err
 	}
 
-	vmssResp, err := pollerResp.PollUntilDone(vmssCtx, &runtime.PollUntilDoneOptions{
+	vmssResp, err := pollerResp.PollUntilDone(createVMSSCtx, &runtime.PollUntilDoneOptions{
 		Frequency: createVMSSPollingInterval,
 	})
 	if err != nil {
