@@ -84,7 +84,7 @@ func Test_All(t *testing.T) {
 		t.Run(e2eScenario.Name, func(t *testing.T) {
 			t.Parallel()
 
-			loggingDir, err := createScenarioLoggingDir(e2eScenario.Name)
+			loggingDir, err := createVMLogsDir(e2eScenario.Name)
 			if err != nil {
 				t.Fatal(err)
 			}
