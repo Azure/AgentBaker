@@ -1,11 +1,18 @@
-name: $(Date:yyyyMMdd)$(Rev:.r)_e2e
-
+name: $(Date:yyyyMMdd)$(Rev:.r)
 pr:
   branches:
     include:
-    - main
-    - 'official/*'
-
+    - master
+    - official/*
+  paths:
+    include:
+    - .pipelines/e2e.yaml
+    - e2e
+    - parts/linux
+    - pkg/agent
+    exclude:
+    - e2e/windows
+    
 variables:
 - group: ab-e2e
 
