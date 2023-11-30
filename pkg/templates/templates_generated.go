@@ -6595,7 +6595,7 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
-    pkg_list=(apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
+    pkg_list=(apt-transport-https ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common open-iscsi pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat dnsutils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
 
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
@@ -6645,7 +6645,7 @@ updateAptWithMicrosoftPkg() {
         echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/${UBUNTU_RELEASE}/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list
     }
     fi
-    
+
     retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
@@ -6659,7 +6659,7 @@ cleanUpGPUDrivers() {
 installStandaloneContainerd() {
     UBUNTU_RELEASE=$(lsb_release -r -s)
     UBUNTU_CODENAME=$(lsb_release -c -s)
-    CONTAINERD_VERSION=$1    
+    CONTAINERD_VERSION=$1
     # we always default to the .1 patch versons
     CONTAINERD_PATCH_VERSION="${2:-1}"
 
@@ -6738,7 +6738,7 @@ downloadContainerdFromVersion() {
     # Adding updateAptWithMicrosoftPkg since AB e2e uses an older image version with uncached containerd 1.6 so it needs to download from testing repo.
     # And RP no image pull e2e has apt update restrictions that prevent calls to packages.microsoft.com in CSE
     # This won't be called for new VHDs as they have containerd 1.6 cached
-    updateAptWithMicrosoftPkg 
+    updateAptWithMicrosoftPkg
     apt_get_download 20 30 moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
@@ -6811,7 +6811,7 @@ ensureRunc() {
         # after upgrading to 1.1.9, CURRENT_VERSION will also include the patch version (such as 1.1.9-1), so we trim it off
         # since we only care about the major and minor versions when determining if we need to install it
         CURRENT_VERSION=${CURRENT_VERSION%-*} # removes the -1 patch version (or similar)
-        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar) 
+        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar)
     fi
 
     if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
