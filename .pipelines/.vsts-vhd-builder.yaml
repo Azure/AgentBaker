@@ -14,7 +14,7 @@ pr:
     - parts/linux/cloud-init/artifacts/cse_install.sh
     - parts/linux/cloud-init/artifacts/cse_helpers.json
     - parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh
-    - parts/linux/cloud-init/artifacts/ubuntu/cse_install_mariner.sh
+    - parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh
     - packer.mk
     exclude:
     - vhdbuilder/packer/*.ps1
