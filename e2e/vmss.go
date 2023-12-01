@@ -56,11 +56,11 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName st
 func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
 	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)
 
-	if opts.suiteConfig.buildNumber != "" {
+	if opts.suiteConfig.buildID != "" {
 		if model.Tags == nil {
 			model.Tags = map[string]*string{}
 		}
-		model.Tags[buildNumberTagKey] = &opts.suiteConfig.buildNumber
+		model.Tags[buildIDTagKey] = &opts.suiteConfig.buildID
 	}
 
 	isAzureCNI, err := opts.clusterConfig.isAzureCNI()
