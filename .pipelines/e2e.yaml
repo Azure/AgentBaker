@@ -1,11 +1,18 @@
-name: $(Date:yyyyMMdd)$(Rev:.r)_e2e
-
+name: $(Date:yyyyMMdd)$(Rev:.r)
 pr:
   branches:
     include:
-    - main
-    - 'official/*'
-
+    - master
+    - official/*
+  paths:
+    include:
+    - .pipelines/e2e.yaml
+    - e2e
+    - parts/linux
+    - pkg/agent
+    exclude:
+    - e2e/windows
+    
 variables:
 - group: ab-e2e
 
@@ -24,6 +31,9 @@ jobs:
   - bash: |
       export PATH="/usr/local/go/bin:$PATH"
       go version
+
+      export BUILD_ID=$(Build.BuildId)
+
       cd e2e
       go test -timeout 45m -v -run Test_All ./
     displayName: Run AgentBaker E2E
