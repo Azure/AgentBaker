@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	buildIDEnvironmentVarName            = "BUILD_NUMBER"
+	buildIDEnvironmentVarName            = "BUILD_ID"
 	subscriptionIdEnvironmentVarName     = "SUBSCRIPTION_ID"
 	locationEnvironmentVarName           = "LOCATION"
 	keepVMSSEnvironmentVarName           = "KEEP_VMSS"
