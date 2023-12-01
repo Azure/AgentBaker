@@ -190,10 +190,18 @@ collect-logs
 
 cat $SCENARIO_NAME-vmss.json
 
-VMSS_INSTANCE_NAME=$(az vmss list-instances \
-                    -n ${DEPLOYMENT_VMSS_NAME} \
-                    -g $E2E_MC_RESOURCE_GROUP_NAME \
-                    -ojson | \
+VMSS=$(az vmss list-instances \
+        -n ${DEPLOYMENT_VMSS_NAME} \
+        -g $E2E_MC_RESOURCE_GROUP_NAME \
+        -ojson)
+VMSS_IMAGE_REFERNCE_ID=$(echo $VMSS | \
+                    jq -r '.[].storageProfile.imageReference.id')
+VMSS_IMAGE_EXACT_VERSION=$(echo $VMSS | \
+                    jq -r '.[].storageProfile.imageReference.exactVersion')
+log "imageReference.id is $VMSS_IMAGE_REFERNCE_ID"
+log "imageReference.exactVersion is $VMSS_IMAGE_EXACT_VERSION"
+
+VMSS_INSTANCE_NAME=$(echo $VMSS | \
                     jq -r '.[].osProfile.computerName')
 export VMSS_INSTANCE_NAME
 

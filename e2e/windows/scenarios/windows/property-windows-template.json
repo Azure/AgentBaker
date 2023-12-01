@@ -26,8 +26,7 @@
           "storageProfile": "ManagedDisks",
           "distro": "${WINDOWS_DISTRO}",
           "customNodeLabels": {
-            "kubernetes.azure.com/mode": "user",
-            "kubernetes.azure.com/node-image-version": "${WINDOWS_NODE_IMAGE_VERSION}"
+            "kubernetes.azure.com/mode": "user"
           },
           "preProvisionExtension": null,
           "kubernetesConfig": {
@@ -72,8 +71,7 @@
     "storageProfile": "ManagedDisks",
     "distro": "${WINDOWS_DISTRO}",
     "customNodeLabels": {
-      "kubernetes.azure.com/mode": "user",
-      "kubernetes.azure.com/node-image-version": "${WINDOWS_NODE_IMAGE_VERSION}"
+      "kubernetes.azure.com/mode": "user"
     },
     "preProvisionExtension": null,
     "kubernetesConfig": {
