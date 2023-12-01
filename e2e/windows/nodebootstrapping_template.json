@@ -38,8 +38,7 @@
                     "storageProfile": "ManagedDisks",
                     "distro": "aks-ubuntu-containerd-18.04-gen2",
                     "customNodeLabels": {
-                        "kubernetes.azure.com/mode": "system",
-                        "kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19"
+                        "kubernetes.azure.com/mode": "system"
                     },
                     "preProvisionExtension": null,
                     "kubernetesConfig": {
@@ -117,8 +116,7 @@
         "storageProfile": "ManagedDisks",
         "distro": "aks-ubuntu-containerd-18.04-gen2",
         "customNodeLabels": {
-            "kubernetes.azure.com/mode": "system",
-            "kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19"
+            "kubernetes.azure.com/mode": "system"
         },
         "preProvisionExtension": null,
         "kubernetesConfig": {
