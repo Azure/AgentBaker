@@ -87,7 +87,7 @@ message Configuration {
 
   // Here begins the final contract
   nbcontract.v1.HTTPProxyConfig HTTPProxyConfig = 61;
-  nbcontract.v1.GpuConfig gpu_config = 62;
+  optional nbcontract.v1.GpuConfig gpu_config = 62;
 }
 
 message KubeletConfiguration {
