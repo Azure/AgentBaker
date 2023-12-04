@@ -117,7 +117,7 @@ downloadAzureCNI() {
 
 downloadCrictl() {
     CRICTL_VERSION=$1
-    CPU_ARCH=$(getCPUArch) #amd64 or arm64
+    CPU_ARCH=$(getCPUArch)
     mkdir -p $CRICTL_DOWNLOAD_DIR
     CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
     CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
@@ -125,7 +125,7 @@ downloadCrictl() {
 }
 
 installCrictl() {
-    CPU_ARCH=$(getCPUArch) #amd64 or arm64
+    CPU_ARCH=$(getCPUArch)
     currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
     if [[ "${currentVersion}" != "" ]]; then
         echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${KUBERNETES_VERSION%.*}.0"
@@ -149,7 +149,6 @@ downloadTeleportdPlugin() {
     DOWNLOAD_URL=$1
     TELEPORTD_VERSION=$2
     if [[ $(isARM64) == 1 ]]; then
-        # no arm64 teleport binaries according to owner
         return
     fi
 
@@ -167,7 +166,6 @@ downloadTeleportdPlugin() {
 
 installTeleportdPlugin() {
     if [[ $(isARM64) == 1 ]]; then
-        # no arm64 teleport binaries according to owner
         return
     fi
 
@@ -300,7 +298,6 @@ retagContainerImage() {
 }
 
 retagMCRImagesForChina() {
-    # retag all the mcr for mooncake
     if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
         # shellcheck disable=SC2016
         allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
