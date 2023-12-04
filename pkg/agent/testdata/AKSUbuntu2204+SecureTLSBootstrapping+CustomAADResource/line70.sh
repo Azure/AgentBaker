@@ -99,7 +99,6 @@ configureEtcEnvironment() {
         echo "DefaultEnvironment=\"no_proxy=${NO_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
 
-    # for kubelet to pick up the proxy
     mkdir -p "/etc/systemd/system/kubelet.service.d"
     tee "/etc/systemd/system/kubelet.service.d/10-httpproxy.conf" > /dev/null <<'EOF'
 [Service]

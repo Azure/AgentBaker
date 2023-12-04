@@ -191,13 +191,13 @@ setupCNIDirs() {
     chmod 755 $CNI_CONFIG_DIR
 }
 
+# For CNI/AzureCNI, we want to use the untar azurecni reference first. And if that doesn't exist on the vhd does the tgz?
+# And if tgz is already on the vhd then just untar into CNI_BIN_DIR
+# Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
 installCNI() {
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}    # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
 
-    # We want to use the untar cni reference first. And if that doesn't exist on the vhd does the tgz?
-    # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
-    # Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
     if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
     else
@@ -215,9 +215,6 @@ installAzureCNI() {
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}         # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
 
-    # We want to use the untar azurecni reference first. And if that doesn't exist on the vhd does the tgz?
-    # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
-    # Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
     if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
     else
@@ -383,8 +380,7 @@ cleanupRetaggedImages() {
         if [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
                 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-                    # always use ctr, even if crictl is installed.
-                    # crictl will remove *ALL* references to a given imageID (SHA), which removes too much.
+                    # crictl will remove *ALL* references to a given imageID (SHA), which removes too much, so always use ctr
                     removeContainerImage "ctr" ${image}
                 else
                     removeContainerImage "docker" ${image}
