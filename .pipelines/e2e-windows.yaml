@@ -69,7 +69,6 @@ stages:
       windowsOSSKU: Windows2019
       windowsVMSize: Standard_D2s_v3
       windowsDistro: aks-windows-2019-containerd
-      windowsNodeImageVersion: AKSWindows-2019-containerd-test-2023.02.07
       storageAccount: akswinstore2019
 
 - stage: test_2022_containerd
@@ -82,7 +81,6 @@ stages:
       windowsOSSKU: Windows2022
       windowsVMSize: Standard_D2_v2
       windowsDistro: aks-windows-2022-containerd
-      windowsNodeImageVersion: AKSWindows-2022-containerd-test-2023.02.07
       storageAccount: akswinstore2022
 
 - stage: test_2022_containerd_gen2
@@ -95,7 +93,6 @@ stages:
       windowsOSSKU: Windows2022
       windowsVMSize: Standard_DS2_v2
       windowsDistro: aks-windows-2022-containerd-gen2
-      windowsNodeImageVersion: AKSWindows-2022-containerd-gen2-test-2023.02.07
       storageAccount: akswinstore2022gen2
 
 - stage: test_2022_containerd_gen2_gpu_grid
@@ -108,7 +105,6 @@ stages:
       windowsOSSKU: Windows2022
       windowsVMSize: ${{ parameters.windowsGen2NvVmSize }}
       windowsDistro: aks-windows-2022-containerd-gen2
-      windowsNodeImageVersion: AKSWindows-2022-containerd-gen2-test-2023.02.07
       windowsGpuDriverSuffix: -grid
       storageAccount: akswinstore2022gen2grid
 
@@ -122,7 +118,6 @@ stages:
       windowsOSSKU: Windows2022
       windowsVMSize: ${{ parameters.windowsGen1NcVmSize }}
       windowsDistro: aks-windows-2022-containerd
-      windowsNodeImageVersion: AKSWindows-2022-containerd-test-2023.02.07
       windowsGpuDriverSuffix: -cuda
       storageAccount: akswinstore2022cuda
       
@@ -136,7 +131,6 @@ stages:
       windowsOSSKU: WindowsAnnual
       windowsVMSize: Standard_D2_v2
       windowsDistro: aks-windows-23H2
-      windowsNodeImageVersion: AKSWindows-23H2-test-2023.02.07
       storageAccount: akswinstore23H2
 
 - stage: test_23H2_gen2
@@ -149,5 +143,4 @@ stages:
       windowsOSSKU: WindowsAnnual
       windowsVMSize: Standard_DS2_v2
       windowsDistro: aks-windows-23H2-gen2
-      windowsNodeImageVersion: AKSWindows-23H2-gen2-test-2023.02.07
       storageAccount: akswinstore23H2gen2
