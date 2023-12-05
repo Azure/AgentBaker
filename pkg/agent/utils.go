@@ -177,6 +177,15 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	// translate the parameters.
+	lines := strings.Split(string(b), "\n")
+	contentToKeep := []string{}
+	for _, line := range lines {
+		if !strings.HasPrefix(line, "# ") {
+			contentToKeep = append(contentToKeep, line)
+		}
+	}
+	commentsRemoved := strings.Join(contentToKeep, "\n")
+	b = []byte(commentsRemoved)
 	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(getContainerServiceFuncMap(config))
 	_, err = templ.Parse(string(b))
 	if err != nil {

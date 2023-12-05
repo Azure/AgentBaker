@@ -3,10 +3,8 @@
 set -o nounset
 set -e
 
-# source apt_get_update
 source /opt/azure/containers/provision_source_distro.sh
 
-# Execute unattended-upgrade
 unattended_upgrade() {
   retries=10
   for i in $(seq 1 $retries); do
@@ -19,7 +17,6 @@ unattended_upgrade() {
   echo Executed unattended upgrade $i times
 }
 
-# Determinate is the given option present in the cfg file
 cfg_has_option() {
     file=$1
     option=$2
@@ -27,7 +24,6 @@ cfg_has_option() {
     [ -n "$line" ]
 }
 
-# Set an option in a cfg file
 cfg_set_option() {
     file=$1
     option=$2
@@ -45,7 +41,6 @@ source_list_path=/etc/apt/sources.list
 source_list_backup_path=/etc/apt/sources.list.backup
 cloud_cfg_path=/etc/cloud/cloud.cfg
 
-# At startup, we need to wait for kubelet to finish TLS bootstrapping to create the kubeconfig file.
 while [ ! -f /var/lib/kubelet/kubeconfig ]; do
     echo 'Waiting for TLS bootstrapping'
     sleep 3
@@ -57,7 +52,6 @@ if [ -z "${node_name}" ]; then
     exit 1
 fi
 
-# retrieve golden timestamp from node annotation
 golden_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-golden-timestamp']}")
 if [ -z "${golden_timestamp}" ]; then
     echo "golden timestamp is not set, skip live patching"
@@ -76,12 +70,8 @@ if [ -n "${current_timestamp}" ]; then
 fi
 
 old_source_list=$(cat ${source_list_path})
-# upgrade from base image to a timestamp
-# e.g. replace https://snapshot.ubuntu.com/ubuntu/ with https://snapshot.ubuntu.com/ubuntu/20230727T000000Z
 sed -i 's/http:\/\/azure.archive.ubuntu.com\/ubuntu\//https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
-# upgrade from one timestamp to another timestamp
 sed -i 's/https:\/\/snapshot.ubuntu.com\/ubuntu\/\([0-9]\{8\}T[0-9]\{6\}Z\)/https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
-# preserve the sources.list changes
 option=apt_preserve_sources_list
 option_value=true
 cfg_set_option ${cloud_cfg_path} ${option} ${option_value}
@@ -103,7 +93,6 @@ if ! unattended_upgrade; then
     exit 1
 fi
 
-# update current timestamp
 $KUBECTL annotate --overwrite node ${node_name} kubernetes.azure.com/live-patching-current-timestamp=${golden_timestamp}
 
 echo snapshot update completed successfully

@@ -1,5 +1,4 @@
 #!/bin/bash
-# Timeout waiting for a file
 ERR_FILE_WATCH_TIMEOUT=6 
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
@@ -9,7 +8,6 @@ fi
 
 aptmarkWALinuxAgent hold &
 
-# Setup logs for upload to host
 LOG_DIR=/var/log/azure/aks
 mkdir -p ${LOG_DIR}
 ln -s /var/log/azure/cluster-provision.log \
@@ -19,8 +17,6 @@ ln -s /var/log/azure/cluster-provision.log \
       /opt/azure/vhd-install.complete \
       ${LOG_DIR}/
 
-# Redact the necessary secrets from cloud-config.txt so we don't expose any sensitive information
-# when cloud-config.txt gets included within log bundles
 python3 /opt/azure/containers/provision_redact_cloud_config.py \
     --cloud-config-path /var/lib/cloud/instance/cloud-config.txt \
     --output-path ${LOG_DIR}/cloud-config.txt
@@ -56,9 +52,7 @@ if [[ "${DISABLE_SSH}" == "true" ]]; then
     disableSSH || exit $ERR_DISABLE_SSH
 fi
 
-# This involes using proxy, log the config before fetching packages
 echo "private egress proxy address is '${PRIVATE_EGRESS_PROXY_ADDRESS}'"
-# TODO update to use proxy
 
 if [[ "${SHOULD_CONFIGURE_HTTP_PROXY}" == "true" ]]; then
     if [[ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" == "true" ]]; then
@@ -138,7 +132,6 @@ if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
     logs_to_events "AKS.CSE.downloadSecureTLSBootstrapKubeletExecPlugin" downloadSecureTLSBootstrapKubeletExecPlugin
 fi
 
-# By default, never reboot new nodes.
 REBOOTREQUIRED=false
 
 echo $(date),$(hostname), "Start configuring GPU drivers"
@@ -208,14 +201,12 @@ if [ "${HAS_CUSTOM_SEARCH_DOMAIN}" == "true" ]; then
 fi
 
 
-# for drop ins, so they don't all have to check/create the dir
 mkdir -p "/etc/systemd/system/kubelet.service.d"
 
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
 logs_to_events "AKS.CSE.configureCNI" configureCNI
 
-# configure and enable dhcpv6 for dual stack feature
 if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
 fi
@@ -231,9 +222,6 @@ if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
     echo "${MESSAGE_OF_THE_DAY}" | base64 -d > /etc/motd
 fi
 
-# must run before kubelet starts to avoid race in container status using wrong image
-# https://github.com/kubernetes/kubernetes/issues/51017
-# can remove when fixed
 if [[ "${TARGET_CLOUD}" == "AzureChinaCloud" ]]; then
     retagMCRImagesForChina
 fi
@@ -315,10 +303,6 @@ fi
 
 VALIDATION_ERR=0
 
-# Edge case scenarios:
-# high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster)
-# high timeout to address high latency for private dns server to forward request to Azure DNS
-# dns check will be done only if we use FQDN for API_SERVER_NAME
 API_SERVER_CONN_RETRIES=50
 if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
     API_SERVER_CONN_RETRIES=100

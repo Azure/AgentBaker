@@ -53,7 +53,6 @@ createNvidiaSymlinkToAllDeviceNodes() {
     NVIDIA_DEV_CHAR="/lib/udev/rules.d/71-nvidia-dev-char.rules"
     touch "${NVIDIA_DEV_CHAR}"
     cat << EOF > "${NVIDIA_DEV_CHAR}"
-# This will create /dev/char symlinks to all device nodes
 ACTION=="add", DEVPATH=="/bus/pci/drivers/nvidia", RUN+="/usr/bin/nvidia-ctk system create-dev-char-symlinks --create-all"
 EOF
 
@@ -103,7 +102,6 @@ EOF
     systemctl restart nvidia-persistenced.service || exit 1
 }
 
-# CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     CONTAINERD_VERSION=$1
     #overwrite the passed containerd_version since mariner uses only 1 version now which is different than ubuntu's

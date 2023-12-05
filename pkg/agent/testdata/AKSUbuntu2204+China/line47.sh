@@ -1,10 +1,8 @@
 import yaml
 import argparse
 
-# String value used to replace secret data
 REDACTED = 'REDACTED'
 
-# Redact functions
 def redact_bootstrap_kubeconfig_tls_token(bootstrap_kubeconfig_write_file):
     content_yaml = yaml.safe_load(bootstrap_kubeconfig_write_file['content'])
     content_yaml['users'][0]['user']['token'] = REDACTED
@@ -15,8 +13,6 @@ def redact_service_principal_secret(sp_secret_write_file):
     sp_secret_write_file['content'] = REDACTED
 
 
-# Maps write_file's path to the corresponding function used to redact it within cloud-config.txt
-# This script will always redact these write_files if they exist within the specified cloud-config.txt
 PATH_TO_REDACT_FUNC = {
     '/var/lib/kubelet/bootstrap-kubeconfig': redact_bootstrap_kubeconfig_tls_token,
     '/etc/kubernetes/sp.txt': redact_service_principal_secret
