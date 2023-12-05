@@ -7,6 +7,7 @@ import (
 )
 
 const (
+	buildIDEnvironmentVarName            = "BUILD_ID"
 	subscriptionIdEnvironmentVarName     = "SUBSCRIPTION_ID"
 	locationEnvironmentVarName           = "LOCATION"
 	keepVMSSEnvironmentVarName           = "KEEP_VMSS"
@@ -20,6 +21,7 @@ keep vmss: %[4]t`
 )
 
 type suiteConfig struct {
+	buildID            string
 	subscription       string
 	location           string
 	resourceGroupName  string
@@ -48,6 +50,7 @@ func newSuiteConfig() (*suiteConfig, error) {
 	}
 
 	config := &suiteConfig{
+		buildID:           os.Getenv(buildIDEnvironmentVarName),
 		subscription:      environment[subscriptionIdEnvironmentVarName],
 		location:          environment[locationEnvironmentVarName],
 		resourceGroupName: fmt.Sprintf(abe2eResourceGroupNameTemplate, environment[locationEnvironmentVarName]),

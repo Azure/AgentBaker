@@ -87,9 +87,11 @@ $global:imagesToPull += @(
     # azurefile-csi:v1.29 is only for AKS 1.28+
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.1-windows-hp",
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.2-windows-hp",
-    # Addon of Azure secrets store. Owner: ZeroMagic (Ji'an Liu)
+    # Addon of Azure secrets store. Owner: jiashun0011 (Jiashun Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.4",
+    "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.0",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
+    "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.0",
     # Azure cloud node manager. Owner: nilo19 (Qi Ni)
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.15", # for k8s 1.25.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.18", # for k8s 1.25.x
@@ -108,11 +110,10 @@ $global:imagesToPull += @(
 $global:map = @{
     "c:\akse-cache\"              = @(
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.31.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.32.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.33.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.34.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.35.zip"
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.35.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.36.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
