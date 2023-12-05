@@ -196,25 +196,22 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 }
 
 func removeComments(b []byte) []byte {
-	var contentToRemove []string
+	var contentWithoutComments []string
 	lines := strings.Split(string(b), "\n")
 	for _, line := range lines {
 		lineNoWhitespace := strings.TrimSpace(line)
 		if isCommentInBeginningOfLine(lineNoWhitespace) {
 			// ignore entire line that is a comment
-			contentToRemove = append(contentToRemove, line)
 			continue
 		}
 		lastHashIndex := strings.LastIndex(lineNoWhitespace, "#")
 		if isCommentAtTheEndOfLine(lastHashIndex, lineNoWhitespace) {
 			// remove only the comment part from line
-			splitLine := strings.Split(line, "#")
-			line = splitLine[0]
-			contentToRemove = append(contentToRemove, splitLine[1])
+			line = strings.Split(line, "#")[0]
 		}
+		contentWithoutComments = append(contentWithoutComments, line)
 	}
-	commentsRemoved := strings.Join(contentToKeep, "\n")
-	return []byte(commentsRemoved)
+	return []byte(strings.Join(contentWithoutComments, "\n"))
 }
 
 // Trying to avoid using a regex. There are certain patterns we ignore just to be on the safe side. This is enough to get rid of most of the obvious comments.
