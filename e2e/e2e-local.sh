@@ -11,8 +11,6 @@ set -euxo pipefail
 export SUBSCRIPTION_ID
 export LOCATION
 export AZURE_TENANT_ID
-export SCENARIOS_TO_RUN="ubuntu2204"
-export KEEP_VMSS="true"
 
 
 go version
