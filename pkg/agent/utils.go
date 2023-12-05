@@ -177,21 +177,7 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	// translate the parameters.
-	lines := strings.Split(string(b), "\n")
-	contentToKeep := []string{}
-	for _, line := range lines {
-		trimmedToCheck := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmedToCheck, "# ") || strings.HasPrefix(trimmedToCheck, "##") {
-			continue
-		}
-		lastHashIndex := strings.LastIndex(trimmedToCheck, "#")
-		if lastHashIndex > 0 && trimmedToCheck[lastHashIndex-1:lastHashIndex] != "<" {
-			line = strings.Split(line, "#")[0]
-		}
-		contentToKeep = append(contentToKeep, line)
-	}
-	commentsRemoved := strings.Join(contentToKeep, "\n")
-	b = []byte(commentsRemoved)
+	b = removeComments(b)
 	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(getContainerServiceFuncMap(config))
 	_, err = templ.Parse(string(b))
 	if err != nil {
@@ -207,6 +193,33 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 	csStr := buffer.String()
 	csStr = strings.ReplaceAll(csStr, "\r\n", "\n")
 	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
+}
+
+func removeComments(b []byte) []byte {
+	var contentToKeep []string
+	lines := strings.Split(string(b), "\n")
+	for _, line := range lines {
+		lineNoWhitespace := strings.TrimSpace(line)
+		if isCommentInBeginningOfLine(lineNoWhitespace) {
+			// ignore entire line that is a comment
+			continue
+		}
+		lastHashIndex := strings.LastIndex(lineNoWhitespace, "#")
+		if isCommentAtTheEndOfLine(lastHashIndex, lineNoWhitespace) {
+			// remove only the comment part from line
+			line = strings.Split(line, "#")[0]
+		}
+		contentToKeep = append(contentToKeep, line)
+	}
+	return []byte(strings.Join(contentToKeep, "\n"))
+}
+
+func isCommentAtTheEndOfLine(lastHashIndex int, trimmedToCheck string) bool {
+	return lastHashIndex > 0 && trimmedToCheck[lastHashIndex-1:lastHashIndex] != "<"
+}
+
+func isCommentInBeginningOfLine(trimmedToCheck string) bool {
+	return strings.HasPrefix(trimmedToCheck, "# ") || strings.HasPrefix(trimmedToCheck, "##")
 }
 
 // getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data.

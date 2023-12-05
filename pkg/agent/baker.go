@@ -161,21 +161,7 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 	if err != nil {
 		return "", fmt.Errorf("yaml file %s does not exist", textFilename)
 	}
-	lines := strings.Split(string(b), "\n")
-	contentToKeep := []string{}
-	for _, line := range lines {
-		trimmedToCheck := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmedToCheck, "# ") || strings.HasPrefix(trimmedToCheck, "##") {
-			continue
-		}
-		lastHashIndex := strings.LastIndex(trimmedToCheck, "#")
-		if lastHashIndex > 0 && trimmedToCheck[lastHashIndex-1:lastHashIndex] != "<" {
-			line = strings.Split(line, "#")[0]
-		}
-		contentToKeep = append(contentToKeep, line)
-	}
-	commentsRemoved := strings.Join(contentToKeep, "\n")
-	b = []byte(commentsRemoved)
+	b = removeComments(b)
 
 	// use go templates to process the text filename
 	templ := template.New("customdata template").Option("missingkey=zero").Funcs(funcMap)
