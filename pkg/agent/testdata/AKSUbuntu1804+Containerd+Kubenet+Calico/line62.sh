@@ -85,7 +85,7 @@ installStandaloneContainerd() {
     CONTAINERD_VERSION=$1    
     CONTAINERD_PATCH_VERSION="${2:-1}"
 
-    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}" 
+    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}" # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     CURRENT_COMMIT=$(containerd -version | cut -d " " -f 4)
@@ -155,13 +155,13 @@ downloadContainerdFromVersion() {
 downloadContainerdFromURL() {
     CONTAINERD_DOWNLOAD_URL=$1
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
-    CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL
+    CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
     retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
     CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
 }
 
 installMoby() {
-    ensureRunc ${RUNC_VERSION:-""} 
+    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
     local MOBY_VERSION="19.03.14"
     local MOBY_CONTAINERD_VERSION="1.4.13"
@@ -183,7 +183,7 @@ ensureRunc() {
     if [[ ! -z ${RUNC_PACKAGE_URL} ]]; then
         echo "Installing runc from user input: ${RUNC_PACKAGE_URL}"
         mkdir -p $RUNC_DOWNLOADS_DIR
-        RUNC_DEB_TMP=${RUNC_PACKAGE_URL
+        RUNC_DEB_TMP=${RUNC_PACKAGE_URL##*/}
         RUNC_DEB_FILE="$RUNC_DOWNLOADS_DIR/${RUNC_DEB_TMP}"
         retrycmd_curl_file 120 5 60 ${RUNC_DEB_FILE} ${RUNC_PACKAGE_URL} || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
         installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
@@ -205,15 +205,15 @@ ensureRunc() {
         fi
     fi
 
-    CPU_ARCH=$(getCPUArch)  
+    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     CLEANED_TARGET_VERSION=${TARGET_VERSION}
 
     if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%+*} 
+        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%+*} # removes the +azure-ubuntu18.04u1 (or similar) suffix
     else
-        CURRENT_VERSION=${CURRENT_VERSION%-*} 
-        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} 
+        CURRENT_VERSION=${CURRENT_VERSION%-*} # removes the -1 patch version (or similar)
+        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar) 
     fi
 
     if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then

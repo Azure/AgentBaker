@@ -196,26 +196,30 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 }
 
 func removeComments(b []byte) []byte {
-	var contentToKeep []string
+	var contentToRemove []string
 	lines := strings.Split(string(b), "\n")
 	for _, line := range lines {
 		lineNoWhitespace := strings.TrimSpace(line)
 		if isCommentInBeginningOfLine(lineNoWhitespace) {
 			// ignore entire line that is a comment
+			contentToRemove = append(contentToRemove, line)
 			continue
 		}
 		lastHashIndex := strings.LastIndex(lineNoWhitespace, "#")
 		if isCommentAtTheEndOfLine(lastHashIndex, lineNoWhitespace) {
 			// remove only the comment part from line
-			line = strings.Split(line, "#")[0]
+			splitLine := strings.Split(line, "#")
+			line = splitLine[0]
+			contentToRemove = append(contentToRemove, splitLine[1])
 		}
-		contentToKeep = append(contentToKeep, line)
 	}
-	return []byte(strings.Join(contentToKeep, "\n"))
+	commentsRemoved := strings.Join(contentToKeep, "\n")
+	return []byte(commentsRemoved)
 }
 
+// Trying to avoid using a regex. There are certain patterns we ignore just to be on the safe side. This is enough to get rid of most of the obvious comments.
 func isCommentAtTheEndOfLine(lastHashIndex int, trimmedToCheck string) bool {
-	return lastHashIndex > 0 && trimmedToCheck[lastHashIndex-1:lastHashIndex] != "<"
+	return lastHashIndex > 0 && trimmedToCheck[lastHashIndex-1:lastHashIndex] != "<" && trimmedToCheck[lastHashIndex:lastHashIndex+1] == "# "
 }
 
 func isCommentInBeginningOfLine(trimmedToCheck string) bool {

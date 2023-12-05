@@ -32,7 +32,7 @@ echo $(date),$(hostname), startcustomscript>>/opt/m
 
 for i in $(seq 1 3600); do
     if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
-        grep -Fq '
+        grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
     fi
     if [ $i -eq 3600 ]; then
         exit $ERR_FILE_WATCH_TIMEOUT
@@ -40,7 +40,7 @@ for i in $(seq 1 3600); do
         sleep 1
     fi
 done
-sed -i "/
+sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
 source "${CSE_HELPERS_FILEPATH}"
 
 source "${CSE_DISTRO_HELPERS_FILEPATH}"
