@@ -329,6 +329,8 @@ const (
 	Windows2019SIGImageVersion string = "17763.2019.221114"
 	Windows2022SIGImageVersion string = "20348.2022.221114"
 	Windows23H2SIGImageVersion string = "25398.2022.221114"
+
+	FrozenAzureLinuxSIGImageVersion string = "202311.07.0"
 )
 
 type sigVersion struct {
@@ -535,7 +537,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenAzureLinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2Gen2ImageConfigTemplate = SigImageConfigTemplate{
@@ -549,7 +551,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenAzureLinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2Gen1FIPSImageConfigTemplate = SigImageConfigTemplate{
@@ -563,7 +565,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2fips",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenAzureLinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2Gen2FIPSImageConfigTemplate = SigImageConfigTemplate{
@@ -577,7 +579,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2fips",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenAzureLinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2KataImageConfigTemplate = SigImageConfigTemplate{
@@ -591,7 +593,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2katagen2",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenAzureLinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2Arm64ImageConfigTemplate = SigImageConfigTemplate{
@@ -605,7 +607,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2arm64",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenAzureLinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2TLImageConfigTemplate = SigImageConfigTemplate{
@@ -619,7 +621,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2TL",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenAzureLinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV2KataGen2TLImageConfigTemplate = SigImageConfigTemplate{

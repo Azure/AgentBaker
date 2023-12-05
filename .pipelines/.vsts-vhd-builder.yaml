@@ -55,31 +55,6 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-gen2-containerd
-  - stage: build_arm64_vhd
-    dependsOn: []
-    jobs:
-    - job: build
-      timeoutInMinutes: 180
-      steps:
-        - bash: |
-            echo '##vso[task.setvariable variable=DRY_RUN]True'
-            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
-            echo '##vso[task.setvariable variable=OS_VERSION]22.04'
-            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-            echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-jammy'
-            echo '##vso[task.setvariable variable=IMG_SKU]22_04-lts-arm64'
-            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D2pds_V5'
-            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
-            echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
-            echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
-            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-            echo '##vso[task.setvariable variable=SGX_INSTALL]True'
-          displayName: Setup Build Variables
-        - template: ./templates/.builder-release-template.yaml
-          parameters:
-            artifactName: 2204-arm64-gen2-containerd
   - stage: build_gpu_vhd
     dependsOn: []
     jobs:
