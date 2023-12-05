@@ -9,13 +9,13 @@ message GpuConfig {
 
   // FeatureState is_mig_node = 2; removed since it only depends on gpu_instance_profile
 
-  //config_gpu_driver represents if bootstrap process should install and configure the GPU driver when necessary. Configuration includes appropriate set up of components like the fabric manager where applicable.
+  // config_gpu_driver specifies whether bootstrap process should install and configure the GPU driver when necessary. Configuration includes appropriate set up of components like the fabric manager where applicable.
   optional FeatureState config_gpu_driver = 2;
 
-  //gpu_device_plugin represents if special config is needed for MIG GPUs that use GPU dedicated VHDs and enable the device plugin (for all GPU dedicated VHDs)
+  // gpu_device_plugin specifies whether special config is needed for MIG GPUs that use GPU dedicated VHDs and enable the device plugin (for all GPU dedicated VHDs)
   optional FeatureState gpu_device_plugin = 3; 
 
-  // FeatureState fabric_manager_status = 5;  removed. consider just extracting vm_size since both GPUNeedsFabricManager and getGPUDriverVersion are just depending ont vm_size.
+  // FeatureState fabric_manager_status = 5;  removed. consider just extracting vm_size since both GPUNeedsFabricManager and getGPUDriverVersion depend only on the vm_size.
   // string gpu_driver_version = 6; removed. this is dependent only on VM size, can be calculated on the VHD
 
   // gpu_instance_profile represents the GPU instance profile.
