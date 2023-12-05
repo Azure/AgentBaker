@@ -129,7 +129,7 @@ const (
 // So for now these will be kept here like this.
 const (
 	AKSGPUGridSHA = "sha-20ffa2"
-	AKSGPUCudaSHA = "sha-e8873b"
+	AKSGPUCudaSHA = "sha-16fd35"
 )
 
 /* ConvergedGPUDriverSizes : these sizes use a "converged" driver to support both cuda/grid workloads.
