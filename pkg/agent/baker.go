@@ -168,6 +168,10 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 		if strings.HasPrefix(trimmedToCheck, "# ") || strings.HasPrefix(trimmedToCheck, "##") {
 			continue
 		}
+		lastHashIndex := strings.LastIndex(trimmedToCheck, "#")
+		if lastHashIndex > 0 && trimmedToCheck[lastHashIndex-1:lastHashIndex] != "<" {
+			line = strings.Split(line, "#")[0]
+		}
 		contentToKeep = append(contentToKeep, line)
 	}
 	commentsRemoved := strings.Join(contentToKeep, "\n")

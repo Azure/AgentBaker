@@ -39,10 +39,10 @@ fi
 bridgeMAC=$(cat /sys/class/net/${bridgeName}/address)
 
 echo "adding AKS-DEDUP-PROMISC ebtable chain"
-ebtables -t filter -N AKS-DEDUP-PROMISC # add new AKS-DEDUP-PROMISC chain
+ebtables -t filter -N AKS-DEDUP-PROMISC 
 ebtables -t filter -A AKS-DEDUP-PROMISC -p IPv4 -s ${bridgeMAC} -o veth+ --ip-src ${bridgeIP} -j ACCEPT
 ebtables -t filter -A AKS-DEDUP-PROMISC -p IPv4 -s ${bridgeMAC} -o veth+ --ip-src ${podSubnetAddr} -j DROP
-ebtables -t filter -A OUTPUT -j AKS-DEDUP-PROMISC # add new rule to OUTPUT chain jump to AKS-DEDUP-PROMISC
+ebtables -t filter -A OUTPUT -j AKS-DEDUP-PROMISC 
 
 echo "outputting newly added AKS-DEDUP-PROMISC rules:"
 ebtables -t filter -L OUTPUT 2>/dev/null

@@ -78,7 +78,6 @@ cfg_set_option ${cloud_cfg_path} ${option} ${option_value}
 
 new_source_list=$(cat ${source_list_path})
 if [[ "${old_source_list}" != "${new_source_list}" ]]; then
-    # save old sources.list
     echo "$old_source_list" > ${source_list_backup_path}
     echo "/etc/apt/sources.list is updated:"
     diff ${source_list_backup_path} ${source_list_path} || true
