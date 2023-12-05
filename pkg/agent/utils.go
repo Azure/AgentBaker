@@ -216,7 +216,7 @@ func removeComments(b []byte) []byte {
 
 // Trying to avoid using a regex. There are certain patterns we ignore just to be on the safe side. This is enough to get rid of most of the obvious comments.
 func isCommentAtTheEndOfLine(lastHashIndex int, trimmedToCheck string) bool {
-	return lastHashIndex > 0 && trimmedToCheck[lastHashIndex-1:lastHashIndex] != "<" && trimmedToCheck[lastHashIndex:lastHashIndex+1] == "# "
+	return lastHashIndex > 0 && trimmedToCheck[lastHashIndex-1:lastHashIndex] != "<" && trimmedToCheck[lastHashIndex+1:lastHashIndex+2] == " "
 }
 
 func isCommentInBeginningOfLine(trimmedToCheck string) bool {

@@ -45,7 +45,7 @@ param(
 
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
-    $AADClientSecret, # base64
+    $AADClientSecret, 
 
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
@@ -428,7 +428,7 @@ try
     Write-Log "Setup Complete, starting NodeResetScriptTask to register Winodws node without reboot"
     Start-ScheduledTask -TaskName "k8s-restart-job"
 
-    $timeout = 180 ##  seconds
+    $timeout = 180 
     $timer = [Diagnostics.Stopwatch]::StartNew()
     while ((Get-ScheduledTask -TaskName 'k8s-restart-job').State -ne 'Ready') {
         if ($timer.Elapsed.TotalSeconds -gt $timeout) {

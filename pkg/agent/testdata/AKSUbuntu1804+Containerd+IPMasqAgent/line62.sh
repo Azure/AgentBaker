@@ -85,7 +85,7 @@ installStandaloneContainerd() {
     CONTAINERD_VERSION=$1    
     CONTAINERD_PATCH_VERSION="${2:-1}"
 
-    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}" # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
+    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}" 
 
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     CURRENT_COMMIT=$(containerd -version | cut -d " " -f 4)
@@ -161,7 +161,7 @@ downloadContainerdFromURL() {
 }
 
 installMoby() {
-    ensureRunc ${RUNC_VERSION:-""} # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
+    ensureRunc ${RUNC_VERSION:-""} 
     CURRENT_VERSION=$(dockerd --version | grep "Docker version" | cut -d "," -f 1 | cut -d " " -f 3 | cut -d "+" -f 1)
     local MOBY_VERSION="19.03.14"
     local MOBY_CONTAINERD_VERSION="1.4.13"
@@ -210,10 +210,10 @@ ensureRunc() {
     CLEANED_TARGET_VERSION=${TARGET_VERSION}
 
     if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%+*} # removes the +azure-ubuntu18.04u1 (or similar) suffix
+        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%+*} 
     else
-        CURRENT_VERSION=${CURRENT_VERSION%-*} # removes the -1 patch version (or similar)
-        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar) 
+        CURRENT_VERSION=${CURRENT_VERSION%-*} 
+        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} 
     fi
 
     if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
