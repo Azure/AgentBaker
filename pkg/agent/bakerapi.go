@@ -23,6 +23,7 @@ func NewAgentBaker() (AgentBaker, error) {
 
 type agentBakerImpl struct{}
 
+//nolint:revive, nolintlint // ctx is not used, but may be in the future
 func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context,
 	config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
 	// validate and fix input before passing config to the template generator.

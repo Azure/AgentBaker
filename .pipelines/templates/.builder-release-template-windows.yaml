@@ -39,10 +39,10 @@ steps:
       else
           sigImageName="windows-${WINDOWS_SKU}-$RANDOM"; \
           WS_SKU=$(echo $WINDOWS_SKU | tr '-' '_')
-          sigGalleryName="WS${WS_SKU}Gallery$(date +"%y%m%d%H%M%S")$RANDOM"; \          
+          sigGalleryName="WS${WS_SKU}Gallery$(date +"%y%m%d%H%M%S")$RANDOM"; \
           echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$sigGalleryName"; \
           echo "##vso[task.setvariable variable=SIG_IMAGE_VERSION]1.0.0"; \
-          echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]True"; \    
+          echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]True"; \
       fi
       echo "Set build mode to $m" && \
       echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]$sigImageName" && \
@@ -87,7 +87,6 @@ steps:
       -e GIT_VERSION=$(Build.SourceVersion) \
       -e BUILD_ID=$(Build.BuildId) \
       -e BUILD_NUMBER=$(Build.BuildNumber) \
-      -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
       -e WINDOWS_SKU=$(WINDOWS_SKU) \
       -e OS_TYPE="Windows" \
       -e MODE=$(MODE) \
@@ -122,11 +121,10 @@ steps:
       -e OS_DISK_URI=${OS_DISK_URI} \
       -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
       -e AZURE_LOCATION=${AZURE_BUILD_LOCATION} \
-      -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
       -e WINDOWS_SKU=$(WINDOWS_SKU) \
       -e OS_TYPE="Windows" \
       -e MODE=$(MODE) \
-      -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
+      -e FEATURE_FLAGS=${FEATURE_FLAGS} \
       -e VHD_DEBUG=${VHD_DEBUG} \
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \

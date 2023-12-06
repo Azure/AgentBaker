@@ -11,9 +11,6 @@ parameters:
   - name: windowsDistro
     type: string
     default: aks-windows-2019-containerd
-  - name: windowsNodeImageVersion
-    type: string
-    default: AKSWindows-2019-containerd-test-2023.02.07
   - name: windowsGpuDriverSuffix
     type: string
     default:
@@ -98,7 +95,6 @@ jobs:
         export SCENARIO_NAME
         export WINDOWS_E2E_IMAGE=${{ parameters.windowsImage }}
         export WINDOWS_DISTRO=${{ parameters.windowsDistro }}
-        export WINDOWS_NODE_IMAGE_VERSION=${{ parameters.windowsNodeImageVersion }}
         export WINDOWS_GPU_DRIVER_SUFFIX=${{ parameters.windowsGpuDriverSuffix }}
         if [[ "${WINDOWS_GPU_DRIVER_SUFFIX}" == "-grid" ]]; then
             export WINDOWS_GPU_DRIVER_URL="https://acs-mirror.azureedge.net/aks/windows/gpudrivers/grid/537.13_grid_win10_win11_server2019_server2022_dch_64bit_international_azure_swl.exe"

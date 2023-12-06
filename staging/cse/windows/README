@@ -55,6 +55,9 @@ popd
 # AKS Windows CSE Scripts Package
 All files except *.test.ps1 and README will be published in AKS Windows CSE Scripts Package.
 
+## v0.0.36
+chore: support to test Windows 2025 #3871
+
 ## v0.0.35
 feat: update cse script package changes for aks windows gpu feature #3794
 feat: optimize resize-osdrive replacing get-partitionsupportedsize with diskpart #3804
