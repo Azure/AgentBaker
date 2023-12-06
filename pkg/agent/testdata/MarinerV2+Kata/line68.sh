@@ -77,7 +77,6 @@ configureEtcEnvironment() {
     touch /etc/apt/apt.conf.d/95proxy
     chmod 0644 /etc/apt/apt.conf.d/95proxy
 
-    # TODO(ace): this pains me but quick and dirty refactor
     echo "[Manager]" >> /etc/systemd/system.conf.d/proxy.conf
     if [ "${HTTP_PROXY_URLS}" != "" ]; then
         echo "HTTP_PROXY=${HTTP_PROXY_URLS}" >> /etc/environment
@@ -100,7 +99,6 @@ configureEtcEnvironment() {
         echo "DefaultEnvironment=\"no_proxy=${NO_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
 
-    # for kubelet to pick up the proxy
     mkdir -p "/etc/systemd/system/kubelet.service.d"
     tee "/etc/systemd/system/kubelet.service.d/10-httpproxy.conf" > /dev/null <<'EOF'
 [Service]
@@ -123,22 +121,13 @@ configureHTTPProxyCA() {
 configureCustomCaCertificate() {
     mkdir -p /opt/certs
     for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
-        # directly referring to the variable as "${CUSTOM_CA_CERT_${i}}"
-        # causes bad substitution errors in bash
-        # dynamically declare and use `!` to add a layer of indirection
+        # declare dynamically and use "!" to avoid bad substition errors
         declare varname=CUSTOM_CA_CERT_${i} 
         echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
     done
-    # This will block until the service is considered active.
-    # Update_certs.service is a oneshot type of unit that
-    # is considered active when the ExecStart= command terminates with a zero status code.
+    # blocks until svc is considered active, which will happen when ExecStart command terminates with code 0
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
-    # after new certs are added to trust store, containerd will not pick them up properly before restart.
-    # aim here is to have this working straight away for a freshly provisioned node
-    # so we force a restart after the certs are updated
-    # custom CA daemonset copies certs passed by the user to the node, what then triggers update_certs.path unit
-    # path unit then triggers the script that copies over cert files to correct location on the node and updates the trust store
-    # as a part of this flow we could restart containerd everytime a new cert is added to the trust store using custom CA
+    # containerd has to be restarted after new certs are added to the trust store, otherwise they will not be used until restart happens
     systemctl restart containerd
 }
 
@@ -186,12 +175,11 @@ configureK8s() {
 
     set +x
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
-    # Perform the required JSON escaping
     SP_FILE="/etc/kubernetes/sp.txt"
     SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
-    rm "$SP_FILE" # unneeded after reading from disk.
+    rm "$SP_FILE"
     cat << EOF > "${AZURE_JSON_PATH}"
 {
     "cloud": "${TARGET_CLOUD}",
@@ -620,7 +608,6 @@ configAzurePolicyAddon() {
 }
 
 configGPUDrivers() {
-    # install gpu driver
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         mkdir -p /opt/{actions,gpu}
         if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
@@ -659,7 +646,6 @@ configGPUDrivers() {
         createNvidiaSymlinkToAllDeviceNodes
     fi
     
-    # reload containerd/dockerd
     if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
         retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     else
@@ -669,7 +655,6 @@ configGPUDrivers() {
 
 validateGPUDrivers() {
     if [[ $(isARM64) == 1 ]]; then
-        # no GPU on ARM64
         return
     fi
 
@@ -694,7 +679,6 @@ validateGPUDrivers() {
 
 ensureGPUDrivers() {
     if [[ $(isARM64) == 1 ]]; then
-        # no GPU on ARM64
         return
     fi
 
