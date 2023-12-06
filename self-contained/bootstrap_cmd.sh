@@ -69,7 +69,6 @@ CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
 CONTAINERD_PACKAGE_URL={{GetParameter "containerdPackageURL"}}
 RUNC_VERSION={{GetParameter "runcVersion"}}
 RUNC_PACKAGE_URL={{GetParameter "runcPackageURL"}}
-ENABLE_HOSTS_CONFIG_AGENT="{{EnableHostsConfigAgent}}"
 DISABLE_SSH="{{ShouldDisableSSH}}"
 NEEDS_CONTAINERD="{{NeedsContainerd}}"
 TELEPORT_ENABLED="{{TeleportEnabled}}"
