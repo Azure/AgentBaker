@@ -205,7 +205,7 @@ func removeComments(b []byte) []byte {
 			continue
 		}
 		lastHashIndex := strings.LastIndex(lineNoWhitespace, "#")
-		if isCommentAtTheEndOfLine(lastHashIndex, lineNoWhitespace) {
+		if lastHashIndex > 0 && isCommentAtTheEndOfLine(lastHashIndex, lineNoWhitespace) {
 			// remove only the comment part from line
 			line = strings.Split(line, "#")[0]
 		}
@@ -216,7 +216,13 @@ func removeComments(b []byte) []byte {
 
 // Trying to avoid using a regex. There are certain patterns we ignore just to be on the safe side. This is enough to get rid of most of the obvious comments.
 func isCommentAtTheEndOfLine(lastHashIndex int, trimmedToCheck string) bool {
-	return lastHashIndex > 0 && trimmedToCheck[lastHashIndex-1:lastHashIndex] != "<" && trimmedToCheck[lastHashIndex+1:lastHashIndex+2] == " "
+	getSlice := func(start, end int, str string) string {
+		if end > len(str) || start > end {
+			return ""
+		}
+		return str[start:end]
+	}
+	return getSlice(lastHashIndex-1, lastHashIndex+1, trimmedToCheck) != "<#" && getSlice(lastHashIndex, lastHashIndex+2, trimmedToCheck) == "# "
 }
 
 func isCommentInBeginningOfLine(trimmedToCheck string) bool {
