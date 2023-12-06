@@ -329,6 +329,8 @@ const (
 	Windows2019SIGImageVersion string = "17763.2019.221114"
 	Windows2022SIGImageVersion string = "20348.2022.221114"
 	Windows23H2SIGImageVersion string = "25398.2022.221114"
+
+	FrozenKataSIGImageVersion string = "202311.07.0"
 )
 
 type sigVersion struct {
@@ -584,7 +586,7 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2katagen2",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenKataSIGImageVersion,
 	}
 
 	SIGAzureLinuxV2KataImageConfigTemplate = SigImageConfigTemplate{
