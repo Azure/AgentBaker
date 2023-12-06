@@ -1,0 +1,8 @@
+syntax = "proto3";
+package nbcontract.v1;
+
+enum FeatureState {
+  FEATURE_STATE_UNSPECIFIED = 0;
+  FEATURE_STATE_ENABLED = 1;
+  FEATURE_STATE_DISABLED = 2;
+}
