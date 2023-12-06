@@ -18,10 +18,6 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
-	"github.com/barkimedes/go-deepcopy"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
-	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
 )
 
@@ -371,9 +367,9 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				cs := config.ContainerService
 				if cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster == nil {
-					cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &datamodel.PrivateCluster{EnableHostsConfigAgent: to.BoolPtr(true)}
+					cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &datamodel.PrivateCluster{EnableHostsConfigAgent: to.BoolPtr(false)}
 				} else {
-					cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent = to.BoolPtr(true)
+					cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent = to.BoolPtr(false)
 				}
 			}, nil),
 		Entry("AKSUbuntu1804 with GPU dedicated VHD", "AKSUbuntu1604+GPUDedicatedVHD", "1.15.7", func(config *datamodel.NodeBootstrappingConfiguration) {
@@ -1545,9 +1541,9 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				cs := config.ContainerService
 				if cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster == nil {
-					cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &datamodel.PrivateCluster{EnableHostsConfigAgent: to.BoolPtr(true)}
+					cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster = &datamodel.PrivateCluster{EnableHostsConfigAgent: to.BoolPtr(false)}
 				} else {
-					cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent = to.BoolPtr(true)
+					cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent = to.BoolPtr(false)
 				}
 			}),
 		Entry("AKSWindows2019 with kubelet client TLS bootstrapping enabled", "AKSWindows2019+KubeletClientTLSBootstrapping", "1.19.0",
