@@ -130,8 +130,6 @@ installCrictl() {
     if [[ "${currentVersion}" != "" ]]; then
         echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${KUBERNETES_VERSION%.*}.0"
     else
-        # this is only called during cse. VHDs should have crictl binaries pre-cached so no need to download.
-        # if the vhd does not have crictl pre-baked, return early
         CRICTL_TGZ_TEMP="crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
         if [[ ! -f "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ]]; then
             rm -rf ${CRICTL_DOWNLOAD_DIR}
@@ -191,9 +189,6 @@ setupCNIDirs() {
     chmod 755 $CNI_CONFIG_DIR
 }
 
-# For CNI/AzureCNI, we want to use the untar azurecni reference first. And if that doesn't exist on the vhd does the tgz?
-# And if tgz is already on the vhd then just untar into CNI_BIN_DIR
-# Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
 installCNI() {
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin #
     CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}    
@@ -244,12 +239,8 @@ installKubeletKubectlAndKubeProxy() {
 
     CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"
     if [[ ! -z ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} ]]; then
-        # remove the kubelet binaries to make sure the only binary left is from the CUSTOM_KUBE_BINARY_DOWNLOAD_URL
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
 
-        # NOTE(mainred): we expect kubelet binary to be under `kubernetes/node/bin`. This suits the current setting of
-        # kube binaries used by AKS and Kubernetes upstream.
-        # TODO(mainred): let's see if necessary to auto-detect the path of kubelet
         logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}
 
     else
@@ -296,10 +287,8 @@ retagContainerImage() {
 
 retagMCRImagesForChina() {
     if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-        # shellcheck disable=SC2016
         allMCRImages=($(ctr --namespace k8s.io images list | grep '^mcr.microsoft.com/' | awk '{print $1}'))
     else
-        # shellcheck disable=SC2016
         allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
     fi
     if [[ "${allMCRImages}" == "" ]]; then
@@ -307,10 +296,7 @@ retagMCRImagesForChina() {
         return
     fi
     for mcrImage in ${allMCRImages[@]+"${allMCRImages[@]}"}; do
-        # in mooncake, the mcr endpoint is: mcr.azk8s.cn
-        # shellcheck disable=SC2001
         retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
-        # can't use CLI_TOOL because crictl doesn't support retagging.
         if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
             retagContainerImage "ctr" ${mcrImage} ${retagMCRImage}
         else
@@ -325,7 +311,6 @@ removeContainerImage() {
     if [[ "${CLI_TOOL}" == "docker" ]]; then
         docker image rm $CONTAINER_IMAGE_URL
     else
-        # crictl should always be present
         crictl rmi $CONTAINER_IMAGE_URL
     fi
 }
@@ -380,7 +365,6 @@ cleanupRetaggedImages() {
         if [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
                 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-                    # crictl will remove *ALL* references to a given imageID (SHA), which removes too much, so always use ctr
                     removeContainerImage "ctr" ${image}
                 else
                     removeContainerImage "docker" ${image}
