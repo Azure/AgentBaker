@@ -2,7 +2,9 @@ syntax = "proto3";
 
 package nbcontract.v1;
 
+import "pkg/proto/nbcontract/v1/enum.proto";
 import "pkg/proto/nbcontract/v1/httpproxyconfig.proto";
+import "pkg/proto/nbcontract/v1/gpuconfig.proto";
 
 // illustrative division only
 message Configuration {
@@ -41,7 +43,6 @@ message Configuration {
   LoadBalancerConfig load_balancer_config = 21;
   ContainerdConfig containerd_config = 22;
   bool is_vhd = 23;
-  GpuConfig gpu_config = 24;
   bool is_sgx_node = 25;
   TeleportConfig teleport_config = 26;
   FeatureState ssh_status = 27;
@@ -86,6 +87,7 @@ message Configuration {
 
   // Here begins the final contract
   nbcontract.v1.HTTPProxyConfig HTTPProxyConfig = 61;
+  optional nbcontract.v1.GpuConfig gpu_config = 62;
 }
 
 message KubeletConfiguration {
@@ -97,12 +99,6 @@ message KubeletConfiguration {
   KubeletDiskType kubelet_disk_type = 5;
   bool kubelet_config_file_enabled = 6;
   string kubelet_config_file_content = 7;
-}
-
-enum FeatureState {
-  FEATURE_STATE_UNSPECIFIED = 0;
-  FEATURE_STATE_ENABLED = 1;
-  FEATURE_STATE_DISABLED = 2;
 }
 
 message IdentityConfiguration {
@@ -201,16 +197,6 @@ message ApiServerConfig {
   string apiserver_public_key = 1;
   string apiserver_name = 2;
   string api_server_endpoint = 3;
-}
-
-message GpuConfig {
-  FeatureState status = 1;
-  FeatureState is_mig_node = 2;
-  FeatureState config_gpu_driver_if_needed = 3;    //we can revise this name later when we clearly understand what it's doing
-  FeatureState enable_gpu_device_plugin_if_needed = 4; //we can revise this name later when we clearly understand what it's doing
-  FeatureState fabric_manager_status = 5;  //consider just extracting vm_size since both GPUNeedsFabricManager and getGPUDriverVersion are just depending ont vm_size.
-  string gpu_driver_version = 6; // this is dependent only on VM size, can be calculated on the VHD
-  string gpu_instance_profile = 7;
 }
 
 message ContainerdConfig {
