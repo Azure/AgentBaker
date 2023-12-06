@@ -202,12 +202,6 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 			latestName: "latest-image-list.json",
 		},
 		{
-			name:       fmt.Sprintf("trivy-report-%s", sku),
-			tempName:   "trivy-report.json",
-			outName:    fmt.Sprintf("%s-trivy-report.json", fl.date),
-			latestName: "latest-trivy-report.json",
-		},
-		{
 			name:       fmt.Sprintf("trivy-images-table-%s", sku),
 			tempName:   "trivy-images-table.txt",
 			outName:    fmt.Sprintf("%s-trivy-images-table.txt", fl.date),
