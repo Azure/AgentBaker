@@ -69,7 +69,7 @@ installNetworkPlugin() {
 
 downloadCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
-    CNI_TGZ_TMP=${CNI_PLUGINS_URL
+    CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin #
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
@@ -111,7 +111,7 @@ downloadContainerdWasmShims() {
 
 downloadAzureCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
-    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL
+    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin #
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
@@ -195,7 +195,7 @@ setupCNIDirs() {
 # And if tgz is already on the vhd then just untar into CNI_BIN_DIR
 # Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
 installCNI() {
-    CNI_TGZ_TMP=${CNI_PLUGINS_URL
+    CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin #
     CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}    
 
     if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
@@ -212,7 +212,7 @@ installCNI() {
 }
 
 installAzureCNI() {
-    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL
+    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin #
     CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}         
 
     if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then

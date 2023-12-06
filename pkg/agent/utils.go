@@ -204,10 +204,10 @@ func removeComments(b []byte) []byte {
 			// ignore entire line that is a comment
 			continue
 		}
-		lastHashIndex := strings.LastIndex(lineNoWhitespace, "#")
-		if lastHashIndex > 0 && isCommentAtTheEndOfLine(lastHashIndex, lineNoWhitespace) {
+		lastHashIndex := strings.LastIndex(line, "#")
+		if lastHashIndex > 0 && isCommentAtTheEndOfLine(lastHashIndex, line) {
 			// remove only the comment part from line
-			line = strings.Split(line, "#")[0]
+			line = line[:lastHashIndex]
 		}
 		contentWithoutComments = append(contentWithoutComments, line)
 	}
