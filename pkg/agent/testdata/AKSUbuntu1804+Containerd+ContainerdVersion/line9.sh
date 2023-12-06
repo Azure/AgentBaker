@@ -355,6 +355,6 @@ should_skip_nvidia_drivers() {
       return $ret
     fi
     should_skip=$(echo "$body" | jq -e '.compute.tagsList | map(select(.name | test("SkipGpuDriverInstall"; "i")))[0].value // "false" | test("true"; "i")')
-    echo "$should_skip" # true or false
+    echo "$should_skip"
 }
 #HELPERSEOF
