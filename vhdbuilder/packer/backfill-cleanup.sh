@@ -16,7 +16,7 @@ EXPIRATION_IN_HOURS=168
 (( deadline=$(date +%s)-${expirationInSecs%.*} ))
 
 # attempt to clean up Windows managed images and SIG image versions created over a week ago
-if [[ -n "${AZURE_RESOURCE_GROUP_NAME}"]]; then
+if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
   echo "Looking for Windows managed images in ${AZURE_RESOURCE_GROUP_NAME} created over ${EXPIRATION_IN_HOURS} hours ago..."
 
   managed_image_ids=""
