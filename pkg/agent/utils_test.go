@@ -686,3 +686,30 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 		Expect(err).NotTo(BeNil())
 	})
 })
+
+var _ = Describe("Test removeComments", func() {
+	It("Should leave lines without comments unchanged", func() {
+		input := []byte("#!/bin/bash\n\nCC_SERVICE_IN_TMP=/opt/azure/containers/cc-proxy.service.in\nCC_SOCKET_IN_TMP=/opt/azure/containers/cc-proxy.socket.in\nCNI_CONFIG_DIR=\"/etc/cni/net.d\"\nCNI_BIN_DIR=\"/opt/cni/bin\"\nCNI_DOWNLOADS_DIR=\"/opt/cni/downloads\"\nCRICTL_DOWNLOAD_DIR=\"/opt/crictl/downloads\"\nCRICTL_BIN_DIR=\"/usr/local/bin\"\nCONTAINERD_DOWNLOADS_DIR=\"/opt/containerd/downloads\"\nRUNC_DOWNLOADS_DIR=\"/opt/runc/downloads\"\nK8S_DOWNLOADS_DIR=\"/opt/kubernetes/downloads\"\nUBUNTU_RELEASE=$(lsb_release -r -s)\nSECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR=\"/opt/azure/tlsbootstrap\"\nSECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION=\"v0.1.0-alpha.2\"\nTELEPORTD_PLUGIN_DOWNLOAD_DIR=\"/opt/teleportd/downloads\"\nTELEPORTD_PLUGIN_BIN_DIR=\"/usr/local/bin\"\nCONTAINERD_WASM_VERSIONS=\"v0.3.0 v0.5.1 v0.8.0\"\nMANIFEST_FILEPATH=\"/opt/azure/manifest.json\"\nMAN_DB_AUTO_UPDATE_FLAG_FILEPATH=\"/var/lib/man-db/auto-update\"\nCURL_OUTPUT=/tmp/curl_verbose.out")
+		expected := "#!/bin/bash\n\nCC_SERVICE_IN_TMP=/opt/azure/containers/cc-proxy.service.in\nCC_SOCKET_IN_TMP=/opt/azure/containers/cc-proxy.socket.in\nCNI_CONFIG_DIR=\"/etc/cni/net.d\"\nCNI_BIN_DIR=\"/opt/cni/bin\"\nCNI_DOWNLOADS_DIR=\"/opt/cni/downloads\"\nCRICTL_DOWNLOAD_DIR=\"/opt/crictl/downloads\"\nCRICTL_BIN_DIR=\"/usr/local/bin\"\nCONTAINERD_DOWNLOADS_DIR=\"/opt/containerd/downloads\"\nRUNC_DOWNLOADS_DIR=\"/opt/runc/downloads\"\nK8S_DOWNLOADS_DIR=\"/opt/kubernetes/downloads\"\nUBUNTU_RELEASE=$(lsb_release -r -s)\nSECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR=\"/opt/azure/tlsbootstrap\"\nSECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION=\"v0.1.0-alpha.2\"\nTELEPORTD_PLUGIN_DOWNLOAD_DIR=\"/opt/teleportd/downloads\"\nTELEPORTD_PLUGIN_BIN_DIR=\"/usr/local/bin\"\nCONTAINERD_WASM_VERSIONS=\"v0.3.0 v0.5.1 v0.8.0\"\nMANIFEST_FILEPATH=\"/opt/azure/manifest.json\"\nMAN_DB_AUTO_UPDATE_FLAG_FILEPATH=\"/var/lib/man-db/auto-update\"\nCURL_OUTPUT=/tmp/curl_verbose.out"
+		result := removeComments(input)
+		Expect(string(result)).To(Equal(expected))
+	})
+	It("Should remove lines that start with comments", func() {
+		input := []byte("#!/bin/bash\nERR_FILE_WATCH_TIMEOUT=6 \nset -x\n# this is a test comment before if block\nif [ -f /opt/azure/containers/provision.complete ]; then\n      echo \"Already ran to success exiting...\"\n      exit 0\nfi\n# this is a test comment\n\naptmarkWALinuxAgent hold &")
+		expected := "#!/bin/bash\nERR_FILE_WATCH_TIMEOUT=6 \nset -x\nif [ -f /opt/azure/containers/provision.complete ]; then\n      echo \"Already ran to success exiting...\"\n      exit 0\nfi\n\naptmarkWALinuxAgent hold &"
+		result := removeComments(input)
+		Expect(string(result)).To(Equal(expected))
+	})
+	It("Should remove lines with trailing comments", func() {
+		input := []byte("#!/bin/bash\nERR_FILE_WATCH_TIMEOUT=6 \nset -x # this is first test trailing comment\nif [ -f /opt/azure/containers/provision.complete ]; then\n      echo \"Already ran to success exiting...\"\n      exit 0 # this is another test trailing comment\nfi\n\naptmarkWALinuxAgent hold &")
+		expected := "#!/bin/bash\nERR_FILE_WATCH_TIMEOUT=6 \nset -x \nif [ -f /opt/azure/containers/provision.complete ]; then\n      echo \"Already ran to success exiting...\"\n      exit 0 \nfi\n\naptmarkWALinuxAgent hold &"
+		result := removeComments(input)
+		Expect(string(result)).To(Equal(expected))
+	})
+	It("Should leave lines have no whitespace after first hash sign in the beginning of line unchanged", func() {
+		input := []byte("#!/bin/bash\nERR_FILE_WATCH_TIMEOUT=6 \nset -x\nif [ -f /opt/azure/containers/provision.complete ]; then\n      echo \"Already ran to success exiting...\"\n      exit 0\nfi\n#test line that has no whitespace after hash\n\naptmarkWALinuxAgent hold &")
+		expected := "#!/bin/bash\nERR_FILE_WATCH_TIMEOUT=6 \nset -x\nif [ -f /opt/azure/containers/provision.complete ]; then\n      echo \"Already ran to success exiting...\"\n      exit 0\nfi\n#test line that has no whitespace after hash\n\naptmarkWALinuxAgent hold &"
+		result := removeComments(input)
+		Expect(string(result)).To(Equal(expected))
+	})
+})

@@ -195,23 +195,33 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
 }
 
+// This is "best-effort" - removes MOST of the comments with obvious formats, to lower the space required by CustomData component
 func removeComments(b []byte) []byte {
 	var contentWithoutComments []string
 	lines := strings.Split(string(b), "\n")
 	for _, line := range lines {
 		lineNoWhitespace := strings.TrimSpace(line)
-		if isCommentInBeginningOfLine(lineNoWhitespace) {
+		if lineStartsWithComment(lineNoWhitespace) {
 			// ignore entire line that is a comment
 			continue
 		}
-		lastHashIndex := strings.LastIndex(line, "#")
-		if lastHashIndex > 0 && isCommentAtTheEndOfLine(lastHashIndex, line) {
-			// remove only the comment part from line
-			line = line[:lastHashIndex]
-		}
+		line = trimTrailingComment(line)
 		contentWithoutComments = append(contentWithoutComments, line)
 	}
 	return []byte(strings.Join(contentWithoutComments, "\n"))
+}
+
+func lineStartsWithComment(trimmedToCheck string) bool {
+	return strings.HasPrefix(trimmedToCheck, "# ") || strings.HasPrefix(trimmedToCheck, "##")
+}
+
+func trimTrailingComment(line string) string {
+	lastHashIndex := strings.LastIndex(line, "#")
+	if lastHashIndex > 0 && isCommentAtTheEndOfLine(lastHashIndex, line) {
+		// remove only the comment part from line
+		line = line[:lastHashIndex]
+	}
+	return line
 }
 
 // Trying to avoid using a regex. There are certain patterns we ignore just to be on the safe side. This is enough to get rid of most of the obvious comments.
@@ -222,11 +232,8 @@ func isCommentAtTheEndOfLine(lastHashIndex int, trimmedToCheck string) bool {
 		}
 		return str[start:end]
 	}
+	// These are two of patterns that are present amongst Agent Baker files that we need to specifically check for. Non-exhaustive
 	return getSlice(lastHashIndex-1, lastHashIndex+1, trimmedToCheck) != "<#" && getSlice(lastHashIndex, lastHashIndex+2, trimmedToCheck) == "# "
-}
-
-func isCommentInBeginningOfLine(trimmedToCheck string) bool {
-	return strings.HasPrefix(trimmedToCheck, "# ") || strings.HasPrefix(trimmedToCheck, "##")
 }
 
 // getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data.
