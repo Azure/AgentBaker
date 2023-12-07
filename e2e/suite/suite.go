@@ -12,6 +12,7 @@ import (
 const (
 	publishingInfoDirName = "publishinginfo"
 
+	buildIDEnvironmentVarName            = "BUILD_ID"
 	adoPATEnvironmentVarName             = "ADO_PAT"
 	subscriptionIdEnvironmentVarName     = "SUBSCRIPTION_ID"
 	locationEnvironmentVarName           = "LOCATION"
@@ -27,6 +28,7 @@ keep vmss: %[4]t`
 )
 
 type Config struct {
+	BuildID            string
 	Subscription       string
 	Location           string
 	ResourceGroupName  string
@@ -61,6 +63,7 @@ func NewConfigForEnvironment() (*Config, error) {
 
 	config.Subscription = sub
 	config.Location = location
+	config.BuildID = os.Getenv(buildIDEnvironmentVarName)
 	config.ResourceGroupName = fmt.Sprintf(abe2eResourceGroupNameTemplate, location)
 	config.KeepVMSS = strings.EqualFold(os.Getenv(keepVMSSEnvironmentVarName), "true")
 

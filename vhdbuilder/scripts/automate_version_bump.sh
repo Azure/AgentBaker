@@ -70,6 +70,12 @@ cut_official_branch() {
     update_image_version
     git add .
     git commit -m"chore: update image version in official branch"
+
+    # Avoid including release notes in the official tag
+    rm -rf vhdbuilder/release-notes
+    git add .
+    git commit -m"chore: remove release notes in official branch"
+    
     git push -u origin $official_branch_name
 
     git tag $official_tag
