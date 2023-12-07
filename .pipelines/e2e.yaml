@@ -13,6 +13,8 @@ pr:
     - pkg/agent
     exclude:
     - e2e/windows
+    - pkg/agent/datamodel/sig_config*.go # SIG config changes
+    - pkg/agent/datamodel/*.json # SIG version changes
     
 variables:
 - group: ab-e2e
@@ -40,20 +42,6 @@ jobs:
     displayName: Run AgentBaker E2E
   - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
     artifact: scenario-logs
-    condition: always()
-  - bash: |
-      set -x
-
-      vmssResourceIds=""
-      for vmssModel in e2e/scenario-logs/*/vmssId.txt; do
-        resourceId=$(cat ${vmssModel})
-        vmssResourceIds="${vmssResourceIds} ${resourceId}"
-      done
-
-      if [ -n "${vmssResourceIds// }" ]; then
-        az resource delete --ids ${vmssResourceIds}
-      fi
-    displayName: ensure vmss deletion
     condition: always()
  
  
