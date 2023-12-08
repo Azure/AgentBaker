@@ -124,10 +124,6 @@ copyPackerFiles() {
   INIT_CUSTOM_CLOUD_DEST=/opt/azure/containers/init-aks-custom-cloud.sh
   cpAndMode $INIT_CUSTOM_CLOUD_SRC $INIT_CUSTOM_CLOUD_DEST 0744
 
-  PVT_HOST_SVC_SRC=/home/packer/reconcile-private-hosts.service
-  PVT_HOST_SVC_DEST=/etc/systemd/system/reconcile-private-hosts.service
-  cpAndMode $CSE_REDACT_SRC $CSE_REDACT_DEST 600
-
   if grep -q "kata" <<< "$FEATURE_FLAGS"; then
     # KataCC SPEC file assumes kata config points to the files exactly under this path
     KATA_CONFIG_DIR=/var/cache/kata-containers/osbuilder-images/kernel-uvm/
