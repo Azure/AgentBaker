@@ -238,10 +238,6 @@ if [[ "${TARGET_CLOUD}" == "AzureChinaCloud" ]]; then
     retagMCRImagesForChina
 fi
 
-if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true" ]]; then
-    logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
-fi
-
 if [ "${SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE}" == "true" ]; then
     logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
 fi
@@ -328,12 +324,8 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
        API_SERVER_DNS_RETRIES=200
     fi
-    if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]]; then
-        RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 20 nslookup -timeout=5 -retry=0 ${API_SERVER_NAME}")
-        STS=$?
-    else
-        STS=0
-    fi
+    RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 20 nslookup -timeout=5 -retry=0 ${API_SERVER_NAME}")
+    STS=$?
     if [[ $STS != 0 ]]; then
         time nslookup ${API_SERVER_NAME}
         if [[ $RES == *"168.63.129.16"*  ]]; then
