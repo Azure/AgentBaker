@@ -101,8 +101,6 @@ copyPackerFiles() {
   AKS_LOGROTATE_CONF_DEST=/etc/logrotate.d/rsyslog
   BLOCK_WIRESERVER_SRC=/home/packer/block_wireserver.sh
   BLOCK_WIRESERVER_DEST=/opt/azure/containers/kubelet.sh
-  RECONCILE_PRIVATE_HOSTS_SRC=/home/packer/reconcile-private-hosts.sh
-  RECONCILE_PRIVATE_HOSTS_DEST=/opt/azure/containers/reconcilePrivateHosts.sh
   KUBELET_SERVICE_SRC=/home/packer/kubelet.service
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
   USU_SH_SRC=/home/packer/ubuntu-snapshot-update.sh

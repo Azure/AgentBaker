@@ -145,11 +145,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/reconcile-private-hosts.sh",
-      "destination": "/home/packer/reconcile-private-hosts.sh"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/block_wireserver.sh",
       "destination": "/home/packer/block_wireserver.sh"
     },
@@ -167,11 +162,6 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/init-aks-custom-cloud.sh",
       "destination": "/home/packer/init-aks-custom-cloud.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/reconcile-private-hosts.service",
-      "destination": "/home/packer/reconcile-private-hosts.service"
     },
     {
       "type": "file",
