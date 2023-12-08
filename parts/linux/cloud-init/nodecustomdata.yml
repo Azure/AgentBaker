@@ -99,20 +99,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
 
-- path: /opt/azure/containers/reconcilePrivateHosts.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsScript"}}
-
-- path: /etc/systemd/system/reconcile-private-hosts.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
-
 - path: /etc/systemd/system/kubelet.service
   permissions: "0600"
   encoding: gzip

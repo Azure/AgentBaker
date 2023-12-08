@@ -15,7 +15,6 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/templates"
-	"github.com/Azure/go-autorest/autorest/to"
 )
 
 // TemplateGenerator represents the object that performs the template generation.
@@ -487,11 +486,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"IsCustomImage": func() bool {
 			return profile.Distro == datamodel.CustomizedImage || profile.Distro == datamodel.CustomizedImageKata
-		},
-		"EnableHostsConfigAgent": func() bool {
-			return cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
-				cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster != nil &&
-				to.Bool(cs.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.EnableHostsConfigAgent)
 		},
 		"UseManagedIdentity": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity

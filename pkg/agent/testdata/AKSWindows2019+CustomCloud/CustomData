@@ -160,9 +160,6 @@ $global:IsAzureCNIOverlayEnabled = $false
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("false");
 $global:CsiProxyUrl = "";
 
-# Hosts Config Agent settings
-$global:EnableHostsConfigAgent = [System.Convert]::ToBoolean("false");
-
 # These scripts are used by cse
 $global:CSEScriptsPackageUrl = "";
 
@@ -373,11 +370,6 @@ try
         -MasterIP $MasterIP `
         -AgentKey $AgentKey `
         -AgentCertificate $global:AgentCertificate
-
-    if ($global:EnableHostsConfigAgent) {
-        Write-Log "Starting hosts config agent"
-        New-HostsConfigService
-    }
 
     Write-Log "Configuring networking with NetworkPlugin:$global:NetworkPlugin"
 

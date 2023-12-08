@@ -1,8 +1,10 @@
 [Unit]
-Description=Reconcile /etc/hosts file for private cluster
+Description=Apply MIG configuration on Nvidia A100 GPU
+
 [Service]
-Type=simple
 Restart=on-failure
-ExecStart=/bin/bash /opt/azure/containers/reconcilePrivateHosts.sh
+ExecStartPre=/usr/bin/nvidia-smi -mig 1
+ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh ${GPU_INSTANCE_PROFILE}
+
 [Install]
 WantedBy=multi-user.target

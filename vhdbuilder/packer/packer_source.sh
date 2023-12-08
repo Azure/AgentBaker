@@ -101,8 +101,6 @@ copyPackerFiles() {
   AKS_LOGROTATE_CONF_DEST=/etc/logrotate.d/rsyslog
   BLOCK_WIRESERVER_SRC=/home/packer/block_wireserver.sh
   BLOCK_WIRESERVER_DEST=/opt/azure/containers/kubelet.sh
-  RECONCILE_PRIVATE_HOSTS_SRC=/home/packer/reconcile-private-hosts.sh
-  RECONCILE_PRIVATE_HOSTS_DEST=/opt/azure/containers/reconcilePrivateHosts.sh
   KUBELET_SERVICE_SRC=/home/packer/kubelet.service
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
   USU_SH_SRC=/home/packer/ubuntu-snapshot-update.sh
@@ -125,10 +123,6 @@ copyPackerFiles() {
   INIT_CUSTOM_CLOUD_SRC=/home/packer/init-aks-custom-cloud.sh
   INIT_CUSTOM_CLOUD_DEST=/opt/azure/containers/init-aks-custom-cloud.sh
   cpAndMode $INIT_CUSTOM_CLOUD_SRC $INIT_CUSTOM_CLOUD_DEST 0744
-
-  PVT_HOST_SVC_SRC=/home/packer/reconcile-private-hosts.service
-  PVT_HOST_SVC_DEST=/etc/systemd/system/reconcile-private-hosts.service
-  cpAndMode $CSE_REDACT_SRC $CSE_REDACT_DEST 600
 
   if grep -q "kata" <<< "$FEATURE_FLAGS"; then
     # KataCC SPEC file assumes kata config points to the files exactly under this path
