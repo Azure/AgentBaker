@@ -59,6 +59,7 @@
 // linux/cloud-init/artifacts/kubelet-monitor.timer
 // linux/cloud-init/artifacts/kubelet.service
 // linux/cloud-init/artifacts/manifest.json
+// linux/cloud-init/artifacts/manifest.json.orig
 // linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh
 // linux/cloud-init/artifacts/mariner/cse_install_mariner.sh
 // linux/cloud-init/artifacts/mariner/pam-d-system-auth
@@ -4901,6 +4902,74 @@ func linuxCloudInitArtifactsManifestJson() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsManifestJsonOrig = []byte(`{
+    "containerd": {
+        "fileName": "moby-containerd_${CONTAINERD_VERSION}+azure-${CONTAINERD_PATCH_VERSION}.deb",
+        "downloadLocation": "/opt/containerd/downloads",
+        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-containerd/${CONTAINERD_VERSION}+azure/${UBUNTU_CODENAME}/linux_${CPU_ARCH}/moby-containerd_${CONTAINERD_VERSION}+azure-ubuntu${UBUNTU_RELEASE}u${CONTAINERD_PATCH_VERSION}_${CPU_ARCH}.deb",
+        "versions": [],
+        "edge": "1.7.1-1"
+    },
+    "runc": {
+        "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
+        "downloadLocation": "/opt/runc/downloads",
+        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
+        "versions": [],
+        "installed": {
+            "default": "1.1.7"
+        }
+    },
+    "nvidia-container-runtime": {
+        "fileName": "",
+        "downloadLocation": "",
+        "downloadURL": "",
+        "versions": []
+    },
+    "nvidia-drivers": {
+        "fileName": "",
+        "downloadLocation": "",
+        "downloadURL": "",
+        "versions": []
+    },
+    "kubernetes": {
+        "fileName": "kubernetes-node-linux-arch.tar.gz",
+        "downloadLocation": "",
+        "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz",
+        "versions": [
+            "1.24.9",
+            "1.24.10",
+            "1.25.5",
+            "1.25.6",
+            "1.26.0",
+            "1.26.3",
+            "1.27.1"
+        ]
+    },
+    "_template": {
+        "fileName": "",
+        "downloadLocation": "",
+        "downloadURL": "",
+        "versions": []
+    }
+}
+#EOF
+`)
+
+func linuxCloudInitArtifactsManifestJsonOrigBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsManifestJsonOrig, nil
+}
+
+func linuxCloudInitArtifactsManifestJsonOrig() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsManifestJsonOrigBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/manifest.json.orig", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsMarinerCse_helpers_marinerSh = []byte(`#!/bin/bash
 
 echo "Sourcing cse_helpers_distro.sh for Mariner"
@@ -5019,6 +5088,10 @@ installKataDeps() {
         fi
       done
     fi
+
+    # kdump.service to be enabled once optimized,
+    # compressed core dumps can be obtained
+    systemctl disable kdump.service || :
 }
 
 downloadGPUDrivers() {
@@ -8603,6 +8676,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/kubelet-monitor.timer":                     linuxCloudInitArtifactsKubeletMonitorTimer,
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
 	"linux/cloud-init/artifacts/manifest.json":                             linuxCloudInitArtifactsManifestJson,
+	"linux/cloud-init/artifacts/manifest.json.orig":                        linuxCloudInitArtifactsManifestJsonOrig,
 	"linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh":            linuxCloudInitArtifactsMarinerCse_helpers_marinerSh,
 	"linux/cloud-init/artifacts/mariner/cse_install_mariner.sh":            linuxCloudInitArtifactsMarinerCse_install_marinerSh,
 	"linux/cloud-init/artifacts/mariner/pam-d-system-auth":                 linuxCloudInitArtifactsMarinerPamDSystemAuth,
@@ -8749,6 +8823,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"kubelet-monitor.timer":                     &bintree{linuxCloudInitArtifactsKubeletMonitorTimer, map[string]*bintree{}},
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
 				"manifest.json":                             &bintree{linuxCloudInitArtifactsManifestJson, map[string]*bintree{}},
+				"manifest.json.orig":                        &bintree{linuxCloudInitArtifactsManifestJsonOrig, map[string]*bintree{}},
 				"mariner": &bintree{nil, map[string]*bintree{
 					"cse_helpers_mariner.sh":       &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
 					"cse_install_mariner.sh":       &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},
