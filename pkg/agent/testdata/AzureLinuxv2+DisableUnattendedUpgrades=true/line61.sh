@@ -33,6 +33,10 @@ installKataDeps() {
         fi
       done
     fi
+
+    # kdump.service to be enabled once optimized,
+    # compressed core dumps can be obtained
+    systemctl disable kdump.service || :
 }
 
 downloadGPUDrivers() {
