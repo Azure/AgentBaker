@@ -14,11 +14,18 @@ required_env_vars=(
 # Higher the replication_inverse, lower is the usage and number of replicas
 set -x
 REPLICATION_INVERSE=1
-feature_set=("fips" "gpu" "arm64" "cvm" "tl" "1804" "kata")
+feature_set=("fips" "gpu" "arm64" "cvm" "tl" "kata")
 if [ "${OFFER_NAME,,}" != "ubuntu" ]; then
     # Since Ubuntu is our most used SKU as compared to Windows/Mariner/AzLinux, we dont need the same number of replicas for all.
     # Starting off with half replicas.
     REPLICATION_INVERSE=$((REPLICATION_INVERSE * 2))
+else
+    # 1804 SKUs are not used as much since we defaulted to 22.04 with k8s 1.25 and the lowest supported k8s version supported is 1.25
+    # We only support a certain set of functionalities for 2004(CVM, FIPs)
+    # Therefore they dont need to be as high in number
+    if [[ "${SKU_NAME,,}" != *"2204"* ]]; then
+        REPLICATION_INVERSE=$((REPLICATION_INVERSE * 2))
+    fi
 fi
 
 if [ "${HYPERV_GENERATION,,}" == "v1" ]; then
