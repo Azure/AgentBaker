@@ -15,7 +15,7 @@ required_env_vars=(
 set -x
 REPLICATION_INVERSE=1
 feature_set=("fips" "gpu" "arm64" "cvm" "tl")
-if [ "${SKU_NAME,,}" != "ubuntu" ]; then
+if [ "${OFFER_NAME,,}" != "ubuntu" ]; then
     # Since Ubuntu is our most used SKU as compared to Windows/Mariner/AzLinux, we dont need the same number of replicas for all.
     # Starting off with half replicas.
     REPLICATION_INVERSE=$((REPLICATION_INVERSE * 2))
@@ -27,7 +27,7 @@ if [ "${HYPERV_GENERATION,,}" == "v1" ]; then
 fi
 
 for feature in "${feature_set[@]}"; do
-    if [[ "${OFFER_NAME,,}" == *"${feature}"* ]]; then
+    if [[ "${SKU_NAME,,}" == *"${feature}"* ]]; then
         REPLICATION_INVERSE=$((REPLICATION_INVERSE * 2))
         break
     fi
