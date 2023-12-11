@@ -12,6 +12,7 @@ required_env_vars=(
 )
 
 # Higher the replication_inverse, lower is the usage and number of replicas
+set -x
 REPLICATION_INVERSE=1
 feature_set=("fips" "gpu" "arm64" "cvm" "tl")
 if [ "${SKU_NAME,,}" != "ubuntu" ]; then
@@ -31,6 +32,7 @@ for feature in "${feature_set[@]}"; do
         break
     fi
 done
+set +x
 
 for v in "${required_env_vars[@]}"
 do
