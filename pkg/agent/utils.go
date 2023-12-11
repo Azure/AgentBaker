@@ -233,8 +233,8 @@ func isCommentAtTheEndOfLine(lastHashIndex int, trimmedToCheck string) bool {
 		return str[start:end]
 	}
 	// These are two of patterns that are present amongst Agent Baker files that we need to specifically check for. Non-exhaustive
-	//nolint:mnd // cleaner to just use +2
-	return getSlice(lastHashIndex-1, lastHashIndex+1, trimmedToCheck) != "<#" && getSlice(lastHashIndex, lastHashIndex+2, trimmedToCheck) == "# "
+	tailingCommentSegmentLen := 2
+	return getSlice(lastHashIndex-1, lastHashIndex+1, trimmedToCheck) != "<#" && getSlice(lastHashIndex, lastHashIndex+tailingCommentSegmentLen, trimmedToCheck) == "# "
 }
 
 // getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data.
