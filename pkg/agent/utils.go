@@ -195,7 +195,7 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
 }
 
-// This is "best-effort" - removes MOST of the comments with obvious formats, to lower the space required by CustomData component
+// This is "best-effort" - removes MOST of the comments with obvious formats, to lower the space required by CustomData component.
 func removeComments(b []byte) []byte {
 	var contentWithoutComments []string
 	lines := strings.Split(string(b), "\n")
