@@ -10,12 +10,12 @@ import (
 )
 
 // Template represents a 'scenario template' which contains common config used
-// across all scenarios, such as the VHD catalog
+// across all scenarios, such as the VHD catalog for selecting VHDs.
 type Template struct {
 	VHDCatalog
 }
 
-// NewTemplate constructs a new template using the base VHD catalog
+// NewTemplate constructs a new template using the base VHD catalog.
 func NewTemplate() *Template {
 	return &Template{
 		VHDCatalog: BaseVHDCatalog,
@@ -84,22 +84,22 @@ type LiveVMValidator struct {
 	IsShellBuiltIn bool
 }
 
+// PrepareNodeBootstrappingConfiguration mutates the input NodeBootstrappingConfiguration by calling the
+// scenario's BootstrapConfigMutator on it, if configured.
 func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappingConfiguration) {
 	if s.BootstrapConfigMutator != nil {
 		s.BootstrapConfigMutator(nbc)
 	}
 }
 
+// PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
+// This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(vmss *armcompute.VirtualMachineScaleSet) error {
 	if s.VHDSelector == nil {
 		return fmt.Errorf("VHD selector configured for scenario %q is nil", s.Name)
 	}
-
-	if vmss == nil {
-		vmss = &armcompute.VirtualMachineScaleSet{}
-	}
-	if vmss.Properties == nil {
-		vmss.Properties = &armcompute.VirtualMachineScaleSetProperties{}
+	if vmss == nil || vmss.Properties == nil {
+		return fmt.Errorf("unable to prepare VMSS model for scenario %q: input VirtualMachineScaleSet or properties are nil", s.Name)
 	}
 
 	if s.VMConfigMutator != nil {

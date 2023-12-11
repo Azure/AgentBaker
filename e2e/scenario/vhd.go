@@ -107,7 +107,7 @@ func (id VHDResourceID) Short() string {
 	return str
 }
 
-// VHD represents a VHD used to run AgentBaker E2E scenarios
+// VHD represents a VHD used to run AgentBaker E2E scenarios.
 type VHD struct {
 	// ArtifactName is the name of the VHD's assocaited artifact as found in the published build aritfacts from VHD builds.
 	// This is used to template the name of the publishing info artifacts when downloading from ADO - e.g. "publishing-info-<ArtifactName>".
@@ -126,55 +126,67 @@ type VHDCatalog struct {
 	CBLMarinerV2 CBLMarinerV2 `json:"cblmarinerv2,omitempty"`
 }
 
+// Ubuntu1804 contains all the Ubuntu1804-based VHD catalog entries.
 type Ubuntu1804 struct {
 	Gen2Containerd VHD `json:"gen2containerd,omitempty"`
 }
 
+// Ubuntu2204 contains all the Ubuntu2204-based VHD catalog entries.
 type Ubuntu2204 struct {
 	Gen2Arm64Containerd VHD `json:"gen2arm64containerd,omitempty"`
 	Gen2Containerd      VHD `json:"gen2containerd,omitempty"`
 }
 
+// AzureLinuxV2 contains all the AzureLinuxV2-based VHD catalog entries.
 type AzureLinuxV2 struct {
 	Gen2Arm64 VHD `json:"gen2arm64,omitempty"`
 	Gen2      VHD `json:"gen2,omitempty"`
 }
 
+// CBLMarinerv2 contains all the CBLMarinerV2-based VHD catalog entries.
 type CBLMarinerV2 struct {
 	Gen2Arm64 VHD `json:"gen2arm64,omitempty"`
 	Gen2      VHD `json:"gen2,omitempty"`
 }
 
+// Returns the Ubuntu1804/gen2 catalog entry.
 func (c *VHDCatalog) Ubuntu1804Gen2Containerd() VHD {
 	return c.Ubuntu1804.Gen2Containerd
 }
 
+// Returns the Ubuntu2204/gen2arm64 catalog entry.
 func (c *VHDCatalog) Ubuntu2204Gen2ARM64Containerd() VHD {
 	return c.Ubuntu2204.Gen2Arm64Containerd
 }
 
+// Returns the Ubuntu2204/gen2 catalog entry.
 func (c *VHDCatalog) Ubuntu2204Gen2Containerd() VHD {
 	return c.Ubuntu2204.Gen2Containerd
 }
 
+// Returns the AzureLinuxV/gen2arm64 catalog entry.
 func (c *VHDCatalog) AzureLinuxV2Gen2ARM64() VHD {
 	return c.AzureLinuxV2.Gen2Arm64
 }
 
+// Returns the AzureLinuxV2/gen2 catalog entry.
 func (c *VHDCatalog) AzureLinuxV2Gen2() VHD {
 	return c.AzureLinuxV2.Gen2
 }
 
+// Returns the CBLMarinerV2/gen2arm64 catalog entry.
 func (c *VHDCatalog) CBLMarinerV2Gen2ARM64() VHD {
 	return c.CBLMarinerV2.Gen2Arm64
 }
 
+// Returns the CBLMarinerV2/gen2 catalog entry.
 func (c *VHDCatalog) CBLMarinerV2Gen2() VHD {
 	return c.CBLMarinerV2.Gen2
 }
 
 // addEntryFromPublishingInfo will add an entry to the catalog based on the specified publishing info.
-// Specifically, it will overwrite resource ID of the catalog entry associated with the VHD represented by the publishing info.
+// Specifically, it will select and overwrite the resource ID of the given VHD object based on the name of the VHD
+// inferred from the specified publishing info.
 func (c *VHDCatalog) addEntryFromPublishingInfo(info artifact.VHDPublishingInfo) {
 	if resourceID := info.CapturedImageVersionResourceID; resourceID != "" {
 		id := VHDResourceID(resourceID)
@@ -197,8 +209,8 @@ func (c *VHDCatalog) addEntryFromPublishingInfo(info artifact.VHDPublishingInfo)
 	}
 }
 
-// addEntriesFromPublishingInfoDir will read all the publishing-info-*.json files from the specified directory
-// decode them, and call addEntryFromPublishingInfo respectively.
+// addEntriesFromPublishingInfoDir will read all the publishing-info-*.json files from the specified directory,
+// unmarshal them, and call addEntryFromPublishingInfo on each one respectively.
 func (c *VHDCatalog) addEntriesFromPublishingInfoDir(dirName string) error {
 	absPath, err := filepath.Abs(dirName)
 	if err != nil {
