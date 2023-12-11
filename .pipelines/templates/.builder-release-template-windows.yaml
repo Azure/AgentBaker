@@ -140,6 +140,8 @@ steps:
         WINDOWS_VERSION="$(cat vhdbuilder/packer/windows-image.env | grep -a "WINDOWS_2019_BASE_IMAGE_VERSION" | cut -d "=" -f 2 | cut -d "." -f 1,2)"
       elif [[ ${{ parameters.artifactName }} =~ "2022" ]]; then
         WINDOWS_VERSION="$(cat vhdbuilder/packer/windows-image.env | grep -a "WINDOWS_2022_BASE_IMAGE_VERSION" | cut -d "=" -f 2 | cut -d "." -f 1,2)"
+      elif [[ ${{ parameters.artifactName }} =~ "23H2" ]]; then
+        WINDOWS_VERSION="$(cat vhdbuilder/packer/windows-image.env | grep -a "WINDOWS_23H2_BASE_IMAGE_VERSION" | cut -d "=" -f 2 | cut -d "." -f 1,2)"
       else
         echo "Current distro is not supported to get image version. You need to update related code."
         exit 1
