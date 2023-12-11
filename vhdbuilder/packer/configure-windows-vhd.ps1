@@ -236,6 +236,10 @@ function Install-ContainerD {
     # and the containerd to managed customer containers after provisioning the vm is not necessary
     # the one used here, considering containerd version/package is configurable, and the first one
     # is expected to override the later one
+    $buildNumber = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuild
+    if ($buildNumber -eq "25398") {
+        $global:defaultContainerdPackageUrl = $global:LatestContainerdPackagefor23H2
+    }
     Write-Log "Getting containerD binaries from $global:defaultContainerdPackageUrl"
 
     $installDir = "c:\program files\containerd"
