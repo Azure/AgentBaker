@@ -14,7 +14,7 @@ required_env_vars=(
 # Higher the replication_inverse, lower is the usage and number of replicas
 set -x
 REPLICATION_INVERSE=1
-feature_set=("fips" "gpu" "arm64" "cvm" "tl")
+feature_set=("fips" "gpu" "arm64" "cvm" "tl" "1804")
 if [ "${OFFER_NAME,,}" != "ubuntu" ]; then
     # Since Ubuntu is our most used SKU as compared to Windows/Mariner/AzLinux, we dont need the same number of replicas for all.
     # Starting off with half replicas.
