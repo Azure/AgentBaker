@@ -225,6 +225,8 @@ func trimTrailingComment(line string) string {
 }
 
 // Trying to avoid using a regex. There are certain patterns we ignore just to be on the safe side. This is enough to get rid of most of the obvious comments.
+//
+//nolint:mnd
 func isCommentAtTheEndOfLine(lastHashIndex int, trimmedToCheck string) bool {
 	getSlice := func(start, end int, str string) string {
 		if end > len(str) || start > end {
