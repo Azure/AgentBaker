@@ -85,11 +85,14 @@ VHD_BUILD_ID=345678912 SCENARIOS_TO_RUN=base,gpu,ubuntu2204,ubuntu2204-arm64 ./e
 ```
 
 
-### Registering New VHDs for E2E Testing
+### Registering New VHD SKUs for E2E Testing
 When adding a new scenario which uses a VHD that doesn't currently have an associated entry in the base catalog, please make sure to follow these steps to register it with the suite:
 
 1. Build and delete-lock the underlying image version to be referenced in the base catalog
-2. Update [base_vhd_catalog](scenario/base_vhd_catalog.json).json with a new entry, referencing the resource ID of the new VHD built in the previous step
+2. Update [base_vhd_catalog](scenario/base_vhd_catalog.json).json with a new entry, referencing the resource ID of the new VHD built in the previous step, as well as the VHD's artifact name. The artifact name is used when downloading publishing info artifacts from VHD builds in ADO. To determine this value:
+    1. Navigate to the latest run of the `[TEST All VHDs] AKS Linux VHD Build - Msft Tenant` build which has built the SKU you'd like to register (or queue a new build which includes the particular SKU).
+    2. Navigate to the particular run's published artifacts and identitfy the `publishing-info-<artifactName>` artifact for your SKU. The suffix of this string after `publishing-info-` is the name of the artifact.
+    3. Alternatively, you can get this value from navigating to [.vsts-vhd-builder-release.yaml](../.pipelines/.vsts-vhd-builder-release.yaml), identifying the corresponding build stage for your SKU, and looking at the value of `artifactName` specified when calling the `.builder-release-template.yaml` template.
 3. Within [scenario/vhd.go](scenario/vhd.go), update the corresponding subcatalog struct (e.g. `Ubuntu2204`, `AzureLinuxV2`) with the new entry, and correctly add its corresponding JSON tag used to unmarshal from base_vhd_catalog.json
 4. Also within scenario/vhd.go, add a corresponding case block to the switch statement within `addEntryFromPublishingInfo()` to make sure the VHD's name (parsed from the publishing info file) is associated with the new subcatalog entry added in the previous step - this is to ensure that catalog entries are properly overwritten when using VHDs from arbitrary testing builds
 5. Add a new `VHDSelector` within scenario/vhd.go in the form of a method on the `*VHDCatalog` type, which returns the new entry of the given subcatalog added in step 3
