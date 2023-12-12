@@ -44,11 +44,15 @@ $lockedFiles = @(
 
 $timeStamp = get-date -format 'yyyyMMdd-hhmmss'
 $zipName = "$env:computername-$($timeStamp)_logs.zip"
+
+$paths = @() # All log file paths will be collected 
+
+# Log the script output. It is the first log file to avoid other impact.
 $outputLogFile = "$ENV:TEMP\collect-windows-logs-output.log"
 Start-Transcript -Path $outputLogFile
+$paths += $outputLogFile
 
 Write-Host "Collecting logs for various Kubernetes components"
-$paths = @()
 get-childitem c:\k\*.log* -Exclude $lockedFiles | Foreach-Object {
   $paths += $_
 }
@@ -326,7 +330,6 @@ $logFiles | Foreach-Object {
 
 Write-Host "All logs collected: $paths"
 Stop-Transcript
-$paths += $outputLogFile
 
 Write-Host "Compressing all logs to $zipName"
 $paths | Format-Table FullName, Length -AutoSize
