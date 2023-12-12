@@ -46,8 +46,7 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 	parameters := getParameters(config)
 	// get variable cloudInit
 	variables := getCustomDataVariables(config)
-	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml,
-		config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables))
+	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml, config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables), true)
 
 	if e != nil {
 		panic(e)
@@ -65,8 +64,7 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 	parameters := getParameters(config)
 	// get variable custom data
 	variables := getWindowsCustomDataVariables(config)
-	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1,
-		profile, getBakerFuncMap(config, parameters, variables))
+	str, e := t.getSingleLineForTemplate(kubernetesWindowsAgentCustomDataPS1, profile, getBakerFuncMap(config, parameters, variables), false)
 
 	if e != nil {
 		panic(e)
@@ -102,6 +100,7 @@ func (t *TemplateGenerator) getLinuxNodeCSECommand(config *datamodel.NodeBootstr
 		kubernetesCSECommandString,
 		config.AgentPoolProfile,
 		getBakerFuncMap(config, parameters, variables),
+		true,
 	)
 
 	if e != nil {
@@ -124,6 +123,7 @@ func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBoots
 		kubernetesWindowsAgentCSECommandPS1,
 		config.AgentPoolProfile,
 		getBakerFuncMap(config, parameters, variables),
+		false,
 	)
 
 	if e != nil {
@@ -140,10 +140,8 @@ func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBoots
 }
 
 // getSingleLineForTemplate returns the file as a single line for embedding in an arm template.
-func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, profile interface{},
-	funcMap template.FuncMap,
-) (string, error) {
-	expandedTemplate, err := t.getSingleLine(textFilename, profile, funcMap)
+func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, profile interface{}, funcMap template.FuncMap, isLinux bool) (string, error) {
+	expandedTemplate, err := t.getSingleLine(textFilename, profile, funcMap, isLinux)
 	if err != nil {
 		return "", err
 	}
@@ -154,12 +152,13 @@ func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, profil
 }
 
 // getSingleLine returns the file as a single line.
-func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface{},
-	funcMap template.FuncMap,
-) (string, error) {
+func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface{}, funcMap template.FuncMap, isLinux bool) (string, error) {
 	b, err := templates.Asset(textFilename)
 	if err != nil {
 		return "", fmt.Errorf("yaml file %s does not exist", textFilename)
+	}
+	if isLinux {
+		b = removeComments(b)
 	}
 
 	// use go templates to process the text filename
