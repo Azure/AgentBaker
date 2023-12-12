@@ -29,11 +29,9 @@ configureTransparentHugePage() {
 }
 
 configureSwapFile() {
-    # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
     swap_size_kb=$(expr ${SWAP_FILE_SIZE_MB} \* 1000)
     swap_location=""
     
-    # Attempt to use the resource disk
     if [[ -L /dev/disk/azure/resource-part1 ]]; then
         resource_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/resource-part1))
         disk_free_kb=$(df ${resource_disk_path} | sed 1d | awk '{print $4}')
@@ -45,9 +43,7 @@ configureSwapFile() {
         fi
     fi
 
-    # If we couldn't use the resource disk, attempt to use the OS disk
     if [[ -z "${swap_location}" ]]; then
-        # Directly check size on the root directory since we can't rely on 'root-part1' always being the correct label
         os_device=$(readlink -f /dev/disk/azure/root)
         disk_free_kb=$(df -P / | sed 1d | awk '{print $4}')
         if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
@@ -121,13 +117,10 @@ configureHTTPProxyCA() {
 configureCustomCaCertificate() {
     mkdir -p /opt/certs
     for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
-        # declare dynamically and use "!" to avoid bad substition errors
         declare varname=CUSTOM_CA_CERT_${i} 
         echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
     done
-    # blocks until svc is considered active, which will happen when ExecStart command terminates with code 0
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
-    # containerd has to be restarted after new certs are added to the trust store, otherwise they will not be used until restart happens
     systemctl restart containerd
 }
 
@@ -257,7 +250,6 @@ EOF
 }
 
 configureCNI() {
-    # needed for the iptables rules to work on bridges
     retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
     configureCNIIPTables
@@ -492,15 +484,9 @@ EOF
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
 #!/bin/bash
-# Disallow container from reaching out to the special IP address 168.63.129.16
-# for TCP protocol (which http uses)
 #
-# 168.63.129.16 contains protected settings that have priviledged info.
 #
-# The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
 #
-# Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
-# for DNS.
 iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
 EOF
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
@@ -517,10 +503,6 @@ ensureMigPartition(){
 [Service]
 Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
 EOF
-    # this is expected to fail and work only on next reboot
-    # it MAY succeed, only due to unreliability of systemd
-    # service type=Simple, which does not exit non-zero
-    # on failure if ExecStart failed to invoke.
     systemctlEnableAndStart mig-partition
 }
 
@@ -641,7 +623,6 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
-    # Fix the NVIDIA /dev/char link issue
     if [[ $OS == $MARINER_OS_NAME ]]; then
         createNvidiaSymlinkToAllDeviceNodes
     fi
