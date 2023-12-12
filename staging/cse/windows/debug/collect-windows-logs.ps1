@@ -44,6 +44,8 @@ $lockedFiles = @(
 
 $timeStamp = get-date -format 'yyyyMMdd-hhmmss'
 $zipName = "$env:computername-$($timeStamp)_logs.zip"
+$outputLogFile = "$ENV:TEMP\collect-windows-logs-output.log"
+Start-Transcript -Path $outputLogFile
 
 Write-Host "Collecting logs for various Kubernetes components"
 $paths = @()
@@ -321,6 +323,10 @@ $logFiles | Foreach-Object {
     $paths += $tempFile
   }
 }
+
+Write-Host "All logs collected: $paths"
+Stop-Transcript
+$paths += $outputLogFile
 
 Write-Host "Compressing all logs to $zipName"
 $paths | Format-Table FullName, Length -AutoSize
