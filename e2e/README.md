@@ -58,7 +58,7 @@ For example, [scenario_ubuntu2204.go](scenario/scenario_ubuntu2204.go) defines t
 To update the set of default VHD catalog entries to point towards new VHDs, simply update the `resourceId` field of the respective VHD within [scenario/base_vhd_catalog.json](scenario/base_vhd_catalog.json). If you're making this change as a part of a PR, you need to make sure to lock the new VHDs with resource deletion locks to ensure they're always available going forward. Note that if you run the suite in a region other than eastus, you'll need to make sure the VHDs you point the suite towards are appropriately replicated in the given region as well if using SIG image versions.
 
 ### Using Arbitrary VHD Builds
-If you'd like to run the E2E suite using a set of VHDs built from some arbitrary run of the VHD build pipeline in the MSFT tenant, you can do so by specifying the ID of the build. This is an alternative to manually updating the set of default VHD catalog entries. If a given scenario is ran which selects a VHD that was not built as a part of the specified VHD build, the selector will select the corresponding default catalog entry instead. 
+If you'd like to run the E2E suite using a set of VHDs built from some arbitrary run of the VHD build pipeline in the MSFT tenant, you can do so by specifying the ID of the build. This is an alternative to manually updating the set of default VHD catalog entries. If a given scenario is ran which selects a VHD that was not built as a part of the specified VHD build, the selector will select the corresponding default catalog entry instead.
 
 To use a build, simply specify the ID of the test build using the `VHD_BUILD_ID` environment variable like so:
 
@@ -83,6 +83,19 @@ VHD_BUILD_ID=234567891 SCENARIOS_TO_RUN=base,gpu,ubuntu2204,ubuntu2204-arm64 ./e
 ...
 VHD_BUILD_ID=345678912 SCENARIOS_TO_RUN=base,gpu,ubuntu2204,ubuntu2204-arm64 ./e2e-local.sh
 ```
+
+
+### Onboarding New VHDs for E2E Testing
+When adding a new scenario which uses a VHD that doesn't currently have an associated entry in the base catalog, please make sure to follow these steps:
+
+1. Build and delete-lock the underlying image version to be referenced in the base catalog
+2. Update base_vhd_catalog.json with a new entry, referencing the new VHD built in the previous step
+3. Within [scenario/vhd.go](scenario/vhd.go), update the corresponding subcatalog struct (e.g. `Ubuntu2204`, `AzureLinuxV2`) with the new entry, and correctly add its corresponding JSON tag used to unmarshal from base_vhd_catalog.json
+4. Add a corresponding case block to the switch statement within `addEntryFromPublishingInfo` (also within scenario/vhd.go) to make sure the VHD's name is associated with the new subcatalog entry added in the previous step when overwriting catalog entries from custom publishing info
+5. Add a new `VHDSelector` within scenario/vhd.go in the form of a method on the `*VHDCatalog` type, which returns the new entry of the given subcatalog added in step 3
+6. Reference the new `VHDSelector` added in the previous step when defining the new scenario.
+
+Example PR: TODO(cameissner)
 
 ## Scenarios
 
