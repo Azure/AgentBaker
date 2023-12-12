@@ -7,13 +7,14 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 )
 
-func ubuntu1804gpu_azurecni() *Scenario {
+func (t *Template) ubuntu1804gpu_azurecni() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu1804-gpu-azurecni",
 		Description: "Ubuntu1804 gpu scenario on cluster configured with Azure CNI",
 		Config: Config{
 			ClusterSelector: NetworkPluginAzureSelector,
 			ClusterMutator:  NetworkPluginAzureMutator,
+			VHDSelector:     t.Ubuntu1804Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
