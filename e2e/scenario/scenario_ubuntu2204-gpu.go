@@ -9,15 +9,15 @@ import (
 )
 
 // Returns config for the 'gpu' E2E scenario
-func ubuntu2204gpu(vmSeries string) *Scenario {
+func (t *Template) ubuntu2204gpu(vmSeries string) *Scenario {
 	vmSize := DefaultGPUSeriesVMSizes[vmSeries]
-
 	return &Scenario{
 		Name:        fmt.Sprintf("ubuntu2204-gpu-%s", vmSeries),
 		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2204 VHD can be properly bootstrapped", vmSize),
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
+			VHDSelector:     t.Ubuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = vmSize
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -29,9 +29,6 @@ func ubuntu2204gpu(vmSeries string) *Scenario {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
-				vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-					ID: to.Ptr(DefaultImageVersionIDs["ubuntu2204"]),
-				}
 			},
 		},
 	}

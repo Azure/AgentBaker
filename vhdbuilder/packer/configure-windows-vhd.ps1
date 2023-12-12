@@ -771,6 +771,17 @@ function Get-LatestWindowsDefenderPlatformUpdate {
     }
 }
 
+function Log-ReofferUpdate {
+    try {
+        $result=(Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Update\TargetingInfo\Installed\Server.OS.amd64" -Name ReofferUpdate)
+        if ($result) {
+            Write-Log "ReofferUpdate is $($result.ReofferUpdate)"
+        }
+    } catch {
+        Write-Log "ReofferUpdate does not exist"
+    }
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -784,12 +795,15 @@ try{
             Disable-WindowsUpdates
             Set-WinRmServiceDelayedStart
             Update-DefenderSignatures
-            Install-WindowsPatches
+            Log-ReofferUpdate
             Install-OpenSSH
+            Log-ReofferUpdate
+            Install-WindowsPatches
             Update-WindowsFeatures
         }
         "2" {
             Write-Log "Performing actions for provisioning phase 2"
+            Log-ReofferUpdate
             Set-WinRmServiceAutoStart
             Install-ContainerD
             Update-Registry
@@ -798,6 +812,7 @@ try{
             Get-PrivatePackagesToCacheOnVHD
             Remove-Item -Path c:\windows-vhd-configuration.ps1
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
+            Log-ReofferUpdate
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"

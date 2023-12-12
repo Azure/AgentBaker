@@ -6,7 +6,6 @@ import xml.etree.ElementTree as ET
 
 http = urllib3.PoolManager()
 
-# Get the container_id and deployment_id from the Goal State
 goal_state_xml = http.request(
         'GET',
         'http://168.63.129.16/machine/?comp=goalstate',
@@ -19,7 +18,6 @@ container_id = goal_state.findall('./Container/ContainerId')[0].text
 role_config_name = goal_state.findall('./Container/RoleInstanceList/RoleInstance/Configuration/ConfigName')[0].text
 deployment_id = role_config_name.split('.')[0]
 
-# Upload the logs
 with open('/var/lib/waagent/logcollector/logs.zip', 'rb') as logs:
     logs_data = logs.read()
     upload_logs = http.request(

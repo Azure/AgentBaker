@@ -6,13 +6,14 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 )
 
-func ubuntu2204ARM64() *Scenario {
+func (t *Template) ubuntu2204ARM64() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204-arm64",
 		Description: "Tests that an Ubuntu 2204 Node using ARM64 architecture can be properly bootstrapped",
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
+			VHDSelector:     t.Ubuntu2204Gen2ARM64Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
@@ -24,9 +25,6 @@ func ubuntu2204ARM64() *Scenario {
 
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-					ID: to.Ptr(DefaultImageVersionIDs["ubuntu2204-arm64"]),
-				}
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 		},

@@ -40,6 +40,9 @@ jobs:
       cd e2e
       go test -timeout 45m -v -run Test_All ./
     displayName: Run AgentBaker E2E
+    env:
+      VHD_BUILD_ID: $(VHD_BUILD_ID)
+      ADO_PAT: $(ADO_PAT)
   - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
     artifact: scenario-logs
     condition: always()

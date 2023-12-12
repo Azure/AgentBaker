@@ -45,8 +45,14 @@ $lockedFiles = @(
 $timeStamp = get-date -format 'yyyyMMdd-hhmmss'
 $zipName = "$env:computername-$($timeStamp)_logs.zip"
 
+$paths = @() # All log file paths will be collected 
+
+# Log the script output. It is the first log file to avoid other impact.
+$outputLogFile = "$ENV:TEMP\collect-windows-logs-output.log"
+Start-Transcript -Path $outputLogFile
+$paths += $outputLogFile
+
 Write-Host "Collecting logs for various Kubernetes components"
-$paths = @()
 get-childitem c:\k\*.log* -Exclude $lockedFiles | Foreach-Object {
   $paths += $_
 }
@@ -313,14 +319,19 @@ $gpuTemp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRan
 New-Item -Type Directory $gpuTemp
 
 $nvidiaInstallLogFolder="C:\AzureData\NvidiaInstallLog"
-$logFiles = Get-ChildItem (Join-Path $nvidiaInstallLogFolder *.log)
-$logFiles | Foreach-Object {
-  Write-Host "Copying $_ to temp"
-  $tempFile = Copy-Item $_ $gpuTemp -Passthru -ErrorAction Ignore
-  if ($tempFile) {
-    $paths += $tempFile
+if (Test-Path $nvidiaInstallLogFolder) {
+  $logFiles = Get-ChildItem (Join-Path $nvidiaInstallLogFolder *.log)
+  $logFiles | Foreach-Object {
+    Write-Host "Copying $_ to temp"
+    $tempFile = Copy-Item $_ $gpuTemp -Passthru -ErrorAction Ignore
+    if ($tempFile) {
+      $paths += $tempFile
+    }
   }
 }
+
+Write-Host "All logs collected: $paths"
+Stop-Transcript
 
 Write-Host "Compressing all logs to $zipName"
 $paths | Format-Table FullName, Length -AutoSize
