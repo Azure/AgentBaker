@@ -152,7 +152,7 @@ else
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts @$SCRIPT_PATH \
     --output json \
-    --parameters "windowsSKU=${WINDOWS_SKU}")
+    --parameters "windowsSKU=${WINDOWS_SKU}" "skipValidateReofferUpdate=${SKIPVALIDATEREOFFERUPDATE}")
   # An example of failed run-command output:
   # {
   #   "value": [
