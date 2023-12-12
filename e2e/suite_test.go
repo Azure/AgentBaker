@@ -164,15 +164,24 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		log.Println("vmss creation succeded, proceeding with node readiness and pod checks...")
 		nodeName, err := validateNodeHealth(ctx, opts.clusterConfig.kube, vmssName)
 		if err != nil {
+			if writeError := writeToFile(filepath.Join(opts.loggingDir, "validateNodeHealth-error.log"), err.Error()); writeError != nil {
+				t.Errorf("failed to write validateNodeHealth error to disk: %s.", writeError)
+			}
 			t.Fatal(err)
 		}
 
 		if opts.nbc.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi {
 			log.Println("wasm scenario: running wasm validation...")
 			if err := ensureWasmRuntimeClasses(ctx, opts.clusterConfig.kube); err != nil {
+				if writeError := writeToFile(filepath.Join(opts.loggingDir, "ensureWasmRuntimeClasses-error.log"), err.Error()); writeError != nil {
+					t.Errorf("failed to write ensureWasmRuntimeClasses error to disk: %s.", writeError)
+				}
 				t.Fatalf("unable to ensure wasm RuntimeClasses: %s", err)
 			}
 			if err := validateWasm(ctx, opts.clusterConfig.kube, nodeName, string(privateKeyBytes)); err != nil {
+				if writeError := writeToFile(filepath.Join(opts.loggingDir, "validateWasm-error.log"), err.Error()); writeError != nil {
+					t.Errorf("failed to write validateWasm error to disk: %s.", writeError)
+				}
 				t.Fatalf("unable to validate wasm: %s", err)
 			}
 		}
@@ -181,6 +190,9 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 
 		err = runLiveVMValidators(ctx, vmssName, vmPrivateIP, string(privateKeyBytes), opts)
 		if err != nil {
+			if writeError := writeToFile(filepath.Join(opts.loggingDir, "runLiveVMValidators-error.log"), err.Error()); writeError != nil {
+				t.Errorf("failed to write runLiveVMValidators error to disk: %s.", writeError)
+			}
 			t.Fatalf("vm validation failed: %s", err)
 		}
 
