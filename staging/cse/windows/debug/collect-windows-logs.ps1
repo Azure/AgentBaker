@@ -319,12 +319,14 @@ $gpuTemp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRan
 New-Item -Type Directory $gpuTemp
 
 $nvidiaInstallLogFolder="C:\AzureData\NvidiaInstallLog"
-$logFiles = Get-ChildItem (Join-Path $nvidiaInstallLogFolder *.log)
-$logFiles | Foreach-Object {
-  Write-Host "Copying $_ to temp"
-  $tempFile = Copy-Item $_ $gpuTemp -Passthru -ErrorAction Ignore
-  if ($tempFile) {
-    $paths += $tempFile
+if (Test-Path $nvidiaInstallLogFolder) {
+  $logFiles = Get-ChildItem (Join-Path $nvidiaInstallLogFolder *.log)
+  $logFiles | Foreach-Object {
+    Write-Host "Copying $_ to temp"
+    $tempFile = Copy-Item $_ $gpuTemp -Passthru -ErrorAction Ignore
+    if ($tempFile) {
+      $paths += $tempFile
+    }
   }
 }
 
