@@ -421,16 +421,6 @@ function Test-RegistryAdded {
             Write-ErrorWithTimestamp "The registry for FwPerfImprovementChange is not added"
             exit 1
         }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange)
-        if ($result.PortExclusionChange -ne 1) {
-            Write-ErrorWithTimestamp "The registry for PortExclusionChange is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts)
-        if ($result.NamespaceExcludedUdpPorts -ne 1) {
-            Write-ErrorWithTimestamp "The registry for NamespaceExcludedUdpPorts is not added"
-            exit 1
-        }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name CleanupReservedPorts)
         if ($result.CleanupReservedPorts -ne 1) {
             Write-ErrorWithTimestamp "The registry for CleanupReservedPorts is not added"

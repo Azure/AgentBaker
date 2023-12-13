@@ -662,19 +662,7 @@ function Update-Registry {
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name FwPerfImprovementChange -Value 1 -Type DWORD
 
-        Write-Log "Enable 7 fixes in 2023-11B"
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of PortExclusionChange is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of NamespaceExcludedUdpPorts is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts -Value 1 -Type DWORD
-
+        Write-Log "Enable 4 fixes in 2023-11B"
         $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name CleanupReservedPorts -ErrorAction Ignore)
         if (![string]::IsNullOrEmpty($currentValue)) {
             Write-Log "The current value of CleanupReservedPorts is $currentValue"
