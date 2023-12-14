@@ -66,7 +66,7 @@ message Configuration {
   bool enable_unattended_upgrade = 44; //seems the current API is messed up with naming, fix soon
   bool ensure_no_dupe_promiscuous_bridge = 45; //this is little weird, check cse_cmd.sh for actual condition
   CustomSearchDomain custom_search_domain = 46;
-  optional CustomLinuxOSConfig custom_linux_os_config = 47;
+  optional nbcontract.v1.CustomLinuxOSConfig custom_linux_os_config = 47;
 
   CustomCloudConfig custom_cloud_config = 48;
   
@@ -87,8 +87,8 @@ message Configuration {
   bool needs_cgorupv2 = 60; // we can calculate this on the VHD, will remove from final contract
 
   // Here begins the final contract
-  nbcontract.v1.HTTPProxyConfig http_proxy_config = 61;
-  optional nbcontract.v1.GpuConfig gpu_config = 62;
+  optional nbcontract.v1.HTTPProxyConfig http_proxy_config = 61;
+  optional nbcontract.v1.GPUConfig gpu_config = 62;
 }
 
 message KubeletConfiguration {
@@ -233,23 +233,6 @@ message CustomSearchDomain {
   string custom_search_domain_name = 2;
   string custom_search_domain_realm_user = 3;
   string custom_search_domain_realm_password = 4;
-}
-
-message CustomLinuxOSConfig {
-  // The size in MB of a swap file that will be created on each node
-  optional int32 swap_file_size = 1;
-
-  // Valid values are "always", "defer", "defer+madvise", "madvise" and "never"
-  optional string transparent_hugepage_support = 2;
-
-  // Valid values are "always", "madvise" and "never"
-  optional string transparent_defrag = 3;
-
-  // Sysctl settings for Linux agent nodes
-  optional SysctlConfig sysctl_config = 4;
-
-  // Ulimit settings for Linux agent nodes
-  optional UlimitConfig ulimit_config = 5;
 }
 
 message TLSBootstrapping {
