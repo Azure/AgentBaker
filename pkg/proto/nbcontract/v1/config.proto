@@ -236,10 +236,19 @@ message CustomSearchDomain {
 }
 
 message CustomLinuxOSConfig {
+  // The size in MB of a swap file that will be created on each node
   optional int32 swap_file_size = 1;
-  optional string transparent_hugepage = 2;
+
+  // Valid values are "always", "defer", "defer+madvise", "madvise" and "never"
+  optional string transparent_hugepage_support = 2;
+
+  // Valid values are "always", "madvise" and "never"
   optional string transparent_defrag = 3;
+
+  // Sysctl settings for Linux agent nodes
   optional SysctlConfig sysctl_config = 4;
+
+  // Ulimit settings for Linux agent nodes
   optional UlimitConfig ulimit_config = 5;
 }
 
