@@ -70,7 +70,7 @@ param(
 $StartTime=Get-Date
 $global:ExitCode=0
 $global:ErrorMessage=""
-
+Start-Transcript -Path $LogFile
 # These globals will not change between nodes in the same cluster, so they are not
 # passed as powershell parameters
 
@@ -502,15 +502,19 @@ finally
 {
     # Generate CSE result so it can be returned as the CSE response in csecmd.ps1
     $ExecutionDuration=$(New-Timespan -Start $StartTime -End $(Get-Date))
-    Write-Log "CSE ExecutionDuration: $ExecutionDuration"
+    Write-Log "CSE ExecutionDuration: $ExecutionDuration. ExitCode: $global:ExitCode"
+    Stop-Transcript
 
-    # Windows CSE does not return any error message so we cannot generate below content as the response
-    # $JsonString = "ExitCode: `"{0}`", Output: `"{1}`", Error: `"{2}`", ExecDuration: `"{3}`"" -f $global:ExitCode, "", $global:ErrorMessage, $ExecutionDuration.TotalSeconds
-    Write-Log "Generate CSE result to $CSEResultFilePath : $global:ExitCode"
-    echo $global:ExitCode | Out-File -FilePath $CSEResultFilePath -Encoding utf8
-
-    # Flush stdout to C:\AzureData\CustomDataSetupScript.log
-    [Console]::Out.Flush()
+    # Remove the parameters in the log file to avoid leaking secrets
+    $logs=Get-Content $LogFile | Where-Object {$_ -notmatch "^Host Application: "}
+    $logs | Set-Content $LogFile
 
     Upload-GuestVMLogs -ExitCode $global:ExitCode
+    if ($global:ExitCode -ne 0) {
+        # $JsonString = "ExitCode: |{0}|, Output: |{1}|, Error: |{2}|"
+        # Max length of the full error message returned by Windows CSE is ~256. We use 240 to be safe.
+        $errorMessageLength = "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: ||".Length
+        $turncatedErrorMessage = $global:ErrorMessage.Substring(0, [Math]::Min(240 - $errorMessageLength, $global:ErrorMessage.Length))
+        throw "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
+    }
 }
