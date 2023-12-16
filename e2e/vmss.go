@@ -12,11 +12,13 @@ import (
 	"log"
 	mrand "math/rand"
 	"testing"
+	"time"
 
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/Azure/go-autorest/autorest/azure"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -24,6 +26,8 @@ const (
 	vmssNameTemplate                         = "abtest%s"
 	listVMSSNetworkInterfaceURLTemplate      = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
+	maxPollingAttempts                       = 3
+	pollingSleep                             = 5 * time.Second
 )
 
 func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
@@ -82,27 +86,47 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 	createVMSSCtx, cancel := context.WithTimeout(ctx, createVMSSPollingTimeout)
 	defer cancel()
 
-	pollerResp, err := opts.cloud.vmssClient.BeginCreateOrUpdate(
-		createVMSSCtx,
-		*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
-		vmssName,
-		model,
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	vmssResp, err := pollerResp.PollUntilDone(createVMSSCtx, &runtime.PollUntilDoneOptions{
-		Frequency: createVMSSPollingInterval,
-	})
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, fmt.Errorf("unable to create VMSS %q in alloted time of %s: %w", vmssName, createVMSSPollingTimeout.String(), err)
+	var requestError azure.RequestError
+	var pollerResp *runtime.Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse]
+	for i := 0; i < maxPollingAttempts; i++ {
+		pollerResp, err = opts.cloud.vmssClient.BeginCreateOrUpdate(
+			createVMSSCtx,
+			*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
+			vmssName,
+			model,
+			nil,
+		)
+		if err != nil {
+			errors.As(err, &requestError)
+			if requestError.ServiceError != nil && requestError.ServiceError.Code == "AllocationFailed" {
+				fmt.Printf("Allocation failed for VMSS on attempt %d, retrying...", i+1)
+				time.Sleep(pollingSleep)
+				continue
+			}
+			return nil, err
 		}
-		return nil, err
+		break
 	}
 
+	var vmssResp armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse
+	for i := 0; i < maxPollingAttempts; i++ {
+		vmssResp, err = pollerResp.PollUntilDone(createVMSSCtx, &runtime.PollUntilDoneOptions{
+			Frequency: createVMSSPollingInterval,
+		})
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				return nil, fmt.Errorf("unable to create VMSS %q in alloted time of %s: %w", vmssName, createVMSSPollingTimeout.String(), err)
+			}
+			errors.As(err, &requestError)
+			if requestError.ServiceError != nil && requestError.ServiceError.Code == "AllocationFailed" {
+				fmt.Printf("Allocation failed for VMSS on attempt %d, retrying...", i+1)
+				time.Sleep(pollingSleep)
+				continue
+			}
+			return nil, err
+		}
+		break
+	}
 	return &vmssResp.VirtualMachineScaleSet, nil
 }
 

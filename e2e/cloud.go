@@ -135,7 +135,7 @@ func newAzureClient(subscription string) (*azureClient, error) {
 func DefaultRetryOpts() policy.RetryOptions {
 	return policy.RetryOptions{
 		MaxRetries: 3,
-		RetryDelay: time.Second * 3,
+		RetryDelay: time.Second * 5,
 		StatusCodes: []int{
 			http.StatusRequestTimeout,      // 408
 			http.StatusTooManyRequests,     // 429
