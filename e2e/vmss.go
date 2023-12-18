@@ -99,7 +99,7 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 		if err != nil {
 			errors.As(err, &requestError)
 			if requestError.ServiceError != nil && requestError.ServiceError.Code == "AllocationFailed" {
-				fmt.Printf("Allocation failed for VMSS on attempt %d, retrying...", i+1)
+				log.Printf("Allocation failed for VMSS on attempt %d, retrying...", i+1)
 				time.Sleep(pollingSleep)
 				continue
 			}
