@@ -510,3 +510,22 @@ function Retag-ImagesForAzureChinaCloud {
         }
     }
 }
+
+function Config-NodeSettings {
+    Write-Log "Configuring node settings"
+    if ($global:EnableIncreaseDynamicPortRange) {
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of NamespaceExcludedUdpPorts is $currentValue"
+        }
+        Write-Log "Set NamespaceExcludedUdpPorts to REG_SZ 65330"
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts -Value 65330 -Type REG_SZ
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of PortExclusionChange is $currentValue"
+        }
+        Write-Log "Set PortExclusionChange to DWORD 1"
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange -Value 1 -Type DWORD
+    }
+}
