@@ -100,7 +100,10 @@ if ((Test-Path "c:\k\kubectl.exe") -and (Test-Path "c:\k\config")) {
     Write-Host "Collecting the information of the node and pods"
     function kubectl { c:\k\kubectl.exe --kubeconfig c:\k\config $args }
 
-    $connectResult = kubectl version
+    $versionResult = kubectl version
+    if ($LASTEXITCODE -ne 0) {
+      throw "Cannot connect to API Server"
+    }
 
     kubectl get nodes -o wide > "$ENV:TEMP\kubectl-get-nodes-$($timeStamp).log"
 
@@ -120,7 +123,7 @@ if ((Test-Path "c:\k\kubectl.exe") -and (Test-Path "c:\k\config")) {
     }
   }
   catch {
-    Write-Host "Failed to run kubectl. Connection result: $connectResult. Exception: $($_.Exception.Message)"
+    Write-Host "Failed to run kubectl. Connected verion result: $versionResult. Exception: $($_.Exception.Message)"
   }
 }
 
