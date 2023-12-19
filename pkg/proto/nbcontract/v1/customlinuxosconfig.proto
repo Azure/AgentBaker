@@ -1,6 +1,7 @@
 syntax = "proto3";
 package nbcontract.v1;
 
+// Custom Linux Node OS Config
 message CustomLinuxOSConfig {
     // The size in MB of a swap file that will be created on each node
     optional int32 swap_file_size = 1;
