@@ -330,25 +330,31 @@ if (Test-Path $nvidiaInstallLogFolder) {
   }
 }
 
-# Collect kubectl information
-Write-Host "Collecting kubectl information"
-function kubectl { c:\k\kubectl.exe --kubeconfig c:\k\config $args }
-kubectl get nodes -o wide > "$ENV:TEMP\kubectl-get-nodes-$($timeStamp).log"
+if (Test-Path "c:\k\kubectl.exe" -and Test-Path "c:\k\config") {
+  try {
+    # Collect kubectl information
+    Write-Host "Collecting the information of the node and pods"
+    function kubectl { c:\k\kubectl.exe --kubeconfig c:\k\config $args }
+    kubectl get nodes -o wide > "$ENV:TEMP\kubectl-get-nodes-$($timeStamp).log"
 
-$nodeName = $env:COMPUTERNAME.ToLower()
-kubectl describe node $nodeName > "$ENV:TEMP\kubectl-describe-nodes-$($timeStamp).log"
+    $nodeName = $env:COMPUTERNAME.ToLower()
+    kubectl describe node $nodeName > "$ENV:TEMP\kubectl-describe-nodes-$($timeStamp).log"
 
-$podsJson = & crictl.exe pods --output json | ConvertFrom-Json
-foreach ($pod in $podsJson.items) {
-  $podName = $pod.metadata.name
-  $namespace = $pod.metadata.namespace
-  kubectl describe pod $podName -n $namespace >> "$ENV:TEMP\kubectl-describe-pods-$($timeStamp).log"
-}
+    $podsJson = & crictl.exe pods --output json | ConvertFrom-Json
+    foreach ($pod in $podsJson.items) {
+      $podName = $pod.metadata.name
+      $namespace = $pod.metadata.namespace
+      kubectl describe pod $podName -n $namespace >> "$ENV:TEMP\kubectl-describe-pods-$($timeStamp).log"
+    }
 
-# The end of "Collect kubectl information"
-$kubectlLogFiles = Get-ChildItem -Path "$ENV:TEMP\kubectl-*.log"
-foreach ($kFile in $kubectlLogFiles) {
-  $paths += $kFile.FullName
+    $kubectlLogFiles = Get-ChildItem -Path "$ENV:TEMP\kubectl-*.log"
+    foreach ($kFile in $kubectlLogFiles) {
+      $paths += $kFile.FullName
+    }
+  }
+  catch {
+    Write-Host "Failed to run kubectl, exception: $($_.Exception.Message)"
+  }
 }
 
 Write-Host "All logs collected: $paths"
