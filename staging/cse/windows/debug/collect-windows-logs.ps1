@@ -100,9 +100,9 @@ if ((Test-Path "c:\k\kubectl.exe") -and (Test-Path "c:\k\config")) {
     Write-Host "Collecting the information of the node and pods by kubectl"
     function kubectl { c:\k\kubectl.exe --kubeconfig c:\k\config $args }
 
-    $testResult = kubectl version
+    $testResult = kubectl version 2>&1
     if ($LASTEXITCODE -ne 0) {
-      throw "Failed to run kubectl, version info: $testResult"
+      throw "Failed to run kubectl, result: $testResult"
     }
 
     kubectl get nodes -o wide > "$ENV:TEMP\kubectl-get-nodes-$($timeStamp).log"
