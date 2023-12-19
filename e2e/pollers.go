@@ -19,6 +19,7 @@ import (
 const (
 	// Polling intervals
 	createVMSSPollingInterval               = 15 * time.Second
+	vmssOperationPollInterval               = 15 * time.Second
 	execOnVMPollInterval                    = 10 * time.Second
 	execOnPodPollInterval                   = 10 * time.Second
 	extractClusterParametersPollInterval    = 10 * time.Second
@@ -30,6 +31,7 @@ const (
 
 	// Polling timeouts
 	createVMSSPollingTimeout               = 10 * time.Minute
+	vmssOperationPollingTimeout            = 10 * time.Minute
 	execOnVMPollingTimeout                 = 3 * time.Minute
 	execOnPodPollingTimeout                = 2 * time.Minute
 	extractClusterParametersPollingTimeout = 3 * time.Minute
@@ -37,9 +39,6 @@ const (
 	getVMPrivateIPAddressPollingTimeout    = 1 * time.Minute
 	waitUntilPodRunningPollingTimeout      = 3 * time.Minute
 	waitUntilPodDeletedPollingTimeout      = 1 * time.Minute
-
-	vmssRetryAttempts = 3
-	vmssRetrySleep    = 5 * time.Second
 )
 
 func pollExecOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
@@ -243,42 +242,31 @@ type Poller[T any] interface {
 
 func pollVMSSOperation[T any](ctx context.Context, vmssName string, pollerOpts *runtime.PollUntilDoneOptions, vmssOperation func() (Poller[T], error)) (*T, error) {
 	var requestError azure.RequestError
-	var err error
 	var poller Poller[T]
-	for i := 0; i < vmssRetryAttempts; i++ {
+	var err error
+
+	pollErr := wait.PollImmediateWithContext(ctx, vmssOperationPollInterval, vmssOperationPollingTimeout, func(ctx context.Context) (bool, error) {
 		poller, err = vmssOperation()
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
-				return nil, fmt.Errorf("unable to complete VMSS operation in allotted time of %s: %w", createVMSSPollingTimeout.String(), err)
+				return false, fmt.Errorf("unable to complete VMSS operation in allotted time of %s: %w", createVMSSPollingTimeout.String(), err)
 			}
 			if errors.As(err, &requestError) && requestError.ServiceError != nil {
-				log.Printf("VMSS operation failed on attempt %d due to %v, retrying...", i+1, requestError)
-				time.Sleep(vmssRetrySleep)
-				continue
+				return false, fmt.Errorf("VMSS operation for %q failed due to: %v", vmssName, requestError)
 			}
-			return nil, err
+			return false, err
 		}
-		break
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error on VMSS operation, all retries failed %q: %v", vmssName, err)
+		return true, nil
+	})
+	if pollErr != nil {
+		return nil, fmt.Errorf("polling attempts failed. VMSS operation for %q failed due to: %v", vmssName, err)
 	}
 
 	var vmssResp T
-	for i := 0; i < vmssRetryAttempts; i++ {
-		vmssResp, err = poller.PollUntilDone(ctx, pollerOpts)
-		if err != nil {
-			if errors.As(err, &requestError) && requestError.ServiceError != nil {
-				log.Printf("VMSS operation failed on attempt %d due to %v, retrying...", i+1, requestError)
-				time.Sleep(vmssRetrySleep)
-				continue
-			}
-			return nil, err
-		}
-		break
-	}
+	vmssResp, err = poller.PollUntilDone(ctx, pollerOpts)
 	if err != nil {
-		return nil, fmt.Errorf("error on VMSS operation, all retries failed %q: %v", vmssName, err)
+		return nil, fmt.Errorf("error when polling on VMSS operation for VMSS %q: %v", vmssName, err)
 	}
+
 	return &vmssResp, nil
 }
