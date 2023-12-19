@@ -10,7 +10,6 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
-	"github.com/Azure/go-autorest/autorest/azure"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -19,7 +18,7 @@ import (
 const (
 	// Polling intervals
 	createVMSSPollingInterval               = 15 * time.Second
-	vmssOperationPollInterval               = 15 * time.Second
+	vmssOperationPollInterval               = 10 * time.Second
 	execOnVMPollInterval                    = 10 * time.Second
 	execOnPodPollInterval                   = 10 * time.Second
 	extractClusterParametersPollInterval    = 10 * time.Second
@@ -31,7 +30,7 @@ const (
 
 	// Polling timeouts
 	createVMSSPollingTimeout               = 10 * time.Minute
-	vmssOperationPollingTimeout            = 10 * time.Minute
+	vmssOperationPollingTimeout            = 2 * time.Minute
 	execOnVMPollingTimeout                 = 3 * time.Minute
 	execOnPodPollingTimeout                = 2 * time.Minute
 	extractClusterParametersPollingTimeout = 3 * time.Minute
@@ -241,7 +240,6 @@ type Poller[T any] interface {
 }
 
 func pollVMSSOperation[T any](ctx context.Context, vmssName string, pollerOpts *runtime.PollUntilDoneOptions, vmssOperation func() (Poller[T], error)) (*T, error) {
-	var requestError azure.RequestError
 	var vmssResp T
 
 	pollErr := wait.PollImmediateWithContext(ctx, vmssOperationPollInterval, vmssOperationPollingTimeout, func(ctx context.Context) (bool, error) {
@@ -250,15 +248,20 @@ func pollVMSSOperation[T any](ctx context.Context, vmssName string, pollerOpts *
 			if errors.Is(err, context.DeadlineExceeded) {
 				return false, fmt.Errorf("unable to complete VMSS operation in allotted time of %s: %w", createVMSSPollingTimeout.String(), err)
 			}
-			if errors.As(err, &requestError) && requestError.ServiceError != nil {
-				return false, fmt.Errorf("VMSS operation for %q failed due to: %v", vmssName, requestError)
-			}
 			return false, err
 		}
 
 		vmssResp, err = poller.PollUntilDone(ctx, pollerOpts)
 		if err != nil {
-			return false, fmt.Errorf("error when polling on VMSS operation for VMSS %q: %v", vmssName, err)
+			/*
+				pollUntilDone will return 200 if the VMSS operation failed since the poll operation itself succeeded. But an error should still be returned.
+				Noteable error codes:
+					AllocationFailed
+					InternalExecutionError
+					StorageFailure/SocketException
+			*/
+			log.Printf("error when polling on VMSS operation for VMSS %q: %v", vmssName, err)
+			return false, err
 		}
 		return true, nil
 	})
