@@ -81,14 +81,14 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 
 	vmssOperation := func() (Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse], error) {
 		return opts.cloud.vmssClient.BeginCreateOrUpdate(
-			createVMSSCtx,
+			ctx,
 			*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
 			vmssName,
 			model,
 			nil,
 		)
 	}
-	vmssResp, err := pollVMSSOperation(ctx, vmssName, &runtime.PollUntilDoneOptions{Frequency: createVMSSPollingInterval}, vmssOperation)
+	vmssResp, err := pollVMSSOperation(createVMSSCtx, vmssName, &runtime.PollUntilDoneOptions{Frequency: createVMSSPollingInterval}, vmssOperation)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create VMSS %q: %w", vmssName, err)
 	}
