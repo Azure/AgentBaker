@@ -31,7 +31,7 @@ const (
 
 	// Polling timeouts
 	createVMSSPollingTimeout               = 10 * time.Minute
-	vmssOperationPollingTimeout            = 2 * time.Minute
+	vmssOperationPollingTimeout            = 10 * time.Minute
 	execOnVMPollingTimeout                 = 3 * time.Minute
 	execOnPodPollingTimeout                = 2 * time.Minute
 	extractClusterParametersPollingTimeout = 3 * time.Minute
