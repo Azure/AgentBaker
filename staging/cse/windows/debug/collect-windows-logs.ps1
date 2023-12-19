@@ -330,7 +330,7 @@ if (Test-Path $nvidiaInstallLogFolder) {
   }
 }
 
-if (Test-Path "c:\k\kubectl.exe" -and Test-Path "c:\k\config") {
+if ((Test-Path "c:\k\kubectl.exe") -and (Test-Path "c:\k\config")) {
   try {
     # Collect kubectl information
     Write-Host "Collecting the information of the node and pods"
