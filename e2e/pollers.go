@@ -277,6 +277,8 @@ func pollVMSSOperation[T any](ctx context.Context, vmssName string, pollerOpts *
 			}
 			return false, err // end polling
 		}
+		log.Printf("no error :( LOG")
+		fmt.Printf("no error :( FMT")
 		return true, nil
 	})
 	if pollErr != nil {
