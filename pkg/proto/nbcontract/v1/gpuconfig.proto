@@ -3,7 +3,7 @@ package nbcontract.v1;
 
 import "pkg/proto/nbcontract/v1/enum.proto";
 
-message GpuConfig {
+message GPUConfig {
   // nvidia_state represents the Nvidia GPU state
   optional FeatureState nvidia_state = 1;
 
