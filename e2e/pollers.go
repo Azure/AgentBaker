@@ -242,11 +242,10 @@ type Poller[T any] interface {
 
 func pollVMSSOperation[T any](ctx context.Context, vmssName string, pollerOpts *runtime.PollUntilDoneOptions, vmssOperation func() (Poller[T], error)) (*T, error) {
 	var requestError azure.RequestError
-	var poller Poller[T]
-	var err error
+	var vmssResp T
 
 	pollErr := wait.PollImmediateWithContext(ctx, vmssOperationPollInterval, vmssOperationPollingTimeout, func(ctx context.Context) (bool, error) {
-		poller, err = vmssOperation()
+		poller, err := vmssOperation()
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
 				return false, fmt.Errorf("unable to complete VMSS operation in allotted time of %s: %w", createVMSSPollingTimeout.String(), err)
@@ -256,16 +255,15 @@ func pollVMSSOperation[T any](ctx context.Context, vmssName string, pollerOpts *
 			}
 			return false, err
 		}
+
+		vmssResp, err = poller.PollUntilDone(ctx, pollerOpts)
+		if err != nil {
+			return false, fmt.Errorf("error when polling on VMSS operation for VMSS %q: %v", vmssName, err)
+		}
 		return true, nil
 	})
 	if pollErr != nil {
-		return nil, fmt.Errorf("polling attempts failed. VMSS operation for %q failed due to: %v", vmssName, err)
-	}
-
-	var vmssResp T
-	vmssResp, err = poller.PollUntilDone(ctx, pollerOpts)
-	if err != nil {
-		return nil, fmt.Errorf("error when polling on VMSS operation for VMSS %q: %v", vmssName, err)
+		return nil, fmt.Errorf("polling attempts failed. VMSS operation for %q failed due to: %v", vmssName, pollErr)
 	}
 
 	return &vmssResp, nil
