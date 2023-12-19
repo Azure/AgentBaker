@@ -244,15 +244,12 @@ func pollVMSSOperation[T any](ctx context.Context, vmssName string, pollerOpts *
 	var vmssResp T
 	var requestError azure.RequestError
 
-	poller, err := vmssOperation()
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, fmt.Errorf("unable to complete VMSS operation in allotted time of %s: %w", createVMSSPollingTimeout.String(), err)
-		}
-		return nil, err
-	}
-
 	pollErr := wait.PollImmediateWithContext(ctx, vmssOperationPollInterval, vmssOperationPollingTimeout, func(ctx context.Context) (bool, error) {
+		poller, err := vmssOperation()
+		if err != nil {
+			log.Printf("error when creating the vmssOperation for VMSS %q: %v", vmssName, err)
+			return false, err
+		}
 		vmssResp, err = poller.PollUntilDone(ctx, pollerOpts)
 		if err != nil {
 			if errors.As(err, &requestError) && requestError.ServiceError != nil {
