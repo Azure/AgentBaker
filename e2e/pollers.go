@@ -10,6 +10,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
+	"github.com/Azure/go-autorest/autorest/azure"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -241,27 +242,31 @@ type Poller[T any] interface {
 
 func pollVMSSOperation[T any](ctx context.Context, vmssName string, pollerOpts *runtime.PollUntilDoneOptions, vmssOperation func() (Poller[T], error)) (*T, error) {
 	var vmssResp T
+	var requestError azure.RequestError
+
+	poller, err := vmssOperation()
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, fmt.Errorf("unable to complete VMSS operation in allotted time of %s: %w", createVMSSPollingTimeout.String(), err)
+		}
+		return nil, err
+	}
 
 	pollErr := wait.PollImmediateWithContext(ctx, vmssOperationPollInterval, vmssOperationPollingTimeout, func(ctx context.Context) (bool, error) {
-		poller, err := vmssOperation()
-		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				return false, fmt.Errorf("unable to complete VMSS operation in allotted time of %s: %w", createVMSSPollingTimeout.String(), err)
-			}
-			return false, err
-		}
-
 		vmssResp, err = poller.PollUntilDone(ctx, pollerOpts)
 		if err != nil {
-			/*
-				pollUntilDone will return 200 if the VMSS operation failed since the poll operation itself succeeded. But an error should still be returned.
-				Noteable error codes:
-					AllocationFailed
-					InternalExecutionError
-					StorageFailure/SocketException
-			*/
-			log.Printf("error when polling on VMSS operation for VMSS %q: %v", vmssName, err)
-			return false, err
+			if errors.As(err, &requestError) && requestError.ServiceError != nil {
+				/*
+					pollUntilDone will return 200 if the VMSS operation failed since the poll operation itself succeeded. But an error should still be returned.
+					Noteable error codes:
+						AllocationFailed
+						InternalExecutionError
+						StorageFailure/SocketException
+				*/
+				log.Printf("error when polling on VMSS operation for VMSS %q: %v", vmssName, err)
+				return false, nil // keep polling
+			}
+			return false, err // end polling
 		}
 		return true, nil
 	})
