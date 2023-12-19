@@ -264,7 +264,16 @@ func pollVMSSOperation[T any](ctx context.Context, vmssName string, pollerOpts *
 						StorageFailure/SocketException
 				*/
 				log.Printf("error when polling on VMSS operation for VMSS %q: %v", vmssName, err)
+				log.Printf("PRINTING WITH LOG IN BLOCK")
+				fmt.Printf("PRINTING WITH FMT IN BLOCK")
+				log.Print(requestError.Error())
+				fmt.Print(requestError.Error())
 				return false, nil // keep polling
+			} else {
+				log.Printf("PRINTING WITH LOG")
+				fmt.Printf("PRINTING WITH FMT")
+				log.Print(requestError.Error())
+				fmt.Print(requestError.Error())
 			}
 			return false, err // end polling
 		}
