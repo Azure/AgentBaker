@@ -96,8 +96,7 @@ $azureCNIConfigurations | Foreach-Object {
 
 if ((Test-Path "c:\k\kubectl.exe") -and (Test-Path "c:\k\config")) {
   try {
-    # Collect kubectl information
-    Write-Host "Collecting the information of the node and pods"
+    Write-Host "Collecting the information of the node and pods by kubectl"
     function kubectl { c:\k\kubectl.exe --kubeconfig c:\k\config $args }
 
     $versionResult = kubectl version
@@ -123,7 +122,7 @@ if ((Test-Path "c:\k\kubectl.exe") -and (Test-Path "c:\k\config")) {
     }
   }
   catch {
-    Write-Host "Failed to run kubectl. Connected verion result: $versionResult. Exception: $($_.Exception.Message)"
+    Write-Host "Failed to run kubectl. Test connection's verion result: $versionResult. Exception: $($_.Exception.Message)"
   }
 }
 
