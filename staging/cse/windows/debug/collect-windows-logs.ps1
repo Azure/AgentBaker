@@ -94,14 +94,15 @@ $azureCNIConfigurations | Foreach-Object {
   }
 }
 
+
 if ((Test-Path "c:\k\kubectl.exe") -and (Test-Path "c:\k\config")) {
   try {
     Write-Host "Collecting the information of the node and pods by kubectl"
     function kubectl { c:\k\kubectl.exe --kubeconfig c:\k\config $args }
 
-    $versionResult = kubectl version
+    $testResult = kubectl version
     if ($LASTEXITCODE -ne 0) {
-      throw "Cannot connect to API Server"
+      throw "Failed to run kubectl, version info: $testResult"
     }
 
     kubectl get nodes -o wide > "$ENV:TEMP\kubectl-get-nodes-$($timeStamp).log"
@@ -122,7 +123,7 @@ if ((Test-Path "c:\k\kubectl.exe") -and (Test-Path "c:\k\config")) {
     }
   }
   catch {
-    Write-Host "Failed to run kubectl. Test connection's verion result: $versionResult. Exception: $($_.Exception.Message)"
+    Write-Host "Error: $_"
   }
 }
 
