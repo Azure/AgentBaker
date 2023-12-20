@@ -269,6 +269,7 @@ func pollVMSSOperation[T any](ctx context.Context, vmssName string, pollerOpts *
 		return true, nil
 	})
 	if pollErr != nil {
+		log.Printf("polling attempts failed. VMSS operation for %q failed due to: %v", vmssName, pollErr)
 		return nil, fmt.Errorf("polling attempts failed. VMSS operation for %q failed due to: %v", vmssName, pollErr)
 	}
 
