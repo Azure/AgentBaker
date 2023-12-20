@@ -260,9 +260,10 @@ func pollVMSSOperation[T any](ctx context.Context, vmssName string, pollerOpts *
 						InternalExecutionError
 						StorageFailure/SocketException
 				*/
-				log.Printf("error when polling on VMSS operation for VMSS %q: %v", vmssName, err)
+				log.Printf("error when polling on VMSS operation. Polling will continue until timeout for VMSS %q: %v", vmssName, err)
 				return false, nil // keep polling
 			}
+			log.Printf("error when polling on VMSS operation. Polling will not continue for VMSS %q: %v", vmssName, err)
 			return false, err // end polling
 		}
 		return true, nil
