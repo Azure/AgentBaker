@@ -330,6 +330,37 @@ if (Test-Path $nvidiaInstallLogFolder) {
   }
 }
 
+if ((Test-Path "c:\k\kubectl.exe") -and (Test-Path "c:\k\config")) {
+  try {
+    Write-Host "Collecting the information of the node and pods by kubectl"
+    function kubectl { c:\k\kubectl.exe --kubeconfig c:\k\config $args }
+
+    $testResult = kubectl version 2>&1
+    if ($LASTEXITCODE -ne 0) {
+      throw "Failed to run kubectl, result: $testResult"
+    }
+
+    kubectl get nodes -o wide > "$ENV:TEMP\kubectl-get-nodes.log"
+    $paths += "$ENV:TEMP\kubectl-get-nodes.log"
+
+    $nodeName = $env:COMPUTERNAME.ToLower()
+    kubectl describe node $nodeName > "$ENV:TEMP\kubectl-describe-nodes.log"
+    $paths += "$ENV:TEMP\kubectl-describe-nodes.log"
+
+    "kubectl describe all pods on $nodeName" > "$ENV:TEMP\kubectl-describe-pods.log"
+    $podsJson = & crictl.exe pods --output json | ConvertFrom-Json
+    foreach ($pod in $podsJson.items) {
+      $podName = $pod.metadata.name
+      $namespace = $pod.metadata.namespace
+      kubectl describe pod $podName -n $namespace >> "$ENV:TEMP\kubectl-describe-pods.log" # append
+    }
+    $paths += "$ENV:TEMP\kubectl-describe-pods.log"
+  }
+  catch {
+    Write-Host "Error: $_"
+  }
+}
+
 Write-Host "All logs collected: $paths"
 Stop-Transcript
 
