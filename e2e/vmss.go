@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -34,12 +33,10 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName st
 
 	cleanupVMSS := func() {
 		log.Printf("deleting vmss %q", vmssName)
-		poller, err := opts.cloud.vmssClient.BeginDelete(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName, nil)
-		if err != nil {
-			t.Error("error deleting vmss", vmssName, err)
-			return
+		vmssOperation := func() (Poller[armcompute.VirtualMachineScaleSetsClientDeleteResponse], error) {
+			return opts.cloud.vmssClient.BeginDelete(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName, nil)
 		}
-		_, err = poller.PollUntilDone(ctx, nil)
+		_, err := pollVMSSOperation(ctx, vmssName, nil, vmssOperation)
 		if err != nil {
 			t.Error("error polling deleting vmss", vmssName, err)
 		}
@@ -82,27 +79,19 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 	createVMSSCtx, cancel := context.WithTimeout(ctx, createVMSSPollingTimeout)
 	defer cancel()
 
-	pollerResp, err := opts.cloud.vmssClient.BeginCreateOrUpdate(
-		createVMSSCtx,
-		*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
-		vmssName,
-		model,
-		nil,
-	)
-	if err != nil {
-		return nil, err
+	vmssOperation := func() (Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse], error) {
+		return opts.cloud.vmssClient.BeginCreateOrUpdate(
+			ctx,
+			*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
+			vmssName,
+			model,
+			nil,
+		)
 	}
-
-	vmssResp, err := pollerResp.PollUntilDone(createVMSSCtx, &runtime.PollUntilDoneOptions{
-		Frequency: createVMSSPollingInterval,
-	})
+	vmssResp, err := pollVMSSOperation(createVMSSCtx, vmssName, &runtime.PollUntilDoneOptions{Frequency: createVMSSPollingInterval}, vmssOperation)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, fmt.Errorf("unable to create VMSS %q in alloted time of %s: %w", vmssName, createVMSSPollingTimeout.String(), err)
-		}
-		return nil, err
+		return nil, fmt.Errorf("unable to create VMSS %q: %w", vmssName, err)
 	}
-
 	return &vmssResp.VirtualMachineScaleSet, nil
 }
 
