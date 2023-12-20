@@ -340,22 +340,21 @@ if ((Test-Path "c:\k\kubectl.exe") -and (Test-Path "c:\k\config")) {
       throw "Failed to run kubectl, result: $testResult"
     }
 
-    kubectl get nodes -o wide > "$ENV:TEMP\kubectl-get-nodes-$($timeStamp).log"
+    kubectl get nodes -o wide > "$ENV:TEMP\kubectl-get-nodes.log"
+    $paths += "$ENV:TEMP\kubectl-get-nodes.log"
 
     $nodeName = $env:COMPUTERNAME.ToLower()
-    kubectl describe node $nodeName > "$ENV:TEMP\kubectl-describe-nodes-$($timeStamp).log"
+    kubectl describe node $nodeName > "$ENV:TEMP\kubectl-describe-nodes.log"
+    $paths += "$ENV:TEMP\kubectl-describe-nodes.log"
 
+    "kubectl describe all pods on $nodeName" > "$ENV:TEMP\kubectl-describe-pods.log"
     $podsJson = & crictl.exe pods --output json | ConvertFrom-Json
     foreach ($pod in $podsJson.items) {
       $podName = $pod.metadata.name
       $namespace = $pod.metadata.namespace
-      kubectl describe pod $podName -n $namespace >> "$ENV:TEMP\kubectl-describe-pods-$($timeStamp).log"
+      kubectl describe pod $podName -n $namespace >> "$ENV:TEMP\kubectl-describe-pods.log" # append
     }
-
-    $kubectlLogFiles = Get-ChildItem -Path "$ENV:TEMP\kubectl-*.log"
-    foreach ($kFile in $kubectlLogFiles) {
-      $paths += $kFile.FullName
-    }
+    $paths += "$ENV:TEMP\kubectl-describe-pods.log"
   }
   catch {
     Write-Host "Error: $_"
