@@ -6,6 +6,7 @@ function Start-InstallGPUDriver {
         [Parameter(Mandatory = $false)]
         [string]$GpuDriverURL
     )
+    Logs-To-Event -TaskName "AKS.WindowsCSE.InstallGPUDriver" -TaskMessage "Start to install GPU driver. ConfigGPUDriverIfNeeded: $global:ConfigGPUDriverIfNeeded, GpuDriverURL: $global:GpuDriverURL"
   
     if (-not $EnableInstall) {
         Write-Log "ConfigGPUDriverIfNeeded is false. GPU driver installation skipped as per configuration."

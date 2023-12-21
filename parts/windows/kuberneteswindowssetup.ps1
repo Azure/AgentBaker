@@ -216,9 +216,11 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 . c:\AzureData\windows\windowscsehelper.ps1
 # util functions only can be used after this line, for example, Write-Log
 
+$global:OperationId = New-Guid
+
 try
 {
-    Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.ExecuteCustomDataSetupScript" -TaskMessage ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
     # Exit early if the script has been executed
     if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
@@ -241,13 +243,14 @@ try
         $global:CSEScriptsPackageUrl = $global:CSEScriptsPackageUrl + $WindowsCSEScriptsPackage
         Write-Log "CSEScriptsPackageUrl is set to $global:CSEScriptsPackageUrl"
     }
+
     # Download CSE function scripts
-    Write-Log "Getting CSE scripts"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAndExpandCSEScriptPackageUrl" -TaskMessage "Start to get CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
     $tempfile = 'c:\csescripts.zip'
     DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
     Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows"
     Remove-Item -Path $tempfile -Force
-
+    
     # Dot-source cse scripts with functions that are called in this script
     . c:\AzureData\windows\azurecnifunc.ps1
     . c:\AzureData\windows\calicofunc.ps1
@@ -261,22 +264,18 @@ try
     $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
 
     if ( $sshEnabled ) {
-        Write-Log "Install OpenSSH"
         Install-OpenSSH -SSHKeys $SSHKeys
     }
 
-    Write-Log "Apply telemetry data setting"
     Set-TelemetrySetting -WindowsTelemetryGUID $global:WindowsTelemetryGUID
 
-    Write-Log "Resize os drive if possible"
     Resize-OSDrive
-
-    Write-Log "Initialize data disks"
+    
     Initialize-DataDisks
-
-    Write-Log "Create required data directories as needed"
+    
     Initialize-DataDirectories
-
+    
+    Logs-To-Event -TaskName "AKS.WindowsCSE.GetProvisioningAndLogCollectionScripts" -TaskMessage "Start to get provisioning scripts and log collection scripts"
     Create-Directory -FullPath "c:\k"
     Write-Log "Remove `"NT AUTHORITY\Authenticated Users`" write permissions on files in c:\k"
     icacls.exe "c:\k" /inheritance:r
@@ -287,25 +286,23 @@ try
     icacls.exe "c:\k"
     Get-ProvisioningScripts
     Get-LogCollectionScripts
-
+    
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
-
-    Write-Log "Download kubelet binaries and unzip"
+    
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
-
-    Write-Log "Installing ContainerD"
+    
     $cniBinPath = $global:AzureCNIBinDir
     $cniConfigPath = $global:AzureCNIConfDir
     if ($global:NetworkPlugin -eq "kubenet") {
         $cniBinPath = $global:CNIPath
         $cniConfigPath = $global:CNIConfigPath
     }
+
     Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir -KubernetesVersion $global:KubeBinariesVersion
-
+    
     Retag-ImagesForAzureChinaCloud -TargetEnvironment $TargetEnvironment
-
+    
     # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
-    Write-Log "Write Azure cloud provider config"
     Write-AzureConfig `
         -KubeDir $global:KubeDir `
         -AADClientId $AADClientId `
@@ -338,22 +335,20 @@ try
     Get-CACertificates
     {{end}}
 
-    Write-Log "Write ca root"
     Write-CACert -CACertificate $global:CACertificate `
         -KubeDir $global:KubeDir
-
+    
     if ($global:EnableCsiProxy) {
         New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
     }
 
     if ($global:TLSBootstrapToken) {
-        Write-Log "Write TLS bootstrap kubeconfig"
         Write-BootstrapKubeConfig -CACertificate $global:CACertificate `
             -KubeDir $global:KubeDir `
             -MasterFQDNPrefix $MasterFQDNPrefix `
             -MasterIP $MasterIP `
             -TLSBootstrapToken $global:TLSBootstrapToken
-
+        
         # NOTE: we need kubeconfig to setup calico even if TLS bootstrapping is enabled
         #       This kubeconfig will deleted after calico installation.
         # TODO(hbc): once TLS bootstrap is fully enabled, remove this if block
@@ -368,9 +363,8 @@ try
         -MasterIP $MasterIP `
         -AgentKey $AgentKey `
         -AgentCertificate $global:AgentCertificate
-
+    
     if ($global:EnableHostsConfigAgent) {
-        Write-Log "Starting hosts config agent"
         New-HostsConfigService
     }
 
@@ -379,12 +373,11 @@ try
     # Configure network policy.
     Get-HnsPsm1 -HNSModule $global:HNSModule
     Import-Module $global:HNSModule
-
-    Write-Log "Installing Azure VNet plugins"
+    
     Install-VnetPlugins -AzureCNIConfDir $global:AzureCNIConfDir `
         -AzureCNIBinDir $global:AzureCNIBinDir `
         -VNetCNIPluginsURL $global:VNetCNIPluginsURL
-
+    
     Set-AzureCNIConfig -AzureCNIConfDir $global:AzureCNIConfDir `
         -KubeDnsSearchPath $global:KubeDnsSearchPath `
         -KubeClusterCIDR $global:KubeClusterCIDR `
@@ -392,7 +385,7 @@ try
         -VNetCIDR $global:VNetCIDR `
         -IsDualStackEnabled $global:IsDualStackEnabled `
         -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
-
+    
     if ($TargetEnvironment -ieq "AzureStackCloud") {
         GenerateAzureStackCNIConfig `
             -TenantId $global:TenantId `
@@ -407,32 +400,25 @@ try
     }
 
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
-
+    
     Install-KubernetesServices `
         -KubeDir $global:KubeDir
 
-    Write-Log "Disable Internet Explorer compat mode and set homepage"
     Set-Explorer
-
-    Write-Log "Adjust pagefile size"
     Adjust-PageFileSize
-
-    Write-Log "Start preProvisioning script"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.PreprovisionExtension" -TaskMessage "Start preProvisioning script"
     PREPROVISION_EXTENSION
-
-    Write-Log "Update service failure actions"
     Update-ServiceFailureActions
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
     Register-NodeResetScriptTask
     Update-DefenderPreferences
 
-
     $windowsVersion = Get-WindowsVersion
     if ($windowsVersion -ne "1809") {
-        Write-Log "Skip secure TLS protocols for Windows version: $windowsVersion"
+        Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Skip secure TLS protocols for Windows version: $windowsVersion"
     } else {
-        Write-Log "Enable secure TLS protocols"
+        Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Start to enable secure TLS protocols"
         try {
             . C:\k\windowssecuretls.ps1
             Enable-SecureTls
@@ -444,19 +430,17 @@ try
 
     Enable-FIPSMode -FipsEnabled $fipsEnabled
     if ($global:WindowsGmsaPackageUrl) {
-        Write-Log "Start to install Windows gmsa package"
         Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
     }
 
     Check-APIServerConnectivity -MasterIP $MasterIP
 
     if ($global:WindowsCalicoPackageURL) {
-        Write-Log "Start calico installation"
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
     }
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
-
+    
     if (Test-Path $CacheDir)
     {
         Write-Log "Removing aks cache directory"
@@ -472,10 +456,10 @@ try
     Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes
 
     if ($global:RebootNeeded) {
-        Write-Log "Setup Complete, calling Postpone-RestartComputer with reboot"
+        Logs-To-Event -TaskName "AKS.WindowsCSE.RestartComputer" -TaskMessage "Setup Complete, calling Postpone-RestartComputer with reboot"
         Postpone-RestartComputer
     } else {
-        Write-Log "Setup Complete, starting NodeResetScriptTask to register Winodws node without reboot"
+        Logs-To-Event -TaskName "AKS.WindowsCSE.StartScheduledTask" -TaskMessage "Setup Complete, start NodeResetScriptTask to register Windows node without reboot"
         Start-ScheduledTask -TaskName "k8s-restart-job"
 
         $timeout = 180 ##  seconds
@@ -506,6 +490,7 @@ finally
     Write-Log "CSE ExecutionDuration: $ExecutionDuration. ExitCode: $global:ExitCode"
     Stop-Transcript
 
+    Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage." 
     # Remove the parameters in the log file to avoid leaking secrets
     $logs=Get-Content $LogFile | Where-Object {$_ -notmatch "^Host Application: "}
     $logs | Set-Content $LogFile
