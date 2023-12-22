@@ -374,6 +374,9 @@ if [ "$OS_TYPE" == "Windows" ]; then
 	fi
 fi
 
+# manual test
+os_disk_size_gb=$BASE_VHD_SIZE_GB
+
 cat <<EOF > vhdbuilder/packer/settings.json
 {
   "subscription_id":  "${SUBSCRIPTION_ID}",
