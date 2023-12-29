@@ -4873,7 +4873,8 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
             "1.27.7",
             "1.28.0",
             "1.28.1",
-            "1.28.3"
+            "1.28.3",
+            "1.29.0"
         ]
     },
     "_template": {
