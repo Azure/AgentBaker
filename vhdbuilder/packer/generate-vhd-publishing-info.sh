@@ -11,6 +11,36 @@ required_env_vars=(
     "IMAGE_VERSION"
 )
 
+# Higher the replication_inverse, lower is the usage and number of replicas
+set -x
+REPLICATION_INVERSE=1
+feature_set=("fips" "gpu" "arm64" "cvm" "tl" "kata")
+if [ "${OFFER_NAME,,}" != "ubuntu" ]; then
+    # Since Ubuntu is our most used SKU as compared to Windows/Mariner/AzLinux, we dont need the same number of replicas for all.
+    # Starting off with half replicas.
+    REPLICATION_INVERSE=$((REPLICATION_INVERSE * 2))
+else
+    # 1804 SKUs are not used as much since we defaulted to 22.04 with k8s 1.25 and the lowest supported k8s version supported is 1.25
+    # We only support a certain set of functionalities for 2004(CVM, FIPs)
+    # Therefore they dont need to be as high in number
+    if [[ "${SKU_NAME,,}" != *"2204"* ]]; then
+        REPLICATION_INVERSE=$((REPLICATION_INVERSE * 2))
+    fi
+fi
+
+if [ "${HYPERV_GENERATION,,}" == "v1" ]; then
+    # Gen2 SKUs are more used as compared to Gen1 SKUs, therefore Gen1 SKUs do not warrant the same number of replicas
+    REPLICATION_INVERSE=$((REPLICATION_INVERSE * 2))
+fi
+
+for feature in "${feature_set[@]}"; do
+    if [[ "${SKU_NAME,,}" == *"${feature}"* ]]; then
+        REPLICATION_INVERSE=$((REPLICATION_INVERSE * 2))
+        break
+    fi
+done
+set +x
+
 for v in "${required_env_vars[@]}"
 do
     if [ -z "${!v}" ]; then
@@ -87,7 +117,8 @@ if [ "${OS_NAME,,}" == "linux" ]; then
     "offer_name": "$OFFER_NAME",
     "hyperv_generation": "${HYPERV_GENERATION}",
     "image_architecture": "${IMAGE_ARCH}",
-    "image_version": "${IMAGE_VERSION}"
+    "image_version": "${IMAGE_VERSION}",
+    "replication_inverse": "${REPLICATION_INVERSE}"
 }
 EOF
 else
@@ -99,7 +130,8 @@ else
     "offer_name": "$OFFER_NAME",
     "hyperv_generation": "${HYPERV_GENERATION}",
     "image_architecture": "${IMAGE_ARCH}",
-    "image_version": "${IMAGE_VERSION}"
+    "image_version": "${IMAGE_VERSION}",
+    "replication_inverse": "${REPLICATION_INVERSE}"
 }
 EOF
 fi

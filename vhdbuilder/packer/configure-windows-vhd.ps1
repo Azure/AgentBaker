@@ -236,6 +236,10 @@ function Install-ContainerD {
     # and the containerd to managed customer containers after provisioning the vm is not necessary
     # the one used here, considering containerd version/package is configurable, and the first one
     # is expected to override the later one
+    $buildNumber = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuild
+    if ($buildNumber -eq "25398") {
+        $global:defaultContainerdPackageUrl = $global:LatestContainerdPackagefor23H2
+    }
     Write-Log "Getting containerD binaries from $global:defaultContainerdPackageUrl"
 
     $installDir = "c:\program files\containerd"
@@ -658,19 +662,7 @@ function Update-Registry {
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name FwPerfImprovementChange -Value 1 -Type DWORD
 
-        Write-Log "Enable 7 fixes in 2023-11B"
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of PortExclusionChange is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of NamespaceExcludedUdpPorts is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts -Value 1 -Type DWORD
-
+        Write-Log "Enable 4 fixes in 2023-11B"
         $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name CleanupReservedPorts -ErrorAction Ignore)
         if (![string]::IsNullOrEmpty($currentValue)) {
             Write-Log "The current value of CleanupReservedPorts is $currentValue"
@@ -767,6 +759,17 @@ function Get-LatestWindowsDefenderPlatformUpdate {
     }
 }
 
+function Log-ReofferUpdate {
+    try {
+        $result=(Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Update\TargetingInfo\Installed\Server.OS.amd64" -Name ReofferUpdate)
+        if ($result) {
+            Write-Log "ReofferUpdate is $($result.ReofferUpdate)"
+        }
+    } catch {
+        Write-Log "ReofferUpdate does not exist"
+    }
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -780,12 +783,15 @@ try{
             Disable-WindowsUpdates
             Set-WinRmServiceDelayedStart
             Update-DefenderSignatures
-            Install-WindowsPatches
+            Log-ReofferUpdate
             Install-OpenSSH
+            Log-ReofferUpdate
+            Install-WindowsPatches
             Update-WindowsFeatures
         }
         "2" {
             Write-Log "Performing actions for provisioning phase 2"
+            Log-ReofferUpdate
             Set-WinRmServiceAutoStart
             Install-ContainerD
             Update-Registry
@@ -794,6 +800,7 @@ try{
             Get-PrivatePackagesToCacheOnVHD
             Remove-Item -Path c:\windows-vhd-configuration.ps1
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
+            Log-ReofferUpdate
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"

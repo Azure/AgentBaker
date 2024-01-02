@@ -29,11 +29,9 @@ configureTransparentHugePage() {
 }
 
 configureSwapFile() {
-    # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
     swap_size_kb=$(expr ${SWAP_FILE_SIZE_MB} \* 1000)
     swap_location=""
     
-    # Attempt to use the resource disk
     if [[ -L /dev/disk/azure/resource-part1 ]]; then
         resource_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/resource-part1))
         disk_free_kb=$(df ${resource_disk_path} | sed 1d | awk '{print $4}')
@@ -45,9 +43,7 @@ configureSwapFile() {
         fi
     fi
 
-    # If we couldn't use the resource disk, attempt to use the OS disk
     if [[ -z "${swap_location}" ]]; then
-        # Directly check size on the root directory since we can't rely on 'root-part1' always being the correct label
         os_device=$(readlink -f /dev/disk/azure/root)
         disk_free_kb=$(df -P / | sed 1d | awk '{print $4}')
         if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
@@ -77,7 +73,6 @@ configureEtcEnvironment() {
     touch /etc/apt/apt.conf.d/95proxy
     chmod 0644 /etc/apt/apt.conf.d/95proxy
 
-    # TODO(ace): this pains me but quick and dirty refactor
     echo "[Manager]" >> /etc/systemd/system.conf.d/proxy.conf
     if [ "${HTTP_PROXY_URLS}" != "" ]; then
         echo "HTTP_PROXY=${HTTP_PROXY_URLS}" >> /etc/environment
@@ -100,7 +95,6 @@ configureEtcEnvironment() {
         echo "DefaultEnvironment=\"no_proxy=${NO_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
 
-    # for kubelet to pick up the proxy
     mkdir -p "/etc/systemd/system/kubelet.service.d"
     tee "/etc/systemd/system/kubelet.service.d/10-httpproxy.conf" > /dev/null <<'EOF'
 [Service]
@@ -123,22 +117,10 @@ configureHTTPProxyCA() {
 configureCustomCaCertificate() {
     mkdir -p /opt/certs
     for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
-        # directly referring to the variable as "${CUSTOM_CA_CERT_${i}}"
-        # causes bad substitution errors in bash
-        # dynamically declare and use `!` to add a layer of indirection
         declare varname=CUSTOM_CA_CERT_${i} 
         echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
     done
-    # This will block until the service is considered active.
-    # Update_certs.service is a oneshot type of unit that
-    # is considered active when the ExecStart= command terminates with a zero status code.
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
-    # after new certs are added to trust store, containerd will not pick them up properly before restart.
-    # aim here is to have this working straight away for a freshly provisioned node
-    # so we force a restart after the certs are updated
-    # custom CA daemonset copies certs passed by the user to the node, what then triggers update_certs.path unit
-    # path unit then triggers the script that copies over cert files to correct location on the node and updates the trust store
-    # as a part of this flow we could restart containerd everytime a new cert is added to the trust store using custom CA
     systemctl restart containerd
 }
 
@@ -186,12 +168,11 @@ configureK8s() {
 
     set +x
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
-    # Perform the required JSON escaping
     SP_FILE="/etc/kubernetes/sp.txt"
     SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
-    rm "$SP_FILE" # unneeded after reading from disk.
+    rm "$SP_FILE"
     cat << EOF > "${AZURE_JSON_PATH}"
 {
     "cloud": "${TARGET_CLOUD}",
@@ -269,7 +250,6 @@ EOF
 }
 
 configureCNI() {
-    # needed for the iptables rules to work on bridges
     retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
     configureCNIIPTables
@@ -504,15 +484,9 @@ EOF
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
 #!/bin/bash
-# Disallow container from reaching out to the special IP address 168.63.129.16
-# for TCP protocol (which http uses)
 #
-# 168.63.129.16 contains protected settings that have priviledged info.
 #
-# The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
 #
-# Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
-# for DNS.
 iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
 EOF
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
@@ -529,10 +503,6 @@ ensureMigPartition(){
 [Service]
 Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
 EOF
-    # this is expected to fail and work only on next reboot
-    # it MAY succeed, only due to unreliability of systemd
-    # service type=Simple, which does not exit non-zero
-    # on failure if ExecStart failed to invoke.
     systemctlEnableAndStart mig-partition
 }
 
@@ -620,7 +590,6 @@ configAzurePolicyAddon() {
 }
 
 configGPUDrivers() {
-    # install gpu driver
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         mkdir -p /opt/{actions,gpu}
         if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
@@ -654,12 +623,10 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
-    # Fix the NVIDIA /dev/char link issue
     if [[ $OS == $MARINER_OS_NAME ]]; then
         createNvidiaSymlinkToAllDeviceNodes
     fi
     
-    # reload containerd/dockerd
     if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
         retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     else
@@ -669,7 +636,6 @@ configGPUDrivers() {
 
 validateGPUDrivers() {
     if [[ $(isARM64) == 1 ]]; then
-        # no GPU on ARM64
         return
     fi
 
@@ -694,7 +660,6 @@ validateGPUDrivers() {
 
 ensureGPUDrivers() {
     if [[ $(isARM64) == 1 ]]; then
-        # no GPU on ARM64
         return
     fi
 

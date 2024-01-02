@@ -119,8 +119,6 @@ $wuRegistryNames = @(
     "652313229",
     "2059235981",
     "3767762061",
-    "PortExclusionChange",
-    "NamespaceExcludedUdpPorts",
     "527922829",
     "DeltaHivePolicy",
     "2193453709",

@@ -36,13 +36,15 @@ steps:
       if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME_PREFIX} && -n ${SIG_IMAGE_VERSION} ]]; then \   
           sigImageName="${SIG_IMAGE_NAME_PREFIX}-${WINDOWS_SKU}"; \
           echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]False"; \
+          echo "##vso[task.setvariable variable=SKIPVALIDATEREOFFERUPDATE]True"; \
       else
           sigImageName="windows-${WINDOWS_SKU}-$RANDOM"; \
           WS_SKU=$(echo $WINDOWS_SKU | tr '-' '_')
-          sigGalleryName="WS${WS_SKU}Gallery$(date +"%y%m%d%H%M%S")$RANDOM"; \          
+          sigGalleryName="WS${WS_SKU}Gallery$(date +"%y%m%d%H%M%S")$RANDOM"; \
           echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$sigGalleryName"; \
           echo "##vso[task.setvariable variable=SIG_IMAGE_VERSION]1.0.0"; \
-          echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]True"; \    
+          echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]True"; \
+          echo "##vso[task.setvariable variable=SKIPVALIDATEREOFFERUPDATE]False"; \
       fi
       echo "Set build mode to $m" && \
       echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]$sigImageName" && \
@@ -87,7 +89,6 @@ steps:
       -e GIT_VERSION=$(Build.SourceVersion) \
       -e BUILD_ID=$(Build.BuildId) \
       -e BUILD_NUMBER=$(Build.BuildNumber) \
-      -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
       -e WINDOWS_SKU=$(WINDOWS_SKU) \
       -e OS_TYPE="Windows" \
       -e MODE=$(MODE) \
@@ -122,11 +123,11 @@ steps:
       -e OS_DISK_URI=${OS_DISK_URI} \
       -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
       -e AZURE_LOCATION=${AZURE_BUILD_LOCATION} \
-      -e CONTAINER_RUNTIME=$(CONTAINER_RUNTIME) \
       -e WINDOWS_SKU=$(WINDOWS_SKU) \
+      -e SKIPVALIDATEREOFFERUPDATE=${SKIPVALIDATEREOFFERUPDATE} \
       -e OS_TYPE="Windows" \
       -e MODE=$(MODE) \
-      -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
+      -e FEATURE_FLAGS=${FEATURE_FLAGS} \
       -e VHD_DEBUG=${VHD_DEBUG} \
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
@@ -142,6 +143,8 @@ steps:
         WINDOWS_VERSION="$(cat vhdbuilder/packer/windows-image.env | grep -a "WINDOWS_2019_BASE_IMAGE_VERSION" | cut -d "=" -f 2 | cut -d "." -f 1,2)"
       elif [[ ${{ parameters.artifactName }} =~ "2022" ]]; then
         WINDOWS_VERSION="$(cat vhdbuilder/packer/windows-image.env | grep -a "WINDOWS_2022_BASE_IMAGE_VERSION" | cut -d "=" -f 2 | cut -d "." -f 1,2)"
+      elif [[ ${{ parameters.artifactName }} =~ "23H2" ]]; then
+        WINDOWS_VERSION="$(cat vhdbuilder/packer/windows-image.env | grep -a "WINDOWS_23H2_BASE_IMAGE_VERSION" | cut -d "=" -f 2 | cut -d "." -f 1,2)"
       else
         echo "Current distro is not supported to get image version. You need to update related code."
         exit 1
@@ -257,7 +260,7 @@ steps:
       -e CLIENT_ID=${CLIENT_ID} \
       -e CLIENT_SECRET="$(CLIENT_SECRET)" \
       -e TENANT_ID=${TENANT_ID} \
-      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+      -e SUBSCRIPTION_ID="${AZURE_PROD_SUBSCRIPTION_ID}" \
       -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
       -e STORAGE_ACCT_BLOB_URL=${STORAGE_ACCT_BLOB_URL} \
       -e VHD_NAME=${VHD_NAME} \

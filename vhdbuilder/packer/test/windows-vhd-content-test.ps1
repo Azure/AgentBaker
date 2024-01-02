@@ -6,7 +6,8 @@
 #>
 
 param (
-    $windowsSKU
+    $windowsSKU,
+    $skipValidateReofferUpdate
 )
 
 # We use parameters for test script so we set environment variables before importing c:\windows-vhd-configuration.ps1 to reuse it
@@ -214,6 +215,18 @@ function Test-ImagesPulled {
 }
 
 function Test-RegistryAdded {
+    if ($skipValidateReofferUpdate -eq $true) {
+        Write-Output "Skip validating ReofferUpdate"
+    } else {
+        # Check whether the registry ReofferUpdate is added. ReofferUpdate indicates that the OS is not updated to the latest version.
+        $result=(Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Update\TargetingInfo\Installed\Server.OS.amd64" -Name ReofferUpdate -ErrorAction Ignore)
+        if ($result -and $result.ReofferUpdate -eq 1) {
+            Write-ErrorWithTimestamp "The registry ReofferUpdate is added. The value is 1."
+            exit 1
+        }
+        Write-Output "The registry for ReofferUpdate is \"$result\" ."
+    }
+
     $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name EnableCompartmentNamespace)
     if ($result.EnableCompartmentNamespace -ne 1) {
         Write-ErrorWithTimestamp "The registry for SMB Resolution Fix for containerD is not added"
@@ -406,16 +419,6 @@ function Test-RegistryAdded {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name FwPerfImprovementChange)
         if ($result.FwPerfImprovementChange -ne 1) {
             Write-ErrorWithTimestamp "The registry for FwPerfImprovementChange is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange)
-        if ($result.PortExclusionChange -ne 1) {
-            Write-ErrorWithTimestamp "The registry for PortExclusionChange is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts)
-        if ($result.NamespaceExcludedUdpPorts -ne 1) {
-            Write-ErrorWithTimestamp "The registry for NamespaceExcludedUdpPorts is not added"
             exit 1
         }
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name CleanupReservedPorts)

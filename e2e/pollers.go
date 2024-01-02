@@ -2,12 +2,15 @@ package e2e_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
+	"github.com/Azure/go-autorest/autorest/azure"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -15,6 +18,8 @@ import (
 
 const (
 	// Polling intervals
+	createVMSSPollingInterval               = 15 * time.Second
+	vmssOperationPollInterval               = 10 * time.Second
 	execOnVMPollInterval                    = 10 * time.Second
 	execOnPodPollInterval                   = 10 * time.Second
 	extractClusterParametersPollInterval    = 10 * time.Second
@@ -25,6 +30,8 @@ const (
 	waitUntilClusterNotCreatingPollInterval = 10 * time.Second
 
 	// Polling timeouts
+	createVMSSPollingTimeout               = 10 * time.Minute
+	vmssOperationPollingTimeout            = 10 * time.Minute
 	execOnVMPollingTimeout                 = 3 * time.Minute
 	execOnPodPollingTimeout                = 2 * time.Minute
 	extractClusterParametersPollingTimeout = 3 * time.Minute
@@ -139,7 +146,7 @@ func pollExtractVMLogs(ctx context.Context, vmssName, privateIP string, privateK
 func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *scenarioRunOpts) (string, error) {
 	var vmPrivateIP string
 	err := wait.PollImmediateWithContext(ctx, getVMPrivateIPAddressPollInterval, getVMPrivateIPAddressPollingTimeout, func(ctx context.Context) (bool, error) {
-		pip, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.subscription, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName)
+		pip, err := getVMPrivateIPAddress(ctx, opts.cloud, opts.suiteConfig.Subscription, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName)
 		if err != nil {
 			log.Printf("encountered an error while getting VM private IP address: %s", err)
 			return false, nil
@@ -227,4 +234,44 @@ func waitUntilPodDeleted(ctx context.Context, kube *kubeclient, podName string) 
 		err := kube.typed.CoreV1().Pods(defaultNamespace).Delete(ctx, podName, metav1.DeleteOptions{})
 		return err == nil, err
 	})
+}
+
+type Poller[T any] interface {
+	PollUntilDone(ctx context.Context, options *runtime.PollUntilDoneOptions) (T, error)
+}
+
+func pollVMSSOperation[T any](ctx context.Context, vmssName string, pollerOpts *runtime.PollUntilDoneOptions, vmssOperation func() (Poller[T], error)) (*T, error) {
+	var vmssResp T
+	var requestError azure.RequestError
+
+	pollErr := wait.PollImmediateWithContext(ctx, vmssOperationPollInterval, vmssOperationPollingTimeout, func(ctx context.Context) (bool, error) {
+		poller, err := vmssOperation()
+		if err != nil {
+			log.Printf("error when creating the vmssOperation for VMSS %q: %v", vmssName, err)
+			return false, err
+		}
+		vmssResp, err = poller.PollUntilDone(ctx, pollerOpts)
+		if err != nil {
+			if errors.As(err, &requestError) && requestError.ServiceError != nil {
+				/*
+					pollUntilDone will return 200 if the VMSS operation failed since the poll operation itself succeeded. But an error should still be returned.
+					Noteable error codes:
+						AllocationFailed
+						InternalExecutionError
+						StorageFailure/SocketException
+				*/
+				log.Printf("error when polling on VMSS operation. Polling will continue until timeout for VMSS %q: %v", vmssName, err)
+				return false, nil // keep polling
+			}
+			log.Printf("error when polling on VMSS operation. Polling will not continue for VMSS %q: %v", vmssName, err)
+			return false, err // end polling
+		}
+		return true, nil
+	})
+	if pollErr != nil {
+		log.Printf("polling attempts failed. VMSS operation for %q failed due to: %v", vmssName, pollErr)
+		return nil, fmt.Errorf("polling attempts failed. VMSS operation for %q failed due to: %v", vmssName, pollErr)
+	}
+
+	return &vmssResp, nil
 }

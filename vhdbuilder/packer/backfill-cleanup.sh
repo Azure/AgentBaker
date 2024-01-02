@@ -1,18 +1,22 @@
 #!/bin/bash -x
 
+if [[ "${MODE}" != "windowsVhdMode" ]]; then
+  exit 0
+fi
+
+if [[ ${SUBSCRIPTION_ID} == ${PROD_SUBSCRIPTION_ID} ]]; then
+  echo "Shouldn't do backfill clean up in production subscription."
+  exit 1
+fi
+
 EXPIRATION_IN_HOURS=168
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
 (( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
 # deadline = the "date +%s" representation of the oldest age we're willing to keep
 (( deadline=$(date +%s)-${expirationInSecs%.*} ))
 
-if [[ "${MODE}" != "windowsVhdMode" ]]; then
-  exit 0
-fi
-
-# attempt to clean up Windows managed images and SIG image versions created over a week ago in SIG_GALLERY_NAME (cannot be the production gallery)
-# this can be used in PR check-in pipelines together with a set SIG_GALLERY_NAME from which we'd like to free up resources
-if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${SIG_GALLERY_NAME}" != "AKSWindows" ]]; then
+# attempt to clean up Windows managed images and SIG image versions created over a week ago
+if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
   echo "Looking for Windows managed images in ${AZURE_RESOURCE_GROUP_NAME} created over ${EXPIRATION_IN_HOURS} hours ago..."
 
   managed_image_ids=""
@@ -22,7 +26,6 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${SIG_GALLERY_NAME}" != "AKSWindows"
   images=$(az image list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $deadline -r '.[] | select(.tags.os == "Windows") | select(.tags.now < $dl).name')
   for image in $images; do
     managed_image_ids+=" /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/images/${image}"
-    sig_version_ids+=" /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image%-*}/versions/${image#*-}"
     echo "Will delete Windows managed image ${image} and associated SIG version from resource group ${AZURE_RESOURCE_GROUP_NAME}"
   done
 
@@ -31,13 +34,6 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${SIG_GALLERY_NAME}" != "AKSWindows"
     az resource delete --ids ${managed_image_ids} > /dev/null || echo "Windows managed image deletion was not successful, continuing..."
   else
     echo "Did not find any Windows managed images eligible for deletion"
-  fi
-
-  if [[ -n "${sig_version_ids}" ]]; then
-    echo "Attempting to delete $(echo ${sig_version_ids} | wc -w) Windows SIG image versions associated with old managed images..."
-    az resource delete --ids ${sig_version_ids} > /dev/null || echo "Windows SIG image version deletion was not successful, continuing..."
-  else
-    echo "Did not find any SIG versions associated with old Windows managed images eligible for deletion"
   fi
 fi
 
@@ -65,18 +61,20 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
       echo "Finding sig image definitions from gallery ${gallery}"
       image_defs=$(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${gallery} | jq -r '.[] | select(.osType == "Windows").name')
       for image_definition in $image_defs; do
-          echo "Finding sig image versions associated with ${image_definition} in gallery ${gallery}"
-          image_versions=$(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${gallery} -i ${image_definition} | jq -r '.[].name')
-          for image_version in $image_versions; do
-              echo "Deleting sig image-version ${image_version} ${image_definition} from gallery ${gallery} rg ${AZURE_RESOURCE_GROUP_NAME}"
-              az sig image-version delete -e $image_version -i ${image_definition} -r ${gallery} -g ${AZURE_RESOURCE_GROUP_NAME}
-          done
-          image_versions=$(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${gallery} -i ${image_definition} | jq -r '.[].name')
-          echo "image versions are $image_versions"
-          if [[ -z "${image_versions}" ]]; then
-            echo "Deleting sig image-definition ${image_definition} from gallery ${gallery} rg ${AZURE_RESOURCE_GROUP_NAME}"
-            az sig image-definition delete --gallery-image-definition ${image_definition} -r ${gallery} -g ${AZURE_RESOURCE_GROUP_NAME}
-          fi
+        echo "Finding sig image versions associated with ${image_definition} in gallery ${gallery}"
+        image_versions=$(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${gallery} -i ${image_definition} | jq -r '.[].name')
+        for image_version in $image_versions; do
+          echo "Deleting sig image-version ${image_version} ${image_definition} from gallery ${gallery} rg ${AZURE_RESOURCE_GROUP_NAME}"
+          az sig image-version delete -e $image_version -i ${image_definition} -r ${gallery} -g ${AZURE_RESOURCE_GROUP_NAME}
+          az sig image-version wait --deleted --timeout 1800 -e $version -i ${image_definition} -r ${gallery} -g ${AZURE_RESOURCE_GROUP_NAME}
+        done
+        image_versions=$(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${gallery} -i ${image_definition} | jq -r '.[].name')
+        echo "image versions are $image_versions"
+        if [[ -z "${image_versions}" ]]; then
+          echo "Deleting sig image-definition ${image_definition} from gallery ${gallery} rg ${AZURE_RESOURCE_GROUP_NAME}"
+          az sig image-definition delete --gallery-image-definition ${image_definition} -r ${gallery} -g ${AZURE_RESOURCE_GROUP_NAME}
+          az sig image-definition wait --deleted --timeout 1800 --gallery-image-definition ${image_definition} -r ${gallery} -g ${AZURE_RESOURCE_GROUP_NAME}
+        fi
       done
       image_defs=$(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${gallery} | jq -r '.[] | select(.osType == "Windows").name')
 
@@ -87,6 +85,23 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
       echo "Deleting gallery ${gallery}"
       az sig delete --gallery-name ${gallery} --resource-group ${AZURE_RESOURCE_GROUP_NAME}
     fi
+  done
+fi
+
+# attemp to clean up old test Windows SIG image versions over 3 months ago
+if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
+  gallery_list=$(az sig list -g ${AZURE_RESOURCE_GROUP_NAME} | jq -r '.[].name')
+
+  due_date=$(date +%F -d "90 days ago")
+  for gallery in $gallery_list; do
+    image_defs=$(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${gallery} | jq -r '.[] | select(.osType == "Windows").name')
+    for image_definition in $image_defs; do
+      image_versions=$(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${gallery} -i ${image_definition} | jq --arg ValueForDueDate "$due_date" -r '.[] | select(.publishingProfile.publishedDate < $ValueForDueDate).name')
+      for image_version in $image_versions; do
+        echo "Deleting sig image-version ${image_version} ${image_definition} from gallery ${gallery} rg ${AZURE_RESOURCE_GROUP_NAME}"
+        az sig image-version delete -e $image_version -i ${image_definition} -r ${gallery} -g ${AZURE_RESOURCE_GROUP_NAME}
+      done
+    done
   done
 fi
 

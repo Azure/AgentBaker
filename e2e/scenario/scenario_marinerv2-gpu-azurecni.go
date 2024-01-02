@@ -7,13 +7,14 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 )
 
-func marinerv2gpu_azurecni() *Scenario {
+func (t *Template) marinerv2gpu_azurecni() *Scenario {
 	return &Scenario{
 		Name:        "marinerv2-gpu-azurecni",
 		Description: "MarinerV2 gpu scenario on cluster configured with Azure CNI",
 		Config: Config{
 			ClusterSelector: NetworkPluginAzureSelector,
 			ClusterMutator:  NetworkPluginAzureMutator,
+			VHDSelector:     t.CBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
@@ -26,9 +27,6 @@ func marinerv2gpu_azurecni() *Scenario {
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-					ID: to.Ptr(DefaultImageVersionIDs["marinerv2"]),
-				}
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
 		},

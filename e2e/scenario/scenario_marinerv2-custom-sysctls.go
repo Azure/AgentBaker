@@ -2,11 +2,11 @@ package scenario
 
 import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 )
 
-func marinerv2CustomSysctls() *Scenario {
+func (t *Template) marinerv2CustomSysctls() *Scenario {
 	customSysctls := map[string]string{
 		"net.ipv4.ip_local_port_range":       "32768 62535",
 		"net.netfilter.nf_conntrack_max":     "2097152",
@@ -24,13 +24,14 @@ func marinerv2CustomSysctls() *Scenario {
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
+			VHDSelector:     t.CBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
-						NetNetfilterNfConntrackMax:     to.Ptr(stringToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
-						NetNetfilterNfConntrackBuckets: to.Ptr(stringToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
+						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
+						NetNetfilterNfConntrackBuckets: to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
 						NetIpv4IpLocalPortRange:        customSysctls["net.ipv4.ip_local_port_range"],
-						NetIpv4TcpkeepaliveIntvl:       to.Ptr(stringToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
+						NetIpv4TcpkeepaliveIntvl:       to.Ptr(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
 					},
 					UlimitConfig: &datamodel.UlimitConfig{
 						MaxLockedMemory: customContainerdUlimits["LimitMEMLOCK"],
@@ -41,11 +42,6 @@ func marinerv2CustomSysctls() *Scenario {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = customLinuxConfig
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-					ID: to.Ptr(DefaultImageVersionIDs["marinerv2"]),
-				}
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				SysctlConfigValidator(customSysctls),
