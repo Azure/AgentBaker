@@ -58,10 +58,8 @@ if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
     installFIPS
   fi
 else
-  # Handle FIPS and ESM for Ubuntu
-  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
-    autoAttachUA
-  fi
+  # Enable ESM on Ubuntu
+  autoAttachUA
 
   # Run apt get update to refresh repo list
   # Run apt dist get upgrade to install packages/kernels
