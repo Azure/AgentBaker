@@ -35,7 +35,7 @@ parameters:
   type: boolean
   default: false
 - name: buildMarinerV2gen1fips
-  displayName: Build MarinerV2 Gen1 FIPS
+  displayName: Build MarinerV2 Gen1 FIPS 
   type: boolean
   default: true
 - name: buildAzureLinuxV2gen1fips
@@ -43,7 +43,7 @@ parameters:
   type: boolean
   default: false
 - name: buildMarinerV2gen2fips
-  displayName: Build MarinerV2 Gen2 FIPS
+  displayName: Build MarinerV2 Gen2 FIPS 
   type: boolean
   default: true
 - name: buildAzureLinuxV2gen2fips
@@ -134,7 +134,7 @@ parameters:
 variables:
 - name: CONTAINER_IMAGE
   value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.34.7'
-
+  
 pool:
   name: $(POOL_NAME)
 

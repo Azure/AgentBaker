@@ -73,7 +73,7 @@ if [[ "${MODE}" == "windowsVhdMode" && "$SIG_FOR_PRODUCTION" == "True" ]]; then
         id=$(az sig image-version show -e $version -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
         if [ -n "$id" ]; then
             echo "Deleting sig image-version $version failed"
-        else
+        else 
             echo "Deletion of sig image-version $version completed"
         fi
     done
@@ -88,7 +88,7 @@ if [[ "${MODE}" == "windowsVhdMode" && "$SIG_FOR_PRODUCTION" == "True" ]]; then
       id=$(az sig image-definition show --gallery-image-definition ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
       if [ -n "$id" ]; then
           echo "Deleting sig image-definition ${SIG_IMAGE_NAME} failed"
-      else
+      else 
           echo "Deletion of sig image-definition ${SIG_IMAGE_NAME} completed"
       fi
     fi
@@ -168,7 +168,7 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
   else
     echo "Did not find any old SIG versions eligible for deletion"
   fi
-
+  
   set -x
 fi
 

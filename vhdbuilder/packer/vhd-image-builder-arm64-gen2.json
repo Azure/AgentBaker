@@ -28,7 +28,6 @@
     "vnet_name": "{{env `VNET_NAME`}}",
     "subnet_name": "{{env `SUBNET_NAME`}}",
     "private_packages_url": "{{env `PRIVATE_PACKAGES_URL`}}",
-    "private_kube_proxy_images": "{{env `PRIVATE_KUBE_PROXY_IMAGES`}}",
     "linux_msi_resource_id": "{{env `LINUX_MSI_RESOURCE_ID`}}"
   },
   "builders": [
@@ -563,7 +562,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} IMG_SKU={{user `img_sku`}} PRIVATE_PACKAGES_URL={{user `private_packages_url`}} PRIVATE_KUBE_PROXY_IMAGES={{user `private_kube_proxy_images`}} LINUX_MSI_RESOURCE_IDS={{user `linux_msi_resource_ids`}} /bin/bash -ux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} IMG_SKU={{user `img_sku`}} PRIVATE_PACKAGES_URL={{user `private_packages_url`}} LINUX_MSI_RESOURCE_IDS={{user `linux_msi_resource_ids`}} /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
     },
     {

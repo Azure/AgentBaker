@@ -259,20 +259,22 @@ installKubeletKubectlAndKubeProxy() {
     CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"
     PRIVATE_KUBE_BINARY_DOWNLOAD_URL="${PRIVATE_KUBE_BINARY_URL:=}"
     echo "using private url: ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}, custom url: ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}"
+    install_default_if_missing=true
 
     if [[ ! -z ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} ]]; then
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
 
         logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}
+        install_default_if_missing=false
     elif [[ ! -z ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL} ]]; then
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
         logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractPrivateKubeBinaries" extractPrivateKubeBinaries ${KUBERNETES_VERSION} ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}
-    else
-        if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]]; then
-            #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
-            if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
-                logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
-            fi
+    fi
+
+    if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" && "$install_default_if_missing" == true ]]; then
+        #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
+        if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
+            logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
         fi
     fi
     mv "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" "/usr/local/bin/kubelet"
@@ -334,47 +336,13 @@ removeContainerImage() {
     CONTAINER_IMAGE_URL=$2
     if [[ "${CLI_TOOL}" == "docker" ]]; then
         docker image rm $CONTAINER_IMAGE_URL
-    elif [[ "${CLI_TOOL}" == "ctr" ]]; then
-        ctr -n k8s.io image rm $CONTAINER_IMAGE_URL
     else
         crictl rmi $CONTAINER_IMAGE_URL
     fi
 }
 
-retagImageForAllClouds() {
-    CLI_TOOL=$1
-    CONTAINER_IMAGE=$2
-
-    echo "retagging image: $CONTAINER_IMAGE to mcr.microsoft.* base for all clouds"
-    base=$(echo $CONTAINER_IMAGE | cut -d "/" -f1)
-
-    if [[ "$base" =~  "mcr.microsoft."* ]]; then 
-      echo "$CONTAINER_IMAGE is already an mcr image, don't need to re-tag"
-      return
-    fi
-
-    clouds=(
-        "mcr.microsoft.com"           
-        "mcr.azk8s.cn"                
-        "mcr.microsoft.eaglex.ic.gov" # usnat 
-        "mcr.microsoft.scloud"        
-    )
-    for cloud in "${clouds[@]}"; do
-        newtag=${CONTAINER_IMAGE/$base/"$cloud"}
-        echo "retagging with tool: \"$CLI_TOOL\", current image: \"$CONTAINER_IMAGE\", new image: \"$newtag\""
-        retagContainerImage "$CLI_TOOL" "$CONTAINER_IMAGE" "$newtag"
-    done
-
-    removeContainerImage "$CLI_TOOL" "$CONTAINER_IMAGE"
-}
-
 cleanUpImages() {
     local targetImage=$1
-    if [[ "$targetImage" == "kube-proxy" ]]; then
-        echo "keeping all the kube-proxy images around to be able to use when needed w/o downloading again"
-        return
-    fi
-
     export targetImage
     function cleanupImagesRun() {
         if [ "${NEEDS_CONTAINERD}" == "true" ]; then
@@ -404,7 +372,9 @@ cleanUpImages() {
 }
 
 cleanUpKubeProxyImages() {
-    echo "keeping all the kube-proxy images around to be able to use when needed w/o downloading again"
+    echo $(date),$(hostname), startCleanUpKubeProxyImages
+    cleanUpImages "kube-proxy"
+    echo $(date),$(hostname), endCleanUpKubeProxyImages
 }
 
 cleanupRetaggedImages() {

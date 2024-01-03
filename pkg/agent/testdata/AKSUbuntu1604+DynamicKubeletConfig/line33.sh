@@ -1,5 +1,5 @@
 #!/bin/bash
-ERR_FILE_WATCH_TIMEOUT=6
+ERR_FILE_WATCH_TIMEOUT=6 
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
       echo "Already ran to success exiting..."
@@ -98,6 +98,7 @@ logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 if [ -f $VHD_LOGS_FILEPATH ]; then
+    echo "detected golden image pre-install"
     logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
@@ -115,7 +116,7 @@ else
 fi
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
-if [ "${NEEDS_CONTAINERD}" == "true" ] && [ "${TELEPORT_ENABLED}" == "true" ]; then
+if [ "${NEEDS_CONTAINERD}" == "true" ] && [ "${TELEPORT_ENABLED}" == "true" ]; then 
     logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
 fi
 
@@ -143,7 +144,7 @@ if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" != "true" ]]
 [Service]
 Environment="MIG_STRATEGY=--mig-strategy single"
 ExecStart=
-ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
+ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY    
 EOF
         fi
         logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
@@ -160,7 +161,7 @@ EOF
 
     if [[ "${MIG_NODE}" == "true" ]]; then
         REBOOTREQUIRED=true
-
+        
         logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
     fi
 fi
@@ -193,7 +194,7 @@ if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
 fi
 
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-    logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd
+    logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
 else
     logs_to_events "AKS.CSE.ensureDocker" ensureDocker
 fi
@@ -233,7 +234,7 @@ if [ "${NEEDS_CONTAINERD}" == "true" ]; then
 [Service]
 Environment="KUBELET_CONTAINERD_FLAGS=--runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock --runtime-cgroups=/system.slice/containerd.service"
 EOF
-
+    
     if ! semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.27.0"; then
         tee "/etc/systemd/system/kubelet.service.d/10-container-runtime-flag.conf" > /dev/null <<'EOF'
 [Service]
@@ -327,9 +328,9 @@ else
             systemctl unmask apt-daily.service apt-daily-upgrade.service
             systemctl enable apt-daily.service apt-daily-upgrade.service
             systemctl enable apt-daily.timer apt-daily-upgrade.timer
-            systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer
+            systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer            
             systemctl restart --no-block apt-daily.service
-
+            
         fi
         aptmarkWALinuxAgent unhold &
     elif [[ $OS == $MARINER_OS_NAME ]]; then

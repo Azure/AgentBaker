@@ -1,5 +1,5 @@
 #!/bin/bash
-{{/* BCC/BPF-related error codes */}} 
+{{/* BCC/BPF-related error codes */}}
 ERR_IOVISOR_KEY_DOWNLOAD_TIMEOUT=168 {{/* Timeout waiting to download IOVisor repo key */}}
 ERR_IOVISOR_APT_KEY_TIMEOUT=169 {{/* Timeout waiting for IOVisor apt-key */}}
 ERR_BCC_INSTALL_TIMEOUT=170 {{/* Timeout waiting for bcc install */}}
@@ -45,4 +45,28 @@ disableSystemdIptables() {
 
 enableCgroupV2forAzureLinux() {
     sed -i 's/systemd.legacy_systemd_cgroup_controller=yes systemd.unified_cgroup_hierarchy=0//g' /boot/systemd.cfg
+}
+
+# download and setup azcopy to use to download private packages with MSI auth
+getAzCopyCurrentPath() {
+  if [[ -f ./azcopy ]]; then
+    echo "./azcopy already exists"
+  else
+    echo "get azcopy at \"${PWD}\"...start"
+    # Download and extract
+    azcopydownloadurl="https://aka.ms/downloadazcopy-v10-linux"
+    if [[ $(isARM64) == 1 ]]; then
+      azcopydownloadurl="https://aka.ms/downloadazcopy-v10-linux-arm64"
+    fi
+    wget "$azcopydownloadurl" -O "downloadazcopy"
+    tar -xvf ./downloadazcopy
+
+    rm -f ./azcopy
+    cp ./azcopy_linux_*/azcopy ./azcopy
+    chmod +x ./azcopy
+
+    rm -f downloadazcopy
+    rm -rf ./azcopy_linux_*/
+    echo "get azcopy...done"
+  fi
 }

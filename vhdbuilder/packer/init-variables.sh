@@ -218,7 +218,6 @@ if [ -n "${LINUX_MSI_RESOURCE_ID}" ]; then
 fi
 
 private_packages_url=""
-private_kube_proxy_images=""
 
 # shellcheck disable=SC2236
 if [ "$OS_TYPE" == "Windows" ]; then
@@ -389,12 +388,6 @@ if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
 	private_packages_url="${PRIVATE_PACKAGES_URL}"
 fi
 
-# Set kube proxy images list if the pipeline variable is set
-if [ -n "${PRIVATE_KUBE_PROXY_IMAGES}" ]; then
-	echo "PRIVATE_KUBE_PROXY_IMAGES is set in pipeline variables: ${PRIVATE_KUBE_PROXY_IMAGES}"
-	private_kube_proxy_images="${PRIVATE_KUBE_PROXY_IMAGES}"
-fi
-
 cat <<EOF > vhdbuilder/packer/settings.json
 {
   "subscription_id":  "${SUBSCRIPTION_ID}",
@@ -430,8 +423,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vnet_resource_group_name": "${VNET_RG_NAME}",
   "windows_msi_resource_strings": "${windows_msi_resource_strings}",
   "linux_msi_resource_ids": "${linux_msi_resource_ids}",
-  "private_packages_url": "${private_packages_url}",
-  "private_kube_proxy_images": "${private_kube_proxy_images}"
+  "private_packages_url": "${private_packages_url}"
 }
 EOF
 

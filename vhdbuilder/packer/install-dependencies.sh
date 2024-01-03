@@ -401,61 +401,17 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
 
-# download and setup azcopy to use to download private packages with MSI auth
-getAzCopyCurrentPath() {
-  if [[ -f ./azcopy ]]; then
-    echo "./azcopy already exists"
-  else
-    echo "get azcopy at \"${PWD}\"...start"
-    # Download and extract
-    azcopydownloadurl="https://aka.ms/downloadazcopy-v10-linux"
-    if [[ $(isARM64) == 1 ]]; then
-      azcopydownloadurl="https://aka.ms/downloadazcopy-v10-linux-arm64"
-    fi
-    wget "$azcopydownloadurl" -O "downloadazcopy"
-    tar -xvf ./downloadazcopy
-
-    rm -f ./azcopy
-    cp ./azcopy_linux_*/azcopy ./azcopy
-    chmod +x ./azcopy
-
-    rm -f downloadazcopy
-    rm -rf ./azcopy_linux_*/
-    echo "get azcopy...done"
-  fi
-}
-
-# download the given tgz package and extract/import the container image
-importContainerImageTGZ() {
-  CONTAINER_IMAGE_TGZ=$1
-
-  if out=$(ctr --namespace k8s.io image import ${CONTAINER_IMAGE_TGZ}); then # ctr should be there by default now, don't have to handle crictl/docker tools
-    container_image=$(echo $out | cut -d' ' -f 2)
-    echo "imported image $container_image from $CONTAINER_IMAGE_TGZ"
-    retagImageForAllClouds "$CLI_TOOL" "$container_image"
-  else
-    echo "error importing container image from $CONTAINER_IMAGE_TGZ"
-    exit 1
-  fi
-}
-
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
 cacheKubePackageFromPrivateUrl() {
   KUBE_PRIVATE_BINARY_URL=$1
-  IS_KUBE_PROXY_PKG=$2
 
   echo "process private package url: $KUBE_PRIVATE_BINARY_URL"
 
   mkdir -p ${K8S_CACHE_DIR} # /opt/kubernetes/downloads/private-packages
 
-  if [[ "$IS_KUBE_PROXY_PKG" == true ]]; then
-    # save kube-proxy pkg with the same/given package name
-    K8S_TGZ_NAME=${KUBE_PRIVATE_BINARY_URL##*/}
-  else
-    # save kube pkg with version number from the url path, this convention is used to find the cached package at run-time
-    K8S_TGZ_NAME=$(echo "$KUBE_PRIVATE_BINARY_URL" | grep -o -P '(?<=\/kubernetes\/).*(?=\/binaries\/)').tar.gz
-  fi
+  # save kube pkg with version number from the url path, this convention is used to find the cached package at run-time
+  K8S_TGZ_NAME=$(echo "$KUBE_PRIVATE_BINARY_URL" | grep -o -P '(?<=\/kubernetes\/).*(?=\/binaries\/)').tar.gz
 
   # use azcopy with MSI instead of curl to download packages
   getAzCopyCurrentPath
@@ -468,23 +424,7 @@ cacheKubePackageFromPrivateUrl() {
   if ! ./azcopy copy "${KUBE_PRIVATE_BINARY_URL}" "${cachedpkg}"; then
     exit 1
   fi
-
-  if [[ "$IS_KUBE_PROXY_PKG" == true ]]; then
-    echo "extract container image from ${K8S_TGZ_NAME}"
-    importContainerImageTGZ "${cachedpkg}"
-  fi
 }
-
-# use private_kube_proxy_images to download packages from the given url and extract images
-if [[ -n ${PRIVATE_KUBE_PROXY_IMAGES} ]]; then
-  echo "process private kube-proxy images urls...${PRIVATE_KUBE_PROXY_IMAGES}"
-  IFS=',' read -ra PRIVATE_IMAGES <<< "${PRIVATE_KUBE_PROXY_IMAGES}"
-
-  for private_image in "${PRIVATE_IMAGES[@]}"; do
-    echo "download and import kube-proxy image: ${private_image}"
-    cacheKubePackageFromPrivateUrl "$private_image" true
-  done
-fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # remove snapd, which is not used by container stack
@@ -505,7 +445,7 @@ if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
 
   for private_url in "${PRIVATE_URLS[@]}"; do
     echo "download kube package from ${private_url}"
-    cacheKubePackageFromPrivateUrl "$private_url" false
+    cacheKubePackageFromPrivateUrl "$private_url"
   done
 fi
 

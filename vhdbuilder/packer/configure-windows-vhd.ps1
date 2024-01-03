@@ -207,7 +207,7 @@ function Get-FilesToCacheOnVHD {
 function Get-PrivatePackagesToCacheOnVHD {
     if (![string]::IsNullOrEmpty($env:WindowsPrivatePackagesURL)) {
         Write-Log "Caching private packages on VHD"
-
+    
         $dir = "c:\akse-cache\private-packages"
         New-Item -ItemType Directory $dir -Force | Out-Null
 
@@ -519,7 +519,7 @@ function Update-Registry {
             Write-Log "The current value of 3508525708 is $currentValue"
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3508525708 -Value 1 -Type DWORD
-
+        
         $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsAclUpdateChange -ErrorAction Ignore)
         if (![string]::IsNullOrEmpty($currentValue)) {
             Write-Log "The current value of HnsAclUpdateChange is $currentValue"
@@ -544,7 +544,7 @@ function Update-Registry {
             Write-Log "The current value of VfpEvenPodDistributionIsEnabled is $currentValue"
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled -Value 1 -Type DWORD
-
+        
         $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNpmRefresh -ErrorAction Ignore)
         if (![string]::IsNullOrEmpty($currentValue)) {
             Write-Log "The current value of HnsNpmRefresh is $currentValue"
@@ -728,10 +728,10 @@ function Exclude-ReservedUDPSourcePort()
 
 function Get-LatestWindowsDefenderPlatformUpdate {
     $downloadFilePath = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), "Mpupdate.exe")
-
+ 
     $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
     $latestDefenderProductVersion = ([xml]((Invoke-WebRequest -UseBasicParsing -Uri:"$global:defenderUpdateInfoUrl").Content)).versions.platform
-
+ 
     if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
         Write-Log "Update started. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
         DownloadFileWithRetry -URL $global:defenderUpdateUrl -Dest $downloadFilePath
