@@ -124,14 +124,6 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		log.Println("vm was unable to be provisioned due to a CSE error, will still atempt to extract provisioning logs...")
 	}
 
-	if vmssModel != nil {
-		if err := writeToFile(filepath.Join(opts.loggingDir, "vmssId.txt"), *vmssModel.ID); err != nil {
-			t.Fatalf("failed to write vmss resource ID to disk: %s", err)
-		}
-	} else {
-		log.Printf("WARNING: bootstrapped vmss model was nil for %s", vmssName)
-	}
-
 	if opts.suiteConfig.KeepVMSS {
 		defer func() {
 			log.Printf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
@@ -144,6 +136,14 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 				t.Fatalf("failed to write retained vmss %q private ssh key to disk: %s", vmssName, err)
 			}
 		}()
+	} else {
+		if vmssModel != nil {
+			if err := writeToFile(filepath.Join(opts.loggingDir, "vmssId.txt"), *vmssModel.ID); err != nil {
+				t.Fatalf("failed to write vmss resource ID to disk: %s", err)
+			}
+		} else {
+			log.Printf("WARNING: bootstrapped vmss model was nil for %s", vmssName)
+		}
 	}
 
 	vmPrivateIP, err := pollGetVMPrivateIP(ctx, vmssName, opts)

@@ -30,12 +30,12 @@ Furthermore, `SCENARIOS_TO_EXCLUDE` may also optionally be set to specify the se
 
 `KEEP_VMSS` can also be optionally specified to have the test suite retain the bootstrapped VM(s) for further debugging. When this option is specified, the private SSH key used to connect to each VM will be included within each scenario's log bundle respectively.
 
-**Note that when using `e2e-local.sh`, a timeout value of 45 minutes is applied to the `go test` command.**
+**Note that when using `e2e-local.sh`, a timeout value of 90 minutes is applied to the `go test` command.**
 
 You may also run the test command with custom arguments yourself (assuming you've properly setup the required environment variables) from within the `e2e/` directory like so:
 
 ```bash
-go test -timeout 30m -v -run Test_All ./
+go test -timeout 90m -v -run Test_All ./
 ```
 
 ## Package Structure
