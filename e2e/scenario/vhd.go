@@ -46,7 +46,7 @@ func getVHDsFromBuild(ctx context.Context, suiteConfig *suite.Config, tmpl *Temp
 	artifactNames := make(map[string]bool)
 	for _, scenario := range scenarios {
 		artifactName := scenario.VHDSelector().ArtifactName
-		if !artifactNames[artifactName] {
+		if artifactName != "" && !artifactNames[artifactName] {
 			artifactNames[artifactName] = true
 			log.Printf("will download publishing info artifact for: %q", artifactName)
 		}
