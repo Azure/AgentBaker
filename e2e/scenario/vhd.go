@@ -45,8 +45,11 @@ func getVHDsFromBuild(ctx context.Context, suiteConfig *suite.Config, tmpl *Temp
 
 	artifactNames := make(map[string]bool)
 	for _, scenario := range scenarios {
+		if scenario.VHDSelector == nil {
+			return fmt.Errorf("unable to download VHDs from build: scenario %q has an undefined VHDSelector", scenario.Name)
+		}
 		artifactName := scenario.VHDSelector().ArtifactName
-		if !artifactNames[artifactName] {
+		if artifactName != "" && !artifactNames[artifactName] {
 			artifactNames[artifactName] = true
 			log.Printf("will download publishing info artifact for: %q", artifactName)
 		}
