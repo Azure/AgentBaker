@@ -122,7 +122,10 @@ $wuRegistryNames = @(
     "527922829",
     "DeltaHivePolicy",
     "2193453709",
-    "3331554445"
+    "3331554445",
+    "1102009996",
+    "OverrideReceiveRoutingForLocalAddressesIpv4",
+    "OverrideReceiveRoutingForLocalAddressesIpv6"
 )
 
 foreach ($key in $wuRegistryKeys) {

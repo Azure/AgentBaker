@@ -28,8 +28,8 @@ $global:defenderUpdateInfoUrl = "https://go.microsoft.com/fwlink/?linkid=870379&
 
 switch -Regex ($windowsSku) {
     "2019-containerd" {
-        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2023/12/windows10.0-kb5033371-x64_5ee5edaf9559ed1da54b3c9522e9b2a8c8c71e59.msu")
-        $global:patchIDs = @("KB5033371")
+        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/secu/2024/01/windows10.0-kb5034127-x64_7ac59afbc502ef9dc77f7584b31110ea0b23a566.msu")
+        $global:patchIDs = @("KB5034127")
 
         $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2019",
@@ -37,8 +37,8 @@ switch -Regex ($windowsSku) {
         )
     }
     "2022-containerd*" {
-        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/secu/2023/12/windows10.0-kb5033118-x64_36f66ea73d4ae0bf20ebac39d3b15696c197f220.msu")
-        $global:patchIDs = @("KB5033118")
+        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2024/01/windows10.0-kb5034129-x64_15b9faad91f6b35ead3fbfb0fdc00f86244adc7f.msu")
+        $global:patchIDs = @("KB5034129")
 
         $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2022",
