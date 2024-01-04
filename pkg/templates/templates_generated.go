@@ -2458,7 +2458,7 @@ func linuxCloudInitArtifactsCse_configSh() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsCse_helpersSh = []byte(`#!/bin/bash
-# ERR_SYSTEMCTL_ENABLE_FAIL=3 Service could not be enabled by systemctl -- DEPRECATED 
+# ERR_SYSTEMCTL_ENABLE_FAIL=3 Service could not be enabled by systemctl -- DEPRECATED
 ERR_SYSTEMCTL_START_FAIL=4 # Service could not be started or enabled by systemctl
 ERR_CLOUD_INIT_TIMEOUT=5 # Timeout waiting for cloud-init runcmd to complete
 ERR_FILE_WATCH_TIMEOUT=6 # Timeout waiting for a file
@@ -2551,6 +2551,8 @@ ERR_DISABLE_SSH=172 # Error disabling ssh service
 ERR_VHD_REBOOT_REQUIRED=200 # Reserved for VHD reboot required exit condition
 ERR_NO_PACKAGES_FOUND=201 # Reserved for no security packages found exit condition
 ERR_SNAPSHOT_UPDATE_START_FAIL=202 # snapshot-update could not be started by systemctl
+
+ERR_PRIVATE_K8S_PKG_ERR=203 # Error downloading (at build-time) or extracting (at run-time) private kubernetes packages
 
 ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
 
@@ -2724,7 +2726,7 @@ systemctlDisableAndStop() {
     fi
 }
 
-# return true if a >= b 
+# return true if a >= b
 semverCompare() {
     VERSION_A=$(echo $1 | cut -d "+" -f 1)
     VERSION_B=$(echo $2 | cut -d "+" -f 1)
@@ -3065,33 +3067,36 @@ installAzureCNI() {
 }
 
 extractKubeBinaries() {
-    K8S_VERSION=$1
-    KUBE_BINARY_URL=$2
+    local k8s_version="$1"
+    local kube_binary_url="$2"
 
     mkdir -p ${K8S_DOWNLOADS_DIR}
-    K8S_TGZ_TMP=${KUBE_BINARY_URL##*/}
-    retrycmd_get_tarball 120 5 "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" ${KUBE_BINARY_URL} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
-    tar --transform="s|.*|&-${K8S_VERSION}|" --show-transformed-names -xzvf "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" \
+    local k8s_tgz_tmp=${kube_binary_url##*/}
+    retrycmd_get_tarball 120 5 "$K8S_DOWNLOADS_DIR/${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+    tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "$K8S_DOWNLOADS_DIR/${k8s_tgz_tmp}" \
         --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
-    rm -f "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}"
+    rm -f "$K8S_DOWNLOADS_DIR/${k8s_tgz_tmp}"
 }
 
 extractPrivateKubeBinaries() {
-    K8S_VERSION=$1
-    KUBE_BINARY_URL=$2
+    local k8s_version="$1"
+    local kube_binary_url="$2"
 
-    K8S_TGZ_TMP=${KUBE_BINARY_URL##*/}
-    CACHED_PKG="${K8S_CACHE_DIR}/${K8S_TGZ_TMP}"
+    local k8s_tgz_tmp=${kube_binary_url##*/}
+    local cached_pkg="${K8S_CACHE_DIR}/${k8s_tgz_tmp}"
 
-    if [[ -f "${CACHED_PKG}" ]]; then
-        echo "cached package ${CACHED_PKG} is found, will use that"
+    if [[ -f "${cached_pkg}" ]]; then
+        echo "cached package ${cached_pkg} is found, will use that"
     else
-        echo "cached package ${CACHED_PKG} not found"
+        echo "cached package ${cached_pkg} not found"
         return 1
     fi
 
-    retrycmd_get_tarball 120 5 "${CACHED_PKG}" ${KUBE_BINARY_URL} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
-    tar --transform="s|.*|&-${K8S_VERSION}|" --show-transformed-names -xzvf "${CACHED_PKG}" \
+    # remove the current kubelet binaries before extracting new binaries from the cached package
+    rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
+
+    retrycmd_get_tarball 120 5 "${cached_pkg}" ${kube_binary_url} || exit $ERR_PRIVATE_K8S_PKG_ERR
+    tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "${cached_pkg}" \
         --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
 }
 
@@ -3111,13 +3116,12 @@ installKubeletKubectlAndKubeProxy() {
         logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}
         install_default_if_missing=false
     elif [[ ! -z ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL} ]]; then
-        # remove the kubelet binaries to make sure the only binary left is from the PRIVATE_KUBE_BINARY_DOWNLOAD_URL
-        rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
+        # extract new binaries from the cached package if exists (cached at build-time)
         logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractPrivateKubeBinaries" extractPrivateKubeBinaries ${KUBERNETES_VERSION} ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}
     fi
 
     # if the custom url is not specified and the required kubectl/kubelet-version via private url is not installed, install using the default url/package
-    if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" && "$install_default_if_missing" == true ]]; then
+    if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]] && [[ "$install_default_if_missing" == true ]]; then
         #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
         if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
             logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}

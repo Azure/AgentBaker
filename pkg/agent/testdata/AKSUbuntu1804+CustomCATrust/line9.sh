@@ -89,6 +89,8 @@ ERR_VHD_REBOOT_REQUIRED=200
 ERR_NO_PACKAGES_FOUND=201 
 ERR_SNAPSHOT_UPDATE_START_FAIL=202 
 
+ERR_PRIVATE_K8S_PKG_ERR=203 
+
 ERR_SYSTEMCTL_MASK_FAIL=2 
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')

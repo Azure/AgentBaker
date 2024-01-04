@@ -404,14 +404,15 @@ done
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
 cacheKubePackageFromPrivateUrl() {
-  KUBE_PRIVATE_BINARY_URL=$1
+  local kube_private_binary_url="$1"
 
-  echo "process private package url: $KUBE_PRIVATE_BINARY_URL"
+  echo "process private package url: $kube_private_binary_url"
 
   mkdir -p ${K8S_CACHE_DIR} # /opt/kubernetes/downloads/private-packages
 
   # save kube pkg with version number from the url path, this convention is used to find the cached package at run-time
-  K8S_TGZ_NAME=$(echo "$KUBE_PRIVATE_BINARY_URL" | grep -o -P '(?<=\/kubernetes\/).*(?=\/binaries\/)').tar.gz
+  local k8s_tgz_name
+  k8s_tgz_name=$(echo "$kube_private_binary_url" | grep -o -P '(?<=\/kubernetes\/).*(?=\/binaries\/)').tar.gz
 
   # use azcopy with MSI instead of curl to download packages
   getAzCopyCurrentPath
@@ -419,10 +420,10 @@ cacheKubePackageFromPrivateUrl() {
   export AZCOPY_AUTO_LOGIN_TYPE="MSI"
   export AZCOPY_MSI_RESOURCE_STRING="$LINUX_MSI_RESOURCE_IDS"
 
-  cachedpkg="${K8S_CACHE_DIR}/${K8S_TGZ_NAME}"
-  echo "download private package ${KUBE_PRIVATE_BINARY_URL} and store as ${cachedpkg}"
-  if ! ./azcopy copy "${KUBE_PRIVATE_BINARY_URL}" "${cachedpkg}"; then
-    exit 1
+  cachedpkg="${K8S_CACHE_DIR}/${k8s_tgz_name}"
+  echo "download private package ${kube_private_binary_url} and store as ${cachedpkg}"
+  if ! ./azcopy copy "${kube_private_binary_url}" "${cachedpkg}"; then
+    exit $ERR_PRIVATE_K8S_PKG_ERR
   fi
 }
 
