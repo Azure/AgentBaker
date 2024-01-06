@@ -54,19 +54,25 @@ getAzCopyCurrentPath() {
   else
     echo "get azcopy at \"${PWD}\"...start"
     # Download and extract
-    azcopydownloadurl="https://aka.ms/downloadazcopy-v10-linux"
+    azcopydownloadurl="https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/azcopy_linux_amd64_10.22.1.tar.gz"
+    azcopysha256="7549424d56ab2d8b4033c84c2a9bb167dc2dcbb23998acd7fffb37bc1a71a267"
     if [[ $(isARM64) == 1 ]]; then
-      azcopydownloadurl="https://aka.ms/downloadazcopy-v10-linux-arm64"
+      azcopydownloadurl="https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/azcopy_linux_arm64_10.22.1.tar.gz"
+      azcopysha256="4db9a4b48abc7775f1a5d6d928afc42361dcc57bbfcde23ac82e4c419a0dc8fc"
     fi
-    wget "$azcopydownloadurl" -O "downloadazcopy"
-    tar -xvf ./downloadazcopy
 
-    rm -f ./azcopy
-    cp ./azcopy_linux_*/azcopy ./azcopy
+    downloadedpkg="downloadazcopy"
+    pkgprefix="azcopy_linux_"
+
+    wget "$azcopydownloadurl" -O "$downloadedpkg" &&
+    echo "$azcopysha256 $downloadedpkg" | sha256sum --check >/dev/null &&
+    tar -xvf ./$downloadedpkg &&
+    cp ./$pkgprefix*/azcopy ./azcopy &&
     chmod +x ./azcopy
 
-    rm -f downloadazcopy
-    rm -rf ./azcopy_linux_*/
+    rm -f $downloadedpkg
+    rm -rf ./$pkgprefix*/
+
     echo "get azcopy...done"
   fi
 }
