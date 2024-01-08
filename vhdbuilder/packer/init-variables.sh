@@ -217,8 +217,6 @@ if [ -n "${LINUX_MSI_RESOURCE_ID}" ]; then
 	linux_msi_resource_ids+=(${LINUX_MSI_RESOURCE_ID})
 fi
 
-private_packages_url=""
-
 # shellcheck disable=SC2236
 if [ "$OS_TYPE" == "Windows" ]; then
 	imported_windows_image_name=""
@@ -382,6 +380,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 	fi
 fi
 
+private_packages_url=""
 # Set linux private packages url if the pipeline variable is set
 if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
 	echo "PRIVATE_PACKAGES_URL is set in pipeline variables: ${PRIVATE_PACKAGES_URL}"

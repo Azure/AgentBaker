@@ -1,5 +1,4 @@
 #!/bin/bash
-echo "install-dependencies.sh...start"
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"
@@ -420,9 +419,9 @@ cacheKubePackageFromPrivateUrl() {
   export AZCOPY_AUTO_LOGIN_TYPE="MSI"
   export AZCOPY_MSI_RESOURCE_STRING="$LINUX_MSI_RESOURCE_IDS"
 
-  cachedpkg="${K8S_CACHE_DIR}/${k8s_tgz_name}"
-  echo "download private package ${kube_private_binary_url} and store as ${cachedpkg}"
-  if ! ./azcopy copy "${kube_private_binary_url}" "${cachedpkg}"; then
+  cached_pkg="${K8S_CACHE_DIR}/${k8s_tgz_name}"
+  echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
+  if ! ./azcopy copy "${kube_private_binary_url}" "${cached_pkg}"; then
     exit $ERR_PRIVATE_K8S_PKG_ERR
   fi
 }
@@ -463,6 +462,6 @@ for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
 done
 
-rm -f ./azcopy # cleanup immediately after usage will retrun in two downloads
+rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 
 echo "install-dependencies step completed successfully"

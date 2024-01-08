@@ -6,6 +6,7 @@ ERR_BCC_INSTALL_TIMEOUT=170 {{/* Timeout waiting for bcc install */}}
 ERR_BPFTRACE_BIN_DOWNLOAD_FAIL=171 {{/* Failed to download bpftrace binary */}}
 ERR_BPFTRACE_TOOLS_DOWNLOAD_FAIL=172 {{/* Failed to download bpftrace default programs */}}
 ERR_BPFTRACE_TOOLS_INSTALL_TIMEOUT=173 {{/* Failed to install bpftrace default programs */}}
+ERR_AZCOPY_TOOLS_DOWNLOAD_FAIL=174 {{/* Failed to download azcopy */}}
 
 BPFTRACE_DOWNLOADS_DIR="/opt/bpftrace/downloads"
 UBUNTU_CODENAME=$(lsb_release -c -s)
@@ -54,23 +55,23 @@ getAzCopyCurrentPath() {
   else
     echo "get azcopy at \"${PWD}\"...start"
     # Download and extract
-    azcopydownloadurl="https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/azcopy_linux_amd64_10.22.1.tar.gz"
-    azcopysha256="7549424d56ab2d8b4033c84c2a9bb167dc2dcbb23998acd7fffb37bc1a71a267"
+    local azcopyDownloadURL="https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/azcopy_linux_amd64_10.22.1.tar.gz"
+    local azcopySha256="7549424d56ab2d8b4033c84c2a9bb167dc2dcbb23998acd7fffb37bc1a71a267"
     if [[ $(isARM64) == 1 ]]; then
-      azcopydownloadurl="https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/azcopy_linux_arm64_10.22.1.tar.gz"
-      azcopysha256="4db9a4b48abc7775f1a5d6d928afc42361dcc57bbfcde23ac82e4c419a0dc8fc"
+      azcopyDownloadURL="https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/azcopy_linux_arm64_10.22.1.tar.gz"
+      azcopySha256="4db9a4b48abc7775f1a5d6d928afc42361dcc57bbfcde23ac82e4c419a0dc8fc"
     fi
 
-    downloadedpkg="downloadazcopy"
+    local downloadedPkg="downloadazcopy"
     pkgprefix="azcopy_linux_"
 
-    wget "$azcopydownloadurl" -O "$downloadedpkg" &&
-    echo "$azcopysha256 $downloadedpkg" | sha256sum --check >/dev/null &&
-    tar -xvf ./$downloadedpkg &&
+    retrycmd_if_failure 30 5 60 curl -fSL -k -o "$downloadedPkg" "$azcopyDownloadURL" || exit $ERR_AZCOPY_TOOLS_DOWNLOAD_FAIL &&
+    echo "$azcopySha256 $downloadedPkg" | sha256sum --check >/dev/null &&
+    tar -xvf ./$downloadedPkg &&
     cp ./$pkgprefix*/azcopy ./azcopy &&
     chmod +x ./azcopy
 
-    rm -f $downloadedpkg
+    rm -f $downloadedPkg
     rm -rf ./$pkgprefix*/
 
     echo "get azcopy...done"

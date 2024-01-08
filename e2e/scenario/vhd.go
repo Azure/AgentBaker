@@ -133,9 +133,9 @@ type Ubuntu1804 struct {
 
 // Ubuntu2204 contains all the Ubuntu2204-based VHD catalog entries.
 type Ubuntu2204 struct {
-	Gen2Arm64Containerd               VHD `json:"gen2arm64containerd,omitempty"`
-	Gen2Containerd                    VHD `json:"gen2containerd,omitempty"`
-	Gen2Arm64ContainerdPrivateKubePkg VHD `json:"gen2containerdprivatekubepkg,omitempty"`
+	Gen2Arm64Containerd          VHD `json:"gen2arm64containerd,omitempty"`
+	Gen2Containerd               VHD `json:"gen2containerd,omitempty"`
+	Gen2ContainerdPrivateKubePkg VHD `json:"gen2containerdprivatekubepkg,omitempty"`
 }
 
 // AzureLinuxV2 contains all the AzureLinuxV2-based VHD catalog entries.
@@ -167,7 +167,7 @@ func (c *VHDCatalog) Ubuntu2204Gen2Containerd() VHD {
 
 // Returns the gen2containerdprivatekubepkg catalog entry.
 func (c *VHDCatalog) Ubuntu2204Gen2ContainerdPrivateKubePkg() VHD {
-	return c.Ubuntu2204.Gen2Arm64ContainerdPrivateKubePkg
+	return c.Ubuntu2204.Gen2ContainerdPrivateKubePkg
 }
 
 // Returns the AzureLinuxV/gen2arm64 catalog entry.
