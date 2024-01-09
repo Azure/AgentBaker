@@ -93,6 +93,7 @@ if [[ "$listResult" == *"$noExistStr"* ]]; then
 fi
 
 log "Upload cse packages done"
+csePackageURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip"
 
 log "Scenario is $SCENARIO_NAME"
 log "Windows package version is $WINDOWS_PACKAGE_VERSION"
