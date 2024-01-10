@@ -982,7 +982,7 @@ func getGPUDriverVersion(size string) string {
 	if isStandardNCv1(size) {
 		return datamodel.Nvidia470CudaDriverVersion
 	}
-	return datamodel.Nvidia525CudaDriverVersion
+	return datamodel.Nvidia535CudaDriverVersion
 }
 
 func isStandardNCv1(size string) bool {
@@ -1002,7 +1002,6 @@ func getAKSGPUImageSHA(size string) string {
 	if useGridDrivers(size) {
 		return datamodel.AKSGPUGridSHA
 	}
-	// TODO (for AGANESHKUMAR?) - we rebuilt the GRID image, we should also upgrade the CUDA ones to have new versions
 	return datamodel.AKSGPUCudaSHA
 }
 

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 	"github.com/Azure/go-autorest/autorest/azure"
 	corev1 "k8s.io/api/core/v1"
@@ -18,8 +19,9 @@ import (
 
 const (
 	// Polling intervals
-	createVMSSPollingInterval               = 15 * time.Second
-	vmssOperationPollInterval               = 10 * time.Second
+	vmssClientCreateVMSSPollInterval        = 15 * time.Second
+	deleteVMSSPollInterval                  = 10 * time.Second
+	defaultVMSSOperationPollInterval        = 10 * time.Second
 	execOnVMPollInterval                    = 10 * time.Second
 	execOnPodPollInterval                   = 10 * time.Second
 	extractClusterParametersPollInterval    = 10 * time.Second
@@ -28,10 +30,12 @@ const (
 	waitUntilPodRunningPollInterval         = 5 * time.Second
 	waitUntilPodDeletedPollInterval         = 5 * time.Second
 	waitUntilClusterNotCreatingPollInterval = 10 * time.Second
+	waitUntilNodeReadyPollingInterval       = 5 * time.Second
 
 	// Polling timeouts
-	createVMSSPollingTimeout               = 10 * time.Minute
-	vmssOperationPollingTimeout            = 10 * time.Minute
+	vmssClientCreateVMSSPollingTimeout     = 10 * time.Minute
+	deleteVMSSPollingTimeout               = 5 * time.Minute
+	defaultVMSSOperationPollingTimeout     = 10 * time.Minute
 	execOnVMPollingTimeout                 = 3 * time.Minute
 	execOnPodPollingTimeout                = 2 * time.Minute
 	extractClusterParametersPollingTimeout = 3 * time.Minute
@@ -39,6 +43,7 @@ const (
 	getVMPrivateIPAddressPollingTimeout    = 1 * time.Minute
 	waitUntilPodRunningPollingTimeout      = 3 * time.Minute
 	waitUntilPodDeletedPollingTimeout      = 1 * time.Minute
+	waitUntilNodeReadyPollingTimeout       = 3 * time.Minute
 )
 
 func pollExecOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
@@ -191,7 +196,7 @@ func waitForClusterCreation(ctx context.Context, cloud *azureClient, resourceGro
 
 func waitUntilNodeReady(ctx context.Context, kube *kubeclient, vmssName string) (string, error) {
 	var nodeName string
-	err := wait.PollImmediateWithContext(ctx, 5*time.Second, 5*time.Minute, func(ctx context.Context) (bool, error) {
+	err := wait.PollImmediateWithContext(ctx, waitUntilNodeReadyPollingInterval, waitUntilNodeReadyPollingTimeout, func(ctx context.Context) (bool, error) {
 		nodes, err := kube.typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return false, err
@@ -240,17 +245,31 @@ type Poller[T any] interface {
 	PollUntilDone(ctx context.Context, options *runtime.PollUntilDoneOptions) (T, error)
 }
 
-func pollVMSSOperation[T any](ctx context.Context, vmssName string, pollerOpts *runtime.PollUntilDoneOptions, vmssOperation func() (Poller[T], error)) (*T, error) {
+type pollVMSSOperationOpts struct {
+	pollUntilDone   *runtime.PollUntilDoneOptions
+	pollingInterval *time.Duration
+	pollingTimeout  *time.Duration
+}
+
+// TODO: refactor into a new struct which manages the operation independently
+func pollVMSSOperation[T any](ctx context.Context, vmssName string, opts pollVMSSOperationOpts, vmssOperation func() (Poller[T], error)) (*T, error) {
 	var vmssResp T
 	var requestError azure.RequestError
 
-	pollErr := wait.PollImmediateWithContext(ctx, vmssOperationPollInterval, vmssOperationPollingTimeout, func(ctx context.Context) (bool, error) {
+	if opts.pollingInterval == nil {
+		opts.pollingInterval = to.Ptr(defaultVMSSOperationPollInterval)
+	}
+	if opts.pollingTimeout == nil {
+		opts.pollingTimeout = to.Ptr(defaultVMSSOperationPollingTimeout)
+	}
+
+	pollErr := wait.PollImmediateWithContext(ctx, *opts.pollingInterval, *opts.pollingTimeout, func(ctx context.Context) (bool, error) {
 		poller, err := vmssOperation()
 		if err != nil {
 			log.Printf("error when creating the vmssOperation for VMSS %q: %v", vmssName, err)
 			return false, err
 		}
-		vmssResp, err = poller.PollUntilDone(ctx, pollerOpts)
+		vmssResp, err = poller.PollUntilDone(ctx, opts.pollUntilDone)
 		if err != nil {
 			if errors.As(err, &requestError) && requestError.ServiceError != nil {
 				/*

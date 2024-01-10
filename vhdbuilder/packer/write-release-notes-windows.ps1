@@ -122,10 +122,17 @@ $wuRegistryNames = @(
     "527922829",
     "DeltaHivePolicy",
     "2193453709",
-    "3331554445"
+    "3331554445",
+    "1102009996",
+    "OverrideReceiveRoutingForLocalAddressesIpv4",
+    "OverrideReceiveRoutingForLocalAddressesIpv6"
 )
 
 foreach ($key in $wuRegistryKeys) {
+    # Windows 2019 does not have the Windows Containers key
+    if ($($systemInfo.CurrentBuildNumber) -eq 17763 -and $key -eq "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers") {
+        continue
+    }
     Log ("`t{0}" -f $key)
     $regPath=(Get-Item -Path $key -ErrorAction Ignore)
     if ($regPath) {
