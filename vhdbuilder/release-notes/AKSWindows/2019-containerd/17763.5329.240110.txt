@@ -85,8 +85,6 @@ Windows Update Registry Settings
 	HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters
 		VfpEvenPodDistributionIsEnabled : 1
 		VfpNotReuseTcpOneWayFlowIsEnabled : 1
-	HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers
-HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers doesn't exist in current OS.
 
 ContainerD Info
 Version: ctr github.com/containerd/containerd v1.6.21+azure
