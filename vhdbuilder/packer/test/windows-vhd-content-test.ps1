@@ -294,6 +294,11 @@ function Test-RegistryAdded {
             Write-ErrorWithTimestamp "The registry for 3767762061 is not added"
             exit 1
         }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1102009996)
+        if ($result.1102009996 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 1102009996 is not added"
+            exit 1
+        }
     }
     if ($env:WindowsSKU -Like '2022*') {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2629306509)
@@ -444,6 +449,16 @@ function Test-RegistryAdded {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3331554445)
         if ($result.3331554445 -ne 1) {
             Write-ErrorWithTimestamp "The registry for 3331554445 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv4)
+        if ($result.OverrideReceiveRoutingForLocalAddressesIpv4 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for OverrideReceiveRoutingForLocalAddressesIpv4 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv6)
+        if ($result.OverrideReceiveRoutingForLocalAddressesIpv6 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for OverrideReceiveRoutingForLocalAddressesIpv6 is not added"
             exit 1
         }
     }
