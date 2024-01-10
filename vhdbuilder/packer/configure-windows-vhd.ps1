@@ -65,11 +65,12 @@ function Retry-Command {
                 }
                 return
             } catch {
-                Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
+                Write-Log $_.Exception.InnerException.Message
                 if ($_.Exception.InnerException.Message.Contains("There is not enough space on the disk. (0x70)")) {
                     Write-Error "Exit retry since there is not enough space on the disk"
                     break
                 }
+                Write-Log "Retry $cnt : $ScriptBlock"
                 Start-Sleep $Delay
             }
         } while ($cnt -lt $Maximum)
