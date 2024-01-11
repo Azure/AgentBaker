@@ -2553,6 +2553,7 @@ ERR_NO_PACKAGES_FOUND=201 # Reserved for no security packages found exit conditi
 ERR_SNAPSHOT_UPDATE_START_FAIL=202 # snapshot-update could not be started by systemctl
 
 ERR_PRIVATE_K8S_PKG_ERR=203 # Error downloading (at build-time) or extracting (at run-time) private kubernetes packages
+ERR_PRIVATE_K8S_INSTALL_ERR=204 # Error installing kubernetes binaries on disk
 
 ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
 
@@ -2795,7 +2796,7 @@ logs_to_events() {
         --arg Version     "1.23" \
         --arg TaskName    "${task}" \
         --arg EventLevel  "Informational" \
-        --arg Message     "Completed: ${@}" \
+        --arg Message     "Completed: $*" \
         --arg EventPid    "0" \
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
@@ -3069,35 +3070,40 @@ installAzureCNI() {
 extractKubeBinaries() {
     local k8s_version="$1"
     local kube_binary_url="$2"
+    local is_private_url="$3"
 
     mkdir -p ${K8S_DOWNLOADS_DIR}
-    local k8s_tgz_tmp=${kube_binary_url##*/}
-    retrycmd_get_tarball 120 5 "$K8S_DOWNLOADS_DIR/${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
-    tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "$K8S_DOWNLOADS_DIR/${k8s_tgz_tmp}" \
-        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
-    rm -f "$K8S_DOWNLOADS_DIR/${k8s_tgz_tmp}"
-}
+    local k8s_tgz_tmp_fn=${kube_binary_url##*/}
+    k8s_tgz_tmp="${K8S_DOWNLOADS_DIR}/${k8s_tgz_tmp_fn}"
 
-extractPrivateKubeBinaries() {
-    local k8s_version="$1"
-    local kube_binary_url="$2"
+    local err=$ERR_K8S_DOWNLOAD_TIMEOUT
+    if [[ $is_private_url == true ]]; then
+        k8s_tgz_tmp="${K8S_CACHE_DIR}/${k8s_tgz_tmp_fn}"
+        if [[ -f "${k8s_tgz_tmp}" ]]; then
+            echo "cached package ${k8s_tgz_tmp} is found, will use that"
+        else
+            echo "cached package ${k8s_tgz_tmp} not found"
+            return 1
+        fi
 
-    local k8s_tgz_tmp=${kube_binary_url##*/}
-    local cached_pkg="${K8S_CACHE_DIR}/${k8s_tgz_tmp}"
-
-    if [[ -f "${cached_pkg}" ]]; then
-        echo "cached package ${cached_pkg} is found, will use that"
-    else
-        echo "cached package ${cached_pkg} not found"
-        return 1
+        # remove the current kubelet and kubectl binaries before extracting new binaries from the cached package
+        rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
+        err=$ERR_PRIVATE_K8S_PKG_ERR
     fi
 
-    # remove the current kubelet and kubectl binaries before extracting new binaries from the cached package
-    rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
-
-    retrycmd_get_tarball 120 5 "${cached_pkg}" ${kube_binary_url} || exit $ERR_PRIVATE_K8S_PKG_ERR
-    tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "${cached_pkg}" \
+    retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit "$err"
+    if [ ! -f ${k8s_tgz_tmp} ]; then
+        exit "$err"
+    fi
+    tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "${k8s_tgz_tmp}" \
         --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
+    if [ ! -f /usr/local/bin/kubectl-${k8s_version} ] || [ ! -f /usr/local/bin/kubelet-${k8s_version} ]; then
+        exit $ERR_PRIVATE_K8S_INSTALL_ERR
+    fi
+
+    if [[ $is_private_url == false ]]; then
+        rm -f "${k8s_tgz_tmp}"
+    fi
 }
 
 installKubeletKubectlAndKubeProxy() {
@@ -3108,17 +3114,17 @@ installKubeletKubectlAndKubeProxy() {
     install_default_if_missing=true
 
     if [[ ! -z ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} ]]; then
-        # remove the kubelet binaries to make sure the only binary left is from the CUSTOM_KUBE_BINARY_DOWNLOAD_URL
+        # remove the kubelet and kubectl binaries to make sure the only binary left is from the CUSTOM_KUBE_BINARY_DOWNLOAD_URL
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
 
         # NOTE(mainred): we expect kubelet binary to be under `+"`"+`kubernetes/node/bin`+"`"+`. This suits the current setting of
         # kube binaries used by AKS and Kubernetes upstream.
         # TODO(mainred): let's see if necessary to auto-detect the path of kubelet
-        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}
+        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} false
         install_default_if_missing=false
     elif [[ ! -z ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL} ]]; then
         # extract new binaries from the cached package if exists (cached at build-time)
-        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractPrivateKubeBinaries" extractPrivateKubeBinaries ${KUBERNETES_VERSION} ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}
+        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL} true
     fi
 
     # if the custom url is not specified and the required kubectl/kubelet-version via private url is not installed, install using the default url/package
@@ -3126,7 +3132,7 @@ installKubeletKubectlAndKubeProxy() {
         if [[ "$install_default_if_missing" == true ]]; then
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
-                logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
+                logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL} false
             fi
         fi
     fi

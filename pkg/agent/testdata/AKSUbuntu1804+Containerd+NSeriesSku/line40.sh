@@ -227,34 +227,39 @@ installAzureCNI() {
 extractKubeBinaries() {
     local k8s_version="$1"
     local kube_binary_url="$2"
+    local is_private_url="$3"
 
     mkdir -p ${K8S_DOWNLOADS_DIR}
-    local k8s_tgz_tmp=${kube_binary_url##*/}
-    retrycmd_get_tarball 120 5 "$K8S_DOWNLOADS_DIR/${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
-    tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "$K8S_DOWNLOADS_DIR/${k8s_tgz_tmp}" \
-        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
-    rm -f "$K8S_DOWNLOADS_DIR/${k8s_tgz_tmp}"
-}
+    local k8s_tgz_tmp_fn=${kube_binary_url##*/}
+    k8s_tgz_tmp="${K8S_DOWNLOADS_DIR}/${k8s_tgz_tmp_fn}"
 
-extractPrivateKubeBinaries() {
-    local k8s_version="$1"
-    local kube_binary_url="$2"
+    local err=$ERR_K8S_DOWNLOAD_TIMEOUT
+    if [[ $is_private_url == true ]]; then
+        k8s_tgz_tmp="${K8S_CACHE_DIR}/${k8s_tgz_tmp_fn}"
+        if [[ -f "${k8s_tgz_tmp}" ]]; then
+            echo "cached package ${k8s_tgz_tmp} is found, will use that"
+        else
+            echo "cached package ${k8s_tgz_tmp} not found"
+            return 1
+        fi
 
-    local k8s_tgz_tmp=${kube_binary_url##*/}
-    local cached_pkg="${K8S_CACHE_DIR}/${k8s_tgz_tmp}"
-
-    if [[ -f "${cached_pkg}" ]]; then
-        echo "cached package ${cached_pkg} is found, will use that"
-    else
-        echo "cached package ${cached_pkg} not found"
-        return 1
+        rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
+        err=$ERR_PRIVATE_K8S_PKG_ERR
     fi
 
-    rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
-
-    retrycmd_get_tarball 120 5 "${cached_pkg}" ${kube_binary_url} || exit $ERR_PRIVATE_K8S_PKG_ERR
-    tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "${cached_pkg}" \
+    retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit "$err"
+    if [ ! -f ${k8s_tgz_tmp} ]; then
+        exit "$err"
+    fi
+    tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "${k8s_tgz_tmp}" \
         --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
+    if [ ! -f /usr/local/bin/kubectl-${k8s_version} ] || [ ! -f /usr/local/bin/kubelet-${k8s_version} ]; then
+        exit $ERR_PRIVATE_K8S_INSTALL_ERR
+    fi
+
+    if [[ $is_private_url == false ]]; then
+        rm -f "${k8s_tgz_tmp}"
+    fi
 }
 
 installKubeletKubectlAndKubeProxy() {
@@ -266,17 +271,17 @@ installKubeletKubectlAndKubeProxy() {
     if [[ ! -z ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} ]]; then
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
 
-        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}
+        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} false
         install_default_if_missing=false
     elif [[ ! -z ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL} ]]; then
-        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractPrivateKubeBinaries" extractPrivateKubeBinaries ${KUBERNETES_VERSION} ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}
+        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL} true
     fi
 
     if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]] || [[ ! -f "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" ]]; then
         if [[ "$install_default_if_missing" == true ]]; then
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             if (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
-                logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL}
+                logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL} false
             fi
         fi
     fi
