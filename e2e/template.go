@@ -257,6 +257,7 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 			PodInfraContainerImageURL: "mcr.microsoft.com/oss/kubernetes/pause:3.6",
 			HyperkubeImageURL:         "mcr.microsoft.com/oss/kubernetes/",
 			WindowsPackageURL:         "windowspackage",
+			LinuxPrivatePackageURL:    "",
 		},
 		AgentPoolProfile: &datamodel.AgentPoolProfile{
 			Name:                "nodepool2",
