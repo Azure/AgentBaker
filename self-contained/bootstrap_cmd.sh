@@ -16,6 +16,7 @@ KUBERNETES_VERSION={{GetParameter "kubernetesVersion"}}
 HYPERKUBE_URL={{GetParameter "kubernetesHyperkubeSpec"}}
 KUBE_BINARY_URL={{GetParameter "kubeBinaryURL"}}
 CUSTOM_KUBE_BINARY_URL={{GetParameter "customKubeBinaryURL"}}
+PRIVATE_KUBE_BINARY_URL="{{GetLinuxPrivatePackageURL}}"
 KUBEPROXY_URL={{GetParameter "kubeProxySpec"}}
 APISERVER_PUBLIC_KEY={{GetParameter "apiServerCertificate"}}
 SUBSCRIPTION_ID={{GetVariable "subscriptionId"}}
