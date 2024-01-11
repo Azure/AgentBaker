@@ -2553,7 +2553,7 @@ ERR_NO_PACKAGES_FOUND=201 # Reserved for no security packages found exit conditi
 ERR_SNAPSHOT_UPDATE_START_FAIL=202 # snapshot-update could not be started by systemctl
 
 ERR_PRIVATE_K8S_PKG_ERR=203 # Error downloading (at build-time) or extracting (at run-time) private kubernetes packages
-ERR_PRIVATE_K8S_INSTALL_ERR=204 # Error installing kubernetes binaries on disk
+ERR_K8S_INSTALL_ERR=204 # Error installing or setting up kubernetes binaries on disk
 
 ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
 
@@ -3072,33 +3072,36 @@ extractKubeBinaries() {
     local kube_binary_url="$2"
     local is_private_url="$3"
 
-    mkdir -p ${K8S_DOWNLOADS_DIR}
     local k8s_tgz_tmp_fn=${kube_binary_url##*/}
-    k8s_tgz_tmp="${K8S_DOWNLOADS_DIR}/${k8s_tgz_tmp_fn}"
 
-    local err=$ERR_K8S_DOWNLOAD_TIMEOUT
+    # if the private URL is specified and if the kube package is cached already, extract the package, return otherwise
+    # if the private URL is not specified, download and extract the kube package from the given URL
     if [[ $is_private_url == true ]]; then
         k8s_tgz_tmp="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_tmp_fn}"
-        if [[ -f "${k8s_tgz_tmp}" ]]; then
-            echo "cached package ${k8s_tgz_tmp} is found, will use that"
-        else
+
+        if [[ ! -f "${k8s_tgz_tmp}" ]]; then
             echo "cached package ${k8s_tgz_tmp} not found"
             return 1
         fi
 
+        echo "cached package ${k8s_tgz_tmp} found, will extract that"
         # remove the current kubelet and kubectl binaries before extracting new binaries from the cached package
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
-        err=$ERR_PRIVATE_K8S_PKG_ERR
+    else
+        k8s_tgz_tmp="${K8S_DOWNLOADS_DIR}/${k8s_tgz_tmp_fn}"
+        mkdir -p ${K8S_DOWNLOADS_DIR}
+
+        retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
+        if [[ ! -f ${k8s_tgz_tmp} ]]; then
+            exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
+        fi
     fi
 
-    retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit "$err"
-    if [ ! -f ${k8s_tgz_tmp} ]; then
-        exit "$err"
-    fi
+    # extract the cached or downloaded kube package
     tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "${k8s_tgz_tmp}" \
         --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
-    if [ ! -f /usr/local/bin/kubectl-${k8s_version} ] || [ ! -f /usr/local/bin/kubelet-${k8s_version} ]; then
-        exit $ERR_PRIVATE_K8S_INSTALL_ERR
+    if [[ ! -f /usr/local/bin/kubectl-${k8s_version} ]] || [[ ! -f /usr/local/bin/kubelet-${k8s_version} ]; then
+        exit $ERR_K8S_INSTALL_ERR
     fi
 
     if [[ $is_private_url == false ]]; then
