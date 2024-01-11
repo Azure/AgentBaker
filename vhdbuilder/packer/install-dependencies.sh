@@ -407,7 +407,7 @@ cacheKubePackageFromPrivateUrl() {
 
   echo "process private package url: $kube_private_binary_url"
 
-  mkdir -p ${K8S_CACHE_DIR} # /opt/kubernetes/downloads/private-packages
+  mkdir -p ${K8S_PRIVATE_PACKAGES_CACHE_DIR} # /opt/kubernetes/downloads/private-packages
 
   # save kube pkg with version number from the url path, this convention is used to find the cached package at run-time
   local k8s_tgz_name
@@ -419,7 +419,7 @@ cacheKubePackageFromPrivateUrl() {
   export AZCOPY_AUTO_LOGIN_TYPE="MSI"
   export AZCOPY_MSI_RESOURCE_STRING="$LINUX_MSI_RESOURCE_IDS"
 
-  cached_pkg="${K8S_CACHE_DIR}/${k8s_tgz_name}"
+  cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
   echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
   if ! ./azcopy copy "${kube_private_binary_url}" "${cached_pkg}"; then
     exit $ERR_PRIVATE_K8S_PKG_ERR

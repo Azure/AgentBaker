@@ -10,7 +10,7 @@ CRICTL_BIN_DIR="/usr/local/bin"
 CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
-K8S_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
+K8S_PRIVATE_PACKAGES_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR="/opt/azure/tlsbootstrap"
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION="v0.1.0-alpha.2"
@@ -240,7 +240,7 @@ extractKubeBinaries() {
 
     local err=$ERR_K8S_DOWNLOAD_TIMEOUT
     if [[ $is_private_url == true ]]; then
-        k8s_tgz_tmp="${K8S_CACHE_DIR}/${k8s_tgz_tmp_fn}"
+        k8s_tgz_tmp="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_tmp_fn}"
         if [[ -f "${k8s_tgz_tmp}" ]]; then
             echo "cached package ${k8s_tgz_tmp} is found, will use that"
         else
