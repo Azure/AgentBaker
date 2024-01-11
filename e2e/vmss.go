@@ -33,19 +33,20 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName st
 
 	cleanupVMSS := func() {
 		log.Printf("deleting vmss %q", vmssName)
-		vmssOperation := func() (Poller[armcompute.VirtualMachineScaleSetsClientDeleteResponse], error) {
+		if _, err := pollVMSSOperation(ctx, vmssName, pollVMSSOperationOpts{
+			pollingInterval: to.Ptr(deleteVMSSPollInterval),
+			pollingTimeout:  to.Ptr(deleteVMSSPollingTimeout),
+		}, func() (Poller[armcompute.VirtualMachineScaleSetsClientDeleteResponse], error) {
 			return opts.cloud.vmssClient.BeginDelete(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName, nil)
-		}
-		_, err := pollVMSSOperation(ctx, vmssName, nil, vmssOperation)
-		if err != nil {
-			t.Error("error polling deleting vmss", vmssName, err)
+		}); err != nil {
+			t.Errorf("encountered an error while waiting for deletion of vmss %q: %s", vmssName, err)
 		}
 		log.Printf("finished deleting vmss %q", vmssName)
 	}
 
 	vmssModel, err := createVMSSWithPayload(ctx, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create VMSS with payload: %w", err)
+		return nil, cleanupVMSS, fmt.Errorf("unable to create VMSS with payload: %w", err)
 	}
 
 	return vmssModel, cleanupVMSS, nil
@@ -76,22 +77,27 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 		return nil, fmt.Errorf("unable to prepare model for VMSS %q: %w", vmssName, err)
 	}
 
-	createVMSSCtx, cancel := context.WithTimeout(ctx, createVMSSPollingTimeout)
+	createVMSSCtx, cancel := context.WithTimeout(ctx, vmssClientCreateVMSSPollingTimeout)
 	defer cancel()
 
-	vmssOperation := func() (Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse], error) {
-		return opts.cloud.vmssClient.BeginCreateOrUpdate(
-			ctx,
-			*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
-			vmssName,
-			model,
-			nil,
-		)
-	}
-	vmssResp, err := pollVMSSOperation(createVMSSCtx, vmssName, &runtime.PollUntilDoneOptions{Frequency: createVMSSPollingInterval}, vmssOperation)
+	vmssResp, err := pollVMSSOperation(createVMSSCtx, vmssName, pollVMSSOperationOpts{
+		pollUntilDone: &runtime.PollUntilDoneOptions{
+			Frequency: vmssClientCreateVMSSPollInterval,
+		},
+	},
+		func() (Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse], error) {
+			return opts.cloud.vmssClient.BeginCreateOrUpdate(
+				ctx,
+				*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
+				vmssName,
+				model,
+				nil,
+			)
+		})
 	if err != nil {
 		return nil, fmt.Errorf("unable to create VMSS %q: %w", vmssName, err)
 	}
+
 	return &vmssResp.VirtualMachineScaleSet, nil
 }
 

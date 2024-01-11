@@ -65,11 +65,12 @@ function Retry-Command {
                 }
                 return
             } catch {
-                Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
+                Write-Log $_.Exception.InnerException.Message
                 if ($_.Exception.InnerException.Message.Contains("There is not enough space on the disk. (0x70)")) {
                     Write-Error "Exit retry since there is not enough space on the disk"
                     break
                 }
+                Write-Log "Retry $cnt : $ScriptBlock"
                 Start-Sleep $Delay
             }
         } while ($cnt -lt $Maximum)
@@ -473,6 +474,13 @@ function Update-Registry {
             Write-Log "The current value of 3767762061 is $currentValue"
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3767762061 -Value 1 -Type DWORD
+
+        Write-Log "Enable 1 fix in 2024-01B"
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1102009996 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 1102009996 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1102009996 -Value 1 -Type DWORD
     }
 
     if ($env:WindowsSKU -Like '2022*') {
@@ -698,6 +706,18 @@ function Update-Registry {
             Write-Log "The current value of 3331554445 is $currentValue"
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3331554445 -Value 1 -Type DWORD
+
+        Write-Log "Enable 2 fixes in 2024-01B"
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv4 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of OverrideReceiveRoutingForLocalAddressesIpv4 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv4 -Value 1 -Type DWORD
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv6 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of OverrideReceiveRoutingForLocalAddressesIpv6 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv6 -Value 1 -Type DWORD
     }
 }
 
