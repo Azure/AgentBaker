@@ -69,6 +69,21 @@ steps:
       echo "##vso[task.setvariable variable=BUILD_DATE]$BUILD_DATE"
     displayName: Get Build Mode
 
+  - bash: |
+      if [[ ${{ parameters.artifactName }} =~ "2019" ]]; then
+        WINDOWS_VERSION="$(cat vhdbuilder/packer/windows-image.env | grep -a "WINDOWS_2019_BASE_IMAGE_VERSION" | cut -d "=" -f 2 | cut -d "." -f 1,2)"
+      elif [[ ${{ parameters.artifactName }} =~ "2022" ]]; then
+        WINDOWS_VERSION="$(cat vhdbuilder/packer/windows-image.env | grep -a "WINDOWS_2022_BASE_IMAGE_VERSION" | cut -d "=" -f 2 | cut -d "." -f 1,2)"
+      elif [[ ${{ parameters.artifactName }} =~ "23H2" ]]; then
+        WINDOWS_VERSION="$(cat vhdbuilder/packer/windows-image.env | grep -a "WINDOWS_23H2_BASE_IMAGE_VERSION" | cut -d "=" -f 2 | cut -d "." -f 1,2)"
+      else
+        echo "Current distro is not supported to get image version. You need to update related code."
+        exit 1
+      fi
+      AKS_WINDOWS_IMAGE_VERSION="$WINDOWS_VERSION.${BUILD_DATE}"
+      echo "##vso[task.setvariable variable=AKS_WINDOWS_IMAGE_VERSION]$AKS_WINDOWS_IMAGE_VERSION"
+    displayName: Get Image Version
+
   - script: |
       branch=$(Build.SourceBranch)
       branch=$(echo "${branch}" | sed 's/refs\/heads\///g')
@@ -104,6 +119,7 @@ steps:
       -e WINDOWS_CORE_IMAGE_URL=${WINDOWS_CORE_IMAGE_URL} \
       -e WINDOWS_PRIVATE_PACKAGES_URL=${WINDOWS_PRIVATE_PACKAGES_URL} \
       -e WINDOWS_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING} \
+      -e AKS_WINDOWS_IMAGE_VERSION=${AKS_WINDOWS_IMAGE_VERSION} \
       ${AZURE_CONTAINER_IMAGE} make -f packer.mk run-packer-windows
     displayName: Building windows VHD
 
@@ -137,21 +153,6 @@ steps:
     displayName: Run VHD cache test
 
 # We can upload release notes for check-in pr and sig mode to validate whether it is expected.
-  
-  - bash: |
-      if [[ ${{ parameters.artifactName }} =~ "2019" ]]; then
-        WINDOWS_VERSION="$(cat vhdbuilder/packer/windows-image.env | grep -a "WINDOWS_2019_BASE_IMAGE_VERSION" | cut -d "=" -f 2 | cut -d "." -f 1,2)"
-      elif [[ ${{ parameters.artifactName }} =~ "2022" ]]; then
-        WINDOWS_VERSION="$(cat vhdbuilder/packer/windows-image.env | grep -a "WINDOWS_2022_BASE_IMAGE_VERSION" | cut -d "=" -f 2 | cut -d "." -f 1,2)"
-      elif [[ ${{ parameters.artifactName }} =~ "23H2" ]]; then
-        WINDOWS_VERSION="$(cat vhdbuilder/packer/windows-image.env | grep -a "WINDOWS_23H2_BASE_IMAGE_VERSION" | cut -d "=" -f 2 | cut -d "." -f 1,2)"
-      else
-        echo "Current distro is not supported to get image version. You need to update related code."
-        exit 1
-      fi
-      IMAGE_VERSION="$WINDOWS_VERSION.${BUILD_DATE}"
-      echo "##vso[task.setvariable variable=IMAGE_VERSION]$IMAGE_VERSION"
-    displayName: Get Image Version
 
 # Use jq to reformat the image-bom.json file
   - bash: |

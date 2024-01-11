@@ -20,7 +20,8 @@
         "windows_patch_url": "{{env `WINDOWS_PATCH_URL`}}",
         "vnet_name": "{{env `VNET_NAME`}}",
         "subnet_name": "{{env `SUBNET_NAME`}}",
-        "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}"
+        "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}",
+        "aks_windows_image_version": "{{env `AKS_WINDOWS_IMAGE_VERSION`}}"
     },
     "builders": [
         {
