@@ -229,10 +229,10 @@ extractKubeBinaries() {
     local kube_binary_url="$2"
     local is_private_url="$3"
 
-    local k8s_tgz_tmp_fn=${kube_binary_url##*/}
+    local k8s_tgz_tmp_filename=${kube_binary_url##*/}
 
     if [[ $is_private_url == true ]]; then
-        k8s_tgz_tmp="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_tmp_fn}"
+        k8s_tgz_tmp="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_tmp_filename}"
 
         if [[ ! -f "${k8s_tgz_tmp}" ]]; then
             echo "cached package ${k8s_tgz_tmp} not found"
@@ -242,7 +242,7 @@ extractKubeBinaries() {
         echo "cached package ${k8s_tgz_tmp} found, will extract that"
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
     else
-        k8s_tgz_tmp="${K8S_DOWNLOADS_DIR}/${k8s_tgz_tmp_fn}"
+        k8s_tgz_tmp="${K8S_DOWNLOADS_DIR}/${k8s_tgz_tmp_filename}"
         mkdir -p ${K8S_DOWNLOADS_DIR}
 
         retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT

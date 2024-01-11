@@ -234,12 +234,12 @@ extractKubeBinaries() {
     local kube_binary_url="$2"
     local is_private_url="$3"
 
-    local k8s_tgz_tmp_fn=${kube_binary_url##*/}
+    local k8s_tgz_tmp_filename=${kube_binary_url##*/}
 
     # if the private URL is specified and if the kube package is cached already, extract the package, return otherwise
     # if the private URL is not specified, download and extract the kube package from the given URL
     if [[ $is_private_url == true ]]; then
-        k8s_tgz_tmp="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_tmp_fn}"
+        k8s_tgz_tmp="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_tmp_filename}"
 
         if [[ ! -f "${k8s_tgz_tmp}" ]]; then
             echo "cached package ${k8s_tgz_tmp} not found"
@@ -250,7 +250,7 @@ extractKubeBinaries() {
         # remove the current kubelet and kubectl binaries before extracting new binaries from the cached package
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
     else
-        k8s_tgz_tmp="${K8S_DOWNLOADS_DIR}/${k8s_tgz_tmp_fn}"
+        k8s_tgz_tmp="${K8S_DOWNLOADS_DIR}/${k8s_tgz_tmp_filename}"
         mkdir -p ${K8S_DOWNLOADS_DIR}
 
         retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
