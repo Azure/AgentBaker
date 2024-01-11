@@ -1606,6 +1606,10 @@ type K8sComponents struct {
 	// Full path to the Windows package (windowszip) to use.
 	// For example: https://acs-mirror.azureedge.net/kubernetes/v1.17.8/windowszip/v1.17.8-1int.zip.
 	WindowsPackageURL string
+
+	// Full path to the Linux package (tar.gz) to use.
+	// For example: url=https://acs-mirror.azureedge.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz
+	LinuxPrivatePackageURL string
 }
 
 // GetLatestSigImageConfigRequest describes the input for a GetLatestSigImageConfig HTTP request.

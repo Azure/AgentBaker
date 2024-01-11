@@ -41,14 +41,6 @@ parameters:
   displayName: Test 2022 containerd GPU Cuda
   type: boolean
   default: True
-- name: windowsGen1NcVmSize
-  displayName: Windows NC Series VM Size (gen1)
-  type: string
-  default: Standard_nc6_promo
-- name: windowsGen2NvVmSize
-  displayName: Windows NV Series VM Size (gen2)
-  type: string
-  default: Standard_NV6ads_A10_v5
 - name: test23H2
   displayName: Test 23H2
   type: boolean
@@ -103,7 +95,7 @@ stages:
     parameters:
       windowsImage: 2022-containerd-gen2
       windowsOSSKU: Windows2022
-      windowsVMSize: ${{ parameters.windowsGen2NvVmSize }}
+      windowsVMSize: ${WINDOWS_GEN2_VM_SIZE}
       windowsDistro: aks-windows-2022-containerd-gen2
       windowsGpuDriverSuffix: -grid
       storageAccount: akswinstore2022gen2grid
@@ -116,7 +108,7 @@ stages:
     parameters:
       windowsImage: 2022-containerd
       windowsOSSKU: Windows2022
-      windowsVMSize: ${{ parameters.windowsGen1NcVmSize }}
+      windowsVMSize: ${WINDOWS_GEN1_VM_SIZE}
       windowsDistro: aks-windows-2022-containerd
       windowsGpuDriverSuffix: -cuda
       storageAccount: akswinstore2022cuda
