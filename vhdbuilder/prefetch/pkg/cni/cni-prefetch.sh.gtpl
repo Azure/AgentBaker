@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-
-set -xe
+set -eux
 
 prefetch() {
     local image=$1
