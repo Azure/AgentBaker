@@ -18,6 +18,7 @@ prefetch() {
 
     ctr -n k8s.io images unmount "$mount_dir"
 }
+
 {{- range $image := .Images}}
 prefetch "{{$image.FullyQualifiedTag}}" "{{range $index, $binary := $image.Binaries}}{{if $index}} {{end}}{{$binary}}{{end}}"
 {{- end}}

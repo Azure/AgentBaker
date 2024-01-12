@@ -33,6 +33,7 @@ var (
 	}
 )
 
+// can later generalize this to an interface if we need to prefetch other non-CNI related images/binaries
 func Generate(components *component.List, dest string) error {
 	var templateArgs PrefetchTemplateArgs
 	for _, image := range components.ContainerImages {
@@ -56,6 +57,8 @@ func Generate(components *component.List, dest string) error {
 	if err := prefetchScriptTemplate.Execute(&buf, templateArgs); err != nil {
 		return fmt.Errorf("unable to execute CNI prefetch template: %w", err)
 	}
+
+	fmt.Printf("generated CNI prefetch script:\n%s\n", buf.String())
 
 	if err := os.WriteFile(dest, buf.Bytes(), os.ModePerm); err != nil {
 		return fmt.Errorf("unable to write generated prefetch script to dest %s: %w", dest, err)
