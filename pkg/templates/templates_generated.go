@@ -25,8 +25,6 @@
 // linux/cloud-init/artifacts/ci-syslog-watcher.service
 // linux/cloud-init/artifacts/ci-syslog-watcher.sh
 // linux/cloud-init/artifacts/cis.sh
-// linux/cloud-init/artifacts/containerd-monitor.service
-// linux/cloud-init/artifacts/containerd-monitor.timer
 // linux/cloud-init/artifacts/containerd.service
 // linux/cloud-init/artifacts/containerd_exec_start.conf
 // linux/cloud-init/artifacts/crictl.yaml
