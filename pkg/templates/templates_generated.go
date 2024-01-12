@@ -1440,57 +1440,6 @@ func linuxCloudInitArtifactsCisSh() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsContainerdMonitorService = []byte(`[Unit]
-Description=a script that checks containerd health and restarts if needed
-After=containerd.service
-[Service]
-Restart=always
-RestartSec=10
-RemainAfterExit=yes
-ExecStart=/usr/local/bin/health-monitor.sh container-runtime containerd
-#EOF
-`)
-
-func linuxCloudInitArtifactsContainerdMonitorServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsContainerdMonitorService, nil
-}
-
-func linuxCloudInitArtifactsContainerdMonitorService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsContainerdMonitorServiceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd-monitor.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsContainerdMonitorTimer = []byte(`[Unit]
-Description=a timer that delays containerd-monitor from starting too soon after boot
-[Timer]
-Unit=containerd-monitor.service
-OnBootSec=10min
-[Install]
-WantedBy=multi-user.target
-#EOF
-`)
-
-func linuxCloudInitArtifactsContainerdMonitorTimerBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsContainerdMonitorTimer, nil
-}
-
-func linuxCloudInitArtifactsContainerdMonitorTimer() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsContainerdMonitorTimerBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/containerd-monitor.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _linuxCloudInitArtifactsContainerdService = []byte(`# Explicitly configure containerd systemd service on Mariner AKS to maintain consistent
 # settings with the containerd.service file previously deployed during cloud-init.
 # Additionally set LimitNOFILE to the exact value "infinity" means on Ubuntu, eg "1048576".
@@ -8619,8 +8568,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/ci-syslog-watcher.service":                 linuxCloudInitArtifactsCiSyslogWatcherService,
 	"linux/cloud-init/artifacts/ci-syslog-watcher.sh":                      linuxCloudInitArtifactsCiSyslogWatcherSh,
 	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
-	"linux/cloud-init/artifacts/containerd-monitor.service":                linuxCloudInitArtifactsContainerdMonitorService,
-	"linux/cloud-init/artifacts/containerd-monitor.timer":                  linuxCloudInitArtifactsContainerdMonitorTimer,
 	"linux/cloud-init/artifacts/containerd.service":                        linuxCloudInitArtifactsContainerdService,
 	"linux/cloud-init/artifacts/containerd_exec_start.conf":                linuxCloudInitArtifactsContainerd_exec_startConf,
 	"linux/cloud-init/artifacts/crictl.yaml":                               linuxCloudInitArtifactsCrictlYaml,
@@ -8765,8 +8712,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"ci-syslog-watcher.service":                 &bintree{linuxCloudInitArtifactsCiSyslogWatcherService, map[string]*bintree{}},
 				"ci-syslog-watcher.sh":                      &bintree{linuxCloudInitArtifactsCiSyslogWatcherSh, map[string]*bintree{}},
 				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
-				"containerd-monitor.service":                &bintree{linuxCloudInitArtifactsContainerdMonitorService, map[string]*bintree{}},
-				"containerd-monitor.timer":                  &bintree{linuxCloudInitArtifactsContainerdMonitorTimer, map[string]*bintree{}},
 				"containerd.service":                        &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},
 				"containerd_exec_start.conf":                &bintree{linuxCloudInitArtifactsContainerd_exec_startConf, map[string]*bintree{}},
 				"crictl.yaml":                               &bintree{linuxCloudInitArtifactsCrictlYaml, map[string]*bintree{}},
