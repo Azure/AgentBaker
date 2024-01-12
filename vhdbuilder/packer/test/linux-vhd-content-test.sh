@@ -834,6 +834,21 @@ testPam() {
   return $retval
 }
 
+testPrefetchScripts() {
+  local test="testPrefetchScripts"
+  local cni_prefetch_script="/opt/azure/containers/cni-prefetch.sh"
+
+  echo "$test: checking existence of CNI prefetch script at $cni_prefetch_script"
+
+  if [ ! -f "$cni_prefetch_script" ]; then
+    err "$test: CNI prefetch script does not exist at $cni_prefetch_script"
+    return 1
+  fi
+
+  echo "$test: CNI prefetch script exists"
+  return 0
+}
+
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
@@ -868,3 +883,4 @@ testNfsServerService
 testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
 testUmaskSettings
+testPrefetchScripts
