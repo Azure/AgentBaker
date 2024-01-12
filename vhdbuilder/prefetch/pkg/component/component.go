@@ -6,6 +6,8 @@ import (
 	"os"
 )
 
+// ParseList parses the named component list JSON and returns a pointer
+// to its List representation.
 func ParseList(name string) (*List, error) {
 	bytes, err := os.ReadFile(name)
 	if err != nil {

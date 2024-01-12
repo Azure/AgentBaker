@@ -16,6 +16,8 @@ var (
 	prefetchScript         string
 	prefetchScriptTemplate = template.Must(template.New("cniprefetch").Parse(prefetchScript))
 
+	// this represents the CNI-related container images and their respective binaries
+	// which are in-scope for prefetch optimization
 	prefetchList = CNIPrefetchList{
 		"mcr.microsoft.com/containernetworking/cni-dropgz:*": []string{"dropgz"},
 		"mcr.microsoft.com/oss/calico/pod2daemon-flexvol:*":  []string{"usr/local/bin/flexvol"},
@@ -33,7 +35,9 @@ var (
 	}
 )
 
-// can later generalize this to an interface if we need to prefetch other non-CNI related images/binaries
+// Generate generates and saves the CNI prefetch script to disk based on the specified component list
+// and destination path. This can later be generalized to an interface if we need to prefetch
+// other non-CNI related images/binaries.
 func Generate(components *component.List, dest string) error {
 	var templateArgs PrefetchTemplateArgs
 	for _, image := range components.ContainerImages {
