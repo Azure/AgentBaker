@@ -8525,13 +8525,13 @@ function Install-Containerd-Based-On-Kubernetes-Version {
     $ContainerdUrl = $ContainerdUrl + $containerdPackage
   }
   Install-Containerd -ContainerdUrl $ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
-}`)
+}`) 
 
 func windowsWindowscsehelperPs1Bytes() ([]byte, error) {
 	return _windowsWindowscsehelperPs1, nil
 }
 
-func windowsWindowscsehelperPs1() (*asset, error) {
+func windowsWindowscsehelperPs1() (*asset, error) { 
 	bytes, err := windowsWindowscsehelperPs1Bytes()
 	if err != nil {
 		return nil, err
