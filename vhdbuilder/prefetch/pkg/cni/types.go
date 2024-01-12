@@ -5,8 +5,8 @@ type CNIContainerImage struct {
 	Binaries          []string
 }
 
-type CNIPrefetchList map[string][]string
-
 type PrefetchTemplateArgs struct {
 	Images []CNIContainerImage
 }
+
+type CNIPrefetchList map[string][]string
