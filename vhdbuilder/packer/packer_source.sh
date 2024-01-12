@@ -113,6 +113,8 @@ copyPackerFiles() {
   USU_TIMER_DEST=/etc/systemd/system/snapshot-update.timer
   VHD_CLEANUP_SCRIPT_SRC=/home/packer/cleanup-vhd.sh
   VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
+  CNI_PREFETCH_SCRIPT_SRC=/home/packer/cni-prefetch.sh
+  CNI_PREFETCH_SCRIPT_DEST=/opt/azure/containers/cni-prefetch.sh
 
   CSE_REDACT_SRC=/home/packer/cse_redact_cloud_config.py
   CSE_REDACT_DEST=/opt/azure/containers/provision_redact_cloud_config.py
@@ -328,6 +330,9 @@ copyPackerFiles() {
   # Always copy the VHD cleanup script responsible for prepping the instance for first boot
   # to disk so we can run it again if needed in subsequent builds/releases (prefetch during SIG release)
   cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644
+
+  # Copy the generated CNI prefetch script to the appropriate location so AIB can invoke it later
+  cpAndMode $CNI_PREFETCH_SCRIPT_SRC $CNI_PREFETCH_SCRIPT_DEST 644
 }
 
 cpAndMode() {

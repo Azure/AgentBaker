@@ -83,6 +83,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/cni-prefetch.sh",
+      "destination": "/home/packer/cni-prefetch.sh"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/cleanup-vhd.sh",
       "destination": "/home/packer/cleanup-vhd.sh"
     },
