@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	//go:embed cni_prefetch.sh.gtpl
+	//go:embed cni-prefetch.sh.gtpl
 	prefetchScript         string
 	prefetchScriptTemplate = template.Must(template.New("cniprefetch").Parse(prefetchScript))
 

@@ -20,5 +20,5 @@ prefetch() {
 }
 
 {{range $image := .Images}}
-prefetch "{{$image.FullyQualifiedTag}}" "{{range $index, $binary := .Binaries}}{{if $index}} {{end}}{{$binary}}{{end}}"
+prefetch "{{$image.FullyQualifiedTag}}" "{{range $index, $binary := $image.Binaries}}{{if $index}} {{end}}{{$binary}}{{end}}"
 {{end}}
