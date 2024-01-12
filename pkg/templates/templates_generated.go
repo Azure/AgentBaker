@@ -38,23 +38,18 @@
 // linux/cloud-init/artifacts/cse_start.sh
 // linux/cloud-init/artifacts/dhcpv6.service
 // linux/cloud-init/artifacts/disk_queue.service
-// linux/cloud-init/artifacts/docker-monitor.service
-// linux/cloud-init/artifacts/docker-monitor.timer
 // linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf
 // linux/cloud-init/artifacts/enable-dhcpv6.sh
 // linux/cloud-init/artifacts/ensure-no-dup.service
 // linux/cloud-init/artifacts/ensure-no-dup.sh
 // linux/cloud-init/artifacts/etc-issue
 // linux/cloud-init/artifacts/etc-issue.net
-// linux/cloud-init/artifacts/health-monitor.sh
 // linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh
 // linux/cloud-init/artifacts/init-aks-custom-cloud.sh
 // linux/cloud-init/artifacts/ipv6_nftables
 // linux/cloud-init/artifacts/ipv6_nftables.service
 // linux/cloud-init/artifacts/ipv6_nftables.sh
 // linux/cloud-init/artifacts/kms.service
-// linux/cloud-init/artifacts/kubelet-monitor.service
-// linux/cloud-init/artifacts/kubelet-monitor.timer
 // linux/cloud-init/artifacts/kubelet.service
 // linux/cloud-init/artifacts/manifest.json
 // linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh
@@ -4004,57 +3999,6 @@ func linuxCloudInitArtifactsDisk_queueService() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsDockerMonitorService = []byte(`[Unit]
-Description=a script that checks docker health and restarts if needed
-After=docker.service
-[Service]
-Restart=always
-RestartSec=10
-RemainAfterExit=yes
-ExecStart=/usr/local/bin/health-monitor.sh container-runtime docker
-#EOF
-`)
-
-func linuxCloudInitArtifactsDockerMonitorServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsDockerMonitorService, nil
-}
-
-func linuxCloudInitArtifactsDockerMonitorService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsDockerMonitorServiceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker-monitor.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsDockerMonitorTimer = []byte(`[Unit]
-Description=a timer that delays docker-monitor from starting too soon after boot
-[Timer]
-Unit=docker-monitor.service
-OnBootSec=10min
-[Install]
-WantedBy=multi-user.target
-#EOF
-`)
-
-func linuxCloudInitArtifactsDockerMonitorTimerBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsDockerMonitorTimer, nil
-}
-
-func linuxCloudInitArtifactsDockerMonitorTimer() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsDockerMonitorTimerBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker-monitor.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf = []byte(`[Service]
 MountFlags=shared
 #EOF
@@ -4251,114 +4195,6 @@ func linuxCloudInitArtifactsEtcIssueNet() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/etc-issue.net", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsHealthMonitorSh = []byte(`#!/usr/bin/env bash
-
-# This script originated at https://github.com/kubernetes/kubernetes/blob/master/cluster/gce/gci/health-monitor.sh
-# and has been modified for aks-engine.
-
-set -o nounset
-set -o pipefail
-
-container_runtime_monitoring() {
-  local -r max_attempts=5
-  local attempt=1
-  local -r container_runtime_name=$1
-
-  if [[ ${container_runtime_name} == "containerd" ]]; then
-    local healthcheck_command="ctr --namespace k8s.io container list"
-  else 
-    local healthcheck_command="docker ps"
-  fi
-
-  until timeout 60 ${healthcheck_command} > /dev/null; do
-    if (( attempt == max_attempts )); then
-      echo "Max attempt ${max_attempts} reached! Proceeding to monitor container runtime healthiness."
-      break
-    fi
-    echo "$attempt initial attempt \"${healthcheck_command}\"! Trying again in $attempt seconds..."
-    sleep "$(( 2 ** attempt++ ))"
-  done
-  while true; do
-    if ! timeout 60 ${healthcheck_command} > /dev/null; then
-      echo "Container runtime ${container_runtime_name} failed!"
-      if [[ "$container_runtime_name" == "containerd" ]]; then
-        pkill -SIGUSR1 containerd
-      else 
-        pkill -SIGUSR1 dockerd
-      fi
-      systemctl kill --kill-who=main "${container_runtime_name}"
-      sleep 120
-    else
-      sleep "${SLEEP_SECONDS}"
-    fi
-  done
-}
-
-kubelet_monitoring() {
-  echo "Wait for 2 minutes for kubelet to be functional"
-  sleep 120
-  local -r max_seconds=10
-  local output=""
-  while true; do
-    if ! output=$(curl -m "${max_seconds}" -f -s -S http://127.0.0.1:10255/healthz 2>&1); then
-      echo $output
-      echo "Kubelet is unhealthy!"
-      systemctl kill kubelet
-      sleep 60
-    else
-      sleep "${SLEEP_SECONDS}"
-    fi
-  done
-}
-
-if [[ "$#" -lt 1 ]]; then
-  echo "Usage: health-monitor.sh <container-runtime/kubelet>"
-  exit 1
-fi
-
-component=$1
-if [[ "${component}" == "container-runtime" ]]; then
-  if [[ -z $2 ]]; then
-    echo "Usage: health-monitor.sh container-runtime <docker/containerd>"
-    exit 1
-  fi
-  container_runtime=$2
-fi
-
-KUBE_HOME="/usr/local/bin"
-KUBE_ENV="/etc/default/kube-env"
-if [[  -e "${KUBE_ENV}" ]]; then
-  source "${KUBE_ENV}"
-fi
-
-SLEEP_SECONDS=10
-
-echo "Start kubernetes health monitoring for ${component}"
-
-if [[ "${component}" == "container-runtime" ]]; then
-  container_runtime_monitoring ${container_runtime}
-elif [[ "${component}" == "kubelet" ]]; then
-  kubelet_monitoring
-else
-  echo "Health monitoring for component ${component} is not supported!"
-fi
-`)
-
-func linuxCloudInitArtifactsHealthMonitorShBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsHealthMonitorSh, nil
-}
-
-func linuxCloudInitArtifactsHealthMonitorSh() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsHealthMonitorShBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/health-monitor.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -4711,52 +4547,6 @@ func linuxCloudInitArtifactsKmsService() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kms.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsKubeletMonitorService = []byte(`[Unit]
-Description=a script that checks kubelet health and restarts if needed
-After=kubelet.service
-[Service]
-Restart=always
-RestartSec=10
-RemainAfterExit=yes
-ExecStart=/usr/local/bin/health-monitor.sh kubelet`)
-
-func linuxCloudInitArtifactsKubeletMonitorServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsKubeletMonitorService, nil
-}
-
-func linuxCloudInitArtifactsKubeletMonitorService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsKubeletMonitorServiceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet-monitor.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsKubeletMonitorTimer = []byte(`[Unit]
-Description=a timer that delays kubelet-monitor from starting too soon after boot
-[Timer]
-OnBootSec=30min
-[Install]
-WantedBy=multi-user.target`)
-
-func linuxCloudInitArtifactsKubeletMonitorTimerBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsKubeletMonitorTimer, nil
-}
-
-func linuxCloudInitArtifactsKubeletMonitorTimer() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsKubeletMonitorTimerBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/kubelet-monitor.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -8582,23 +8372,18 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/cse_start.sh":                              linuxCloudInitArtifactsCse_startSh,
 	"linux/cloud-init/artifacts/dhcpv6.service":                            linuxCloudInitArtifactsDhcpv6Service,
 	"linux/cloud-init/artifacts/disk_queue.service":                        linuxCloudInitArtifactsDisk_queueService,
-	"linux/cloud-init/artifacts/docker-monitor.service":                    linuxCloudInitArtifactsDockerMonitorService,
-	"linux/cloud-init/artifacts/docker-monitor.timer":                      linuxCloudInitArtifactsDockerMonitorTimer,
 	"linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf": linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf,
 	"linux/cloud-init/artifacts/enable-dhcpv6.sh":                          linuxCloudInitArtifactsEnableDhcpv6Sh,
 	"linux/cloud-init/artifacts/ensure-no-dup.service":                     linuxCloudInitArtifactsEnsureNoDupService,
 	"linux/cloud-init/artifacts/ensure-no-dup.sh":                          linuxCloudInitArtifactsEnsureNoDupSh,
 	"linux/cloud-init/artifacts/etc-issue":                                 linuxCloudInitArtifactsEtcIssue,
 	"linux/cloud-init/artifacts/etc-issue.net":                             linuxCloudInitArtifactsEtcIssueNet,
-	"linux/cloud-init/artifacts/health-monitor.sh":                         linuxCloudInitArtifactsHealthMonitorSh,
 	"linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh":          linuxCloudInitArtifactsInitAksCustomCloudMarinerSh,
 	"linux/cloud-init/artifacts/init-aks-custom-cloud.sh":                  linuxCloudInitArtifactsInitAksCustomCloudSh,
 	"linux/cloud-init/artifacts/ipv6_nftables":                             linuxCloudInitArtifactsIpv6_nftables,
 	"linux/cloud-init/artifacts/ipv6_nftables.service":                     linuxCloudInitArtifactsIpv6_nftablesService,
 	"linux/cloud-init/artifacts/ipv6_nftables.sh":                          linuxCloudInitArtifactsIpv6_nftablesSh,
 	"linux/cloud-init/artifacts/kms.service":                               linuxCloudInitArtifactsKmsService,
-	"linux/cloud-init/artifacts/kubelet-monitor.service":                   linuxCloudInitArtifactsKubeletMonitorService,
-	"linux/cloud-init/artifacts/kubelet-monitor.timer":                     linuxCloudInitArtifactsKubeletMonitorTimer,
 	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
 	"linux/cloud-init/artifacts/manifest.json":                             linuxCloudInitArtifactsManifestJson,
 	"linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh":            linuxCloudInitArtifactsMarinerCse_helpers_marinerSh,
@@ -8726,23 +8511,18 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"cse_start.sh":                              &bintree{linuxCloudInitArtifactsCse_startSh, map[string]*bintree{}},
 				"dhcpv6.service":                            &bintree{linuxCloudInitArtifactsDhcpv6Service, map[string]*bintree{}},
 				"disk_queue.service":                        &bintree{linuxCloudInitArtifactsDisk_queueService, map[string]*bintree{}},
-				"docker-monitor.service":                    &bintree{linuxCloudInitArtifactsDockerMonitorService, map[string]*bintree{}},
-				"docker-monitor.timer":                      &bintree{linuxCloudInitArtifactsDockerMonitorTimer, map[string]*bintree{}},
 				"docker_clear_mount_propagation_flags.conf": &bintree{linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf, map[string]*bintree{}},
 				"enable-dhcpv6.sh":                          &bintree{linuxCloudInitArtifactsEnableDhcpv6Sh, map[string]*bintree{}},
 				"ensure-no-dup.service":                     &bintree{linuxCloudInitArtifactsEnsureNoDupService, map[string]*bintree{}},
 				"ensure-no-dup.sh":                          &bintree{linuxCloudInitArtifactsEnsureNoDupSh, map[string]*bintree{}},
 				"etc-issue":                                 &bintree{linuxCloudInitArtifactsEtcIssue, map[string]*bintree{}},
 				"etc-issue.net":                             &bintree{linuxCloudInitArtifactsEtcIssueNet, map[string]*bintree{}},
-				"health-monitor.sh":                         &bintree{linuxCloudInitArtifactsHealthMonitorSh, map[string]*bintree{}},
 				"init-aks-custom-cloud-mariner.sh":          &bintree{linuxCloudInitArtifactsInitAksCustomCloudMarinerSh, map[string]*bintree{}},
 				"init-aks-custom-cloud.sh":                  &bintree{linuxCloudInitArtifactsInitAksCustomCloudSh, map[string]*bintree{}},
 				"ipv6_nftables":                             &bintree{linuxCloudInitArtifactsIpv6_nftables, map[string]*bintree{}},
 				"ipv6_nftables.service":                     &bintree{linuxCloudInitArtifactsIpv6_nftablesService, map[string]*bintree{}},
 				"ipv6_nftables.sh":                          &bintree{linuxCloudInitArtifactsIpv6_nftablesSh, map[string]*bintree{}},
 				"kms.service":                               &bintree{linuxCloudInitArtifactsKmsService, map[string]*bintree{}},
-				"kubelet-monitor.service":                   &bintree{linuxCloudInitArtifactsKubeletMonitorService, map[string]*bintree{}},
-				"kubelet-monitor.timer":                     &bintree{linuxCloudInitArtifactsKubeletMonitorTimer, map[string]*bintree{}},
 				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
 				"manifest.json":                             &bintree{linuxCloudInitArtifactsManifestJson, map[string]*bintree{}},
 				"mariner": &bintree{nil, map[string]*bintree{
