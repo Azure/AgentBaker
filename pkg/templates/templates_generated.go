@@ -38,8 +38,6 @@
 // linux/cloud-init/artifacts/cse_start.sh
 // linux/cloud-init/artifacts/dhcpv6.service
 // linux/cloud-init/artifacts/disk_queue.service
-// linux/cloud-init/artifacts/docker-monitor.service
-// linux/cloud-init/artifacts/docker-monitor.timer
 // linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf
 // linux/cloud-init/artifacts/enable-dhcpv6.sh
 // linux/cloud-init/artifacts/ensure-no-dup.service
@@ -3997,57 +3995,6 @@ func linuxCloudInitArtifactsDisk_queueService() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/disk_queue.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsDockerMonitorService = []byte(`[Unit]
-Description=a script that checks docker health and restarts if needed
-After=docker.service
-[Service]
-Restart=always
-RestartSec=10
-RemainAfterExit=yes
-ExecStart=/usr/local/bin/health-monitor.sh container-runtime docker
-#EOF
-`)
-
-func linuxCloudInitArtifactsDockerMonitorServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsDockerMonitorService, nil
-}
-
-func linuxCloudInitArtifactsDockerMonitorService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsDockerMonitorServiceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker-monitor.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsDockerMonitorTimer = []byte(`[Unit]
-Description=a timer that delays docker-monitor from starting too soon after boot
-[Timer]
-Unit=docker-monitor.service
-OnBootSec=10min
-[Install]
-WantedBy=multi-user.target
-#EOF
-`)
-
-func linuxCloudInitArtifactsDockerMonitorTimerBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsDockerMonitorTimer, nil
-}
-
-func linuxCloudInitArtifactsDockerMonitorTimer() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsDockerMonitorTimerBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/docker-monitor.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -8579,8 +8526,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/cse_start.sh":                              linuxCloudInitArtifactsCse_startSh,
 	"linux/cloud-init/artifacts/dhcpv6.service":                            linuxCloudInitArtifactsDhcpv6Service,
 	"linux/cloud-init/artifacts/disk_queue.service":                        linuxCloudInitArtifactsDisk_queueService,
-	"linux/cloud-init/artifacts/docker-monitor.service":                    linuxCloudInitArtifactsDockerMonitorService,
-	"linux/cloud-init/artifacts/docker-monitor.timer":                      linuxCloudInitArtifactsDockerMonitorTimer,
 	"linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf": linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf,
 	"linux/cloud-init/artifacts/enable-dhcpv6.sh":                          linuxCloudInitArtifactsEnableDhcpv6Sh,
 	"linux/cloud-init/artifacts/ensure-no-dup.service":                     linuxCloudInitArtifactsEnsureNoDupService,
@@ -8723,8 +8668,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"cse_start.sh":                              &bintree{linuxCloudInitArtifactsCse_startSh, map[string]*bintree{}},
 				"dhcpv6.service":                            &bintree{linuxCloudInitArtifactsDhcpv6Service, map[string]*bintree{}},
 				"disk_queue.service":                        &bintree{linuxCloudInitArtifactsDisk_queueService, map[string]*bintree{}},
-				"docker-monitor.service":                    &bintree{linuxCloudInitArtifactsDockerMonitorService, map[string]*bintree{}},
-				"docker-monitor.timer":                      &bintree{linuxCloudInitArtifactsDockerMonitorTimer, map[string]*bintree{}},
 				"docker_clear_mount_propagation_flags.conf": &bintree{linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf, map[string]*bintree{}},
 				"enable-dhcpv6.sh":                          &bintree{linuxCloudInitArtifactsEnableDhcpv6Sh, map[string]*bintree{}},
 				"ensure-no-dup.service":                     &bintree{linuxCloudInitArtifactsEnsureNoDupService, map[string]*bintree{}},
