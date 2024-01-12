@@ -3,17 +3,20 @@
 set -xe
 
 prefetch() {
-    image=$1
-    files=$2
-    mntdir=$(mktemp -d)
-    ctr -n k8s.io images mount "$image" "$mntdir"
+    local image=$1
+    local files=$2
+    
+    mount_dir=$(mktemp -d)
+    ctr -n k8s.io images mount "$image" "$mount_dir"
+
     for f in $files; do
         echo "prefetching $f in $image"
-        fullpath="$mntdir/$f"
-        stat -c %s "$fullpath"
-        cat "$fullpath" > /dev/null
+        path="$mount_dir/$f"
+        stat -c %s "$path"
+        cat "$path" > /dev/null
     done
-    umount $mntdir
+
+    ctr -n k8s.io images unmount "$mount_dir"
 }
 
 {{range $image := .Images}}
