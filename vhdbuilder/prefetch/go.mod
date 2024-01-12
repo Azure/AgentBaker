@@ -1,3 +1,3 @@
 module github.com/Azure/agentbaker/vhdbuilder/prefetch
 
-go 1.21.3
+go 1.21
