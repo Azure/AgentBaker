@@ -43,10 +43,6 @@ copyPackerFiles() {
   DOCKER_MONITOR_TIMER_DEST=/etc/systemd/system/docker-monitor.timer
   CONTAINERD_EXEC_START_SRC=/home/packer/containerd_exec_start.conf
   CONTAINERD_EXEC_START_DEST=/etc/systemd/system/containerd.service.d/exec_start.conf
-  CONTAINERD_MONITOR_SERVICE_SRC=/home/packer/containerd-monitor.service
-  CONTAINERD_MONITOR_SERVICE_DEST=/etc/systemd/system/containerd-monitor.service
-  CONTAINERD_MONITOR_TIMER_SRC=/home/packer/containerd-monitor.timer
-  CONTAINERD_MONITOR_TIMER_DEST=/etc/systemd/system/containerd-monitor.timer
   CONTAINERD_SERVICE_SRC=/home/packer/containerd.service
   CONTAINERD_SERVICE_DEST=/etc/systemd/system/containerd.service
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC=/home/packer/docker_clear_mount_propagation_flags.conf
