@@ -90,8 +90,6 @@ configureK8s
 
 ensureContainerd 
 
-ensureMonitorService
-
 ensureSysctl
 ensureJournal
 ensureKubelet

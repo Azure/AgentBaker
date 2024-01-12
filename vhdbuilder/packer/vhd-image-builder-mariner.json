@@ -478,16 +478,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/containerd-monitor.service",
-      "destination": "/home/packer/containerd-monitor.service"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/containerd-monitor.timer",
-      "destination": "/home/packer/containerd-monitor.timer"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/containerd.service",
       "destination": "/home/packer/containerd.service"
     },

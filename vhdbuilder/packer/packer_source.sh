@@ -43,10 +43,6 @@ copyPackerFiles() {
   DOCKER_MONITOR_TIMER_DEST=/etc/systemd/system/docker-monitor.timer
   CONTAINERD_EXEC_START_SRC=/home/packer/containerd_exec_start.conf
   CONTAINERD_EXEC_START_DEST=/etc/systemd/system/containerd.service.d/exec_start.conf
-  CONTAINERD_MONITOR_SERVICE_SRC=/home/packer/containerd-monitor.service
-  CONTAINERD_MONITOR_SERVICE_DEST=/etc/systemd/system/containerd-monitor.service
-  CONTAINERD_MONITOR_TIMER_SRC=/home/packer/containerd-monitor.timer
-  CONTAINERD_MONITOR_TIMER_DEST=/etc/systemd/system/containerd-monitor.timer
   CONTAINERD_SERVICE_SRC=/home/packer/containerd.service
   CONTAINERD_SERVICE_DEST=/etc/systemd/system/containerd.service
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC=/home/packer/docker_clear_mount_propagation_flags.conf
@@ -275,8 +271,6 @@ copyPackerFiles() {
   cpAndMode $HEALTH_MONITOR_SRC $HEALTH_MONITOR_DEST 544
   cpAndMode $MIG_PARTITION_SRC $MIG_PARTITION_DEST 544
   cpAndMode $CONTAINERD_EXEC_START_SRC $CONTAINERD_EXEC_START_DEST 644
-  cpAndMode $CONTAINERD_MONITOR_SERVICE_SRC $CONTAINERD_MONITOR_SERVICE_DEST 644
-  cpAndMode $CONTAINERD_MONITOR_TIMER_SRC $CONTAINERD_MONITOR_TIMER_DEST 644
   cpAndMode $DISK_QUEUE_SERVICE_SRC $DISK_QUEUE_SERVICE_DEST 644
   cpAndMode $CGROUP_MEMORY_TELEMETRY_SERVICE_SRC $CGROUP_MEMORY_TELEMETRY_SERVICE_DEST 644
   cpAndMode $CGROUP_MEMORY_TELEMETRY_SCRIPT_SRC $CGROUP_MEMORY_TELEMETRY_SCRIPT_DEST 755
