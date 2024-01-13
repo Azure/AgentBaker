@@ -502,14 +502,14 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204minimalcontainerd",
-		Version:       "202310.02.0",
+		Version:       "202401.12.0",
 	}
 
 	SIGUbuntuMinimalContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204gen2minimalcontainerd",
-		Version:       "202310.02.0",
+		Version:       "202401.12.0",
 	}
 
 	SIGUbuntuEgressContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
