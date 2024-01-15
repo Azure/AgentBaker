@@ -171,7 +171,7 @@ steps:
   - task: PublishPipelineArtifact@0
     inputs:          
         artifactName: 'vhd-image-list-${{ parameters.artifactName }}'
-        targetPath: '$(IMAGE_VERSION)-image-list.json'
+        targetPath: '$(AKS_WINDOWS_IMAGE_VERSION)-image-list.json'
 
 # Moved conversion to VHD before cleanup.
 # Gen 2 packer outputs a sig in destination. This step: dest sig=>disk=>VHD in classic SA for publishing.
