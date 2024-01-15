@@ -7999,9 +7999,7 @@ $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE=61
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version
 $global:StableContainerdPackage = "v1.6.21-azure.1/binaries/containerd-v1.6.21-azure.1-windows-amd64.tar.gz"
 # The latest containerd version
-$global:LatestContainerdPackage = "v1.7.1-azure.1/binaries/containerd-v1.7.1-azure.1-windows-amd64.tar.gz"
-# The latest containerd version that contains stable ABI
-$global:LatestContainerdPackagefor23H2 = "v1.7.9-azure.1/binaries/containerd-v1.7.9-azure.1-windows-amd64.tar.gz"
+$global:LatestContainerdPackage = "v1.7.9-azure.1/binaries/containerd-v1.7.9-azure.1-windows-amd64.tar.gz"
 
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
@@ -8251,14 +8249,8 @@ function Install-Containerd-Based-On-Kubernetes-Version {
     Write-Log "ContainerdURL is $ContainerdUrl"
     $containerdPackage=$global:StableContainerdPackage
     if (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
-      $buildNumber = Get-WindowsBuildNumber
-      if ($buildNumber -eq "25398") {
-        $containerdPackage=$global:LatestContainerdPackagefor23H2
-        Write-Log "Use latest containerd version $containerdPackage which contains stable ABI for 23H2"
-      } else {
         $containerdPackage=$global:LatestContainerdPackage
         Write-Log "Kubernetes version $KubernetesVersion is greater than or equal to $global:MinimalKubernetesVersionWithLatestContainerd so the latest containerd version $containerdPackage is used"
-      }
     } else {
       Write-Log "Kubernetes version $KubernetesVersion is less than $global:MinimalKubernetesVersionWithLatestContainerd so the stable containerd version $containerdPackage is used"
     }
