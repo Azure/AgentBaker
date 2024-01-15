@@ -158,14 +158,14 @@ steps:
   - bash: |
       sudo chmod 777 image-bom.json
       jq . image-bom.json > tmp.json
-      mv tmp.json ${IMAGE_VERSION}-image-list.json
-      cp release-notes.txt ${IMAGE_VERSION}.txt
+      mv tmp.json ${AKS_WINDOWS_IMAGE_VERSION}-image-list.json
+      cp release-notes.txt ${AKS_WINDOWS_IMAGE_VERSION}.txt
     displayName: Reformat image-bom.json and rename release-notes.txt
 
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
-        targetPath: '$(IMAGE_VERSION).txt'
+        targetPath: '$(AKS_WINDOWS_IMAGE_VERSION).txt'
 
 # We can upload image bom json for check-in pr and sig mode to validate whether it is expected.
   - task: PublishPipelineArtifact@0
