@@ -137,7 +137,7 @@
             "elevated_password": "{{.WinRMPassword}}",
             "environment_vars": [
                 "WindowsSKU={{user `windows_sku`}}",
-                "WindowsImageVersion={{user `windows_image_version`}}"
+                "WindowsImageVersion={{user `aks_windows_image_version`}}"
             ],
             "type": "powershell",
             "script": "vhdbuilder/packer/list-images.ps1"
