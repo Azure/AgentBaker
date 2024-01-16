@@ -834,18 +834,26 @@ testPam() {
   return $retval
 }
 
-testPrefetchScripts() {
-  local test="testPrefetchScripts"
-  local cni_prefetch_script_path="/opt/azure/containers/cni-prefetch.sh"
+testContainerImagePrefetchScript() {
+  local test="testContainerImagePrefetchScript"
+  local container_image_prefetch_script_path="/opt/azure/containers/prefetch.sh"
 
-  echo "$test: checking existence of CNI prefetch script at $cni_prefetch_script_path"
+  echo "$test: checking existence of container image prefetch script at $container_image_prefetch_script_path"
 
-  if [ ! -f "$cni_prefetch_script_path" ]; then
-    err "$test: CNI prefetch script does not exist at $cni_prefetch_script_path"
+  if [ ! -f "$container_image_prefetch_script_path" ]; then
+    err "$test: container image prefetch script does not exist at $container_image_prefetch_script_path"
     return 1
   fi
 
-  echo "$test: CNI prefetch script exists"
+  chmod +x $container_image_prefetch_script_path
+  /bin/bash $container_image_prefetch_script_path
+  exit_code=$?
+
+  if [ $exit_code -ne 0 ]; then
+    err "$test: container image prefetch script exited with code $exit_code"
+  fi
+
+  echo "$test: container image prefetch script exists"
   return 0
 }
 
@@ -883,4 +891,4 @@ testNfsServerService
 testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
 testUmaskSettings
-testPrefetchScripts
+testContainerImagePrefetchScript

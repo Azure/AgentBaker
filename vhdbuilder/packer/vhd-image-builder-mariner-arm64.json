@@ -86,8 +86,8 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/cni-prefetch.sh",
-      "destination": "/home/packer/cni-prefetch.sh"
+      "source": "vhdbuilder/packer/prefetch.sh",
+      "destination": "/home/packer/prefetch.sh"
     },
     {
       "type": "file",
