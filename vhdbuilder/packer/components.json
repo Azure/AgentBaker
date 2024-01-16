@@ -50,6 +50,20 @@
       "multiArchVersions": [
         "v0.0.4.2",
         "v0.1.1"
+      ],
+      "prefetchOptimizations": [
+        {
+          "version": "v0.0.4.2",
+          "binaries": [
+            "dropgz"
+          ]
+        },
+        {
+          "version": "v0.1.1",
+          "binaries": [
+            "dropgz"
+          ]
+        }
       ]
     },
     {
@@ -121,6 +135,22 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.24.6"
+      ],
+      "prefetchOptimizations": [
+        {
+          "version": "v3.24.6",
+          "binaries": [
+            "opt/cni/bin/bandwidth",
+            "opt/cni/bin/calico",
+            "opt/cni/bin/calico-ipam",
+            "opt/cni/bin/flannel",
+            "opt/cni/bin/host-local",
+            "opt/cni/bin/install",
+            "opt/cni/bin/loopback",
+            "opt/cni/bin/portmap",
+            "opt/cni/bin/tuning"
+          ]
+        }
       ]
     },
     {
@@ -142,6 +172,14 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.24.6"
+      ],
+      "prefetchOptimizations": [
+        {
+          "version": "v3.24.6",
+          "binaries": [
+            "usr/local/bin/flexvol"
+          ]
+        }
       ]
     },
     {

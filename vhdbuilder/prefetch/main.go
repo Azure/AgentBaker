@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Azure/agentbaker/vhdbuilder/prefetch/pkg/cni"
-	"github.com/Azure/agentbaker/vhdbuilder/prefetch/pkg/component"
+	"github.com/Azure/agentbaker/vhdbuilder/prefetch/pkg/container"
 )
 
 func main() {
@@ -28,13 +27,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	components, err := component.ParseList(componentListPath)
+	components, err := container.ParseComponents(componentListPath)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	if err = cni.Generate(components, cniPrefetchScriptPath); err != nil {
+	if err = container.Generate(components, cniPrefetchScriptPath); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
