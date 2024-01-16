@@ -836,12 +836,12 @@ testPam() {
 
 testPrefetchScripts() {
   local test="testPrefetchScripts"
-  local cni_prefetch_script="/opt/azure/containers/cni-prefetch.sh"
+  local cni_prefetch_script_path="/opt/azure/containers/cni-prefetch.sh"
 
-  echo "$test: checking existence of CNI prefetch script at $cni_prefetch_script"
+  echo "$test: checking existence of CNI prefetch script at $cni_prefetch_script_path"
 
-  if [ ! -f "$cni_prefetch_script" ]; then
-    err "$test: CNI prefetch script does not exist at $cni_prefetch_script"
+  if [ ! -f "$cni_prefetch_script_path" ]; then
+    err "$test: CNI prefetch script does not exist at $cni_prefetch_script_path"
     return 1
   fi
 

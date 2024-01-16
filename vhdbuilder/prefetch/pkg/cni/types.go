@@ -8,7 +8,7 @@ type CNIContainerImage struct {
 	Binaries []string
 }
 
-// PrefetchTemplateArgs represnets the arguments required by the prefetch script template.
+// PrefetchTemplateArgs represents the arguments required by the prefetch script template.
 type PrefetchTemplateArgs struct {
 	Images []CNIContainerImage
 }

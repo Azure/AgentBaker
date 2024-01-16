@@ -12,29 +12,29 @@ import (
 func main() {
 	var (
 		// program args
-		componentList     string
-		cniPrefetchScript string
+		componentListPath     string
+		cniPrefetchScriptPath string
 	)
-	flag.StringVar(&componentList, "components", "", "path to the component list JSON file.")
-	flag.StringVar(&cniPrefetchScript, "cni-prefetch-script", "", "where to place the newly generated CNI prefetch script")
+	flag.StringVar(&componentListPath, "components", "", "path to the component list JSON file.")
+	flag.StringVar(&cniPrefetchScriptPath, "cni-prefetch-script", "", "where to place the newly generated CNI prefetch script")
 	flag.Parse()
 
-	if componentList == "" {
+	if componentListPath == "" {
 		fmt.Println("path to the component list must be specified")
 		os.Exit(1)
 	}
-	if cniPrefetchScript == "" {
+	if cniPrefetchScriptPath == "" {
 		fmt.Println("CNI prefetch script destination path must be specified")
 		os.Exit(1)
 	}
 
-	components, err := component.ParseList(componentList)
+	components, err := component.ParseList(componentListPath)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	if err = cni.Generate(components, cniPrefetchScript); err != nil {
+	if err = cni.Generate(components, cniPrefetchScriptPath); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
