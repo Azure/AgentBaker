@@ -851,6 +851,7 @@ testContainerImagePrefetchScript() {
 
   if [ $exit_code -ne 0 ]; then
     err "$test: container image prefetch script exited with code $exit_code"
+    return 1
   fi
 
   echo "$test: container image prefetch script exists"
