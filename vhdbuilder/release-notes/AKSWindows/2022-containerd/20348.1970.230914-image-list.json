@@ -1,6 +1,6 @@
 ﻿{
     "sku": "windows-2022-containerd",
-    "imageVersion": "20348.1970.230905",
+    "imageVersion": "20348.1970.230914",
     "imageBom": [
         {
             "id": "sha256:afb8056ee409207ffcd8f6dcde16efe7893ee5706ffb4a09fad58608096046b8",

@@ -20,7 +20,8 @@
         "windows_patch_url": "{{env `WINDOWS_PATCH_URL`}}",
         "vnet_name": "{{env `VNET_NAME`}}",
         "subnet_name": "{{env `SUBNET_NAME`}}",
-        "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}"
+        "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}",
+        "aks_windows_image_version": "{{env `AKS_WINDOWS_IMAGE_VERSION`}}"
     },
     "builders": [
         {
@@ -136,7 +137,7 @@
             "elevated_password": "{{.WinRMPassword}}",
             "environment_vars": [
                 "WindowsSKU={{user `windows_sku`}}",
-                "WindowsImageVersion={{user `windows_image_version`}}"
+                "WindowsImageVersion={{user `aks_windows_image_version`}}"
             ],
             "type": "powershell",
             "script": "vhdbuilder/packer/list-images.ps1"
