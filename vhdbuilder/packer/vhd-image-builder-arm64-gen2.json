@@ -26,7 +26,9 @@
     "img_version": "{{env `IMG_VERSION`}}",
     "sgx_install": "{{env `SGX_INSTALL`}}",
     "vnet_name": "{{env `VNET_NAME`}}",
-    "subnet_name": "{{env `SUBNET_NAME`}}"
+    "subnet_name": "{{env `SUBNET_NAME`}}",
+    "private_packages_url": "{{env `PRIVATE_PACKAGES_URL`}}",
+    "linux_msi_resource_id": "{{env `LINUX_MSI_RESOURCE_ID`}}"
   },
   "builders": [
     {
@@ -58,7 +60,8 @@
       "managed_image_os_disk_snapshot_name": "{{user `arm64_os_disk_snapshot_name`}}",
       "skip_create_image": "true",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
-      "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}"
+      "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
+      "user_assigned_managed_identities": "{{user `linux_msi_resource_ids`}}"
     }
   ],
   "provisioners": [
@@ -475,33 +478,8 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/health-monitor.sh",
-      "destination": "/home/packer/health-monitor.sh"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mig-partition.sh",
       "destination": "/home/packer/mig-partition.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/docker-monitor.service",
-      "destination": "/home/packer/docker-monitor.service"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/docker-monitor.timer",
-      "destination": "/home/packer/docker-monitor.timer"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/containerd-monitor.service",
-      "destination": "/home/packer/containerd-monitor.service"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/containerd-monitor.timer",
-      "destination": "/home/packer/containerd-monitor.timer"
     },
     {
       "type": "file",
@@ -559,7 +537,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} IMG_SKU={{user `img_sku`}} /bin/bash -ux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} IMG_SKU={{user `img_sku`}} PRIVATE_PACKAGES_URL={{user `private_packages_url`}} LINUX_MSI_RESOURCE_IDS={{user `linux_msi_resource_ids`}} /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
     },
     {
