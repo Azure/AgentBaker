@@ -463,23 +463,8 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/health-monitor.sh",
-      "destination": "/home/packer/health-monitor.sh"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mig-partition.sh",
       "destination": "/home/packer/mig-partition.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/containerd-monitor.service",
-      "destination": "/home/packer/containerd-monitor.service"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/containerd-monitor.timer",
-      "destination": "/home/packer/containerd-monitor.timer"
     },
     {
       "type": "file",

@@ -422,7 +422,8 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vnet_resource_group_name": "${VNET_RG_NAME}",
   "windows_msi_resource_strings": "${windows_msi_resource_strings}",
   "linux_msi_resource_ids": "${linux_msi_resource_ids}",
-  "private_packages_url": "${private_packages_url}"
+  "private_packages_url": "${private_packages_url}",
+  "aks_windows_image_version": "${AKS_WINDOWS_IMAGE_VERSION}"
 }
 EOF
 
