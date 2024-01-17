@@ -834,6 +834,30 @@ testPam() {
   return $retval
 }
 
+testContainerImagePrefetchScript() {
+  local test="testContainerImagePrefetchScript"
+  local container_image_prefetch_script_path="/opt/azure/containers/prefetch.sh"
+
+  echo "$test: checking existence of container image prefetch script at $container_image_prefetch_script_path"
+  if [ ! -f "$container_image_prefetch_script_path" ]; then
+    err "$test: container image prefetch script does not exist at $container_image_prefetch_script_path"
+    return 1
+  fi
+  echo "$test: container image prefetch script exists at $container_image_prefetch_script_path"
+
+  echo "$test: running container image prefetch script..."
+  chmod +x $container_image_prefetch_script_path
+  errs=$(/bin/bash $container_image_prefetch_script_path 2>&1 >/dev/null)
+  code=$?
+  if [ $code -ne 0 ]; then
+    err "$test: container image prefetch script exited with code $code, stderr:\n$errs"
+    return 1
+  fi
+  echo "$test: container image prefetch script ran successfully"
+
+  return 0
+}
+
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
@@ -868,3 +892,4 @@ testNfsServerService
 testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
 testUmaskSettings
+testContainerImagePrefetchScript
