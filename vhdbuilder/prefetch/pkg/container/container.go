@@ -39,8 +39,14 @@ func ParseComponents(name string) (*ComponentList, error) {
 func Generate(components *ComponentList, dest string) error {
 	var args TemplateArgs
 	for _, image := range components.Images {
+		if !strings.HasSuffix(image.DownloadURL, ":*") {
+			return fmt.Errorf("download URL of container image is malformed: %q must end with ':*'; unable to generate prefetch script", image.DownloadURL)
+		}
 		if len(image.PrefetchOptimizations) > 0 {
 			for _, optimization := range image.PrefetchOptimizations {
+				if !image.IsKnownVersion(optimization.Tag) {
+					return fmt.Errorf("%q is not a known version of container image %q, unable to generate prefetch script", optimization.Tag, image.DownloadURL)
+				}
 				args.Images = append(args.Images, TemplateImage{
 					FullyQualifiedTag: fmt.Sprintf("%s%s", strings.TrimSuffix(image.DownloadURL, "*"), optimization.Tag),
 					Binaries:          optimization.Binaries,

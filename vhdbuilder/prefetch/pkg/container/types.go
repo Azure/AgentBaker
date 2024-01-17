@@ -16,6 +16,22 @@ type Image struct {
 	} `json:"prefetchOptimizations,omitempty"`
 }
 
+// IsImageVersion returns true iff the specified version is contained within the
+// image's multi-arch or amd64-only versions, false otherwise.
+func (i *Image) IsKnownVersion(version string) bool {
+	for _, v := range i.MultiArchVersions {
+		if v == version {
+			return true
+		}
+	}
+	for _, v := range i.AMD64OnlyVersions {
+		if v == version {
+			return true
+		}
+	}
+	return false
+}
+
 // TemplateImage represents a container image in terms of its fully-qualified tag,
 // as well as the list of binaries within it that are in-scope for prefetch optimization.
 // This is used to execute the prefetch template for script generation.
