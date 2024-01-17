@@ -839,22 +839,22 @@ testContainerImagePrefetchScript() {
   local container_image_prefetch_script_path="/opt/azure/containers/prefetch.sh"
 
   echo "$test: checking existence of container image prefetch script at $container_image_prefetch_script_path"
-
   if [ ! -f "$container_image_prefetch_script_path" ]; then
     err "$test: container image prefetch script does not exist at $container_image_prefetch_script_path"
     return 1
   fi
+  echo "$test: container image prefetch script exists at $container_image_prefetch_script_path"
 
+  echo "$test: running container image prefetch script..."
   chmod +x $container_image_prefetch_script_path
-  /bin/bash $container_image_prefetch_script_path
-  exit_code=$?
-
-  if [ $exit_code -ne 0 ]; then
-    err "$test: container image prefetch script exited with code $exit_code"
+  errs=$(/bin/bash $container_image_prefetch_script_path 2>&1 >/dev/null)
+  code=$?
+  if [ $code -ne 0 ]; then
+    err "$test: container image prefetch script exited with code $code, stderr:\n$errs"
     return 1
   fi
+  echo "$test: container image prefetch script ran successfully"
 
-  echo "$test: container image prefetch script exists"
   return 0
 }
 
