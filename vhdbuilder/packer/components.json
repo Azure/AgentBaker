@@ -50,6 +50,20 @@
       "multiArchVersions": [
         "v0.0.4.2",
         "v0.1.1"
+      ],
+      "prefetchOptimizations": [
+        {
+          "version": "v0.0.4.2",
+          "binaries": [
+            "dropgz"
+          ]
+        },
+        {
+          "version": "v0.1.1",
+          "binaries": [
+            "dropgz"
+          ]
+        }
       ]
     },
     {
@@ -63,8 +77,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.0.30",
-        "v0.0.33-hotfix.20221110"
+        "v0.0.33-hotfix.20221110",
+        "v0.1.6-hotfix.20240116"
       ]
     },
     {
@@ -87,7 +101,7 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "3.1.15"
+        "3.1.16"
       ]
     },
     {
@@ -101,12 +115,12 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "6.8.0-main-10-20-2023-182f67d4",
-        "6.8.0-main-10-20-2023-182f67d4-targetallocator",
-        "6.8.0-main-10-20-2023-182f67d4-cfg",
         "6.8.1-main-11-03-2023-c061beb4",
         "6.8.1-main-11-03-2023-c061beb4-targetallocator",
-        "6.8.1-main-11-03-2023-c061beb4-cfg"
+        "6.8.1-main-11-03-2023-c061beb4-cfg",
+        "6.8.3-main-01-09-2024-a192d342",
+        "6.8.3-main-01-09-2024-a192d342-targetallocator",
+        "6.8.3-main-01-09-2024-a192d342-cfg"
       ]
     },
     {
@@ -121,6 +135,22 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.24.6"
+      ],
+      "prefetchOptimizations": [
+        {
+          "version": "v3.24.6",
+          "binaries": [
+            "opt/cni/bin/bandwidth",
+            "opt/cni/bin/calico",
+            "opt/cni/bin/calico-ipam",
+            "opt/cni/bin/flannel",
+            "opt/cni/bin/host-local",
+            "opt/cni/bin/install",
+            "opt/cni/bin/loopback",
+            "opt/cni/bin/portmap",
+            "opt/cni/bin/tuning"
+          ]
+        }
       ]
     },
     {
@@ -142,6 +172,14 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.24.6"
+      ],
+      "prefetchOptimizations": [
+        {
+          "version": "v3.24.6",
+          "binaries": [
+            "usr/local/bin/flexvol"
+          ]
+        }
       ]
     },
     {

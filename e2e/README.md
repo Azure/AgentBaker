@@ -60,7 +60,7 @@ To update the set of default VHD catalog entries to point towards new VHDs, simp
 ### Using Arbitrary VHD Builds
 If you'd like to run the E2E suite using a set of VHDs built from some arbitrary run of the VHD build pipeline in the MSFT tenant, you can do so by specifying the ID of the build. This is an alternative to manually updating the set of default VHD catalog entries. If a given scenario is ran which selects a VHD that was not built as a part of the specified VHD build, the selector will select the corresponding default catalog entry instead.
 
-To use a build, simply specify its ID using the `VHD_BUILD_ID` environment variable like so:
+***NOTE: This feature can only be used with test VHD builds, using builds from official build pipeline is not supported.***
 
 ```bash
 VHD_BUILD_ID=123456789 SCENARIOS_TO_RUN=base,gpu,ubuntu2204,ubuntu2204-arm64 ./e2e-local.sh

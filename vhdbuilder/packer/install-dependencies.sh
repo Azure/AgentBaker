@@ -23,7 +23,7 @@ echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
 # other VHDs use grub-pc, not grub-efi
 if [[ "${UBUNTU_RELEASE}" == "20.04" ]] && [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
-  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT 
+  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   wait_for_apt_locks
   apt_get_install 30 1 600 grub-efi || exit 1
 fi
@@ -100,12 +100,19 @@ tee "${CONTAINERD_SERVICE_DIR}/exec_start.conf" > /dev/null <<EOF
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
-tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
+tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF
 net.ipv4.ip_forward = 1
 net.ipv4.conf.all.forwarding = 1
 net.ipv6.conf.all.forwarding = 1
 net.bridge.bridge-nf-call-iptables = 1
 EOF
+
+echo "set read ahead size to 15380 KB"
+AWK_PATH=$(which awk)
+cat > /etc/udev/rules.d/99-nfs.rules <<EOF
+SUBSYSTEM=="bdi", ACTION=="add", PROGRAM="$AWK_PATH -v bdi=\$kernel 'BEGIN{ret=1} {if (\$4 == bdi){ret=0}} END{exit ret}' /proc/fs/nfsfs/volumes", ATTR{read_ahead_kb}="15380"
+EOF
+udevadm control --reload
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
     disableSystemdResolvedCache
@@ -135,7 +142,7 @@ installed_version="$(echo ${containerd_manifest} | jq -r '.edge')"
 if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
   installed_version="$(echo ${containerd_manifest} | jq -r '.pinned."1804"')"
 fi
-  
+
 containerd_version="$(echo "$installed_version" | cut -d- -f1)"
 containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
 installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
@@ -200,22 +207,20 @@ echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
-  NVIDIA_DRIVER_IMAGE_SHA="sha-16fd35"
-  export NVIDIA_DRIVER_IMAGE_TAG="cuda-525.85.12-${NVIDIA_DRIVER_IMAGE_SHA}"
+  NVIDIA_DRIVER_IMAGE_SHA="sha-ff213d"
+  export NVIDIA_DRIVER_IMAGE_TAG="cuda-535.54.03-${NVIDIA_DRIVER_IMAGE_SHA}"
 
   mkdir -p /opt/{actions,gpu}
   ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install" 
+    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
     ret=$?
     if [[ "$ret" != "0" ]]; then
       echo "Failed to install GPU driver, exiting..."
       exit $ret
     fi
-  fi    
+  fi
 fi
-
-systemctlEnableAndStart containerd-monitor.timer || exit $ERR_SYSTEMCTL_START_FAIL
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
@@ -287,7 +292,7 @@ unpackAzureCNI() {
   local URL=$1
   CNI_TGZ_TMP=${URL##*/}
   CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
-  mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" 
+  mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
   tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR/$CNI_DIR_TMP
   rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
   echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
@@ -395,10 +400,36 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
   pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
   ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
-  
+
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
+
+# download kubernetes package from the given URL using MSI for auth for azcopy
+# if it is a kube-proxy package, extract image from the downloaded package
+cacheKubePackageFromPrivateUrl() {
+  local kube_private_binary_url="$1"
+
+  echo "process private package url: $kube_private_binary_url"
+
+  mkdir -p ${K8S_PRIVATE_PACKAGES_CACHE_DIR} # /opt/kubernetes/downloads/private-packages
+
+  # save kube pkg with version number from the url path, this convention is used to find the cached package at run-time
+  local k8s_tgz_name
+  k8s_tgz_name=$(echo "$kube_private_binary_url" | grep -o -P '(?<=\/kubernetes\/).*(?=\/binaries\/)').tar.gz
+
+  # use azcopy with MSI instead of curl to download packages
+  getAzCopyCurrentPath
+
+  export AZCOPY_AUTO_LOGIN_TYPE="MSI"
+  export AZCOPY_MSI_RESOURCE_STRING="$LINUX_MSI_RESOURCE_IDS"
+
+  cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
+  echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
+  if ! ./azcopy copy "${kube_private_binary_url}" "${cached_pkg}"; then
+    exit $ERR_PRIVATE_K8S_PKG_ERR
+  fi
+}
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # remove snapd, which is not used by container stack
@@ -413,17 +444,29 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
 fi
 
+# use the private_packages_url to download and cache packages
+if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
+  IFS=',' read -ra PRIVATE_URLS <<< "${PRIVATE_PACKAGES_URL}"
+
+  for private_url in "${PRIVATE_URLS[@]}"; do
+    echo "download kube package from ${private_url}"
+    cacheKubePackageFromPrivateUrl "$private_url"
+  done
+fi
+
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
-# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries. 
+# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
 KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
 
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
+  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false
 done
+
+rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 
 echo "install-dependencies step completed successfully"

@@ -33,20 +33,10 @@ copyPackerFiles() {
   APT_PREFERENCES_DEST=/etc/apt/preferences
   KMS_SERVICE_SRC=/home/packer/kms.service
   KMS_SERVICE_DEST=/etc/systemd/system/kms.service
-  HEALTH_MONITOR_SRC=/home/packer/health-monitor.sh
-  HEALTH_MONITOR_DEST=/usr/local/bin/health-monitor.sh
   MIG_PARTITION_SRC=/home/packer/mig-partition.sh
   MIG_PARTITION_DEST=/opt/azure/containers/mig-partition.sh
-  DOCKER_MONITOR_SERVICE_SRC=/home/packer/docker-monitor.service
-  DOCKER_MONITOR_SERVICE_DEST=/etc/systemd/system/docker-monitor.service
-  DOCKER_MONITOR_TIMER_SRC=/home/packer/docker-monitor.timer
-  DOCKER_MONITOR_TIMER_DEST=/etc/systemd/system/docker-monitor.timer
   CONTAINERD_EXEC_START_SRC=/home/packer/containerd_exec_start.conf
   CONTAINERD_EXEC_START_DEST=/etc/systemd/system/containerd.service.d/exec_start.conf
-  CONTAINERD_MONITOR_SERVICE_SRC=/home/packer/containerd-monitor.service
-  CONTAINERD_MONITOR_SERVICE_DEST=/etc/systemd/system/containerd-monitor.service
-  CONTAINERD_MONITOR_TIMER_SRC=/home/packer/containerd-monitor.timer
-  CONTAINERD_MONITOR_TIMER_DEST=/etc/systemd/system/containerd-monitor.timer
   CONTAINERD_SERVICE_SRC=/home/packer/containerd.service
   CONTAINERD_SERVICE_DEST=/etc/systemd/system/containerd.service
   DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC=/home/packer/docker_clear_mount_propagation_flags.conf
@@ -113,6 +103,8 @@ copyPackerFiles() {
   USU_TIMER_DEST=/etc/systemd/system/snapshot-update.timer
   VHD_CLEANUP_SCRIPT_SRC=/home/packer/cleanup-vhd.sh
   VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
+  CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC=/home/packer/prefetch.sh
+  CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST=/opt/azure/containers/prefetch.sh
 
   CSE_REDACT_SRC=/home/packer/cse_redact_cloud_config.py
   CSE_REDACT_DEST=/opt/azure/containers/provision_redact_cloud_config.py
@@ -270,11 +262,8 @@ copyPackerFiles() {
   cpAndMode $CIS_SRC $CIS_DEST 744
   cpAndMode $APT_PREFERENCES_SRC $APT_PREFERENCES_DEST 644
   cpAndMode $KMS_SERVICE_SRC $KMS_SERVICE_DEST 644
-  cpAndMode $HEALTH_MONITOR_SRC $HEALTH_MONITOR_DEST 544
   cpAndMode $MIG_PARTITION_SRC $MIG_PARTITION_DEST 544
   cpAndMode $CONTAINERD_EXEC_START_SRC $CONTAINERD_EXEC_START_DEST 644
-  cpAndMode $CONTAINERD_MONITOR_SERVICE_SRC $CONTAINERD_MONITOR_SERVICE_DEST 644
-  cpAndMode $CONTAINERD_MONITOR_TIMER_SRC $CONTAINERD_MONITOR_TIMER_DEST 644
   cpAndMode $DISK_QUEUE_SERVICE_SRC $DISK_QUEUE_SERVICE_DEST 644
   cpAndMode $CGROUP_MEMORY_TELEMETRY_SERVICE_SRC $CGROUP_MEMORY_TELEMETRY_SERVICE_DEST 644
   cpAndMode $CGROUP_MEMORY_TELEMETRY_SCRIPT_SRC $CGROUP_MEMORY_TELEMETRY_SCRIPT_DEST 755
@@ -293,8 +282,6 @@ copyPackerFiles() {
   cpAndMode $CI_SYSLOG_WATCHER_SCRIPT_SRC $CI_SYSLOG_WATCHER_SCRIPT_DEST 755
 
   if [[ $OS != $MARINER_OS_NAME ]]; then
-    cpAndMode $DOCKER_MONITOR_SERVICE_SRC $DOCKER_MONITOR_SERVICE_DEST 644
-    cpAndMode $DOCKER_MONITOR_TIMER_SRC $DOCKER_MONITOR_TIMER_DEST 644
     cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
     cpAndMode $NVIDIA_MODPROBE_SERVICE_SRC $NVIDIA_MODPROBE_SERVICE_DEST 644
     cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
@@ -328,6 +315,9 @@ copyPackerFiles() {
   # Always copy the VHD cleanup script responsible for prepping the instance for first boot
   # to disk so we can run it again if needed in subsequent builds/releases (prefetch during SIG release)
   cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644
+
+  # Copy the generated CNI prefetch script to the appropriate location so AIB can invoke it later
+  cpAndMode $CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC $CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST 644
 }
 
 cpAndMode() {

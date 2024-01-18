@@ -1,9 +1,15 @@
 package components
 
+#ContainerImagePrefetchOptimization: {
+	version: string
+	binaries: [...string]
+}
+
 #ContainerImage: {
 	downloadURL: string
 	amd64OnlyVersions: [...string]
 	multiArchVersions: [...]
+	prefetchOptimizations: [...#ContainerImagePrefetchOptimization]
 }
 
 #DownloadFile: {
