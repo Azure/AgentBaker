@@ -6626,7 +6626,7 @@ updateAptWithMicrosoftPkg() {
         echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/${UBUNTU_RELEASE}/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list
     }
     fi
-    
+
     retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
@@ -6640,7 +6640,7 @@ cleanUpGPUDrivers() {
 installStandaloneContainerd() {
     UBUNTU_RELEASE=$(lsb_release -r -s)
     UBUNTU_CODENAME=$(lsb_release -c -s)
-    CONTAINERD_VERSION=$1    
+    CONTAINERD_VERSION=$1
     # we always default to the .1 patch versons
     CONTAINERD_PATCH_VERSION="${2:-1}"
 
@@ -6719,7 +6719,7 @@ downloadContainerdFromVersion() {
     # Adding updateAptWithMicrosoftPkg since AB e2e uses an older image version with uncached containerd 1.6 so it needs to download from testing repo.
     # And RP no image pull e2e has apt update restrictions that prevent calls to packages.microsoft.com in CSE
     # This won't be called for new VHDs as they have containerd 1.6 cached
-    updateAptWithMicrosoftPkg 
+    updateAptWithMicrosoftPkg
     apt_get_download 20 30 moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
@@ -6750,7 +6750,70 @@ installMoby() {
     fi
 }
 
+downloadPrivateRunc() {
+    local runc_private_url="$1"
+    local cached_runc_pkg="$2"
+
+    getAzCopyCurrentPath
+
+    export AZCOPY_AUTO_LOGIN_TYPE="MSI"
+    export AZCOPY_MSI_RESOURCE_STRING="$LINUX_MSI_RESOURCE_IDS" # /subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/daxatest/providers/Microsoft.ManagedIdentity/userAssignedIdentities/privatekubetest
+
+    echo "download private runc package ${runc_private_url} and store as ${cached_runc_pkg}"
+    if ! ./azcopy copy "${runc_private_url}" "${cached_runc_pkg}"; then
+        exit $ERR_RUNC_DOWNLOAD_TIMEOUT
+    fi
+
+    rm -f ./azcopy
+}
+
 ensureRunc() {
+    TARGET_VERSION=${1:-""}
+    RUNC_DOWNLOADS_DIR="/opt/runc/private" # using this to keep the package around - /opt/runc/downloads gets cleaned up otherwise
+
+    if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+        TARGET_VERSION="1.1.7"
+        if [[ $(isARM64) == 1 ]]; then
+            RUNC_PRIVATE_URL="https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.7+azure/bionic/linux_arm64/moby-runc_1.1.7-ubuntu18.04u3_arm64.deb"
+        else
+            RUNC_PRIVATE_URL="https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.7+azure/bionic/linux_amd64/moby-runc_1.1.7-ubuntu18.04u3_amd64.deb"
+        fi
+    elif [ "${UBUNTU_RELEASE}" == "20.04" ]; then
+        TARGET_VERSION="1.1.9"
+        if [[ $(isARM64) == 1 ]]; then
+            RUNC_PRIVATE_URL="https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.9+azure/focal/linux_arm64/moby-runc_1.1.9-ubuntu20.04u2_arm64.deb"
+        else
+            RUNC_PRIVATE_URL="https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.9+azure/focal/linux_amd64/moby-runc_1.1.9-ubuntu20.04u2_amd64.deb"
+        fi
+    else
+        TARGET_VERSION="1.1.9"
+        if [[ $(isARM64) == 1 ]]; then
+            RUNC_PRIVATE_URL="https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.9+azure/jammy/linux_arm64/moby-runc_1.1.9-ubuntu22.04u2_arm64.deb"
+        else
+            RUNC_PRIVATE_URL="https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.9+azure/jammy/linux_amd64/moby-runc_1.1.9-ubuntu22.04u2_amd64.deb"
+        fi
+    fi
+
+    # the private runc package URL is always picked first
+    if [[ ! -z ${RUNC_PRIVATE_URL} ]]; then
+        echo "Installing runc from user input: ${RUNC_PRIVATE_URL}"
+        mkdir -p $RUNC_DOWNLOADS_DIR
+        RUNC_DEB_TMP=${RUNC_PRIVATE_URL##*/}
+        RUNC_DEB_FILE="$RUNC_DOWNLOADS_DIR/${RUNC_DEB_TMP}"
+
+        # azcopy the package if does not exist, don't delete, use the same at run-time
+        # Any other instance when runc version will change at run time?
+        if [[ ! -f $RUNC_DEB_FILE ]]; then
+            #retrycmd_curl_file 120 5 60 ${RUNC_DEB_FILE} ${RUNC_PRIVATE_URL} || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
+            downloadPrivateRunc "$RUNC_PRIVATE_URL" "$RUNC_DEB_FILE"
+        fi
+
+        installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
+        echo "Succeeded to install runc from user input: ${RUNC_PRIVATE_URL}"
+        return 0
+    fi
+
+    echo "Install runc from test package: $RUNC_PACKAGE_URL"
     RUNC_PACKAGE_URL="${RUNC_PACKAGE_URL:=}"
     # the user-defined runc package URL is always picked first, and the other options won't be tried when this one fails
     if [[ ! -z ${RUNC_PACKAGE_URL} ]]; then
@@ -6766,7 +6829,6 @@ ensureRunc() {
         return 0
     fi
 
-    TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
         # pin 1804 to 1.1.7
         TARGET_VERSION="1.1.9-ubuntu${UBUNTU_RELEASE}"
@@ -6792,7 +6854,7 @@ ensureRunc() {
         # after upgrading to 1.1.9, CURRENT_VERSION will also include the patch version (such as 1.1.9-1), so we trim it off
         # since we only care about the major and minor versions when determining if we need to install it
         CURRENT_VERSION=${CURRENT_VERSION%-*} # removes the -1 patch version (or similar)
-        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar) 
+        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar)
     fi
 
     if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
