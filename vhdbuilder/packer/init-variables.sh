@@ -20,7 +20,7 @@ if [ -z "${POOL_NAME}" ]; then
 	exit 1
 fi
 
-if [ -z "${VNET_RG_NAME}" ]; then 
+if [ -z "${VNET_RG_NAME}" ]; then
 	VNET_RG_NAME=""
 	if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
 		VNET_RG_NAME="nodesigprod-agent-pool"
@@ -98,7 +98,7 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 	else
 		echo "Using provided SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
 	fi
-	
+
 	# Ensure the image-definition name
 	if [[ -z "${SIG_IMAGE_NAME}" ]]; then
 		SIG_IMAGE_NAME=${OS_VERSION//./}
@@ -109,7 +109,7 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 		if [[ "${IMG_SKU}" == *"minimal"* ]]; then
 			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Minimal
 		fi
-		
+
 		if [[ "${OS_SKU}" == "CBLMariner" ]]; then
 			SIG_IMAGE_NAME=CBLMariner${SIG_IMAGE_NAME}
 		fi
@@ -209,6 +209,12 @@ windows_private_packages_url=""
 windows_msi_resource_strings=()
 if [ -n "${WINDOWS_MSI_RESOURCE_STRING}" ]; then
 	windows_msi_resource_strings+=(${WINDOWS_MSI_RESOURCE_STRING})
+fi
+
+linux_msi_resource_ids=()
+if [ -n "${LINUX_MSI_RESOURCE_ID}" ]; then
+	echo "LINUX_MSI_RESOURCE_ID is set in pipeline variables: ${LINUX_MSI_RESOURCE_ID}"
+	linux_msi_resource_ids+=(${LINUX_MSI_RESOURCE_ID})
 fi
 
 # shellcheck disable=SC2236
@@ -320,7 +326,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 			--hyper-v-generation $HYPERV_GENERATION \
 			--os-type ${OS_TYPE}
 
-		# create a gallery image definition $IMPORTED_IMAGE_NAME	
+		# create a gallery image definition $IMPORTED_IMAGE_NAME
 		echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
 		# Need to specifiy hyper-v-generation to support Gen 2
 		az sig image-definition create \
@@ -335,7 +341,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 			--offer $IMPORTED_IMAGE_NAME \
 			--os-state generalized \
 			--description "Imported image for AKS Packer build"
-			
+
 		# create a image version defaulting to 1.0.0 for $IMPORTED_IMAGE_NAME
 		echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
 		az sig image-version create \
@@ -407,7 +413,8 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vnet_name": "${VNET_NAME}",
   "subnet_name": "${SUBNET_NAME}",
   "vnet_resource_group_name": "${VNET_RG_NAME}",
-  "windows_msi_resource_strings": "${windows_msi_resource_strings}"
+  "windows_msi_resource_strings": "${windows_msi_resource_strings}",
+  "linux_msi_resource_ids": "${linux_msi_resource_ids}"
 }
 EOF
 

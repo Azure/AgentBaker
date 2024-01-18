@@ -28,7 +28,8 @@
     "img_version": "{{env `IMG_VERSION`}}",
     "sgx_install": "{{env `SGX_INSTALL`}}",
     "vnet_name": "{{env `VNET_NAME`}}",
-    "subnet_name": "{{env `SUBNET_NAME`}}"
+    "subnet_name": "{{env `SUBNET_NAME`}}",
+    "linux_msi_resource_id": "{{env `LINUX_MSI_RESOURCE_ID`}}"
   },
   "builders": [
     {
@@ -68,7 +69,8 @@
         "replication_regions": [
           "{{user `location`}}"
         ]
-      }
+      },
+      "user_assigned_managed_identities": "{{user `linux_msi_resource_ids`}}"
     }
   ],
   "provisioners": [

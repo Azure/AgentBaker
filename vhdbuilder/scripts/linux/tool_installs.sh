@@ -1,5 +1,5 @@
 #!/bin/bash
-{{/* BCC/BPF-related error codes */}} 
+{{/* BCC/BPF-related error codes */}}
 ERR_IOVISOR_KEY_DOWNLOAD_TIMEOUT=168 {{/* Timeout waiting to download IOVisor repo key */}}
 ERR_IOVISOR_APT_KEY_TIMEOUT=169 {{/* Timeout waiting for IOVisor apt-key */}}
 ERR_BCC_INSTALL_TIMEOUT=170 {{/* Timeout waiting for bcc install */}}
@@ -46,3 +46,47 @@ disableSystemdIptables() {
 enableCgroupV2forAzureLinux() {
     sed -i 's/systemd.legacy_systemd_cgroup_controller=yes systemd.unified_cgroup_hierarchy=0//g' /boot/systemd.cfg
 }
+
+# download and setup azcopy to use to download private packages with MSI auth
+getAzCopyCurrentPath() {
+  if [[ -f ./azcopy ]]; then
+    echo "./azcopy already exists"
+  else
+    echo "get azcopy at \"${PWD}\"...start"
+    # Download and extract
+    local azcopyDownloadURL="https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/azcopy_linux_amd64_10.22.1.tar.gz"
+    local azcopySha256="7549424d56ab2d8b4033c84c2a9bb167dc2dcbb23998acd7fffb37bc1a71a267"
+    if [[ $(isARM64) == 1 ]]; then
+      azcopyDownloadURL="https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/azcopy_linux_arm64_10.22.1.tar.gz"
+      azcopySha256="4db9a4b48abc7775f1a5d6d928afc42361dcc57bbfcde23ac82e4c419a0dc8fc"
+    fi
+
+    local downloadedPkg="downloadazcopy"
+    pkgprefix="azcopy_linux_"
+
+    retrycmd_if_failure 30 5 60 curl -fSL -k -o "$downloadedPkg" "$azcopyDownloadURL" || exit $ERR_AZCOPY_TOOLS_DOWNLOAD_FAIL &&
+    echo "$azcopySha256 $downloadedPkg" | sha256sum --check >/dev/null &&
+    tar -xvf ./$downloadedPkg &&
+    cp ./$pkgprefix*/azcopy ./azcopy &&
+    chmod +x ./azcopy
+
+    rm -f $downloadedPkg
+    rm -rf ./$pkgprefix*/
+
+    echo "get azcopy...done"
+  fi
+}
+
+# use azcopy with MSI instead of curl to download packages
+# getAzCopyCurrentPath
+
+# export AZCOPY_AUTO_LOGIN_TYPE="MSI"
+# export AZCOPY_MSI_RESOURCE_STRING="$LINUX_MSI_RESOURCE_IDS"
+
+# cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
+# echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
+# if ! ./azcopy copy "${kube_private_binary_url}" "${cached_pkg}"; then
+#   exit $ERR_PRIVATE_K8S_PKG_ERR
+#  fi
+
+# rm -f ./azcopy # cleanup immediately after usage will return in two downloads
