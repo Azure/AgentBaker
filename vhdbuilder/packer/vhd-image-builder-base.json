@@ -93,6 +93,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/prefetch.sh",
+      "destination": "/home/packer/prefetch.sh"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/cleanup-vhd.sh",
       "destination": "/home/packer/cleanup-vhd.sh"
     },
