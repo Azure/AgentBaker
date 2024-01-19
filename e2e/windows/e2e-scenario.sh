@@ -178,6 +178,7 @@ if [ "$retval" -ne 0 ]; then
 fi
 
 # delete cse package in storage account
+csePackageURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
 ${array[0]}/azcopy rm $csePackageURL || retval=$?
 
 if [ "$retval" -ne 0 ]; then
