@@ -208,9 +208,9 @@ ensureRunc() {
     if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
         TARGET_VERSION="1.1.7"
         if [[ $(isARM64) == 1 ]]; then
-            RUNC_PRIVATE_URL="https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.7+azure/bionic/linux_arm64/moby-runc_1.1.7-ubuntu18.04u3_arm64.deb"
+            RUNC_PRIVATE_URL="https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.7+azure/bionic-aks/linux_arm64/moby-runc_1.1.7+aks-ubuntu18.04u3_arm64.deb"
         else
-            RUNC_PRIVATE_URL="https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.7+azure/bionic/linux_amd64/moby-runc_1.1.7-ubuntu18.04u3_amd64.deb"
+            RUNC_PRIVATE_URL="https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.7+azure/bionic-aks/linux_amd64/moby-runc_1.1.7+aks-ubuntu18.04u3_amd64.deb"
         fi
     elif [ "${UBUNTU_RELEASE}" == "20.04" ]; then
         TARGET_VERSION="1.1.9"
