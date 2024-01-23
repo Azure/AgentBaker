@@ -3493,6 +3493,12 @@ python3 /opt/azure/containers/provision_redact_cloud_config.py \
     --cloud-config-path /var/lib/cloud/instance/cloud-config.txt \
     --output-path ${LOG_DIR}/cloud-config.txt
 
+# Disable WALA's log collector because it doesn't support cgroups v2 yet
+echo "Logs.Collect=n" >> /etc/waagent.conf
+
+# Enable the AKS log collector timer
+systemctl enable --now aks-log-collector.timer
+
 UBUNTU_RELEASE=$(lsb_release -r -s)
 if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     sudo apt-get -y autoremove chrony
@@ -3880,7 +3886,8 @@ mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 exit $VALIDATION_ERR
 
 
-#EOF`)
+#EOF
+`)
 
 func linuxCloudInitArtifactsCse_mainShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_mainSh, nil
