@@ -1,13 +1,21 @@
 name: Windows Powershell Unit Test
 on: pull_request
 
+permissions:
+  contents: read
+
 jobs:
   pester-test:
     name: Pester test
     runs-on: windows-latest
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@eb238b55efaa70779f274895e782ed17c84f2895 # v2.6.1
+        with:
+          egress-policy: audit
+
       - name: Check out repository code
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Perform a Pester test from the parts/windows/*.tests.ps1 file
         shell: powershell
         run: |
