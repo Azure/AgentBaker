@@ -6,6 +6,11 @@
 // linux/cloud-init/artifacts/10-containerd.conf
 // linux/cloud-init/artifacts/10-httpproxy.conf
 // linux/cloud-init/artifacts/10-tlsbootstrap.conf
+// linux/cloud-init/artifacts/aks-log-collector-send.py
+// linux/cloud-init/artifacts/aks-log-collector.service
+// linux/cloud-init/artifacts/aks-log-collector.sh
+// linux/cloud-init/artifacts/aks-log-collector.slice
+// linux/cloud-init/artifacts/aks-log-collector.timer
 // linux/cloud-init/artifacts/aks-logrotate-override.conf
 // linux/cloud-init/artifacts/aks-logrotate.service
 // linux/cloud-init/artifacts/aks-logrotate.sh
@@ -256,6 +261,395 @@ func linuxCloudInitArtifacts10TlsbootstrapConf() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-tlsbootstrap.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsAksLogCollectorSendPy = []byte(`#! /usr/bin/env python3
+
+import urllib3
+import uuid
+import xml.etree.ElementTree as ET
+
+http = urllib3.PoolManager()
+
+# Get the container_id and deployment_id from the Goal State
+goal_state_xml = http.request(
+        'GET',
+        'http://168.63.129.16/machine/?comp=goalstate',
+        headers={
+            'x-ms-version': '2012-11-30'
+        }
+    )
+goal_state = ET.fromstring(goal_state_xml.data.decode('utf-8'))
+container_id = goal_state.findall('./Container/ContainerId')[0].text
+role_config_name = goal_state.findall('./Container/RoleInstanceList/RoleInstance/Configuration/ConfigName')[0].text
+deployment_id = role_config_name.split('.')[0]
+
+# Upload the logs
+with open('/var/lib/waagent/logcollector/logs.zip', 'rb') as logs:
+    logs_data = logs.read()
+    upload_logs = http.request(
+        'PUT',
+        'http://168.63.129.16:32526/vmAgentLog',
+        headers={
+            'x-ms-version': '2015-09-01',
+            'x-ms-client-correlationid': str(uuid.uuid4()),
+            'x-ms-client-name': 'AKSCSEPlugin',
+            'x-ms-client-version': '0.1.0',
+            'x-ms-containerid': container_id,
+            'x-ms-vmagentlog-deploymentid': deployment_id,
+        },
+        body=logs_data,
+    )
+
+if upload_logs.status == 200:
+    print("Successfully uploaded logs")
+    exit(0)
+else:
+    print('Failed to upload logs')
+    print(f'Response status: {upload_logs.status}')
+    print(f'Response body:\n{upload_logs.data.decode("utf-8")}')
+    exit(1)`)
+
+func linuxCloudInitArtifactsAksLogCollectorSendPyBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsAksLogCollectorSendPy, nil
+}
+
+func linuxCloudInitArtifactsAksLogCollectorSendPy() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsAksLogCollectorSendPyBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/aks-log-collector-send.py", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsAksLogCollectorService = []byte(`[Unit]
+Description=AKS Log Collector
+
+[Service]
+Type=oneshot
+Slice=aks-log-collector.slice
+ExecStart=/opt/azure/containers/aks-log-collector.sh
+RemainAfterExit=no
+`)
+
+func linuxCloudInitArtifactsAksLogCollectorServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsAksLogCollectorService, nil
+}
+
+func linuxCloudInitArtifactsAksLogCollectorService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsAksLogCollectorServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/aks-log-collector.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsAksLogCollectorSh = []byte(`#! /bin/bash
+#
+# AKS Log Collector
+#
+# This script collects information and logs that are useful to AKS engineering
+# for support and uploads them to the Azure host via a private API. These log
+# bundles are available to engineering when customers open a support case and
+# are especially useful for troubleshooting failures of networking or
+# kubernetes daemons.
+#
+# This script runs via a systemd unit and slice that limits it to low CPU
+# priority and 128MB RAM, to avoid impacting other system functions.
+
+# Log bundle upload max size is limited to 100MB
+MAX_SIZE=104857600
+
+# Shell options - remove non-matching globs, don't care about case, and use
+# extended pattern matching
+shopt -s nullglob nocaseglob extglob
+
+# Create a temporary directory to store results in
+WORKDIR="$(mktemp -d)"
+# check if tmp dir was created
+if [[ ! "$WORKDIR" || "$WORKDIR" == "/" || "$WORKDIR" == "/tmp" || ! -d "$WORKDIR" ]]; then
+  echo "ERROR: Could not create temporary working directory."
+  exit 1
+fi
+cd $WORKDIR
+echo "Created temporary directory: $WORKDIR"
+
+# Function to clean up the output directory and log termination
+function cleanup {
+  # Make sure WORKDIR is a proper temp directory so we don't rm something we shouldn't
+  if [[ $WORKDIR =~ ^/tmp/tmp\.[a-zA-Z0-9]+$ ]]; then
+    if [[ "$DEBUG" != "1" ]]; then
+      echo "Cleaning up $WORKDIR..."
+      rm -rf "$WORKDIR"
+    else
+      echo "DEBUG active or $WORKDIR looks wrong; leaving $WORKDIR behind."
+    fi
+  else
+    echo "ERROR: WORKDIR ($WORKDIR) doesn't look like a proper mktemp directory; not removing it for safety reasons!"
+    exit 255
+  fi
+  echo "Log collection finished."
+}
+
+# Execute the cleanup function if the script terminates
+trap "exit 1"  HUP INT PIPE QUIT TERM
+trap "cleanup" EXIT
+
+# Collect general system information
+echo "Collecting system information..."
+mkdir collect collect/proc collect/proc/net
+
+# Include some disk listings
+find /dev /etc /var/lib/waagent /var/log -ls >collect/file_listings.txt 2>&1
+
+# Collect system information
+dpkg -l >collect/dpkg.txt 2>&1
+lsblk >collect/diskinfo.txt 2>&1
+blkid >>collect/diskinfo.txt 2>&1
+lscpu >collect/lscpu.txt 2>&1
+lscpu -J >collect/lscpu.json 2>&1
+lshw >collect/lshw.txt 2>&1
+lshw -json >collect/lshw.json 2>&1
+lsipc >collect/lsipc.txt 2>&1
+lsns -J --output-all >collect/lsns.json 2>&1
+lspci -vkPP >collect/lspci.txt 2>&1
+lsscsi -vv >collect/lsscsi.txt 2>&1
+lsvmbus -vv >collect/lsvmbus.txt 2>&1
+sysctl -a >collect/sysctl.txt 2>&1
+systemctl status --all -fr >collect/systemctl-status.txt 2>&1
+
+# Collect container runtime information
+crictl version >collect/crictl_version.txt 2>&1
+crictl info -o json >collect/crictl_info.json 2>&1
+crictl images -o json >collect/crictl_images.json 2>&1
+crictl imagefsinfo -o json >collect/crictl_imagefsinfo.json 2>&1
+crictl pods -o json >collect/crictl_pods.json 2>&1
+crictl ps -o json >collect/crictl_ps.json 2>&1
+crictl stats -o json >collect/crictl_stats.json 2>&1
+crictl statsp -o json >collect/crictl_statsp.json 2>&1
+
+# Collect network information
+conntrack -L >collect/conntrack.txt 2>&1
+conntrack -S >>collect/conntrack.txt 2>&1
+ip -4 -d -j addr show >collect/ip_4_addr.json 2>&1
+ip -4 -d -j neighbor show >collect/ip_4_neighbor.json 2>&1
+ip -4 -d -j route show >collect/ip_4_route.json 2>&1
+ip -4 -d -j tcpmetrics show >collect/ip_4_tcpmetrics.json 2>&1
+ip -6 -d -j addr show table all >collect/ip_6_addr.json 2>&1
+ip -6 -d -j neighbor show >collect/ip_6_neighbor.json 2>&1
+ip -6 -d -j route show table all >collect/ip_6_route.json 2>&1
+ip -6 -d -j tcpmetrics show >collect/ip_6_tcpmetrics.json 2>&1
+ip -d -j link show >collect/ip_link.json 2>&1
+ip -d -j netconf show >collect/ip_netconf.json 2>&1
+ip -d -j netns show >collect/ip_netns.json 2>&1
+ip -d -j rule show >collect/ip_rule.json 2>&1
+iptables -L -vn --line-numbers >collect/iptables.txt 2>&1
+ip6tables -L -vn --line-numbers >collect/ip6tables.txt 2>&1
+nft -jn list ruleset >collect/nftables.json 2>&1
+ss -anoempiO --cgroup >collect/ss.txt 2>&1
+ss -s >>collect/ss.txt 2>&1
+
+# Collect network information from network namespaces
+ip -all netns exec /bin/bash -x -c "
+	conntrack -L 2>&1;
+	conntrack -S 2>&1;
+	ip -4 -d -j addr show 2>&1;
+	ip -4 -d -j neighbor show 2>&1;
+	ip -4 -d -j route show 2>&1;
+	ip -4 -d -j tcpmetrics show 2>&1;
+	ip -6 -d -j addr show table all 2>&1;
+	ip -6 -d -j neighbor show 2>&1;
+	ip -6 -d -j route show table all 2>&1;
+	ip -6 -d -j tcpmetrics show 2>&1;
+	ip -d -j link show 2>&1;
+	ip -d -j netconf show 2>&1;
+	ip -d -j netns show 2>&1;
+	ip -d -j rule show 2>&1;
+	iptables -L -vn --line-numbers 2>&1;
+	ip6tables -L -vn --line-numbers 2>&1;
+	nft -jn list ruleset 2>&1;
+	ss -anoempiO --cgroup 2>&1;
+	ss -s 2>&1;
+" >collect/ip_netns_commands.txt 2>&1
+
+# Collect general information
+cp /proc/@(cmdline|cpuinfo|filesystems|interrupts|loadavg|meminfo|modules|mounts|slabinfo|stat|uptime|version*|vmstat) collect/proc/
+cp -r /proc/net/* collect/proc/net/
+
+# Include collected information in zip
+zip -DZ deflate -r aks_logs.zip collect/*
+
+# File globs to include
+# Smaller and more critical files are closer to the top so that we can be certain they're included.
+declare -a GLOBS
+
+# AKS specific entries
+GLOBS+=(/etc/cni/net.d/*)
+GLOBS+=(/etc/containerd/*)
+GLOBS+=(/etc/default/kubelet)
+GLOBS+=(/etc/kubernetes/manifests/*)
+GLOBS+=(/var/lib/kubelet/kubeconfig)
+
+# based on MANIFEST_FULL from Azure Linux Agent's log collector
+# https://github.com/Azure/WALinuxAgent/blob/master/azurelinuxagent/common/logcollector_manifests.py
+GLOBS+=(/var/lib/waagent/provisioned)
+GLOBS+=(/etc/fstab)
+GLOBS+=(/etc/ssh/sshd_config)
+GLOBS+=(/boot/grub*/grub.c*)
+GLOBS+=(/boot/grub*/menu.lst)
+GLOBS+=(/etc/*-release)
+GLOBS+=(/etc/HOSTNAME)
+GLOBS+=(/etc/hostname)
+GLOBS+=(/etc/apt/sources.list)
+GLOBS+=(/etc/apt/sources.list.d/*)
+GLOBS+=(/etc/network/interfaces)
+GLOBS+=(/etc/network/interfaces.d/*.cfg)
+GLOBS+=(/etc/netplan/*.yaml)
+GLOBS+=(/etc/nsswitch.conf)
+GLOBS+=(/etc/resolv.conf)
+GLOBS+=(/run/systemd/resolve/stub-resolv.conf)
+GLOBS+=(/run/resolvconf/resolv.conf)
+GLOBS+=(/etc/sysconfig/iptables)
+GLOBS+=(/etc/sysconfig/network)
+GLOBS+=(/etc/sysconfig/network/ifcfg-eth*)
+GLOBS+=(/etc/sysconfig/network/routes)
+GLOBS+=(/etc/sysconfig/network-scripts/ifcfg-eth*)
+GLOBS+=(/etc/sysconfig/network-scripts/route-eth*)
+GLOBS+=(/etc/ufw/ufw.conf)
+GLOBS+=(/etc/waagent.conf)
+GLOBS+=(/var/lib/hyperv/.kvp_pool_*)
+GLOBS+=(/var/lib/dhcp/dhclient.eth0.leases)
+GLOBS+=(/var/lib/dhclient/dhclient-eth0.leases)
+GLOBS+=(/var/lib/wicked/lease-eth0-dhcp-ipv4.xml)
+GLOBS+=(/var/log/azure/custom-script/handler.log)
+GLOBS+=(/var/log/azure/run-command/handler.log)
+GLOBS+=(/var/lib/waagent/ovf-env.xml)
+GLOBS+=(/var/lib/waagent/*/status/*.status)
+GLOBS+=(/var/lib/waagent/*/config/*.settings)
+GLOBS+=(/var/lib/waagent/*/config/HandlerState)
+GLOBS+=(/var/lib/waagent/*/config/HandlerStatus)
+GLOBS+=(/var/lib/waagent/SharedConfig.xml)
+GLOBS+=(/var/lib/waagent/ManagedIdentity-*.json)
+GLOBS+=(/var/lib/waagent/waagent_status.json)
+GLOBS+=(/var/lib/waagent/*/error.json)
+GLOBS+=(/var/log/cloud-init*)
+GLOBS+=(/var/log/azure/*/*)
+GLOBS+=(/var/log/azure/*/*/*)
+GLOBS+=(/var/log/syslog*)
+GLOBS+=(/var/log/rsyslog*)
+GLOBS+=(/var/log/messages*)
+GLOBS+=(/var/log/kern*)
+GLOBS+=(/var/log/dmesg*)
+GLOBS+=(/var/log/dpkg*)
+GLOBS+=(/var/log/yum*)
+GLOBS+=(/var/log/boot*)
+GLOBS+=(/var/log/auth*)
+GLOBS+=(/var/log/secure*)
+
+# Add each file sequentially to the zip archive. This is slightly less efficient then adding them
+# all at once, but allows us to easily check when we've exceeded the maximum file size and stop 
+# adding things to the archive.
+echo "Adding log files to zip archive..."
+for file in ${GLOBS[*]}; do
+  if test -e $file; then
+    zip -DZ deflate -u aks_logs.zip $file
+
+    # The API for the log bundle has a max file size (defined above, usually 100MB), so if
+    # adding this last file made the zip go over that size, remove that file and stop processing.
+    FILE_SIZE=$(stat --printf "%s" aks_logs.zip)
+    if [ $FILE_SIZE -ge $MAX_SIZE ]; then
+      echo "WARNING: ZIP file size $FILE_SIZE >= $MAX_SIZE; removing last log file and terminating adding more files."
+      zip -d aks_logs.zip $file
+      break
+    fi
+  fi
+done
+
+# Copy the log bundle to the expected path for uploading, then trigger
+# the upload script to push it to the host storage location.
+echo "Log bundle size: $(du -hs aks_logs.zip)"
+mkdir -p /var/lib/waagent/logcollector
+cp aks_logs.zip /var/lib/waagent/logcollector/logs.zip
+echo -n "Uploading log bundle: "
+/usr/bin/env python3 /opt/azure/containers/aks-log-collector-send.py
+`)
+
+func linuxCloudInitArtifactsAksLogCollectorShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsAksLogCollectorSh, nil
+}
+
+func linuxCloudInitArtifactsAksLogCollectorSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsAksLogCollectorShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/aks-log-collector.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsAksLogCollectorSlice = []byte(`[Unit]
+Description=AKS Log Collector Slice
+DefaultDependencies=no
+Before=slices.target
+Requires=system.slice
+After=system.slice
+
+[Slice]
+CPUAccounting=true
+#CPUQuota=10%
+CPUShares=100
+CPUWeight=1
+MemoryMax=128M
+`)
+
+func linuxCloudInitArtifactsAksLogCollectorSliceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsAksLogCollectorSlice, nil
+}
+
+func linuxCloudInitArtifactsAksLogCollectorSlice() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsAksLogCollectorSliceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/aks-log-collector.slice", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsAksLogCollectorTimer = []byte(`[Unit]
+Description=AKS Log Collector Timer
+
+[Timer]
+OnActiveSec=0m
+OnBootSec=5min
+OnUnitActiveSec=60m
+
+[Install]
+WantedBy=timers.target
+`)
+
+func linuxCloudInitArtifactsAksLogCollectorTimerBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsAksLogCollectorTimer, nil
+}
+
+func linuxCloudInitArtifactsAksLogCollectorTimer() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsAksLogCollectorTimerBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/aks-log-collector.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -8328,6 +8722,11 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/10-containerd.conf":                        linuxCloudInitArtifacts10ContainerdConf,
 	"linux/cloud-init/artifacts/10-httpproxy.conf":                         linuxCloudInitArtifacts10HttpproxyConf,
 	"linux/cloud-init/artifacts/10-tlsbootstrap.conf":                      linuxCloudInitArtifacts10TlsbootstrapConf,
+	"linux/cloud-init/artifacts/aks-log-collector-send.py":                 linuxCloudInitArtifactsAksLogCollectorSendPy,
+	"linux/cloud-init/artifacts/aks-log-collector.service":                 linuxCloudInitArtifactsAksLogCollectorService,
+	"linux/cloud-init/artifacts/aks-log-collector.sh":                      linuxCloudInitArtifactsAksLogCollectorSh,
+	"linux/cloud-init/artifacts/aks-log-collector.slice":                   linuxCloudInitArtifactsAksLogCollectorSlice,
+	"linux/cloud-init/artifacts/aks-log-collector.timer":                   linuxCloudInitArtifactsAksLogCollectorTimer,
 	"linux/cloud-init/artifacts/aks-logrotate-override.conf":               linuxCloudInitArtifactsAksLogrotateOverrideConf,
 	"linux/cloud-init/artifacts/aks-logrotate.service":                     linuxCloudInitArtifactsAksLogrotateService,
 	"linux/cloud-init/artifacts/aks-logrotate.sh":                          linuxCloudInitArtifactsAksLogrotateSh,
@@ -8467,6 +8866,11 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"10-containerd.conf":                        &bintree{linuxCloudInitArtifacts10ContainerdConf, map[string]*bintree{}},
 				"10-httpproxy.conf":                         &bintree{linuxCloudInitArtifacts10HttpproxyConf, map[string]*bintree{}},
 				"10-tlsbootstrap.conf":                      &bintree{linuxCloudInitArtifacts10TlsbootstrapConf, map[string]*bintree{}},
+				"aks-log-collector-send.py":                 &bintree{linuxCloudInitArtifactsAksLogCollectorSendPy, map[string]*bintree{}},
+				"aks-log-collector.service":                 &bintree{linuxCloudInitArtifactsAksLogCollectorService, map[string]*bintree{}},
+				"aks-log-collector.sh":                      &bintree{linuxCloudInitArtifactsAksLogCollectorSh, map[string]*bintree{}},
+				"aks-log-collector.slice":                   &bintree{linuxCloudInitArtifactsAksLogCollectorSlice, map[string]*bintree{}},
+				"aks-log-collector.timer":                   &bintree{linuxCloudInitArtifactsAksLogCollectorTimer, map[string]*bintree{}},
 				"aks-logrotate-override.conf":               &bintree{linuxCloudInitArtifactsAksLogrotateOverrideConf, map[string]*bintree{}},
 				"aks-logrotate.service":                     &bintree{linuxCloudInitArtifactsAksLogrotateService, map[string]*bintree{}},
 				"aks-logrotate.sh":                          &bintree{linuxCloudInitArtifactsAksLogrotateSh, map[string]*bintree{}},
