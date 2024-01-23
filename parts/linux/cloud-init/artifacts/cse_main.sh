@@ -26,7 +26,7 @@ python3 /opt/azure/containers/provision_redact_cloud_config.py \
     --output-path ${LOG_DIR}/cloud-config.txt
 
 # Disable WALA's log collector because it doesn't support cgroups v2 yet
-echo "Logs.Collect=n" >> /etc/waagent.conf
+echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf
 systemctl restart walinuxagent.service
 
 # Enable the AKS log collector timer

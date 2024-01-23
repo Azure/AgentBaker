@@ -73,7 +73,6 @@ echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
 
 upload_logs() {
     /opt/azure/containers/aks-log-collector.sh >/dev/null 2>&1
-    python3 /opt/azure/containers/provision_send_logs.py >/dev/null 2>&1
 }
 if [ $EXIT_CODE -ne 0 ]; then
     upload_logs
