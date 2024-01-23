@@ -304,3 +304,32 @@ write_files:
   owner: root
   content: !!binary |
     H4sIAAAAAAAA/5yQQYsaQRCF7/MrKsZDcmjbFSTXDDpBQVeZUQK5NGVPjXbs6Zauko3Z+N/D7uwlq6dcCurx3uPxffygdy7oHfIhYxJQvzKO52QJev3nSVWYWbFYF2Vlvs0XxTrfzK69d4bpvNqUq3u+jOwhQg+gDqyYMNkD9J8n22qzWpqqyMvJzExXy3z+aB7zZXHtwR8QIlAImsTqQPIU01G7IJQatMSDWo+Hyvp4rpULTga22Wd8YaHWijeJWDAJjIYwhochvBW4sM+e0IlpYjJ4EuOjPXKWSNLFtrVxjWnQ+XOil9AYHkZDwJOo/QuPC7jAgt5DIvRtDczcHSUxegbGdofKxraNoXv+lU4XOcQwGnx5k73bMZzQHnFPRyf3lnXc3qMqi3yxNOu8qr6vyukrrddJ8DO6AGp7w7YLbKuivH7tf7pfesM/gUb1W4PO1Q/9Gf4zl/0NAAD///uJhCVYAgAA
+
+- path: /etc/systemd/system/aks-log-collector.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/2zLMa7CMAyA4d2n6AX6coIM1aMTTASmqkNkmdYi2JFjUOH0iIGN9df/TWdhn2FHDY2rs0oc9qk76NL9aymErgYwJbIHI81welaKKtRWdUiFkWK+tr7o0uP3/2ufDuNGmDybx6DVQ37djQKqeGYha+GHW+FIt8wyXJxs3NijKLwDAAD//+LA/HSjAAAA
+
+- path: /etc/systemd/system/aks-log-collector.slice
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/1SMsWrDQBBE+/0KQUhrpFRptlCkLhE4ESKFcXFcRvKCfOvs7UH890HqXM68xztNSfxMPXI0ublo4vZ9rD50qTpdV0RXq8ZVIqjHHMrqPW5IP0hRkDkpvWFWA+fNyQcPtsDpC79FDJnzPTuuh51SOzvs8aLTHj9Td5zaGLUkl7SwWwE9dcfps6gHburnTRgvYWs2db2tb8hycW5owFXtPoQ/bl5eB/oPAAD//zzGICnTAAAA
+
+- path: /etc/systemd/system/aks-log-collector.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/xyMsQoCMRAF+/2KfIFgYZniThtRuOIUi5AixOVYSHYleQj+veSqgYGZ8FRBpAv33OQDMfXTbXV329zZSuEMa+4hlRtR2Blp0dkMK2d/qqK06HhMGfLlIY+VKFy1I5US6ZUU/J5/HiPuB6S2MegfAAD//xMbGid4AAAA
+
+- path: /opt/azure/containers/aks-log-collector.sh
+  permissions: "0755"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    H4sIAAAAAAAA/5RW7W7buBL9r6eY6voCiS4ophdpdtEgAdI2aA2k7WLdYhctioAmRxJrihRIyq5b9N0XpOSP2LKz/WFZ5JwznA+KPP95AnQqNZ0yVyVJ0WrupdHgHfLKwA+If+noRDCPQMYOudHCncIoSy/h5y5BrxhEHyEl43fjD6/Gf16lo5NmIU7T5GU/qmce6wZImGtaVwkYBRNcU4FzqlulkqQPLX1pkXkUEBjGMrsEIS1yb+zyeUdLtxLiCpluG/iRADSmEdsuAWQBnyEdvbp98fF1Ck+uIH2awpdL8BXqBABgvWhwI3UJbdOtked5GhG2BmKLbjIBKGSyYd2ZErhRCrtYCqmlq1DkafIz8ZY16+hu/x5/2Mqwp+gS3NJ5rEHqwtiaBS9x4XompF25Xv3Txhr+YEA1+qSQWgCdM0uVKfsXOaULxkrUHih6DkQ5uO5yoCsHypT3hVTocv/NJ8pN1WwPI6SbhdgiZKpmUsD1UQw3WnvL+AzIZM/b2hihsgFyDuQrMCEsuMos9giyOb8P1jX+4jH8xTbes6lCB+QOyBwIUVIj0W09RbtfjRW6p178Gvdii8wb6JrDmzbUpR/VWG+PTKu96wfz2nn2sM1040ajp9le22mSfA8V+QQCCxW/R9uHxWbuXpnS5QGw4mVJIpArZhEIg9d3719Mkvj839XJes+w763FsMRcOmk0itMNBj2nhfNsujPnXBV+4p4bXchyyzo1xtPSttMsPnOeDRtr1G2unN9xnBGLCpnDnfk37ycf3t28vd2ZrozzmtW7aI1+YeyMSu3RFoyjexSQC5rlvCj3gY1imj47I1yZVhCppc+XrFa7QOcW0vMqDxXZsVl0Rs13LbbVtDsJRI9A6nw7JYfhnSUYDviMvVm6rivr7X0Q0JfhMTuVBS9Kgr7KHoVa0/rHVySOW9l49wue15S4wnHKpJ3cFtLigin1/x1UWyzCb6hy/em5a1p9KKLiTXgoGUDoq7M8blU3jI2w9Qs5jl9IPkNBoz1CSViNyGZ+nn97sNn6M7//bHnrvKn72tCKaaHQ5sqUBxm21YSbumZaHMOvDwYzLwjq+VAUa0xGw1nWOprl3csRZN+iLHfow234L7BvujAnnnn8JfSRQCYVsyheRsrR3N4yzUoUY4HaS78kWf7VGX0Q3u+h+64Ox7EZRWuNHQSZkm4OnOxgNzN61DZodUunTDlksYdNNTrHSnRDthlaPTQvanSDzkQzG5xftvXQdLg2BtNsHx4C6wSRtxb3LOu6V9IFYUmzcFmebiTajRBBngVFFTUSeAPhOmWWV3KOUaQVxkYjSA2jH3GBz9mXn5cgTCc9PToPBGEUUFuic/fibocu7kiK8ChiRydRIxDSWKl9Ael/XTpAOwVSIjw9O//92W8XZ2cPtC70ov/T+I8ubie/I1xfwdOzs7cvLsFibeYxa+b8OnVgOmhxW0vNomRlXWlqY7GrTS+U9/MSx/MCmFpks/geZXUhE2E0broQ9PW0Dd9wjPU5jE5EC6RyQ5mn2wK7Wa7a1/O9gb9u7m5AGb4rs0mzp5rD3umVk7FBig0kcpRDV7BVUBrSj40yTDyM6zmkCTWNX53hRnsmNVq3UWH3DrXolm2WyT8BAAD//64VNfnYDQAA
+

@@ -389,3 +389,32 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
+
+- path: /etc/systemd/system/aks-log-collector.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aksLogCollectorService"}}
+
+- path: /etc/systemd/system/aks-log-collector.slice
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aksLogCollectorSlice"}}
+
+- path: /etc/systemd/system/aks-log-collector.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aksLogCollectorTimer"}}
+
+- path: /opt/azure/containers/aks-log-collector.sh
+  permissions: "0755"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aksLogCollectorScript"}}
+

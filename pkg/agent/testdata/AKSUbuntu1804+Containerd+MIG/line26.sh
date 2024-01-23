@@ -72,8 +72,7 @@ EVENT_JSON=$( jq -n \
 echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
 
 upload_logs() {
-    PYTHONPATH=$(find /var/lib/waagent -name WALinuxAgent\*.egg | sort -rV | head -n1)
-    python3 $PYTHONPATH -collect-logs -full >/dev/null 2>&1
+    /opt/azure/containers/aks-log-collector.sh >/dev/null 2>&1
     python3 /opt/azure/containers/provision_send_logs.py >/dev/null 2>&1
 }
 if [ $EXIT_CODE -ne 0 ]; then

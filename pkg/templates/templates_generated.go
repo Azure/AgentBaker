@@ -6,6 +6,10 @@
 // linux/cloud-init/artifacts/10-containerd.conf
 // linux/cloud-init/artifacts/10-httpproxy.conf
 // linux/cloud-init/artifacts/10-tlsbootstrap.conf
+// linux/cloud-init/artifacts/aks-log-collector.service
+// linux/cloud-init/artifacts/aks-log-collector.sh
+// linux/cloud-init/artifacts/aks-log-collector.slice
+// linux/cloud-init/artifacts/aks-log-collector.timer
 // linux/cloud-init/artifacts/aks-logrotate-override.conf
 // linux/cloud-init/artifacts/aks-logrotate.service
 // linux/cloud-init/artifacts/aks-logrotate.sh
@@ -256,6 +260,214 @@ func linuxCloudInitArtifacts10TlsbootstrapConf() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/10-tlsbootstrap.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsAksLogCollectorService = []byte(`[Unit]
+Description=AKS Log Collector
+
+[Service]
+Type=oneshot
+Slice=aks-log-collector.slice
+ExecStart=/opt/azure/containers/aks-log-collector.sh
+RemainAfterExit=no
+`)
+
+func linuxCloudInitArtifactsAksLogCollectorServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsAksLogCollectorService, nil
+}
+
+func linuxCloudInitArtifactsAksLogCollectorService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsAksLogCollectorServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/aks-log-collector.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsAksLogCollectorSh = []byte(`#! /bin/bash
+
+function tsecho { echo "$(date -Iseconds) $*"; }
+function tsechon { echo -n "$(date -Iseconds) $*"; }
+
+INITDIR="$(pwd)"
+CDIR="$(mktemp -d)"
+pushd $CDIR >/dev/null
+
+tsecho "Created temporary directory: $CDIR"
+
+function cleanup {
+  popd >/dev/null
+  if [ "$DEBUG" != "1" ]; then
+    tsecho "Cleaning up $CDIR..."
+    rm -rf $CDIR
+  fi
+  tsecho "Log collection finished."
+}
+trap cleanup EXIT
+
+tsecho "Collecting system information..."
+mkdir collect collect/proc collect/proc/net
+find /var/log /var/lib/waagent /etc -ls > $CDIR/collect/log_files.txt
+lsblk > $CDIR/collect/diskinfo.txt
+blkid >> $CDIR/collect/diskinfo.txt
+conntrack -S > $CDIR/collect/conntrack.txt
+ip -4 -j addr show > $CDIR/collect/ip4_addr.txt
+ip -6 -j addr show > $CDIR/collect/ip6_addr.txt
+iptables -L -v --line-numbers > $CDIR/collect/iptables.txt
+ip6tables -L -v --line-numbers > $CDIR/collect/ip6tables.txt
+cp /proc/cpuinfo /proc/meminfo /proc/mounts /proc/vmstat collect/proc/
+cp /proc/net/* collect/proc/net/
+
+zip -Z deflate -r $CDIR/aks_logs.zip collect/*
+
+declare -a GLOBS
+GLOBS+=(/var/lib/azure/provisioned)
+GLOBS+=(/etc/fstab)
+GLOBS+=(/etc/ssh/sshd_config)
+GLOBS+=(/boot/grub*/grub.c*)
+GLOBS+=(/boot/grub*/menu.lst)
+GLOBS+=(/etc/*-release)
+GLOBS+=(/etc/HOSTNAME)
+GLOBS+=(/etc/hostname)
+GLOBS+=(/etc/network/interfaces)
+GLOBS+=(/etc/network/interfaces.d/*.cfg)
+GLOBS+=(/etc/netplan/50-cloud-init.yaml)
+GLOBS+=(/etc/nsswitch.conf)
+GLOBS+=(/etc/resolv.conf)
+GLOBS+=(/run/systemd/resolve/stub-resolv.conf)
+GLOBS+=(/run/resolvconf/resolv.conf)
+GLOBS+=(/etc/sysconfig/iptables)
+GLOBS+=(/etc/sysconfig/network)
+GLOBS+=(/etc/sysconfig/network/ifcfg-eth*)
+GLOBS+=(/etc/sysconfig/network/routes)
+GLOBS+=(/etc/sysconfig/network-scripts/ifcfg-eth*)
+GLOBS+=(/etc/sysconfig/network-scripts/route-eth*)
+GLOBS+=(/etc/sysconfig/SuSEfirewall2)
+GLOBS+=(/etc/ufw/ufw.conf)
+GLOBS+=(/etc/waagent.conf)
+GLOBS+=(/var/lib/dhcp/dhclient.eth0.leases)
+GLOBS+=(/var/lib/dhclient/dhclient-eth0.leases)
+GLOBS+=(/var/lib/wicked/lease-eth0-dhcp-ipv4.xml)
+GLOBS+=(/var/log/azure/custom-script/handler.log)
+GLOBS+=(/var/log/azure/run-command/handler.log)
+GLOBS+=(/var/lib/azure/ovf-env.xml)
+GLOBS+=(/var/lib/azure/*/status/*.status)
+GLOBS+=(/var/lib/azure/*/config/*.settings)
+GLOBS+=(/var/lib/azure/*/config/HandlerState)
+GLOBS+=(/var/lib/azure/*/config/HandlerStatus)
+GLOBS+=(/var/lib/azure/SharedConfig.xml)
+GLOBS+=(/var/lib/azure/ManagedIdentity-*.json)
+GLOBS+=(/var/lib/azure/waagent_status.json)
+GLOBS+=(/var/lib/azure/*/error.json)
+GLOBS+=(/var/log/cloud-init*)
+GLOBS+=(/var/log/azure/*/*)
+GLOBS+=(/var/log/azure/*/*/*)
+GLOBS+=(/var/log/syslog*)
+GLOBS+=(/var/log/rsyslog*)
+GLOBS+=(/var/log/messages*)
+GLOBS+=(/var/log/kern*)
+GLOBS+=(/var/log/dmesg*)
+GLOBS+=(/var/log/dpkg*)
+GLOBS+=(/var/log/yum*)
+GLOBS+=(/var/log/boot*)
+GLOBS+=(/var/log/auth*)
+GLOBS+=(/var/log/secure*)
+GLOBS+=(/var/lib/azure/history/*.zip)
+
+tsecho "Adding log files to zip archive..."
+for file in ${GLOBS[*]}; do
+  if test -e $file; then
+    zip -Z deflate -u $CDIR/aks_logs.zip $file
+    if [ $(stat --printf "%s" $CDIR/aks_logs.zip) -ge 104857600 ]; then
+      echo "ZIP file size >= 100MB; removing last log file and terminating adding more files."
+      zip -Z deflate -d $CDIR/aks_logs.zip $file
+      break
+    fi
+  fi
+done
+
+tsecho "Log bundle size: $(du -hs $CDIR/aks_logs.zip)"
+
+tsecho "Copying log bundle to WALA location..."
+mkdir -p /var/lib/waagent/logcollector
+cp $CDIR/aks_logs.zip /var/lib/waagent/logcollector/logs.zip
+
+tsechon "Uploading log bundle: "
+/opt/azure/containers/provision_send_logs.py
+`)
+
+func linuxCloudInitArtifactsAksLogCollectorShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsAksLogCollectorSh, nil
+}
+
+func linuxCloudInitArtifactsAksLogCollectorSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsAksLogCollectorShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/aks-log-collector.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsAksLogCollectorSlice = []byte(`[Unit]
+Description=AKS Log Collector Slice
+DefaultDependencies=no
+Before=slices.target
+Requires=system.slice
+After=system.slice
+
+[Slice]
+CPUAccounting=true
+#CPUQuota=10%
+CPUShares=100
+CPUWeight=1
+MemoryMax=128M
+`)
+
+func linuxCloudInitArtifactsAksLogCollectorSliceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsAksLogCollectorSlice, nil
+}
+
+func linuxCloudInitArtifactsAksLogCollectorSlice() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsAksLogCollectorSliceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/aks-log-collector.slice", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsAksLogCollectorTimer = []byte(`[Unit]
+Description=AKS Log Collector Timer
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1m
+
+[Install]
+WantedBy=timers.target
+`)
+
+func linuxCloudInitArtifactsAksLogCollectorTimerBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsAksLogCollectorTimer, nil
+}
+
+func linuxCloudInitArtifactsAksLogCollectorTimer() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsAksLogCollectorTimerBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/aks-log-collector.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -3916,8 +4128,9 @@ echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
 upload_logs() {
     # find the most recent version of WALinuxAgent and use it to collect logs per
     # https://supportability.visualstudio.com/AzureIaaSVM/_wiki/wikis/AzureIaaSVM/495009/Log-Collection_AGEX?anchor=manually-collect-logs
-    PYTHONPATH=$(find /var/lib/waagent -name WALinuxAgent\*.egg | sort -rV | head -n1)
-    python3 $PYTHONPATH -collect-logs -full >/dev/null 2>&1
+    # PYTHONPATH=$(find /var/lib/waagent -name WALinuxAgent\*.egg | sort -rV | head -n1)
+    # python3 $PYTHONPATH -collect-logs -full >/dev/null 2>&1
+    /opt/azure/containers/aks-log-collector.sh >/dev/null 2>&1
     python3 /opt/azure/containers/provision_send_logs.py >/dev/null 2>&1
 }
 if [ $EXIT_CODE -ne 0 ]; then
@@ -3926,7 +4139,8 @@ else
     upload_logs &
 fi
 
-exit $EXIT_CODE`)
+exit $EXIT_CODE
+`)
 
 func linuxCloudInitArtifactsCse_startShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsCse_startSh, nil
@@ -7270,7 +7484,37 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}`)
+    {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
+
+- path: /etc/systemd/system/aks-log-collector.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aksLogCollectorService"}}
+
+- path: /etc/systemd/system/aks-log-collector.slice
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aksLogCollectorSlice"}}
+
+- path: /etc/systemd/system/aks-log-collector.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aksLogCollectorTimer"}}
+
+- path: /opt/azure/containers/aks-log-collector.sh
+  permissions: "0755"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aksLogCollectorScript"}}
+
+`)
 
 func linuxCloudInitNodecustomdataYmlBytes() ([]byte, error) {
 	return _linuxCloudInitNodecustomdataYml, nil
@@ -8328,6 +8572,10 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/10-containerd.conf":                        linuxCloudInitArtifacts10ContainerdConf,
 	"linux/cloud-init/artifacts/10-httpproxy.conf":                         linuxCloudInitArtifacts10HttpproxyConf,
 	"linux/cloud-init/artifacts/10-tlsbootstrap.conf":                      linuxCloudInitArtifacts10TlsbootstrapConf,
+	"linux/cloud-init/artifacts/aks-log-collector.service":                 linuxCloudInitArtifactsAksLogCollectorService,
+	"linux/cloud-init/artifacts/aks-log-collector.sh":                      linuxCloudInitArtifactsAksLogCollectorSh,
+	"linux/cloud-init/artifacts/aks-log-collector.slice":                   linuxCloudInitArtifactsAksLogCollectorSlice,
+	"linux/cloud-init/artifacts/aks-log-collector.timer":                   linuxCloudInitArtifactsAksLogCollectorTimer,
 	"linux/cloud-init/artifacts/aks-logrotate-override.conf":               linuxCloudInitArtifactsAksLogrotateOverrideConf,
 	"linux/cloud-init/artifacts/aks-logrotate.service":                     linuxCloudInitArtifactsAksLogrotateService,
 	"linux/cloud-init/artifacts/aks-logrotate.sh":                          linuxCloudInitArtifactsAksLogrotateSh,
@@ -8467,6 +8715,10 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"10-containerd.conf":                        &bintree{linuxCloudInitArtifacts10ContainerdConf, map[string]*bintree{}},
 				"10-httpproxy.conf":                         &bintree{linuxCloudInitArtifacts10HttpproxyConf, map[string]*bintree{}},
 				"10-tlsbootstrap.conf":                      &bintree{linuxCloudInitArtifacts10TlsbootstrapConf, map[string]*bintree{}},
+				"aks-log-collector.service":                 &bintree{linuxCloudInitArtifactsAksLogCollectorService, map[string]*bintree{}},
+				"aks-log-collector.sh":                      &bintree{linuxCloudInitArtifactsAksLogCollectorSh, map[string]*bintree{}},
+				"aks-log-collector.slice":                   &bintree{linuxCloudInitArtifactsAksLogCollectorSlice, map[string]*bintree{}},
+				"aks-log-collector.timer":                   &bintree{linuxCloudInitArtifactsAksLogCollectorTimer, map[string]*bintree{}},
 				"aks-logrotate-override.conf":               &bintree{linuxCloudInitArtifactsAksLogrotateOverrideConf, map[string]*bintree{}},
 				"aks-logrotate.service":                     &bintree{linuxCloudInitArtifactsAksLogrotateService, map[string]*bintree{}},
 				"aks-logrotate.sh":                          &bintree{linuxCloudInitArtifactsAksLogrotateSh, map[string]*bintree{}},

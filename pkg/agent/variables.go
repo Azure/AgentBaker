@@ -50,6 +50,10 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"snapshotUpdateService":        getBase64EncodedGzippedCustomScript(snapshotUpdateSystemdService, config),
 			"snapshotUpdateTimer":          getBase64EncodedGzippedCustomScript(snapshotUpdateSystemdTimer, config),
 			"componentManifestFile":        getBase64EncodedGzippedCustomScript(componentManifestFile, config),
+			"aksLogCollectorService":       getBase64EncodedGzippedCustomScript(aksLogCollectorService, config),
+			"aksLogCollectorSlice":         getBase64EncodedGzippedCustomScript(aksLogCollectorSlice, config),
+			"aksLogCollectorTimer":         getBase64EncodedGzippedCustomScript(aksLogCollectorTimer, config),
+			"aksLogCollectorScript":        getBase64EncodedGzippedCustomScript(aksLogCollectorScript, config),
 		},
 	}
 

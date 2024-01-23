@@ -87,6 +87,12 @@ const (
 	bindMountDropin         = "linux/cloud-init/artifacts/10-bindmount.conf"
 	httpProxyDropin         = "linux/cloud-init/artifacts/10-httpproxy.conf"
 	componentManifestFile   = "linux/cloud-init/artifacts/manifest.json"
+
+  // AKS log collector
+	aksLogCollectorService = "linux/cloud-init/artifacts/aks-log-collector.service"
+	aksLogCollectorSlice   = "linux/cloud-init/artifacts/aks-log-collector.slice"
+	aksLogCollectorTimer   = "linux/cloud-init/artifacts/aks-log-collector.timer"
+	aksLogCollectorScript  = "linux/cloud-init/artifacts/aks-log-collector.sh"
 )
 
 // cloud-init destination file references.
