@@ -506,6 +506,19 @@ function Test-WindowsDefenderPlatformUpdate {
     }
 }
 
+function Test-ToolsToCacheOnVHD {
+    $toolsDir = "c:\aks-tools"
+    $toolsList = @("du.exe")
+
+    foreach ($tool in $toolsList) {
+        $toolPath = Join-Path -Path $toolsDir -ChildPath $tool
+        if (!(Test-Path -Path $toolPath)) {
+            Write-ErrorWithTimestamp "Failed to get tool: $toolPath"
+            exit 1
+        }
+    }
+}
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
@@ -514,4 +527,5 @@ Test-DefenderSignature
 Test-AzureExtensions
 Test-ExcludeUDPSourcePort
 Test-WindowsDefenderPlatformUpdate
+Test-ToolsToCacheOnVHD
 Remove-Item -Path c:\windows-vhd-configuration.ps1
