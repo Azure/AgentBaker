@@ -22,6 +22,7 @@ python3 /opt/azure/containers/provision_redact_cloud_config.py \
     --output-path ${LOG_DIR}/cloud-config.txt
 
 echo "Logs.Collect=n" >> /etc/waagent.conf
+systemctl restart walinuxagent.service
 
 systemctl enable --now aks-log-collector.timer
 

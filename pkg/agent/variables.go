@@ -54,6 +54,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"aksLogCollectorSlice":         getBase64EncodedGzippedCustomScript(aksLogCollectorSlice, config),
 			"aksLogCollectorTimer":         getBase64EncodedGzippedCustomScript(aksLogCollectorTimer, config),
 			"aksLogCollectorScript":        getBase64EncodedGzippedCustomScript(aksLogCollectorScript, config),
+			"aksLogCollectorSendScript":    getBase64EncodedGzippedCustomScript(aksLogCollectorSendScript, config),
 		},
 	}
 

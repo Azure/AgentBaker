@@ -418,3 +418,10 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "aksLogCollectorScript"}}
 
+- path: /opt/azure/containers/aks-log-collector-send.py
+  permissions: "0755"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aksLogCollectorSendScript"}}
+
