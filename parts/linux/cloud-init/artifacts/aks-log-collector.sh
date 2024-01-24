@@ -61,11 +61,17 @@ mkdir collect collect/proc collect/proc/net
 # Include some disk listings
 command -v find >/dev/null && find /dev /etc /var/lib/waagent /var/log -ls >collect/file_listings.txt 2>&1
 
-# Collect system information
+# Collect all installed packages for Ubuntu and Azure Linux
 command -v dpkg >/dev/null && dpkg -l >collect/dpkg.txt 2>&1
 command -v tdnf >/dev/null && tdnf list installed >collect/tdnf.txt 2>&1
-command -v lsblk >/dev/null && lsblk >collect/diskinfo.txt 2>&1
+
+# Collect system information
 command -v blkid >/dev/null && blkid >>collect/diskinfo.txt 2>&1
+command -v df >/dev/null && {
+  df -al > collect/du_bytes.txt 2>&1
+  df -ail >> collect/du_inodes.txt 2>&1
+}
+command -v lsblk >/dev/null && lsblk >collect/diskinfo.txt 2>&1
 command -v lscpu >/dev/null && {
   lscpu >collect/lscpu.txt 2>&1
   lscpu -J >collect/lscpu.json 2>&1
@@ -167,6 +173,13 @@ GLOBS+=(/etc/containerd/*)
 GLOBS+=(/etc/default/kubelet)
 GLOBS+=(/etc/kubernetes/manifests/*)
 GLOBS+=(/var/lib/kubelet/kubeconfig)
+GLOBS+=(/var/log/azure-cni*)
+GLOBS+=(/var/log/azure-cns*)
+GLOBS+=(/var/log/azure-ipam*)
+GLOBS+=(/var/log/azure-vnet*)
+GLOBS+=(/var/log/cillium-cni*)
+GLOBS+=(/var/run/azure-vnet*)
+GLOBS+=(/var/run/azure-cns*)
 
 # based on MANIFEST_FULL from Azure Linux Agent's log collector
 # https://github.com/Azure/WALinuxAgent/blob/master/azurelinuxagent/common/logcollector_manifests.py
@@ -230,7 +243,7 @@ GLOBS+=(/var/log/secure*)
 echo "Adding log files to zip archive..."
 for file in ${GLOBS[*]}; do
   if test -e $file; then
-    zip -DZ deflate -u aks_logs.zip $file
+    zip -DZ deflate -u aks_logs.zip $file -x '*.sock'
 
     # The API for the log bundle has a max file size (defined above, usually 100MB), so if
     # adding this last file made the zip go over that size, remove that file and stop processing.
