@@ -18,6 +18,11 @@ MAX_SIZE=104857600
 # extended pattern matching
 shopt -s nullglob nocaseglob extglob
 
+command -v zip >/dev/null || {
+  echo "Error: zip utility not found. Please install zip."
+  exit 255
+}
+
 # Create a temporary directory to store results in
 WORKDIR="$(mktemp -d)"
 # check if tmp dir was created
@@ -54,76 +59,95 @@ echo "Collecting system information..."
 mkdir collect collect/proc collect/proc/net
 
 # Include some disk listings
-find /dev /etc /var/lib/waagent /var/log -ls >collect/file_listings.txt 2>&1
+command -v find >/dev/null && find /dev /etc /var/lib/waagent /var/log -ls >collect/file_listings.txt 2>&1
 
 # Collect system information
-dpkg -l >collect/dpkg.txt 2>&1
-lsblk >collect/diskinfo.txt 2>&1
-blkid >>collect/diskinfo.txt 2>&1
-lscpu >collect/lscpu.txt 2>&1
-lscpu -J >collect/lscpu.json 2>&1
-lshw >collect/lshw.txt 2>&1
-lshw -json >collect/lshw.json 2>&1
-lsipc >collect/lsipc.txt 2>&1
-lsns -J --output-all >collect/lsns.json 2>&1
-lspci -vkPP >collect/lspci.txt 2>&1
-lsscsi -vv >collect/lsscsi.txt 2>&1
-lsvmbus -vv >collect/lsvmbus.txt 2>&1
-sysctl -a >collect/sysctl.txt 2>&1
-systemctl status --all -fr >collect/systemctl-status.txt 2>&1
+command -v dpkg >/dev/null && dpkg -l >collect/dpkg.txt 2>&1
+command -v tdnf >/dev/null && tdnf list installed >collect/tdnf.txt 2>&1
+command -v lsblk >/dev/null && lsblk >collect/diskinfo.txt 2>&1
+command -v blkid >/dev/null && blkid >>collect/diskinfo.txt 2>&1
+command -v lscpu >/dev/null && {
+  lscpu >collect/lscpu.txt 2>&1
+  lscpu -J >collect/lscpu.json 2>&1
+}
+command -v lshw >/dev/null && { 
+  lshw >collect/lshw.txt 2>&1
+  lshw -json >collect/lshw.json 2>&1
+}
+command -v lsipc >/dev/null && lsipc >collect/lsipc.txt 2>&1
+command -v lsns >/dev/null && lsns -J --output-all >collect/lsns.json 2>&1
+command -v lspci >/dev/null && lspci -vkPP >collect/lspci.txt 2>&1
+command -v lsscsi >/dev/null && lsscsi -vv >collect/lsscsi.txt 2>&1
+command -v lsvmbus >/dev/null && lsvmbus -vv >collect/lsvmbus.txt 2>&1
+command -v sysctl >/dev/null && sysctl -a >collect/sysctl.txt 2>&1
+command -v systemctl >/dev/null && systemctl status --all -fr >collect/systemctl-status.txt 2>&1
 
 # Collect container runtime information
-crictl version >collect/crictl_version.txt 2>&1
-crictl info -o json >collect/crictl_info.json 2>&1
-crictl images -o json >collect/crictl_images.json 2>&1
-crictl imagefsinfo -o json >collect/crictl_imagefsinfo.json 2>&1
-crictl pods -o json >collect/crictl_pods.json 2>&1
-crictl ps -o json >collect/crictl_ps.json 2>&1
-crictl stats -o json >collect/crictl_stats.json 2>&1
-crictl statsp -o json >collect/crictl_statsp.json 2>&1
+command -v crictl >/dev/null && {
+  crictl version >collect/crictl_version.txt 2>&1
+  crictl info -o json >collect/crictl_info.json 2>&1
+  crictl images -o json >collect/crictl_images.json 2>&1
+  crictl imagefsinfo -o json >collect/crictl_imagefsinfo.json 2>&1
+  crictl pods -o json >collect/crictl_pods.json 2>&1
+  crictl ps -o json >collect/crictl_ps.json 2>&1
+  crictl stats -o json >collect/crictl_stats.json 2>&1
+  crictl statsp -o json >collect/crictl_statsp.json 2>&1
+}
 
 # Collect network information
-conntrack -L >collect/conntrack.txt 2>&1
-conntrack -S >>collect/conntrack.txt 2>&1
-ip -4 -d -j addr show >collect/ip_4_addr.json 2>&1
-ip -4 -d -j neighbor show >collect/ip_4_neighbor.json 2>&1
-ip -4 -d -j route show >collect/ip_4_route.json 2>&1
-ip -4 -d -j tcpmetrics show >collect/ip_4_tcpmetrics.json 2>&1
-ip -6 -d -j addr show table all >collect/ip_6_addr.json 2>&1
-ip -6 -d -j neighbor show >collect/ip_6_neighbor.json 2>&1
-ip -6 -d -j route show table all >collect/ip_6_route.json 2>&1
-ip -6 -d -j tcpmetrics show >collect/ip_6_tcpmetrics.json 2>&1
-ip -d -j link show >collect/ip_link.json 2>&1
-ip -d -j netconf show >collect/ip_netconf.json 2>&1
-ip -d -j netns show >collect/ip_netns.json 2>&1
-ip -d -j rule show >collect/ip_rule.json 2>&1
-iptables -L -vn --line-numbers >collect/iptables.txt 2>&1
-ip6tables -L -vn --line-numbers >collect/ip6tables.txt 2>&1
-nft -jn list ruleset >collect/nftables.json 2>&1
-ss -anoempiO --cgroup >collect/ss.txt 2>&1
-ss -s >>collect/ss.txt 2>&1
+command -v conntrack >/dev/null && {
+  conntrack -L >collect/conntrack.txt 2>&1
+  conntrack -S >>collect/conntrack.txt 2>&1
+}
+command -v ip >/dev/null && {
+  ip -4 -d -j addr show >collect/ip_4_addr.json 2>&1
+  ip -4 -d -j neighbor show >collect/ip_4_neighbor.json 2>&1
+  ip -4 -d -j route show >collect/ip_4_route.json 2>&1
+  ip -4 -d -j tcpmetrics show >collect/ip_4_tcpmetrics.json 2>&1
+  ip -6 -d -j addr show table all >collect/ip_6_addr.json 2>&1
+  ip -6 -d -j neighbor show >collect/ip_6_neighbor.json 2>&1
+  ip -6 -d -j route show table all >collect/ip_6_route.json 2>&1
+  ip -6 -d -j tcpmetrics show >collect/ip_6_tcpmetrics.json 2>&1
+  ip -d -j link show >collect/ip_link.json 2>&1
+  ip -d -j netconf show >collect/ip_netconf.json 2>&1
+  ip -d -j netns show >collect/ip_netns.json 2>&1
+  ip -d -j rule show >collect/ip_rule.json 2>&1
+}
+command -v iptables >/dev/null && iptables -L -vn --line-numbers >collect/iptables.txt 2>&1
+command -v ip6tables >/dev/null && ip6tables -L -vn --line-numbers >collect/ip6tables.txt 2>&1
+command -v nft >/dev/null && nft -jn list ruleset >collect/nftables.json 2>&1
+command -v ss >/dev/null && {
+  ss -anoempiO --cgroup >collect/ss.txt 2>&1
+  ss -s >>collect/ss.txt 2>&1
+}
 
 # Collect network information from network namespaces
-ip -all netns exec /bin/bash -x -c "
-	conntrack -L 2>&1;
-	conntrack -S 2>&1;
-	ip -4 -d -j addr show 2>&1;
-	ip -4 -d -j neighbor show 2>&1;
-	ip -4 -d -j route show 2>&1;
-	ip -4 -d -j tcpmetrics show 2>&1;
-	ip -6 -d -j addr show table all 2>&1;
-	ip -6 -d -j neighbor show 2>&1;
-	ip -6 -d -j route show table all 2>&1;
-	ip -6 -d -j tcpmetrics show 2>&1;
-	ip -d -j link show 2>&1;
-	ip -d -j netconf show 2>&1;
-	ip -d -j netns show 2>&1;
-	ip -d -j rule show 2>&1;
-	iptables -L -vn --line-numbers 2>&1;
-	ip6tables -L -vn --line-numbers 2>&1;
-	nft -jn list ruleset 2>&1;
-	ss -anoempiO --cgroup 2>&1;
-	ss -s 2>&1;
+command -v ip >/dev/null && ip -all netns exec /bin/bash -x -c "
+	command -v conntrack >/dev/null && {
+    conntrack -L 2>&1;
+	  conntrack -S 2>&1;
+  }
+	command -v ip >/dev/null && {
+    ip -4 -d -j addr show 2>&1;
+    ip -4 -d -j neighbor show 2>&1;
+    ip -4 -d -j route show 2>&1;
+    ip -4 -d -j tcpmetrics show 2>&1;
+    ip -6 -d -j addr show table all 2>&1;
+    ip -6 -d -j neighbor show 2>&1;
+    ip -6 -d -j route show table all 2>&1;
+    ip -6 -d -j tcpmetrics show 2>&1;
+    ip -d -j link show 2>&1;
+    ip -d -j netconf show 2>&1;
+    ip -d -j netns show 2>&1;
+    ip -d -j rule show 2>&1;
+  }
+	command -v iptables >/dev/null && iptables -L -vn --line-numbers 2>&1;
+	command -v ip6tables >/dev/null && ip6tables -L -vn --line-numbers 2>&1;
+	command -v nft >/dev/null && nft -jn list ruleset 2>&1;
+	command -v ss >/dev/null && {
+    ss -anoempiO --cgroup 2>&1;
+	  ss -s 2>&1;
+  }
 " >collect/ip_netns_commands.txt 2>&1
 
 # Collect general information
