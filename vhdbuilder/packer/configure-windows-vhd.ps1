@@ -205,6 +205,19 @@ function Get-FilesToCacheOnVHD {
     }
 }
 
+function Get-ToolsToVHD {
+    # Rely on the completion of Get-FilesToCacheOnVHD
+    $cacheDir = "c:\akse-cache\tools"
+
+    $toolsDir = "c:\aks-tools"
+    if (!(Test-Path -Path $toolsDir)) {
+        New-Item -ItemType Directory -Path $toolsDir | Out-Null
+    }
+
+    Write-Log "Getting DU (Windows Disk Usage)"
+    Expand-Archive -Path "$cacheDir\DU.zip" -DestinationPath "$toolsDir\DU" -Force
+}
+
 function Get-PrivatePackagesToCacheOnVHD {
     if (![string]::IsNullOrEmpty($env:WindowsPrivatePackagesURL)) {
         Write-Log "Caching private packages on VHD"
@@ -813,6 +826,7 @@ try{
             Update-Registry
             Get-ContainerImages
             Get-FilesToCacheOnVHD
+            Get-ToolsToVHD # Rely on the completion of Get-FilesToCacheOnVHD
             Get-PrivatePackagesToCacheOnVHD
             Remove-Item -Path c:\windows-vhd-configuration.ps1
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
