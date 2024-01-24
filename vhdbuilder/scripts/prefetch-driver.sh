@@ -1,9 +1,11 @@
 #!/bin/bash
+set -eux
+
 CONTAINER_IMAGE_PREFETCH_SCRIPT_PATH="/opt/azure/containers/prefetch.sh"
 
 if [ ! -f "$CONTAINER_IMAGE_PREFETCH_SCRIPT_PATH" ]; then
-    echo "container image prefetch script path does not exist at $CONTAINER_IMAGE_PREFETCH_SCRIPT_PATH"
-    exit 1
+    echo "container image prefetch script path does not exist at $CONTAINER_IMAGE_PREFETCH_SCRIPT_PATH, exiting early..."
+    exit 0
 fi
 
 chmod +x $CONTAINER_IMAGE_PREFETCH_SCRIPT_PATH
