@@ -173,6 +173,9 @@ $global:map = @{
     "c:\akse-cache\calico\" = @(
         "https://acs-mirror.azureedge.net/calico-node/v3.21.6/binaries/calico-windows-v3.21.6.zip",
         "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
+    );
+    "c:\akse-cache\tools\" = @(
+        "https://download.sysinternals.com/files/DU.zip"
     )
 }
 '@
