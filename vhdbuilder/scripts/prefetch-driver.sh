@@ -8,11 +8,10 @@ if [ ! -f "$CONTAINER_IMAGE_PREFETCH_SCRIPT_PATH" ]; then
     exit 0
 fi
 
-chmod +x $CONTAINER_IMAGE_PREFETCH_SCRIPT_PATH
 echo "running container image prefetch script at $CONTAINER_IMAGE_PREFETCH_SCRIPT_PATH..."
-sudo /bin/bash $CONTAINER_IMAGE_PREFETCH_SCRIPT_PATH
+chmod +x $CONTAINER_IMAGE_PREFETCH_SCRIPT_PATH && sudo /bin/bash $CONTAINER_IMAGE_PREFETCH_SCRIPT_PATH
 echo "container image prefetch script completed successfully"
 
-echo "deleting container image prefetch script at $CONTAINER_IMAGE_PREFETCH_SCRIPT_PATH..."
+echo "removing container image prefetch script at $CONTAINER_IMAGE_PREFETCH_SCRIPT_PATH..."
 rm -f $CONTAINER_IMAGE_PREFETCH_SCRIPT_PATH
-echo "container image prefetch script deleted"
+echo "removed container image prefetch script"
