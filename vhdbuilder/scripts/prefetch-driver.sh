@@ -15,4 +15,4 @@ echo "container image prefetch script completed successfully"
 
 echo "removing container image prefetch script at $CONTAINER_IMAGE_PREFETCH_SCRIPT_PATH..."
 sudo rm -f $CONTAINER_IMAGE_PREFETCH_SCRIPT_PATH || exit $?
-echo "removed container image prefetch script deleted"
+echo "removed container image prefetch script"
