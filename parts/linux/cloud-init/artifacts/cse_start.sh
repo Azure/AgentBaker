@@ -81,11 +81,15 @@ echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
 # the VM before it finishes. if we succeeded, upload in the background
 # so that the provisioning script returns success more quickly
 upload_logs() {
-    # find the most recent version of WALinuxAgent and use it to collect logs per
-    # https://supportability.visualstudio.com/AzureIaaSVM/_wiki/wikis/AzureIaaSVM/495009/Log-Collection_AGEX?anchor=manually-collect-logs
-    PYTHONPATH=$(find /var/lib/waagent -name WALinuxAgent\*.egg | sort -rV | head -n1)
-    python3 $PYTHONPATH -collect-logs -full >/dev/null 2>&1
-    python3 /opt/azure/containers/provision_send_logs.py >/dev/null 2>&1
+    # Commenting out 2024-01-24 due to AKS Log Collector addition; will be uncommented when WALA has full cgroup v2 support.
+    # # find the most recent version of WALinuxAgent and use it to collect logs per
+    # # https://supportability.visualstudio.com/AzureIaaSVM/_wiki/wikis/AzureIaaSVM/495009/Log-Collection_AGEX?anchor=manually-collect-logs
+    # PYTHONPATH=$(find /var/lib/waagent -name WALinuxAgent\*.egg | sort -rV | head -n1)
+    # python3 $PYTHONPATH -collect-logs -full >/dev/null 2>&1
+    # python3 /opt/azure/containers/provision_send_logs.py >/dev/null 2>&1
+
+    # Call AKS Log Collector
+    /opt/azure/containers/aks-log-collector.sh
 }
 if [ $EXIT_CODE -ne 0 ]; then
     upload_logs
