@@ -8,10 +8,13 @@ pr:
     - 'official/*'
   paths:
     include:
-    - '.pipelines/*'
+    - .pipelines/e2e-windows.yaml
+    - .pipelines/templates/e2e-windows-template.yaml
     - 'e2e/windows/*'
     - 'parts/windows/*'
     - 'staging/cse/windows/*'
+    exclude:
+    - 'vhdbuilder/*'
 
 # Use variable group "ab-windows-ms-tenant" and link it to the pipeline "Agentbaker Windows E2E"
 
