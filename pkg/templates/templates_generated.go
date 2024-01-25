@@ -646,7 +646,7 @@ CPUAccounting=true
 #CPUQuota=10%
 CPUShares=100
 CPUWeight=1
-MemoryMax=128M
+MemoryMax=256M
 `)
 
 func linuxCloudInitArtifactsAksLogCollectorSliceBytes() ([]byte, error) {
