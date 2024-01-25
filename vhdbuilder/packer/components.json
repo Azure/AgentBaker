@@ -52,20 +52,6 @@
       "multiArchVersions": [
         "v0.0.4.2",
         "v0.1.1"
-      ],
-      "prefetchOptimizations": [
-        {
-          "version": "v0.0.4.2",
-          "binaries": [
-            "dropgz"
-          ]
-        },
-        {
-          "version": "v0.1.1",
-          "binaries": [
-            "dropgz"
-          ]
-        }
       ]
     },
     {
@@ -137,22 +123,6 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.24.6"
-      ],
-      "prefetchOptimizations": [
-        {
-          "version": "v3.24.6",
-          "binaries": [
-            "opt/cni/bin/bandwidth",
-            "opt/cni/bin/calico",
-            "opt/cni/bin/calico-ipam",
-            "opt/cni/bin/flannel",
-            "opt/cni/bin/host-local",
-            "opt/cni/bin/install",
-            "opt/cni/bin/loopback",
-            "opt/cni/bin/portmap",
-            "opt/cni/bin/tuning"
-          ]
-        }
       ]
     },
     {
@@ -174,14 +144,6 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.24.6"
-      ],
-      "prefetchOptimizations": [
-        {
-          "version": "v3.24.6",
-          "binaries": [
-            "usr/local/bin/flexvol"
-          ]
-        }
       ]
     },
     {
@@ -203,8 +165,8 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.10-2",
         "1.12.10-3",
+        "1.12.10-4",
         "1.13.5-1",
         "1.13.5-3"
       ]
@@ -233,7 +195,10 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
-      "amd64OnlyVersions": [],
+      "amd64OnlyVersions": [
+        "1.7.1-hotfix.20200403-1",
+        "1.7.1-hotfix.20200403.1"
+      ],
       "multiArchVersions": [
         "v1.8.8"
       ]
@@ -263,8 +228,9 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.24.11",
-        "v1.26.9",
         "v1.26.10",
+        "v1.26.10-1",
+        "v1.26.9",
         "v1.28.6",
         "v1.28.7",
         "v1.29.1",
@@ -278,10 +244,13 @@
         "v1.19.6",
         "v1.21.5",
         "v1.21.6",
+        "v1.21.6-3",
         "v1.22.3",
         "v1.22.4",
+        "v1.22.4-3",
         "v1.23.1",
-        "v1.23.2"
+        "v1.23.2",
+        "v1.23.2-3"
       ]
     },
     {
