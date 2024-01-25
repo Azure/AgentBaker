@@ -245,6 +245,49 @@ function Get-PrivatePackagesToCacheOnVHD {
     }
 }
 
+function Apply-WindowsFixes {
+    # Use the '$env:WindowsPrivatePackagesURL' to store the Windows fixes download link
+    if (![string]::IsNullOrEmpty($env:WindowsPrivatePackagesURL)) {
+        Write-Log "WindowsPrivatePackagesURL was set, applying Windows fixes."
+
+        $fixesDownloadlink = $env:WindowsPrivatePackagesURL
+
+        $dest = "C:\WindowsFixes.zip"
+        DownloadFileWithRetry -URL $fixesDownloadlink -Dest $dest -redactUrl
+
+        Expand-Archive -Path $dest -DestinationPath "C:\WindowsFixes" -Force
+        cd "C:\WindowsFixes"
+
+        Write-Log "Backup the original files."
+        cp C:\windows\system32\drivers\ndis.sys Backup.ndis.sys
+        cp C:\windows\system32\drivers\netio.sys Backup.netio.sys
+        cp C:\windows\system32\drivers\tcpip.sys Backup.tcpip.sys
+        cp C:\windows\system32\HostNetSvc.dll Backup.HostNetSvc.dll
+        cp C:\Windows\system32\vfpapi.dll Backup.vfpapi.dll
+        cp C:\Windows\system32\vfpctrl.exe Backup.vfpctrl.exe
+        cp C:\Windows\system32\drivers\vfpext.sys Backup.vfpext.sys
+        Get-ChildItem | Write-Log
+
+        bcdedit /set TESTSIGNING ON
+        bcdedit /v
+
+        KirTool.exe staging enable 47351171
+        KirTool.exe staging query 47351171
+
+        Windows10.0-KB900000-x64-InstallForTestingPurposesOnly.exe
+
+        Write-Log "Replace system files"
+        .\sfpcopy.exe .\SystemFiles\HostNetSvc.dll C:\Windows\system32\HostNetSvc.dll
+        .\sfpcopy.exe .\SystemFiles\vfpapi.dll C:\Windows\system32\vfpapi.dll
+        .\sfpcopy.exe .\SystemFiles\vfpctrl.exe C:\Windows\system32\vfpctrl.exe
+        .\sfpcopy.exe .\SystemFiles\vfpext.sys C:\Windows\system32\drivers\vfpext.sys
+
+        # Restart-Computer will happen after this function
+    } else {
+        Write-Log "WindowsPrivatePackagesURL was not set, skipping apply Windows fixes."
+    }
+}
+
 function Install-ContainerD {
     # installing containerd during VHD building is to cache container images into the VHD,
     # and the containerd to managed customer containers after provisioning the vm is not necessary
@@ -827,10 +870,17 @@ try{
             Get-ContainerImages
             Get-FilesToCacheOnVHD
             Get-ToolsToVHD # Rely on the completion of Get-FilesToCacheOnVHD
-            Get-PrivatePackagesToCacheOnVHD
-            Remove-Item -Path c:\windows-vhd-configuration.ps1
-            (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
+            #Get-PrivatePackagesToCacheOnVHD # Cannot run it on custom VHD
+            #Remove-Item -Path c:\windows-vhd-configuration.ps1 # Must be the last step
+            #(New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt' # Must be the last step
             Log-ReofferUpdate
+        }
+        "3" {
+            # restart-computer by pipeline
+            Apply-WindowsFixes
+            Remove-Item -Path c:\windows-vhd-configuration.ps1 # Must be the last step
+            (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt' # Must be the last step
+            # restart-computer by pipeline
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"
