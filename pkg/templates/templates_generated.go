@@ -5230,11 +5230,9 @@ installDeps() {
 
 installKataDeps() {
     if [[ $OS_VERSION != "1.0" ]]; then
-      for dnf_package in kernel-mshv hvloader mshv-bootloader-lx mshv cloud-hypervisor cloud-hypervisor-cvm moby-containerd-cc kata-containers kata-containers-cc kernel-uvm kernel-uvm-cvm; do
-        if ! dnf_install 30 1 600 $dnf_package; then
-          exit $ERR_APT_INSTALL_TIMEOUT
-        fi
-      done
+      if ! dnf_install 30 1 600 kata-packages-host; then
+        exit $ERR_APT_INSTALL_TIMEOUT
+      fi
     fi
 }
 
