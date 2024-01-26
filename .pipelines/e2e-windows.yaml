@@ -1,14 +1,14 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_e2e
 trigger: none
-
 pr:
   branches:
     include:
-    - main
+    - master
     - 'official/*'
   paths:
     include:
-    - '.pipelines/*'
+    - .pipelines/e2e-windows.yaml
+    - .pipelines/templates/e2e-windows-template.yaml
     - 'e2e/windows/*'
     - 'parts/windows/*'
     - 'staging/cse/windows/*'
