@@ -7,8 +7,8 @@ pr:
     - 'official/*'
   paths:
     include:
-    - .pipelines/e2e-windows.yaml
-    - .pipelines/templates/e2e-windows-template.yaml
+    - '.pipelines/e2e-windows.yaml'
+    - '.pipelines/templates/e2e-windows-template.yaml'
     - 'e2e/windows/*'
     - 'parts/windows/*'
     - 'staging/cse/windows/*'
