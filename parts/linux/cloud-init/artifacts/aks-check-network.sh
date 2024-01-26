@@ -19,10 +19,18 @@ SYSTEMD_RESOLV_CONFIG_PATH="/run/systemd/resolve/resolv.conf"
 
 ARM_ENDPOINT="management.azure.com"
 METADATA_ENDPOINT="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://${ARM_ENDPOINT}/"
-AKS_ENDPOINT="https://${resource}/providers/Microsoft.ContainerService/operations?api-version=2023-05-01"
+API_VERSION="2023-11-01"
+AKS_ENDPOINT="https://${ARM_ENDPOINT}/providers/Microsoft.ContainerService/operations?api-version=${API_VERSION}"
+APISERVER_ENDPOINT="https://${APISERVER_FQDN}/healthz"
+ACS_BINARY_ENDPOINT="https://acs-mirror.azureedge.net/azure-cni/v1.4.43/binaries/azure-vnet-cni-linux-amd64-v1.4.43.tgz"
 
 TEMP_DIR=$(mktemp -d)
+NSLOOKUP_FILE="${TEMP_DIR}/nslookup.log"
+TOKEN_FILE="${TEMP_DIR}/access_token.json"
 
+URL_LISTS=("mcr.microsoft.com" "login.microsoftonline.com" "packages.microsoft.com" "acs-mirror.azureedge.net")
+MAX_RETRY=3
+DELAY=5
 
 function logs_to_events {
     # local vars here allow for nested function tracking
@@ -64,15 +72,15 @@ fi
 azure_config=$(cat $AZURE_CONFIG_PATH)
 
 # check DNS resolution to ARM endpoint
-nslookup $ARM_ENDPOINT > ${TEMP_DIR}/nslookup.log
+nslookup $ARM_ENDPOINT > $NSLOOKUP_FILE
 if [ $? -eq 0 ]; then
     logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to endpoint $ARM_ENDPOINT'"
 else
-    error_log=$(cat ${TEMP_DIR}/nslookup.log)
+    error_log=$(cat $NSLOOKUP_FILE)
     logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to endpoint $ARM_ENDPOINT with error $error_log'"
 
     # perform basic DNS troubleshooting
-    nameserver=$(cat ${TEMP_DIR}/nslookup.log | grep "Server" | awk '{print $2}')
+    nameserver=$(cat $NSLOOKUP_FILE | grep "Server" | awk '{print $2}')
     echo "Checking resolv.conf for nameserver $nameserver"
     cat $RESOLV_CONFIG_PATH | grep $nameserver 
     if [ $? -ne 0 ]; then
@@ -86,46 +94,35 @@ else
 fi
 
 # check access to ARM endpoint
-token_file="${TEMP_DIR}/access_token.json"
-result=$(curl -s -o $token_file -w "%{http_code}" -H Metadata:true $METADATA_ENDPOINT)
+result=$(curl -s -o $TOKEN_FILE -w "%{http_code}" -H Metadata:true $METADATA_ENDPOINT)
 if [ $result -eq 200 ]; then
     logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully sent metadata endpoint request with returned status code $result'"
-    access_token=$(cat $token_file | jq -r .access_token)
+    access_token=$(cat $TOKEN_FILE | jq -r .access_token)
     res=$(curl -X GET -H "Authorization: Bearer $access_token" -H "Content-Type:application/json" -s -o /dev/null -w "%{http_code}" $AKS_ENDPOINT)
     if [ $res -ge 200 ] && [ $res -lt 400 ]; then
-        logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled $resource with returned status code $res'"
+        logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled $ARM_ENDPOINT with returned status code $res'"
     else 
-        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $resource with returned status code $res'" 
+        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $ARM_ENDPOINT with returned status code $res'" 
     fi
 else
-    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to send metadata endpoint request with returned status code $result. Can't check access to $resource'" 
+    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to send metadata endpoint request with returned status code $result. Can't check access to $ARM_ENDPOINT'" 
 fi
 
 # Check access to apiserver
-nslookup $FQDN > /dev/null
+nslookup $APISERVER_FQDN > /dev/null
 if [ $? -eq 0 ]; then
-    logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to endpoint $FQDN'"
-    fullUrl="https://${FQDN}/healthz"
-    res=$(curl -s -o /dev/null -w "%{http_code}" --cacert /etc/kubernetes/certs/apiserver.crt --cert /etc/kubernetes/certs/client.crt --key /etc/kubernetes/certs/client.key $fullUrl)
+    logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to endpoint $APISERVER_FQDN'"
+    res=$(curl -s -o /dev/null -w "%{http_code}" --cacert /etc/kubernetes/certs/apiserver.crt --cert /etc/kubernetes/certs/client.crt --key /etc/kubernetes/certs/client.key $APISERVER_ENDPOINT)
     if [ $res -ge 200 ] && [ $res -lt 400 ]; then
-        logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled apiserver $FQDN with returned status code $res'"
+        logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled apiserver $APISERVER_FQDN with returned status code $res'"
     else 
-        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl apiserver $FQDN with returned status code $res'" 
+        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl apiserver $APISERVER_FQDN with returned status code $res'" 
     fi
 else
-    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to endpoint $url'"
+    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to endpoint $APISERVER_FQDN'"
 fi
 
-# Set the URLs to ping
-urlLists=("mcr.microsoft.com" "login.microsoftonline.com" "packages.microsoft.com" "acs-mirror.azureedge.net")
-
-# Set the number of times to retry before logging an error
-retries=3
-
-# Set the delay between retries in seconds
-delay=5
-
-for url in ${urlLists[@]};
+for url in ${URL_LISTS[@]};
 do
     # Check DNS 
     nslookup $url > /dev/null
@@ -139,10 +136,9 @@ do
     i=0
     while true;
     do
-        # Ping the URLs and capture the response code
+        # Ping the url and capture the response code
         if [ $url == "acs-mirror.azureedge.net" ]; then
-            fullUrl="https://${url}/azure-cni/v1.4.43/binaries/azure-vnet-cni-linux-amd64-v1.4.43.tgz"
-            response=$(curl -I -s -o /dev/null -w "%{http_code}" $fullUrl -L)
+            response=$(curl -I -s -o /dev/null -w "%{http_code}" $ACS_BINARY_ENDPOINT -L)
         else
             response=$(curl -s -o /dev/null -w "%{http_code}" "https://$url" -L)
         fi
@@ -155,20 +151,20 @@ do
         # If the response code is not 200, increment the error count
         i=$(( $i + 1 ))
         # If we have reached the maximum number of retries, log an error
-        if [[ $i -eq $retries ]]; then
-            logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $url after $retries attempts with returned status code $response'" 
+        if [[ $i -eq $MAX_RETRY ]]; then
+            logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $url after $MAX_RETRY attempts with returned status code $response'" 
             break
         fi
 
         # Sleep for the specified delay before trying again
-        sleep $delay
+        sleep $DELAY
     done
 done
 
 if [ ! -z "$CUSTOM_ENDPOINT" ]; then
     echo "Checking additional endpoints ..."  
-    extraUrlList=($(echo $CUSTOM_ENDPOINT | tr "," "\n"))
-    for url in "${extraUrlList[@]}"
+    extra_urls=($(echo $CUSTOM_ENDPOINT | tr "," "\n"))
+    for url in "${extra_urls[@]}"
     do
         nslookup $url > /dev/null
         if [ $? -eq 0 ]; then
@@ -188,12 +184,12 @@ if [ ! -z "$CUSTOM_ENDPOINT" ]; then
             fi
 
             i=$(( $i + 1 ))
-            if [[ $i -eq $retries ]]; then
-                logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $url after $retries attempts with returned status code $response'" 
+            if [[ $i -eq $MAX_RETRY ]]; then
+                logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $url after $MAX_RETRY attempts with returned status code $response'" 
                 break
             fi
 
-            sleep $delay
+            sleep $DELAY
         done
     done
 fi
