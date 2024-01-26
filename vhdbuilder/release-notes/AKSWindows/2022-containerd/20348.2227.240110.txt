@@ -8,7 +8,7 @@ VHD ID:      6116c1c0-1110-48ba-9d21-8313307e46a3
 
 System Info
 	OS Name        : Windows Server 2022 Datacenter
-	OS Version     : 20348.2227
+	OS Version     : 20348.2227-update
 	OS InstallType : Server Core
 
 Allowed security protocols: SystemDefault
