@@ -7618,15 +7618,6 @@ try
     Write-Log "Download kubelet binaries and unzip"
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
 
-    # This overwrites the binaries that are downloaded from the custom packge with binaries.
-    # The custom package has a few files that are necessary for future steps (nssm.exe)
-    # this is a temporary work around to get the binaries until we depreciate
-    # custom package and nssm.exe as defined in aks-engine#3851.
-    if ($global:WindowsKubeBinariesURL){
-        Write-Log "Overwriting kube node binaries from $global:WindowsKubeBinariesURL"
-        Get-KubeBinaries -KubeBinariesURL $global:WindowsKubeBinariesURL
-    }
-
     Write-Log "Installing ContainerD"
     $cniBinPath = $global:AzureCNIBinDir
     $cniConfigPath = $global:AzureCNIConfDir
@@ -7793,7 +7784,7 @@ try
 
     if (Test-Path $CacheDir)
     {
-        Write-Log "Removing aks-engine bits cache directory"
+        Write-Log "Removing aks cache directory"
         Remove-Item $CacheDir -Recurse -Force
     }
 
