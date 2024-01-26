@@ -443,6 +443,31 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-log-collector.sh",
+      "destination": "/home/packer/aks-log-collector.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-log-collector-send.py",
+      "destination": "/home/packer/aks-log-collector-send.py"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-log-collector.service",
+      "destination": "/home/packer/aks-log-collector.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-log-collector.slice",
+      "destination": "/home/packer/aks-log-collector.slice"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-log-collector.timer",
+      "destination": "/home/packer/aks-log-collector.timer"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-logrotate.sh",
       "destination": "/home/packer/logrotate.sh"
     },
