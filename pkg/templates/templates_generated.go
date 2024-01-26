@@ -321,9 +321,16 @@ TEMP_DIR=$(mktemp -d)
 NSLOOKUP_FILE="${TEMP_DIR}/nslookup.log"
 TOKEN_FILE="${TEMP_DIR}/access_token.json"
 
-URL_LIST=("mcr.microsoft.com" "login.microsoftonline.com" "packages.microsoft.com" "acs-mirror.azureedge.net")
 MAX_RETRY=3
+MAX_TIME=10
 DELAY=5
+
+declare -A URL_LIST=( 
+    ["mcr.microsoft.com"]="This is required to access images in Microsoft Container Registry (MCR). These images are required for the correct creation and functioning of the cluster, including scale and upgrade operations."\
+    ["login.microsoftonline.com"]="This is equired for Microsoft Entra authentication."\
+    ["packages.microsoft.com"]="This is required to download packages (like Moby, PowerShell, and Azure CLI) using cached apt-get operations."\
+    ["acs-mirror.azureedge.net"]="This is required to download and install required binaries like kubenet and Azure CNI."\ 
+)
 
 function logs_to_events {
     # local vars here allow for nested function tracking
@@ -349,7 +356,7 @@ function logs_to_events {
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
-    # echo ${json_string} > ${EVENTS_LOGGING_PATH}${eventsFileName}.json
+    echo ${json_string} > ${EVENTS_LOGGING_PATH}${eventsFileName}.json
 
     # this allows an error from the command at ${@} to be returned and correct code assigned in cse_main
     if [ "$ret" != "0" ]; then
@@ -369,24 +376,24 @@ function check_and_curl {
     local url=$1
     local error_msg=$2
 
-    # Check DNS 
+    # check DNS 
     nslookup $url > /dev/null
     if [ $? -eq 0 ]; then
         logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to $url'"
     else
+        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to $url. $error_msg'"
         dns_trace $url
-        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to $url'"
-        continue
+        return 1
     fi
 
-    i=0
+    local i=0
     while true;
     do
-        # Curl the url and capture the response code
+        # curl the url and capture the response code
         if [ $url == "acs-mirror.azureedge.net" ]; then
-            response=$(curl -I -s -o /dev/null -w "%{http_code}" "https://${ACS_BINARY_ENDPOINT}" -L)
+            response=$(curl -I -m $MAX_TIME -s -o /dev/null -w "%{http_code}" "https://${ACS_BINARY_ENDPOINT}" -L)
         else
-            response=$(curl -s -o /dev/null -w "%{http_code}" "https://${url}" -L)
+            response=$(curl -s -m $MAX_TIME -o /dev/null -w "%{http_code}" "https://${url}" -L)
         fi
 
         if [ $response -ge 200 ] && [ $response -lt 400 ]; then
@@ -394,15 +401,15 @@ function check_and_curl {
             break
         fi
 
-        # If the response code is not within successful range, increment the error count
+        # if the response code is not within successful range, increment the error count
         i=$(( $i + 1 ))
-        # If we have reached the maximum number of retries, log an error
+        # if we have reached the maximum number of retries, log an error
         if [[ $i -eq $MAX_RETRY ]]; then
             logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $url after $MAX_RETRY attempts with returned status code $response. $error_msg'" 
             break
         fi
         
-        # Sleep for the specified delay before trying again
+        # sleep for the specified delay before trying again
         sleep $DELAY
     done
 }
@@ -439,11 +446,11 @@ else
 fi
 
 # check access to ARM endpoint
-result=$(curl -s -o $TOKEN_FILE -w "%{http_code}" -H Metadata:true $METADATA_ENDPOINT)
+result=$(curl -m $MAX_TIME -s -o $TOKEN_FILE -w "%{http_code}" -H Metadata:true $METADATA_ENDPOINT)
 if [ $result -eq 200 ]; then
     logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully retrieved access token'"
     access_token=$(cat $TOKEN_FILE | jq -r .access_token)
-    res=$(curl -X GET -H "Authorization: Bearer $access_token" -H "Content-Type:application/json" -s -o /dev/null -w "%{http_code}" $AKS_ENDPOINT)
+    res=$(curl -m $MAX_TIME -X GET -H "Authorization: Bearer $access_token" -H "Content-Type:application/json" -s -o /dev/null -w "%{http_code}" $AKS_ENDPOINT)
     if [ $res -ge 200 ] && [ $res -lt 400 ]; then
         logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled $ARM_ENDPOINT with returned status code $res'"
     else 
@@ -460,23 +467,25 @@ else
     nslookup $APISERVER_FQDN > /dev/null
     if [ $? -eq 0 ]; then
         logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to $APISERVER_FQDN'"
-        res=$(curl -s -o /dev/null -w "%{http_code}" --cacert $AKS_CA_CERT_PATH --cert $AKS_CERT_PATH --key $AKS_KEY_PATH $APISERVER_ENDPOINT)
+        res=$(curl -m $MAX_TIME -s -o /dev/null -w "%{http_code}" --cacert $AKS_CA_CERT_PATH --cert $AKS_CERT_PATH --key $AKS_KEY_PATH $APISERVER_ENDPOINT)
         if [ $res -ge 200 ] && [ $res -lt 400 ]; then
             logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled apiserver $APISERVER_FQDN with returned status code $res'"
         else 
             logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $APISERVER_FQDN with returned status code $res. Node can't connect to the apiserver'" 
         fi
     else
-        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to $APISERVER_FQDN'"
+        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to $APISERVER_FQDN. Node can't connect to the apiserver'"
         dns_trace $APISERVER_FQDN
     fi
 fi
 
-for url in ${URL_LIST[@]};
+# check access to required endpoints
+for url in "${!URL_LIST[@]}"
 do
-    check_and_curl $url ""
+    check_and_curl $url "${URL_LIST[$url]}"
 done
 
+# check access to additional endpoints
 if [ ! -z "$CUSTOM_ENDPOINT" ]; then
     echo "Checking additional endpoints ..."  
     extra_urls=($(echo $CUSTOM_ENDPOINT | tr "," "\n"))
