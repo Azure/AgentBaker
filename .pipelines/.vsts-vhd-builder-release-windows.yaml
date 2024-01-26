@@ -1,5 +1,25 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
+pr:
+  branches:
+    include:
+    - master
+  paths:
+    include:
+    - .pipelines/.vsts-vhd-builder-release-windows.yaml
+    - .pipelines/templates/.builder-release-template-windows.yaml
+    - packer.mk
+    - vhdbuilder/packer/packer-plugin.pkr.hcl
+    - vhdbuilder/packer/*.ps1
+    - vhdbuilder/packer/test/*.ps1
+    - vhdbuilder/packer/test/run-test.sh
+    - vhdbuilder/packer/backfill-cleanup.sh
+    - vhdbuilder/packer/cleanup.sh
+    - vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
+    - vhdbuilder/packer/generate-vhd-publishing-info.sh
+    - vhdbuilder/packer/init-variables.sh
+    - vhdbuilder/packer/windows-image.env
+    - vhdbuilder/packer/windows-vhd-builder-sig.json
 
 pool:
   name: $(AZURE_POOL_NAME)
