@@ -134,6 +134,7 @@ $global:UseInstanceMetadata = "{{GetVariable "useInstanceMetadata"}}"
 $global:LoadBalancerSku = "{{GetVariable "loadBalancerSku"}}"
 $global:ExcludeMasterFromStandardLB = "{{GetVariable "excludeMasterFromStandardLB"}}"
 
+$global:PrivateEgressProxyAddress = "{{GetPrivateEgressProxyAddress}}"
 
 # Windows defaults, not changed by aks-engine
 $global:CacheDir = "c:\akse-cache"
@@ -169,12 +170,18 @@ $global:EnableHostsConfigAgent = [System.Convert]::ToBoolean("{{ EnableHostsConf
 # These scripts are used by cse
 $global:CSEScriptsPackageUrl = "{{GetVariable "windowsCSEScriptsPackageURL" }}";
 
+# The windows nvidia gpu driver related url is used by windows cse
+$global:GpuDriverURL = "{{GetVariable "windowsGpuDriverURL" }}";
+
 # PauseImage
 $global:WindowsPauseImageURL = "{{GetVariable "windowsPauseImageURL" }}";
 $global:AlwaysPullWindowsPauseImage = [System.Convert]::ToBoolean("{{GetVariable "alwaysPullWindowsPauseImage" }}");
 
 # Calico
 $global:WindowsCalicoPackageURL = "{{GetVariable "windowsCalicoPackageURL" }}";
+
+## GPU install
+$global:ConfigGPUDriverIfNeeded = [System.Convert]::ToBoolean("{{GetVariable "configGPUDriverIfNeeded" }}");
 
 # GMSA
 $global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
@@ -199,6 +206,8 @@ $global:LogGeneratorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetLogGene
 
 $global:EnableIncreaseDynamicPortRange = $false
 
+$global:RebootNeeded = $false
+
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
@@ -216,8 +225,12 @@ try
         Write-Log "The script has been executed before, will exit without doing anything."
         return
     }
-   
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.29.zip"
+
+    # This involes using proxy, log the config before fetching packages
+    Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
+    # TODO update to use proxy
+
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.37.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -242,6 +255,7 @@ try
     . c:\AzureData\windows\containerdfunc.ps1
     . c:\AzureData\windows\kubeletfunc.ps1
     . c:\AzureData\windows\kubernetesfunc.ps1
+    . c:\AzureData\windows\nvidiagpudriverfunc.ps1
 
     # Install OpenSSH if SSH enabled
     $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
@@ -278,15 +292,6 @@ try
 
     Write-Log "Download kubelet binaries and unzip"
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
-
-    # This overwrites the binaries that are downloaded from the custom packge with binaries.
-    # The custom package has a few files that are necessary for future steps (nssm.exe)
-    # this is a temporary work around to get the binaries until we depreciate
-    # custom package and nssm.exe as defined in aks-engine#3851.
-    if ($global:WindowsKubeBinariesURL){
-        Write-Log "Overwriting kube node binaries from $global:WindowsKubeBinariesURL"
-        Get-KubeBinaries -KubeBinariesURL $global:WindowsKubeBinariesURL
-    }
 
     Write-Log "Installing ContainerD"
     $cniBinPath = $global:AzureCNIBinDir
@@ -450,9 +455,11 @@ try
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
     }
 
+    Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
+
     if (Test-Path $CacheDir)
     {
-        Write-Log "Removing aks-engine bits cache directory"
+        Write-Log "Removing aks cache directory"
         Remove-Item $CacheDir -Recurse -Force
     }
 
@@ -480,6 +487,10 @@ try
     }
     $timer.Stop()
     Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
+
+    if ($global:RebootNeeded -eq $true) {
+        Postpone-RestartComputer
+    }
 }
 catch
 {

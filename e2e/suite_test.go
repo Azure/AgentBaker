@@ -10,6 +10,7 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/scenario"
+	"github.com/Azure/agentbakere2e/suite"
 	"github.com/barkimedes/go-deepcopy"
 )
 
@@ -18,30 +19,35 @@ func Test_All(t *testing.T) {
 	ctx := context.Background()
 	t.Parallel()
 
-	suiteConfig, err := newSuiteConfig()
+	suiteConfig, err := suite.NewConfigForEnvironment()
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	log.Printf("suite config:\n%s", suiteConfig.String())
 
 	if err := createE2ELoggingDir(); err != nil {
 		t.Fatal(err)
 	}
 
-	scenarios := scenario.InitScenarioTable(suiteConfig.scenariosToRun)
+	scenarios, err := scenario.GetScenariosForSuite(ctx, suiteConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(scenarios) < 1 {
 		t.Fatal("at least one scenario must be selected to run the e2e suite")
 	}
 
-	cloud, err := newAzureClient(suiteConfig.subscription)
+	cloud, err := newAzureClient(suiteConfig.Subscription)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := ensureResourceGroup(ctx, cloud, suiteConfig.resourceGroupName); err != nil {
+	if err := ensureResourceGroup(ctx, cloud, suiteConfig); err != nil {
 		t.Fatal(err)
 	}
 
-	clusterConfigs, err := getInitialClusterConfigs(ctx, cloud, suiteConfig.resourceGroupName)
+	clusterConfigs, err := getInitialClusterConfigs(ctx, cloud, suiteConfig.ResourceGroupName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,10 +56,10 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, scenario := range scenarios {
-		scenario := scenario
+	for _, e2eScenario := range scenarios {
+		e2eScenario := e2eScenario
 
-		clusterConfig, err := chooseCluster(ctx, r, cloud, suiteConfig, scenario, clusterConfigs)
+		clusterConfig, err := chooseCluster(ctx, r, cloud, suiteConfig, e2eScenario, clusterConfigs)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -61,40 +67,36 @@ func Test_All(t *testing.T) {
 		clusterName := *clusterConfig.cluster.Name
 		log.Printf("chose cluster: %q", clusterName)
 
-		baseConfig, err := getBaseNodeBootstrappingConfiguration(ctx, cloud, suiteConfig, clusterConfig.parameters)
+		baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(ctx, cloud, suiteConfig, clusterConfig.parameters)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		copied, err := deepcopy.Anything(baseConfig)
+		copied, err := deepcopy.Anything(baseNodeBootstrappingConfig)
 		if err != nil {
 			t.Error(err)
 			continue
 		}
 		nbc := copied.(*datamodel.NodeBootstrappingConfiguration)
 
-		if scenario.Config.BootstrapConfigMutator != nil {
-			scenario.Config.BootstrapConfigMutator(nbc)
-		}
+		e2eScenario.PrepareNodeBootstrappingConfiguration(nbc)
 
-		t.Run(scenario.Name, func(t *testing.T) {
+		t.Run(e2eScenario.Name, func(t *testing.T) {
 			t.Parallel()
 
-			caseLogsDir, err := createVMLogsDir(scenario.Name)
+			loggingDir, err := createVMLogsDir(e2eScenario.Name)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			opts := &scenarioRunOpts{
+			runScenario(ctx, t, r, &scenarioRunOpts{
 				clusterConfig: clusterConfig,
 				cloud:         cloud,
 				suiteConfig:   suiteConfig,
-				scenario:      scenario,
+				scenario:      e2eScenario,
 				nbc:           nbc,
-				loggingDir:    caseLogsDir,
-			}
-
-			runScenario(ctx, t, r, opts)
+				loggingDir:    loggingDir,
+			})
 		})
 	}
 }
@@ -111,7 +113,7 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 
 	vmssSucceeded := true
 	vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, vmssName, opts, publicKeyBytes)
-	if !opts.suiteConfig.keepVMSS && cleanupVMSS != nil {
+	if !opts.suiteConfig.KeepVMSS && cleanupVMSS != nil {
 		defer cleanupVMSS()
 	}
 	if err != nil {
@@ -122,12 +124,26 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		log.Println("vm was unable to be provisioned due to a CSE error, will still atempt to extract provisioning logs...")
 	}
 
-	if vmssModel != nil {
-		if err := writeToFile(filepath.Join(opts.loggingDir, "vmssId.txt"), *vmssModel.ID); err != nil {
-			t.Fatalf("failed to write vmss resource ID to disk: %s", err)
-		}
+	if opts.suiteConfig.KeepVMSS {
+		defer func() {
+			log.Printf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
+			if vmssModel != nil {
+				log.Printf("retained vmss resource ID: %q", *vmssModel.ID)
+			} else {
+				log.Printf("WARNING: model of retained vmss %q is nil", vmssName)
+			}
+			if err := writeToFile(filepath.Join(opts.loggingDir, "sshkey"), string(privateKeyBytes)); err != nil {
+				t.Fatalf("failed to write retained vmss %q private ssh key to disk: %s", vmssName, err)
+			}
+		}()
 	} else {
-		log.Printf("WARNING: bootstrapped vmss model was nil for %s", vmssName)
+		if vmssModel != nil {
+			if err := writeToFile(filepath.Join(opts.loggingDir, "vmssId.txt"), *vmssModel.ID); err != nil {
+				t.Fatalf("failed to write vmss resource ID to disk: %s", err)
+			}
+		} else {
+			log.Printf("WARNING: bootstrapped vmss model was nil for %s", vmssName)
+		}
 	}
 
 	vmPrivateIP, err := pollGetVMPrivateIP(ctx, vmssName, opts)
@@ -171,17 +187,5 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		log.Println("node bootstrapping succeeded!")
 	} else {
 		t.Fatal("vmss was unable to be properly created and bootstrapped")
-	}
-
-	if opts.suiteConfig.keepVMSS {
-		log.Printf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
-		if vmssModel != nil {
-			log.Printf("retained vmss resource ID: %q", *vmssModel.ID)
-		} else {
-			log.Printf("WARNING: model of retained vmss %q is nil", vmssName)
-		}
-		if err := writeToFile(filepath.Join(opts.loggingDir, "sshkey"), string(privateKeyBytes)); err != nil {
-			t.Fatalf("failed to write retained vmss %q private ssh key to disk: %s", vmssName, err)
-		}
 	}
 }

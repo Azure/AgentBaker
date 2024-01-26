@@ -1,6 +1,6 @@
 # Introduction of Windows E2E
 ## Summary 
-Windows E2E is used to validate the latest change of windows cse package automatically. We currently support three versions of windows images: windows 2019 containerd, windows 2022 containerd gen1 and windows 2022 containerd gen2.
+Windows E2E is used to validate the latest change of windows cse package automatically. We currently support three versions of windows images: windows 2019 containerd, windows 2022 containerd gen1 and windows 2022 containerd gen2, windows 23H2 gen1 and windows 23H2 gen2.
 
 ## Code Path
 ```bash
@@ -51,16 +51,12 @@ Windows E2E is used to validate the latest change of windows cse package automat
 - **windows_vmss_template.json**. This json file is the basic template used to deploy a windows vmss. We add necessary properties to this file in `e2e-scenario.sh`.
 
 ## Generate and Update current windows test images
-Currently, we use test images "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/akswinvhdbuilderrg/providers/Microsoft.Compute/galleries/AKSWindows/images/windows-e2e-test-$WINDOWS_E2E_IMAGE/versions/2023.02.07/" ($WINDOWS_E2E_IMAGE could be 2019-containerd, 2022-containerd, 2022-containerd-gen2) as is referred by `IMAGE_REFERENCE` in `e2e-scenario.sh`.
+Currently, we use the latest test images ""/subscriptions/$AZURE_BUILD_SUBSCRIPTION_ID/resourceGroups/$AZURE_BUILD_RESOURCE_GROUP_NAME/providers/Microsoft.Compute/galleries/$AZURE_BUILD_GALLERY_NAME/images/windows-e2e-test-$WINDOWS_E2E_IMAGE/versions/latest" ($WINDOWS_E2E_IMAGE could be 2019-containerd, 2022-containerd, 2022-containerd-gen2, 23H2, 23H2-gen2) as is referred by `IMAGE_REFERENCE` in `e2e-scenario.sh`.
 
-To generate new windows test images, we can use [`AKS Windows VHD Build - PR check-in gate`](https://msazure.visualstudio.com/CloudNativeCompute/_build?definitionId=182855&_a=summary). Before running the pipeline, we need to set the values of pipeline variables as follows:
+To generate new windows test images, we can use [`[TEST All VHDs] AKS Windows VHD Build - Msft Tenant`](https://msazure.visualstudio.com/CloudNativeCompute/_build?definitionId=210712&_a=summary). Before running the pipeline, we need to set the values of pipeline variables as follows:
 - `SIG_GALLERY_NAME` is AKSWindows
 - `SIG_IMAGE_NAME_PREFIX` is windows-e2e-test
-- `SIG_IMAGE_VERSION` is the date (e.g., 2023.02.07)
-
-To update the image version in windows e2e, we need to update the following code:
-- Update version of `IMAGE_REFERENCE` in `e2e/windows/e2e-scenario.sh` to the new `SIG_IMAGE_VERSION`.
-- Update versions of `windowsNodeImageVersion` in `.pipelines/e2e-windows.yaml` to the new `SIG_IMAGE_VERSION`.
+- `SIG_IMAGE_VERSION` is the latest date (e.g., 2023.02.07)
 
 ## Generate basic template for vmss deployment
 We generate basic template for vmss deployment by removing node-related properties from the example template of an existing vmss and replacing existing vmss name with our target vmss name.

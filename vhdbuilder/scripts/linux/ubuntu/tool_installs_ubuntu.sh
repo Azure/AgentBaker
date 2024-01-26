@@ -76,6 +76,16 @@ installBpftrace() {
     local bpftrace_url="https://upstreamartifacts.azureedge.net/$bpftrace_bin/$version"
     local bpftrace_filepath="/usr/local/bin/$bpftrace_bin"
     local tools_filepath="/usr/local/share/$bpftrace_bin"
+    if [[ $(isARM64) == 1 ]]; then
+        # install bpftrace tool using default bpftrace apt package
+        # the binary at "$bpftrace_url/$bpftrace_bin" is not for arm64
+        if [[ ! -f "/usr/sbin/bpftrace" ]]; then
+            apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+            apt_get_install 120 5 300 bpftrace || exit $ERR_BPFTRACE_TOOLS_INSTALL_TIMEOUT
+        fi
+        return
+    fi
+
     if [[ -f "$bpftrace_filepath" ]]; then
         installed_version="$($bpftrace_bin -V | cut -d' ' -f2)"
         if [[ "$version" == "$installed_version" ]]; then
@@ -98,10 +108,15 @@ installBpftrace() {
 }
 
 disableNtpAndTimesyncdInstallChrony() {
-    # Disable systemd-timesyncd
-    systemctl_stop 20 30 120 systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
-    systemctl disable systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
-
+    # Disable systemd-timesyncd if present
+    status=$(systemctl show -p SubState --value systemd-timesyncd)
+    if [ $status == 'dead' ]; then
+        echo "systemd-timesyncd is removed, no need to disable"
+    else
+        systemctl_stop 20 30 120 systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
+        systemctl disable systemd-timesyncd || exit $ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT
+    fi
+    
     # Disable ntp if present
     status=$(systemctl show -p SubState --value ntp)
     if [ $status == 'dead' ]; then

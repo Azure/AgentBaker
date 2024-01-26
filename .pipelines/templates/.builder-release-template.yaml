@@ -17,6 +17,25 @@ steps:
       vstsFeedPackage: asc-baseline
       vstsPackageVersion: '1.1.0-268'
       downloadDirectory: vhdbuilder/packer
+  - task: DownloadPipelineArtifact@2
+    displayName: 'Download Kata CC UVM artifact'
+    inputs:
+      source: specific
+      project: CloudNativeCompute
+      pipeline: 318279
+      specificBuildWithTriggering: true
+      buildVersionToDownload: 'latest'
+      downloadType: 'single'
+      artifactName: 'drop_container_job_sign_uvm'
+      itemPattern: |
+        **/kata-containers-igvm-debug.img**
+        **/igvm-measurement**
+        **/kata-containers-igvm.img**
+        **/kata-containers.img**
+        **/kata-containers-initrd-base.img**
+        **/reference-info-base64**
+      downloadPath: $(Build.SourcesDirectory)
+    condition: or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux'))
   - bash: |
       pwd
       ls -R
@@ -32,17 +51,17 @@ steps:
   - bash: |
       SKU_NAME=${OS_VERSION} && \
       if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
-      if [[ ${OS_VERSION} == "V2" && ${ARCHITECTURE,,} == "arm64" && ${OS_SKU} == "CBLMariner" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
+      if [[ ${OS_VERSION} == "V2" && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
       if [[ ${OS_VERSION} == "18.04" && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
       if [[ ${OS_VERSION} == "22.04" && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
       if [[ ${OS_VERSION} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
       if [[ ${OS_VERSION} == "20.04" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
-      if [[ ${OS_VERSION} == "V2" && ${OS_SKU} == "CBLMariner" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
+      if [[ ${OS_VERSION} == "V2" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
       if [[ "$(FEATURE_FLAGS)" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
       if [[ "${IMG_SKU}" == "20_04-lts-cvm" ]]; then SKU_NAME="${SKU_NAME}CVM"; fi && \
       if [[ "${IMG_SKU}" == *"minimal"* ]]; then SKU_NAME="${SKU_NAME}minimal"; fi && \
       if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
-      if [[ ${OS_SKU} != "CBLMariner" && "${CONTAINER_RUNTIME}" == "containerd" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
+      if [[ ${OS_SKU} != "CBLMariner" && ${OS_SKU} != "AzureLinux" && "${CONTAINER_RUNTIME}" == "containerd" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
       SKU_NAME=$(echo ${SKU_NAME} | tr -d '.') && \
       echo "##vso[task.setvariable variable=SKU_NAME]$SKU_NAME"
       echo "Set SKU_NAME to $SKU_NAME"
@@ -84,7 +103,10 @@ steps:
         -e ARCHITECTURE=${ARCHITECTURE} \
         -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
         -e SGX_INSTALL=${SGX_INSTALL} \
+        -e ENABLE_CGROUPV2=${ENABLE_CGROUPV2} \
         -e IMAGE_VERSION=${IMAGE_VERSION} \
+        -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
+        -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
         ${CONTAINER_IMAGE} make -f packer.mk run-packer
     displayName: Building VHD
   - script: |
@@ -116,18 +138,12 @@ steps:
         -e ARCHITECTURE=${ARCHITECTURE} \
         -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
         -e SGX_INSTALL=${SGX_INSTALL} \
+        -e ENABLE_CGROUPV2=${ENABLE_CGROUPV2} \
         -e GIT_BRANCH=$(Build.SourceBranch) \
+        -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
+        -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
         ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD Tests
-  - task: PublishPipelineArtifact@0
-    inputs:
-        artifactName: 'trivy-report-${{ parameters.artifactName }}'
-        targetPath: 'trivy-report.json'
-  - task: PublishPipelineArtifact@0
-    inputs:
-        artifactName: 'trivy-images-table-${{ parameters.artifactName }}'
-        targetPath: 'trivy-images-table.txt'
-    displayName: publish trivy report
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
@@ -148,6 +164,8 @@ steps:
       ARM64_OS_DISK_SNAPSHOT_NAME="$(cat vhdbuilder/packer/settings.json | grep "arm64_os_disk_snapshot_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       IMAGE_NAME="${SIG_IMAGE_NAME}-${captured_sig_version}" && \
+      PRIVATE_PACKAGES_URL="$(cat vhdbuilder/packer/settings.json | grep "private_packages_url" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      LINUX_MSI_RESOURCE_ID="$(cat vhdbuilder/packer/settings.json | grep "linux_msi_resource_ids" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
@@ -168,6 +186,8 @@ steps:
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
       -e ARCHITECTURE=${ARCHITECTURE} \
       -e ARM64_OS_DISK_SNAPSHOT_NAME=${ARM64_OS_DISK_SNAPSHOT_NAME} \
+      -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
+      -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
       ${CONTAINER_IMAGE} make -f packer.mk cleanup
     displayName: Clean Up Packer Generated Resources
     condition: always()
@@ -176,6 +196,8 @@ steps:
         captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         SIG_GALLERY_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+        PRIVATE_PACKAGES_URL="$(cat vhdbuilder/packer/settings.json | grep "private_packages_url" | awk -F\" '{print $4}')" && \
+        LINUX_MSI_RESOURCE_ID="$(cat vhdbuilder/packer/settings.json | grep "linux_msi_resource_id" | awk -F\" '{print $4}')" && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
@@ -194,12 +216,15 @@ steps:
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
         -e CAPTURED_SIG_VERSION=${captured_sig_version} \
         -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
+        -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
+        -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
         ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     condition: eq(variables.DRY_RUN, 'False')
   - bash: |
         echo MODE=$(MODE) && \
         captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+        SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         VHD_NAME="${captured_sig_version}.vhd" && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -208,6 +233,9 @@ steps:
         -e CLIENT_SECRET="$(CLIENT_SECRET)" \
         -e TENANT_ID=${TENANT_ID} \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+        -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
+        -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+        -e CAPTURED_SIG_VERSION=${captured_sig_version} \
         -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
         -e OUTPUT_STORAGE_ACCOUNT_NAME=${OUTPUT_STORAGE_ACCOUNT_NAME} \
         -e OUTPUT_STORAGE_CONTAINER_NAME=${OUTPUT_STORAGE_CONTAINER_NAME} \

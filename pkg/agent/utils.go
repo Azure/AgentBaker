@@ -177,6 +177,7 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	// translate the parameters.
+	b = removeComments(b)
 	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(getContainerServiceFuncMap(config))
 	_, err = templ.Parse(string(b))
 	if err != nil {
@@ -192,6 +193,48 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 	csStr := buffer.String()
 	csStr = strings.ReplaceAll(csStr, "\r\n", "\n")
 	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
+}
+
+// This is "best-effort" - removes MOST of the comments with obvious formats, to lower the space required by CustomData component.
+func removeComments(b []byte) []byte {
+	var contentWithoutComments []string
+	lines := strings.Split(string(b), "\n")
+	for _, line := range lines {
+		lineNoWhitespace := strings.TrimSpace(line)
+		if lineStartsWithComment(lineNoWhitespace) {
+			// ignore entire line that is a comment
+			continue
+		}
+		line = trimTrailingComment(line)
+		contentWithoutComments = append(contentWithoutComments, line)
+	}
+	return []byte(strings.Join(contentWithoutComments, "\n"))
+}
+
+func lineStartsWithComment(trimmedToCheck string) bool {
+	return strings.HasPrefix(trimmedToCheck, "# ") || strings.HasPrefix(trimmedToCheck, "##")
+}
+
+func trimTrailingComment(line string) string {
+	lastHashIndex := strings.LastIndex(line, "#")
+	if lastHashIndex > 0 && isCommentAtTheEndOfLine(lastHashIndex, line) {
+		// remove only the comment part from line
+		line = line[:lastHashIndex]
+	}
+	return line
+}
+
+// Trying to avoid using a regex. There are certain patterns we ignore just to be on the safe side. This is enough to get rid of most of the obvious comments.
+func isCommentAtTheEndOfLine(lastHashIndex int, trimmedToCheck string) bool {
+	getSlice := func(start, end int, str string) string {
+		if end > len(str) || start > end {
+			return ""
+		}
+		return str[start:end]
+	}
+	// These are two of patterns that are present amongst Agent Baker files that we need to specifically check for. Non-exhaustive
+	tailingCommentSegmentLen := 2
+	return getSlice(lastHashIndex-1, lastHashIndex+1, trimmedToCheck) != "<#" && getSlice(lastHashIndex, lastHashIndex+tailingCommentSegmentLen, trimmedToCheck) == "# "
 }
 
 // getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data.
@@ -358,8 +401,9 @@ func IsKubeletConfigFileEnabled(cs *datamodel.ContainerService, profile *datamod
 			IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.14.0"))
 }
 
-// IsKubeletClientTLSBootstrappingEnabled get if kubelet client TLS bootstrapping is enabled.
-func IsKubeletClientTLSBootstrappingEnabled(tlsBootstrapToken *string) bool {
+// IsTLSBootstrappingEnabledWithHardCodedToken returns true if the specified TLS bootstrap token is non-nil, meaning
+// we will use it to perform TLS bootstrapping.
+func IsTLSBootstrappingEnabledWithHardCodedToken(tlsBootstrapToken *string) bool {
 	return tlsBootstrapToken != nil
 }
 

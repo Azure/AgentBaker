@@ -80,7 +80,8 @@ $wuRegistryKeys = @(
     "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State",
     "HKLM:\SYSTEM\CurrentControlSet\Services\wcifs",
     "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides",
-    "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters"
+    "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters",
+    "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers"
 )
 
 $wuRegistryNames = @(
@@ -90,10 +91,12 @@ $wuRegistryNames = @(
     "HnsPolicyUpdateChange",
     "HnsNatAllowRuleUpdateChange",
     "HnsAclUpdateChange",
+    "HNSFixExtensionUponRehydration",
     "HnsNpmRefresh",
     "HnsNodeToClusterIpv6",
     "HNSNpmIpsetLimitChange",
     "HNSLbNatDupRuleChange",
+    "HNSUpdatePolicyForEndpointChange",
     "WcifsSOPCountDisabled",
     "3105872524",
     "2629306509",
@@ -103,17 +106,45 @@ $wuRegistryNames = @(
     "VfpEvenPodDistributionIsEnabled",
     "VfpIpv6DipsPrintingIsEnabled",
     "3230913164",
-    "3398685324"
+    "3398685324",
+    "87798413",
+    "4289201804",
+    "1355135117",
+    "RemoveSourcePortPreservationForRest",
+    "2214038156",
+    "VfpNotReuseTcpOneWayFlowIsEnabled",
+    "1673770637",
+    "FwPerfImprovementChange",
+    "CleanupReservedPorts",
+    "652313229",
+    "2059235981",
+    "3767762061",
+    "527922829",
+    "DeltaHivePolicy",
+    "2193453709",
+    "3331554445",
+    "1102009996",
+    "OverrideReceiveRoutingForLocalAddressesIpv4",
+    "OverrideReceiveRoutingForLocalAddressesIpv6"
 )
 
 foreach ($key in $wuRegistryKeys) {
+    # Windows 2019 does not have the Windows Containers key
+    if ($($systemInfo.CurrentBuildNumber) -eq 17763 -and $key -eq "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers") {
+        continue
+    }
     Log ("`t{0}" -f $key)
-    Get-Item -Path $key |
-    Select-Object -ExpandProperty property |
-    ForEach-Object {
-        if ($wuRegistryNames -contains $_) {
-            Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
+    $regPath=(Get-Item -Path $key -ErrorAction Ignore)
+    if ($regPath) {
+        Get-Item -Path $key |
+        Select-Object -ExpandProperty property |
+        ForEach-Object {
+            if ($wuRegistryNames -contains $_) {
+                Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
+            }
         }
+    } else {
+        Log "$key doesn't exist in current OS."
     }
 }
 Log ""

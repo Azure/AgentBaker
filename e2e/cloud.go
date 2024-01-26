@@ -66,6 +66,7 @@ func newAzureClient(subscription string) (*azureClient, error) {
 			},
 		},
 	}
+	opts.Retry = DefaultRetryOpts()
 
 	credential, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
@@ -80,6 +81,7 @@ func newAzureClient(subscription string) (*azureClient, error) {
 			logger,
 		},
 	}
+	clOpts.Retry = DefaultRetryOpts()
 
 	// purely for telemetry, entirely unused today
 	coreClient, err := azcore.NewClient("agentbakere2e.e2e_test", "v0.0.0", plOpts, clOpts)
@@ -87,17 +89,17 @@ func newAzureClient(subscription string) (*azureClient, error) {
 		return nil, fmt.Errorf("failed to create core client: %w", err)
 	}
 
-	aksClient, err := armcontainerservice.NewManagedClustersClient(subscription, credential, nil)
+	aksClient, err := armcontainerservice.NewManagedClustersClient(subscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create aks client: %w", err)
 	}
 
-	vmssClient, err := armcompute.NewVirtualMachineScaleSetsClient(subscription, credential, nil)
+	vmssClient, err := armcompute.NewVirtualMachineScaleSetsClient(subscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create vmss client: %w", err)
 	}
 
-	vmssVMClient, err := armcompute.NewVirtualMachineScaleSetVMsClient(subscription, credential, nil)
+	vmssVMClient, err := armcompute.NewVirtualMachineScaleSetVMsClient(subscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create vmss vm client: %w", err)
 	}
@@ -128,4 +130,20 @@ func newAzureClient(subscription string) (*azureClient, error) {
 	}
 
 	return cloud, nil
+}
+
+func DefaultRetryOpts() policy.RetryOptions {
+	return policy.RetryOptions{
+		MaxRetries: 3,
+		RetryDelay: time.Second * 5,
+		StatusCodes: []int{
+			http.StatusRequestTimeout,      // 408
+			http.StatusTooManyRequests,     // 429
+			http.StatusInternalServerError, // 500
+			http.StatusBadGateway,          // 502
+			http.StatusServiceUnavailable,  // 503
+			http.StatusGatewayTimeout,      // 504
+			http.StatusNotFound,            // 404
+		},
+	}
 }

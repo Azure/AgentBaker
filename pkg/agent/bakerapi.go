@@ -23,6 +23,7 @@ func NewAgentBaker() (AgentBaker, error) {
 
 type agentBakerImpl struct{}
 
+//nolint:revive, nolintlint // ctx is not used, but may be in the future
 func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context,
 	config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
 	// validate and fix input before passing config to the template generator.
@@ -39,7 +40,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context,
 	}
 
 	distro := config.AgentPoolProfile.Distro
-	if distro == datamodel.CustomizedWindowsOSImage || distro == datamodel.CustomizedImage {
+	if distro == datamodel.CustomizedWindowsOSImage || distro == datamodel.CustomizedImage || distro == datamodel.CustomizedImageKata {
 		return nodeBootstrapping, nil
 	}
 
@@ -70,6 +71,9 @@ func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distr
 		return &imageConfig
 	}
 	if imageConfig, ok := sigConfig.SigCBLMarinerImageConfig[distro]; ok {
+		return &imageConfig
+	}
+	if imageConfig, ok := sigConfig.SigAzureLinuxImageConfig[distro]; ok {
 		return &imageConfig
 	}
 	if imageConfig, ok := sigConfig.SigWindowsImageConfig[distro]; ok {
@@ -109,6 +113,10 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 	}
 
 	for distro, sigConfig := range allAzureSigConfig.SigCBLMarinerImageConfig {
+		allDistros[distro] = sigConfig
+	}
+
+	for distro, sigConfig := range allAzureSigConfig.SigAzureLinuxImageConfig {
 		allDistros[distro] = sigConfig
 	}
 

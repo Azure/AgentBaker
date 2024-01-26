@@ -43,7 +43,6 @@ JSON_STRING=$( jq -n \
 mkdir -p /var/log/azure/aks
 echo $JSON_STRING | tee /var/log/azure/aks/provision.json
 
-# messsage_string is here because GA only accepts strings in Message.
 message_string=$( jq -n \
 --arg EXECUTION_DURATION                  "${EXECUTION_DURATION}" \
 --arg EXIT_CODE                           "${EXIT_CODE}" \
@@ -57,12 +56,8 @@ message_string=$( jq -n \
 --arg KUBELET_READY_TIME_FORMATTED       "${KUBELET_READY_TIME_FORMATTED}" \
 '{ExitCode: $EXIT_CODE, E2E: $EXECUTION_DURATION, KernelStartTime: $KERNEL_STARTTIME_FORMATTED, CloudInitLocalStartTime: $CLOUDINITLOCAL_STARTTIME_FORMATTED, CloudInitStartTime: $CLOUDINIT_STARTTIME_FORMATTED, CloudFinalStartTime: $CLOUDINITFINAL_STARTTIME_FORMATTED, NetworkdStartTime: $NETWORKD_STARTTIME_FORMATTED, GuestAgentStartTime: $GUEST_AGENT_STARTTIME_FORMATTED, KubeletStartTime: $KUBELET_START_TIME_FORMATTED, KubeletReadyTime: $KUBELET_READY_TIME_FORMATTED } | tostring'
 )
-# this clean up brings me no joy, but removing extra "\" and then removing quotes at the end of the string
-# allows parsing to happening without additional manipulation
 message_string=$(echo $message_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
 
-# arg names are defined by GA and all these are required to be correctly read by GA
-# EventPid, EventTid are required to be int. No use case for them at this point.
 EVENT_JSON=$( jq -n \
     --arg Timestamp     "${CSE_STARTTIME_FORMATTED}" \
     --arg OperationId   "${CSE_ENDTIME_FORMATTED}" \
@@ -76,16 +71,14 @@ EVENT_JSON=$( jq -n \
 )
 echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
 
-# force a log upload to the host after the provisioning script finishes
-# if we failed, wait for the upload to complete so that we don't remove
-# the VM before it finishes. if we succeeded, upload in the background
-# so that the provisioning script returns success more quickly
 upload_logs() {
-    # find the most recent version of WALinuxAgent and use it to collect logs per
-    # https://supportability.visualstudio.com/AzureIaaSVM/_wiki/wikis/AzureIaaSVM/495009/Log-Collection_AGEX?anchor=manually-collect-logs
-    PYTHONPATH=$(find /var/lib/waagent -name WALinuxAgent\*.egg | sort -rV | head -n1)
-    python3 $PYTHONPATH -collect-logs -full >/dev/null 2>&1
-    python3 /opt/azure/containers/provision_send_logs.py >/dev/null 2>&1
+    if test -x /opt/azure/containers/aks-log-collector.sh; then
+        /opt/azure/containers/aks-log-collector.sh
+    else
+        PYTHONPATH=$(find /var/lib/waagent -name WALinuxAgent\*.egg | sort -rV | head -n1)
+        python3 $PYTHONPATH -collect-logs -full >/dev/null 2>&1
+        python3 /opt/azure/containers/provision_send_logs.py >/dev/null 2>&1
+    fi
 }
 if [ $EXIT_CODE -ne 0 ]; then
     upload_logs

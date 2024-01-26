@@ -1,11 +1,21 @@
-name: $(Date:yyyyMMdd)$(Rev:.r)_e2e
-
+name: $(Date:yyyyMMdd)$(Rev:.r)
+trigger: none
 pr:
   branches:
     include:
-    - main
-    - 'official/*'
-
+    - master
+    - official/*
+  paths:
+    include:
+    - .pipelines/e2e.yaml
+    - e2e
+    - parts/linux
+    - pkg/agent
+    exclude:
+    - e2e/windows
+    - pkg/agent/datamodel/sig_config*.go # SIG config changes
+    - pkg/agent/datamodel/*.json # SIG version changes
+    
 variables:
 - group: ab-e2e
 
@@ -24,9 +34,15 @@ jobs:
   - bash: |
       export PATH="/usr/local/go/bin:$PATH"
       go version
+
+      export BUILD_ID=$(Build.BuildId)
+
       cd e2e
-      go test -timeout 30m -v -run Test_All ./
+      go test -timeout 90m -v -run Test_All ./
     displayName: Run AgentBaker E2E
+    env:
+      VHD_BUILD_ID: $(VHD_BUILD_ID)
+      ADO_PAT: $(ADO_PAT)
   - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
     artifact: scenario-logs
     condition: always()

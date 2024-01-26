@@ -10,7 +10,7 @@ import (
 // TODO(ace): minimize the actual required defaults.
 // this is what we previously used for bash e2e from e2e/nodebootstrapping_template.json.
 // which itself was extracted from baker_test.go logic, which was inherited from aks-engine.
-func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
+func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 	var (
 		trueConst  = true
 		falseConst = false
@@ -18,7 +18,7 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 	return &datamodel.NodeBootstrappingConfiguration{
 		ContainerService: &datamodel.ContainerService{
 			ID:       "",
-			Location: "eastus",
+			Location: location,
 			Name:     "",
 			Plan:     nil,
 			Tags:     map[string]string(nil),
@@ -28,7 +28,7 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 				ProvisioningState: "",
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
 					OrchestratorType:    "Kubernetes",
-					OrchestratorVersion: "1.24.0",
+					OrchestratorVersion: "1.26.0",
 					KubernetesConfig: &datamodel.KubernetesConfig{
 						KubernetesImageBase:               "",
 						MCRKubernetesImageBase:            "",
@@ -45,8 +45,8 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 						UserAssignedID:                    "",
 						UserAssignedClientID:              "",
 						CustomHyperkubeImage:              "",
-						CustomKubeProxyImage:              "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.0.1",
-						CustomKubeBinaryURL:               "https://acs-mirror.azureedge.net/kubernetes/v1.24.0/binaries/kubernetes-node-linux-amd64.tar.gz",
+						CustomKubeProxyImage:              "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.0.1",
+						CustomKubeBinaryURL:               "https://acs-mirror.azureedge.net/kubernetes/v1.26.0/binaries/kubernetes-node-linux-amd64.tar.gz",
 						MobyVersion:                       "",
 						ContainerdVersion:                 "",
 						WindowsNodeBinariesURL:            "",
@@ -257,6 +257,7 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 			PodInfraContainerImageURL: "mcr.microsoft.com/oss/kubernetes/pause:3.6",
 			HyperkubeImageURL:         "mcr.microsoft.com/oss/kubernetes/",
 			WindowsPackageURL:         "windowspackage",
+			LinuxPrivatePackageURL:    "",
 		},
 		AgentPoolProfile: &datamodel.AgentPoolProfile{
 			Name:                "nodepool2",
@@ -421,6 +422,10 @@ func baseTemplate() *datamodel.NodeBootstrappingConfiguration {
 				},
 				"AKSCBLMariner": {
 					GalleryName:   "akscblmariner",
+					ResourceGroup: "resourcegroup",
+				},
+				"AKSAzureLinux": {
+					GalleryName:   "aksazurelinux",
 					ResourceGroup: "resourcegroup",
 				},
 				"AKSWindows": {

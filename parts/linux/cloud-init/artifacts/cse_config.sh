@@ -74,10 +74,9 @@ configureEtcEnvironment() {
     chmod 0644 /etc/systemd/system.conf.d/proxy.conf
 
     mkdir -p  /etc/apt/apt.conf.d
-    chmod 0644 /etc/apt/apt.conf.d/95proxy
     touch /etc/apt/apt.conf.d/95proxy
+    chmod 0644 /etc/apt/apt.conf.d/95proxy
 
-    # TODO(ace): this pains me but quick and dirty refactor
     echo "[Manager]" >> /etc/systemd/system.conf.d/proxy.conf
     if [ "${HTTP_PROXY_URLS}" != "" ]; then
         echo "HTTP_PROXY=${HTTP_PROXY_URLS}" >> /etc/environment
@@ -100,7 +99,6 @@ configureEtcEnvironment() {
         echo "DefaultEnvironment=\"no_proxy=${NO_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
 
-    # for kubelet to pick up the proxy
     mkdir -p "/etc/systemd/system/kubelet.service.d"
     tee "/etc/systemd/system/kubelet.service.d/10-httpproxy.conf" > /dev/null <<'EOF'
 [Service]
@@ -123,22 +121,13 @@ configureHTTPProxyCA() {
 configureCustomCaCertificate() {
     mkdir -p /opt/certs
     for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
-        # directly referring to the variable as "${CUSTOM_CA_CERT_${i}}"
-        # causes bad substitution errors in bash
-        # dynamically declare and use `!` to add a layer of indirection
+        # declare dynamically and use "!" to avoid bad substition errors
         declare varname=CUSTOM_CA_CERT_${i} 
         echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
     done
-    # This will block until the service is considered active.
-    # Update_certs.service is a oneshot type of unit that
-    # is considered active when the ExecStart= command terminates with a zero status code.
+    # blocks until svc is considered active, which will happen when ExecStart command terminates with code 0
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
-    # after new certs are added to trust store, containerd will not pick them up properly before restart.
-    # aim here is to have this working straight away for a freshly provisioned node
-    # so we force a restart after the certs are updated
-    # custom CA daemonset copies certs passed by the user to the node, what then triggers update_certs.path unit
-    # path unit then triggers the script that copies over cert files to correct location on the node and updates the trust store
-    # as a part of this flow we could restart containerd everytime a new cert is added to the trust store using custom CA
+    # containerd has to be restarted after new certs are added to the trust store, otherwise they will not be used until restart happens
     systemctl restart containerd
 }
 
@@ -153,7 +142,6 @@ EOF
   systemctl daemon-reload
   systemctl restart containerd
 }
-
 
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
@@ -187,12 +175,11 @@ configureK8s() {
 
     set +x
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
-    # Perform the required JSON escaping
     SP_FILE="/etc/kubernetes/sp.txt"
     SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
-    rm "$SP_FILE" # unneeded after reading from disk.
+    rm "$SP_FILE"
     cat << EOF > "${AZURE_JSON_PATH}"
 {
     "cloud": "${TARGET_CLOUD}",
@@ -312,6 +299,10 @@ ensureContainerd() {
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
+  if [ "${ARTIFACT_STREAMING_ENABLED}" == "true" ]; then
+    logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
+  fi
+
   mkdir -p /etc/containerd
   if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" == "true" ]]; then
     echo "Generating non-GPU containerd config for GPU node due to VM tags"
@@ -338,6 +329,24 @@ ensureNoDupOnPromiscuBridge() {
 
 ensureTeleportd() {
     systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
+ensureArtifactStreaming() {
+  systemctl enable acr-mirror.service
+  systemctl start acr-mirror.service
+  sudo /opt/acr/tools/overlaybd/install.sh
+  sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
+  sudo /opt/acr/tools/overlaybd/config.sh download.enable false
+  sudo /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
+  sudo /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
+  sudo /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
+  modprobe target_core_user
+  curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd' -O
+  systemctl enable /opt/overlaybd/overlaybd-tcmu.service
+  systemctl enable /opt/overlaybd/snapshotter/overlaybd-snapshotter.service
+  systemctl start overlaybd-tcmu
+  systemctl start overlaybd-snapshotter
+  systemctl start acr-nodemon
 }
 
 ensureDocker() {
@@ -381,8 +390,8 @@ ensureKubelet() {
     mkdir -p "$(dirname "${KUBE_CA_FILE}")"
     echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
     chmod 0600 "${KUBE_CA_FILE}"
-    
-    if [ "${CLIENT_TLS_BOOTSTRAPPING_ENABLED}" == "true" ]; then
+
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ] || [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
         touch "${KUBELET_TLS_DROP_IN}"
@@ -391,6 +400,45 @@ ensureKubelet() {
 [Service]
 Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
 EOF
+    fi
+
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+        AAD_RESOURCE="6dae42f8-4368-4678-94ff-3960e28e3630"
+        if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID" ]; then
+            AAD_RESOURCE=$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID
+        fi
+        SECURE_BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+        mkdir -p "$(dirname "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}")"
+        touch "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}"
+        chmod 0644 "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}"
+        tee "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://${API_SERVER_NAME}:443
+users:
+- name: kubelet-bootstrap
+  user:
+    exec:
+        apiVersion: client.authentication.k8s.io/v1
+        command: /opt/azure/tlsbootstrap/tls-bootstrap-client
+        args:
+        - bootstrap
+        - --next-proto=aks-tls-bootstrap
+        - --aad-resource=${AAD_RESOURCE}
+        interactiveMode: Never
+        provideClusterInfo: true
+contexts:
+- context:
+    cluster: localcluster
+    user: kubelet-bootstrap
+  name: bootstrap-context
+current-context: bootstrap-context
+EOF
+    elif [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
         BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
         mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
         touch "${BOOTSTRAP_KUBECONFIG_FILE}"
@@ -440,6 +488,7 @@ contexts:
 current-context: localclustercontext
 EOF
     fi
+    
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
 #!/bin/bash
@@ -455,6 +504,10 @@ EOF
 iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
 EOF
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
+}
+
+ensureSnapshotUpdate() {
+    systemctlEnableAndStart snapshot-update.timer || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
 }
 
 ensureMigPartition(){
@@ -555,7 +608,6 @@ configAzurePolicyAddon() {
 }
 
 configGPUDrivers() {
-    # install gpu driver
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         mkdir -p /opt/{actions,gpu}
         if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
@@ -585,15 +637,15 @@ configGPUDrivers() {
         exit 1
     fi
 
-    # validate on host, already done inside container.
-    if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    fi
-
+    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+
+    # Fix the NVIDIA /dev/char link issue
+    if [[ $OS == $MARINER_OS_NAME ]]; then
+        createNvidiaSymlinkToAllDeviceNodes
+    fi
     
-    # reload containerd/dockerd
     if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
         retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     else
@@ -603,7 +655,6 @@ configGPUDrivers() {
 
 validateGPUDrivers() {
     if [[ $(isARM64) == 1 ]]; then
-        # no GPU on ARM64
         return
     fi
 
@@ -628,7 +679,6 @@ validateGPUDrivers() {
 
 ensureGPUDrivers() {
     if [[ $(isARM64) == 1 ]]; then
-        # no GPU on ARM64
         return
     fi
 

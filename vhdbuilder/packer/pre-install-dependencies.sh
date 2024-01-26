@@ -42,6 +42,10 @@ systemctlEnableAndStart update_certs.path || exit 1
 systemctlEnableAndStart ci-syslog-watcher.path || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 
+# enable AKS log collector
+echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
+systemctlEnableAndStart aks-log-collector.timer || exit 1
+
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
 systemctlEnableAndStart logrotate.timer || exit 1
 rm -f /etc/cron.daily/logrotate
@@ -58,10 +62,8 @@ if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
     installFIPS
   fi
 else
-  # Handle FIPS and ESM for Ubuntu
-  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
-    autoAttachUA
-  fi
+  # Enable ESM on Ubuntu
+  autoAttachUA
 
   # Run apt get update to refresh repo list
   # Run apt dist get upgrade to install packages/kernels
@@ -82,6 +84,26 @@ else
     echo "Install FIPS for Ubuntu SKU"
     installFIPS
   fi
+fi
+
+# Handle Azure Linux + CgroupV2
+if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
+  enableCgroupV2forAzureLinux
+fi
+
+if [[ "${UBUNTU_RELEASE}" == "22.04" ]]; then
+  echo "Logging the currently running kernel: $(uname -r)"
+  echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
+
+  # Purge all current kernels and dependencies
+  DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
+  echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
+
+  # Install lts-22.04 kernel
+  DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-azure-lts-22.04 linux-cloud-tools-azure-lts-22.04 linux-headers-azure-lts-22.04 linux-modules-extra-azure-lts-22.04 linux-tools-azure-lts-22.04
+  echo "After installing new kernel, here is a list of kernels/headers installed"; dpkg -l 'linux-*azure*'
+  
+  update-grub
 fi
 
 echo "pre-install-dependencies step finished successfully"

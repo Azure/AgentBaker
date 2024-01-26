@@ -169,9 +169,10 @@ fixUmaskSettings() {
     # that doesn't set umask correctly. So we can't just comment out all the lines or have any comments that explain what we're doing.
     # So since we can't delete the file, we just overwrite it with the correct umask setting. This duplicates what /etc/profile does, but
     # it does no harm and works with the tools.
+    # Note that we use printf to avoid a trailing newline.
     local umask_sh="/etc/profile.d/umask.sh"
     if [[ "${OS}" == "${MARINER_OS_NAME}" && "${OS_VERSION}" == "2.0" && -f "${umask_sh}" ]]; then
-        echo "umask 027" >${umask_sh}
+        printf "umask 027" >${umask_sh}
     fi
 }
 

@@ -12,6 +12,7 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/suite"
 )
 
 type nodeBootstrappingFn func(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
@@ -63,9 +64,9 @@ func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeB
 func getBaseNodeBootstrappingConfiguration(
 	ctx context.Context,
 	cloud *azureClient,
-	suiteConfig *suiteConfig,
+	suiteConfig *suite.Config,
 	clusterParams clusterParameters) (*datamodel.NodeBootstrappingConfiguration, error) {
-	nbc := baseTemplate()
+	nbc := baseTemplate(suiteConfig.Location)
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = clusterParams["/etc/kubernetes/certs/ca.crt"]
 
 	bootstrapKubeconfig := clusterParams["/var/lib/kubelet/bootstrap-kubeconfig"]

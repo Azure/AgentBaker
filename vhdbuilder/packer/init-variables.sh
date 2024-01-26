@@ -16,18 +16,28 @@ else
 fi
 
 if [ -z "${POOL_NAME}" ]; then
-	echo "POOL_NAME is not set, can't compute vnet_rg_name for packer templates"
+	echo "POOL_NAME is not set, can't compute VNET_RG_NAME for packer templates"
 	exit 1
 fi
 
-vnet_rg_name=""
-if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
-	vnet_rg_name="nodesigprod-agent-pool"
-else
-	vnet_rg_name="nodesigtest-agent-pool"
+if [ -z "${VNET_RG_NAME}" ]; then
+	VNET_RG_NAME=""
+	if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
+		VNET_RG_NAME="nodesigprod-agent-pool"
+	else
+		VNET_RG_NAME="nodesigtest-agent-pool"
+	fi
 fi
 
-echo "vnet_rg_name set to: ${vnet_rg_name}"
+if [ -z "${VNET_NAME}" ]; then
+	VNET_NAME="nodesig-pool-vnet"
+fi
+
+if [ -z "${SUBNET_NAME}" ]; then
+	SUBNET_NAME="packer"
+fi
+
+echo "VNET_RG_NAME set to: ${VNET_RG_NAME}"
 
 echo "CAPTURED_SIG_VERSION set to: ${CAPTURED_SIG_VERSION}"
 
@@ -88,7 +98,7 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 	else
 		echo "Using provided SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
 	fi
-	
+
 	# Ensure the image-definition name
 	if [[ -z "${SIG_IMAGE_NAME}" ]]; then
 		SIG_IMAGE_NAME=${OS_VERSION//./}
@@ -99,16 +109,20 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 		if [[ "${IMG_SKU}" == *"minimal"* ]]; then
 			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Minimal
 		fi
-		
+
 		if [[ "${OS_SKU}" == "CBLMariner" ]]; then
 			SIG_IMAGE_NAME=CBLMariner${SIG_IMAGE_NAME}
+		fi
+
+		if [[ "${OS_SKU}" == "AzureLinux" ]]; then
+			SIG_IMAGE_NAME=AzureLinux${SIG_IMAGE_NAME}
 		fi
 
 		if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
 			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}TL
 		fi
 
-		if [[ "${HYPERV_GENERATION,,}" == "v2" && ("${OS_SKU}" == "CBLMariner" || "${OS_SKU}" == "Ubuntu") ]]; then
+		if [[ "${HYPERV_GENERATION,,}" == "v2" && ("${OS_SKU}" == "CBLMariner" || "${OS_SKU}" == "AzureLinux" || "${OS_SKU}" == "Ubuntu") ]]; then
 			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Gen2
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, using auto-generated value: ${SIG_IMAGE_NAME}"
@@ -188,6 +202,21 @@ WINDOWS_IMAGE_VERSION=""
 WINDOWS_IMAGE_URL=""
 windows_servercore_image_url=""
 windows_nanoserver_image_url=""
+windows_private_packages_url=""
+
+# windows_msi_resource_strings is an array that will be used to build windows vm
+# set the default value os this array as empty to unblock the case where WINDOWS_MSI_RESOURCE_STRING is not set
+windows_msi_resource_strings=()
+if [ -n "${WINDOWS_MSI_RESOURCE_STRING}" ]; then
+	windows_msi_resource_strings+=(${WINDOWS_MSI_RESOURCE_STRING})
+fi
+
+linux_msi_resource_ids=()
+if [ -n "${LINUX_MSI_RESOURCE_ID}" ]; then
+	echo "LINUX_MSI_RESOURCE_ID is set in pipeline variables: ${LINUX_MSI_RESOURCE_ID}"
+	linux_msi_resource_ids+=(${LINUX_MSI_RESOURCE_ID})
+fi
+
 # shellcheck disable=SC2236
 if [ "$OS_TYPE" == "Windows" ]; then
 	imported_windows_image_name=""
@@ -231,6 +260,22 @@ if [ "$OS_TYPE" == "Windows" ]; then
 		if [[ $HYPERV_GENERATION == "V2" ]]; then
 			WINDOWS_IMAGE_SKU=$WINDOWS_2022_GEN2_BASE_IMAGE_SKU
 			WINDOWS_IMAGE_VERSION=$WINDOWS_2022_GEN2_BASE_IMAGE_VERSION
+		fi
+		;;
+	"23H2" | "23H2-gen2")
+		WINDOWS_IMAGE_SKU=$WINDOWS_23H2_BASE_IMAGE_SKU
+		WINDOWS_IMAGE_VERSION=$WINDOWS_23H2_BASE_IMAGE_VERSION
+		imported_windows_image_name="windows-23H2-imported-${CREATE_TIME}-${RANDOM}"
+
+		echo "Set OS disk size"
+		if [ -n "${WINDOWS_23H2_OS_DISK_SIZE_GB}" ]; then
+			echo "Setting os_disk_size_gb to the value in windows-image.env for 23H2: ${WINDOWS_23H2_OS_DISK_SIZE_GB}"
+			os_disk_size_gb=${WINDOWS_23H2_OS_DISK_SIZE_GB}
+		fi
+		# Default: read from the official MCR image
+		if [[ $HYPERV_GENERATION == "V2" ]]; then
+			WINDOWS_IMAGE_SKU=$WINDOWS_23H2_GEN2_BASE_IMAGE_SKU
+			WINDOWS_IMAGE_VERSION=$WINDOWS_23H2_GEN2_BASE_IMAGE_VERSION
 		fi
 		;;
 	*)
@@ -281,7 +326,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 			--hyper-v-generation $HYPERV_GENERATION \
 			--os-type ${OS_TYPE}
 
-		# create a gallery image definition $IMPORTED_IMAGE_NAME	
+		# create a gallery image definition $IMPORTED_IMAGE_NAME
 		echo "Creating new image-definition for imported image ${IMPORTED_IMAGE_NAME}"
 		# Need to specifiy hyper-v-generation to support Gen 2
 		az sig image-definition create \
@@ -296,7 +341,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 			--offer $IMPORTED_IMAGE_NAME \
 			--os-state generalized \
 			--description "Imported image for AKS Packer build"
-			
+
 		# create a image version defaulting to 1.0.0 for $IMPORTED_IMAGE_NAME
 		echo "Creating new image-version for imported image ${IMPORTED_IMAGE_NAME}"
 		az sig image-version create \
@@ -327,6 +372,19 @@ if [ "$OS_TYPE" == "Windows" ]; then
 		echo "WINDOWS_CORE_IMAGE_URL is set in pipeline variables"
 		windows_servercore_image_url="${WINDOWS_CORE_IMAGE_URL}"
 	fi
+
+	# Set windows private packages url if the pipeline variable is set
+	if [ -n "${WINDOWS_PRIVATE_PACKAGES_URL}" ]; then
+		echo "WINDOWS_PRIVATE_PACKAGES_URL is set in pipeline variables"
+		windows_private_packages_url="${WINDOWS_PRIVATE_PACKAGES_URL}"
+	fi
+fi
+
+private_packages_url=""
+# Set linux private packages url if the pipeline variable is set
+if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
+	echo "PRIVATE_PACKAGES_URL is set in pipeline variables: ${PRIVATE_PACKAGES_URL}"
+	private_packages_url="${PRIVATE_PACKAGES_URL}"
 fi
 
 cat <<EOF > vhdbuilder/packer/settings.json
@@ -353,14 +411,19 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "os_disk_size_gb": "${os_disk_size_gb}",
   "nano_image_url": "${windows_nanoserver_image_url}",
   "core_image_url": "${windows_servercore_image_url}",
+  "windows_private_packages_url": "${windows_private_packages_url}",
   "windows_sigmode_source_subscription_id": "${windows_sigmode_source_subscription_id}",
   "windows_sigmode_source_resource_group_name": "${windows_sigmode_source_resource_group_name}",
   "windows_sigmode_source_gallery_name": "${windows_sigmode_source_gallery_name}",
   "windows_sigmode_source_image_name": "${windows_sigmode_source_image_name}",
   "windows_sigmode_source_image_version": "${windows_sigmode_source_image_version}",
-  "vnet_name": "nodesig-pool-vnet",
-  "subnet_name": "packer",
-  "vnet_resource_group_name": "${vnet_rg_name}"
+  "vnet_name": "${VNET_NAME}",
+  "subnet_name": "${SUBNET_NAME}",
+  "vnet_resource_group_name": "${VNET_RG_NAME}",
+  "windows_msi_resource_strings": "${windows_msi_resource_strings}",
+  "linux_msi_resource_ids": "${linux_msi_resource_ids}",
+  "private_packages_url": "${private_packages_url}",
+  "aks_windows_image_version": "${AKS_WINDOWS_IMAGE_VERSION}"
 }
 EOF
 

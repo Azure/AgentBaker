@@ -11,6 +11,36 @@ required_env_vars=(
     "IMAGE_VERSION"
 )
 
+# Higher the replication_inverse, lower is the usage and number of replicas
+set -x
+REPLICATION_INVERSE=1
+feature_set=("fips" "gpu" "arm64" "cvm" "tl" "kata")
+if [ "${OFFER_NAME,,}" != "ubuntu" ]; then
+    # Since Ubuntu is our most used SKU as compared to Windows/Mariner/AzLinux, we dont need the same number of replicas for all.
+    # Starting off with half replicas.
+    REPLICATION_INVERSE=$((REPLICATION_INVERSE * 2))
+else
+    # 1804 SKUs are not used as much since we defaulted to 22.04 with k8s 1.25 and the lowest supported k8s version supported is 1.25
+    # We only support a certain set of functionalities for 2004(CVM, FIPs)
+    # Therefore they dont need to be as high in number
+    if [[ "${SKU_NAME,,}" != *"2204"* ]]; then
+        REPLICATION_INVERSE=$((REPLICATION_INVERSE * 2))
+    fi
+fi
+
+if [ "${HYPERV_GENERATION,,}" == "v1" ]; then
+    # Gen2 SKUs are more used as compared to Gen1 SKUs, therefore Gen1 SKUs do not warrant the same number of replicas
+    REPLICATION_INVERSE=$((REPLICATION_INVERSE * 2))
+fi
+
+for feature in "${feature_set[@]}"; do
+    if [[ "${SKU_NAME,,}" == *"${feature}"* ]]; then
+        REPLICATION_INVERSE=$((REPLICATION_INVERSE * 2))
+        break
+    fi
+done
+set +x
+
 for v in "${required_env_vars[@]}"
 do
     if [ -z "${!v}" ]; then
@@ -23,6 +53,19 @@ do
         fi
     fi
 done
+
+# If building a linux-based VHD, correctly set the intermediate, or "captured" SIG image version resource ID so it can be used by AgentBaker E2E and release scripts.
+if [ "${OS_NAME,,}" == "linux" ]; then
+    [ -z "$SUBSCRIPTION_ID" ] && echo "SUBSCRIPTION_ID must be set when generating publishing info for linux" && exit 1
+    [ -z "$RESOURCE_GROUP_NAME" ] && echo "RESOURCE_GROUP_NAME must be set when generating publishing info for linux" && exit 1
+    [ -z "$SIG_IMAGE_NAME" ] && echo "SIG_IMAGE_NAME must be set when generating publishing info for linux" && exit 1
+    [ -z "$CAPTURED_SIG_VERSION" ] && echo "CAPTURED_SIG_VERSION must be set when generating publishing info for linux" && exit 1
+
+    INTERMEDIATE_SIG_GALLERY_NAME="PackerSigGalleryEastUS"
+
+    captured_sig_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${INTERMEDIATE_SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${CAPTURED_SIG_VERSION}"
+    echo "captured intermediate SIG image version resource ID: $captured_sig_resource_id"
+fi
 
 # SIG image definition for AMD64/ARM64 has subtle difference, otherwise a SIG version cannot be used to create VM/VMSS of corresponding sku.
 # 'az sig image-definition create' will have a new property (--architecture Arm64|x64) for this soon. We need this in the publishing-info
@@ -64,17 +107,34 @@ echo "The generated sas token works"
 echo "COPY ME ---> ${STORAGE_ACCT_BLOB_URL}/${VHD_NAME}?***"
 
 # Note: The offer_name is the value from OS_SKU (eg. Ubuntu)
-cat <<EOF > vhd-publishing-info.json
+if [ "${OS_NAME,,}" == "linux" ]; then
+    cat <<EOF > vhd-publishing-info.json
 {
-    "vhd_url" : "$vhd_url",
-    "os_name" : "$OS_NAME",
-    "sku_name" : "$SKU_NAME",
-    "offer_name" : "$OFFER_NAME",
+    "vhd_url": "$vhd_url",
+    "captured_sig_resource_id": "${captured_sig_resource_id}",
+    "os_name": "$OS_NAME",
+    "sku_name": "$SKU_NAME",
+    "offer_name": "$OFFER_NAME",
     "hyperv_generation": "${HYPERV_GENERATION}",
     "image_architecture": "${IMAGE_ARCH}",
-    "image_version": "${IMAGE_VERSION}"
+    "image_version": "${IMAGE_VERSION}",
+    "replication_inverse": "${REPLICATION_INVERSE}"
 }
 EOF
+else
+    cat <<EOF > vhd-publishing-info.json
+{
+    "vhd_url": "$vhd_url",
+    "os_name": "$OS_NAME",
+    "sku_name": "$SKU_NAME",
+    "offer_name": "$OFFER_NAME",
+    "hyperv_generation": "${HYPERV_GENERATION}",
+    "image_architecture": "${IMAGE_ARCH}",
+    "image_version": "${IMAGE_VERSION}",
+    "replication_inverse": "${REPLICATION_INVERSE}"
+}
+EOF
+fi
 
 # Do not log sas token
 sed 's/?.*\",/?***\",/g' < vhd-publishing-info.json

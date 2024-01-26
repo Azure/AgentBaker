@@ -10,11 +10,9 @@ set +x
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
 
-if [ "$OS_TYPE" == "Linux" ]; then
-  if [ "$IMG_SKU" == "20_04-lts-cvm" ] || [ "$OS_VERSION" == "V1" ] && [ "$OS_SKU" == "CBLMariner" ]; then
-    echo "Skipping tests for CVM 20.04 and Mariner 1.0"
+if [ "$OS_TYPE" == "Linux" ] && [ "$IMG_SKU" == "20_04-lts-cvm" ]; then
+    echo "Skipping tests for CVM 20.04"
     exit 0
-  fi
 fi
 
 RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
@@ -110,13 +108,15 @@ if [ "$OS_TYPE" == "Linux" ]; then
     ENABLE_FIPS="false"
   fi
 
+  # If the pipeline that called this didn't set a branch, default to master.
+  GIT_BRANCH="${GIT_BRANCH:-refs/heads/master}"
   SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
   for i in $(seq 1 3); do
     ret=$(az vm run-command invoke --command-id RunShellScript \
       --name $VM_NAME \
       --resource-group $RESOURCE_GROUP_NAME \
       --scripts @$SCRIPT_PATH \
-      --parameters ${CONTAINER_RUNTIME} ${OS_VERSION} ${ENABLE_FIPS} ${OS_SKU} ${GIT_BRANCH}) && break
+      --parameters ${CONTAINER_RUNTIME} ${OS_VERSION} ${ENABLE_FIPS} ${OS_SKU} ${GIT_BRANCH} ${IMG_SKU}) && break
     echo "${i}: retrying az vm run-command"
   done
   # The error message for a Linux VM run-command is as follows:
@@ -152,7 +152,7 @@ else
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts @$SCRIPT_PATH \
     --output json \
-    --parameters "containerRuntime=${CONTAINER_RUNTIME}" "windowsSKU=${WINDOWS_SKU}")
+    --parameters "windowsSKU=${WINDOWS_SKU}" "skipValidateReofferUpdate=${SKIPVALIDATEREOFFERUPDATE}")
   # An example of failed run-command output:
   # {
   #   "value": [

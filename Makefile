@@ -85,6 +85,10 @@ validate-image-version:
 generate-kubelet-flags:
 	@./e2e/kubelet/generate-kubelet-flags.sh
 
+.PHONY: compile-proto-files
+compile-proto-files:
+	@./hack/tools/bin/buf generate -o . --path ./pkg/proto/ --template ./pkg/proto/buf.gen.yaml
+
 .PHONY: generate
 generate: bootstrap
 	@echo $(GOFLAGS)

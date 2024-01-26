@@ -45,8 +45,14 @@ $lockedFiles = @(
 $timeStamp = get-date -format 'yyyyMMdd-hhmmss'
 $zipName = "$env:computername-$($timeStamp)_logs.zip"
 
+$paths = @() # All log file paths will be collected 
+
+# Log the script output. It is the first log file to avoid other impact.
+$outputLogFile = "$ENV:TEMP\collect-windows-logs-output.log"
+Start-Transcript -Path $outputLogFile
+$paths += $outputLogFile
+
 Write-Host "Collecting logs for various Kubernetes components"
-$paths = @()
 get-childitem c:\k\*.log* -Exclude $lockedFiles | Foreach-Object {
   $paths += $_
 }
@@ -308,6 +314,55 @@ $tempFile=(CollectLogsFromDirectory -path "C:\Windows\SystemTemp" -targetFileNam
 if ($tempFile -ne "") {
   $paths += $tempFile
 }
+
+$gpuTemp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
+New-Item -Type Directory $gpuTemp
+
+$nvidiaInstallLogFolder="C:\AzureData\NvidiaInstallLog"
+if (Test-Path $nvidiaInstallLogFolder) {
+  $logFiles = Get-ChildItem (Join-Path $nvidiaInstallLogFolder *.log)
+  $logFiles | Foreach-Object {
+    Write-Host "Copying $_ to temp"
+    $tempFile = Copy-Item $_ $gpuTemp -Passthru -ErrorAction Ignore
+    if ($tempFile) {
+      $paths += $tempFile
+    }
+  }
+}
+
+if ((Test-Path "c:\k\kubectl.exe") -and (Test-Path "c:\k\config")) {
+  try {
+    Write-Host "Collecting the information of the node and pods by kubectl"
+    function kubectl { c:\k\kubectl.exe --kubeconfig c:\k\config $args }
+
+    $testResult = kubectl version 2>&1
+    if ($LASTEXITCODE -ne 0) {
+      throw "Failed to run kubectl, result: $testResult"
+    }
+
+    kubectl get nodes -o wide > "$ENV:TEMP\kubectl-get-nodes.log"
+    $paths += "$ENV:TEMP\kubectl-get-nodes.log"
+
+    $nodeName = $env:COMPUTERNAME.ToLower()
+    kubectl describe node $nodeName > "$ENV:TEMP\kubectl-describe-nodes.log"
+    $paths += "$ENV:TEMP\kubectl-describe-nodes.log"
+
+    "kubectl describe all pods on $nodeName" > "$ENV:TEMP\kubectl-describe-pods.log"
+    $podsJson = & crictl.exe pods --output json | ConvertFrom-Json
+    foreach ($pod in $podsJson.items) {
+      $podName = $pod.metadata.name
+      $namespace = $pod.metadata.namespace
+      kubectl describe pod $podName -n $namespace >> "$ENV:TEMP\kubectl-describe-pods.log" # append
+    }
+    $paths += "$ENV:TEMP\kubectl-describe-pods.log"
+  }
+  catch {
+    Write-Host "Error: $_"
+  }
+}
+
+Write-Host "All logs collected: $paths"
+Stop-Transcript
 
 Write-Host "Compressing all logs to $zipName"
 $paths | Format-Table FullName, Length -AutoSize

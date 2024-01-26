@@ -1,10 +1,26 @@
 package scenario
 
 import (
+	"fmt"
+
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 )
+
+// Template represents a 'scenario template' which contains common config used
+// across all scenarios, such as the VHD catalog for selecting VHDs.
+type Template struct {
+	VHDCatalog
+}
+
+// NewTemplate constructs a new template using the base VHD catalog.
+func NewTemplate() *Template {
+	return &Template{
+		VHDCatalog: BaseVHDCatalog,
+	}
+}
 
 // Table represents a set of mappings from scenario name -> Scenario to
 // be run as a part of the test suite
@@ -31,6 +47,9 @@ type Config struct {
 	// ClusterMutator is a function which mutates a supplied cluster model such that it represents a
 	// cluster which is capable of running the scenario
 	ClusterMutator func(*armcontainerservice.ManagedCluster)
+
+	// VHDSelector is the function called by the e2e suite on the given scenario to get its VHD selection
+	VHDSelector func() VHD
 
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
@@ -63,4 +82,39 @@ type LiveVMValidator struct {
 	// IsShellBuiltIn is a boolean flag which indicates whether or not the command is a shell built-in
 	// that will fail when executed with sudo - requires separate command to avoid command not found error on node
 	IsShellBuiltIn bool
+}
+
+// PrepareNodeBootstrappingConfiguration mutates the input NodeBootstrappingConfiguration by calling the
+// scenario's BootstrapConfigMutator on it, if configured.
+func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappingConfiguration) {
+	if s.BootstrapConfigMutator != nil {
+		s.BootstrapConfigMutator(nbc)
+	}
+}
+
+// PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
+// This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
+func (s *Scenario) PrepareVMSSModel(vmss *armcompute.VirtualMachineScaleSet) error {
+	if s.VHDSelector == nil {
+		return fmt.Errorf("VHD selector configured for scenario %q is nil", s.Name)
+	}
+	if vmss == nil || vmss.Properties == nil {
+		return fmt.Errorf("unable to prepare VMSS model for scenario %q: input VirtualMachineScaleSet or properties are nil", s.Name)
+	}
+
+	if s.VMConfigMutator != nil {
+		s.VMConfigMutator(vmss)
+	}
+
+	if vmss.Properties.VirtualMachineProfile == nil {
+		vmss.Properties.VirtualMachineProfile = &armcompute.VirtualMachineScaleSetVMProfile{}
+	}
+	if vmss.Properties.VirtualMachineProfile.StorageProfile == nil {
+		vmss.Properties.VirtualMachineProfile.StorageProfile = &armcompute.VirtualMachineScaleSetStorageProfile{}
+	}
+	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
+		ID: to.Ptr(string(s.VHDSelector().ResourceID)),
+	}
+
+	return nil
 }

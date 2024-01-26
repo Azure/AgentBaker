@@ -77,6 +77,10 @@ func TestE2EWindows(t *testing.T) {
 				GalleryName:   "akscblmariner",
 				ResourceGroup: "resourcegroup",
 			},
+			"AKSAzureLinux": {
+				GalleryName:   "aksazurelinux",
+				ResourceGroup: "resourcegroup",
+			},
 			"AKSWindows": datamodel.SIGGalleryConfig{
 				GalleryName:   "AKSWindows",
 				ResourceGroup: "AKS-Windows",

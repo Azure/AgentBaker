@@ -65,11 +65,12 @@ function Retry-Command {
                 }
                 return
             } catch {
-                Write-Error $_.Exception.InnerException.Message -ErrorAction Continue
+                Write-Log $_.Exception.InnerException.Message
                 if ($_.Exception.InnerException.Message.Contains("There is not enough space on the disk. (0x70)")) {
                     Write-Error "Exit retry since there is not enough space on the disk"
                     break
                 }
+                Write-Log "Retry $cnt : $ScriptBlock"
                 Start-Sleep $Delay
             }
         } while ($cnt -lt $Maximum)
@@ -107,7 +108,7 @@ function Invoke-Executable {
     }
 
     Write-Log "Exhausted retries for $Executable $ArgList"
-    exit 1
+    throw "Exhausted retries for $Executable $ArgList"
 }
 
 function Expand-OS-Partition {
@@ -156,8 +157,9 @@ function Disable-WindowsUpdates {
 function Get-ContainerImages {
     Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
     foreach ($image in $imagesToPull) {
-        if (($image.Contains("mcr.microsoft.com/windows/servercore") -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
-            ($image.Contains("mcr.microsoft.com/windows/nanoserver") -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL))) {
+        $imagePrefix = $image.Split(":")[0]
+        if (($imagePrefix -eq "mcr.microsoft.com/windows/servercore" -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
+            ($imagePrefix -eq "mcr.microsoft.com/windows/nanoserver" -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL))) {
             $url=""
             if ($image.Contains("mcr.microsoft.com/windows/servercore")) {
                 $url=$env:WindowsServerCoreImageURL
@@ -200,6 +202,46 @@ function Get-FilesToCacheOnVHD {
             Write-Log "Downloading $URL to $dest"
             DownloadFileWithRetry -URL $URL -Dest $dest
         }
+    }
+}
+
+function Get-ToolsToVHD {
+    # Rely on the completion of Get-FilesToCacheOnVHD
+    $cacheDir = "c:\akse-cache\tools"
+
+    $toolsDir = "c:\aks-tools"
+    if (!(Test-Path -Path $toolsDir)) {
+        New-Item -ItemType Directory -Path $toolsDir | Out-Null
+    }
+
+    Write-Log "Getting DU (Windows Disk Usage)"
+    Expand-Archive -Path "$cacheDir\DU.zip" -DestinationPath "$toolsDir\DU" -Force
+}
+
+function Get-PrivatePackagesToCacheOnVHD {
+    if (![string]::IsNullOrEmpty($env:WindowsPrivatePackagesURL)) {
+        Write-Log "Caching private packages on VHD"
+    
+        $dir = "c:\akse-cache\private-packages"
+        New-Item -ItemType Directory $dir -Force | Out-Null
+
+        Write-Log "Downloading azcopy"
+        Invoke-WebRequest -UseBasicParsing "https://aka.ms/downloadazcopy-v10-windows" -OutFile azcopy.zip
+        Expand-Archive -Path azcopy.zip -DestinationPath ".\azcopy" -Force
+        $env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
+        $env:AZCOPY_MSI_RESOURCE_STRING=$env:WindowsMSIResourceString
+
+        $urls = $env:WindowsPrivatePackagesURL.Split(",")
+        foreach ($url in $urls) {
+            $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
+            $dest = [IO.Path]::Combine($dir, $fileName)
+
+            Write-Log "Downloading a private package to $dest"
+            .\azcopy\*\azcopy.exe copy $URL $dest
+        }
+
+        Remove-Item -Path ".\azcopy" -Force -Recurse
+        Remove-Item -Path ".\azcopy.zip" -Force
     }
 }
 
@@ -273,13 +315,13 @@ function Install-WindowsPatches {
                     }
                     default {
                         Write-Log "Error during install of $fileName. ExitCode: $($proc.ExitCode)"
-                        exit 1
+                        throw "Error during install of $fileName. ExitCode: $($proc.ExitCode)"
                     }
                 }
             }
             default {
                 Write-Log "Installing patches with extension $fileExtension is not currently supported."
-                exit 1
+                throw "Installing patches with extension $fileExtension is not currently supported."
             }
         }
     }
@@ -408,6 +450,46 @@ function Update-Registry {
             Write-Log "The current value of 3230913164 is $currentValue"
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3230913164 -Value 1 -Type DWORD
+
+        Write-Log "Enable 1 fix in 2023-10B"
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpNotReuseTcpOneWayFlowIsEnabled -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of VfpNotReuseTcpOneWayFlowIsEnabled is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpNotReuseTcpOneWayFlowIsEnabled -Value 1 -Type DWORD
+
+        Write-Log "Enable 4 fixes in 2023-11B"
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name CleanupReservedPorts -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of CleanupReservedPorts is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name CleanupReservedPorts -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 652313229 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 652313229 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 652313229 -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2059235981 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 2059235981 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2059235981 -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3767762061 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 3767762061 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3767762061 -Value 1 -Type DWORD
+
+        Write-Log "Enable 1 fix in 2024-01B"
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1102009996 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 1102009996 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1102009996 -Value 1 -Type DWORD
     }
 
     if ($env:WindowsSKU -Like '2022*') {
@@ -530,6 +612,121 @@ function Update-Registry {
             Write-Log "The current value of VfpIpv6DipsPrintingIsEnabled is $currentValue"
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpIpv6DipsPrintingIsEnabled -Value 1 -Type DWORD
+
+        Write-Log "Enable 3 fixes in 2023-08B"
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSUpdatePolicyForEndpointChange -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HNSUpdatePolicyForEndpointChange is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSUpdatePolicyForEndpointChange -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSFixExtensionUponRehydration -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HNSFixExtensionUponRehydration is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSFixExtensionUponRehydration -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 87798413 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 87798413 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 87798413 -Value 1 -Type DWORD
+
+        Write-Log "Enable 4 fixes in 2023-09B"
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4289201804 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 4289201804 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4289201804 -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1355135117 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 1355135117 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1355135117 -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name RemoveSourcePortPreservationForRest -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of RemoveSourcePortPreservationForRest is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name RemoveSourcePortPreservationForRest -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2214038156 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 2214038156 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2214038156 -Value 1 -Type DWORD
+
+        Write-Log "Enable 3 fixes in 2023-10B"
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1673770637 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 1673770637 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1673770637 -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpNotReuseTcpOneWayFlowIsEnabled -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of VfpNotReuseTcpOneWayFlowIsEnabled is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpNotReuseTcpOneWayFlowIsEnabled -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name FwPerfImprovementChange -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of FwPerfImprovementChange is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name FwPerfImprovementChange -Value 1 -Type DWORD
+
+        Write-Log "Enable 4 fixes in 2023-11B"
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name CleanupReservedPorts -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of CleanupReservedPorts is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name CleanupReservedPorts -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 527922829 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 527922829 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 527922829 -Value 1 -Type DWORD
+        # Then based on 527922829 to set DeltaHivePolicy=2: use delta hives, and stop generating rollups
+        $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers" -ErrorAction Ignore)
+        if (!$regPath) {
+            Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers"
+            New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers"
+        }
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers" -Name DeltaHivePolicy -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of DeltaHivePolicy is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers" -Name DeltaHivePolicy -Value 2 -Type DWORD
+
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2193453709 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 2193453709 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2193453709 -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3331554445 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 3331554445 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3331554445 -Value 1 -Type DWORD
+
+        Write-Log "Enable 2 fixes in 2024-01B"
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv4 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of OverrideReceiveRoutingForLocalAddressesIpv4 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv4 -Value 1 -Type DWORD
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv6 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of OverrideReceiveRoutingForLocalAddressesIpv6 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv6 -Value 1 -Type DWORD
     }
 }
 
@@ -558,6 +755,50 @@ function Exclude-ReservedUDPSourcePort()
     Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "add", "excludedportrange", "udp", "65330", "1", "persistent")
 }
 
+function Get-LatestWindowsDefenderPlatformUpdate {
+    $downloadFilePath = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), "Mpupdate.exe")
+ 
+    $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
+    $latestDefenderProductVersion = ([xml]((Invoke-WebRequest -UseBasicParsing -Uri:"$global:defenderUpdateInfoUrl").Content)).versions.platform
+ 
+    if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
+        Write-Log "Update started. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+        DownloadFileWithRetry -URL $global:defenderUpdateUrl -Dest $downloadFilePath
+        $proc = Start-Process -PassThru -FilePath $downloadFilePath -Wait
+        Start-Sleep -Seconds 10
+        switch ($proc.ExitCode) {
+            0 {
+                Write-Log "Finished update of $downloadFilePath"
+            }
+            default {
+                Write-Log "Error during update of $downloadFilePath. ExitCode: $($proc.ExitCode)"
+                throw "Error during update of $downloadFilePath. ExitCode: $($proc.ExitCode)"
+            }
+        }
+        $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
+        if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
+            throw "Update failed. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+        }
+        else {
+            Write-Log "Update succeeded. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+        }
+    }
+    else {
+        Write-Log "Update not required. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+    }
+}
+
+function Log-ReofferUpdate {
+    try {
+        $result=(Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Update\TargetingInfo\Installed\Server.OS.amd64" -Name ReofferUpdate)
+        if ($result) {
+            Write-Log "ReofferUpdate is $($result.ReofferUpdate)"
+        }
+    } catch {
+        Write-Log "ReofferUpdate does not exist"
+    }
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -567,26 +808,33 @@ try{
             Write-Log "Performing actions for provisioning phase 1"
             Expand-OS-Partition
             Exclude-ReservedUDPSourcePort
+            Get-LatestWindowsDefenderPlatformUpdate
             Disable-WindowsUpdates
             Set-WinRmServiceDelayedStart
             Update-DefenderSignatures
-            Install-WindowsPatches
+            Log-ReofferUpdate
             Install-OpenSSH
+            Log-ReofferUpdate
+            Install-WindowsPatches
             Update-WindowsFeatures
         }
         "2" {
             Write-Log "Performing actions for provisioning phase 2"
+            Log-ReofferUpdate
             Set-WinRmServiceAutoStart
             Install-ContainerD
             Update-Registry
             Get-ContainerImages
             Get-FilesToCacheOnVHD
+            Get-ToolsToVHD # Rely on the completion of Get-FilesToCacheOnVHD
+            Get-PrivatePackagesToCacheOnVHD
             Remove-Item -Path c:\windows-vhd-configuration.ps1
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
+            Log-ReofferUpdate
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"
-            exit 1
+            throw "Unable to determine provisiong phase... exiting"
         }
     }
 }

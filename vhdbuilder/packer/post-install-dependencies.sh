@@ -32,12 +32,9 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   retrycmd_if_failure 10 2 60 apt-get -y autoremove --purge || exit 1
   retrycmd_if_failure 10 2 60 apt-get -y clean || exit 1
 
-  # Final step, if 1804 or FIPS, log ua status, detach UA and clean up
-  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
-    # 'ua status' for logging
-    ua status
-    detachAndCleanUpUA
-  fi
+  # Final step: log UA status, detach UA, and clean up
+  ua status
+  detachAndCleanUpUA
 fi
 
 # shellcheck disable=SC2129
@@ -60,6 +57,10 @@ usage=${usage%.*}
 [ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
 [ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
 
+echo -e "=== os-release Begin" >> ${VHD_LOGS_FILEPATH}
+cat /etc/os-release >> ${VHD_LOGS_FILEPATH}
+echo -e "=== os-release End" >> ${VHD_LOGS_FILEPATH}
+
 echo "Using kernel:" >> ${VHD_LOGS_FILEPATH}
 tee -a ${VHD_LOGS_FILEPATH} < /proc/version
 {
@@ -73,10 +74,6 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "Container runtime: ${CONTAINER_RUNTIME}"
   echo "FIPS enabled: ${ENABLE_FIPS}"
 } >> ${VHD_LOGS_FILEPATH}
-
-echo -e "=== os-release Begin" >> ${VHD_LOGS_FILEPATH}
-cat /etc/os-release >> ${VHD_LOGS_FILEPATH}
-echo -e "=== os-release End" >> ${VHD_LOGS_FILEPATH}
 
 if [[ $(isARM64) != 1 ]]; then
   # no asc-baseline-1.1.0-268.arm64.deb

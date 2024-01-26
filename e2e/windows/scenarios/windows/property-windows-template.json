@@ -26,8 +26,7 @@
           "storageProfile": "ManagedDisks",
           "distro": "${WINDOWS_DISTRO}",
           "customNodeLabels": {
-            "kubernetes.azure.com/mode": "user",
-            "kubernetes.azure.com/node-image-version": "${WINDOWS_NODE_IMAGE_VERSION}"
+            "kubernetes.azure.com/mode": "user"
           },
           "preProvisionExtension": null,
           "kubernetesConfig": {
@@ -44,6 +43,7 @@
       },
       "windowsProfile": {
         "cseScriptsPackageURL": "${csePackageURL}",
+        "gpuDriverUrl": "${WINDOWS_GPU_DRIVER_URL}",
         "csiProxyURL": "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
         "enableAutomaticUpdates": false,
         "enableCSIProxy": true,
@@ -71,8 +71,7 @@
     "storageProfile": "ManagedDisks",
     "distro": "${WINDOWS_DISTRO}",
     "customNodeLabels": {
-      "kubernetes.azure.com/mode": "user",
-      "kubernetes.azure.com/node-image-version": "${WINDOWS_NODE_IMAGE_VERSION}"
+      "kubernetes.azure.com/mode": "user"
     },
     "preProvisionExtension": null,
     "kubernetesConfig": {
@@ -82,6 +81,7 @@
     "notRebootWindowsNode": true
   },
   "PrimaryScaleSetName": "akswin30",
+  "ConfigGPUDriverIfNeeded": ${CONFIG_GPU_DRIVER_IF_NEEDED},
   "KubeletConfig": {
     "--azure-container-registry-config": "c:\\k\\azure.json",
     "--bootstrap-kubeconfig": "c:\\k\\bootstrap-config",

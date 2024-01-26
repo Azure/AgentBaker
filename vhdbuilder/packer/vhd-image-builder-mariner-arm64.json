@@ -28,7 +28,10 @@
     "img_version": "{{env `IMG_VERSION`}}",
     "sgx_install": "{{env `SGX_INSTALL`}}",
     "vnet_name": "{{env `VNET_NAME`}}",
-    "subnet_name": "{{env `SUBNET_NAME`}}"
+    "subnet_name": "{{env `SUBNET_NAME`}}",
+    "enable_cgroupv2": "{{env `ENABLE_CGROUPV2`}}",
+    "private_packages_url": "{{env `PRIVATE_PACKAGES_URL`}}",
+    "linux_msi_resource_id": "{{env `LINUX_MSI_RESOURCE_ID`}}"
   },
   "builders": [
     {
@@ -60,7 +63,8 @@
       "managed_image_os_disk_snapshot_name": "{{user `arm64_os_disk_snapshot_name`}}",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
-      "skip_create_image": "true"
+      "skip_create_image": "true",
+      "user_assigned_managed_identities": "{{user `linux_msi_resource_ids`}}"
     }
   ],
   "provisioners": [
@@ -79,6 +83,11 @@
         "sudo mkdir -p /opt/certs",
         "sudo chown -R $USER /opt/certs"
       ]
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/prefetch.sh",
+      "destination": "/home/packer/prefetch.sh"
     },
     {
       "type": "file",
@@ -402,6 +411,31 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-log-collector.sh",
+      "destination": "/home/packer/aks-log-collector.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-log-collector-send.py",
+      "destination": "/home/packer/aks-log-collector-send.py"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-log-collector.service",
+      "destination": "/home/packer/aks-log-collector.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-log-collector.slice",
+      "destination": "/home/packer/aks-log-collector.slice"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-log-collector.timer",
+      "destination": "/home/packer/aks-log-collector.timer"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-logrotate.sh",
       "destination": "/home/packer/logrotate.sh"
     },
@@ -452,23 +486,8 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/health-monitor.sh",
-      "destination": "/home/packer/health-monitor.sh"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mig-partition.sh",
       "destination": "/home/packer/mig-partition.sh"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/containerd-monitor.service",
-      "destination": "/home/packer/containerd-monitor.service"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/containerd-monitor.timer",
-      "destination": "/home/packer/containerd-monitor.timer"
     },
     {
       "type": "file",
@@ -498,7 +517,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} IMG_SKU={{user `img_sku`}} /bin/bash -ux /home/packer/pre-install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} ENABLE_CGROUPV2={{user `enable_cgroupv2`}} IMG_SKU={{user `img_sku`}} /bin/bash -ux /home/packer/pre-install-dependencies.sh"
       ]
     },
     {
@@ -511,7 +530,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} IMG_SKU={{user `img_sku`}} /bin/bash -ux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} ENABLE_CGROUPV2={{user `enable_cgroupv2`}} IMG_SKU={{user `img_sku`}} PRIVATE_PACKAGES_URL={{user `private_packages_url`}} LINUX_MSI_RESOURCE_IDS={{user `linux_msi_resource_ids`}} /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
     },
     {
@@ -524,7 +543,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} IMG_SKU={{user `img_sku`}} /bin/bash -ux /home/packer/post-install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} ENABLE_CGROUPV2={{user `enable_cgroupv2`}} IMG_SKU={{user `img_sku`}} /bin/bash -ux /home/packer/post-install-dependencies.sh"
       ]
     },
     {
@@ -554,18 +573,6 @@
       "direction": "download",
       "source": "/opt/azure/containers/image-bom.json",
       "destination": "image-bom.json"
-    },
-    {
-      "type": "file",
-      "direction": "download",
-      "source": "/opt/azure/containers/trivy-report.json",
-      "destination": "trivy-report.json"
-    },
-    {
-      "type": "file",
-      "direction": "download",
-      "source": "/opt/azure/containers/trivy-images-table.txt",
-      "destination": "trivy-images-table.txt"
     },
     {
       "type": "file",

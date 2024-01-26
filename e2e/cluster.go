@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Azure/agentbakere2e/scenario"
+	"github.com/Azure/agentbakere2e/suite"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
@@ -16,6 +17,8 @@ import (
 
 const (
 	managedClusterResourceType = "Microsoft.ContainerService/managedClusters"
+
+	vmSizeStandardDS2v2 = "Standard_DS2_v2"
 )
 
 type clusterParameters map[string]string
@@ -48,6 +51,22 @@ func (c clusterConfig) needsPreparation() bool {
 	return c.kube == nil || c.parameters == nil || c.subnetId == ""
 }
 
+// This map is used during cluster creation to check what VM size should
+// be used to create the single default agentpool used for running cluster essentials
+// and the jumpbox pods/resources. This is mainly need for regions where we can't use
+// the default Standard_DS2_v2 VM size due to quota/capacity.
+var locationToDefaultClusterAgentPoolVMSize = map[string]string{
+	// TODO: add mapping for southcentralus to perform h100 testing
+}
+
+func getDefaultAgentPoolVMSize(location string) string {
+	defaultAgentPoolVMSize, hasDefaultAgentPoolVMSizeForLocation := locationToDefaultClusterAgentPoolVMSize[location]
+	if !hasDefaultAgentPoolVMSizeForLocation {
+		defaultAgentPoolVMSize = vmSizeStandardDS2v2
+	}
+	return defaultAgentPoolVMSize
+}
+
 func isExistingResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupName string) (bool, error) {
 	rgExistence, err := cloud.resourceGroupClient.CheckExistence(ctx, resourceGroupName, nil)
 	if err != nil {
@@ -57,10 +76,10 @@ func isExistingResourceGroup(ctx context.Context, cloud *azureClient, resourceGr
 	return rgExistence.Success, nil
 }
 
-func ensureResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupName string) error {
-	log.Printf("ensuring resource group %q...", resourceGroupName)
+func ensureResourceGroup(ctx context.Context, cloud *azureClient, suiteConfig *suite.Config) error {
+	log.Printf("ensuring resource group %q...", suiteConfig.ResourceGroupName)
 
-	rgExists, err := isExistingResourceGroup(ctx, cloud, resourceGroupName)
+	rgExists, err := isExistingResourceGroup(ctx, cloud, suiteConfig.ResourceGroupName)
 	if err != nil {
 		return err
 	}
@@ -68,15 +87,15 @@ func ensureResourceGroup(ctx context.Context, cloud *azureClient, resourceGroupN
 	if !rgExists {
 		_, err = cloud.resourceGroupClient.CreateOrUpdate(
 			ctx,
-			resourceGroupName,
+			suiteConfig.ResourceGroupName,
 			armresources.ResourceGroup{
-				Location: to.Ptr(e2eTestLocation),
-				Name:     to.Ptr(resourceGroupName),
+				Location: to.Ptr(suiteConfig.Location),
+				Name:     to.Ptr(suiteConfig.ResourceGroupName),
 			},
 			nil)
 
 		if err != nil {
-			return fmt.Errorf("failed to create RG %q: %w", resourceGroupName, err)
+			return fmt.Errorf("failed to create RG %q: %w", suiteConfig.ResourceGroupName, err)
 		}
 	}
 
@@ -229,13 +248,13 @@ func createMissingClusters(
 	ctx context.Context,
 	r *mrand.Rand,
 	cloud *azureClient,
-	suiteConfig *suiteConfig,
+	suiteConfig *suite.Config,
 	scenarios scenario.Table,
 	clusterConfigs *[]clusterConfig) error {
 	var newConfigs []clusterConfig
 	for _, scenario := range scenarios {
 		if !hasViableConfig(scenario, *clusterConfigs) && !hasViableConfig(scenario, newConfigs) {
-			newClusterModel := getNewClusterModelForScenario(generateClusterName(r), suiteConfig.location, scenario)
+			newClusterModel := getNewClusterModelForScenario(generateClusterName(r), suiteConfig.Location, scenario)
 			newConfigs = append(newConfigs, clusterConfig{cluster: &newClusterModel, isNewCluster: true})
 		}
 	}
@@ -248,7 +267,7 @@ func createMissingClusters(
 			clusterName := *config.cluster.Name
 
 			log.Printf("creating cluster %q...", clusterName)
-			liveCluster, err := createNewCluster(ctx, cloud, suiteConfig.resourceGroupName, config.cluster)
+			liveCluster, err := createNewCluster(ctx, cloud, suiteConfig.ResourceGroupName, config.cluster)
 			if err != nil {
 				return fmt.Errorf("unable to create new cluster: %w", err)
 			}
@@ -285,7 +304,7 @@ func chooseCluster(
 	ctx context.Context,
 	r *mrand.Rand,
 	cloud *azureClient,
-	suiteConfig *suiteConfig,
+	suiteConfig *suite.Config,
 	scenario *scenario.Scenario,
 	clusterConfigs []clusterConfig) (clusterConfig, error) {
 	var chosenConfig clusterConfig
@@ -315,8 +334,8 @@ func chooseCluster(
 	return chosenConfig, nil
 }
 
-func validateAndPrepareCluster(ctx context.Context, r *mrand.Rand, cloud *azureClient, suiteConfig *suiteConfig, config *clusterConfig) error {
-	needRecreate, err := validateExistingClusterState(ctx, cloud, suiteConfig.resourceGroupName, *config.cluster.Name)
+func validateAndPrepareCluster(ctx context.Context, r *mrand.Rand, cloud *azureClient, suiteConfig *suite.Config, config *clusterConfig) error {
+	needRecreate, err := validateExistingClusterState(ctx, cloud, suiteConfig.ResourceGroupName, *config.cluster.Name)
 	if err != nil {
 		return err
 	}
@@ -327,7 +346,7 @@ func validateAndPrepareCluster(ctx context.Context, r *mrand.Rand, cloud *azureC
 		if err != nil {
 			return err
 		}
-		newCluster, err := createNewCluster(ctx, cloud, suiteConfig.resourceGroupName, newModel)
+		newCluster, err := createNewCluster(ctx, cloud, suiteConfig.ResourceGroupName, newModel)
 		if err != nil {
 			return err
 		}
@@ -349,16 +368,16 @@ func validateAndPrepareCluster(ctx context.Context, r *mrand.Rand, cloud *azureC
 func prepareClusterForTests(
 	ctx context.Context,
 	cloud *azureClient,
-	suiteConfig *suiteConfig,
+	suiteConfig *suite.Config,
 	cluster *armcontainerservice.ManagedCluster) (*kubeclient, string, clusterParameters, error) {
 	clusterName := *cluster.Name
 
-	subnetId, err := getClusterSubnetID(ctx, cloud, suiteConfig.location, *cluster.Properties.NodeResourceGroup, clusterName)
+	subnetId, err := getClusterSubnetID(ctx, cloud, suiteConfig.Location, *cluster.Properties.NodeResourceGroup, clusterName)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("unable get subnet ID of cluster %q: %w", clusterName, err)
 	}
 
-	kube, err := getClusterKubeClient(ctx, cloud, suiteConfig.resourceGroupName, clusterName)
+	kube, err := getClusterKubeClient(ctx, cloud, suiteConfig.ResourceGroupName, clusterName)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("unable get kube client using cluster %q: %w", clusterName, err)
 	}
@@ -408,6 +427,9 @@ func generateClusterName(r *mrand.Rand) string {
 }
 
 func getBaseClusterModel(clusterName, location string) armcontainerservice.ManagedCluster {
+	defaultAgentPoolVMSize := getDefaultAgentPoolVMSize(location)
+	log.Printf("will attempt to use VM size %q for default agentpool of cluster %q", defaultAgentPoolVMSize, clusterName)
+
 	return armcontainerservice.ManagedCluster{
 		Name:     to.Ptr(clusterName),
 		Location: to.Ptr(location),
@@ -417,7 +439,7 @@ func getBaseClusterModel(clusterName, location string) armcontainerservice.Manag
 				{
 					Name:         to.Ptr("nodepool1"),
 					Count:        to.Ptr[int32](2),
-					VMSize:       to.Ptr("Standard_DS2_v2"),
+					VMSize:       to.Ptr(defaultAgentPoolVMSize),
 					MaxPods:      to.Ptr[int32](110),
 					OSType:       to.Ptr(armcontainerservice.OSTypeLinux),
 					Type:         to.Ptr(armcontainerservice.AgentPoolTypeVirtualMachineScaleSets),

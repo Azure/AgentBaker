@@ -26,7 +26,7 @@ jobs:
         with:
           go-version: 1.20.2
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Run unit tests
         run: go test `go list ./... | grep -v e2e` -coverprofile coverage_raw.out -covermode count
       - name: Remove mocks.go lines
@@ -40,54 +40,8 @@ jobs:
           parallel: true
           flag-name: run-1
           path-to-lcov: coverage.lcov
-  e2e_tests:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Install Go
-        if: success()
-        uses: actions/setup-go@v3
-        with:
-          go-version: 1.20.2
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Az CLI login
-        uses: azure/login@v1
-        with:
-          client-id: ${{ secrets.GO_E2E_CLIENT_ID }}
-          tenant-id: ${{ secrets.GO_E2E_TENANT_ID }}
-          subscription-id: ${{ secrets.GO_E2E_SUBSCRIPTION_ID }}
-      - name: Run Agent Baker server
-        run: |
-          cd cmd 
-          mkdir -p covdatafiles
-          go build -cover -o baker -covermode count 
-          GOCOVERDIR=covdatafiles ./baker start &
-      - name: Run e2e tests
-        run: |
-          echo "Running e2e tests"
-          cd e2e
-          go test -e2eMode="coverage" -timeout 60m -v -run Test_All ./
-      - name: Upload e2e artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: scenario-logs
-          path: e2e/scenario-logs
-      - name: Generate coverage report
-        run: |
-          kill $(pgrep baker)
-          cd cmd
-          go tool covdata textfmt -i=covdatafiles -o coverage.out
-          mv coverage.out ../coverage.out
-      - name: Convert coverage to lcov
-        uses: jandelgado/gcov2lcov-action@v1
-      - name: Coveralls
-        uses: coverallsapp/github-action@v2
-        with:
-          parallel: true
-          flag-name: run-2
-          path-to-lcov: coverage.lcov
   finish:
-    needs: [unit_tests, e2e_tests]
+    needs: [unit_tests]
     if: ${{ success() }}
     runs-on: ubuntu-latest
     steps:
@@ -95,4 +49,4 @@ jobs:
         uses: coverallsapp/github-action@v2
         with:
           parallel-finished: true
-          carryforward: "run-1,run-2"
+          carryforward: "run-1"

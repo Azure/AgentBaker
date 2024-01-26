@@ -10,6 +10,7 @@ OS_VERSION="$2"
 ENABLE_FIPS="$3"
 OS_SKU="$4"
 GIT_BRANCH="$5"
+IMG_SKU="$6"
 
 err() {
   echo "$1:Error: $2" >>/dev/stderr
@@ -230,7 +231,7 @@ testChrony() {
   #test chrony is running
   #if mariner check chronyd, else check chrony
   os_chrony="chrony"
-  if [[ "$os_sku" == "CBLMariner" ]]; then
+  if [[ "$os_sku" == "CBLMariner" || "$os_sku" == "AzureLinux" ]]; then
     os_chrony="chronyd"
   fi
   status=$(systemctl show -p SubState --value $os_chrony)
@@ -241,7 +242,7 @@ testChrony() {
   fi
 
   #test if chrony corrects time
-  if [ $os_sku == 'CBLMariner' ]; then
+  if [[ "$os_sku" == "CBLMariner" || "$os_sku" == "AzureLinux" ]]; then
     echo $test "exiting without checking chrony time correction"
     echo $test "reenable after Mariner updates the chrony config in base image"
     echo "$test:Finish"
@@ -479,23 +480,30 @@ testNetworkSettings() {
 # Ensures that the content /etc/profile.d/umask.sh is correct, per code in
 # <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
 testUmaskSettings() {
-  local test="testUmaskSettings"
-  local settings_file=/etc/profile.d/umask.sh
-  local expected_settings_file_content='umask 027'
-  echo "$test:Start"
+    local test="testUmaskSettings"
+    local settings_file=/etc/profile.d/umask.sh
+    local expected_settings_file_content='umask 027'
+    echo "$test:Start"
 
-  # If the settings file exists, it must just be a single line that sets umask properly.
-  if [[ -f "${settings_file}" && -s "${settings_file}" ]]; then
-    echo "${test}: Checking that ${settings_file} contains '${expected_settings_file_content}'"
+    # If the settings file exists, it must just be a single line that sets umask properly.
+    if [[ -f "${settings_file}" ]]; then
+        echo "${test}: Checking that the contents of ${settings_file} is exactly '${expected_settings_file_content}'"
 
-    if ! diff "${settings_file}" <(echo "${expected_settings_file_content}") ; then
-      err $test "The content of the file '${settings_file}' must exactly match '${expected_settings_file_content}'. See above for differences"
+        # Command substitution (like file_contents=$(cat "${settings_file}")) strips trailing newlines, so we use mapfile instead.
+        # This creates an array of the lines in the file, and then we join them back together by expanding the array into a single string.
+        local file_contents_array=()
+        mapfile <"${settings_file}" file_contents_array
+        local file_contents="${file_contents_array[*]}"
+        if [[ "${file_contents}" != "${expected_settings_file_content}" ]]; then
+            err $test "The content of the file '${settings_file}' is '${file_contents}', which does not exactly match '${expected_settings_file_content}'. "
+        else
+            echo "${test}: The content of the file '${settings_file}' exactly matches the expected contents '${expected_settings_file_content}'."
+        fi
+    else
+        echo "${test}: Settings file '${settings_file}' does not exist, so not testing contents."
     fi
-  else
-    echo "${test}: Settings file '${settings_file}' does not exist or is empty, so not testing contents."
-  fi
 
-  echo "$test:End"
+    echo "$test:End"
 }
 
 # Tests that the modes on the cron-related files and directories in /etc are set correctly, per the
@@ -504,6 +512,7 @@ testCronPermissions() {
   local test="testCronPermissions"
   echo "$test:Start"
 
+  image_sku="${1}"
   declare -A required_paths=(
     ['/etc/cron.allow']=640
     ['/etc/cron.hourly']=600
@@ -521,20 +530,24 @@ testCronPermissions() {
     '/etc/cron.deny'
   )
 
-  echo "$test: Checking required paths"
-  for path in "${!required_paths[@]}"; do
-    checkPathPermissions $test $path ${required_paths[$path]} 1
-  done
+  if [[ "${image_sku}" != *"minimal"* ]]; then
+    echo "$test: Checking required paths"
+    for path in "${!required_paths[@]}"; do
+      checkPathPermissions $test $path ${required_paths[$path]} 1
+    done
 
-  echo "$test: Checking optional paths"
-  for path in "${!optional_paths[@]}"; do
-    checkPathPermissions $test $path ${optional_paths[$path]} 0
-  done
+    echo "$test: Checking optional paths"
+    for path in "${!optional_paths[@]}"; do
+      checkPathPermissions $test $path ${optional_paths[$path]} 0
+    done
 
-  echo "$test: Checking disallowed paths"
-  for path in "${disallowed_paths[@]}"; do
-    checkPathDoesNotExist $test $path
-  done
+    echo "$test: Checking disallowed paths"
+    for path in "${disallowed_paths[@]}"; do
+      checkPathDoesNotExist $test $path
+    done
+  else
+    echo "$test: Skipping cron file check for Ubuntu Minimal images"
+  fi
 
   echo "$test:Finish"
 }
@@ -597,7 +610,7 @@ testPamDSettings() {
 
   # We only want to run this test on Mariner 2.0
   # So if it's anything else, report that we're skipping the test and bail.
-  if [[ "${os_sku}" != "CBLMariner" || "${os_version}" != "2.0" ]]; then
+  if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" ]]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
   else
 
@@ -788,7 +801,7 @@ testPam() {
 
   # We only want to run this test on Mariner 2.0
   # So if it's anything else, report that we're skipping the test and bail.
-  if [[ "${os_sku}" != "CBLMariner" || "${os_version}" != "2.0" ]]; then
+  if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" ]]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
   else
     # cd to the directory of the script
@@ -821,6 +834,30 @@ testPam() {
   return $retval
 }
 
+testContainerImagePrefetchScript() {
+  local test="testContainerImagePrefetchScript"
+  local container_image_prefetch_script_path="/opt/azure/containers/prefetch.sh"
+
+  echo "$test: checking existence of container image prefetch script at $container_image_prefetch_script_path"
+  if [ ! -f "$container_image_prefetch_script_path" ]; then
+    err "$test: container image prefetch script does not exist at $container_image_prefetch_script_path"
+    return 1
+  fi
+  echo "$test: container image prefetch script exists at $container_image_prefetch_script_path"
+
+  echo "$test: running container image prefetch script..."
+  chmod +x $container_image_prefetch_script_path
+  errs=$(/bin/bash $container_image_prefetch_script_path 2>&1 >/dev/null)
+  code=$?
+  if [ $code -ne 0 ]; then
+    err "$test: container image prefetch script exited with code $code, stderr:\n$errs"
+    return 1
+  fi
+  echo "$test: container image prefetch script ran successfully"
+
+  return 0
+}
+
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
@@ -849,9 +886,10 @@ testCustomCATimerNotStarted
 testLoginDefs
 testUserAdd
 testNetworkSettings
-testCronPermissions
+testCronPermissions $IMG_SKU
 testCoreDumpSettings
 testNfsServerService
 testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
 testUmaskSettings
+testContainerImagePrefetchScript

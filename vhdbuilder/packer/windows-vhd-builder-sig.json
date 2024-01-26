@@ -20,7 +20,8 @@
         "windows_patch_url": "{{env `WINDOWS_PATCH_URL`}}",
         "vnet_name": "{{env `VNET_NAME`}}",
         "subnet_name": "{{env `SUBNET_NAME`}}",
-        "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}"
+        "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}",
+        "aks_windows_image_version": "{{env `AKS_WINDOWS_IMAGE_VERSION`}}"
     },
     "builders": [
         {
@@ -38,8 +39,6 @@
             "image_sku": "{{user `windows_image_sku`}}",
             "image_version": "{{user `windows_image_version`}}",
             "image_url": "{{user `windows_image_url`}}",
-            "managed_image_resource_group_name": "{{user `resource_group_name`}}",
-            "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
             "shared_image_gallery": {
               "subscription": "{{user `windows_sigmode_source_subscription_id`}}",
               "resource_group": "{{user `windows_sigmode_source_resource_group_name`}}",
@@ -70,7 +69,8 @@
             },
             "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
             "virtual_network_name": "{{user `vnet_name`}}",
-            "virtual_network_subnet_name": "{{user `subnet_name`}}"
+            "virtual_network_subnet_name": "{{user `subnet_name`}}",
+            "user_assigned_managed_identities": "{{user `windows_msi_resource_strings`}}"
         }
     ],
     "provisioners": [
@@ -100,7 +100,9 @@
                 "WindowsSKU={{user `windows_sku`}}",
                 "CustomizedDiskSize={{user `os_disk_size_gb`}}",
                 "WindowsNanoServerImageURL={{user `nano_image_url`}}",
-                "WindowsServerCoreImageURL={{user `core_image_url`}}"
+                "WindowsServerCoreImageURL={{user `core_image_url`}}",
+                "WindowsPrivatePackagesURL={{user `windows_private_packages_url`}}",
+                "WindowsMSIResourceString={{user `windows_msi_resource_strings`}}"
             ],
             "type": "powershell",
             "scripts": [
@@ -133,6 +135,10 @@
         {
             "elevated_user": "packer",
             "elevated_password": "{{.WinRMPassword}}",
+            "environment_vars": [
+                "WindowsSKU={{user `windows_sku`}}",
+                "WindowsImageVersion={{user `aks_windows_image_version`}}"
+            ],
             "type": "powershell",
             "script": "vhdbuilder/packer/list-images.ps1"
         },

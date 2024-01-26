@@ -6,7 +6,8 @@
 #>
 
 param (
-    $windowsSKU
+    $windowsSKU,
+    $skipValidateReofferUpdate
 )
 
 # We use parameters for test script so we set environment variables before importing c:\windows-vhd-configuration.ps1 to reuse it
@@ -143,10 +144,7 @@ function Test-FilesToCacheOnVHD
                             "calico-windows",
                             "azure-vnet-cni-singletenancy-windows-amd64",
                             "azure-vnet-cni-singletenancy-swift-windows-amd64",
-                            "azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
-                            "azure-vnet-cni-singletenancy-windows-amd64-v1.5.5.zip",
-                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.35_Win2019OverlayFix.zip",
-                            "azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.5.5.zip",
+                            "azure-vnet-cni-singletenancy-overlay-windows-amd64",
                             # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
                             # so we can ignore the different hash values.
                             "v1.26.0-1int.zip"
@@ -209,13 +207,26 @@ function Test-ImagesPulled {
     #    only image reference as a workaround
     $pulledImages = (ctr.exe -n k8s.io image ls -q | Select-String -notmatch "sha256:.*" | % { $_.Line } )
 
-    if(Compare-Object $targetImagesToPull $pulledImages) {
-        Write-ErrorWithTimestamp "images to pull do not equal images cached $targetImagesToPull != $pulledImages."
+    $result = (Compare-Object $targetImagesToPull $pulledImages)
+    if($result) {
+        Write-ErrorWithTimestamp "images to pull do not equal images cached $(($result).InputObject) ."
         exit 1
     }
 }
 
 function Test-RegistryAdded {
+    if ($skipValidateReofferUpdate -eq $true) {
+        Write-Output "Skip validating ReofferUpdate"
+    } else {
+        # Check whether the registry ReofferUpdate is added. ReofferUpdate indicates that the OS is not updated to the latest version.
+        $result=(Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Update\TargetingInfo\Installed\Server.OS.amd64" -Name ReofferUpdate -ErrorAction Ignore)
+        if ($result -and $result.ReofferUpdate -eq 1) {
+            Write-ErrorWithTimestamp "The registry ReofferUpdate is added. The value is 1."
+            exit 1
+        }
+        Write-Output "The registry for ReofferUpdate is \"$result\" ."
+    }
+
     $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name EnableCompartmentNamespace)
     if ($result.EnableCompartmentNamespace -ne 1) {
         Write-ErrorWithTimestamp "The registry for SMB Resolution Fix for containerD is not added"
@@ -256,6 +267,36 @@ function Test-RegistryAdded {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3230913164)
         if ($result.3230913164 -ne 1) {
             Write-ErrorWithTimestamp "The registry for 3230913164 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpNotReuseTcpOneWayFlowIsEnabled)
+        if ($result.VfpNotReuseTcpOneWayFlowIsEnabled -ne 1) {
+            Write-ErrorWithTimestamp "The registry for VfpNotReuseTcpOneWayFlowIsEnabled is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name CleanupReservedPorts)
+        if ($result.CleanupReservedPorts -ne 1) {
+            Write-ErrorWithTimestamp "The registry for CleanupReservedPorts is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 652313229)
+        if ($result.652313229 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 652313229 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2059235981)
+        if ($result.2059235981 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 2059235981 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3767762061)
+        if ($result.3767762061 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 3767762061 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1102009996)
+        if ($result.1102009996 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 1102009996 is not added"
             exit 1
         }
     }
@@ -330,6 +371,96 @@ function Test-RegistryAdded {
             Write-ErrorWithTimestamp "The registry for VfpIpv6DipsPrintingIsEnabled is not added"
             exit 1
         }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSUpdatePolicyForEndpointChange)
+        if ($result.HNSUpdatePolicyForEndpointChange -ne 1) {
+            Write-ErrorWithTimestamp "The registry for HNSUpdatePolicyForEndpointChange is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSFixExtensionUponRehydration)
+        if ($result.HNSFixExtensionUponRehydration -ne 1) {
+            Write-ErrorWithTimestamp "The registry for HNSFixExtensionUponRehydration is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 87798413)
+        if ($result.87798413 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 87798413 is not added"
+            exit 1
+        }
+
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4289201804)
+        if ($result.4289201804 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 4289201804 is not added"
+            exit 1
+        }
+
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1355135117)
+        if ($result.1355135117 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 1355135117 is not added"
+            exit 1
+        }
+
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name RemoveSourcePortPreservationForRest)
+        if ($result.RemoveSourcePortPreservationForRest -ne 1) {
+            Write-ErrorWithTimestamp "The registry for RemoveSourcePortPreservationForRest is not added"
+            exit 1
+        }
+
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2214038156)
+        if ($result.2214038156 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 2214038156 is not added"
+            exit 1
+        }
+
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1673770637)
+        if ($result.1673770637 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 1673770637 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpNotReuseTcpOneWayFlowIsEnabled)
+        if ($result.VfpNotReuseTcpOneWayFlowIsEnabled -ne 1) {
+            Write-ErrorWithTimestamp "The registry for VfpNotReuseTcpOneWayFlowIsEnabled is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name FwPerfImprovementChange)
+        if ($result.FwPerfImprovementChange -ne 1) {
+            Write-ErrorWithTimestamp "The registry for FwPerfImprovementChange is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name CleanupReservedPorts)
+        if ($result.CleanupReservedPorts -ne 1) {
+            Write-ErrorWithTimestamp "The registry for CleanupReservedPorts is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 527922829)
+        if ($result.527922829 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 527922829 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers" -Name DeltaHivePolicy)
+        if ($result.DeltaHivePolicy -ne 2) {
+            Write-ErrorWithTimestamp "The registry for DeltaHivePolicy is not equal to 2"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2193453709)
+        if ($result.2193453709 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 2193453709 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3331554445)
+        if ($result.3331554445 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 3331554445 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv4)
+        if ($result.OverrideReceiveRoutingForLocalAddressesIpv4 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for OverrideReceiveRoutingForLocalAddressesIpv4 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv6)
+        if ($result.OverrideReceiveRoutingForLocalAddressesIpv6 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for OverrideReceiveRoutingForLocalAddressesIpv6 is not added"
+            exit 1
+        }
     }
 }
 
@@ -365,6 +496,29 @@ function Test-ExcludeUDPSourcePort {
     }
 }
 
+function Test-WindowsDefenderPlatformUpdate {
+    $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
+    $latestDefenderProductVersion = ([xml]((Invoke-WebRequest -UseBasicParsing -Uri:"$global:defenderUpdateInfoUrl").Content)).versions.platform
+ 
+    if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
+        Write-ErrorWithTimestamp "Update failed. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
+        exit 1
+    }
+}
+
+function Test-ToolsToCacheOnVHD {
+    $toolsDir = "c:\aks-tools"
+    $toolsList = @("DU\du.exe", "DU\du64.exe", "DU\du64a.exe")
+
+    foreach ($tool in $toolsList) {
+        $toolPath = Join-Path -Path $toolsDir -ChildPath $tool
+        if (!(Test-Path -Path $toolPath)) {
+            Write-ErrorWithTimestamp "Failed to get tool: $toolPath"
+            exit 1
+        }
+    }
+}
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
@@ -372,4 +526,6 @@ Test-RegistryAdded
 Test-DefenderSignature
 Test-AzureExtensions
 Test-ExcludeUDPSourcePort
+Test-WindowsDefenderPlatformUpdate
+Test-ToolsToCacheOnVHD
 Remove-Item -Path c:\windows-vhd-configuration.ps1

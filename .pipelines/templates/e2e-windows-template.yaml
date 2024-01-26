@@ -11,9 +11,9 @@ parameters:
   - name: windowsDistro
     type: string
     default: aks-windows-2019-containerd
-  - name: windowsNodeImageVersion
+  - name: windowsGpuDriverSuffix
     type: string
-    default: AKSWindows-2019-containerd-test-2023.02.07
+    default:
   - name: storageAccount
     type: string
     default: storewin19
@@ -21,11 +21,9 @@ parameters:
 jobs:
 - job: Setup_Test_Cluster
   steps:
-    - bash: pip install -Iv azure-cli==2.45.0 --extra-index-url https://azurecliprod.blob.core.windows.net/edge
-      displayName: use specified version of az cli
     - bash: |
-        az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
-        az account set -s $(AZURE_SUBSCRIPTION_ID)
+        az login --identity
+        az account set -s $(AZURE_E2E_SUBSCRIPTION_ID)
       displayName: az login
     - bash: bash .pipelines/scripts/setup_go.sh
       displayName: setup go
@@ -33,6 +31,7 @@ jobs:
         export WINDOWS_E2E_IMAGE=${{ parameters.windowsImage }}
         export WINDOWS_E2E_OSSKU=${{ parameters.windowsOSSKU }}
         export WINDOWS_E2E_VMSIZE=${{ parameters.windowsVMSize }}
+        export WINDOWS_GPU_DRIVER_SUFFIX=${{ parameters.windowsGpuDriverSuffix }}
         if [[ -n "${WINDOWS_PACKAGE_URL}" ]]; then
           export windowsPackageURL=$WINDOWS_PACKAGE_URL
           export WINDOWS_PACKAGE_VERSION=$(echo $windowsPackageURL | grep -oP '(?<=/v)\d+\.\d+\.\d+' | head -1)
@@ -46,7 +45,8 @@ jobs:
           fi
         else
           if [[ -z "${KUBERNETES_VERSION}" ]]; then
-            KUBERNETES_VERSION=$(az aks get-versions -l $LOCATION --query "orchestrators[?default==\`true\`].orchestratorVersion" -otsv)
+            defaultMajorVersion=$(az aks get-versions -l $AZURE_BUILD_LOCATION --query "values[?isDefault==\`true\`].version" -otsv)
+            KUBERNETES_VERSION=$(az aks get-versions -l $AZURE_BUILD_LOCATION -o table | awk '{print $1}' | awk "/$defaultMajorVersion/ {print}" | sort -r | awk 'NR==1')
             echo "Using default kubernetes version ${KUBERNETES_VERSION} for the windows package"
           fi
           export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
@@ -61,10 +61,10 @@ jobs:
         bash ./e2e-starter.sh
         bash e2e-create-windows-nodepool.sh
       env:
-        MAPPED_ACCOUNT_KEY: $(STORAGE_ACCOUNT_KEY)
+        MAPPED_ACCOUNT_KEY: $(AZURE_E2E_STORAGE_ACCOUNT_KEY)
       displayName: Setup Test Cluster
     - publish: $(System.DefaultWorkingDirectory)/${{ parameters.windowsImage }}
-      artifact: ${{ parameters.windowsImage }}-clusterConfig
+      artifact: ${{ parameters.windowsImage }}${{ parameters.windowsGpuDriverSuffix }}-clusterConfig
       condition: succeeded()
 
 - job: Generate_Matrix
@@ -83,24 +83,33 @@ jobs:
     maxParallel: 3
   steps:
     - download: current
-      artifact: ${{ parameters.windowsImage }}-clusterConfig
-    - bash: pip install -Iv azure-cli==2.45.0 --extra-index-url https://azurecliprod.blob.core.windows.net/edge
-      displayName: use specified version of az cli
+      artifact: ${{ parameters.windowsImage }}${{ parameters.windowsGpuDriverSuffix }}-clusterConfig
     - bash: |
-        az login --service-principal -u $(AZURE_CLIENT_ID) -p $(AZURE_CLIENT_SECRET) --tenant $(AZURE_TENANT_ID)
-        az account set -s $(AZURE_SUBSCRIPTION_ID)
+        az login --identity
+        az account set -s $(AZURE_E2E_SUBSCRIPTION_ID)
       displayName: az login
     - bash: |
         export SCENARIO_NAME
         export WINDOWS_E2E_IMAGE=${{ parameters.windowsImage }}
         export WINDOWS_DISTRO=${{ parameters.windowsDistro }}
-        export WINDOWS_NODE_IMAGE_VERSION=${{ parameters.windowsNodeImageVersion }}
+        export WINDOWS_GPU_DRIVER_SUFFIX=${{ parameters.windowsGpuDriverSuffix }}
+        if [[ "${WINDOWS_GPU_DRIVER_SUFFIX}" == "-grid" ]]; then
+            export WINDOWS_GPU_DRIVER_URL="https://acs-mirror.azureedge.net/aks/windows/gpudrivers/grid/537.13_grid_win10_win11_server2019_server2022_dch_64bit_international_azure_swl.exe"
+            export CONFIG_GPU_DRIVER_IF_NEEDED=true
+        elif [[ "${WINDOWS_GPU_DRIVER_SUFFIX}" == "-cuda" ]]; then
+            export WINDOWS_GPU_DRIVER_URL="https://acs-mirror.azureedge.net/aks/windows/gpudrivers/cuda/473.47-data-center-tesla-desktop-winserver-2019-2016-international.exe"
+            export CONFIG_GPU_DRIVER_IF_NEEDED=true
+        else
+            export WINDOWS_GPU_DRIVER_URL=""
+            export CONFIG_GPU_DRIVER_IF_NEEDED=false
+        fi
         if [[ -n "${WINDOWS_PACKAGE_URL}" ]]; then
           export windowsPackageURL=$WINDOWS_PACKAGE_URL
           export WINDOWS_PACKAGE_VERSION=$(echo $windowsPackageURL | grep -oP '(?<=/v)\d+\.\d+\.\d+' | head -1)
         else
           if [[ -z "${KUBERNETES_VERSION}" ]]; then
-            KUBERNETES_VERSION=$(az aks get-versions -l $LOCATION --query "orchestrators[?default==\`true\`].orchestratorVersion" -otsv)
+            defaultMajorVersion=$(az aks get-versions -l $AZURE_BUILD_LOCATION --query "values[?isDefault==\`true\`].version" -otsv)
+            KUBERNETES_VERSION=$(az aks get-versions -l $AZURE_BUILD_LOCATION -o table | awk '{print $1}' | awk "/$defaultMajorVersion/ {print}" | sort -r | awk 'NR==1')
             echo "Using default kubernetes version ${KUBERNETES_VERSION} for the windows package"
           fi
           export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
@@ -108,11 +117,11 @@ jobs:
         fi
         export K8S_VERSION=${WINDOWS_PACKAGE_VERSION//./}
         mkdir -p $WINDOWS_E2E_IMAGE
-        cp -a $(Pipeline.Workspace)/${{ parameters.windowsImage }}-clusterConfig/* $WINDOWS_E2E_IMAGE
+        cp -a $(Pipeline.Workspace)/${{ parameters.windowsImage }}${{ parameters.windowsGpuDriverSuffix }}-clusterConfig/* $WINDOWS_E2E_IMAGE
         cd $WINDOWS_E2E_IMAGE
         bash e2e-scenario.sh
       env:
-        MAPPED_ACCOUNT_KEY: $(STORAGE_ACCOUNT_KEY)
+        MAPPED_ACCOUNT_KEY: $(AZURE_E2E_STORAGE_ACCOUNT_KEY)
     - publish: $(System.DefaultWorkingDirectory)/${{ parameters.windowsImage }}/$(SCENARIO_NAME)-logs
-      artifact: ${{ parameters.windowsImage }}-$(SCENARIO_NAME)-logs
+      artifact: ${{ parameters.windowsImage }}${{ parameters.windowsGpuDriverSuffix }}-$(SCENARIO_NAME)-logs
       condition: always()
