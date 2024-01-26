@@ -1,10 +1,9 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_e2e
 trigger: none
-
 pr:
   branches:
     include:
-    - main
+    - master
     - 'official/*'
   paths:
     include:
@@ -13,8 +12,6 @@ pr:
     - 'e2e/windows/*'
     - 'parts/windows/*'
     - 'staging/cse/windows/*'
-    exclude:
-    - 'vhdbuilder/*'
 
 # Use variable group "ab-windows-ms-tenant" and link it to the pipeline "Agentbaker Windows E2E"
 
