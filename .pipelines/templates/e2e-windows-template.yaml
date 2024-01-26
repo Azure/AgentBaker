@@ -46,7 +46,7 @@ jobs:
         else
           if [[ -z "${KUBERNETES_VERSION}" ]]; then
             defaultMajorVersion=$(az aks get-versions -l $AZURE_BUILD_LOCATION --query "values[?isDefault==\`true\`].version" -otsv)
-            KUBERNETES_VERSION=$(az aks get-versions -l eastus -o table | awk '{print $1}' | awk "/$defaultMajorVersion/ {print}" | sort -r | awk 'NR==1')
+            KUBERNETES_VERSION=$(az aks get-versions -l $AZURE_BUILD_LOCATION -o table | awk '{print $1}' | awk "/$defaultMajorVersion/ {print}" | sort -r | awk 'NR==1')
             echo "Using default kubernetes version ${KUBERNETES_VERSION} for the windows package"
           fi
           export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
@@ -109,7 +109,7 @@ jobs:
         else
           if [[ -z "${KUBERNETES_VERSION}" ]]; then
             defaultMajorVersion=$(az aks get-versions -l $AZURE_BUILD_LOCATION --query "values[?isDefault==\`true\`].version" -otsv)
-            KUBERNETES_VERSION=$(az aks get-versions -l eastus -o table | awk '{print $1}' | awk "/$defaultMajorVersion/ {print}" | sort -r | awk 'NR==1')
+            KUBERNETES_VERSION=$(az aks get-versions -l $AZURE_BUILD_LOCATION -o table | awk '{print $1}' | awk "/$defaultMajorVersion/ {print}" | sort -r | awk 'NR==1')
             echo "Using default kubernetes version ${KUBERNETES_VERSION} for the windows package"
           fi
           export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
