@@ -268,11 +268,13 @@ func linuxCloudInitArtifacts10TlsbootstrapConf() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsAksCheckNetworkService = []byte(`[Unit]
-Description=Check outbound connectivity from node to certain endpoints
+Description=AKS Check Network
+After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash /usr/local/bin/aks-check-network.sh`)
+ExecStart=/opt/azure/containers/aks-check-network.sh
+`)
 
 func linuxCloudInitArtifactsAksCheckNetworkServiceBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsAksCheckNetworkService, nil
