@@ -1,6 +1,5 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_e2e
 trigger: none
-
 pr:
   branches:
     include:
