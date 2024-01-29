@@ -108,7 +108,7 @@ net.bridge.bridge-nf-call-iptables = 1
 EOF
 
 echo "set read ahead size to 15380 KB"
-AWK_PATH=$(which awk)
+AWK_PATH=$(command -v awk)
 cat > /etc/udev/rules.d/99-nfs.rules <<EOF
 SUBSYSTEM=="bdi", ACTION=="add", PROGRAM="$AWK_PATH -v bdi=\$kernel 'BEGIN{ret=1} {if (\$4 == bdi){ret=0}} END{exit ret}' /proc/fs/nfsfs/volumes", ATTR{read_ahead_kb}="15380"
 EOF

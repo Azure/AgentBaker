@@ -66,40 +66,46 @@ $global:imagesToPull += @(
     # This is for test purpose only to reduce the test duration.
     "mcr.microsoft.com/windows/servercore/iis:latest",
     # CSI. Owner: andyzhangx (Andy Zhang)
-    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.10.0",
-    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.11.0",
-    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0",
-    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.9.0",
-    # azuredisk-csi:v1.28 is only for AKS 1.27+, v1.26 is for other AKS versions
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.7",
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.8",
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.4.1-windows-hp",
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.5-windows-hp",
-    # azuredisk-csi:v1.29 is only for AKS 1.28+
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.1.1-windows-hp",
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.2-windows-hp",
-    # azurefile-csi:v1.28 is only for AKS 1.27+, v1.24, v1.26 is for other AKS versions
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.11",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.9",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.10",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.6-windows-hp",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.7-windows-hp",
-    # azurefile-csi:v1.29 is only for AKS 1.28+
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.1-windows-hp",
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.2-windows-hp",
+    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.10.0", # for k8s 1.25.x, 1.26.x, 1.27.x
+    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.11.0", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.12.0", # for k8s 1.29.x
+    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0", # for k8s 1.25.x, 1.26.x, 1.27.x
+    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.9.0", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.0", # for k8s 1.29.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.7", # for k8s 1.25.x, 1.26.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.8", # for k8s 1.25.x, 1.26.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.26.9", # for k8s 1.25.x, 1.26.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.4.1-windows-hp", # for k8s 1.27.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.5-windows-hp", # for k8s 1.27.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.6-windows-hp", # for k8s 1.27.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.1.1-windows-hp", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.2-windows-hp", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.3-windows-hp", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.11", # for k8s 1.25.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.9", # for k8s 1.26.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.10", # for k8s 1.26.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.11", # for k8s 1.26.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.6-windows-hp", # for k8s 1.27.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.7-windows-hp", # for k8s 1.27.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.8-windows-hp", # for k8s 1.27.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.1-windows-hp", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.2-windows-hp", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.3-windows-hp", # for k8s 1.28.x
     # Addon of Azure secrets store. Owner: jiashun0011 (Jiashun Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.4",
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.0",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.0",
     # Azure cloud node manager. Owner: nilo19 (Qi Ni)
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.15", # for k8s 1.25.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.18", # for k8s 1.25.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.11", # for k8s 1.26.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.24", # for k8s 1.25.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.14", # for k8s 1.26.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.5", # for k8s 1.27.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.19", # for k8s 1.26.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.8", # for k8s 1.27.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.13", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.0", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.5", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.0", # for k8s 1.29.x
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
     "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.15",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
@@ -174,6 +180,9 @@ $global:map = @{
     "c:\akse-cache\calico\" = @(
         "https://acs-mirror.azureedge.net/calico-node/v3.21.6/binaries/calico-windows-v3.21.6.zip",
         "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
+    );
+    "c:\akse-cache\tools\" = @(
+        "https://download.sysinternals.com/files/DU.zip"
     )
 }
 '@

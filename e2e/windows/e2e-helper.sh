@@ -19,7 +19,7 @@ exec_on_host() {
 backfill_clean_storage_container() {
     set +x
     # Get supported kubernetes versions
-    versions=$(az aks get-versions --location $AZURE_BUILD_LOCATION --query "orchestrators[].orchestratorVersion" -o tsv)
+    versions=$(az aks get-versions --location $AZURE_BUILD_LOCATION -o table | tail -n +3 | awk '{print $1}')
     k8s_versions=${versions//./}
 
     # Get container names e.g. akswinstore2022-1256 (for this $container_version would be "1256")
