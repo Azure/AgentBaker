@@ -291,7 +291,7 @@ func linuxCloudInitArtifactsAksCheckNetworkService() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsAksCheckNetworkSh = []byte(`#!/bin/bash
+var _linuxCloudInitArtifactsAksCheckNetworkSh = []byte(`#! /bin/bash
 # 
 # AKS Check Network
 #
@@ -327,9 +327,10 @@ DELAY=5
 
 declare -A URL_LIST=( 
     ["mcr.microsoft.com"]="This is required to access images in Microsoft Container Registry (MCR). These images are required for the correct creation and functioning of the cluster, including scale and upgrade operations."\
+    ["eastus.data.mcr.microsoft.com"]="FQDN *.data.mcr.microsoft.com is required for MCR storage backed by the Azure content delivery network (CDN)."\
     ["login.microsoftonline.com"]="This is equired for Microsoft Entra authentication."\
     ["packages.microsoft.com"]="This is required to download packages (like Moby, PowerShell, and Azure CLI) using cached apt-get operations."\
-    ["acs-mirror.azureedge.net"]="This is required to download and install required binaries like kubenet and Azure CNI."\ 
+    ["acs-mirror.azureedge.net"]="This is required to download and install required binaries like kubenet and Azure CNI."\
 )
 
 function logs_to_events {
@@ -356,7 +357,7 @@ function logs_to_events {
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
-    echo ${json_string} > ${EVENTS_LOGGING_PATH}${eventsFileName}.json
+    # echo ${json_string} > ${EVENTS_LOGGING_PATH}${eventsFileName}.json
 
     # this allows an error from the command at ${@} to be returned and correct code assigned in cse_main
     if [ "$ret" != "0" ]; then
@@ -392,11 +393,13 @@ function check_and_curl {
         # curl the url and capture the response code
         if [ $url == "acs-mirror.azureedge.net" ]; then
             response=$(curl -I -m $MAX_TIME -s -o /dev/null -w "%{http_code}" "https://${ACS_BINARY_ENDPOINT}" -L)
+        elif [ $url == "eastus.data.mcr.microsoft.com" ]; then
+            response=$(nc -z -w $MAX_TIME $url 443; echo $?)
         else
             response=$(curl -s -m $MAX_TIME -o /dev/null -w "%{http_code}" "https://${url}" -L)
         fi
 
-        if [ $response -ge 200 ] && [ $response -lt 400 ]; then
+        if [ $response -eq 0 ] || ([ $response -ge 200 ] && [ $response -lt 400 ]); then
             logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled $url with returned status code $response'"
             break
         fi
