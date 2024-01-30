@@ -234,6 +234,66 @@ function Set-AzureCNIConfig
     $configJson | ConvertTo-Json -depth 20 | Out-File -encoding ASCII -filepath $fileName
 }
 
+Function Fake-Get-Gateway ($cidr) {
+    # It is just a fake function, get the .1 address of the cidr
+    # I should get the gateway address from the sub net or RP
+    $ip, $subnetMaskLength = $cidr -split "/"
+    $ipParts = $ip -split "\."
+    $ipParts[-1] = "1"
+    return $ipParts -join "."
+}
+
+function New-AzureHnsNetwork
+{
+    param (
+        [Parameter(Mandatory=$true)][string]
+        $KubeClusterCIDR,
+        [Parameter(Mandatory=$true)][string]
+        $KubeServiceCIDR,
+        [Parameter(Mandatory=$true)][string]
+        $VNetCIDR,
+        [Parameter(Mandatory=$true)][string]
+        $KubeDnsServiceIp,
+        [Parameter(Mandatory=$true)][bool]
+        $IsDualStackEnabled,
+        [Parameter(Mandatory=$false)][bool]
+        $IsAzureCNIOverlayEnabled
+    )
+
+    Write-Log "Shiqian: KubeClusterCIDR: $KubeClusterCIDR"
+    Write-Log "Shiqian: KubeServiceCIDR: $KubeServiceCIDR"
+    Write-Log "Shiqian: VNetCIDR: $VNetCIDR"
+    Write-Log "Shiqian: KubeDnsServiceIp: $KubeDnsServiceIp"
+    Write-Log "Shiqian: IsDualStackEnabled: $IsDualStackEnabled"
+    Write-Log "Shiqian: IsAzureCNIOverlayEnabled: $IsAzureCNIOverlayEnabled"
+
+    $azureNetworkName = "azure"
+    $azureDNSDomain = "default.svc.cluster.local,svc.cluster.local,cluster.local"
+
+    if ($IsDualStackEnabled) { 
+        #
+    }
+    if ($IsAzureCNIOverlayEnabled) { 
+        #
+    }
+    # if (swift) { }
+
+    # Fake. I should get the gateway address from the sub net or RP
+    $gateway = Fake-Get-Gateway $KubeClusterCIDR
+    Write-Log "Shiqian: gateway: $gateway"
+
+    $azureHNS = New-HNSNetwork -Name $azureNetworkName -Type $global:NetworkMode -AddressPrefix $KubeClusterCIDR -Gateway $gateway -Verbose
+
+    Write-Log "Shiqian: azureHNS should be a json"
+    Write-Log "Shiqian: azureHNS: $azureHNS" 
+    Write-Log "Shiqian: azureHNS.GetType().FullName"
+    Write-Log $azureHNS.GetType().FullName # System.Management.Automation.PSCustomObject
+
+    Update-HnsNetworkDNS $azureHNS.ID -Domain $azureDNSDomain -ServerList @($KubeDnsServiceIp)
+
+    Write-Log (Get-hnsnetwork -Version 2 | Convertto-json -Depth 20)
+}
+
 function GetBroadestRangesForEachAddress{
     param([string[]] $values)
 
