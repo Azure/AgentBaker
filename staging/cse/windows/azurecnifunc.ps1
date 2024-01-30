@@ -27,6 +27,56 @@ function Install-VnetPlugins
     move $AzureCNIBinDir/*.conflist $AzureCNIConfDir
 }
 
+function Set-AzureHNSNetworkConfig
+{
+    param (
+        [Parameter(Mandatory=$true)][string]
+        $KubeClusterCIDR,
+        [Parameter(Mandatory=$true)][string]
+        $KubeServiceCIDR,
+        [Parameter(Mandatory=$true)][string]
+        $VNetCIDR,
+        [Parameter(Mandatory=$true)][bool]
+        $IsDualStackEnabled,
+        [Parameter(Mandatory=$false)][bool]
+        $IsAzureCNIOverlayEnabled
+    )
+    # Study how the cni creates azure HNS network?
+    # https://github.com/Azure/azure-container-networking/blob/faa2b736341e0ff0366ddfae5f9608cafca29a9e/cni/network/network.go#L543C28-L543C49
+    # https://github.com/Azure/azure-container-networking/blob/faa2b736341e0ff0366ddfae5f9608cafca29a9e/cni/network/network.go#L659C18-L659C31
+
+    # Note: The following code is non-runnable pseudocode.
+    $netobj = @{
+        Type = $Type;
+        Policies = @();
+        Name = $Name;
+    };
+    $netobj.SchemaVersion += @{
+        "Minor" = 2
+        "Major" = 2
+    }
+    #..........
+    $ipams = @()
+    $ipam = @{
+        Type = "Static";
+    }
+    $subnets += @()
+    $prefixes = @($AddressPrefix)
+    $gateways = @($Gateway)
+    #.........
+    $netobj.ipam += $ipams
+    if $IsDualStackEnabled {
+        #.........
+    }
+    if $IsAzureCNIOverlayEnabled {
+        #.........
+    }
+    #.........
+
+    $azurehnsnetworkconfig = "C:\k\azurehnsnetwork.config"
+    $netobj | ConvertTo-Json -depth 20 | Out-File -encoding ASCII -filepath $azurehnsnetworkconfig
+}
+
 function Set-AzureCNIConfig
 {
     Param(
