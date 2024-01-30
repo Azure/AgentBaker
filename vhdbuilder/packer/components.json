@@ -386,7 +386,7 @@
       "downloadLocation": "/opt/crictl/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v*/binaries",
       "versions": [
-        "1.28.0"
+        "1.29.0"
       ],
       "targetContainerRuntime": "containerd"
     }
