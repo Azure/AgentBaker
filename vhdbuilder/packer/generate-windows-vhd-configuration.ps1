@@ -112,9 +112,8 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.51",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.52",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.15",
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.5.17",
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.5",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.50",
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.5.17",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.11"
 )
 
