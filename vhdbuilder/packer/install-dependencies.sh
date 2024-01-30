@@ -302,8 +302,6 @@ unpackAzureCNI() {
 VNET_CNI_VERSIONS="
 1.5.11
 1.4.43.1
-1.4.51
-1.5.15
 "
 
 
