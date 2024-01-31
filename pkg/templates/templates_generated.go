@@ -312,10 +312,8 @@ SYSTEMD_RESOLV_CONFIG_PATH="/run/systemd/resolve/resolv.conf"
 
 ARM_ENDPOINT="management.azure.com"
 METADATA_ENDPOINT="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://${ARM_ENDPOINT}/"
-API_VERSION="2023-11-01"
-AKS_ENDPOINT="https://${ARM_ENDPOINT}/providers/Microsoft.ContainerService/operations?api-version=${API_VERSION}"
+AKS_ENDPOINT="https://${ARM_ENDPOINT}/providers/Microsoft.ContainerService/operations?api-version=2023-11-01"
 APISERVER_ENDPOINT="https://${APISERVER_FQDN}/healthz"
-ACS_BINARY_ENDPOINT="acs-mirror.azureedge.net/azure-cni/v1.4.43/binaries/azure-vnet-cni-linux-amd64-v1.4.43.tgz"
 
 TEMP_DIR=$(mktemp -d)
 NSLOOKUP_FILE="${TEMP_DIR}/nslookup.log"
@@ -391,29 +389,26 @@ function check_and_curl {
     while true;
     do
         # curl the url and capture the response code
-        if [ $url == "acs-mirror.azureedge.net" ]; then
-            response=$(curl -I -m $MAX_TIME -s -o /dev/null -w "%{http_code}" "https://${ACS_BINARY_ENDPOINT}" -L)
-        elif [ $url == "eastus.data.mcr.microsoft.com" ]; then
-            response=$(nc -z -w $MAX_TIME $url 443; echo $?)
+        response=$(curl -s -m $MAX_TIME -o /dev/null -w "%{http_code}" "https://${url}" -L)
+
+        if [ $response -ge 200 ] && [ $response -lt 400 ]; then
+            logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response'"
+            break
+        elif [ $response -eq 400 ] && ([ $url == "acs-mirror.azureedge.net" ] || [ $url == "eastus.data.mcr.microsoft.com" ]); then
+            logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response. This is expected since $url is a repository endpoint which requires a full package path to get 200 status code.'"
+            break
         else
-            response=$(curl -s -m $MAX_TIME -o /dev/null -w "%{http_code}" "https://${url}" -L)
+            # if the response code is not within successful range, increment the error count
+            i=$(( $i + 1 ))
+            # if we have reached the maximum number of retries, log an error
+            if [[ $i -eq $MAX_RETRY ]]; then
+                logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $url after $MAX_RETRY attempts with returned status code $response. $error_msg'" 
+                break
+            fi
+            
+            # sleep for the specified delay before trying again
+            sleep $DELAY
         fi
-
-        if [ $response -eq 0 ] || ([ $response -ge 200 ] && [ $response -lt 400 ]); then
-            logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled $url with returned status code $response'"
-            break
-        fi
-
-        # if the response code is not within successful range, increment the error count
-        i=$(( $i + 1 ))
-        # if we have reached the maximum number of retries, log an error
-        if [[ $i -eq $MAX_RETRY ]]; then
-            logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $url after $MAX_RETRY attempts with returned status code $response. $error_msg'" 
-            break
-        fi
-        
-        # sleep for the specified delay before trying again
-        sleep $DELAY
     done
 }
 
@@ -455,9 +450,9 @@ if [ $result -eq 200 ]; then
     access_token=$(cat $TOKEN_FILE | jq -r .access_token)
     res=$(curl -m $MAX_TIME -X GET -H "Authorization: Bearer $access_token" -H "Content-Type:application/json" -s -o /dev/null -w "%{http_code}" $AKS_ENDPOINT)
     if [ $res -ge 200 ] && [ $res -lt 400 ]; then
-        logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled $ARM_ENDPOINT with returned status code $res'"
+        logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $ARM_ENDPOINT with returned status code $res'"
     else 
-        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $ARM_ENDPOINT with returned status code $res. This endpoint is required for Kubernetes operations against the Azure API'" 
+        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test $ARM_ENDPOINT with returned status code $res. This endpoint is required for Kubernetes operations against the Azure API'" 
     fi
 else
     logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to retrieve access token with returned status code $result. Can't check access to $ARM_ENDPOINT'" 
@@ -472,12 +467,12 @@ else
         logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to $APISERVER_FQDN'"
         res=$(curl -m $MAX_TIME -s -o /dev/null -w "%{http_code}" --cacert $AKS_CA_CERT_PATH --cert $AKS_CERT_PATH --key $AKS_KEY_PATH $APISERVER_ENDPOINT)
         if [ $res -ge 200 ] && [ $res -lt 400 ]; then
-            logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully curled apiserver $APISERVER_FQDN with returned status code $res'"
+            logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested apiserver $APISERVER_FQDN with returned status code $res'"
         else 
-            logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $APISERVER_FQDN with returned status code $res. Node can't connect to the apiserver'" 
+            logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test $APISERVER_FQDN with returned status code $res. Node might not be able to connect to the apiserver'" 
         fi
     else
-        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to $APISERVER_FQDN. Node can't connect to the apiserver'"
+        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to $APISERVER_FQDN. Node might not be able to connect to the apiserver'"
         dns_trace $APISERVER_FQDN
     fi
 fi
