@@ -355,7 +355,7 @@ function logs_to_events {
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
-    # echo ${json_string} > ${EVENTS_LOGGING_PATH}${eventsFileName}.json
+    echo ${json_string} > ${EVENTS_LOGGING_PATH}${eventsFileName}.json
 
     # this allows an error from the command at ${@} to be returned and correct code assigned in cse_main
     if [ "$ret" != "0" ]; then
