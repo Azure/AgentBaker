@@ -79,6 +79,16 @@ copyPackerFiles() {
   CI_SYSLOG_WATCHER_SERVICE_DEST=/etc/systemd/system/ci-syslog-watcher.service
   CI_SYSLOG_WATCHER_SCRIPT_SRC=/home/packer/ci-syslog-watcher.sh
   CI_SYSLOG_WATCHER_SCRIPT_DEST=/usr/local/bin/ci-syslog-watcher.sh
+  AKS_LOG_COLLECTOR_SCRIPT_SRC=/home/packer/aks-log-collector.sh
+  AKS_LOG_COLLECTOR_SCRIPT_DEST=/opt/azure/containers/aks-log-collector.sh
+  AKS_LOG_COLLECTOR_SEND_SCRIPT_SRC=/home/packer/aks-log-collector-send.py
+  AKS_LOG_COLLECTOR_SEND_SCRIPT_DEST=/opt/azure/containers/aks-log-collector-send.py
+  AKS_LOG_COLLECTOR_SERVICE_SRC=/home/packer/aks-log-collector.service
+  AKS_LOG_COLLECTOR_SERVICE_DEST=/etc/systemd/system/aks-log-collector.service
+  AKS_LOG_COLLECTOR_SLICE_SRC=/home/packer/aks-log-collector.slice
+  AKS_LOG_COLLECTOR_SLICE_DEST=/etc/systemd/system/aks-log-collector.slice
+  AKS_LOG_COLLECTOR_TIMER_SRC=/home/packer/aks-log-collector.timer
+  AKS_LOG_COLLECTOR_TIMER_DEST=/etc/systemd/system/aks-log-collector.timer
   AKS_LOGROTATE_SCRIPT_SRC=/home/packer/logrotate.sh
   AKS_LOGROTATE_SCRIPT_DEST=/usr/local/bin/logrotate.sh
   AKS_LOGROTATE_SERVICE_SRC=/home/packer/logrotate.service
@@ -232,6 +242,13 @@ copyPackerFiles() {
   elif [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
     SSHD_CONFIG_SRC=/home/packer/sshd_config_1804_fips
   fi
+
+  # Install AKS log collector
+  cpAndMode $AKS_LOG_COLLECTOR_SCRIPT_SRC $AKS_LOG_COLLECTOR_SCRIPT_DEST 755
+  cpAndMode $AKS_LOG_COLLECTOR_SEND_SCRIPT_SRC $AKS_LOG_COLLECTOR_SEND_SCRIPT_DEST 755
+  cpAndMode $AKS_LOG_COLLECTOR_SERVICE_SRC $AKS_LOG_COLLECTOR_SERVICE_DEST 644
+  cpAndMode $AKS_LOG_COLLECTOR_SLICE_SRC $AKS_LOG_COLLECTOR_SLICE_DEST 644
+  cpAndMode $AKS_LOG_COLLECTOR_TIMER_SRC $AKS_LOG_COLLECTOR_TIMER_DEST 644
 
   cpAndMode $AKS_LOGROTATE_CONF_SRC $AKS_LOGROTATE_CONF_DEST 644
   # If a logrotation timer does not exist on the base image
