@@ -18,7 +18,6 @@ RESOLV_CONFIG_PATH="/etc/resolv.conf"
 SYSTEMD_RESOLV_CONFIG_PATH="/run/systemd/resolve/resolv.conf"
 
 ARM_ENDPOINT="management.azure.com"
-API_VERSION="2023-11-01"
 METADATA_ENDPOINT="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://${ARM_ENDPOINT}/"
 AKS_ENDPOINT="https://${ARM_ENDPOINT}/providers/Microsoft.ContainerService/operations?api-version=2023-11-01"
 APISERVER_ENDPOINT="https://${APISERVER_FQDN}/healthz"
