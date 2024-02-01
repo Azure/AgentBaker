@@ -137,7 +137,7 @@ else
     "offer_name": "$OFFER_NAME",
     "hyperv_generation": "${HYPERV_GENERATION}",
     "image_architecture": "${IMAGE_ARCH}",
-    "image_version": "${AKS_WINDOWS_IMAGE_VERSION}",
+    "image_version": "${IMAGE_VERSION}",
     "replication_inverse": "${REPLICATION_INVERSE}"
 }
 EOF
