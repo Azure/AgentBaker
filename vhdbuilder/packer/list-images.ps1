@@ -6,7 +6,7 @@
         Produces a JSON image BOM for a Windows VHD
 #>
 $windowsSKU = $env:WindowsSKU
-$windowsImageVersion = $env:WindowsImageVersion
+$aksWindowsImageVersion = $env:AKSWindowsImageVersion
 
 $ErrorActionPreference = "Stop"
 
@@ -104,7 +104,7 @@ $imageBom=$(echo $bomList | ConvertTo-Json)
 $listResult = @"
 {
         "sku": "windows-$windowsSKU",
-        "imageVersion": "$windowsImageVersion",
+        "imageVersion": "$aksWindowsImageVersion",
         "imageBom": $imageBom
 }
 "@
