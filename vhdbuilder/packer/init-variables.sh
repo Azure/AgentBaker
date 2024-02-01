@@ -387,6 +387,8 @@ if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
 	private_packages_url="${PRIVATE_PACKAGES_URL}"
 fi
 
+# windows_image_version refers to the version from azure gallery
+# aks_windows_image_version refers to the version built by AKS Windows SIG
 cat <<EOF > vhdbuilder/packer/settings.json
 {
   "subscription_id":  "${SUBSCRIPTION_ID}",

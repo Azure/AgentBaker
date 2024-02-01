@@ -43,12 +43,19 @@ set +x
 
 for v in "${required_env_vars[@]}"
 do
-    if [ -z "${!v}" ]; then
-        if [ "$v" == "IMAGE_VERSION" ]; then
-           IMAGE_VERSION=$(date +%Y%m.%d.0)
-           echo "$v was not set, set it to ${!v}"
-        else
-            echo "$v was not set!"
+    if [ "${OS_NAME,,}" == "linux" ]; then
+        if [ -z "${!v}" ]; then
+            if [ "$v" == "IMAGE_VERSION" ]; then
+                IMAGE_VERSION=$(date +%Y%m.%d.0)
+                echo "$v was not set, set it to ${!v}"
+            else
+                echo "$v was not set!"
+                exit 1
+            fi
+        fi
+    else
+        if [ -z "${!v}" ]; then
+            echo "$v was not set for windows!"
             exit 1
         fi
     fi
@@ -130,7 +137,7 @@ else
     "offer_name": "$OFFER_NAME",
     "hyperv_generation": "${HYPERV_GENERATION}",
     "image_architecture": "${IMAGE_ARCH}",
-    "image_version": "${IMAGE_VERSION}",
+    "image_version": "${AKS_WINDOWS_IMAGE_VERSION}",
     "replication_inverse": "${REPLICATION_INVERSE}"
 }
 EOF
