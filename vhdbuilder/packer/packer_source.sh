@@ -99,6 +99,10 @@ copyPackerFiles() {
   AKS_LOGROTATE_TIMER_DROPIN_DEST=/etc/systemd/system/logrotate.timer.d/override.conf
   AKS_LOGROTATE_CONF_SRC=/home/packer/rsyslog
   AKS_LOGROTATE_CONF_DEST=/etc/logrotate.d/rsyslog
+  AKS_CHECK_NETWORK_SCRIPT_SRC=/home/packer/aks-check-network.sh
+  AKS_CHECK_NETWORK_SCRIPT_DEST=/opt/azure/containers/aks-check-network.sh
+  AKS_CHECK_NETWORK_SERVICE_SRC=/home/packer/aks-check-network.service
+  AKS_CHECK_NETWORK_SERVICE_DEST=/etc/systemd/system/aks-check-network.service
   BLOCK_WIRESERVER_SRC=/home/packer/block_wireserver.sh
   BLOCK_WIRESERVER_DEST=/opt/azure/containers/kubelet.sh
   RECONCILE_PRIVATE_HOSTS_SRC=/home/packer/reconcile-private-hosts.sh
@@ -259,6 +263,9 @@ copyPackerFiles() {
   else
     cpAndMode $AKS_LOGROTATE_TIMER_DROPIN_SRC $AKS_LOGROTATE_TIMER_DROPIN_DEST 644
   fi
+
+  cpAndMode $AKS_CHECK_NETWORK_SCRIPT_SRC $AKS_CHECK_NETWORK_SCRIPT_DEST 755
+  cpAndMode $AKS_CHECK_NETWORK_SERVICE_SRC $AKS_CHECK_NETWORK_SERVICE_DEST 644
 
   if [[ ${UBUNTU_RELEASE} == "22.04" ]]; then
     PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth-2204

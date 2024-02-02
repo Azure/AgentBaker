@@ -1,0 +1,7 @@
+[Unit]
+Description=AKS Check Network
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/azure/containers/aks-check-network.sh
