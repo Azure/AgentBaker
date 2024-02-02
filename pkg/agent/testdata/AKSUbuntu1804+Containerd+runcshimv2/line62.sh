@@ -113,7 +113,7 @@ installStandaloneContainerd() {
 
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
-        CONTAINERD_VERSION="1.7.5"
+        CONTAINERD_VERSION="1.7.7"
         if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
             CONTAINERD_VERSION="1.7.1"
         fi
