@@ -68,19 +68,18 @@ upload_linux_file_to_storage_account() {
     E2E_MC_RESOURCE_GROUP_NAME="MC_${E2E_RESOURCE_GROUP_NAME}_${AZURE_E2E_CLUSTER_NAME}_$AZURE_BUILD_LOCATION"
     MC_VMSS_NAME=$(az vmss list -g $E2E_MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
     VMSS_INSTANCE_ID="$(az vmss list-instances --name $MC_VMSS_NAME -g $E2E_MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
+    VMSS_RESOURCE_ID="$(az vmss show --name $MC_VMSS_NAME --resource-group $E2E_MC_RESOURCE_GROUP_NAME --instance-id $VMSS_INSTANCE_ID | jq '.id')"
+    az vmss identity assign --identities "${AZURE_MSI_RESOURCE_STRING}" -g $E2E_MC_RESOURCE_GROUP_NAME -n $MC_VMSS_NAME
+    az vmss update-instances -g $E2E_MC_RESOURCE_GROUP_NAME -n $MC_VMSS_NAME --instance-ids "*"
 
-    set +x
-    expiryTime=$(date --date="2 day" +%Y-%m-%d)
-    token=$(az storage container generate-sas --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'w' --expiry $expiryTime --name $WINDOWS_E2E_STORAGE_CONTAINER)
-    linuxFileURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${WINDOWS_E2E_STORAGE_CONTAINER}/${MC_VMSS_NAME}-linux-file.zip?${token}"
+    linuxFileURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${WINDOWS_E2E_STORAGE_CONTAINER}/${MC_VMSS_NAME}-linux-file.zip"
 
     az vmss run-command invoke --command-id RunShellScript \
         --resource-group $E2E_MC_RESOURCE_GROUP_NAME \
         --name $MC_VMSS_NAME \
         --instance-id $VMSS_INSTANCE_ID \
-        --scripts "cat /etc/kubernetes/azure.json > /home/fields.json; cat /etc/kubernetes/certs/apiserver.crt | base64 -w 0 > /home/apiserver.crt; cat /etc/kubernetes/certs/ca.crt | base64 -w 0 > /home/ca.crt; cat /etc/kubernetes/certs/client.key | base64 -w 0 > /home/client.key; cat /var/lib/kubelet/bootstrap-kubeconfig > /home/bootstrap-kubeconfig; cd /home; zip file.zip fields.json apiserver.crt ca.crt client.key bootstrap-kubeconfig; wget https://aka.ms/downloadazcopy-v10-linux; tar -xvf downloadazcopy-v10-linux; cd ./azcopy_*; ./azcopy copy /home/file.zip $linuxFileURL" || retval=$?
+        --scripts "cat /etc/kubernetes/azure.json > /home/fields.json; cat /etc/kubernetes/certs/apiserver.crt | base64 -w 0 > /home/apiserver.crt; cat /etc/kubernetes/certs/ca.crt | base64 -w 0 > /home/ca.crt; cat /etc/kubernetes/certs/client.key | base64 -w 0 > /home/client.key; cat /var/lib/kubelet/bootstrap-kubeconfig > /home/bootstrap-kubeconfig; cd /home; zip file.zip fields.json apiserver.crt ca.crt client.key bootstrap-kubeconfig; wget https://aka.ms/downloadazcopy-v10-linux; tar -xvf downloadazcopy-v10-linux; cd ./azcopy_*; export AZCOPY_AUTO_LOGIN_TYPE=\"MSI\"; export AZCOPY_MSI_RESOURCE_STRING=\"${AZURE_MSI_RESOURCE_STRING}\"; ./azcopy copy /home/file.zip $linuxFileURL" || retval=$?
     
-    set -x
     if [ "$retval" -eq 0 ]; then
         log "Upload linux file successfully"
     else
@@ -92,13 +91,10 @@ download_linux_file_from_storage_account() {
     wget https://aka.ms/downloadazcopy-v10-linux
     tar -xvf downloadazcopy-v10-linux
 
-    expiryTime=$(date --date="2 day" +%Y-%m-%d)
+    linuxFileURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${WINDOWS_E2E_STORAGE_CONTAINER}/${MC_VMSS_NAME}-linux-file.zip"
 
-    set +x
-
-    token=$(az storage container generate-sas --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rl' --expiry $expiryTime --name $WINDOWS_E2E_STORAGE_CONTAINER)
-    tokenWithoutQuote=${token//\"}
-    linuxFileURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${WINDOWS_E2E_STORAGE_CONTAINER}/${MC_VMSS_NAME}-linux-file.zip?${tokenWithoutQuote}"
+    export AZCOPY_AUTO_LOGIN_TYPE="MSI"
+    export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
 
     array=(azcopy_*)
     noExistStr="File count: 0"
@@ -113,16 +109,13 @@ download_linux_file_from_storage_account() {
         fileExist="true"
         break;
     done
-    set -x
 
     if [ "$fileExist" == "false" ]; then
         err "File does not exist in storage account."
         exit 1
     fi
 
-    set +x
     ${array[0]}/azcopy copy $linuxFileURL file.zip
-    set -x
 
     unzip file.zip
 }

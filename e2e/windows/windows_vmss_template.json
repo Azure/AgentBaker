@@ -17,7 +17,7 @@
                 "singlePlacementGroup": false,
                 "orchestrationMode": "Uniform",
                 "upgradePolicy": {
-                    "mode": "Automatic",
+                    "mode": "Manual",
                     "rollingUpgradePolicy": {
                         "maxBatchInstancePercent": 20,
                         "maxUnhealthyInstancePercent": 20,
