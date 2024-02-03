@@ -44,11 +44,16 @@ set +x
 for v in "${required_env_vars[@]}"
 do
     if [ -z "${!v}" ]; then
-        if [ "$v" == "IMAGE_VERSION" ]; then
-           IMAGE_VERSION=$(date +%Y%m.%d.0)
-           echo "$v was not set, set it to ${!v}"
-        else
-            echo "$v was not set!"
+        if [ "${OS_NAME,,}" == "linux" ]; then
+            if [ "$v" == "IMAGE_VERSION" ]; then
+                IMAGE_VERSION=$(date +%Y%m.%d.0)
+                echo "$v was not set, set it to ${!v}"
+            else
+                echo "$v was not set!"
+                exit 1
+            fi
+        else 
+            echo "$v was not set for windows!"
             exit 1
         fi
     fi
