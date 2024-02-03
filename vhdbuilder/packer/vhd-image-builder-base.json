@@ -630,12 +630,6 @@
     {
       "type": "file",
       "direction": "download",
-      "source": "/opt/azure/containers/trivy-images-table.txt",
-      "destination": "trivy-images-table.txt"
-    },
-    {
-      "type": "file",
-      "direction": "download",
       "source": "/opt/azure/vhd-install.complete",
       "destination": "release-notes.txt"
     },
