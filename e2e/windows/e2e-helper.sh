@@ -69,8 +69,6 @@ upload_linux_file_to_storage_account() {
     MC_VMSS_NAME=$(az vmss list -g $E2E_MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
     VMSS_INSTANCE_ID="$(az vmss list-instances --name $MC_VMSS_NAME -g $E2E_MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
     VMSS_RESOURCE_ID="$(az vmss show --name $MC_VMSS_NAME --resource-group $E2E_MC_RESOURCE_GROUP_NAME --instance-id $VMSS_INSTANCE_ID | jq '.id')"
-    az vmss identity assign --identities "${AZURE_MSI_RESOURCE_STRING}" -g $E2E_MC_RESOURCE_GROUP_NAME -n $MC_VMSS_NAME
-    az vmss update-instances -g $E2E_MC_RESOURCE_GROUP_NAME -n $MC_VMSS_NAME --instance-ids "*"
 
     linuxFileURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${WINDOWS_E2E_STORAGE_CONTAINER}/${MC_VMSS_NAME}-linux-file.zip"
 

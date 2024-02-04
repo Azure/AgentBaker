@@ -13,8 +13,6 @@ collect-logs() {
     retval=0
     mkdir -p $SCENARIO_NAME-logs
     VMSS_INSTANCE_ID="$(az vmss list-instances --name $DEPLOYMENT_VMSS_NAME -g $E2E_MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
-    az vmss identity assign --identities "${AZURE_MSI_RESOURCE_STRING}" -g $E2E_MC_RESOURCE_GROUP_NAME -n $DEPLOYMENT_VMSS_NAME
-    az vmss update-instances -g $E2E_MC_RESOURCE_GROUP_NAME -n $DEPLOYMENT_VMSS_NAME --instance-ids "*"
 
     # Use .ps1 file to run scripts since single quotes of parameters for --scripts would fail in check-shell
     az vmss run-command invoke --command-id RunPowerShellScript \
