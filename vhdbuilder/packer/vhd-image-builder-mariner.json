@@ -443,6 +443,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-check-network.sh",
+      "destination": "/home/packer/aks-check-network.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-check-network.service",
+      "destination": "/home/packer/aks-check-network.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-logrotate.sh",
       "destination": "/home/packer/logrotate.sh"
     },

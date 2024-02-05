@@ -76,7 +76,7 @@ if [ "$create_cluster" == "true" ]; then
     clusterCreateStartTime=$(date +%s)
     retval=0
     
-    az aks create -g $E2E_RESOURCE_GROUP_NAME -n $AZURE_E2E_CLUSTER_NAME --node-count 1 --generate-ssh-keys --network-plugin azure -ojson || retval=$?
+    az aks create -g $E2E_RESOURCE_GROUP_NAME -n $AZURE_E2E_CLUSTER_NAME --enable-managed-identity --assign-identity $AZURE_MSI_RESOURCE_STRING --assign-kubelet-identity $AZURE_MSI_RESOURCE_STRING --node-count 1 --generate-ssh-keys --network-plugin azure -ojson || retval=$?
 
     if [ "$retval" -ne 0  ]; then
         log "Other pipelines may be creating cluster $AZURE_E2E_CLUSTER_NAME, waiting for ready"

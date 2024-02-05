@@ -107,7 +107,7 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.5", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.0", # for k8s 1.29.x
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.15",
+    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.17",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.51",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.52",
@@ -116,6 +116,8 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.44.5",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.50",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.11"
+    # Dropgz (init container to CNS). Owner: pjohnst5 (Paul Johnston)
+    "mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.13"
 )
 
 $global:map = @{
