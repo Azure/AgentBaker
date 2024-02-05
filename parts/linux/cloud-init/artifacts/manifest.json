@@ -18,7 +18,7 @@
             "1804": "1.1.7"
         },
         "installed": {
-            "default": "1.1.9"
+            "default": "1.1.12"
         }
     },
     "nvidia-container-runtime": {
