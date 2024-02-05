@@ -18,14 +18,15 @@ cherry_pick_commit_id=$3
 
 # This function finds the latest windows VHD base Image version from the command az vm image show
 find_latest_image_version() {
-    latest_image_version_2019=$(az vm image show --urn MicrosoftWindowsServer:WindowsServer:2019-Datacenter-Core-smalldisk:latest --query 'id' -o tsv | awk -F '/' '{print $NF}')
+    latest_image_version_2019="17763.5329.240101"
+    # latest_image_version_2019=$(az vm image show --urn MicrosoftWindowsServer:WindowsServer:2019-Datacenter-Core-smalldisk:latest --query 'id' -o tsv | awk -F '/' '{print $NF}')
     latest_image_version_2022=$(az vm image show --urn MicrosoftWindowsServer:WindowsServer:2022-Datacenter-Core-smalldisk:latest --query 'id' -o tsv | awk -F '/' '{print $NF}')
     latest_image_version_2022_g2=$(az vm image show --urn MicrosoftWindowsServer:WindowsServer:2022-Datacenter-Core-smalldisk-g2:latest --query 'id' -o tsv | awk -F '/' '{print $NF}')
     echo "Latest windows 2019 base image version is: ${latest_image_version_2019}"
     echo "Latest windows 2022 base image version is: ${latest_image_version_2022}"
     echo "Latest windows 2022 Gen 2 base image version is: ${latest_image_version_2022_g2}"
-    new_image_version=$(echo "$latest_image_version_2019" | cut -c 12-)
-    branch_name=wsimageBump/$new_image_version
+    new_image_version=$(date +"%Y-%m")
+    branch_name=$github_user_name/win-${new_image_version}b
 }
 
 # This function replaces the old Windows 2019 & Windows 2022 (gen1/gen2) base image version with the latest version found by az vm image show in windows-image.env
