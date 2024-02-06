@@ -1,6 +1,6 @@
 module github.com/Azure/agentbakere2e
 
-go 1.18
+go 1.21
 
 require (
 	github.com/Azure/agentbaker v0.0.0-00010101000000-000000000000
