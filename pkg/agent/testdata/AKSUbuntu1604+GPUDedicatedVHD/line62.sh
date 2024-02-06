@@ -201,7 +201,7 @@ ensureRunc() {
     if [[ -z ${TARGET_VERSION} ]]; then
         TARGET_VERSION="1.1.12-ubuntu${UBUNTU_RELEASE}"
         if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-            TARGET_VERSION="1.1.7+azure-ubuntu${UBUNTU_RELEASE}"
+            TARGET_VERSION="1.1.11-ubuntu${UBUNTU_RELEASE}"
         fi
     fi
 
@@ -215,12 +215,8 @@ ensureRunc() {
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     CLEANED_TARGET_VERSION=${TARGET_VERSION}
 
-    if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%+*} 
-    else
-        CURRENT_VERSION=${CURRENT_VERSION%-*} 
-        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} 
-    fi
+    CURRENT_VERSION=${CURRENT_VERSION%-*} 
+    CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} 
 
     if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
         echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."

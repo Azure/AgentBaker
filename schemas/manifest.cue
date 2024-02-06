@@ -66,7 +66,7 @@
         "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [],
         "pinned": {
-            "1804": "1.1.7"
+            "1804": "1.1.11-2"
         }
         "installed": {
 			"default": "1.1.12"

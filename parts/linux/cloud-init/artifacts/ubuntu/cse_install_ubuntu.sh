@@ -221,10 +221,10 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
-        # pin 1804 to 1.1.7
+        # pin 1804 to 1.1.11
         TARGET_VERSION="1.1.12-ubuntu${UBUNTU_RELEASE}"
         if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-            TARGET_VERSION="1.1.7+azure-ubuntu${UBUNTU_RELEASE}"
+            TARGET_VERSION="1.1.11-ubuntu${UBUNTU_RELEASE}"
         fi
     fi
 
@@ -239,14 +239,10 @@ ensureRunc() {
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     CLEANED_TARGET_VERSION=${TARGET_VERSION}
 
-    if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%+*} # removes the +azure-ubuntu18.04u1 (or similar) suffix
-    else
-        # after upgrading to 1.1.9, CURRENT_VERSION will also include the patch version (such as 1.1.9-1), so we trim it off
-        # since we only care about the major and minor versions when determining if we need to install it
-        CURRENT_VERSION=${CURRENT_VERSION%-*} # removes the -1 patch version (or similar)
-        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar) 
-    fi
+    # after upgrading to 1.1.9, CURRENT_VERSION will also include the patch version (such as 1.1.9-1), so we trim it off
+    # since we only care about the major and minor versions when determining if we need to install it
+    CURRENT_VERSION=${CURRENT_VERSION%-*} # removes the -1 patch version (or similar)
+    CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar) 
 
     if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
         echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
