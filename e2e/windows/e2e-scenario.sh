@@ -13,34 +13,33 @@ collect-logs() {
     retval=0
     mkdir -p $SCENARIO_NAME-logs
     VMSS_INSTANCE_ID="$(az vmss list-instances --name $DEPLOYMENT_VMSS_NAME -g $E2E_MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
-    set +x
-    expiryTime=$(date --date="2 day" +%Y-%m-%d)
-    token=$(az storage container generate-sas --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwld' --expiry $expiryTime --name $AZURE_E2E_STORAGE_LOG_CONTAINER --https-only)
+
     # Use .ps1 file to run scripts since single quotes of parameters for --scripts would fail in check-shell
     az vmss run-command invoke --command-id RunPowerShellScript \
         --resource-group $E2E_MC_RESOURCE_GROUP_NAME \
         --name $DEPLOYMENT_VMSS_NAME \
         --instance-id $VMSS_INSTANCE_ID \
         --scripts @upload-cse-logs.ps1 \
-        --parameters arg1=$AZURE_E2E_STORAGE_ACCOUNT_NAME arg2=$AZURE_E2E_STORAGE_LOG_CONTAINER arg3=$DEPLOYMENT_VMSS_NAME arg4=$token || retval=$?
+        --parameters arg1=$AZURE_E2E_STORAGE_ACCOUNT_NAME arg2=$AZURE_E2E_STORAGE_LOG_CONTAINER arg3=$DEPLOYMENT_VMSS_NAME arg4=$AZURE_MSI_RESOURCE_STRING || retval=$?
     if [ "$retval" -ne 0 ]; then
         err "Failed in uploading cse logs. Error code is $retval."
     fi
 
-    tokenWithoutQuote=${token//\"}
     # use array to pass shellcheck
+    export AZCOPY_AUTO_LOGIN_TYPE="MSI"
+    export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
+
     array=(azcopy_*)
-    ${array[0]}/azcopy copy "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-CustomDataSetupScript.log || retval=$?
+    ${array[0]}/azcopy copy "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log}" $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-CustomDataSetupScript.log || retval=$?
     if [ "$retval" -ne 0 ]; then
         err "Failed in downloading cse logs. Error code is $retval."
     else
         log "Collect cse logs done"
-        ${array[0]}/azcopy rm "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log?${tokenWithoutQuote}" || retval=$?
+        ${array[0]}/azcopy rm "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log" || retval=$?
         if [ "$retval" -ne 0 ]; then
             err "Failed in deleting cse logs in remote storage. Error code is $retval."
         fi
     fi
-    set -x
 }
 
 E2E_RESOURCE_GROUP_NAME="$AZURE_E2E_RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-$K8S_VERSION"
@@ -58,15 +57,13 @@ cd ../staging/cse/windows
 zip -r ../../../$WINDOWS_E2E_IMAGE/$WINDOWS_E2E_IMAGE-aks-windows-cse-scripts.zip ./* -x ./*.tests.ps1 -x "*azurecnifunc.tests.suites*" -x README -x provisioningscripts/*.md -x debug/update-scripts.ps1
 log "Zip cse packages done"
 
-set +x
-expiryTime=$(date --date="2 day" +%Y-%m-%d)
-token=$(az storage container generate-sas --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --permissions 'rwld' --expiry $expiryTime --name $AZURE_E2E_STORAGE_PACKAGE_CONTAINER)
-tokenWithoutQuote=${token//\"}
-
-csePackageURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
+csePackageURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip"
 export csePackageURL
 
 cd ../../../$WINDOWS_E2E_IMAGE
+
+export AZCOPY_AUTO_LOGIN_TYPE="MSI"
+export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
 
 array=(azcopy_*)
 noExistStr="File count: 0"
@@ -76,15 +73,13 @@ for i in $(seq 1 10); do
     if [[ "$listResult" != *"$noExistStr"* ]]; then
         log "Cse package with the same exists, retry $i to use new name..."
         timeStamp=$(date +%s)
-        csePackageURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
+        csePackageURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip"
         listResult=$(${array[0]}/azcopy list $csePackageURL --running-tally)
         continue
     fi
     ${array[0]}/azcopy copy $WINDOWS_E2E_IMAGE-aks-windows-cse-scripts.zip $csePackageURL
     break;
 done
-
-set -x
 
 listResult=$(${array[0]}/azcopy list $csePackageURL --running-tally)
 if [[ "$listResult" == *"$noExistStr"* ]]; then
@@ -93,7 +88,6 @@ if [[ "$listResult" == *"$noExistStr"* ]]; then
 fi
 
 log "Upload cse packages done"
-csePackageURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip"
 
 log "Scenario is $SCENARIO_NAME"
 log "Windows package version is $WINDOWS_PACKAGE_VERSION"
@@ -178,7 +172,7 @@ if [ "$retval" -ne 0 ]; then
 fi
 
 # delete cse package in storage account
-csePackageURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip?${tokenWithoutQuote}"
+csePackageURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip"
 ${array[0]}/azcopy rm $csePackageURL || retval=$?
 
 if [ "$retval" -ne 0 ]; then
