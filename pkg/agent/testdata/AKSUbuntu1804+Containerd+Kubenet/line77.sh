@@ -7,7 +7,7 @@
         "pinned": {
             "1804": "1.7.1-1"
         },
-        "edge": "1.7.5-1"
+        "edge": "1.7.7-1"
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
@@ -18,7 +18,7 @@
             "1804": "1.1.7"
         },
         "installed": {
-            "default": "1.1.9"
+            "default": "1.1.12"
         }
     },
     "nvidia-container-runtime": {

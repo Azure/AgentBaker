@@ -58,7 +58,7 @@
         "pinned": {
             "1804": "1.7.1-1" // default in 1804 vhds.
         }
-        "edge": "1.7.5-1",  // edge is default in vhd.
+        "edge": "1.7.7-1",  // edge is default in vhd.
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
@@ -69,7 +69,7 @@
             "1804": "1.1.7"
         }
         "installed": {
-			"default": "1.1.9"
+			"default": "1.1.12"
 		}
     },
     "nvidia-container-runtime": {
