@@ -221,10 +221,10 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
-        # pin 1804 to 1.1.11
+        # pin 1804 to 1.1.12
         TARGET_VERSION="1.1.12-ubuntu${UBUNTU_RELEASE}"
         if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-            TARGET_VERSION="1.1.11-ubuntu${UBUNTU_RELEASE}"
+            TARGET_VERSION="1.1.12-ubuntu${UBUNTU_RELEASE}"
         fi
     fi
 

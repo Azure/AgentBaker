@@ -201,7 +201,7 @@ ensureRunc() {
     if [[ -z ${TARGET_VERSION} ]]; then
         TARGET_VERSION="1.1.12-ubuntu${UBUNTU_RELEASE}"
         if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-            TARGET_VERSION="1.1.11-ubuntu${UBUNTU_RELEASE}"
+            TARGET_VERSION="1.1.12-ubuntu${UBUNTU_RELEASE}"
         fi
     fi
 
