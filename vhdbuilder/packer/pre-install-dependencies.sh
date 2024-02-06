@@ -75,8 +75,7 @@ else
   # so we just hold the kernel image packages for now on CVM.
   # this still allows us base image and package updates on a weekly cadence.
   if [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
-    /bin/sed -i 's/http:\\/\\/azure.archive.ubuntu.com\\/ubuntu\\//https:\\/\\/snapshot.ubuntu.com\\/ubuntu\\/20240205T090000Z/g' /etc/apt/sources.list
-    cat /etc/apt/sources.list
+    sed -i 's#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/20240205T090000Z#g' /etc/apt/sources.list
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT  
     echo -e "=== Pre Install Dependencies Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End"
