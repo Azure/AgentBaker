@@ -5,6 +5,7 @@ package agent
 
 import (
 	"encoding/base64"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -74,6 +75,18 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 		addValue(parametersMap, "windowsDockerVersion", properties.WindowsProfile.GetWindowsDockerVersion())
 		addValue(parametersMap, "defaultContainerdWindowsSandboxIsolation", properties.WindowsProfile.GetDefaultContainerdWindowsSandboxIsolation())
 		addValue(parametersMap, "containerdWindowsRuntimeHandlers", properties.WindowsProfile.GetContainerdWindowsRuntimeHandlers())
+	}
+
+	doSomeManipulation := func(s string) string {
+		return "convertDashCaseToCamelCase"
+	}
+
+	for kcKey, kcValue := range config.KubeletConfig {
+		// kubelet config keys are in the form of --<key> where key is "dash-cased"
+		parameterKey := strings.TrimPrefix(kcKey, "--")
+		parameterKey = doSomeManipulation(parameterKey)
+		// this allows us to do {{GetParamter "clusterDns"}}
+		addValue(parametersMap, fmt.Sprintf("kubeletConfigKey%s", parameterKey), kcValue)
 	}
 
 	return parametersMap
