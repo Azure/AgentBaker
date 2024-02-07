@@ -78,6 +78,7 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	}
 
 	doSomeManipulation := func(s string) string {
+		// don't technically need to do this, though would keep key format consistent
 		return "convertDashCaseToCamelCase"
 	}
 
@@ -85,7 +86,7 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 		// kubelet config keys are in the form of --<key> where key is "dash-cased"
 		parameterKey := strings.TrimPrefix(kcKey, "--")
 		parameterKey = doSomeManipulation(parameterKey)
-		// this allows us to do {{GetParamter "clusterDns"}}
+		// this allows us to do {{GetParamter "kubeletConfigKeyClusterDNS"}}
 		addValue(parametersMap, fmt.Sprintf("kubeletConfigKey%s", parameterKey), kcValue)
 	}
 
