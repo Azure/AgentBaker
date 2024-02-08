@@ -2,7 +2,7 @@
 set -euxo pipefail
 
 TRIVY_REPORT_JSON_PATH=/opt/azure/containers/trivy-report.json
-#TRIVY_REPORT_TABLE_PATH=/opt/azure/containers/trivy-images-table.txt
+##TRIVY_REPORT_TABLE_PATH=/opt/azure/containers/trivy-images-table.txt
 TRIVY_VERSION="0.40.0"
 TRIVY_ARCH=""
 
@@ -17,7 +17,7 @@ else
 fi
 
 mkdir -p "$(dirname "${TRIVY_REPORT_JSON_PATH}")"
-#mkdir -p "$(dirname "${TRIVY_REPORT_TABLE_PATH}")"
+##mkdir -p "$(dirname "${TRIVY_REPORT_TABLE_PATH}")"
 
 wget "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
 tar -xvzf "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
