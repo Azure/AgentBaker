@@ -722,7 +722,7 @@ DEFAULT_ROUTE_INTERFACE="$(ip -j route get 168.63.129.16 | jq -r '.[0].dev')"
 NETWORK_FILE="$(networkctl --json=short status ${DEFAULT_ROUTE_INTERFACE} | jq -r '.NetworkFile')"
 NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
 NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-aks-local-dns.conf"
-UPSTREAM_DNS_SERVERS="$(networkctl --json=short status ${DEFAULT_ROUTE_INTERFACE} | jq -r '.DNS | map(.Address | join(".")) | join (" ")')"
+UPSTREAM_DNS_SERVERS="$(</run/systemd/resolve/resolv.conf awk '/nameserver/ {print $2}' | paste -sd' ')"
 
 SED_COMMAND="s/__PILLAR__KUBE__DNS__SERVICE__/${DNS_SERVICE_IP}/g; \
              s/__PILLAR__UPSTREAM__DNS__SERVERS__/${UPSTREAM_DNS_SERVERS}/g; \
