@@ -86,13 +86,13 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 		// kubelet config keys are in the form of --<key> where key is "dash-cased"
 		parameterKey := strings.TrimPrefix(kcKey, "--")
 		parameterKey = doSomeManipulation(parameterKey)
-		// this allows us to do {{GetParamter "kubeletConfigKeyClusterDNS"}}
-		addValue(parametersMap, fmt.Sprintf("kubeletConfigKey%s", parameterKey), kcValue)
+		// this allows us to do {{GetParamter "kubeletConfigClusterDNS"}}
+		addValue(parametersMap, fmt.Sprintf("kubeletConfig%s", parameterKey), kcValue)
 	}
 
 	// or doing something like this and just grab the specific value we need
 	if clusterDNS, ok := config.KubeletConfig["--cluster-dns"]; ok {
-		addValue(parametersMap, "--cluster-dns", clusterDNS)
+		addValue(parametersMap, "kubeletConfigClusterDNS", clusterDNS)
 	}
 
 	return parametersMap
