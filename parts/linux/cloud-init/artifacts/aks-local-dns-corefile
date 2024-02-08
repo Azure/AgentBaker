@@ -1,0 +1,18 @@
+.:53 {
+    log
+    bind 169.254.20.10 100.127.0.10
+    forward . 100.127.219.96 {
+      force_tcp
+    }
+    health 169.254.20.10:8080 {
+      lameduck 5s
+    }
+    cache 7200s {
+      disable denial
+      prefetch 100
+      serve_stale 7200s verify
+    }
+    loop
+    reload
+    prometheus :9253
+}

@@ -46,6 +46,12 @@ systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
 systemctlEnableAndStart aks-log-collector.timer || exit 1
 
+# enable AKS local DNS
+# TODO move this into CSE start and control it with an API field
+# Also fix the local DNS field
+systemctl restart systemd-resolved || exit 1
+systemctlEnableAndStart aks-local-dns.service || exit 1
+
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
 systemctlEnableAndStart logrotate.timer || exit 1
 rm -f /etc/cron.daily/logrotate
