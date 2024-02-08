@@ -4,7 +4,7 @@
 .:53 {
   __COREDNS__LOG__
   bind __PILLAR__LOCAL__NODE__DNS__IP__
-  forward . /run/systemd/resolve/resolv.conf {
+  forward . __PILLAR__UPSTREAM__DNS__SERVERS__ {
     force_tcp
   }
   ready __PILLAR__LOCAL__NODE__DNS__IP__:8181
