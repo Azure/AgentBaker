@@ -40,9 +40,9 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.51",
+        "v1.4.50",
         "v1.4.52",
-        "v1.5.15",
+        "v1.5.11",
         "v1.5.17"
       ]
     },
@@ -50,16 +50,11 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/cni-dropgz:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.0.4.2",
+        "v0.0.4.1",
+        "v0.0.15",
         "v0.1.1"
       ],
       "prefetchOptimizations": [
-        {
-          "version": "v0.0.4.2",
-          "binaries": [
-            "dropgz"
-          ]
-        },
         {
           "version": "v0.1.1",
           "binaries": [
@@ -204,10 +199,7 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.12.10-2",
         "1.12.10-3",
-        "1.13.5-1",
-        "1.13.5-3",
         "1.13.10-1"
       ]
     },
@@ -369,8 +361,8 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.51",
-        "1.5.15"
+        "1.4.43.1",
+        "1.5.11"
       ]
     },
     {
@@ -378,8 +370,8 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.51",
-        "1.5.15"
+        "1.5.11",
+        "1.4.43.1"
       ]
     },
     {
