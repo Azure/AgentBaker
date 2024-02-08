@@ -134,9 +134,10 @@ fi
 # enable AKS local DNS
 # TODO move this into CSE start and control it with an API field
 # Also fix the local DNS field
-cd /opt/azure/aks-local-dns || exit 1
+pushd /opt/azure/aks-local-dns || exit 1
 curl -Lo - https://github.com/coredns/coredns/releases/download/v1.11.1/coredns_1.11.1_linux_amd64.tgz | tar zxv || exit 1
 systemctl enable aks-local-dns.service
+popd || exit 1
 
 downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
