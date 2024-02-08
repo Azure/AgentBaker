@@ -441,8 +441,13 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/aks-local-dns-corefile",
-      "destination": "/home/packer/aks-local-dns-corefile"
+      "source": "parts/linux/cloud-init/artifacts/aks-local-dns-corefile-node",
+      "destination": "/home/packer/aks-local-dns-corefile-node"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-local-dns-corefile-pod",
+      "destination": "/home/packer/aks-local-dns-corefile-pod"
     },
     {
       "type": "file",
@@ -458,6 +463,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-local-dns.slice",
       "destination": "/home/packer/aks-local-dns.slice"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/05-aks-keepconfig.conf",
+      "destination": "/home/packer/05-aks-keepconfig.conf"
     },
     {
       "type": "file",
