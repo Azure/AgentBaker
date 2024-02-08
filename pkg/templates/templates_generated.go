@@ -513,14 +513,21 @@ func linuxCloudInitArtifactsAksCheckNetworkSh() (*asset, error) {
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsAksLocalDns = []byte(`#! /bin/bash
+var _linuxCloudInitArtifactsAksLocalDns = []byte(`#! /bin/bash -e
 
-# Cleanup function to restore the system to normal in a crash
+# Cleanup function to restore the system to normal on exit or crash
 function cleanup {
     # Remove iptables rules on shutdown
-    /usr/sbin/iptables -t raw -D PREROUTING -d 100.127.0.10/32 -p tcp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK
-    /usr/sbin/iptables -t raw -D PREROUTING -d 100.127.0.10/32 -p udp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK
-    /bin/rm -rf /run/systemd/network/10-netplan-eth0.network.d
+    while /usr/sbin/iptables -t raw -D PREROUTING -d 10.0.0.10/32 -p tcp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK 2>/dev/null; do
+        printf "Deleted iptables rule.\n"
+    done
+
+    while /usr/sbin/iptables -t raw -D PREROUTING -d 10.0.0.10/32 -p udp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK 2>/dev/null; do
+        printf "Deleted iptabels rule.\n"
+    done
+
+    # Revert the changes made to the DNS configuration
+    /bin/rm -f /run/systemd/network/10-netplan-eth0.network.d/70-aks-local-dns.conf
     /usr/bin/networkctl reload
 
     # Delete the dummy interface
@@ -536,17 +543,18 @@ trap "cleanup" EXIT
 /usr/sbin/ip link add name aks-local-dns type dummy
 /usr/sbin/ip link set up dev aks-local-dns
 /usr/sbin/ip addr add 169.254.20.10/32 dev aks-local-dns
-/usr/sbin/ip addr add 100.127.0.10/32 dev aks-local-dns
+/usr/sbin/ip addr add 10.0.0.10/32 dev aks-local-dns
 
 # Start coredns in the background
 coproc COREDNS { /opt/azure/aks-local-dns/coredns -conf /opt/azure/aks-local-dns/Corefile; }
 exec {COREDNS[1]}>&-
 
+# Wait to direct traffic to coredns until it can serve traffic from the API server
 declare -i ATTEMPTS=0
 printf "Waiting for coredns to start and be able to serve traffic..."
-until /usr/bin/dig +short +tries=1 +timeout=5 kubernetes.default.svc.cluster.local. @169.254.20.100 >/dev/null 2>&1; do
+until /usr/bin/dig +short +tries=1 +timeout=5 kubernetes.default.svc.cluster.local. @169.254.20.10 >/dev/null 2>&1; do
     if [ $ATTEMPTS -ge 12 ]; then
-        printf "coredns failed to come online!"
+        printf "\nERROR: coredns failed to come online!\n"
         exit 255
     fi
     /usr/bin/sleep 1
@@ -556,23 +564,21 @@ done
 printf "done.\n"
 
 # Add IPtables rules that skip conntrack for DNS connections coming from pods
-/usr/sbin/iptables -t raw -A PREROUTING -d 100.127.0.10/32 -p tcp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK
-/usr/sbin/iptables -t raw -A PREROUTING -d 100.127.0.10/32 -p udp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK
+/usr/sbin/iptables -t raw -A PREROUTING -d 10.0.0.10/32 -p tcp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK
+/usr/sbin/iptables -t raw -A PREROUTING -d 10.0.0.10/32 -p udp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK
 
 # Disable DNS from DHCP and point the system at aks-local-dns
 mkdir -p /run/systemd/network/10-netplan-eth0.network.d
-printf "[Network]\nDNS=169.254.20.10\n\n[DHCP]\nUseDNS=false\n" > /run/systemd/network/10-netplan-eth0.network.d/99-aks-local-dns.conf
+printf "[Network]\nDNS=169.254.20.10\n\n[DHCP]\nUseDNS=false\n" > /run/systemd/network/10-netplan-eth0.network.d/70-aks-local-dns.conf
 chmod -R ugo+rX /run/systemd/network/10-netplan-eth0.network.d
 networkctl reload
 
-# Enable cluster DNS from the node
+# Enable cluster DNS from the node by adding cluster.local as a domain on the dummy interface
 resolvectl dns aks-local-dns 169.254.20.10
 resolvectl domain aks-local-dns cluster.local
 
-# Get the output from coredns
-while read -u ${COREDNS[0]} line; do
-  printf "$line\n"
-done
+# Print the output from coredns so it goes into the system journal
+while read -u ${COREDNS[0]} line; do printf "$line\n"; done
 `)
 
 func linuxCloudInitArtifactsAksLocalDnsBytes() ([]byte, error) {
@@ -592,8 +598,8 @@ func linuxCloudInitArtifactsAksLocalDns() (*asset, error) {
 
 var _linuxCloudInitArtifactsAksLocalDnsCorefile = []byte(`.:53 {
     log
-    bind 169.254.20.10 100.127.0.10
-    forward . 100.127.219.96 {
+    bind 169.254.20.10 10.0.0.10
+    forward . 10.0.0.10 {
       force_tcp
     }
     health 169.254.20.10:8080 {
