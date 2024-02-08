@@ -90,6 +90,11 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 		addValue(parametersMap, fmt.Sprintf("kubeletConfigKey%s", parameterKey), kcValue)
 	}
 
+	// or doing something like this and just grab the specific value we need
+	if clusterDNS, ok := config.KubeletConfig["--cluster-dns"]; ok {
+		addValue(parametersMap, "--cluster-dns", clusterDNS)
+	}
+
 	return parametersMap
 }
 
