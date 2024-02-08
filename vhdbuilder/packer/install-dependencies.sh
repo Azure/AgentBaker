@@ -136,9 +136,7 @@ fi
 # Also fix the local DNS field
 cd /opt/azure/aks-local-dns || exit 1
 curl -Lo - https://github.com/coredns/coredns/releases/download/v1.11.1/coredns_1.11.1_linux_amd64.tgz | tar zxv || exit 1
-systemctlEnableAndStart aks-local-dns.service || exit 1
-sleep 15
-journalctl -u aks-local-dns.service
+systemctl enable aks-local-dns.service
 
 downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
