@@ -8,7 +8,8 @@ Before=containerd.service
 [Service]
 Type=simple
 Slice=aks-local-dns.slice
-ExecStart=/opt/azure/aks-local-dns/aks-local-dns
+EnvironmentFile=-/etc/default/aks-local-dns
+ExecStart=/opt/azure/aks-local-dns/aks-local-dns.sh
 
 [Install]
 WantedBy=multi-user.target

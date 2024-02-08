@@ -89,12 +89,12 @@ copyPackerFiles() {
   AKS_LOG_COLLECTOR_SLICE_DEST=/etc/systemd/system/aks-log-collector.slice
   AKS_LOG_COLLECTOR_TIMER_SRC=/home/packer/aks-log-collector.timer
   AKS_LOG_COLLECTOR_TIMER_DEST=/etc/systemd/system/aks-log-collector.timer
-  AKS_LOCAL_DNS_SRC=/home/packer/aks-local-dns
-  AKS_LOCAL_DNS_DEST=/opt/azure/aks-local-dns/aks-local-dns
+  AKS_LOCAL_DNS_SRC=/home/packer/aks-local-dns.sh
+  AKS_LOCAL_DNS_DEST=/opt/azure/aks-local-dns/aks-local-dns.sh
   AKS_LOCAL_DNS_COREFILE_SRC=/home/packer/aks-local-dns-corefile
-  AKS_LOCAL_DNS_COREFILE_DEST=/opt/azure/aks-local-dns/Corefile
+  AKS_LOCAL_DNS_COREFILE_DEST=/opt/azure/aks-local-dns/Corefile.base
   AKS_LOCAL_DNS_RESOLVED_SRC=/home/packer/aks-local-dns-resolved.conf
-  AKS_LOCAL_DNS_RESOLVED_DEST=/etc/systemd/resolve.conf.d/70-aks-dns.conf
+  AKS_LOCAL_DNS_RESOLVED_DEST=/etc/systemd/resolved.conf.d/70-aks-dns.conf
   AKS_LOCAL_DNS_SERVICE_SRC=/home/packer/aks-local-dns.service
   AKS_LOCAL_DNS_SERVICE_DEST=/etc/systemd/system/aks-local-dns.service
   AKS_LOCAL_DNS_SLICE_SRC=/home/packer/aks-local-dns.slice

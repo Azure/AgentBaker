@@ -1,16 +1,14 @@
 .:53 {
-    log
-    bind 169.254.20.10 10.0.0.10
-    forward . 10.0.0.10 {
+    __COREDNS__LOG__
+    bind __PILLAR__LOCAL__DNS__IP__ __PILLAR__KUBE__DNS__SERVICE__
+    forward . __PILLAR__KUBE__DNS__SERVICE__ {
       force_tcp
     }
-    health 169.254.20.10:8080 {
-      lameduck 5s
-    }
-    cache 7200s {
+    ready __PILLAR__LOCAL__DNS__IP__:8181
+    cache 86400s {
       disable denial
       prefetch 100
-      serve_stale 7200s verify
+      serve_stale 86400s verify
     }
     loop
     reload
