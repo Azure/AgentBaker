@@ -3,11 +3,11 @@
 # Cleanup function to restore the system to normal on exit or crash
 function cleanup {
     # Remove iptables rules on shutdown
-    while /usr/sbin/iptables -t raw -D PREROUTING -d 100.127.0.10/32 -p tcp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK 2>/dev/null; do
+    while /usr/sbin/iptables -t raw -D PREROUTING -d 10.0.0.10/32 -p tcp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK 2>/dev/null; do
         printf "Deleted iptables rule.\n"
     done
 
-    while /usr/sbin/iptables -t raw -D PREROUTING -d 100.127.0.10/32 -p udp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK 2>/dev/null; do
+    while /usr/sbin/iptables -t raw -D PREROUTING -d 10.0.0.10/32 -p udp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK 2>/dev/null; do
         printf "Deleted iptabels rule.\n"
     done
 
@@ -28,7 +28,7 @@ trap "cleanup" EXIT
 /usr/sbin/ip link add name aks-local-dns type dummy
 /usr/sbin/ip link set up dev aks-local-dns
 /usr/sbin/ip addr add 169.254.20.10/32 dev aks-local-dns
-/usr/sbin/ip addr add 100.127.0.10/32 dev aks-local-dns
+/usr/sbin/ip addr add 10.0.0.10/32 dev aks-local-dns
 
 # Start coredns in the background
 coproc COREDNS { /opt/azure/aks-local-dns/coredns -conf /opt/azure/aks-local-dns/Corefile; }
@@ -49,8 +49,8 @@ done
 printf "done.\n"
 
 # Add IPtables rules that skip conntrack for DNS connections coming from pods
-/usr/sbin/iptables -t raw -A PREROUTING -d 100.127.0.10/32 -p tcp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK
-/usr/sbin/iptables -t raw -A PREROUTING -d 100.127.0.10/32 -p udp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK
+/usr/sbin/iptables -t raw -A PREROUTING -d 10.0.0.10/32 -p tcp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK
+/usr/sbin/iptables -t raw -A PREROUTING -d 10.0.0.10/32 -p udp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK
 
 # Disable DNS from DHCP and point the system at aks-local-dns
 mkdir -p /run/systemd/network/10-netplan-eth0.network.d

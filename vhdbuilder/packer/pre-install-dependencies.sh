@@ -49,8 +49,8 @@ systemctlEnableAndStart aks-log-collector.timer || exit 1
 # enable AKS local DNS
 # TODO move this into CSE start and control it with an API field
 # Also fix the local DNS field
-cd /opt/azure/aks-local-dns
-curl -Lo - https://github.com/coredns/coredns/releases/download/v1.11.1/coredns_1.11.1_linux_amd64.tgz | tar zxv
+cd /opt/azure/aks-local-dns || exit 1
+curl -Lo - https://github.com/coredns/coredns/releases/download/v1.11.1/coredns_1.11.1_linux_amd64.tgz | tar zxv || exit 1
 systemctl restart systemd-resolved || exit 1
 systemctlEnableAndStart aks-local-dns.service || exit 1
 
