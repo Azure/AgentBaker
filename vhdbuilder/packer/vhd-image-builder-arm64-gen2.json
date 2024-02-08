@@ -458,8 +458,8 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/aks-local-dns",
-      "destination": "/home/packer/aks-local-dns"
+      "source": "parts/linux/cloud-init/artifacts/aks-local-dns.sh",
+      "destination": "/home/packer/aks-local-dns.sh"
     },
     {
       "type": "file",
