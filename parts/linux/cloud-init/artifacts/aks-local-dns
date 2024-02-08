@@ -1,0 +1,60 @@
+#! /bin/bash
+
+# Cleanup function to restore the system to normal in a crash
+function cleanup {
+    # Remove iptables rules on shutdown
+    /usr/sbin/iptables -t raw -D PREROUTING -d 100.127.0.10/32 -p tcp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK
+    /usr/sbin/iptables -t raw -D PREROUTING -d 100.127.0.10/32 -p udp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK
+    /bin/rm -rf /run/systemd/network/10-netplan-eth0.network.d
+    /usr/bin/networkctl reload
+
+    # Delete the dummy interface
+    /usr/sbin/ip link del name aks-local-dns
+}
+trap "exit 1"  HUP INT PIPE QUIT TERM
+trap "cleanup" EXIT
+
+# Make sure systemd-resolved is being used
+/usr/bin/ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+
+# Create a dummy interface listening on the link-local IP and the cluster DNS service IP
+/usr/sbin/ip link add name aks-local-dns type dummy
+/usr/sbin/ip link set up dev aks-local-dns
+/usr/sbin/ip addr add 169.254.20.10/32 dev aks-local-dns
+/usr/sbin/ip addr add 100.127.0.10/32 dev aks-local-dns
+
+# Start coredns in the background
+coproc COREDNS { /opt/azure/aks-local-dns/coredns -conf /opt/azure/aks-local-dns/Corefile; }
+exec {COREDNS[1]}>&-
+
+declare -i ATTEMPTS=0
+printf "Waiting for coredns to start and be able to serve traffic..."
+until /usr/bin/dig +short +tries=1 +timeout=5 kubernetes.default.svc.cluster.local. @169.254.20.100 >/dev/null 2>&1; do
+    if [ $ATTEMPTS -ge 12 ]; then
+        printf "coredns failed to come online!"
+        exit 255
+    fi
+    /usr/bin/sleep 1
+    printf "."
+    ATTEMPTS+=1
+done
+printf "done.\n"
+
+# Add IPtables rules that skip conntrack for DNS connections coming from pods
+/usr/sbin/iptables -t raw -A PREROUTING -d 100.127.0.10/32 -p tcp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK
+/usr/sbin/iptables -t raw -A PREROUTING -d 100.127.0.10/32 -p udp -m comment --comment "aks-local-dns: skip conntrack for pod DNS queries" -j NOTRACK
+
+# Disable DNS from DHCP and point the system at aks-local-dns
+mkdir -p /run/systemd/network/10-netplan-eth0.network.d
+printf "[Network]\nDNS=169.254.20.10\n\n[DHCP]\nUseDNS=false\n" > /run/systemd/network/10-netplan-eth0.network.d/99-aks-local-dns.conf
+chmod -R ugo+rX /run/systemd/network/10-netplan-eth0.network.d
+networkctl reload
+
+# Enable cluster DNS from the node
+resolvectl dns aks-local-dns 169.254.20.10
+resolvectl domain aks-local-dns cluster.local
+
+# Get the output from coredns
+while read -u ${COREDNS[0]} line; do
+  printf "$line\n"
+done
