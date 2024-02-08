@@ -1,0 +1,19 @@
+# Node DNS only; this corefile is used until kube-proxy is online and
+# providing access to the cluster coredns.
+
+.:53 {
+  __COREDNS__LOG__
+  bind __PILLAR__LOCAL__NODE__DNS__IP__
+  forward . /run/systemd/resolve/resolv.conf {
+    force_tcp
+  }
+  ready __PILLAR__LOCAL__NODE__DNS__IP__:8181
+  cache 86400s {
+    disable denial
+    prefetch 100
+    serve_stale 86400s verify
+  }
+  loop
+  nsid aks-local-dns
+  prometheus :9253
+}
