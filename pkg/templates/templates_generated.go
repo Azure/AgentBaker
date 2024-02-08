@@ -544,7 +544,7 @@ var _linuxCloudInitArtifactsAksLocalDnsCorefileNode = []byte(`# Node DNS only; t
 .:53 {
   __COREDNS__LOG__
   bind __PILLAR__LOCAL__NODE__DNS__IP__
-  forward . /run/systemd/resolve/resolv.conf {
+  forward . __PILLAR__UPSTREAM__DNS__SERVERS__ {
     force_tcp
   }
   ready __PILLAR__LOCAL__NODE__DNS__IP__:8181
@@ -583,7 +583,7 @@ var _linuxCloudInitArtifactsAksLocalDnsCorefilePod = []byte(`# Node and pod DNS;
   forward cluster.local __PILLAR__KUBE__DNS__SERVICE__ {
     force_tcp
   }
-  forward . /run/systemd/resolve/resolv.conf {
+  forward . __PILLAR__UPSTREAM__DNS__SERVERS__ {
     force_tcp
   }
   ready __PILLAR__LOCAL__NODE__DNS__IP__:8181
@@ -722,6 +722,13 @@ DEFAULT_ROUTE_INTERFACE="$(ip -j route get 168.63.129.16 | jq -r '.[0].dev')"
 NETWORK_FILE="$(networkctl --json=short status ${DEFAULT_ROUTE_INTERFACE} | jq -r '.NetworkFile')"
 NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
 NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-aks-local-dns.conf"
+UPSTREAM_DNS_SERVERS="$(networkctl --json=short status ${DEFAULT_ROUTE_INTERFACE} | jq -r '.DNS | map(.Address | join(".")) | join (" ")')"
+
+SED_COMMAND="s/__PILLAR__KUBE__DNS__SERVICE__/${DNS_SERVICE_IP}/g; \
+             s/__PILLAR__UPSTREAM__DNS__SERVERS__/${UPSTREAM_DNS_SERVERS}/g; \
+             s/__PILLAR__LOCAL__POD__DNS__IP__/${LOCAL_POD_DNS_IP}/g; \
+             s/__PILLAR__LOCAL__NODE__DNS__IP__/${LOCAL_NODE_DNS_IP}/g; \
+             s/__COREDNS__LOG__/${COREDNS_LOG}/g"
 
 # Use systemd-notify if we're running as a systemd service; if not, log the output we would have sent
 if [[ ! -z "$NOTIFY_SOCKET" ]]; then
@@ -783,15 +790,7 @@ function watchdog {
 }
 
 # Generate corefile for node DNS only
-sed -e "s/__PILLAR__KUBE__DNS__SERVICE__/${DNS_SERVICE_IP}/g; \
-        s/__PILLAR__LOCAL__POD__DNS__IP__/${LOCAL_POD_DNS_IP}/g; \
-        s/__PILLAR__LOCAL__NODE__DNS__IP__/${LOCAL_NODE_DNS_IP}/g; \
-        s/__COREDNS__LOG__/${COREDNS_LOG}/g \
-        " \
-    <"${SCRIPT_PATH}/Corefile.node" >"${SCRIPT_PATH}/Corefile"
-
-# Make sure systemd-resolved is being used
-ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+sed -e "$SED_COMMAND" <"${SCRIPT_PATH}/Corefile.node" >"${SCRIPT_PATH}/Corefile"
 
 # Create a dummy interface listening on the link-local IP and the cluster DNS service IP
 notify "setting up network link"
@@ -800,10 +799,14 @@ ip link set up dev aks-local-dns
 ip addr add ${LOCAL_POD_DNS_IP}/32 dev aks-local-dns
 ip addr add ${LOCAL_NODE_DNS_IP}/32 dev aks-local-dns
 
-# Start coredns in the background and send the output to systemd
 notify "starting coredns"
-systemd-cat --identifier=aks-local-dns-coredns --stderr-priority=3 -- \
+if [[ ! -z "$NOTIFY_SOCKET" ]]; then
+    # Start coredns in the background and send the output to systemd
+    systemd-cat --identifier=aks-local-dns-coredns --stderr-priority=3 -- \
+        /opt/azure/aks-local-dns/coredns -conf /opt/azure/aks-local-dns/Corefile &
+else
     /opt/azure/aks-local-dns/coredns -conf /opt/azure/aks-local-dns/Corefile &
+fi
 COREDNS_PID=$!
 echo "CoreDNS PID is ${COREDNS_PID}"
 
@@ -827,7 +830,6 @@ printf "[Network]\nDNS=${LOCAL_NODE_DNS_IP}\n\n[DHCP]\nUseDNS=false\n" >${NETWOR
 chmod -R ugo+rX ${NETWORK_DROPIN_DIR}
 networkctl reload
 
-
 # Start the watchdog timer in the background
 watchdog &
 
@@ -850,12 +852,7 @@ ip addr add ${DNS_SERVICE_IP}/32 dev aks-local-dns
 
 # Generate corefile for pod DNS and append to existing corefile
 notify "regenerating Corefile to include node and pod configuration"
-sed -e "s/__PILLAR__KUBE__DNS__SERVICE__/${DNS_SERVICE_IP}/g; \
-        s/__PILLAR__LOCAL__POD__DNS__IP__/${LOCAL_POD_DNS_IP}/g; \
-        s/__PILLAR__LOCAL__NODE__DNS__IP__/${LOCAL_NODE_DNS_IP}/g; \
-        s/__COREDNS__LOG__/${COREDNS_LOG}/g \
-        " \
-    <"${SCRIPT_PATH}/Corefile.pod" >"${SCRIPT_PATH}/Corefile"
+sed -e "$SED_COMMAND" <"${SCRIPT_PATH}/Corefile.pod" >"${SCRIPT_PATH}/Corefile"
 
 # Send a SIGUSR1 to coredns to trigger reload of the configuration
 notify "sending SIGHUP to coredns to trigger reload of the new configuration file"
@@ -880,8 +877,7 @@ resolvectl dns aks-local-dns ${LOCAL_NODE_DNS_IP}
 resolvectl domain aks-local-dns cluster.local
 
 notify "startup complete - serving node and pod DNS traffic"
-wait
-`)
+wait`)
 
 func linuxCloudInitArtifactsAksLocalDnsShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsAksLocalDnsSh, nil
