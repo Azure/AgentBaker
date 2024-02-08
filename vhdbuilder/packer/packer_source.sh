@@ -270,6 +270,7 @@ copyPackerFiles() {
   cpAndMode $AKS_LOCAL_DNS_RESOLVED_SRC $AKS_LOCAL_DNS_RESOLVED_DEST 0644
   cpAndMode $AKS_LOCAL_DNS_SERVICE_SRC $AKS_LOCAL_DNS_SERVICE_DEST 0644
   cpAndMode $AKS_LOCAL_DNS_SLICE_SRC $AKS_LOCAL_DNS_SLICE_DEST 0644
+  chmod 755 /etc/systemd/resolved.conf.d
 
   cpAndMode $AKS_LOGROTATE_CONF_SRC $AKS_LOGROTATE_CONF_DEST 644
   # If a logrotation timer does not exist on the base image
