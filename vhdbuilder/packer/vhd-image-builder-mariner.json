@@ -448,16 +448,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/aks-local-dns-corefile-node",
-      "destination": "/home/packer/aks-local-dns-corefile-node"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/aks-local-dns-corefile-pod",
-      "destination": "/home/packer/aks-local-dns-corefile-pod"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-local-dns-resolved.conf",
       "destination": "/home/packer/aks-local-dns-resolved.conf"
     },
