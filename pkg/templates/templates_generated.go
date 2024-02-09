@@ -658,14 +658,14 @@ IPTABLES_NODE_RULES=() IPTABLES_POD_RULES=()
 
 ## Node DNS rules
 IPTABLES_NODE_RULES+=("OUTPUT -m owner --gid-owner $(id -g) -j ACCEPT")
-IPTABLES_NODE_RULES+=("OUTPUT -p tcp -d '${LOCAL_NODE_DNS_IP}'                                       --dport 53 -j NOTRACK")
-IPTABLES_NODE_RULES+=("OUTPUT -p udp -d '${LOCAL_NODE_DNS_IP}'                                       --dport 53 -j NOTRACK")
-IPTABLES_NODE_RULES+=("OUTPUT -p tcp -d '${LOCAL_NODE_DNS_IP}'                                       --dport 53 -j NOTRACK")
-IPTABLES_NODE_RULES+=("OUTPUT -p udp -d '${LOCAL_NODE_DNS_IP}'                                       --dport 53 -j NOTRACK")
+IPTABLES_NODE_RULES+=("OUTPUT -p tcp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -j NOTRACK")
+IPTABLES_NODE_RULES+=("OUTPUT -p udp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -j NOTRACK")
+IPTABLES_NODE_RULES+=("OUTPUT -p tcp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -j NOTRACK")
+IPTABLES_NODE_RULES+=("OUTPUT -p udp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -j NOTRACK")
 IPTABLES_NODE_RULES+=("PREROUTING -p tcp -s '${LOCAL_NODE_DNS_IP},${LOCAL_POD_DNS_IP},${DNS_SERVICE_IP}' --dport 53 -j ACCEPT")
 IPTABLES_NODE_RULES+=("PREROUTING -p udp -s '${LOCAL_NODE_DNS_IP},${LOCAL_POD_DNS_IP},${DNS_SERVICE_IP}' --dport 53 -j ACCEPT")
-IPTABLES_NODE_RULES+=("PREROUTING -p tcp -d '${LOCAL_NODE_DNS_IP}'                                       --dport 53 -j NOTRACK")
-IPTABLES_NODE_RULES+=("PREROUTING -p udp -d '${LOCAL_NODE_DNS_IP}'                                       --dport 53 -j NOTRACK")
+IPTABLES_NODE_RULES+=("PREROUTING -p tcp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -j NOTRACK")
+IPTABLES_NODE_RULES+=("PREROUTING -p udp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -j NOTRACK")
 
 ## Pod DNS rules
 IPTABLES_POD_RULES+=("OUTPUT     -p tcp -d '${LOCAL_POD_DNS_IP},${DNS_SERVICE_IP}' --dport 53 -j NOTRACK")
