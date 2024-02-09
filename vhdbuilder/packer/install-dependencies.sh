@@ -134,6 +134,7 @@ fi
 # enable AKS local DNS
 # TODO move this into CSE start and control it with an API field
 # Also fix the local DNS field
+groupadd --system aks-local-dns
 systemctl enable aks-local-dns.service
 
 downloadContainerdWasmShims
