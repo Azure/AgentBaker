@@ -152,7 +152,8 @@ steps:
     inputs:
         artifactName: 'trivy-images-table-${{ parameters.artifactName }}'
         targetPath: 'trivy-images-table.txt'
-    displayName: publish trivy report 
+    displayName: publish trivy report
+  - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
         targetPath: 'release-notes.txt'
