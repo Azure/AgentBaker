@@ -53,7 +53,7 @@ UPSTREAM_DNS_SERVERS="$(</run/systemd/resolve/resolv.conf awk '/nameserver/ {pri
 IPTABLES='iptables -w -t raw -m comment --comment "AKS Local DNS Cache: skip conntrack"'
 IPTABLES_NODE_RULES=() IPTABLES_POD_RULES=()
 
-## Node DNS rules
+# Node DNS rules
 IPTABLES_NODE_RULES+=("OUTPUT -m owner --gid-owner $(id -g) -j ACCEPT")
 IPTABLES_NODE_RULES+=("OUTPUT -p tcp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -j NOTRACK")
 IPTABLES_NODE_RULES+=("OUTPUT -p udp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -j NOTRACK")
@@ -64,9 +64,9 @@ IPTABLES_NODE_RULES+=("PREROUTING -p udp -s '${LOCAL_NODE_DNS_IP},${LOCAL_POD_DN
 IPTABLES_NODE_RULES+=("PREROUTING -p tcp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -j NOTRACK")
 IPTABLES_NODE_RULES+=("PREROUTING -p udp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -j NOTRACK")
 
-## Pod DNS rules
-IPTABLES_POD_RULES+=("OUTPUT     -p tcp -d '${LOCAL_POD_DNS_IP},${DNS_SERVICE_IP}' --dport 53 -j NOTRACK")
-IPTABLES_POD_RULES+=("OUTPUT     -p udp -d '${LOCAL_POD_DNS_IP},${DNS_SERVICE_IP}' --dport 53 -j NOTRACK")
+# Pod DNS rules
+IPTABLES_POD_RULES+=("OUTPUT -p tcp -d '${LOCAL_POD_DNS_IP},${DNS_SERVICE_IP}' --dport 53 -j NOTRACK")
+IPTABLES_POD_RULES+=("OUTPUT -p udp -d '${LOCAL_POD_DNS_IP},${DNS_SERVICE_IP}' --dport 53 -j NOTRACK")
 IPTABLES_POD_RULES+=("PREROUTING -p tcp -d '${LOCAL_POD_DNS_IP},${DNS_SERVICE_IP}' --dport 53 -j NOTRACK")
 IPTABLES_POD_RULES+=("PREROUTING -p udp -d '${LOCAL_POD_DNS_IP},${DNS_SERVICE_IP}' --dport 53 -j NOTRACK")
 
@@ -86,11 +86,12 @@ COREFILE_NODE_ONLY="""
         serve_stale 86400s verify
     }
     loop
-    nsid aks-local-dns
+    nsid aks-local-dns-node
     prometheus :9253
 }
 """
 
+# Node and pod DNS configuration
 COREFILE_NODE_AND_POD="""
 # Node DNS (with cluster.local forward)
 .:53 {
@@ -109,7 +110,7 @@ COREFILE_NODE_AND_POD="""
         serve_stale 86400s verify
     }
     loop
-    nsid aks-local-dns
+    nsid aks-local-dns-node
     prometheus :9253
 }
 
@@ -126,7 +127,7 @@ COREFILE_NODE_AND_POD="""
       serve_stale 86400s verify
     }
     loop
-    nsid aks-local-dns
+    nsid aks-local-dns-pod
     prometheus :9253
 }
 """
@@ -165,11 +166,6 @@ function cleanup {
     # Disable error handling so that we don't get into a recursive loop
     set +e
     printf "terminating and cleaning up\n"
-
-    # Stop the watchdog, if running
-    # if [ ! -z "${WATCHDOG_PID:-}" ]; then
-    #     kill -SIGTERM ${WATCHDOG_PID}
-    # fi
 
     # Remove iptables rules to stop forwarding DNS traffic
     for RULE in "${IPTABLES_NODE_RULES[@]}" "${IPTABLES_POD_RULES[@]}"; do
@@ -228,7 +224,6 @@ function watchdog {
 }
 
 # Generate corefile for node DNS only
-#printf "Setting Corefile:${COREFILE_NODE_ONLY}\n"
 printf "${COREFILE_NODE_ONLY}\n" >"${SCRIPT_PATH}/Corefile"
 
 # Create a dummy interface listening on the link-local IP and the cluster DNS service IP
@@ -286,7 +281,6 @@ if [[ ! -z "${NOTIFY_SOCKET:-}" ]]; then
     # Start the watchdog timer in the background if systemd's watchdog is enabled
     if [[ ! -z "${WATCHDOG_USEC:-}" ]]; then
         watchdog &
-        WATCHDOG_PID=$!
     fi
 
     # Let systemd know we're ready and other processes can continue
@@ -307,7 +301,6 @@ ip addr add ${DNS_SERVICE_IP}/32 dev aks-local-dns
 
 # Generate corefile for pod DNS and append to existing corefile
 printf "regenerating Corefile to include node and pod configuration\n"
-#printf "Setting Corefile: ${COREFILE_NODE_AND_POD}\n"
 printf "${COREFILE_NODE_AND_POD}" >"${SCRIPT_PATH}/Corefile"
 
 # Send a SIGUSR1 to coredns to trigger reload of the configuration

@@ -689,7 +689,7 @@ COREFILE_NODE_ONLY="""
         serve_stale 86400s verify
     }
     loop
-    nsid aks-local-dns
+    nsid aks-local-dns-node
     prometheus :9253
 }
 """
@@ -712,7 +712,7 @@ COREFILE_NODE_AND_POD="""
         serve_stale 86400s verify
     }
     loop
-    nsid aks-local-dns
+    nsid aks-local-dns-node
     prometheus :9253
 }
 
@@ -729,7 +729,7 @@ COREFILE_NODE_AND_POD="""
       serve_stale 86400s verify
     }
     loop
-    nsid aks-local-dns
+    nsid aks-local-dns-pod
     prometheus :9253
 }
 """
