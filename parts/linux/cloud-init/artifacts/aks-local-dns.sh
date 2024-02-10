@@ -9,9 +9,31 @@ set -euo pipefail
 # upstream connections.
 
 #######################################################################
-# validate we're running in our cgroup - needed for iptables rules
+# handle cgroups for iptables matching
 #######################################################################
-CGROUP_PATH="$(cut -d: -f3 </proc/self/cgroup)"
+CGROUP_FS="$(awk '/\/sys\/fs\/cgroup / {print $1}' </proc/mounts)"
+if [[ "${CGROUP_FS}" == "tmpfs" ]]; then
+    CGROUP_VERSION="v1"
+    CGROUP_PATH="$(awk -F':' '/name=/ {print $3}' /proc/self/cgroup)"
+
+    # In cgroup v1 we have to match on a net_cls ID, and systemd doesn't
+    # set that up for us, so this is more work
+    CGROUP_PATH_CLS="/sys/fs/cgroup/net_cls${CGROUP_PATH}"
+    mkdir -p "${CGROUP_PATH_CLS}"
+    echo "0x12341234" > "${CGROUP_PATH_CLS}/net_cls.classid"
+    printf "$$" > "${CGROUP_PATH_CLS}/cgroup.procs"
+
+    IPTABLES_CGROUP_MATCH="-m cgroup ! --cgroup 305402420 -j NOTRACK"
+elif [[ "${CGROUP_FS}" == "cgroup2" ]]; then
+    # In cgroup v2 we can just match on the cgroup path name
+    CGROUP_VERSION="v2"
+    CGROUP_PATH="$(awk -F':' '$2=="" {print $3}' /proc/self/cgroup)"
+    IPTABLES_CGROUP_MATCH="-m cgroup ! --path ${CGROUP_PATH} -j NOTRACK"
+else
+    printf "ERROR: could not determine cgroup version.\n"
+    exit 2
+fi
+
 if [[ "${CGROUP_PATH}" != /aks.slice/aks-local.slice/aks-local-dns.slice/* ]]; then
     printf "ERROR: not running under expected slice path:\n" >&2
     printf "Current cgroup path:  ${CGROUP_PATH}\n" >&2
@@ -69,10 +91,10 @@ fi
 # PREROUTING rules affect traffic from regular pods.
 IPTABLES='iptables -w -t raw -m comment --comment "AKS Local DNS Cache: skip conntrack"'
 IPTABLES_NODE_RULES=() IPTABLES_POD_RULES=()
-IPTABLES_NODE_RULES+=("OUTPUT -p tcp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -m cgroup ! --path ${CGROUP_PATH} -j NOTRACK")
-IPTABLES_NODE_RULES+=("OUTPUT -p udp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -m cgroup ! --path ${CGROUP_PATH} -j NOTRACK")
-IPTABLES_POD_RULES+=("OUTPUT -p tcp -d '${POD_MODE_BIND_IPS}' --dport 53 -m cgroup ! --path ${CGROUP_PATH} -j NOTRACK")
-IPTABLES_POD_RULES+=("OUTPUT -p udp -d '${POD_MODE_BIND_IPS}' --dport 53 -m cgroup ! --path ${CGROUP_PATH} -j NOTRACK")
+IPTABLES_NODE_RULES+=("OUTPUT -p tcp -d '${LOCAL_NODE_DNS_IP}' --dport 53 ${IPTABLES_CGROUP_MATCH}")
+IPTABLES_NODE_RULES+=("OUTPUT -p udp -d '${LOCAL_NODE_DNS_IP}' --dport 53 ${IPTABLES_CGROUP_MATCH}")
+IPTABLES_POD_RULES+=("OUTPUT -p tcp -d '${POD_MODE_BIND_IPS}' --dport 53 ${IPTABLES_CGROUP_MATCH}")
+IPTABLES_POD_RULES+=("OUTPUT -p udp -d '${POD_MODE_BIND_IPS}' --dport 53 ${IPTABLES_CGROUP_MATCH}")
 IPTABLES_POD_RULES+=("PREROUTING -p tcp -d '${LOCAL_NODE_DNS_IP},${POD_MODE_BIND_IPS}' --dport 53 -j NOTRACK")
 IPTABLES_POD_RULES+=("PREROUTING -p udp -d '${LOCAL_NODE_DNS_IP},${POD_MODE_BIND_IPS}' --dport 53 -j NOTRACK")
 
