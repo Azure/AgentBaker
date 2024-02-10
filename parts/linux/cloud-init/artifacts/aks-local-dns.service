@@ -6,8 +6,6 @@ Before=kubelet.service
 Before=containerd.service
 
 [Service]
-User=root
-Group=aks-local-dns
 Type=notify
 NotifyAccess=all
 WatchdogSec=10

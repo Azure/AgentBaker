@@ -10,6 +10,7 @@
 // linux/cloud-init/artifacts/aks-check-network.service
 // linux/cloud-init/artifacts/aks-check-network.sh
 // linux/cloud-init/artifacts/aks-local-dns-resolved.conf
+// linux/cloud-init/artifacts/aks-local-dns.default
 // linux/cloud-init/artifacts/aks-local-dns.service
 // linux/cloud-init/artifacts/aks-local-dns.sh
 // linux/cloud-init/artifacts/aks-local-dns.slice
@@ -562,6 +563,58 @@ func linuxCloudInitArtifactsAksLocalDnsResolvedConf() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsAksLocalDnsDefault = []byte(`#######################################################################
+# AKS Local DNS configuration file
+#######################################################################
+# This value will be inserted into the corefile for logging; set it to
+# "log" to log DNS queries to systemd
+#COREDNS_LOG="errors"
+
+# Image reference used to get coredns (via extraction from the image)
+#COREDNS_IMAGE=""
+
+# Amount of time (in seconds) to wait after removing forward rules for
+# connections to terminate gracefully
+#COREDNS_SHUTDOWN_DELAY="3"
+
+# IP of the kube-dns service in the cluster
+#DNS_SERVICE_IP=""
+
+# If set to anything other than true, the DNS service IP will not be
+# bound. This is required for IPVS clusters; kubelet's --cluster-dns
+# setting must then be updated to LOCAL_POD_DNS_IP.
+#BIND_DNS_SERVICE_IP="true"
+
+# Local addresses used for service DNS; typically these should be
+# APIPA addreses (169.254.0.0/16). The "node" IP is used for serving
+# queries from the host OS services and dnsProfile: Default pods.
+# The pod IP will be used for serving pod traffic in IPVS clusters.
+#LOCAL_NODE_DNS_IP="169.254.10.10"
+#LOCAL_POD_DNS_IP="169.254.10.11"
+
+# How often (in seconds) to check for kube-proxy/cluster coredns
+# access after the aks-local-dns service starts in node mode.
+#KUBERNETES_CHECK_DELAY="3"
+
+# The PID file used to store the PID of the coredns instance (NOT
+# the PID of the main script).
+#PID_FILE="/run/aks-local-dns.pid"`)
+
+func linuxCloudInitArtifactsAksLocalDnsDefaultBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsAksLocalDnsDefault, nil
+}
+
+func linuxCloudInitArtifactsAksLocalDnsDefault() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsAksLocalDnsDefaultBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/aks-local-dns.default", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsAksLocalDnsService = []byte(`[Unit]
 Description=AKS Local DNS
 Wants=network.target
@@ -570,8 +623,6 @@ Before=kubelet.service
 Before=containerd.service
 
 [Service]
-User=root
-Group=aks-local-dns
 Type=notify
 NotifyAccess=all
 WatchdogSec=10
@@ -602,27 +653,26 @@ func linuxCloudInitArtifactsAksLocalDnsService() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsAksLocalDnsSh = []byte(`#! /bin/bash
-
-# Turn on error handling
 set -euo pipefail
 
-# AKS Local DNS service
-#
+#######################################################################
+# AKS Local DNS Service
+#######################################################################
 # This service runs coredns to act as a caching proxy with serve-stale functionality for both
 # pod DNS and local node DNS queries. It also upgrades to TCP for better reliability of
 # upstream connections.
-#
-# TODO: this will not work in IPVS clusters, need to fix this!
 
-# Handle script output
-# Prepend timestamps if we're not in systemd, to make running the script manually easier.
-# These exec statements read input, prepend each line with a timestamp and descriptor, and then
-# print it to the correct output channel.
-# Skip if we're running under systemd or set -x
-if [[ -z "${SYSTEMD_EXEC_PID:-}" && "${-//[^x]/}" != "x" ]]; then
-    SCRIPT_PID=$$
-    exec 1> >(trap "" INT TERM USR1 USR2; while read line; do printf "%(%Y-%m-%d %H:%M:%S)T aks-local-dns (${SCRIPT_PID}) INFO:  ${line}\n" >&1; done)
-    exec 2> >(trap "" INT TERM USR1 USR2; while read line; do printf "%(%Y-%m-%d %H:%M:%S)T aks-local-dns (${SCRIPT_PID}) ERROR: ${line}\n" >&2; done)
+#######################################################################
+# validate we're running in our cgroup - needed for iptables rules
+#######################################################################
+CGROUP_PATH="$(cut -d: -f3 </proc/self/cgroup)"
+if [[ "${CGROUP_PATH}" != /aks.slice/aks-local.slice/aks-local-dns.slice/* ]]; then
+    printf "ERROR: not running under expected slice path:\n" >&2
+    printf "Current cgroup path:  ${CGROUP_PATH}\n" >&2
+    printf "Required cgroup path: /aks.slice/aks-local.slice/aks-local-dns.slice/aks-local-dns.service\n\n" >&2
+    printf "To run from a command line for testing, use the following command:\n" >&2
+    printf "systemd-run -dGt --slice=aks-local-dns ./aks-local-dns.sh\n\n" >&2
+    exit 2
 fi
 
 # Configuration variables
@@ -632,47 +682,57 @@ COREDNS_LOG="${COREDNS_LOG:-errors}"
 # CoreDNS image reference to use to obtain the binary if not present
 COREDNS_IMAGE="${COREDNS_IMAGE:-mcr.microsoft.com/oss/kubernetes/coredns:v1.9.4}"
 # Delay coredns shutdown to allow connections to finish
-COREDNS_SHUTDOWN_DELAY="${COREDNS_SHUTDOWN_DELAY:-10}"
+COREDNS_SHUTDOWN_DELAY="${COREDNS_SHUTDOWN_DELAY:-5}"
 # This must be the DNS service IP for the cluster
 DNS_SERVICE_IP="${DNS_SERVICE_IP:-10.0.0.10}"
-# This is the IP that the local DNS service should bind to for pod traffic; usually an APIPA address
-LOCAL_POD_DNS_IP="${LOCAL_POD_DNS_IP:-169.254.20.10}"
+# Determine if the DNS service IP should be bound (this must be false on IPVS clusters)
+BIND_DNS_SERVICE_IP="${BIND_DNS_SERVICE_IP:-true}"
 # This is the IP that the local DNS service should bind to for node traffic; usually an APIPA address
-LOCAL_NODE_DNS_IP="${LOCAL_NODE_DNS_IP:-169.254.20.20}"
+LOCAL_NODE_DNS_IP="${LOCAL_NODE_DNS_IP:-169.254.10.10}"
+# This is the IP that the local DNS service should bind to for pod traffic; usually an APIPA address
+LOCAL_POD_DNS_IP="${LOCAL_POD_DNS_IP:-169.254.10.11}"
 # Delay between checking for Kubernetes DNS to be online
 KUBERNETES_CHECK_DELAY="${KUBERNETES_CHECK_DELAY:-3}"
 # PID file
 PID_FILE="${PID_FILE:-/run/aks-local-dns.pid}"
 
-# Information variables
-SCRIPT_PATH="$(dirname -- "$( readlink -f -- "$0"; )";)"
+#######################################################################
+# information variables
+#######################################################################
+SCRIPT_PATH="$(dirname -- "$(readlink -f -- "$0";)";)"
 DEFAULT_ROUTE_INTERFACE="$(ip -j route get 168.63.129.16 | jq -r '.[0].dev')"
 NETWORK_FILE="$(networkctl --json=short status ${DEFAULT_ROUTE_INTERFACE} | jq -r '.NetworkFile')"
 NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
 NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-aks-local-dns.conf"
 UPSTREAM_DNS_SERVERS="$(</run/systemd/resolve/resolv.conf awk '/nameserver/ {print $2}' | paste -sd' ')"
+if [[ "${BIND_DNS_SERVICE_IP}" == "true" ]]; then
+  POD_MODE_BIND_IPS="${LOCAL_POD_DNS_IP},${DNS_SERVICE_IP}"
+else
+  POD_MODE_BIND_IPS="${LOCAL_POD_DNS_IP}"
+fi
 
-# Build iptables rules
+#######################################################################
+# iptables: build rules
+#######################################################################
+# These rules skip conntrack for DNS traffic; this has two advantages. 
+# First, traffic that skips conntrack skips kube-proxy rules, so it hits
+# this service. Second, this means that DNS traffic won't require a conntrack
+# table entry. The cgroup not-match makes sure that we can still talk to 
+# kube-dns from this application.
+# OUTPUT rules affect node services and hostNetwork: true pods
+# PREROUTING rules affect traffic from regular pods.
 IPTABLES='iptables -w -t raw -m comment --comment "AKS Local DNS Cache: skip conntrack"'
 IPTABLES_NODE_RULES=() IPTABLES_POD_RULES=()
+IPTABLES_NODE_RULES+=("OUTPUT -p tcp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -m cgroup ! --path ${CGROUP_PATH} -j NOTRACK")
+IPTABLES_NODE_RULES+=("OUTPUT -p udp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -m cgroup ! --path ${CGROUP_PATH} -j NOTRACK")
+IPTABLES_POD_RULES+=("OUTPUT -p tcp -d '${POD_MODE_BIND_IPS}' --dport 53 -m cgroup ! --path ${CGROUP_PATH} -j NOTRACK")
+IPTABLES_POD_RULES+=("OUTPUT -p udp -d '${POD_MODE_BIND_IPS}' --dport 53 -m cgroup ! --path ${CGROUP_PATH} -j NOTRACK")
+IPTABLES_POD_RULES+=("PREROUTING -p tcp -d '${LOCAL_NODE_DNS_IP},${POD_MODE_BIND_IPS}' --dport 53 -j NOTRACK")
+IPTABLES_POD_RULES+=("PREROUTING -p udp -d '${LOCAL_NODE_DNS_IP},${POD_MODE_BIND_IPS}' --dport 53 -j NOTRACK")
 
-## Node DNS rules
-IPTABLES_NODE_RULES+=("OUTPUT -m owner --gid-owner $(id -g) -j ACCEPT")
-IPTABLES_NODE_RULES+=("OUTPUT -p tcp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -j NOTRACK")
-IPTABLES_NODE_RULES+=("OUTPUT -p udp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -j NOTRACK")
-IPTABLES_NODE_RULES+=("OUTPUT -p tcp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -j NOTRACK")
-IPTABLES_NODE_RULES+=("OUTPUT -p udp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -j NOTRACK")
-IPTABLES_NODE_RULES+=("PREROUTING -p tcp -s '${LOCAL_NODE_DNS_IP},${LOCAL_POD_DNS_IP},${DNS_SERVICE_IP}' --dport 53 -j ACCEPT")
-IPTABLES_NODE_RULES+=("PREROUTING -p udp -s '${LOCAL_NODE_DNS_IP},${LOCAL_POD_DNS_IP},${DNS_SERVICE_IP}' --dport 53 -j ACCEPT")
-IPTABLES_NODE_RULES+=("PREROUTING -p tcp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -j NOTRACK")
-IPTABLES_NODE_RULES+=("PREROUTING -p udp -d '${LOCAL_NODE_DNS_IP}' --dport 53 -j NOTRACK")
-
-## Pod DNS rules
-IPTABLES_POD_RULES+=("OUTPUT     -p tcp -d '${LOCAL_POD_DNS_IP},${DNS_SERVICE_IP}' --dport 53 -j NOTRACK")
-IPTABLES_POD_RULES+=("OUTPUT     -p udp -d '${LOCAL_POD_DNS_IP},${DNS_SERVICE_IP}' --dport 53 -j NOTRACK")
-IPTABLES_POD_RULES+=("PREROUTING -p tcp -d '${LOCAL_POD_DNS_IP},${DNS_SERVICE_IP}' --dport 53 -j NOTRACK")
-IPTABLES_POD_RULES+=("PREROUTING -p udp -d '${LOCAL_POD_DNS_IP},${DNS_SERVICE_IP}' --dport 53 -j NOTRACK")
-
+#######################################################################
+# corefile templates
+#######################################################################
 # Node-only DNS configuration
 COREFILE_NODE_ONLY="""
 # Node only DNS (cluster coredns not accessible)
@@ -693,7 +753,7 @@ COREFILE_NODE_ONLY="""
     prometheus :9253
 }
 """
-
+# Node and pod DNS configuration
 COREFILE_NODE_AND_POD="""
 # Node DNS (with cluster.local forward)
 .:53 {
@@ -719,7 +779,7 @@ COREFILE_NODE_AND_POD="""
 # Pod DNS
 .:53 {
     ${COREDNS_LOG}
-    bind ${LOCAL_POD_DNS_IP} ${DNS_SERVICE_IP}
+    bind ${POD_MODE_BIND_IPS//,/ }
     forward . ${DNS_SERVICE_IP} {
       force_tcp
     }
@@ -734,9 +794,11 @@ COREFILE_NODE_AND_POD="""
 }
 """
 
-# Make sure we have coredns
-if ! ${SCRIPT_PATH}/coredns -version >/dev/null; then
-    printf "coredns not found in ${SCRIPT_PATH}, extracting from docker image\n"
+#######################################################################
+# coredns: extract from image
+#######################################################################
+if [ ! -x ${SCRIPT_PATH}/coredns ]; then
+    printf "extracting coredns from docker image: ${COREDNS_IMAGE}\n"
     CTR_TEMP="$(mktemp -d)"
 
     # Set a trap to clean up the temp directory if anything fails
@@ -750,29 +812,26 @@ if ! ${SCRIPT_PATH}/coredns -version >/dev/null; then
     trap cleanup_coredns_import EXIT ABRT ERR INT PIPE QUIT TERM
 
     # Mount the coredns image to the temporary directory
-    ctr -n k8s.io images mount ${COREDNS_IMAGE} ${CTR_TEMP}
+    ctr -n k8s.io images mount ${COREDNS_IMAGE} ${CTR_TEMP} >/dev/null
 
     # Copy coredns to SCRIPT_PATH
     cp ${CTR_TEMP}/coredns ${SCRIPT_PATH}/coredns
 
     # Umount and clean up the temporary directory
-    ctr -n k8s.io images unmount ${CTR_TEMP}
+    ctr -n k8s.io images unmount ${CTR_TEMP} >/dev/null
     rm -rf "${CTR_TEMP}"
 
     # Clear the trap
     trap - EXIT ABRT ERR INT PIPE QUIT TERM
 fi
 
-# Cleanup function to restore the system to normal on exit or crash
+#######################################################################
+# cleanup function: will be run on script exit/crash to revert config
+#######################################################################
 function cleanup {
     # Disable error handling so that we don't get into a recursive loop
     set +e
     printf "terminating and cleaning up\n"
-
-    # Stop the watchdog, if running
-    # if [ ! -z "${WATCHDOG_PID:-}" ]; then
-    #     kill -SIGTERM ${WATCHDOG_PID}
-    # fi
 
     # Remove iptables rules to stop forwarding DNS traffic
     for RULE in "${IPTABLES_NODE_RULES[@]}" "${IPTABLES_POD_RULES[@]}"; do
@@ -789,10 +848,12 @@ function cleanup {
     # Trigger coredns shutdown, if runnin
     if [ ! -z "${COREDNS_PID:-}" ]; then
         if ps ${COREDNS_PID} >/dev/null; then
-            # Wait after removing iptables rules and DNS configuration so that we can let connections
-            # transition.
-            printf "sleeping ${COREDNS_SHUTDOWN_DELAY} seconds to allow connections to gracefully move.\n"
-            sleep ${COREDNS_SHUTDOWN_DELAY}
+            if [[ ${COREDNS_SHUTDOWN_DELAY} -gt 0 ]]; then
+                # Wait after removing iptables rules and DNS configuration so that we can let connections
+                # transition.
+                printf "sleeping ${COREDNS_SHUTDOWN_DELAY} seconds to allow connections to terminate\n"
+                sleep ${COREDNS_SHUTDOWN_DELAY}
+            fi
 
             printf "sending SIGINT to coredns and waiting for it to terminate\n"
 
@@ -817,7 +878,9 @@ trap "exit 0" QUIT TERM
 trap "exit 1" ABRT ERR INT PIPE
 trap "cleanup" EXIT
 
-# This watchdog function will be called later to let systemd know we're healthy
+#######################################################################
+# systemd watchdog: send pings so we get restarted if we go unhealthy
+#######################################################################
 function watchdog {
     # Health check at 40% of WATCHDOG_USEC; this means that we should check
     # twice in every watchdog interval, and thus need to fail two checks to
@@ -830,21 +893,24 @@ function watchdog {
     done
 }
 
+#######################################################################
+# setup for node DNS (no pod DNS until we know kube-proxy is online)
+#######################################################################
 # Generate corefile for node DNS only
-#printf "Setting Corefile:${COREFILE_NODE_ONLY}\n"
 printf "${COREFILE_NODE_ONLY}\n" >"${SCRIPT_PATH}/Corefile"
 
 # Create a dummy interface listening on the link-local IP and the cluster DNS service IP
 printf "setting up aks-local-dns dummy interface\n"
 ip link add name aks-local-dns type dummy
 ip link set up dev aks-local-dns
-ip addr add ${LOCAL_POD_DNS_IP}/32 dev aks-local-dns
+
+printf "adding ${LOCAL_NODE_DNS_IP} to aks-local-dns dummy interface\n";
 ip addr add ${LOCAL_NODE_DNS_IP}/32 dev aks-local-dns
 
 # Build the coredns command
 COREDNS_COMMAND="/opt/azure/aks-local-dns/coredns -conf /opt/azure/aks-local-dns/Corefile -pidfile ${PID_FILE}"
 if [[ ! -z "${SYSTEMD_EXEC_PID:-}" ]]; then
-    # We're running in systemd, so send the output to journald directly
+    # We're running in systemd, so pass the coredns output via systemd-cat
     COREDNS_COMMAND="systemd-cat --identifier=aks-local-dns-coredns --stderr-priority=3 -- ${COREDNS_COMMAND}"
 fi
 
@@ -889,7 +955,6 @@ if [[ ! -z "${NOTIFY_SOCKET:-}" ]]; then
     # Start the watchdog timer in the background if systemd's watchdog is enabled
     if [[ ! -z "${WATCHDOG_USEC:-}" ]]; then
         watchdog &
-        WATCHDOG_PID=$!
     fi
 
     # Let systemd know we're ready and other processes can continue
@@ -897,20 +962,29 @@ if [[ ! -z "${NOTIFY_SOCKET:-}" ]]; then
 fi
 printf "serving node DNS traffic, waiting for cluster coredns to be accessible\n"
 
+#######################################################################
+# wait for cluster coredns accessibility
+#######################################################################
 until dig -4 +tcp +short +tries=1 +timeout=3 kubernetes.default.svc.cluster.local. A @${DNS_SERVICE_IP} >/dev/null 2>/dev/null; do
     printf "kubernetes DNS not yet accessible (is kube-proxy running?), sleeping for ${KUBERNETES_CHECK_DELAY} seconds...\n"
     sleep ${KUBERNETES_CHECK_DELAY}
 done
 printf "cluster coredns accessible on ${DNS_SERVICE_IP}\n"
-# Kubernetes DNS is returning successfully, so kube-proxy is online. Initialize pod local DNS.
+# Kubernetes DNS is returning successfully, so kube-proxy is online.
 
+#######################################################################
+# setup for pod DNS
+#######################################################################
 # Add the pod local DNS IP to the aks-local-dns dummy interface
-printf "adding ${DNS_SERVICE_IP} to aks-local-dns dummy interface\n"
-ip addr add ${DNS_SERVICE_IP}/32 dev aks-local-dns
+printf "adding ${LOCAL_POD_DNS_IP} to aks-local-dns dummy interface\n"
+ip addr add ${LOCAL_POD_DNS_IP}/32 dev aks-local-dns
+if [ "${BIND_DNS_SERVICE_IP}" == "true" ]; then
+    printf "adding ${DNS_SERVICE_IP} to aks-local-dns dummy interface\n"
+    ip addr add ${DNS_SERVICE_IP}/32 dev aks-local-dns
+fi
 
-# Generate corefile for pod DNS and append to existing corefile
+# Regenerate corefile for node and pod DNS
 printf "regenerating Corefile to include node and pod configuration\n"
-#printf "Setting Corefile: ${COREFILE_NODE_AND_POD}\n"
 printf "${COREFILE_NODE_AND_POD}" >"${SCRIPT_PATH}/Corefile"
 
 # Send a SIGUSR1 to coredns to trigger reload of the configuration
@@ -940,6 +1014,11 @@ printf "startup complete - serving node and pod DNS traffic\n"
 wait -f ${COREDNS_PID}
 
 # The cleanup function is called on exit, so it will be run after the wait ends (which will be when a signal is sent or coredns crashes)
+
+#######################################################################
+# end of line
+#######################################################################
+
 `)
 
 func linuxCloudInitArtifactsAksLocalDnsShBytes() ([]byte, error) {
@@ -9473,6 +9552,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/aks-check-network.service":                 linuxCloudInitArtifactsAksCheckNetworkService,
 	"linux/cloud-init/artifacts/aks-check-network.sh":                      linuxCloudInitArtifactsAksCheckNetworkSh,
 	"linux/cloud-init/artifacts/aks-local-dns-resolved.conf":               linuxCloudInitArtifactsAksLocalDnsResolvedConf,
+	"linux/cloud-init/artifacts/aks-local-dns.default":                     linuxCloudInitArtifactsAksLocalDnsDefault,
 	"linux/cloud-init/artifacts/aks-local-dns.service":                     linuxCloudInitArtifactsAksLocalDnsService,
 	"linux/cloud-init/artifacts/aks-local-dns.sh":                          linuxCloudInitArtifactsAksLocalDnsSh,
 	"linux/cloud-init/artifacts/aks-local-dns.slice":                       linuxCloudInitArtifactsAksLocalDnsSlice,
@@ -9624,6 +9704,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"aks-check-network.service":                 &bintree{linuxCloudInitArtifactsAksCheckNetworkService, map[string]*bintree{}},
 				"aks-check-network.sh":                      &bintree{linuxCloudInitArtifactsAksCheckNetworkSh, map[string]*bintree{}},
 				"aks-local-dns-resolved.conf":               &bintree{linuxCloudInitArtifactsAksLocalDnsResolvedConf, map[string]*bintree{}},
+				"aks-local-dns.default":                     &bintree{linuxCloudInitArtifactsAksLocalDnsDefault, map[string]*bintree{}},
 				"aks-local-dns.service":                     &bintree{linuxCloudInitArtifactsAksLocalDnsService, map[string]*bintree{}},
 				"aks-local-dns.sh":                          &bintree{linuxCloudInitArtifactsAksLocalDnsSh, map[string]*bintree{}},
 				"aks-local-dns.slice":                       &bintree{linuxCloudInitArtifactsAksLocalDnsSlice, map[string]*bintree{}},

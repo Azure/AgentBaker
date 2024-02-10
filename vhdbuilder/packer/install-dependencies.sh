@@ -132,9 +132,9 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
 fi
 
 # enable AKS local DNS
-# TODO move this into CSE start and control it with an API field
-# Also fix the local DNS field
-groupadd --system aks-local-dns
+# TODO: move this into CSE start and control it with an API field
+# TODO: populate /etc/default/aks-local-dns with the DNS service IP
+# TODO: set BIND_DNS_SERVICE_IP in /etc/default/aks-local-dns to false if the cluster is using kube-proxy IPVS
 systemctl enable aks-local-dns.service
 
 downloadContainerdWasmShims

@@ -473,6 +473,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-local-dns.default",
+      "destination": "/home/packer/aks-local-dns.default"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-local-dns-resolved.conf",
       "destination": "/home/packer/aks-local-dns-resolved.conf"
     },

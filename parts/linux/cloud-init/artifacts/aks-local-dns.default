@@ -1,0 +1,36 @@
+#######################################################################
+# AKS Local DNS configuration file
+#######################################################################
+# This value will be inserted into the corefile for logging; set it to
+# "log" to log DNS queries to systemd
+#COREDNS_LOG="errors"
+
+# Image reference used to get coredns (via extraction from the image)
+#COREDNS_IMAGE=""
+
+# Amount of time (in seconds) to wait after removing forward rules for
+# connections to terminate gracefully
+#COREDNS_SHUTDOWN_DELAY="3"
+
+# IP of the kube-dns service in the cluster
+#DNS_SERVICE_IP=""
+
+# If set to anything other than true, the DNS service IP will not be
+# bound. This is required for IPVS clusters; kubelet's --cluster-dns
+# setting must then be updated to LOCAL_POD_DNS_IP.
+#BIND_DNS_SERVICE_IP="true"
+
+# Local addresses used for service DNS; typically these should be
+# APIPA addreses (169.254.0.0/16). The "node" IP is used for serving
+# queries from the host OS services and dnsProfile: Default pods.
+# The pod IP will be used for serving pod traffic in IPVS clusters.
+#LOCAL_NODE_DNS_IP="169.254.10.10"
+#LOCAL_POD_DNS_IP="169.254.10.11"
+
+# How often (in seconds) to check for kube-proxy/cluster coredns
+# access after the aks-local-dns service starts in node mode.
+#KUBERNETES_CHECK_DELAY="3"
+
+# The PID file used to store the PID of the coredns instance (NOT
+# the PID of the main script).
+#PID_FILE="/run/aks-local-dns.pid"
