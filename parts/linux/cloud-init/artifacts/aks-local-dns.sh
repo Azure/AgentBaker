@@ -27,7 +27,7 @@ LOCAL_POD_DNS_IP="${LOCAL_POD_DNS_IP:-169.254.10.11}"
 # PID file
 PID_FILE="${PID_FILE:-/run/aks-local-dns.pid}"
 
-if [[ -z "${DNS_SERVICE_IP}" ]]; then
+if [[ -z "${DNS_SERVICE_IP}" && ! $* == *--cleanup* ]]; then
      printf "ERROR: DNS_SERVICE_IP is not set.\n"
      exit 1
 fi
@@ -80,9 +80,7 @@ health-check.aks-local-dns.local:53 {
     cache 3600s {
         success 9984 5
         denial 9984 5
-    #    disable denial
-    #    prefetch 100
-    #    serve_stale 3600s verify
+        serve_stale 3600s verify
     }
     loop
     nsid aks-local-dns
@@ -99,14 +97,68 @@ health-check.aks-local-dns.local:53 {
     cache 3600s {
         success 9984 5
         denial 9984 5
-    #   disable denial
-    #   prefetch 100
-    #   serve_stale 3600s verify
+        serve_stale 3600s verify
     }
     loop
     nsid aks-local-dns-pod
 }
 """
+
+#######################################################################
+# cleanup function: will be run on script exit/crash to revert config
+#######################################################################
+function cleanup {
+    # Disable error handling so that we don't get into a recursive loop
+    set +e
+
+    # Remove iptables rules to stop forwarding DNS traffic
+    for RULE in "${IPTABLES_RULES[@]}"; do
+        while eval "${IPTABLES}" -D "${RULE}" 2>/dev/null; do 
+            printf "removed iptables rule: $RULE\n"
+        done
+    done
+    
+    # Revert the changes made to the DNS configuration if present
+    if [ -f ${NETWORK_DROPIN_FILE} ]; then
+        printf "reverting dns configuration by removing ${NETWORK_DROPIN_FILE}\n"
+        /bin/rm -f ${NETWORK_DROPIN_FILE}
+        networkctl reload
+    fi
+
+    # Trigger coredns shutdown, if runnin
+    if [ ! -z "${COREDNS_PID:-}" ]; then
+        if ps ${COREDNS_PID} >/dev/null; then
+            if [[ ${COREDNS_SHUTDOWN_DELAY} -gt 0 ]]; then
+                # Wait after removing iptables rules and DNS configuration so that we can let connections
+                # transition.
+                printf "sleeping ${COREDNS_SHUTDOWN_DELAY} seconds to allow connections to terminate\n"
+                sleep ${COREDNS_SHUTDOWN_DELAY}
+            fi
+
+            printf "sending SIGINT to coredns and waiting for it to terminate\n"
+
+            # Send SIGINT to coredns to trigger shutdown
+            kill -SIGINT ${COREDNS_PID}
+
+            # Wait for coredns to shut down
+            wait -f ${COREDNS_PID}
+
+            printf "coredns terminated\n"
+        fi
+    fi
+
+    # Delete the dummy interface if present
+    if ip link show dev aks-local-dns >/dev/null 2>&1; then
+        printf "removing aks-local-dns dummy interface\n"
+        ip link del name aks-local-dns
+    fi
+}
+
+# If we're invoked with cleanup, run cleanup
+if [[ $* == *--cleanup* ]]; then
+    cleanup
+    exit 0
+fi
 
 #######################################################################
 # coredns: extract from image
@@ -139,58 +191,10 @@ if [ ! -x ${SCRIPT_PATH}/coredns ]; then
     trap - EXIT ABRT ERR INT PIPE QUIT TERM
 fi
 
-#######################################################################
-# cleanup function: will be run on script exit/crash to revert config
-#######################################################################
-function cleanup {
-    # Disable error handling so that we don't get into a recursive loop
-    set +e
-    printf "terminating and cleaning up\n"
-
-    # Remove iptables rules to stop forwarding DNS traffic
-    for RULE in "${IPTABLES_RULES[@]}"; do
-        while eval "${IPTABLES}" -D "${RULE}" 2>/dev/null; do 
-            printf "removed iptables rule: $RULE\n"
-        done
-    done
-    
-    # Revert the changes made to the DNS configuration
-    printf "reverting dns configuration by removing ${NETWORK_DROPIN_FILE}\n"
-    /bin/rm -f ${NETWORK_DROPIN_FILE}
-    networkctl reload
-
-    # Trigger coredns shutdown, if runnin
-    if [ ! -z "${COREDNS_PID:-}" ]; then
-        if ps ${COREDNS_PID} >/dev/null; then
-            if [[ ${COREDNS_SHUTDOWN_DELAY} -gt 0 ]]; then
-                # Wait after removing iptables rules and DNS configuration so that we can let connections
-                # transition.
-                printf "sleeping ${COREDNS_SHUTDOWN_DELAY} seconds to allow connections to terminate\n"
-                sleep ${COREDNS_SHUTDOWN_DELAY}
-            fi
-
-            printf "sending SIGINT to coredns and waiting for it to terminate\n"
-
-            # Send SIGINT to coredns to trigger shutdown
-            kill -SIGINT ${COREDNS_PID}
-
-            # Wait for coredns to shut down
-            wait -f ${COREDNS_PID}
-
-            printf "coredns terminated\n"
-        fi
-    fi
-
-    # Delete the dummy interface
-    printf "removing aks-local-dns dummy interface\n"
-    ip link del name aks-local-dns
-
-    # cleaned up
-    printf "cleanup complete\n"
-}
-trap "exit 0" QUIT TERM         # Exit with code 0 on a successful shutdown
-trap "exit 1" ABRT ERR INT PIPE # Exit with code 1 on a bad signal
-trap "cleanup" EXIT             # Always cleanup when you're exiting
+# Enable the cleanup function now that we have a coredns binary
+trap "exit 0" QUIT TERM                                    # Exit with code 0 on a successful shutdown
+trap "exit 1" ABRT ERR INT PIPE                            # Exit with code 1 on a bad signal
+trap "printf 'executing cleanup function\n'; cleanup" EXIT # Always cleanup when you're exiting
 
 #######################################################################
 # generate the corefile

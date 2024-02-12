@@ -91,6 +91,8 @@ copyPackerFiles() {
   AKS_LOG_COLLECTOR_TIMER_DEST=/etc/systemd/system/aks-log-collector.timer
   AKS_LOCAL_DNS_SRC=/home/packer/aks-local-dns.sh
   AKS_LOCAL_DNS_DEST=/opt/azure/aks-local-dns/aks-local-dns.sh
+  AKS_LOCAL_DNS_PRESTART_SRC=/home/packer/aks-local-dns-prestart.sh
+  AKS_LOCAL_DNS_PRESTART_DEST=/opt/azure/aks-local-dns/prestart.sh
   AKS_LOCAL_DNS_DEFAULT_SRC=/home/packer/aks-local-dns.default
   AKS_LOCAL_DNS_DEFAULT_DEST=/etc/default/aks-local-dns
   AKS_LOCAL_DNS_RESOLVED_SRC=/home/packer/aks-local-dns-resolved.conf
@@ -268,6 +270,7 @@ copyPackerFiles() {
 
   # Install AKS Local DNS
   cpAndMode $AKS_LOCAL_DNS_SRC $AKS_LOCAL_DNS_DEST 0755
+  cpAndMode $AKS_LOCAL_DNS_PRESTART_SRC $AKS_LOCAL_DNS_PRESTART_DEST 0755
   cpAndMode $AKS_LOCAL_DNS_DEFAULT_SRC $AKS_LOCAL_DNS_DEFAULT_DEST 0644
   cpAndMode $AKS_LOCAL_DNS_RESOLVED_SRC $AKS_LOCAL_DNS_RESOLVED_DEST 0644
   cpAndMode $AKS_LOCAL_DNS_SERVICE_SRC $AKS_LOCAL_DNS_SERVICE_DEST 0644

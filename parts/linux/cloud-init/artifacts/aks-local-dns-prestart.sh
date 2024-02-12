@@ -1,11 +1,19 @@
 #! /bin/bash
 
-set -euo pipefail
+# In --check-tag mode, we check if the EnableAKSLocalDNS tag exists and is set to true
+if [[ $* == *--check-tag* ]]; then
+    INSTANCE_METADATA="$(curl -fsSL -H 'Metadata: true' --noproxy '*' 'http://169.254.169.254/metadata/instance?api-version=2021-02-01')"
+    RESULT=$(jq -e '.compute.tagsList | map(select(.name | test("EnableAKSLocalDNS"; "i")))[0].value // "false" | test("true"; "i")' 2>&1 <<<"${INSTANCE_METADATA}")
+    JQ_RC=$?
+    printf "EnableAKSLocalDNS node tag value: ${RESULT} (${JQ_RC}).\n"
+    exit $JQ_RC
+fi
 
 # This is a startup script for a node that's not preconfigured. It will get the cluster
 # DNS service IP from the kubelet configuration and make sure the kubelet configuration 
 # points at the aks-local-dns node IP.
 
+set -euo pipefail
 . /etc/default/aks-local-dns
 
 # This is the IP that the local DNS service should bind to for node traffic; usually an APIPA address
