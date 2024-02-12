@@ -14,6 +14,9 @@ KillMode=mixed
 TimeoutStopSec=30
 Slice=aks-local-dns.slice
 EnvironmentFile=-/etc/default/aks-local-dns
+# only start if the nodepool is tagged EnableAKSLocalDNS=true
+ExecCondition=/bin/bash -c "jq -e '.compute.tagsList | map(select(.name | test(\"EnableAKSLocalDNS\"; \"i\")))[0].value // \"false\" | test(\"true\"; \"i\")' <(curl -fsSL -H 'Metadata: true' --noproxy '*' 'http://169.254.169.254/metadata/instance?api-version=2021-02-01')"
+ExecStartPre=/opt/azure/aks-local-dns/prestart.sh
 ExecStart=/opt/azure/aks-local-dns/aks-local-dns.sh
 
 [Install]

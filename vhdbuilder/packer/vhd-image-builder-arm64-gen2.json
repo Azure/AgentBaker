@@ -463,6 +463,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-local-dns-prestart.sh",
+      "destination": "/home/packer/aks-local-dns-prestart.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-local-dns.default",
       "destination": "/home/packer/aks-local-dns.default"
     },
