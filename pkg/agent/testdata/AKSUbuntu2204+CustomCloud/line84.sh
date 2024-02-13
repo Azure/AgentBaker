@@ -30,9 +30,13 @@ sudo sed -i "s,http://.[^ ]*,$repoDepotEndpoint,g" /etc/apt/sources.list
 systemctl stop systemd-timesyncd
 systemctl disable systemd-timesyncd
 
-apt-get update
-apt-get install chrony -y
-cat > /etc/chrony/chrony.conf <<EOF
+chrony_conf="/etc/chrony/chrony.conf"
+if [ ! -e "$chrony_conf" ]; then
+    apt-get update
+    apt-get install chrony -y
+fi
+
+cat > $chrony_conf <<EOF
 
 #
 #pool ntp.ubuntu.com        iburst maxsources 4
