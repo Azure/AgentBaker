@@ -92,11 +92,6 @@ if ($global:CsiProxyEnabled) {
     Stop-Service csi-proxy
 }
 
-if ($global:EnableHostsConfigAgent) {
-    Write-Log "Stopping hosts-config-agent service"
-    Stop-Service hosts-config-agent
-}
-
 # Due to a bug in hns there is a race where it picks up the incorrect IPv6 address from the node in some cases.
 # Hns service has to be restarted after the node internal IPv6 address is available when dual-stack is enabled.
 # TODO Remove this once the bug is fixed in hns.
