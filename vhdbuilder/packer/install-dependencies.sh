@@ -1,4 +1,19 @@
 #!/bin/bash
+
+#Timestamps is an associative array that links the logical steps of the install script with timestamps
+#Logicalorder is a regular array that remembers the actual order of the steps (associative arrays are not indexed)
+declare -A TimeStamps   
+declare -a LogicalOrder 
+
+#The RecordBenchmark function adds the current step into LogicalOrder and then associates that step with a start and end time in the timestamps array
+RecordBenchmark () { LogicalOrder+=( "$1" ); Timestamps["$1"]=$(date +%H:%M:%S); }
+
+#The PrintBenchmarks function uses the LogicalOrder array as a control to chronologically iterate over the step/timestamp pairs in the timestamps array
+PrintBenchMarkResults () { echo; echo; echo "Benchmarking Results:"; echo; for i in "${LogicalOrder[@]}"; do echo "   $i:${Timestamps[$i]}"; done; echo; echo; }
+
+#Benchmark 1 Start
+RecordBenchmark "Declare Variables / Configure Environment (Lines 17 - 32) Start"
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"
@@ -15,6 +30,11 @@ source /home/packer/tool_installs_distro.sh
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
+
+RecordBenchmark "Declare Variables / Configure Environment (Lines 17 - 32) End"
+#Benchmark 1 End
+#BenchMark 2 Start
+RecordBenchmark "Purge and Reinstall Ubuntu (Lines 39 - 64) Start"
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
@@ -43,6 +63,11 @@ APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
 
+RecordBenchmark "Purge and Reinstall  Ubuntu (Lines 39 - 64) End"
+#Benchmark 2 End
+#BenchMark 3 Start
+RecordBenchmark "Install Dependencies (Lines 71 - 93) Start"
+
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
@@ -66,6 +91,11 @@ SystemMaxUse=1G
 RuntimeMaxUse=1G
 ForwardToSyslog=yes
 EOF
+
+RecordBenchmark "Install Dependencies (Lines 71 - 93) End"
+#Benchmark 3 End
+#Benchmark 4 Start
+RecordBenchmark "Check Container Runtime / Network Configurations (Lines 100 - 124) Start"
 
 if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then
   echo "Unsupported container runtime. Only containerd is supported for new VHD builds."
@@ -92,6 +122,11 @@ if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBU
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
+
+RecordBenchmark "Check Container Runtime / Network Configurations (Lines 100 - 124) End"
+#Benchmark 4 End
+#Benchmark 5 Start
+RecordBenchmark "Create containerd service directory, download shims, configure runtime and network (Lines 131 - 184) Start"
 
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
@@ -148,6 +183,11 @@ containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
 installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
 echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
 
+RecordBenchmark "Create containerd service directory, download shims, configure runtime and network (Lines 131 - 184) End"
+#Benchmark 5 End
+#Benchmark 6 Start
+RecordBenchmark "Download components, determine / download crictl version (Lines 191 - 211) Start"
+
 DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for componentToDownload in ${DOWNLOAD_FILES[*]}; do
   fileName=$(echo "${componentToDownload}" | jq .fileName -r)
@@ -167,6 +207,11 @@ for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
   downloadCrictl ${CRICTL_VERSION}
   echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
+
+RecordBenchmark "Download components, determine / download crictl version (Lines 191 - 211) End"
+#Benchmark 6 End
+#Benchmark 7 Start
+RecordBenchmark "Artifact streaming, download containerd plugins / NVIDIA driver images and CLI (Lines 216 - 285) Start"
 
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
@@ -239,7 +284,10 @@ EOF
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 
-
+RecordBenchmark "Artifact streaming, download containerd plugins / NVIDIA driver images and CLI (Lines 213 - 285) End"
+#Benchmark 6 End
+#Benchmark 7 Start
+RecordBenchmark "Pull and tag container images (Lines 292 - 336) Start"
 
 string_replace() {
   echo ${1//\*/$2}
@@ -286,6 +334,11 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 
 # can't use cliTool because crictl doesn't support retagging.
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
+
+RecordBenchmark "Pull and tag container images (Lines 289 - 336) End"
+#Benchmark 7 End
+#Benchmark 8 Start
+RecordBenchmark "Configure container networking and interface (Lines 343 - 398) Start"
 
 # doing this at vhd allows CSE to be faster with just mv
 unpackAzureCNI() {
@@ -344,6 +397,11 @@ if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
 
+RecordBenchmark "Configure container networking and interface (Lines 340 - 398) End"
+#Benchmark 8 End
+#Benchmark 9 Start
+RecordBenchmark "GPU Device plugin (Lines 405 - 430) Start"
+
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
 v0.13.0.7
@@ -370,6 +428,11 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   systemctlEnableAndStart nvidia-device-plugin || exit 1
 fi
 fi
+
+RecordBenchmark "GPU Device plugin (Lines 405 - 430) End"
+#Benchmark 9 End
+#Benchmark 10 Start
+RecordBenchmark "Configure telemetry, create logging directory, kube-proxy (Lines 437 - 469) Start"
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
@@ -404,6 +467,11 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
+
+RecordBenchmark "Configure telemetry, create logging directory, kube-proxy (Lines 437 - 469) End"
+#Benchmark 10 End
+#Benchmark 11 Start
+RecordBenchmark "Download Kubernetes package, process package, extract binaries (Lines 476 - 538) Start"
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
@@ -468,5 +536,12 @@ for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
 done
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
+
+RecordBenchmark "Download Kubernetes package, process package, extract binaries (Lines 476 - 538) End"
+#Benchmark 11 End
+#End of benchmarks
+echo
+PrintBenchMarkResults
+echo
 
 echo "install-dependencies step completed successfully"
