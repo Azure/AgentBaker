@@ -6,6 +6,11 @@ import "pkg/proto/nbcontract/v1/enum.proto";
 import "pkg/proto/nbcontract/v1/httpproxyconfig.proto";
 import "pkg/proto/nbcontract/v1/gpuconfig.proto";
 import "pkg/proto/nbcontract/v1/customlinuxosconfig.proto";
+import "pkg/proto/nbcontract/v1/kubebinaryconfig.proto";
+import "pkg/proto/nbcontract/v1/customsearchdomainconfig.proto";
+import "pkg/proto/nbcontract/v1/containerdconfig.proto";
+import "pkg/proto/nbcontract/v1/networkconfig.proto";
+import "pkg/proto/nbcontract/v1/identityconfig.proto";
 
 // illustrative division only
 message Configuration {
@@ -19,8 +24,7 @@ message Configuration {
 
   // cluster/user config
   string kubernetes_version = 3; // Q: can this be auto-detected? Or is this part of specifying the desired node version?
-  string kube_binary_url = 4;      // maybe we can combine this and custom_kube_binary_url later once we figure out the logic of how they are used.
-  string custom_kube_binary_url = 5;
+  KubeBinaryConfig kube_binary_config = 4;
   string kubeproxy_url = 6;
   ApiServerConfig apiserver_config = 7;
   string subscription_id = 8;
@@ -31,8 +35,7 @@ message Configuration {
   string primary_availability_set = 12;
   string primary_scale_set = 13;
   
-  CloudProviderConfig cloud_provider_config = 14;
-  IdentityConfiguration identity_configuration = 15;
+  IdentityConfig identity_config = 15;
 
   RuncConfig runc_config = 16;
 
@@ -44,6 +47,7 @@ message Configuration {
   LoadBalancerConfig load_balancer_config = 21;
   ContainerdConfig containerd_config = 22;
   bool is_vhd = 23;
+  NetworkConfig network_config = 24;
   bool is_sgx_node = 25;
   TeleportConfig teleport_config = 26;
   FeatureState ssh_status = 27;
@@ -61,11 +65,11 @@ message Configuration {
   bool needs_containerd = 39; //will be removed later
   bool is_krustlet = 40; //can be removed, this only depends on workload runtime, which is a better contract input
   bool needs_docker_login = 41; //useless, will remove
-  FeatureState ipv6_dual_stack_enabled = 42; //seems very specific to RP, discuss with Alex wrt Karpenter
-  string outbound_command = 43; //this is const depending on cloud, can be removed later with smart refactoring
-  bool enable_unattended_upgrade = 44; //seems the current API is messed up with naming, fix soon
-  bool ensure_no_dupe_promiscuous_bridge = 45; //this is little weird, check cse_cmd.sh for actual condition
-  CustomSearchDomain custom_search_domain = 46;
+  optional FeatureState ipv6_dual_stack_enabled = 42; //seems very specific to RP, discuss with Alex wrt Karpenter
+  optional string outbound_command = 43; //this is const depending on cloud, can be removed later with smart refactoring
+  optional bool enable_unattended_upgrade = 44; //seems the current API is messed up with naming, fix soon
+  optional bool ensure_no_dupe_promiscuous_bridge = 45; //this is little weird, check cse_cmd.sh for actual condition
+  optional CustomSearchDomain custom_search_domain = 46;
   optional nbcontract.v1.CustomLinuxOSConfig custom_linux_os_config = 47;
 
   CustomCloudConfig custom_cloud_config = 48;
@@ -102,45 +106,10 @@ message KubeletConfiguration {
   string kubelet_config_file_content = 7;
 }
 
-message IdentityConfiguration {
-  IdentityType identity_type = 1; // Q: I am assuming this is a better pattern than Oneof?
-  string service_principal_id = 2;
-  string service_principal_secret = 3;
-  string assigned_identity_id = 4;  //could be user or system assigned, depending on the type
-  string use_managed_identity_extension = 5;
-}
-
-enum IdentityType {
-  IDENTITY_TYPE_UNSPECIFIED = 0;
-  IDENTITY_TYPE_SERVICE_PRINCIPAL = 1;
-  IDENTITY_TYPE_SYSTEM_IDENTITY = 2;
-  IDENTITY_TYPE_USER_IDENTITY = 3;
-}
-
-enum NetworkPluginType {
-  NETWORK_PLUGIN_TYPE_UNSPECIFIED = 0;
-  NETWORK_PLUGIN_TYPE_NONE = 1;
-  NETWORK_PLUGIN_TYPE_AZURE = 2;
-  NETWORK_PLUGIN_TYPE_KUBENET = 3;
-}
-
-enum NetworkPolicyType {
-  NETWORK_POLICY_TYPE_UNSPECIFIED = 0;
-  NETWORK_POLICY_TYPE_NONE = 1;
-  NETWORK_POLICY_TYPE_AZURE = 2;
-  NETWORK_POLICY_TYPE_CALICO = 3;
-}
-
 message CustomCaTrustConfig {
   FeatureState custom_ca_trust_status = 1;
   int32 custom_ca_trust_count = 2;
   repeated string custom_ca_certs = 3;
-}
-
-enum KubeletDiskType {
-  KUBELET_DISK_TYPE_UNSPECIFIED = 0;
-  KUBELET_DISK_TYPE_OS_DISK = 1;
-  KUBELET_DISK_TYPE_TEMP_DISK = 2;
 }
 
 message Taint {
@@ -148,10 +117,48 @@ message Taint {
   string effect = 2;
 }
 
-message VirtualNetworkConfig {
-  string name = 1;
-  string resource_group = 2;
+message LoadBalancerConfig {
+  LoadBalancerSku load_balancer_sku = 1;
+  bool exclude_master_from_standard_load_balancer = 2;
+  int32 max_load_balancer_rule_count = 3;
 }
+
+message ApiServerConfig {
+  string apiserver_public_key = 1;
+  string apiserver_name = 2;
+}
+
+message TeleportConfig {
+  FeatureState status = 1;
+  string teleportd_plugin_download_url = 2;
+}
+
+message RuncConfig {
+  string runc_version = 1;
+  string runc_package_url = 2;
+}
+
+message TLSBootstrapping {
+  // discuss whether this should be featureState or bool
+  // understand how defaulting works for enum, because we want default to be false
+  FeatureState tls_bootstrapping = 1;
+  FeatureState secure_tls_bootstrapping = 2;
+  string tls_bootstrap_token = 3;
+  string custom_secure_tls_bootstrap_appserver_appid = 4;
+}
+
+message CustomCloudConfig {
+  string target_environment = 1;
+  string target_cloud = 2;  // can probably get rid of this, analyze more
+  bool is_custom_cloud = 3;
+  string custom_env_json_content = 4; // can be generated on the VHD, also rename
+}
+
+// The following variables are removed from the contract
+// Leaving them there for note. 
+// All of them need default values configured in the VHD, likely in the go binary.
+// will remove this section before release
+/*
 
 message CloudProviderConfig {
   CloudProviderBackoffConfig cloud_provider_backoff_config = 1;
@@ -176,77 +183,6 @@ message CloudProviderRateLimitConfig {
   int32 bucket_write = 5;  
 }
 
-message LoadBalancerConfig {
-  LoadBalancerSku load_balancer_sku = 1;
-  bool exclude_master_from_standard_load_balancer = 2;
-  int32 max_load_balancer_rule_count = 3;
-}
+CONTAINER_RUNTIME = "containerd"
 
-enum LoadBalancerSku {
-  LOAD_BALANCER_SKU_UNSPECIFIED = 0;
-  LOAD_BALANCER_SKU_BASIC = 1;  // to be confirmed
-  LOAD_BALANCER_SKU_STANDARD = 2;
-}
-
-enum NetworkMode {
-  NETWORK_MODE_UNSPECIFIED = 0;
-  NETWORK_MODE_L2BRIDGE = 1;
-  //could be more. Needs to check.
-}
-
-message ApiServerConfig {
-  string apiserver_public_key = 1;
-  string apiserver_name = 2;
-  string api_server_endpoint = 3;
-}
-
-message ContainerdConfig {
-  string containerd_download_url_base = 1;
-  string containerd_version = 2;
-  string containerd_package_url = 3;
-}
-
-message TeleportConfig {
-  FeatureState status = 1;
-  string teleportd_plugin_download_url = 2;
-}
-
-message RuncConfig {
-  string runc_version = 1;
-  string runc_package_url = 2;
-}
-
-message NetworkConfig {
-  NetworkPluginType network_plugin = 1;
-  NetworkPolicyType network_policy = 2;
-  NetworkMode network_mode = 3;
-  string network_security_group = 4;
-  VirtualNetworkConfig virtual_network_config = 5;
-  string vnet_cni_plugins_url = 6;
-  string cni_plugins_url = 7;
-  string subnet = 8;
-  string route_table = 9;
-}
-
-message CustomSearchDomain {
-  string custom_search_domain_filepath = 1;
-  string custom_search_domain_name = 2;
-  string custom_search_domain_realm_user = 3;
-  string custom_search_domain_realm_password = 4;
-}
-
-message TLSBootstrapping {
-  // discuss whether this should be featureState or bool
-  // understand how defaulting works for enum, because we want default to be false
-  FeatureState tls_bootstrapping = 1;
-  FeatureState secure_tls_bootstrapping = 2;
-  string tls_bootstrap_token = 3;
-  string custom_secure_tls_bootstrap_appserver_appid = 4;
-}
-
-message CustomCloudConfig {
-  string target_environment = 1;
-  string target_cloud = 2;  // can probably get rid of this, analyze more
-  bool is_custom_cloud = 3;
-  string custom_env_json_content = 4; // can be generated on the VHD, also rename
-}
+*/
