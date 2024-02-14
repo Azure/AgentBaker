@@ -15,6 +15,7 @@ import "pkg/proto/nbcontract/v1/kubeletconfig.proto";
 import "pkg/proto/nbcontract/v1/featurestate.proto";
 import "pkg/proto/nbcontract/v1/teleportconfig.proto";
 import "pkg/proto/nbcontract/v1/runcconfig.proto";
+import "pkg/proto/nbcontract/v1/swapfileconfig.proto";
 
 // illustrative division only
 message Configuration {
@@ -57,7 +58,7 @@ message Configuration {
   FeatureState ssh_status = 27;
   FeatureState unattended_upgrade_status = 28;
   string message_of_the_day = 29;
-  string swap_file_size_mb = 30;
+  SwapFileConfig swap_file_config = 30;
   KubeletConfiguration kubelet_configuration = 31;
   FeatureState hosts_config_agent_status = 32;
   CustomCaTrustConfig custom_ca_trust_config = 33;

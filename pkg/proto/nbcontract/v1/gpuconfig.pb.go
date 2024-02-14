@@ -25,15 +25,15 @@ type GPUConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// nvidia_state represents the Nvidia GPU state
+	// NvidiaState represents the Nvidia GPU state
 	NvidiaState *FeatureState `protobuf:"varint,1,opt,name=nvidia_state,json=nvidiaState,proto3,enum=nbcontract.v1.FeatureState,oneof" json:"nvidia_state,omitempty"`
-	// config_gpu_driver specifies whether bootstrap process should install and configure the GPU driver when necessary. Configuration includes appropriate set up of components like the fabric manager where applicable.
+	// ConfigGpuDriver specifies whether bootstrap process should install and configure the GPU driver when necessary. Configuration includes appropriate set up of components like the fabric manager where applicable.
 	ConfigGpuDriver *FeatureState `protobuf:"varint,2,opt,name=config_gpu_driver,json=configGpuDriver,proto3,enum=nbcontract.v1.FeatureState,oneof" json:"config_gpu_driver,omitempty"`
-	// gpu_device_plugin specifies whether special config is needed for MIG GPUs that use GPU dedicated VHDs and enable the device plugin (for all GPU dedicated VHDs)
+	// GpuDevicePlugin specifies whether special config is needed for MIG GPUs that use GPU dedicated VHDs and enable the device plugin (for all GPU dedicated VHDs)
 	GpuDevicePlugin *FeatureState `protobuf:"varint,3,opt,name=gpu_device_plugin,json=gpuDevicePlugin,proto3,enum=nbcontract.v1.FeatureState,oneof" json:"gpu_device_plugin,omitempty"`
-	// gpu_instance_profile represents the GPU instance profile.
+	// GpuInstanceProfile represents the GPU instance profile.
 	GpuInstanceProfile *string `protobuf:"bytes,4,opt,name=gpu_instance_profile,json=gpuInstanceProfile,proto3,oneof" json:"gpu_instance_profile,omitempty"`
-	// gpu_image_sha represents AKS-GPU image's SHA
+	// GpuImageSha represents AKS-GPU image's SHA
 	GpuImageSha *string `protobuf:"bytes,5,opt,name=gpu_image_sha,json=gpuImageSha,proto3,oneof" json:"gpu_image_sha,omitempty"`
 }
 
