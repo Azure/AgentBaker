@@ -2,7 +2,6 @@ syntax = "proto3";
 
 package nbcontract.v1;
 
-import "pkg/proto/nbcontract/v1/enum.proto";
 import "pkg/proto/nbcontract/v1/httpproxyconfig.proto";
 import "pkg/proto/nbcontract/v1/gpuconfig.proto";
 import "pkg/proto/nbcontract/v1/customlinuxosconfig.proto";
@@ -11,6 +10,9 @@ import "pkg/proto/nbcontract/v1/customsearchdomainconfig.proto";
 import "pkg/proto/nbcontract/v1/containerdconfig.proto";
 import "pkg/proto/nbcontract/v1/networkconfig.proto";
 import "pkg/proto/nbcontract/v1/identityconfig.proto";
+import "pkg/proto/nbcontract/v1/loadbalancerconfig.proto";
+import "pkg/proto/nbcontract/v1/kubeletconfig.proto";
+import "pkg/proto/nbcontract/v1/featurestate.proto";
 
 // illustrative division only
 message Configuration {
@@ -95,32 +97,10 @@ message Configuration {
   optional GPUConfig gpu_config = 62;
 }
 
-message KubeletConfiguration {
-  // TODO(ace): remove these/make api defensible
-  repeated string kubelet_flags = 1;
-  map<string, string> kubelet_node_labels = 2;
-  repeated Taint taints = 3;
-  repeated Taint startup_taints = 4;
-  KubeletDiskType kubelet_disk_type = 5;
-  bool kubelet_config_file_enabled = 6;
-  string kubelet_config_file_content = 7;
-}
-
 message CustomCaTrustConfig {
   FeatureState custom_ca_trust_status = 1;
   int32 custom_ca_trust_count = 2;
   repeated string custom_ca_certs = 3;
-}
-
-message Taint {
-  string key = 1;
-  string effect = 2;
-}
-
-message LoadBalancerConfig {
-  LoadBalancerSku load_balancer_sku = 1;
-  bool exclude_master_from_standard_load_balancer = 2;
-  int32 max_load_balancer_rule_count = 3;
 }
 
 message ApiServerConfig {

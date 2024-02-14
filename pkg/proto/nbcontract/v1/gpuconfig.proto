@@ -1,7 +1,7 @@
 syntax = "proto3";
 package nbcontract.v1;
 
-import "pkg/proto/nbcontract/v1/enum.proto";
+import "pkg/proto/nbcontract/v1/featurestate.proto";
 
 message GPUConfig {
   // nvidia_state represents the Nvidia GPU state
