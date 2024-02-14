@@ -97,6 +97,13 @@ func Test_All(t *testing.T) {
 				nbc:           nbc,
 				loggingDir:    loggingDir,
 			})
+
+			if e2eScenario.LogCheck != nil {
+				err = e2eScenario.LogCheck()
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
 		})
 	}
 }
