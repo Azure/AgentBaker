@@ -220,16 +220,16 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
       exit $ret
     fi
   fi
+
+  cat << EOF >> ${VHD_LOGS_FILEPATH}
+    - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
+  EOF
 fi
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
 installBpftrace
 echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
-
-cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
-EOF
 
 installBcc
 cat << EOF >> ${VHD_LOGS_FILEPATH}
