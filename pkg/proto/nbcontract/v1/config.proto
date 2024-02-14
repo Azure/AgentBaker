@@ -13,6 +13,8 @@ import "pkg/proto/nbcontract/v1/identityconfig.proto";
 import "pkg/proto/nbcontract/v1/loadbalancerconfig.proto";
 import "pkg/proto/nbcontract/v1/kubeletconfig.proto";
 import "pkg/proto/nbcontract/v1/featurestate.proto";
+import "pkg/proto/nbcontract/v1/teleportconfig.proto";
+import "pkg/proto/nbcontract/v1/runcconfig.proto";
 
 // illustrative division only
 message Configuration {
@@ -106,16 +108,6 @@ message CustomCaTrustConfig {
 message ApiServerConfig {
   string apiserver_public_key = 1;
   string apiserver_name = 2;
-}
-
-message TeleportConfig {
-  FeatureState status = 1;
-  string teleportd_plugin_download_url = 2;
-}
-
-message RuncConfig {
-  string runc_version = 1;
-  string runc_package_url = 2;
 }
 
 message TLSBootstrapping {
