@@ -20,4 +20,7 @@ message GPUConfig {
 
   // gpu_instance_profile represents the GPU instance profile.
   optional string gpu_instance_profile = 4;
+
+  // gpu_image_sha represents AKS-GPU image's SHA
+  optional string gpu_image_sha = 5;
 }
