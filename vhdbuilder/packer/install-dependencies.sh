@@ -222,8 +222,8 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
   fi
 
   cat << EOF >> ${VHD_LOGS_FILEPATH}
-    - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
-  EOF
+  - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
+EOF
 fi
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
