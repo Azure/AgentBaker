@@ -2,8 +2,8 @@
 
 #Timestamps is an associative array that links the logical steps of the install script with timestamps
 #Logicalorder is a regular array that remembers the actual order of the steps (associative arrays are not indexed)
-declare -A TimeStamps   
-declare -a LogicalOrder 
+declare -A TimeStamps=()   
+declare -a LogicalOrder=() 
 
 #The RecordBenchmark function adds the current step into LogicalOrder and then associates that step with a start and end time in the timestamps array
 RecordBenchmark () { LogicalOrder+=( "$1" ); Timestamps["$1"]=$(date +%H:%M:%S); }
