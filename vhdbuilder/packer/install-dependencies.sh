@@ -6,10 +6,10 @@ declare -A TimeStamps=()
 declare -a LogicalOrder=() 
 
 #The RecordBenchmark function adds the current step into LogicalOrder and then associates that step with a start and end time in the timestamps array
-RecordBenchmark () { LogicalOrder+=( "$1" ); Timestamps["$1"]=$(date +%H:%M:%S); }
+RecordBenchmark () { dtStamp=$(date +%H:%M:%S); LogicalOrder+=( "$1" ); Timestamps["$1"]=$dtStamp; }
 
 #The PrintBenchmarks function uses the LogicalOrder array as a control to chronologically iterate over the step/timestamp pairs in the timestamps array
-PrintBenchMarkResults () { echo; echo; echo "Benchmarking Results:"; echo; for i in "${LogicalOrder[@]}"; do echo "   $i:${Timestamps[$i]}"; done; echo; echo; }
+PrintBenchMarkResults () { echo; echo; echo "Benchmarking Results:"; echo; for i in "${LogicalOrder[@]}"; do echo "   $i: ${Timestamps[$i]}"; done; echo; echo; }
 
 #Benchmark 1 Start
 RecordBenchmark "Declare Variables / Configure Environment (Lines 17 - 32) Start"
