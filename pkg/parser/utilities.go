@@ -8,16 +8,19 @@ import (
 
 func getBaseTemplate() *nbcontractv1.Configuration {
 	return &nbcontractv1.Configuration{
-		ProvisionOutput:     "/var/log/azure/cluster-provision-cse-output.log",
-		LinuxAdminUsername:  "azureuser",
-		RepoDepotEndpoint:   "",
-		MobyVersion:         "",
-		TenantId:            "",
-		KubernetesVersion:   "1.26.0",
-		HyperkubeUrl:        "mcr.microsoft.com/oss/kubernetes/",
-		KubeBinaryUrl:       "",
-		CustomKubeBinaryUrl: "https://acs-mirror.azureedge.net/kubernetes/v1.26.0/binaries/kubernetes-node-linux-amd64.tar.gz",
-		KubeproxyUrl:        "",
+		ProvisionOutput:    "/var/log/azure/cluster-provision-cse-output.log",
+		LinuxAdminUsername: "azureuser",
+		RepoDepotEndpoint:  "",
+		MobyVersion:        "",
+		TenantId:           "",
+		KubernetesVersion:  "1.26.0",
+		HyperkubeUrl:       "mcr.microsoft.com/oss/kubernetes/",
+		KubeBinaryConfig: &nbcontractv1.KubeBinaryConfig{
+			KubeBinaryUrl:        "",
+			CustomKubeBinaryUrl:  "https://acs-mirror.azureedge.net/kubernetes/v1.26.0/binaries/kubernetes-node-linux-amd64.tar.gz",
+			PrivateKubeBinaryUrl: "",
+		},
+		KubeproxyUrl: "",
 		CustomCloudConfig: &nbcontractv1.CustomCloudConfig{
 			IsCustomCloud: false,
 		},
