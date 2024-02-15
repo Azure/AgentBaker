@@ -1,0 +1,9 @@
+syntax = "proto3";
+package nbcontract.v1;
+
+message CustomSearchDomain {
+  string custom_search_domain_filepath = 1;
+  string custom_search_domain_name = 2;
+  string custom_search_domain_realm_user = 3;
+  string custom_search_domain_realm_password = 4;
+}
