@@ -19,10 +19,10 @@ func (t *Template) ubuntu2204ContainerdURL() *Scenario {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.ContainerdPackageURL = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.7.13-ubuntu22.04u1_amd64.deb "
+				nbc.ContainerdPackageURL = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.7.13"),
+				containerdVersionValidator("1.6.9"),
 			},
 		},
 	}
@@ -39,7 +39,7 @@ func (t *Template) ubuntu2204ContainerdVersion() *Scenario {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.ContainerdVersion = "1.7.13"
+				nbc.ContainerdVersion = "1.6.9"
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				containerdVersionValidator(getCurrentManifestContainerdVersion()),
