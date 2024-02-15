@@ -1,6 +1,6 @@
 {
   "sku": "V2katagen2",
-  "imageVersion": "202402.07.0",
+  "imageVersion": "202402.12.0",
   "imageBom": [
     {
       "id": "sha256:0159fbee715bda790fbba5014461c67d0a64697f27d8af0311ecada763af48e0",
