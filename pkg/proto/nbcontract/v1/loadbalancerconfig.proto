@@ -1,0 +1,14 @@
+syntax = "proto3";
+package nbcontract.v1;
+
+message LoadBalancerConfig {
+  LoadBalancerSku load_balancer_sku = 1;
+  bool exclude_master_from_standard_load_balancer = 2;
+  int32 max_load_balancer_rule_count = 3;
+}
+
+enum LoadBalancerSku {
+  LOAD_BALANCER_SKU_UNSPECIFIED = 0;
+  LOAD_BALANCER_SKU_BASIC = 1;  // to be confirmed
+  LOAD_BALANCER_SKU_STANDARD = 2;
+}
