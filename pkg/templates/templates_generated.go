@@ -706,6 +706,7 @@ Wants=network.target
 After=network.target
 Before=kubelet.service
 Before=containerd.service
+ConditionKernelVersion=">=5.15.0" # don't run on old images; we're not compatible
 
 [Service]
 Type=notify
@@ -718,6 +719,7 @@ Slice=aks-local-dns.slice
 EnvironmentFile=-/etc/default/aks-local-dns
 # only start if the nodepool is tagged EnableAKSLocalDNS=true - remove this once API fields are implemented
 ExecCondition=/opt/azure/aks-local-dns/prestart.sh --check-tag
+# set up our config file - not needed if we're CSE integrated
 ExecStartPre=/opt/azure/aks-local-dns/prestart.sh
 ExecStart=/opt/azure/aks-local-dns/aks-local-dns.sh
 
