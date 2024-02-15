@@ -1,0 +1,10 @@
+syntax = "proto3";
+package nbcontract.v1;
+import "pkg/proto/nbcontract/v1/featurestate.proto";
+
+message SwapFileConfig {
+  // Status shows whether the swap file is enabled or not.
+  FeatureState status = 1;
+  // SizeMB is the size of the swap file in megabytes.
+  int32 size_mb = 2;
+}
