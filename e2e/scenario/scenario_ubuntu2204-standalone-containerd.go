@@ -5,7 +5,7 @@ import (
 )
 
 // These tests were created to verify that the apt-get call in downloadContainerdFromVersion is not executed.
-// The code path is not hit in either of these tests. In the future, testing with some kind of firewall to ensure no egress 
+// The code path is not hit in either of these tests. In the future, testing with some kind of firewall to ensure no egress
 // calls are made would be beneficial for airgap testing.
 
 func (t *Template) ubuntu2204ContainerdURL() *Scenario {
@@ -51,7 +51,7 @@ func (t *Template) ubuntu2204ContainerdVersion() *Scenario {
 func getContainerdManifestVersion() string {
 	manifest, err := getVHDManifest()
 	if err != nil {
-		return ""
+		panic(err)
 	}
 
 	return manifest.Containerd.Edge

@@ -103,10 +103,10 @@ type Manifest struct {
 	} `json:"containerd"`
 }
 
-func getVHDManifest() (Manifest, error) {
+func getVHDManifest() (*Manifest, error) {
 	manifestData, err := os.ReadFile("../parts/linux/cloud-init/artifacts/manifest.json")
 	if err != nil {
-		return Manifest{}, err
+		return nil, err
 	}
 	manifestDataStr := string(manifestData)
 	manifestDataStr = strings.TrimRight(manifestDataStr, "#EOF \n\r\t")
@@ -114,9 +114,9 @@ func getVHDManifest() (Manifest, error) {
 
 	manifest := Manifest{}
 	if err = json.Unmarshal([]byte(manifestData), &manifest); err != nil {
-		panic(err)
-   	}
-	return manifest, nil
+		return nil, err
+	}
+	return &manifest, nil
 }
 
 // VHDResourceID represents a resource ID pointing to a VHD in Azure. This could be theoretically
