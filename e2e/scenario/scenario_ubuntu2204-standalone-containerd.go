@@ -3,7 +3,6 @@ package scenario
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"strings"
 
@@ -80,7 +79,6 @@ func (t *Template) ubuntu2204ContainerdVersion() *Scenario {
 
 			manifestData, err := os.ReadFile("../parts/linux/cloud-init/artifacts/manifest.json")
 			if err != nil {
-				fmt.Printf("1")
 				return err
 			}
 			manifestDataStr := string(manifestData)
@@ -90,7 +88,6 @@ func (t *Template) ubuntu2204ContainerdVersion() *Scenario {
 			var manifest Manifest
 			err = json.Unmarshal([]byte(manifestData), &manifest)
 			if err != nil {
-				fmt.Printf("2")
 				return err
 			}
 
