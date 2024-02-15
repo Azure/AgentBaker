@@ -11,7 +11,7 @@ import (
 func (t *Template) ubuntu2204ContainerdURL() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204ContainerdURL",
-		Description: "Tests that a node using the Ubuntu 2204 VHD with a containerd URL can be properly bootstrapped",
+		Description: "tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override bootstraps with the provided URL and not the maifest contianerd version",
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
@@ -31,7 +31,7 @@ func (t *Template) ubuntu2204ContainerdURL() *Scenario {
 func (t *Template) ubuntu2204ContainerdVersion() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204ContainerdVersion",
-		Description: "Tests that a node using the Ubuntu 2204 VHD with a containerd version can be properly bootstrapped",
+		Description: "tests that node using an Ubuntu2204 VHD and the ContainerdVersion override bootstraps with the correct manifest containerd version and ignores the override",
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
