@@ -1,0 +1,9 @@
+syntax = "proto3";
+package nbcontract.v1;
+
+// Kube Binary Config
+message KubeBinaryConfig {
+  string kube_binary_url = 1; //default kube binary url
+  string custom_kube_binary_url = 2; //user's custom kube binary url
+  string private_kube_binary_url = 3;  //privately cached kube binary url
+}
