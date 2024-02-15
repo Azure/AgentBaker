@@ -10,10 +10,10 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
-func (t *Template) ubuntu2204StandaloneURL() *Scenario {
+func (t *Template) ubuntu2204ContainerdURL() *Scenario {
 	return &Scenario{
-		Name:        "ubuntu2204StandaloneURL",
-		Description: "Tests that a node using the Ubuntu 2204 VHD in a standalone can be properly bootstrapped",
+		Name:        "ubuntu2204ContainerdURL",
+		Description: "Tests that a node using the Ubuntu 2204 VHD with a containerd URL can be properly bootstrapped",
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
@@ -25,7 +25,7 @@ func (t *Template) ubuntu2204StandaloneURL() *Scenario {
 			},
 		},
 		LogCheck: func() error {
-			data, err := os.ReadFile("scenario-logs/ubuntu2204StandaloneVersion/cluster-provision.log")
+			data, err := os.ReadFile("scenario-logs/ubuntu2204ContainerdURL/cluster-provision.log")
 			if err != nil {
 				return err
 			}
@@ -49,10 +49,10 @@ type Manifest struct {
 	} `json:"containerd"`
 }
 
-func (t *Template) ubuntu2204StandaloneVersion() *Scenario {
+func (t *Template) ubuntu2204ContainerdVersion() *Scenario {
 	return &Scenario{
-		Name:        "ubuntu2204StandaloneVersion",
-		Description: "Tests that a node using the Ubuntu 2204 VHD in a standalone can be properly bootstrapped",
+		Name:        "ubuntu2204ContainerdVersion",
+		Description: "Tests that a node using the Ubuntu 2204 VHD with a containerd version can be properly bootstrapped",
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
@@ -64,7 +64,7 @@ func (t *Template) ubuntu2204StandaloneVersion() *Scenario {
 			},
 		},
 		LogCheck: func() error {
-			data, err := os.ReadFile("scenario-logs/ubuntu2204StandaloneVersion/cluster-provision.log")
+			data, err := os.ReadFile("scenario-logs/ubuntu2204ContainerdVersion/cluster-provision.log")
 			if err != nil {
 				return err
 			}
