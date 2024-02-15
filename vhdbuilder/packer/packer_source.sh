@@ -98,7 +98,7 @@ copyPackerFiles() {
   AKS_LOCAL_DNS_RESOLVED_SRC=/home/packer/aks-local-dns-resolved.conf
   AKS_LOCAL_DNS_RESOLVED_DEST=/etc/systemd/resolved.conf.d/70-aks-dns.conf
   AKS_LOCAL_DNS_KUBELET_DROPIN_SRC=/home/packer/aks-local-dns-kubelet-dropin.conf
-  AKS_LOCAL_DNS_KUBELET_DROPIN_DEST=/etc/systemd/system/kubelet.conf.d/70-aks-local-dns.conf
+  AKS_LOCAL_DNS_KUBELET_DROPIN_DEST=/etc/systemd/system/kubelet.service.d/70-aks-local-dns.conf
   AKS_LOCAL_DNS_SERVICE_SRC=/home/packer/aks-local-dns.service
   AKS_LOCAL_DNS_SERVICE_DEST=/etc/systemd/system/aks-local-dns.service
   AKS_LOCAL_DNS_SLICE_SRC=/home/packer/aks-local-dns.slice
