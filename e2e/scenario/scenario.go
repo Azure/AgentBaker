@@ -70,8 +70,8 @@ func (t *Template) scenarios() []*Scenario {
 		t.ubuntu2204CustomCATrust(),
 		t.ubuntu2204ArtifactStreaming(),
 		t.ubuntu2204privatekubepkg(),
-		t.ubuntu2204StandaloneURL(),
-		t.ubuntu2204StandaloneVersion(),
+		t.ubuntu2204ContainerdURL(),
+		t.ubuntu2204ContainerdVersion(),
 	}
 }
 

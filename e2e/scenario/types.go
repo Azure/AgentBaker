@@ -36,9 +36,6 @@ type Scenario struct {
 
 	// Config contains the configuration of the scenario
 	Config
-
-	// Function to verify output in the logs
-	LogCheck func() error
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario
