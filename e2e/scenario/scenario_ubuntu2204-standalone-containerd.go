@@ -4,6 +4,10 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
+// These tests were created to verify that the apt-get call in downloadContainerdFromVersion is not executed.
+// The code path is not hit in either of these tests. In the future, testing with some kind of firewall to ensure no egress 
+// calls are made would be beneficial for airgap testing.
+
 func (t *Template) ubuntu2204ContainerdURL() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204ContainerdURL",
