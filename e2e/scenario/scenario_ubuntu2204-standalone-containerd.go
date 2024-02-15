@@ -1,10 +1,6 @@
 package scenario
 
 import (
-	"encoding/json"
-	"os"
-	"strings"
-
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
@@ -42,31 +38,17 @@ func (t *Template) ubuntu2204ContainerdVersion() *Scenario {
 				nbc.ContainerdVersion = "1.6.9"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator(getCurrentManifestContainerdVersion()),
+				containerdVersionValidator(getContainerdManifestVersion()),
 			},
 		},
 	}
 }
 
-type Manifest struct {
-	Containerd struct {
-		Edge string `json:"edge"`
-	} `json:"containerd"`
-}
-
-func getCurrentManifestContainerdVersion() string {
-	manifestData, err := os.ReadFile("../parts/linux/cloud-init/artifacts/manifest.json")
+func getContainerdManifestVersion() string {
+	manifest, err := getVHDManifest()
 	if err != nil {
 		return ""
 	}
-	manifestDataStr := string(manifestData)
-	manifestDataStr = strings.TrimRight(manifestDataStr, "#EOF \n\r\t")
-	manifestData = []byte(manifestDataStr)
 
-	var manifest Manifest
-	err = json.Unmarshal([]byte(manifestData), &manifest)
-	if err != nil {
-		return ""
-	}
 	return manifest.Containerd.Edge
 }

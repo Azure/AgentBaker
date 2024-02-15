@@ -134,6 +134,7 @@ func containerdVersionValidator(version string) *LiveVMValidator {
 			if code != "0" {
 				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
 			}
+
 			if !strings.Contains(stdout, version) {
 				return fmt.Errorf(fmt.Sprintf("expected to find containerd version %s, but was not", version))
 			}
