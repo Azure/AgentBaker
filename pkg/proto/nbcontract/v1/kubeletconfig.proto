@@ -1,0 +1,24 @@
+syntax = "proto3";
+package nbcontract.v1;
+
+message KubeletConfiguration {
+  // TODO(ace): remove these/make api defensible
+  repeated string kubelet_flags = 1;
+  map<string, string> kubelet_node_labels = 2;
+  repeated Taint taints = 3;
+  repeated Taint startup_taints = 4;
+  KubeletDiskType kubelet_disk_type = 5;
+  bool kubelet_config_file_enabled = 6;
+  string kubelet_config_file_content = 7;
+}
+
+message Taint {
+  string key = 1;
+  string effect = 2;
+}
+
+enum KubeletDiskType {
+  KUBELET_DISK_TYPE_UNSPECIFIED = 0;
+  KUBELET_DISK_TYPE_OS_DISK = 1;
+  KUBELET_DISK_TYPE_TEMP_DISK = 2;
+}
