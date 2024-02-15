@@ -25,7 +25,7 @@ func (t *Template) ubuntu2204StandaloneURL() *Scenario {
 			},
 		},
 		LogCheck: func() error {
-			data, err := os.ReadFile("scenario-logs/ubuntu2204Standalone/cluster-provision.log")
+			data, err := os.ReadFile("scenario-logs/ubuntu2204StandaloneVersion/cluster-provision.log")
 			if err != nil {
 				return err
 			}
