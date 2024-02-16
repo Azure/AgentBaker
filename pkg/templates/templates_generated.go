@@ -706,7 +706,8 @@ Wants=network.target
 After=network.target
 Before=kubelet.service
 Before=containerd.service
-ConditionKernelVersion=>=5.15 # don't run on old images; we're not compatible
+# don't run on old images; we're not compatible
+ConditionKernelVersion=>=5.15 
 
 [Service]
 Type=notify
