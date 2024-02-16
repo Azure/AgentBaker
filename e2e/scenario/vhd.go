@@ -97,6 +97,28 @@ func mustGetVHDCatalogFromEmbeddedJSON(rawJSON string) VHDCatalog {
 	return catalog
 }
 
+type Manifest struct {
+	Containerd struct {
+		Edge string `json:"edge"`
+	} `json:"containerd"`
+}
+
+func getVHDManifest() (*Manifest, error) {
+	manifestData, err := os.ReadFile("../parts/linux/cloud-init/artifacts/manifest.json")
+	if err != nil {
+		return nil, err
+	}
+	manifestDataStr := string(manifestData)
+	manifestDataStr = strings.TrimRight(manifestDataStr, "#EOF \n\r\t")
+	manifestData = []byte(manifestDataStr)
+
+	manifest := Manifest{}
+	if err = json.Unmarshal([]byte(manifestData), &manifest); err != nil {
+		return nil, err
+	}
+	return &manifest, nil
+}
+
 // VHDResourceID represents a resource ID pointing to a VHD in Azure. This could be theoretically
 // be the resource ID of a managed image or SIG image version, though for now this will always be a SIG image version.
 type VHDResourceID string
