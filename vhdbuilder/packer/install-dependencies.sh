@@ -602,3 +602,6 @@ print_benchmark_results
 echo
 
 echo "install-dependencies step completed successfully"
+
+#Test
+echo
