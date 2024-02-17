@@ -16,6 +16,7 @@ import "pkg/proto/nbcontract/v1/featurestate.proto";
 import "pkg/proto/nbcontract/v1/teleportconfig.proto";
 import "pkg/proto/nbcontract/v1/runcconfig.proto";
 import "pkg/proto/nbcontract/v1/swapfileconfig.proto";
+import "pkg/proto/nbcontract/v1/customcloudconfig.proto";
 
 // illustrative division only
 message Configuration {
@@ -30,6 +31,7 @@ message Configuration {
   // cluster/user config
   string kubernetes_version = 3; // Q: can this be auto-detected? Or is this part of specifying the desired node version?
   KubeBinaryConfig kube_binary_config = 4;
+  optional CustomCloudConfig custom_cloud_config = 5;
   string kubeproxy_url = 6;
   ApiServerConfig apiserver_config = 7;
   string subscription_id = 8;
@@ -45,7 +47,6 @@ message Configuration {
   RuncConfig runc_config = 16;
 
   // ... and a bunch of user-specified config
-  string repo_depot_endpoint = 17;
   string linux_admin_username = 18;
   string tenant_id = 19;
   bool use_instance_metadata = 20;
@@ -76,8 +77,6 @@ message Configuration {
   optional bool ensure_no_dupe_promiscuous_bridge = 45; //this is little weird, check cse_cmd.sh for actual condition
   optional CustomSearchDomain custom_search_domain = 46;
   optional nbcontract.v1.CustomLinuxOSConfig custom_linux_os_config = 47;
-
-  CustomCloudConfig custom_cloud_config = 48;
   
   //we do not need these in the final contract, these are consts
   string cse_helper_filepath = 49;
@@ -118,13 +117,6 @@ message TLSBootstrapping {
   FeatureState secure_tls_bootstrapping = 2;
   string tls_bootstrap_token = 3;
   string custom_secure_tls_bootstrap_appserver_appid = 4;
-}
-
-message CustomCloudConfig {
-  string target_environment = 1;
-  string target_cloud = 2;  // can probably get rid of this, analyze more
-  bool is_custom_cloud = 3;
-  string custom_env_json_content = 4; // can be generated on the VHD, also rename
 }
 
 // The following variables are removed from the contract
