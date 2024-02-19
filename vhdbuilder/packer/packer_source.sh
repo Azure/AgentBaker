@@ -111,6 +111,8 @@ copyPackerFiles() {
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
   USU_SH_SRC=/home/packer/ubuntu-snapshot-update.sh
   USU_SH_DEST=/opt/azure/containers/ubuntu-snapshot-update.sh
+  MPU_SH_SRC=/home/packer/mariner-package-update.sh
+  MPU_SH_DEST=/opt/azure/containers/mariner-package-update.sh
   USU_SERVICE_SRC=/home/packer/snapshot-update.service
   USU_SERVICE_DEST=/etc/systemd/system/snapshot-update.service
   USU_TIMER_SRC=/home/packer/snapshot-update.timer
@@ -316,6 +318,9 @@ copyPackerFiles() {
   fi
   if [[ $OS == $MARINER_OS_NAME ]]; then
     cpAndMode $CONTAINERD_SERVICE_SRC $CONTAINERD_SERVICE_DEST 644
+    cpAndMode $MPU_SH_SRC $MPU_SH_DEST 544
+    cpAndMode $USU_SERVICE_SRC $USU_SERVICE_DEST 644
+    cpAndMode $USU_TIMER_SRC $USU_TIMER_DEST 644
 
     # MarinerV2 uses system-auth and system-password instead of common-auth and common-password.
     if [[ ${OS_VERSION} == "2.0" ]]; then

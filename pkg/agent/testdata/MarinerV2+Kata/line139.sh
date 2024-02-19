@@ -1,5 +1,5 @@
 [Unit]
-Description=Runs snapshot update script periodically
+Description=Runs package update script periodically
 
 [Timer]
 OnBootSec=10min

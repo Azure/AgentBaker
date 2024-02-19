@@ -61,6 +61,9 @@
 // linux/cloud-init/artifacts/manifest.json
 // linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh
 // linux/cloud-init/artifacts/mariner/cse_install_mariner.sh
+// linux/cloud-init/artifacts/mariner/mariner-package-update.sh
+// linux/cloud-init/artifacts/mariner/package-update.service
+// linux/cloud-init/artifacts/mariner/package-update.timer
 // linux/cloud-init/artifacts/mariner/pam-d-system-auth
 // linux/cloud-init/artifacts/mariner/pam-d-system-password
 // linux/cloud-init/artifacts/mariner/update_certs_mariner.service
@@ -4230,7 +4233,7 @@ if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
+if [[ $OS == $UBUNTU_OS_NAME || $OS == $MARINER_OS_NAME ]]; then
     logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
 fi
 
@@ -5605,6 +5608,119 @@ func linuxCloudInitArtifactsMarinerCse_install_marinerSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mariner/cse_install_mariner.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsMarinerMarinerPackageUpdateSh = []byte(`#!/usr/bin/env bash
+
+set -o nounset
+set -e
+
+# source dnf_update
+source /opt/azure/containers/provision_source_distro.sh
+
+KUBECTL="/usr/local/bin/kubectl --kubeconfig /var/lib/kubelet/kubeconfig"
+
+# At startup, we need to wait for kubelet to finish TLS bootstrapping to create the kubeconfig file.
+while [ ! -f /var/lib/kubelet/kubeconfig ]; do
+    echo 'Waiting for TLS bootstrapping'
+    sleep 3
+done
+
+node_name=$(hostname)
+if [ -z "${node_name}" ]; then
+    echo "cannot get node name"
+    exit 1
+fi
+
+# retrieve golden timestamp from node annotation
+golden_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-golden-timestamp']}")
+if [ -z "${golden_timestamp}" ]; then
+    echo "golden timestamp is not set, skip live patching"
+    exit 0
+fi
+echo "golden timestamp is: ${golden_timestamp}"
+
+current_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-current-timestamp']}")
+if [ -n "${current_timestamp}" ]; then
+    echo "current timestamp is: ${current_timestamp}"
+
+    if [[ "${golden_timestamp}" == "${current_timestamp}" ]]; then
+        echo "golden and current timestamp is the same, nothing to patch"
+        exit 0
+    fi
+fi
+
+if ! dnf_update; then
+    echo "dnf_update failed"
+    exit 1
+fi
+
+# update current timestamp
+$KUBECTL annotate --overwrite node ${node_name} kubernetes.azure.com/live-patching-current-timestamp=${golden_timestamp}
+
+echo package update completed successfully
+`)
+
+func linuxCloudInitArtifactsMarinerMarinerPackageUpdateShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMarinerMarinerPackageUpdateSh, nil
+}
+
+func linuxCloudInitArtifactsMarinerMarinerPackageUpdateSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMarinerMarinerPackageUpdateShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mariner/mariner-package-update.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsMarinerPackageUpdateService = []byte(`[Unit]
+Description=Package Update Service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/azure/containers/mariner-package-update.sh`)
+
+func linuxCloudInitArtifactsMarinerPackageUpdateServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMarinerPackageUpdateService, nil
+}
+
+func linuxCloudInitArtifactsMarinerPackageUpdateService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMarinerPackageUpdateServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mariner/package-update.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsMarinerPackageUpdateTimer = []byte(`[Unit]
+Description=Runs package update script periodically
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=10min
+
+[Install]
+WantedBy=multi-user.target`)
+
+func linuxCloudInitArtifactsMarinerPackageUpdateTimerBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsMarinerPackageUpdateTimer, nil
+}
+
+func linuxCloudInitArtifactsMarinerPackageUpdateTimer() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsMarinerPackageUpdateTimerBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/mariner/package-update.timer", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -7697,6 +7813,28 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
 
+{{if IsMariner}}
+- path: /opt/azure/containers/mariner-package-update.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "packageUpdateScriptMariner"}}
+
+- path: /etc/systemd/system/snapshot-update.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "packageUpdateServiceMariner"}}
+
+- path: /etc/systemd/system/snapshot-update.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "packageUpdateTimerMariner"}}
+{{- else}}
 - path: /opt/azure/containers/ubuntu-snapshot-update.sh
   permissions: "0544"
   encoding: gzip
@@ -7717,6 +7855,7 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "snapshotUpdateTimer"}}
+{{end}}
 
 - path: /opt/azure/containers/bind-mount.sh
   permissions: "0544"
@@ -9170,6 +9309,9 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/manifest.json":                             linuxCloudInitArtifactsManifestJson,
 	"linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh":            linuxCloudInitArtifactsMarinerCse_helpers_marinerSh,
 	"linux/cloud-init/artifacts/mariner/cse_install_mariner.sh":            linuxCloudInitArtifactsMarinerCse_install_marinerSh,
+	"linux/cloud-init/artifacts/mariner/mariner-package-update.sh":         linuxCloudInitArtifactsMarinerMarinerPackageUpdateSh,
+	"linux/cloud-init/artifacts/mariner/package-update.service":            linuxCloudInitArtifactsMarinerPackageUpdateService,
+	"linux/cloud-init/artifacts/mariner/package-update.timer":              linuxCloudInitArtifactsMarinerPackageUpdateTimer,
 	"linux/cloud-init/artifacts/mariner/pam-d-system-auth":                 linuxCloudInitArtifactsMarinerPamDSystemAuth,
 	"linux/cloud-init/artifacts/mariner/pam-d-system-password":             linuxCloudInitArtifactsMarinerPamDSystemPassword,
 	"linux/cloud-init/artifacts/mariner/update_certs_mariner.service":      linuxCloudInitArtifactsMarinerUpdate_certs_marinerService,
@@ -9317,6 +9459,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"mariner": &bintree{nil, map[string]*bintree{
 					"cse_helpers_mariner.sh":       &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
 					"cse_install_mariner.sh":       &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},
+					"mariner-package-update.sh":    &bintree{linuxCloudInitArtifactsMarinerMarinerPackageUpdateSh, map[string]*bintree{}},
+					"package-update.service":       &bintree{linuxCloudInitArtifactsMarinerPackageUpdateService, map[string]*bintree{}},
+					"package-update.timer":         &bintree{linuxCloudInitArtifactsMarinerPackageUpdateTimer, map[string]*bintree{}},
 					"pam-d-system-auth":            &bintree{linuxCloudInitArtifactsMarinerPamDSystemAuth, map[string]*bintree{}},
 					"pam-d-system-password":        &bintree{linuxCloudInitArtifactsMarinerPamDSystemPassword, map[string]*bintree{}},
 					"update_certs_mariner.service": &bintree{linuxCloudInitArtifactsMarinerUpdate_certs_marinerService, map[string]*bintree{}},
