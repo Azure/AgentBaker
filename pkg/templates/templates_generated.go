@@ -7984,10 +7984,10 @@ $arguments = '
 -CSEResultFilePath %SYSTEMDRIVE%\AzureData\CSEResult.log';
 $inputFile = '%SYSTEMDRIVE%\AzureData\CustomData.bin';
 $outputFile = '%SYSTEMDRIVE%\AzureData\CustomDataSetupScript.ps1';
-if (!(Test-Path $inputFile)) { echo 49 | Out-File -FilePath '%SYSTEMDRIVE%\AzureData\CSEResult.log' -Encoding utf8; exit; };
+if (!(Test-Path $inputFile)) { throw 'ExitCode: |49|, Output: |WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN|, Error: |C:\AzureData\CustomData.bin does not exist.|' };
 Copy-Item $inputFile $outputFile;
 Invoke-Expression('{0} {1}' -f $outputFile, $arguments);
-\" >> %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log 2>&1; if (!(Test-Path %SYSTEMDRIVE%\AzureData\CSEResult.log)) { exit 50; }; $code=(Get-Content %SYSTEMDRIVE%\AzureData\CSEResult.log); exit $code`)
+\"`)
 
 func windowsCsecmdPs1Bytes() ([]byte, error) {
 	return _windowsCsecmdPs1, nil
@@ -8076,7 +8076,7 @@ param(
 $StartTime=Get-Date
 $global:ExitCode=0
 $global:ErrorMessage=""
-
+Start-Transcript -Path $LogFile
 # These globals will not change between nodes in the same cluster, so they are not
 # passed as powershell parameters
 
@@ -8508,17 +8508,21 @@ finally
 {
     # Generate CSE result so it can be returned as the CSE response in csecmd.ps1
     $ExecutionDuration=$(New-Timespan -Start $StartTime -End $(Get-Date))
-    Write-Log "CSE ExecutionDuration: $ExecutionDuration"
+    Write-Log "CSE ExecutionDuration: $ExecutionDuration. ExitCode: $global:ExitCode"
+    Stop-Transcript
 
-    # Windows CSE does not return any error message so we cannot generate below content as the response
-    # $JsonString = "ExitCode: `+"`"+`"{0}`+"`"+`", Output: `+"`"+`"{1}`+"`"+`", Error: `+"`"+`"{2}`+"`"+`", ExecDuration: `+"`"+`"{3}`+"`"+`"" -f $global:ExitCode, "", $global:ErrorMessage, $ExecutionDuration.TotalSeconds
-    Write-Log "Generate CSE result to $CSEResultFilePath : $global:ExitCode"
-    echo $global:ExitCode | Out-File -FilePath $CSEResultFilePath -Encoding utf8
-
-    # Flush stdout to C:\AzureData\CustomDataSetupScript.log
-    [Console]::Out.Flush()
+    # Remove the parameters in the log file to avoid leaking secrets
+    $logs=Get-Content $LogFile | Where-Object {$_ -notmatch "^Host Application: "}
+    $logs | Set-Content $LogFile
 
     Upload-GuestVMLogs -ExitCode $global:ExitCode
+    if ($global:ExitCode -ne 0) {
+        # $JsonString = "ExitCode: |{0}|, Output: |{1}|, Error: |{2}|"
+        # Max length of the full error message returned by Windows CSE is ~256. We use 240 to be safe.
+        $errorMessageLength = "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: ||".Length
+        $turncatedErrorMessage = $global:ErrorMessage.Substring(0, [Math]::Min(240 - $errorMessageLength, $global:ErrorMessage.Length))
+        throw "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
+    }
 }
 `)
 
@@ -8598,6 +8602,8 @@ var _windowsWindowscsehelperPs1 = []byte(`# This script is used to define basic 
 # It is better to define functions in the scripts under staging/cse/windows.
 
 # Define all exit codes in Windows CSE
+# It must match `+"`"+`[A-Z_]+`+"`"+`
+$global:WINDOWS_CSE_SUCCESS=0
 $global:WINDOWS_CSE_ERROR_UNKNOWN=1 # For unexpected error caught by the catch block in kuberneteswindowssetup.ps1
 $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY=2
 $global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE=3
@@ -8660,6 +8666,71 @@ $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INVALID_SIGNATURE=59
 $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_EXCEPTION=60
 $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE=61
 
+# Please add new error code for downloading new packages in RP code too
+$global:ErrorCodeNames = @(
+    "WINDOWS_CSE_SUCCESS",
+    "WINDOWS_CSE_ERROR_UNKNOWN",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY",
+    "WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE",
+    "WINDOWS_CSE_ERROR_FILE_NOT_EXIST",
+    "WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY",
+    "WINDOWS_CSE_ERROR_PAUSE_IMAGE_NOT_EXIST",
+    "WINDOWS_CSE_ERROR_GET_SUBNET_PREFIX",
+    "WINDOWS_CSE_ERROR_GENERATE_TOKEN_FOR_ARM",
+    "WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST",
+    "WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST",
+    "WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST",
+    "WINDOWS_CSE_ERROR_CALICO_SERVICE_ACCOUNT_NOT_EXIST",
+    "WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED",
+    "WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING",
+    "WINDOWS_CSE_ERROR_OPENSSH_NOT_INSTALLED",
+    "WINDOWS_CSE_ERROR_OPENSSH_FIREWALL_NOT_CONFIGURED",
+    "WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG",
+    "WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER",
+    "WINDOWS_CSE_ERROR_GET_CA_CERTIFICATES",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES",
+    "WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES",
+    "WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS",
+    "WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE",
+    "WINDOWS_CSE_ERROR_GMSA_ENABLE_POWERSHELL_PRIVILEGE",
+    "WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION",
+    "WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES",
+    "WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS",
+    "WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGAKVPPLUGINEVENTS",
+    "WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP",
+    "WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER",
+    "WINDOWS_CSE_ERROR_NOT_FOUND_PROVISIONING_SCRIPTS",
+    "WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_KUBERNETES_PACKAGE",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_HNS_MODULE",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_CALICO_PACKAGE",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_GMSA_PACKAGE",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_CSI_PROXY_PACKAGE",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE",
+    "WINDOWS_CSE_ERROR_SET_TCP_DYNAMIC_PORT_RANGE",
+    "WINDOWS_CSE_ERROR_BUILD_DOCKER_PAUSE_CONTAINER",
+    "WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE",
+    "WINDOWS_CSE_ERROR_BUILD_TAG_PAUSE_IMAGE",
+    "WINDOWS_CSE_ERROR_CONTAINERD_BINARY_EXIST",
+    "WINDOWS_CSE_ERROR_SET_TCP_EXCLUDE_PORT_RANGE",
+    "WINDOWS_CSE_ERROR_SET_UDP_DYNAMIC_PORT_RANGE",
+    "WINDOWS_CSE_ERROR_SET_UDP_EXCLUDE_PORT_RANGE",
+    "WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN",
+    "WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG",
+    "WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS",
+    "WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE",
+    "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_FAILED",
+    "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_TIMEOUT",
+    "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_VM_SIZE_NOT_SUPPORTED",
+    "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_SET",
+    "WINDOWS_CSE_ERROR_GPU_SKU_INFO_NOT_FOUND",
+    "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE",
+    "WINDOWS_CSE_ERROR_GPU_DRIVER_INVALID_SIGNATURE",
+    "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_EXCEPTION",
+    "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE"
+)
 
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version
@@ -8746,7 +8817,8 @@ function Set-ExitCode
     )
     Write-Log "Set ExitCode to $ExitCode and exit. Error: $ErrorMessage"
     $global:ExitCode=$ExitCode
-    $global:ErrorMessage=$ErrorMessage
+    # we use | as the separator as a workaround since " or ' do not work as expected per the testings
+    $global:ErrorMessage=($ErrorMessage -replace '\|', '%7C')
     exit $ExitCode
 }
 
