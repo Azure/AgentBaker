@@ -446,10 +446,10 @@ try
     Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes
 
     if ($global:RebootNeeded) {
-        Write-Log "Setup Complete, calling Postpone-RestartComputer with reboot"
+        Logs-To-Event -TaskName "AKS.WindowsCSE.RestartComputer" -TaskMessage "Setup Complete, calling Postpone-RestartComputer with reboot"
         Postpone-RestartComputer
     } else {
-        Write-Log "Setup Complete, starting NodeResetScriptTask to register Winodws node without reboot"
+        Logs-To-Event -TaskName "AKS.WindowsCSE.StartScheduledTask" -TaskMessage "Setup Complete, start NodeResetScriptTask to register Windows node without reboot"
         Start-ScheduledTask -TaskName "k8s-restart-job"
 
         $timeout = 180 ##  seconds

@@ -8460,34 +8460,12 @@ try
     }
 
     Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes
-<<<<<<< HEAD
 
     if ($global:RebootNeeded) {
-        Write-Log "Setup Complete, calling Postpone-RestartComputer with reboot"
-=======
-    
-    Logs-To-Event -TaskName "AKS.WindowsCSE.StartScheduledTask" -TaskMessage "Setup Complete, start NodeResetScriptTask to register Winodws node without reboot"
-    Start-ScheduledTask -TaskName "k8s-restart-job"
-
-    $timeout = 180 ##  seconds
-    $timer = [Diagnostics.Stopwatch]::StartNew()
-    while ((Get-ScheduledTask -TaskName 'k8s-restart-job').State -ne 'Ready') {
-        # The task `+"`"+`k8s-restart-job`+"`"+` needs ~8 seconds.
-        if ($timer.Elapsed.TotalSeconds -gt $timeout) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask is not finished after [$($timer.Elapsed.TotalSeconds)] seconds"
-        }
-
-        Write-Log -Message "Waiting on NodeResetScriptTask..."
-        Start-Sleep -Seconds 3
-    }
-    $timer.Stop()
-    Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
-
-    if ($global:RebootNeeded -eq $true) {
->>>>>>> chore: support cse duration log for windows
+        Logs-To-Event -TaskName "AKS.WindowsCSE.RestartComputer" -TaskMessage "Setup Complete, calling Postpone-RestartComputer with reboot"
         Postpone-RestartComputer
     } else {
-        Write-Log "Setup Complete, starting NodeResetScriptTask to register Winodws node without reboot"
+        Logs-To-Event -TaskName "AKS.WindowsCSE.StartScheduledTask" -TaskMessage "Setup Complete, start NodeResetScriptTask to register Windows node without reboot"
         Start-ScheduledTask -TaskName "k8s-restart-job"
 
         $timeout = 180 ##  seconds
