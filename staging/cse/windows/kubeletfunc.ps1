@@ -44,6 +44,8 @@ function Write-AzureConfig {
         $UseContainerD = $false
     )
 
+    Logs-To-Event -TaskName "AKS.WindowsCSE.WriteAzureCloudProviderConfig" -TaskMessage "Start to write Azure Cloud Provider Config"
+
     if ( $VmType -eq "vmss" -And -Not $PrimaryAvailabilitySetName -And -Not $PrimaryScaleSetName ) {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG -ErrorMessage "Either PrimaryAvailabilitySetName or PrimaryScaleSetName must be set"
     }
@@ -85,6 +87,7 @@ function Write-CACert {
         [Parameter(Mandatory = $true)][string]
         $KubeDir
     )
+    Logs-To-Event -TaskName "AKS.WindowsCSE.WriteCACert" -TaskMessage "Start to write ca root"
     $caFile = [io.path]::Combine($KubeDir, "ca.crt")
     [System.Text.Encoding]::ASCII.GetString([System.Convert]::FromBase64String($CACertificate)) | Out-File -Encoding ascii $caFile
 }
@@ -104,6 +107,8 @@ function Write-KubeConfig {
         [Parameter(Mandatory = $true)][string]
         $KubeDir
     )
+    Logs-To-Event -TaskName "AKS.WindowsCSE.WriteKubeConfig" -TaskMessage "Start to write kube config"
+
     $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
 
     $kubeConfig = @"
@@ -144,6 +149,8 @@ function Write-BootstrapKubeConfig {
         [Parameter(Mandatory = $true)][string]
         $KubeDir
     )
+    Logs-To-Event -TaskName "AKS.WindowsCSE.WriteBootstrapKubeConfig" -TaskMessage "Start to write TLS bootstrap kubeconfig"
+
     $bootstrapKubeConfigFile = [io.path]::Combine($KubeDir, "bootstrap-config")
 
     $bootstrapKubeConfig = @"
@@ -175,6 +182,7 @@ function Get-KubePackage {
         [Parameter(Mandatory = $true)][string]
         $KubeBinariesSASURL
     )
+    Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadKubletBinaries" -TaskMessage "Start to download kubelet binaries and unzip. KubeBinariesPackageSASURL: $global:KubeBinariesPackageSASURL"
 
     $zipfile = "c:\k.zip"
     for ($i = 0; $i -le 10; $i++) {
@@ -260,6 +268,7 @@ function Install-KubernetesServices {
         [Parameter(Mandatory = $true)][string]
         $KubeDir
     )
+    Logs-To-Event -TaskName "AKS.WindowsCSE.InstallKubernetesServices" -TaskMessage "Start to install kubernetes services"
 
     # TODO ksbrmnn fix callers to this function
 

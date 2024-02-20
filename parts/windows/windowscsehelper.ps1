@@ -138,6 +138,9 @@ $global:StableContainerdPackage = "v1.6.21-azure.1/binaries/containerd-v1.6.21-a
 # The latest containerd version
 $global:LatestContainerdPackage = "v1.7.9-azure.1/binaries/containerd-v1.7.9-azure.1-windows-amd64.tar.gz"
 
+$global:EventsLoggingDir = "C:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScriptExtension\Events\"
+$global:TaskName = ""
+$global:TaskTimeStamp = ""
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }
@@ -224,7 +227,7 @@ function Set-ExitCode
 
 function Postpone-RestartComputer 
 {
-    Write-Log "Creating an one-time task to restart the VM"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.PostponeRestartComputer" -TaskMessage "Start to create an one-time task to restart the VM"
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument " -Command `"Restart-Computer -Force`""
     $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
     # trigger this task once
@@ -376,6 +379,8 @@ function Install-Containerd-Based-On-Kubernetes-Version {
     $KubernetesVersion
   )
 
+  Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerdBasedOnKubernetesVersion" -TaskMessage "Start to install ContainerD based on kubernetes version. ContainerdUrl: $global:ContainerdUrl, KubernetesVersion: $global:KubeBinariesVersion"
+
   # In the past, $global:ContainerdUrl is a full URL to download Windows containerd package.
   # Example: "https://acs-mirror.azureedge.net/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
   # To support multiple containerd versions, we only set the endpoint in $global:ContainerdUrl.
@@ -394,5 +399,56 @@ function Install-Containerd-Based-On-Kubernetes-Version {
     }
     $ContainerdUrl = $ContainerdUrl + $containerdPackage
   }
+  Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerd" -TaskMessage "Start to install ContainerD. ContainerdUrl: $ContainerdUrl"
   Install-Containerd -ContainerdUrl $ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
+}
+
+function Logs-To-Event {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $TaskName,
+        [Parameter(Mandatory = $true)][string]
+        $TaskMessage
+    )
+    $eventLevel="Informational"
+    if ($global:ExitCode -ne 0) {
+        $eventLevel="Error"
+    }
+
+    $eventsFileName=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    $currentTime=$(Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff")
+    
+    $lastTaskName = ""
+    $lastTaskDuration = 0
+    if ($global:TaskTimeStamp -ne "") {
+        $lastTaskName = $global:TaskName
+        $lastTaskDuration = $(New-Timespan -Start $global:TaskTimeStamp -End $currentTime)
+    }
+
+    $global:TaskName = $TaskName
+    $global:TaskTimeStamp = $currentTime
+
+    Write-Log "$global:TaskName - $TaskMessage"
+    $TaskMessage = (echo $TaskMessage | ConvertTo-Json)
+    $messageJson = @"
+    {
+        "HostName": "$env:computername",
+        "LastTaskName": "$lastTaskName",
+        "LastTaskDuration": "$lastTaskDuration",
+        "CurrentTaskMessage": $TaskMessage
+    }
+"@
+    $messageJson = (echo $messageJson | ConvertTo-Json)
+    
+    $jsonString = @"
+    {
+        "Timestamp": "$global:TaskTimeStamp",
+        "OperationId": "$global:OperationId",
+        "Version": "1.10",
+        "TaskName": "$global:TaskName",
+        "EventLevel": "$eventLevel",
+        "Message": $messageJson
+    }
+"@
+    echo $jsonString | Set-Content ${global:EventsLoggingDir}${eventsFileName}.json
 }
