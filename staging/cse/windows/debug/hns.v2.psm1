@@ -1091,16 +1091,16 @@ function New-HnsNetwork
         [string] $JsonString,
         [ValidateSet('ICS', 'Internal', 'Transparent', 'NAT', 'Overlay', 'L2Bridge', 'L2Tunnel', 'Layered', 'Private', 'Infiniband')]
         [parameter(Mandatory = $false, Position = 0)]
-        [string] $Type,
-        [parameter(Mandatory = $false)] [string] $Name,
-        [parameter(Mandatory = $false)] $AddressPrefix,
+        [string] $Type, # azure needs
+        [parameter(Mandatory = $false)] [string] $Name, # azure needs
+        [parameter(Mandatory = $false)] $AddressPrefix, # azure needs
         [parameter(Mandatory = $false)] $IPSubnets, # @(@{"IpAddressPrefix"="192.168.1.0/24";"Flags"=0},@{"IpAddressPrefix"="192.168.2.0/24";"Flags"=0})
-        [parameter(Mandatory = $false)] $Gateway,
+        [parameter(Mandatory = $false)] $Gateway, # azure needs
         [parameter(Mandatory= $false)] [int] $Vlan = 0,
         [parameter(Mandatory= $false)] [int] $Vsid = 0,
         [parameter(Mandatory = $false)] [switch] $IPv6,
-        [parameter(Mandatory = $false)] [string] $DNSServer,
-        [parameter(Mandatory = $false)] [string] $AdapterName,
+        [parameter(Mandatory = $false)] [string] $DNSServer, # No DNS Domain, Update-HnsNetworkDNS
+        [parameter(Mandatory = $false)] [string] $AdapterName, # azure does not need
         [HashTable][parameter(Mandatory=$false)] $AdditionalParams, #  @ {"ICSFlags" = 0; }
         [HashTable][parameter(Mandatory=$false)] $NetworkSpecificParams, #  @ {"InterfaceConstraint" = ""; }
         [parameter(Mandatory = $false)] [int] $VxlanPort = 0,
@@ -1184,6 +1184,7 @@ function New-HnsNetwork
             if ($DNSServer) {
                 $list = $DNSServer -split ","
                 $netobj += @{Dns = @{ ServerList = $list}}
+                # No DNS Domain, Update-HnsNetworkDNS
             }
 
             if ($AdditionalParams) {

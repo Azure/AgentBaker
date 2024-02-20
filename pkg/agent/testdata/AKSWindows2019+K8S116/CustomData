@@ -398,6 +398,16 @@ try
 
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
 
+    Write-Log "Shiqian New-AzureHnsNetwork"
+    # run after Set-AzureCNIConfig
+    # non-runnable pseudocode.
+    New-AzureHnsNetwork -KubeClusterCIDR $global:KubeClusterCIDR `
+        -KubeServiceCIDR $global:KubeServiceCIDR `
+        -VNetCIDR $global:VNetCIDR `
+        -KubeDnsServiceIp $KubeDnsServiceIp `
+        -IsDualStackEnabled $global:IsDualStackEnabled `
+        -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
+
     Install-KubernetesServices `
         -KubeDir $global:KubeDir
 
