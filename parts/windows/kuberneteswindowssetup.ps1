@@ -489,6 +489,7 @@ finally
     $ExecutionDuration=$(New-Timespan -Start $StartTime -End $(Get-Date))
     Write-Log "CSE ExecutionDuration: $ExecutionDuration. ExitCode: $global:ExitCode"
     Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage." 
+    # Please not use Write-Log or Logs-To-Events after Stop-Transcript
     Stop-Transcript
 
     # Remove the parameters in the log file to avoid leaking secrets
