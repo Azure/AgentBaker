@@ -2035,6 +2035,22 @@ type AKSKubeletConfiguration struct {
 	Default: []
 	+optional. */
 	AllowedUnsafeSysctls []string `json:"allowedUnsafeSysctls,omitempty"`
+	// shutdownGracePeriod specifies the total duration that the node should delay the
+	// shutdown and total grace period for pod termination during a node shutdown.
+	// Default: "0s"
+	// +featureGate=GracefulNodeShutdown
+	// +optional
+	ShutdownGracePeriod Duration `json:"shutdownGracePeriod,omitempty"`
+	// shutdownGracePeriodCriticalPods specifies the duration used to terminate critical
+	// pods during a node shutdown. This should be less than shutdownGracePeriod.
+	// For example, if shutdownGracePeriod=30s, and shutdownGracePeriodCriticalPods=10s,
+	// during a node shutdown the first 20 seconds would be reserved for gracefully
+	// terminating normal pods, and the last 10 seconds would be reserved for terminating
+	// critical pods.
+	// Default: "0s"
+	// +featureGate=GracefulNodeShutdown
+	// +optional
+	ShutdownGracePeriodCriticalPods Duration `json:"shutdownGracePeriodCriticalPods,omitempty"`
 }
 
 type Duration string
