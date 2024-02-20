@@ -14,7 +14,7 @@ set -x
 
 build_ids=$3
 
-branch_name=imageBump/$new_image_version
+branch_name=$github_user_name/$new_image_version
 pr_title="VHDVersion"
 
 # This function finds the current SIG Image version from the input JSON file
