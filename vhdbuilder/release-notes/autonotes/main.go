@@ -187,14 +187,6 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 func getReleaseNotesWindows(sku, path string, fl *flags, errc chan<- error, done chan<- struct{}) {
 	defer func() { done <- struct{}{} }()
 
-	// working directory, need one per sku because the file name is
-	// always "release-notes.txt" so they all overwrite each other.
-	// tmpdir, err := os.MkdirTemp("", "releasenotes")
-	// if err != nil {
-	// 	errc <- fmt.Errorf("failed to create temp working directory: %w", err)
-	// }
-	// defer os.RemoveAll(tmpdir)
-
 	releaseNotesName := fmt.Sprintf("vhd-release-notes-%s", sku)
 	imageListName := fmt.Sprintf("vhd-image-list-%s", sku)
 
