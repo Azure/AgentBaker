@@ -488,9 +488,9 @@ finally
     # Generate CSE result so it can be returned as the CSE response in csecmd.ps1
     $ExecutionDuration=$(New-Timespan -Start $StartTime -End $(Get-Date))
     Write-Log "CSE ExecutionDuration: $ExecutionDuration. ExitCode: $global:ExitCode"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage." 
     Stop-Transcript
 
-    Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage." 
     # Remove the parameters in the log file to avoid leaking secrets
     $logs=Get-Content $LogFile | Where-Object {$_ -notmatch "^Host Application: "}
     $logs | Set-Content $LogFile
