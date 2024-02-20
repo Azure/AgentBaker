@@ -470,17 +470,19 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				var swapFileSizeMB int32 = 1500
 				var netCoreSomaxconn int32 = 1638499
 				config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
-					CPUManagerPolicy:      "static",
-					CPUCfsQuota:           to.BoolPtr(false),
-					CPUCfsQuotaPeriod:     "200ms",
-					ImageGcHighThreshold:  to.Int32Ptr(90),
-					ImageGcLowThreshold:   to.Int32Ptr(70),
-					TopologyManagerPolicy: "best-effort",
-					AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
-					FailSwapOn:            &failSwapOn,
-					ContainerLogMaxSizeMB: to.Int32Ptr(1000),
-					ContainerLogMaxFiles:  to.Int32Ptr(99),
-					PodMaxPids:            to.Int32Ptr(12345),
+					CPUManagerPolicy:                "static",
+					CPUCfsQuota:                     to.BoolPtr(false),
+					CPUCfsQuotaPeriod:               "200ms",
+					ImageGcHighThreshold:            to.Int32Ptr(90),
+					ImageGcLowThreshold:             to.Int32Ptr(70),
+					TopologyManagerPolicy:           "best-effort",
+					AllowedUnsafeSysctls:            &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+					FailSwapOn:                      &failSwapOn,
+					ContainerLogMaxSizeMB:           to.Int32Ptr(1000),
+					ContainerLogMaxFiles:            to.Int32Ptr(99),
+					PodMaxPids:                      to.Int32Ptr(12345),
+					ShutdownGracePeriod:             to.Int32Ptr(30),
+					ShutdownGracePeriodCriticalPods: to.Int32Ptr(15),
 				}
 				config.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
@@ -512,16 +514,18 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Entry("AKSUbuntu1604 - dynamic-config-dir should always be removed with custom kubelet config",
 			"AKSUbuntu1604+CustomKubeletConfig+DynamicKubeletConfig", "1.16.13", func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
-					CPUManagerPolicy:      "static",
-					CPUCfsQuota:           to.BoolPtr(false),
-					CPUCfsQuotaPeriod:     "200ms",
-					ImageGcHighThreshold:  to.Int32Ptr(90),
-					ImageGcLowThreshold:   to.Int32Ptr(70),
-					TopologyManagerPolicy: "best-effort",
-					AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
-					ContainerLogMaxSizeMB: to.Int32Ptr(1000),
-					ContainerLogMaxFiles:  to.Int32Ptr(99),
-					PodMaxPids:            to.Int32Ptr(12345),
+					CPUManagerPolicy:                "static",
+					CPUCfsQuota:                     to.BoolPtr(false),
+					CPUCfsQuotaPeriod:               "200ms",
+					ImageGcHighThreshold:            to.Int32Ptr(90),
+					ImageGcLowThreshold:             to.Int32Ptr(70),
+					TopologyManagerPolicy:           "best-effort",
+					AllowedUnsafeSysctls:            &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+					ContainerLogMaxSizeMB:           to.Int32Ptr(1000),
+					ContainerLogMaxFiles:            to.Int32Ptr(99),
+					PodMaxPids:                      to.Int32Ptr(12345),
+					ShutdownGracePeriod:             to.Int32Ptr(30),
+					ShutdownGracePeriodCriticalPods: to.Int32Ptr(15),
 				}
 				config.KubeletConfig = map[string]string{
 					"--address":                           "0.0.0.0",
@@ -1222,17 +1226,19 @@ oom_score = 0
 				var swapFileSizeMB int32 = 1500
 				var netCoreSomaxconn int32 = 1638499
 				config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
-					CPUManagerPolicy:      "static",
-					CPUCfsQuota:           to.BoolPtr(false),
-					CPUCfsQuotaPeriod:     "200ms",
-					ImageGcHighThreshold:  to.Int32Ptr(90),
-					ImageGcLowThreshold:   to.Int32Ptr(70),
-					TopologyManagerPolicy: "best-effort",
-					AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
-					FailSwapOn:            &failSwapOn,
-					ContainerLogMaxSizeMB: to.Int32Ptr(1000),
-					ContainerLogMaxFiles:  to.Int32Ptr(99),
-					PodMaxPids:            to.Int32Ptr(12345),
+					CPUManagerPolicy:                "static",
+					CPUCfsQuota:                     to.BoolPtr(false),
+					CPUCfsQuotaPeriod:               "200ms",
+					ImageGcHighThreshold:            to.Int32Ptr(90),
+					ImageGcLowThreshold:             to.Int32Ptr(70),
+					TopologyManagerPolicy:           "best-effort",
+					AllowedUnsafeSysctls:            &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+					FailSwapOn:                      &failSwapOn,
+					ContainerLogMaxSizeMB:           to.Int32Ptr(1000),
+					ContainerLogMaxFiles:            to.Int32Ptr(99),
+					PodMaxPids:                      to.Int32Ptr(12345),
+					ShutdownGracePeriod:             to.Int32Ptr(30),
+					ShutdownGracePeriodCriticalPods: to.Int32Ptr(15),
 				}
 				config.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
