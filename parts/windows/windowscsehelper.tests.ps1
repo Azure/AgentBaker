@@ -119,5 +119,18 @@ Describe 'Get-WindowsVersion and Get-WindowsPauseVersion' {
     $expectedPauseVersion = "ltsc2022"
     $windowsPauseVersion | Should -Be $expectedPauseVersion
   }
-  
+}
+
+Describe 'Validate Exit Codes' {
+  It 'should succeed' {
+    for($i=0; $i -lt $global:ErrorCodeNames.Length; $i++) {
+      $name=$global:ErrorCodeNames[$i]
+      $name | Should -Match '[A-Z_]+'
+
+      Write-Host "Validating $name"
+      $ErrorCode = Get-Variable "$name" -ValueOnly
+      $ErrorCode | Should -Be $i
+      Write-Host "Validated $name"
+    }
+  }
 }

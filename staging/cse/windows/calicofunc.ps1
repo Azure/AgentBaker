@@ -96,6 +96,7 @@ function Start-InstallCalico {
         [parameter(Mandatory=$true)] $KubeDnsServiceIp,
         [parameter(Mandatory=$false)] $CalicoNs = "calico-system"
     )
+    Logs-To-Event -TaskName "AKS.WindowsCSE.InstallCalico" -TaskMessage "Start calico installation. WindowsCalicoPackageURL: $global:WindowsCalicoPackageURL"
 
     Write-Log "Download Calico"
     Get-CalicoPackage -RootDir $RootDir

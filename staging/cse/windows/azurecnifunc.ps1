@@ -8,6 +8,8 @@ function Install-VnetPlugins
         [Parameter(Mandatory=$true)][string]
         $VNetCNIPluginsURL
     )
+    Logs-To-Event -TaskName "AKS.WindowsCSE.InstallVnetPlugins" -TaskMessage "Start to install Azure VNet plugins. VnetCNIPluginsURL: $global:VNetCNIPluginsURL"
+
     # Create CNI directories.
     Create-Directory -FullPath $AzureCNIBinDir -DirectoryUsage "storing Azure CNI binaries"
     Create-Directory -FullPath $AzureCNIConfDir -DirectoryUsage "storing Azure CNI configuration"
@@ -43,6 +45,8 @@ function Set-AzureCNIConfig
         [Parameter(Mandatory=$false)][bool]
         $IsAzureCNIOverlayEnabled
     )
+    Logs-To-Event -TaskName "AKS.WindowsCSE.SetAzureCNIConfig" -TaskMessage "Start to set Azure CNI config. IsDualStackEnabled: $global:IsDualStackEnabled, IsAzureCNIOverlayEnabled: $global:IsAzureCNIOverlayEnabled, IsDisableWindowsOutboundNat: $global:IsDisableWindowsOutboundNat"
+
     $fileName  = [Io.path]::Combine("$AzureCNIConfDir", "10-azure.conflist")
     $configJson = Get-Content $fileName | ConvertFrom-Json
     $configJson.plugins.dns.Nameservers[0] = $KubeDnsServiceIp
@@ -297,6 +301,7 @@ function GenerateAzureStackCNIConfig
         [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string] $KubeDir
 
     )
+    Logs-To-Event -TaskName "AKS.WindowsCSE.GenerateAzureStackCNIConfig" -TaskMessage "Start to generate Azure Stack CNI config"
 
     $networkInterfacesFile = "$KubeDir\network-interfaces.json"
     $azureCNIConfigFile = "$KubeDir\interfaces.json"
@@ -393,6 +398,7 @@ function New-ExternalHnsNetwork
         [Parameter(Mandatory=$true)][bool]
         $IsDualStackEnabled
     )
+    Logs-To-Event -TaskName "AKS.WindowsCSE.NewExternalHnsNetwork" -TaskMessage "Start to create new external hns network"
 
     Write-Log "Creating new HNS network `"ext`""
     $externalNetwork = "ext"
@@ -469,6 +475,7 @@ function Get-HnsPsm1
         [Parameter(Mandatory=$true)][string]
         $HNSModule
     )
+    Logs-To-Event "ASK.WindowsCSE.GetAndImportHNSModule" -TaskMessage "Start to get and import hns module. NetworkPlugin: $global:NetworkPlugin"
 
     # HNSModule is C:\k\hns.v2.psm1 when container runtime is Containerd
     $fileName = [IO.Path]::GetFileName($HNSModule)

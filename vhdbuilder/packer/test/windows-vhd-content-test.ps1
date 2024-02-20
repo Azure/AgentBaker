@@ -461,6 +461,11 @@ function Test-RegistryAdded {
             Write-ErrorWithTimestamp "The registry for OverrideReceiveRoutingForLocalAddressesIpv6 is not added"
             exit 1
         }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1327590028)
+        if ($result.1327590028 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 1327590028 is not added"
+            exit 1
+        }
     }
 }
 

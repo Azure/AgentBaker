@@ -70,7 +70,7 @@ param(
 $StartTime=Get-Date
 $global:ExitCode=0
 $global:ErrorMessage=""
-
+Start-Transcript -Path $LogFile
 # These globals will not change between nodes in the same cluster, so they are not
 # passed as powershell parameters
 
@@ -189,7 +189,7 @@ $global:TLSBootstrapToken = "07401b.f395accd246ae52d"
 $global:IsDisableWindowsOutboundNat = [System.Convert]::ToBoolean("false");
 
 # Base64 representation of ZIP archive
-$zippedFiles = "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"
+$zippedFiles = "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"
 
 $global:KubeClusterConfigPath = "c:\k\kubeclusterconfig.json"
 $fipsEnabled = [System.Convert]::ToBoolean("false")
@@ -212,9 +212,11 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
 . c:\AzureData\windows\windowscsehelper.ps1
 # util functions only can be used after this line, for example, Write-Log
 
+$global:OperationId = New-Guid
+
 try
 {
-    Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.ExecuteCustomDataSetupScript" -TaskMessage ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
 
     # Exit early if the script has been executed
     if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
@@ -237,13 +239,14 @@ try
         $global:CSEScriptsPackageUrl = $global:CSEScriptsPackageUrl + $WindowsCSEScriptsPackage
         Write-Log "CSEScriptsPackageUrl is set to $global:CSEScriptsPackageUrl"
     }
+
     # Download CSE function scripts
-    Write-Log "Getting CSE scripts"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAndExpandCSEScriptPackageUrl" -TaskMessage "Start to get CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
     $tempfile = 'c:\csescripts.zip'
     DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
     Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows"
     Remove-Item -Path $tempfile -Force
-
+    
     # Dot-source cse scripts with functions that are called in this script
     . c:\AzureData\windows\azurecnifunc.ps1
     . c:\AzureData\windows\calicofunc.ps1
@@ -257,22 +260,18 @@ try
     $sshEnabled = [System.Convert]::ToBoolean("true")
 
     if ( $sshEnabled ) {
-        Write-Log "Install OpenSSH"
         Install-OpenSSH -SSHKeys $SSHKeys
     }
 
-    Write-Log "Apply telemetry data setting"
     Set-TelemetrySetting -WindowsTelemetryGUID $global:WindowsTelemetryGUID
 
-    Write-Log "Resize os drive if possible"
     Resize-OSDrive
-
-    Write-Log "Initialize data disks"
+    
     Initialize-DataDisks
-
-    Write-Log "Create required data directories as needed"
+    
     Initialize-DataDirectories
-
+    
+    Logs-To-Event -TaskName "AKS.WindowsCSE.GetProvisioningAndLogCollectionScripts" -TaskMessage "Start to get provisioning scripts and log collection scripts"
     Create-Directory -FullPath "c:\k"
     Write-Log "Remove `"NT AUTHORITY\Authenticated Users`" write permissions on files in c:\k"
     icacls.exe "c:\k" /inheritance:r
@@ -283,25 +282,23 @@ try
     icacls.exe "c:\k"
     Get-ProvisioningScripts
     Get-LogCollectionScripts
-
+    
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
-
-    Write-Log "Download kubelet binaries and unzip"
+    
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
-
-    Write-Log "Installing ContainerD"
+    
     $cniBinPath = $global:AzureCNIBinDir
     $cniConfigPath = $global:AzureCNIConfDir
     if ($global:NetworkPlugin -eq "kubenet") {
         $cniBinPath = $global:CNIPath
         $cniConfigPath = $global:CNIConfigPath
     }
+
     Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir -KubernetesVersion $global:KubeBinariesVersion
-
+    
     Retag-ImagesForAzureChinaCloud -TargetEnvironment $TargetEnvironment
-
+    
     # For AKSClustomCloud, TargetEnvironment must be set to AzureStackCloud
-    Write-Log "Write Azure cloud provider config"
     Write-AzureConfig `
         -KubeDir $global:KubeDir `
         -AADClientId $AADClientId `
@@ -328,22 +325,20 @@ try
     # In case of AKSCustomCloud, customer cloud env will be loaded from azurestackcloud.json 
     
 
-    Write-Log "Write ca root"
     Write-CACert -CACertificate $global:CACertificate `
         -KubeDir $global:KubeDir
-
+    
     if ($global:EnableCsiProxy) {
         New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
     }
 
     if ($global:TLSBootstrapToken) {
-        Write-Log "Write TLS bootstrap kubeconfig"
         Write-BootstrapKubeConfig -CACertificate $global:CACertificate `
             -KubeDir $global:KubeDir `
             -MasterFQDNPrefix $MasterFQDNPrefix `
             -MasterIP $MasterIP `
             -TLSBootstrapToken $global:TLSBootstrapToken
-
+        
         # NOTE: we need kubeconfig to setup calico even if TLS bootstrapping is enabled
         #       This kubeconfig will deleted after calico installation.
         # TODO(hbc): once TLS bootstrap is fully enabled, remove this if block
@@ -358,9 +353,8 @@ try
         -MasterIP $MasterIP `
         -AgentKey $AgentKey `
         -AgentCertificate $global:AgentCertificate
-
+    
     if ($global:EnableHostsConfigAgent) {
-        Write-Log "Starting hosts config agent"
         New-HostsConfigService
     }
 
@@ -369,12 +363,11 @@ try
     # Configure network policy.
     Get-HnsPsm1 -HNSModule $global:HNSModule
     Import-Module $global:HNSModule
-
-    Write-Log "Installing Azure VNet plugins"
+    
     Install-VnetPlugins -AzureCNIConfDir $global:AzureCNIConfDir `
         -AzureCNIBinDir $global:AzureCNIBinDir `
         -VNetCNIPluginsURL $global:VNetCNIPluginsURL
-
+    
     Set-AzureCNIConfig -AzureCNIConfDir $global:AzureCNIConfDir `
         -KubeDnsSearchPath $global:KubeDnsSearchPath `
         -KubeClusterCIDR $global:KubeClusterCIDR `
@@ -382,7 +375,7 @@ try
         -VNetCIDR $global:VNetCIDR `
         -IsDualStackEnabled $global:IsDualStackEnabled `
         -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
-
+    
     if ($TargetEnvironment -ieq "AzureStackCloud") {
         GenerateAzureStackCNIConfig `
             -TenantId $global:TenantId `
@@ -397,32 +390,25 @@ try
     }
 
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
-
+    
     Install-KubernetesServices `
         -KubeDir $global:KubeDir
 
-    Write-Log "Disable Internet Explorer compat mode and set homepage"
     Set-Explorer
-
-    Write-Log "Adjust pagefile size"
     Adjust-PageFileSize
-
-    Write-Log "Start preProvisioning script"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.PreprovisionExtension" -TaskMessage "Start preProvisioning script"
     
-
-    Write-Log "Update service failure actions"
     Update-ServiceFailureActions
     Adjust-DynamicPortRange
     Register-LogsCleanupScriptTask
     Register-NodeResetScriptTask
     Update-DefenderPreferences
 
-
     $windowsVersion = Get-WindowsVersion
     if ($windowsVersion -ne "1809") {
-        Write-Log "Skip secure TLS protocols for Windows version: $windowsVersion"
+        Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Skip secure TLS protocols for Windows version: $windowsVersion"
     } else {
-        Write-Log "Enable secure TLS protocols"
+        Logs-To-Event -TaskName "AKS.WindowsCSE.EnableSecureTLS" -TaskMessage "Start to enable secure TLS protocols"
         try {
             . C:\k\windowssecuretls.ps1
             Enable-SecureTls
@@ -434,19 +420,17 @@ try
 
     Enable-FIPSMode -FipsEnabled $fipsEnabled
     if ($global:WindowsGmsaPackageUrl) {
-        Write-Log "Start to install Windows gmsa package"
         Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
     }
 
     Check-APIServerConnectivity -MasterIP $MasterIP
 
     if ($global:WindowsCalicoPackageURL) {
-        Write-Log "Start calico installation"
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
     }
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
-
+    
     if (Test-Path $CacheDir)
     {
         Write-Log "Removing aks cache directory"
@@ -461,25 +445,26 @@ try
 
     Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes
 
-    Write-Log "Setup Complete, starting NodeResetScriptTask to register Winodws node without reboot"
-    Start-ScheduledTask -TaskName "k8s-restart-job"
-
-    $timeout = 180 ##  seconds
-    $timer = [Diagnostics.Stopwatch]::StartNew()
-    while ((Get-ScheduledTask -TaskName 'k8s-restart-job').State -ne 'Ready') {
-        # The task `k8s-restart-job` needs ~8 seconds.
-        if ($timer.Elapsed.TotalSeconds -gt $timeout) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask is not finished after [$($timer.Elapsed.TotalSeconds)] seconds"
-        }
-
-        Write-Log -Message "Waiting on NodeResetScriptTask..."
-        Start-Sleep -Seconds 3
-    }
-    $timer.Stop()
-    Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
-
-    if ($global:RebootNeeded -eq $true) {
+    if ($global:RebootNeeded) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.RestartComputer" -TaskMessage "Setup Complete, calling Postpone-RestartComputer with reboot"
         Postpone-RestartComputer
+    } else {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.StartScheduledTask" -TaskMessage "Setup Complete, start NodeResetScriptTask to register Windows node without reboot"
+        Start-ScheduledTask -TaskName "k8s-restart-job"
+
+        $timeout = 180 ##  seconds
+        $timer = [Diagnostics.Stopwatch]::StartNew()
+        while ((Get-ScheduledTask -TaskName 'k8s-restart-job').State -ne 'Ready') {
+            # The task `k8s-restart-job` needs ~8 seconds.
+            if ($timer.Elapsed.TotalSeconds -gt $timeout) {
+                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask is not finished after [$($timer.Elapsed.TotalSeconds)] seconds"
+            }
+
+            Write-Log -Message "Waiting on NodeResetScriptTask..."
+            Start-Sleep -Seconds 3
+        }
+        $timer.Stop()
+        Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
     }
 }
 catch
@@ -492,15 +477,21 @@ finally
 {
     # Generate CSE result so it can be returned as the CSE response in csecmd.ps1
     $ExecutionDuration=$(New-Timespan -Start $StartTime -End $(Get-Date))
-    Write-Log "CSE ExecutionDuration: $ExecutionDuration"
+    Write-Log "CSE ExecutionDuration: $ExecutionDuration. ExitCode: $global:ExitCode"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage." 
+    # Please not use Write-Log or Logs-To-Events after Stop-Transcript
+    Stop-Transcript
 
-    # Windows CSE does not return any error message so we cannot generate below content as the response
-    # $JsonString = "ExitCode: `"{0}`", Output: `"{1}`", Error: `"{2}`", ExecDuration: `"{3}`"" -f $global:ExitCode, "", $global:ErrorMessage, $ExecutionDuration.TotalSeconds
-    Write-Log "Generate CSE result to $CSEResultFilePath : $global:ExitCode"
-    echo $global:ExitCode | Out-File -FilePath $CSEResultFilePath -Encoding utf8
-
-    # Flush stdout to C:\AzureData\CustomDataSetupScript.log
-    [Console]::Out.Flush()
+    # Remove the parameters in the log file to avoid leaking secrets
+    $logs=Get-Content $LogFile | Where-Object {$_ -notmatch "^Host Application: "}
+    $logs | Set-Content $LogFile
 
     Upload-GuestVMLogs -ExitCode $global:ExitCode
+    if ($global:ExitCode -ne 0) {
+        # $JsonString = "ExitCode: |{0}|, Output: |{1}|, Error: |{2}|"
+        # Max length of the full error message returned by Windows CSE is ~256. We use 240 to be safe.
+        $errorMessageLength = "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: ||".Length
+        $turncatedErrorMessage = $global:ErrorMessage.Substring(0, [Math]::Min(240 - $errorMessageLength, $global:ErrorMessage.Length))
+        throw "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
+    }
 }
