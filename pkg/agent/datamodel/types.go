@@ -663,17 +663,19 @@ type ProvisioningState string
 
 // CustomKubeletConfig represents custom kubelet configurations for agent pool nodes.
 type CustomKubeletConfig struct {
-	CPUManagerPolicy      string    `json:"cpuManagerPolicy,omitempty"`
-	CPUCfsQuota           *bool     `json:"cpuCfsQuota,omitempty"`
-	CPUCfsQuotaPeriod     string    `json:"cpuCfsQuotaPeriod,omitempty"`
-	ImageGcHighThreshold  *int32    `json:"imageGcHighThreshold,omitempty"`
-	ImageGcLowThreshold   *int32    `json:"imageGcLowThreshold,omitempty"`
-	TopologyManagerPolicy string    `json:"topologyManagerPolicy,omitempty"`
-	AllowedUnsafeSysctls  *[]string `json:"allowedUnsafeSysctls,omitempty"`
-	FailSwapOn            *bool     `json:"failSwapOn,omitempty"`
-	ContainerLogMaxSizeMB *int32    `json:"containerLogMaxSizeMB,omitempty"`
-	ContainerLogMaxFiles  *int32    `json:"containerLogMaxFiles,omitempty"`
-	PodMaxPids            *int32    `json:"podMaxPids,omitempty"`
+	CPUManagerPolicy                string    `json:"cpuManagerPolicy,omitempty"`
+	CPUCfsQuota                     *bool     `json:"cpuCfsQuota,omitempty"`
+	CPUCfsQuotaPeriod               string    `json:"cpuCfsQuotaPeriod,omitempty"`
+	ImageGcHighThreshold            *int32    `json:"imageGcHighThreshold,omitempty"`
+	ImageGcLowThreshold             *int32    `json:"imageGcLowThreshold,omitempty"`
+	TopologyManagerPolicy           string    `json:"topologyManagerPolicy,omitempty"`
+	AllowedUnsafeSysctls            *[]string `json:"allowedUnsafeSysctls,omitempty"`
+	FailSwapOn                      *bool     `json:"failSwapOn,omitempty"`
+	ContainerLogMaxSizeMB           *int32    `json:"containerLogMaxSizeMB,omitempty"`
+	ContainerLogMaxFiles            *int32    `json:"containerLogMaxFiles,omitempty"`
+	PodMaxPids                      *int32    `json:"podMaxPids,omitempty"`
+	ShutdownGracePeriod             *int32    `json:"shutdownGracePeriod,omitempty"`
+	ShutdownGracePeriodCriticalPods *int32    `json:"shutdownGracePeriodCriticalPods,omitempty"`
 }
 
 // CustomLinuxOSConfig represents custom os configurations for agent pool nodes.
