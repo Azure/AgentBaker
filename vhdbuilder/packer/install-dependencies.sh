@@ -364,10 +364,11 @@ for imageToBePulled in ${ContainerImages[*]}; do
 
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE} & # Run in the background and continue on with the for loop
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
   done
 done
+wait # Wait until all background prcoesses have finished
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
 watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
