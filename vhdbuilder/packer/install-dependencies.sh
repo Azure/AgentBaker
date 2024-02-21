@@ -109,11 +109,10 @@ else
   BLOBFUSE2_VERSION="2.2.0"
   required_pkg_list=("blobfuse2="${BLOBFUSE2_VERSION} fuse3)
   for apt_package in ${required_pkg_list[*]}; do
-      if ! apt_get_install 30 1 600 $apt_package &; then
-          journalctl --no-pager -u $apt_package & # Run in the background and continue on with the for loop
+      if ! apt_get_install 30 1 600 $apt_package; then
+          journalctl --no-pager -u $apt_package
           exit $ERR_APT_INSTALL_TIMEOUT
       fi
-  wait # Wait for all background processes to finish
   done
 fi
 
