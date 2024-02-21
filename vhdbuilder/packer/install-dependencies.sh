@@ -109,10 +109,11 @@ else
   BLOBFUSE2_VERSION="2.2.0"
   required_pkg_list=("blobfuse2="${BLOBFUSE2_VERSION} fuse3)
   for apt_package in ${required_pkg_list[*]}; do
-      if ! apt_get_install 30 1 600 $apt_package; then
-          journalctl --no-pager -u $apt_package
+      if ! apt_get_install 30 1 600 $apt_package &; then
+          journalctl --no-pager -u $apt_package & # Run in the background and continue on with the for loop
           exit $ERR_APT_INSTALL_TIMEOUT
       fi
+  wait # Wait for all background processes to finish
   done
 fi
 
@@ -367,8 +368,8 @@ for imageToBePulled in ${ContainerImages[*]}; do
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE} & # Run in the background and continue on with the for loop
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
   done
+  wait # Wait until all background prcoesses have finished
 done
-wait # Wait until all background prcoesses have finished
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
 watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
@@ -412,8 +413,9 @@ VNET_CNI_VERSIONS="
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
-    unpackAzureCNI $VNET_CNI_PLUGINS_URL
+    unpackAzureCNI $VNET_CNI_PLUGINS_URL & # Run in the background and continue on with the for loop
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
+wait # Wait for all background processes to finish
 done
 
 #UNITE swift and overlay versions?
@@ -426,8 +428,9 @@ SWIFT_CNI_VERSIONS="
 for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${SWIFT_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-${CPU_ARCH}-v${SWIFT_CNI_VERSION}.tgz"
     downloadAzureCNI
-    unpackAzureCNI $VNET_CNI_PLUGINS_URL
+    unpackAzureCNI $VNET_CNI_PLUGINS_URL & # Run in the background and continue on with the for loop
     echo "  - Azure Swift CNI version ${SWIFT_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
+wait # Wait for all background processes to finish
 done
 
 # After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
@@ -439,8 +442,9 @@ CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-${CPU_ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
     downloadCNI
-    unpackAzureCNI $CNI_PLUGINS_URL
+    unpackAzureCNI $CNI_PLUGINS_URL & # Run in the background and continue on with the for loop
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
+wait # Wait for all background processes to finish
 done
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner v2
@@ -577,8 +581,9 @@ if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
 
   for private_url in "${PRIVATE_URLS[@]}"; do
     echo "download kube package from ${private_url}"
-    cacheKubePackageFromPrivateUrl "$private_url"
+    cacheKubePackageFromPrivateUrl "$private_url" & # Run in the background and continue on with the for loop
   done
+  wait # Wait for all background processes to finish
 fi
 
 # kubelet and kubectl
@@ -591,8 +596,9 @@ KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
 
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false
+  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false & # Run in the background and continue on with the for loop
 done
+wait # Wait for all background processes to finish
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 
