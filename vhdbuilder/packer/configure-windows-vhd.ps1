@@ -245,6 +245,70 @@ function Get-PrivatePackagesToCacheOnVHD {
     }
 }
 
+function Apply-WindowsFixes {
+    # Use the '$env:WindowsPrivatePackagesURL' to store the Windows fixes download link
+    if (![string]::IsNullOrEmpty($env:WindowsPrivatePackagesURL)) {
+        Write-Log "WindowsPrivatePackagesURL was set, applying Windows fixes."
+
+        $fixesDownloadlink = $env:WindowsPrivatePackagesURL
+
+        $dest = "C:\WindowsFixes.zip"
+        DownloadFileWithRetry -URL $fixesDownloadlink -Dest $dest -redactUrl
+
+        Expand-Archive -Path $dest -DestinationPath "C:\WindowsFixes" -Force
+
+        Write-Log "Backup the original files."
+        $originalFiles = @(
+            "C:\windows\system32\HostNetSvc.dll",
+            "C:\Windows\system32\vfpapi.dll",
+            "C:\Windows\system32\vfpctrl.exe",
+            "C:\Windows\system32\drivers\vfpext.sys",
+            "C:\windows\system32\drivers\ndis.sys",
+            "C:\windows\system32\drivers\tcpip.sys"
+        )
+        $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+        $backupDirectory = "C:\WindowsFixes\Backup-$timestamp"
+        if (-not (Test-Path $backupDirectory)) {
+            New-Item -ItemType Directory -Path $backupDirectory | Out-Null
+        }
+        foreach ($file in $originalFiles) {
+            if (Test-Path $file) {
+                $backupFilePath = Join-Path $backupDirectory (Split-Path $file -Leaf)
+                Copy-Item -Path $file -Destination $backupFilePath -Force
+            }
+        }
+        Get-ChildItem -Recurse -Path "C:\WindowsFixes"
+
+        bcdedit /set TESTSIGNING ON
+        bcdedit /v
+
+        # Must run, otherwise, the below code will error
+        C:\WindowsFixes\KirTool.exe telemetry-optin
+        C:\WindowsFixes\KirTool.exe staging enable 47351171
+
+        # It has pop-up-confirmation, the pipeline cannot handle. Remove it.
+        # C:\WindowsFixes\Windows10.0-KB900000-x64-InstallForTestingPurposesOnly.exe
+
+        Write-Log "Replace system files"
+        $filePairs = @{
+            "HostNetSvc.dll" = "C:\Windows\system32\HostNetSvc.dll"
+            "vfpapi.dll" = "C:\Windows\system32\vfpapi.dll"
+            "vfpctrl.exe" = "C:\Windows\system32\vfpctrl.exe"
+            "vfpext.sys" = "C:\Windows\system32\drivers\vfpext.sys"
+            "ndis.sys" = "C:\windows\system32\drivers\ndis.sys"
+            "tcpip.sys" = "C:\windows\system32\drivers\tcpip.sys"
+        }
+        foreach ($pair in $filePairs.GetEnumerator()) {
+            $sourceFile = Join-Path "C:\WindowsFixes\SystemFiles\" $pair.Key
+            $destinationFile = $pair.Value
+            C:\WindowsFixes\sfpcopy.exe $sourceFile $destinationFile
+        }
+    } else {
+        Write-Log "WindowsPrivatePackagesURL was not set, skipping apply Windows fixes."
+    }
+    # Restart-Computer will happen after this function
+}
+
 function Install-ContainerD {
     # installing containerd during VHD building is to cache container images into the VHD,
     # and the containerd to managed customer containers after provisioning the vm is not necessary
@@ -834,10 +898,17 @@ try{
             Get-ContainerImages
             Get-FilesToCacheOnVHD
             Get-ToolsToVHD # Rely on the completion of Get-FilesToCacheOnVHD
-            Get-PrivatePackagesToCacheOnVHD
-            Remove-Item -Path c:\windows-vhd-configuration.ps1
-            (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
+            #Get-PrivatePackagesToCacheOnVHD # Cannot run it on custom VHD
+            #Remove-Item -Path c:\windows-vhd-configuration.ps1 # Must be the last step
+            #(New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt' # Must be the last step
             Log-ReofferUpdate
+        }
+        "3" {
+            # restart-computer by pipeline
+            Apply-WindowsFixes
+            Remove-Item -Path c:\windows-vhd-configuration.ps1 # Must be the last step
+            (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt' # Must be the last step
+            # restart-computer by pipeline
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"
