@@ -217,11 +217,15 @@ func lineStartsWithComment(trimmedToCheck string) bool {
 
 func trimTrailingComment(line string) string {
 	lastHashIndex := strings.LastIndex(line, "#")
-	if lastHashIndex > 0 && isCommentAtTheEndOfLine(lastHashIndex, line) {
+	if lastHashIndex > 0 && isCommentAtTheEndOfLine(lastHashIndex, line) && !lineLogsToOutput(line) {
 		// remove only the comment part from line
 		line = line[:lastHashIndex]
 	}
 	return line
+}
+
+func lineLogsToOutput(line string) bool {
+	return strings.HasPrefix(strings.TrimSpace(line), "echo")
 }
 
 // Trying to avoid using a regex. There are certain patterns we ignore just to be on the safe side. This is enough to get rid of most of the obvious comments.

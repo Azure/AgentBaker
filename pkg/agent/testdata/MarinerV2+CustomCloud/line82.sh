@@ -1,6 +1,5 @@
 #!/bin/bash
 mkdir -p /root/AzureCACertificates
-# http://168.63.129.16 is a constant for the host's wireserver endpoint
 certs=$(curl "http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json")
 IFS_backup=$IFS
 IFS=$'\r\n'
@@ -27,30 +26,19 @@ else
   done
 fi
 
-# Set the chrony config to use the PHC /dev/ptp0 clock
 cat > /etc/chrony.conf <<EOF
-# This directive specify the location of the file containing ID/key pairs for
-# NTP authentication.
 keyfile /etc/chrony.keys
 
-# This directive specify the file into which chronyd will store the rate
-# information.
 driftfile /var/lib/chrony/drift
 
-# Uncomment the following line to turn logging on.
 #log tracking measurements statistics
 
-# Log files location.
 logdir /var/log/chrony
 
-# Stop bad estimates upsetting machine clock.
 maxupdateskew 100.0
 
-# This directive enables kernel synchronisation (every 11 minutes) of the
-# real-time clock. Note that it can’t be used along with the 'rtcfile' directive.
 rtcsync
 
-# Settings come from: https://docs.microsoft.com/en-us/azure/virtual-machines/linux/time-sync
 refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
 makestep 1.0 -1
 EOF
