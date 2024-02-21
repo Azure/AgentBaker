@@ -385,7 +385,14 @@ try
         -VNetCIDR $global:VNetCIDR `
         -IsDualStackEnabled $global:IsDualStackEnabled `
         -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
-    
+
+    # non-runnable pseudocode.
+    Set-AzureHNSNetworkConfig -KubeClusterCIDR $global:KubeClusterCIDR `
+        -KubeServiceCIDR $global:KubeServiceCIDR `
+        -VNetCIDR $global:VNetCIDR `
+        -IsDualStackEnabled $global:IsDualStackEnabled `
+        -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
+
     if ($TargetEnvironment -ieq "AzureStackCloud") {
         GenerateAzureStackCNIConfig `
             -TenantId $global:TenantId `
