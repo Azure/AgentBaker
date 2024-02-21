@@ -4233,7 +4233,7 @@ if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME || $OS == $MARINER_OS_NAME ]]; then
+if [[ $OS == $UBUNTU_OS_NAME ]] || [[ $OS == $MARINER_OS_NAME ]]; then
     logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
 fi
 
@@ -5623,9 +5623,16 @@ source /opt/azure/containers/provision_source_distro.sh
 KUBECTL="/usr/local/bin/kubectl --kubeconfig /var/lib/kubelet/kubeconfig"
 
 # At startup, we need to wait for kubelet to finish TLS bootstrapping to create the kubeconfig file.
+n=0
 while [ ! -f /var/lib/kubelet/kubeconfig ]; do
     echo 'Waiting for TLS bootstrapping'
-    sleep 3
+    if [[ $n -lt 100 ]]; then
+        n=$((n+1))
+        sleep 3
+    else
+        echo "timeout waiting for kubeconfig to be present"
+        exit 1
+    fi
 done
 
 node_name=$(hostname)
@@ -5660,7 +5667,7 @@ fi
 # update current timestamp
 $KUBECTL annotate --overwrite node ${node_name} kubernetes.azure.com/live-patching-current-timestamp=${golden_timestamp}
 
-echo package update completed successfully
+echo "package update completed successfully"
 `)
 
 func linuxCloudInitArtifactsMarinerMarinerPackageUpdateShBytes() ([]byte, error) {

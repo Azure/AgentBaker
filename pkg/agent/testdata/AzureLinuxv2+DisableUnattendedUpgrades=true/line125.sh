@@ -7,9 +7,16 @@ source /opt/azure/containers/provision_source_distro.sh
 
 KUBECTL="/usr/local/bin/kubectl --kubeconfig /var/lib/kubelet/kubeconfig"
 
+n=0
 while [ ! -f /var/lib/kubelet/kubeconfig ]; do
     echo 'Waiting for TLS bootstrapping'
-    sleep 3
+    if [[ $n -lt 100 ]]; then
+        n=$((n+1))
+        sleep 3
+    else
+        echo "timeout waiting for kubeconfig to be present"
+        exit 1
+    fi
 done
 
 node_name=$(hostname)
@@ -42,4 +49,4 @@ fi
 
 $KUBECTL annotate --overwrite node ${node_name} kubernetes.azure.com/live-patching-current-timestamp=${golden_timestamp}
 
-echo package update completed successfully
+echo "package update completed successfully"
