@@ -4880,6 +4880,7 @@ func linuxCloudInitArtifactsEtcIssueNet() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsInitAksCustomCloudMarinerSh = []byte(`#!/bin/bash
+set -x
 mkdir -p /root/AzureCACertificates
 # http://168.63.129.16 is a constant for the host's wireserver endpoint
 certs=$(curl "http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json")
@@ -4956,6 +4957,7 @@ func linuxCloudInitArtifactsInitAksCustomCloudMarinerSh() (*asset, error) {
 }
 
 var _linuxCloudInitArtifactsInitAksCustomCloudSh = []byte(`#!/bin/bash
+set -x
 mkdir -p /root/AzureCACertificates
 # http://168.63.129.16 is a constant for the host's wireserver endpoint
 certs=$(curl "http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json")

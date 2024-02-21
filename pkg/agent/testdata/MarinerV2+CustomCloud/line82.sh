@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 mkdir -p /root/AzureCACertificates
 certs=$(curl "http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json")
 IFS_backup=$IFS
