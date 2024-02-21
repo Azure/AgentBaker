@@ -126,6 +126,8 @@ EOF
 record_benchmark 'Install Dependencies (Lines 102-124) End'
 stop_watch 'Install Dependencies'
 #Benchmark 3 End
+( installBcc > /tmp/bcc.log 2>&1 ) & # run installBcc in a subshell and redirect output and error to a log file
+BCC_PID=$! # save the process ID of the background process
 #Benchmark 4 Start
 record_benchmark 'Check Container Runtime / Network Configurations (Lines 133 - 157) Start'
 start_watch
@@ -322,12 +324,6 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
 
-installBcc
-cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - bcc-tools
-  - libbcc-examples
-EOF
-
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 
 record_benchmark 'Pull NVIDIA driver images (Lines 299 - 331) End'
@@ -364,10 +360,9 @@ for imageToBePulled in ${ContainerImages[*]}; do
 
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE} & # Run in the background and continue on with the for loop
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
   done
-  wait # Wait until all background prcoesses have finished
 done
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
@@ -412,9 +407,8 @@ VNET_CNI_VERSIONS="
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
-    unpackAzureCNI $VNET_CNI_PLUGINS_URL & # Run in the background and continue on with the for loop
+    unpackAzureCNI $VNET_CNI_PLUGINS_URL
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
-wait # Wait for all background processes to finish
 done
 
 #UNITE swift and overlay versions?
@@ -427,9 +421,8 @@ SWIFT_CNI_VERSIONS="
 for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${SWIFT_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-${CPU_ARCH}-v${SWIFT_CNI_VERSION}.tgz"
     downloadAzureCNI
-    unpackAzureCNI $VNET_CNI_PLUGINS_URL & # Run in the background and continue on with the for loop
+    unpackAzureCNI $VNET_CNI_PLUGINS_URL
     echo "  - Azure Swift CNI version ${SWIFT_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
-wait # Wait for all background processes to finish
 done
 
 # After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
@@ -441,9 +434,8 @@ CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-${CPU_ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
     downloadCNI
-    unpackAzureCNI $CNI_PLUGINS_URL & # Run in the background and continue on with the for loop
+    unpackAzureCNI $CNI_PLUGINS_URL
     echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
-wait # Wait for all background processes to finish
 done
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner v2
@@ -464,10 +456,9 @@ v0.13.0.7
 "
 for NVIDIA_DEVICE_PLUGIN_VERSION in ${NVIDIA_DEVICE_PLUGIN_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/nvidia/k8s-device-plugin:${NVIDIA_DEVICE_PLUGIN_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE} & # Run in the background and continue on with the for loop
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
-wait # Wait for all background processes to finish
 
 # GPU device plugin
 if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_FLAGS"; then
@@ -489,6 +480,30 @@ fi
 record_benchmark 'GPU Device plugin (Lines 457 - 482) End'
 stop_watch 'GPU Device plugin'
 #Benchmark 11 End
+wait $BCC_PID
+BCC_EXIT_STATUS=$?
+if [ $BCC_EXIT_STATUS -ne 0 ]; then
+  echo "BCC installation failed with exit status $BCC_EXIT_STATUS" # print an error message
+  exit $BCC_EXIT_STATUS # exit the script with the same exit status
+fi
+
+grep -i "error\|fail\|exception\|abort" /tmp/bcc.log # search for any errors or failures in the log file
+if [ $? -eq 0 ]; then \
+  echo "BCC installation failed with the following errors or failures:"
+  grep -i "error\|fail\|exception\|abort" /tmp/bcc.log
+  exit 1 
+fi
+
+test -s /tmp/bcc.log 
+if [ $? -ne 0 ]; then
+  echo "BCC installation failed with no output or error in the log file"
+  exit 1
+fi
+
+cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - bcc-tools
+  - libbcc-examples
+EOF
 #Benchmark 12 Start
 record_benchmark 'Configure telemetry, create logging directory, kube-proxy (Lines 491 - 523) Start'
 start_watch
