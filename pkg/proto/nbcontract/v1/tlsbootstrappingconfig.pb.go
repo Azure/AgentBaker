@@ -29,7 +29,7 @@ type TLSBootstrappingConfig struct {
 	// understand how defaulting works for enum, because we want default to be false
 	TlsBootstrappingStatus                 FeatureState `protobuf:"varint,1,opt,name=tls_bootstrapping_status,json=tlsBootstrappingStatus,proto3,enum=nbcontract.v1.FeatureState" json:"tls_bootstrapping_status,omitempty"`
 	SecureTlsBootstrappingStatus           FeatureState `protobuf:"varint,2,opt,name=secure_tls_bootstrapping_status,json=secureTlsBootstrappingStatus,proto3,enum=nbcontract.v1.FeatureState" json:"secure_tls_bootstrapping_status,omitempty"`
-	TlsBootstrapToken                      string       `protobuf:"bytes,3,opt,name=tls_bootstrap_token,json=tlsBootstrapToken,proto3" json:"tls_bootstrap_token,omitempty"`
+	TlsBootstrapToken                      string       `protobuf:"bytes,3,opt,name=tls_bootstrap_token,json=tlsBootstrapToken,proto3" json:"tls_bootstrap_token,omitempty"` // Only required until Secure TLS bootstrapping in place. Would use kubelet identity after that.
 	CustomSecureTlsBootstrapAppserverAppid string       `protobuf:"bytes,4,opt,name=custom_secure_tls_bootstrap_appserver_appid,json=customSecureTlsBootstrapAppserverAppid,proto3" json:"custom_secure_tls_bootstrap_appserver_appid,omitempty"`
 }
 

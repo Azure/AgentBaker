@@ -15,7 +15,6 @@ import "pkg/proto/nbcontract/v1/kubeletconfig.proto";
 import "pkg/proto/nbcontract/v1/featurestate.proto";
 import "pkg/proto/nbcontract/v1/teleportconfig.proto";
 import "pkg/proto/nbcontract/v1/runcconfig.proto";
-import "pkg/proto/nbcontract/v1/swapfileconfig.proto";
 import "pkg/proto/nbcontract/v1/customcloudconfig.proto";
 import "pkg/proto/nbcontract/v1/customcatrustconfig.proto";
 import "pkg/proto/nbcontract/v1/apiserverconfig.proto";
@@ -26,10 +25,8 @@ message Configuration {
   // System Configuration
   
   string cluster_certificate_authority = 1;
-
-  // only required until Secure TLS bootstrapping in place
-  // would use kubelet identity after that.
-  string tls_bootstrap_token = 2;
+  TLSBootstrappingConfig tls_bootstrapping_config = 2;
+  
 
   // cluster/user config
   string kubernetes_version = 3; // Q: can this be auto-detected? Or is this part of specifying the desired node version?
@@ -62,7 +59,6 @@ message Configuration {
   FeatureState ssh_status = 27;
   optional FeatureState unattended_upgrade_status = 28;
   string message_of_the_day = 29;
-  SwapFileConfig swap_file_config = 30;
   KubeletConfiguration kubelet_configuration = 31;
   FeatureState hosts_config_agent_status = 32;
   CustomCaTrustConfig custom_ca_trust_config = 33;
@@ -78,7 +74,7 @@ message Configuration {
   optional string outbound_command = 43; //this is const depending on cloud, can be removed later with smart refactoring
   optional bool ensure_no_dupe_promiscuous_bridge = 45; //this is little weird, check cse_cmd.sh for actual condition
   optional CustomSearchDomain custom_search_domain = 46;
-  optional nbcontract.v1.CustomLinuxOSConfig custom_linux_os_config = 47;
+  optional CustomLinuxOSConfig custom_linux_os_config = 47;
   
   //we do not need these in the final contract, these are consts
   string cse_helper_filepath = 49;
