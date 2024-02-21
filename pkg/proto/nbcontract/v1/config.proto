@@ -59,7 +59,7 @@ message Configuration {
   FeatureState ssh_status = 27;
   optional FeatureState unattended_upgrade_status = 28;
   string message_of_the_day = 29;
-  KubeletConfiguration kubelet_configuration = 31;
+  KubeletConfig kubelet_config = 31;
   FeatureState hosts_config_agent_status = 32;
   CustomCaTrustConfig custom_ca_trust_config = 33;
   string provision_output = 34;

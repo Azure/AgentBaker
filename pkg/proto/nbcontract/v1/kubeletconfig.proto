@@ -1,7 +1,7 @@
 syntax = "proto3";
 package nbcontract.v1;
 
-message KubeletConfiguration {
+message KubeletConfig {
   // TODO(ace): remove these/make api defensible
   repeated string kubelet_flags = 1;
   map<string, string> kubelet_node_labels = 2;
