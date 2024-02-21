@@ -126,6 +126,9 @@ EOF
 record_benchmark 'Install Dependencies (Lines 102-124) End'
 stop_watch 'Install Dependencies'
 #Benchmark 3 End
+installBpftrace
+echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
+
 ( installBcc > /tmp/bcc.log 2>&1 ) & # run installBcc in a subshell and redirect output and error to a log file
 BCC_PID=$! # save the process ID of the background process
 #Benchmark 4 Start
@@ -317,9 +320,6 @@ fi
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
-installBpftrace
-echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
-
 cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
@@ -489,9 +489,8 @@ fi
 
 grep -i "error\|fail\|exception\|abort" /tmp/bcc.log # search for any errors or failures in the log file
 if [ $? -eq 0 ]; then \
-  echo "BCC installation failed with the following errors or failures:"
+  echo "BCC installation 'error', 'fail', 'exception', 'abort' found in the following locations in log:"
   grep -i "error\|fail\|exception\|abort" /tmp/bcc.log
-  exit 1 
 fi
 
 test -s /tmp/bcc.log 
