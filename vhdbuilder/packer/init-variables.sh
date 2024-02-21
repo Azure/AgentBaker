@@ -393,7 +393,6 @@ cat <<EOF > vhdbuilder/packer/settings.json
 {
   "subscription_id":  "${SUBSCRIPTION_ID}",
   "client_id": "${CLIENT_ID}",
-  "client_secret": "${CLIENT_SECRET}",
   "tenant_id":      "${TENANT_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "location": "${AZURE_LOCATION}",
