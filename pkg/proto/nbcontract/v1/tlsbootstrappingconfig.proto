@@ -1,0 +1,12 @@
+syntax = "proto3";
+package nbcontract.v1;
+import "pkg/proto/nbcontract/v1/featurestate.proto";
+
+message TLSBootstrappingConfig {
+    // discuss whether this should be featureState or bool
+    // understand how defaulting works for enum, because we want default to be false
+    FeatureState tls_bootstrapping_status = 1;
+    FeatureState secure_tls_bootstrapping_status = 2;
+    string tls_bootstrap_token = 3;
+    string custom_secure_tls_bootstrap_appserver_appid = 4;
+  }

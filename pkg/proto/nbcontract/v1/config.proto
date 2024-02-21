@@ -17,6 +17,9 @@ import "pkg/proto/nbcontract/v1/teleportconfig.proto";
 import "pkg/proto/nbcontract/v1/runcconfig.proto";
 import "pkg/proto/nbcontract/v1/swapfileconfig.proto";
 import "pkg/proto/nbcontract/v1/customcloudconfig.proto";
+import "pkg/proto/nbcontract/v1/customcatrustconfig.proto";
+import "pkg/proto/nbcontract/v1/apiserverconfig.proto";
+import "pkg/proto/nbcontract/v1/tlsbootstrappingconfig.proto";
 
 // illustrative division only
 message Configuration {
@@ -99,26 +102,6 @@ message Configuration {
   optional GPUConfig gpu_config = 62;
 }
 
-message CustomCaTrustConfig {
-  FeatureState custom_ca_trust_status = 1;
-  int32 custom_ca_trust_count = 2;
-  repeated string custom_ca_certs = 3;
-}
-
-message ApiServerConfig {
-  string apiserver_public_key = 1;
-  string apiserver_name = 2;
-}
-
-message TLSBootstrapping {
-  // discuss whether this should be featureState or bool
-  // understand how defaulting works for enum, because we want default to be false
-  FeatureState tls_bootstrapping = 1;
-  FeatureState secure_tls_bootstrapping = 2;
-  string tls_bootstrap_token = 3;
-  string custom_secure_tls_bootstrap_appserver_appid = 4;
-}
-
 // The following variables are removed from the contract
 // Leaving them there for note. 
 // All of them need default values configured in the VHD, likely in the go binary.
@@ -149,5 +132,6 @@ message CloudProviderRateLimitConfig {
 }
 
 CONTAINER_RUNTIME = "containerd"
+CLI_TOOL = "ctr"
 
 */

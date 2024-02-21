@@ -10,7 +10,7 @@ message HTTPProxyConfig {
   repeated string https_proxy_urls = 2;
 
   // NoProxy represents a list of endpoints including IPs, domains, or other network CIDRs that should not be accessed through the proxy
-  repeated string no_proxy = 3;
+  repeated string no_proxy_urls = 3;
 
   // TrustedCA repesents alternative CA certificate content
   optional string proxy_trusted_ca = 4;

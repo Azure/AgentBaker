@@ -1,0 +1,9 @@
+syntax = "proto3";
+package nbcontract.v1;
+import "pkg/proto/nbcontract/v1/featurestate.proto";
+
+message CustomCaTrustConfig {
+    FeatureState status = 1;
+    int32 custom_ca_trust_count = 2;
+    repeated string custom_ca_certs = 3;
+  }
