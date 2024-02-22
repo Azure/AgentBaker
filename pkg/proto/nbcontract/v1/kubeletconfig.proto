@@ -10,6 +10,8 @@ message KubeletConfig {
   KubeletDiskType kubelet_disk_type = 5;
   bool kubelet_config_file_enabled = 6;
   string kubelet_config_file_content = 7;
+  string kubelet_client_content = 8;
+  string kubelet_client_cert_content = 9;
 }
 
 message Taint {
