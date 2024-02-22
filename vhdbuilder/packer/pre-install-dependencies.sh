@@ -1,6 +1,7 @@
 #!/bin/bash
 
 start_time=$(date +%s)
+echo $start_time
 declare -A time_stamps=()   
 declare -a logical_order=()
 
@@ -12,13 +13,6 @@ THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/tool_installs_distro.sh
 
-record_benchmark 'Declare variables / remove comments End'
-stop_watch 'Declare variables / remove comments'
-#Benchmark 1 End
-#Benchmark 2 Start
-record_benchmark 'Execute /home/packer files Start'
-start_watch
-
 source /home/packer/provision_installs.sh
 source /home/packer/provision_installs_distro.sh
 source /home/packer/provision_source.sh
@@ -27,8 +21,8 @@ source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
 
-record_benchmark 'Execute /home/packer files End'
-stop_watch 'Execute /home/packer files'
+record_benchmark 'Declare variables / remove comments / Execute /home/packer files End'
+stop_watch 'Declare variables / remove comments / Execute /home/packer files'
 #Benchmark 2 End
 #Benchmark 3 Start
 record_benchmark 'Create post-build test Start'
