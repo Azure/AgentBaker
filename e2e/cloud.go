@@ -27,6 +27,8 @@ type azureClient struct {
 	resourceClient      *armresources.Client
 	resourceGroupClient *armresources.ResourceGroupsClient
 	aksClient           *armcontainerservice.ManagedClustersClient
+	securityGroupClient *armnetwork.SecurityGroupsClient
+	subnetClient        *armnetwork.SubnetsClient
 }
 
 func newAzureClient(subscription string) (*azureClient, error) {
@@ -89,6 +91,17 @@ func newAzureClient(subscription string) (*azureClient, error) {
 		return nil, fmt.Errorf("failed to create core client: %w", err)
 	}
 
+	securityGroupClient, err := armnetwork.NewSecurityGroupsClient(subscription, credential, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create security group client: %w", err)
+	}
+	println("subscription: ", subscription)
+
+	subnetClient, err := armnetwork.NewSubnetsClient(subscription, credential, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create subnet client: %w", err)
+	}
+
 	aksClient, err := armcontainerservice.NewManagedClustersClient(subscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create aks client: %w", err)
@@ -127,6 +140,8 @@ func newAzureClient(subscription string) (*azureClient, error) {
 		vmssClient:          vmssClient,
 		vmssVMClient:        vmssVMClient,
 		vnetClient:          vnetClient,
+		securityGroupClient: securityGroupClient,
+		subnetClient:        subnetClient,
 	}
 
 	return cloud, nil

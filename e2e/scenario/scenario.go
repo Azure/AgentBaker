@@ -70,6 +70,7 @@ func (t *Template) scenarios() []*Scenario {
 		t.ubuntu2204CustomCATrust(),
 		t.ubuntu2204ArtifactStreaming(),
 		t.ubuntu2204privatekubepkg(),
+		t.ubuntu2204AirGap(),
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/Azure/agentbakere2e/suite"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"k8s.io/apimachinery/pkg/util/errors"
 )
@@ -198,6 +199,25 @@ func getClusterSubnetID(ctx context.Context, cloud *azureClient, location, mcRes
 	return "", fmt.Errorf("failed to find aks vnet")
 }
 
+func getClusterVnetName(ctx context.Context, cloud *azureClient, mcResourceGroupName, clusterName string) (string, error) {
+	pager := cloud.vnetClient.NewListPager(mcResourceGroupName, nil)
+
+	for pager.More() {
+		nextResult, err := pager.NextPage(ctx)
+		if err != nil {
+			return "", fmt.Errorf("failed to advance page: %w", err)
+		}
+		for _, v := range nextResult.Value {
+			if v == nil {
+				return "", fmt.Errorf("aks vnet id was empty")
+			}
+			return *v.Name, nil
+		}
+	}
+
+	return "", fmt.Errorf("failed to find aks vnet")
+}
+
 func getInitialClusterConfigs(ctx context.Context, cloud *azureClient, resourceGroupName string) ([]clusterConfig, error) {
 	var configs []clusterConfig
 	pager := cloud.resourceClient.NewListByResourceGroupPager(resourceGroupName, nil)
@@ -307,6 +327,7 @@ func chooseCluster(
 	suiteConfig *suite.Config,
 	scenario *scenario.Scenario,
 	clusterConfigs []clusterConfig) (clusterConfig, error) {
+
 	var chosenConfig clusterConfig
 	for i := range clusterConfigs {
 		config := &clusterConfigs[i]
@@ -455,4 +476,65 @@ func getBaseClusterModel(clusterName, location string) armcontainerservice.Manag
 			Type: to.Ptr(armcontainerservice.ResourceIdentityTypeSystemAssigned),
 		},
 	}
+}
+
+func addAirgapNetworkSettings(ctx context.Context, cloud *azureClient, suiteConfig *suite.Config, clusterConfig clusterConfig) error {
+	vName := "abe2e-airgap-securityGroup"
+	nsgParams := cloudGapSecurityGroup(suiteConfig.Location, clusterConfig.subnetId)
+
+	err := ensureResourceGroup(ctx, cloud, suiteConfig)
+	if err != nil {
+		return err
+	}
+
+	_, err = cloud.securityGroupClient.BeginCreateOrUpdate(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, vName, nsgParams, nil)
+	if err != nil {
+		fmt.Printf("failed in cloud.securityGroupClient.BeginCreateOrUpdate\n")
+		return err
+	}
+	fmt.Printf("created nsg %s\n", vName)
+	nsg, err := cloud.securityGroupClient.Get(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, vName, nil)
+	if err != nil {
+		return err
+	}
+
+	vnetName, err := getClusterVnetName(ctx, cloud, *clusterConfig.cluster.Properties.NodeResourceGroup, *clusterConfig.cluster.Name)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("got vnet name %s\n", vnetName)
+
+	subnetParameters := armnetwork.Subnet{
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: to.Ptr("10.0.0.0/24"),
+			NetworkSecurityGroup: &armnetwork.SecurityGroup{
+				ID: nsg.ID,
+			},
+		},
+	}
+
+	poller, err := cloud.subnetClient.BeginCreateOrUpdate(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, vnetName, "aks-subnet", subnetParameters, nil)
+	if err != nil {
+		fmt.Printf("failed in subnetsClient.CreateOrUpdate\n")
+		return err
+	}
+	_, err = poller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("created subnetsClient.CreateOrUpdate %s\n", clusterConfig.subnetId)
+
+	bCU, err := cloud.aksClient.BeginCreateOrUpdate(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, *clusterConfig.cluster.Name, *clusterConfig.cluster, nil)
+	if err != nil {
+		fmt.Printf("failed in cloud.aksClient.BeginCreateOrUpdate\n")
+		return err
+	}
+	_, err = bCU.PollUntilDone(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("created cloud.aksClient.BeginCreateOrUpdate %s\n", *clusterConfig.cluster.Name)
+	return nil
 }

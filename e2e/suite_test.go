@@ -38,10 +38,12 @@ func Test_All(t *testing.T) {
 		t.Fatal("at least one scenario must be selected to run the e2e suite")
 	}
 
+	// cloud.vnet is where I can append the settings for the airgap network
 	cloud, err := newAzureClient(suiteConfig.Subscription)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 
 	if err := ensureResourceGroup(ctx, cloud, suiteConfig); err != nil {
 		t.Fatal(err)
@@ -66,6 +68,13 @@ func Test_All(t *testing.T) {
 
 		clusterName := *clusterConfig.cluster.Name
 		log.Printf("chose cluster: %q", clusterName)
+
+		// alison here
+		if e2eScenario.Airgap {
+			if err := addAirgapNetworkSettings(ctx, cloud, suiteConfig, clusterConfig); err != nil {
+				t.Fatal(err)
+			}
+		}
 
 		baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(ctx, cloud, suiteConfig, clusterConfig.parameters)
 		if err != nil {
