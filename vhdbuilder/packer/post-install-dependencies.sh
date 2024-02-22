@@ -1,6 +1,22 @@
 #!/bin/bash
+
+declare -A time_stamps=()   
+declare -a logical_order=()
+start_time=$(date +%s)
+
+#Benchmark 1 Start
+record_benchmark 'Determine OS / Set comparison Start'
+start_watch
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
+
+record_benchmark 'Determine OS / Set comparison End'
+stop_watch 'Determine OS / Set comparison'
+#Benchmark 1 End
+#Benchmark 2 Start
+record_benchmark 'Execute /home/packer files Start'
+start_watch
 
 source /home/packer/provision_installs.sh
 source /home/packer/provision_installs_distro.sh
@@ -9,11 +25,25 @@ source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 
+record_benchmark 'Execute /home/packer files End'
+stop_watch 'Execute /home/packer files'
+#Benchmark 2 End
+#Benchmark 3 Start
+record_benchmark 'Set variables Start'
+start_watch
+
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
 MAX_BLOCK_COUNT=30298176 # 30 GB
+
+record_benchmark 'Set variables End'
+stop_watch 'Set variables'
+#Benchmark 3 End
+#Benchmark 4 Start
+record_benchmark 'Trim packages, remove apport, strip old kernels / packages, log UA status, detach UA, and clean up Start'
+start_watch
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # shellcheck disable=SC2021
@@ -37,6 +67,13 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   detachAndCleanUpUA
 fi
 
+record_benchmark 'Trim packages, remove apport, strip old kernels / packages, log UA status, detach UA, and clean up End'
+stopwatch 'Trim packages, remove apport, strip old kernels / packages, log UA status, detach UA, and clean up'
+#Benchmark 4 End
+#Benchmark 5 Start
+record_benchmark 'List installed packages Start'
+start_watch
+
 # shellcheck disable=SC2129
 echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
 ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
@@ -45,6 +82,13 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
 
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
+
+record_benchmark 'List installed packages End'
+stop_watch 'List installed packages'
+#Benchmark 5 Ended
+#Benchmark 6 Start
+record_benchmark 'Determine disk usage Start'
+start_watch
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
@@ -56,6 +100,13 @@ usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (
 usage=${usage%.*}
 [ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
 [ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
+
+record_benchmark 'Determine disk usage End'
+stop_watch 'Determine disk usage'
+#Benchmark 6 Ended
+#Benchmark 7 Start
+record_benchmark 'Write logs Start'
+start_watch
 
 echo -e "=== os-release Begin" >> ${VHD_LOGS_FILEPATH}
 cat /etc/os-release >> ${VHD_LOGS_FILEPATH}
@@ -75,15 +126,35 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "FIPS enabled: ${ENABLE_FIPS}"
 } >> ${VHD_LOGS_FILEPATH}
 
+record_benchmark 'Write logs End'
+stop_watch 'Write logs'
+#Benchmark 7 Ended
+#Benchmark 8 Start
+record_benchmark 'Install Asc Baseline if ARM64 Start'
+start_watch
+
 if [[ $(isARM64) != 1 ]]; then
   # no asc-baseline-1.1.0-268.arm64.deb
   installAscBaseline
 fi
+
+record_benchmark 'Install Asc Baseline if ARM64 End'
+stop_watch 'Install Asc Baseline if ARM64'
+#Benchmark 8 Ended
+#Benchmark 9 Start
+record_benchmark 'RelinkResolveConf Start'
+start_watch
 
 if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
   if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH} == "arm64" ]]; then
     relinkResolvConf
   fi
 fi
+
+record_benchmark 'RelinkResolveConf End'
+stop_watch 'RelinkResolveConf'
+#Benchmark 9 End
+#End of benchmarks
+print_benchmark_results
 
 echo "post-install-dependencies step completed successfully"
