@@ -1,12 +1,8 @@
 #!/bin/bash
 
+start_time=$(date +%s)
 declare -A time_stamps=()   
 declare -a logical_order=()
-start_time=$(date +%s)
-
-#Benchmark 1 Start
-record_benchmark 'Declare Variables / Configure Environment Start'
-start_watch
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
@@ -59,7 +55,7 @@ APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
 
-record_benchmark 'Purge and Reinstall  Ubuntu End'
+record_benchmark 'Purge and Reinstall Ubuntu End'
 stop_watch 'Purge and Reinstall  Ubuntu'
 #Benchmark 2 End
 #BenchMark 3 Start
@@ -172,11 +168,13 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     enableCheckRestart
     activateNfConntrack
 fi
+stop_watch 'Up to downloadContainerdWasmShims'
 
-startwatch
+start_watch
 downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
-stopwatch 'downloadContainerdWasmShims function'
+stop_watch 'downloadContainerdWasmShims function'
+start_watch
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
@@ -193,7 +191,7 @@ installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
 echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
 
 record_benchmark 'Create containerd service directory, download shims, configure runtime and network End'
-stop_watch 'Create containerd service directory, download shims, configure runtime and network'
+stop_watch 'After downloadContainerdWasmShims'
 #Benchmark 5 End
 #Benchmark 6 Start
 record_benchmark 'Download components, determine / download crictl version Start'
@@ -298,7 +296,7 @@ echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 record_benchmark 'Pull NVIDIA driver images End'
 stop_watch 'Pull NVIDIA driver images'
 #Benchmark 8 End
-startwatch
+start_watch
 echo "Waiting for BCC Install to complete..."
 wait $BCC_PID
 BCC_EXIT_STATUS=$?
@@ -324,7 +322,7 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - libbcc-examples
 EOF
 echo "BCC Install complete..."
-stopwatch 'BCC Install remaining wait time'
+stop_watch 'BCC Install remaining wait time'
 #Benchmark 9 Start
 record_benchmark 'Pull and tag container images Start'
 start_watch
@@ -582,15 +580,10 @@ fi
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
 KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
 
-#Declare an array to collect background process IDs
-declare -a PIDS2=() 
-
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false & # Run in the background and continue on with the for loop
-  PIDS2+=($!) # append the process ID to the array
+  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false
 done
-wait ${PIDS2[@]} # Wait for all background processes to finish
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 
