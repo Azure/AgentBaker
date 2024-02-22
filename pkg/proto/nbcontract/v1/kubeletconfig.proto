@@ -3,7 +3,7 @@ package nbcontract.v1;
 
 message KubeletConfig {
   // TODO(ace): remove these/make api defensible
-  repeated string kubelet_flags = 1;
+  map<string, string> kubelet_flags = 1;
   map<string, string> kubelet_node_labels = 2;
   repeated Taint taints = 3;
   repeated Taint startup_taints = 4;
