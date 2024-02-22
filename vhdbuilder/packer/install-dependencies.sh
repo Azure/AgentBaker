@@ -1,4 +1,9 @@
 #!/bin/bash
+
+declare -A time_stamps=()   
+declare -a logical_order=()
+start_time=$(date +%s)
+
 #Benchmark 1 Start
 record_benchmark 'Declare Variables / Configure Environment Start'
 start_watch
@@ -171,7 +176,7 @@ fi
 startwatch
 downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
-stopwatch 'downloadContainerdWasmShims'
+stopwatch 'downloadContainerdWasmShims function'
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
