@@ -5,7 +5,6 @@
         "build_id": "{{env `BUILD_ID`}}",
         "build_number": "{{env `BUILD_NUMBER`}}",
         "build_repo": "{{env `GIT_REPO`}}",
-        "client_id": "{{env `AZURE_CLIENT_ID`}}",
         "windows_sku": "{{env `WINDOWS_SKU`}}",
         "tenant_id": "{{env `AZURE_TENANT_ID`}}",
         "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
@@ -25,7 +24,6 @@
     "builders": [
         {
             "type": "azure-arm",
-            "client_id": "{{user `client_id`}}",
             "tenant_id": "{{user `tenant_id`}}",
             "subscription_id": "{{user `subscription_id`}}",
             "location": "{{user `location`}}",
