@@ -67,6 +67,9 @@ const (
 	snapshotUpdateScript                = "linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh"
 	snapshotUpdateSystemdService        = "linux/cloud-init/artifacts/ubuntu/snapshot-update.service"
 	snapshotUpdateSystemdTimer          = "linux/cloud-init/artifacts/ubuntu/snapshot-update.timer"
+	packageUpdateScriptMariner          = "linux/cloud-init/artifacts/mariner/mariner-package-update.sh"
+	packageUpdateSystemdServiceMariner  = "linux/cloud-init/artifacts/mariner/package-update.service"
+	packageUpdateSystemdTimerMariner    = "linux/cloud-init/artifacts/mariner/package-update.timer"
 	migPartitionScript                  = "linux/cloud-init/artifacts/mig-partition.sh"
 	migPartitionSystemdService          = "linux/cloud-init/artifacts/mig-partition.service"
 
