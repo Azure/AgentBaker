@@ -1,12 +1,8 @@
 #!/bin/bash
 
+start_time=$(date +%s)
 declare -A time_stamps=()   
 declare -a logical_order=()
-start_time=$(date +%s)
-
-#Benchmark 1 Start 
-record_benchmark 'Declare variables / remove comments Start'
-start_watch
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
