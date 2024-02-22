@@ -1,22 +1,12 @@
 #!/bin/bash
 
+start_time=$(date +%s)
+echo $start_time
 declare -A time_stamps=()   
 declare -a logical_order=()
-start_time=$(date +%s)
-
-#Benchmark 1 Start
-record_benchmark 'Determine OS / Set comparison Start'
-start_watch
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
-
-record_benchmark 'Determine OS / Set comparison End'
-stop_watch 'Determine OS / Set comparison'
-#Benchmark 1 End
-#Benchmark 2 Start
-record_benchmark 'Execute /home/packer files Start'
-start_watch
 
 source /home/packer/provision_installs.sh
 source /home/packer/provision_installs_distro.sh
@@ -25,7 +15,7 @@ source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 
-record_benchmark 'Execute /home/packer files End'
+record_benchmark 'Determine OS / Set Comparison / Execute /home/packer files End'
 stop_watch 'Execute /home/packer files'
 #Benchmark 2 End
 #Benchmark 3 Start
