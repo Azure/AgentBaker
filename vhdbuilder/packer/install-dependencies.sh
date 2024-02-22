@@ -298,6 +298,7 @@ echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 record_benchmark 'Pull NVIDIA driver images End'
 stop_watch 'Pull NVIDIA driver images'
 #Benchmark 8 End
+startwatch
 echo "Waiting for BCC Install to complete..."
 wait $BCC_PID
 BCC_EXIT_STATUS=$?
@@ -323,6 +324,7 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
   - libbcc-examples
 EOF
 echo "BCC Install complete..."
+stopwatch 'BCC Install remaining wait time'
 #Benchmark 9 Start
 record_benchmark 'Pull and tag container images Start'
 start_watch
