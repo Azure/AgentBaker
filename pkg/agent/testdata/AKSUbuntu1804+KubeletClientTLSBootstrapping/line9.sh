@@ -128,6 +128,21 @@ retrycmd_if_failure() {
     done
     echo Executed \"$@\" $i times;
 }
+retrycmd_nslookup() {
+    wait_sleep=$1; timeout=$2; total_timeout=$3; record=$4
+    start_time=$(date +%s)
+    while true; do
+        nslookup -timeout=$timeout -retry=0 $record && break || \
+        current_time=$(date +%s)
+        if [ $((current_time - start_time)) -ge $total_timeout ]; then
+            echo "Total timeout $total_timeout reached, nslookup -timeout=$timeout -retry=0 $record failed"
+            return 1
+        fi
+        sleep $wait_sleep
+    done
+    current_time=$(date +%s)
+    echo "Executed nslookup -timeout=$timeout -retry=0 $record for $((current_time - start_time)) seconds";
+}
 retrycmd_if_failure_no_stats() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
