@@ -594,9 +594,8 @@ if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
 
   for private_url in "${PRIVATE_URLS[@]}"; do
     echo "download kube package from ${private_url}"
-    cacheKubePackageFromPrivateUrl "$private_url" & # Run in the background and continue on with the for loop
+    cacheKubePackageFromPrivateUrl "$private_url"
   done
-  wait # Wait for all background processes to finish
 fi
 
 # kubelet and kubectl
@@ -609,9 +608,8 @@ KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
 
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false & # Run in the background and continue on with the for loop
+  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false
 done
-wait # Wait for all background processes to finish
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 
