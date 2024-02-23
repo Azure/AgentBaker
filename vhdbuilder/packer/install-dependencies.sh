@@ -89,11 +89,22 @@ EOF
 record_benchmark 'Install Dependencies End'
 stop_watch 'Install Dependencies'
 #Benchmark 3 End
+
 installBpftrace
 echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
-( installBcc > /tmp/bcc.log 2>&1 ) & # run installBcc in a subshell and redirect output and error to a log file
-BCC_PID=$! # save the process ID of the background process
+PARENT_DIR=$(pwd)
+
+( 
+  cd $PARENT_DIR
+
+  installBcc
+
+  exit $?
+) > /tmp/bcc.log 2>&1 &
+
+BCC_PID=$! 
+
 #Benchmark 4 Start
 record_benchmark 'Check Container Runtime / Network Configurations Start'
 start_watch
@@ -296,6 +307,7 @@ echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 record_benchmark 'Pull NVIDIA driver images End'
 stop_watch 'Pull NVIDIA driver images'
 #Benchmark 8 End
+
 start_watch
 echo "Waiting for BCC Install to complete..."
 wait $BCC_PID
@@ -323,6 +335,7 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
 EOF
 echo "BCC Install complete..."
 stop_watch 'BCC Install remaining wait time'
+
 #Benchmark 9 Start
 record_benchmark 'Pull and tag container images Start'
 start_watch
