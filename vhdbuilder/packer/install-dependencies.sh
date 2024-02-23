@@ -60,6 +60,21 @@ else
   done
 fi
 
+installBpftrace
+echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
+
+PARENT_DIR=$(pwd)
+
+( 
+  cd $PARENT_DIR
+
+  installBcc
+
+  exit $?
+) > /tmp/bcc.log 2>&1 &
+
+BCC_PID=$! 
+
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
 Storage=persistent
 SystemMaxUse=1G
@@ -228,22 +243,37 @@ fi
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
-installBpftrace
-echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
-
-installBcc
-cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - bcc-tools
-  - libbcc-examples
-EOF
-
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
-
-
 
 string_replace() {
   echo ${1//\*/$2}
 }
+
+echo "Waiting for BCC Install to complete..."
+wait $BCC_PID
+BCC_EXIT_STATUS=$?
+if [ $BCC_EXIT_STATUS -ne 0 ]; then
+  echo "BCC installation failed with exit status $BCC_EXIT_STATUS" # print an error message
+  exit $BCC_EXIT_STATUS # exit the script with the same exit status
+fi
+
+grep -i "error\|fail\|exception\|abort" /tmp/bcc.log # search for any errors or failures in the log file
+if [ $? -eq 0 ]; then \
+  echo "BCC installation 'error', 'fail', 'exception', 'abort' found in the following locations in log:"
+  grep -i "error\|fail\|exception\|abort" /tmp/bcc.log
+fi
+
+test -s /tmp/bcc.log 
+if [ $? -ne 0 ]; then
+  echo "BCC installation failed with no output or error in the log file"
+  exit 1
+fi
+
+cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - bcc-tools
+  - libbcc-examples
+EOF
+echo "BCC Install complete..."
 
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for imageToBePulled in ${ContainerImages[*]}; do
