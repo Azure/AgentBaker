@@ -27,7 +27,7 @@ find_and_write_build_timestamp() {
     build_time=$(az pipelines runs show --id $first_build | jq -r ".queueTime")
     canonical_sanitized_timestamp=$(date -u -d "$build_time" "+%Y%m%dT%H%M%SZ")
     json_string="{\"build_timestamp\": \"$canonical_sanitized_timestamp\"}"
-    echo $json_string > ${new_image_version}_buld_timestamp.json
+    echo $json_string > vhdbuilder/${new_image_version}_build_timestamp.json
 }
 
 # This function finds the current SIG Image version from the input JSON file
