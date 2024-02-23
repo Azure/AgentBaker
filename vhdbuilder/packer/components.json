@@ -343,6 +343,22 @@
         "1.28.0"
       ],
       "targetContainerRuntime": "containerd"
+    },
+    {
+      "fileName": "acr-credential-provider",
+      "downloadLocation": "/var/lib/kubelet/credential-provider",
+      "downloadURL": "https://acs-mirror.azureedge.net/azure-credential-provider/v*/binaries",
+      "versions": [
+        "1.28.5"
+      ]
+    },
+    {
+      "fileName": "credential-provider-config.yaml",
+      "downloadLocation": "/var/lib/kubelet",
+      "downloadURL": "https://acs-mirror.azureedge.net/azure-credential-provider/v*/configs",
+      "versions": [
+        "1.28.5"
+      ]
     }
   ]
 }
