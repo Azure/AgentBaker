@@ -3213,6 +3213,22 @@ retrycmd_if_failure() {
     done
     echo Executed \"$@\" $i times;
 }
+retrycmd_nslookup() {
+    wait_sleep=$1; timeout=$2; total_timeout=$3; record=$4
+    start_time=$(date +%s)
+    while true; do
+        nslookup -timeout=$timeout -retry=0 $record && break || \
+        current_time=$(date +%s)
+        # Check if the total_timeout has been reached
+        if [ $((current_time - start_time)) -ge $total_timeout ]; then
+            echo "Total timeout $total_timeout reached, nslookup -timeout=$timeout -retry=0 $record failed"
+            return 1
+        fi
+        sleep $wait_sleep
+    done
+    current_time=$(date +%s)
+    echo "Executed nslookup -timeout=$timeout -retry=0 $record for $((current_time - start_time)) seconds";
+}
 retrycmd_if_failure_no_stats() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
@@ -4256,12 +4272,12 @@ if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
     API_SERVER_CONN_RETRIES=100
 fi
 if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    API_SERVER_DNS_RETRIES=100
+    API_SERVER_DNS_RETRY_TIMEOUT=300
     if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
-       API_SERVER_DNS_RETRIES=200
+       API_SERVER_DNS_RETRY_TIMEOUT=600
     fi
     if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]]; then
-        RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_if_failure ${API_SERVER_DNS_RETRIES} 1 20 nslookup -timeout=5 -retry=0 ${API_SERVER_NAME}")
+        RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_nslookup 1 15 ${API_SERVER_DNS_RETRY_TIMEOUT} ${API_SERVER_NAME}")
         STS=$?
     else
         STS=0
