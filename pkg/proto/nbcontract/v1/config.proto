@@ -90,7 +90,7 @@ message Configuration {
   string private_egress_proxy_address = 57;
   FeatureState artifact_streaming_enabled = 58;
   bool is_kata = 59; // we can calculate this on the VHD, will remove from final contract
-  bool needs_cgorupv2 = 60; // we can calculate this on the VHD, will remove from final contract
+  bool needs_cgroupv2 = 60; // we can calculate this on the VHD, will remove from final contract
 
   // Here begins the final contract
   optional HTTPProxyConfig http_proxy_config = 61;
