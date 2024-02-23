@@ -58,22 +58,7 @@ else
           exit $ERR_APT_INSTALL_TIMEOUT
       fi
   done
-fi
-
-installBpftrace
-echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
-
-PARENT_DIR=$(pwd)
-
-( 
-  cd $PARENT_DIR
-
-  installBcc
-
-  exit $?
-) > /tmp/bcc.log 2>&1 &
-
-BCC_PID=$! 
+fi 
 
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
 Storage=persistent
@@ -249,31 +234,20 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
-echo "Waiting for BCC Install to complete..."
-wait $BCC_PID
-BCC_EXIT_STATUS=$?
-if [ $BCC_EXIT_STATUS -ne 0 ]; then
-  echo "BCC installation failed with exit status $BCC_EXIT_STATUS" # print an error message
-  exit $BCC_EXIT_STATUS # exit the script with the same exit status
-fi
+installBpftrace
+echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
-grep -i "error\|fail\|exception\|abort" /tmp/bcc.log # search for any errors or failures in the log file
-if [ $? -eq 0 ]; then \
-  echo "BCC installation 'error', 'fail', 'exception', 'abort' found in the following locations in log:"
-  grep -i "error\|fail\|exception\|abort" /tmp/bcc.log
-fi
+PARENT_DIR=$(pwd)
 
-test -s /tmp/bcc.log 
-if [ $? -ne 0 ]; then
-  echo "BCC installation failed with no output or error in the log file"
-  exit 1
-fi
+( 
+  cd $PARENT_DIR
 
-cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - bcc-tools
-  - libbcc-examples
-EOF
-echo "BCC Install complete..."
+  installBcc
+
+  exit $?
+) > /tmp/bcc.log 2>&1 &
+
+BCC_PID=$!
 
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for imageToBePulled in ${ContainerImages[*]}; do
@@ -401,6 +375,32 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
 fi
 fi
 
+echo "Waiting for BCC Install to complete..."
+wait $BCC_PID
+BCC_EXIT_STATUS=$?
+if [ $BCC_EXIT_STATUS -ne 0 ]; then
+  echo "BCC installation failed with exit status $BCC_EXIT_STATUS" # print an error message
+  exit $BCC_EXIT_STATUS # exit the script with the same exit status
+fi
+
+grep -i "error\|fail\|exception\|abort" /tmp/bcc.log # search for any errors or failures in the log file
+if [ $? -eq 0 ]; then \
+  echo "BCC installation 'error', 'fail', 'exception', 'abort' found in the following locations in log:"
+  grep -i "error\|fail\|exception\|abort" /tmp/bcc.log
+fi
+
+test -s /tmp/bcc.log 
+if [ $? -ne 0 ]; then
+  echo "BCC installation failed with no output or error in the log file"
+  exit 1
+fi
+
+cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - bcc-tools
+  - libbcc-examples
+EOF
+echo "BCC Install complete..."
+
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
 systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
@@ -425,6 +425,7 @@ rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
 KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
 
+echo "Kube Proxy Version For Loop"
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # use kube-proxy as well
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
@@ -434,6 +435,7 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
+echo "Kube Proxy Version For Loop End"
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
