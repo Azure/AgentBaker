@@ -8,7 +8,6 @@ require (
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/google/go-cmp v0.5.9
-	github.com/google/uuid v1.3.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
 	github.com/onsi/ginkgo v1.12.2
@@ -16,6 +15,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.6.1
 	google.golang.org/protobuf v1.31.0
+	gopkg.in/yaml.v2 v2.3.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

@@ -1,0 +1,13 @@
+rules:
+- matchers:
+  - field: subscriptionId
+    values:
+    - sub1
+    - sub2
+    - sub3
+  - field: tenantId
+    values:
+    - t1
+  value: superCoolSub
+  
+  

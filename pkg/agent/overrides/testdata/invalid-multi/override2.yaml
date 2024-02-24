@@ -1,0 +1,9 @@
+rules:
+- matchers:
+  - field: ResourceGroupName
+    values:
+    - rg1
+    - rg2
+    - rg3
+  value: superCoolRG
+  

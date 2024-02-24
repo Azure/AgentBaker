@@ -1,0 +1,15 @@
+rules:
+- matchers:
+  - field: subscriptionId
+    values:
+    - sub1
+  mapValue: 
+    key: value1
+- matchers:
+  - field: tenantId
+    values:
+    - t1
+    - t2
+    - t3
+  mapValue: 
+    key: value2
