@@ -1,6 +1,8 @@
 package overrides
 
 import (
+	"os"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -9,7 +11,10 @@ var _ = Describe("read tests", func() {
 	Context("ReadFromDir", func() {
 		When("dir is empty", func() {
 			It("should return nil overrides", func() {
-				overrides, err := ReadFromDir("testdata/empty")
+				dir, err := os.MkdirTemp("testdata", "*")
+				Expect(err).To(BeNil())
+				defer os.Remove(dir)
+				overrides, err := ReadFromDir(dir)
 				Expect(err).To(BeNil())
 				Expect(overrides).To(BeNil())
 			})
