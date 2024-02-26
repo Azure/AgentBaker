@@ -117,7 +117,7 @@ function Expand-OS-Partition {
         Write-Log "No need to expand the OS partition size"
         return
     }
-
+    Write-Log "Shiqian Log"
     Write-Log "Customized OS disk size is $customizedDiskSize GB"
     [Int32]$osPartitionSize = 0
     if ([Int32]::TryParse($customizedDiskSize, [ref]$osPartitionSize)) {
@@ -184,6 +184,7 @@ function Get-ContainerImages {
                 & crictl.exe pull $image
             } -ErrorMessage "Failed to pull image $image"
         }
+        Get-SystemDriveDiskInfo
     }
     Stop-Job  -Name containerd
     Remove-Job -Name containerd
@@ -735,7 +736,15 @@ function Get-SystemDriveDiskInfo {
     $disksInfo=Get-CimInstance -ClassName Win32_LogicalDisk
     foreach($disk in $disksInfo) {
         if ($disk.DeviceID -eq "C:") {
-            Write-Log "Disk C: Free space: $($disk.FreeSpace), Total size: $($disk.Size)"
+            $freeSpaceKB = $disk.FreeSpace / 1KB
+            $freeSpaceMB = $disk.FreeSpace / 1MB
+            $freeSpaceGB = $disk.FreeSpace / 1GB
+
+            $totalSizeKB = $disk.Size / 1KB
+            $totalSizeMB = $disk.Size / 1MB
+            $totalSizeGB = $disk.Size / 1GB
+
+            Write-Log "Shiqian Log: Disk C: Free space: $($disk.FreeSpace) bytes ($freeSpaceKB KB, $freeSpaceMB MB, $freeSpaceGB GB), Total size: $($disk.Size) bytes ($totalSizeKB KB, $totalSizeMB MB, $totalSizeGB GB)"
         }
     }
 }
@@ -806,31 +815,45 @@ try{
     switch ($env:ProvisioningPhase) {
         "1" {
             Write-Log "Performing actions for provisioning phase 1"
+            Get-SystemDriveDiskInfo
             Expand-OS-Partition
+            Get-SystemDriveDiskInfo
             Exclude-ReservedUDPSourcePort
             Get-LatestWindowsDefenderPlatformUpdate
             Disable-WindowsUpdates
             Set-WinRmServiceDelayedStart
             Update-DefenderSignatures
+            Get-SystemDriveDiskInfo
             Log-ReofferUpdate
             Install-OpenSSH
             Log-ReofferUpdate
+            Get-SystemDriveDiskInfo
             Install-WindowsPatches
+            Get-SystemDriveDiskInfo
             Update-WindowsFeatures
+            Get-SystemDriveDiskInfo
         }
         "2" {
             Write-Log "Performing actions for provisioning phase 2"
             Log-ReofferUpdate
             Set-WinRmServiceAutoStart
+            Get-SystemDriveDiskInfo
             Install-ContainerD
+            Get-SystemDriveDiskInfo
             Update-Registry
+            Get-SystemDriveDiskInfo
             Get-ContainerImages
+            Get-SystemDriveDiskInfo
             Get-FilesToCacheOnVHD
+            Get-SystemDriveDiskInfo
             Get-ToolsToVHD # Rely on the completion of Get-FilesToCacheOnVHD
+            Get-SystemDriveDiskInfo
             Get-PrivatePackagesToCacheOnVHD
+            Get-SystemDriveDiskInfo
             Remove-Item -Path c:\windows-vhd-configuration.ps1
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
             Log-ReofferUpdate
+            Get-SystemDriveDiskInfo
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"
