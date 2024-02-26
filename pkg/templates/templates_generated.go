@@ -5357,7 +5357,8 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
             "1.28.1",
             "1.28.3",
             "1.28.5",
-            "1.29.0"
+            "1.29.0",
+            "1.29.2"
         ]
     },
     "_template": {
@@ -8402,7 +8403,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.38.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.39.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
