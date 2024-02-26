@@ -1,4 +1,10 @@
 #!/bin/bash
+
+start_time=$(date +%s)
+echo "Declare variables / remove comments / Execute /home/packer files start: $start_time"
+declare -A time_stamps=()   
+declare -a logical_order=()
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
@@ -15,6 +21,11 @@ source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
 
+record_benchmark 'Declare variables / remove comments / Execute /home/packer files End'
+stop_watch 'Declare variables / remove comments / Execute /home/packer files'
+record_benchmark 'Create post-build test Start'
+start_watch
+
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
@@ -26,18 +37,38 @@ cat manifest.json > ${MANIFEST_FILEPATH}
 cat ${THIS_DIR}/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 
+record_benchmark 'Create post-build test End'
+stop_watch 'Create post-build test'
+record_benchmark 'Set permissions if Mariner Start'
+start_watch
+
 if [[ $OS == $MARINER_OS_NAME ]]; then
   chmod 755 /opt
   chmod 755 /opt/azure
   chmod 644 ${VHD_LOGS_FILEPATH}
 fi
 
+record_benchmark 'Set permissions if Mariner End'
+stop_watch 'Set permissions if Mariner'
+record_benchmark 'Copy packer files and start disk queue Start'
+start_watch
+
 copyPackerFiles
 systemctlEnableAndStart disk_queue || exit 1
+
+record_benchmark 'Copy packer files and start disk queue End'
+stop_watch 'Copy packer files and start disk queue'
+record_benchmark 'Make certs directory, set permissions, and update certs Start'
+start_watch
 
 mkdir /opt/certs
 chmod 1666 /opt/certs
 systemctlEnableAndStart update_certs.path || exit 1
+
+record_benchmark 'Make certs directory, set permissions, and update certs End'
+stop_watch 'Make certs directory, set permissions, and update certs'
+record_benchmark 'Start system logs and AKS log collector Start'
+start_watch
 
 systemctlEnableAndStart ci-syslog-watcher.path || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service || exit 1
@@ -46,11 +77,26 @@ systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
 systemctlEnableAndStart aks-log-collector.timer || exit 1
 
+record_benchmark 'Start system logs and AKS log collector End'
+stop_watch 'Start system logs and AKS log collector'
+record_benchmark 'Start modified log-rotate service and remove auto-generated default log-rotate service Start'
+start_watch
+
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
 systemctlEnableAndStart logrotate.timer || exit 1
 rm -f /etc/cron.daily/logrotate
 
+record_benchmark 'Start modified log-rotate service and remove auto-generated default log-rotate service End'
+stop_watch 'Start modified log-rotate service and remove auto-generated default log-rotate service'
+record_benchmark 'Sync container logs Start'
+start_watch
+
 systemctlEnableAndStart sync-container-logs.service || exit 1
+
+record_benchmark 'Sync container logs End'
+stop_watch 'Sync container logs'
+record_benchmark 'Handle Mariner and FIPS Configurations Start'
+start_watch
 
 # First handle Mariner + FIPS
 if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
@@ -86,6 +132,11 @@ else
   fi
 fi
 
+record_benchmark 'Handle Mariner and FIPS Configurations End'
+stop_watch 'Handle Marine and FIPS Configurations'
+record_benchmark 'Handle Azure Linux + CgroupV2 Start'
+start_watch
+
 # Handle Azure Linux + CgroupV2
 if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
   enableCgroupV2forAzureLinux
@@ -105,5 +156,14 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" ]]; then
   
   update-grub
 fi
+
+record_benchmark 'Handle Azure Linux + CgroupV2 End'
+stop_watch 'Handle Azure Linux + CgroupV2'
+
+echo
+echo
+print_benchmark_results
+echo
+echo
 
 echo "pre-install-dependencies step finished successfully"
