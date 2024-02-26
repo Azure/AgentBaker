@@ -11,7 +11,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func ReadFromDir(dirName string) (*Overrides, error) {
+// ReadDir reads a set of override definitions from a specified directory and returns the
+// corresponding Overrides instance. The directory must contain a set of YAML files
+// in the form of <override-name>.yaml. If the specified directory is empty,
+// this function will return nil. If at least one error is encountered while walking
+// the specified directory, a non-nil ReadError will be returned.
+func ReadDir(dirName string) (*Overrides, error) {
 	overrides := NewOverrides()
 
 	info, err := os.Stat(dirName)
@@ -22,7 +27,7 @@ func ReadFromDir(dirName string) (*Overrides, error) {
 		return nil, fmt.Errorf("overrides location is not a directory")
 	}
 
-	var readErr ReadFromDirErr
+	var readErr ReadError
 	_ = filepath.Walk(dirName, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			readErr.Add(err)
@@ -68,18 +73,18 @@ func ReadFromDir(dirName string) (*Overrides, error) {
 	return overrides, nil
 }
 
-type ReadFromDirErr struct {
+type ReadError struct {
 	errs []error
 }
 
-func (e *ReadFromDirErr) Add(err error) {
+func (e *ReadError) Add(err error) {
 	e.errs = append(e.errs, err)
 }
 
-func (e *ReadFromDirErr) IsEmpty() bool {
+func (e *ReadError) IsEmpty() bool {
 	return len(e.errs) < 1
 }
 
-func (e ReadFromDirErr) Error() string {
+func (e ReadError) Error() string {
 	return errors.Join(e.errs...).Error()
 }

@@ -1,19 +1,19 @@
 package overrides
 
+// Matches returns true iff the specified entity contains the required field
+// and the corresponding value is present within the Matcher's value set.
 func (m *Matcher) Matches(entity *Entity) bool {
-	var field string
-	switch m.Field {
-	case SubscriptionID:
-		field = entity.SubscriptionID
-	case TenantID:
-		field = entity.TenantID
-	default:
-		// this should never happen since we validate Matcher field names at unmarshal time
+	entityValue, ok := entity.Fields[m.Field]
+	if !ok {
+		// we should log a warning/error in these cases
 		return false
 	}
-	return m.Values[field]
+	return m.Values[entityValue]
 }
 
+// SatisfiedBy returns true iff the Rule is satisfied by the specified entity.
+// A Rule is only satisfied by a given entity if the entity matches **all**
+// of the Rule's Matchers.
 func (r *Rule) SatisfiedBy(entity *Entity) bool {
 	for _, m := range r.Matchers {
 		if !m.Matches(entity) {
@@ -23,11 +23,11 @@ func (r *Rule) SatisfiedBy(entity *Entity) bool {
 	return true
 }
 
-// getString returns the string associated with the **first** rule matched within the named override.
-func (o *Overrides) getString(overrideName string, entity *Entity) string {
-	override, ok := o.Overrides[overrideName]
+// getString returns the string value associated with the **first** rule matched within the named override.
+func (o *Overrides) getString(name string, entity *Entity) string {
+	override, ok := o.Overrides[name]
 	if !ok {
-		// should we log this out?
+		// we should log a warning/error in these cases
 		return ""
 	}
 	for _, rule := range override.Rules {
@@ -38,10 +38,11 @@ func (o *Overrides) getString(overrideName string, entity *Entity) string {
 	return ""
 }
 
-func (o *Overrides) getMap(overrideName string, entity *Entity) map[string]string {
-	override, ok := o.Overrides[overrideName]
+// getMap returns the map value associated with the **first** rule matched within the named override.
+func (o *Overrides) getMap(name string, entity *Entity) map[string]string {
+	override, ok := o.Overrides[name]
 	if !ok {
-		// should we log this out?
+		// we should log a warning/error in these cases
 		return nil
 	}
 	for _, rule := range override.Rules {
@@ -50,11 +51,4 @@ func (o *Overrides) getMap(overrideName string, entity *Entity) map[string]strin
 		}
 	}
 	return nil
-}
-
-// All agentbakersvc overrides go below
-
-// GetLinuxNodeImageVersionOverrides returns the Linux node image version overrides
-func (o *Overrides) GetLinuxNodeImageVersionOverrides(entity *Entity) map[string]string {
-	return o.getMap("linux-node-image-version-override", entity)
 }

@@ -9,19 +9,18 @@ var _ = Describe("overrides", func() {
 	var e *Entity
 
 	BeforeEach(func() {
-		e = &Entity{
-			SubscriptionID: "subscriptionId",
-			TenantID:       "tenantId",
-		}
+		e = NewEntity().WithFields(map[string]string{
+			"subscriptionId": "subscriptionId",
+			"tenantId":       "tenantId",
+		})
 	})
 
 	Context("Matcher tests", func() {
 		When("entity does not match", func() {
 			It("Matches() should return false", func() {
 				m := &Matcher{
-					RawField:  "subscriptionId",
+					Field:     "subscriptionId",
 					RawValues: []string{"subscription"},
-					Field:     SubscriptionID,
 					Values:    ValueSet{"subscription": true},
 				}
 				matches := m.Matches(e)
@@ -32,9 +31,8 @@ var _ = Describe("overrides", func() {
 		When("entity does match", func() {
 			It("Matches() should return true", func() {
 				m := &Matcher{
-					RawField:  "subscriptionId",
 					RawValues: []string{"subscriptionId"},
-					Field:     SubscriptionID,
+					Field:     "subscriptionId",
 					Values:    ValueSet{"subscriptionId": true},
 				}
 				matches := m.Matches(e)
@@ -49,15 +47,13 @@ var _ = Describe("overrides", func() {
 				r := &Rule{
 					Matchers: []*Matcher{
 						{
-							RawField:  "subscriptionId",
+							Field:     "subscriptionId",
 							RawValues: []string{"subscription"},
-							Field:     SubscriptionID,
 							Values:    ValueSet{"subscription": true},
 						},
 						{
-							RawField:  "tenantId",
+							Field:     "tenantId",
 							RawValues: []string{"tenant"},
-							Field:     TenantID,
 							Values:    ValueSet{"tenant": true},
 						},
 					},
@@ -73,15 +69,13 @@ var _ = Describe("overrides", func() {
 				r := &Rule{
 					Matchers: []*Matcher{
 						{
-							RawField:  "subscriptionId",
+							Field:     "subscriptionId",
 							RawValues: []string{"subscriptionId"},
-							Field:     SubscriptionID,
 							Values:    ValueSet{"subscriptionId": true},
 						},
 						{
-							RawField:  "tenantId",
+							Field:     "tenantId",
 							RawValues: []string{"tenant"},
-							Field:     TenantID,
 							Values:    ValueSet{"tenant": true},
 						},
 					},
@@ -97,15 +91,13 @@ var _ = Describe("overrides", func() {
 				r := &Rule{
 					Matchers: []*Matcher{
 						{
-							RawField:  "subscriptionId",
+							Field:     "subscriptionId",
 							RawValues: []string{"subscriptionId"},
-							Field:     SubscriptionID,
 							Values:    ValueSet{"subscriptionId": true},
 						},
 						{
-							RawField:  "tenantId",
+							Field:     "tenantId",
 							RawValues: []string{"tenantId"},
-							Field:     TenantID,
 							Values:    ValueSet{"tenantId": true},
 						},
 					},
@@ -127,15 +119,13 @@ var _ = Describe("overrides", func() {
 							{
 								Matchers: []*Matcher{
 									{
-										RawField:  "subscriptionId",
+										Field:     "subscriptionId",
 										RawValues: []string{"subscriptionId"},
-										Field:     SubscriptionID,
 										Values:    ValueSet{"subscriptionId": true},
 									},
 									{
-										RawField:  "tenantId",
+										Field:     "tenantId",
 										RawValues: []string{"tenantId"},
-										Field:     TenantID,
 										Values:    ValueSet{"tenantId": true},
 									},
 								},
@@ -157,15 +147,13 @@ var _ = Describe("overrides", func() {
 							{
 								Matchers: []*Matcher{
 									{
-										RawField:  "subscriptionId",
+										Field:     "subscriptionId",
 										RawValues: []string{"subscriptionId"},
-										Field:     SubscriptionID,
 										Values:    ValueSet{"subscriptionId": true},
 									},
 									{
-										RawField:  "tenantId",
+										Field:     "tenantId",
 										RawValues: []string{"tenantId"},
-										Field:     TenantID,
 										Values:    ValueSet{"tenantId": true},
 									},
 								},
@@ -174,8 +162,8 @@ var _ = Describe("overrides", func() {
 						},
 					}
 					overrides.Overrides["o1"] = o
-					e.SubscriptionID = "someOtherSubscription"
-					e.TenantID = "someOtherTenant"
+					e.Fields["subscriptionId"] = "someOtherSubscription"
+					e.Fields["tenantId"] = "someOtherTenant"
 					str := overrides.getString("o1", e)
 					Expect(str).To(BeEmpty())
 				})
@@ -189,15 +177,13 @@ var _ = Describe("overrides", func() {
 							{
 								Matchers: []*Matcher{
 									{
-										RawField:  "subscriptionId",
+										Field:     "subscriptionId",
 										RawValues: []string{"subscriptionId"},
-										Field:     SubscriptionID,
 										Values:    ValueSet{"subscriptionId": true},
 									},
 									{
-										RawField:  "tenantId",
+										Field:     "tenantId",
 										RawValues: []string{"tenantId"},
-										Field:     TenantID,
 										Values:    ValueSet{"tenantId": true},
 									},
 								},
@@ -219,15 +205,13 @@ var _ = Describe("overrides", func() {
 							{
 								Matchers: []*Matcher{
 									{
-										RawField:  "subscriptionId",
+										Field:     "subscriptionId",
 										RawValues: []string{"subscriptionId"},
-										Field:     SubscriptionID,
 										Values:    ValueSet{"subscriptionId": true},
 									},
 									{
-										RawField:  "tenantId",
+										Field:     "tenantId",
 										RawValues: []string{"tenantId"},
-										Field:     TenantID,
 										Values:    ValueSet{"tenantId": true},
 									},
 								},
@@ -236,15 +220,13 @@ var _ = Describe("overrides", func() {
 							{
 								Matchers: []*Matcher{
 									{
-										RawField:  "subscriptionId",
+										Field:     "subscriptionId",
 										RawValues: []string{"subscriptionId"},
-										Field:     SubscriptionID,
 										Values:    ValueSet{"subscriptionId": true},
 									},
 									{
-										RawField:  "tenantId",
+										Field:     "tenantId",
 										RawValues: []string{"tenantId"},
-										Field:     TenantID,
 										Values:    ValueSet{"tenantId": true},
 									},
 								},
@@ -268,15 +250,13 @@ var _ = Describe("overrides", func() {
 							{
 								Matchers: []*Matcher{
 									{
-										RawField:  "subscriptionId",
+										Field:     "subscriptionId",
 										RawValues: []string{"subscriptionId"},
-										Field:     SubscriptionID,
 										Values:    ValueSet{"subscriptionId": true},
 									},
 									{
-										RawField:  "tenantId",
+										Field:     "tenantId",
 										RawValues: []string{"tenantId"},
-										Field:     TenantID,
 										Values:    ValueSet{"tenantId": true},
 									},
 								},
@@ -297,15 +277,13 @@ var _ = Describe("overrides", func() {
 								{
 									Matchers: []*Matcher{
 										{
-											RawField:  "subscriptionId",
+											Field:     "subscriptionId",
 											RawValues: []string{"subscriptionId"},
-											Field:     SubscriptionID,
 											Values:    ValueSet{"subscriptionId": true},
 										},
 										{
-											RawField:  "tenantId",
+											Field:     "tenantId",
 											RawValues: []string{"tenantId"},
-											Field:     TenantID,
 											Values:    ValueSet{"tenantId": true},
 										},
 									},
@@ -314,8 +292,8 @@ var _ = Describe("overrides", func() {
 							},
 						}
 						overrides.Overrides["o1"] = o
-						e.SubscriptionID = "someOtherSubscription"
-						e.TenantID = "someOtherTenant"
+						e.Fields["subscriptionId"] = "someOtherSubscription"
+						e.Fields["tenantId"] = "someOtherTenant"
 						m := overrides.getMap("o1", e)
 						Expect(m).To(BeNil())
 					})
@@ -329,15 +307,13 @@ var _ = Describe("overrides", func() {
 								{
 									Matchers: []*Matcher{
 										{
-											RawField:  "subscriptionId",
+											Field:     "subscriptionId",
 											RawValues: []string{"subscriptionId"},
-											Field:     SubscriptionID,
 											Values:    ValueSet{"subscriptionId": true},
 										},
 										{
-											RawField:  "tenantId",
+											Field:     "tenantId",
 											RawValues: []string{"tenantId"},
-											Field:     TenantID,
 											Values:    ValueSet{"tenantId": true},
 										},
 									},
@@ -360,15 +336,13 @@ var _ = Describe("overrides", func() {
 								{
 									Matchers: []*Matcher{
 										{
-											RawField:  "subscriptionId",
+											Field:     "subscriptionId",
 											RawValues: []string{"subscriptionId"},
-											Field:     SubscriptionID,
 											Values:    ValueSet{"subscriptionId": true},
 										},
 										{
-											RawField:  "tenantId",
+											Field:     "tenantId",
 											RawValues: []string{"tenantId"},
-											Field:     TenantID,
 											Values:    ValueSet{"tenantId": true},
 										},
 									},
@@ -377,15 +351,13 @@ var _ = Describe("overrides", func() {
 								{
 									Matchers: []*Matcher{
 										{
-											RawField:  "subscriptionId",
+											Field:     "subscriptionId",
 											RawValues: []string{"subscriptionId"},
-											Field:     SubscriptionID,
 											Values:    ValueSet{"subscriptionId": true},
 										},
 										{
-											RawField:  "tenantId",
+											Field:     "tenantId",
 											RawValues: []string{"tenantId"},
-											Field:     TenantID,
 											Values:    ValueSet{"tenantId": true},
 										},
 									},

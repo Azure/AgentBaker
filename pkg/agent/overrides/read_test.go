@@ -14,7 +14,7 @@ var _ = Describe("read tests", func() {
 				dir, err := os.MkdirTemp("testdata", "*")
 				Expect(err).To(BeNil())
 				defer os.Remove(dir)
-				overrides, err := ReadFromDir(dir)
+				overrides, err := ReadDir(dir)
 				Expect(err).To(BeNil())
 				Expect(overrides).To(BeNil())
 			})
@@ -22,7 +22,7 @@ var _ = Describe("read tests", func() {
 
 		When("dir does not exist", func() {
 			It("should return an error", func() {
-				overrides, err := ReadFromDir("testdata/does-not-exist")
+				overrides, err := ReadDir("testdata/does-not-exist")
 				Expect(overrides).To(BeNil())
 				Expect(err).ToNot(BeNil())
 				Expect(err.Error()).To(ContainSubstring("stat overrides location"))
@@ -31,7 +31,7 @@ var _ = Describe("read tests", func() {
 
 		When("location is not a dir", func() {
 			It("should return an error", func() {
-				overrides, err := ReadFromDir("testdata/singular/the-single-override.yaml")
+				overrides, err := ReadDir("testdata/singular/the-single-override.yaml")
 				Expect(overrides).To(BeNil())
 				Expect(err).ToNot(BeNil())
 				Expect(err.Error()).To(ContainSubstring("overrides location is not a directory"))
@@ -40,40 +40,39 @@ var _ = Describe("read tests", func() {
 
 		When("dir contains a single invalid yaml definition", func() {
 			It("should return an error", func() {
-				overrides, err := ReadFromDir("testdata/invalid-singular")
+				overrides, err := ReadDir("testdata/invalid-singular")
 				Expect(overrides).To(BeNil())
 				Expect(err).ToNot(BeNil())
 				Expect(err.Error()).To(ContainSubstring("unmarshaling override yaml"))
-				Expect(err.Error()).To(ContainSubstring("unrecognized Entity field for agentbakersvc override matcher: \"ResourceGroupName\""))
+				Expect(err.Error()).To(ContainSubstring("block sequence entries are not allowed in this context"))
 			})
 		})
 
 		When("dir contains multiple invalid yaml definitions", func() {
 			It("should return an error", func() {
-				overrides, err := ReadFromDir("testdata/invalid-multi")
+				overrides, err := ReadDir("testdata/invalid-multi")
 				Expect(overrides).To(BeNil())
 				Expect(err).ToNot(BeNil())
-				Expect(err.Error()).To(ContainSubstring("inferring override name from yaml file name: \"override.1.yaml\", override yaml name must be in the form of <name>.yaml"))
 				Expect(err.Error()).To(ContainSubstring("unmarshaling override yaml"))
-				Expect(err.Error()).To(ContainSubstring("unrecognized Entity field for agentbakersvc override matcher: \"ResourceGroupName\""))
+				Expect(err.Error()).To(ContainSubstring("inferring override name from yaml file name: \"override.1.yaml\", override yaml name must be in the form of <name>.yaml"))
+				Expect(err.Error()).To(ContainSubstring("block sequence entries are not allowed in this context"))
 			})
 		})
 
 		When("dir contains a single valid yaml definition", func() {
 			It("should read the singular override", func() {
-				overrides, err := ReadFromDir("testdata/singular")
+				overrides, err := ReadDir("testdata/singular")
 				Expect(err).To(BeNil())
 				Expect(overrides.Overrides).ToNot(BeNil())
 				Expect(overrides.Overrides).To(HaveKey("the-single-override"))
-
-				e := &Entity{
-					SubscriptionID: "sub2",
-					TenantID:       "t1",
-				}
+				e := NewEntity().WithFields(map[string]string{
+					"subscriptionId": "sub2",
+					"tenantId":       "t1",
+				})
 				str := overrides.getString("the-single-override", e)
 				Expect(str).To(Equal("superCoolSub"))
 
-				e.TenantID = "otherTenantId"
+				e.Fields["tenantId"] = "otherTenantId"
 				str = overrides.getString("the-singular-override", e)
 				Expect(str).To(BeEmpty())
 			})
@@ -81,43 +80,43 @@ var _ = Describe("read tests", func() {
 
 		When("dir contains multiple valid yaml definitions", func() {
 			It("should read all the overrides", func() {
-				overrides, err := ReadFromDir("testdata/multi")
+				overrides, err := ReadDir("testdata/multi")
 				Expect(err).To(BeNil())
 				Expect(overrides.Overrides).To(HaveKey("override1"))
 				Expect(overrides.Overrides).To(HaveKey("override2"))
 				Expect(overrides.Overrides).To(HaveKey("override3"))
 
-				e := &Entity{
-					SubscriptionID: "sub3",
-					TenantID:       "tenantId",
-				}
+				e := NewEntity().WithFields(map[string]string{
+					"subscriptionId": "sub3",
+					"tenantId":       "tenantId",
+				})
 				str := overrides.getString("override1", e)
 				Expect(str).To(Equal("superCoolSub"))
 
-				e.SubscriptionID = "sub1"
-				e.TenantID = "t3"
+				e.Fields["subscriptionId"] = "sub1"
+				e.Fields["tenantId"] = "t3"
 				m := overrides.getMap("override2", e)
 				Expect(m).ToNot(BeNil())
 				Expect(m).To(HaveKeyWithValue("key1", "value1"))
 				Expect(m).To(HaveKeyWithValue("key2", "value2"))
 				Expect(m).To(HaveKeyWithValue("key3", "value3"))
 
-				e.SubscriptionID = "sub4"
+				e.Fields["subscriptionId"] = "sub4"
 				str = overrides.getString("override1", e)
 				Expect(str).To(BeEmpty())
 
-				e.TenantID = "tenantId"
+				e.Fields["tenantId"] = "tenantId"
 				m = overrides.getMap("override2", e)
 				Expect(m).To(BeNil())
 
-				e.SubscriptionID = "sub1"
-				e.TenantID = "t1"
+				e.Fields["subscriptionId"] = "sub1"
+				e.Fields["tenantId"] = "t1"
 				m = overrides.getMap("override3", e)
 				Expect(m).To(HaveKeyWithValue("key", "value1"))
 				Expect(m).ToNot(HaveKeyWithValue("key", "value2"))
 
-				e.SubscriptionID = "sub2"
-				e.TenantID = "t1"
+				e.Fields["subscriptionId"] = "sub2"
+				e.Fields["tenantId"] = "t1"
 				m = overrides.getMap("override3", e)
 				Expect(m).To(HaveKeyWithValue("key", "value2"))
 				Expect(m).ToNot(HaveKeyWithValue("key", "value1"))
