@@ -10,13 +10,13 @@ import (
 var _ = Describe("read tests", func() {
 	Context("ReadFromDir", func() {
 		When("dir is empty", func() {
-			It("should return nil overrides", func() {
+			It("should return empty overrides", func() {
 				dir, err := os.MkdirTemp("testdata", "*")
 				Expect(err).To(BeNil())
 				defer os.Remove(dir)
 				overrides, err := ReadDir(dir)
 				Expect(err).To(BeNil())
-				Expect(overrides).To(BeNil())
+				Expect(overrides.Overrides).To(BeEmpty())
 			})
 		})
 
@@ -107,7 +107,7 @@ var _ = Describe("read tests", func() {
 
 				e.Fields["tenantId"] = "tenantId"
 				m = overrides.getMap("override2", e)
-				Expect(m).To(BeNil())
+				Expect(m).To(BeEmpty())
 
 				e.Fields["subscriptionId"] = "sub1"
 				e.Fields["tenantId"] = "t1"

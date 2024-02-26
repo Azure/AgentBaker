@@ -43,12 +43,12 @@ func (o *Overrides) getMap(name string, entity *Entity) map[string]string {
 	override, ok := o.Overrides[name]
 	if !ok {
 		// we should log a warning/error in these cases
-		return nil
+		return map[string]string{}
 	}
 	for _, rule := range override.Rules {
 		if rule.SatisfiedBy(entity) {
 			return rule.MapValue
 		}
 	}
-	return nil
+	return map[string]string{}
 }

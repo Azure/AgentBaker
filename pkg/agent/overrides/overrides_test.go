@@ -243,7 +243,7 @@ var _ = Describe("overrides", func() {
 
 		Context("getMap tests", func() {
 			When("the specified override is not found", func() {
-				It("return a nil map", func() {
+				It("return an empty map", func() {
 					overrides := NewOverrides()
 					o := &Override{
 						Rules: []*Rule{
@@ -266,11 +266,11 @@ var _ = Describe("overrides", func() {
 					}
 					overrides.Overrides["o1"] = o
 					m := overrides.getMap("o2", e)
-					Expect(m).To(BeNil())
+					Expect(m).To(BeEmpty())
 				})
 
 				When("no rules are satisifed", func() {
-					It("should return a nil map", func() {
+					It("should return an empty map", func() {
 						overrides := NewOverrides()
 						o := &Override{
 							Rules: []*Rule{
@@ -295,7 +295,7 @@ var _ = Describe("overrides", func() {
 						e.Fields["subscriptionId"] = "someOtherSubscription"
 						e.Fields["tenantId"] = "someOtherTenant"
 						m := overrides.getMap("o1", e)
-						Expect(m).To(BeNil())
+						Expect(m).To(BeEmpty())
 					})
 				})
 

@@ -11,26 +11,30 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	expectedOverrideYAMLNameParts = 2
+)
+
 // ReadDir reads a set of override definitions from a specified directory and returns the
 // corresponding Overrides instance. The directory must contain a set of YAML files
 // in the form of <override-name>.yaml. If the specified directory is empty,
-// this function will return nil. If at least one error is encountered while walking
+// the resulting overrides will also be empty. If at least one error is encountered while walking
 // the specified directory, a non-nil ReadError will be returned.
 func ReadDir(dirName string) (*Overrides, error) {
 	overrides := NewOverrides()
 
-	info, err := os.Stat(dirName)
-	if err != nil {
-		return nil, fmt.Errorf("stat overrides location %q: %w", dirName, err)
+	dirInfo, statErr := os.Stat(dirName)
+	if statErr != nil {
+		return nil, fmt.Errorf("stat overrides location %q: %w", dirName, statErr)
 	}
-	if !info.Mode().IsDir() {
+	if !dirInfo.Mode().IsDir() {
 		return nil, fmt.Errorf("overrides location is not a directory")
 	}
 
 	var readErr ReadError
-	_ = filepath.Walk(dirName, func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			readErr.Add(err)
+	_ = filepath.Walk(dirName, func(path string, info fs.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			readErr.Add(walkErr)
 			return nil
 		}
 		if !info.IsDir() {
@@ -49,7 +53,7 @@ func ReadDir(dirName string) (*Overrides, error) {
 			var overrideName string
 			nameParts := strings.Split(info.Name(), ".")
 			switch len(nameParts) {
-			case 2:
+			case expectedOverrideYAMLNameParts:
 				overrideName = nameParts[0]
 			default:
 				readErr.Add(fmt.Errorf("inferring override name from yaml file name: %q, override yaml name must be in the form of <name>.yaml", info.Name()))
@@ -66,9 +70,6 @@ func ReadDir(dirName string) (*Overrides, error) {
 	})
 	if !readErr.IsEmpty() {
 		return nil, fmt.Errorf("reading overrides from %q: %w", dirName, readErr)
-	}
-	if len(overrides.Overrides) < 1 {
-		return nil, nil
 	}
 	return overrides, nil
 }
