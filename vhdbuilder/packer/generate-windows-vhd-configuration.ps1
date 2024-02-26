@@ -31,8 +31,8 @@ switch -Regex ($windowsSku) {
         $global:patchIDs = @("KB5034127")
 
         $global:imagesToPull = @(
-            "mcr.microsoft.com/windows/servercore:ltsc2019",
-            "mcr.microsoft.com/windows/nanoserver:1809"
+            "mcr.microsoft.com/windows/servercore:1809-KB5034127", # 2024.1B
+            "mcr.microsoft.com/windows/nanoserver:1809-KB5034127"  # 2024.1B
         )
     }
     "2022-containerd*" {
@@ -40,8 +40,8 @@ switch -Regex ($windowsSku) {
         $global:patchIDs = @("KB5034129")
 
         $global:imagesToPull = @(
-            "mcr.microsoft.com/windows/servercore:ltsc2022",
-            "mcr.microsoft.com/windows/nanoserver:ltsc2022",
+            "mcr.microsoft.com/windows/servercore:ltsc2022-KB5034129", # 2024.1B
+            "mcr.microsoft.com/windows/nanoserver:ltsc2022-KB5034129", # 2024.1B
 
             # NPM (Network Policy Manager) Owner: jaer-tsun (Jaeryn)
             "mcr.microsoft.com/containernetworking/azure-npm:v1.4.34"
