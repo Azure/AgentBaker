@@ -1,6 +1,6 @@
 {
   "sku": "V2gen2arm64",
-  "imageVersion": "202402.19.0",
+  "imageVersion": "202402.26.0",
   "imageBom": [
     {
       "id": "sha256:00f96ea1398dcb28099c3a80e5a7b95a11e85f3bc9de7ea8392a02d942b0b2b0",
@@ -175,15 +175,6 @@
       ]
     },
     {
-      "id": "sha256:330cd7a0767f4afe5b38b625add48fffe5acdea5d77447df9965d5ff3742a226",
-      "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-cns:v1.5.11"
-      ],
-      "repoDigests": [
-        "sha256:d35b2fe776ff7e2445675ea5a6c977314df617fe071133ebcda3a73d65a4be0c"
-      ]
-    },
-    {
       "id": "sha256:340462313a41b7352d351c604ef711f2f45a7300b3c77113561cb2aeab563ce2",
       "repoTags": [
         "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.8.3-main-01-09-2024-a192d342-targetallocator"
@@ -199,15 +190,6 @@
       ],
       "repoDigests": [
         "sha256:c762188c45d1b9bc9144b694b85313d5e49c741935a81d5b94fd7db978a40ae1"
-      ]
-    },
-    {
-      "id": "sha256:391b6623987c1d0675ceffa9ce9c91e7a618e173109d47508ece10d4ade82281",
-      "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.21.6"
-      ],
-      "repoDigests": [
-        "sha256:c0449f224597b80d0dcc5892dfbd360cc80a352b9bc5ae7471020a845929f942"
       ]
     },
     {
@@ -247,12 +229,12 @@
       ]
     },
     {
-      "id": "sha256:4878ae94242335bd897dd4a5de0194ab6787332a83948c229f1dfe4cd3987c2a",
+      "id": "sha256:48a2226cdc039dcfbab438e1d569b8e3d17b16bc8320e4caff2fa6519669a8e6",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.23.2"
+        "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.24.0"
       ],
       "repoDigests": [
-        "sha256:31854ed041f1d59f8210976fa2b71e39b0628d9d3ff868a46d444d7fcf401fb7"
+        "sha256:eb1cbe0e41106c941db15eb6382ac84aa7b389c4e9b4e1d0e307a2d0043c06a7"
       ]
     },
     {
@@ -409,6 +391,15 @@
       ]
     },
     {
+      "id": "sha256:6b256957450263e0ac3864befcf0c34c876a534be0e671d292da1e4865df3bf9",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.2"
+      ],
+      "repoDigests": [
+        "sha256:ffdff71f732990ba0985fbb138c8eebca82ba6364d5cd4e0a59c257129a90d09"
+      ]
+    },
+    {
       "id": "sha256:6dbb8c782a18243ab19d55def07d8a693af145e32d5a532e959add0248ec7bb8",
       "repoTags": [
         "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:v3.24.6"
@@ -442,6 +433,15 @@
       ],
       "repoDigests": [
         "sha256:a2902bec94fbcf29d4cdde3b51c2c4ed3c7c301318aaa9fe4a3632f145d49c18"
+      ]
+    },
+    {
+      "id": "sha256:761cfb5f19fe3a09e8062eac04ce1216825a582b02730e4a70ad9c7bbc2ccc4e",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.0"
+      ],
+      "repoDigests": [
+        "sha256:f5c6a8f6585f39d31f5b9568cd288478446bf69816823afec55298ebb38ba864"
       ]
     },
     {
@@ -796,21 +796,21 @@
       ]
     },
     {
+      "id": "sha256:f1919cff8bf1eeb640d1018670aa1dc460de0a9b20ad5f0c14bf101cd357c5e8",
+      "repoTags": [
+        "mcr.microsoft.com/containernetworking/azure-cns:v1.5.23"
+      ],
+      "repoDigests": [
+        "sha256:fc81c7824de59ffe86c696bf60bbd01b7573a713a152bedf91b5d1575e93a8db"
+      ]
+    },
+    {
       "id": "sha256:f2015264159662304c9cde852466e8bce4e9a92d666d0cebd9e337cec7262b05",
       "repoTags": [
         "mcr.microsoft.com/oss/calico/typha:v3.24.6"
       ],
       "repoDigests": [
         "sha256:0627489ae5258a22f60004cd6d38adb57237628ade195420c52d9c4342373416"
-      ]
-    },
-    {
-      "id": "sha256:f270b6b4403f2d66c93b1637d44f9e2380ce6db341b2ad1b4f4d980d96db6813",
-      "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.22.4"
-      ],
-      "repoDigests": [
-        "sha256:db467a55aa0a718440f47931e34b71ff4e54ac71b120a90e84d6b62856123563"
       ]
     },
     {
@@ -838,6 +838,15 @@
       ],
       "repoDigests": [
         "sha256:136e3a4a5897f111d1dedd404a5717ee7ff2f215e5fe878abdf4ce00c2292280"
+      ]
+    },
+    {
+      "id": "sha256:f5d06689208be56241c4454be2103cf51802d28cf26877d29e6617acb800e607",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.0"
+      ],
+      "repoDigests": [
+        "sha256:a45e70c74cdf3a062ab32b4e2d27b75838557657494d2e2a637ea0a3bfa8645f"
       ]
     },
     {
