@@ -138,7 +138,10 @@ function Install-Containerd {
   }
 
   # TODO: check if containerd is already installed and is the same version before this.
-  
+
+  $fileName = [IO.Path]::GetFileName($ContainerdUrl)
+  $containerdVersion = $fileName.Split("-")[1].SubString(1) # not full version, just the version number. For example, 1.7.9. The full version is v1.7.9-azure.1
+
   # Extract the package
   # upstream containerd package is a tar 
   $tarfile = [Io.path]::Combine($ENV:TEMP, "containerd.tar.gz")
@@ -161,6 +164,8 @@ function Install-Containerd {
   $windowsVersion = Get-WindowsPauseVersion
   $hypervRuntimes = ""
   $hypervHandlers = $global:ContainerdWindowsRuntimeHandlers.split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
+  $containerAnnotations = 'container_annotations = ["io.microsoft.container.processdumplocation", "io.microsoft.wcow.processdumptype", "io.microsoft.wcow.processdumpcount"]'
+  $podAnnotations = 'pod_annotations = ["io.microsoft.container.processdumplocation","io.microsoft.wcow.processdumptype", "io.microsoft.wcow.processdumpcount"]'
 
   # configure
   if ($global:DefaultContainerdWindowsSandboxIsolation -eq "hyperv") {
@@ -171,18 +176,31 @@ function Install-Containerd {
   $template = Get-Content -Path "c:\AzureData\windows\containerdtemplate.toml" 
   if ($sandboxIsolation -eq 0 -And $hypervHandlers.Count -eq 0) {
     # remove the value hypervisor place holder
-    $template = $template | Select-String -Pattern 'hypervisors' -NotMatch | Out-String
+    $template = $template | Select-String -Pattern 'hypervisors' -NotMatch
   }
   else {
     $hypervRuntimes = CreateHypervisorRuntimes -builds @($hypervHandlers) -image $pauseImage
   }
 
+  # remove the value containerAnnotations and podAnnotations place holder since it is not supported in containerd versions older than 1.7.9
+  if (([version]$containerdVersion).CompareTo([version]"1.7.9") -lt 0) {
+    # remove the value containerAnnotations place holder
+    $template = $template | Select-String -Pattern 'containerAnnotations' -NotMatch
+    # remove the value podAnnotations place holder
+    $template = $template | Select-String -Pattern 'podAnnotations' -NotMatch
+  }
+
+  # Need to convert the template to string to replace the place holders but
+  # `Select-String -Pattern [PATTERN] -NotMatch` does not work after converting the template to string
+  $template =  $template | Out-String
   $template.Replace('{{sandboxIsolation}}', $sandboxIsolation).
   Replace('{{pauseImage}}', $pauseImage).
   Replace('{{hypervisors}}', $hypervRuntimes).
   Replace('{{cnibin}}', $formatedbin).
   Replace('{{cniconf}}', $formatedconf).
-  Replace('{{currentversion}}', $windowsVersion) | `
+  Replace('{{currentversion}}', $windowsVersion).
+  Replace('{{containerAnnotations}}', $containerAnnotations).
+  Replace('{{podAnnotations}}', $podAnnotations) | `
     Out-File -FilePath "$configFile" -Encoding ascii
 
   RegisterContainerDService -KubeDir $KubeDir
