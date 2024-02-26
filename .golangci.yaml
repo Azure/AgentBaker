@@ -324,3 +324,4 @@ issues:
         - gochecknoglobals
         - testpackage
         - tparallel
+        - revive
