@@ -81,7 +81,7 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.1.1-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.2-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.3-windows-hp", # for k8s 1.28.x
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.24.11", # for k8s 1.25.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.0-windows-hp", # for k8s 1.29.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.9", # for k8s 1.26.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.10", # for k8s 1.26.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.11", # for k8s 1.26.x
@@ -91,6 +91,7 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.1-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.2-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.3-windows-hp", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.0-windows-hp", # for k8s 1.29.x
     # Addon of Azure secrets store. Owner: jiashun0011 (Jiashun Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.4",
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.0",
@@ -121,7 +122,8 @@ $global:map = @{
     "c:\akse-cache\"              = @(
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.37.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.38.zip"
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.38.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.39.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
@@ -165,7 +167,8 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.0-hotfix.20231102/windowszip/v1.28.0-hotfix.20231102-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.3-hotfix.20231103/windowszip/v1.28.3-hotfix.20231103-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.5/windowszip/v1.28.5-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.29.0/windowszip/v1.29.0-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.29.0/windowszip/v1.29.0-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         # Azure CNI v1 (legacy)
