@@ -98,13 +98,9 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.0",
     # Azure cloud node manager. Owner: nilo19 (Qi Ni)
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.18", # for k8s 1.25.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.24", # for k8s 1.25.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.14", # for k8s 1.26.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.19", # for k8s 1.26.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.8", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.13", # for k8s 1.27.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.0", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.5", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.0", # for k8s 1.29.x
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
@@ -121,7 +117,6 @@ $global:map = @{
     "c:\akse-cache\"              = @(
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.37.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.38.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.39.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
@@ -131,7 +126,6 @@ $global:map = @{
     # versions synced.
     "c:\akse-cache\containerd\"   = @(
         $defaultContainerdPackageUrl,
-        "https://acs-mirror.azureedge.net/containerd/windows/v1.7.1-azure.1/binaries/containerd-v1.7.1-azure.1-windows-amd64.tar.gz",
         "https://acs-mirror.azureedge.net/containerd/windows/v1.7.9-azure.1/binaries/containerd-v1.7.9-azure.1-windows-amd64.tar.gz"
     );
     "c:\akse-cache\csi-proxy\"    = @(
