@@ -6,6 +6,7 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	agentoverrides "github.com/Azure/agentbaker/pkg/agent/overrides"
 )
 
 func Fuzz(data []byte) int {
@@ -15,7 +16,8 @@ func Fuzz(data []byte) int {
 		return -1
 	}
 
-	baker, err := agent.NewAgentBaker()
+	overrides := agentoverrides.NewOverrides()
+	baker, err := agent.NewAgentBaker(overrides)
 	if err != nil {
 		return -1
 	}

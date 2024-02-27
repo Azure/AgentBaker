@@ -8,20 +8,25 @@ import (
 	"fmt"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	agentoverrides "github.com/Azure/agentbaker/pkg/agent/overrides"
 )
 
 //nolint:revive // Name does not need to be modified to baker
 type AgentBaker interface {
 	GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
-	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, region string, distro datamodel.Distro) (*datamodel.SigImageConfig, error)
-	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, region string) (map[datamodel.Distro]datamodel.SigImageConfig, error)
+	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, subscriptionID, tenantID, region string, distro datamodel.Distro) (*datamodel.SigImageConfig, error)
+	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, subscriptionID, tenantID, region string) (map[datamodel.Distro]datamodel.SigImageConfig, error)
 }
 
-func NewAgentBaker() (AgentBaker, error) {
-	return &agentBakerImpl{}, nil
+func NewAgentBaker(overrides *agentoverrides.Overrides) (AgentBaker, error) {
+	return &agentBakerImpl{
+		overrides: overrides,
+	}, nil
 }
 
-type agentBakerImpl struct{}
+type agentBakerImpl struct {
+	overrides *agentoverrides.Overrides
+}
 
 //nolint:revive, nolintlint // ctx is not used, but may be in the future
 func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context,
@@ -63,7 +68,90 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context,
 		return nil, fmt.Errorf("can't find image for distro %s", distro)
 	}
 
+	if !config.AgentPoolProfile.IsWindows() {
+		e := agentoverrides.NewEntity().FromNodeBootstrappingConfiguration(config)
+		imageVersionOverrides := agentBaker.overrides.GetLinuxNodeImageVersion(e)
+		if imageVersion, ok := imageVersionOverrides[string(distro)]; ok {
+			nodeBootstrapping.SigImageConfig.Version = imageVersion
+		}
+	}
+
 	return nodeBootstrapping, nil
+}
+
+func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(
+	sigConfig datamodel.SIGConfig, subscriptionID, tenantID, region string, distro datamodel.Distro) (*datamodel.SigImageConfig, error) {
+	sigAzureEnvironmentSpecConfig, err := datamodel.GetSIGAzureCloudSpecConfig(sigConfig, region)
+	if err != nil {
+		return nil, err
+	}
+
+	sigImageConfig := findSIGImageConfig(sigAzureEnvironmentSpecConfig, distro)
+	if sigImageConfig == nil {
+		return nil, fmt.Errorf("can't find SIG image config for distro %s in region %s", distro, region)
+	}
+
+	if !distro.IsWindowsDistro() {
+		e := agentoverrides.NewEntity().WithFields(map[string]string{
+			agentoverrides.SubscriptionIDFieldName: subscriptionID,
+			agentoverrides.TenantIDFieldName:       tenantID,
+		})
+		imageVersionOverrides := agentBaker.overrides.GetLinuxNodeImageVersion(e)
+		if imageVersion, ok := imageVersionOverrides[string(distro)]; ok {
+			sigImageConfig.Version = imageVersion
+		}
+	}
+
+	return sigImageConfig, nil
+}
+
+func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
+	sigConfig datamodel.SIGConfig, subscriptionID, tenantID, region string) (map[datamodel.Distro]datamodel.SigImageConfig, error) {
+	allAzureSigConfig, err := datamodel.GetSIGAzureCloudSpecConfig(sigConfig, region)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sig image config: %w", err)
+	}
+
+	allDistros := map[datamodel.Distro]datamodel.SigImageConfig{}
+	for distro, sigConfig := range allAzureSigConfig.SigWindowsImageConfig {
+		allDistros[distro] = sigConfig
+	}
+
+	e := agentoverrides.NewEntity().WithFields(map[string]string{
+		agentoverrides.SubscriptionIDFieldName: subscriptionID,
+		agentoverrides.TenantIDFieldName:       tenantID,
+	})
+	linuxImageVersionOverrides := agentBaker.overrides.GetLinuxNodeImageVersion(e)
+
+	for distro, sigConfig := range allAzureSigConfig.SigCBLMarinerImageConfig {
+		if version, ok := linuxImageVersionOverrides[string(distro)]; ok {
+			sigConfig.Version = version
+		}
+		allDistros[distro] = sigConfig
+	}
+
+	for distro, sigConfig := range allAzureSigConfig.SigAzureLinuxImageConfig {
+		if version, ok := linuxImageVersionOverrides[string(distro)]; ok {
+			sigConfig.Version = version
+		}
+		allDistros[distro] = sigConfig
+	}
+
+	for distro, sigConfig := range allAzureSigConfig.SigUbuntuImageConfig {
+		if version, ok := linuxImageVersionOverrides[string(distro)]; ok {
+			sigConfig.Version = version
+		}
+		allDistros[distro] = sigConfig
+	}
+
+	for distro, sigConfig := range allAzureSigConfig.SigUbuntuEdgeZoneImageConfig {
+		if version, ok := linuxImageVersionOverrides[string(distro)]; ok {
+			sigConfig.Version = version
+		}
+		allDistros[distro] = sigConfig
+	}
+
+	return allDistros, nil
 }
 
 func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distro datamodel.Distro) *datamodel.SigImageConfig {
@@ -84,49 +172,4 @@ func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distr
 	}
 
 	return nil
-}
-
-func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(
-	sigConfig datamodel.SIGConfig, region string, distro datamodel.Distro) (*datamodel.SigImageConfig, error) {
-	sigAzureEnvironmentSpecConfig, err := datamodel.GetSIGAzureCloudSpecConfig(sigConfig, region)
-	if err != nil {
-		return nil, err
-	}
-
-	sigImageConfig := findSIGImageConfig(sigAzureEnvironmentSpecConfig, distro)
-	if sigImageConfig == nil {
-		return nil, fmt.Errorf("can't find SIG image config for distro %s in region %s", distro, region)
-	}
-	return sigImageConfig, nil
-}
-
-func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
-	sigConfig datamodel.SIGConfig, region string) (map[datamodel.Distro]datamodel.SigImageConfig, error) {
-	allAzureSigConfig, err := datamodel.GetSIGAzureCloudSpecConfig(sigConfig, region)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get sig image config: %w", err)
-	}
-
-	allDistros := map[datamodel.Distro]datamodel.SigImageConfig{}
-	for distro, sigConfig := range allAzureSigConfig.SigWindowsImageConfig {
-		allDistros[distro] = sigConfig
-	}
-
-	for distro, sigConfig := range allAzureSigConfig.SigCBLMarinerImageConfig {
-		allDistros[distro] = sigConfig
-	}
-
-	for distro, sigConfig := range allAzureSigConfig.SigAzureLinuxImageConfig {
-		allDistros[distro] = sigConfig
-	}
-
-	for distro, sigConfig := range allAzureSigConfig.SigUbuntuImageConfig {
-		allDistros[distro] = sigConfig
-	}
-
-	for distro, sigConfig := range allAzureSigConfig.SigUbuntuEdgeZoneImageConfig {
-		allDistros[distro] = sigConfig
-	}
-
-	return allDistros, nil
 }

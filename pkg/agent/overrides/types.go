@@ -2,6 +2,13 @@ package overrides
 
 import (
 	"fmt"
+
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+)
+
+const (
+	SubscriptionIDFieldName = "subscriptionId"
+	TenantIDFieldName       = "tenantId"
 )
 
 // Entity is what we resolve overrides against. It contains any and all fields currently
@@ -15,6 +22,16 @@ func NewEntity() *Entity {
 }
 
 func (e *Entity) WithFields(fields map[string]string) *Entity {
+	e.Fields = fields
+	return e
+}
+
+// FromNodeBootstrappingConfiguration initializes the Entity with relevant
+// fields from the specified NodeBootstrappingConfiguration.
+func (e *Entity) FromNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappingConfiguration) *Entity {
+	fields := map[string]string{}
+	fields[SubscriptionIDFieldName] = nbc.SubscriptionID
+	fields[TenantIDFieldName] = nbc.TenantID
 	e.Fields = fields
 	return e
 }

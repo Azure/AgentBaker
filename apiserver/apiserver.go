@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	agentoverrides "github.com/Azure/agentbaker/pkg/agent/overrides"
 )
 
 const (
@@ -19,7 +21,7 @@ type Options struct {
 
 func (o *Options) validate() error {
 	if o == nil {
-		return errors.New("serviceexample options can not be nil")
+		return errors.New("absvc options cannot be nil")
 	}
 
 	if o.Addr == "" {
@@ -30,17 +32,19 @@ func (o *Options) validate() error {
 
 // APIServer contains the connections details required to run the api.
 type APIServer struct {
-	Options *Options
+	Options          *Options
+	ServiceOverrides *agentoverrides.Overrides
 }
 
 // NewAPIServer creates an APIServer object with defaults.
-func NewAPIServer(o *Options) (*APIServer, error) {
+func NewAPIServer(serviceOverrides *agentoverrides.Overrides, o *Options) (*APIServer, error) {
 	if err := o.validate(); err != nil {
 		return nil, err
 	}
 
 	s := &APIServer{
-		Options: o,
+		Options:          o,
+		ServiceOverrides: serviceOverrides,
 	}
 
 	return s, nil

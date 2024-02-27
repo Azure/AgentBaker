@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/Azure/agentbaker/apiserver"
+	agentoverrides "github.com/Azure/agentbaker/pkg/agent/overrides"
 	"github.com/spf13/cobra"
 )
 
@@ -16,6 +17,7 @@ import (
 func Execute() {
 	rootCmd.AddCommand(startCmd)
 	startCmd.Flags().StringVar(&options.Addr, "addr", ":8080", "the addr to serve the api on")
+	startCmd.Flags().StringVar(&serviceOverridesDir, "overrides-dir", "", "the directory containing agentbakersvc override definitions")
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Println(err)
@@ -33,7 +35,8 @@ var rootCmd = &cobra.Command{
 
 //nolint:gochecknoglobals
 var (
-	options = &apiserver.Options{}
+	options             = &apiserver.Options{}
+	serviceOverridesDir string
 )
 
 // startCmd represents the start command.
@@ -55,6 +58,16 @@ func startHelper(_ *cobra.Command, _ []string) error {
 	ctx, shutdown := context.WithCancel(context.Background())
 	defer shutdown()
 
+	serviceOverrides := agentoverrides.NewOverrides()
+	if serviceOverridesDir != "" {
+		var err error
+		serviceOverrides, err = agentoverrides.ReadDir(serviceOverridesDir)
+		if err != nil {
+			// should we fail hard here or try to continue with startup?
+			log.Println(ctx, err.Error())
+		}
+	}
+
 	// setup signal handling to cancel the context
 	go func() {
 		signals := make(chan os.Signal, 1)
@@ -64,7 +77,7 @@ func startHelper(_ *cobra.Command, _ []string) error {
 		shutdown()
 	}()
 
-	api, err := apiserver.NewAPIServer(options)
+	api, err := apiserver.NewAPIServer(serviceOverrides, options)
 	if err != nil {
 		log.Println(ctx, err.Error())
 		return err
