@@ -131,8 +131,10 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     activateNfConntrack
 fi
 
+start_watch
 downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
+stop_watch 'downloadContainerdWasmShims with no parallelization'
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
