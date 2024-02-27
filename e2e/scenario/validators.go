@@ -24,15 +24,11 @@ func DirectoryValidator(path string, files []string) *LiveVMValidator {
 }
 
 func SysctlConfigValidator(customSysctls map[string]string) *LiveVMValidator {
-	keysToCheck := make([]string, len(customSysctls))
-	for k, _ := range customSysctls {
-		keysToCheck = append(keysToCheck, k)
-	}
 	// regex used in sed command to remove extra spaces between two numerical values, used to verify correct values for
 	// sysctls that have string values, e.g. net.ipv4.ip_local_port_range, which would be printed with extra spaces
 	return &LiveVMValidator{
 		Description: "assert sysctl settings",
-		Command:     fmt.Sprintf("sysctl %s | sed -E 's/([0-9])\\s+([0-9])/\\1 \\2/g'", strings.Join(keysToCheck, " ")),
+		Command:     "sysctl -a | sed -E 's/([0-9])\\s+([0-9])/\\1 \\2/g'",
 		Asserter: func(code, stdout, stderr string) error {
 			if code != "0" {
 				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
