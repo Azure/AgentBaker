@@ -245,6 +245,7 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
+start_watch
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for imageToBePulled in ${ContainerImages[*]}; do
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
@@ -276,6 +277,7 @@ for imageToBePulled in ${ContainerImages[*]}; do
   done
   wait # wait for all background jobs to finish
 done
+stop_watch 'Pull Container Images - with parallelization'
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
 watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
