@@ -663,7 +663,49 @@ function Update-Registry {
     }
 }
 
+function Clear-TempFolder {
+    $tempFolders = @()
+    $tempFolders += [System.Environment]::GetFolderPath('LocalApplicationData') + '\Temp'
+    $tempFolders += [System.Environment]::GetFolderPath('InternetCache')
+    $tempFolders += [System.Environment]::GetFolderPath('Windows') + '\Temp'
+
+    # Iterate over each temporary folder
+    foreach ($folder in $tempFolders) {
+        # Check if the folder exists
+        if (-not (Test-Path -Path $folder -PathType Container)) {
+            Write-Host "The folder '$folder' does not exist."
+            continue
+        }
+
+        # Get all files in the temporary folder
+        $tempFiles = Get-ChildItem -Path $folder -File -Force
+
+        # Delete each file in the temporary folder
+        foreach ($file in $tempFiles) {
+            # skip file if the file name contains "packer"
+            if ($file.Name -like "*packer*") {
+                continue
+            }
+
+            try {
+                Remove-Item -Path $file.FullName -Force
+            } catch {
+                Write-Host "Failed to remove file: $($file.FullName)"
+                continue
+            }
+        }
+
+        # Confirm completion for each folder
+        Write-Host "Temporary files in '$folder' cleaned up successfully."
+    }
+
+    # Give the system some time to release the file handles
+    Start-Sleep -Seconds 1
+}
+
+
 function Get-SystemDriveDiskInfo {
+    Clear-TempFolder
     Write-Log "Get Disk info"
     $disksInfo=Get-CimInstance -ClassName Win32_LogicalDisk
     foreach($disk in $disksInfo) {
