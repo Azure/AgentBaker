@@ -21,9 +21,6 @@ pr:
     - vhdbuilder/packer/windows-image.env
     - vhdbuilder/packer/windows-vhd-builder-sig.json
 
-pool:
-  name: $(AZURE_POOL_NAME)
-
 parameters:
 - name: build2019containerd
   displayName: Build 2019 containerd
@@ -57,9 +54,15 @@ parameters:
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
 # Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
+
+pool:
+  name: $(AZURE_POOL_NAME)
+
 variables:
   LinuxContainerImage: 'mcr.microsoft.com/onebranch/cbl-mariner/build:2.0'
   WindowsContainerImage: 'onebranch.azurecr.io/windows/ltsc2019/vse2022:latest'
+  ob_outputDirectory_default: '$(Build.SourcesDirectory)\output_default'
+  DisableGoCliScan: 'true'
 resources:
   repositories: 
     - repository: templates
