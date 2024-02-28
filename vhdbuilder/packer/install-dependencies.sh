@@ -144,8 +144,10 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     activateNfConntrack
 fi
 
+echo "Containerd Wasm Shims"
 downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
+echo "ContainerD Wasm Shims Complete"
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
@@ -250,11 +252,13 @@ ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 installBpftrace
 echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
+echo "install Bcc start"
 installBcc
 cat << EOF >> ${VHD_LOGS_FILEPATH}
   - bcc-tools
   - libbcc-examples
 EOF
+echo "install Bcc End"
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 stop_watch $capture_time "Pull NVIDIA Image, Install BCC"
@@ -418,6 +422,7 @@ rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
 # kube-proxy regular versions >=v1.17.0  hotfixes versions >= 20211009 are 'multi-arch'. All versions in kube-proxy-images.json are 'multi-arch' version now.
 
+echo "kube proxy image version"
 KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
 
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
