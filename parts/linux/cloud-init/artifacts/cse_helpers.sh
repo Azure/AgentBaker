@@ -404,8 +404,10 @@ stop_watch () {
 
 show_benchmarks () {
   echo
+  echo "Benchmarks:"
+  echo
   for i in "${benchmarks[@]}"; do
-    echo $i
+    echo "   $i"
   done
   echo
 }
