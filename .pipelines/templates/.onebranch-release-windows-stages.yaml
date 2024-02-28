@@ -38,7 +38,8 @@ stages:
         isCustom: true
         name: $(AZURE_POOL_NAME)
       variables:
-        ob_outputDirectory: '$(Build.SourcesDirectory)/out'
+        ob_outputDirectory: '$(Build.ArtifactStagingDirectory)/out'
+        ob_artifactBaseName: drop_test
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -66,7 +67,8 @@ stages:
         isCustom: true
         name: $(AZURE_POOL_NAME)
       variables:
-        ob_outputDirectory: '$(Build.SourcesDirectory)/out'
+        ob_outputDirectory: '$(Build.ArtifactStagingDirectory)/out'
+        ob_artifactBaseName: drop_test
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -94,7 +96,8 @@ stages:
         isCustom: true
         name: $(AZURE_POOL_NAME)
       variables:
-        ob_outputDirectory: '$(Build.SourcesDirectory)/out'
+        ob_outputDirectory: '$(Build.ArtifactStagingDirectory)/out'
+        ob_artifactBaseName: drop_test
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -122,7 +125,8 @@ stages:
         isCustom: true
         name: $(AZURE_POOL_NAME)
       variables:
-        ob_outputDirectory: '$(Build.SourcesDirectory)/out'
+        ob_outputDirectory: '$(Build.ArtifactStagingDirectory)/out'
+        ob_artifactBaseName: drop_test
       timeoutInMinutes: 180
       steps:
         - bash: |
