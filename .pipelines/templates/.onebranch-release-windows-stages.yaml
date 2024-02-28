@@ -23,7 +23,7 @@ stages:
           displayName: Setup Build Variables
         - template: .builder-release-template-windows.yaml
           parameters:
-            artifactName: 2019-containerd
+            artifactName: build_vhd_2019_containerd
 
   - stage: build_vhd_2022_containerd
     dependsOn: []
