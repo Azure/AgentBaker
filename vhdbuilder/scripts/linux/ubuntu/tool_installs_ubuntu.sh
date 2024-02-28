@@ -181,8 +181,10 @@ EOF
 }
 
 installFIPS() {
+    local counter=1
     echo "Installing FIPS..."
     wait_for_apt_locks
+    echo "wait for apt locks complete.."
 
     # installing fips kernel doesn't remove non-fips kernel now, purge current linux-image-azure
     echo "purging linux-image-azure..."
@@ -192,6 +194,8 @@ installFIPS() {
         if [[ ${image} != "linux-image-$(uname -r)" ]]; then
             apt_get_purge 5 10 120 ${image} || exit 1
         fi
+        echo "Operation $counter complete."
+        counter=$((counter+1))
     done
 
     echo "enabling ua fips-updates..."
