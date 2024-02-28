@@ -8,6 +8,8 @@ stages:
         type: linux
         isCustom: true
         name: $(AZURE_POOL_NAME)
+      variables:
+        ob_outputDirectory: '$(Build.SourcesDirectory)/out'
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -34,6 +36,8 @@ stages:
         type: linux
         isCustom: true
         name: $(AZURE_POOL_NAME)
+      variables:
+        ob_outputDirectory: '$(Build.SourcesDirectory)/out'
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -60,6 +64,8 @@ stages:
         type: linux
         isCustom: true
         name: $(AZURE_POOL_NAME)
+      variables:
+        ob_outputDirectory: '$(Build.SourcesDirectory)/out'
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -86,6 +92,8 @@ stages:
         type: linux
         isCustom: true
         name: $(AZURE_POOL_NAME)
+      variables:
+        ob_outputDirectory: '$(Build.SourcesDirectory)/out'
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -112,6 +120,8 @@ stages:
         type: linux
         isCustom: true
         name: $(AZURE_POOL_NAME)
+      variables:
+        ob_outputDirectory: '$(Build.SourcesDirectory)/out'
       timeoutInMinutes: 180
       steps:
         - bash: |

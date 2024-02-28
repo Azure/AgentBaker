@@ -162,15 +162,13 @@ steps:
       cp release-notes.txt ${AKS_WINDOWS_IMAGE_VERSION}.txt
     displayName: Reformat image-bom.json and rename release-notes.txt
 
-  - task: PublishPipelineArtifact@0
+  - task: PublishPipelineArtifact@1
     inputs:
-        artifactName: 'drop_build_vhd_2019_containerd_build'
         targetPath: '$(AKS_WINDOWS_IMAGE_VERSION).txt'
 
 # We can upload image bom json for check-in pr and sig mode to validate whether it is expected.
-  - task: PublishPipelineArtifact@0
+  - task: PublishPipelineArtifact@1
     inputs:          
-        artifactName: 'drop_build_vhd_2019_containerd_build'
         targetPath: '$(AKS_WINDOWS_IMAGE_VERSION)-image-list.json'
 
 # Moved conversion to VHD before cleanup.
@@ -279,7 +277,7 @@ steps:
 # Will be stepped in if the sig is for production
   - task: PublishPipelineArtifact@1
     inputs:
-        artifactName: 'drop_build_vhd_2019_containerd_build'
+        artifactName: 'publishing-info-${{ parameters.artifactName }}'
         targetPath: 'vhd-publishing-info.json'
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), 
                    eq(variables.SIG_FOR_PRODUCTION, 'True'))
