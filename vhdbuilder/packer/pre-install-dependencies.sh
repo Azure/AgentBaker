@@ -1,4 +1,9 @@
 #!/bin/bash
+
+script_start_time=$(date +%s)
+capture_time=$script_start_time
+declare -a benchmarks=()
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
@@ -14,6 +19,8 @@ source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
+stop_watch $capture_time "Declare Variables / Remove Comments / Execute home/packer files"
+start_watch
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
@@ -25,19 +32,27 @@ cat components.json > ${COMPONENTS_FILEPATH}
 cat manifest.json > ${MANIFEST_FILEPATH}
 cat ${THIS_DIR}/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
+stop_watch $capture_time "Create Post-build Test"
+start_watch
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
   chmod 755 /opt
   chmod 755 /opt/azure
   chmod 644 ${VHD_LOGS_FILEPATH}
 fi
+stop_watch $capture_time "Set Permissions if Mariner"
+start_watch
 
 copyPackerFiles
 systemctlEnableAndStart disk_queue || exit 1
+stop_watch $capture_time "Copy Packer Files"
+start_watch
 
 mkdir /opt/certs
 chmod 1666 /opt/certs
 systemctlEnableAndStart update_certs.path || exit 1
+stop_watch $capture_time "Make Certs Directory / Set Permissions / Update Certs"
+start_watch
 
 systemctlEnableAndStart ci-syslog-watcher.path || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service || exit 1
@@ -45,12 +60,18 @@ systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 # enable AKS log collector
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
 systemctlEnableAndStart aks-log-collector.timer || exit 1
+stop_watch $capture_time "Start System Logs / AKS Log Collector"
+start_watch
 
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
 systemctlEnableAndStart logrotate.timer || exit 1
 rm -f /etc/cron.daily/logrotate
+stop_watch $capture_time "Start Modified Log-rotate Service / Remove Auto-generated Service"
+start_watch
 
 systemctlEnableAndStart sync-container-logs.service || exit 1
+stop_watch $capture_time "Sync Container Logs"
+start_watch
 
 # First handle Mariner + FIPS
 if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
@@ -85,6 +106,8 @@ else
     installFIPS
   fi
 fi
+stop_watch $capture_time "Handle Mariner / FIPS Configurations"
+start_watch
 
 # Handle Azure Linux + CgroupV2
 if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
@@ -107,3 +130,6 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" ]]; then
 fi
 
 echo "pre-install-dependencies step finished successfully"
+stop_watch $capture_time "Handle Azure Linux / CgroupV2"
+stop_watch $script_start_time "pre-install-dependencies.sh"
+show_benchmarks
