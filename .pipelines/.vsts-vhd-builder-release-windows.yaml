@@ -87,8 +87,7 @@ extends:
         suppressionSet: default
     git:
       longpaths: true
-
-  stages:
+stages:
   - stage: build_vhd_2019_containerd
     dependsOn: []
     condition: eq('${{ parameters.build2019containerd }}', True)
