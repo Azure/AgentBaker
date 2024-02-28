@@ -19,6 +19,7 @@ import "pkg/proto/nbcontract/v1/customcloudconfig.proto";
 import "pkg/proto/nbcontract/v1/customcatrustconfig.proto";
 import "pkg/proto/nbcontract/v1/apiserverconfig.proto";
 import "pkg/proto/nbcontract/v1/tlsbootstrappingconfig.proto";
+import "pkg/proto/nbcontract/v1/nodepoolprofile.proto";
 
 // illustrative division only
 message Configuration {
@@ -43,8 +44,8 @@ message Configuration {
   string primary_scale_set = 13;
   
   IdentityConfig identity_config = 15;
-
   RuncConfig runc_config = 16;
+  NodePoolProfileConfig node_pool_profile_config = 17;
 
   // ... and a bunch of user-specified config
   string linux_admin_username = 18;
