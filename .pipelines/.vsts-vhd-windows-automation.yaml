@@ -16,6 +16,36 @@ parameters:
   type: boolean
   default: false
 
+extends:
+  template: v2/OneBranch.NonOfficial.CrossPlat.yml@templates # https://aka.ms/obpipelines/templates
+  parameters:
+    globalSdl:
+      antimalwareScan:
+        enabled: true
+      armory:
+        enabled: false
+      binskim:
+        enabled: true
+      cg:
+        failOnAlert: false
+      credscan:
+        enabled: true
+      eslint:
+        enabled: false
+      tsa:
+        enabled: false
+      policheck:
+        enabled: true
+      publishLogs:
+        enabled: true
+      sdtReport:
+        enabled: true
+      suppression:
+        suppressionFile: $(Build.SourcesDirectory)/.gdn/.gdnsuppress
+        suppressionSet: default
+    git:
+      longpaths: true
+
 steps:
 - bash: |
         az extension add -n azure-devops

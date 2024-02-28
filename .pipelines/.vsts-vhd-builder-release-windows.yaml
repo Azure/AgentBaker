@@ -58,6 +58,36 @@ parameters:
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
 # Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
 
+extends:
+  template: v2/OneBranch.NonOfficial.CrossPlat.yml@templates # https://aka.ms/obpipelines/templates
+  parameters:
+    globalSdl:
+      antimalwareScan:
+        enabled: true
+      armory:
+        enabled: false
+      binskim:
+        enabled: true
+      cg:
+        failOnAlert: false
+      credscan:
+        enabled: true
+      eslint:
+        enabled: false
+      tsa:
+        enabled: false
+      policheck:
+        enabled: true
+      publishLogs:
+        enabled: true
+      sdtReport:
+        enabled: true
+      suppression:
+        suppressionFile: $(Build.SourcesDirectory)/.gdn/.gdnsuppress
+        suppressionSet: default
+    git:
+      longpaths: true
+
 stages:
   - stage: build_vhd_2019_containerd
     dependsOn: []
