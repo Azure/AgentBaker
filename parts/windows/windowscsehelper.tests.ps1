@@ -45,6 +45,16 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
     Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
   }
 
+  # It retrieves the containerd version from containerd URL in Install-Containerd in staging/cse/windows/containerdfunc.ps1
+  It 'validate whether containerd URL has the correct version' {
+    $fileName = [IO.Path]::GetFileName($global:StableContainerdPackage)
+    $containerdVersion = $fileName.Split("-")[1].SubString(1)
+    {Write-Host ([version]$containerdVersion)} | Should -Not -Throw
+
+    $fileName = [IO.Path]::GetFileName($global:LatestContainerdPackage)
+    $containerdVersion = $fileName.Split("-")[1].SubString(1)
+    {Write-Host ([version]$containerdVersion)} | Should -Not -Throw
+  }
 }
 
 Describe 'Get-WindowsVersion and Get-WindowsPauseVersion' {
@@ -119,5 +129,18 @@ Describe 'Get-WindowsVersion and Get-WindowsPauseVersion' {
     $expectedPauseVersion = "ltsc2022"
     $windowsPauseVersion | Should -Be $expectedPauseVersion
   }
-  
+}
+
+Describe 'Validate Exit Codes' {
+  It 'should succeed' {
+    for($i=0; $i -lt $global:ErrorCodeNames.Length; $i++) {
+      $name=$global:ErrorCodeNames[$i]
+      $name | Should -Match '[A-Z_]+'
+
+      Write-Host "Validating $name"
+      $ErrorCode = Get-Variable "$name" -ValueOnly
+      $ErrorCode | Should -Be $i
+      Write-Host "Validated $name"
+    }
+  }
 }

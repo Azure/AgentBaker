@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 mkdir -p /root/AzureCACertificates
 # http://168.63.129.16 is a constant for the host's wireserver endpoint
 certs=$(curl "http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json")
@@ -22,7 +23,7 @@ if [[ "$marinerRepoDepotEndpoint" == "" ]]; then
 else
   for f in /etc/yum.repos.d/*.repo
   do
-      sed -i -e "s|https://packages.microsoft.com|${marinerRepoDepotEndpoint}/mariner/packages.microsoft.com|" $f
+      sed -i -e "s|https://packages.microsoft.com|${marinerRepoDepotEndpoint}/mariner/packages.microsoft.com|" "$f"
       echo "## REPO - $f - MODIFIED"
   done
 fi
