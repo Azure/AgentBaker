@@ -279,7 +279,7 @@ steps:
 # Will be stepped in if the sig is for production
   - task: PublishPipelineArtifact@1
     inputs:
-        artifactName: 'publishing-info-${{ parameters.artifactName }}'
+        artifact: 'drop_test'
         targetPath: 'vhd-publishing-info.json'
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), 
                    eq(variables.SIG_FOR_PRODUCTION, 'True'))
