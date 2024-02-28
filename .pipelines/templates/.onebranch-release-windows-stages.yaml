@@ -4,6 +4,10 @@ stages:
     condition: eq('${{ parameters.build2019containerd }}', True)
     jobs:
     - job: build
+      pool:
+        type: linux
+        isCustom: true
+        name: $(AZURE_POOL_NAME)
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -26,6 +30,10 @@ stages:
     condition: eq('${{ parameters.build2022containerd }}', True)
     jobs:
     - job: build
+      pool:
+        type: linux
+        isCustom: true
+        name: $(AZURE_POOL_NAME)
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -48,6 +56,10 @@ stages:
     condition: eq('${{ parameters.build2022containerdgen2 }}', True)
     jobs:
     - job: build
+      pool:
+        type: linux
+        isCustom: true
+        name: $(AZURE_POOL_NAME)
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -70,6 +82,10 @@ stages:
     condition: eq('${{ parameters.build23H2 }}', True)
     jobs:
     - job: build
+      pool:
+        type: linux
+        isCustom: true
+        name: $(AZURE_POOL_NAME)
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -92,6 +108,10 @@ stages:
     condition: eq('${{ parameters.build23H2gen2 }}', True)
     jobs:
     - job: build
+      pool:
+        type: linux
+        isCustom: true
+        name: $(AZURE_POOL_NAME)
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -114,6 +134,10 @@ stages:
     condition: always()
     jobs:
     - job: build
+      pool:
+        type: linux
+        isCustom: true
+        name: $(AZURE_POOL_NAME)
       timeoutInMinutes: 180
       steps:
         - bash: |
