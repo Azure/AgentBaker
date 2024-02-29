@@ -1,7 +1,7 @@
 #!/bin/bash
 
 dt_script_start=$(date +%H:%M:%S)
-dt_start=$(date +%H:%M:S)
+dt_start=$(date +%H:%M:%S)
 
 capture_script_start=$(date +%s)
 capture_time=$(date +%s)
