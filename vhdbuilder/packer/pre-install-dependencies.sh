@@ -80,7 +80,8 @@ else
     cat /etc/apt/sources.list
     echo "echoing esm infra sources.list HERE in pre-install"
     cat /etc/apt/sources.list.d/ubuntu-esm-infra.list
-    sed -i 's#https://esm.ubuntu.com/infra/ubuntu/#https://snapshot.ubuntu.com/ubuntu/20240226T090022Z#g' /etc/apt/sources.list.d/ubuntu-esm-infra.list
+    sed -i 's#https://esm.ubuntu.com/infra/ubuntu#https://snapshot.ubuntu.com/ubuntu/20240226T090022Z#g' /etc/apt/sources.list.d/ubuntu-esm-infra.list
+    echo "echoing esm infra sources.list AFTER CHANGE in pre-install"
     cat /etc/apt/sources.list.d/ubuntu-esm-infra.list
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT  
