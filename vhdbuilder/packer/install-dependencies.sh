@@ -1,7 +1,7 @@
 #!/bin/bash
 
 dt_script_start=$(date +%H:%M:%S)
-dt_start=$(date +%H:%M:S)
+dt_start=$(date +%H:%M:%S)
 
 capture_script_start=$(date +%s)
 capture_time=$(date +%s)
@@ -511,17 +511,10 @@ fi
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
 KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
 
-declare -a pids2=()
-
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false &
-  pids2+=($!)
-  while [[ $(jobs -p | wc -l) -ge 3 ]]; do # No more than 3 background processes can run in parallel
-      wait -n
-  done
+  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false
 done
-wait ${pids2[@]}
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 
