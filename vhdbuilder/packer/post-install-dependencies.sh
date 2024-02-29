@@ -1,4 +1,13 @@
 #!/bin/bash
+
+dt_script_start=$(date +%H:%M:%S)
+dt_start=$(date +%H:%M:S)
+
+capture_script_start=$(date +%s)
+capture_time=$(date +%s)
+
+declare -a benchmarks=()
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
 
@@ -8,12 +17,16 @@ source /home/packer/provision_source.sh
 source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
+stop_watch $capture_time "Determine OS / Set Comparison / Execute home/packer files" false
+start_watch
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
 MAX_BLOCK_COUNT=30298176 # 30 GB
+stop_watch $capture_time "Set Variables" false
+start_watch
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # shellcheck disable=SC2021
@@ -36,6 +49,8 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   ua status
   detachAndCleanUpUA
 fi
+stop_watch $capture_time "Log / Detach UA and Clean-up" false
+start_watch
 
 # shellcheck disable=SC2129
 echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
@@ -45,6 +60,8 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
 
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
+stop_watch $capture_time "List Installed Packages" false
+start_watch
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
@@ -56,6 +73,8 @@ usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (
 usage=${usage%.*}
 [ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
 [ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
+stop_watch $capture_time "Determine Disk Usage" false
+start_watch
 
 echo -e "=== os-release Begin" >> ${VHD_LOGS_FILEPATH}
 cat /etc/os-release >> ${VHD_LOGS_FILEPATH}
@@ -74,11 +93,15 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "Container runtime: ${CONTAINER_RUNTIME}"
   echo "FIPS enabled: ${ENABLE_FIPS}"
 } >> ${VHD_LOGS_FILEPATH}
+stop_watch $capture_time "Write Logs" false
+start_watch
 
 if [[ $(isARM64) != 1 ]]; then
   # no asc-baseline-1.1.0-268.arm64.deb
   installAscBaseline
 fi
+stop_watch $capture_time "Instal Asc Baseline" false
+start_watch
 
 if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
   if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH} == "arm64" ]]; then
@@ -87,3 +110,6 @@ if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_R
 fi
 
 echo "post-install-dependencies step completed successfully"
+stop_watch $capture_time "RelinkResolveConf" false
+stop_watch $capture_script_start "post-install-dependencies.sh" true
+show_benchmarks
