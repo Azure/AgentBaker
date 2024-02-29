@@ -7,6 +7,7 @@ function Set-TelemetrySetting
         [Parameter(Mandatory=$true)][string]
         $WindowsTelemetryGUID
     )
+    Logs-To-Event -TaskName "AKS.WindowsCSE.SetTelemetrySetting" -TaskMessage "Start to apply telemetry data setting. WindowsTelemetryGUID: $global:WindowsTelemetryGUID"
     Set-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\DataCollection" -Name "CommercialId" -Value $WindowsTelemetryGUID -Force
 }
 
@@ -14,6 +15,7 @@ function Set-TelemetrySetting
 # This approach was recommended by the Windows Storage team to avoid performance delay when calling Get-PartitionSupportedSize
 function Resize-OSDrive
 {
+    Logs-To-Event -TaskName "AKS.WindowsCSE.ResizeOSDrive" -TaskMessage "Start to resize os drive if possible"
     try {
         $osDrive = ((Get-WmiObject Win32_OperatingSystem -ErrorAction Stop).SystemDrive).TrimEnd(":")
 
@@ -35,6 +37,7 @@ function Resize-OSDrive
 # https://docs.microsoft.com/en-us/powershell/module/storage/new-partition
 function Initialize-DataDisks
 {
+    Logs-To-Event -TaskName "AKS.WindowsCSE.InitializeDataDisks" -TaskMessage "Start to initialize data disks"
     Get-Disk | Where-Object PartitionStyle -eq 'raw' | Initialize-Disk -PartitionStyle MBR -PassThru | New-Partition -UseMaximumSize -AssignDriveLetter | Format-Volume -FileSystem NTFS -Force
 }
 
@@ -43,6 +46,8 @@ function Initialize-DataDisks
 # (This only affects installations with UI)
 function Set-Explorer
 {
+    Logs-To-Event -TaskName "AKS.WindowsCSE.SetExplorer" -TaskMessage "Start to disable Internet Explorer compat mode and set homepage"
+
     New-Item -Path HKLM:"\\SOFTWARE\\Policies\\Microsoft\\Internet Explorer"
     New-Item -Path HKLM:"\\SOFTWARE\\Policies\\Microsoft\\Internet Explorer\\BrowserEmulation"
     New-ItemProperty -Path HKLM:"\\SOFTWARE\\Policies\\Microsoft\\Internet Explorer\\BrowserEmulation" -Name IntranetCompatibilityMode -Value 0 -Type DWord
@@ -53,11 +58,15 @@ function Set-Explorer
 # Pagefile adjustments
 function Adjust-PageFileSize()
 {
+    Logs-To-Event -TaskName "AKS.WindowsCSE.AdjustPageFileSize" -TaskMessage "Start to adjust pagefile size"
+
     wmic pagefileset set InitialSize=8096,MaximumSize=8096
 }
 
 function Adjust-DynamicPortRange()
 {
+    Logs-To-Event -TaskName "AKS.WindowsCSE.AdjustDynamicPortRange" -TaskMessage "Start to adjust dynamic port range"
+
     # Kube-proxy reserves 63 ports per service which limits clusters with Windows nodes
     # to ~225 services if default port reservations are used.
     # https://docs.microsoft.com/en-us/virtualization/windowscontainers/kubernetes/common-problems#load-balancers-are-plumbed-inconsistently-across-the-cluster-nodes
@@ -80,6 +89,8 @@ function Adjust-DynamicPortRange()
 # Service start actions. These should be split up later and included in each install step
 function Update-ServiceFailureActions
 {
+    Logs-To-Event -TaskName "AKS.WindowsCSE.UpdateServiceFailureActions" -TaskMessage "Start to update service failure actions"
+
     sc.exe failure "kubelet" actions= restart/60000/restart/60000/restart/60000 reset= 900
     sc.exe failure "kubeproxy" actions= restart/60000/restart/60000/restart/60000 reset= 900
     sc.exe failure "containerd" actions= restart/60000/restart/60000/restart/60000 reset= 900
@@ -174,6 +185,7 @@ function Install-GmsaPlugin {
         [Parameter(Mandatory=$true)]
         [String] $GmsaPackageUrl
     )
+    Logs-To-Event -TaskName "AKS.WindowsCSE.InstallGmsaPlugin" -TaskMessage "Start to install Windows gmsa package. WindowsGmsaPackageUrl: $global:WindowsGmsaPackageUrl"
 
     $tempInstallPackageFoler = [Io.path]::Combine($env:TEMP, "CCGAKVPlugin")
     $tempPluginZipFile = [Io.path]::Combine($ENV:TEMP, "gmsa.zip")
@@ -272,6 +284,7 @@ function Install-OpenSSH {
         [Parameter(Mandatory = $true)][string[]] 
         $SSHKeys
     )
+    Logs-To-Event -TaskName "AKS.WindowsCSE.InstallOpenSSH" -TaskMessage "Start to install OpenSSH"
 
     $adminpath = "c:\ProgramData\ssh"
     $adminfile = "administrators_authorized_keys"
@@ -334,6 +347,8 @@ function New-CsiProxyService {
         $KubeDir
     )
 
+    Logs-To-Event -TaskName "AKS.WindowsCSE.StartCsiProxyService" -TaskMessage "Start Csi proxy service. CsiProxyUrl: $global:CsiProxyUrl"
+
     $tempdir = New-TemporaryDirectory
     $binaryPackage = "$tempdir\csiproxy.tar"
 
@@ -363,6 +378,8 @@ function New-CsiProxyService {
 }
 
 function New-HostsConfigService {
+    Logs-To-Event -TaskName "AKS.WindowsCSE.StartHostConfigService" -TaskMessage "Start hosts config agent"
+
     $HostsConfigParameters = [io.path]::Combine($KubeDir, "hostsconfigagent.ps1")
 
     & "$KubeDir\nssm.exe" install hosts-config-agent C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe | RemoveNulls
@@ -403,6 +420,8 @@ function Enable-GuestVMLogs {
         [Parameter(Mandatory = $true)][int]
         $IntervalInMinutes
     )
+    Logs-To-Event -TaskName "AKS.WindowsCSE.EnableGuestVMLogs" -TaskMessage "Start to enable Guest VM Logs. LogGeneratorIntervalInMinutes: $LogGeneratorIntervalInMinutes"
+
     if ($IntervalInMinutes -le 0) {
         Write-Log "Do not add AKS logs in GuestVMLogs"
         return
@@ -466,6 +485,8 @@ function Retag-ImagesForAzureChinaCloud {
         [Parameter(Mandatory=$true)][string]
         $TargetEnvironment
     )
+
+    Logs-To-Event -TaskName "AKS.WindowsCSE.RetagImagesForAzureChinaCloud" -TaskMessage "Start to retag images for Azure China Cloud"
     
     $isExist=$false
     $imageList=$(ctr.exe -n k8s.io image ls | select -Skip 1)
