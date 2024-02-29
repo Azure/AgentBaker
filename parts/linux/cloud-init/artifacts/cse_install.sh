@@ -111,7 +111,6 @@ downloadContainerdWasmShims() {
     done
     wait ${pids[@]}
     for shim_version in $CONTAINERD_WASM_VERSIONS; do
-        binary_version="$(echo "${shim_version}" | tr . -)"
         chmod 755 "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1"
     done
 }
