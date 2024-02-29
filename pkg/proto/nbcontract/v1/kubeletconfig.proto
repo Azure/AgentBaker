@@ -11,7 +11,7 @@ message KubeletConfig {
   KubeletDiskType kubelet_disk_type = 5;
   FeatureState kubelet_config_file_status = 6;
   string kubelet_config_file_content = 7;
-  string kubelet_client_content = 8;
+  string kubelet_client_key = 8;
   string kubelet_client_cert_content = 9;
 }
 
