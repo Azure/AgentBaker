@@ -376,4 +376,44 @@ should_skip_nvidia_drivers() {
     should_skip=$(echo "$body" | jq -e '.compute.tagsList | map(select(.name | test("SkipGpuDriverInstall"; "i")))[0].value // "false" | test("true"; "i")')
     echo "$should_skip"
 }
+
+start_watch () {
+  capture_time=$(date +%s)
+  dt_start=$(date +%H:%M:%S)
+}
+
+stop_watch () {
+
+  local current_time=$(date +%s)
+  local dt_end=$(date +%H:%M:%S)
+  local difference_in_seconds=$((current_time - ${1}))
+
+  local elapsed_hours=$(($difference_in_seconds/3600))
+  local elapsed_minutes=$((($difference_in_seconds%3600)/60))
+  local elapsed_seconds=$(($difference_in_seconds%60))
+  
+  printf -v benchmark "'${2}' - Total Time Elapsed: %02d:%02d:%02d" $elapsed_hours $elapsed_minutes $elapsed_seconds
+  if [ ${3} == true ]; then
+    printf -v start "     Start time: $dt_script_start"
+  else
+    printf -v start "     Start time: $dt_start"
+  fi
+  printf -v end "     End Time: $dt_end"
+  echo
+  echo "$benchmark"
+  echo
+  benchmarks+=("$benchmark")
+  benchmarks+=("$start")
+  benchmarks+=("$end")
+}
+
+show_benchmarks () {
+  echo
+  echo "Benchmarks:"
+  echo
+  for i in "${benchmarks[@]}"; do
+    echo "   $i"
+  done
+  echo
+}
 #HELPERSEOF
