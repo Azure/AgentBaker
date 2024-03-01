@@ -199,7 +199,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.13.10-1",
-        "1.14.4"
+        "1.14.4",
+        "1.14.4-1"
       ]
     },
     {
@@ -235,7 +236,8 @@
       "downloadURL": "mcr.microsoft.com/aks/ip-masq-agent-v2:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.1.9"
+        "v0.1.9",
+        "v0.1.10"
       ]
     },
     {
@@ -270,7 +272,8 @@
       "multiArchVersions": [
         "v1.21.7",
         "v1.22.5",
-        "v1.23.3"
+        "v1.23.3",
+        "v1.24.0"
       ]
     },
     {
