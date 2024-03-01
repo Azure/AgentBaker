@@ -20,7 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type CustomCaTrustConfig struct {
+type CustomCATrustConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -29,8 +29,8 @@ type CustomCaTrustConfig struct {
 	CustomCaCerts []string     `protobuf:"bytes,2,rep,name=custom_ca_certs,json=customCaCerts,proto3" json:"custom_ca_certs,omitempty"`
 }
 
-func (x *CustomCaTrustConfig) Reset() {
-	*x = CustomCaTrustConfig{}
+func (x *CustomCATrustConfig) Reset() {
+	*x = CustomCATrustConfig{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_pkg_proto_nbcontract_v1_customcatrustconfig_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -38,13 +38,13 @@ func (x *CustomCaTrustConfig) Reset() {
 	}
 }
 
-func (x *CustomCaTrustConfig) String() string {
+func (x *CustomCATrustConfig) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CustomCaTrustConfig) ProtoMessage() {}
+func (*CustomCATrustConfig) ProtoMessage() {}
 
-func (x *CustomCaTrustConfig) ProtoReflect() protoreflect.Message {
+func (x *CustomCATrustConfig) ProtoReflect() protoreflect.Message {
 	mi := &file_pkg_proto_nbcontract_v1_customcatrustconfig_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -56,19 +56,19 @@ func (x *CustomCaTrustConfig) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CustomCaTrustConfig.ProtoReflect.Descriptor instead.
-func (*CustomCaTrustConfig) Descriptor() ([]byte, []int) {
+// Deprecated: Use CustomCATrustConfig.ProtoReflect.Descriptor instead.
+func (*CustomCATrustConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_proto_nbcontract_v1_customcatrustconfig_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *CustomCaTrustConfig) GetStatus() FeatureState {
+func (x *CustomCATrustConfig) GetStatus() FeatureState {
 	if x != nil {
 		return x.Status
 	}
 	return FeatureState_FEATURE_STATE_UNSPECIFIED
 }
 
-func (x *CustomCaTrustConfig) GetCustomCaCerts() []string {
+func (x *CustomCATrustConfig) GetCustomCaCerts() []string {
 	if x != nil {
 		return x.CustomCaCerts
 	}
@@ -85,7 +85,7 @@ var file_pkg_proto_nbcontract_v1_customcatrustconfig_proto_rawDesc = []byte{
 	0x76, 0x31, 0x1a, 0x2a, 0x70, 0x6b, 0x67, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x6e, 0x62,
 	0x63, 0x6f, 0x6e, 0x74, 0x72, 0x61, 0x63, 0x74, 0x2f, 0x76, 0x31, 0x2f, 0x66, 0x65, 0x61, 0x74,
 	0x75, 0x72, 0x65, 0x73, 0x74, 0x61, 0x74, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x72,
-	0x0a, 0x13, 0x43, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x43, 0x61, 0x54, 0x72, 0x75, 0x73, 0x74, 0x43,
+	0x0a, 0x13, 0x43, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x43, 0x41, 0x54, 0x72, 0x75, 0x73, 0x74, 0x43,
 	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x33, 0x0a, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18,
 	0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x1b, 0x2e, 0x6e, 0x62, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x61,
 	0x63, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x46, 0x65, 0x61, 0x74, 0x75, 0x72, 0x65, 0x53, 0x74, 0x61,
@@ -122,11 +122,11 @@ func file_pkg_proto_nbcontract_v1_customcatrustconfig_proto_rawDescGZIP() []byte
 
 var file_pkg_proto_nbcontract_v1_customcatrustconfig_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_pkg_proto_nbcontract_v1_customcatrustconfig_proto_goTypes = []interface{}{
-	(*CustomCaTrustConfig)(nil), // 0: nbcontract.v1.CustomCaTrustConfig
+	(*CustomCATrustConfig)(nil), // 0: nbcontract.v1.CustomCATrustConfig
 	(FeatureState)(0),           // 1: nbcontract.v1.FeatureState
 }
 var file_pkg_proto_nbcontract_v1_customcatrustconfig_proto_depIdxs = []int32{
-	1, // 0: nbcontract.v1.CustomCaTrustConfig.status:type_name -> nbcontract.v1.FeatureState
+	1, // 0: nbcontract.v1.CustomCATrustConfig.status:type_name -> nbcontract.v1.FeatureState
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -142,7 +142,7 @@ func file_pkg_proto_nbcontract_v1_customcatrustconfig_proto_init() {
 	file_pkg_proto_nbcontract_v1_featurestate_proto_init()
 	if !protoimpl.UnsafeEnabled {
 		file_pkg_proto_nbcontract_v1_customcatrustconfig_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CustomCaTrustConfig); i {
+			switch v := v.(*CustomCATrustConfig); i {
 			case 0:
 				return &v.state
 			case 1:

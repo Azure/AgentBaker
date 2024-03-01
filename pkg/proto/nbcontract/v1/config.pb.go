@@ -58,7 +58,7 @@ type Configuration struct {
 	MessageOfTheDay               string               `protobuf:"bytes,29,opt,name=message_of_the_day,json=messageOfTheDay,proto3" json:"message_of_the_day,omitempty"`
 	KubeletConfig                 *KubeletConfig       `protobuf:"bytes,31,opt,name=kubelet_config,json=kubeletConfig,proto3" json:"kubelet_config,omitempty"`
 	HostsConfigAgentStatus        FeatureState         `protobuf:"varint,32,opt,name=hosts_config_agent_status,json=hostsConfigAgentStatus,proto3,enum=nbcontract.v1.FeatureState" json:"hosts_config_agent_status,omitempty"`
-	CustomCaTrustConfig           *CustomCaTrustConfig `protobuf:"bytes,33,opt,name=custom_ca_trust_config,json=customCaTrustConfig,proto3" json:"custom_ca_trust_config,omitempty"`
+	CustomCaTrustConfig           *CustomCATrustConfig `protobuf:"bytes,33,opt,name=custom_ca_trust_config,json=customCaTrustConfig,proto3" json:"custom_ca_trust_config,omitempty"`
 	ProvisionOutput               string               `protobuf:"bytes,34,opt,name=provision_output,json=provisionOutput,proto3" json:"provision_output,omitempty"`
 	HyperkubeUrl                  string               `protobuf:"bytes,35,opt,name=hyperkube_url,json=hyperkubeUrl,proto3" json:"hyperkube_url,omitempty"`                                                                    //will be removed later
 	MobyVersion                   string               `protobuf:"bytes,36,opt,name=moby_version,json=mobyVersion,proto3" json:"moby_version,omitempty"`                                                                       //will be removed later
@@ -332,7 +332,7 @@ func (x *Configuration) GetHostsConfigAgentStatus() FeatureState {
 	return FeatureState_FEATURE_STATE_UNSPECIFIED
 }
 
-func (x *Configuration) GetCustomCaTrustConfig() *CustomCaTrustConfig {
+func (x *Configuration) GetCustomCaTrustConfig() *CustomCATrustConfig {
 	if x != nil {
 		return x.CustomCaTrustConfig
 	}
@@ -704,7 +704,7 @@ var file_pkg_proto_nbcontract_v1_config_proto_rawDesc = []byte{
 	0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x57, 0x0a, 0x16, 0x63, 0x75, 0x73, 0x74, 0x6f, 0x6d,
 	0x5f, 0x63, 0x61, 0x5f, 0x74, 0x72, 0x75, 0x73, 0x74, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67,
 	0x18, 0x21, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x22, 0x2e, 0x6e, 0x62, 0x63, 0x6f, 0x6e, 0x74, 0x72,
-	0x61, 0x63, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x43, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x43, 0x61, 0x54,
+	0x61, 0x63, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x43, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x43, 0x41, 0x54,
 	0x72, 0x75, 0x73, 0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x13, 0x63, 0x75, 0x73, 0x74,
 	0x6f, 0x6d, 0x43, 0x61, 0x54, 0x72, 0x75, 0x73, 0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12,
 	0x29, 0x0a, 0x10, 0x70, 0x72, 0x6f, 0x76, 0x69, 0x73, 0x69, 0x6f, 0x6e, 0x5f, 0x6f, 0x75, 0x74,
@@ -859,7 +859,7 @@ var file_pkg_proto_nbcontract_v1_config_proto_goTypes = []interface{}{
 	(*TeleportConfig)(nil),         // 11: nbcontract.v1.TeleportConfig
 	(FeatureState)(0),              // 12: nbcontract.v1.FeatureState
 	(*KubeletConfig)(nil),          // 13: nbcontract.v1.KubeletConfig
-	(*CustomCaTrustConfig)(nil),    // 14: nbcontract.v1.CustomCaTrustConfig
+	(*CustomCATrustConfig)(nil),    // 14: nbcontract.v1.CustomCATrustConfig
 	(*CustomSearchDomain)(nil),     // 15: nbcontract.v1.CustomSearchDomain
 	(*CustomLinuxOSConfig)(nil),    // 16: nbcontract.v1.CustomLinuxOSConfig
 	(*HTTPProxyConfig)(nil),        // 17: nbcontract.v1.HTTPProxyConfig
@@ -881,7 +881,7 @@ var file_pkg_proto_nbcontract_v1_config_proto_depIdxs = []int32{
 	12, // 12: nbcontract.v1.Configuration.unattended_upgrade_status:type_name -> nbcontract.v1.FeatureState
 	13, // 13: nbcontract.v1.Configuration.kubelet_config:type_name -> nbcontract.v1.KubeletConfig
 	12, // 14: nbcontract.v1.Configuration.hosts_config_agent_status:type_name -> nbcontract.v1.FeatureState
-	14, // 15: nbcontract.v1.Configuration.custom_ca_trust_config:type_name -> nbcontract.v1.CustomCaTrustConfig
+	14, // 15: nbcontract.v1.Configuration.custom_ca_trust_config:type_name -> nbcontract.v1.CustomCATrustConfig
 	12, // 16: nbcontract.v1.Configuration.ipv6_dual_stack_enabled:type_name -> nbcontract.v1.FeatureState
 	15, // 17: nbcontract.v1.Configuration.custom_search_domain:type_name -> nbcontract.v1.CustomSearchDomain
 	16, // 18: nbcontract.v1.Configuration.custom_linux_os_config:type_name -> nbcontract.v1.CustomLinuxOSConfig
