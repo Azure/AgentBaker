@@ -41,7 +41,9 @@ steps:
       ls -R
     displayName: show Directory
   - bash: |
-      GOPATH="$(go env | grep GOPATH | cut -d= -f2 | tr -d '"')"
+      set -x
+      GOPATH="$(go env GOPATH)"
+      echo "GOPATH is currently set to $GOPATH"
       export PATH="$PATH:$GOPATH/bin"
       pushd /tmp
       GO111MODULE=on go install cuelang.org/go/cmd/cue@latest
