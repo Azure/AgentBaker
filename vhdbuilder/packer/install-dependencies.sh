@@ -258,11 +258,17 @@ ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 installBpftrace
 echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
-installBcc
-cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - bcc-tools
-  - libbcc-examples
-EOF
+PARENT_DIR=$(pwd)
+
+( 
+  cd $PARENT_DIR
+
+  installBcc
+
+  exit $?
+) > /tmp/bcc.log 2>&1 &
+
+BCC_PID=$!
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 stop_watch $capture_time "Pull NVIDIA Image, Start installBcc subshell" false
@@ -272,6 +278,8 @@ start_watch
 string_replace() {
   echo ${1//\*/$2}
 }
+
+declare -a imagepids=()
 
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for imageToBePulled in ${ContainerImages[*]}; do
@@ -296,9 +304,14 @@ for imageToBePulled in ${ContainerImages[*]}; do
 
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE} & # pullContainerImage in the background and continue with for loop
+    imagepids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+    while [[ $(jobs -p | wc -l) -ge 4 ]]; do # No more than 3 background processes can run in parallel
+      wait -n
+    done    
   done
+  wait ${imagepids[@]}
 done
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
@@ -404,6 +417,31 @@ fi
 fi
 stop_watch $capture_time "GPU Device plugin" false
 start_watch
+echo "Waiting for BCC Install to complete..."
+wait $BCC_PID
+BCC_EXIT_STATUS=$?
+if [ $BCC_EXIT_STATUS -ne 0 ]; then
+  echo "BCC installation failed with exit status $BCC_EXIT_STATUS" # print an error message
+  exit $BCC_EXIT_STATUS # exit the script with the same exit status
+fi
+
+grep -i "error\|fail\|exception\|abort" /tmp/bcc.log # search for any errors or failures in the log file
+if [ $? -eq 0 ]; then \
+  echo "BCC installation 'error', 'fail', 'exception', 'abort' found in the following locations in log:"
+  grep -i "error\|fail\|exception\|abort" /tmp/bcc.log
+fi
+
+test -s /tmp/bcc.log 
+if [ $? -ne 0 ]; then
+  echo "BCC installation failed with no output or error in the log file"
+  exit 1
+fi
+
+cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - bcc-tools
+  - libbcc-examples
+EOF
+echo "BCC Install complete..."
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
@@ -429,16 +467,20 @@ rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
 KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
 
+declare -a pids=()
+
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # use kube-proxy as well
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+  pullContainerImage ${cliTool} ${CONTAINER_IMAGE} & # Run in the background and continue on with the for loop
+  pids+=($!) # append the process ID to the array
   ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
 
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
-stop_watch $capture_time "Configure Telemetry, Create Logging Directory, Kube-proxy" false
+wait ${pids[@]} # Wait for all background processes to finish
+stop_watch $capture_time "Configure Telemetry, Create Logging Directory, Kube-proxy, wait for installBcc subshell to complete" false
 start_watch
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
