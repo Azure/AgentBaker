@@ -7075,7 +7075,7 @@ apt_get_install() {
         wait_for_apt_locks
         export DEBIAN_FRONTEND=noninteractive
         dpkg --configure -a --force-confdef
-        apt-get install -o Dpkg::Options::="--force-confold" --no-install-recommends -y ${@} && break || \
+        apt-get install -o Dpkg::Options::="--force-confold" --no-install-recommends -f -y ${@} && break || \
         if [ $i -eq $retries ]; then
             return 1
         else
