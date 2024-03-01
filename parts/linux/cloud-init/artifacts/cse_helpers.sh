@@ -406,6 +406,7 @@ stop_watch () {
 }
 
 show_benchmarks () {
+  sleep 1
   echo "\nBenchmarks:\n"
   for i in "${benchmarks[@]}"; do
     echo "   $i"

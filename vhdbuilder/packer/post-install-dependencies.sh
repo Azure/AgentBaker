@@ -112,5 +112,4 @@ fi
 echo "post-install-dependencies step completed successfully"
 stop_watch $capture_time "RelinkResolveConf" false
 stop_watch $capture_script_start "post-install-dependencies.sh" true
-sleep 1
 show_benchmarks

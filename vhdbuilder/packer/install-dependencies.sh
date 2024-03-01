@@ -509,5 +509,4 @@ echo "install-dependencies step completed successfully"
 
 stop_watch $capture_time "Download and Process Kubernetes Packages / Extract Binaries" false
 stop_watch $capture_script_start "install-dependencies.sh" true
-sleep 1
 show_benchmarks

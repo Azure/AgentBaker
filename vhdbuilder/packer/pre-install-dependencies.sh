@@ -136,5 +136,4 @@ fi
 echo "pre-install-dependencies step finished successfully"
 stop_watch $capture_time "Handle Azure Linux / CgroupV2" false
 stop_watch $capture_script_start "pre-install-dependencies.sh" true
-sleep 1
 show_benchmarks
