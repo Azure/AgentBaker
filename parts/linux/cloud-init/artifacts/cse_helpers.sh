@@ -399,7 +399,7 @@ stop_watch () {
     printf -v start "     Start time: $start_timestamp"
   fi
   printf -v end "     End Time: $end_timestamp"
-  echo "\n$benchmark\n"
+  echo -e "\n$benchmark\n"
   benchmarks+=("$benchmark")
   benchmarks+=("$start")
   benchmarks+=("$end")
@@ -407,7 +407,7 @@ stop_watch () {
 
 show_benchmarks () {
   sleep 1
-  echo "\nBenchmarks:\n"
+  echo -e "\nBenchmarks:\n"
   for i in "${benchmarks[@]}"; do
     echo "   $i"
   done
