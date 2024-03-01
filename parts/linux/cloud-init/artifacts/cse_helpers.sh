@@ -379,13 +379,13 @@ should_skip_nvidia_drivers() {
 
 start_watch () {
   capture_time=$(date +%s)
-  dt_start=$(date +%H:%M:%S)
+  start_timestamp=$(date +%H:%M:%S)
 }
 
 stop_watch () {
 
   local current_time=$(date +%s)
-  local dt_end=$(date +%H:%M:%S)
+  local end_timestamp=$(date +%H:%M:%S)
   local difference_in_seconds=$((current_time - ${1}))
 
   local elapsed_hours=$(($difference_in_seconds/3600))
@@ -394,23 +394,19 @@ stop_watch () {
   
   printf -v benchmark "'${2}' - Total Time Elapsed: %02d:%02d:%02d" $elapsed_hours $elapsed_minutes $elapsed_seconds
   if [ ${3} == true ]; then
-    printf -v start "     Start time: $dt_script_start"
+    printf -v start "     Start time: $script_start_timestamp"
   else
-    printf -v start "     Start time: $dt_start"
+    printf -v start "     Start time: $start_timestamp"
   fi
-  printf -v end "     End Time: $dt_end"
-  echo
-  echo "$benchmark"
-  echo
+  printf -v end "     End Time: $end_timestamp"
+  echo "\n$benchmark\n"
   benchmarks+=("$benchmark")
   benchmarks+=("$start")
   benchmarks+=("$end")
 }
 
 show_benchmarks () {
-  echo
-  echo "Benchmarks:"
-  echo
+  echo "\nBenchmarks:\n"
   for i in "${benchmarks[@]}"; do
     echo "   $i"
   done
