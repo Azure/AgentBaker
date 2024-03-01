@@ -6,21 +6,20 @@
 # and log the results to the events directory. For now, this script has to be triggered manually to
 # collect the log. In the future, we will run it periodically to check and alert any issue.
 
-APISERVER_FQDN=${1:-''}
-CUSTOM_ENDPOINT=${2:-''}
+CUSTOM_ENDPOINT=${1:-''}
 
 EVENTS_LOGGING_PATH="/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/"
 AZURE_CONFIG_PATH="/etc/kubernetes/azure.json"
 AKS_CA_CERT_PATH="/etc/kubernetes/certs/apiserver.crt"
 AKS_CERT_PATH="/etc/kubernetes/certs/client.crt"
 AKS_KEY_PATH="/etc/kubernetes/certs/client.key"
+AKS_KUBECONFIG_PATH="/var/lib/kubelet/kubeconfig"
 RESOLV_CONFIG_PATH="/etc/resolv.conf"
 SYSTEMD_RESOLV_CONFIG_PATH="/run/systemd/resolve/resolv.conf"
 
 ARM_ENDPOINT="management.azure.com"
 METADATA_ENDPOINT="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://${ARM_ENDPOINT}/"
 AKS_ENDPOINT="https://${ARM_ENDPOINT}/providers/Microsoft.ContainerService/operations?api-version=2023-11-01"
-APISERVER_ENDPOINT="https://${APISERVER_FQDN}/healthz"
 
 TEMP_DIR=$(mktemp -d)
 NSLOOKUP_FILE="${TEMP_DIR}/nslookup.log"
@@ -166,9 +165,11 @@ else
 fi
 
 # check access to apiserver
-if [ -z "$APISERVER_FQDN" ]; then
-    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - WARNING: No apiserver FQDN provided. Skipping apiserver check.'"
+if [ ! -f "$AKS_KUBECONFIG_PATH" ]; then
+    logs_to_events "AKS.CSE.testingTraffic.warning" "echo '$(date) - WARNING: Kubeconfig file not found. Skipping apiserver check.'"
 else
+    APISERVER_FQDN=$(grep server $AKS_KUBECONFIG_PATH | awk -F"server: https://" '{print $2}' | cut -d : -f 1)
+    APISERVER_ENDPOINT="https://${APISERVER_FQDN}/healthz"
     nslookup $APISERVER_FQDN > /dev/null
     if [ $? -eq 0 ]; then
         logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to $APISERVER_FQDN'"
