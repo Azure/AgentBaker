@@ -16,8 +16,10 @@ message HTTPProxyConfig {
   optional string proxy_trusted_ca = 4;
 
   // Status shows whether HTTP/HTTPS Proxy is enabled or disabled
+  // we can remove this variable because it's computed from the other variables
   optional FeatureState status = 5;
 
   // CaStatus shows whether HTTP/HTTPS Proxy certificate authority (CA) is enabled or disabled
+  // we can remove this variable because it's computed from the other variables
   optional FeatureState ca_status = 6;
 }

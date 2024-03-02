@@ -34,8 +34,10 @@ type HTTPProxyConfig struct {
 	// TrustedCA repesents alternative CA certificate content
 	ProxyTrustedCa *string `protobuf:"bytes,4,opt,name=proxy_trusted_ca,json=proxyTrustedCa,proto3,oneof" json:"proxy_trusted_ca,omitempty"`
 	// Status shows whether HTTP/HTTPS Proxy is enabled or disabled
+	// we can remove this variable because it's computed from the other variables
 	Status *FeatureState `protobuf:"varint,5,opt,name=status,proto3,enum=nbcontract.v1.FeatureState,oneof" json:"status,omitempty"`
 	// CaStatus shows whether HTTP/HTTPS Proxy certificate authority (CA) is enabled or disabled
+	// we can remove this variable because it's computed from the other variables
 	CaStatus *FeatureState `protobuf:"varint,6,opt,name=ca_status,json=caStatus,proto3,enum=nbcontract.v1.FeatureState,oneof" json:"ca_status,omitempty"`
 }
 
