@@ -524,6 +524,46 @@ function Test-ToolsToCacheOnVHD {
     }
 }
 
+function Test-ApplyWindowsFixes {
+    # Run tests on a mock AKS node based on the custom VHD
+
+    $mapFixHash = @{
+        "C:\windows\system32\HostNetSvc.dll"     = "C435C2FAC75B23CCF3495EE9BCF6DEFB9AE7EAB3552BB8558EEF69B66F84FA2A"
+        "C:\Windows\system32\vfpapi.dll"         = "38780EF95605363BDEA0764F63CF25A5E2F123683C67445A76EEEC11AAFDC64A"
+        "C:\Windows\system32\vfpctrl.exe"        = "0A07D03D0E5CFF8182DF12F58971963145ECC056146D00C2E068F64B4F67330F"
+        "C:\Windows\system32\drivers\vfpext.sys" = "A86FB153445ECDB9AA8588DCB6BFEE564737CC98181E064C87DDB796602346D1"
+        "C:\windows\system32\drivers\ndis.sys"   = "B609196838B1B9F2F394EAAEA4964F152DAB3CC685FB15693E72BC6B059F33FA"
+        "C:\windows\system32\drivers\tcpip.sys"  = "2E10ED87FB43EABC68A73B81EB47ED040D48A0CE53D4F38F086610793B2C5651"
+    }
+    
+    foreach ($file in $mapFixHash.Keys) {
+        $expect = $mapFixHash[$file]
+        $actual = (Get-FileHash $file).Hash
+        if ($actual -eq $expect) {
+            Write-Output "$file replacement succesful."
+        } else {
+            Write-ErrorWithTimestamp "$file replacement failed. Expected: $expect. Actual: $actual."
+            exit 1
+        }
+    }
+
+    $bcdeditOutput = bcdedit /v
+    if ($bcdeditOutput -match 'testsigning\s+Yes') {
+        Write-Output "testsigning is set to Yes"
+    } else {
+        Write-ErrorWithTimestamp "testsigning is not set to Yes"
+        exit 1
+    }
+
+    $kirToolOutput = C:\WindowsFixes\KirTool.exe staging query 47351171 | Out-String | ConvertFrom-Json
+    if ($kirToolOutput.State -eq 'Enabled') {
+        Write-Output "47351171 is set to Enabled"
+    } else {
+        Write-ErrorWithTimestamp "47351171 is not set to Enabled"
+        exit 1
+    }
+}
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
@@ -533,4 +573,5 @@ Test-AzureExtensions
 Test-ExcludeUDPSourcePort
 Test-WindowsDefenderPlatformUpdate
 Test-ToolsToCacheOnVHD
+Test-ApplyWindowsFixes
 Remove-Item -Path c:\windows-vhd-configuration.ps1
