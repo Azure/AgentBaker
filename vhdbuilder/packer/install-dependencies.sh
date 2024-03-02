@@ -1,4 +1,46 @@
 #!/bin/bash
+
+#time_stamps is an associative array that links the logical steps of the install script with timestamps
+#Logicalorder is a regular array that remembers the actual order of the steps (associative arrays are not indexed)
+declare -A time_stamps=()   
+declare -a logical_order=() 
+
+#The record_benchmark function adds the current step into logical_order and then associates that step with a start and end time in the timestamps array
+record_benchmark () { dt_stamp=$(date +%H:%M:%S); logical_order+=( "${1}" ); time_stamps["${1}"]=$dt_stamp; }
+
+#The PrintBenchmarks function uses the logical_order array as a control to chronologically iterate over the step/timestamp pairs in the timestamps array
+print_benchmark_results () { echo; echo; echo "Benchmarking Results:"; echo; for i in "${logical_order[@]}"; do echo "   $i: ${time_stamps[$i]}"; done; echo; echo; }
+
+#Used as a reset for the stopwatch functions
+start_time=$(date +%s)
+
+#This function resets the the stopwatch start time
+start_watch () {
+  start_time=$(date +%s)
+}
+
+#This function captures the current time and subtracts the start time of the stopwatch, resulting in the total elapsed time
+stop_watch () {
+  local current_time=$(date +%s)
+  local difference_in_seconds=$((current_time - start_time))
+
+  local elapsed_hours=$(($difference_in_seconds / 3600))
+  local remaining_seconds_to_minutes=$(($difference_in_seconds % 3600))
+
+  local elapsed_minutes=$(($remaining_seconds_to_minutes / 60))
+  local remaining_seconds_to_seconds=$(($remaining_seconds_to_minutes % 60))
+
+  local elapsed_seconds=$(($remaining_seconds_to_seconds % 60))
+
+  echo
+  printf "'${1}' - Total Time Elapsed: %02d:%02d:%02d" $elapsed_hours $elapsed_minutes $elapsed_seconds
+  echo
+}
+
+#Benchmark 1 Start
+record_benchmark 'Declare Variables / Configure Environment (Lines 44-62) Start'
+start_watch
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"
@@ -18,6 +60,13 @@ COMPONENTS_FILEPATH=/opt/azure/components.json
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
+
+record_benchmark 'Declare Variables / Configure Environment (Lines 44-62) End'
+stop_watch 'Declare Variables / Configure Environment'
+#Benchmark 1 End
+#BenchMark 2 Start
+record_benchmark 'Purge and Reinstall Ubuntu (Lines 71 - 93) Start'
+start_watch
 
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
@@ -42,6 +91,13 @@ APT::Periodic::AutocleanInterval "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
+
+record_benchmark 'Purge and Reinstall  Ubuntu (Lines 71-93) End'
+stop_watch 'Purge and Reinstall  Ubuntu'
+#Benchmark 2 End
+#BenchMark 3 Start
+record_benchmark 'Install Dependencies (Lines 102 - 124) Start'
+start_watch
 
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
@@ -71,6 +127,18 @@ RuntimeMaxUse=1G
 ForwardToSyslog=yes
 EOF
 
+record_benchmark 'Install Dependencies (Lines 102-124) End'
+stop_watch 'Install Dependencies'
+#Benchmark 3 End
+installBpftrace
+echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
+
+( installBcc > /tmp/bcc.log 2>&1 ) & # run installBcc in a subshell and redirect output and error to a log file
+BCC_PID=$! # save the process ID of the background process
+#Benchmark 4 Start
+record_benchmark 'Check Container Runtime / Network Configurations (Lines 133 - 157) Start'
+start_watch
+
 if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then
   echo "Unsupported container runtime. Only containerd is supported for new VHD builds."
   exit 1
@@ -96,6 +164,13 @@ if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBU
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
+
+record_benchmark 'Check Container Runtime / Network Configurations (Lines 133 - 157) End'
+stop_watch 'Check Container Runtime / Network Configurations'
+#Benchmark 4 End
+#Benchmark 5 Start
+record_benchmark 'Create containerd service directory, download shims, configure runtime and network (Lines 166 - 219) Start'
+start_watch
 
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
@@ -152,6 +227,13 @@ containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
 installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
 echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
 
+record_benchmark 'Create containerd service directory, download shims, configure runtime and network (Lines 166 - 219) End'
+stop_watch 'Create containerd service directory, download shims, configure runtime and network'
+#Benchmark 5 End
+#Benchmark 6 Start
+record_benchmark 'Download components, determine / download crictl version (Lines 228 - 246) Start'
+start_watch
+
 DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for componentToDownload in ${DOWNLOAD_FILES[*]}; do
   fileName=$(echo "${componentToDownload}" | jq .fileName -r)
@@ -171,6 +253,13 @@ for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
   downloadCrictl ${CRICTL_VERSION}
   echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
+
+record_benchmark 'Download components, determine / download crictl version (Lines 228 - 246) End'
+stop_watch 'Download components, determine / download crictl version'
+#Benchmark 6 End
+#Benchmark 7 Start
+record_benchmark 'Artifact streaming, download containerd plugins (Lines 255 - 290) Start'
+start_watch
 
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
@@ -209,6 +298,13 @@ downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 
+record_benchmark 'Artifact streaming, download containerd plugins (Lines 255 - 290) End'
+stop_watch 'Artifact streaming, download containerd plugins'
+#Benchmark 7 End
+#Benchmark 8 Start
+record_benchmark 'Pull NVIDIA driver images (Lines 299 - 331) Start'
+start_watch
+
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
   NVIDIA_DRIVER_IMAGE_SHA="sha-ff213d"
@@ -224,26 +320,22 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
       exit $ret
     fi
   fi
-
-  cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
-EOF
 fi
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
-installBpftrace
-echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
-
-installBcc
 cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - bcc-tools
-  - libbcc-examples
+  - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 
-
+record_benchmark 'Pull NVIDIA driver images (Lines 299 - 331) End'
+stop_watch 'Pull NVIDIA driver images'
+#Benchmark 8 End
+#Benchmark 9 Start
+record_benchmark 'Pull and tag container images (Lines 340 - 384) Start'
+start_watch
 
 string_replace() {
   echo ${1//\*/$2}
@@ -290,6 +382,13 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 
 # can't use cliTool because crictl doesn't support retagging.
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
+
+record_benchmark 'Pull and tag container images (Lines 340 - 384) End'
+stop_watch 'Pull and tag container images'
+#Benchmark 9 End
+#Benchmark 10 Start
+record_benchmark 'Configure container networking and interface (Lines 393 - 448) Start'
+start_watch
 
 # doing this at vhd allows CSE to be faster with just mv
 unpackAzureCNI() {
@@ -352,6 +451,13 @@ if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
 
+record_benchmark 'Configure container networking and interface (Lines 393 - 448) End'
+stop_watch 'Configure container networking and interface'
+#Benchmark 10 End
+#Benchmark 11 Start
+record_benchmark 'GPU Device plugin (Lines 457 - 482) Start'
+start_watch
+
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
 v0.13.0.7
@@ -378,6 +484,36 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   systemctlEnableAndStart nvidia-device-plugin || exit 1
 fi
 fi
+
+record_benchmark 'GPU Device plugin (Lines 457 - 482) End'
+stop_watch 'GPU Device plugin'
+#Benchmark 11 End
+wait $BCC_PID
+BCC_EXIT_STATUS=$?
+if [ $BCC_EXIT_STATUS -ne 0 ]; then
+  echo "BCC installation failed with exit status $BCC_EXIT_STATUS" # print an error message
+  exit $BCC_EXIT_STATUS # exit the script with the same exit status
+fi
+
+grep -i "error\|fail\|exception\|abort" /tmp/bcc.log # search for any errors or failures in the log file
+if [ $? -eq 0 ]; then \
+  echo "BCC installation 'error', 'fail', 'exception', 'abort' found in the following locations in log:"
+  grep -i "error\|fail\|exception\|abort" /tmp/bcc.log
+fi
+
+test -s /tmp/bcc.log 
+if [ $? -ne 0 ]; then
+  echo "BCC installation failed with no output or error in the log file"
+  exit 1
+fi
+
+cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - bcc-tools
+  - libbcc-examples
+EOF
+#Benchmark 12 Start
+record_benchmark 'Configure telemetry, create logging directory, kube-proxy (Lines 491 - 523) Start'
+start_watch
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
@@ -406,12 +542,20 @@ KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0]
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # use kube-proxy as well
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+  pullContainerImage ${cliTool} ${CONTAINER_IMAGE} & # Run in the background and continue on with the for loop
   ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
 
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
+wait # Wait for all background processes to finish
+
+record_benchmark 'Configure telemetry, create logging directory, kube-proxy (Lines 491 - 523) End'
+stop_watch 'Configure telemetry, create logging directory, kube-proxy'
+#Benchmark 12 End
+#Benchmark 13 Start
+record_benchmark 'Download Kubernetes package, process package, extract binaries (Lines 532 - 594) Start'
+start_watch
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
@@ -476,5 +620,13 @@ for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
 done
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
+
+record_benchmark 'Download Kubernetes package, process package, extract binaries (Lines 532 - 594) End'
+stop_watch 'Download Kubernetes package, process package, extract binaries'
+#Benchmark 13 End
+#End of benchmarks
+echo
+print_benchmark_results
+echo
 
 echo "install-dependencies step completed successfully"
