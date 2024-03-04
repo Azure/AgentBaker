@@ -518,7 +518,7 @@ function Update-Registry {
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2629306509 -Value 1 -Type DWORD
 
-         Write-Log "Enable 4 fixes in 2023-04B"
+        Write-Log "Enable 4 fixes in 2023-04B"
         $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsPolicyUpdateChange -ErrorAction Ignore)
         if (![string]::IsNullOrEmpty($currentValue)) {
             Write-Log "The current value of HnsPolicyUpdateChange is $currentValue"
@@ -734,6 +734,21 @@ function Update-Registry {
             Write-Log "The current value of 1327590028 is $currentValue"
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1327590028 -Value 1 -Type DWORD
+    }
+
+    if ($env:WindowsSKU -Like '23H2*') {
+        Write-Log "Exclude 65330 in 23H2"
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of NamespaceExcludedUdpPorts is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts -Value 65330 -Type REG_SZ
+        
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of PortExclusionChange is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange -Value 1 -Type DWORD
     }
 }
 
