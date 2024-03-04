@@ -1154,8 +1154,8 @@ const kubenetCniTemplate = `
     "addIf": "eth0",
     "isGateway": true,
     "ipMasq": false,
-    "promiscMode": true,
-    "hairpinMode": false,
+    "promiscMode": false,
+    "hairpinMode": true,
     "ipam": {
         "type": "host-local",
         "ranges": [{{range $i, $range := .PodCIDRRanges}}{{if $i}}, {{end}}[{"subnet": "{{$range}}"}]{{end}}],

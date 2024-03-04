@@ -79,9 +79,6 @@ const (
 	initAKSCustomCloudScript        = "linux/cloud-init/artifacts/init-aks-custom-cloud.sh"
 	initAKSCustomCloudMarinerScript = "linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh"
 
-	ensureNoDupEbtablesScript  = "linux/cloud-init/artifacts/ensure-no-dup.sh"
-	ensureNoDupEbtablesService = "linux/cloud-init/artifacts/ensure-no-dup.service"
-
 	// drop ins.
 	containerdKubeletDropin = "linux/cloud-init/artifacts/10-containerd.conf"
 	cgroupv2KubeletDropin   = "linux/cloud-init/artifacts/10-cgroupv2.conf"

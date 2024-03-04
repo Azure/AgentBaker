@@ -315,10 +315,6 @@ EOF
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
-ensureNoDupOnPromiscuBridge() {
-    systemctlEnableAndStart ensure-no-dup || exit $ERR_SYSTEMCTL_START_FAIL
-}
-
 ensureTeleportd() {
     systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
 }

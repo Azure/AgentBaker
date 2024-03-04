@@ -252,20 +252,6 @@ write_files:
     runtime-endpoint: unix:///run/containerd/containerd.sock
     #EOF
 
-- path: /etc/systemd/system/ensure-no-dup.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesService"}}
-
-- path: /opt/azure/containers/ensure-no-dup.sh
-  permissions: "0755"
-  owner: root
-  encoding: gzip
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
-
 - path: /etc/systemd/system/teleportd.service
   permissions: "0644"
   owner: root
