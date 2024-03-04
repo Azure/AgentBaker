@@ -118,6 +118,7 @@ function check_and_curl {
     done
 }
 
+logs_to_events "AKS.CSE.testingTraffic.start" "echo '$(date) - INFO: Starting network connectivity check'"
 
 if ! [ -e "${AZURE_CONFIG_PATH}" ]; then
     logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - WARNING: Failed to find $AZURE_CONFIG_PATH file. Are you running inside Kubernetes?'"
@@ -200,3 +201,5 @@ if [ ! -z "$CUSTOM_ENDPOINT" ]; then
         check_and_curl $url ""
     done
 fi
+
+logs_to_events "AKS.CSE.testingTraffic.end" "echo '$(date) - INFO: Network connectivity check completed'"
