@@ -88,7 +88,6 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.9", # for k8s 1.26.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.10", # for k8s 1.26.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.26.11", # for k8s 1.26.x
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.6-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.8-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.9-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.1-windows-hp", # for k8s 1.28.x
