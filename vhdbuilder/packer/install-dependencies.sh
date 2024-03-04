@@ -307,7 +307,7 @@ for imageToBePulled in ${ContainerImages[*]}; do
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE} & # pullContainerImage in the background and continue with for loop
     imagepids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    while [[ $(jobs -p | wc -l) -ge 4 ]]; do # No more than 3 background processes can run in parallel
+    while [[ $(jobs -p | wc -l) -ge 8 ]]; do # No more than 3 background processes can run in parallel
       wait -n
     done    
   done
