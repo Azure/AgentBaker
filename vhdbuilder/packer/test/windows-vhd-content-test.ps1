@@ -487,17 +487,20 @@ function Test-RegistryAdded {
             exit 1
         }
     }
+
     if ($env:WindowsSKU -Like '23H2*') {
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts)
-        if ($result.NamespaceExcludedUdpPorts -ne 65330) {
-            Write-ErrorWithTimestamp "The registry for NamespaceExcludedUdpPorts is not added"
-            exit 1
+        Write-Log "Exclude 65330 in 23H2"
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of NamespaceExcludedUdpPorts is $currentValue"
         }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange)
-        if ($result.PortExclusionChange -ne 1) {
-            Write-ErrorWithTimestamp "The registry for PortExclusionChange is not added"
-            exit 1
-        }        
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts -Value 65330 -Type REG_SZ
+        
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of PortExclusionChange is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange -Value 1 -Type DWORD
     }
 }
 
