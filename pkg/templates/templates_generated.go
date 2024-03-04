@@ -8261,7 +8261,6 @@ $global:KubeBinariesPackageSASURL = "{{GetParameter "kubeBinariesSASURL"}}"
 $global:WindowsKubeBinariesURL = "{{GetParameter "windowsKubeBinariesURL"}}"
 $global:KubeBinariesVersion = "{{GetParameter "kubeBinariesVersion"}}"
 $global:ContainerdUrl = "{{GetParameter "windowsContainerdURL"}}"
-# $global:ContainerdUrl = $(WINDOWS_CONTAINERD_URL_FOR_NEW_FS)
 $global:ContainerdSdnPluginUrl = "{{GetParameter "windowsSdnPluginURL"}}"
 
 ## Docker Version
@@ -8439,10 +8438,10 @@ try
     # Install OpenSSH if SSH enabled
     $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
 
-    # if ( $sshEnabled ) {
-    #     Write-Log "Install OpenSSH"
-    #     Install-OpenSSH -SSHKeys $SSHKeys
-    # }
+    if ( $sshEnabled ) {
+        Write-Log "Install OpenSSH"
+        Install-OpenSSH -SSHKeys $SSHKeys
+    }
 
     Set-TelemetrySetting -WindowsTelemetryGUID $global:WindowsTelemetryGUID
 
