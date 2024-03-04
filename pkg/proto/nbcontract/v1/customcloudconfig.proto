@@ -1,0 +1,19 @@
+syntax = "proto3";
+package nbcontract.v1;
+import "pkg/proto/nbcontract/v1/featurestate.proto";
+
+message CustomCloudConfig {
+
+    // Status shows whether CustomCloudConfig is enabled or not
+    optional FeatureState status = 1;
+
+    // InitFilePath is the path to the file that contains the init script
+    optional string init_file_path = 2;
+
+    // RepoDepotEndpoint is the endpoint of the repo depot
+    optional string repo_depot_endpoint = 3;
+
+    string target_environment = 4;
+    string target_cloud = 5;  // can probably get rid of this, analyze more
+    string custom_env_json_content = 6; // can be generated on the VHD, also rename
+}
