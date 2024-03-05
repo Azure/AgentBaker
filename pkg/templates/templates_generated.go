@@ -9,7 +9,6 @@
 // linux/cloud-init/artifacts/10-tlsbootstrap.conf
 // linux/cloud-init/artifacts/aks-check-network.service
 // linux/cloud-init/artifacts/aks-check-network.sh
-// linux/cloud-init/artifacts/aks-local-dns-kubelet-dropin.conf
 // linux/cloud-init/artifacts/aks-local-dns-prestart.sh
 // linux/cloud-init/artifacts/aks-local-dns-resolved.conf
 // linux/cloud-init/artifacts/aks-local-dns.default
@@ -535,24 +534,6 @@ func linuxCloudInitArtifactsAksCheckNetworkSh() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "linux/cloud-init/artifacts/aks-check-network.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsAksLocalDnsKubeletDropinConf = []byte(`[Unit]
-Requires=aks-local-dns.service`)
-
-func linuxCloudInitArtifactsAksLocalDnsKubeletDropinConfBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsAksLocalDnsKubeletDropinConf, nil
-}
-
-func linuxCloudInitArtifactsAksLocalDnsKubeletDropinConf() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsAksLocalDnsKubeletDropinConfBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/aks-local-dns-kubelet-dropin.conf", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -9563,7 +9544,6 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/10-tlsbootstrap.conf":                      linuxCloudInitArtifacts10TlsbootstrapConf,
 	"linux/cloud-init/artifacts/aks-check-network.service":                 linuxCloudInitArtifactsAksCheckNetworkService,
 	"linux/cloud-init/artifacts/aks-check-network.sh":                      linuxCloudInitArtifactsAksCheckNetworkSh,
-	"linux/cloud-init/artifacts/aks-local-dns-kubelet-dropin.conf":         linuxCloudInitArtifactsAksLocalDnsKubeletDropinConf,
 	"linux/cloud-init/artifacts/aks-local-dns-prestart.sh":                 linuxCloudInitArtifactsAksLocalDnsPrestartSh,
 	"linux/cloud-init/artifacts/aks-local-dns-resolved.conf":               linuxCloudInitArtifactsAksLocalDnsResolvedConf,
 	"linux/cloud-init/artifacts/aks-local-dns.default":                     linuxCloudInitArtifactsAksLocalDnsDefault,
@@ -9717,7 +9697,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"10-tlsbootstrap.conf":                      &bintree{linuxCloudInitArtifacts10TlsbootstrapConf, map[string]*bintree{}},
 				"aks-check-network.service":                 &bintree{linuxCloudInitArtifactsAksCheckNetworkService, map[string]*bintree{}},
 				"aks-check-network.sh":                      &bintree{linuxCloudInitArtifactsAksCheckNetworkSh, map[string]*bintree{}},
-				"aks-local-dns-kubelet-dropin.conf":         &bintree{linuxCloudInitArtifactsAksLocalDnsKubeletDropinConf, map[string]*bintree{}},
 				"aks-local-dns-prestart.sh":                 &bintree{linuxCloudInitArtifactsAksLocalDnsPrestartSh, map[string]*bintree{}},
 				"aks-local-dns-resolved.conf":               &bintree{linuxCloudInitArtifactsAksLocalDnsResolvedConf, map[string]*bintree{}},
 				"aks-local-dns.default":                     &bintree{linuxCloudInitArtifactsAksLocalDnsDefault, map[string]*bintree{}},

@@ -463,11 +463,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/aks-local-dns-kubelet-dropin.conf",
-      "destination": "/home/packer/aks-local-dns-kubelet-dropin.conf"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-local-dns.service",
       "destination": "/home/packer/aks-local-dns.service"
     },
