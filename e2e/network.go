@@ -9,27 +9,67 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 )
 
-var nsgName = "abe2e-airgap-securityGroup2"
+var (
+	nsgName           string = "abe2e-airgap-securityGroup"
+	defaultSubnetName string = "aks-subnet"
+)
 
 func cloudGapSecurityGroup(location string) armnetwork.SecurityGroup {
+	securityRules := []*armnetwork.SecurityRule{}
+
+	securityRules = append(securityRules, getSecurityRule("allow-outbound-to-mcr-microsoft-com", "204.79.197.219", 100))
+	// add other urls needed
+
+	allowVnet := armnetwork.SecurityRule{
+		Name: to.Ptr("AllowVnetOutBound"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
+			SourceAddressPrefix:      to.Ptr("VirtualNetwork"),
+			SourcePortRange:          to.Ptr("*"),
+			DestinationAddressPrefix: to.Ptr("VirtualNetwork"),
+			DestinationPortRange:     to.Ptr("*"),
+			Priority:                 to.Ptr[int32](2000),
+		},
+	}
+
+	blockOutbound := armnetwork.SecurityRule{
+		Name: to.Ptr("block-all-outbound"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessDeny),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
+			SourceAddressPrefix:      to.Ptr("*"),
+			SourcePortRange:          to.Ptr("*"),
+			DestinationAddressPrefix: to.Ptr("*"),
+			DestinationPortRange:     to.Ptr("*"),
+			Priority:                 to.Ptr[int32](2001), // lower priroity than allowing mcr
+		},
+	}
+
+	securityRules = append(securityRules, &allowVnet)
+	securityRules = append(securityRules, &blockOutbound)
+
 	return armnetwork.SecurityGroup{
-		Location: &location,
-		Name:     &nsgName,
-		Properties: &armnetwork.SecurityGroupPropertiesFormat{
-			SecurityRules: []*armnetwork.SecurityRule{
-				{
-					Name: to.Ptr("allow-outbound-to-mcr-microsoft-com"),
-					Properties: &armnetwork.SecurityRulePropertiesFormat{
-						Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
-						Access:                   to.Ptr(armnetwork.SecurityRuleAccessDeny),
-						Direction:                to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
-						SourceAddressPrefix:      to.Ptr("*"),
-						SourcePortRange:          to.Ptr("*"),
-						DestinationAddressPrefix: to.Ptr("204.79.197.219"),
-						DestinationPortRange:     to.Ptr("*"),
-					},
-				},
-			},
+		Location:   &location,
+		Name:       &nsgName,
+		Properties: &armnetwork.SecurityGroupPropertiesFormat{SecurityRules: securityRules},
+	}
+}
+
+func getSecurityRule(name, destinationAddressPrefix string, priority int32) *armnetwork.SecurityRule {
+	return &armnetwork.SecurityRule{
+		Name: to.Ptr(name),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
+			SourceAddressPrefix:      to.Ptr("*"),
+			SourcePortRange:          to.Ptr("*"),
+			DestinationAddressPrefix: to.Ptr(destinationAddressPrefix),
+			DestinationPortRange:     to.Ptr("*"),
+			Priority:                 to.Ptr[int32](priority),
 		},
 	}
 }
@@ -44,28 +84,21 @@ func addAirgapNetworkSettings(ctx context.Context, cloud *azureClient, suiteConf
 		}
 		clusterConfig.subnetId = subnetId
 	}
+
 	nsgParams := cloudGapSecurityGroup(suiteConfig.Location)
 
-	poller, err := cloud.securityGroupClient.BeginCreateOrUpdate(ctx, suiteConfig.ResourceGroupName, nsgName, nsgParams, nil)
-	if err != nil {
-		fmt.Printf("failed in cloud.securityGroupClient.BeginCreateOrUpdate\n")
-		return err
-	}
-	nsg, err := poller.PollUntilDone(ctx, nil)
+	nsg, err := createAirgapSecurityGroup(ctx, cloud, suiteConfig, clusterConfig, nsgParams, nil)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("created nsg %s, nsgID %s\n", nsgName, *nsg.ID)
 
 	vnetName, err := getClusterVnetName(ctx, cloud, *clusterConfig.cluster.Properties.NodeResourceGroup)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("got vnet name %s\n", vnetName)
-	fmt.Printf("subnetID %s, nsg.ID %s\n", clusterConfig.subnetId, *nsg.ID)
+
 	subnetParameters := armnetwork.Subnet{
-		ID:   to.Ptr(clusterConfig.subnetId),
-		Name: to.Ptr("aks-subnet-airgap"),
+		ID: to.Ptr(clusterConfig.subnetId),
 		Properties: &armnetwork.SubnetPropertiesFormat{
 			AddressPrefix: to.Ptr("10.224.0.0/16"),
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
@@ -73,16 +106,67 @@ func addAirgapNetworkSettings(ctx context.Context, cloud *azureClient, suiteConf
 			},
 		},
 	}
-	poller2, err := cloud.subnetClient.BeginCreateOrUpdate(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, vnetName, "aks-subnet", subnetParameters, nil)
-	if err != nil {
-		fmt.Printf("failed in subnetsClient.CreateOrUpdate\n")
-		return err
-	}
-	_, err = poller2.PollUntilDone(ctx, nil)
+	err = updateSubnet(ctx, cloud, clusterConfig, subnetParameters, vnetName)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Updated the subnet %s\n", *clusterConfig.cluster.Name)
+	fmt.Printf("Updated the subnet to airgap %s\n", *clusterConfig.cluster.Name)
 	return nil
+}
+
+func createAirgapSecurityGroup(ctx context.Context, cloud *azureClient, suiteConfig *suite.Config, clusterConfig clusterConfig, nsgParams armnetwork.SecurityGroup, options *armnetwork.SecurityGroupsClientBeginCreateOrUpdateOptions) (*armnetwork.SecurityGroupsClientCreateOrUpdateResponse, error) {
+	poller, err := cloud.securityGroupClient.BeginCreateOrUpdate(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, nsgName, nsgParams, nil)
+	if err != nil {
+		return nil, err
+	}
+	nsg, err := poller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &nsg, nil
+}
+
+func updateSubnet(ctx context.Context, cloud *azureClient, clusterConfig clusterConfig, subnetParameters armnetwork.Subnet, vnetName string) error {
+	poller, err := cloud.subnetClient.BeginCreateOrUpdate(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, vnetName, defaultSubnetName, subnetParameters, nil)
+	if err != nil {
+		return err
+	}
+	_, err = poller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+/*
+func getNetworkSecurityGroupName(ctx context.Context, cloud *azureClient, resourceGroupName string) (string, error) {
+	pager := cloud.securityGroupClient.NewListPager(resourceGroupName, nil)
+
+	for pager.More() {
+		nextResult, err := pager.NextPage(ctx)
+		if err != nil {
+			return "", fmt.Errorf("failed to advance page: %w", err)
+		}
+		for _, v := range nextResult.Value {
+			if v == nil {
+				return "", fmt.Errorf("cluster network security group id was empty\n")
+			}
+			return *v.Name, nil
+		}
+	}
+	return "", fmt.Errorf("failed to find cluster network security group\n")
+}
+*/
+
+func isNetworkSecurityGroupAirgap(cloud *azureClient, resourceGroupName string) (bool, error) {
+	_, err := cloud.securityGroupClient.Get(context.Background(), resourceGroupName, nsgName, nil)
+	if err != nil {
+		if isNotFoundError(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to get network security group: %w", err)
+	}
+	fmt.Printf("airgap network security group  %s\n", resourceGroupName)
+	return true, nil
 }

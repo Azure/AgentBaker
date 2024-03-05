@@ -256,26 +256,20 @@ func getInitialClusterConfigs(ctx context.Context, cloud *azureClient, resourceG
 					continue
 				}
 
-				log.Printf("found agentbaker e2e cluster %q in provisioning state %q", *resource.Name, *cluster.Properties.ProvisioningState)
 				clusterConfig := clusterConfig{cluster: &cluster.ManagedCluster}
-
-				_, err = cloud.subnetClient.Get(ctx, resourceGroupName, *cluster.Name, "aks-subnet-airgap", nil)
+				isAirgap, err := isNetworkSecurityGroupAirgap(cloud, *clusterConfig.cluster.Properties.NodeResourceGroup)
 				if err != nil {
-					if isNotFoundError(err) {
-						log.Printf("get aks subnet %q returned 404 Not Found, it is not an airgap cluster, continuing ...", "aks-subnet-airgap")
-						configs = append(configs, clusterConfig)
-						continue
-					} else {
-						return nil, fmt.Errorf("failed to verify if aks subnet is for an airgap cluster: %w", err)
-					}
+					return nil, fmt.Errorf("failed to verify if aks subnet is for an airgap cluster: %w", err)
 				}
 
-				clusterConfig.isAirgapCluster = true
+				if isAirgap {
+					clusterConfig.isAirgapCluster = true
+				}
+				log.Printf("found agentbaker e2e cluster %q in provisioning state %q is Airgap %v", *resource.Name, *cluster.Properties.ProvisioningState, clusterConfig.isAirgapCluster)
 				configs = append(configs, clusterConfig)
 			}
 		}
 	}
-
 	return configs, nil
 }
 
@@ -368,13 +362,13 @@ func chooseCluster(
 	for i := range clusterConfigs {
 		config := &clusterConfigs[i]
 		if scenario.Airgap && !config.isAirgapCluster {
-			if *config.cluster.Name == "agentbaker-e2e-test-cluster-65llv" {
+			/*if *config.cluster.Name == "agentbaker-e2e-test-cluster-2oqs8" {
 				config.isAirgapCluster = true
 				return *config, nil
 			} else {
 				continue
-			}
-			// continue
+			}*/
+			continue
 		}
 
 		if scenario.Config.ClusterSelector(config.cluster) {
