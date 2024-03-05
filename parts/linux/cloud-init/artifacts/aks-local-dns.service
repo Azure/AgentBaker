@@ -10,7 +10,7 @@ ConditionKernelVersion=>=5.15
 [Service]
 Type=notify
 NotifyAccess=all
-WatchdogSec=10
+WatchdogSec=60
 Restart=on-failure
 KillMode=mixed
 TimeoutStopSec=30

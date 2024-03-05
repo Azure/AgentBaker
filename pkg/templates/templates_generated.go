@@ -696,7 +696,7 @@ ConditionKernelVersion=>=5.15
 [Service]
 Type=notify
 NotifyAccess=all
-WatchdogSec=10
+WatchdogSec=60
 Restart=on-failure
 KillMode=mixed
 TimeoutStopSec=30
@@ -807,9 +807,10 @@ health-check.aks-local-dns.local:53 {
     }
     ready ${LOCAL_NODE_DNS_IP}:8181
     cache 3600s {
-        success 9984 5
-        denial 9984 5
+        success 9984
+        denial 9984
         serve_stale 3600s verify
+        servfail 0
     }
     loop
     nsid aks-local-dns
@@ -824,9 +825,10 @@ health-check.aks-local-dns.local:53 {
         force_tcp
     }
     cache 3600s {
-        success 9984 5
-        denial 9984 5
+        success 9984
+        denial 9984
         serve_stale 3600s verify
+        servfail 0
     }
     loop
     nsid aks-local-dns-pod
@@ -991,10 +993,10 @@ if [[ ! -z "${NOTIFY_SOCKET:-}" ]]; then systemd-notify --ready; fi
 #######################################################################
 # If the watchdog is defined, we check pod status and pass success to systemd
 if [[ ! -z "${NOTIFY_SOCKET:-}" && ! -z "${WATCHDOG_USEC:-}" ]]; then
-    # Health check at 40% of WATCHDOG_USEC; this means that we should check
-    # twice in every watchdog interval, and thus need to fail two checks to
+    # Health check at 20% of WATCHDOG_USEC; this means that we should check
+    # five times in every watchdog interval, and thus need to fail five checks to
     # get restarted.
-    HEALTH_CHECK_INTERVAL=$((${WATCHDOG_USEC:-5000000} * 40 / 100 / 1000000))
+    HEALTH_CHECK_INTERVAL=$((${WATCHDOG_USEC:-5000000} * 20 / 100 / 1000000))
     HEALTH_CHECK_DNS_REQUEST="health-check.aks-local-dns.local @169.254.10.10\nhealth-check.aks-local-dns.local @169.254.10.11"
     printf "starting watchdog loop at ${HEALTH_CHECK_INTERVAL} second intervals\n"
     while [ true ]; do
