@@ -56,7 +56,7 @@ installContainerRuntime() {
         logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
         echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
     else
-        installMoby
+        installMoby 
     fi
 }
 

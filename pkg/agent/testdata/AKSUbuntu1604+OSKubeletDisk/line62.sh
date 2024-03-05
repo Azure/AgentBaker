@@ -33,10 +33,13 @@ installDeps() {
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
-    BLOBFUSE2_VERSION="2.2.0"
+    BLOBFUSE2_VERSION="2.2.1"
 
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
+    fi
+    if [ "${OSVERSION}" == "18.04" ]; then
+        BLOBFUSE2_VERSION="2.2.0"
     fi
 
     pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
@@ -156,6 +159,7 @@ downloadContainerdFromVersion() {
     updateAptWithMicrosoftPkg 
     apt_get_download 20 30 moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    echo "Succeeded to download containerd version ${CONTAINERD_VERSION}"
 }
 
 downloadContainerdFromURL() {

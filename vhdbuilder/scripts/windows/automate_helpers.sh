@@ -19,10 +19,12 @@ create_branch() {
 }
 
 curl_post_request() {
-    set +x # To avoid logging PAT during curl
     post_purpose=$1
     branch_name=$2
     image_version=$3
+    title=$4
+    body_content=$5
+    labels=$6
     
     # check if the pull request already existed in case of validation failure below
     # {
@@ -36,14 +38,17 @@ curl_post_request() {
     #    ],
     #    "documentation_url": "https://docs.github.com/rest/pulls/pulls#create-a-pull-request"
     # }
+    echo "Title is $title"
+    echo "Head is $branch_name"
+    echo "Body is $body_content"
 
     result=$(curl -H "Authorization: token $github_access_token" \
         -H "Accept: application/vnd.github.v3+json" \
         "https://api.github.com/repos/Azure/AgentBaker/pulls?state=open&head=Azure:$branch_name" |\
-        jq '.[] | select(.title == "chore: automated PR to '"$post_purpose"' for '$image_version'")')
-    
+        jq --arg title "$title" '.[] | select(.title == $title)')
+
     if [[ -n $result ]]; then
-        echo "Pull request at head '$branch_name' with title \"chore: automated PR to '$post_purpose' for '$image_version'\" existed already"
+        echo "Pull request at head '$branch_name' with title \"$title\" existed already"
         number=$(echo $result | jq '.number')
         echo "The existing pull request is at https://github.com/Azure/AgentBaker/pull/$number"
         echo "Error: you cannot $post_purpose for $image_version twice"
@@ -52,19 +57,28 @@ curl_post_request() {
         response=$(curl -X POST \
             -H "Authorization: token $github_access_token" \
             -H "Content-Type: application/json" \
-            -d '{
-                "title": "chore: automated PR to '"$post_purpose"' for '$image_version'",
-                "body": "This is an automated PR to '"$post_purpose"' for '$image_version'",
-                "head": "'$branch_name'",
-                "base": "master"
-            }' \
+            -d "{
+                \"title\": \"$title\",
+                \"body\": \"$body_content\",
+                \"head\": \"$branch_name\",
+                \"base\": \"master\"
+            }" \
             https://api.github.com/repos/Azure/AgentBaker/pulls)
 
         number=$(echo $response | jq '.number')
         echo "The pull request number is $number"
         echo "The pull request link is https://github.com/Azure/AgentBaker/pull/$number"
+
+        curl -X POST \
+        -H "Authorization: token $github_access_token" \
+        -H "Content-Type: application/json" \
+        -d "{
+            \"labels\": [$labels]
+        }" \
+        https://api.github.com/repos/Azure/AgentBaker/issues/$number/labels
+        echo "Added the label"
     fi
-    set -x
+    # set -x
 }
 
 create_pull_request() {
@@ -82,18 +96,35 @@ create_pull_request() {
 
     if [[ $pr_purpose == "ReleaseNotes" ]]; then
         post_purpose="update windows release notes"
+        title="docs: $post_purpose for ${image_version}B"
+        labels="\"windows\",\"documentation\""
     else
         post_purpose="bump windows image version"
+        title="feat: $post_purpose for ${image_version}B"
+        labels="\"windows\""
     fi
     
-    echo "to add git commit chore: $post_purpose for $image_version"
-    git commit -m "chore: $post_purpose for $image_version"
+    echo "to add git commit feat: $post_purpose for $image_version"
+    git commit -m "feat: $post_purpose for $image_version"
         
     git status
     
     git push -u origin $branch_name -f
 
-    curl_post_request "$post_purpose" "$branch_name" "$image_version"
+    # modify .github/PULL_REQUEST_TEMPLATE.md after pushing the pervious changes in created branch
+    if [[ $pr_purpose == "ReleaseNotes" ]]; then
+        sed -i "/What type of PR is this?/a\/kind documentation" .github/PULL_REQUEST_TEMPLATE.md
+        sed -i "/What this PR does/a\Add windows image release notes for new AKS Windows images with ${image_version}B" .github/PULL_REQUEST_TEMPLATE.md
+        sed -i 's/\[ \] uses/\[x\] uses/g' .github/PULL_REQUEST_TEMPLATE.md
+        body_content=$(sed 's/$/\\n/' .github/PULL_REQUEST_TEMPLATE.md | tr -d '\n')
+    else
+        sed -i "/What type of PR is this?/a\/kind feature" .github/PULL_REQUEST_TEMPLATE.md
+        sed -i "/What this PR does/a\Update Windows base images to ${image_version}B\\n- Windows 2019: [xxxxx]()\\n- Windows 2022: [xxxxx]()" .github/PULL_REQUEST_TEMPLATE.md
+        sed -i 's/\[ \] uses/\[x\] uses/g' .github/PULL_REQUEST_TEMPLATE.md
+        body_content=$(sed 's/$/\\n/' .github/PULL_REQUEST_TEMPLATE.md | tr -d '\n')
+    fi
+
+    curl_post_request "$post_purpose" "$branch_name" "$image_version" "$title" "$body_content" "$labels"
 
     git checkout master # Checkout to master for subsequent stages of the pipeline
 }

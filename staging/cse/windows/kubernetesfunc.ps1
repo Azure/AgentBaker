@@ -29,6 +29,8 @@ function Initialize-DataDirectories {
     # Some of the Kubernetes tests that were designed for Linux try to mount /tmp into a pod
     # On Windows, Go translates to c:\tmp. If that path doesn't exist, then some node tests fail
 
+    Logs-To-Event -TaskName "AKS.WindowsCSE.InitializeDataDirectories" -TaskMessage "Start to create required data directories as needed"
+   
     $requiredPaths = 'c:\tmp'
 
     $requiredPaths | ForEach-Object {
@@ -46,6 +48,7 @@ function Get-LogCollectionScripts {
 }
 
 function Register-LogsCleanupScriptTask {
+    Logs-To-Event -TaskName "AKS.WindowsCSE.RegisterLogsCleanupScriptTask" -TaskMessage "Start to register logs cleanup script task"
     Write-Log "Creating a scheduled task to run windowslogscleanup.ps1"
 
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"c:\k\windowslogscleanup.ps1`""
@@ -56,6 +59,7 @@ function Register-LogsCleanupScriptTask {
 }
 
 function Register-NodeResetScriptTask {
+    Logs-To-Event -TaskName "AKS.WindowsCSE.RegisterNodeResetScriptTask" -TaskMessage "Start to register node reset script task. HNSRemediatorIntervalInMinutes: $global:HNSRemediatorIntervalInMinutes"
     Write-Log "Creating a startup task to run windowsnodereset.ps1"
 
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"c:\k\windowsnodereset.ps1`""
@@ -73,6 +77,8 @@ function Write-KubeClusterConfig {
         [Parameter(Mandatory = $true)][string]
         $KubeDnsServiceIp
     )
+
+    Logs-To-Event -TaskName "AKS.WindowsCSE.WriteKubeClusterConfig" -TaskMessage "Start to write KubeCluster Config. WindowsPauseImageURL: $global:WindowsPauseImageURL"
 
     $Global:ClusterConfiguration = [PSCustomObject]@{ }
 
@@ -133,6 +139,8 @@ function Write-KubeClusterConfig {
 }
 
 function Update-DefenderPreferences {
+    Logs-To-Event -TaskName "AKS.WindowsCSE.UpdateDefenderPreferences" -TaskMessage "Start to update defender preferences"
+
     Add-MpPreference -ExclusionProcess "c:\k\kubelet.exe"
     Add-MpPreference -ExclusionProcess "c:\k\kube-proxy.exe"
 
