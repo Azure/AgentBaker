@@ -868,28 +868,49 @@ testContainerImagePrefetchScript() {
 # We should also avoid early exit from the test run -- like if a command fails with
 # an exit rather than a return -- because that prevents other tests from running.
 testVHDBuildLogsExist
+echo -e "\ntestVHDBuildLogsExist Test Finished: $(date +%H:%M:%S)\n"
 testCriticalTools
+echo -e "\ntestCriticalTools Test Finished: $(date +%H:%M:%S)\n"
 testFilesDownloaded $CONTAINER_RUNTIME
+echo -e "\ntestFilesDownloaded Test Finished: $(date +%H:%M:%S)\n"
 testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
+echo -e "\ntestImagesPulled Test Finished: $(date +%H:%M:%S)\n"
 testChrony $OS_SKU
+echo -e "\ntestChrony Test Finished: $(date +%H:%M:%S)\n"
 testAuditDNotPresent
+echo -e "\ntestAuditDNotPresent Test Finished: $(date +%H:%M:%S)\n"
 testFips $OS_VERSION $ENABLE_FIPS
+echo -e "\ntestFips Test Finished: $(date +%H:%M:%S)\n"
 testKubeBinariesPresent $CONTAINER_RUNTIME
+echo -e "\ntestKubeBinariesPresent Test Finished: $(date +%H:%M:%S)\n"
 testKubeProxyImagesPulled $CONTAINER_RUNTIME
+echo -e "\ntestKubeProxyImagesPulled Test Finished: $(date +%H:%M:%S)\n"
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
 # which means the test failures haven't been caught. It also calles exit 1 on a failure,
 # which means the rest of the tests aren't being run.
 # See https://msazure.visualstudio.com/CloudNativeCompute/_backlogs/backlog/Node%20Lifecycle/Features/?workitem=24246232
 # testImagesRetagged $CONTAINER_RUNTIME
 testCustomCAScriptExecutable
+echo -e "\ntestCustomCAScriptExecutable Test Finished: $(date +%H:%M:%S)\n"
 testCustomCATimerNotStarted
+echo -e "\ntestCustomCATimerNotStarted Test Finished: $(date +%H:%M:%S)\n"
 testLoginDefs
+echo -e "\ntestLoginDefs Test Finished: $(date +%H:%M:%S)\n"
 testUserAdd
+echo -e "\ntestUserAdd Test Finished: $(date +%H:%M:%S)\n"
 testNetworkSettings
+echo -e "\ntestNetworkSettings Test Finished: $(date +%H:%M:%S)\n"
 testCronPermissions $IMG_SKU
+echo -e "\ntestCronPermissions Test Finished: $(date +%H:%M:%S)\n"
 testCoreDumpSettings
+echo -e "\ntestCoreDumpSettings Test Finished: $(date +%H:%M:%S)\n"
 testNfsServerService
+echo -e "\ntestNfsServerService Test Finished: $(date +%H:%M:%S)\n"
 testPamDSettings $OS_SKU $OS_VERSION
+echo -e "\ntestPamDSettings Test Finished: $(date +%H:%M:%S)\n"
 testPam $OS_SKU $OS_VERSION
+echo -e "\ntestPam Test Finished: $(date +%H:%M:%S)\n"
 testUmaskSettings
+echo -e "\ntestUmaskSettings Test Finished: $(date +%H:%M:%S)\n"
 testContainerImagePrefetchScript
+echo -e "\ntestContainerImagePrefetchScript Test Finished: $(date +%H:%M:%S)\n"
