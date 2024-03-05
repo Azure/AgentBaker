@@ -358,7 +358,6 @@ func chooseCluster(
 	clusterConfigs []clusterConfig) (clusterConfig, error) {
 
 	var chosenConfig clusterConfig
-
 	for i := range clusterConfigs {
 		config := &clusterConfigs[i]
 		if scenario.Airgap && !config.isAirgapCluster {
