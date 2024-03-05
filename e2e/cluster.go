@@ -11,7 +11,6 @@ import (
 	"github.com/Azure/agentbakere2e/suite"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"k8s.io/apimachinery/pkg/util/errors"
 )
@@ -25,11 +24,12 @@ const (
 type clusterParameters map[string]string
 
 type clusterConfig struct {
-	cluster      *armcontainerservice.ManagedCluster
-	kube         *kubeclient
-	parameters   clusterParameters
-	subnetId     string
-	isNewCluster bool
+	cluster         *armcontainerservice.ManagedCluster
+	kube            *kubeclient
+	parameters      clusterParameters
+	subnetId        string
+	isNewCluster    bool
+	isAirgapCluster bool
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -145,11 +145,12 @@ func validateExistingClusterState(ctx context.Context, cloud *azureClient, resou
 func createNewCluster(
 	ctx context.Context,
 	cloud *azureClient,
-	resourceGroupName string,
-	clusterModel *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
+	suiteConfig *suite.Config,
+	clusterConfig clusterConfig) (*armcontainerservice.ManagedCluster, error) {
+	clusterModel := clusterConfig.cluster
 	pollerResp, err := cloud.aksClient.BeginCreateOrUpdate(
 		ctx,
-		resourceGroupName,
+		suiteConfig.ResourceGroupName,
 		*clusterModel.Name,
 		*clusterModel,
 		nil,
@@ -163,6 +164,15 @@ func createNewCluster(
 		return nil, fmt.Errorf("failed to wait for aks cluster creation %w", err)
 	}
 
+	if !clusterConfig.isAirgapCluster {
+		return &clusterResp.ManagedCluster, nil
+	}
+
+	clusterConfig.cluster = &clusterResp.ManagedCluster
+	err = addAirgapNetworkSettings(ctx, cloud, suiteConfig, clusterConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add airgap network settings: %w", err)
+	}
 	return &clusterResp.ManagedCluster, nil
 }
 
@@ -199,7 +209,7 @@ func getClusterSubnetID(ctx context.Context, cloud *azureClient, location, mcRes
 	return "", fmt.Errorf("failed to find aks vnet")
 }
 
-func getClusterVnetName(ctx context.Context, cloud *azureClient, mcResourceGroupName, clusterName string) (string, error) {
+func getClusterVnetName(ctx context.Context, cloud *azureClient, mcResourceGroupName string) (string, error) {
 	pager := cloud.vnetClient.NewListPager(mcResourceGroupName, nil)
 
 	for pager.More() {
@@ -247,7 +257,21 @@ func getInitialClusterConfigs(ctx context.Context, cloud *azureClient, resourceG
 				}
 
 				log.Printf("found agentbaker e2e cluster %q in provisioning state %q", *resource.Name, *cluster.Properties.ProvisioningState)
-				configs = append(configs, clusterConfig{cluster: &cluster.ManagedCluster})
+				clusterConfig := clusterConfig{cluster: &cluster.ManagedCluster}
+
+				_, err = cloud.subnetClient.Get(ctx, resourceGroupName, *cluster.Name, "aks-subnet-airgap", nil)
+				if err != nil {
+					if isNotFoundError(err) {
+						log.Printf("get aks subnet %q returned 404 Not Found, it is not an airgap cluster, continuing ...", "aks-subnet-airgap")
+						configs = append(configs, clusterConfig)
+						continue
+					} else {
+						return nil, fmt.Errorf("failed to verify if aks subnet is for an airgap cluster: %w", err)
+					}
+				}
+
+				clusterConfig.isAirgapCluster = true
+				configs = append(configs, clusterConfig)
 			}
 		}
 	}
@@ -264,18 +288,29 @@ func hasViableConfig(scenario *scenario.Scenario, clusterConfigs []clusterConfig
 	return false
 }
 
-func createMissingClusters(
-	ctx context.Context,
-	r *mrand.Rand,
-	cloud *azureClient,
-	suiteConfig *suite.Config,
-	scenarios scenario.Table,
-	clusterConfigs *[]clusterConfig) error {
+func hasViableAirgapConfig(scenario *scenario.Scenario, clusterConfigs []clusterConfig) bool {
+	if !scenario.Airgap {
+		return true
+	}
+	for _, config := range clusterConfigs {
+		if config.isAirgapCluster && scenario.Config.ClusterSelector(config.cluster) {
+			return true
+		}
+	}
+	return false
+}
+
+func createMissingClusters(ctx context.Context, r *mrand.Rand, cloud *azureClient, suiteConfig *suite.Config,
+	scenarios scenario.Table, clusterConfigs *[]clusterConfig) error {
 	var newConfigs []clusterConfig
 	for _, scenario := range scenarios {
-		if !hasViableConfig(scenario, *clusterConfigs) && !hasViableConfig(scenario, newConfigs) {
+		if !hasViableConfig(scenario, *clusterConfigs) && !hasViableConfig(scenario, newConfigs) && !scenario.Airgap {
 			newClusterModel := getNewClusterModelForScenario(generateClusterName(r), suiteConfig.Location, scenario)
 			newConfigs = append(newConfigs, clusterConfig{cluster: &newClusterModel, isNewCluster: true})
+		}
+		if !hasViableAirgapConfig(scenario, *clusterConfigs) && !hasViableAirgapConfig(scenario, newConfigs) {
+			newClusterModel := getNewClusterModelForScenario(generateClusterName(r), suiteConfig.Location, scenario)
+			newConfigs = append(newConfigs, clusterConfig{cluster: &newClusterModel, isNewCluster: true, isAirgapCluster: true})
 		}
 	}
 
@@ -287,7 +322,7 @@ func createMissingClusters(
 			clusterName := *config.cluster.Name
 
 			log.Printf("creating cluster %q...", clusterName)
-			liveCluster, err := createNewCluster(ctx, cloud, suiteConfig.ResourceGroupName, config.cluster)
+			liveCluster, err := createNewCluster(ctx, cloud, suiteConfig, config)
 			if err != nil {
 				return fmt.Errorf("unable to create new cluster: %w", err)
 			}
@@ -329,8 +364,19 @@ func chooseCluster(
 	clusterConfigs []clusterConfig) (clusterConfig, error) {
 
 	var chosenConfig clusterConfig
+
 	for i := range clusterConfigs {
 		config := &clusterConfigs[i]
+		if scenario.Airgap && !config.isAirgapCluster {
+			if *config.cluster.Name == "agentbaker-e2e-test-cluster-65llv" {
+				config.isAirgapCluster = true
+				return *config, nil
+			} else {
+				continue
+			}
+			// continue
+		}
+
 		if scenario.Config.ClusterSelector(config.cluster) {
 			// only validate + prep the cluster for testing if we didn't just create it and it hasn't already been prepared
 			if !config.isNewCluster && config.needsPreparation() {
@@ -339,6 +385,7 @@ func chooseCluster(
 					continue
 				}
 			}
+
 			chosenConfig = *config
 			break
 		}
@@ -367,7 +414,7 @@ func validateAndPrepareCluster(ctx context.Context, r *mrand.Rand, cloud *azureC
 		if err != nil {
 			return err
 		}
-		newCluster, err := createNewCluster(ctx, cloud, suiteConfig.ResourceGroupName, newModel)
+		newCluster, err := createNewCluster(ctx, cloud, suiteConfig, *config)
 		if err != nil {
 			return err
 		}
@@ -476,65 +523,4 @@ func getBaseClusterModel(clusterName, location string) armcontainerservice.Manag
 			Type: to.Ptr(armcontainerservice.ResourceIdentityTypeSystemAssigned),
 		},
 	}
-}
-
-func addAirgapNetworkSettings(ctx context.Context, cloud *azureClient, suiteConfig *suite.Config, clusterConfig clusterConfig) error {
-	vName := "abe2e-airgap-securityGroup"
-	nsgParams := cloudGapSecurityGroup(suiteConfig.Location, clusterConfig.subnetId)
-
-	err := ensureResourceGroup(ctx, cloud, suiteConfig)
-	if err != nil {
-		return err
-	}
-
-	_, err = cloud.securityGroupClient.BeginCreateOrUpdate(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, vName, nsgParams, nil)
-	if err != nil {
-		fmt.Printf("failed in cloud.securityGroupClient.BeginCreateOrUpdate\n")
-		return err
-	}
-	fmt.Printf("created nsg %s\n", vName)
-	nsg, err := cloud.securityGroupClient.Get(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, vName, nil)
-	if err != nil {
-		return err
-	}
-
-	vnetName, err := getClusterVnetName(ctx, cloud, *clusterConfig.cluster.Properties.NodeResourceGroup, *clusterConfig.cluster.Name)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("got vnet name %s\n", vnetName)
-
-	subnetParameters := armnetwork.Subnet{
-		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: to.Ptr("10.0.0.0/24"),
-			NetworkSecurityGroup: &armnetwork.SecurityGroup{
-				ID: nsg.ID,
-			},
-		},
-	}
-
-	poller, err := cloud.subnetClient.BeginCreateOrUpdate(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, vnetName, "aks-subnet", subnetParameters, nil)
-	if err != nil {
-		fmt.Printf("failed in subnetsClient.CreateOrUpdate\n")
-		return err
-	}
-	_, err = poller.PollUntilDone(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("created subnetsClient.CreateOrUpdate %s\n", clusterConfig.subnetId)
-
-	bCU, err := cloud.aksClient.BeginCreateOrUpdate(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, *clusterConfig.cluster.Name, *clusterConfig.cluster, nil)
-	if err != nil {
-		fmt.Printf("failed in cloud.aksClient.BeginCreateOrUpdate\n")
-		return err
-	}
-	_, err = bCU.PollUntilDone(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("created cloud.aksClient.BeginCreateOrUpdate %s\n", *clusterConfig.cluster.Name)
-	return nil
 }

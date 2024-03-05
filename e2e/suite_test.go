@@ -44,11 +44,11 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-
 	if err := ensureResourceGroup(ctx, cloud, suiteConfig); err != nil {
 		t.Fatal(err)
 	}
 
+	// get all exisitng clusters
 	clusterConfigs, err := getInitialClusterConfigs(ctx, cloud, suiteConfig.ResourceGroupName)
 	if err != nil {
 		t.Fatal(err)
@@ -57,6 +57,7 @@ func Test_All(t *testing.T) {
 	if err := createMissingClusters(ctx, r, cloud, suiteConfig, scenarios, &clusterConfigs); err != nil {
 		t.Fatal(err)
 	}
+	t.Fatal("Stopping HERE")
 
 	for _, e2eScenario := range scenarios {
 		e2eScenario := e2eScenario
@@ -70,11 +71,12 @@ func Test_All(t *testing.T) {
 		log.Printf("chose cluster: %q", clusterName)
 
 		// alison here
-		if e2eScenario.Airgap {
+		/*if e2eScenario.Airgap {
 			if err := addAirgapNetworkSettings(ctx, cloud, suiteConfig, clusterConfig); err != nil {
 				t.Fatal(err)
 			}
 		}
+		t.Fatal("Stopping HERE")*/
 
 		baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(ctx, cloud, suiteConfig, clusterConfig.parameters)
 		if err != nil {
