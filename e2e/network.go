@@ -17,7 +17,9 @@ var (
 func cloudGapSecurityGroup(location string) armnetwork.SecurityGroup {
 	securityRules := []*armnetwork.SecurityRule{}
 
-	securityRules = append(securityRules, getSecurityRule("allow-outbound-to-mcr-microsoft-com", "204.79.197.219", 100))
+	securityRules = append(securityRules, getSecurityRule("allow-mcr-microsoft-com", "204.79.197.219", 100))
+	securityRules = append(securityRules, getSecurityRule("allow-acs-mirror.azureedge.net", "72.21.81.200", 101))
+	securityRules = append(securityRules, getSecurityRule("allow-management.azure.com", "4.150.240.10", 102))
 	// add other urls needed
 
 	allowVnet := armnetwork.SecurityRule{
@@ -147,6 +149,5 @@ func isNetworkSecurityGroupAirgap(cloud *azureClient, resourceGroupName string) 
 		}
 		return false, fmt.Errorf("failed to get network security group: %w", err)
 	}
-	fmt.Printf("airgap network security group  %s\n", resourceGroupName)
 	return true, nil
 }

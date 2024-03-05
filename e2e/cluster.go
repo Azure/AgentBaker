@@ -165,15 +165,8 @@ func createNewCluster(
 	}
 
 	clusterConfig.cluster = &clusterResp.ManagedCluster
-	if !clusterConfig.isAirgapCluster {
-		return &clusterResp.ManagedCluster, nil
-	}
 
-	err = addAirgapNetworkSettings(ctx, cloud, suiteConfig, clusterConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to add airgap network settings: %w", err)
-	}
-	return &clusterResp.ManagedCluster, nil
+	return clusterConfig.cluster, nil
 }
 
 func deleteExistingCluster(ctx context.Context, cloud *azureClient, resourceGroupName, clusterName string) error {
@@ -303,6 +296,7 @@ func createMissingClusters(ctx context.Context, r *mrand.Rand, cloud *azureClien
 			newConfigs = append(newConfigs, clusterConfig{cluster: &newClusterModel, isNewCluster: true})
 		}
 		if !hasViableAirgapConfig(scenario, *clusterConfigs) && !hasViableAirgapConfig(scenario, newConfigs) {
+			fmt.Printf("creating airgap cluster for scenario %q\n", scenario.Name)
 			newClusterModel := getNewClusterModelForScenario(generateClusterName(r), suiteConfig.Location, scenario)
 			newConfigs = append(newConfigs, clusterConfig{cluster: &newClusterModel, isNewCluster: true, isAirgapCluster: true})
 		}
@@ -385,6 +379,21 @@ func chooseCluster(
 		return clusterConfig{}, fmt.Errorf("tried to chose a cluster without a node resource group: %+v", *chosenConfig.cluster)
 	}
 
+	if chosenConfig.isAirgapCluster {
+		areAirgapSettingsPresent, err := isNetworkSecurityGroupAirgap(cloud, *chosenConfig.cluster.Properties.NodeResourceGroup)
+		if err != nil {
+			return clusterConfig{}, fmt.Errorf("failed to check if airgap settings are present: %w", err)
+		}
+
+		if !areAirgapSettingsPresent {
+			log.Printf("adding airgap network settings to cluster %q...", *chosenConfig.cluster.Name)
+			err = addAirgapNetworkSettings(ctx, cloud, suiteConfig, chosenConfig)
+			if err != nil {
+				return clusterConfig{}, fmt.Errorf("failed to add airgap network settings: %w", err)
+			}
+		}
+	}
+
 	return chosenConfig, nil
 }
 
@@ -444,7 +453,6 @@ func prepareClusterForTests(
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("unable to extract cluster parameters from %q: %w", clusterName, err)
 	}
-
 	return kube, subnetId, clusterParams, nil
 }
 

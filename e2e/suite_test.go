@@ -113,10 +113,13 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 
 	vmssSucceeded := true
 	vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, vmssName, opts, publicKeyBytes)
+	log.Println("checkpoint 1")
 	if !opts.suiteConfig.KeepVMSS && cleanupVMSS != nil {
+		log.Println("checkpoint 2")
 		defer cleanupVMSS()
 	}
 	if err != nil {
+		log.Println("checkpoint 3")
 		vmssSucceeded = false
 		if !isVMExtensionProvisioningError(err) {
 			t.Fatalf("encountered an unknown error while creating VM: %s", err)
@@ -124,6 +127,7 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		log.Println("vm was unable to be provisioned due to a CSE error, will still atempt to extract provisioning logs...")
 	}
 
+	log.Println("checkpoint 4")
 	if opts.suiteConfig.KeepVMSS {
 		defer func() {
 			log.Printf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
