@@ -1,15 +1,18 @@
 syntax = "proto3";
 package nbcontract.v1;
+import "pkg/proto/nbcontract/v1/featurestate.proto";
 
-message KubeletConfiguration {
+message KubeletConfig {
   // TODO(ace): remove these/make api defensible
-  repeated string kubelet_flags = 1;
+  map<string, string> kubelet_flags = 1;
   map<string, string> kubelet_node_labels = 2;
   repeated Taint taints = 3;
   repeated Taint startup_taints = 4;
   KubeletDiskType kubelet_disk_type = 5;
-  bool kubelet_config_file_enabled = 6;
+  FeatureState kubelet_config_file_status = 6; // will remove this as it's only checking if file content is present
   string kubelet_config_file_content = 7;
+  string kubelet_client_key = 8;
+  string kubelet_client_cert_content = 9;
 }
 
 message Taint {

@@ -1,6 +1,5 @@
 syntax = "proto3";
 package nbcontract.v1;
-
 import "pkg/proto/nbcontract/v1/featurestate.proto";
 
 message NetworkConfig {
