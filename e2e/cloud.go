@@ -95,7 +95,6 @@ func newAzureClient(subscription string) (*azureClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create security group client: %w", err)
 	}
-	println("subscription: ", subscription)
 
 	subnetClient, err := armnetwork.NewSubnetsClient(subscription, credential, nil)
 	if err != nil {

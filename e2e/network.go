@@ -139,26 +139,6 @@ func updateSubnet(ctx context.Context, cloud *azureClient, clusterConfig cluster
 	return nil
 }
 
-/*
-func getNetworkSecurityGroupName(ctx context.Context, cloud *azureClient, resourceGroupName string) (string, error) {
-	pager := cloud.securityGroupClient.NewListPager(resourceGroupName, nil)
-
-	for pager.More() {
-		nextResult, err := pager.NextPage(ctx)
-		if err != nil {
-			return "", fmt.Errorf("failed to advance page: %w", err)
-		}
-		for _, v := range nextResult.Value {
-			if v == nil {
-				return "", fmt.Errorf("cluster network security group id was empty\n")
-			}
-			return *v.Name, nil
-		}
-	}
-	return "", fmt.Errorf("failed to find cluster network security group\n")
-}
-*/
-
 func isNetworkSecurityGroupAirgap(cloud *azureClient, resourceGroupName string) (bool, error) {
 	_, err := cloud.securityGroupClient.Get(context.Background(), resourceGroupName, nsgName, nil)
 	if err != nil {

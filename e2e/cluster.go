@@ -164,11 +164,11 @@ func createNewCluster(
 		return nil, fmt.Errorf("failed to wait for aks cluster creation %w", err)
 	}
 
+	clusterConfig.cluster = &clusterResp.ManagedCluster
 	if !clusterConfig.isAirgapCluster {
 		return &clusterResp.ManagedCluster, nil
 	}
 
-	clusterConfig.cluster = &clusterResp.ManagedCluster
 	err = addAirgapNetworkSettings(ctx, cloud, suiteConfig, clusterConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add airgap network settings: %w", err)
@@ -284,7 +284,7 @@ func hasViableConfig(scenario *scenario.Scenario, clusterConfigs []clusterConfig
 
 func hasViableAirgapConfig(scenario *scenario.Scenario, clusterConfigs []clusterConfig) bool {
 	if !scenario.Airgap {
-		return true
+		return true // config not needed for scenario
 	}
 	for _, config := range clusterConfigs {
 		if config.isAirgapCluster && scenario.Config.ClusterSelector(config.cluster) {
@@ -362,12 +362,6 @@ func chooseCluster(
 	for i := range clusterConfigs {
 		config := &clusterConfigs[i]
 		if scenario.Airgap && !config.isAirgapCluster {
-			/*if *config.cluster.Name == "agentbaker-e2e-test-cluster-2oqs8" {
-				config.isAirgapCluster = true
-				return *config, nil
-			} else {
-				continue
-			}*/
 			continue
 		}
 
@@ -379,7 +373,6 @@ func chooseCluster(
 					continue
 				}
 			}
-
 			chosenConfig = *config
 			break
 		}
