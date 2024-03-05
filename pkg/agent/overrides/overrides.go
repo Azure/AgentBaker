@@ -5,7 +5,7 @@ package overrides
 func (m *Matcher) Matches(entity *Entity) bool {
 	entityValue, ok := entity.Fields[m.Field]
 	if !ok {
-		// we should log a warning/error in these cases
+		// TODO(cameissner): add logging for these cases
 		return false
 	}
 	return m.Values[entityValue]
@@ -27,7 +27,7 @@ func (r *Rule) SatisfiedBy(entity *Entity) bool {
 func (o *Overrides) getString(name string, entity *Entity) string {
 	override, ok := o.Overrides[name]
 	if !ok {
-		// we should log a warning/error in these cases
+		// TODO(cameissner): add logging for these cases
 		return ""
 	}
 	for _, rule := range override.Rules {
@@ -42,7 +42,7 @@ func (o *Overrides) getString(name string, entity *Entity) string {
 func (o *Overrides) getMap(name string, entity *Entity) map[string]string {
 	override, ok := o.Overrides[name]
 	if !ok {
-		// we should log a warning/error in these cases
+		// TODO(cameissner): add logging for these cases
 		return map[string]string{}
 	}
 	for _, rule := range override.Rules {
