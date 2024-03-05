@@ -37,6 +37,8 @@ state = "C:\\ProgramData\\containerd\\state"
       no_pivot = false
       [plugins.cri.containerd.default_runtime]
         runtime_type = "io.containerd.runhcs.v1"
+        {{containerAnnotations}}
+        {{podAnnotations}}
         [plugins.cri.containerd.default_runtime.options]
           Debug = false
           DebugType = 0
@@ -46,6 +48,8 @@ state = "C:\\ProgramData\\containerd\\state"
       [plugins.cri.containerd.runtimes]
         [plugins.cri.containerd.runtimes.runhcs-wcow-process]
           runtime_type = "io.containerd.runhcs.v1"
+          {{containerAnnotations}}
+          {{podAnnotations}}
           [plugins.cri.containerd.runtimes.runhcs-wcow-process.options]
             Debug = true
             DebugType = 2

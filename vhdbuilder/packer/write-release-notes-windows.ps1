@@ -125,7 +125,8 @@ $wuRegistryNames = @(
     "3331554445",
     "1102009996",
     "OverrideReceiveRoutingForLocalAddressesIpv4",
-    "OverrideReceiveRoutingForLocalAddressesIpv6"
+    "OverrideReceiveRoutingForLocalAddressesIpv6",
+    "1327590028"
 )
 
 foreach ($key in $wuRegistryKeys) {
