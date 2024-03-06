@@ -40,11 +40,11 @@ parameters:
 - name: build23H2
   displayName: Build 23H2
   type: boolean
-  default: False
+  default: True
 - name: build23H2gen2
   displayName: Build 23H2 Gen 2
   type: boolean
-  default: False
+  default: True
 - name: dryrun
   displayName: Dry run
   type: boolean
