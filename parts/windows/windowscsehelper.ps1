@@ -138,6 +138,8 @@ $global:StableContainerdPackage = "v1.6.21-azure.1/binaries/containerd-v1.6.21-a
 # The latest containerd version
 $global:LatestContainerdPackage = "v1.7.9-azure.1/binaries/containerd-v1.7.9-azure.1-windows-amd64.tar.gz"
 
+$global:LatestContainerdPackagefor23H2 = "v1.7.9-azure.1/binaries/containerd-v1.7.9-azure.1-windows-amd64.tar.gz"
+
 $global:EventsLoggingDir = "C:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScriptExtension\Events\"
 $global:TaskName = ""
 $global:TaskTimeStamp = ""

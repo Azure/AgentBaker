@@ -45,6 +45,13 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
     Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
   }
 
+  It 'k8s version is greater than MinimalKubernetesVersionWithLatestContainerd and windows image is 23H2' {
+    Mock Get-WindowsBuildNumber -MockWith { return "25398" }
+    $expectedURL = "https://mirror.azk8s.cn/containerd/windows/v1.7.9-azure.1/binaries/containerd-v1.7.9-azure.1-windows-amd64.tar.gz"
+    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://mirror.azk8s.cn/containerd/windows/" -KubernetesVersion "1.28.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+    Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+  }
+
   # It retrieves the containerd version from containerd URL in Install-Containerd in staging/cse/windows/containerdfunc.ps1
   It 'validate whether containerd URL has the correct version' {
     $fileName = [IO.Path]::GetFileName($global:StableContainerdPackage)
