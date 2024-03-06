@@ -32,6 +32,11 @@ type clusterConfig struct {
 	isAirgapCluster bool
 }
 
+type VNet struct {
+	name     string
+	subnetId string
+}
+
 // Returns true if the cluster is configured with Azure CNI
 func (c clusterConfig) isAzureCNI() (bool, error) {
 	if c.cluster.Properties.NetworkProfile != nil {
@@ -182,41 +187,21 @@ func deleteExistingCluster(ctx context.Context, cloud *azureClient, resourceGrou
 	return nil
 }
 
-func getClusterSubnetID(ctx context.Context, cloud *azureClient, location, mcResourceGroupName, clusterName string) (string, error) {
+func getClusterVNet(ctx context.Context, cloud *azureClient, mcResourceGroupName string) (VNet, error) {
 	pager := cloud.vnetClient.NewListPager(mcResourceGroupName, nil)
-
 	for pager.More() {
 		nextResult, err := pager.NextPage(ctx)
 		if err != nil {
-			return "", fmt.Errorf("failed to advance page: %w", err)
+			return VNet{}, fmt.Errorf("failed to advance page: %w", err)
 		}
 		for _, v := range nextResult.Value {
 			if v == nil {
-				return "", fmt.Errorf("aks vnet id was empty")
+				return VNet{}, fmt.Errorf("aks vnet was empty")
 			}
-			return fmt.Sprintf("%s/subnets/%s", *v.ID, "aks-subnet"), nil
+			return VNet{name: *v.Name, subnetId: fmt.Sprintf("%s/subnets/%s", *v.ID, "aks-subnet")}, nil
 		}
 	}
-
-	return "", fmt.Errorf("failed to find aks vnet")
-}
-
-func getClusterVNetName(ctx context.Context, cloud *azureClient, mcResourceGroupName string) (string, error) {
-	pager := cloud.vnetClient.NewListPager(mcResourceGroupName, nil)
-
-	for pager.More() {
-		nextResult, err := pager.NextPage(ctx)
-		if err != nil {
-			return "", fmt.Errorf("failed to advance page: %w", err)
-		}
-		for _, v := range nextResult.Value {
-			if v == nil {
-				return "", fmt.Errorf("aks vnet id was empty")
-			}
-			return *v.Name, nil
-		}
-	}
-	return "", fmt.Errorf("failed to find aks vnet")
+	return VNet{}, fmt.Errorf("failed to find aks vnet")
 }
 
 func getInitialClusterConfigs(ctx context.Context, cloud *azureClient, resourceGroupName string) ([]clusterConfig, error) {
@@ -431,7 +416,7 @@ func prepareClusterForTests(
 	cluster *armcontainerservice.ManagedCluster) (*kubeclient, string, clusterParameters, error) {
 	clusterName := *cluster.Name
 
-	subnetId, err := getClusterSubnetID(ctx, cloud, suiteConfig.Location, *cluster.Properties.NodeResourceGroup, clusterName)
+	vnet, err := getClusterVNet(ctx, cloud, *cluster.Properties.NodeResourceGroup)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("unable get subnet ID of cluster %q: %w", clusterName, err)
 	}
@@ -449,7 +434,7 @@ func prepareClusterForTests(
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("unable to extract cluster parameters from %q: %w", clusterName, err)
 	}
-	return kube, subnetId, clusterParams, nil
+	return kube, vnet.subnetId, clusterParams, nil
 }
 
 // TODO(cameissner): figure out a better way to reconcile server-side and client-side properties,

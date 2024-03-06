@@ -79,13 +79,11 @@ func getSecurityRule(name, destinationAddressPrefix string, priority int32) *arm
 func addAirgapNetworkSettings(ctx context.Context, cloud *azureClient, suiteConfig *suite.Config, clusterConfig clusterConfig) error {
 	fmt.Printf("Adding network settings for airgap cluster %s in rg %s\n", *clusterConfig.cluster.Name, *clusterConfig.cluster.Properties.NodeResourceGroup)
 
-	if clusterConfig.subnetId == "" {
-		subnetId, err := getClusterSubnetID(ctx, cloud, suiteConfig.Location, *clusterConfig.cluster.Properties.NodeResourceGroup, *clusterConfig.cluster.Name)
-		if err != nil {
-			return err
-		}
-		clusterConfig.subnetId = subnetId
+	vnet, err := getClusterVNet(ctx, cloud, *clusterConfig.cluster.Properties.NodeResourceGroup)
+	if err != nil {
+		return err
 	}
+	clusterConfig.subnetId = vnet.subnetId
 
 	ipAddresses, err := net.LookupIP(*clusterConfig.cluster.Properties.Fqdn)
 	if err != nil {
@@ -94,11 +92,6 @@ func addAirgapNetworkSettings(ctx context.Context, cloud *azureClient, suiteConf
 	nsgParams := airGapSecurityGroup(suiteConfig.Location, ipAddresses[0].String())
 
 	nsg, err := createAirgapSecurityGroup(ctx, cloud, clusterConfig, nsgParams, nil)
-	if err != nil {
-		return err
-	}
-
-	vnetName, err := getClusterVNetName(ctx, cloud, *clusterConfig.cluster.Properties.NodeResourceGroup)
 	if err != nil {
 		return err
 	}
@@ -112,7 +105,7 @@ func addAirgapNetworkSettings(ctx context.Context, cloud *azureClient, suiteConf
 			},
 		},
 	}
-	err = updateSubnet(ctx, cloud, clusterConfig, subnetParameters, vnetName)
+	err = updateSubnet(ctx, cloud, clusterConfig, subnetParameters, vnet.name)
 	if err != nil {
 		return err
 	}
