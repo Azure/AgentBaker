@@ -41,7 +41,8 @@ if [ "$MODE" == "default" ]; then
     --resource-group $RESOURCE_GROUP_NAME \
     --attach-os-disk $DISK_NAME \
     --os-type $OS_TYPE \
-    --public-ip-address ""
+    --public-ip-address "" \
+    --size Standard_D8ds_v5
 else 
   if [ "$MODE" == "sigMode" ]; then
     id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
