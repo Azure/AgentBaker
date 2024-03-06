@@ -99,7 +99,7 @@ func addAirgapNetworkSettings(ctx context.Context, cloud *azureClient, suiteConf
 		return err
 	}
 
-	vnetName, err := getClusterVnetName(ctx, cloud, *clusterConfig.cluster.Properties.NodeResourceGroup)
+	vnetName, err := getClusterVNetName(ctx, cloud, *clusterConfig.cluster.Properties.NodeResourceGroup)
 	if err != nil {
 		return err
 	}

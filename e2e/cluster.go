@@ -201,7 +201,7 @@ func getClusterSubnetID(ctx context.Context, cloud *azureClient, location, mcRes
 	return "", fmt.Errorf("failed to find aks vnet")
 }
 
-func getClusterVnetName(ctx context.Context, cloud *azureClient, mcResourceGroupName string) (string, error) {
+func getClusterVNetName(ctx context.Context, cloud *azureClient, mcResourceGroupName string) (string, error) {
 	pager := cloud.vnetClient.NewListPager(mcResourceGroupName, nil)
 
 	for pager.More() {
@@ -253,9 +253,7 @@ func getInitialClusterConfigs(ctx context.Context, cloud *azureClient, resourceG
 					return nil, fmt.Errorf("failed to verify if aks subnet is for an airgap cluster: %w", err)
 				}
 
-				if isAirgap {
-					clusterConfig.isAirgapCluster = true
-				}
+				clusterConfig.isAirgapCluster = isAirgap
 				log.Printf("found agentbaker e2e cluster %q in provisioning state %q is Airgap %v", *resource.Name, *cluster.Properties.ProvisioningState, clusterConfig.isAirgapCluster)
 				configs = append(configs, clusterConfig)
 			}
