@@ -91,9 +91,9 @@ func addAirgapNetworkSettings(ctx context.Context, cloud *azureClient, suiteConf
 	if err != nil {
 		return err
 	}
-	nsgParams := cloudGapSecurityGroup(suiteConfig.Location, ipAddresses[0].String())
+	nsgParams := airGapSecurityGroup(suiteConfig.Location, ipAddresses[0].String())
 
-	nsg, err := createAirgapSecurityGroup(ctx, cloud, suiteConfig, clusterConfig, nsgParams, nil)
+	nsg, err := createAirgapSecurityGroup(ctx, cloud, clusterConfig, nsgParams, nil)
 	if err != nil {
 		return err
 	}
@@ -121,8 +121,8 @@ func addAirgapNetworkSettings(ctx context.Context, cloud *azureClient, suiteConf
 	return nil
 }
 
-func createAirgapSecurityGroup(ctx context.Context, cloud *azureClient, suiteConfig *suite.Config, clusterConfig clusterConfig, nsgParams armnetwork.SecurityGroup, options *armnetwork.SecurityGroupsClientBeginCreateOrUpdateOptions) (*armnetwork.SecurityGroupsClientCreateOrUpdateResponse, error) {
-	poller, err := cloud.securityGroupClient.BeginCreateOrUpdate(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, nsgName, nsgParams, nil)
+func createAirgapSecurityGroup(ctx context.Context, cloud *azureClient, clusterConfig clusterConfig, nsgParams armnetwork.SecurityGroup, options *armnetwork.SecurityGroupsClientBeginCreateOrUpdateOptions) (*armnetwork.SecurityGroupsClientCreateOrUpdateResponse, error) {
+	poller, err := cloud.securityGroupClient.BeginCreateOrUpdate(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, nsgName, nsgParams, options)
 	if err != nil {
 		return nil, err
 	}
