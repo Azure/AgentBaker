@@ -308,7 +308,7 @@ func createMissingClusters(ctx context.Context, r *mrand.Rand, cloud *azureClien
 			clusterName := *config.cluster.Name
 
 			log.Printf("creating cluster %q...", clusterName)
-			liveCluster, err := createNewCluster(ctx, cloud, suiteConfig, config)
+			liveCluster, err := createNewCluster(ctx, cloud, suiteConfig.ResourceGroupName, config)
 			if err != nil {
 				return fmt.Errorf("unable to create new cluster: %w", err)
 			}
@@ -407,7 +407,7 @@ func validateAndPrepareCluster(ctx context.Context, r *mrand.Rand, cloud *azureC
 		if err != nil {
 			return err
 		}
-		newCluster, err := createNewCluster(ctx, cloud, suiteConfig, *config)
+		newCluster, err := createNewCluster(ctx, cloud, suiteConfig.ResourceGroupName, *config)
 		if err != nil {
 			return err
 		}
