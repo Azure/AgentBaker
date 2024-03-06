@@ -47,7 +47,7 @@ func cloudGapSecurityGroup(location, kubernetesEndpont string) armnetwork.Securi
 			SourcePortRange:          to.Ptr("*"),
 			DestinationAddressPrefix: to.Ptr("*"),
 			DestinationPortRange:     to.Ptr("*"),
-			Priority:                 to.Ptr[int32](2001), // lower priroity than allowing mcr
+			Priority:                 to.Ptr[int32](2001),
 		},
 	}
 

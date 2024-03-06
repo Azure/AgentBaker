@@ -145,12 +145,12 @@ func validateExistingClusterState(ctx context.Context, cloud *azureClient, resou
 func createNewCluster(
 	ctx context.Context,
 	cloud *azureClient,
-	suiteConfig *suite.Config,
+	resourceGroupName string,
 	clusterConfig clusterConfig) (*armcontainerservice.ManagedCluster, error) {
 	clusterModel := clusterConfig.cluster
 	pollerResp, err := cloud.aksClient.BeginCreateOrUpdate(
 		ctx,
-		suiteConfig.ResourceGroupName,
+		resourceGroupName,
 		*clusterModel.Name,
 		*clusterModel,
 		nil,
@@ -165,7 +165,6 @@ func createNewCluster(
 	}
 
 	clusterConfig.cluster = &clusterResp.ManagedCluster
-
 	return clusterConfig.cluster, nil
 }
 
@@ -217,7 +216,6 @@ func getClusterVnetName(ctx context.Context, cloud *azureClient, mcResourceGroup
 			return *v.Name, nil
 		}
 	}
-
 	return "", fmt.Errorf("failed to find aks vnet")
 }
 
@@ -380,12 +378,12 @@ func chooseCluster(
 	}
 
 	if chosenConfig.isAirgapCluster {
-		areAirgapSettingsPresent, err := isNetworkSecurityGroupAirgap(cloud, *chosenConfig.cluster.Properties.NodeResourceGroup)
+		hasAirgapNSG, err := isNetworkSecurityGroupAirgap(cloud, *chosenConfig.cluster.Properties.NodeResourceGroup)
 		if err != nil {
 			return clusterConfig{}, fmt.Errorf("failed to check if airgap settings are present: %w", err)
 		}
 
-		if !areAirgapSettingsPresent {
+		if !hasAirgapNSG {
 			log.Printf("adding airgap network settings to cluster %q...", *chosenConfig.cluster.Name)
 			err = addAirgapNetworkSettings(ctx, cloud, suiteConfig, chosenConfig)
 			if err != nil {
