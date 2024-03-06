@@ -663,7 +663,6 @@ command -v find >/dev/null && find /dev /etc /var/lib/waagent /var/log -ls >coll
 
 # Collect all installed packages for Ubuntu and Azure Linux
 command -v dpkg >/dev/null && dpkg -l >collect/dpkg.txt 2>&1
-command -v tdnf >/dev/null && tdnf list installed >collect/tdnf.txt 2>&1
 
 # Collect system information
 command -v blkid >/dev/null && blkid >>collect/diskinfo.txt 2>&1
