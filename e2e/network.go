@@ -3,6 +3,7 @@ package e2e_test
 import (
 	"context"
 	"fmt"
+	"net"
 
 	"github.com/Azure/agentbakere2e/suite"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -14,13 +15,13 @@ var (
 	defaultSubnetName string = "aks-subnet"
 )
 
-func cloudGapSecurityGroup(location string) armnetwork.SecurityGroup {
+func cloudGapSecurityGroup(location, kubernetesEndpont string) armnetwork.SecurityGroup {
 	securityRules := []*armnetwork.SecurityRule{}
 
 	securityRules = append(securityRules, getSecurityRule("allow-mcr-microsoft-com", "204.79.197.219", 100))
 	securityRules = append(securityRules, getSecurityRule("allow-acs-mirror.azureedge.net", "72.21.81.200", 101))
 	securityRules = append(securityRules, getSecurityRule("allow-management.azure.com", "4.150.240.10", 102))
-	// add other urls needed
+	securityRules = append(securityRules, getSecurityRule("allow-kubernetes-endpoint", kubernetesEndpont, 102))
 
 	allowVnet := armnetwork.SecurityRule{
 		Name: to.Ptr("AllowVnetOutBound"),
@@ -87,7 +88,11 @@ func addAirgapNetworkSettings(ctx context.Context, cloud *azureClient, suiteConf
 		clusterConfig.subnetId = subnetId
 	}
 
-	nsgParams := cloudGapSecurityGroup(suiteConfig.Location)
+	ipAddresses, err := net.LookupIP(*clusterConfig.cluster.Properties.Fqdn)
+	if err != nil {
+		return err
+	}
+	nsgParams := cloudGapSecurityGroup(suiteConfig.Location, ipAddresses[0].String())
 
 	nsg, err := createAirgapSecurityGroup(ctx, cloud, suiteConfig, clusterConfig, nsgParams, nil)
 	if err != nil {
