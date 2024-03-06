@@ -300,7 +300,7 @@ function Test-RegistryAdded {
             exit 1
         }
     }
-    if ($env:WindowsSKU -Like '2022*') {
+    if (($env:WindowsSKU -Like '2022*') -or ($env:WindowsSKU -Like '23H2*'))  {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2629306509)
         if ($result.2629306509 -ne 1) {
             Write-ErrorWithTimestamp "The registry for the WCIFS fix in 2022-10B is not added"
