@@ -15,7 +15,7 @@ var (
 	defaultSubnetName string = "aks-subnet"
 )
 
-func cloudGapSecurityGroup(location, kubernetesEndpont string) armnetwork.SecurityGroup {
+func airGapSecurityGroup(location, kubernetesEndpont string) armnetwork.SecurityGroup {
 	securityRules := []*armnetwork.SecurityRule{}
 
 	securityRules = append(securityRules, getSecurityRule("allow-mcr-microsoft-com", "204.79.197.219", 100))
