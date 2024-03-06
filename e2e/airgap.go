@@ -16,13 +16,6 @@ var (
 )
 
 func airGapSecurityGroup(location, kubernetesEndpont string) armnetwork.SecurityGroup {
-	securityRules := []*armnetwork.SecurityRule{}
-
-	securityRules = append(securityRules, getSecurityRule("allow-mcr-microsoft-com", "204.79.197.219", 100))
-	securityRules = append(securityRules, getSecurityRule("allow-acs-mirror.azureedge.net", "72.21.81.200", 101))
-	securityRules = append(securityRules, getSecurityRule("allow-management.azure.com", "4.150.240.10", 102))
-	securityRules = append(securityRules, getSecurityRule("allow-kubernetes-endpoint", kubernetesEndpont, 103))
-
 	allowVnet := armnetwork.SecurityRule{
 		Name: to.Ptr("AllowVnetOutBound"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
@@ -51,8 +44,14 @@ func airGapSecurityGroup(location, kubernetesEndpont string) armnetwork.Security
 		},
 	}
 
-	securityRules = append(securityRules, &allowVnet)
-	securityRules = append(securityRules, &blockOutbound)
+	securityRules := []*armnetwork.SecurityRule{
+		getSecurityRule("allow-mcr-microsoft-com", "204.79.197.219", 100),
+		getSecurityRule("allow-acs-mirror.azureedge.net", "72.21.81.200", 101),
+		getSecurityRule("allow-management.azure.com", "4.150.240.10", 102),
+		getSecurityRule("allow-kubernetes-endpoint", kubernetesEndpont, 103),
+		&allowVnet,
+		&blockOutbound,
+	}
 
 	return armnetwork.SecurityGroup{
 		Location:   &location,
