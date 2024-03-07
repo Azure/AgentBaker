@@ -120,7 +120,7 @@ function check_and_curl {
 
 logs_to_events "AKS.CSE.testingTraffic.start" "echo '$(date) - INFO: Starting network connectivity check'"
 
-if ! [ -e "${AZURE_CONFIG_PATH}" ]; then
+if ! [ -f "${AZURE_CONFIG_PATH}" ]; then
     logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - WARNING: Failed to find $AZURE_CONFIG_PATH file. Are you running inside Kubernetes?'"
 fi
 
@@ -166,7 +166,7 @@ else
 fi
 
 # check access to apiserver
-if [ ! -f "$AKS_KUBECONFIG_PATH" ]; then
+if ! [ -f "${AKS_KUBECONFIG_PATH}" ]; then
     logs_to_events "AKS.CSE.testingTraffic.warning" "echo '$(date) - WARNING: Kubeconfig file not found. Skipping apiserver check.'"
 else
     APISERVER_FQDN=$(grep server $AKS_KUBECONFIG_PATH | awk -F"server: https://" '{print $2}' | cut -d : -f 1)
