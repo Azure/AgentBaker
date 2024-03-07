@@ -53,14 +53,6 @@
         "v0.0.4.1",
         "v0.0.15",
         "v0.1.1"
-      ],
-      "prefetchOptimizations": [
-        {
-          "version": "v0.1.1",
-          "binaries": [
-            "dropgz"
-          ]
-        }
       ]
     },
     {
@@ -83,7 +75,9 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.3.4-1",
-        "v1.4.0"
+        "v1.4.0",
+        "v1.4.1",
+        "v1.4.1-2"
       ]
     },
     {
@@ -132,22 +126,6 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.24.6"
-      ],
-      "prefetchOptimizations": [
-        {
-          "version": "v3.24.6",
-          "binaries": [
-            "opt/cni/bin/bandwidth",
-            "opt/cni/bin/calico",
-            "opt/cni/bin/calico-ipam",
-            "opt/cni/bin/flannel",
-            "opt/cni/bin/host-local",
-            "opt/cni/bin/install",
-            "opt/cni/bin/loopback",
-            "opt/cni/bin/portmap",
-            "opt/cni/bin/tuning"
-          ]
-        }
       ]
     },
     {
@@ -169,14 +147,6 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v3.24.6"
-      ],
-      "prefetchOptimizations": [
-        {
-          "version": "v3.24.6",
-          "binaries": [
-            "usr/local/bin/flexvol"
-          ]
-        }
       ]
     },
     {
@@ -198,6 +168,8 @@
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
+        "1.12.10-3",
+        "1.12.10-4",
         "1.13.10-1",
         "1.14.4",
         "1.14.4-1"
@@ -227,7 +199,10 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
-      "amd64OnlyVersions": [],
+      "amd64OnlyVersions": [
+        "1.7.1-hotfix.20200403-1",
+        "1.7.1-hotfix.20200403.1"
+      ],
       "multiArchVersions": [
         "v1.8.8"
       ]
@@ -259,6 +234,7 @@
       "multiArchVersions": [
         "v1.26.10",
         "v1.26.11",
+        "v1.26.11-2",
         "v1.28.8",
         "v1.28.9",
         "v1.29.3",
@@ -270,8 +246,11 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.21.7",
+        "v1.21.7-2",
         "v1.22.5",
+        "v1.22.5-2",
         "v1.23.3",
+        "v1.23.3-2",
         "v1.24.0"
       ]
     },
