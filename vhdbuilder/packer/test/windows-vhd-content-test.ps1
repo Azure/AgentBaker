@@ -524,6 +524,19 @@ function Test-ToolsToCacheOnVHD {
     }
 }
 
+function Test-SSHDConfig {
+    # user must be the name in `TEST_VM_ADMIN_USERNAME="azureuser"` in vhdbuilder/packer/test/run-test.sh
+    $result=$(sshd -T -C user=azureuser)
+    if ($result -Match 'chacha20-poly1305@openssh.com') {
+        Write-ErrorWithTimestamp "C:\programdata\ssh\sshd_config is not updated for CVE-2023-48795"
+        exit 1
+    }
+    if ($result -Match '.*-etm@openssh.com') {
+        Write-ErrorWithTimestamp "C:\programdata\ssh\sshd_config is not updated for CVE-2023-48795"
+        exit 1
+    }
+}
+
 Test-FilesToCacheOnVHD
 Test-PatchInstalled
 Test-ImagesPulled
