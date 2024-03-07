@@ -88,7 +88,10 @@ sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --
 
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
+echo "Concurrency value for azcopy: $(azcopy env list | grep AZCOPY_CONCURRENCY_VALUE | awk '{print $2}')"
 azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd?${storage_sas_token}" --recursive=true
+
+echo "Concurrency value for azcopy: $(azcopy env list | grep AZCOPY_CONCURRENCY_VALUE | awk '{print $2}')"
 
 echo "Uploaded $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
