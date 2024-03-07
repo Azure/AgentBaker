@@ -10,7 +10,6 @@ func getBaseTemplate() *nbcontractv1.Configuration {
 	return &nbcontractv1.Configuration{
 		ProvisionOutput:    "/var/log/azure/cluster-provision-cse-output.log",
 		LinuxAdminUsername: "azureuser",
-		RepoDepotEndpoint:  "",
 		MobyVersion:        "",
 		TenantId:           "",
 		KubernetesVersion:  "1.26.0",
@@ -21,10 +20,7 @@ func getBaseTemplate() *nbcontractv1.Configuration {
 			PrivateKubeBinaryUrl: "",
 		},
 		KubeproxyUrl: "",
-		CustomCloudConfig: &nbcontractv1.CustomCloudConfig{
-			IsCustomCloud: false,
-		},
-		SshStatus: nbcontractv1.FeatureState_FEATURE_STATE_ENABLED,
+		SshStatus:    nbcontractv1.FeatureState_FEATURE_STATE_ENABLED,
 	}
 }
 
