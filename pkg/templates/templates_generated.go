@@ -688,6 +688,7 @@ var _linuxCloudInitArtifactsAksLocalDnsService = []byte(`[Unit]
 Description=AKS Local DNS
 Wants=network.target
 After=network.target
+After=cloud-config.service
 Before=kubelet.service
 Before=containerd.service
 # don't run on old images; we're not compatible
