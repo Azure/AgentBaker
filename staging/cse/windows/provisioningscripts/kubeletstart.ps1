@@ -24,6 +24,12 @@ $global:CNIConfigPath = [Io.path]::Combine("$global:CNIPath", "config")
 
 $global:HNSModule = "c:\k\hns.v2.psm1"
 
+function Get-MgmtIpAddress()
+{
+   $na = Get-NetAdapter | ? Name -Like "Ethernet" | ? Status -EQ Up
+   return (Get-NetIPAddress -InterfaceAlias $na.ifAlias -AddressFamily IPv4).IPAddress
+}
+
 ipmo $global:HNSModule
 
 #TODO ksbrmnn refactor to be sensical instead of if if if ...
@@ -45,6 +51,14 @@ $KubeletArgList += @("--container-runtime-endpoint=npipe://./pipe/containerd-con
 # Reference: https://github.com/kubernetes/kubernetes/blob/master/CHANGELOG/CHANGELOG-1.27.md#other-cleanup-or-flake
 if ($global:KubeBinariesVersion -lt "1.27.0") {
     $KubeletArgList += @("--container-runtime=remote")
+}
+
+#as of 1.29 kubelet no longer sets this withe external cloud provider. 
+#but on windows cloud node manager isn't host process yet and we get a circular depenecny with cns.
+# for overlay 
+#https://github.com/kubernetes/kubernetes/pull/121028/files
+if ($global:KubeBinariesVersion -gte "1.29.0") {
+     $KubeletArgList += @("--node-ip=$(Get-MgmtIpAddress())")
 }
 
 # Used in WinCNI version of kubeletstart.ps1
