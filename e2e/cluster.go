@@ -249,19 +249,10 @@ func getInitialClusterConfigs(ctx context.Context, cloud *azureClient, resourceG
 
 func hasViableConfig(scenario *scenario.Scenario, clusterConfigs []clusterConfig) bool {
 	for _, config := range clusterConfigs {
-		if scenario.Config.ClusterSelector(config.cluster) {
-			return true
+		if scenario.Airgap && !config.isAirgapCluster {
+			continue
 		}
-	}
-	return false
-}
-
-func hasViableAirgapConfig(scenario *scenario.Scenario, clusterConfigs []clusterConfig) bool {
-	if !scenario.Airgap {
-		return true // config not needed for scenario
-	}
-	for _, config := range clusterConfigs {
-		if config.isAirgapCluster && scenario.Config.ClusterSelector(config.cluster) {
+		if scenario.Config.ClusterSelector(config.cluster) {
 			return true
 		}
 	}
@@ -274,12 +265,7 @@ func createMissingClusters(ctx context.Context, r *mrand.Rand, cloud *azureClien
 	for _, scenario := range scenarios {
 		if !hasViableConfig(scenario, *clusterConfigs) && !hasViableConfig(scenario, newConfigs) && !scenario.Airgap {
 			newClusterModel := getNewClusterModelForScenario(generateClusterName(r), suiteConfig.Location, scenario)
-			newConfigs = append(newConfigs, clusterConfig{cluster: &newClusterModel, isNewCluster: true})
-		}
-		if !hasViableAirgapConfig(scenario, *clusterConfigs) && !hasViableAirgapConfig(scenario, newConfigs) {
-			fmt.Printf("creating airgap cluster for scenario %q\n", scenario.Name)
-			newClusterModel := getNewClusterModelForScenario(generateClusterName(r), suiteConfig.Location, scenario)
-			newConfigs = append(newConfigs, clusterConfig{cluster: &newClusterModel, isNewCluster: true, isAirgapCluster: true})
+			newConfigs = append(newConfigs, clusterConfig{cluster: &newClusterModel, isNewCluster: true, isAirgapCluster: scenario.Airgap})
 		}
 	}
 

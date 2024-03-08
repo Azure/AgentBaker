@@ -33,7 +33,7 @@ const (
 	waitUntilNodeReadyPollingInterval       = 5 * time.Second
 
 	// Polling timeouts
-	vmssClientCreateVMSSPollingTimeout     = 10 * time.Minute
+	vmssClientCreateVMSSPollingTimeout     = 15 * time.Minute
 	deleteVMSSPollingTimeout               = 5 * time.Minute
 	defaultVMSSOperationPollingTimeout     = 10 * time.Minute
 	execOnVMPollingTimeout                 = 3 * time.Minute
