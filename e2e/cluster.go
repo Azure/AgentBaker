@@ -262,7 +262,7 @@ func createMissingClusters(ctx context.Context, r *mrand.Rand, cloud *azureClien
 	scenarios scenario.Table, clusterConfigs *[]clusterConfig) error {
 	var newConfigs []clusterConfig
 	for _, scenario := range scenarios {
-		if !hasViableConfig(scenario, *clusterConfigs) && !hasViableConfig(scenario, newConfigs) && !scenario.Airgap {
+		if !hasViableConfig(scenario, *clusterConfigs) && !hasViableConfig(scenario, newConfigs) {
 			newClusterModel := getNewClusterModelForScenario(generateClusterName(r), suiteConfig.Location, scenario)
 			newConfigs = append(newConfigs, clusterConfig{cluster: &newClusterModel, isNewCluster: true, isAirgapCluster: scenario.Airgap})
 		}
