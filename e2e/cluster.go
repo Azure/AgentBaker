@@ -169,8 +169,7 @@ func createNewCluster(
 		return nil, fmt.Errorf("failed to wait for aks cluster creation %w", err)
 	}
 
-	clusterConfig.cluster = &clusterResp.ManagedCluster
-	return clusterConfig.cluster, nil
+	return &clusterResp.ManagedCluster, nil
 }
 
 func deleteExistingCluster(ctx context.Context, cloud *azureClient, resourceGroupName, clusterName string) error {
