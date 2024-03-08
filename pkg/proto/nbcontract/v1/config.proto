@@ -16,7 +16,6 @@ import "pkg/proto/nbcontract/v1/featurestate.proto";
 import "pkg/proto/nbcontract/v1/teleportconfig.proto";
 import "pkg/proto/nbcontract/v1/runcconfig.proto";
 import "pkg/proto/nbcontract/v1/customcloudconfig.proto";
-import "pkg/proto/nbcontract/v1/customcatrustconfig.proto";
 import "pkg/proto/nbcontract/v1/apiserverconfig.proto";
 import "pkg/proto/nbcontract/v1/tlsbootstrappingconfig.proto";
 import "pkg/proto/nbcontract/v1/nodepoolprofile.proto";
@@ -57,12 +56,20 @@ message Configuration {
   NetworkConfig network_config = 24;
   bool is_sgx_node = 25;
   TeleportConfig teleport_config = 26;
+
+  // ssh_status specifies whether SSH is enabled or disabled on the VM node
   FeatureState ssh_status = 27;
+
+  // unattended_upgrade_status specifies whether unattended upgrades are enabled or disabled on the VM node
   optional FeatureState unattended_upgrade_status = 28;
+
+  // message_of_the_day specifies the message of the day that is displayed on the VM node when a user logs in
   string message_of_the_day = 29;
+
+  // kubelet_config specifies the kubelet configuration
   KubeletConfig kubelet_config = 31;
   FeatureState hosts_config_agent_status = 32;
-  CustomCATrustConfig custom_ca_trust_config = 33;
+  repeated string custom_ca_certs = 33;  
   string provision_output = 34;
   string hyperkube_url = 35; //will be removed later
   string moby_version = 36; //will be removed later
