@@ -2,11 +2,15 @@ syntax = "proto3";
 package nbcontract.v1;
 import "pkg/proto/nbcontract/v1/featurestate.proto";
 
+enum BootstrappingMode {
+  DISABLED = 0; // Default value
+  STANDARD = 1;
+  SECURE = 2;
+}
+ 
 message TLSBootstrappingConfig {
     // discuss whether this should be featureState or bool
-    // understand how defaulting works for enum, because we want default to be false
-    FeatureState tls_bootstrapping_status = 1; // need to review the relationship between tls_bootstrapping_status and secure_tls_bootstrapping_status. For example, if they are multually exclusive, then we should use oneof
-    FeatureState secure_tls_bootstrapping_status = 2;
-    string tls_bootstrap_token = 3; // Only required until Secure TLS bootstrapping in place. Would use kubelet identity after that.
-    string custom_secure_tls_bootstrap_appserver_appid = 4; // will follow up with the feature owner to see if this should be optional
+    BootstrappingMode tls_bootstrapping_mode = 1;
+    string tls_bootstrap_token = 2; // Only required until Secure TLS bootstrapping in place. Would use kubelet identity after that.
+    string custom_secure_tls_bootstrap_appserver_appid = 3; // only used with secure tls bootstrapping
   }
