@@ -36,6 +36,7 @@ for image in $IMAGE_LIST; do
 done
 
 rm ./trivy 
+rm -r /root/.cache/trivy/
 
 chmod a+r "${TRIVY_REPORT_JSON_PATH}"
 chmod a+r "${TRIVY_REPORT_TABLE_PATH}"
