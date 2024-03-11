@@ -265,7 +265,7 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
 EOF
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
-stop_watch $capture_time "Pull NVIDIA Image, Start installBcc subshell" false
+stop_watch $capture_time "Pull NVIDIA driver image (mcr), Start installBcc subshell" false
 start_watch
 
 string_replace() {
