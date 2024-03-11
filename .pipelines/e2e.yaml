@@ -24,6 +24,7 @@ pool:
 
 jobs:
 - job: Run_AgentBaker_E2E
+  timeoutInMinutes: 90
   steps:
   - bash: |
       az login --identity
