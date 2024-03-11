@@ -1675,6 +1675,7 @@ type NodeBootstrappingConfiguration struct {
 	DisableUnattendedUpgrades              bool
 	SSHStatus                              SSHStatus
 	DisableCustomData                      bool
+	OutboundType                           string
 }
 
 type SSHStatus int

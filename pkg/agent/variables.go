@@ -178,6 +178,10 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 		return ""
 	}
 
+	if nbc.OutboundType == "none" || nbc.OutboundType == "block" {
+		return ""
+	}
+
 	var registry string
 	switch {
 	case cloudSpecConfig.CloudName == datamodel.AzureChinaCloud:
@@ -185,7 +189,7 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 	case cs.IsAKSCustomCloud():
 		registry = cs.Properties.CustomCloudEnv.McrURL
 	default:
-		registry = `azure.microsoft.com`
+		registry = `mcr.microsoft.com`
 	}
 
 	if registry == "" {
