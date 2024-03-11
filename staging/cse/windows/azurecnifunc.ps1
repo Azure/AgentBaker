@@ -403,6 +403,7 @@ function New-ExternalHnsNetwork
     Write-Log "Creating new HNS network `"ext`""
     $externalNetwork = "ext"
     $nas = @(Get-NetAdapter -Physical)
+    $nodeIPs = @()
 
     if ($nas.Count -eq 0) {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST -ErrorMessage "Failed to find any physical network adapters"
@@ -416,6 +417,22 @@ function New-ExternalHnsNetwork
         {
             $managementIP = $netIP.IPAddress
             $adapterName = $na.Name
+
+            Write-Log "Get node IPv4 address assigned to the adapter $($na.Name): $($managementIP)"
+            $nodeIPs += $managementIP
+
+            if ($IsDualStackEnabled) {
+                $netIPv6s = Get-NetIPAddress -ifIndex $na.ifIndex -AddressFamily IPv6 -ErrorAction SilentlyContinue -ErrorVariable netIPErr
+                foreach($ipv6 in $netIPv6s)
+                {
+                    if ($ipv6.PrefixOrigin -ne "WellKnown")
+                    {
+                        Write-Log "Get node IPv6 address assigned to the adapter $($na.Name): $($ipv6.IPAddress)"
+                        $nodeIPs += $ipv6.IPAddress
+                    }
+                }
+            }
+
             break
         }
         else {
@@ -430,6 +447,24 @@ function New-ExternalHnsNetwork
     if(-Not $managementIP)
     {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP -ErrorMessage "None of the physical network adapters has an IP address"
+    }
+
+    # https://github.com/kubernetes/kubernetes/pull/121028
+    if (([version]$global:KubeBinariesVersion).CompareTo([version]("1.29.0")) -ge 0) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.UpdateKubeClusterConfig" -TaskMessage "Start to update KubeCluster Config. NodeIPs: $nodeIPs"
+
+        # It should always get ipv4 address. Otherwise, it will throw WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP
+        if ($IsDualStackEnabled -and $nodeIPs.Count -eq 1) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP -ErrorMessage "Failed to get node IPv6 IP address"
+        }
+
+        try {
+            $clusterConfiguration = ConvertFrom-Json ((Get-Content $global:KubeClusterConfigPath -ErrorAction Stop) | Out-String)
+            $clusterConfiguration.Kubernetes.Kubelet.ConfigArgs += "--node-ip=$($nodeIPs -join ',')"
+            $clusterConfiguration | ConvertTo-Json -Depth 10 | Out-File -FilePath $global:KubeClusterConfigPath
+        } catch {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG -ErrorMessage "Failed in updating kube cluster config. Error: $_"
+        }
     }
 
     Write-Log "Using adapter $adapterName with IP address $managementIP"
