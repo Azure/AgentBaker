@@ -178,7 +178,7 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 		return ""
 	}
 
-	if nbc.OutboundType == "none" || nbc.OutboundType == "block" {
+	if nbc.OutboundType == datamodel.OutboundTypeBlock || nbc.OutboundType == datamodel.OutboundTypeNone {
 		return ""
 	}
 

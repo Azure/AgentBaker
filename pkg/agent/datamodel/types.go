@@ -122,6 +122,14 @@ const (
 	WasmWasi WorkloadRuntime = "WasmWasi"
 )
 
+// OutboundType describes the options for outbound internet access.
+type OutboundType int
+
+const (
+	OutboundTypeNone OutboundType = iota
+	OutboundTypeBlock
+)
+
 /*
 CommandLineOmittedKubeletConfigFlags are the flags set by RP that should NOT be included within the set of
 command line flags when configuring kubelet.
@@ -1675,7 +1683,7 @@ type NodeBootstrappingConfiguration struct {
 	DisableUnattendedUpgrades              bool
 	SSHStatus                              SSHStatus
 	DisableCustomData                      bool
-	OutboundType                           string
+	OutboundType                           OutboundType
 }
 
 type SSHStatus int
