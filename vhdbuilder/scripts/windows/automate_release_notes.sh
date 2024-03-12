@@ -15,11 +15,8 @@ set -x
 
 github_user_name=$3
 
-az pipelines runs artifact download --run-id $build_id --artifact-name publishing-info-2019-containerd --path .
-image_version=$(jq '.image_version' vhd-publishing-info.json)
-image_version=$(echo $image_version | rev | cut -c 2-7 | rev)
-rm vhd-publishing-info.json
-branch_name=winreleaseNotes/$image_version
+image_version=$(date +"%Y-%m")
+branch_name=$github_user_name/win-${image_version}b-release-notes
 
 pr_purpose="ReleaseNotes"
 

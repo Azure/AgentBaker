@@ -1,16 +1,25 @@
 syntax = "proto3";
 package nbcontract.v1;
+import "pkg/proto/nbcontract/v1/featurestate.proto";
 
 message HTTPProxyConfig {
   // HTTPProxy represents the proxy endpoint/URL using HTTP, that the traffic should go through for making HTTP connections outside the cluster
-  optional string http_proxy = 1;
+  string http_proxy = 1;
 
-  // HTTPSProxy represents the proxy endpoint using HTTPS, that the traffic should go through for making HTTPS connections outside the cluster
-  optional string https_proxy = 2;
+  // HTTPSProxy represents the proxy endpoint/URL using HTTPS, that the traffic should go through for making HTTPS connections outside the cluster
+  string https_proxy = 2;
 
-  // NoProxy represents a list of endpoints including IPs, domains, or other network CIDRs that should not be accessed through the proxy
-  repeated string no_proxy = 3;
+  // NoProxy represents a list of entries including IPs, domains, or other network CIDRs that should not be accessed through the proxy
+  repeated string no_proxy_entries = 3;
 
   // TrustedCA repesents alternative CA certificate content
   optional string proxy_trusted_ca = 4;
+
+  // Status shows whether HTTP/HTTPS Proxy is enabled or disabled
+  // we can remove this variable because it's computed from the other variables
+  optional FeatureState status = 5;
+
+  // CaStatus shows whether HTTP/HTTPS Proxy certificate authority (CA) is enabled or disabled
+  // we can remove this variable because it's computed from the other variables
+  optional FeatureState ca_status = 6;
 }

@@ -1,0 +1,41 @@
+syntax = "proto3";
+package nbcontract.v1;
+import "pkg/proto/nbcontract/v1/featurestate.proto";
+
+message NetworkConfig {
+  NetworkPluginType network_plugin = 1;
+  NetworkPolicyType network_policy = 2;
+  NetworkModeType network_mode = 3;
+  string network_security_group = 4;
+  VirtualNetworkConfig virtual_network_config = 5;
+  string vnet_cni_plugins_url = 6;
+  string cni_plugins_url = 7;
+  string subnet = 8;
+  string route_table = 9;
+}
+
+message VirtualNetworkConfig {
+  string name = 1;
+  string resource_group = 2;
+}
+
+enum NetworkModeType {
+  NETWORK_MODE_UNSPECIFIED = 0;
+  NETWORK_MODE_L2BRIDGE = 1;
+  NETWORK_MODE_TRANSPARENT = 2;
+  //could be more. Needs to check.
+}
+
+enum NetworkPluginType {
+  NETWORK_PLUGIN_TYPE_UNSPECIFIED = 0;
+  NETWORK_PLUGIN_TYPE_NONE = 1;
+  NETWORK_PLUGIN_TYPE_AZURE = 2;
+  NETWORK_PLUGIN_TYPE_KUBENET = 3;
+}
+
+enum NetworkPolicyType {
+  NETWORK_POLICY_TYPE_UNSPECIFIED = 0;
+  NETWORK_POLICY_TYPE_NONE = 1;
+  NETWORK_POLICY_TYPE_AZURE = 2;
+  NETWORK_POLICY_TYPE_CALICO = 3;
+}

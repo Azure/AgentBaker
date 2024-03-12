@@ -111,10 +111,12 @@ copyPackerFiles() {
   KUBELET_SERVICE_DEST=/etc/systemd/system/kubelet.service
   USU_SH_SRC=/home/packer/ubuntu-snapshot-update.sh
   USU_SH_DEST=/opt/azure/containers/ubuntu-snapshot-update.sh
-  USU_SERVICE_SRC=/home/packer/snapshot-update.service
-  USU_SERVICE_DEST=/etc/systemd/system/snapshot-update.service
-  USU_TIMER_SRC=/home/packer/snapshot-update.timer
-  USU_TIMER_DEST=/etc/systemd/system/snapshot-update.timer
+  MPU_SH_SRC=/home/packer/mariner-package-update.sh
+  MPU_SH_DEST=/opt/azure/containers/mariner-package-update.sh
+  SNAPSHOT_UPDATE_SERVICE_SRC=/home/packer/snapshot-update.service
+  SNAPSHOT_UPDATE_SERVICE_DEST=/etc/systemd/system/snapshot-update.service
+  SNAPSHOT_UPDATE_TIMER_SRC=/home/packer/snapshot-update.timer
+  SNAPSHOT_UPDATE_TIMER_DEST=/etc/systemd/system/snapshot-update.timer
   VHD_CLEANUP_SCRIPT_SRC=/home/packer/cleanup-vhd.sh
   VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC=/home/packer/prefetch.sh
@@ -304,6 +306,8 @@ copyPackerFiles() {
   cpAndMode $CI_SYSLOG_WATCHER_PATH_SRC $CI_SYSLOG_WATCHER_PATH_DEST 644
   cpAndMode $CI_SYSLOG_WATCHER_SERVICE_SRC $CI_SYSLOG_WATCHER_SERVICE_DEST 644
   cpAndMode $CI_SYSLOG_WATCHER_SCRIPT_SRC $CI_SYSLOG_WATCHER_SCRIPT_DEST 755
+  cpAndMode $SNAPSHOT_UPDATE_SERVICE_SRC $SNAPSHOT_UPDATE_SERVICE_DEST 644
+  cpAndMode $SNAPSHOT_UPDATE_TIMER_SRC $SNAPSHOT_UPDATE_TIMER_DEST 644
 
   if [[ $OS != $MARINER_OS_NAME ]]; then
     cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
@@ -311,11 +315,10 @@ copyPackerFiles() {
     cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
     cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
     cpAndMode $USU_SH_SRC $USU_SH_DEST 544
-    cpAndMode $USU_SERVICE_SRC $USU_SERVICE_DEST 644
-    cpAndMode $USU_TIMER_SRC $USU_TIMER_DEST 644
   fi
   if [[ $OS == $MARINER_OS_NAME ]]; then
     cpAndMode $CONTAINERD_SERVICE_SRC $CONTAINERD_SERVICE_DEST 644
+    cpAndMode $MPU_SH_SRC $MPU_SH_DEST 544
 
     # MarinerV2 uses system-auth and system-password instead of common-auth and common-password.
     if [[ ${OS_VERSION} == "2.0" ]]; then

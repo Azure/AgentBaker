@@ -2,6 +2,8 @@
 # It is better to define functions in the scripts under staging/cse/windows.
 
 # Define all exit codes in Windows CSE
+# It must match `[A-Z_]+`
+$global:WINDOWS_CSE_SUCCESS=0
 $global:WINDOWS_CSE_ERROR_UNKNOWN=1 # For unexpected error caught by the catch block in kuberneteswindowssetup.ps1
 $global:WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY=2
 $global:WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE=3
@@ -63,7 +65,76 @@ $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE=58
 $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INVALID_SIGNATURE=59
 $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_EXCEPTION=60
 $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE=61
+$global:WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG=62
+$global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP=63
 
+# Please add new error code for downloading new packages in RP code too
+$global:ErrorCodeNames = @(
+    "WINDOWS_CSE_SUCCESS",
+    "WINDOWS_CSE_ERROR_UNKNOWN",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_FILE_WITH_RETRY",
+    "WINDOWS_CSE_ERROR_INVOKE_EXECUTABLE",
+    "WINDOWS_CSE_ERROR_FILE_NOT_EXIST",
+    "WINDOWS_CSE_ERROR_CHECK_API_SERVER_CONNECTIVITY",
+    "WINDOWS_CSE_ERROR_PAUSE_IMAGE_NOT_EXIST",
+    "WINDOWS_CSE_ERROR_GET_SUBNET_PREFIX",
+    "WINDOWS_CSE_ERROR_GENERATE_TOKEN_FOR_ARM",
+    "WINDOWS_CSE_ERROR_NETWORK_INTERFACES_NOT_EXIST",
+    "WINDOWS_CSE_ERROR_NETWORK_ADAPTER_NOT_EXIST",
+    "WINDOWS_CSE_ERROR_MANAGEMENT_IP_NOT_EXIST",
+    "WINDOWS_CSE_ERROR_CALICO_SERVICE_ACCOUNT_NOT_EXIST",
+    "WINDOWS_CSE_ERROR_CONTAINERD_NOT_INSTALLED",
+    "WINDOWS_CSE_ERROR_CONTAINERD_NOT_RUNNING",
+    "WINDOWS_CSE_ERROR_OPENSSH_NOT_INSTALLED",
+    "WINDOWS_CSE_ERROR_OPENSSH_FIREWALL_NOT_CONFIGURED",
+    "WINDOWS_CSE_ERROR_INVALID_PARAMETER_IN_AZURE_CONFIG",
+    "WINDOWS_CSE_ERROR_NO_DOCKER_TO_BUILD_PAUSE_CONTAINER",
+    "WINDOWS_CSE_ERROR_GET_CA_CERTIFICATES",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_CA_CERTIFICATES",
+    "WINDOWS_CSE_ERROR_EMPTY_CA_CERTIFICATES",
+    "WINDOWS_CSE_ERROR_ENABLE_SECURE_TLS",
+    "WINDOWS_CSE_ERROR_GMSA_EXPAND_ARCHIVE",
+    "WINDOWS_CSE_ERROR_GMSA_ENABLE_POWERSHELL_PRIVILEGE",
+    "WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_PERMISSION",
+    "WINDOWS_CSE_ERROR_GMSA_SET_REGISTRY_VALUES",
+    "WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGEVENTS",
+    "WINDOWS_CSE_ERROR_GMSA_IMPORT_CCGAKVPPLUGINEVENTS",
+    "WINDOWS_CSE_ERROR_NOT_FOUND_MANAGEMENT_IP",
+    "WINDOWS_CSE_ERROR_NOT_FOUND_BUILD_NUMBER",
+    "WINDOWS_CSE_ERROR_NOT_FOUND_PROVISIONING_SCRIPTS",
+    "WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_KUBERNETES_PACKAGE",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_CNI_PACKAGE",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_HNS_MODULE",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_CALICO_PACKAGE",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_GMSA_PACKAGE",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_CSI_PROXY_PACKAGE",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE",
+    "WINDOWS_CSE_ERROR_SET_TCP_DYNAMIC_PORT_RANGE",
+    "WINDOWS_CSE_ERROR_BUILD_DOCKER_PAUSE_CONTAINER",
+    "WINDOWS_CSE_ERROR_PULL_PAUSE_IMAGE",
+    "WINDOWS_CSE_ERROR_BUILD_TAG_PAUSE_IMAGE",
+    "WINDOWS_CSE_ERROR_CONTAINERD_BINARY_EXIST",
+    "WINDOWS_CSE_ERROR_SET_TCP_EXCLUDE_PORT_RANGE",
+    "WINDOWS_CSE_ERROR_SET_UDP_DYNAMIC_PORT_RANGE",
+    "WINDOWS_CSE_ERROR_SET_UDP_EXCLUDE_PORT_RANGE",
+    "WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN",
+    "WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG",
+    "WINDOWS_CSE_ERROR_COPY_LOG_COLLECTION_SCRIPTS",
+    "WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE",
+    "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_FAILED",
+    "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_TIMEOUT",
+    "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_VM_SIZE_NOT_SUPPORTED",
+    "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_SET",
+    "WINDOWS_CSE_ERROR_GPU_SKU_INFO_NOT_FOUND",
+    "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE",
+    "WINDOWS_CSE_ERROR_GPU_DRIVER_INVALID_SIGNATURE",
+    "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_EXCEPTION",
+    "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE",
+    "WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG",
+    "WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP"
+)
 
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version
@@ -71,6 +142,9 @@ $global:StableContainerdPackage = "v1.6.21-azure.1/binaries/containerd-v1.6.21-a
 # The latest containerd version
 $global:LatestContainerdPackage = "v1.7.9-azure.1/binaries/containerd-v1.7.9-azure.1-windows-amd64.tar.gz"
 
+$global:EventsLoggingDir = "C:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScriptExtension\Events\"
+$global:TaskName = ""
+$global:TaskTimeStamp = ""
 
 # This filter removes null characters (\0) which are captured in nssm.exe output when logged through powershell
 filter RemoveNulls { $_ -replace '\0', '' }
@@ -150,13 +224,14 @@ function Set-ExitCode
     )
     Write-Log "Set ExitCode to $ExitCode and exit. Error: $ErrorMessage"
     $global:ExitCode=$ExitCode
-    $global:ErrorMessage=$ErrorMessage
+    # we use | as the separator as a workaround since " or ' do not work as expected per the testings
+    $global:ErrorMessage=($ErrorMessage -replace '\|', '%7C')
     exit $ExitCode
 }
 
 function Postpone-RestartComputer 
 {
-    Write-Log "Creating an one-time task to restart the VM"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.PostponeRestartComputer" -TaskMessage "Start to create an one-time task to restart the VM"
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument " -Command `"Restart-Computer -Force`""
     $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
     # trigger this task once
@@ -308,6 +383,8 @@ function Install-Containerd-Based-On-Kubernetes-Version {
     $KubernetesVersion
   )
 
+  Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerdBasedOnKubernetesVersion" -TaskMessage "Start to install ContainerD based on kubernetes version. ContainerdUrl: $global:ContainerdUrl, KubernetesVersion: $global:KubeBinariesVersion"
+
   # In the past, $global:ContainerdUrl is a full URL to download Windows containerd package.
   # Example: "https://acs-mirror.azureedge.net/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
   # To support multiple containerd versions, we only set the endpoint in $global:ContainerdUrl.
@@ -326,5 +403,56 @@ function Install-Containerd-Based-On-Kubernetes-Version {
     }
     $ContainerdUrl = $ContainerdUrl + $containerdPackage
   }
+  Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerd" -TaskMessage "Start to install ContainerD. ContainerdUrl: $ContainerdUrl"
   Install-Containerd -ContainerdUrl $ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
+}
+
+function Logs-To-Event {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $TaskName,
+        [Parameter(Mandatory = $true)][string]
+        $TaskMessage
+    )
+    $eventLevel="Informational"
+    if ($global:ExitCode -ne 0) {
+        $eventLevel="Error"
+    }
+
+    $eventsFileName=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    $currentTime=$(Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff")
+    
+    $lastTaskName = ""
+    $lastTaskDuration = 0
+    if ($global:TaskTimeStamp -ne "") {
+        $lastTaskName = $global:TaskName
+        $lastTaskDuration = $(New-Timespan -Start $global:TaskTimeStamp -End $currentTime)
+    }
+
+    $global:TaskName = $TaskName
+    $global:TaskTimeStamp = $currentTime
+
+    Write-Log "$global:TaskName - $TaskMessage"
+    $TaskMessage = (echo $TaskMessage | ConvertTo-Json)
+    $messageJson = @"
+    {
+        "HostName": "$env:computername",
+        "LastTaskName": "$lastTaskName",
+        "LastTaskDuration": "$lastTaskDuration",
+        "CurrentTaskMessage": $TaskMessage
+    }
+"@
+    $messageJson = (echo $messageJson | ConvertTo-Json)
+    
+    $jsonString = @"
+    {
+        "Timestamp": "$global:TaskTimeStamp",
+        "OperationId": "$global:OperationId",
+        "Version": "1.10",
+        "TaskName": "$global:TaskName",
+        "EventLevel": "$eventLevel",
+        "Message": $messageJson
+    }
+"@
+    echo $jsonString | Set-Content ${global:EventsLoggingDir}${eventsFileName}.json
 }

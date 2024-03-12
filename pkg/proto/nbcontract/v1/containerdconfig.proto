@@ -1,0 +1,8 @@
+syntax = "proto3";
+package nbcontract.v1;
+
+message ContainerdConfig {
+  string containerd_download_url_base = 1;
+  string containerd_version = 2;
+  string containerd_package_url = 3;
+}

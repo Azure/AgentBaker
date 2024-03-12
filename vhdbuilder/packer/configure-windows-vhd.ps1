@@ -288,6 +288,18 @@ function Install-ContainerD {
 function Install-OpenSSH {
     Write-Log "Installing OpenSSH Server"
     Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+
+    # It’s by design that files within the C:\Windows\System32\ folder are not modifiable. 
+    # When the OpenSSH Server starts, it copies C:\windows\system32\openssh\sshd_config_default to C:\programdata\ssh\sshd_config, if the file does not already exist.
+    $OriginalConfigPath = "C:\windows\system32\OpenSSH\sshd_config_default"
+    $ConfigPath = "C:\programdata\ssh\sshd_config"
+    Write-Log "Updating $ConfigPath for CVE-2023-48795"
+    $ModifiedConfigContents = Get-Content $OriginalConfigPath `
+        | %{$_ -replace "#RekeyLimit default none", "$&`r`n# Disable cipher to mitigate CVE-2023-48795`r`nCiphers -chacha20-poly1305@openssh.com`r`nMacs -*-etm@openssh.com`r`n"}
+    Stop-Service sshd
+    Out-File -FilePath $ConfigPath -InputObject $ModifiedConfigContents -Encoding UTF8
+    Start-Service sshd
+    Write-Log "Updated $ConfigPath for CVE-2023-48795"
 }
 
 function Install-WindowsPatches {
@@ -727,6 +739,13 @@ function Update-Registry {
             Write-Log "The current value of OverrideReceiveRoutingForLocalAddressesIpv6 is $currentValue"
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv6 -Value 1 -Type DWORD
+
+        Write-Log "Enable 1 fix in 2024-02B"
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1327590028 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 1327590028 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1327590028 -Value 1 -Type DWORD
     }
 }
 
@@ -736,6 +755,10 @@ function Get-SystemDriveDiskInfo {
     foreach($disk in $disksInfo) {
         if ($disk.DeviceID -eq "C:") {
             Write-Log "Disk C: Free space: $($disk.FreeSpace), Total size: $($disk.Size)"
+
+            if ($disk.FreeSpace -lt $global:lowestFreeSpace) {
+                throw "Disk C: Free space is less than $($global:lowestFreeSpace)"
+            }
         }
     }
 }

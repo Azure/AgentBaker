@@ -34,10 +34,14 @@ installDeps() {
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
-    BLOBFUSE2_VERSION="2.2.0"
+    BLOBFUSE2_VERSION="2.2.1"
 
+    # keep legacy version on ubuntu 16.04 and 18.04
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
+    fi
+    if [ "${OSVERSION}" == "18.04" ]; then
+        BLOBFUSE2_VERSION="2.2.0"
     fi
 
     pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
@@ -126,7 +130,7 @@ installStandaloneContainerd() {
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
         # pin 18.04 to 1.7.1
-        CONTAINERD_VERSION="1.7.5"
+        CONTAINERD_VERSION="1.7.7"
         if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
             CONTAINERD_VERSION="1.7.1"
         fi
@@ -175,6 +179,7 @@ downloadContainerdFromVersion() {
     updateAptWithMicrosoftPkg 
     apt_get_download 20 30 moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    echo "Succeeded to download containerd version ${CONTAINERD_VERSION}"
 }
 
 downloadContainerdFromURL() {
@@ -221,10 +226,10 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
     if [[ -z ${TARGET_VERSION} ]]; then
-        # pin 1804 to 1.1.7
-        TARGET_VERSION="1.1.9-ubuntu${UBUNTU_RELEASE}"
+        # pin 1804 to 1.1.12
+        TARGET_VERSION="1.1.12-ubuntu${UBUNTU_RELEASE}"
         if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-            TARGET_VERSION="1.1.7+azure-ubuntu${UBUNTU_RELEASE}"
+            TARGET_VERSION="1.1.12-ubuntu${UBUNTU_RELEASE}"
         fi
     fi
 
@@ -239,14 +244,10 @@ ensureRunc() {
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     CLEANED_TARGET_VERSION=${TARGET_VERSION}
 
-    if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%+*} # removes the +azure-ubuntu18.04u1 (or similar) suffix
-    else
-        # after upgrading to 1.1.9, CURRENT_VERSION will also include the patch version (such as 1.1.9-1), so we trim it off
-        # since we only care about the major and minor versions when determining if we need to install it
-        CURRENT_VERSION=${CURRENT_VERSION%-*} # removes the -1 patch version (or similar)
-        CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar) 
-    fi
+    # after upgrading to 1.1.9, CURRENT_VERSION will also include the patch version (such as 1.1.9-1), so we trim it off
+    # since we only care about the major and minor versions when determining if we need to install it
+    CURRENT_VERSION=${CURRENT_VERSION%-*} # removes the -1 patch version (or similar)
+    CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar) 
 
     if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
         echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."

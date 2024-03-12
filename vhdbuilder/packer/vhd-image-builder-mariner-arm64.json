@@ -511,6 +511,21 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh",
+      "destination": "/home/packer/mariner-package-update.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/package-update.service",
+      "destination": "/home/packer/snapshot-update.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/package-update.timer",
+      "destination": "/home/packer/snapshot-update.timer"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/notice.txt",
       "destination": "/home/packer/NOTICE.txt"
     },

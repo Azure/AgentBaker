@@ -17,6 +17,19 @@ build_ids=$3
 branch_name=imageBump/$new_image_version
 pr_title="VHDVersion"
 
+# This function takes the build ID and reads the queue time.
+# It then sanitizes the queue time in the format that the Canonical snapshot endpoint expects, which is 20230727T000000Z 
+# Following that, it will write the timestamp to a JSON file to be consumed later in the event of a hotfix
+# This file is only written to an official branch, because the build timestamp will correspond with a particular VHD
+find_and_write_build_timestamp() {
+    first_build=$(echo "$build_ids" | cut -d' ' -f1)
+    build_time=$(az pipelines runs show --id $first_build | jq -r ".queueTime")
+    canonical_sanitized_timestamp=$(date -u -d "$build_time" "+%Y%m%dT%H%M%SZ")
+    # shellcheck disable=SC2089
+    json_string="{\"build_timestamp\": \"$canonical_sanitized_timestamp\"}"
+    echo "$json_string" > vhdbuilder/${new_image_version}_build_timestamp.json
+}
+
 # This function finds the current SIG Image version from the input JSON file
 find_current_image_version() {
     filepath=$1
@@ -69,13 +82,18 @@ cut_official_branch() {
     fi
     update_image_version
     git add .
-    git commit -m"chore: update image version in official branch"
+    git commit -m "chore: update image version in official branch"
 
     # Avoid including release notes in the official tag
     rm -rf vhdbuilder/release-notes
     git add .
-    git commit -m"chore: remove release notes in official branch"
+    git commit -m "chore: remove release notes in official branch"
     
+    # Compute and store the VHD build timestamp for hotfixes
+    find_and_write_build_timestamp
+    git add .
+    git commit -m "chore: compute and store VHD build timestamp in official branch"
+
     git push -u origin $official_branch_name
 
     git tag $official_tag
