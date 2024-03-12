@@ -302,21 +302,20 @@ var _linuxCloudInitArtifactsAksCheckNetworkSh = []byte(`#! /bin/bash
 # and log the results to the events directory. For now, this script has to be triggered manually to
 # collect the log. In the future, we will run it periodically to check and alert any issue.
 
-APISERVER_FQDN=${1:-''}
-CUSTOM_ENDPOINT=${2:-''}
+CUSTOM_ENDPOINT=${1:-''}
 
 EVENTS_LOGGING_PATH="/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/"
 AZURE_CONFIG_PATH="/etc/kubernetes/azure.json"
 AKS_CA_CERT_PATH="/etc/kubernetes/certs/apiserver.crt"
 AKS_CERT_PATH="/etc/kubernetes/certs/client.crt"
 AKS_KEY_PATH="/etc/kubernetes/certs/client.key"
+AKS_KUBECONFIG_PATH="/var/lib/kubelet/kubeconfig"
 RESOLV_CONFIG_PATH="/etc/resolv.conf"
 SYSTEMD_RESOLV_CONFIG_PATH="/run/systemd/resolve/resolv.conf"
 
 ARM_ENDPOINT="management.azure.com"
 METADATA_ENDPOINT="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://${ARM_ENDPOINT}/"
 AKS_ENDPOINT="https://${ARM_ENDPOINT}/providers/Microsoft.ContainerService/operations?api-version=2023-11-01"
-APISERVER_ENDPOINT="https://${APISERVER_FQDN}/healthz"
 
 TEMP_DIR=$(mktemp -d)
 NSLOOKUP_FILE="${TEMP_DIR}/nslookup.log"
@@ -381,9 +380,9 @@ function check_and_curl {
     # check DNS 
     nslookup $url > /dev/null
     if [ $? -eq 0 ]; then
-        logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to $url'"
+        logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to $url'"
     else
-        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to $url. $error_msg'"
+        logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to $url. $error_msg'"
         dns_trace $url
         return 1
     fi
@@ -395,17 +394,17 @@ function check_and_curl {
         response=$(curl -s -m $MAX_TIME -o /dev/null -w "%{http_code}" "https://${url}" -L)
 
         if [ $response -ge 200 ] && [ $response -lt 400 ]; then
-            logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response'"
+            logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response'"
             break
         elif [ $response -eq 400 ] && ([ $url == "acs-mirror.azureedge.net" ] || [ $url == "eastus.data.mcr.microsoft.com" ]); then
-            logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response. This is expected since $url is a repository endpoint which requires a full package path to get 200 status code.'"
+            logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response. This is expected since $url is a repository endpoint which requires a full package path to get 200 status code.'"
             break
         else
             # if the response code is not within successful range, increment the error count
             i=$(( $i + 1 ))
             # if we have reached the maximum number of retries, log an error
             if [[ $i -eq $MAX_RETRY ]]; then
-                logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $url after $MAX_RETRY attempts with returned status code $response. $error_msg'" 
+                logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $url after $MAX_RETRY attempts with returned status code $response. $error_msg'" 
                 break
             fi
             
@@ -415,29 +414,30 @@ function check_and_curl {
     done
 }
 
+logs_to_events "AKS.testingTraffic.start" "echo '$(date) - INFO: Starting network connectivity check'"
 
-if ! [ -e "${AZURE_CONFIG_PATH}" ]; then
-    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - WARNING: Failed to find $AZURE_CONFIG_PATH file. Are you running inside Kubernetes?'"
+if ! [ -f "${AZURE_CONFIG_PATH}" ]; then
+    logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - WARNING: Failed to find $AZURE_CONFIG_PATH file. Are you running inside Kubernetes?'"
 fi
 
 # check DNS resolution to ARM endpoint
 nslookup $ARM_ENDPOINT > $NSLOOKUP_FILE
 if [ $? -eq 0 ]; then
-    logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to $ARM_ENDPOINT'"
+    logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to $ARM_ENDPOINT'"
 else
     error_log=$(cat $NSLOOKUP_FILE)
-    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to $ARM_ENDPOINT with error $error_log'"
+    logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to $ARM_ENDPOINT with error $error_log'"
 
     # check resolv.conf
     nameserver=$(cat $NSLOOKUP_FILE | grep "Server" | awk '{print $2}')
     echo "Checking resolv.conf for nameserver $nameserver"
     cat $RESOLV_CONFIG_PATH | grep $nameserver 
     if [ $? -ne 0 ]; then
-        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - FAILURE: Nameserver $nameserver wasn't found in $RESOLV_CONFIG_PATH'"
+        logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - FAILURE: Nameserver $nameserver wasn't found in $RESOLV_CONFIG_PATH'"
     fi
     cat $SYSTEMD_RESOLV_CONFIG_PATH | grep $nameserver 
     if [ $? -ne 0 ]; then
-        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - FAILURE: Nameserver $nameserver wasn't found in $SYSTEMD_RESOLV_CONFIG_PATH'"
+        logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - FAILURE: Nameserver $nameserver wasn't found in $SYSTEMD_RESOLV_CONFIG_PATH'"
     fi
 
     # trace request
@@ -449,33 +449,35 @@ fi
 # check access to ARM endpoint
 result=$(curl -m $MAX_TIME -s -o $TOKEN_FILE -w "%{http_code}" -H Metadata:true $METADATA_ENDPOINT)
 if [ $result -eq 200 ]; then
-    logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully retrieved access token'"
+    logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully retrieved access token'"
     access_token=$(cat $TOKEN_FILE | jq -r .access_token)
     res=$(curl -m $MAX_TIME -X GET -H "Authorization: Bearer $access_token" -H "Content-Type:application/json" -s -o /dev/null -w "%{http_code}" $AKS_ENDPOINT)
     if [ $res -ge 200 ] && [ $res -lt 400 ]; then
-        logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $ARM_ENDPOINT with returned status code $res'"
+        logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $ARM_ENDPOINT with returned status code $res'"
     else 
-        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test $ARM_ENDPOINT with returned status code $res. This endpoint is required for Kubernetes operations against the Azure API'" 
+        logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test $ARM_ENDPOINT with returned status code $res. This endpoint is required for Kubernetes operations against the Azure API'" 
     fi
 else
-    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to retrieve access token with returned status code $result. Can't check access to $ARM_ENDPOINT'" 
+    logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - ERROR: Failed to retrieve access token with returned status code $result. Can't check access to $ARM_ENDPOINT'" 
 fi
 
 # check access to apiserver
-if [ -z "$APISERVER_FQDN" ]; then
-    logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - WARNING: No apiserver FQDN provided. Skipping apiserver check.'"
+if ! [ -f "${AKS_KUBECONFIG_PATH}" ]; then
+    logs_to_events "AKS.testingTraffic.warning" "echo '$(date) - WARNING: Kubeconfig file not found. Skipping apiserver check.'"
 else
+    APISERVER_FQDN=$(grep server $AKS_KUBECONFIG_PATH | awk -F"server: https://" '{print $2}' | cut -d : -f 1)
+    APISERVER_ENDPOINT="https://${APISERVER_FQDN}/healthz"
     nslookup $APISERVER_FQDN > /dev/null
     if [ $? -eq 0 ]; then
-        logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to $APISERVER_FQDN'"
+        logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to $APISERVER_FQDN'"
         res=$(curl -m $MAX_TIME -s -o /dev/null -w "%{http_code}" --cacert $AKS_CA_CERT_PATH --cert $AKS_CERT_PATH --key $AKS_KEY_PATH $APISERVER_ENDPOINT)
         if [ $res -ge 200 ] && [ $res -lt 400 ]; then
-            logs_to_events "AKS.CSE.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested apiserver $APISERVER_FQDN with returned status code $res'"
+            logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested apiserver $APISERVER_FQDN with returned status code $res'"
         else 
-            logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test $APISERVER_FQDN with returned status code $res. Node might not be able to connect to the apiserver'" 
+            logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test $APISERVER_FQDN with returned status code $res. Node might not be able to connect to the apiserver'" 
         fi
     else
-        logs_to_events "AKS.CSE.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to $APISERVER_FQDN. Node might not be able to connect to the apiserver'"
+        logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to $APISERVER_FQDN. Node might not be able to connect to the apiserver'"
         dns_trace $APISERVER_FQDN
     fi
 fi
@@ -494,7 +496,9 @@ if [ ! -z "$CUSTOM_ENDPOINT" ]; then
     do
         check_and_curl $url ""
     done
-fi`)
+fi
+
+logs_to_events "AKS.testingTraffic.end" "echo '$(date) - INFO: Network connectivity check completed'"`)
 
 func linuxCloudInitArtifactsAksCheckNetworkShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsAksCheckNetworkSh, nil
@@ -663,7 +667,6 @@ command -v find >/dev/null && find /dev /etc /var/lib/waagent /var/log -ls >coll
 
 # Collect all installed packages for Ubuntu and Azure Linux
 command -v dpkg >/dev/null && dpkg -l >collect/dpkg.txt 2>&1
-command -v tdnf >/dev/null && tdnf list installed >collect/tdnf.txt 2>&1
 
 # Collect system information
 command -v blkid >/dev/null && blkid >>collect/diskinfo.txt 2>&1
@@ -4825,8 +4828,11 @@ if [[ -z "${bridgeIP}" ]]; then
     exit 1
 fi
 
-podSubnetAddr=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .ipam.subnet")
-if [[ -z "${podSubnetAddr}" ]]; then
+# cloud-controller-manager assigns the node pod CIDR, then kubelet/containerd put it in the conflist.
+# Parse the conflist to retrieve the pod CIDR (IPv4 is always the first item in `+"`"+`ranges`+"`"+`).
+# If the field we expect isn't there, jq returns "null", so treat that as a failure.
+podSubnetAddr=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .ipam.ranges[0][0].subnet")
+if [[ -z "${podSubnetAddr}" || "${podSubnetAddr}" == 'null' ]]; then
     echo "could not determine this node's pod ipam subnet range from 10-containerd-net.conflist...exiting early"
     exit 1
 fi
@@ -4843,7 +4849,8 @@ echo "outputting newly added AKS-DEDUP-PROMISC rules:"
 ebtables -t filter -L OUTPUT 2>/dev/null
 ebtables -t filter -L AKS-DEDUP-PROMISC 2>/dev/null
 exit 0
-#EOF`)
+#EOF
+`)
 
 func linuxCloudInitArtifactsEnsureNoDupShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsEnsureNoDupSh, nil
@@ -8407,7 +8414,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.39.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.40.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -8821,6 +8828,8 @@ $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE=58
 $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INVALID_SIGNATURE=59
 $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_EXCEPTION=60
 $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE=61
+$global:WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG=62
+$global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP=63
 
 # Please add new error code for downloading new packages in RP code too
 $global:ErrorCodeNames = @(
@@ -8885,7 +8894,9 @@ $global:ErrorCodeNames = @(
     "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE",
     "WINDOWS_CSE_ERROR_GPU_DRIVER_INVALID_SIGNATURE",
     "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_EXCEPTION",
-    "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE"
+    "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE",
+    "WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG",
+    "WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP"
 )
 
 # NOTE: KubernetesVersion does not contain "v"

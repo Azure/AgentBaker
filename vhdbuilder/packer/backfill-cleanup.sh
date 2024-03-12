@@ -66,7 +66,7 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
         for image_version in $image_versions; do
           echo "Deleting sig image-version ${image_version} ${image_definition} from gallery ${gallery} rg ${AZURE_RESOURCE_GROUP_NAME}"
           az sig image-version delete -e $image_version -i ${image_definition} -r ${gallery} -g ${AZURE_RESOURCE_GROUP_NAME}
-          az sig image-version wait --deleted --timeout 1800 -e $version -i ${image_definition} -r ${gallery} -g ${AZURE_RESOURCE_GROUP_NAME}
+          az sig image-version wait --deleted --timeout 1800 -e $image_version -i ${image_definition} -r ${gallery} -g ${AZURE_RESOURCE_GROUP_NAME}
         done
         image_versions=$(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${gallery} -i ${image_definition} | jq -r '.[].name')
         echo "image versions are $image_versions"
