@@ -15,6 +15,7 @@ pr:
     - e2e/windows
     - pkg/agent/datamodel/sig_config*.go # SIG config changes
     - pkg/agent/datamodel/*.json # SIG version changes
+    - pkg/agent/testdata/AKSWindows* # Windows test data
     
 variables:
 - group: ab-e2e
