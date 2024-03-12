@@ -161,6 +161,8 @@ activateNfConntrack() {
 }
 
 installFIPS() {
+    set -x
+    echo "TOBIASB START"
 
     echo "Installing FIPS..."
 
@@ -181,5 +183,7 @@ installFIPS() {
                 grubby --update-kernel=ALL --args="fips=1 boot=$boot_uuid"
         fi
     fi
-    
+
+    echo "TOBIASB END"
+    set +x
 }
