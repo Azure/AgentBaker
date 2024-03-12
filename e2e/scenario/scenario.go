@@ -73,6 +73,10 @@ func (t *Template) scenarios() []*Scenario {
 		t.ubuntu2204AirGap(),
 		t.ubuntu2204ContainerdURL(),
 		t.ubuntu2204ContainerdVersion(),
+		t.azurelinuxv2ARM64AirGap(),
+		t.marinerv2AirGap(),
+		t.azurelinuxv2AirGap(),
+		t.marinerv2ARM64AirGap(),
 	}
 }
 
