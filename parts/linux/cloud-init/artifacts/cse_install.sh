@@ -91,20 +91,32 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
 }
 
 downloadContainerdWasmShims() {
+    declare -a wasmShimPids=()
     for shim_version in $CONTAINERD_WASM_VERSIONS; do
         binary_version="$(echo "${shim_version}" | tr . -)"
-        local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/amd64"
         local containerd_wasm_filepath="/usr/local/bin"
+        local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/amd64"
         if [[ $(isARM64) == 1 ]]; then
             containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/arm64"
         fi
 
         if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT)
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT)
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT)
-            chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
-            chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+            wasmShimPids+=($!)
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+            wasmShimPids+=($!)
+            if [ "$shim_version" = "v0.8.0" ]; then
+                retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+                wasmShimPids+=($!)
+            fi
+        fi
+    done
+    wait ${wasmShimPids[@]}
+    for shim_version in $CONTAINERD_WASM_VERSIONS; do
+        binary_version="$(echo "${shim_version}" | tr . -)"
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
+        if [ "$shim_version" = "v0.8.0" ]; then
             chmod 755 "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1"
         fi
     done
@@ -113,7 +125,7 @@ downloadContainerdWasmShims() {
 downloadAzureCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+    retrycmd_get_tarball 120 3 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
 downloadCrictl() {
@@ -253,7 +265,7 @@ extractKubeBinaries() {
         k8s_tgz_tmp="${K8S_DOWNLOADS_DIR}/${k8s_tgz_tmp_filename}"
         mkdir -p ${K8S_DOWNLOADS_DIR}
 
-        retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+        retrycmd_get_tarball 120 3 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
         if [[ ! -f ${k8s_tgz_tmp} ]]; then
             exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
         fi
