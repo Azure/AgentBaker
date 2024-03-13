@@ -23,13 +23,14 @@ const (
 	vmssNameTemplate                         = "abtest%s"
 	listVMSSNetworkInterfaceURLTemplate      = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
+	maxRetries                               = 3
 )
 
 type RetryVmssOperations struct {
 	maxRetries int
 }
 
-func (rOpts RetryVmssOperations) bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
+func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
 	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to get node bootstrapping: %w", err)
@@ -48,6 +49,7 @@ func (rOpts RetryVmssOperations) bootstrapVMSS(ctx context.Context, t *testing.T
 		log.Printf("finished deleting vmss %q", vmssName)
 	}
 
+	rOpts := RetryVmssOperations{maxRetries: maxRetries}
 	vmssModel, err := rOpts.createVMSSWithPayload(ctx, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
 	if err != nil {
 		return nil, cleanupVMSS, fmt.Errorf("unable to create VMSS with payload: %w", err)
