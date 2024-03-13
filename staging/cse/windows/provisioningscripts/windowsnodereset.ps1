@@ -132,6 +132,8 @@ if ($IsDualStackEnabled) {
 
 & "c:\k\cleanupnetwork.ps1"
 
+& "c:\k\initnode.ps1"
+
 #
 # Start Services
 #
