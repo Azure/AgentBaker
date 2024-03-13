@@ -164,25 +164,35 @@ installFIPS() {
     set -x
     echo "TOBIASB START"
 
-    echo "Installing FIPS..."
+    # TOBIASB: TODO: Hacky install from blob storage to test.
 
-    # Install necessary rpm pacakages
-    dnf_install 120 5 25 grubby || exit $ERR_APT_INSTALL_TIMEOUT
-    dnf_install 120 5 25 dracut-fips || exit $ERR_APT_INSTALL_TIMEOUT
+    echo "Installing azl-compliance package for FIPS and FedRAMP..."
+    dnf_install 5 1 30 --nogpgcheck 'https://srctarpublishstaging.blob.core.windows.net/src-tar-publishing-staging/azl-compliance-0.1.0-1.cm2.x86_64.rpm'
 
-    # Add the boot= cmd line parameter if the boot dir is not the same as the root dir
-    boot_dev="$(df /boot/ | tail -1 | cut -d' ' -f1)"
-    root_dev="$(df / | tail -1 | cut -d' ' -f1)"
-    if [ ! "$root_dev" == "$boot_dev" ]; then
-        boot_uuid="UUID=$(blkid $boot_dev -s UUID -o value)"
+    echo "Setting up FIPS and FedRAMP compliance..."
+    azl-compliance
+    echo "azl-compliance completed with exit code '$?'"
+    echo "Done setting up FIPS and FedRAMP compliance."
 
-        # Enable FIPS mode and modify boot directory
-        if grub2-editenv - list | grep -q kernelopts;then
-                grub2-editenv - set "$(grub2-editenv - list | grep kernelopts) fips=1 boot=$boot_uuid"
-        else
-                grubby --update-kernel=ALL --args="fips=1 boot=$boot_uuid"
-        fi
-    fi
+    # echo "Installing FIPS..."
+
+    # # Install necessary rpm pacakages
+    # dnf_install 120 5 25 grubby || exit $ERR_APT_INSTALL_TIMEOUT
+    # dnf_install 120 5 25 dracut-fips || exit $ERR_APT_INSTALL_TIMEOUT
+
+    # # Add the boot= cmd line parameter if the boot dir is not the same as the root dir
+    # boot_dev="$(df /boot/ | tail -1 | cut -d' ' -f1)"
+    # root_dev="$(df / | tail -1 | cut -d' ' -f1)"
+    # if [ ! "$root_dev" == "$boot_dev" ]; then
+    #     boot_uuid="UUID=$(blkid $boot_dev -s UUID -o value)"
+
+    #     # Enable FIPS mode and modify boot directory
+    #     if grub2-editenv - list | grep -q kernelopts;then
+    #             grub2-editenv - set "$(grub2-editenv - list | grep kernelopts) fips=1 boot=$boot_uuid"
+    #     else
+    #             grubby --update-kernel=ALL --args="fips=1 boot=$boot_uuid"
+    #     fi
+    # fi
 
     echo "TOBIASB END"
     set +x
