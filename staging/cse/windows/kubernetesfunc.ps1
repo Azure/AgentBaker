@@ -3,7 +3,7 @@ function Get-ProvisioningScripts {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_NOT_FOUND_PROVISIONING_SCRIPTS -ErrorMessage "Failed to found provisioning scripts"
     }
     Write-Log "Copying provisioning scripts"
-    Move-Item 'c:\AzureData\windows\provisioningscripts\*' 'c:\k'
+    Move-Item 'c:\AzureData\windows\provisioningscripts\*' 'c:\k' -Force
     Remove-Item -Path 'c:\AzureData\windows\provisioningscripts' -Force
 }
 

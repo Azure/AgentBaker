@@ -8161,7 +8161,7 @@ $arguments = '
 $inputFile = '%SYSTEMDRIVE%\AzureData\CustomData.bin';
 $outputFile = '%SYSTEMDRIVE%\AzureData\CustomDataSetupScript.ps1';
 if (!(Test-Path $inputFile)) { throw 'ExitCode: |49|, Output: |WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN|, Error: |C:\AzureData\CustomData.bin does not exist.|' };
-Copy-Item $inputFile $outputFile;
+Copy-Item $inputFile $outputFile -Force;
 Invoke-Expression('{0} {1}' -f $outputFile, $arguments);
 \"`)
 
@@ -8392,7 +8392,7 @@ $global:RebootNeeded = $false
 
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
-Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
+Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force
 
 # Dot-source windowscsehelper.ps1 with functions that are called in this script
 . c:\AzureData\windows\windowscsehelper.ps1
@@ -8430,7 +8430,7 @@ try
     Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAndExpandCSEScriptPackageUrl" -TaskMessage "Start to get CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
     $tempfile = 'c:\csescripts.zip'
     DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
-    Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows"
+    Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows" -Force
     Remove-Item -Path $tempfile -Force
     
     # Dot-source cse scripts with functions that are called in this script
@@ -8670,6 +8670,8 @@ finally
     # Generate CSE result so it can be returned as the CSE response in csecmd.ps1
     $ExecutionDuration=$(New-Timespan -Start $StartTime -End $(Get-Date))
     Write-Log "CSE ExecutionDuration: $ExecutionDuration. ExitCode: $global:ExitCode"
+    # $CSEResultFilePath is used to avoid running CSE multiple times
+    Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
     Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage." 
     # Please not use Write-Log or Logs-To-Events after Stop-Transcript
     Stop-Transcript
