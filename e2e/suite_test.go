@@ -112,7 +112,8 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 	log.Printf("vmss name: %q", vmssName)
 
 	vmssSucceeded := true
-	vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, vmssName, opts, publicKeyBytes)
+	RetryVmssOperations := RetryVmssOperations{maxRetries: 3}
+	vmssModel, cleanupVMSS, err := RetryVmssOperations.bootstrapVMSS(ctx, t, r, vmssName, opts, publicKeyBytes)
 	if !opts.suiteConfig.KeepVMSS && cleanupVMSS != nil {
 		defer cleanupVMSS()
 	}
