@@ -164,6 +164,11 @@ installFIPS() {
     set -x
     echo "TOBIASB START"
 
+    echo "TOBIASB: Before, getting information about /tmp"
+    stat /tmp
+    ls -lahhF /tmp
+    echo "TOBIASB: Done getting information about /tmp"
+
     # TOBIASB: TODO: Hacky install from blob storage to test.
 
     echo "Installing azl-compliance package for FIPS and FedRAMP..."
@@ -173,6 +178,11 @@ installFIPS() {
     azl-compliance
     echo "azl-compliance completed with exit code '$?'"
     echo "Done setting up FIPS and FedRAMP compliance."
+
+    echo "TOBIASB: After, getting information about /tmp"
+    stat /tmp
+    ls -lahhF /tmp
+    echo "TOBIASB: Done getting information about /tmp"
 
     # echo "Installing FIPS..."
 
