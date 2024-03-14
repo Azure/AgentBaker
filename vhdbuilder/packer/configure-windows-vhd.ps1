@@ -746,6 +746,31 @@ function Update-Registry {
             Write-Log "The current value of 1327590028 is $currentValue"
         }
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1327590028 -Value 1 -Type DWORD
+
+        Write-Log "Enable 4 fixes in 2024-03B"
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1114842764 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 1114842764 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1114842764 -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsPreallocatePortRange -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of HnsPreallocatePortRange is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsPreallocatePortRange -Value 1 -Type DWORD
+
+        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4154935436 -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue)) {
+            Write-Log "The current value of 4154935436 is $currentValue"
+        }
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4154935436 -Value 1 -Type DWORD
+
+        # $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 124082829 -ErrorAction Ignore)
+        # if (![string]::IsNullOrEmpty($currentValue)) {
+        #     Write-Log "The current value of 124082829 is $currentValue"
+        # }
+        # Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 124082829 -Value 1 -Type DWORD
     }
 }
 
