@@ -314,6 +314,10 @@ $tempFile=(CollectLogsFromDirectory -path "C:\Windows\SystemTemp" -targetFileNam
 if ($tempFile -ne "") {
   $paths += $tempFile
 }
+$tempFile=(CollectLogsFromDirectory -path "C:\Windows\MEMORY.DMP" -targetFileName "MemoryDump-$($timeStamp).zip")
+if ($tempFile -ne "") {
+  $paths += $tempFile
+}
 
 $gpuTemp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
 New-Item -Type Directory $gpuTemp
@@ -358,6 +362,19 @@ if ((Test-Path "c:\k\kubectl.exe") -and (Test-Path "c:\k\config")) {
   }
   catch {
     Write-Host "Error: $_"
+  }
+}
+
+# Collect extensions logs
+if (Test-Path "C:\WindowsAzure\Logs\Plugins") {
+  $pluginLogsTempFolder="$ENV:TEMP\Extension-Logs-$timeStamp"
+  New-Item -ItemType Directory -Path $pluginLogsTempFolder > $null
+
+  Copy-Item -Recurse "C:\WindowsAzure\Logs\Plugins\*" $pluginLogsTempFolder -Passthru -ErrorAction Ignore
+
+  $tempFile=(CollectLogsFromDirectory -path $pluginLogsTempFolder -targetFileName "Extension-Logs.zip")
+  if ($tempFile -ne "") {
+    $paths += $tempFile
   }
 }
 
