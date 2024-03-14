@@ -1,6 +1,6 @@
 {
   "sku": "V2gen2arm64",
-  "imageVersion": "202403.04.0",
+  "imageVersion": "202403.13.0",
   "imageBom": [
     {
       "id": "sha256:00f96ea1398dcb28099c3a80e5a7b95a11e85f3bc9de7ea8392a02d942b0b2b0",
@@ -256,15 +256,6 @@
       ]
     },
     {
-      "id": "sha256:4f6bc5c72b6b90bbeac67cd40c7d83426656993feca2c43ff096180abaff19ff",
-      "repoTags": [
-        "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.0"
-      ],
-      "repoDigests": [
-        "sha256:a50ee13af205d9c766222a30647b10052234990056846874d88454d69c615dd4"
-      ]
-    },
-    {
       "id": "sha256:50cd4edbec5a00956656178e73de089bfbc64ea19703f1d676efd38b1a16fdd1",
       "repoTags": [
         "mcr.microsoft.com/containernetworking/azure-npm:v1.4.45.3"
@@ -481,6 +472,15 @@
       ]
     },
     {
+      "id": "sha256:89bf88b6ae759b3cf19913ea54ddba17e65a6efa7d1d86063a5d830015e87c2f",
+      "repoTags": [
+        "mcr.microsoft.com/mirror/docker/library/busybox:1.35"
+      ],
+      "repoDigests": [
+        "sha256:9945bed2798b6faab08e5b7b7218ca043c87e9c600939ea7a8ae12aff369987e"
+      ]
+    },
+    {
       "id": "sha256:8ab3a9ac0ed63f8c059e004fac6be6a6bafee74f9f93d08930984da46d217287",
       "repoTags": [
         "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.22.5"
@@ -550,15 +550,6 @@
       ],
       "repoDigests": [
         "sha256:4a552f46c6f0748eb16f4261df0f366b15787d2560cc4c23967452f026a7e76b"
-      ]
-    },
-    {
-      "id": "sha256:9b3d1df71a1426bca4fa4e19aed947cb8af5c67d4efc8fc856589881b5a7387c",
-      "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.0"
-      ],
-      "repoDigests": [
-        "sha256:7e574228e7b5102d0a9530d7743be7521e27c7c080d6f7cbed6c262903980367"
       ]
     },
     {
@@ -697,6 +688,15 @@
       ]
     },
     {
+      "id": "sha256:c5898e432399decd3134b73ab948ba31fd5ca2b8f22dd0d4f4361aa41c7d6464",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.1"
+      ],
+      "repoDigests": [
+        "sha256:9f73e68b3ac9330da355b7edc81a35d00d6a1a524395b6888500ba05b7c9fc60"
+      ]
+    },
+    {
       "id": "sha256:c59b18307cc7a4019accd6ad336e0eb50e234951b643ab19658304c10ae688a3",
       "repoTags": [
         "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.10-hotfix.20231103-5"
@@ -805,6 +805,15 @@
       ]
     },
     {
+      "id": "sha256:f10a4c58ef628941ebb126b398d5d5a878732d7020919ebd4067832cc1dbd348",
+      "repoTags": [
+        "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.1"
+      ],
+      "repoDigests": [
+        "sha256:55f5f15415e89bb45d89dbbd3a29c01ed11b624badc7365de4b302dc2c0d43b2"
+      ]
+    },
+    {
       "id": "sha256:f17265a38b39b309518041c87c78f6fe899165a102e38c93627cf00638cbd2c6",
       "repoTags": [
         "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.11.0"
@@ -883,15 +892,6 @@
       ],
       "repoDigests": [
         "sha256:3aeac313cffdb7db80b733539427f2533a3f662bf538e7b6434b0f898ceb701b"
-      ]
-    },
-    {
-      "id": "sha256:fdcedb5826f9d4e187e358214a4a1d503c33448d15b57eacc882aa8da640b19c",
-      "repoTags": [
-        "mcr.microsoft.com/mirror/docker/library/busybox:1.35"
-      ],
-      "repoDigests": [
-        "sha256:02289a9972c5024cd2f083221f6903786e7f4cb4a9a9696f665d20dd6892e5d6"
       ]
     },
     {
