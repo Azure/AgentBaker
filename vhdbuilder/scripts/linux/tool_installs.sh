@@ -55,11 +55,11 @@ getAzCopyCurrentPath() {
   else
     echo "get azcopy at \"${PWD}\"...start"
     # Download and extract
-    local azcopyDownloadURL="https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/azcopy_linux_amd64_10.22.1.tar.gz"
-    local azcopySha256="7549424d56ab2d8b4033c84c2a9bb167dc2dcbb23998acd7fffb37bc1a71a267"
+    local azcopyDownloadURL="https://azcopyvnext.azureedge.net/releases/release-10.23.0-20240129/azcopy_linux_amd64_10.23.0.tar.gz"
+    local azcopySha256="69a72297736edd1afa068efc2ee0704baa819c49d6ca9d1a2950a5fff18b8431"
     if [[ $(isARM64) == 1 ]]; then
-      azcopyDownloadURL="https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/azcopy_linux_arm64_10.22.1.tar.gz"
-      azcopySha256="4db9a4b48abc7775f1a5d6d928afc42361dcc57bbfcde23ac82e4c419a0dc8fc"
+      azcopyDownloadURL="https://azcopyvnext.azureedge.net/releases/release-10.23.0-20240129/azcopy_linux_arm64_10.23.0.tar.gz"
+      azcopySha256="afee9cc7577a5aa90a23dcc11cb488b7521d57570ba93b80ac489a7b35a74b9f"
     fi
 
     local downloadedPkg="downloadazcopy"
@@ -77,3 +77,5 @@ getAzCopyCurrentPath() {
     echo "get azcopy...done"
   fi
 }
+
+https://azcopyvnext.azureedge.net/releases/release-10.23.0-20240129/azcopy_linux_amd64_10.23.0.tar.gz
