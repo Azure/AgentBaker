@@ -10,8 +10,8 @@
 }
 
 #override: {
-    version?:         string // if specified, then implicitly a particular version will be downloaded/installed with apt
-    downloadURL?:    #URL // if a downloadURL is provided, this implictly means that we need to download from somewhere separately instead of installing directly via apt
+    version?:         string // if specified, then a particular version will be downloaded/installed with apt
+    downloadURL?:    #URL // if specified, this implies we need to download from somewhere separately instead of installing directly via apt
     privateStorage?: bool // denotes whether we need to fetch from a private storage account using azcopy
 }
 

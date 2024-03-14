@@ -248,17 +248,18 @@ ensureRunc() {
         RUNC_MANIFEST="$(jq .runc "$MANIFEST_FILEPATH")"
         DOWNLOAD_LOCATION="$(echo "$RUNC_MANIFEST" | jq -r .downloadLocation)"
         TARGET_VERSION="$(echo "$RUNC_MANIFEST" | jq -r .installed.default)"
+
+
         HAS_OVERRIDE="$(echo "$RUNC_MANIFEST" | jq 'has("override")')"
 
         CLEANED_UBUNTU_RELEASE=${UBUNTU_RELEASE/./}
-        if [ "$(echo "$RUNC_MANIFEST" | jq 'has(".${CLEANED_UBUNTU_RELEASE}")')" == "true" ]; then
-            TARGET_VERSION="$(echo "$RUNC_MANIFEST" | jq -r ."${CLEANED_UBUNTU_RELEASE}")"
+        if [ "$(echo "$RUNC_MANIFEST" | jq 'has(".installed.${CLEANED_UBUNTU_RELEASE}")')" == "true" ]; then
+            TARGET_VERSION="$(echo "$RUNC_MANIFEST" | jq -r .installed."${CLEANED_UBUNTU_RELEASE}")"
         fi
 
         if [ "$HAS_OVERRIDE" == "true" ]; then
             IS_PRIVATE_OVERRIDE="false"
             OVERRIDE="$(echo "$RUNC_MANIFEST" | jq .override)"
-            TARGET_VERSION="$(echo "$OVERRIDE" | jq -r .version)"
             if [ "$(echo "$OVERRIDE" | jq -r .privateStorage)" == "true" ]; then
                 IS_PRIVATE_OVERRIDE="true"
             fi
