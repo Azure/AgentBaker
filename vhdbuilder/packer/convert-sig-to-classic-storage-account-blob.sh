@@ -88,7 +88,7 @@ sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --
 
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
-export AZCOPY_CONCURRENCY_VALUE=400
+export AZCOPY_CONCURRENCY_VALUE=375
 azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd?${storage_sas_token}" --recursive=true
 
 echo "Uploaded $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
