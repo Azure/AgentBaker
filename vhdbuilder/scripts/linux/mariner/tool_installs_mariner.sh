@@ -190,10 +190,9 @@ installFIPS() {
     echo "TOBIASB: dumping all fedramp data"
     set +x
     for file in /etc/azl-compliance/fedramp/fail.txt /etc/azl-compliance/fedramp/failure_details.txt /etc/azl-compliance/fedramp/success.txt /etc/azl-compliance/fedramp/apply_logs/*; do
-        echo 'TOBIASB: Begin Contents of File '$file'..."
-        echo "TOBIASB: Contents of: '$file'"
+        echo "TOBIASB: Begin Contents of File '$file'..."
         awk '{print "TOBIASB: '"'$file'"': " $0}' $file
-        echo 'TOBIASB: ...End Contents of File '$file'..."
+        echo "TOBIASB: ...End Contents of File '$file'..."
     done
     set -x
 
