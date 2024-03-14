@@ -123,8 +123,6 @@ const (
 )
 
 // OutboundType describes the options for outbound internet access.
-type OutboundType string
-
 const (
 	OutboundTypeNone  string = "none"
 	OutboundTypeBlock string = "block"
