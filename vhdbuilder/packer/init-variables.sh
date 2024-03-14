@@ -391,8 +391,6 @@ fi
 # aks_windows_image_version refers to the version built by AKS Windows SIG
 cat <<EOF > vhdbuilder/packer/settings.json
 {
-  "subscription_id":  "${SUBSCRIPTION_ID}",
-  "tenant_id":      "${TENANT_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "location": "${AZURE_LOCATION}",
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
