@@ -20,6 +20,50 @@ CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1 v0.8.0"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 CURL_OUTPUT=/tmp/curl_verbose.out
+VHD_OVERRIDES_FILEPATH="/opt/azure/overrides.complete"
+
+downloadAndInstallAzCopy() {
+    [[ -f ./azcopy ]] && echo "./azcopy already exists in $(pwd)" && return 0
+
+    echo "START: download and install azcopy to ${PWD}"
+    local download_url="https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/azcopy_linux_amd64_10.22.1.tar.gz"
+    local sha256="7549424d56ab2d8b4033c84c2a9bb167dc2dcbb23998acd7fffb37bc1a71a267"
+    if [[ $(isARM64) == 1 ]]; then
+        download_url="https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/azcopy_linux_arm64_10.22.1.tar.gz"
+        sha256="4db9a4b48abc7775f1a5d6d928afc42361dcc57bbfcde23ac82e4c419a0dc8fc"
+    fi
+    local downloaded_pkg="downloadazcopy"
+    local pkg_prefix="azcopy_linux_"
+
+    retrycmd_if_failure 30 5 60 curl -fSL -k -o "$downloaded_pkg" "$download_url" || exit $ERR_DOWNLOAD_AZCOPY_FAIL
+
+    echo "$sha256 $downloaded_pkg" | sha256sum --check >/dev/null || exit $ERR_INSTALL_AZCOPY_FAIL
+    tar -xvf ./$downloaded_pkg && cp ./$pkg_prefix*/azcopy ./azcopy && chmod +x ./azcopy || exit $ERR_INSTALL_AZCOPY_FAIL
+
+    rm -f $downloaded_pkg
+    rm -rf ./$pkg_prefix*/
+    echo "COMPLETED: download and install azcopy to $(pwd)"
+}
+
+downloadDebFromPrivateStorage() {
+    local location=$1
+    local url=$3
+
+    if [ -z "$LINUX_MSI_RESOURCE_IDS" ]; then
+        echo "LINUX_MSI_RESOURCE_IDS must be set when downloading deb $url from private storage"
+        exit $ERR_DOWNLOAD_FROM_PRIVATE_STORAGE
+    fi
+    
+    downloadAndInstallAzCopy
+    export AZCOPY_AUTO_LOGIN_TYPE="MSI"
+    export AZCOPY_MSI_RESOURCE_STRING="$LINUX_MSI_RESOURCE_IDS"
+
+    echo "downloading DEB from $url with azcopy"
+    if ! ./azcopy copy "$url" "$location"; then
+        exit $ERR_DOWNLOAD_FROM_PRIVATE_STORAGE
+    fi
+}
+
 
 removeManDbAutoUpdateFlagFile() {
     rm -f $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH

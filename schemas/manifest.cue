@@ -4,13 +4,33 @@
 // it's effectively json, but written using cuelang for schema validation
 // export it to json with cue export manifest.cue
 
+#URL: {
+    amd64:  string
+    arm64?: string
+}
+
+#override: {
+    version?:         string // if specified, then implicitly a particular version will be downloaded/installed with apt
+    downloadURL?:    #URL // if a downloadURL is provided, this implictly means that we need to download from somewhere separately instead of installing directly via apt
+    privateStorage?: bool // denotes whether we need to fetch from a private storage account using azcopy
+}
+
+#overrides: {
+    ubuntu1804?:     #override
+    ubuntu2004?: #override
+    ubuntu2204?: #override
+    mariner?:        #override
+    azurelinux?:     #override
+}
+
 // some basic json constraints for validation
 #dep: {
-	fileName:         string
+	fileName?:         string
 	downloadLocation: string
-	downloadURL:      string
-	versions: [...string]
-    installed?: {...}
+	downloadURL?:      string
+	versions:         [...string]
+    installed?:       {...}
+    overrides?:       #overrides
     ...
 }
 
@@ -57,20 +77,32 @@
         "versions": [],
         "pinned": {
             "1804": "1.7.1-1" // default in 1804 vhds.
-        }
+        },
         "edge": "1.7.7-1",  // edge is default in vhd.
     },
     "runc": {
-        "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "downloadLocation": "/opt/runc/downloads",
-        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [],
-        "pinned": {
-            "1804": "1.1.12"
-        }
         "installed": {
-			"default": "1.1.12"
-		}
+			"default": "1.1.12",
+            "1804": "1.1.12",
+		},
+        "overrides": {
+            "ubuntu1804": {
+                "downloadURL": {
+                    "amd64": "https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.7+azure/bionic-aks/linux_amd64/moby-runc_1.1.7+aks-ubuntu18.04u3_amd64.deb",
+                    "arm64": "https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.7+azure/bionic-aks/linux_arm64/moby-runc_1.1.7+aks-ubuntu18.04u3_arm64.deb",
+                },
+                "privateStorage": true,
+            },
+            "ubuntu2204": {
+                "downloadURL": {
+                   "amd64": "https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.9+azure/jammy/linux_amd64/moby-runc_1.1.9-ubuntu22.04u2_amd64.deb",
+                   "arm64": "https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.9+azure/jammy/linux_arm64/moby-runc_1.1.9-ubuntu22.04u2_arm64.deb",
+                },
+                "privateStorage": true,
+            }
+        }
     },
     "nvidia-container-runtime": {
         "fileName": "",
@@ -87,7 +119,7 @@
     "kubernetes": {
         "fileName": "kubernetes-node-linux-arch.tar.gz",
         "downloadLocation": "",
-        "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
+        "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz",
         "versions": [
             "1.26.6",
             "1.26.10",

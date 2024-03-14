@@ -10,15 +10,27 @@
         "edge": "1.7.7-1"
     },
     "runc": {
-        "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "downloadLocation": "/opt/runc/downloads",
-        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [],
-        "pinned": {
+        "installed": {
+            "default": "1.1.12",
             "1804": "1.1.12"
         },
-        "installed": {
-            "default": "1.1.12"
+        "overrides": {
+            "ubuntu1804": {
+                "downloadURL": {
+                    "amd64": "https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.7+azure/bionic-aks/linux_amd64/moby-runc_1.1.7+aks-ubuntu18.04u3_amd64.deb",
+                    "arm64": "https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.7+azure/bionic-aks/linux_arm64/moby-runc_1.1.7+aks-ubuntu18.04u3_arm64.deb"
+                },
+                "privateStorage": true
+            },
+            "ubuntu2204": {
+                "downloadURL": {
+                    "amd64": "https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.9+azure/jammy/linux_amd64/moby-runc_1.1.9-ubuntu22.04u2_amd64.deb",
+                    "arm64": "https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.9+azure/jammy/linux_arm64/moby-runc_1.1.9-ubuntu22.04u2_arm64.deb"
+                },
+                "privateStorage": true
+            }
         }
     },
     "nvidia-container-runtime": {

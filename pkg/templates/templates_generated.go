@@ -3172,6 +3172,9 @@ ERR_SNAPSHOT_UPDATE_START_FAIL=202 # snapshot-update could not be started by sys
 
 ERR_PRIVATE_K8S_PKG_ERR=203 # Error downloading (at build-time) or extracting (at run-time) private kubernetes packages
 ERR_K8S_INSTALL_ERR=204 # Error installing or setting up kubernetes binaries on disk
+ERR_DOWNLOAD_AZCOPY_FAIL=205 # Error downloading azcopy
+ERR_INSTALL_AZCOPY_FAIL=206 # Error installing azcopy
+ERR_DOWNLOAD_FROM_PRIVATE_STORAGE=207 # Error downloading deb from private storage using azcopy
 
 ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
 
@@ -3492,6 +3495,50 @@ CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1 v0.8.0"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 CURL_OUTPUT=/tmp/curl_verbose.out
+VHD_OVERRIDES_FILEPATH="/opt/azure/overrides.complete"
+
+downloadAndInstallAzCopy() {
+    [[ -f ./azcopy ]] && echo "./azcopy already exists in $(pwd)" && return 0
+
+    echo "START: download and install azcopy to ${PWD}"
+    local download_url="https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/azcopy_linux_amd64_10.22.1.tar.gz"
+    local sha256="7549424d56ab2d8b4033c84c2a9bb167dc2dcbb23998acd7fffb37bc1a71a267"
+    if [[ $(isARM64) == 1 ]]; then
+        download_url="https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/azcopy_linux_arm64_10.22.1.tar.gz"
+        sha256="4db9a4b48abc7775f1a5d6d928afc42361dcc57bbfcde23ac82e4c419a0dc8fc"
+    fi
+    local downloaded_pkg="downloadazcopy"
+    local pkg_prefix="azcopy_linux_"
+
+    retrycmd_if_failure 30 5 60 curl -fSL -k -o "$downloaded_pkg" "$download_url" || exit $ERR_DOWNLOAD_AZCOPY_FAIL
+
+    echo "$sha256 $downloaded_pkg" | sha256sum --check >/dev/null || exit $ERR_INSTALL_AZCOPY_FAIL
+    tar -xvf ./$downloaded_pkg && cp ./$pkg_prefix*/azcopy ./azcopy && chmod +x ./azcopy || exit $ERR_INSTALL_AZCOPY_FAIL
+
+    rm -f $downloaded_pkg
+    rm -rf ./$pkg_prefix*/
+    echo "COMPLETED: download and install azcopy to $(pwd)"
+}
+
+downloadDebFromPrivateStorage() {
+    local location=$1
+    local url=$3
+
+    if [ -z "$LINUX_MSI_RESOURCE_IDS" ]; then
+        echo "LINUX_MSI_RESOURCE_IDS must be set when downloading deb $url from private storage"
+        exit $ERR_DOWNLOAD_FROM_PRIVATE_STORAGE
+    fi
+    
+    downloadAndInstallAzCopy
+    export AZCOPY_AUTO_LOGIN_TYPE="MSI"
+    export AZCOPY_MSI_RESOURCE_STRING="$LINUX_MSI_RESOURCE_IDS"
+
+    echo "downloading DEB from $url with azcopy"
+    if ! ./azcopy copy "$url" "$location"; then
+        exit $ERR_DOWNLOAD_FROM_PRIVATE_STORAGE
+    fi
+}
+
 
 removeManDbAutoUpdateFlagFile() {
     rm -f $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
@@ -5320,15 +5367,27 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "edge": "1.7.7-1"
     },
     "runc": {
-        "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "downloadLocation": "/opt/runc/downloads",
-        "downloadURL": "https://moby.blob.core.windows.net/moby/moby-runc/${RUNC_VERSION}+azure/bionic/linux_${CPU_ARCH}/moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
         "versions": [],
-        "pinned": {
+        "installed": {
+            "default": "1.1.12",
             "1804": "1.1.12"
         },
-        "installed": {
-            "default": "1.1.12"
+        "overrides": {
+            "ubuntu1804": {
+                "downloadURL": {
+                    "amd64": "https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.7+azure/bionic-aks/linux_amd64/moby-runc_1.1.7+aks-ubuntu18.04u3_amd64.deb",
+                    "arm64": "https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.7+azure/bionic-aks/linux_arm64/moby-runc_1.1.7+aks-ubuntu18.04u3_arm64.deb"
+                },
+                "privateStorage": true
+            },
+            "ubuntu2204": {
+                "downloadURL": {
+                    "amd64": "https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.9+azure/jammy/linux_amd64/moby-runc_1.1.9-ubuntu22.04u2_amd64.deb",
+                    "arm64": "https://mobyreleases.blob.core.windows.net/moby-private/moby-runc/1.1.9+azure/jammy/linux_arm64/moby-runc_1.1.9-ubuntu22.04u2_arm64.deb"
+                },
+                "privateStorage": true
+            }
         }
     },
     "nvidia-container-runtime": {
@@ -7359,6 +7418,16 @@ installMoby() {
 }
 
 ensureRunc() {
+    if grep "runc" "$VHD_OVERRIDES_FILEPATH"; then
+        echo "detected VHD has override for binary runc, checking version..."
+        if runc --version; then
+            echo "VHD already has runc $(runc --version) installed, skipping ensureRunc"
+            return 0
+        else
+            echo "runc does not appear to be installed, will continue with standard installation logic..."
+        fi
+    fi
+
     RUNC_PACKAGE_URL="${RUNC_PACKAGE_URL:=}"
     # the user-defined runc package URL is always picked first, and the other options won't be tried when this one fails
     if [[ ! -z ${RUNC_PACKAGE_URL} ]]; then
@@ -7375,11 +7444,33 @@ ensureRunc() {
     fi
 
     TARGET_VERSION=${1:-""}
-    if [[ -z ${TARGET_VERSION} ]]; then
-        # pin 1804 to 1.1.12
-        TARGET_VERSION="1.1.12-ubuntu${UBUNTU_RELEASE}"
-        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+    DOWNLOAD_LOCATION=$RUNC_DOWNLOADS_DIR
+    if [ ! -f "$MANIFEST_FILEPATH" ]; then # if there's no manifest, use hard-coded default logic - will we always need to handle this to not break old node images getting new CSE? (e.g. SP reset)
+        if [[ -z ${TARGET_VERSION} ]]; then
+            # pin 1804 to 1.1.12
             TARGET_VERSION="1.1.12-ubuntu${UBUNTU_RELEASE}"
+            if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+                TARGET_VERSION="1.1.12-ubuntu${UBUNTU_RELEASE}"
+            fi
+        fi
+    else # otherwise use the manifest
+        RUNC_MANIFEST="$(jq .runc "$MANIFEST_FILEPATH")"
+        DOWNLOAD_LOCATION="$(echo "$RUNC_MANIFEST" | jq -r .downloadLocation)"
+        TARGET_VERSION="$(echo "$RUNC_MANIFEST" | jq -r .installed.default)"
+        HAS_OVERRIDE="$(echo "$RUNC_MANIFEST" | jq 'has("override")')"
+
+        CLEANED_UBUNTU_RELEASE=${UBUNTU_RELEASE/./}
+        if [ "$(echo "$RUNC_MANIFEST" | jq 'has(".${CLEANED_UBUNTU_RELEASE}")')" == "true" ]; then
+            TARGET_VERSION="$(echo "$RUNC_MANIFEST" | jq -r ."${CLEANED_UBUNTU_RELEASE}")"
+        fi
+
+        if [ "$HAS_OVERRIDE" == "true" ]; then
+            IS_PRIVATE_OVERRIDE="false"
+            OVERRIDE="$(echo "$RUNC_MANIFEST" | jq .override)"
+            TARGET_VERSION="$(echo "$OVERRIDE" | jq -r .version)"
+            if [ "$(echo "$OVERRIDE" | jq -r .privateStorage)" == "true" ]; then
+                IS_PRIVATE_OVERRIDE="true"
+            fi
         fi
     fi
 
@@ -7390,10 +7481,8 @@ ensureRunc() {
         fi
     fi
 
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     CLEANED_TARGET_VERSION=${TARGET_VERSION}
-
     # after upgrading to 1.1.9, CURRENT_VERSION will also include the patch version (such as 1.1.9-1), so we trim it off
     # since we only care about the major and minor versions when determining if we need to install it
     CURRENT_VERSION=${CURRENT_VERSION%-*} # removes the -1 patch version (or similar)
@@ -7401,18 +7490,46 @@ ensureRunc() {
 
     if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
         echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
-        return
+        return 0
     fi
+
     # if on a vhd-built image, first check if we've cached the deb file
-    if [ -f $VHD_LOGS_FILEPATH ]; then
+    if [ -f "$VHD_LOGS_FILEPATH" ]; then
         RUNC_DEB_PATTERN="moby-runc_*.deb"
-        RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
-        if [[ -f "${RUNC_DEB_FILE}" ]]; then
+        RUNC_DEB_FILE=$(find ${DOWNLOAD_LOCATION} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
+        if [ -f "${RUNC_DEB_FILE}" ]; then
             installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
             return 0
         fi
     fi
+
+    if [ "$HAS_OVERRIDE" == "true" ]; then
+        # check if it's a package we install with apt or directly from download URL...
+        if [ "$(echo $OVERRIDE | jq 'has("downloadURL")')" == "true" ]; then
+            DOWNLOAD_URL="$(echo "$OVERRIDE" | jq -r .downloadURL.amd64)"
+            if [[ $(isARM64) == 1 ]]; then
+                DOWNLOAD_URL="$(echo "$OVERRIDE" | jq -r .downloadURL.arm64)"
+            fi
+
+            if [ "$IS_PRIVATE_OVERRIDE" == "true" ]; then
+                rm -rf "${DOWNLOAD_LOCATION:?}/*"
+                downloadDebFromPrivateStorage $DOWNLOAD_LOCATION $DOWNLOAD_URL || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
+
+                RUNC_DEB_PATTERN="moby-runc_*.deb"
+                RUNC_DEB_FILE=$(find ${DOWNLOAD_LOCATION} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
+                [ ! -f "${RUNC_DEB_FILE}" ] && exit $ERR_RUNC_DOWNLOAD_TIMEOUT
+
+                installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
+                return 0
+            fi
+
+            # here we would download the deb from the public URL and then install it
+        fi
+    fi
+
     apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+
+    [ "$HAS_OVERRIDE" == "true" ] && echo "runc-$(runc --version)" >> "$VHD_OVERRIDES_FILEPATH"
 }
 
 #EOF

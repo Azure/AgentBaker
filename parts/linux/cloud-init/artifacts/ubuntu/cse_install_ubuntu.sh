@@ -209,6 +209,16 @@ installMoby() {
 }
 
 ensureRunc() {
+    if grep "runc" "$VHD_OVERRIDES_FILEPATH"; then
+        echo "detected VHD has override for binary runc, checking version..."
+        if runc --version; then
+            echo "VHD already has runc $(runc --version) installed, skipping ensureRunc"
+            return 0
+        else
+            echo "runc does not appear to be installed, will continue with standard installation logic..."
+        fi
+    fi
+
     RUNC_PACKAGE_URL="${RUNC_PACKAGE_URL:=}"
     # the user-defined runc package URL is always picked first, and the other options won't be tried when this one fails
     if [[ ! -z ${RUNC_PACKAGE_URL} ]]; then
@@ -225,11 +235,33 @@ ensureRunc() {
     fi
 
     TARGET_VERSION=${1:-""}
-    if [[ -z ${TARGET_VERSION} ]]; then
-        # pin 1804 to 1.1.12
-        TARGET_VERSION="1.1.12-ubuntu${UBUNTU_RELEASE}"
-        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+    DOWNLOAD_LOCATION=$RUNC_DOWNLOADS_DIR
+    if [ ! -f "$MANIFEST_FILEPATH" ]; then # if there's no manifest, use hard-coded default logic - will we always need to handle this to not break old node images getting new CSE? (e.g. SP reset)
+        if [[ -z ${TARGET_VERSION} ]]; then
+            # pin 1804 to 1.1.12
             TARGET_VERSION="1.1.12-ubuntu${UBUNTU_RELEASE}"
+            if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+                TARGET_VERSION="1.1.12-ubuntu${UBUNTU_RELEASE}"
+            fi
+        fi
+    else # otherwise use the manifest
+        RUNC_MANIFEST="$(jq .runc "$MANIFEST_FILEPATH")"
+        DOWNLOAD_LOCATION="$(echo "$RUNC_MANIFEST" | jq -r .downloadLocation)"
+        TARGET_VERSION="$(echo "$RUNC_MANIFEST" | jq -r .installed.default)"
+        HAS_OVERRIDE="$(echo "$RUNC_MANIFEST" | jq 'has("override")')"
+
+        CLEANED_UBUNTU_RELEASE=${UBUNTU_RELEASE/./}
+        if [ "$(echo "$RUNC_MANIFEST" | jq 'has(".${CLEANED_UBUNTU_RELEASE}")')" == "true" ]; then
+            TARGET_VERSION="$(echo "$RUNC_MANIFEST" | jq -r ."${CLEANED_UBUNTU_RELEASE}")"
+        fi
+
+        if [ "$HAS_OVERRIDE" == "true" ]; then
+            IS_PRIVATE_OVERRIDE="false"
+            OVERRIDE="$(echo "$RUNC_MANIFEST" | jq .override)"
+            TARGET_VERSION="$(echo "$OVERRIDE" | jq -r .version)"
+            if [ "$(echo "$OVERRIDE" | jq -r .privateStorage)" == "true" ]; then
+                IS_PRIVATE_OVERRIDE="true"
+            fi
         fi
     fi
 
@@ -240,10 +272,8 @@ ensureRunc() {
         fi
     fi
 
-    CPU_ARCH=$(getCPUArch)  #amd64 or arm64
     CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
     CLEANED_TARGET_VERSION=${TARGET_VERSION}
-
     # after upgrading to 1.1.9, CURRENT_VERSION will also include the patch version (such as 1.1.9-1), so we trim it off
     # since we only care about the major and minor versions when determining if we need to install it
     CURRENT_VERSION=${CURRENT_VERSION%-*} # removes the -1 patch version (or similar)
@@ -251,18 +281,46 @@ ensureRunc() {
 
     if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
         echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
-        return
+        return 0
     fi
+
     # if on a vhd-built image, first check if we've cached the deb file
-    if [ -f $VHD_LOGS_FILEPATH ]; then
+    if [ -f "$VHD_LOGS_FILEPATH" ]; then
         RUNC_DEB_PATTERN="moby-runc_*.deb"
-        RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
-        if [[ -f "${RUNC_DEB_FILE}" ]]; then
+        RUNC_DEB_FILE=$(find ${DOWNLOAD_LOCATION} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
+        if [ -f "${RUNC_DEB_FILE}" ]; then
             installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
             return 0
         fi
     fi
+
+    if [ "$HAS_OVERRIDE" == "true" ]; then
+        # check if it's a package we install with apt or directly from download URL...
+        if [ "$(echo $OVERRIDE | jq 'has("downloadURL")')" == "true" ]; then
+            DOWNLOAD_URL="$(echo "$OVERRIDE" | jq -r .downloadURL.amd64)"
+            if [[ $(isARM64) == 1 ]]; then
+                DOWNLOAD_URL="$(echo "$OVERRIDE" | jq -r .downloadURL.arm64)"
+            fi
+
+            if [ "$IS_PRIVATE_OVERRIDE" == "true" ]; then
+                rm -rf "${DOWNLOAD_LOCATION:?}/*"
+                downloadDebFromPrivateStorage $DOWNLOAD_LOCATION $DOWNLOAD_URL || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
+
+                RUNC_DEB_PATTERN="moby-runc_*.deb"
+                RUNC_DEB_FILE=$(find ${DOWNLOAD_LOCATION} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
+                [ ! -f "${RUNC_DEB_FILE}" ] && exit $ERR_RUNC_DOWNLOAD_TIMEOUT
+
+                installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
+                return 0
+            fi
+
+            # here we would download the deb from the public URL and then install it
+        fi
+    fi
+
     apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+
+    [ "$HAS_OVERRIDE" == "true" ] && echo "runc-$(runc --version)" >> "$VHD_OVERRIDES_FILEPATH"
 }
 
 #EOF
