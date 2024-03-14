@@ -26,7 +26,7 @@ const (
 	maxRetries                               = 3
 )
 
-type RetryVmssOperations struct {
+type VMSSOperationRetrier struct {
 	maxRetries int
 }
 
@@ -49,7 +49,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName st
 		log.Printf("finished deleting vmss %q", vmssName)
 	}
 
-	rOpts := RetryVmssOperations{maxRetries: maxRetries}
+	rOpts := VMSSOperationRetrier{maxRetries: maxRetries}
 	vmssModel, err := rOpts.createVMSSWithPayload(ctx, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
 	if err != nil {
 		return nil, cleanupVMSS, fmt.Errorf("unable to create VMSS with payload: %w", err)
@@ -58,7 +58,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName st
 	return vmssModel, cleanupVMSS, nil
 }
 
-func (rOpts RetryVmssOperations) createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
+func (rOpts VMSSOperationRetrier) createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
 	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)
 
 	if opts.suiteConfig.BuildID != "" {
