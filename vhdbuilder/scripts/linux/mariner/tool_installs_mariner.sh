@@ -174,7 +174,7 @@ installFIPS() {
     echo "Installing azl-compliance package for FIPS and FedRAMP..."
     dnf_install 5 1 30 --nogpgcheck 'https://srctarpublishstaging.blob.core.windows.net/src-tar-publishing-staging/azl-compliance-0.1.0-1.cm2.x86_64.rpm'
 
-    echo "TOBIASB: Adding scripts to skip list:
+    echo "TOBIASB: Adding scripts to skip list:"
     echo "mount_option_var_tmp_noexec" >> /etc/azl-compliance/fedramp/marketplace_skip_list.txt
 
     echo "Setting up FIPS and FedRAMP compliance..."
