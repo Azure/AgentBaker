@@ -155,6 +155,32 @@ fi
 downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
 
+# For Testing: download containerd deb pkg from the given URL using MSI for auth for azcopys
+cacheContainerdDebFromUrl() {
+  containerd_prerelease_url="https://jjungcontainerd.blob.core.windows.net/containerd-prerelease/moby-containerd_2.0.0~beta.2-ubuntu22.04u1_amd64.deb"
+
+  echo "process containerd url: $containerd_prerelease_url"
+
+  mkdir -p ${CONTAINERD_DOWNLOADS_DIR} # /opt/kubernetes/downloads/private-packages
+
+  # use azcopy with MSI instead of curl to download packages
+  getAzCopyCurrentPath
+
+  export AZCOPY_AUTO_LOGIN_TYPE="MSI"
+  export AZCOPY_MSI_RESOURCE_STRING="$LINUX_MSI_RESOURCE_IDS"
+  #"/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourcegroups/nodesigtest-agent-pool/providers/Microsoft.ManagedIdentity/userAssignedIdentities/nodesig-agent-identity"
+
+  cached_pkg="${CONTAINERD_DOWNLOADS_DIR}/containerd-prerelease/moby-containerd_2.0.0~beta.2-ubuntu22.04u1_amd64.deb"
+  echo "download containerd package ${containerd_prerelease_url} and store as ${cached_pkg}"
+  if ! ./azcopy copy "${containerd_prerelease_url}" "${cached_pkg}"; then
+    exit 207
+  fi
+}
+
+echo "*** calling cacheContainerdDebFromUrl ***"
+cacheContainerdDebFromUrl
+
+
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
 containerd_manifest="$(jq .containerd manifest.json)" || exit $?
@@ -167,7 +193,12 @@ fi
 containerd_version="$(echo "$installed_version" | cut -d- -f1)"
 containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
 installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
-echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
+echo "[Testing] - PLACEHOLDER: [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
+
+# azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
+CURRENT_VERSION=$(containerd -version)
+echo "[Testing] - [installed] containerd: ${CURRENT_VERSION}" >> ${VHD_LOGS_FILEPATH}
+
 stop_watch $capture_time "Create Containerd Service Directory, Download Shims, Configure Runtime and Network" false
 start_watch
 
