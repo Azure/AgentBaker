@@ -365,6 +365,19 @@ if ((Test-Path "c:\k\kubectl.exe") -and (Test-Path "c:\k\config")) {
   }
 }
 
+# Collect extensions logs
+if (Test-Path "C:\WindowsAzure\Logs\Plugins") {
+  $pluginLogsTempFolder="$ENV:TEMP\Extension-Logs-$timeStamp"
+  New-Item -ItemType Directory -Path $pluginLogsTempFolder > $null
+
+  Copy-Item -Recurse "C:\WindowsAzure\Logs\Plugins\*" $pluginLogsTempFolder -Passthru -ErrorAction Ignore
+
+  $tempFile=(CollectLogsFromDirectory -path $pluginLogsTempFolder -targetFileName "Extension-Logs.zip")
+  if ($tempFile -ne "") {
+    $paths += $tempFile
+  }
+}
+
 Write-Host "All logs collected: $paths"
 Stop-Transcript
 
