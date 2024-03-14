@@ -125,6 +125,11 @@ installStandaloneContainerd() {
         CURRENT_VERSION="0.0.0"
     fi
 
+    if [[ "$CURRENT_VERSION" == "2.0.0~beta.2-1" ]]; then
+        echo "containerd ${CURRENT_VERSION} already installed skip the rest"
+        return 0
+    fi
+
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
     CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
     if [[ ! -z ${CONTAINERD_PACKAGE_URL} ]]; then
