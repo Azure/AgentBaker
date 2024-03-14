@@ -350,7 +350,8 @@ if [ "$OS_TYPE" == "Windows" ]; then
 			--gallery-name $SIG_GALLERY_NAME \
 			--gallery-image-definition $IMPORTED_IMAGE_NAME \
 			--gallery-image-version 1.0.0 \
-			--managed-image $IMPORTED_IMAGE_NAME
+			--managed-image $IMPORTED_IMAGE_NAME \
+			--replication-mode Shallow
 
 		# Use imported sig image to create the build VM
 		WINDOWS_IMAGE_URL=""
