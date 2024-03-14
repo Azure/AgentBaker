@@ -174,6 +174,9 @@ installFIPS() {
     echo "Installing azl-compliance package for FIPS and FedRAMP..."
     dnf_install 5 1 30 --nogpgcheck 'https://srctarpublishstaging.blob.core.windows.net/src-tar-publishing-staging/azl-compliance-0.1.0-1.cm2.x86_64.rpm'
 
+    echo "TOBIASB: Adding scripts to skip list:
+    echo "mount_option_var_tmp_noexec" >> /etc/azl-compliance/fedramp/marketplace_skip_list.txt
+
     echo "Setting up FIPS and FedRAMP compliance..."
     azl-compliance
     echo "azl-compliance completed with exit code '$?'"
@@ -183,6 +186,16 @@ installFIPS() {
     stat /tmp
     ls -lahhF /tmp
     echo "TOBIASB: Done getting information about /tmp"
+
+    echo "TOBIASB: dumping all fedramp data"
+    set +x
+    for file in /etc/azl-compliance/fedramp/fail.txt /etc/azl-compliance/fedramp/failure_details.txt /etc/azl-compliance/fedramp/success.txt /etc/azl-compliance/fedramp/apply_logs/*; do
+        echo 'TOBIASB: Begin Contents of File '$file'..."
+        echo "TOBIASB: Contents of: '$file'"
+        awk '{print "TOBIASB: '"'$file'"': " $0}' $file
+        echo 'TOBIASB: ...End Contents of File '$file'..."
+    done
+    set -x
 
     # echo "Installing FIPS..."
 
