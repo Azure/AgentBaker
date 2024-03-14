@@ -314,6 +314,10 @@ $tempFile=(CollectLogsFromDirectory -path "C:\Windows\SystemTemp" -targetFileNam
 if ($tempFile -ne "") {
   $paths += $tempFile
 }
+$tempFile=(CollectLogsFromDirectory -path "C:\Windows\MEMORY.DMP" -targetFileName "MemoryDump-$($timeStamp).zip")
+if ($tempFile -ne "") {
+  $paths += $tempFile
+}
 
 $gpuTemp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
 New-Item -Type Directory $gpuTemp
