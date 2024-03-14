@@ -177,6 +177,9 @@ installFIPS() {
     echo "TOBIASB: Adding scripts to skip list:"
     echo "mount_option_var_tmp_noexec" >> /etc/azl-compliance/fedramp/marketplace_skip_list.txt
 
+    echo "TOBIASB: Removing hard-coded tmpfs thinger from compliance script"
+    sed -E -i 's|^(\s+echo "tmpfs /tmp.*)$|#TOBIASB: COMMENTED OUT: \1|g' /etc/azl-compliance/fedramp/marketplace_compliance.sh
+
     echo "Setting up FIPS and FedRAMP compliance..."
     azl-compliance
     echo "azl-compliance completed with exit code '$?'"
