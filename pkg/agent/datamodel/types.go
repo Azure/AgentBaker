@@ -123,11 +123,11 @@ const (
 )
 
 // OutboundType describes the options for outbound internet access.
-type OutboundType int
+type OutboundType string
 
 const (
-	OutboundTypeNone OutboundType = iota
-	OutboundTypeBlock
+	OutboundTypeNone  string = "none"
+	OutboundTypeBlock string = "block"
 )
 
 /*
@@ -1683,7 +1683,7 @@ type NodeBootstrappingConfiguration struct {
 	DisableUnattendedUpgrades              bool
 	SSHStatus                              SSHStatus
 	DisableCustomData                      bool
-	OutboundType                           OutboundType
+	OutboundType                           string
 }
 
 type SSHStatus int
