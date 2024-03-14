@@ -128,6 +128,9 @@ installStandaloneContainerd() {
     if [[ "$CURRENT_VERSION" == "2.0.0~beta.2-1" ]]; then
         echo "containerd ${CURRENT_VERSION} already installed skip the rest"
         return 0
+    else
+        echo "containerd ${CURRENT_VERSION} already installed skip the rest-else block"
+        return 0s
     fi
 
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
@@ -157,33 +160,33 @@ installStandaloneContainerd() {
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     fi
 
-    CURRENT_MAJOR_MINOR="$(echo $CURRENT_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
-    DESIRED_MAJOR_MINOR="$(echo $CONTAINERD_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
-    semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION"
-    HAS_GREATER_VERSION="$?"
+    # CURRENT_MAJOR_MINOR="$(echo $CURRENT_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
+    # DESIRED_MAJOR_MINOR="$(echo $CONTAINERD_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
+    # semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION"
+    # HAS_GREATER_VERSION="$?"
 
-    if [[ "$HAS_GREATER_VERSION" == "0" ]] && [[ "$CURRENT_MAJOR_MINOR" == "$DESIRED_MAJOR_MINOR" ]]; then
-        echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
-    else
-        echo "installing containerd version ${CONTAINERD_VERSION}"
-        logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
-        logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
-        # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
-        # if no files found then try fetching from packages.microsoft repo
-        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
-        if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
-            logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-            return 0
-        fi
-        logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}"
-        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
-        if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
-            echo "Failed to locate cached containerd deb"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi
-        logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        return 0
-    fi
+    # if [[ "$HAS_GREATER_VERSION" == "0" ]] && [[ "$CURRENT_MAJOR_MINOR" == "$DESIRED_MAJOR_MINOR" ]]; then
+    #     echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
+    # else
+    #     echo "installing containerd version ${CONTAINERD_VERSION}"
+    #     logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
+    #     logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
+    #     # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
+    #     # if no files found then try fetching from packages.microsoft repo
+    #     CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
+    #     if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
+    #         logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    #         return 0
+    #     fi
+    #     logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}"
+    #     CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
+    #     if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
+    #         echo "Failed to locate cached containerd deb"
+    #         exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    #     fi
+    #     logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    #     return 0
+    # fi
 }
 
 downloadContainerdFromVersion() {
