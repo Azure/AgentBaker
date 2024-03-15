@@ -411,7 +411,6 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "sig_gallery_name": "${SIG_GALLERY_NAME}",
   "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}",
   "captured_sig_version": "${CAPTURED_SIG_VERSION}",
-  "use_shallow_replication": "${Replication_Mode}",
   "os_disk_size_gb": "${os_disk_size_gb}",
   "nano_image_url": "${windows_nanoserver_image_url}",
   "core_image_url": "${windows_servercore_image_url}",
