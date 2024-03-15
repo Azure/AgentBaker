@@ -67,6 +67,7 @@
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
         "image_version": "{{user `captured_sig_version`}}",
+        "replication_mode": "${{user `replication_mode`}}",
         "replication_regions": [
           "{{user `location`}}"
         ]

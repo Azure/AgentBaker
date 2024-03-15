@@ -77,5 +77,3 @@ getAzCopyCurrentPath() {
     echo "get azcopy...done"
   fi
 }
-
-https://azcopyvnext.azureedge.net/releases/release-10.23.0-20240129/azcopy_linux_amd64_10.23.0.tar.gz

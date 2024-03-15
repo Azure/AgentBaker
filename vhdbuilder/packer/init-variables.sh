@@ -7,6 +7,7 @@ SP_JSON="${SP_JSON:-./packer/sp.json}"
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
+Replication_Mode="Shallow"
 
 # We use the provided SIG_IMAGE_VERSION if it's instantiated and we're running linuxVhdMode, otherwise we randomly generate one
 if [[ "${MODE}" == "linuxVhdMode" ]] && [[ -n "${SIG_IMAGE_VERSION}" ]]; then
@@ -410,6 +411,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "sig_gallery_name": "${SIG_GALLERY_NAME}",
   "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}",
   "captured_sig_version": "${CAPTURED_SIG_VERSION}",
+  "replication_mode": "${Replication_Mode}"
   "os_disk_size_gb": "${os_disk_size_gb}",
   "nano_image_url": "${windows_nanoserver_image_url}",
   "core_image_url": "${windows_servercore_image_url}",
