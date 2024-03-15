@@ -124,7 +124,7 @@ if [ "${OS_NAME,,}" == "linux" ]; then
     "hyperv_generation": "${HYPERV_GENERATION}",
     "image_architecture": "${IMAGE_ARCH}",
     "image_version": "${IMAGE_VERSION}",
-    "replication_mode": "${Replication_Mode}"
+    "replication_mode": "${Replication_Mode}",
     "replication_inverse": "${REPLICATION_INVERSE}"
 }
 EOF
