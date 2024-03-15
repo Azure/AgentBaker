@@ -3456,6 +3456,43 @@ should_skip_nvidia_drivers() {
     should_skip=$(echo "$body" | jq -e '.compute.tagsList | map(select(.name | test("SkipGpuDriverInstall"; "i")))[0].value // "false" | test("true"; "i")')
     echo "$should_skip"
 }
+
+start_watch () {
+  capture_time=$(date +%s)
+  start_timestamp=$(date +%H:%M:%S)
+}
+
+stop_watch () {
+
+  local current_time=$(date +%s)
+  local end_timestamp=$(date +%H:%M:%S)
+  local difference_in_seconds=$((current_time - ${1}))
+
+  local elapsed_hours=$(($difference_in_seconds/3600))
+  local elapsed_minutes=$((($difference_in_seconds%3600)/60))
+  local elapsed_seconds=$(($difference_in_seconds%60))
+  
+  printf -v benchmark "'${2}' - Total Time Elapsed: %02d:%02d:%02d" $elapsed_hours $elapsed_minutes $elapsed_seconds
+  if [ ${3} == true ]; then
+    printf -v start "     Start time: $script_start_timestamp"
+  else
+    printf -v start "     Start time: $start_timestamp"
+  fi
+  printf -v end "     End Time: $end_timestamp"
+  echo -e "\n$benchmark\n"
+  benchmarks+=("$benchmark")
+  benchmarks+=("$start")
+  benchmarks+=("$end")
+}
+
+show_benchmarks () {
+  echo -e "\nBenchmarks:\n"
+  for i in "${benchmarks[@]}"; do
+    echo "   $i"
+  done
+  echo
+}
+
 #HELPERSEOF`)
 
 func linuxCloudInitArtifactsCse_helpersShBytes() ([]byte, error) {
@@ -3736,7 +3773,7 @@ extractKubeBinaries() {
 
     # extract the cached or downloaded kube package
     tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "${k8s_tgz_tmp}" \
-        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
+        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl || exit $ERR_K8S_INSTALL_ERR
     if [[ ! -f /usr/local/bin/kubectl-${k8s_version} ]] || [[ ! -f /usr/local/bin/kubelet-${k8s_version} ]]; then
         exit $ERR_K8S_INSTALL_ERR
     fi
@@ -4828,8 +4865,11 @@ if [[ -z "${bridgeIP}" ]]; then
     exit 1
 fi
 
-podSubnetAddr=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .ipam.subnet")
-if [[ -z "${podSubnetAddr}" ]]; then
+# cloud-controller-manager assigns the node pod CIDR, then kubelet/containerd put it in the conflist.
+# Parse the conflist to retrieve the pod CIDR (IPv4 is always the first item in `+"`"+`ranges`+"`"+`).
+# If the field we expect isn't there, jq returns "null", so treat that as a failure.
+podSubnetAddr=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .ipam.ranges[0][0].subnet")
+if [[ -z "${podSubnetAddr}" || "${podSubnetAddr}" == 'null' ]]; then
     echo "could not determine this node's pod ipam subnet range from 10-containerd-net.conflist...exiting early"
     exit 1
 fi
@@ -4846,7 +4886,8 @@ echo "outputting newly added AKS-DEDUP-PROMISC rules:"
 ebtables -t filter -L OUTPUT 2>/dev/null
 ebtables -t filter -L AKS-DEDUP-PROMISC 2>/dev/null
 exit 0
-#EOF`)
+#EOF
+`)
 
 func linuxCloudInitArtifactsEnsureNoDupShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsEnsureNoDupSh, nil
@@ -5491,7 +5532,7 @@ installDeps() {
 
     # install additional apparmor deps for 2.0;
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in apparmor-parser libapparmor blobfuse2 nftables; do
+      for dnf_package in apparmor-parser libapparmor blobfuse2 nftables iscsi-initiator-utils; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
@@ -8153,11 +8194,11 @@ $arguments = '
 -AADClientSecret ''{{ GetParameter "encodedServicePrincipalClientSecret" }}''
 -NetworkAPIVersion 2018-08-01
 -LogFile %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log
--CSEResultFilePath %SYSTEMDRIVE%\AzureData\CSEResult.log';
+-CSEResultFilePath %SYSTEMDRIVE%\AzureData\provision.complete';
 $inputFile = '%SYSTEMDRIVE%\AzureData\CustomData.bin';
 $outputFile = '%SYSTEMDRIVE%\AzureData\CustomDataSetupScript.ps1';
 if (!(Test-Path $inputFile)) { throw 'ExitCode: |49|, Output: |WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN|, Error: |C:\AzureData\CustomData.bin does not exist.|' };
-Copy-Item $inputFile $outputFile;
+Copy-Item $inputFile $outputFile -Force;
 Invoke-Expression('{0} {1}' -f $outputFile, $arguments);
 \"`)
 
@@ -8388,7 +8429,7 @@ $global:RebootNeeded = $false
 
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
-Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
+Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force
 
 # Dot-source windowscsehelper.ps1 with functions that are called in this script
 . c:\AzureData\windows\windowscsehelper.ps1
@@ -8410,7 +8451,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.39.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.40.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -8426,7 +8467,7 @@ try
     Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAndExpandCSEScriptPackageUrl" -TaskMessage "Start to get CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
     $tempfile = 'c:\csescripts.zip'
     DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
-    Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows"
+    Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows" -Force
     Remove-Item -Path $tempfile -Force
     
     # Dot-source cse scripts with functions that are called in this script
@@ -8666,6 +8707,8 @@ finally
     # Generate CSE result so it can be returned as the CSE response in csecmd.ps1
     $ExecutionDuration=$(New-Timespan -Start $StartTime -End $(Get-Date))
     Write-Log "CSE ExecutionDuration: $ExecutionDuration. ExitCode: $global:ExitCode"
+    # $CSEResultFilePath is used to avoid running CSE multiple times
+    Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
     Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage." 
     # Please not use Write-Log or Logs-To-Events after Stop-Transcript
     Stop-Transcript
@@ -8824,6 +8867,8 @@ $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE=58
 $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INVALID_SIGNATURE=59
 $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_EXCEPTION=60
 $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE=61
+$global:WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG=62
+$global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP=63
 
 # Please add new error code for downloading new packages in RP code too
 $global:ErrorCodeNames = @(
@@ -8888,7 +8933,9 @@ $global:ErrorCodeNames = @(
     "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_DOWNLOAD_FAILURE",
     "WINDOWS_CSE_ERROR_GPU_DRIVER_INVALID_SIGNATURE",
     "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_EXCEPTION",
-    "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE"
+    "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE",
+    "WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG",
+    "WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP"
 )
 
 # NOTE: KubernetesVersion does not contain "v"
