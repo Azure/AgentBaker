@@ -86,6 +86,14 @@ replaceOrAppendSetting() {
     local SETTING_LINE=$2
     local FILE=$3
 
+    # It's possible for the file to have multiple lines that set the same setting, especially
+    # where the setting is commented out and then later set.
+    # This is a quick and dirty way to handle that -- if we currently have the actual setting line
+    # we want in the file, then we're done.
+    if grep -E "$SETTING_LINE" "$FILE" >/dev/null; then
+        return
+    fi
+
     # Search and replace/append.
     if grep -E "$SEARCH_PATTERN" "$FILE" >/dev/null; then
         sed -E -i "s|${SEARCH_PATTERN}|${SETTING_LINE}|g" "$FILE" || exit $ERR_CIS_APPLY_PASSWORD_CONFIG
