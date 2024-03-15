@@ -57,18 +57,20 @@ message Configuration {
   bool is_sgx_node = 25;
   TeleportConfig teleport_config = 26;
 
-  // ssh_status specifies whether SSH is enabled or disabled on the VM node
-  FeatureState ssh_status = 27;
+  // enable_ssh specifies whether SSH is enabled or disabled on the VM node
+  bool enable_ssh = 27;
 
-  // unattended_upgrade_status specifies whether unattended upgrades are enabled or disabled on the VM node
-  optional FeatureState unattended_upgrade_status = 28;
+  // enable_unattended_upgrade specifies whether unattended upgrade is enabled or disabled on the VM node
+  bool enable_unattended_upgrade = 28;
 
   // message_of_the_day specifies the message of the day that is displayed on the VM node when a user logs in
   string message_of_the_day = 29;
 
   // kubelet_config specifies the kubelet configuration
   KubeletConfig kubelet_config = 31;
-  FeatureState hosts_config_agent_status = 32;
+
+  // enable_hosts_config_agent specifies whether the hosts config agent is enabled or disabled on the VM node
+  bool enable_hosts_config_agent = 32;
   repeated string custom_ca_certs = 33;  
   string provision_output = 34;
   string hyperkube_url = 35; //will be removed later
