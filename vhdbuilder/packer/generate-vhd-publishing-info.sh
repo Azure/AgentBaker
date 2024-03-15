@@ -11,6 +11,7 @@ required_env_vars=(
     "IMAGE_VERSION"
 )
 
+Replication_Mode="Shallow"
 # Higher the replication_inverse, lower is the usage and number of replicas
 set -x
 REPLICATION_INVERSE=1
@@ -123,6 +124,7 @@ if [ "${OS_NAME,,}" == "linux" ]; then
     "hyperv_generation": "${HYPERV_GENERATION}",
     "image_architecture": "${IMAGE_ARCH}",
     "image_version": "${IMAGE_VERSION}",
+    "replication_mode": "${Replication_Mode}"
     "replication_inverse": "${REPLICATION_INVERSE}"
 }
 EOF
