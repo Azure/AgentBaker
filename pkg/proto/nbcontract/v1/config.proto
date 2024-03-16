@@ -22,8 +22,13 @@ import "pkg/proto/nbcontract/v1/nodepoolprofile.proto";
 
 // illustrative division only
 message Configuration {
+  enum WorkloadRuntime {
+    WR_UNSPECIFIED = 0;
+    OCI_CONTAINER= 1;
+    WASM_WASI = 2;
+  }
+
   // System Configuration
-  
   string cluster_certificate_authority = 1;
   TLSBootstrappingConfig tls_bootstrapping_config = 2;
   
@@ -74,8 +79,8 @@ message Configuration {
   repeated string custom_ca_certs = 33;  
   string provision_output = 34;
 
-  // workload_runtime describes the workload runtime, e.g., either container or wasm-wasi, currently.
-  string workload_runtime = 40;
+  // workload_runtime describes the workload runtime, e.g., either "OCIContainer" or "WasmWasi", currently.
+  WorkloadRuntime workload_runtime = 40;
 
   bool needs_docker_login = 41; //useless, will remove
   optional FeatureState ipv6_dual_stack_enabled = 42; //seems very specific to RP, discuss with Alex wrt Karpenter
