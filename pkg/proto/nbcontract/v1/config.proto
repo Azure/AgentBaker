@@ -20,14 +20,14 @@ import "pkg/proto/nbcontract/v1/apiserverconfig.proto";
 import "pkg/proto/nbcontract/v1/tlsbootstrappingconfig.proto";
 import "pkg/proto/nbcontract/v1/nodepoolprofile.proto";
 
+enum WorkloadRuntime {
+  WR_UNSPECIFIED = 0;
+  OCI_CONTAINER= 1;
+  WASM_WASI = 2;
+}
+
 // illustrative division only
 message Configuration {
-  enum WorkloadRuntime {
-    WR_UNSPECIFIED = 0;
-    OCI_CONTAINER= 1;
-    WASM_WASI = 2;
-  }
-
   // System Configuration
   string cluster_certificate_authority = 1;
   TLSBootstrappingConfig tls_bootstrapping_config = 2;
