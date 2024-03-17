@@ -3456,6 +3456,43 @@ should_skip_nvidia_drivers() {
     should_skip=$(echo "$body" | jq -e '.compute.tagsList | map(select(.name | test("SkipGpuDriverInstall"; "i")))[0].value // "false" | test("true"; "i")')
     echo "$should_skip"
 }
+
+start_watch () {
+  capture_time=$(date +%s)
+  start_timestamp=$(date +%H:%M:%S)
+}
+
+stop_watch () {
+
+  local current_time=$(date +%s)
+  local end_timestamp=$(date +%H:%M:%S)
+  local difference_in_seconds=$((current_time - ${1}))
+
+  local elapsed_hours=$(($difference_in_seconds/3600))
+  local elapsed_minutes=$((($difference_in_seconds%3600)/60))
+  local elapsed_seconds=$(($difference_in_seconds%60))
+  
+  printf -v benchmark "'${2}' - Total Time Elapsed: %02d:%02d:%02d" $elapsed_hours $elapsed_minutes $elapsed_seconds
+  if [ ${3} == true ]; then
+    printf -v start "     Start time: $script_start_timestamp"
+  else
+    printf -v start "     Start time: $start_timestamp"
+  fi
+  printf -v end "     End Time: $end_timestamp"
+  echo -e "\n$benchmark\n"
+  benchmarks+=("$benchmark")
+  benchmarks+=("$start")
+  benchmarks+=("$end")
+}
+
+show_benchmarks () {
+  echo -e "\nBenchmarks:\n"
+  for i in "${benchmarks[@]}"; do
+    echo "   $i"
+  done
+  echo
+}
+
 #HELPERSEOF`)
 
 func linuxCloudInitArtifactsCse_helpersShBytes() ([]byte, error) {
@@ -3736,7 +3773,7 @@ extractKubeBinaries() {
 
     # extract the cached or downloaded kube package
     tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "${k8s_tgz_tmp}" \
-        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
+        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl || exit $ERR_K8S_INSTALL_ERR
     if [[ ! -f /usr/local/bin/kubectl-${k8s_version} ]] || [[ ! -f /usr/local/bin/kubelet-${k8s_version} ]]; then
         exit $ERR_K8S_INSTALL_ERR
     fi
@@ -5324,7 +5361,7 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "pinned": {
             "1804": "1.7.1-1"
         },
-        "edge": "1.7.7-1"
+        "edge": "1.7.14-1"
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
@@ -5495,7 +5532,7 @@ installDeps() {
 
     # install additional apparmor deps for 2.0;
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in apparmor-parser libapparmor blobfuse2 nftables; do
+      for dnf_package in apparmor-parser libapparmor blobfuse2 nftables iscsi-initiator-utils; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
@@ -7287,7 +7324,7 @@ installStandaloneContainerd() {
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
         # pin 18.04 to 1.7.1
-        CONTAINERD_VERSION="1.7.7"
+        CONTAINERD_VERSION="1.7.14"
         if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
             CONTAINERD_VERSION="1.7.1"
         fi
@@ -8157,11 +8194,11 @@ $arguments = '
 -AADClientSecret ''{{ GetParameter "encodedServicePrincipalClientSecret" }}''
 -NetworkAPIVersion 2018-08-01
 -LogFile %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log
--CSEResultFilePath %SYSTEMDRIVE%\AzureData\CSEResult.log';
+-CSEResultFilePath %SYSTEMDRIVE%\AzureData\provision.complete';
 $inputFile = '%SYSTEMDRIVE%\AzureData\CustomData.bin';
 $outputFile = '%SYSTEMDRIVE%\AzureData\CustomDataSetupScript.ps1';
 if (!(Test-Path $inputFile)) { throw 'ExitCode: |49|, Output: |WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN|, Error: |C:\AzureData\CustomData.bin does not exist.|' };
-Copy-Item $inputFile $outputFile;
+Copy-Item $inputFile $outputFile -Force;
 Invoke-Expression('{0} {1}' -f $outputFile, $arguments);
 \"`)
 
@@ -8392,7 +8429,7 @@ $global:RebootNeeded = $false
 
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
-Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\"
+Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force
 
 # Dot-source windowscsehelper.ps1 with functions that are called in this script
 . c:\AzureData\windows\windowscsehelper.ps1
@@ -8430,7 +8467,7 @@ try
     Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAndExpandCSEScriptPackageUrl" -TaskMessage "Start to get CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
     $tempfile = 'c:\csescripts.zip'
     DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
-    Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows"
+    Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows" -Force
     Remove-Item -Path $tempfile -Force
     
     # Dot-source cse scripts with functions that are called in this script
@@ -8670,6 +8707,8 @@ finally
     # Generate CSE result so it can be returned as the CSE response in csecmd.ps1
     $ExecutionDuration=$(New-Timespan -Start $StartTime -End $(Get-Date))
     Write-Log "CSE ExecutionDuration: $ExecutionDuration. ExitCode: $global:ExitCode"
+    # $CSEResultFilePath is used to avoid running CSE multiple times
+    Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
     Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage." 
     # Please not use Write-Log or Logs-To-Events after Stop-Transcript
     Stop-Transcript

@@ -178,6 +178,10 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 		return ""
 	}
 
+	if strings.EqualFold(nbc.OutboundType, datamodel.OutboundTypeBlock) || strings.EqualFold(nbc.OutboundType, datamodel.OutboundTypeNone) {
+		return ""
+	}
+
 	var registry string
 	switch {
 	case cloudSpecConfig.CloudName == datamodel.AzureChinaCloud:

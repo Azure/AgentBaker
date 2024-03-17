@@ -74,7 +74,6 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.0.33-hotfix.20221110",
         "v0.1.6-hotfix.20240116"
       ]
     },
@@ -98,7 +97,7 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "3.1.17"
+        "3.1.18"
       ]
     },
     {
@@ -112,12 +111,12 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "6.8.3-main-01-09-2024-a192d342",
-        "6.8.3-main-01-09-2024-a192d342-targetallocator",
-        "6.8.3-main-01-09-2024-a192d342-cfg",
         "6.8.4-main-02-14-2024-90d01292",
         "6.8.4-main-02-14-2024-90d01292-targetallocator",
-        "6.8.4-main-02-14-2024-90d01292-cfg"
+        "6.8.4-main-02-14-2024-90d01292-cfg",
+        "6.8.6-main-03-08-2024-fd4f13cb",
+        "6.8.6-main-03-08-2024-fd4f13cb-targetallocator",
+        "6.8.6-main-03-08-2024-fd4f13cb-cfg"
       ]
     },
     {
@@ -214,8 +213,6 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.25.18",
-        "v1.25.24",
         "v1.26.14",
         "v1.26.19",
         "v1.27.8",
