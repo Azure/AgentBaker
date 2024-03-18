@@ -12,7 +12,6 @@
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
     "image_version": "{{env `IMAGE_VERSION`}}",
-    "replication_mode": "{{env `USE_SHALLOW_REPLICATION`}}",
     "os_version": "{{env `OS_VERSION`}}",
     "sku_name": "{{env `SKU_NAME`}}",
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
@@ -68,7 +67,7 @@
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
         "image_version": "{{user `captured_sig_version`}}",
-        "use_shallow_replication": "{{user `replication_mode`}}",
+        "replication_mode": "{{user `replication_mode`}}",
         "replication_regions": [
           "{{user `location`}}"
         ]
