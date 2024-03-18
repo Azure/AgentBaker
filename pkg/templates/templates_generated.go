@@ -3773,7 +3773,7 @@ extractKubeBinaries() {
 
     # extract the cached or downloaded kube package
     tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "${k8s_tgz_tmp}" \
-        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl
+        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl || exit $ERR_K8S_INSTALL_ERR
     if [[ ! -f /usr/local/bin/kubectl-${k8s_version} ]] || [[ ! -f /usr/local/bin/kubelet-${k8s_version} ]]; then
         exit $ERR_K8S_INSTALL_ERR
     fi
@@ -5532,7 +5532,7 @@ installDeps() {
 
     # install additional apparmor deps for 2.0;
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in apparmor-parser libapparmor blobfuse2 nftables; do
+      for dnf_package in apparmor-parser libapparmor blobfuse2 nftables iscsi-initiator-utils; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
