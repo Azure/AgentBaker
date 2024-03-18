@@ -30,7 +30,7 @@ type VMSSOperationRetrier struct {
 	maxRetries int
 }
 
-func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
+func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
 	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to get node bootstrapping: %w", err)
@@ -49,8 +49,8 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName st
 		log.Printf("finished deleting vmss %q", vmssName)
 	}
 
-	rOpts := VMSSOperationRetrier{maxRetries: maxRetries}
-	vmssModel, err := rOpts.createVMSSWithPayload(ctx, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
+	r := VMSSOperationRetrier{maxRetries: maxRetries}
+	vmssModel, err := r.createVMSSWithPayload(ctx, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
 	if err != nil {
 		return nil, cleanupVMSS, fmt.Errorf("unable to create VMSS with payload: %w", err)
 	}
@@ -58,7 +58,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName st
 	return vmssModel, cleanupVMSS, nil
 }
 
-func (rOpts VMSSOperationRetrier) createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
+func (r VMSSOperationRetrier) createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
 	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)
 
 	if opts.suiteConfig.BuildID != "" {
@@ -86,7 +86,7 @@ func (rOpts VMSSOperationRetrier) createVMSSWithPayload(ctx context.Context, cus
 	createVMSSCtx, cancel := context.WithTimeout(ctx, vmssClientCreateVMSSPollingTimeout)
 	defer cancel()
 
-	for i := 0; i < rOpts.maxRetries; i++ {
+	for i := 0; i < r.maxRetries; i++ {
 		vmssResp, err := pollVMSSOperation(createVMSSCtx, vmssName, pollVMSSOperationOpts{
 			pollUntilDone: &runtime.PollUntilDoneOptions{
 				Frequency: vmssClientCreateVMSSPollInterval,
