@@ -1216,6 +1216,18 @@ root = "{{GetDataDir}}"{{- end}}
       BinaryName = "/usr/bin/runc"
     {{- end}}
     {{- if IsKrustlet }}
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
+      runtime_type = "io.containerd.spin-v0-3-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
+      runtime_type = "io.containerd.slight-v0-3-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]
+      runtime_type = "io.containerd.spin-v0-3-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]
+      runtime_type = "io.containerd.slight-v0-3-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]
+      runtime_type = "io.containerd.spin-v0-5-1.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]
+      runtime_type = "io.containerd.slight-v0-5-1.v1"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-8-0]
       runtime_type = "io.containerd.spin-v0-8-0.v1"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-8-0]
