@@ -70,6 +70,7 @@ update-packer:
 	curl -L -o /tmp/packer/packer.zip https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip
 	unzip -o /tmp/packer/packer.zip -d /tmp/packer
 	chmod +x /tmp/packer/packer
+	apt-get install sudo
 	sudo mv /tmp/packer/packer ${PACKER_DIR}/packer
 	rm -rf /tmp/packer
 	packer version
