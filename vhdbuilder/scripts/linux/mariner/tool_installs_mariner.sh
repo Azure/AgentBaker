@@ -174,15 +174,6 @@ installFIPS() {
     echo "Installing azl-compliance package for FIPS and FedRAMP..."
     dnf_install 5 1 30 --nogpgcheck 'https://srctarpublishstaging.blob.core.windows.net/src-tar-publishing-staging/azl-compliance-0.1.0-1.cm2.x86_64.rpm'
 
-    echo "TOBIASB: Adding scripts to skip list:"
-    echo "mount_option_var_tmp_noexec" >> /etc/azl-compliance/fedramp/marketplace_skip_list.txt
-    echo "package_audit_installed" >> /etc/azl-compliance/fedramp/marketplace_skip_list.txt
-    echo "accounts_password_pam_maxrepeat" >> /etc/azl-compliance/fedramp/marketplace_skip_list.txt
-    echo "accounts_password_pam_maxclassrepeat" >> /etc/azl-compliance/fedramp/marketplace_skip_list.txt
-
-    echo "TOBIASB: Removing hard-coded tmpfs thinger from compliance script"
-    sed -E -i 's|^(\s+echo "tmpfs /tmp.*)$|#TOBIASB: COMMENTED OUT: \1|g' /etc/azl-compliance/fedramp/marketplace_compliance.sh
-
     echo "Setting up FIPS and FedRAMP compliance..."
     azl-compliance
     echo "azl-compliance completed with exit code '$?'"
