@@ -36,7 +36,8 @@ echo "publishing managed image to /resourcegroup/${RG_NAME}/galleries/${GALLERY_
    --gallery-image-version ${IMAGE_VERSION} \
    --managed-image "${MANAGED_IMAGE_URI}" \
    --storage-account-type Premium_LRS \
-   --replica-count 5
+   --replica-count 1 \
+   --replication-mode Shallow
 
 
 echo "##vso[task.setvariable variable=MANAGED_IMAGE_NAME;]$MANAGED_IMAGE_NAME"

@@ -68,7 +68,7 @@
         "image_name": "{{user `sig_image_name`}}",
         "image_version": "{{user `captured_sig_version`}}",
         "use_shallow_replication": "true",
-        "target_region": [
+        "replication_regions": [
           "{{user `location`}}"
         ]
       },
