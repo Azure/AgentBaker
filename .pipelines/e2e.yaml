@@ -19,13 +19,15 @@ pr:
     
 variables:
 - group: ab-e2e
+- name: defaultTimeoout
+  value: 90 
 
 pool:
   name: nodesigtest-pool
 
 jobs:
 - job: Run_AgentBaker_E2E
-  timeoutInMinutes: 90
+  timeoutInMinutes: ${{ variables.defaultTimeout }}
   steps:
   - bash: |
       az login --identity
@@ -40,7 +42,7 @@ jobs:
       export BUILD_ID=$(Build.BuildId)
 
       cd e2e
-      go test -timeout 90m -v -run Test_All ./
+      go test -timeout ${{ variables.defaultTimeout }}m -v -run Test_All ./
     displayName: Run AgentBaker E2E
     env:
       VHD_BUILD_ID: $(VHD_BUILD_ID)
