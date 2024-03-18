@@ -19,8 +19,8 @@ pr:
     
 variables:
 - group: ab-e2e
-- name: defaultTimeoout
-  value: 90 
+- name: defaultTimeout
+  value: 90
 
 pool:
   name: nodesigtest-pool
