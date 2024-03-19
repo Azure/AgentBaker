@@ -41,7 +41,7 @@ else ifeq (${OS_SKU},AzureLinux)
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
-    @echo "${MODE}: Convert os disk snapshot to SIG"
+	@echo "${MODE}: Convert os disk snapshot to SIG"
 	@./vhdbuilder/packer/convert-osdisk-snapshot-to-sig-x64.sh
 endif
 
