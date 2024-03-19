@@ -17,7 +17,7 @@ installDeps() {
 
     # install additional apparmor deps for 2.0;
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in apparmor-parser libapparmor blobfuse2 nftables; do
+      for dnf_package in apparmor-parser libapparmor blobfuse2 nftables iscsi-initiator-utils; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi

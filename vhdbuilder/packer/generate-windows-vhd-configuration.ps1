@@ -30,8 +30,8 @@ $global:defenderUpdateInfoUrl = "https://go.microsoft.com/fwlink/?linkid=870379&
 
 switch -Regex ($windowsSku) {
     "2019-containerd" {
-        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/secu/2024/02/windows10.0-kb5034768-x64_04b794598371fdc01bb5840c68487388ca029ad5.msu")
-        $global:patchIDs = @("KB5034768")
+        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/secu/2024/03/windows10.0-kb5035849-x64_eb960a140cd0ba04dd175df1b3268295295bfefa.msu")
+        $global:patchIDs = @("KB5035849")
 
         $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2019",
@@ -39,15 +39,15 @@ switch -Regex ($windowsSku) {
         )
     }
     "2022-containerd*" {
-        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/secu/2024/02/windows10.0-kb5034770-x64_484dd9d8bb43378fcae003dbaa3e87193de1dd61.msu")
-        $global:patchIDs = @("KB5034770")
+        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2024/03/windows10.0-kb5035857-x64_f699534e61e7e8e750a7f751f6a1ff4d03bd3ebb.msu")
+        $global:patchIDs = @("KB5035857")
 
         $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2022",
             "mcr.microsoft.com/windows/nanoserver:ltsc2022",
 
             # NPM (Network Policy Manager) Owner: jaer-tsun (Jaeryn)
-            "mcr.microsoft.com/containernetworking/azure-npm:v1.4.34"
+            "mcr.microsoft.com/containernetworking/azure-npm:v1.5.5"
         )
     }
     "23H2*" {
@@ -59,7 +59,7 @@ switch -Regex ($windowsSku) {
             "mcr.microsoft.com/windows/nanoserver:ltsc2022",
 
             # NPM (Network Policy Manager) Owner: jaer-tsun (Jaeryn)
-            "mcr.microsoft.com/containernetworking/azure-npm:v1.4.34"
+            "mcr.microsoft.com/containernetworking/azure-npm:v1.5.5"
         )
     }
 }
@@ -102,7 +102,7 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.5", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.0", # for k8s 1.29.x
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.17",
+    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.18",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.52",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.17",
