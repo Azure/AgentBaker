@@ -779,7 +779,7 @@ GLOBS+=(/var/log/azure-cni*)
 GLOBS+=(/var/log/azure-cns*)
 GLOBS+=(/var/log/azure-ipam*)
 GLOBS+=(/var/log/azure-vnet*)
-GLOBS+=(/var/log/cillium-cni*)
+GLOBS+=(/var/log/cilium-cni*)
 GLOBS+=(/var/run/azure-vnet*)
 GLOBS+=(/var/run/azure-cns*)
 
