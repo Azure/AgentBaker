@@ -64,17 +64,6 @@ endif
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows-vhd-builder-sig.json
 endif
 
-update-packer:
-	$(eval PACKER_VERSION := $(shell curl -s https://releases.hashicorp.com/packer/ | grep -oP '(?<=packer_)[0-9.]+(?=</a>)' | head -n 1))
-	mkdir -p /tmp/packer
-	curl -L -o /tmp/packer/packer.zip https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip
-	unzip -o /tmp/packer/packer.zip -d /tmp/packer
-	chmod +x /tmp/packer/packer
-	apt-get install sudo
-	sudo mv /tmp/packer/packer ${PACKER_DIR}/packer
-	rm -rf /tmp/packer
-	packer version
-
 az-login:
 	@echo "Logging into Azure with agent VM MSI..."
 ifeq ($(origin MANAGED_IDENTITY_ID), undefined)
@@ -90,8 +79,8 @@ endif
 init-packer:
 	@./vhdbuilder/packer/init-variables.sh
 
-run-packer: az-login update-packer
-	@packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
+run-packer: az-login
+	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
 
 run-packer-windows: az-login
 	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer-windows | tee -a packer-output)
