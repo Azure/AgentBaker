@@ -934,31 +934,31 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedShimConfig := `version = 2
-				oom_score = 0
-				[plugins."io.containerd.grpc.v1.cri"]
-				  sandbox_image = ""
-				  [plugins."io.containerd.grpc.v1.cri".containerd]
-					default_runtime_name = "runc"
-					[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-					  runtime_type = "io.containerd.runc.v2"
-					[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-					  BinaryName = "/usr/bin/runc"
-					[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
-					  runtime_type = "io.containerd.runc.v2"
-					[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
-					  BinaryName = "/usr/bin/runc"
-					[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
-					  runtime_type = "io.containerd.spin-v0-3-0.v1"
-					[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
-					  runtime_type = "io.containerd.slight-v0-3-0.v1"
-					[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]
-					  runtime_type = "io.containerd.spin-v0-3-0.v1"
-					[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]
-					  runtime_type = "io.containerd.slight-v0-3-0.v1"
-					[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]
-					  runtime_type = "io.containerd.spin-v0-5-1.v1"
-					[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]
-					  runtime_type = "io.containerd.slight-v0-5-1.v1"`
+oom_score = 0
+[plugins."io.containerd.grpc.v1.cri"]
+	sandbox_image = ""
+	[plugins."io.containerd.grpc.v1.cri".containerd]
+	default_runtime_name = "runc"
+	[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+		runtime_type = "io.containerd.runc.v2"
+	[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+		BinaryName = "/usr/bin/runc"
+	[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+		runtime_type = "io.containerd.runc.v2"
+	[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+		BinaryName = "/usr/bin/runc"
+	[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
+		runtime_type = "io.containerd.spin-v0-3-0.v1"
+	[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
+		runtime_type = "io.containerd.slight-v0-3-0.v1"
+	[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]
+		runtime_type = "io.containerd.spin-v0-3-0.v1"
+	[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]
+		runtime_type = "io.containerd.slight-v0-3-0.v1"
+	[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]
+		runtime_type = "io.containerd.spin-v0-5-1.v1"
+	[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]
+		runtime_type = "io.containerd.slight-v0-5-1.v1"`
 
 				Expect(containerdConfigFileContent).To(ContainSubstring(expectedShimConfig))
 			},
