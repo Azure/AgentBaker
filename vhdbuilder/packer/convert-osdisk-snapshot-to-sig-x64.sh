@@ -21,7 +21,7 @@ echo "ManagedImageSharedImageGalleryId: /subscriptions/${SUBSCRIPTION_ID}/resour
 
 time_now=$(echo ${CAPTURED_SIG_VERSION} | cut -d '.' -f2)
 disk_snapshot_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/snapshots/${OS_DISK_SNAPSHOT_NAME}"
-az snapshot update --resource-group ${AZURE_RESOURCE_GROUP_NAME} -n ${OS_DISK_SNAPSHOT_NAME} --architecture x64
+az snapshot update --resource-group ${AZURE_RESOURCE_GROUP_NAME} -n ${OS_DISK_SNAPSHOT_NAME}
 az sig image-version create --location $AZURE_LOCATION --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name PackerSigGalleryEastUS \
      --gallery-image-definition ${SIG_IMAGE_NAME} --gallery-image-version ${CAPTURED_SIG_VERSION} \
      --os-snapshot ${disk_snapshot_id} --tags now=${time_now} --replication-mode Shallow
