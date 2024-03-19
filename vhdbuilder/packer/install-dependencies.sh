@@ -439,15 +439,19 @@ rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
 KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
 
+declare -a kubeProxyPids=()
+
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # use kube-proxy as well
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+  pullContainerImage ${cliTool} ${CONTAINER_IMAGE} & # Run in the background and continue on with the for loop
+  kubeProxyPids+=($!) # append the process ID to the array
   ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
 
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
+wait ${kubeProxyPids[@]} # Wait for all background processes to finish
 stop_watch $capture_time "Configure Telemetry, Create Logging Directory, Kube-proxy" false
 start_watch
 
