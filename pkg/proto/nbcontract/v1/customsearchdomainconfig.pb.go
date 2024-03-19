@@ -25,8 +25,11 @@ type CustomSearchDomain struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	CustomSearchDomainName          string `protobuf:"bytes,1,opt,name=custom_search_domain_name,json=customSearchDomainName,proto3" json:"custom_search_domain_name,omitempty"`
-	CustomSearchDomainRealmUser     string `protobuf:"bytes,2,opt,name=custom_search_domain_realm_user,json=customSearchDomainRealmUser,proto3" json:"custom_search_domain_realm_user,omitempty"`
+	// The name of the custom search domain.
+	CustomSearchDomainName string `protobuf:"bytes,1,opt,name=custom_search_domain_name,json=customSearchDomainName,proto3" json:"custom_search_domain_name,omitempty"`
+	// The user name for the custom search domain.
+	CustomSearchDomainRealmUser string `protobuf:"bytes,2,opt,name=custom_search_domain_realm_user,json=customSearchDomainRealmUser,proto3" json:"custom_search_domain_realm_user,omitempty"`
+	// The password for the custom search domain.
 	CustomSearchDomainRealmPassword string `protobuf:"bytes,3,opt,name=custom_search_domain_realm_password,json=customSearchDomainRealmPassword,proto3" json:"custom_search_domain_realm_password,omitempty"`
 }
 

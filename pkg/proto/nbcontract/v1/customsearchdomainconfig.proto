@@ -2,7 +2,13 @@ syntax = "proto3";
 package nbcontract.v1;
 
 message CustomSearchDomain {
+
+  // The name of the custom search domain.
   string custom_search_domain_name = 1;
+
+  // The user name for the custom search domain.
   string custom_search_domain_realm_user = 2;
+
+  // The password for the custom search domain.
   string custom_search_domain_realm_password = 3;
 }

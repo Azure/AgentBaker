@@ -76,16 +76,27 @@ message Configuration {
 
   // enable_hosts_config_agent specifies whether the hosts config agent is enabled or disabled on the VM node
   bool enable_hosts_config_agent = 32;
+
+  // custom_ca_certs specifies the custom CA certificates
   repeated string custom_ca_certs = 33;  
+
+  // provision_output specifies where cluster provision cse output should be stored at
   string provision_output = 34;
 
   // workload_runtime describes the workload runtime, e.g., either "OCIContainer" or "WasmWasi", currently.
   WorkloadRuntime workload_runtime = 40;
 
-  bool ipv6_dual_stack_enabled = 42; //seems very specific to RP, discuss with Alex wrt Karpenter
-  string outbound_command = 43; //this is const depending on cloud, can be removed later with smart refactoring
-  bool ensure_no_dupe_promiscuous_bridge = 45; //this is little weird, check cse_cmd.sh for actual condition
-  optional CustomSearchDomain custom_search_domain = 46;
+  // ipv6_dual_stack_enabled specifies whether IPv6 dual stack is enabled or disabled on the VM node
+  bool ipv6_dual_stack_enabled = 42;
+
+  // outbound_command specifies the command to use for outbound traffic
+  string outbound_command = 43; 
+
+  // ensure_no_dupe_promiscuous_bridge specifies whether to ensure no duplicate promiscuous bridge
+  bool ensure_no_dupe_promiscuous_bridge = 45; 
+
+  // custom_search_domain specifies the custom search domain configuration
+  CustomSearchDomain custom_search_domain = 46;
   optional CustomLinuxOSConfig custom_linux_os_config = 47;
   
   //we do not need these in the final contract, these are consts
