@@ -272,6 +272,8 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
+declare -a containerImagePids=()
+
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for imageToBePulled in ${ContainerImages[*]}; do
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
@@ -295,9 +297,14 @@ for imageToBePulled in ${ContainerImages[*]}; do
 
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE} & # pullContainerImage in the background and continue with for loop
+    containerImagePids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+    while [[ $(jobs -p | wc -l) -ge 12 ]]; do # No more than 11 container images are pulled in parallel, installBcc is running in the background
+      wait -n
+    done    
   done
+  wait ${containerImagePids[@]}
 done
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
