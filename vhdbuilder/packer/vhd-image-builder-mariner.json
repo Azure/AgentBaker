@@ -37,6 +37,7 @@
       "type": "azure-arm",
       "virtual_network_name": "{{user `vnet_name`}}",
       "virtual_network_subnet_name": "{{user `subnet_name`}}",
+      "virtual_network_resource_group_name": "nodesigtest-agent-pool",
       "ssh_read_write_timeout": "5m",
       "client_id": "{{user `client_id`}}",
       "client_secret": "{{user `client_secret`}}",
@@ -67,6 +68,7 @@
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
         "image_version": "{{user `captured_sig_version`}}",
+        "use_shallow_replication": "true",
         "replication_regions": [
           "{{user `location`}}"
         ]
