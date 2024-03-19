@@ -936,8 +936,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				expectedShimConfig := `version = 2
 oom_score = 0
 [plugins."io.containerd.grpc.v1.cri"]
-	sandbox_image = ""
-	[plugins."io.containerd.grpc.v1.cri".containerd]
+  sandbox_image = ""
+  [plugins."io.containerd.grpc.v1.cri".containerd]
 	default_runtime_name = "runc"
 	[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
 	  runtime_type = "io.containerd.runc.v2"
