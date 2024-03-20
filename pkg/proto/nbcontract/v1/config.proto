@@ -99,23 +99,14 @@ message Configuration {
   CustomSearchDomain custom_search_domain = 46;
   optional CustomLinuxOSConfig custom_linux_os_config = 47;
   
-  //we do not need these in the final contract, these are consts
-  string cse_helper_filepath = 49;
-  string cse_distro_helper_filepath = 50;
-  string cse_install_filepath = 51;
-  string cse_distro_install_filepath = 52;
-  string cse_config_filepath = 53;
-
-  string dhcpv6_service_filepath = 54;
-  string dhcpv6_config_filepath = 55;
-
+  // azure_private_registry_server specifies the Azure private registry server
   string azure_private_registry_server = 56;
-  string private_egress_proxy_address = 57;
-  FeatureState artifact_streaming_enabled = 58;
-  bool is_kata = 59; // we can calculate this on the VHD, will remove from final contract
-  bool needs_cgroupv2 = 60; // we can calculate this on the VHD, will remove from final contract
 
-  // Here begins the final contract
+  // private_egress_proxy_address specifies the private egress proxy address
+  string private_egress_proxy_address = 57;
+
+  // enable_artifact_streaming specifies whether artifact streaming is enabled or disabled
+  bool enable_artifact_streaming = 58;
   optional HTTPProxyConfig http_proxy_config = 61;
   optional GPUConfig gpu_config = 62;
 }
