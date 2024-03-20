@@ -98,11 +98,9 @@ message Configuration {
   // custom_search_domain specifies the custom search domain configuration
   CustomSearchDomain custom_search_domain = 46;
   optional CustomLinuxOSConfig custom_linux_os_config = 47;
-  
+
   string azure_private_registry_server = 56;
   string private_egress_proxy_address = 57;
-  
-  //we do not need these in the final contract, these are consts
   bool enable_artifact_streaming = 58;
 
   // Here begins the final contract
