@@ -430,4 +430,10 @@ cat <<EOF > vhdbuilder/packer/settings.json
 }
 EOF
 
+if [ "$MODE" == "linuxVhdMode" ]; then
+	jq -r --arg key "client_id" --arg value "${CLIENT_ID}"  '. + { ($key) : $value}' < vhdbuilder/packer/settings.json > tmp.json && mv tmp.jsonvhdbuilder/packer/settings.json
+	jq -r --arg key "client_secret" --arg value "${CLIENT_SECRET}"  '. + { ($key) : $value}' < vhdbuilder/packer/settings.json > tmp.json && mv tmp.jsonvhdbuilder/packer/settings.json
+	jq -r --arg key "tenant_id" --arg value "${TENANT_ID}"  '. + { ($key) : $value}' < vhdbuilder/packer/settings.json > tmp.json && mv tmp.jsonvhdbuilder/packer/settings.json
+fi
+
 cat vhdbuilder/packer/settings.json
