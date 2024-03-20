@@ -26,10 +26,6 @@ const (
 	maxRetries                               = 3
 )
 
-type VMSSOperationRetrier struct {
-	maxRetries int
-}
-
 func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
 	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
 	if err != nil {
@@ -49,8 +45,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName st
 		log.Printf("finished deleting vmss %q", vmssName)
 	}
 
-	rOpts := VMSSOperationRetrier{maxRetries: maxRetries}
-	vmssModel, err := rOpts.createVMSSWithPayload(ctx, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
+	vmssModel, err := createVMSSWithPayload(ctx, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
 	if err != nil {
 		return nil, cleanupVMSS, fmt.Errorf("unable to create VMSS with payload: %w", err)
 	}
@@ -58,7 +53,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName st
 	return vmssModel, cleanupVMSS, nil
 }
 
-func (r VMSSOperationRetrier) createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
+func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
 	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)
 
 	if opts.suiteConfig.BuildID != "" {
@@ -85,7 +80,8 @@ func (r VMSSOperationRetrier) createVMSSWithPayload(ctx context.Context, customD
 
 	var pollErr error
 	var vmssResp *armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse
-	for i := 0; i < r.maxRetries; i++ {
+
+	for i := 0; i < maxRetries; i++ {
 		createVMSSCtx, cancel := context.WithTimeout(ctx, vmssClientCreateVMSSPollingTimeout)
 		defer cancel()
 
@@ -107,7 +103,7 @@ func (r VMSSOperationRetrier) createVMSSWithPayload(ctx context.Context, customD
 		if pollErr == nil {
 			return &vmssResp.VirtualMachineScaleSet, nil
 		} else {
-			log.Printf("failed to create VMSS. Retry attempts left: %d", r.maxRetries-(i+1))
+			log.Printf("failed to create VMSS. Retry attempts left: %d", maxRetries-(i+1))
 		}
 	}
 	return nil, fmt.Errorf("unable to create VMSS %q: %w", vmssName, pollErr)
