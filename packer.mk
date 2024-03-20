@@ -52,6 +52,7 @@ ifneq (${IMG_SKU},20_04-lts-cvm)
 else
 	@echo "IMG_SKU is 20_04-lts-cvm. Using packer JSON template to publish to SIG."
 endif
+endif
 
 build-packer-windows:
 ifeq (${MODE},windowsVhdMode)
