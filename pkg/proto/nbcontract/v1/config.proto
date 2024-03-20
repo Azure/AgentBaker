@@ -99,9 +99,17 @@ message Configuration {
   CustomSearchDomain custom_search_domain = 46;
   optional CustomLinuxOSConfig custom_linux_os_config = 47;
 
+  // azure_private_registry_server specifies the Azure private registry server
   string azure_private_registry_server = 56;
+
+  // private_egress_proxy_address specifies the private egress proxy address
   string private_egress_proxy_address = 57;
+
+  // enable_artifact_streaming specifies whether artifact streaming is enabled or disabled on the VM node
   bool enable_artifact_streaming = 58;
+
+  // distro specifies the distro of the VM node
+  string distro = 59;
 
   // Here begins the final contract
   optional HTTPProxyConfig http_proxy_config = 61;
