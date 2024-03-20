@@ -83,11 +83,13 @@ func (r VMSSOperationRetrier) createVMSSWithPayload(ctx context.Context, customD
 		return nil, fmt.Errorf("unable to prepare model for VMSS %q: %w", vmssName, err)
 	}
 
-	createVMSSCtx, cancel := context.WithTimeout(ctx, vmssClientCreateVMSSPollingTimeout)
-	defer cancel()
-
+	var pollErr error
+	var vmssResp *armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse
 	for i := 0; i < r.maxRetries; i++ {
-		vmssResp, err := pollVMSSOperation(createVMSSCtx, vmssName, pollVMSSOperationOpts{
+		createVMSSCtx, cancel := context.WithTimeout(ctx, vmssClientCreateVMSSPollingTimeout)
+		defer cancel()
+
+		vmssResp, pollErr = pollVMSSOperation(createVMSSCtx, vmssName, pollVMSSOperationOpts{
 			pollUntilDone: &runtime.PollUntilDoneOptions{
 				Frequency: vmssClientCreateVMSSPollInterval,
 			},
@@ -101,11 +103,14 @@ func (r VMSSOperationRetrier) createVMSSWithPayload(ctx context.Context, customD
 					nil,
 				)
 			})
-		if err == nil {
+
+		if pollErr == nil {
 			return &vmssResp.VirtualMachineScaleSet, nil
+		} else {
+			log.Printf("failed to create VMSS %q: %v. Retry attempts left: %d", vmssName, pollErr, r.maxRetries-(i+1))
 		}
 	}
-	return nil, fmt.Errorf("unable to create VMSS %q: %w", vmssName, err)
+	return nil, fmt.Errorf("unable to create VMSS %q: %w", vmssName, pollErr)
 }
 
 // Adds additional IP configs to the passed in vmss model based on the chosen cluster's setting of "maxPodsPerNode",
