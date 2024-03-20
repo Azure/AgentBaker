@@ -41,6 +41,10 @@ else ifeq (${OS_SKU},AzureLinux)
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
+ifeq (${IMG_SKU},20_04-lts-cvm)
+	@echo "Using packer template file: vhd-image-builder-cvm.json"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm.json
+else
 	@echo "${MODE}: Convert os disk snapshot to SIG"
 	@./vhdbuilder/packer/convert-osdisk-snapshot-to-sig-x64.sh
 endif
