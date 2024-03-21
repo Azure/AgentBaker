@@ -3,6 +3,7 @@ parameters:
       type: string
       default: 1604
 
+jobs:
 - job: BuildandTestVHD
   steps:
     - bash: |
