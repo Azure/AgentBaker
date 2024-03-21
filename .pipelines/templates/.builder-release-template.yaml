@@ -3,7 +3,7 @@ parameters:
       type: string
       default: 1604
 
-- job: Build and Test VHD
+- job: BuildandTestVHD
   steps:
     - bash: |
           m="linuxVhdMode" && \
@@ -147,7 +147,7 @@ parameters:
           -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
           ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
       displayName: "Test VHD"
-- job: Packer Clean-up
+- job: PackerClean-up
   dependsOn: "Build and Test VHD"
   steps:
     - bash: |
@@ -186,7 +186,7 @@ parameters:
           ${CONTAINER_IMAGE} make -f packer.mk cleanup
       displayName: Clean Up Packer Generated Resources
       condition: always()
-- job: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
+- job: ConvertSharedImageGalleryToVHDBlobInClassicStorageAccount
   dependsOn: "Build and Test VHD"
   steps:
     - bash: |
@@ -219,7 +219,7 @@ parameters:
           ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
       displayName: "Convert Shared Image Gallery To VHD Blob In Classic Storage Account"
       condition: eq(variables.DRY_RUN, 'False')
-- job: Get SAS URI, Publish VHD Info, and Checkout
+- job: GetSASURIPublishVHDInfoAndCheckout
   displayName: "Get SAS URI, Publish, and Checkout"
   dependsOn:
     - "Packer Clean-up"
