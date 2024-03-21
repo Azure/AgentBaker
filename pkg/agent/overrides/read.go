@@ -62,6 +62,7 @@ func ReadDir(dirName string) (*Overrides, error) {
 
 			if _, ok := overrides.Overrides[overrideName]; ok {
 				readErr.Add(fmt.Errorf("override %q has duplicate yaml definitions", overrideName))
+				return nil
 			}
 
 			overrides.Overrides[overrideName] = override
