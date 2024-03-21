@@ -35,7 +35,7 @@ func (o *Overrides) getString(name string, entity *Entity) string {
 			return rule.Value
 		}
 	}
-	return ""
+	return override.DefaultValue
 }
 
 // getMap returns the map value associated with the **first** rule matched within the named override.
@@ -50,5 +50,5 @@ func (o *Overrides) getMap(name string, entity *Entity) map[string]string {
 			return rule.MapValue
 		}
 	}
-	return map[string]string{}
+	return override.DefaultMapValue
 }

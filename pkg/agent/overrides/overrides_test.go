@@ -1,9 +1,42 @@
 package overrides
 
 import (
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+var _ = Describe("types", func() {
+	Context("entity", func() {
+		When("constructed from raw fields", func() {
+			It("should have the correct fields", func() {
+				fields := map[string]string{
+					"f1": "v1",
+					"f2": "v2",
+				}
+				e := NewEntity().WithFields(fields)
+				Expect(e).ToNot(BeNil())
+				Expect(e.Fields).To(HaveKeyWithValue("f1", "v1"))
+				Expect(e.Fields).To(HaveKeyWithValue("f2", "v2"))
+				Expect(len(e.Fields)).To(Equal(2))
+			})
+		})
+
+		When("constructed from a NodeBootstrappingConfiguration", func() {
+			It("should have the correct fields", func() {
+				nbc := &datamodel.NodeBootstrappingConfiguration{
+					SubscriptionID: "subscriptionId",
+					TenantID:       "tenantId",
+				}
+				e := NewEntity().FromNodeBootstrappingConfiguration(nbc)
+				Expect(e).ToNot(BeNil())
+				Expect(e.Fields).To(HaveKeyWithValue(SubscriptionIDFieldName, nbc.SubscriptionID))
+				Expect(e.Fields).To(HaveKeyWithValue(TenantIDFieldName, nbc.TenantID))
+				Expect(len(e.Fields)).To(Equal(2))
+			})
+		})
+	})
+})
 
 var _ = Describe("overrides", func() {
 	var e *Entity
@@ -139,8 +172,8 @@ var _ = Describe("overrides", func() {
 				})
 			})
 
-			When("no matchers are satisfied", func() {
-				It("should return an empty string", func() {
+			When("no rules are satisfied", func() {
+				It("should return the default value", func() {
 					overrides := NewOverrides()
 					o := &Override{
 						Rules: []*Rule{
@@ -160,12 +193,13 @@ var _ = Describe("overrides", func() {
 								Value: "value",
 							},
 						},
+						DefaultValue: "defaultValue",
 					}
 					overrides.Overrides["o1"] = o
 					e.Fields["subscriptionId"] = "someOtherSubscription"
 					e.Fields["tenantId"] = "someOtherTenant"
 					str := overrides.getString("o1", e)
-					Expect(str).To(BeEmpty())
+					Expect(str).To(Equal("defaultValue"))
 				})
 			})
 
@@ -270,7 +304,7 @@ var _ = Describe("overrides", func() {
 				})
 
 				When("no rules are satisifed", func() {
-					It("should return an empty map", func() {
+					It("should return the default map value", func() {
 						overrides := NewOverrides()
 						o := &Override{
 							Rules: []*Rule{
@@ -290,12 +324,15 @@ var _ = Describe("overrides", func() {
 									MapValue: map[string]string{"key": "value"},
 								},
 							},
+							DefaultMapValue: map[string]string{"default": "value"},
 						}
 						overrides.Overrides["o1"] = o
 						e.Fields["subscriptionId"] = "someOtherSubscription"
 						e.Fields["tenantId"] = "someOtherTenant"
 						m := overrides.getMap("o1", e)
-						Expect(m).To(BeEmpty())
+						Expect(m).ToNot(BeNil())
+						Expect(m).To(HaveKeyWithValue("default", "value"))
+						Expect(len(m)).To(Equal(1))
 					})
 				})
 
@@ -369,7 +406,7 @@ var _ = Describe("overrides", func() {
 						m := overrides.getMap("o1", e)
 						Expect(m).ToNot(BeNil())
 						Expect(m).To(HaveKeyWithValue("key", "value"))
-						Expect(m).ToNot(HaveKeyWithValue("otherKey", "otherValue"))
+						Expect(len(m)).To(Equal(1))
 					})
 				})
 			})

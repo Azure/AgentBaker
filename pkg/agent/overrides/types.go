@@ -2,6 +2,13 @@ package overrides
 
 import (
 	"fmt"
+
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+)
+
+const (
+	SubscriptionIDFieldName = "subscriptionId"
+	TenantIDFieldName       = "tenantId"
 )
 
 // Entity is what we resolve overrides against. It contains any and all fields currently
@@ -19,6 +26,14 @@ func (e *Entity) WithFields(fields map[string]string) *Entity {
 	return e
 }
 
+func (e *Entity) FromNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappingConfiguration) *Entity {
+	e.Fields = map[string]string{
+		SubscriptionIDFieldName: nbc.SubscriptionID,
+		TenantIDFieldName:       nbc.TenantID,
+	}
+	return e
+}
+
 // Overrides represents the set of overrides to resolve within agentbakersvc requests.
 // Overrides are always resolved against Entity's at runtime.
 type Overrides struct {
@@ -33,15 +48,17 @@ func NewOverrides() *Overrides {
 
 // Override repesents a single override, parameterized by one or more Rules.
 type Override struct {
-	Rules []*Rule `yaml:"rules,omitempty"`
+	Rules           []*Rule           `yaml:"rules"`
+	DefaultValue    string            `yaml:"defaultValue"`
+	DefaultMapValue map[string]string `yaml:"defaultMapValue"`
 }
 
 // Rule represents one or more Matchers to match for a particular value (or values) to be yielded.
 // For a rule to yield the value, the particular entity must match all of the Rule's matchers.
 type Rule struct {
-	Matchers []*Matcher        `yaml:"matchers,omitempty"`
+	Matchers []*Matcher        `yaml:"matchers"`
 	Value    string            `yaml:"value"`
-	MapValue map[string]string `yaml:"mapValue,omitempty"`
+	MapValue map[string]string `yaml:"mapValue"`
 }
 
 // ValueSet represents a set of values to match against. The underlying type is a map to achieve optimum performance.
@@ -51,7 +68,7 @@ type ValueSet map[string]bool
 // of the Entity field on which to match, and the set of values to match against for equality.
 type Matcher struct {
 	Field     string   `yaml:"field"`
-	RawValues []string `yaml:"values,omitempty"`
+	RawValues []string `yaml:"values"`
 	Values    ValueSet `yaml:"-"`
 }
 

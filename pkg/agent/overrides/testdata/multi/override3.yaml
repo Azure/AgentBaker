@@ -13,3 +13,4 @@ rules:
     - t3
   mapValue: 
     key: value2
+defaultMapValue: {}

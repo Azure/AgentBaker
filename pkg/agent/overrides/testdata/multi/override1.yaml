@@ -6,4 +6,5 @@ rules:
     - sub2
     - sub3
   value: superCoolSub
+defaultValue: "default"
   

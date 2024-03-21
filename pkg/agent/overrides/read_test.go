@@ -103,7 +103,7 @@ var _ = Describe("read tests", func() {
 
 				e.Fields["subscriptionId"] = "sub4"
 				str = overrides.getString("override1", e)
-				Expect(str).To(BeEmpty())
+				Expect(str).To(Equal("default"))
 
 				e.Fields["tenantId"] = "tenantId"
 				m = overrides.getMap("override2", e)
@@ -120,6 +120,38 @@ var _ = Describe("read tests", func() {
 				m = overrides.getMap("override3", e)
 				Expect(m).To(HaveKeyWithValue("key", "value2"))
 				Expect(m).ToNot(HaveKeyWithValue("key", "value1"))
+			})
+		})
+
+		When("dir contains overrides only with default values", func() {
+			It("should correctly read all the overrides", func() {
+				overrides, err := ReadDir("testdata/defaults")
+				Expect(err).To(BeNil())
+				Expect(overrides.Overrides).To(HaveKey("map-override"))
+				Expect(overrides.Overrides).To(HaveKey("string-override"))
+				Expect(overrides.Overrides).To(HaveKey("empty-map-override"))
+				Expect(overrides.Overrides).To(HaveKey("empty-string-override"))
+				Expect(len(overrides.Overrides)).To(Equal(4))
+
+				e := NewEntity().WithFields(map[string]string{
+					"subscriptionId": "sub3",
+					"tenantId":       "tenantId",
+				})
+				str := overrides.getString("string-override", e)
+				Expect(str).To(Equal("default"))
+
+				m := overrides.getMap("map-override", e)
+				Expect(m).ToNot(BeNil())
+				Expect(m).To(HaveKeyWithValue("key1", "value1"))
+				Expect(m).To(HaveKeyWithValue("key2", "value2"))
+				Expect(m).To(HaveKeyWithValue("key3", "value3"))
+
+				str = overrides.getString("empty-string-override", e)
+				Expect(str).To(BeEmpty())
+
+				m = overrides.getMap("empty-map-override", e)
+				Expect(m).ToNot(BeNil())
+				Expect(m).To(BeEmpty())
 			})
 		})
 	})
