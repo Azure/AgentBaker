@@ -9,7 +9,11 @@ message KubeletConfig {
   repeated Taint taints = 3;
   repeated Taint startup_taints = 4;
   KubeletDiskType kubelet_disk_type = 5;
-  FeatureState kubelet_config_file_status = 6; // will remove this as it's only checking if file content is present
+
+  // kubelet_config_file_status specifies if the kubelet_config_file_content should be applied. 
+  FeatureState kubelet_config_file_status = 6;
+
+  // kubelet_config_file_content is the content of the kubelet config file.
   string kubelet_config_file_content = 7;
   string kubelet_client_key = 8;
   string kubelet_client_cert_content = 9;

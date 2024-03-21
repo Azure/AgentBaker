@@ -75,15 +75,17 @@ type KubeletConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// TODO(ace): remove these/make api defensible
-	KubeletFlags             map[string]string `protobuf:"bytes,1,rep,name=kubelet_flags,json=kubeletFlags,proto3" json:"kubelet_flags,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	KubeletNodeLabels        map[string]string `protobuf:"bytes,2,rep,name=kubelet_node_labels,json=kubeletNodeLabels,proto3" json:"kubelet_node_labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	Taints                   []*Taint          `protobuf:"bytes,3,rep,name=taints,proto3" json:"taints,omitempty"`
-	StartupTaints            []*Taint          `protobuf:"bytes,4,rep,name=startup_taints,json=startupTaints,proto3" json:"startup_taints,omitempty"`
-	KubeletDiskType          KubeletDiskType   `protobuf:"varint,5,opt,name=kubelet_disk_type,json=kubeletDiskType,proto3,enum=nbcontract.v1.KubeletDiskType" json:"kubelet_disk_type,omitempty"`
-	KubeletConfigFileStatus  FeatureState      `protobuf:"varint,6,opt,name=kubelet_config_file_status,json=kubeletConfigFileStatus,proto3,enum=nbcontract.v1.FeatureState" json:"kubelet_config_file_status,omitempty"` // will remove this as it's only checking if file content is present
-	KubeletConfigFileContent string            `protobuf:"bytes,7,opt,name=kubelet_config_file_content,json=kubeletConfigFileContent,proto3" json:"kubelet_config_file_content,omitempty"`
-	KubeletClientKey         string            `protobuf:"bytes,8,opt,name=kubelet_client_key,json=kubeletClientKey,proto3" json:"kubelet_client_key,omitempty"`
-	KubeletClientCertContent string            `protobuf:"bytes,9,opt,name=kubelet_client_cert_content,json=kubeletClientCertContent,proto3" json:"kubelet_client_cert_content,omitempty"`
+	KubeletFlags      map[string]string `protobuf:"bytes,1,rep,name=kubelet_flags,json=kubeletFlags,proto3" json:"kubelet_flags,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	KubeletNodeLabels map[string]string `protobuf:"bytes,2,rep,name=kubelet_node_labels,json=kubeletNodeLabels,proto3" json:"kubelet_node_labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Taints            []*Taint          `protobuf:"bytes,3,rep,name=taints,proto3" json:"taints,omitempty"`
+	StartupTaints     []*Taint          `protobuf:"bytes,4,rep,name=startup_taints,json=startupTaints,proto3" json:"startup_taints,omitempty"`
+	KubeletDiskType   KubeletDiskType   `protobuf:"varint,5,opt,name=kubelet_disk_type,json=kubeletDiskType,proto3,enum=nbcontract.v1.KubeletDiskType" json:"kubelet_disk_type,omitempty"`
+	// kubelet_config_file_status specifies if the kubelet_config_file_content should be applied.
+	KubeletConfigFileStatus FeatureState `protobuf:"varint,6,opt,name=kubelet_config_file_status,json=kubeletConfigFileStatus,proto3,enum=nbcontract.v1.FeatureState" json:"kubelet_config_file_status,omitempty"`
+	// kubelet_config_file_content is the content of the kubelet config file.
+	KubeletConfigFileContent string `protobuf:"bytes,7,opt,name=kubelet_config_file_content,json=kubeletConfigFileContent,proto3" json:"kubelet_config_file_content,omitempty"`
+	KubeletClientKey         string `protobuf:"bytes,8,opt,name=kubelet_client_key,json=kubeletClientKey,proto3" json:"kubelet_client_key,omitempty"`
+	KubeletClientCertContent string `protobuf:"bytes,9,opt,name=kubelet_client_cert_content,json=kubeletClientCertContent,proto3" json:"kubelet_client_cert_content,omitempty"`
 }
 
 func (x *KubeletConfig) Reset() {

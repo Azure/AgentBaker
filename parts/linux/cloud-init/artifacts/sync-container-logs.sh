@@ -39,7 +39,7 @@ while true; do
 done &
 
 # Manually sync all matching logs once
-for CONTAINER_LOG_FILE in $(compgen -G "$SRC/*_kube-system_*.log"); do
+for CONTAINER_LOG_FILE in $(compgen -G "$SRC/*_@(kube-system|tigera-operator|calico-system)_*.log"); do
    echo "Linking $CONTAINER_LOG_FILE"
    /bin/ln -Lf $CONTAINER_LOG_FILE $DST/
 done
@@ -48,7 +48,7 @@ echo "Starting inotifywait..."
 # Monitor for changes
 inotifywait -q -m -r -e delete,create $SRC | while read DIRECTORY EVENT FILE; do
     case $FILE in
-        *_kube-system_*.log)
+        *_@(kube-system|tigera-operator|calico-system)_*.log)
             case $EVENT in
                 CREATE*)
                     echo "Linking $FILE"

@@ -1,6 +1,6 @@
 {
   "sku": "V2gen2arm64",
-  "imageVersion": "202403.13.0",
+  "imageVersion": "202403.19.0",
   "imageBom": [
     {
       "id": "sha256:00f96ea1398dcb28099c3a80e5a7b95a11e85f3bc9de7ea8392a02d942b0b2b0",
@@ -63,15 +63,6 @@
       ],
       "repoDigests": [
         "sha256:44c342f04bc1c875474c5bf10bcb9453a051c804c0205f1d7bf0a617abf6107a"
-      ]
-    },
-    {
-      "id": "sha256:0aabf525c99d00b9d34dbf9fe2b24511886c3705407a0c990acd6ac8bd6476ec",
-      "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.6-hotfix.20231102"
-      ],
-      "repoDigests": [
-        "sha256:2945d774aef8c8d85378c31ab743e80da1f84e466ea59187bdf63aea54e8ef33"
       ]
     },
     {
@@ -138,6 +129,15 @@
       ]
     },
     {
+      "id": "sha256:2673684abaaacb9b65ca250973cf5fe010993e74c446e6c89505317b11abe611",
+      "repoTags": [
+        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.8.6-main-03-08-2024-fd4f13cb-targetallocator"
+      ],
+      "repoDigests": [
+        "sha256:03a131142a03a6697b0fa9d78ff32ccf67f765cd81d939f45a929c65df4c2b14"
+      ]
+    },
+    {
       "id": "sha256:27f1043e19061de80e58538bf6c0174eaee17d210fb75ed51192881f54cd4e85",
       "repoTags": [
         "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.3.0"
@@ -163,15 +163,6 @@
       ],
       "repoDigests": [
         "sha256:f9fdc33be3d4d4d01b4c86e626e29e8e92e40ef436d1acc77caaeb95cb86b053"
-      ]
-    },
-    {
-      "id": "sha256:340462313a41b7352d351c604ef711f2f45a7300b3c77113561cb2aeab563ce2",
-      "repoTags": [
-        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.8.3-main-01-09-2024-a192d342-targetallocator"
-      ],
-      "repoDigests": [
-        "sha256:4d477792bac2124d23c01cd531da886a771a91e86319e9b54bdefb409f6687a0"
       ]
     },
     {
@@ -256,15 +247,6 @@
       ]
     },
     {
-      "id": "sha256:50cd4edbec5a00956656178e73de089bfbc64ea19703f1d676efd38b1a16fdd1",
-      "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-npm:v1.4.45.3"
-      ],
-      "repoDigests": [
-        "sha256:33d9cf4fa0ace334f11c9d80fa2e90f4cb11c017a7b199a2dbdf2bc91651c9b5"
-      ]
-    },
-    {
       "id": "sha256:53be7459c0d4de20fba2078fca976350ad68dff0cf6120ea8877173047e51ff5",
       "repoTags": [
         "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.8.8"
@@ -337,30 +319,12 @@
       ]
     },
     {
-      "id": "sha256:62c5f3eac084fcf362a1a968cdbf89b149cc2bc2ae49ee7681cc2c9e4365a8dd",
-      "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.24"
-      ],
-      "repoDigests": [
-        "sha256:875ffad4b3000a11930e7273a0114dfc2c8bbcd99db590f0ddfbc550064487e3"
-      ]
-    },
-    {
       "id": "sha256:638350a57ce083bc790a08069b3b54ca277b80e301295e540ae03b373c7c2d13",
       "repoTags": [
         "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.3-hotfix.20240125"
       ],
       "repoDigests": [
         "sha256:a97151df161598ac5e958e05c0f8e86f3b53fe0883244deca1a0aa3031199988"
-      ]
-    },
-    {
-      "id": "sha256:65e4cc51daefaadc69809b44e20fe80099824ad27589b4358f96d5027f3355ca",
-      "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.25.18"
-      ],
-      "repoDigests": [
-        "sha256:f31b113e7ab21cdf2967c2e7a4fc36ccf474d1435d0750fdebc86fff6467ac7a"
       ]
     },
     {
@@ -382,21 +346,21 @@
       ]
     },
     {
-      "id": "sha256:6a14a983d3506e473748910fad597f7ddaa2d176eccf88b876b1640820832791",
-      "repoTags": [
-        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.17"
-      ],
-      "repoDigests": [
-        "sha256:2ea0645a2ef0509747b307d7497667bb1574ac5b078312388fcb7cde022a2439"
-      ]
-    },
-    {
       "id": "sha256:6b256957450263e0ac3864befcf0c34c876a534be0e671d292da1e4865df3bf9",
       "repoTags": [
         "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.2"
       ],
       "repoDigests": [
         "sha256:ffdff71f732990ba0985fbb138c8eebca82ba6364d5cd4e0a59c257129a90d09"
+      ]
+    },
+    {
+      "id": "sha256:6bd6265d675c94f33c4a4d92d4b46fe90f01f20bd015386b7a865b9218727fa0",
+      "repoTags": [
+        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.8.6-main-03-08-2024-fd4f13cb-cfg"
+      ],
+      "repoDigests": [
+        "sha256:f2129271278b8f59245a1d092972cc327af303f8801cf9a0392bc0f6a472efa7"
       ]
     },
     {
@@ -481,6 +445,15 @@
       ]
     },
     {
+      "id": "sha256:8aabf1a31300a16fddcadf44b04e640c6862e60a7682f9036ec1c8063969ea5a",
+      "repoTags": [
+        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.8.6-main-03-08-2024-fd4f13cb"
+      ],
+      "repoDigests": [
+        "sha256:0b0f390fc19472a33bcda3dee8a98110f1723ccb10fc33c1c8742a4286d44b93"
+      ]
+    },
+    {
       "id": "sha256:8ab3a9ac0ed63f8c059e004fac6be6a6bafee74f9f93d08930984da46d217287",
       "repoTags": [
         "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.22.5"
@@ -535,30 +508,12 @@
       ]
     },
     {
-      "id": "sha256:9a0f39a60077dd0bcd60e755970f98abf92178df8077051bda41986b6ae40437",
-      "repoTags": [
-        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.8.3-main-01-09-2024-a192d342"
-      ],
-      "repoDigests": [
-        "sha256:c8b87fb9c48a49489a7fde1dc7b14bb8d061eb1eb6a17c400f0f6d0101a225bd"
-      ]
-    },
-    {
       "id": "sha256:9a3e3c1f0e30c28c8ef4424482bbcd4703e2517ea1d47cf0e29e4ba7219c84a2",
       "repoTags": [
         "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.8.4-main-02-14-2024-90d01292"
       ],
       "repoDigests": [
         "sha256:4a552f46c6f0748eb16f4261df0f366b15787d2560cc4c23967452f026a7e76b"
-      ]
-    },
-    {
-      "id": "sha256:9ffe794a3857d915f440180c1925549b11d9bc07ddc99125cded10220c398458",
-      "repoTags": [
-        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.8.3-main-01-09-2024-a192d342-cfg"
-      ],
-      "repoDigests": [
-        "sha256:90b85415b39d7cd15a2eb99b92cd58b26bec96eec77c84ac7f7cb1ba54666c41"
       ]
     },
     {
@@ -580,15 +535,6 @@
       ]
     },
     {
-      "id": "sha256:a6f65128f892a23cd28500f5be9bd50400867977789cd86eaf83810bf8e12f36",
-      "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.6-hotfix.20231009-2"
-      ],
-      "repoDigests": [
-        "sha256:c988bda93eef3c9da835e5e30335d2b089b4c7a3b9ff648abfead8fa205b13d6"
-      ]
-    },
-    {
       "id": "sha256:a98373e24a1f8a62d1a7fe1e84b81bb613658f088c9017924890a3ae054bb56e",
       "repoTags": [
         "mcr.microsoft.com/oss/tigera/operator:v1.28.13"
@@ -607,12 +553,12 @@
       ]
     },
     {
-      "id": "sha256:b3b80b6a756a3fbf600cda87007c14a36656c9c2d72ec0772986fa34370ebc6a",
+      "id": "sha256:b400439e35f4c7db9cc12b66af51209ec34b92d80b94a955be6792632118ce8e",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:v0.0.33-hotfix.20221110"
+        "mcr.microsoft.com/containernetworking/azure-npm:v1.5.23"
       ],
       "repoDigests": [
-        "sha256:b10809bee2e41b7de072751e2c7bd1d407587e5ac7df2a3b2ed6b849841f7df1"
+        "sha256:269dd19caaa8664d5d50c1e75055704cbf263a41349e57bbbb16912737ddbd1e"
       ]
     },
     {
@@ -865,6 +811,15 @@
       ],
       "repoDigests": [
         "sha256:a45e70c74cdf3a062ab32b4e2d27b75838557657494d2e2a637ea0a3bfa8645f"
+      ]
+    },
+    {
+      "id": "sha256:f6145629eec35f56ddc812b62f268fc1aa126bbed27409c732b85b45e5255d2c",
+      "repoTags": [
+        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.18"
+      ],
+      "repoDigests": [
+        "sha256:028e312ae326d9feb4d25114253d149ea1b3b5f876def39941cbc5651574f705"
       ]
     },
     {

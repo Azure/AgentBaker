@@ -41,6 +41,19 @@ collect-logs() {
             err "Failed in deleting cse logs in remote storage. Error code is $retval."
         fi
     fi
+
+    array=(azcopy_*)
+    ${array[0]}/azcopy copy "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-provision.complete" $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-provision.complete || retval=$?
+    if [ "$retval" -ne 0 ]; then
+        err "Failed in downloading provision.complete. Error code is $retval."
+        exit 1
+    else
+        log "provision.complete is generated"
+        ${array[0]}/azcopy rm "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-provision.complete" || retval=$?
+        if [ "$retval" -ne 0 ]; then
+            err "Failed in deleting provision.complete in remote storage. Error code is $retval."
+        fi
+    fi
 }
 
 E2E_RESOURCE_GROUP_NAME="$AZURE_E2E_RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-$K8S_VERSION"
@@ -183,7 +196,7 @@ else
 fi
 
 log "Collect cse log"
-collect-logs 
+collect-logs
 
 cat $SCENARIO_NAME-vmss.json
 
