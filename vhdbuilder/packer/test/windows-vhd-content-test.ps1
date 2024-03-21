@@ -466,6 +466,26 @@ function Test-RegistryAdded {
             Write-ErrorWithTimestamp "The registry for 1327590028 is not added"
             exit 1
         }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1114842764)
+        if ($result.1114842764 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 1114842764 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsPreallocatePortRange)
+        if ($result.HnsPreallocatePortRange -ne 1) {
+            Write-ErrorWithTimestamp "The registry for HnsPreallocatePortRange is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4154935436)
+        if ($result.4154935436 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 4154935436 is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 124082829)
+        if ($result.124082829 -ne 1) {
+            Write-ErrorWithTimestamp "The registry for 124082829 is not added"
+            exit 1
+        }
     }
 }
 
@@ -521,6 +541,19 @@ function Test-ToolsToCacheOnVHD {
             Write-ErrorWithTimestamp "Failed to get tool: $toolPath"
             exit 1
         }
+    }
+}
+
+function Test-SSHDConfig {
+    # user must be the name in `TEST_VM_ADMIN_USERNAME="azureuser"` in vhdbuilder/packer/test/run-test.sh
+    $result=$(sshd -T -C user=azureuser)
+    if ($result -Match 'chacha20-poly1305@openssh.com') {
+        Write-ErrorWithTimestamp "C:\programdata\ssh\sshd_config is not updated for CVE-2023-48795"
+        exit 1
+    }
+    if ($result -Match '.*-etm@openssh.com') {
+        Write-ErrorWithTimestamp "C:\programdata\ssh\sshd_config is not updated for CVE-2023-48795"
+        exit 1
     }
 }
 

@@ -5,10 +5,7 @@
         "build_id": "{{env `BUILD_ID`}}",
         "build_number": "{{env `BUILD_NUMBER`}}",
         "build_repo": "{{env `GIT_REPO`}}",
-        "client_id": "{{env `AZURE_CLIENT_ID`}}",
-        "client_secret": "{{env `AZURE_CLIENT_SECRET`}}",
         "windows_sku": "{{env `WINDOWS_SKU`}}",
-        "tenant_id": "{{env `AZURE_TENANT_ID`}}",
         "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
         "location": "{{env `AZURE_LOCATION`}}",
         "vm_size": "{{env `AZURE_VM_SIZE`}}",
@@ -26,9 +23,6 @@
     "builders": [
         {
             "type": "azure-arm",
-            "client_id": "{{user `client_id`}}",
-            "client_secret": "{{user `client_secret`}}",
-            "tenant_id": "{{user `tenant_id`}}",
             "subscription_id": "{{user `subscription_id`}}",
             "location": "{{user `location`}}",
             "vm_size": "{{user `vm_size`}}",
