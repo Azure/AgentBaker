@@ -59,6 +59,10 @@ param(
     [ValidateNotNullOrEmpty()]
     $LogFile,
 
+    # C:\AzureData\provision.complete
+    # MUST keep generating this file when CSE is done and do not change the name
+    #  - It is used to avoid running CSE multiple times
+    #  - Some customers use this file to check if CSE is done
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
     $CSEResultFilePath,
