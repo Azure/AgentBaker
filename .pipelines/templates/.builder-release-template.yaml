@@ -147,7 +147,6 @@ steps:
         -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
         ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: "Test VHD"
-jobs:
 - job: PackerClean-up
   steps:
     - bash: |
