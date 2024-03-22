@@ -39,7 +39,7 @@ steps:
   - bash: |
       pwd
       ls -R
-    displayName: Show Directory
+    displayName: show Directory
   - bash: |
       set -x
       GOPATH="$(go env GOPATH)"
@@ -49,7 +49,7 @@ steps:
       GO111MODULE=on go install cuelang.org/go/cmd/cue@latest
       popd
       cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
-    displayName: Setup Cue
+    displayName: setup cue
   - bash: |
       SKU_NAME=${OS_VERSION} && \
       if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
@@ -110,7 +110,7 @@ steps:
         -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
         -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
         ${CONTAINER_IMAGE} make -f packer.mk run-packer
-    displayName: Build VHD
+    displayName: Building VHD
   - script: |
         OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
         MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
@@ -145,15 +145,126 @@ steps:
         -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
         -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
         ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
-    displayName: Test VHD
+    displayName: Run VHD Tests
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
         targetPath: 'release-notes.txt'
-    displayName: Publish Release Notes
+    displayName: publish release notes
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
         targetPath: 'image-bom.json'
-    displayName: Publish Container Image List
+    displayName: publish container image list
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+  - bash: |
+      echo MODE=$(MODE) && \
+      PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
+      SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
+      captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      ARM64_OS_DISK_SNAPSHOT_NAME="$(cat vhdbuilder/packer/settings.json | grep "arm64_os_disk_snapshot_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      IMAGE_NAME="${SIG_IMAGE_NAME}-${captured_sig_version}" && \
+      PRIVATE_PACKAGES_URL="$(cat vhdbuilder/packer/settings.json | grep "private_packages_url" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      LINUX_MSI_RESOURCE_ID="$(cat vhdbuilder/packer/settings.json | grep "linux_msi_resource_ids" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      docker run --rm \
+      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+      -w /go/src/github.com/Azure/AgentBaker \
+      -e CLIENT_ID=${CLIENT_ID} \
+      -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+      -e TENANT_ID=${TENANT_ID} \
+      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+      -e PKR_RG_NAME=${PKR_RG_NAME} \
+      -e MODE=${MODE} \
+      -e DRY_RUN=${DRY_RUN} \
+      -e OS_TYPE="Linux" \
+      -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
+      -e SA_NAME=${SA_NAME} \
+      -e IMAGE_NAME=${IMAGE_NAME} \
+      -e CAPTURED_SIG_VERSION=${captured_sig_version} \
+      -e IMPORTED_IMAGE_NAME=${IMPORTED_IMAGE_NAME} \
+      -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
+      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+      -e ARCHITECTURE=${ARCHITECTURE} \
+      -e ARM64_OS_DISK_SNAPSHOT_NAME=${ARM64_OS_DISK_SNAPSHOT_NAME} \
+      -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
+      -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
+      ${CONTAINER_IMAGE} make -f packer.mk cleanup
+    displayName: Clean Up Packer Generated Resources
+    condition: always()
+  - bash: |
+        echo MODE=$(MODE) && \
+        captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+        SIG_GALLERY_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+        SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+        PRIVATE_PACKAGES_URL="$(cat vhdbuilder/packer/settings.json | grep "private_packages_url" | awk -F\" '{print $4}')" && \
+        LINUX_MSI_RESOURCE_ID="$(cat vhdbuilder/packer/settings.json | grep "linux_msi_resource_id" | awk -F\" '{print $4}')" && \
+        docker run --rm \
+        -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+        -w /go/src/github.com/Azure/AgentBaker \
+        -e CLIENT_ID=${CLIENT_ID} \
+        -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+        -e TENANT_ID=${TENANT_ID} \
+        -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+        -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
+        -e LOCATION="${AZURE_LOCATION}" \
+        -e OS_TYPE="Linux" \
+        -e CLASSIC_BLOB=${CLASSIC_BLOB} \
+        -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
+        -e OUTPUT_STORAGE_ACCOUNT_NAME=${OUTPUT_STORAGE_ACCOUNT_NAME} \
+        -e OUTPUT_STORAGE_CONTAINER_NAME=${OUTPUT_STORAGE_CONTAINER_NAME} \
+        -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
+        -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+        -e CAPTURED_SIG_VERSION=${captured_sig_version} \
+        -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
+        -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
+        -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
+        ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
+    displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
+    condition: eq(variables.DRY_RUN, 'False')
+  - bash: |
+        echo MODE=$(MODE) && \
+        captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+        SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+        VHD_NAME="${captured_sig_version}.vhd" && \
+        docker run --rm \
+        -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+        -w /go/src/github.com/Azure/AgentBaker \
+        -e CLIENT_ID=${CLIENT_ID} \
+        -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+        -e TENANT_ID=${TENANT_ID} \
+        -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+        -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
+        -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+        -e CAPTURED_SIG_VERSION=${captured_sig_version} \
+        -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
+        -e OUTPUT_STORAGE_ACCOUNT_NAME=${OUTPUT_STORAGE_ACCOUNT_NAME} \
+        -e OUTPUT_STORAGE_CONTAINER_NAME=${OUTPUT_STORAGE_CONTAINER_NAME} \
+        -e STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \
+        -e VHD_NAME=${VHD_NAME} \
+        -e OS_NAME="Linux" \
+        -e OS_TYPE="Linux" \
+        -e SKU_NAME=$(SKU_NAME) \
+        -e OFFER_NAME=${OS_SKU} \
+        -e HYPERV_GENERATION=${HYPERV_GENERATION} \
+        -e ARCHITECTURE=${ARCHITECTURE} \
+        -e IMAGE_VERSION=${IMAGE_VERSION} \
+        ${CONTAINER_IMAGE} make -f packer.mk generate-sas
+    displayName: Getting Shared Access Signature URI
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+  - task: PublishPipelineArtifact@1
+    inputs:
+        artifactName: 'publishing-info-${{ parameters.artifactName }}'
+        targetPath: 'vhd-publishing-info.json'
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+  - task: UniversalPackages@0
+    displayName: Universal Publish
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    inputs:
+      command: publish
+      publishDirectory: 'vhd-publishing-info.json'
+      vstsFeedPublish: 'CloudNativeCompute/AKS-Linux-VHD-Artifacts'
+      vstsFeedPackagePublish: 'publishing-info-${{ parameters.artifactName }}'
+      packagePublishDescription: 'VHD publishing info ${{ parameters.artifactName }}'
+      versionOption: minor

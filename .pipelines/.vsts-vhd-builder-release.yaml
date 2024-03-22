@@ -143,8 +143,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.build1804containerd }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD' 
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -155,7 +154,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
             echo '##vso[task.setvariable variable=IMG_SKU]18.04-LTS'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -165,15 +164,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-containerd
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: 1804-containerd
   - stage: build_vhd_1804_gen2_containerd
     dependsOn: []
     condition: eq('${{ parameters.build1804gen2containerd }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -185,7 +180,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
             echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -195,15 +190,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-gen2-containerd
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: 1804-gen2-containerd
   - stage: build_vhd_1804_gpu_containerd
     dependsOn: []
     condition: eq('${{ parameters.build1804gpucontainerd }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -214,7 +205,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
             echo '##vso[task.setvariable variable=IMG_SKU]18.04-LTS'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC16as_T4_v3'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -224,15 +215,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-gpu-containerd
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: 1804-gpu-containerd
   - stage: build_vhd_1804_gen2_gpu_containerd
     dependsOn: []
     condition: eq('${{ parameters.build1804gen2gpucontainerd }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -244,7 +231,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
             echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC16as_T4_v3'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC6s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -254,15 +241,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-gen2-gpu-containerd
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: 1804-gen2-gpu-containerd
   - stage: build_vhd_marinerv2_gen1
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen1 }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -273,7 +256,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
             echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -285,15 +268,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen1
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: marinerv2-gen1
   - stage: build_vhd_azurelinuxv2_gen1
     dependsOn: []
     condition: eq('${{ parameters.buildAzureLinuxV2gen1 }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -304,7 +283,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
             echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -316,15 +295,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: azurelinuxv2-gen1
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: azurelinuxv2-gen1
   - stage: build_vhd_marinerv2_gen2
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen2 }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -335,7 +310,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
             echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-gen2'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -347,15 +322,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen2
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: marinerv2-gen2
   - stage: build_vhd_azurelinuxv2_gen2
     dependsOn: []
     condition: eq('${{ parameters.buildAzureLinuxV2gen2 }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -366,7 +337,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
             echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-gen2'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -378,15 +349,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: azurelinuxv2-gen2
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: azurelinuxv2-gen2
   - stage: build_vhd_marinerv2_gen1_fips
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen1fips }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -397,7 +364,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
             echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -409,15 +376,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen1-fips
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: marinerv2-gen1-fips
   - stage: build_vhd_azurelinuxv2_gen1_fips
     dependsOn: []
     condition: eq('${{ parameters.buildAzureLinuxV2gen1fips }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -428,7 +391,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
             echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -440,15 +403,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: azurelinuxv2-gen1-fips
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: azurelinuxv2-gen1-fips
   - stage: build_vhd_marinerv2_gen2_fips
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen2fips }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -459,7 +418,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
             echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-gen2'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -471,15 +430,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen2-fips
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: marinerv2-gen2-fips
   - stage: build_vhd_azurelinuxv2_gen2_fips
     dependsOn: []
     condition: eq('${{ parameters.buildAzureLinuxV2gen2fips }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -490,7 +445,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
             echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-gen2'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -502,15 +457,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: azurelinuxv2-gen2-fips
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: azurelinuxv2-gen2-fips
   - stage: build_vhd_mariner2_arm64
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2ARM64 }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
       - bash: |
@@ -521,7 +472,7 @@ stages:
           echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
           echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-arm64'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-          echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8pds_v5'
+          echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4pds_V5'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
           echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
           echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
@@ -533,16 +484,11 @@ stages:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: marinerv2-gen2-arm64
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: marinerv2-gen2-arm64
-        dryrun: False
   - stage: build_vhd_azurelinuxv2_arm64
     dependsOn: []
     condition: eq('${{ parameters.buildAzureLinuxV2ARM64 }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
       - bash: |
@@ -553,7 +499,7 @@ stages:
           echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
           echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-arm64'
           echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-          echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8pds_v5'
+          echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4pds_V5'
           echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
           echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
           echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
@@ -565,15 +511,11 @@ stages:
       - template: ./templates/.builder-release-template.yaml
         parameters:
           artifactName: azurelinuxv2-gen2-arm64
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: azurelinuxv2-gen2-arm64
   - stage: build_vhd_marinerv2_gen2_kata
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen2kata }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -584,7 +526,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
             echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-gen2'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8ads_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4ads_v5'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -596,15 +538,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen2-kata
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: marinerv2-gen2-kata
   - stage: build_vhd_azurelinuxv2_gen2_kata
     dependsOn: []
     condition: eq('${{ parameters.buildAzureLinuxV2gen2kata }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -615,7 +553,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
             echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-kata'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8ads_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4ads_v5'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -627,15 +565,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: azurelinuxv2-gen2-kata
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: azurelinuxv2-gen2-kata
   - stage: build_vhd_marinerv2_gen2_trustedlaunch
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen2TrustedLaunch }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -646,7 +580,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
             echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-gen2'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -658,15 +592,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen2-trustedlaunch
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: marinerv2-gen2-trustedlaunch
   - stage: build_vhd_azurelinuxv2_gen2_trustedlaunch
     dependsOn: []
     condition: eq('${{ parameters.buildAzureLinuxV2gen2TrustedLaunch }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -677,7 +607,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
             echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-gen2'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -689,15 +619,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: azurelinuxv2-gen2-trustedlaunch
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: azurelinuxv2-gen2-trustedlaunch
   - stage: build_vhd_marinerv2_gen2_kata_trustedlaunch
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen2kataTrustedLaunch }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -708,7 +634,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
             echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-kata'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8ads_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4ads_v5'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -720,15 +646,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen2-kata-trustedlaunch
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: marinerv2-gen2-kata-trustedlaunch
   - stage: build_vhd_azurelinuxv2_gen2_kata_trustedlaunch
     dependsOn: []
     condition: eq('${{ parameters.buildAzureLinuxV2gen2kataTrustedLaunch }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -739,7 +661,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
             echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-kata'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8ads_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4ads_v5'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -751,15 +673,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: azurelinuxv2-gen2-kata-trustedlaunch
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: azurelinuxv2-gen2-kata-trustedlaunch
   - stage: build_vhd_1804_fips_containerd
     dependsOn: []
     condition: eq('${{ parameters.build1804fipscontainerd }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -770,7 +688,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
             echo '##vso[task.setvariable variable=IMG_SKU]18.04-LTS'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -781,15 +699,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-fips-containerd
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: 1804-fips-containerd
   - stage: build_vhd_1804_fips_gen2_containerd
     dependsOn: []
     condition: eq('${{ parameters.build1804fipsgen2containerd }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -801,7 +715,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
             echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -812,15 +726,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-fips-gen2-containerd
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: 1804-fips-gen2-containerd
   - stage: build_vhd_2004_fips_containerd
     dependsOn: []
     condition: eq('${{ parameters.build2004fipscontainerd }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -831,7 +741,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-focal'
             echo '##vso[task.setvariable variable=IMG_SKU]20_04-lts'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -842,15 +752,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 2004-fips-containerd
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: 2004-fips-containerd
   - stage: build_vhd_2004_fips_gen2_containerd
     dependsOn: []
     condition: eq('${{ parameters.build2004fipsgen2containerd }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -862,7 +768,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_SKU]20_04-lts-gen2'
             echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -873,15 +779,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 2004-fips-gen2-containerd
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: 2004-fips-gen2-containerd
   - stage: build_vhd_2204_arm64_gen2_containerd
     dependsOn: []
     condition: eq('${{ parameters.build2204arm64gen2containerd }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -893,7 +795,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_SKU]22_04-lts-arm64'
             echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4pds_V5'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
@@ -904,15 +806,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 2204-arm64-gen2-containerd
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: 2204-arm64-gen2-containerd
   - stage: build_vhd_2204_containerd
     dependsOn: []
     condition: eq('${{ parameters.build2204containerd }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -923,7 +821,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-jammy'
             echo '##vso[task.setvariable variable=IMG_SKU]22_04-lts'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D2s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -933,15 +831,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 2204-containerd
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: 2204-containerd
   - stage: build_vhd_2204_gen2_containerd
     dependsOn: []
     condition: eq('${{ parameters.build2204gen2containerd }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -953,7 +847,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_SKU]22_04-lts-gen2'
             echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D2s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -963,15 +857,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 2204-gen2-containerd
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: 2204-gen2-containerd
   - stage: build_vhd_2004_cvm_gen2_containerd
     dependsOn: []
     condition: eq('${{ parameters.build2004cvmgen2containerd }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -983,7 +873,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_SKU]20_04-lts-cvm'
             echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DS2_v2'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -993,15 +883,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 2004-cvm-gen2-containerd
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: 2004-cvm-gen2-containerd
   - stage: build_vhd_2204_tl_gen2_containerd
     dependsOn: []
     condition: eq('${{ parameters.build2204tlgen2containerd }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -1013,7 +899,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_SKU]22_04-lts-gen2'
             echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D2s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -1023,15 +909,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 2204-tl-gen2-containerd
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: 2204-tl-gen2-containerd
   - stage: build_vhd_2204_minimal_gen1_containerd
     dependsOn: []
     condition: eq('${{ parameters.build2204minimalgen1containerd }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD'  
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -1043,7 +925,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_SKU]minimal-aks-22_04-daily-lts'
             echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D2s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -1053,15 +935,11 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 2204-minimal-gen1-containerd
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: 2204-minimal-gen1-containerd
   - stage: build_vhd_2204_minimal_gen2_containerd
     dependsOn: []
     condition: eq('${{ parameters.build2204minimalgen2containerd }}', true)
     jobs:
-    - job: Initialize_Pipeline_Build_and_Test_VHD
-      displayName: 'Build and Test VHD' 
+    - job: build
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -1073,7 +951,7 @@ stages:
             echo '##vso[task.setvariable variable=IMG_SKU]minimal-aks-22_04-daily-lts-gen2'
             echo '##vso[task.setvariable variable=IMG_VERSION]latest'
             echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D8ds_v5'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D2s_v3'
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
@@ -1083,6 +961,3 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 2204-minimal-gen2-containerd
-    - template: ./templates/.builder-release-template-part2.yaml
-      parameters:
-        artifactName: 2204-minimal-gen2-containerd
