@@ -12,6 +12,7 @@ variables:
 
 jobs:
 - job: Packer_Clean_up
+  displayName: 'Clean up Packer'
   dependsOn: Initialize_Pipeline_Build_and_Test_VHD
   steps:
     - bash: |
@@ -50,6 +51,7 @@ jobs:
       displayName: Clean Up Packer Generated Resources
       condition: always()
 - job: Convert_Shared_Image_Gallery_To_VHD_Blob_In_Classic_Storage_Account
+  displayName: 'Convert Shared Image Gallery to VHD Blob In Classic Storage Account'
   dependsOn: Initialize_Pipeline_Build_and_Test_VHD
   steps:
     - bash: |
@@ -87,6 +89,7 @@ jobs:
   dependsOn:
     - Packer_Clean_up
     - Convert_Shared_Image_Gallery_To_VHD_Blob_In_Classic_Storage_Account
+  condition: and(succeeded('Packer_Clean_up', 'Convert_Shared_Image_Gallery_To_VHD_Blob_In_Classic_Storage_Account'), eq(variables.DRY_RUN, 'False'))
   steps:  
     - bash: |
           echo MODE=$(MODE) && \
