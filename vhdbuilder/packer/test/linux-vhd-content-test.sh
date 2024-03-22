@@ -867,29 +867,56 @@ testContainerImagePrefetchScript() {
 #
 # We should also avoid early exit from the test run -- like if a command fails with
 # an exit rather than a return -- because that prevents other tests from running.
-testVHDBuildLogsExist
-testCriticalTools
-testFilesDownloaded $CONTAINER_RUNTIME
-testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
-testChrony $OS_SKU
-testAuditDNotPresent
-testFips $OS_VERSION $ENABLE_FIPS
-testKubeBinariesPresent $CONTAINER_RUNTIME
-testKubeProxyImagesPulled $CONTAINER_RUNTIME
+
+declare -a vhdTestPids=()
+
+testVHDBuildLogsExist &
+vhdTestPids+=($!)
+testCriticalTools &
+vhdTestPids+=($!)
+testFilesDownloaded $CONTAINER_RUNTIME &
+vhdTestPids+=($!)
+testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)" &
+vhdTestPids+=($!)
+testChrony $OS_SKU &
+vhdTestPids+=($!)
+testAuditDNotPresent &
+vhdTestPids+=($!)
+testFips $OS_VERSION $ENABLE_FIPS &
+vhdTestPids+=($!)
+wait ${vhdTestPids[@]}
+testKubeBinariesPresent $CONTAINER_RUNTIME &
+vhdTestPids+=($!)
+testKubeProxyImagesPulled $CONTAINER_RUNTIME &
+vhdTestPids+=($!)
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
 # which means the test failures haven't been caught. It also calles exit 1 on a failure,
 # which means the rest of the tests aren't being run.
 # See https://msazure.visualstudio.com/CloudNativeCompute/_backlogs/backlog/Node%20Lifecycle/Features/?workitem=24246232
 # testImagesRetagged $CONTAINER_RUNTIME
-testCustomCAScriptExecutable
-testCustomCATimerNotStarted
-testLoginDefs
+testCustomCAScriptExecutable &
+vhdTestPids+=($!)
+testCustomCATimerNotStarted &
+vhdTestPids+=($!)
+testLoginDefs &
+vhdTestPids+=($!)
+wait ${vhdTestPids[@]}
 testUserAdd
-testNetworkSettings
-testCronPermissions $IMG_SKU
-testCoreDumpSettings
-testNfsServerService
-testPamDSettings $OS_SKU $OS_VERSION
-testPam $OS_SKU $OS_VERSION
-testUmaskSettings
-testContainerImagePrefetchScript
+testNetworkSettings &
+vhdTestPids+=($!)
+testCronPermissions $IMG_SKU &
+vhdTestPids+=($!)
+testCoreDumpSettings &
+vhdTestPids+=($!)
+testNfsServerService &
+vhdTestPids+=($!)
+testPamDSettings $OS_SKU $OS_VERSION &
+vhdTestPids+=($!)
+testPam $OS_SKU $OS_VERSION &
+vhdTestPids+=($!)
+wait ${vhdTestPids[@]}
+testUmaskSettings &
+vhdTestPids+=($!)
+testContainerImagePrefetchScript &
+vhdTestPids+=($!)
+wait ${vhdTestPids[@]}
