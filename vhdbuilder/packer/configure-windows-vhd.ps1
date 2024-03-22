@@ -218,6 +218,28 @@ function Get-ToolsToVHD {
     Expand-Archive -Path "$cacheDir\DU.zip" -DestinationPath "$toolsDir\DU" -Force
 }
 
+function Register-ExpandVolumeTask {
+    $taskScript = @'
+        $osDrive = ((Get-WmiObject Win32_OperatingSystem -ErrorAction Stop).SystemDrive).TrimEnd(":")
+        $diskpartScriptPath = [String]::Format("{0}\\diskpart_extendOSVol.script", $env:temp)
+        [String]::Format("select volume {0}`nextend`nexit", $osDrive) | Out-File -Encoding "UTF8" $diskpartScriptPath
+        Start-Process -FilePath diskpart.exe -ArgumentList "/s $diskpartScriptPath" -Wait
+        # Only run once
+        Unregister-ScheduledTask -TaskName "aks-expand-volume" -Confirm:$false
+        Remove-Item -Path "c:\aks-tools\expand-volume.ps1" -Force
+        Remove-Item -Path $diskpartScriptPath -Force
+'@ 
+
+    $taskScript| Set-Content -Path "c:\aks-tools\expand-volume.ps1" -Force
+
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"c:\aks-tools\expand-volume.ps1`""
+    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+    $trigger = New-JobTrigger -AtStartup
+    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "aks-expand-volume"
+    Register-ScheduledTask -TaskName "aks-expand-volume" -InputObject $definition
+    Write-Log "Registered ScheduledTask aks-expand-volume"
+}
+
 function Get-PrivatePackagesToCacheOnVHD {
     if (![string]::IsNullOrEmpty($env:WindowsPrivatePackagesURL)) {
         Write-Log "Caching private packages on VHD"
@@ -875,6 +897,7 @@ try{
             Get-ContainerImages
             Get-FilesToCacheOnVHD
             Get-ToolsToVHD # Rely on the completion of Get-FilesToCacheOnVHD
+            Register-ExpandVolumeTask # Rely on the completion of Get-ToolsToVHD
             Get-PrivatePackagesToCacheOnVHD
             Remove-Item -Path c:\windows-vhd-configuration.ps1
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
