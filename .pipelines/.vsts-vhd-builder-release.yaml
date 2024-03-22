@@ -1029,7 +1029,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.build2204minimalgen2containerd }}', true)
     jobs:
-    - job: 'Initialize_Pipeline_Build_and_Test_VHD ' 
+    - job: Initialize_Pipeline_Build_and_Test_VHD 
       timeoutInMinutes: 180
       steps:
         - bash: |
