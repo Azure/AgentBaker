@@ -2,6 +2,10 @@ parameters:
     - name: artifactName
       type: string
       default: 1604
+    - name: dryrun
+      displayName: Dry run
+      type: boolean
+      default: False
 
 jobs:
 - job: Packer_Clean_up
