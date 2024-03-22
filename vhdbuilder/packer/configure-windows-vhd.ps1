@@ -824,6 +824,41 @@ Get-Date -Format o >> $expandDiskLogPath
     # Register the system RunOnce script to run after the next reboot
     # Refer to https://learn.microsoft.com/en-us/windows/win32/setupapi/run-and-runonce-registry-keys
     Set-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name AKSExpandDisk -Value $systemRunOnceScriptPath
+
+    # Did not run
+}
+
+function Register-ScheduledTask {
+    $toolsDir = "c:\aks-tools\expand-disk"
+    if (!(Test-Path -Path $toolsDir)) {
+        New-Item -ItemType Directory -Path $toolsDir | Out-Null
+    }
+
+    # diskpart.exe needs a script file
+    $diskpartScriptPath = Join-Path -Path $toolsDir -ChildPath "diskpart.script"
+    # Usually the osDrive is "C"
+    $osDrive = ((Get-WmiObject Win32_OperatingSystem -ErrorAction Stop).SystemDrive).TrimEnd(":") 
+    # Create a diskpart script (text file) that will select the OS volume, extend it and exit.
+    "select volume $osDrive`nextend`nexit" | Set-Content $diskpartScriptPath 
+
+    # Use powershell to run the diskpart.exe then log the disk info and completion time
+    $powershellScriptPath = Join-Path -Path $toolsDir -ChildPath "expand-disk.ps1"
+    $expandDiskLogPath = Join-Path -Path $toolsDir -ChildPath "expand-disk-scheduledtask.log"
+    $powershellScript = 
+@"
+Start-Process -FilePath diskpart.exe -ArgumentList "/s $diskpartScriptPath" -Wait
+Get-CimInstance -ClassName Win32_LogicalDisk >> $expandDiskLogPath
+Get-Date -Format o >> $expandDiskLogPath
+"@
+    $powershellScript | Set-Content $powershellScriptPath
+
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"${powershellScriptPath}`""
+    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+    $trigger = New-JobTrigger -AtStartup
+    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "aks-expand-disk"
+    Register-ScheduledTask -TaskName "aks-expand-disk" -InputObject $definition
+
+    # Run as expected
 }
 
 function Get-DefenderPreferenceInfo {
