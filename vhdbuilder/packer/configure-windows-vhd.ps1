@@ -788,6 +788,44 @@ function Get-SystemDriveDiskInfo {
     }
 }
 
+function Register-TestScriptTask {
+    [String]::Format("ECHO ITWORKED > C:\\test.txt") | Set-Content C:\test.bat
+    New-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce" -Name TestScript -Value C:\test.bat
+}
+
+function Register-ExpandDiskTask {
+    $toolsDir = "c:\aks-tools\expand-disk"
+    if (!(Test-Path -Path $toolsDir)) {
+        New-Item -ItemType Directory -Path $toolsDir | Out-Null
+    }
+
+    # diskpart.exe needs a script file
+    $diskpartScriptPath = Join-Path -Path $toolsDir -ChildPath "diskpart.script"
+    # Usually the osDrive is "C"
+    $osDrive = ((Get-WmiObject Win32_OperatingSystem -ErrorAction Stop).SystemDrive).TrimEnd(":") 
+    # Create a diskpart script (text file) that will select the OS volume, extend it and exit.
+    "select volume $osDrive`nextend`nexit" | Set-Content $diskpartScriptPath 
+
+    # Use powershell to run the diskpart.exe then log the disk info and completion time
+    $powershellScriptPath = Join-Path -Path $toolsDir -ChildPath "expand-disk.ps1"
+    $expandDiskLogPath = Join-Path -Path $toolsDir -ChildPath "expand-disk.log"
+    $powershellScript = 
+@"
+Start-Process -FilePath diskpart.exe -ArgumentList "/s $diskpartScriptPath" -Wait
+Get-CimInstance -ClassName Win32_LogicalDisk >> $expandDiskLogPath
+Get-Date -Format o >> $expandDiskLogPath
+"@
+    $powershellScript | Set-Content $powershellScriptPath
+
+    # Create a system RunOnce script to run the powershell script
+    $systemRunOnceScriptPath = Join-Path -Path $toolsDir -ChildPath "system-runonce.cmd"
+    "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $powershellScriptPath" | Set-Content $systemRunOnceScriptPath
+
+    # Register the system RunOnce script to run after the next reboot
+    # Refer to https://learn.microsoft.com/en-us/windows/win32/setupapi/run-and-runonce-registry-keys
+    Set-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name AKSExpandDisk -Value $systemRunOnceScriptPath
+}
+
 function Get-DefenderPreferenceInfo {
     Write-Log "Get preferences for the Windows Defender scans and updates"
     Write-Log(Get-MpPreference | Format-List | Out-String)
@@ -875,6 +913,7 @@ try{
             Get-ContainerImages
             Get-FilesToCacheOnVHD
             Get-ToolsToVHD # Rely on the completion of Get-FilesToCacheOnVHD
+            Register-ExpandDiskTask
             Get-PrivatePackagesToCacheOnVHD
             Remove-Item -Path c:\windows-vhd-configuration.ps1
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
