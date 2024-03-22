@@ -143,7 +143,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.build1804containerd }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -171,7 +171,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.build1804gen2containerd }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -200,7 +200,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.build1804gpucontainerd }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -228,7 +228,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.build1804gen2gpucontainerd }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -257,7 +257,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen1 }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -287,7 +287,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.buildAzureLinuxV2gen1 }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -317,7 +317,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen2 }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -347,7 +347,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.buildAzureLinuxV2gen2 }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -377,7 +377,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen1fips }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -407,7 +407,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.buildAzureLinuxV2gen1fips }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -437,7 +437,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen2fips }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -467,7 +467,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.buildAzureLinuxV2gen2fips }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -497,7 +497,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2ARM64 }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
       - bash: |
@@ -527,7 +527,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.buildAzureLinuxV2ARM64 }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
       - bash: |
@@ -557,7 +557,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen2kata }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -587,7 +587,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.buildAzureLinuxV2gen2kata }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -617,7 +617,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen2TrustedLaunch }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -647,7 +647,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.buildAzureLinuxV2gen2TrustedLaunch }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -677,7 +677,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.buildMarinerV2gen2kataTrustedLaunch }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -707,7 +707,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.buildAzureLinuxV2gen2kataTrustedLaunch }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -737,7 +737,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.build1804fipscontainerd }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -766,7 +766,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.build1804fipsgen2containerd }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -796,7 +796,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.build2004fipscontainerd }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -825,7 +825,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.build2004fipsgen2containerd }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -855,7 +855,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.build2204arm64gen2containerd }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -885,7 +885,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.build2204containerd }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -913,7 +913,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.build2204gen2containerd }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -942,7 +942,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.build2004cvmgen2containerd }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -971,7 +971,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.build2204tlgen2containerd }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -1000,7 +1000,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.build2204minimalgen1containerd }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: Initialize_Pipeline_Build_and_Test_VHD  
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -1029,7 +1029,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.build2204minimalgen2containerd }}', true)
     jobs:
-    - job: Initialize Pipeline, Build, and Test VHD 
+    - job: 'Initialize_Pipeline_Build_and_Test_VHD ' 
       timeoutInMinutes: 180
       steps:
         - bash: |
