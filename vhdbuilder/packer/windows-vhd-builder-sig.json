@@ -108,6 +108,18 @@
             "type": "windows-restart"
         },
         {
+            "elevated_user": "packer",
+            "elevated_password": "{{.WinRMPassword}}",
+            "environment_vars": [
+                "ProvisioningPhase=3",
+                "WindowsSKU={{user `windows_sku`}}"
+            ],
+            "type": "powershell",
+            "scripts": [
+                "vhdbuilder/packer/configure-windows-vhd.ps1"
+            ]
+        },
+        {
             "type": "file",
             "direction": "upload",
             "source": "vhdbuilder/notice_windows.txt",
