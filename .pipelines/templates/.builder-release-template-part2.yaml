@@ -7,11 +7,9 @@ parameters:
       type: boolean
       default: False
 
-variables:
-  DRY_RUN: ${{parameters.dryrun}}
-
 jobs:
 - job: Packer_Clean_up
+  condition: always()
   displayName: 'Clean up Packer'
   dependsOn: Initialize_Pipeline_Build_and_Test_VHD
   steps:
@@ -49,7 +47,6 @@ jobs:
           -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
           ${CONTAINER_IMAGE} make -f packer.mk cleanup
       displayName: Clean Up Packer Generated Resources
-      condition: always()
 - job: Convert_Shared_Image_Gallery_To_VHD_Blob_In_Classic_Storage_Account
   displayName: 'Convert Shared Image Gallery to VHD Blob In Classic Storage Account'
   dependsOn: Initialize_Pipeline_Build_and_Test_VHD
@@ -83,13 +80,13 @@ jobs:
           -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
           ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
       displayName: "Convert Shared Image Gallery To VHD Blob In Classic Storage Account"
-      condition: eq(variables.DRY_RUN, 'False')
+      condition: eq('${{parameters.dryrun}}', 'False')
 - job: Get_SAS_URI_Publish_VHD_Info_And_Checkout
   displayName: 'Get SAS URI, Publish VHD Info, And Checkout'
   dependsOn:
     - Packer_Clean_up
     - Convert_Shared_Image_Gallery_To_VHD_Blob_In_Classic_Storage_Account
-  condition: and(succeeded('Packer_Clean_up', 'Convert_Shared_Image_Gallery_To_VHD_Blob_In_Classic_Storage_Account'), eq(variables.DRY_RUN, 'False'))
+  condition: and(succeeded('Packer_Clean_up', 'Convert_Shared_Image_Gallery_To_VHD_Blob_In_Classic_Storage_Account'), eq('${{parameters.dryrun}}', 'False'))
   steps:  
     - bash: |
           echo MODE=$(MODE) && \
@@ -120,16 +117,16 @@ jobs:
           -e IMAGE_VERSION=${IMAGE_VERSION} \
           ${CONTAINER_IMAGE} make -f packer.mk generate-sas
       displayName: "Generate SAS"
-      condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+      condition: and(succeeded(), eq('${{parameters.dryrun}}', 'False'))
     - task: PublishPipelineArtifact@1
       displayName: "Publish Pipeline Artifact"
       inputs:
           artifactName: 'publishing-info-${{ parameters.artifactName }}'
           targetPath: 'vhd-publishing-info.json'
-      condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+      condition: and(succeeded(), eq('${{parameters.dryrun}}', 'False'))
     - task: UniversalPackages@0
       displayName: "Universal Publish"
-      condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+      condition: and(succeeded(), eq('${{parameters.dryrun}}', 'False'))
       inputs:
         command: publish
         publishDirectory: 'vhd-publishing-info.json'
