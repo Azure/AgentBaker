@@ -13,6 +13,7 @@ jobs:
   steps:
     - bash: |
           echo MODE=$(MODE) && \
+          echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}' \
           PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
           SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
           captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
@@ -23,7 +24,6 @@ jobs:
           PRIVATE_PACKAGES_URL="$(cat vhdbuilder/packer/settings.json | grep "private_packages_url" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
           LINUX_MSI_RESOURCE_ID="$(cat vhdbuilder/packer/settings.json | grep "linux_msi_resource_ids" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
           docker run --rm \
-          echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}' \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
           -e CLIENT_ID=${CLIENT_ID} \
@@ -53,13 +53,13 @@ jobs:
   steps:
     - bash: |
           echo MODE=$(MODE) && \
+          echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}' \
           captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
           SIG_GALLERY_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
           SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
           PRIVATE_PACKAGES_URL="$(cat vhdbuilder/packer/settings.json | grep "private_packages_url" | awk -F\" '{print $4}')" && \
           LINUX_MSI_RESOURCE_ID="$(cat vhdbuilder/packer/settings.json | grep "linux_msi_resource_id" | awk -F\" '{print $4}')" && \
           docker run --rm \
-          echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}' \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
           -e CLIENT_ID=${CLIENT_ID} \
