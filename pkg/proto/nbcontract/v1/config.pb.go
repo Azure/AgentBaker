@@ -251,7 +251,7 @@ func (x *Configuration) GetVmType() VmType {
 	if x != nil {
 		return x.VmType
 	}
-	return VmType_VM_TYPE_STANDARD
+	return VmType_VM_TYPE_UNSPECIFIED
 }
 
 func (x *Configuration) GetPrimaryAvailabilitySet() string {
