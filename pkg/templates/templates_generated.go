@@ -4828,11 +4828,8 @@ if [[ -z "${bridgeIP}" ]]; then
     exit 1
 fi
 
-# cloud-controller-manager assigns the node pod CIDR, then kubelet/containerd put it in the conflist.
-# Parse the conflist to retrieve the pod CIDR (IPv4 is always the first item in `+"`"+`ranges`+"`"+`).
-# If the field we expect isn't there, jq returns "null", so treat that as a failure.
-podSubnetAddr=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .ipam.ranges[0][0].subnet")
-if [[ -z "${podSubnetAddr}" || "${podSubnetAddr}" == 'null' ]]; then
+podSubnetAddr=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .ipam.subnet")
+if [[ -z "${podSubnetAddr}" ]]; then
     echo "could not determine this node's pod ipam subnet range from 10-containerd-net.conflist...exiting early"
     exit 1
 fi
@@ -4849,8 +4846,7 @@ echo "outputting newly added AKS-DEDUP-PROMISC rules:"
 ebtables -t filter -L OUTPUT 2>/dev/null
 ebtables -t filter -L AKS-DEDUP-PROMISC 2>/dev/null
 exit 0
-#EOF
-`)
+#EOF`)
 
 func linuxCloudInitArtifactsEnsureNoDupShBytes() ([]byte, error) {
 	return _linuxCloudInitArtifactsEnsureNoDupSh, nil
