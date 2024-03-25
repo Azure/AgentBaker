@@ -30,8 +30,8 @@ if [[ -z "${bridgeIP}" ]]; then
     exit 1
 fi
 
-podSubnetAddr=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .ipam.ranges[0][0].subnet")
-if [[ -z "${podSubnetAddr}" || "${podSubnetAddr}" == 'null' ]]; then
+podSubnetAddr=$(cat /etc/cni/net.d/10-containerd-net.conflist  | jq -r ".plugins[] | select(.type == \"bridge\") | .ipam.subnet")
+if [[ -z "${podSubnetAddr}" ]]; then
     echo "could not determine this node's pod ipam subnet range from 10-containerd-net.conflist...exiting early"
     exit 1
 fi
