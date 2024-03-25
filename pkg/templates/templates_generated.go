@@ -3629,7 +3629,7 @@ downloadContainerdWasmShims() {
         binary_version="$(echo "${shim_version}" | tr . -)"
         chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
         chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
-        if [ "$shim_version" = "v0.8.0" ]; then
+        if [ "$shim_version" == "v0.8.0" ]; then
             chmod 755 "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1"
         fi
     done
