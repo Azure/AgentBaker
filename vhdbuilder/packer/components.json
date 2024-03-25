@@ -82,7 +82,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.3.4-1",
-        "v1.4.1"
+        "v1.4.1",
+        "v1.4.1-2"
       ]
     },
     {
@@ -198,6 +199,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.13.10-1",
+        "1.13.10-2",
         "1.14.4",
         "1.14.4-1"
       ]
@@ -254,9 +256,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.26.10",
         "v1.26.11",
-        "v1.28.8",
+        "v1.26.11-2",
         "v1.28.9",
         "v1.29.3",
         "v1.30.0"
@@ -267,8 +268,11 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.21.7",
+        "v1.21.7-2",
         "v1.22.5",
+        "v1.22.5-3",
         "v1.23.3",
+        "v1.23.3-3",
         "v1.24.0"
       ]
     },
