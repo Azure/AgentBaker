@@ -18,7 +18,7 @@ import "pkg/proto/nbcontract/v1/runcconfig.proto";
 import "pkg/proto/nbcontract/v1/customcloudconfig.proto";
 import "pkg/proto/nbcontract/v1/apiserverconfig.proto";
 import "pkg/proto/nbcontract/v1/tlsbootstrappingconfig.proto";
-import "pkg/proto/nbcontract/v1/nodepoolprofile.proto";
+import "pkg/proto/nbcontract/v1/vmtype.proto";
 
 enum WorkloadRuntime {
   WR_UNSPECIFIED = 0;
@@ -42,14 +42,13 @@ message Configuration {
   string subscription_id = 8;
   string resource_group = 9;
   string location = 10;
-  string vm_type = 11;  
+  VmType vm_type = 11;  
   
   string primary_availability_set = 12;
   string primary_scale_set = 13;
   
   IdentityConfig identity_config = 15;
   RuncConfig runc_config = 16;
-  NodePoolProfileConfig node_pool_profile_config = 17;
 
   // ... and a bunch of user-specified config
   string linux_admin_username = 18;
