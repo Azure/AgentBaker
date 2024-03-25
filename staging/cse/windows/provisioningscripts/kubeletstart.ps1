@@ -1,5 +1,6 @@
 $Global:ClusterConfiguration = ConvertFrom-Json ((Get-Content "c:\k\kubeclusterconfig.json" -ErrorAction Stop) | out-string)
 
+$IsCleanupHnsNetwork = [System.Convert]::ToBoolean($Global:ClusterConfiguration.Services.IsCleanupHnsNetwork) # CleanupHnsNetwork is legacy code
 $global:MasterIP = $Global:ClusterConfiguration.Kubernetes.ControlPlane.IpAddress
 $global:KubeDnsSearchPath = "svc.cluster.local"
 $global:KubeDnsServiceIp = $Global:ClusterConfiguration.Kubernetes.Network.DnsIp
@@ -73,10 +74,15 @@ Stop-Service kubeproxy
 if ($global:NetworkPlugin -eq "azure") {
     Write-Host "NetworkPlugin azure, starting kubelet."
 
-    # Find if network created by CNI exists, if yes, remove it
-    # This is required to keep the network non-persistent behavior
-    # Going forward, this would be done by HNS automatically during restart of the node
-    & "c:\k\cleanupnetwork.ps1"
+    # CleanupHnsNetwork is legacy code
+    if ($IsCleanupHnsNetwork) {
+        # Find if network created by CNI exists, if yes, remove it
+        # This is required to keep the network non-persistent behavior
+        # Going forward, this would be done by HNS automatically during restart of the node
+        & "c:\k\cleanupnetwork.ps1"
+    } else {
+        Write-Host "Skipping legacy code: kubeletstart.ps1 invokes cleanupnetwork.ps1"
+    }
 
     # Restart Kubeproxy, which would wait, until the network is created
     # This was fixed in 1.15, workaround still needed for 1.14 https://github.com/kubernetes/kubernetes/pull/78612

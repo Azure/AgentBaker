@@ -1,4 +1,8 @@
+# The cleanup process for `HNS Policy` and `CNI data` should be consistent.
+
 $Global:ClusterConfiguration = ConvertFrom-Json ((Get-Content "c:\k\kubeclusterconfig.json" -ErrorAction Stop) | out-string)
+
+$IsCleanupHnsNetwork = [System.Convert]::ToBoolean($Global:ClusterConfiguration.Services.IsCleanupHnsNetwork) # CleanupHnsNetwork is legacy code
 
 $global:NetworkMode = "L2Bridge"
 $global:NetworkPlugin = $Global:ClusterConfiguration.Cni.Name
@@ -30,8 +34,27 @@ if ($hnsNetwork) {
     Get-HnsPolicyList | Remove-HnsPolicyList
 
     Write-Host "Cleaning up old HNS network found"
-    Remove-HnsNetwork $hnsNetwork
-    Start-Sleep 10
+
+    if (-not $IsCleanupHnsNetwork) {
+        # Original code
+        Remove-HnsNetwork $hnsNetwork
+        Start-Sleep 10
+    } else {
+        # New code
+        # David Schott: Remove-HnsEndpoint before Remove-HnsNetwork
+        Get-HnsEndpoint | Remove-HnsEndpoint
+        Remove-HnsNetwork $hnsNetwork
+        # Count actively reserved port pools
+        $countPortPools = 1
+        # David Schott: $maxIteration=23 # Shiqian Tao: I agree to use 240s to get more logs in the private CSE, and reduce the duration in the official CSE.
+        $maxIteration=6 # Guarantee (10s <= wait time <= 60s) between HNS removal vs. creation for safety.
+        For ($i=1; ($i -le $maxIteration -and $countPortPools -ne 0); $i++) {
+            Start-Sleep 10
+            $countPortPools = (Invoke-HnsRequest -Method "GET" -Type "portpools" | Select-Object -ExpandProperty PortPoolAllocations | Where-Object -FilterScript {$_.RequiresHostPortReservation -eq "True" -and $_.PortRanges} | Select-Object -ExpandProperty PortRanges).Count
+            Write-Host "Waiting for HNS to release $countPortPools held port pools ($i/$maxIteration)..." #TODO, I think we need to log this to a file
+        }
+    }
+    Write-Host "Cleaning up old HNS network completed"
 }
 
 

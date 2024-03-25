@@ -105,6 +105,8 @@ function Write-KubeClusterConfig {
         HNSRemediator       = @{
             IntervalInMinutes = $Global:HNSRemediatorIntervalInMinutes;
         };
+        # IsCleanupHnsNetwork = $global:IsCleanupHnsNetwork; # (TODO) For all customers
+        IsCleanupHnsNetwork = $false; # For COSMIC testing
     }
 
     $Global:ClusterConfiguration | Add-Member -MemberType NoteProperty -Name Kubernetes -Value @{
