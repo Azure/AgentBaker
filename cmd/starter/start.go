@@ -9,11 +9,27 @@ import (
 	"syscall"
 
 	"github.com/Azure/agentbaker/apiserver"
+	agenttoggles "github.com/Azure/agentbaker/pkg/agent/toggles"
 	"github.com/spf13/cobra"
 )
 
 // Execute adds all child commands to the root command and sets flags appropriately.
-func Execute() {
+func Execute(toggles *agenttoggles.Toggles) {
+	// set toggles
+	options.Toggles = agenttoggles.NewToggles()
+	if toggles != nil {
+		log.Println("supplied toggles are non-nil, will use them...")
+		options.Toggles = toggles
+	}
+
+	for name := range options.Toggles.MapToggles {
+		log.Printf("resolved map toggle: %s", name)
+	}
+
+	for name := range options.Toggles.StringToggles {
+		log.Printf("resolved string toggle: %s", name)
+	}
+
 	rootCmd.AddCommand(startCmd)
 	startCmd.Flags().StringVar(&options.Addr, "addr", ":8080", "the addr to serve the api on")
 
