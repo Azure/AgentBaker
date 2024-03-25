@@ -1132,6 +1132,11 @@ func (a *AgentPoolProfile) IsVirtualMachineScaleSets() bool {
 	return strings.EqualFold(a.AvailabilityProfile, VirtualMachineScaleSets)
 }
 
+// IsNotRebootWindowsNode returns true if AKS-RP sets the field to true.
+func (a *AgentPoolProfile) IsNotRebootWindowsNode() bool {
+	return a.NotRebootWindowsNode != nil && *a.NotRebootWindowsNode
+}
+
 // IsAvailabilitySets returns true if the customer specified disks.
 func (a *AgentPoolProfile) IsAvailabilitySets() bool {
 	return strings.EqualFold(a.AvailabilityProfile, AvailabilitySet)

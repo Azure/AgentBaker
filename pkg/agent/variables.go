@@ -110,6 +110,7 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"windowsGpuDriverURL":                  cs.Properties.WindowsProfile.GpuDriverURL,
 		"windowsCSEScriptsPackageURL":          cs.Properties.WindowsProfile.CseScriptsPackageURL,
 		"isDisableWindowsOutboundNat":          strconv.FormatBool(config.AgentPoolProfile.IsDisableWindowsOutboundNat()),
+		"isNotRebootWindowsNode":               strconv.FormatBool(config.AgentPoolProfile.IsNotRebootWindowsNode()),
 	}
 
 	return customData

@@ -8431,6 +8431,12 @@ $global:EnableIncreaseDynamicPortRange = $false
 
 $global:RebootNeeded = $false
 
+# Reuse the AgentPoolProfile.NotRebootWindowsNode field to get the value from AKS-RP
+$global:IsNotRebootWindowsNode = [System.Convert]::ToBoolean("{{GetVariable "isNotRebootWindowsNode" }}");
+# Default: IsNotRebootWindowsNode = false >>  CleanupHnsNetwork = true    (with legacy code)
+# Toggle : IsNotRebootWindowsNode = true  >>  CleanupHnsNetwork = false (remove legacy code)
+$global:CleanupHnsNetwork = !$global:IsNotRebootWindowsNode
+
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force
@@ -8455,7 +8461,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.40.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.41.zip" # TODO by ShiqianTao
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
