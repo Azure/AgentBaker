@@ -1,3 +1,5 @@
+# The cleanup process for `HNS Policy` and `CNI data` should be consistent.
+
 $Global:ClusterConfiguration = ConvertFrom-Json ((Get-Content "c:\k\kubeclusterconfig.json" -ErrorAction Stop) | out-string)
 
 $global:NetworkMode = "L2Bridge"

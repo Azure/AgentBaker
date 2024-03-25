@@ -1,6 +1,7 @@
 $Global:ClusterConfiguration = ConvertFrom-Json ((Get-Content "c:\k\kubeclusterconfig.json" -ErrorAction Stop) | out-string)
 $KubeproxyFeatureGates = $Global:ClusterConfiguration.Kubernetes.Kubeproxy.FeatureGates # This is the initial feature list passed in from aks-engine
 $KubernetesVersion = $Global:ClusterConfiguration.Kubernetes.Source.Release
+$IsCleanupHnsNetwork = [System.Convert]::ToBoolean($Global:ClusterConfiguration.Services.IsCleanupHnsNetwork) # CleanupHnsNetwork is legacy code
 
 # comparison function for 2 semantic versions
 # returns 1 if Version1 > Version 2, -1 if Version1 < Version2, and 0 if equal
@@ -50,11 +51,15 @@ if ($Global:ClusterConfiguration.Kubernetes.Kubeproxy.ConfigArgs) {
     $global:KubeproxyArgList += $Global:ClusterConfiguration.Kubernetes.Kubeproxy.ConfigArgs
 }
 
-$hnsNetwork = Get-HnsNetwork | ? Name -EQ $KubeNetwork
-while (!$hnsNetwork) {
-    Write-Host "$(Get-Date -Format o) Waiting for Network [$KubeNetwork] to be created . . ."
-    Start-Sleep 10
+if ($IsCleanupHnsNetwork) { # CleanupHnsNetwork is legacy code
     $hnsNetwork = Get-HnsNetwork | ? Name -EQ $KubeNetwork
+    while (!$hnsNetwork) {
+        Write-Host "$(Get-Date -Format o) Waiting for Network [$KubeNetwork] to be created . . ."
+        Start-Sleep 10
+        $hnsNetwork = Get-HnsNetwork | ? Name -EQ $KubeNetwork
+    }
+} else {
+    Write-Host "Skipping legacy code: kube-proxy waits for network to be created"
 }
 
 # enable WinDsr if WinDsr feature gate is enabled
@@ -81,13 +86,15 @@ if ($featureGateArgs -ne "") {
     $global:KubeproxyArgList += @("--feature-gates=" + $featureGateArgs)
 }
 
-#
-# cleanup the persisted policy lists
-#
-Import-Module $global:HNSModule
-# Workaround for https://github.com/kubernetes/kubernetes/pull/68923 in < 1.14,
-# and https://github.com/kubernetes/kubernetes/pull/78612 for <= 1.15
-Get-HnsPolicyList | Remove-HnsPolicyList
+if ($IsCleanupHnsNetwork) { # CleanupHnsNetwork is legacy code
+    # cleanup the persisted policy lists
+    Import-Module $global:HNSModule
+    # Workaround for https://github.com/kubernetes/kubernetes/pull/68923 in < 1.14,
+    # and https://github.com/kubernetes/kubernetes/pull/78612 for <= 1.15
+    Get-HnsPolicyList | Remove-HnsPolicyList
+} else {
+    Write-Host "Skipping legacy code: kube-proxy Remove-HnsPolicyList"
+}
 
 # Use run-process.cs to set process priority class as 'AboveNormal'
 # Load a signed version of runprocess.dll if it exists for Azure SysLock compliance
