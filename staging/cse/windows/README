@@ -13,6 +13,7 @@
 1. Run below commands to build a test package
 ```bash
 branchName="master"
+# TODO: 41
 currentCseVersion="v0.0.40" # `WindowsCSEScriptsPackage` defined in `parts/windows/kuberneteswindowssetup.ps1`
 testCseVersion="v0.0.40.0" # Test package name. NOTE: Please do not use the official package format and earlier used version.
 url="https://raw.githubusercontent.com/Azure/AgentBaker/$branchName/staging/cse/windows"
@@ -54,6 +55,9 @@ popd
 
 # AKS Windows CSE Scripts Package
 All files except *.test.ps1 and README will be published in AKS Windows CSE Scripts Package.
+
+## v0.0.41
+- feat: support skipping legacy code CleanupHnsNetwork in AKS Windows CSE #4131
 
 ## v0.0.40
 - feat: set --node-ip for Windows kubelet in k8s v1.29+ #4148
