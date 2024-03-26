@@ -18,7 +18,16 @@ func Execute(toggles *agenttoggles.Toggles) {
 	// set toggles
 	options.Toggles = agenttoggles.NewToggles()
 	if toggles != nil {
+		log.Println("using supplied toggles...")
 		options.Toggles = toggles
+	}
+
+	for name := range toggles.MapToggles {
+		log.Printf("have map toggle %q", name)
+	}
+
+	for name := range toggles.StringToggles {
+		log.Printf("have string toggle %q", name)
 	}
 
 	rootCmd.AddCommand(startCmd)
