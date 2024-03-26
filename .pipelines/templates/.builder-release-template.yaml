@@ -4,6 +4,9 @@ parameters:
       default: 1604
 
 steps:
+  - script: |
+        export PACKER_LOG_COLOR="info:100,35,warn:100,202,error:100,202"
+    displayName: Set Output Color
   - bash: |
         m="linuxVhdMode" && \
         echo "Set build mode to $m" && \
