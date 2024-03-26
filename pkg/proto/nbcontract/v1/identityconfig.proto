@@ -1,9 +1,0 @@
-syntax = "proto3";
-package nbcontract.v1;
-
-message IdentityConfig {
-  string service_principal_id = 1;
-  string service_principal_secret = 2;
-  string assigned_identity_id = 3;  //could be user or system assigned, depending on the type
-  string use_managed_identity_extension = 4;
-}
