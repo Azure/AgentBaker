@@ -92,9 +92,6 @@ steps:
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
       -e POOL_NAME=$(AZURE_POOL_NAME) \
-      -e CLIENT_ID=${AZURE_BUILD_CLIENT_ID} \
-      -e CLIENT_SECRET="$(AZURE_BUILD_CLIENT_SECRET)" \
-      -e TENANT_ID=${AZURE_BUILD_TENANT_ID} \
       -e SUBSCRIPTION_ID="${AZURE_BUILD_SUBSCRIPTION_ID}" \
       -e AZURE_RESOURCE_GROUP_NAME=${AZURE_BUILD_RESOURCE_GROUP_NAME} \
       -e AZURE_LOCATION=${AZURE_BUILD_LOCATION} \
@@ -131,9 +128,6 @@ steps:
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${AZURE_BUILD_CLIENT_ID} \
-      -e CLIENT_SECRET="$(AZURE_BUILD_CLIENT_SECRET)" \
-      -e TENANT_ID=${AZURE_BUILD_TENANT_ID} \
       -e SUBSCRIPTION_ID="${AZURE_BUILD_SUBSCRIPTION_ID}" \
       -e AZURE_RESOURCE_GROUP_NAME=${AZURE_BUILD_RESOURCE_GROUP_NAME} \
       -e OS_DISK_URI=${OS_DISK_URI} \
@@ -183,9 +177,6 @@ steps:
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
-        -e CLIENT_ID=${AZURE_BUILD_CLIENT_ID} \
-        -e CLIENT_SECRET="$(AZURE_BUILD_CLIENT_SECRET)" \
-        -e TENANT_ID=${AZURE_BUILD_TENANT_ID} \
         -e SUBSCRIPTION_ID="${AZURE_BUILD_SUBSCRIPTION_ID}" \
         -e RESOURCE_GROUP_NAME="${AZURE_BUILD_RESOURCE_GROUP_NAME}" \
         -e LOCATION="${AZURE_BUILD_LOCATION}" \
@@ -221,9 +212,6 @@ steps:
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${AZURE_BUILD_CLIENT_ID} \
-      -e CLIENT_SECRET="$(AZURE_BUILD_CLIENT_SECRET)" \
-      -e TENANT_ID=${AZURE_BUILD_TENANT_ID} \
       -e SUBSCRIPTION_ID="${AZURE_BUILD_SUBSCRIPTION_ID}" \
       -e SA_NAME=${SA_NAME} \
       -e AZURE_RESOURCE_GROUP_NAME=${AZURE_BUILD_RESOURCE_GROUP_NAME} \
@@ -258,9 +246,6 @@ steps:
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${CLIENT_ID} \
-      -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-      -e TENANT_ID=${TENANT_ID} \
       -e SUBSCRIPTION_ID="${AZURE_PROD_SUBSCRIPTION_ID}" \
       -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
       -e STORAGE_ACCT_BLOB_URL=${STORAGE_ACCT_BLOB_URL} \

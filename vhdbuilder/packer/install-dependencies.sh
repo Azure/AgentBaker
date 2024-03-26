@@ -1,4 +1,13 @@
 #!/bin/bash
+
+script_start_timestamp=$(date +%H:%M:%S)
+start_timestamp=$(date +%H:%M:%S)
+
+capture_script_start=$(date +%s)
+capture_time=$(date +%s)
+
+declare -a benchmarks=()
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"
@@ -18,6 +27,8 @@ COMPONENTS_FILEPATH=/opt/azure/components.json
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
+stop_watch $capture_time "Declare Variables / Configure Environment" false
+start_watch
 
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
@@ -42,6 +53,8 @@ APT::Periodic::AutocleanInterval "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
+stop_watch $capture_time "Purge and Re-install Ubuntu" false
+start_watch
 
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
@@ -50,7 +63,11 @@ else
   updateAptWithMicrosoftPkg
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
-  BLOBFUSE2_VERSION="2.2.0"
+  BLOBFUSE2_VERSION="2.2.1"
+  if [ "${OS_VERSION}" == "18.04" ]; then
+    # keep legacy version on ubuntu 18.04
+    BLOBFUSE2_VERSION="2.2.0"
+  fi
   required_pkg_list=("blobfuse2="${BLOBFUSE2_VERSION} fuse3)
   for apt_package in ${required_pkg_list[*]}; do
       if ! apt_get_install 30 1 600 $apt_package; then
@@ -66,6 +83,8 @@ SystemMaxUse=1G
 RuntimeMaxUse=1G
 ForwardToSyslog=yes
 EOF
+stop_watch $capture_time "Install Dependencies" false
+start_watch
 
 if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then
   echo "Unsupported container runtime. Only containerd is supported for new VHD builds."
@@ -92,6 +111,8 @@ if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBU
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
+stop_watch $capture_time "Check Container Runtime / Network Configurations" false
+start_watch
 
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
@@ -147,6 +168,8 @@ containerd_version="$(echo "$installed_version" | cut -d- -f1)"
 containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
 installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
 echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
+stop_watch $capture_time "Create Containerd Service Directory, Download Shims, Configure Runtime and Network" false
+start_watch
 
 DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for componentToDownload in ${DOWNLOAD_FILES[*]}; do
@@ -167,12 +190,14 @@ for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
   downloadCrictl ${CRICTL_VERSION}
   echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
+stop_watch $capture_time "Download Components, Determine / Download crictl Version" false
+start_watch
 
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
   PACKAGE_NAME=$1
   PACKAGE_EXTENSION=$2
-  MIRROR_PROXY_VERSION='0.2.7'
+  MIRROR_PROXY_VERSION='0.2.8'
   MIRROR_DOWNLOAD_PATH="./$1.$2"
   MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
@@ -189,7 +214,7 @@ if [ $OS == $UBUNTU_OS_NAME ] && [ $(isARM64)  != 1 ] && [ $UBUNTU_MAJOR_VERSION
   installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
 fi
 
-if [ $OS == $MARINER_OS_NAME ]  && [ $OS_VERSION == "2.0" ] && [ $(isARM64)  != 1 ] && [[ ${ENABLE_FIPS,,} != "true" ]]; then
+if [ $OS == $MARINER_OS_NAME ]  && [ $OS_VERSION == "2.0" ] && [ $(isARM64)  != 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
 fi
 
@@ -204,6 +229,8 @@ downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
+stop_watch $capture_time "Artifact Streaming, Download Containerd Plugins" false
+start_watch
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
@@ -238,8 +265,8 @@ cat << EOF >> ${VHD_LOGS_FILEPATH}
 EOF
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
-
-
+stop_watch $capture_time "Pull NVIDIA driver image (mcr), Start installBcc subshell" false
+start_watch
 
 string_replace() {
   echo ${1//\*/$2}
@@ -286,6 +313,8 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 
 # can't use cliTool because crictl doesn't support retagging.
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
+stop_watch $capture_time "Pull and Re-tag Container Images" false
+start_watch
 
 # doing this at vhd allows CSE to be faster with just mv
 unpackAzureCNI() {
@@ -300,8 +329,10 @@ unpackAzureCNI() {
 
 #must be both amd64/arm64 images
 VNET_CNI_VERSIONS="
-1.5.11
 1.4.43.1
+1.4.52
+1.5.11
+1.5.23
 "
 
 
@@ -315,8 +346,10 @@ done
 #UNITE swift and overlay versions?
 #Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
 SWIFT_CNI_VERSIONS="
-1.5.11
 1.4.43.1
+1.4.52
+1.5.11
+1.5.23
 "
 
 for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
@@ -343,6 +376,8 @@ done
 if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) ]]; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
+stop_watch $capture_time "Configure Networking and Interface" false
+start_watch
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
@@ -370,6 +405,8 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   systemctlEnableAndStart nvidia-device-plugin || exit 1
 fi
 fi
+stop_watch $capture_time "GPU Device plugin" false
+start_watch
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
@@ -404,6 +441,8 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
+stop_watch $capture_time "Configure Telemetry, Create Logging Directory, Kube-proxy" false
+start_watch
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
@@ -468,5 +507,8 @@ for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
 done
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
+stop_watch $capture_time "Download and Process Kubernetes Packages / Extract Binaries" false
 
 echo "install-dependencies step completed successfully"
+stop_watch $capture_script_start "install-dependencies.sh" true
+show_benchmarks

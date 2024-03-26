@@ -34,10 +34,14 @@ installDeps() {
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
-    BLOBFUSE2_VERSION="2.2.0"
+    BLOBFUSE2_VERSION="2.2.1"
 
+    # keep legacy version on ubuntu 16.04 and 18.04
     if [ "${OSVERSION}" == "16.04" ]; then
         BLOBFUSE_VERSION="1.3.7"
+    fi
+    if [ "${OSVERSION}" == "18.04" ]; then
+        BLOBFUSE2_VERSION="2.2.0"
     fi
 
     pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
@@ -126,7 +130,7 @@ installStandaloneContainerd() {
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
         # pin 18.04 to 1.7.1
-        CONTAINERD_VERSION="1.7.7"
+        CONTAINERD_VERSION="1.7.14"
         if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
             CONTAINERD_VERSION="1.7.1"
         fi

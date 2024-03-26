@@ -1,0 +1,9 @@
+syntax = "proto3";
+package nbcontract.v1;
+import "pkg/proto/nbcontract/v1/featurestate.proto";
+ 
+message TLSBootstrappingConfig {
+    optional bool enable_secure_tls_bootstrapping = 1;
+    string tls_bootstrap_token = 2; // Only required until Secure TLS bootstrapping in place. Would use kubelet identity after that.
+    string custom_secure_tls_bootstrap_appserver_appid = 3; // Only used when secure TLS bootstrapping is enabled
+  }

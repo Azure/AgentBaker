@@ -1,7 +1,7 @@
 syntax = "proto3";
 package nbcontract.v1;
 
-message NodePoolProfile {
+message NodePoolProfileConfig {
 
   // vm_size represents the size of this node pool
   // Let's keep it for now but continue to review if this can be removed from contract as this can be retrieved from IMDS
