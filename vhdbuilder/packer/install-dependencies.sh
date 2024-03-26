@@ -84,6 +84,12 @@ RuntimeMaxUse=1G
 ForwardToSyslog=yes
 EOF
 stop_watch $capture_time "Install Dependencies" false
+THIS_VM=$(az vm list -g aksvhdtestbuildrg --query "[0].name")
+az vm show -g aksvhdtestbuildrg -n $THIS_VM --show-details --output json
+
+THIS_DISK=$(az disk list -g aksvhdtestbuildrg --query "[0].name")
+az disk show -g aksvhdtestbuildrg -n $THIS_DISK --show-details --output json
+sleep 200
 start_watch
 
 if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then

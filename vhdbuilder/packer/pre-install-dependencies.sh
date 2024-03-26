@@ -137,10 +137,3 @@ stop_watch $capture_time "Handle Azure Linux / CgroupV2" false
 echo "pre-install-dependencies step finished successfully"
 stop_watch $capture_script_start "pre-install-dependencies.sh" true
 show_benchmarks
-
-THIS_VM=$(az vm list -g aksvhdtestbuildrg --query "[0].name")
-az vm show -g aksvhdtestbuildrg -n $THIS_VM --show-details --output json
-
-THIS_DISK=$(az disk list -g aksvhdtestbuildrg --query "[0].name")
-az disk show -g aksvhdtestbuildrg -n $THIS_DISK --show-details --output json
-sleep 400
