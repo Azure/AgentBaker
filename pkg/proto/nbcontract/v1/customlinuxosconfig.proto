@@ -20,6 +20,7 @@ message CustomLinuxOSConfig {
   }
 
 message SysctlConfig {
+    // using optional here to allow detecting if the field is set or not (explicit presence in proto3)
     optional int32 NetCoreSomaxconn = 1;
     optional int32 NetCoreNetdevMaxBacklog = 2;
     optional int32 NetCoreRmemDefault = 3;
@@ -51,6 +52,7 @@ message SysctlConfig {
   }
   
   message UlimitConfig {
-    string NoFile = 1;
-    string MaxLockedMemory = 2; 
+    // using optional here to allow detecting if the field is set or not (explicit presence in proto3)
+    optional string NoFile = 1;
+    optional string MaxLockedMemory = 2; 
   }
