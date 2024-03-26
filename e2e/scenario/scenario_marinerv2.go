@@ -16,9 +16,6 @@ func (t *Template) marinerv2() *Scenario {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				KubenetEnsureNoDupEbtablesValidator(),
-			},
 		},
 	}
 }

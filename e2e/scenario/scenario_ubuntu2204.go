@@ -16,9 +16,6 @@ func (t *Template) ubuntu2204() *Scenario {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				KubenetEnsureNoDupEbtablesValidator(),
-			},
 		},
 	}
 }

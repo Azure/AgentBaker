@@ -44,15 +44,17 @@ echo "CAPTURED_SIG_VERSION set to: ${CAPTURED_SIG_VERSION}"
 echo "Subscription ID: ${SUBSCRIPTION_ID}"
 echo "Service Principal Path: ${SP_JSON}"
 
-if [ -a "${SP_JSON}" ]; then
-	echo "Existing credentials file found."
-	exit 0
-elif [ -z "${CLIENT_ID}" ]; then
-	echo "Service principal not found! Generating one @ ${SP_JSON}"
-	az ad sp create-for-rbac -n aks-images-packer${CREATE_TIME} -o json > ${SP_JSON}
-	CLIENT_ID=$(jq -r .appId ${SP_JSON})
-	CLIENT_SECRET=$(jq -r .password ${SP_JSON})
-	TENANT_ID=$(jq -r .tenant ${SP_JSON})
+if [ "$MODE" == "linuxVhdMode" ]; then
+	if [ -a "${SP_JSON}" ]; then
+		echo "Existing credentials file found."
+		exit 0
+	elif [ -z "${CLIENT_ID}" ]; then
+		echo "Service principal not found! Generating one @ ${SP_JSON}"
+		az ad sp create-for-rbac -n aks-images-packer${CREATE_TIME} -o json > ${SP_JSON}
+		CLIENT_ID=$(jq -r .appId ${SP_JSON})
+		CLIENT_SECRET=$(jq -r .password ${SP_JSON})
+		TENANT_ID=$(jq -r .tenant ${SP_JSON})
+	fi
 fi
 
 rg_id=$(az group show --name $AZURE_RESOURCE_GROUP_NAME) || rg_id=""
@@ -72,19 +74,21 @@ else
 	echo "storage account ${STORAGE_ACCOUNT_NAME} already exists."
 fi
 
-if [ -z "${CLIENT_ID}" ]; then
-	echo "CLIENT_ID was not set! Something happened when generating the service principal or when trying to read the sp file!"
-	exit 1
-fi
+if [ "$MODE" == "linuxVhdMode" ]; then
+	if [ -z "${CLIENT_ID}" ]; then
+		echo "CLIENT_ID was not set! Something happened when generating the service principal or when trying to read the sp file!"
+		exit 1
+	fi
 
-if [ -z "${CLIENT_SECRET}" ]; then
-	echo "CLIENT_SECRET was not set! Something happened when generating the service principal or when trying to read the sp file!"
-	exit 1
-fi
+	if [ -z "${CLIENT_SECRET}" ]; then
+		echo "CLIENT_SECRET was not set! Something happened when generating the service principal or when trying to read the sp file!"
+		exit 1
+	fi
 
-if [ -z "${TENANT_ID}" ]; then
-	echo "TENANT_ID was not set! Something happened when generating the service principal or when trying to read the sp file!"
-	exit 1
+	if [ -z "${TENANT_ID}" ]; then
+		echo "TENANT_ID was not set! Something happened when generating the service principal or when trying to read the sp file!"
+		exit 1
+	fi
 fi
 
 echo "storage name: ${STORAGE_ACCOUNT_NAME}"
@@ -385,16 +389,13 @@ private_packages_url=""
 if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
 	echo "PRIVATE_PACKAGES_URL is set in pipeline variables: ${PRIVATE_PACKAGES_URL}"
 	private_packages_url="${PRIVATE_PACKAGES_URL}"
-fi
+fi 
 
 # windows_image_version refers to the version from azure gallery
 # aks_windows_image_version refers to the version built by AKS Windows SIG
 cat <<EOF > vhdbuilder/packer/settings.json
-{
+{ 
   "subscription_id":  "${SUBSCRIPTION_ID}",
-  "client_id": "${CLIENT_ID}",
-  "client_secret": "${CLIENT_SECRET}",
-  "tenant_id":      "${TENANT_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "location": "${AZURE_LOCATION}",
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
@@ -428,5 +429,11 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "aks_windows_image_version": "${AKS_WINDOWS_IMAGE_VERSION}"
 }
 EOF
+
+if [ "$MODE" == "linuxVhdMode" ]; then
+	jq -r --arg key "client_id" --arg value "${CLIENT_ID}"  '. + { ($key) : $value}' < vhdbuilder/packer/settings.json > tmp.json && mv tmp.json vhdbuilder/packer/settings.json
+	jq -r --arg key "client_secret" --arg value "${CLIENT_SECRET}"  '. + { ($key) : $value}' < vhdbuilder/packer/settings.json > tmp.json && mv tmp.json vhdbuilder/packer/settings.json
+	jq -r --arg key "tenant_id" --arg value "${TENANT_ID}"  '. + { ($key) : $value}' < vhdbuilder/packer/settings.json > tmp.json && mv tmp.json vhdbuilder/packer/settings.json
+fi
 
 cat vhdbuilder/packer/settings.json

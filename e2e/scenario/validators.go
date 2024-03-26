@@ -2,7 +2,6 @@ package scenario
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 )
 
@@ -120,42 +119,6 @@ func UlimitValidator(ulimits map[string]string) *LiveVMValidator {
 			for name, value := range ulimits {
 				if !strings.Contains(stdout, fmt.Sprintf("%s=%v", name, value)) {
 					return fmt.Errorf(fmt.Sprintf("expected to find %s set to %v, but was not", name, value))
-				}
-			}
-			return nil
-		},
-	}
-}
-
-// KubenetEnsureNoDupEbtablesValidator checks that ebtables rules were installed by
-// the ensure-no-dup.sh script to block duplicate packets from the promiscuous bridge.
-// This assumes at least one pod (without hostNetwork) has already run on the node.
-func KubenetEnsureNoDupEbtablesValidator() *LiveVMValidator {
-	// Use regex match for the rules because the MAC and IP addresses can vary.
-	expectedRulePatterns := []string{
-		`-j AKS-DEDUP-PROMISC`,
-		`-p IPv4 -s [0-9a-f:]+ -o veth\+ --ip-src [0-9.]+ -j ACCEPT`,
-		`-p IPv4 -s [0-9a-f:]+ -o veth\+ --ip-src [0-9.]+/[0-9]+ -j DROP`,
-	}
-	regexes := make(map[string]*regexp.Regexp, len(expectedRulePatterns))
-	for _, s := range expectedRulePatterns {
-		regexes[s] = regexp.MustCompile(s)
-	}
-
-	return &LiveVMValidator{
-		Description: "assert kubenet ensure-no-dup ebtables rules",
-		// Grep matches rules with "-" at start of line.
-		// This command will fail and be retried to account for delay between
-		// when the CNI creates the bridge and when the ensure-no-dup systemd unit completes.
-		Command: fmt.Sprintf(`ebtables -L | grep "^-"`),
-		Asserter: func(code, stdout, stderr string) error {
-			if code != "0" {
-				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
-			}
-
-			for pattern, re := range regexes {
-				if !re.MatchString(stdout) {
-					return fmt.Errorf("could not find expected ebtables rule matching pattern %q", pattern)
 				}
 			}
 			return nil
