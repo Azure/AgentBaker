@@ -218,9 +218,9 @@ if [ $OS == $UBUNTU_OS_NAME ] && [ $(isARM64)  != 1 ] && [ $UBUNTU_MAJOR_VERSION
   installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
 fi
 
-if [ $OS == $MARINER_OS_NAME ]  && [ $OS_VERSION == "3.0" ] && [ $(isARM64)  != 1 ]; then
-  installAndConfigureArtifactStreaming acr-mirror-mariner rpm
-fi
+# if [ $OS == $MARINER_OS_NAME ]  && [ $OS_VERSION == "3.0" ] && [ $(isARM64)  != 1 ]; then
+#   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
+# fi
 
 KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
 
