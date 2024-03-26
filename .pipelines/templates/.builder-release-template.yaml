@@ -110,6 +110,7 @@ steps:
         -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
         -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
         ${CONTAINER_IMAGE} make -f packer.mk run-packer
+    retryCountOnTaskFailure: 3
     displayName: Building VHD
   - script: |
         OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
@@ -145,7 +146,6 @@ steps:
         -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
         -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
         ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
-    retryCountOnTaskFailure: 3
     displayName: Run VHD Tests
   - task: PublishPipelineArtifact@0
     inputs:
