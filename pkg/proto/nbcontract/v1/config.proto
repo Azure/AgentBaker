@@ -49,6 +49,7 @@ message Configuration {
   
   IdentityConfig identity_config = 15;
   RuncConfig runc_config = 16;
+  string vm_size = 17;
 
   // ... and a bunch of user-specified config
   string linux_admin_username = 18;
