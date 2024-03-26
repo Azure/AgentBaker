@@ -30,7 +30,7 @@ const (
 	waitUntilPodRunningPollInterval         = 10 * time.Second
 	waitUntilPodDeletedPollInterval         = 10 * time.Second
 	waitUntilClusterNotCreatingPollInterval = 10 * time.Second
-	waitUntilNodeReadyPollingInterval       = 10 * time.Second
+	waitUntilNodeReadyPollingInterval       = 20 * time.Second
 
 	// Polling timeouts
 	vmssClientCreateVMSSPollingTimeout     = 10 * time.Minute
