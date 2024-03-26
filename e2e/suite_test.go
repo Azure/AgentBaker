@@ -119,9 +119,9 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 	if err != nil {
 		vmssSucceeded = false
 		if !isVMExtensionProvisioningError(err) {
-			t.Fatalf("encountered an unknown error while creating VM: %s", err)
+			t.Fatalf("encountered an unknown error while creating VM: %v", err)
 		}
-		log.Println("vm was unable to be provisioned due to a CSE error, will still atempt to extract provisioning logs...")
+		log.Println("vm was unable to be provisioned due to a CSE error, will still attempt to extract provisioning logs...")
 	}
 
 	if opts.suiteConfig.KeepVMSS {
