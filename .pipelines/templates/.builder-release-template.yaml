@@ -145,9 +145,9 @@ steps:
         -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
         -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
         ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
-    retry:
-      maxAttempts: 3
-      delay: exponential
+  retries:
+    maxAttempts: 3
+    delay: exponential
     displayName: Run VHD Tests
   - task: PublishPipelineArtifact@0
     inputs:
