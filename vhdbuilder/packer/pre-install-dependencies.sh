@@ -138,16 +138,16 @@ echo "pre-install-dependencies step finished successfully"
 stop_watch $capture_script_start "pre-install-dependencies.sh" true
 show_benchmarks
 
-THIS_VM=$(az vm list -g aksvhdtestbuildrg --query "[?tags.imageVersion=='$IMG_VERSION'].name" -o tsv)
+THIS_VM=$(az vm list -g aksvhdtestbuildrg --query "[?tags.imageVersion=='$img_version'].name" -o tsv)
 
 if [ -n "$THIS_VM" ]; then
   az vm show -g aksvhdtestbuildrg -n $THIS_VM --show-details --output json
 else
-  echo "No vm found with image version $IMG_VERSION"
+  echo "No vm found with image version $img_version"
 fi
  echo "Above is all information on the VM"
 
-THIS_DISK=$(az disk list -g aksvhdtestbuildrg --query "[?tags.imageOffer=='$IMG_OFFER'].name" -o tsv)
- az disk show -g aksvhdtestbuildrg -n $THIS_DISK --show-details --output json
- echo "Above is all information on the disk"
- sleep 400
+THIS_DISK=$(az disk list -g aksvhdtestbuildrg --query "[?tags.imageOffer=='$img_offer'].name" -o tsv)
+az disk show -g aksvhdtestbuildrg -n $THIS_DISK --show-details --output json
+echo "Above is all information on the disk"
+sleep 400
