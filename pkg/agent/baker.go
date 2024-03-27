@@ -11,7 +11,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"text/template"
 
 	"github.com/Azure/agentbaker/parts"
@@ -331,8 +330,6 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 		}
 	}
 }
-
-var once = sync.Once{}
 
 // getContainerServiceFuncMap returns all functions used in template generation.
 /* These funcs are a thin wrapper for template generation operations,
