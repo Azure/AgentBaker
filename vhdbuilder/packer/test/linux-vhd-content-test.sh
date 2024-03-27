@@ -271,7 +271,7 @@ testFips() {
   os_version=$1
   enable_fips=$2
 
-  if [[ (${os_version} == "18.04" || ${os_version} == "20.04" || ${os_version} == "V2") && ${enable_fips,,} == "true" ]]; then  # TODO
+  if [[ (${os_version} == "18.04" || ${os_version} == "20.04" || ${os_version} == "22.04" || ${os_version} == "V2") && ${enable_fips,,} == "true" ]]; then
     kernel=$(uname -r)
     if [[ -f /proc/sys/crypto/fips_enabled ]]; then
       fips_enabled=$(cat /proc/sys/crypto/fips_enabled)

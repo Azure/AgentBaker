@@ -222,8 +222,7 @@ autoAttachUA() {
 
 detachAndCleanUpUA() {
     echo "detaching ua..."
-    echo "commented out detach for testing" 
-    # retrycmd_if_failure 5 10 120 printf "y\nN" | ua detach || $ERR_UA_DETACH  # TODO: uncomment this line after testing
+    retrycmd_if_failure 5 10 120 printf "y\nN" | ua detach || $ERR_UA_DETACH
 
     # now that the ESM/FIPS packages are installed, clean up apt settings in the vhd,
     # the VMs created on customers' subscriptions don't have access to UA repo
