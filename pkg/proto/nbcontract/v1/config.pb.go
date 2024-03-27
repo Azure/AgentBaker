@@ -125,8 +125,9 @@ type Configuration struct {
 	OutboundCommand string `protobuf:"bytes,43,opt,name=outbound_command,json=outboundCommand,proto3" json:"outbound_command,omitempty"`
 	// ensure_no_dupe_promiscuous_bridge specifies whether to ensure no duplicate promiscuous bridge
 	EnsureNoDupePromiscuousBridge bool `protobuf:"varint,45,opt,name=ensure_no_dupe_promiscuous_bridge,json=ensureNoDupePromiscuousBridge,proto3" json:"ensure_no_dupe_promiscuous_bridge,omitempty"`
-	// custom_search_domain specifies the custom search domain configuration
-	CustomSearchDomain  *CustomSearchDomain  `protobuf:"bytes,46,opt,name=custom_search_domain,json=customSearchDomain,proto3" json:"custom_search_domain,omitempty"`
+	// custom_search_domain specifies the custom search domain configurations
+	CustomSearchDomain *CustomSearchDomain `protobuf:"bytes,46,opt,name=custom_search_domain,json=customSearchDomain,proto3" json:"custom_search_domain,omitempty"`
+	// custom_linux_os_config specifies the custom Linux OS configurations including SwapFile, SysCtl configs, etc.
 	CustomLinuxOsConfig *CustomLinuxOSConfig `protobuf:"bytes,47,opt,name=custom_linux_os_config,json=customLinuxOsConfig,proto3,oneof" json:"custom_linux_os_config,omitempty"`
 	// azure_private_registry_server specifies the Azure private registry server
 	AzurePrivateRegistryServer string `protobuf:"bytes,56,opt,name=azure_private_registry_server,json=azurePrivateRegistryServer,proto3" json:"azure_private_registry_server,omitempty"`

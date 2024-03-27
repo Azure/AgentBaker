@@ -95,8 +95,10 @@ message Configuration {
   // ensure_no_dupe_promiscuous_bridge specifies whether to ensure no duplicate promiscuous bridge
   bool ensure_no_dupe_promiscuous_bridge = 45; 
 
-  // custom_search_domain specifies the custom search domain configuration
+  // custom_search_domain specifies the custom search domain configurations
   CustomSearchDomain custom_search_domain = 46;
+
+  // custom_linux_os_config specifies the custom Linux OS configurations including SwapFile, SysCtl configs, etc.
   optional CustomLinuxOSConfig custom_linux_os_config = 47;
 
   // azure_private_registry_server specifies the Azure private registry server
