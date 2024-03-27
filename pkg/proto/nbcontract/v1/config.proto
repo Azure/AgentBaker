@@ -103,8 +103,6 @@ message Configuration {
   string azure_private_registry_server = 56;
 
   // private_egress_proxy_address specifies the private egress proxy address
-
-  // private_egress_proxy_address specifies the private egress proxy address
   string private_egress_proxy_address = 57;
 
   // enable_artifact_streaming specifies whether artifact streaming is enabled or disabled on the VM node

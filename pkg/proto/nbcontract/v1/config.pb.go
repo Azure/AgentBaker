@@ -456,9 +456,7 @@ func (x *Configuration) GetPrivateEgressProxyAddress() string {
 }
 
 func (x *Configuration) GetEnableArtifactStreaming() bool {
-func (x *Configuration) GetEnableArtifactStreaming() bool {
 	if x != nil {
-		return x.EnableArtifactStreaming
 		return x.EnableArtifactStreaming
 	}
 	return false
@@ -771,8 +769,6 @@ var file_pkg_proto_nbcontract_v1_config_proto_goTypes = []interface{}{
 	(*CustomLinuxOSConfig)(nil),    // 15: nbcontract.v1.CustomLinuxOSConfig
 	(*HTTPProxyConfig)(nil),        // 16: nbcontract.v1.HTTPProxyConfig
 	(*GPUConfig)(nil),              // 17: nbcontract.v1.GPUConfig
-	(*HTTPProxyConfig)(nil),        // 16: nbcontract.v1.HTTPProxyConfig
-	(*GPUConfig)(nil),              // 17: nbcontract.v1.GPUConfig
 }
 var file_pkg_proto_nbcontract_v1_config_proto_depIdxs = []int32{
 	2,  // 0: nbcontract.v1.Configuration.tls_bootstrapping_config:type_name -> nbcontract.v1.TLSBootstrappingConfig
@@ -790,13 +786,6 @@ var file_pkg_proto_nbcontract_v1_config_proto_depIdxs = []int32{
 	0,  // 12: nbcontract.v1.Configuration.workload_runtime:type_name -> nbcontract.v1.WorkloadRuntime
 	14, // 13: nbcontract.v1.Configuration.custom_search_domain:type_name -> nbcontract.v1.CustomSearchDomain
 	15, // 14: nbcontract.v1.Configuration.custom_linux_os_config:type_name -> nbcontract.v1.CustomLinuxOSConfig
-	16, // 15: nbcontract.v1.Configuration.http_proxy_config:type_name -> nbcontract.v1.HTTPProxyConfig
-	17, // 16: nbcontract.v1.Configuration.gpu_config:type_name -> nbcontract.v1.GPUConfig
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
 	16, // 15: nbcontract.v1.Configuration.http_proxy_config:type_name -> nbcontract.v1.HTTPProxyConfig
 	17, // 16: nbcontract.v1.Configuration.gpu_config:type_name -> nbcontract.v1.GPUConfig
 	17, // [17:17] is the sub-list for method output_type
