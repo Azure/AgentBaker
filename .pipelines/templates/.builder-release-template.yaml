@@ -77,6 +77,7 @@ steps:
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
         -e POOL_NAME=$(POOL_NAME) \
+        -e VM_STORAGE_ACCOUNT_NAME="$(VM_STORAGE_ACCOUNT)$((RANDOM % 90000 + 10000))" \
         -e CLIENT_ID=${CLIENT_ID} \
         -e CLIENT_SECRET="$(CLIENT_SECRET)" \
         -e TENANT_ID=${TENANT_ID} \

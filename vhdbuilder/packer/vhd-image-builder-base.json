@@ -30,7 +30,8 @@
     "vnet_name": "{{env `VNET_NAME`}}",
     "subnet_name": "{{env `SUBNET_NAME`}}",
     "private_packages_url": "{{env `PRIVATE_PACKAGES_URL`}}",
-    "linux_msi_resource_id": "{{env `LINUX_MSI_RESOURCE_ID`}}"
+    "linux_msi_resource_id": "{{env `LINUX_MSI_RESOURCE_ID`}}",
+    "vm_storage_account_name": "{{env `VM_STORAGE_ACCOUNT_NAME`}}"
   },
   "builders": [
     {
@@ -60,6 +61,7 @@
       },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
+      "boot_diag_storage_account": "{{user `vm_storage_account_name`}}",
       "managed_image_storage_account_type": "Premium_LRS",
       "managed_image_os_disk_snapshot_name": "{{user `os_disk_snapshot_name`}}",
       "skip_create_image": "true",
