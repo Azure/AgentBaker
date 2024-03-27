@@ -1,9 +1,6 @@
 syntax = "proto3";
 package nbcontract.v1;
 
-import "pkg/proto/nbcontract/v1/loadbalancerconfig.proto";
-import "pkg/proto/nbcontract/v1/vmtype.proto";
-
 // Cluster Config fields stored in azure.json used by cloud-provider-azure
 message ClusterConfig {
   string resource_group = 1;
@@ -16,6 +13,11 @@ message ClusterConfig {
   LoadBalancerConfig load_balancer_config = 8;
 }
 
+enum VmType {
+  VM_TYPE_UNSPECIFIED = 0;
+  VM_TYPE_STANDARD = 1;
+  VM_TYPE_VMSS = 2;
+}
 
 message ClusterNetworkConfig {
   string vnet_name = 1;
@@ -23,4 +25,16 @@ message ClusterNetworkConfig {
   string subnet = 3;
   string security_group_name = 4;
   string route_table = 5;
+}
+
+message LoadBalancerConfig {
+  LoadBalancerSku load_balancer_sku = 1;
+  bool exclude_master_from_standard_load_balancer = 2;
+  int32 max_load_balancer_rule_count = 3;
+}
+
+enum LoadBalancerSku {
+  LOAD_BALANCER_SKU_UNSPECIFIED = 0;
+  LOAD_BALANCER_SKU_BASIC = 1;  // to be confirmed
+  LOAD_BALANCER_SKU_STANDARD = 2;
 }

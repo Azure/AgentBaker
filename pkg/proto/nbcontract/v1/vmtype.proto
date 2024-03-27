@@ -1,8 +1,0 @@
-syntax = "proto3";
-package nbcontract.v1;
-
-enum VmType {
-  VM_TYPE_UNSPECIFIED = 0;
-  VM_TYPE_STANDARD = 1;
-  VM_TYPE_VMSS = 2;
-}
