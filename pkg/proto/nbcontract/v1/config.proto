@@ -110,8 +110,11 @@ message Configuration {
   // enable_artifact_streaming specifies whether artifact streaming is enabled or disabled on the VM node
   bool enable_artifact_streaming = 58;
 
-  // distro specifies the distro of the VM node
-  string distro = 59;
+  // is_kata specifies whether the node is a Kata node
+  bool is_kata = 59; 
+
+  // needs_cgroupv2 specifies whether the node needs cgroupv2
+  bool needs_cgroupv2 = 60;
 
   // Here begins the final contract
   optional HTTPProxyConfig http_proxy_config = 61;
