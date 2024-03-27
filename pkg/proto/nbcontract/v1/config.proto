@@ -99,7 +99,7 @@ message Configuration {
   CustomSearchDomain custom_search_domain = 46;
 
   // custom_linux_os_config specifies the custom Linux OS configurations including SwapFile, SysCtl configs, etc.
-  optional CustomLinuxOSConfig custom_linux_os_config = 47;
+  CustomLinuxOSConfig custom_linux_os_config = 47;
 
   // azure_private_registry_server specifies the Azure private registry server
   string azure_private_registry_server = 56;
