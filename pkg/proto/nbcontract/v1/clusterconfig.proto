@@ -1,0 +1,26 @@
+syntax = "proto3";
+package nbcontract.v1;
+
+import "pkg/proto/nbcontract/v1/loadbalancerconfig.proto";
+import "pkg/proto/nbcontract/v1/vmtype.proto";
+
+// Cluster Config fields stored in azure.json used by cloud-provider-azure
+message ClusterConfig {
+  string resource_group = 1;
+  string location = 2;
+  VmType vm_type = 3;  
+  string primary_availability_set = 4;
+  string primary_scale_set = 5;
+  ClusterNetworkConfig virtual_network_config = 6;
+  bool use_instance_metadata = 7;
+  LoadBalancerConfig load_balancer_config = 8;
+}
+
+
+message ClusterNetworkConfig {
+  string vnet_name = 1;
+  string vnet_resource_group = 2;
+  string subnet = 3;
+  string security_group_name = 4;
+  string route_table = 5;
+}
