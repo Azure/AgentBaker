@@ -130,8 +130,7 @@ type Configuration struct {
 	CustomLinuxOsConfig *CustomLinuxOSConfig `protobuf:"bytes,47,opt,name=custom_linux_os_config,json=customLinuxOsConfig,proto3,oneof" json:"custom_linux_os_config,omitempty"`
 	// azure_private_registry_server specifies the Azure private registry server
 	AzurePrivateRegistryServer string `protobuf:"bytes,56,opt,name=azure_private_registry_server,json=azurePrivateRegistryServer,proto3" json:"azure_private_registry_server,omitempty"`
-	// private_egress_proxy_address specifies the private egress proxy address
-	PrivateEgressProxyAddress string `protobuf:"bytes,57,opt,name=private_egress_proxy_address,json=privateEgressProxyAddress,proto3" json:"private_egress_proxy_address,omitempty"`
+	PrivateEgressProxyAddress  string `protobuf:"bytes,57,opt,name=private_egress_proxy_address,json=privateEgressProxyAddress,proto3" json:"private_egress_proxy_address,omitempty"`
 	// enable_artifact_streaming specifies whether artifact streaming is enabled or disabled on the VM node
 	EnableArtifactStreaming bool `protobuf:"varint,58,opt,name=enable_artifact_streaming,json=enableArtifactStreaming,proto3" json:"enable_artifact_streaming,omitempty"`
 	// is_kata specifies whether the node is a Kata node
