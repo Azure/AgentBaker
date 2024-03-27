@@ -11,7 +11,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
-//nolint:gocognit
 func getParameters(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
@@ -51,16 +50,14 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	}
 
 	// Agent parameters
-	isSetVnetCidrs := false
-	for _, agentProfile := range properties.AgentPoolProfiles {
-		if !isSetVnetCidrs && len(agentProfile.VnetCidrs) != 0 {
-			// For AKS (properties.HostedMasterProfile != nil), set vnetCidr if a custom vnet is used so the address space can be
-			// added into the ExceptionList of Windows nodes. Otherwise, the default value `10.0.0.0/8` will
-			// be added into the ExceptionList and it does not work if users use other ip address ranges.
-			// All agent pools in the same cluster share a same VnetCidrs so we only need to set the first non-empty VnetCidrs.
-			addValue(parametersMap, "vnetCidr", strings.Join(agentProfile.VnetCidrs, ","))
-			isSetVnetCidrs = true
-		}
+	// We should always use profile to remove the dependency on cs.Properties.AgentPoolProfiles since RP always set
+	// config.AgentPoolProfile to the target agent pool
+	if len(profile.VnetCidrs) != 0 {
+		// For AKS (properties.HostedMasterProfile != nil), set vnetCidr if a custom vnet is used so the address space can be
+		// added into the ExceptionList of Windows nodes. Otherwise, the default value `10.0.0.0/8` will
+		// be added into the ExceptionList and it does not work if users use other ip address ranges.
+		// All agent pools in the same cluster share a same VnetCidrs
+		addValue(parametersMap, "vnetCidr", strings.Join(profile.VnetCidrs, ","))
 	}
 
 	if properties.CustomConfiguration != nil && properties.CustomConfiguration.KubernetesConfigurations != nil {
