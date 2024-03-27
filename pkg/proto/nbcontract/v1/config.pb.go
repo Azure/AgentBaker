@@ -441,55 +441,6 @@ func (x *Configuration) GetCustomLinuxOsConfig() *CustomLinuxOSConfig {
 	return nil
 }
 
-func (x *Configuration) GetCseHelperFilepath() string {
-	if x != nil {
-		return x.CseHelperFilepath
-	}
-	return ""
-}
-
-func (x *Configuration) GetCseDistroHelperFilepath() string {
-	if x != nil {
-		return x.CseDistroHelperFilepath
-	}
-	return ""
-}
-
-func (x *Configuration) GetCseInstallFilepath() string {
-	if x != nil {
-		return x.CseInstallFilepath
-	}
-	return ""
-}
-
-func (x *Configuration) GetCseDistroInstallFilepath() string {
-	if x != nil {
-		return x.CseDistroInstallFilepath
-	}
-	return ""
-}
-
-func (x *Configuration) GetCseConfigFilepath() string {
-	if x != nil {
-		return x.CseConfigFilepath
-	}
-	return ""
-}
-
-func (x *Configuration) GetDhcpv6ServiceFilepath() string {
-	if x != nil {
-		return x.Dhcpv6ServiceFilepath
-	}
-	return ""
-}
-
-func (x *Configuration) GetDhcpv6ConfigFilepath() string {
-	if x != nil {
-		return x.Dhcpv6ConfigFilepath
-	}
-	return ""
-}
-
 func (x *Configuration) GetAzurePrivateRegistryServer() string {
 	if x != nil {
 		return x.AzurePrivateRegistryServer
