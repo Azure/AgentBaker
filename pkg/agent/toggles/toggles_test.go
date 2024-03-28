@@ -16,7 +16,7 @@ var _ = Describe("toggles tests", func() {
 
 	BeforeEach(func() {
 		toggles = &Toggles{
-			MapToggles: map[string]MapToggle{
+			Maps: map[string]Map{
 				"mt1": func(entity *Entity) map[string]string {
 					return map[string]string{"key": "value"}
 				},
@@ -27,7 +27,7 @@ var _ = Describe("toggles tests", func() {
 					}
 				},
 			},
-			StringToggles: map[string]StringToggle{
+			Strings: map[string]String{
 				"st1": func(entity *Entity) string {
 					return "value"
 				},

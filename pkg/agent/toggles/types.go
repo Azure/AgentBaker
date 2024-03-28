@@ -5,8 +5,8 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/toggles/fieldnames"
 )
 
-// Entity is what we resolve overrides against. It contains any and all fields currently
-// used to resolve the set of overrides applied to the agentbakersvc instance.
+// Entity is what we resolve toggles against. It contains any and all fields currently
+// used to resolve the set of toggles applied to the agentbakersvc instance.
 type Entity struct {
 	Fields map[string]string
 }
@@ -18,16 +18,20 @@ func NewEntity(fields map[string]string) *Entity {
 	}
 }
 
-func NewEntityFromEnvironmentConfig(ctx *datamodel.EnvironmentConfig) *Entity {
+// NewEntityFromEnvironmentInfo constructs and returns a new Entity populated with fields
+// from the specified EnvironmentInfo.
+func NewEntityFromEnvironmentInfo(envInfo *datamodel.EnvironmentInfo) *Entity {
 	return &Entity{
 		Fields: map[string]string{
-			fieldnames.SubscriptionID: ctx.SubscriptionID,
-			fieldnames.TenantID:       ctx.TenantID,
-			fieldnames.Region:         ctx.Region,
+			fieldnames.SubscriptionID: envInfo.SubscriptionID,
+			fieldnames.TenantID:       envInfo.TenantID,
+			fieldnames.Region:         envInfo.Region,
 		},
 	}
 }
 
+// NewEntityFromNodeBootstrappingConfiguration constructs and returns a new Entity with fields
+// from the specified NodeBootstrappingConfiguration.
 func NewEntityFromNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappingConfiguration) *Entity {
 	return &Entity{
 		Fields: map[string]string{
@@ -38,36 +42,39 @@ func NewEntityFromNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappin
 	}
 }
 
-// MapToggle represents a toggle which resolves a map against a specified Entity.
-type MapToggle func(entity *Entity) map[string]string
+// Map is a toggle which resolves a map against a specified Entity.
+type Map func(entity *Entity) map[string]string
 
-// StringToggle represents a toggle which resolves a string against a specified Entity.
-type StringToggle func(entity *Entity) string
+// String represents a toggle which resolves a string against a specified Entity.
+type String func(entity *Entity) string
 
-// Toggles represents a set of toggles to use within a service context.
+// Toggles is a set of toggles to run the agentbakersvc instance with.
 type Toggles struct {
-	// MapToggles is the set of toggles which return map values.
-	MapToggles map[string]MapToggle
-	// StringToggles is the set of toggles which return string values
-	StringToggles map[string]StringToggle
+	// Maps is the set of toggles which return map values.
+	Maps map[string]Map
+	// Strings is the set of toggles which return string values
+	Strings map[string]String
 }
 
-func NewToggles() *Toggles {
+// New constructs a new and empty set of toggles.
+func New() *Toggles {
 	return &Toggles{
-		MapToggles:    make(map[string]MapToggle),
-		StringToggles: make(map[string]StringToggle),
+		Maps:    make(map[string]Map),
+		Strings: make(map[string]String),
 	}
 }
 
-func (t *Toggles) getMap(toggleName string, entity *Entity) map[string]string {
-	if toggle, ok := t.MapToggles[toggleName]; ok {
+// getMap attempts to resolve the named map toggle against the specified Entity.
+func (t *Toggles) getMap(name string, entity *Entity) map[string]string {
+	if toggle, ok := t.Maps[name]; ok {
 		return toggle(entity)
 	}
 	return map[string]string{}
 }
 
-func (t *Toggles) getString(toggleName string, entity *Entity) string {
-	if toggle, ok := t.StringToggles[toggleName]; ok {
+// getString attempts to resolve the named string toggle against the specified Entity.
+func (t *Toggles) getString(name string, entity *Entity) string {
+	if toggle, ok := t.Strings[name]; ok {
 		return toggle(entity)
 	}
 	return ""
