@@ -73,7 +73,7 @@
     {
       "type": "shell",
       "environment_vars": [
-        "TEMP_RESOURCE_GROUP_NAME={{user `temp_resource_group_name`}}"
+        "TEMP_RESOURCE_GROUP_NAME={{env `temp_resource_group_name`}}"
       ]
     },
     {
