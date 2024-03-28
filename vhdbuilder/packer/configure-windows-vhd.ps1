@@ -220,14 +220,26 @@ function Get-ToolsToVHD {
 
 function Register-ExpandVolumeTask {
     $taskScript = @'
+        $ProgressPreference = "SilentlyContinue"
+        $datetime = Get-Date -Format "yyyyMMdd-HHmmss-fff"
+        $outputLogFile = "c:\aks-tools\expand-volume-$datetime.log"
+        Start-Transcript -Path $outputLogFile
+        Get-Date -Format "yyyyMMdd-HHmmss-fff"
         $osDrive = ((Get-WmiObject Win32_OperatingSystem -ErrorAction Stop).SystemDrive).TrimEnd(":")
-        $diskpartScriptPath = [String]::Format("{0}\\diskpart_extendOSVol.script", $env:temp)
-        [String]::Format("select volume {0}`nextend`nexit", $osDrive) | Out-File -Encoding "UTF8" $diskpartScriptPath
+        #$diskpartScriptPath = [String]::Format("{0}\\diskpart_extendOSVol.script", $env:temp)
+        $diskpartScriptPath = "c:\aks-tools\diskpart.script"
+        [String]::Format("select volume {0}`nextend`nexit", $osDrive) | Out-File -Encoding "UTF8" $diskpartScriptPath -Force
         Start-Process -FilePath diskpart.exe -ArgumentList "/s $diskpartScriptPath" -Wait
+        Get-Date -Format "yyyyMMdd-HHmmss-fff"
         # Only run once
-        Unregister-ScheduledTask -TaskName "aks-expand-volume" -Confirm:$false
-        Remove-Item -Path "c:\aks-tools\expand-volume.ps1" -Force
-        Remove-Item -Path $diskpartScriptPath -Force
+        #Unregister-ScheduledTask -TaskName "aks-expand-volume" -Confirm:$false
+        #Remove-Item -Path "c:\aks-tools\expand-volume.ps1" -Force
+        #Remove-Item -Path $diskpartScriptPath -Force
+        Get-Disk -ErrorAction Ignore
+        Get-Partition -ErrorAction Ignore
+        Get-Volume -ErrorAction Ignore
+        Get-CimInstance -ClassName Win32_LogicalDisk
+        Stop-Transcript
 '@ 
 
     $taskScript| Set-Content -Path "c:\aks-tools\expand-volume.ps1" -Force
@@ -237,7 +249,7 @@ function Register-ExpandVolumeTask {
     $trigger = New-JobTrigger -AtStartup
     $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "aks-expand-volume"
     Register-ScheduledTask -TaskName "aks-expand-volume" -InputObject $definition
-    Write-Log "Registered ScheduledTask aks-expand-volume"
+    Write-Output "Registered ScheduledTask aks-expand-volume"
 }
 
 function Get-PrivatePackagesToCacheOnVHD {
