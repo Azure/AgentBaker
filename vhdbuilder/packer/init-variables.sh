@@ -8,11 +8,6 @@ SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr 
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 
-this_vm_name=$(az vm list --query "[?name=='$(hostname)'].name | [0]" -o tsv)
-echo "This VMs name is: $this_vm_name"
-echo "This VMs name is: $this_vm_name"
-echo "This VMs name is: $this_vm_name"
-
 # We use the provided SIG_IMAGE_VERSION if it's instantiated and we're running linuxVhdMode, otherwise we randomly generate one
 if [[ "${MODE}" == "linuxVhdMode" ]] && [[ -n "${SIG_IMAGE_VERSION}" ]]; then
 	CAPTURED_SIG_VERSION=${SIG_IMAGE_VERSION}

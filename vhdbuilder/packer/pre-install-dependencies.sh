@@ -6,6 +6,11 @@ start_timestamp=$(date +%H:%M:%S)
 capture_script_start=$(date +%s)
 capture_time=$(date +%s)
 
+this_vm_name=$(az vm list --query "[?name=='$(hostname)'].name | [0]" -o tsv)
+echo "This VMs name is: $this_vm_name"
+echo "This VMs name is: $this_vm_name"
+echo "This VMs name is: $this_vm_name"
+
 declare -a benchmarks=()
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
