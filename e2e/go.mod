@@ -23,7 +23,10 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
+require github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
+
 require (
+	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.2.0 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest v0.11.29 // indirect
