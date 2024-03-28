@@ -60,6 +60,9 @@ type Config struct {
 	// LiveVMValidators is a slice of LiveVMValidator objects for performing any live VM validation
 	// specific to the scenario that isn't covered in the set of common validators run with all scenarios
 	LiveVMValidators []*LiveVMValidator
+
+	// Airgap is a boolean flag which indicates whether or not the scenario will have airgap network confiigurations
+	Airgap bool
 }
 
 // VMCommandOutputAsserterFn is a function which takes in stdout and stderr stream content
