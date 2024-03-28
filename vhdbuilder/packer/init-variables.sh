@@ -8,9 +8,9 @@ SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr 
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 
-DEPLOYMENT=$(az group show -n ${temp_resource_group_name} --query tags.deploymentName -o tsv)
-NIC=$(az deployment group show -g ${temp_resource_group_name} -n $DEPLOYMENT --query properties.outputs.nicName.value -o tsv)
-az network nic update -g ${temp_resource_group_name} -n $NIC --accelerated-networking true
+DEPLOYMENT=$(az group show -n ${TEMP_RESOURCE_GROUP_NAME} --query tags.deploymentName -o tsv)
+NIC=$(az deployment group show -g ${TEMP_RESOURCE_GROUP_NAME} -n $DEPLOYMENT --query properties.outputs.nicName.value -o tsv)
+az network nic update -g ${TEMP_RESOURCE_GROUP_NAME} -n $NIC --accelerated-networking true
 
 # We use the provided SIG_IMAGE_VERSION if it's instantiated and we're running linuxVhdMode, otherwise we randomly generate one
 if [[ "${MODE}" == "linuxVhdMode" ]] && [[ -n "${SIG_IMAGE_VERSION}" ]]; then
