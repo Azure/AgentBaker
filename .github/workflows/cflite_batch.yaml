@@ -18,6 +18,11 @@ jobs:
       matrix:
         sanitizer: [address, undefined]  # Override this with the sanitizers you want.
     steps:
+    - name: Harden Runner
+      uses: step-security/harden-runner@eb238b55efaa70779f274895e782ed17c84f2895 # v2.6.1
+      with:
+        egress-policy: audit
+
     - name: Build Fuzzers (${{ matrix.sanitizer }})
       id: build
       uses: google/clusterfuzzlite/actions/build_fuzzers@cc641d4b14fedd42be7c34f57580f80eee020e36

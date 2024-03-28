@@ -6,9 +6,14 @@ jobs:
   generate-kubelet-flags:
     runs-on: ubuntu-latest
     steps:
+    - name: Harden Runner
+      uses: step-security/harden-runner@eb238b55efaa70779f274895e782ed17c84f2895 # v2.6.1
+      with:
+        egress-policy: audit
+
     - name: Set up containerd
-      uses: crazy-max/ghaction-setup-containerd@v2
-    - uses: actions/checkout@v4
+      uses: crazy-max/ghaction-setup-containerd@38de4052f2b7ab6094213e121851df6dbdfc6e56 # v2.2.0
+    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
     - name: Set up branch for kubelet flag changes
       run: |
         TIMESTAMP=$(date -d "${{ github.event.head_commit.timestamp }}" +'%Y-%m-%d-%H-%M-%S')
