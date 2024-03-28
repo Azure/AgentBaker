@@ -487,6 +487,18 @@ function Test-RegistryAdded {
             exit 1
         }
     }
+    if ($env:WindowsSKU -Like '23H2*') {
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts)
+        if ($result.NamespaceExcludedUdpPorts -ne 65330) {
+            Write-ErrorWithTimestamp "The registry for NamespaceExcludedUdpPorts is not added"
+            exit 1
+        }
+        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange)
+        if ($result.PortExclusionChange -ne 1) {
+            Write-ErrorWithTimestamp "The registry for PortExclusionChange is not added"
+            exit 1
+        }        
+    }
 }
 
 function Test-DefenderSignature {
