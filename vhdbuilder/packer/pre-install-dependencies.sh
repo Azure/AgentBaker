@@ -6,10 +6,16 @@ start_timestamp=$(date +%H:%M:%S)
 capture_script_start=$(date +%s)
 capture_time=$(date +%s)
 
-this_vm_name=$(az vm list --query "[?name=='$(hostname)'].name | [0]" -o tsv)
-echo "This VMs name is: $this_vm_name"
-echo "This VMs name is: $this_vm_name"
-echo "This VMs name is: $this_vm_name"
+# Update nic to enable accelerated networking
+echo "Capturing temp packer RG resource names..."
+vm=$(az vm list --query "[?name=='$(hostname)'].name | [0]" -o tsv)
+nic=${vm/vm/ni}
+temp_pkr_rg_name="pkr-Resource-Group-${vm/pkrvm/}"
+echo "RG Name: ${temp_pkr_rg_name}, VM Name: ${vm}, NIC Name: ${nic}."
+Echo "Updating NIC for accelerated networking..."
+az network nic update -g ${temp_pkr_rg_name} -n ${nic} --accelerated-networking true
+Echo "Accelerated networking is enabled"
+
 
 declare -a benchmarks=()
 
