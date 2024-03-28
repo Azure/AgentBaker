@@ -77,15 +77,6 @@ else
   done
 fi
 
-echo "Capturing temp packer RG resource names..."
-vm=$(az vm list --query "[?name=='$(hostname)'].name | [0]" -o tsv)
-nic=${vm/vm/ni}
-temp_pkr_rg_name="pkr-Resource-Group-${vm/pkrvm/}"
-echo "RG Name: ${temp_pkr_rg_name}, VM Name: ${vm}, NIC Name: ${nic}."
-echo "Updating NIC for accelerated networking..."
-az network nic update -g ${temp_pkr_rg_name} -n ${nic} --accelerated-networking true
-echo "Accelerated networking is enabled"
-
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
 Storage=persistent
 SystemMaxUse=1G
@@ -166,6 +157,14 @@ echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEP
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
+echo "Capturing temp packer RG resource names..."
+vm=$(az vm list --query "[?name=='$(hostname)'].name | [0]" -o tsv)
+nic=${vm/vm/ni}
+temp_pkr_rg_name="pkr-Resource-Group-${vm/pkrvm/}"
+echo "RG Name: ${temp_pkr_rg_name}, VM Name: ${vm}, NIC Name: ${nic}."
+echo "Updating NIC for accelerated networking..."
+az network nic update -g ${temp_pkr_rg_name} -n ${nic} --accelerated-networking true
+echo "Accelerated networking is enabled"
 containerd_manifest="$(jq .containerd manifest.json)" || exit $?
 
 installed_version="$(echo ${containerd_manifest} | jq -r '.edge')"
