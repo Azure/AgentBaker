@@ -24,11 +24,17 @@ const (
 type clusterParameters map[string]string
 
 type clusterConfig struct {
-	cluster      *armcontainerservice.ManagedCluster
-	kube         *kubeclient
-	parameters   clusterParameters
-	subnetId     string
-	isNewCluster bool
+	cluster         *armcontainerservice.ManagedCluster
+	kube            *kubeclient
+	parameters      clusterParameters
+	subnetId        string
+	isNewCluster    bool
+	isAirgapCluster bool
+}
+
+type VNet struct {
+	name     string
+	subnetId string
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -145,7 +151,8 @@ func createNewCluster(
 	ctx context.Context,
 	cloud *azureClient,
 	resourceGroupName string,
-	clusterModel *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
+	clusterConfig clusterConfig) (*armcontainerservice.ManagedCluster, error) {
+	clusterModel := clusterConfig.cluster
 	pollerResp, err := cloud.aksClient.BeginCreateOrUpdate(
 		ctx,
 		resourceGroupName,
@@ -179,23 +186,21 @@ func deleteExistingCluster(ctx context.Context, cloud *azureClient, resourceGrou
 	return nil
 }
 
-func getClusterSubnetID(ctx context.Context, cloud *azureClient, location, mcResourceGroupName, clusterName string) (string, error) {
+func getClusterVNet(ctx context.Context, cloud *azureClient, mcResourceGroupName string) (VNet, error) {
 	pager := cloud.vnetClient.NewListPager(mcResourceGroupName, nil)
-
 	for pager.More() {
 		nextResult, err := pager.NextPage(ctx)
 		if err != nil {
-			return "", fmt.Errorf("failed to advance page: %w", err)
+			return VNet{}, fmt.Errorf("failed to advance page: %w", err)
 		}
 		for _, v := range nextResult.Value {
 			if v == nil {
-				return "", fmt.Errorf("aks vnet id was empty")
+				return VNet{}, fmt.Errorf("aks vnet was empty")
 			}
-			return fmt.Sprintf("%s/subnets/%s", *v.ID, "aks-subnet"), nil
+			return VNet{name: *v.Name, subnetId: fmt.Sprintf("%s/subnets/%s", *v.ID, "aks-subnet")}, nil
 		}
 	}
-
-	return "", fmt.Errorf("failed to find aks vnet")
+	return VNet{}, fmt.Errorf("failed to find aks vnet")
 }
 
 func getInitialClusterConfigs(ctx context.Context, cloud *azureClient, resourceGroupName string) ([]clusterConfig, error) {
@@ -226,17 +231,26 @@ func getInitialClusterConfigs(ctx context.Context, cloud *azureClient, resourceG
 					continue
 				}
 
-				log.Printf("found agentbaker e2e cluster %q in provisioning state %q", *resource.Name, *cluster.Properties.ProvisioningState)
-				configs = append(configs, clusterConfig{cluster: &cluster.ManagedCluster})
+				clusterConfig := clusterConfig{cluster: &cluster.ManagedCluster}
+				isAirgap, err := isNetworkSecurityGroupAirgap(cloud, *clusterConfig.cluster.Properties.NodeResourceGroup)
+				if err != nil {
+					return nil, fmt.Errorf("failed to verify if aks subnet is for an airgap cluster: %w", err)
+				}
+
+				clusterConfig.isAirgapCluster = isAirgap
+				log.Printf("found agentbaker e2e cluster %q in provisioning state %q is Airgap %v", *resource.Name, *cluster.Properties.ProvisioningState, clusterConfig.isAirgapCluster)
+				configs = append(configs, clusterConfig)
 			}
 		}
 	}
-
 	return configs, nil
 }
 
 func hasViableConfig(scenario *scenario.Scenario, clusterConfigs []clusterConfig) bool {
 	for _, config := range clusterConfigs {
+		if scenario.Airgap && !config.isAirgapCluster {
+			continue
+		}
 		if scenario.Config.ClusterSelector(config.cluster) {
 			return true
 		}
@@ -244,18 +258,13 @@ func hasViableConfig(scenario *scenario.Scenario, clusterConfigs []clusterConfig
 	return false
 }
 
-func createMissingClusters(
-	ctx context.Context,
-	r *mrand.Rand,
-	cloud *azureClient,
-	suiteConfig *suite.Config,
-	scenarios scenario.Table,
-	clusterConfigs *[]clusterConfig) error {
+func createMissingClusters(ctx context.Context, r *mrand.Rand, cloud *azureClient, suiteConfig *suite.Config,
+	scenarios scenario.Table, clusterConfigs *[]clusterConfig) error {
 	var newConfigs []clusterConfig
 	for _, scenario := range scenarios {
 		if !hasViableConfig(scenario, *clusterConfigs) && !hasViableConfig(scenario, newConfigs) {
 			newClusterModel := getNewClusterModelForScenario(generateClusterName(r), suiteConfig.Location, scenario)
-			newConfigs = append(newConfigs, clusterConfig{cluster: &newClusterModel, isNewCluster: true})
+			newConfigs = append(newConfigs, clusterConfig{cluster: &newClusterModel, isNewCluster: true, isAirgapCluster: scenario.Airgap})
 		}
 	}
 
@@ -267,7 +276,7 @@ func createMissingClusters(
 			clusterName := *config.cluster.Name
 
 			log.Printf("creating cluster %q...", clusterName)
-			liveCluster, err := createNewCluster(ctx, cloud, suiteConfig.ResourceGroupName, config.cluster)
+			liveCluster, err := createNewCluster(ctx, cloud, suiteConfig.ResourceGroupName, config)
 			if err != nil {
 				return fmt.Errorf("unable to create new cluster: %w", err)
 			}
@@ -307,9 +316,14 @@ func chooseCluster(
 	suiteConfig *suite.Config,
 	scenario *scenario.Scenario,
 	clusterConfigs []clusterConfig) (clusterConfig, error) {
+
 	var chosenConfig clusterConfig
 	for i := range clusterConfigs {
 		config := &clusterConfigs[i]
+		if (scenario.Airgap && !config.isAirgapCluster) || (config.isAirgapCluster && !scenario.Airgap) {
+			continue
+		} 
+
 		if scenario.Config.ClusterSelector(config.cluster) {
 			// only validate + prep the cluster for testing if we didn't just create it and it hasn't already been prepared
 			if !config.isNewCluster && config.needsPreparation() {
@@ -331,6 +345,21 @@ func chooseCluster(
 		return clusterConfig{}, fmt.Errorf("tried to chose a cluster without a node resource group: %+v", *chosenConfig.cluster)
 	}
 
+	if chosenConfig.isAirgapCluster {
+		hasAirgapNSG, err := isNetworkSecurityGroupAirgap(cloud, *chosenConfig.cluster.Properties.NodeResourceGroup)
+		if err != nil {
+			return clusterConfig{}, fmt.Errorf("failed to check if airgap settings are present: %w", err)
+		}
+
+		if !hasAirgapNSG {
+			log.Printf("adding airgap network settings to cluster %q...", *chosenConfig.cluster.Name)
+			err = addAirgapNetworkSettings(ctx, cloud, suiteConfig, chosenConfig)
+			if err != nil {
+				return clusterConfig{}, fmt.Errorf("failed to add airgap network settings: %w", err)
+			}
+		}
+	}
+
 	return chosenConfig, nil
 }
 
@@ -346,7 +375,7 @@ func validateAndPrepareCluster(ctx context.Context, r *mrand.Rand, cloud *azureC
 		if err != nil {
 			return err
 		}
-		newCluster, err := createNewCluster(ctx, cloud, suiteConfig.ResourceGroupName, newModel)
+		newCluster, err := createNewCluster(ctx, cloud, suiteConfig.ResourceGroupName, *config)
 		if err != nil {
 			return err
 		}
@@ -372,7 +401,7 @@ func prepareClusterForTests(
 	cluster *armcontainerservice.ManagedCluster) (*kubeclient, string, clusterParameters, error) {
 	clusterName := *cluster.Name
 
-	subnetId, err := getClusterSubnetID(ctx, cloud, suiteConfig.Location, *cluster.Properties.NodeResourceGroup, clusterName)
+	vnet, err := getClusterVNet(ctx, cloud, *cluster.Properties.NodeResourceGroup)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("unable get subnet ID of cluster %q: %w", clusterName, err)
 	}
@@ -390,8 +419,7 @@ func prepareClusterForTests(
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("unable to extract cluster parameters from %q: %w", clusterName, err)
 	}
-
-	return kube, subnetId, clusterParams, nil
+	return kube, vnet.subnetId, clusterParams, nil
 }
 
 // TODO(cameissner): figure out a better way to reconcile server-side and client-side properties,
