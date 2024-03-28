@@ -28,6 +28,9 @@ function Resize-OSDrive
             [String]::Format("select volume {0}`nextend`nexit", $osDrive) | Out-File -Encoding "UTF8" $diskpartScriptPath
             Invoke-Executable -Executable "diskpart.exe" -ArgList @("/s", $diskpartScriptPath) -ExitCode $global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE
             Remove-Item -Path $diskpartScriptPath -Force
+        } else {
+            # VHD registered system startup task executed before CSE. Refer to vhdbuilder\packer\configure-windows-vhd.ps1\Register-ExpandVolumeTask
+            Write-Log "The OS volume does not need to be expanded. Disk Size: $($osDisk.Size). Allocated Size: $($osDisk.AllocatedSize)"
         }
     } catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE -ErrorMessage "Failed to resize os drive. Error: $_"

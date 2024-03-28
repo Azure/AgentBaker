@@ -544,6 +544,17 @@ function Test-ToolsToCacheOnVHD {
     }
 }
 
+function Test-ExpandVolumeTask {
+    $osDrive = ((Get-WmiObject Win32_OperatingSystem -ErrorAction Stop).SystemDrive).TrimEnd(":")
+    $osDisk = Get-Partition -DriveLetter $osDrive | Get-Disk
+    $osDiskSize = $osDisk.Size 
+    $osDiskAllocatedSize = $osDisk.AllocatedSize
+    if ($osDiskSize -ne $osDiskAllocatedSize) {
+        Write-ErrorWithTimestamp "The OS disk size $osDiskSize is not equal to the allocated size $osDiskAllocatedSize"
+        exit 1
+    }
+}
+
 function Test-SSHDConfig {
     # user must be the name in `TEST_VM_ADMIN_USERNAME="azureuser"` in vhdbuilder/packer/test/run-test.sh
     $result=$(sshd -T -C user=azureuser)
@@ -566,4 +577,5 @@ Test-AzureExtensions
 Test-ExcludeUDPSourcePort
 Test-WindowsDefenderPlatformUpdate
 Test-ToolsToCacheOnVHD
+Test-ExpandVolumeTask
 Remove-Item -Path c:\windows-vhd-configuration.ps1
