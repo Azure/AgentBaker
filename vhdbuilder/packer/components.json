@@ -215,13 +215,14 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.26.14",
         "v1.26.19",
-        "v1.27.8",
+        "v1.26.22",
         "v1.27.13",
-        "v1.28.0",
+        "v1.27.16",
         "v1.28.5",
-        "v1.29.0"
+        "v1.28.8",
+        "v1.29.0",
+        "v1.29.3"
       ]
     },
     {
@@ -243,13 +244,10 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.26.8",
         "v1.26.9",
-        "v1.28.5",
         "v1.28.6",
-        "v1.29.2",
         "v1.29.3",
-        "v1.30.0"
+        "v1.29.4"
       ]
     },
     {
@@ -257,9 +255,9 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.26.11",
-        "v1.26.11-2",
         "v1.28.9",
         "v1.29.3",
+        "v1.29.4",
         "v1.30.0"
       ]
     },
@@ -268,12 +266,10 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.21.7",
-        "v1.21.7-2",
         "v1.22.5",
         "v1.22.5-3",
         "v1.23.3",
-        "v1.23.3-3",
-        "v1.24.0"
+        "v1.23.4"
       ]
     },
     {

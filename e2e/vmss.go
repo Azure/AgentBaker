@@ -23,6 +23,7 @@ const (
 	vmssNameTemplate                         = "abtest%s"
 	listVMSSNetworkInterfaceURLTemplate      = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
+	maxRetries                               = 3
 )
 
 func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
@@ -77,28 +78,35 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 		return nil, fmt.Errorf("unable to prepare model for VMSS %q: %w", vmssName, err)
 	}
 
-	createVMSSCtx, cancel := context.WithTimeout(ctx, vmssClientCreateVMSSPollingTimeout)
-	defer cancel()
+	var pollErr error
+	var vmssResp *armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse
 
-	vmssResp, err := pollVMSSOperation(createVMSSCtx, vmssName, pollVMSSOperationOpts{
-		pollUntilDone: &runtime.PollUntilDoneOptions{
-			Frequency: vmssClientCreateVMSSPollInterval,
+	for i := 0; i < maxRetries; i++ {
+		createVMSSCtx, cancel := context.WithTimeout(ctx, vmssClientCreateVMSSPollingTimeout)
+		defer cancel()
+
+		vmssResp, pollErr = pollVMSSOperation(createVMSSCtx, vmssName, pollVMSSOperationOpts{
+			pollUntilDone: &runtime.PollUntilDoneOptions{
+				Frequency: vmssClientCreateVMSSPollInterval,
+			},
 		},
-	},
-		func() (Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse], error) {
-			return opts.cloud.vmssClient.BeginCreateOrUpdate(
-				ctx,
-				*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
-				vmssName,
-				model,
-				nil,
-			)
-		})
-	if err != nil {
-		return nil, fmt.Errorf("unable to create VMSS %q: %w", vmssName, err)
-	}
+			func() (Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse], error) {
+				return opts.cloud.vmssClient.BeginCreateOrUpdate(
+					ctx,
+					*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
+					vmssName,
+					model,
+					nil,
+				)
+			})
 
-	return &vmssResp.VirtualMachineScaleSet, nil
+		if pollErr == nil {
+			return &vmssResp.VirtualMachineScaleSet, nil
+		} else {
+			log.Printf("failed to create VMSS. Retry attempts left: %d", maxRetries-(i+1))
+		}
+	}
+	return nil, fmt.Errorf("unable to create VMSS %q: %w", vmssName, pollErr)
 }
 
 // Adds additional IP configs to the passed in vmss model based on the chosen cluster's setting of "maxPodsPerNode",

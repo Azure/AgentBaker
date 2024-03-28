@@ -27,15 +27,15 @@ const (
 	extractClusterParametersPollInterval    = 10 * time.Second
 	extractVMLogsPollInterval               = 10 * time.Second
 	getVMPrivateIPAddressPollInterval       = 5 * time.Second
-	waitUntilPodRunningPollInterval         = 5 * time.Second
-	waitUntilPodDeletedPollInterval         = 5 * time.Second
+	waitUntilPodRunningPollInterval         = 10 * time.Second
+	waitUntilPodDeletedPollInterval         = 10 * time.Second
 	waitUntilClusterNotCreatingPollInterval = 10 * time.Second
-	waitUntilNodeReadyPollingInterval       = 5 * time.Second
+	waitUntilNodeReadyPollingInterval       = 20 * time.Second
 
 	// Polling timeouts
 	vmssClientCreateVMSSPollingTimeout     = 10 * time.Minute
 	deleteVMSSPollingTimeout               = 5 * time.Minute
-	defaultVMSSOperationPollingTimeout     = 10 * time.Minute
+	defaultVMSSOperationPollingTimeout     = 5 * time.Minute
 	execOnVMPollingTimeout                 = 3 * time.Minute
 	execOnPodPollingTimeout                = 2 * time.Minute
 	extractClusterParametersPollingTimeout = 3 * time.Minute
