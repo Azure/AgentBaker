@@ -6,17 +6,6 @@ start_timestamp=$(date +%H:%M:%S)
 capture_script_start=$(date +%s)
 capture_time=$(date +%s)
 
-# Update nic to enable accelerated networking
-echo "Capturing temp packer RG resource names..."
-vm=$(az vm list --query "[?name=='$(hostname)'].name | [0]" -o tsv)
-nic=${vm/vm/ni}
-temp_pkr_rg_name="pkr-Resource-Group-${vm/pkrvm/}"
-echo "RG Name: ${temp_pkr_rg_name}, VM Name: ${vm}, NIC Name: ${nic}."
-Echo "Updating NIC for accelerated networking..."
-az network nic update -g ${temp_pkr_rg_name} -n ${nic} --accelerated-networking true
-Echo "Accelerated networking is enabled"
-
-
 declare -a benchmarks=()
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
@@ -34,6 +23,15 @@ source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
+# Update nic to enable accelerated networking
+echo "Capturing temp packer RG resource names..."
+vm=$(az vm list --query "[?name=='$(hostname)'].name | [0]" -o tsv)
+nic=${vm/vm/ni}
+temp_pkr_rg_name="pkr-Resource-Group-${vm/pkrvm/}"
+echo "RG Name: ${temp_pkr_rg_name}, VM Name: ${vm}, NIC Name: ${nic}."
+Echo "Updating NIC for accelerated networking..."
+az network nic update -g ${temp_pkr_rg_name} -n ${nic} --accelerated-networking true
+Echo "Accelerated networking is enabled"
 stop_watch $capture_time "Declare Variables / Remove Comments / Execute home/packer files" false
 start_watch
 
