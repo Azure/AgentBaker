@@ -26,13 +26,13 @@ type AuthConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	TargetCloud                 string `protobuf:"bytes,1,opt,name=target_cloud,json=targetCloud,proto3" json:"target_cloud,omitempty"` // set to cloud, can probably get rid of this, analyze more
+	TargetCloud                 string `protobuf:"bytes,1,opt,name=target_cloud,json=targetCloud,proto3" json:"target_cloud,omitempty"` // set to cloud, default to AzurePublicCloud
 	TenantId                    string `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	SubscriptionId              string `protobuf:"bytes,3,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`
-	ServicePrincipalId          string `protobuf:"bytes,4,opt,name=service_principal_id,json=servicePrincipalId,proto3" json:"service_principal_id,omitempty"`             // set to aadClientId
-	ServicePrincipalSecret      string `protobuf:"bytes,5,opt,name=service_principal_secret,json=servicePrincipalSecret,proto3" json:"service_principal_secret,omitempty"` // set to aadClientSecret
-	AssignedIdentityId          string `protobuf:"bytes,6,opt,name=assigned_identity_id,json=assignedIdentityId,proto3" json:"assigned_identity_id,omitempty"`             //could be user or system assigned, depending on the type
-	UseManagedIdentityExtension bool   `protobuf:"varint,7,opt,name=use_managed_identity_extension,json=useManagedIdentityExtension,proto3" json:"use_managed_identity_extension,omitempty"`
+	ServicePrincipalId          string `protobuf:"bytes,4,opt,name=service_principal_id,json=servicePrincipalId,proto3" json:"service_principal_id,omitempty"`                               // set to aadClientId
+	ServicePrincipalSecret      string `protobuf:"bytes,5,opt,name=service_principal_secret,json=servicePrincipalSecret,proto3" json:"service_principal_secret,omitempty"`                   // set to aadClientSecret
+	AssignedIdentityId          string `protobuf:"bytes,6,opt,name=assigned_identity_id,json=assignedIdentityId,proto3" json:"assigned_identity_id,omitempty"`                               //could be user or system assigned, depending on the type
+	UseManagedIdentityExtension bool   `protobuf:"varint,7,opt,name=use_managed_identity_extension,json=useManagedIdentityExtension,proto3" json:"use_managed_identity_extension,omitempty"` // default to false
 }
 
 func (x *AuthConfig) Reset() {
