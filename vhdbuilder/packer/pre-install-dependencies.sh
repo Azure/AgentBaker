@@ -24,15 +24,6 @@ source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
 # Update nic to enable accelerated networking
-echo "$(hostname)"
-echo "Capturing temp packer RG resource names..."
-vm=$(az vm list --query "[?name=='$(hostname)'].name | [0]" -o tsv)
-nic=${vm/vm/ni}
-temp_pkr_rg_name="pkr-Resource-Group-${vm/pkrvm/}"
-echo "RG Name: ${temp_pkr_rg_name}, VM Name: ${vm}, NIC Name: ${nic}."
-echo "Updating NIC for accelerated networking..."
-az network nic update -g ${temp_pkr_rg_name} -n ${nic} --accelerated-networking true
-echo "Accelerated networking is enabled"
 stop_watch $capture_time "Declare Variables / Remove Comments / Execute home/packer files" false
 start_watch
 
