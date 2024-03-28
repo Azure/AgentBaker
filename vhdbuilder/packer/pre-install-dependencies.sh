@@ -82,7 +82,7 @@ if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; 
   enableCgroupV2forAzureLinux
 fi
 
-if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
+if [[ "${UBUNTU_RELEASE}" == "22.04" ]]; then
   echo "Logging the currently running kernel: $(uname -r)"
   echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
 
