@@ -3,11 +3,10 @@ package main
 
 import (
 	"github.com/Azure/agentbaker/cmd/starter"
-	"github.com/Azure/agentbaker/pkg/agent/toggles"
 )
 
 // NOTE: please make the main.go only contains the starter.Execute().
 // that's because other components is reference the same function "starter.Execute()" to start the process.
 func main() {
-	starter.Execute(toggles.NewToggles())
+	starter.Execute()
 }

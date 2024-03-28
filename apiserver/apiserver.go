@@ -6,8 +6,6 @@ import (
 	"log"
 	"net/http"
 	"time"
-
-	"github.com/Azure/agentbaker/pkg/agent/toggles"
 )
 
 const (
@@ -16,8 +14,7 @@ const (
 
 // Options holds the options for the api server.
 type Options struct {
-	Addr    string
-	Toggles *toggles.Toggles
+	Addr string
 }
 
 func (o *Options) validate() error {
