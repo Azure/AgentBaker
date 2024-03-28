@@ -27,6 +27,18 @@ type SIGAzureEnvironmentSpecConfig struct {
 	// TODO(adadilli) add PIR constants as well
 }
 
+// EnvironmentInfo represents the set of required fields to determine specifics
+// about the customer's environment. This info will be used in baker APIs to
+// return the correct SIG image config.
+type EnvironmentInfo struct {
+	// SubscriptionID is the customer's subscription ID.
+	SubscriptionID string
+	// TenantID is the customer's tenant ID.
+	TenantID string
+	// Region is the customer's region (e.g. eastus).
+	Region string
+}
+
 // SIGConfig is used to hold configuration parameters to access AKS VHDs stored in a SIG.
 type SIGConfig struct {
 	TenantID       string                      `json:"tenantID"`
