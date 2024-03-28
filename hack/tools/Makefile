@@ -4,11 +4,8 @@ LOCALBIN		= $(shell pwd)/bin
 all: install
 
 .PHONY: install
-install: $(LOCALBIN)/go-bindata $(LOCALBIN)/gox $(LOCALBIN)/ginkgo $(LOCALBIN)/golangci-lint $(LOCALBIN)/cue $(LOCALBIN)/buf
+install: $(LOCALBIN)/gox $(LOCALBIN)/ginkgo $(LOCALBIN)/golangci-lint $(LOCALBIN)/cue $(LOCALBIN)/buf
 	@echo > /dev/null
-
-$(LOCALBIN)/go-bindata:
-	GOBIN=$(LOCALBIN) $(GO) install github.com/go-bindata/go-bindata/...@v3.1.2
 
 $(LOCALBIN)/gox:
 	GOBIN=$(LOCALBIN) $(GO) install github.com/mitchellh/gox/...@v1.0.1
