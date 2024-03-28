@@ -80,6 +80,14 @@
       {
         "type": "shell",
         "inline": [
+          "DEPLOYMENT=$(az group show -n ${temp_resource_group_name} --query tags.deploymentName -o tsv)",
+          "NIC=$(az deployment group show -g ${temp_resource_group_name} -n $DEPLOYMENT --query properties.outputs.nicName.value -o tsv)",
+          "az network nic update -g ${temp_resource_group_name} -n $NIC --accelerated-networking true"
+        ]
+      },
+      {
+        "type": "shell",
+        "inline": [
           "sudo mkdir -p /opt/azure/containers",
           "sudo chown -R $USER /opt/azure/containers"
         ]
