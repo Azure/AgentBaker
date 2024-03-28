@@ -79,12 +79,6 @@
     "provisioners": [
       {
         "type": "shell",
-        "environment_vars": [
-          "TEMP_RESOURCE_GROUP_NAME={{env `ARM_RESOURCE_GROUP`}}"
-        ]
-      },
-      {
-        "type": "shell",
         "inline": [
           "sudo mkdir -p /opt/azure/containers",
           "sudo chown -R $USER /opt/azure/containers"
