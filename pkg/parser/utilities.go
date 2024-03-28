@@ -10,7 +10,6 @@ func getBaseTemplate() *nbcontractv1.Configuration {
 	return &nbcontractv1.Configuration{
 		ProvisionOutput:    "/var/log/azure/cluster-provision-cse-output.log",
 		LinuxAdminUsername: "azureuser",
-		TenantId:           "",
 		KubernetesVersion:  "1.26.0",
 		KubeBinaryConfig: &nbcontractv1.KubeBinaryConfig{
 			KubeBinaryUrl:        "",

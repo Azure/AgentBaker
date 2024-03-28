@@ -1,0 +1,13 @@
+syntax = "proto3";
+package nbcontract.v1;
+
+// Auth Config fields stored in azure.json used by cloud-provider-azure
+message AuthConfig {
+  string target_cloud = 1; // set to cloud, default to AzurePublicCloud
+  string tenant_id = 2;
+  string subscription_id = 3;
+  string service_principal_id = 4; // set to aadClientId
+  string service_principal_secret = 5; // set to aadClientSecret
+  string assigned_identity_id = 6;  //could be user or system assigned, depending on the type
+  bool use_managed_identity_extension = 7; // default to false
+}
