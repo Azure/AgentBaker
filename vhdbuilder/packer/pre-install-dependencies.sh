@@ -77,29 +77,6 @@ systemctlEnableAndStart sync-container-logs.service || exit 1
 stop_watch $capture_time "Sync Container Logs" false
 start_watch
 
-# Handle Azure Linux + CgroupV2
-if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
-  enableCgroupV2forAzureLinux
-fi
-
-if [[ "${UBUNTU_RELEASE}" == "22.04" ]]; then
-  echo "Logging the currently running kernel: $(uname -r)"
-  echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
-
-  # Purge all current kernels and dependencies
-  DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
-  echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
-
-  # Install lts-22.04 kernel
-  DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-azure-lts-22.04 linux-cloud-tools-azure-lts-22.04 linux-headers-azure-lts-22.04 linux-modules-extra-azure-lts-22.04 linux-tools-azure-lts-22.04
-  echo "After installing new kernel, here is a list of kernels/headers installed"; dpkg -l 'linux-*azure*'
-
-  update-grub
-fi
-stop_watch $capture_time "Handle Azure Linux / CgroupV2" false
-
-start_watch
-
 # First handle Mariner + FIPS
 if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
@@ -134,6 +111,28 @@ else
   fi
 fi
 stop_watch $capture_time "Handle Mariner / FIPS Configurations" false
+start_watch
+
+# Handle Azure Linux + CgroupV2
+if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
+  enableCgroupV2forAzureLinux
+fi
+
+if [[ "${UBUNTU_RELEASE}" == "22.04" ]]; then
+  echo "Logging the currently running kernel: $(uname -r)"
+  echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
+
+  # Purge all current kernels and dependencies
+  DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
+  echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
+
+  # Install lts-22.04 kernel
+  DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-azure-lts-22.04 linux-cloud-tools-azure-lts-22.04 linux-headers-azure-lts-22.04 linux-modules-extra-azure-lts-22.04 linux-tools-azure-lts-22.04
+  echo "After installing new kernel, here is a list of kernels/headers installed"; dpkg -l 'linux-*azure*'
+  
+  update-grub
+fi
+stop_watch $capture_time "Handle Azure Linux / CgroupV2" false
 
 echo "pre-install-dependencies step finished successfully"
 stop_watch $capture_script_start "pre-install-dependencies.sh" true
