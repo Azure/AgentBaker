@@ -83,12 +83,14 @@
       "type": "file",
       "source": "/tmp/hostname.txt",
       "destination": "/tmp/hostname.txt",
-      "direction": "Download"
+      "direction": "download"
     },
     {
       "type": "shell-local",
       "inline": [
         "PACKER_HOSTNAME=$(cat /tmp/hostname.txt)",
+
+        "echo VM name is: $PACKER_HOSTNAME",
     
         "nic=${PACKER_HOSTNAME/vm/ni}",
     
