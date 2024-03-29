@@ -48,7 +48,6 @@ message Configuration {
   ContainerdConfig containerd_config = 22;
   bool is_vhd = 23;
   NetworkConfig network_config = 24;
-  bool is_sgx_node = 25;
   TeleportConfig teleport_config = 26;
 
   // enable_ssh specifies whether SSH is enabled or disabled on the VM node
