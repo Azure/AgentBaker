@@ -82,7 +82,8 @@
     {
       "type": "file",
       "source": "/tmp/hostname.txt",
-      "destination": "/tmp/hostname.txt"
+      "destination": "/tmp/hostname.txt",
+      "direction": "Download"
     },
     {
       "type": "shell-local",

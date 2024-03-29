@@ -71,14 +71,15 @@
       "type": "shell",
       "inline": [
         "PACKER_HOSTNAME=$(hostname)",
-        
+
         "echo $PACKER_HOSTNAME > /tmp/hostname.txt"
       ]
     },
     {
       "type": "file",
       "source": "/tmp/hostname.txt",
-      "destination": "/tmp/hostname.txt"
+      "destination": "/tmp/hostname.txt",
+      "direction": "download"
     },
     {
       "type": "shell-local",
