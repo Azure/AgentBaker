@@ -114,6 +114,7 @@ message Configuration {
   bool is_kata = 59; 
 
   // needs_cgroupv2 specifies whether the node needs cgroupv2
+  // when we actually work on the go binary, we should be able to query from the system. By then we can remove this.
   bool needs_cgroupv2 = 60;
 
   // Here begins the final contract

@@ -138,6 +138,7 @@ type Configuration struct {
 	// is_kata specifies whether the node is a Kata node
 	IsKata bool `protobuf:"varint,59,opt,name=is_kata,json=isKata,proto3" json:"is_kata,omitempty"`
 	// needs_cgroupv2 specifies whether the node needs cgroupv2
+	// when we actually work on the go binary, we should be able to query from the system. By then we can remove this.
 	NeedsCgroupv2 bool `protobuf:"varint,60,opt,name=needs_cgroupv2,json=needsCgroupv2,proto3" json:"needs_cgroupv2,omitempty"`
 	// Here begins the final contract
 	HttpProxyConfig *HTTPProxyConfig `protobuf:"bytes,61,opt,name=http_proxy_config,json=httpProxyConfig,proto3,oneof" json:"http_proxy_config,omitempty"`
