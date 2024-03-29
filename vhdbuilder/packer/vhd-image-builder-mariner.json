@@ -92,11 +92,7 @@
     
         "temp_pkr_rg_name=\"pkr-Resource-Group-$(echo $PACKER_HOSTNAME | awk '{gsub(\"pkrvm\",\"\"); print}')\"",
     
-        "az network nic update -g ${temp_pkr_rg_name} -n ${nic} --accelerated-networking true",
-
-        "accelerated_networking=$(az network nic list -g ${temp_pkr_rg_name} --query \"[?name=='${nic}'].enableAcceleratedNetworking | [0]\")",
-    
-        "echo \"Accelerated Networking Enabled: $accelerated_networking\""
+        "az network nic update -g ${temp_pkr_rg_name} -n ${nic} --accelerated-networking true"
       ]
     },
     {
