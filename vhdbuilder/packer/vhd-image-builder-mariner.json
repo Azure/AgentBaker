@@ -73,6 +73,46 @@
     {
       "type": "shell",
       "inline": [
+        "PACKER_HOSTNAME=$(hostname)",
+        "echo $PACKER_HOSTNAME > /tmp/hostname.txt"
+      ]
+    },
+    {
+      "type": "file",
+      "source": "/tmp/hostname.txt",
+      "destination": "/tmp/hostname.txt"
+    },
+    {
+      "type": "shell-local",
+      "inline": [
+        "PACKER_HOSTNAME=$(cat /tmp/hostname.txt)",
+    
+        "nic=${PACKER_HOSTNAME/vm/ni}",
+    
+        "temp_pkr_rg_name=\"pkr-Resource-Group-${PACKER_HOSTNAME/pkrvm/}\"",
+    
+        "az network nic update -g ${temp_pkr_rg_name} -n ${nic} --accelerated-networking true",
+    
+        "accelerated_networking=$(az network nic show -g ${temp_pkr_rg_name} -n ${nic} --query \"enableAcceleratedNetworking\")",
+    
+        "echo \"Accelerated Networking Enabled: $accelerated_networking\""
+      ]
+    },
+    {
+      "type": "shell-local",
+      "inline": [
+        "rm /tmp/hostname.txt"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "rm /tmp/hostname.txt"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": [
         "sudo mkdir -p /opt/azure/containers",
         "sudo chown -R $USER /opt/azure/containers"
       ]
