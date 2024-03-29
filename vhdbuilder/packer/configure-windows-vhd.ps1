@@ -830,7 +830,7 @@ function Update-Registry {
         if (![string]::IsNullOrEmpty($currentValue)) {
             Write-Log "The current value of NamespaceExcludedUdpPorts is $currentValue"
         }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts -Value 65330 -Type REG_SZ
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts -Value 65330 -Type DWORD
         
         $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange -ErrorAction Ignore)
         if (![string]::IsNullOrEmpty($currentValue)) {
