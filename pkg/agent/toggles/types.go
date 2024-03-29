@@ -42,25 +42,25 @@ func NewEntityFromNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappin
 	}
 }
 
-// Map is a toggle which resolves a map against a specified Entity.
-type Map func(entity *Entity) map[string]string
+// MapToggle is a toggle which resolves a map against a specified Entity.
+type MapToggle func(entity *Entity) map[string]string
 
-// String represents a toggle which resolves a string against a specified Entity.
-type String func(entity *Entity) string
+// StringToggle is a toggle which resolves a string against a specified Entity.
+type StringToggle func(entity *Entity) string
 
 // Toggles is a set of toggles to run the agentbakersvc instance with.
 type Toggles struct {
 	// Maps is the set of toggles which return map values.
-	Maps map[string]Map
+	Maps map[string]MapToggle
 	// Strings is the set of toggles which return string values
-	Strings map[string]String
+	Strings map[string]StringToggle
 }
 
 // New constructs a new and empty set of toggles.
 func New() *Toggles {
 	return &Toggles{
-		Maps:    make(map[string]Map),
-		Strings: make(map[string]String),
+		Maps:    make(map[string]MapToggle),
+		Strings: make(map[string]StringToggle),
 	}
 }
 
