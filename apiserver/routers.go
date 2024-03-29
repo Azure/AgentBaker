@@ -39,7 +39,7 @@ func (api *APIServer) NewRouter() *mux.Router {
 		Path(RoutePathDistroSIGImageConfig).
 		Name("GetDistroSigImageConfig").
 		HandlerFunc(api.GetDistroSigImageConfig)
-	
+
 	router.
 		Methods("POST").
 		Path(RoutePathGetCachedVHDImages).
