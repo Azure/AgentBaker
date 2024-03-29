@@ -75,6 +75,7 @@
       "type": "shell",
       "inline": [
         "PACKER_HOSTNAME=$(hostname)",
+        "echo The value of PACKER_HOSTNAME is $PACKER_HOSTNAME",
         "echo $PACKER_HOSTNAME > /tmp/hostname.txt"
       ]
     },
