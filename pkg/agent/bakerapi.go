@@ -155,7 +155,7 @@ func (agentBaker *agentBakerImpl) GetCachedVHDImages() ([]string, error) {
 	data = trimEOF(data)
 
 	var manifest Manifest
-	if err := json.Unmarshal(data, &manifest); err != nil {
+	if err = json.Unmarshal(data, &manifest); err != nil {
 		return nil, fmt.Errorf("error parsing JSON data: %w", err)
 	}
 	return manifest.Kubernetes.Versions, nil
