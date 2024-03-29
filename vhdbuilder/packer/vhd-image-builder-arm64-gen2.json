@@ -85,20 +85,14 @@
       "type": "shell-local",
       "inline": [
         "PACKER_HOSTNAME=$(cat /tmp/hostname.txt)",
-
-        "echo VM name is: $PACKER_HOSTNAME",
     
         "nic=$(echo $PACKER_HOSTNAME | sed 's/vm/ni/')",
-
-        "echo NIC name is: $nic",
     
         "temp_pkr_rg_name=\"pkr-Resource-Group-$(echo $PACKER_HOSTNAME | awk '{gsub(\"pkrvm\",\"\"); print}')\"",
-
-        "echo temp_pkr_rg_name name is: $temp_pkr_rg_name",
     
         "az network nic update -g ${temp_pkr_rg_name} -n ${nic} --accelerated-networking true",
-    
-        "accelerated_networking=$(az network nic show -g ${temp_pkr_rg_name} -n ${nic} --query \"enableAcceleratedNetworking\")",
+
+        "accelerated_networking=$(az network nic show -g ${temp_pkr_rg_name} -n ${nic} --query \"enableAcceleratedNetworking\" --output none)",
     
         "echo \"Accelerated Networking Enabled: $accelerated_networking\""
       ]
