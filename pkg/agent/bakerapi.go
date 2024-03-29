@@ -142,18 +142,21 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 }
 
 func (agentBaker *agentBakerImpl) GetCachedVHDImages() ([]string, error) {
-	pwd, _ := os.Getwd()
+	pwd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("error getting current working directory: %w", err)
+	}
 	manifestFilePath := filepath.Join(pwd, "../../parts/linux/cloud-init/artifacts/manifest.json")
 
 	data, err := os.ReadFile(manifestFilePath)
 	if err != nil {
-		return nil, fmt.Errorf("error reading manifest.json file: %v", err)
+		return nil, fmt.Errorf("error reading manifest.json file: %w", err)
 	}
 	data = trimEOF(data)
 
 	var manifest Manifest
 	if err := json.Unmarshal(data, &manifest); err != nil {
-		return nil, fmt.Errorf("error parsing JSON data: %v", err)
+		return nil, fmt.Errorf("error parsing JSON data: %w", err)
 	}
 	return manifest.Kubernetes.Versions, nil
 }
