@@ -1628,6 +1628,10 @@ type GetLatestSigImageConfigRequest struct {
 	Distro    Distro
 }
 
+type GetCachedVHDImagesRequest struct {
+	images []string
+}
+
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
 //
 //nolint:musttag // tags can be added if deemed necessary

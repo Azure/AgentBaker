@@ -252,4 +252,17 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(err).To(HaveOccurred())
 		})
 	})
+
+	Context("GetCachedVHDImages", func() {
+		It("should return the k8s version in manifest.json", func() {
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+
+			images, err := agentBaker.GetCachedVHDImages()
+			Expect(err).NotTo(HaveOccurred())
+
+			cachedVersions := []string{"1.26.6", "1.26.10", "1.26.12", "1.27.3", "1.27.7", "1.27.9", "1.28.1", "1.28.3", "1.28.5", "1.29.0", "1.29.2"}
+			Expect(images).To(Equal(cachedVersions))
+		})
+	})
 })

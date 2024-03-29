@@ -727,3 +727,12 @@ var _ = Describe("Test removeComments", func() {
 	})
 
 })
+
+var _ = Describe("trimEOF should remove the #EOF at the end of a file", func() {
+	It("Should remove #EOF at the end of a file", func() {
+		input := []byte(`"versions":["1.26.6","1.26.10","1.26.12","1.27.3","1.27.7","1.27.9","1.28.1","1.28.3","1.28.5","1.29.0","1.29.2"]},"_template":{"fileName":"","downloadLocation":"","downloadURL":"","versions":[]}}` + "\n#EOF")
+		expected := `"versions":["1.26.6","1.26.10","1.26.12","1.27.3","1.27.7","1.27.9","1.28.1","1.28.3","1.28.5","1.29.0","1.29.2"]},"_template":{"fileName":"","downloadLocation":"","downloadURL":"","versions":[]}}`
+		result := trimEOF(input)
+		Expect(string(result)).To(Equal(expected))
+	})
+})
