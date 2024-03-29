@@ -8,6 +8,9 @@ if (-not ($validSKU -contains $windowsSKU)) {
     throw "Unsupported windows image SKU: $windowsSKU"
 }
 
+# We use the same temp dir for all temp tools that will be used for vhd build
+$global:aksTempDir = "c:\akstemp"
+
 # We need to guarantee that the node provisioning will not fail because the vhd is full before resize-osdisk is called in AKS Windows CSE script.
 $global:lowestFreeSpace = 2*1024*1024*1024 # 2GB
 
