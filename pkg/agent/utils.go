@@ -468,13 +468,9 @@ func setCustomKubeletConfig(customKc *datamodel.CustomKubeletConfig,
 		}
 		if customKc.CPUCfsQuotaPeriod != "" {
 			kubeletConfig.CPUCFSQuotaPeriod = datamodel.Duration(customKc.CPUCfsQuotaPeriod)
-			// enable CustomCPUCFSQuotaPeriod feature gate is required for this configuration.
-			kubeletConfig.FeatureGates["CustomCPUCFSQuotaPeriod"] = true
 		}
 		if customKc.TopologyManagerPolicy != "" {
 			kubeletConfig.TopologyManagerPolicy = customKc.TopologyManagerPolicy
-			// enable TopologyManager feature gate is required for this configuration.
-			kubeletConfig.FeatureGates["TopologyManager"] = true
 		}
 		if customKc.ImageGcHighThreshold != nil {
 			kubeletConfig.ImageGCHighThresholdPercent = customKc.ImageGcHighThreshold
