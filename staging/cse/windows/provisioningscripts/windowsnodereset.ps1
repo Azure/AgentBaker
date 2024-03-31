@@ -130,7 +130,7 @@ if ($IsDualStackEnabled) {
 # Perform cleanup
 #
 
-& "c:\k\cleanupnetwork.ps1"
+& "c:\k\cleanupnetwork.ps1" # This script will remove the azure HNS network when provisioning node / restarting node
 
 #
 # Start Services

@@ -6,19 +6,20 @@ $global:HNSModule = "c:\k\hns.v2.psm1"
 
 ipmo $global:HNSModule
 
+# This script will remove the azure HNS network when provisioning node / restarting node
 $networkname = $global:NetworkMode.ToLower()
 if ($global:NetworkPlugin -eq "azure") {
-    $networkname = "azure"
+    $networkname = "azure" #
 }
-
 $hnsNetwork = Get-HnsNetwork | ? Name -EQ $networkname
 if ($hnsNetwork) {
     # Cleanup all containers
-    Write-Host "Cleaning up containers"
+    Write-Host "Cleaning up containers" @
     ctr.exe -n k8s.io c ls -q | ForEach-Object { ctr -n k8s.io tasks kill $_ }
     ctr.exe -n k8s.io c ls -q | ForEach-Object { ctr -n k8s.io c rm $_ }
     
-    Write-Host "Cleaning up persisted HNS policy lists"
+    Write-Host "Cleaning up persisted HNS policy lists" 
+    # reasons:
     # Initially a workaround for https://github.com/kubernetes/kubernetes/pull/68923 in < 1.14,
     # and https://github.com/kubernetes/kubernetes/pull/78612 for <= 1.15
     #
@@ -27,13 +28,25 @@ if ($hnsNetwork) {
     # See https://github.com/Azure/aks-engine/pull/3956#issuecomment-720797433 for more info
     # Kubeproxy doesn't fail becuase errors are not handled: 
     # https://github.com/delulu/kubernetes/blob/524de768bb64b7adff76792ca3bf0f0ece1e849f/pkg/proxy/winkernel/proxier.go#L532
+    # 
     Get-HnsPolicyList | Remove-HnsPolicyList
 
     Write-Host "Cleaning up old HNS network found"
-    Remove-HnsNetwork $hnsNetwork
+    Remove-HnsNetwork $hnsNetwork # Remove the azure HNS network
     Start-Sleep 10
 }
-
+# When provsioning node / restarting node, the azure HNS network will be removed,
+# so I need to recreate the azure HNS network in somewhere else, for example:
+function Create-AzureHNSNetwork {
+    # Read configuration from "C:\k\azurehnsnetwork.config"
+    $azurehnsnetworkconfig = Get-Content "C:\k\azurehnsnetwork.config" -ErrorAction Stop
+    # Create the azure HNS network with the configuration
+    $hnsNetwork = New-HnsNetwork -JsonConfig $azurehnsnetworkconfig
+    # Update the network DNS
+    Update-HnsNetworkDns -ID $hnsNetwork.ID -DnsServers @("DNS1", "DNS2")
+    # Other configurations can be updated here..........
+    Write-Log "Created Azure HNS network: $($hnsNetwork)"
+}
 
 if ($global:NetworkPlugin -eq "azure") {
     Write-Host "NetworkPlugin azure, starting kubelet."
