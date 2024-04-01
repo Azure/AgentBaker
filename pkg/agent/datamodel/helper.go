@@ -48,6 +48,32 @@ func IsMIGNode(gpuInstanceProfile string) bool {
 	return gpuInstanceProfile != ""
 }
 
+// IsNvidiaEnabledSKU determines if an VM SKU has nvidia driver support
+func IsNvidiaEnabledSKU(vmSize string) bool {
+	// Trim the optional _Promo suffix.
+	vmSize = strings.ToLower(vmSize)
+	vmSize = strings.TrimSuffix(vmSize, "_promo")
+	return NvidiaEnabledSKUs[vmSize]
+}
+
+// IsNvidiaEnabledSKU determines if an VM SKU has nvidia driver support
+func IsMarinerEnabledGPUSKU(vmSize string) bool {
+	// Trim the optional _Promo suffix.
+	vmSize = strings.ToLower(vmSize)
+	vmSize = strings.TrimSuffix(vmSize, "_promo")
+	return Mariner_NvidiaEnabledSKUs[vmSize]
+}
+
+func UseWindowsCudaGPUDriver(vmSize string) bool {
+	lowerVmSize := strings.ToLower(vmSize)
+	return strings.Contains(lowerVmSize, "_nc") || strings.Contains(lowerVmSize, "_nd")
+}
+
+func UseWindowsGridGPUDriver(vmSize string) bool {
+	lowerVmSize := strings.ToLower(vmSize)
+	return strings.Contains(lowerVmSize, "_nv")
+}
+
 // GetStorageAccountType returns the support managed disk storage tier for a give VM size.
 func GetStorageAccountType(sizeName string) (string, error) {
 	spl := strings.Split(sizeName, "_")
