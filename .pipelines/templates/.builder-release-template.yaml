@@ -156,7 +156,7 @@ steps:
       PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
       captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      ARM64_OS_DISK_SNAPSHOT_NAME="$(cat vhdbuilder/packer/settings.json | grep "arm64_os_disk_snapshot_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      OS_DISK_SNAPSHOT_NAME="$(cat vhdbuilder/packer/settings.json | grep "os_disk_snapshot_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       IMAGE_NAME="${SIG_IMAGE_NAME}-${captured_sig_version}" && \
       PRIVATE_PACKAGES_URL="$(cat vhdbuilder/packer/settings.json | grep "private_packages_url" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
@@ -176,7 +176,7 @@ steps:
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
       -e ARCHITECTURE=${ARCHITECTURE} \
-      -e ARM64_OS_DISK_SNAPSHOT_NAME=${ARM64_OS_DISK_SNAPSHOT_NAME} \
+      -e OS_DISK_SNAPSHOT_NAME=${OS_DISK_SNAPSHOT_NAME} \
       -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
       -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
       ${CONTAINER_IMAGE} make -f packer.mk cleanup
