@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
@@ -142,12 +141,7 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 }
 
 func (agentBaker *agentBakerImpl) GetCachedK8sVersions() ([]string, error) {
-	pwd, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("error getting current working directory: %w", err)
-	}
-	manifestFilePath := filepath.Join(pwd, "../../parts/linux/cloud-init/artifacts/manifest.json")
-
+	manifestFilePath := "../../parts/linux/cloud-init/artifacts/manifest.json"
 	data, err := os.ReadFile(manifestFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("error reading manifest.json file: %w", err)
