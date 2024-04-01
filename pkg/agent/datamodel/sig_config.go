@@ -879,13 +879,13 @@ func withSubscription(subscriptionID string) SigImageConfigOpt {
 	}
 }
 
+var CachedK8sVersions []string
+
 type Manifest struct {
 	Kubernetes struct {
 		Versions []string `json:"versions"`
 	} `json:"kubernetes"`
 }
-
-var CachedK8sVersions []string
 
 func getCachedK8sVersionFromManifest(manifestFilePath string) {
 	data, err := os.ReadFile(manifestFilePath)
