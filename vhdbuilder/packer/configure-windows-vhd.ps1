@@ -242,13 +242,40 @@ function Get-ToolsToVHD {
     # Rely on the completion of Get-FilesToCacheOnVHD
     $cacheDir = "c:\akse-cache\tools"
 
-    $toolsDir = "c:\aks-tools"
-    if (!(Test-Path -Path $toolsDir)) {
-        New-Item -ItemType Directory -Path $toolsDir | Out-Null
+    if (!(Test-Path -Path $global:aksToolsDir)) {
+        New-Item -ItemType Directory -Path $global:aksToolsDir -Force | Out-Null
     }
 
     Write-Log "Getting DU (Windows Disk Usage)"
-    Expand-Archive -Path "$cacheDir\DU.zip" -DestinationPath "$toolsDir\DU" -Force
+    Expand-Archive -Path "$cacheDir\DU.zip" -DestinationPath "$global:aksToolsDir\DU" -Force
+}
+
+function Register-ExpandVolumeTask {
+    if (!(Test-Path -Path $global:aksToolsDir)) {
+        New-Item -ItemType Directory -Path $global:aksToolsDir -Force | Out-Null
+    }
+
+    # Leverage existing folder 'c:\aks-tools' to store the task scripts
+    $taskScript = @'
+        $osDrive = ((Get-WmiObject Win32_OperatingSystem -ErrorAction Stop).SystemDrive).TrimEnd(":")
+        $diskpartScriptPath = "c:\aks-tools\diskpart.script"
+        [String]::Format("select volume {0}`nextend`nexit", $osDrive) | Out-File -Encoding "UTF8" $diskpartScriptPath -Force
+        Start-Process -FilePath diskpart.exe -ArgumentList "/s $diskpartScriptPath" -Wait
+        # Run once and remove the task. Sequence: taks invokes ps1, ps1 invokes diskpart.
+        Unregister-ScheduledTask -TaskName "aks-expand-volume" -Confirm:$false
+        Remove-Item -Path "c:\aks-tools\expand-volume.ps1" -Force
+        Remove-Item -Path $diskpartScriptPath -Force
+'@
+
+    $taskScriptPath = Join-Path $global:aksToolsDir "expand-volume.ps1"
+    $taskScript| Set-Content -Path $taskScriptPath -Force
+
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"$taskScriptPath`""
+    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+    $trigger = New-JobTrigger -AtStartup
+    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "aks-expand-volume"
+    Register-ScheduledTask -TaskName "aks-expand-volume" -InputObject $definition
+    Write-Log "Registered ScheduledTask aks-expand-volume"
 }
 
 function Get-PrivatePackagesToCacheOnVHD {
@@ -900,10 +927,13 @@ try{
             Get-FilesToCacheOnVHD
             Get-ToolsToVHD # Rely on the completion of Get-FilesToCacheOnVHD
             Get-PrivatePackagesToCacheOnVHD
+            Log-ReofferUpdate
+        }
+        "3" {
+            Register-ExpandVolumeTask
             Remove-Item -Path c:\windows-vhd-configuration.ps1
             Cleanup-TemporaryFiles
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
-            Log-ReofferUpdate
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"
