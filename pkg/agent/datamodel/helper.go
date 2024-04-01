@@ -98,3 +98,15 @@ func IndentString(original string, spaces int) string {
 	}
 	return out.String()
 }
+
+// trimEOF removes the last line of the data if it contains #EOF. Used for manifest.json
+func trimEOF(data []byte) []byte {
+	eofIndex := bytes.LastIndex(data, []byte("#EOF"))
+	if eofIndex != -1 { // #EOF found
+		newlineIndex := bytes.LastIndex(data[:eofIndex], []byte("\n"))
+		if newlineIndex != -1 {
+			return data[:newlineIndex]
+		}
+	}
+	return data
+}

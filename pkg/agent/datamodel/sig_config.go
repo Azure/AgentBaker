@@ -869,3 +869,29 @@ func withSubscription(subscriptionID string) SigImageConfigOpt {
 		c.SubscriptionID = subscriptionID
 	}
 }
+
+type Manifest struct {
+	Kubernetes struct {
+		Versions []string `json:"versions"`
+	} `json:"kubernetes"`
+}
+
+// go:embed ../../../parts/linux/cloud-init/artifacts/manifest.json
+var manifestJSONContentsEmbedded string
+var CachedK8sVersions = getCachedK8sVersionFromEmbeddedString(manifestJSONContentsEmbedded)
+
+func getCachedK8sVersionFromEmbeddedString(contents string) []string {
+	if len(contents) == 0 {
+		panic("K8s versions is empty")
+	}
+
+	var manifest Manifest
+	err := json.Unmarshal([]byte(contents), &manifest)
+
+	if err != nil {
+		panic(err)
+	}
+
+	k8sVersions := manifest.Kubernetes.Versions
+	return k8sVersions
+}

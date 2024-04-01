@@ -5,9 +5,7 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
@@ -17,17 +15,11 @@ type AgentBaker interface {
 	GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
 	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, region string, distro datamodel.Distro) (*datamodel.SigImageConfig, error)
 	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, region string) (map[datamodel.Distro]datamodel.SigImageConfig, error)
-	GetCachedK8sVersions() ([]string, error)
+	GetCachedK8sVersions() []string
 }
 
 func NewAgentBaker() (AgentBaker, error) {
 	return &agentBakerImpl{}, nil
-}
-
-type Manifest struct {
-	Kubernetes struct {
-		Versions []string `json:"versions"`
-	} `json:"kubernetes"`
 }
 
 type agentBakerImpl struct{}
@@ -140,17 +132,6 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 	return allDistros, nil
 }
 
-func (agentBaker *agentBakerImpl) GetCachedK8sVersions() ([]string, error) {
-	manifestFilePath := "../../parts/linux/cloud-init/artifacts/manifest.json"
-	data, err := os.ReadFile(manifestFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("error reading manifest.json file: %w", err)
-	}
-	data = trimEOF(data)
-
-	var manifest Manifest
-	if err = json.Unmarshal(data, &manifest); err != nil {
-		return nil, fmt.Errorf("error parsing JSON data: %w", err)
-	}
-	return manifest.Kubernetes.Versions, nil
+func (agentBaker *agentBakerImpl) GetCachedK8sVersions() []string {
+	return datamodel.CachedK8sVersions
 }

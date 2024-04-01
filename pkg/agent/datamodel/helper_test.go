@@ -346,3 +346,29 @@ func TestIndentString(t *testing.T) {
 		})
 	}
 }
+
+func TestTrimEOF(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []byte
+		expected string
+	}{
+		{
+			name:     "Should remove #EOF at the end of a file",
+			input:    []byte(`"versions":["1.26.6","1.26.10","1.26.12","1.27.3","1.27.7","1.27.9","1.28.1","1.28.3","1.28.5","1.29.0","1.29.2"]},"_template":{"fileName":"","downloadLocation":"","downloadURL":"","versions":[]}}` + "\n#EOF"),
+			expected: `"versions":["1.26.6","1.26.10","1.26.12","1.27.3","1.27.7","1.27.9","1.28.1","1.28.3","1.28.5","1.29.0","1.29.2"]},"_template":{"fileName":"","downloadLocation":"","downloadURL":"","versions":[]}}`,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			got := trimEOF(test.input)
+			diff := cmp.Diff(test.expected, string(got))
+			if diff != "" {
+				t.Fatalf(diff)
+			}
+		})
+	}
+}
