@@ -15,7 +15,7 @@ func Fuzz(data []byte) int {
 		return -1
 	}
 
-	baker, err := agent.NewAgentBaker(nil)
+	baker, err := agent.NewAgentBaker()
 	if err != nil {
 		return -1
 	}

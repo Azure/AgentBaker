@@ -159,8 +159,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 	Context("GetNodeBootstrapping", func() {
 		It("should return correct boot strapping data", func() {
-			agentBaker, err := NewAgentBaker(toggles)
+			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 
 			nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
@@ -190,8 +191,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				},
 			}
 
-			agentBaker, err := NewAgentBaker(toggles)
+			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 
 			nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
@@ -215,8 +217,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 					}
 				},
 			}
-			agentBaker, err := NewAgentBaker(toggles)
+			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 
 			nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
@@ -242,16 +245,18 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			config.CloudSpecConfig = cloudSpecConfig
 
 			config.CloudSpecConfig.CloudName = "UnknownCloud"
-			agentBaker, err := NewAgentBaker(toggles)
+			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("should return an error if distro is neither found in PIR nor found in SIG", func() {
 			config.AgentPoolProfile.Distro = "unknown"
-			agentBaker, err := NewAgentBaker(toggles)
+			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 
 			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).To(HaveOccurred())
@@ -259,8 +264,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		It("should not return an error for customized image", func() {
 			config.AgentPoolProfile.Distro = datamodel.CustomizedImage
-			agentBaker, err := NewAgentBaker(toggles)
+			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 
 			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
@@ -268,8 +274,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		It("should not return an error for customized kata image", func() {
 			config.AgentPoolProfile.Distro = datamodel.CustomizedImageKata
-			agentBaker, err := NewAgentBaker(toggles)
+			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 
 			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
@@ -277,8 +284,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		It("should not return an error for customized windows image", func() {
 			config.AgentPoolProfile.Distro = datamodel.CustomizedWindowsOSImage
-			agentBaker, err := NewAgentBaker(toggles)
+			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 
 			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
@@ -287,8 +295,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 	Context("GetLatestSigImageConfig", func() {
 		It("should return correct value for existing distro", func() {
-			agentBaker, err := NewAgentBaker(toggles)
+			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 
 			sigImageConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, datamodel.AKSUbuntu1604, &datamodel.EnvironmentInfo{
 				SubscriptionID: config.SubscriptionID,
@@ -311,8 +320,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 					}
 				},
 			}
-			agentBaker, err := NewAgentBaker(toggles)
+			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 
 			sigImageConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, datamodel.AKSUbuntu1604, &datamodel.EnvironmentInfo{
 				SubscriptionID: config.SubscriptionID,
@@ -335,8 +345,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 					}
 				},
 			}
-			agentBaker, err := NewAgentBaker(toggles)
+			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 
 			sigImageConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, datamodel.AKSUbuntu1604, &datamodel.EnvironmentInfo{
 				SubscriptionID: config.SubscriptionID,
@@ -352,8 +363,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		})
 
 		It("should return error if image config not found for distro", func() {
-			agentBaker, err := NewAgentBaker(toggles)
+			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 
 			_, err = agentBaker.GetLatestSigImageConfig(config.SIGConfig, "unknown", &datamodel.EnvironmentInfo{
 				SubscriptionID: config.SubscriptionID,
@@ -415,8 +427,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		})
 
 		It("should return correct value for all existing distros", func() {
-			agentBaker, err := NewAgentBaker(toggles)
+			agentBaker, err := NewAgentBaker()
 			Expect(err).To(BeNil())
+			agentBaker = agentBaker.WithToggles(toggles)
 
 			configs, err := agentBaker.GetDistroSigImageConfig(config.SIGConfig, &datamodel.EnvironmentInfo{
 				SubscriptionID: config.SubscriptionID,
@@ -472,8 +485,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				},
 			}
 
-			agentBaker, err := NewAgentBaker(toggles)
+			agentBaker, err := NewAgentBaker()
 			Expect(err).To(BeNil())
+			agentBaker = agentBaker.WithToggles(toggles)
 
 			configs, err := agentBaker.GetDistroSigImageConfig(config.SIGConfig, &datamodel.EnvironmentInfo{
 				SubscriptionID: config.SubscriptionID,

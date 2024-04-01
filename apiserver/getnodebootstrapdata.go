@@ -33,18 +33,24 @@ func (api *APIServer) GetNodeBootstrapData(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	agentBaker, err := agent.NewAgentBaker(api.Options.Toggles)
+	agentBaker, err := agent.NewAgentBaker()
 	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	if api.Options != nil && api.Options.Toggles != nil {
+		agentBaker = agentBaker.WithToggles(api.Options.Toggles)
+	}
+
 	nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(ctx, &config)
 	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
 	result, err := json.Marshal(nodeBootStrapping)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

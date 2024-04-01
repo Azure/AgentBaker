@@ -14,6 +14,9 @@ const (
 	readHeaderTimeoutSeconds = 5
 )
 
+// OptionConfigurator is a function which can configure an Options object.
+type OptionConfigurator func(opts *Options)
+
 // Options holds the options for the api server.
 type Options struct {
 	Addr    string

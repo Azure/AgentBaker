@@ -66,16 +66,20 @@ func New() *Toggles {
 
 // getMap attempts to resolve the named map toggle against the specified Entity.
 func (t *Toggles) getMap(name string, entity *Entity) map[string]string {
-	if toggle, ok := t.Maps[name]; ok {
-		return toggle(entity)
+	if t != nil && t.Maps != nil {
+		if toggle, ok := t.Maps[name]; ok {
+			return toggle(entity)
+		}
 	}
 	return map[string]string{}
 }
 
 // getString attempts to resolve the named string toggle against the specified Entity.
 func (t *Toggles) getString(name string, entity *Entity) string {
-	if toggle, ok := t.Strings[name]; ok {
-		return toggle(entity)
+	if t != nil && t.Strings != nil {
+		if toggle, ok := t.Strings[name]; ok {
+			return toggle(entity)
+		}
 	}
 	return ""
 }

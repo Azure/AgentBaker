@@ -26,11 +26,15 @@ func (api *APIServer) GetDistroSigImageConfig(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	agentBaker, err := agent.NewAgentBaker(api.Options.Toggles)
+	agentBaker, err := agent.NewAgentBaker()
 	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	if api.Options != nil && api.Options.Toggles != nil {
+		agentBaker = agentBaker.WithToggles(api.Options.Toggles)
 	}
 
 	allDistros, err := agentBaker.GetDistroSigImageConfig(config.SIGConfig, &datamodel.EnvironmentInfo{

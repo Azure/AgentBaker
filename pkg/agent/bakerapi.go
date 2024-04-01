@@ -18,14 +18,19 @@ type AgentBaker interface {
 	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, envInfo *datamodel.EnvironmentInfo) (map[datamodel.Distro]datamodel.SigImageConfig, error)
 }
 
-func NewAgentBaker(toggles *toggles.Toggles) (AgentBaker, error) {
+func NewAgentBaker() (*agentBakerImpl, error) {
 	return &agentBakerImpl{
-		toggles: toggles,
+		toggles: toggles.New(),
 	}, nil
 }
 
 type agentBakerImpl struct {
 	toggles *toggles.Toggles
+}
+
+func (agentBaker *agentBakerImpl) WithToggles(toggles *toggles.Toggles) *agentBakerImpl {
+	agentBaker.toggles = toggles
+	return agentBaker
 }
 
 //nolint:revive, nolintlint // ctx is not used, but may be in the future

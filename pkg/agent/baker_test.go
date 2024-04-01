@@ -17,7 +17,6 @@ import (
 	"strings"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/agentbaker/pkg/agent/toggles"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/barkimedes/go-deepcopy"
 	. "github.com/onsi/ginkgo"
@@ -221,7 +220,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(err).To(BeNil())
 
 		// customData
-		ab, err := NewAgentBaker(toggles.New())
+		ab, err := NewAgentBaker()
 		Expect(err).To(BeNil())
 		nodeBootstrapping, err := ab.GetNodeBootstrapping(
 			context.Background(),
@@ -241,7 +240,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(customData).To(Equal(string(expectedCustomData)))
 
 		// CSE
-		ab, err = NewAgentBaker(toggles.New())
+		ab, err = NewAgentBaker()
 		Expect(err).To(BeNil())
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(
 			context.Background(),
@@ -1455,7 +1454,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		}
 
 		// customData
-		ab, err := NewAgentBaker(toggles.New())
+		ab, err := NewAgentBaker()
 		Expect(err).To(BeNil())
 		nodeBootstrapping, err := ab.GetNodeBootstrapping(context.Background(), config)
 		Expect(err).To(BeNil())
@@ -1475,7 +1474,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		Expect(customData).To(Equal(string(expectedCustomData)))
 
 		// CSE
-		ab, err = NewAgentBaker(toggles.New())
+		ab, err = NewAgentBaker()
 		Expect(err).To(BeNil())
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(context.Background(), config)
 		Expect(err).To(BeNil())
