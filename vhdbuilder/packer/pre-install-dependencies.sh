@@ -132,6 +132,11 @@ fi
   
 #   update-grub
 # fi
+
+echo "Logging the currently running kernel: $(uname -r)"
+echo "Here's a list of kernels/headers installed at the end of pre-install-dependencies:"; dpkg -l 'linux-*azure*'
+
+
 stop_watch $capture_time "Handle Azure Linux / CgroupV2" false
 
 echo "pre-install-dependencies step finished successfully"
