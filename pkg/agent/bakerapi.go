@@ -18,7 +18,7 @@ type AgentBaker interface {
 	GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
 	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, region string, distro datamodel.Distro) (*datamodel.SigImageConfig, error)
 	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, region string) (map[datamodel.Distro]datamodel.SigImageConfig, error)
-	GetCachedVHDImages() ([]string, error)
+	GetCachedK8sVersions() ([]string, error)
 }
 
 func NewAgentBaker() (AgentBaker, error) {
@@ -141,7 +141,7 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 	return allDistros, nil
 }
 
-func (agentBaker *agentBakerImpl) GetCachedVHDImages() ([]string, error) {
+func (agentBaker *agentBakerImpl) GetCachedK8sVersions() ([]string, error) {
 	pwd, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("error getting current working directory: %w", err)
