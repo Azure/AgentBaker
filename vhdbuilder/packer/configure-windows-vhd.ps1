@@ -17,7 +17,7 @@ function Write-Log($Message) {
     Write-Output $msg
 }
 
-function DownloadFileWithRetry {
+function Download-File {
     param (
         $URL,
         $Dest,
@@ -32,6 +32,39 @@ function DownloadFileWithRetry {
             $logURL = $logURL.Split("?")[0]
         }
         throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL'"
+    }
+}
+
+function Download-FileWithAzCopy {
+    param (
+        $URL,
+        $Dest
+    )
+
+
+    if (!(Test-Path -Path $global:aksTempDir)) {
+        Write-Log "Creating temp dir for tools of building vhd"
+        New-Item -ItemType Directory $global:aksTempDir -Force
+    }
+
+    if (!(Test-Path -Path "$global:aksTempDir\azcopy")) {
+        Write-Log "Downloading azcopy"
+        Invoke-WebRequest -UseBasicParsing "https://aka.ms/downloadazcopy-v10-windows" -OutFile "$global:aksTempDir\azcopy.zip"
+        Expand-Archive -Path "$global:aksTempDir\azcopy.zip" -DestinationPath "$global:aksTempDir\azcopy" -Force
+    }
+
+    $env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
+    $env:AZCOPY_MSI_RESOURCE_STRING=$env:WindowsMSIResourceString
+    $env:AZCOPY_JOB_PLAN_LOCATION="$global:aksTempDir\azcopy"
+    $env:AZCOPY_LOG_LOCATION="$global:aksTempDir\azcopy"
+
+    Invoke-Expression -Command "$global:aksTempDir\azcopy\*\azcopy.exe copy $URL $dest"
+
+}
+
+function Cleanup-TemporaryFiles {
+    if (Test-Path -Path $global:aksTempDir) {
+        Remove-Item -Path $global:aksTempDir -Force -Recurse
     }
 }
 
@@ -169,7 +202,7 @@ function Get-ContainerImages {
             $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
             $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
             Write-Log "Downloading image $image to $tmpDest"
-            DownloadFileWithRetry -URL $url -Dest $tmpDest -redactUrl
+            Download-FileWithAzCopy -URL $url -Dest $tmpDest
 
             Write-Log "Loading image $image from $tmpDest"
             Retry-Command -ScriptBlock {
@@ -200,7 +233,7 @@ function Get-FilesToCacheOnVHD {
             $dest = [IO.Path]::Combine($dir, $fileName)
 
             Write-Log "Downloading $URL to $dest"
-            DownloadFileWithRetry -URL $URL -Dest $dest
+            Download-File -URL $URL -Dest $dest
         }
     }
 }
@@ -209,13 +242,40 @@ function Get-ToolsToVHD {
     # Rely on the completion of Get-FilesToCacheOnVHD
     $cacheDir = "c:\akse-cache\tools"
 
-    $toolsDir = "c:\aks-tools"
-    if (!(Test-Path -Path $toolsDir)) {
-        New-Item -ItemType Directory -Path $toolsDir | Out-Null
+    if (!(Test-Path -Path $global:aksToolsDir)) {
+        New-Item -ItemType Directory -Path $global:aksToolsDir -Force | Out-Null
     }
 
     Write-Log "Getting DU (Windows Disk Usage)"
-    Expand-Archive -Path "$cacheDir\DU.zip" -DestinationPath "$toolsDir\DU" -Force
+    Expand-Archive -Path "$cacheDir\DU.zip" -DestinationPath "$global:aksToolsDir\DU" -Force
+}
+
+function Register-ExpandVolumeTask {
+    if (!(Test-Path -Path $global:aksToolsDir)) {
+        New-Item -ItemType Directory -Path $global:aksToolsDir -Force | Out-Null
+    }
+
+    # Leverage existing folder 'c:\aks-tools' to store the task scripts
+    $taskScript = @'
+        $osDrive = ((Get-WmiObject Win32_OperatingSystem -ErrorAction Stop).SystemDrive).TrimEnd(":")
+        $diskpartScriptPath = "c:\aks-tools\diskpart.script"
+        [String]::Format("select volume {0}`nextend`nexit", $osDrive) | Out-File -Encoding "UTF8" $diskpartScriptPath -Force
+        Start-Process -FilePath diskpart.exe -ArgumentList "/s $diskpartScriptPath" -Wait
+        # Run once and remove the task. Sequence: taks invokes ps1, ps1 invokes diskpart.
+        Unregister-ScheduledTask -TaskName "aks-expand-volume" -Confirm:$false
+        Remove-Item -Path "c:\aks-tools\expand-volume.ps1" -Force
+        Remove-Item -Path $diskpartScriptPath -Force
+'@
+
+    $taskScriptPath = Join-Path $global:aksToolsDir "expand-volume.ps1"
+    $taskScript| Set-Content -Path $taskScriptPath -Force
+
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"$taskScriptPath`""
+    $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
+    $trigger = New-JobTrigger -AtStartup
+    $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "aks-expand-volume"
+    Register-ScheduledTask -TaskName "aks-expand-volume" -InputObject $definition
+    Write-Log "Registered ScheduledTask aks-expand-volume"
 }
 
 function Get-PrivatePackagesToCacheOnVHD {
@@ -225,23 +285,14 @@ function Get-PrivatePackagesToCacheOnVHD {
         $dir = "c:\akse-cache\private-packages"
         New-Item -ItemType Directory $dir -Force | Out-Null
 
-        Write-Log "Downloading azcopy"
-        Invoke-WebRequest -UseBasicParsing "https://aka.ms/downloadazcopy-v10-windows" -OutFile azcopy.zip
-        Expand-Archive -Path azcopy.zip -DestinationPath ".\azcopy" -Force
-        $env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
-        $env:AZCOPY_MSI_RESOURCE_STRING=$env:WindowsMSIResourceString
-
         $urls = $env:WindowsPrivatePackagesURL.Split(",")
         foreach ($url in $urls) {
             $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
             $dest = [IO.Path]::Combine($dir, $fileName)
 
             Write-Log "Downloading a private package to $dest"
-            .\azcopy\*\azcopy.exe copy $URL $dest
+            Download-FileWithAzCopy -URL $URL -Dest $dest
         }
-
-        Remove-Item -Path ".\azcopy" -Force -Recurse
-        Remove-Item -Path ".\azcopy.zip" -Force
     }
 }
 
@@ -258,7 +309,7 @@ function Install-ContainerD {
 
     $containerdFilename=[IO.Path]::GetFileName($global:defaultContainerdPackageUrl)
     $containerdTmpDest = [IO.Path]::Combine($installDir, $containerdFilename)
-    DownloadFileWithRetry -URL $global:defaultContainerdPackageUrl -Dest $containerdTmpDest
+    Download-File -URL $global:defaultContainerdPackageUrl -Dest $containerdTmpDest
     # The released containerd package format is either zip or tar.gz
     if ($containerdFilename.endswith(".zip")) {
         Expand-Archive -path $containerdTmpDest -DestinationPath $installDir -Force
@@ -314,7 +365,7 @@ function Install-WindowsPatches {
         switch ($fileExtension) {
             ".msu" {
                 Write-Log "Downloading windows patch from $pathOnly to $fullPath"
-                DownloadFileWithRetry -URL $patchUrl -Dest $fullPath -redactUrl
+                Download-File -URL $patchUrl -Dest $fullPath -redactUrl
                 Write-Log "Starting install of $fileName"
                 $proc = Start-Process -Passthru -FilePath wusa.exe -ArgumentList "$fullPath /quiet /norestart"
                 Wait-Process -InputObject $proc
@@ -811,7 +862,7 @@ function Get-LatestWindowsDefenderPlatformUpdate {
  
     if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
         Write-Log "Update started. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
-        DownloadFileWithRetry -URL $global:defenderUpdateUrl -Dest $downloadFilePath
+        Download-File -URL $global:defenderUpdateUrl -Dest $downloadFilePath
         $proc = Start-Process -PassThru -FilePath $downloadFilePath -Wait
         Start-Sleep -Seconds 10
         switch ($proc.ExitCode) {
@@ -876,9 +927,13 @@ try{
             Get-FilesToCacheOnVHD
             Get-ToolsToVHD # Rely on the completion of Get-FilesToCacheOnVHD
             Get-PrivatePackagesToCacheOnVHD
-            Remove-Item -Path c:\windows-vhd-configuration.ps1
-            (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
             Log-ReofferUpdate
+        }
+        "3" {
+            Register-ExpandVolumeTask
+            Remove-Item -Path c:\windows-vhd-configuration.ps1
+            Cleanup-TemporaryFiles
+            (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"
