@@ -12,9 +12,8 @@ message NetworkConfig {
 
 enum NetworkModeType {
   NETWORK_MODE_UNSPECIFIED = 0;
-  NETWORK_MODE_L2BRIDGE = 1;
+  NETWORK_MODE_BRIDGE = 1;
   NETWORK_MODE_TRANSPARENT = 2;
-  //could be more. Needs to check.
 }
 
 enum NetworkPluginType {
