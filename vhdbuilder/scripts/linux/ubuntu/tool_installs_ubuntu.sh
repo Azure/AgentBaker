@@ -196,8 +196,6 @@ installFIPS() {
 
     echo "enabling ua fips-updates..."
     retrycmd_if_failure 5 10 1200 echo y | ua enable fips-updates || exit $ERR_UA_ENABLE_FIPS
-
-    update-grub
 }
 
 relinkResolvConf() {
