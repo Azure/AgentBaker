@@ -33,7 +33,7 @@ func (api *APIServer) GetDistroSigImageConfig(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	allDistros, err := agentBaker.GetDistroSigImageConfig(config.SIGConfig, &datamodel.EnvironmentConfig{
+	allDistros, err := agentBaker.GetDistroSigImageConfig(config.SIGConfig, &datamodel.EnvironmentInfo{
 		SubscriptionID: config.SubscriptionID,
 		TenantID:       config.TenantID,
 		Region:         config.Region,

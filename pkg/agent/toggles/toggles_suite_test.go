@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestOverrides(t *testing.T) {
+func TestToggles(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "toggles suite")
 }

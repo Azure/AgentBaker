@@ -6,7 +6,6 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/agentbaker/pkg/agent/toggles"
 )
 
 func Fuzz(data []byte) int {
@@ -16,7 +15,7 @@ func Fuzz(data []byte) int {
 		return -1
 	}
 
-	baker, err := agent.NewAgentBaker(toggles.NewToggles())
+	baker, err := agent.NewAgentBaker(nil)
 	if err != nil {
 		return -1
 	}

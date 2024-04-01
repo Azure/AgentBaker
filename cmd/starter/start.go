@@ -16,7 +16,7 @@ import (
 // Execute adds all child commands to the root command and sets flags appropriately.
 func Execute(toggles *agenttoggles.Toggles) {
 	// set toggles
-	options.Toggles = agenttoggles.NewToggles()
+	options.Toggles = agenttoggles.New()
 	if toggles != nil {
 		options.Toggles = toggles
 	}

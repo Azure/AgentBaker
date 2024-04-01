@@ -6,17 +6,8 @@ message NetworkConfig {
   NetworkPluginType network_plugin = 1;
   NetworkPolicyType network_policy = 2;
   NetworkModeType network_mode = 3;
-  string network_security_group = 4;
-  VirtualNetworkConfig virtual_network_config = 5;
-  string vnet_cni_plugins_url = 6;
-  string cni_plugins_url = 7;
-  string subnet = 8;
-  string route_table = 9;
-}
-
-message VirtualNetworkConfig {
-  string name = 1;
-  string resource_group = 2;
+  string vnet_cni_plugins_url = 4;
+  string cni_plugins_url = 5;
 }
 
 enum NetworkModeType {

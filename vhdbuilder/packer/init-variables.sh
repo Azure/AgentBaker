@@ -305,13 +305,10 @@ if [ "$OS_TYPE" == "Windows" ]; then
 
 		WINDOWS_IMAGE_URL=${IMPORTED_IMAGE_URL}
 
-		echo "Generating sas token to copy Windows base image"
-		expiry_date=$(date -u -d "20 minutes" '+%Y-%m-%dT%H:%MZ')
 		echo "Copy Windows base image to ${WINDOWS_IMAGE_URL}"
-		set +x
-		sas_token=$(az storage account generate-sas --account-name ${STORAGE_ACCOUNT_NAME} --permissions cw --account-key "$key" --resource-types o --services b --expiry ${expiry_date} | tr -d '"')
-		azcopy-preview copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}?${sas_token}"
-		set -x
+		export AZCOPY_AUTO_LOGIN_TYPE="MSI"
+		export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
+		azcopy-preview copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}"
 		# https://www.packer.io/plugins/builders/azure/arm#image_url
 		# WINDOWS_IMAGE_URL to a custom VHD to use for your base image. If this value is set, image_publisher, image_offer, image_sku, or image_version should not be set.
 		WINDOWS_IMAGE_PUBLISHER=""

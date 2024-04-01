@@ -33,7 +33,7 @@ func (api *APIServer) GetLatestSigImageConfig(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	latestSigConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, config.Distro, &datamodel.EnvironmentConfig{
+	latestSigConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, config.Distro, &datamodel.EnvironmentInfo{
 		SubscriptionID: config.SubscriptionID,
 		TenantID:       config.TenantID,
 		Region:         config.Region,

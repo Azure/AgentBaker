@@ -14,8 +14,8 @@ import (
 //nolint:revive // Name does not need to be modified to baker
 type AgentBaker interface {
 	GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
-	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, distro datamodel.Distro, envConfig *datamodel.EnvironmentConfig) (*datamodel.SigImageConfig, error)
-	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, envConfig *datamodel.EnvironmentConfig) (map[datamodel.Distro]datamodel.SigImageConfig, error)
+	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, distro datamodel.Distro, envInfo *datamodel.EnvironmentInfo) (*datamodel.SigImageConfig, error)
+	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, envInfo *datamodel.EnvironmentInfo) (map[datamodel.Distro]datamodel.SigImageConfig, error)
 }
 
 func NewAgentBaker(toggles *toggles.Toggles) (AgentBaker, error) {
@@ -80,19 +80,19 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 }
 
 func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(sigConfig datamodel.SIGConfig,
-	distro datamodel.Distro, envConfig *datamodel.EnvironmentConfig) (*datamodel.SigImageConfig, error) {
-	sigAzureEnvironmentSpecConfig, err := datamodel.GetSIGAzureCloudSpecConfig(sigConfig, envConfig.Region)
+	distro datamodel.Distro, envInfo *datamodel.EnvironmentInfo) (*datamodel.SigImageConfig, error) {
+	sigAzureEnvironmentSpecConfig, err := datamodel.GetSIGAzureCloudSpecConfig(sigConfig, envInfo.Region)
 	if err != nil {
 		return nil, err
 	}
 
 	sigImageConfig := findSIGImageConfig(sigAzureEnvironmentSpecConfig, distro)
 	if sigImageConfig == nil {
-		return nil, fmt.Errorf("can't find SIG image config for distro %s in region %s", distro, envConfig.Region)
+		return nil, fmt.Errorf("can't find SIG image config for distro %s in region %s", distro, envInfo.Region)
 	}
 
 	if !distro.IsWindowsDistro() {
-		e := toggles.NewEntityFromEnvironmentConfig(envConfig)
+		e := toggles.NewEntityFromEnvironmentInfo(envInfo)
 		imageVersionOverrides := agentBaker.toggles.GetLinuxNodeImageVersion(e)
 		if imageVersion, ok := imageVersionOverrides[string(distro)]; ok {
 			sigImageConfig.Version = imageVersion
@@ -102,13 +102,13 @@ func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(sigConfig datamodel.SI
 }
 
 func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
-	sigConfig datamodel.SIGConfig, envConfig *datamodel.EnvironmentConfig) (map[datamodel.Distro]datamodel.SigImageConfig, error) {
-	allAzureSigConfig, err := datamodel.GetSIGAzureCloudSpecConfig(sigConfig, envConfig.Region)
+	sigConfig datamodel.SIGConfig, envInfo *datamodel.EnvironmentInfo) (map[datamodel.Distro]datamodel.SigImageConfig, error) {
+	allAzureSigConfig, err := datamodel.GetSIGAzureCloudSpecConfig(sigConfig, envInfo.Region)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sig image config: %w", err)
 	}
 
-	e := toggles.NewEntityFromEnvironmentConfig(envConfig)
+	e := toggles.NewEntityFromEnvironmentInfo(envInfo)
 	linuxImageVersionOverrides := agentBaker.toggles.GetLinuxNodeImageVersion(e)
 
 	allDistros := map[datamodel.Distro]datamodel.SigImageConfig{}

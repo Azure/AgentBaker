@@ -27,9 +27,10 @@ type SIGAzureEnvironmentSpecConfig struct {
 	// TODO(adadilli) add PIR constants as well
 }
 
-// EnvironmentConfig represents the set of fields required to determine information
-// about the customer's environment used to get image config from agentbakersvc APIs.
-type EnvironmentConfig struct {
+// EnvironmentInfo represents the set of required fields to determine specifics
+// about the customer's environment. This info will be used in baker APIs to
+// return the correct SIG image config.
+type EnvironmentInfo struct {
 	// SubscriptionID is the customer's subscription ID.
 	SubscriptionID string
 	// TenantID is the customer's tenant ID.

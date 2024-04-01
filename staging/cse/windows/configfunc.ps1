@@ -23,11 +23,14 @@ function Resize-OSDrive
         $osDisk = Get-Partition -DriveLetter $osDrive | Get-Disk
         if ($osDisk.Size - $osDisk.AllocatedSize -gt 1GB)
         {
+            Write-Log "Expanding the OS volume"
             # Create a diskpart script (text file) that will select the OS volume, extend it and exit.
             $diskpartScriptPath = [String]::Format("{0}\\diskpart_extendOSVol.script", $env:temp)
             [String]::Format("select volume {0}`nextend`nexit", $osDrive) | Out-File -Encoding "UTF8" $diskpartScriptPath
             Invoke-Executable -Executable "diskpart.exe" -ArgList @("/s", $diskpartScriptPath) -ExitCode $global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE
             Remove-Item -Path $diskpartScriptPath -Force
+        } else {
+            Write-Log "No need to expand the OS volume due to ScheduledTask executed before CSE."
         }
     } catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE -ErrorMessage "Failed to resize os drive. Error: $_"
