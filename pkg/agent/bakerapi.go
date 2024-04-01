@@ -18,14 +18,16 @@ type AgentBaker interface {
 	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, envInfo *datamodel.EnvironmentInfo) (map[datamodel.Distro]datamodel.SigImageConfig, error)
 }
 
+type agentBakerImpl struct {
+	toggles *toggles.Toggles
+}
+
+var _ AgentBaker = (*agentBakerImpl)(nil)
+
 func NewAgentBaker() (*agentBakerImpl, error) {
 	return &agentBakerImpl{
 		toggles: toggles.New(),
 	}, nil
-}
-
-type agentBakerImpl struct {
-	toggles *toggles.Toggles
 }
 
 func (agentBaker *agentBakerImpl) WithToggles(toggles *toggles.Toggles) *agentBakerImpl {
