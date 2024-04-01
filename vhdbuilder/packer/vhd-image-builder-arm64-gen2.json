@@ -17,7 +17,7 @@
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
-    "arm64_os_disk_snapshot_name": "{{env `${ARM64_OS_DISK_SNAPSHOT_NAME`}}",
+    "os_disk_snapshot_name": "{{env `${OS_DISK_SNAPSHOT_NAME`}}",
     "captured_sig_version": "{{env `${CAPTURED_SIG_VERSION`}}",
     "enable_fips": "{{env `ENABLE_FIPS`}}",
     "img_publisher": "{{env `IMG_PUBLISHER`}}",
