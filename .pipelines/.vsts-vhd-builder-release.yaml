@@ -137,8 +137,6 @@ variables:
   
 pool:
   name: $(POOL_NAME)
-  demands:
-    Agent.Size -equals Standard_D16s_v3
 
 stages:
   - stage: build_vhd_1804_containerd
