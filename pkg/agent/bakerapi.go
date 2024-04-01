@@ -24,6 +24,7 @@ type agentBakerImpl struct {
 
 var _ AgentBaker = (*agentBakerImpl)(nil)
 
+//nolint:revive // fine to return unexported type due to interface usage
 func NewAgentBaker() (*agentBakerImpl, error) {
 	return &agentBakerImpl{
 		toggles: toggles.New(),
