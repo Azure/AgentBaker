@@ -98,3 +98,14 @@ func IndentString(original string, spaces int) string {
 	}
 	return out.String()
 }
+
+func trimEOF(data []byte) []byte {
+	eofIndex := bytes.LastIndex(data, []byte("#EOF"))
+	if eofIndex != -1 { // #EOF found
+		newlineIndex := bytes.LastIndex(data[:eofIndex], []byte("\n"))
+		if newlineIndex != -1 {
+			return data[:newlineIndex]
+		}
+	}
+	return data
+}

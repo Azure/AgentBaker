@@ -4,6 +4,9 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path"
+	"runtime"
 	"strings"
 )
 
@@ -11,6 +14,12 @@ const (
 	AzurePublicCloudSigTenantID     string = "33e01921-4d64-4f8c-a055-5bdaffd5e33d" // AME Tenant
 	AzurePublicCloudSigSubscription string = "109a5e88-712a-48ae-9078-9ca8b3c81345" // AKS VHD
 )
+
+func init() {
+	_, filename, _, _ := runtime.Caller(0)
+	manifestFilePath := "../../../parts/linux/cloud-init/artifacts/manifest.json"
+	getCachedK8sVersionFromManifest(path.Join(path.Dir(filename), manifestFilePath))
+}
 
 // SIGAzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
 /* TODO(tonyxu) merge this with AzureEnvironmentSpecConfig from aks-engine(pkg/api/azenvtypes.go) once
@@ -868,4 +877,25 @@ func withSubscription(subscriptionID string) SigImageConfigOpt {
 	return func(c *SigImageConfig) {
 		c.SubscriptionID = subscriptionID
 	}
+}
+
+type Manifest struct {
+	Kubernetes struct {
+		Versions []string `json:"versions"`
+	} `json:"kubernetes"`
+}
+
+var CachedK8sVersions []string
+
+func getCachedK8sVersionFromManifest(manifestFilePath string) {
+	data, err := os.ReadFile(manifestFilePath)
+	if err != nil {
+		panic(err)
+	}
+	data = trimEOF(data)
+	var manifest Manifest
+	if err = json.Unmarshal(data, &manifest); err != nil {
+		panic(err)
+	}
+	CachedK8sVersions = manifest.Kubernetes.Versions
 }
