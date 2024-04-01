@@ -138,6 +138,10 @@ fi
 echo "Logging the currently running kernel: $(uname -r)"
 echo "Here's a list of kernels/headers installed at the end of pre-install-dependencies:"; dpkg -l 'linux-*azure*'
 
+echo "Here's options for what grub will boot into:"; grep -i "menuentry '" /boot/grub/grub.cfg | cut -d"'" -f2
+
+echo "grub configuration:"; cat /etc/default/grub
+
 
 stop_watch $capture_time "Handle Azure Linux / CgroupV2" false
 
