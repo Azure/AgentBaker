@@ -178,7 +178,7 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 		return ""
 	}
 
-	if strings.EqualFold(nbc.OutboundType, datamodel.OutboundTypeBlock) || strings.EqualFold(nbc.OutboundType, datamodel.OutboundTypeNone) {
+	if strings.EqualFold(nbc.OutboundType, datamodel.OutboundTypeBlock) {
 		return ""
 	}
 
