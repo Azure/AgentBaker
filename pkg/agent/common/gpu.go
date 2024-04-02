@@ -41,12 +41,12 @@ const (
 // that we have an agreement with NVIDIA for this specific gpu.
 */
 var nvidiaEnabledSKUs = sets.NewString(
-	// K80
+	// K80: https://learn.microsoft.com/en-us/azure/virtual-machines/nc-series
 	"standard_nc6",
 	"standard_nc12",
 	"standard_nc24",
 	"standard_nc24r",
-	// M60
+	// M60: https://learn.microsoft.com/en-us/azure/virtual-machines/nv-series
 	"standard_nv6",
 	"standard_nv12",
 	"standard_nv12s_v3",
@@ -54,37 +54,37 @@ var nvidiaEnabledSKUs = sets.NewString(
 	"standard_nv24s_v3",
 	"standard_nv24r",
 	"standard_nv48s_v3",
-	// P40
+	// P40: https://learn.microsoft.com/en-us/azure/virtual-machines/nd-series
 	"standard_nd6s",
 	"standard_nd12s",
 	"standard_nd24s",
 	"standard_nd24rs",
-	// P100
+	// P100: https://learn.microsoft.com/en-us/azure/virtual-machines/ncv2-series
 	"standard_nc6s_v2",
 	"standard_nc12s_v2",
 	"standard_nc24s_v2",
 	"standard_nc24rs_v2",
-	// V100
+	// V100: https://learn.microsoft.com/en-us/azure/virtual-machines/ncv3-series
 	"standard_nc6s_v3",
 	"standard_nc12s_v3",
 	"standard_nc24s_v3",
 	"standard_nc24rs_v3",
 	"standard_nd40s_v3",
 	"standard_nd40rs_v2",
-	// T4
+	// T4: https://learn.microsoft.com/en-us/azure/virtual-machines/nct4-v3-series
 	"standard_nc4as_t4_v3",
 	"standard_nc8as_t4_v3",
 	"standard_nc16as_t4_v3",
 	"standard_nc64as_t4_v3",
-	// A100 40GB
-	"standard_nd96asr_v4",
+	// A100 40GB: https://learn.microsoft.com/en-us/azure/virtual-machines/nda100-v4-series
+	"standard_nd96asr_a100_v4",
 	"standard_nd112asr_a100_v4",
 	"standard_nd120asr_a100_v4",
-	// A100 80GB
+	// A100 80GB: https://learn.microsoft.com/en-us/azure/virtual-machines/ndm-a100-v4-series
 	"standard_nd96amsr_a100_v4",
 	"standard_nd112amsr_a100_v4",
 	"standard_nd120amsr_a100_v4",
-	// A100 PCIE 80GB
+	// A100 PCIE 80GB: https://learn.microsoft.com/en-us/azure/virtual-machines/nc-a100-v4-series
 	"standard_nc24ads_a100_v4",
 	"standard_nc48ads_a100_v4",
 	"standard_nc96ads_a100_v4",
@@ -92,7 +92,7 @@ var nvidiaEnabledSKUs = sets.NewString(
 	"standard_nc8ads_a10_v4",
 	"standard_nc16ads_a10_v4",
 	"standard_nc32ads_a10_v4",
-	// A10, GRID only
+	// A10, GRID only: https://learn.microsoft.com/en-us/azure/virtual-machines/nva10v5-series
 	"standard_nv6ads_a10_v5",
 	"standard_nv12ads_a10_v5",
 	"standard_nv18ads_a10_v5",
@@ -104,12 +104,12 @@ var nvidiaEnabledSKUs = sets.NewString(
 	"standard_nd96ams_a100_v4",
 	"standard_nd96amsrf_a100_v4",
 	"standard_nd96amsf_a100_v4",
-	// H100
+	// H100: https://learn.microsoft.com/en-us/azure/virtual-machines/nd-h100-v5-series
 	"standard_nd96isr_h100_v5",
 	"standard_nd96is_h100_v5",
 	"standard_nd96isrf_h100_v5",
 	"standard_nd96isf_h100_v5",
-	// NC
+	// NC: https://learn.microsoft.com/en-us/azure/virtual-machines/ncads-h100-v5
 	"standard_nc40ads_h100_v5",
 	"standard_nc80adis_h100_v5",
 )
