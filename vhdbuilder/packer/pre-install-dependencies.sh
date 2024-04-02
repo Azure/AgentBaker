@@ -1,148 +1,168 @@
 #!/bin/bash
 
-script_start_timestamp=$(date +%H:%M:%S)
-start_timestamp=$(date +%H:%M:%S)
+# script_start_timestamp=$(date +%H:%M:%S)
+# start_timestamp=$(date +%H:%M:%S)
 
-capture_script_start=$(date +%s)
-capture_time=$(date +%s)
+# capture_script_start=$(date +%s)
+# capture_time=$(date +%s)
 
-declare -a benchmarks=()
+# declare -a benchmarks=()
 
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
-OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
-THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
+# OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+# OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+# THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
-#the following sed removes all comments of the format {{/* */}}
-sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh
-sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/tool_installs_distro.sh
+# #the following sed removes all comments of the format {{/* */}}
+# sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh
+# sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/tool_installs_distro.sh
 
-source /home/packer/provision_installs.sh
-source /home/packer/provision_installs_distro.sh
-source /home/packer/provision_source.sh
-source /home/packer/provision_source_distro.sh
-source /home/packer/tool_installs.sh
-source /home/packer/tool_installs_distro.sh
-source /home/packer/packer_source.sh
-stop_watch $capture_time "Declare Variables / Remove Comments / Execute home/packer files" false
-start_watch
+# source /home/packer/provision_installs.sh
+# source /home/packer/provision_installs_distro.sh
+# source /home/packer/provision_source.sh
+# source /home/packer/provision_source_distro.sh
+# source /home/packer/tool_installs.sh
+# source /home/packer/tool_installs_distro.sh
+# source /home/packer/packer_source.sh
+# stop_watch $capture_time "Declare Variables / Remove Comments / Execute home/packer files" false
+# start_watch
 
-CPU_ARCH=$(getCPUArch)  #amd64 or arm64
-VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
-COMPONENTS_FILEPATH=/opt/azure/components.json
-MANIFEST_FILEPATH=/opt/azure/manifest.json
-KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
-#this is used by post build test to check whether the compoenents do indeed exist
-cat components.json > ${COMPONENTS_FILEPATH}
-cat manifest.json > ${MANIFEST_FILEPATH}
-cat ${THIS_DIR}/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
-echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
-stop_watch $capture_time "Create Post-build Test" false
-start_watch
+# CPU_ARCH=$(getCPUArch)  #amd64 or arm64
+# VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
+# COMPONENTS_FILEPATH=/opt/azure/components.json
+# MANIFEST_FILEPATH=/opt/azure/manifest.json
+# KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
+# #this is used by post build test to check whether the compoenents do indeed exist
+# cat components.json > ${COMPONENTS_FILEPATH}
+# cat manifest.json > ${MANIFEST_FILEPATH}
+# cat ${THIS_DIR}/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
+# echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
+# stop_watch $capture_time "Create Post-build Test" false
+# start_watch
 
-if [[ $OS == $MARINER_OS_NAME ]]; then
-  chmod 755 /opt
-  chmod 755 /opt/azure
-  chmod 644 ${VHD_LOGS_FILEPATH}
-fi
-stop_watch $capture_time "Set Permissions if Mariner" false
-start_watch
+# if [[ $OS == $MARINER_OS_NAME ]]; then
+#   chmod 755 /opt
+#   chmod 755 /opt/azure
+#   chmod 644 ${VHD_LOGS_FILEPATH}
+# fi
+# stop_watch $capture_time "Set Permissions if Mariner" false
+# start_watch
 
-copyPackerFiles
-systemctlEnableAndStart disk_queue || exit 1
-stop_watch $capture_time "Copy Packer Files" false
-start_watch
+# copyPackerFiles
+# systemctlEnableAndStart disk_queue || exit 1
+# stop_watch $capture_time "Copy Packer Files" false
+# start_watch
 
-mkdir /opt/certs
-chmod 1666 /opt/certs
-systemctlEnableAndStart update_certs.path || exit 1
-stop_watch $capture_time "Make Certs Directory / Set Permissions / Update Certs" false
-start_watch
+# mkdir /opt/certs
+# chmod 1666 /opt/certs
+# systemctlEnableAndStart update_certs.path || exit 1
+# stop_watch $capture_time "Make Certs Directory / Set Permissions / Update Certs" false
+# start_watch
 
-systemctlEnableAndStart ci-syslog-watcher.path || exit 1
-systemctlEnableAndStart ci-syslog-watcher.service || exit 1
+# systemctlEnableAndStart ci-syslog-watcher.path || exit 1
+# systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 
-# enable AKS log collector
-echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
-systemctlEnableAndStart aks-log-collector.timer || exit 1
-stop_watch $capture_time "Start System Logs / AKS Log Collector" false
-start_watch
+# # enable AKS log collector
+# echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
+# systemctlEnableAndStart aks-log-collector.timer || exit 1
+# stop_watch $capture_time "Start System Logs / AKS Log Collector" false
+# start_watch
 
-# enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
-systemctlEnableAndStart logrotate.timer || exit 1
-rm -f /etc/cron.daily/logrotate
-stop_watch $capture_time "Start Modified Log-rotate Service / Remove Auto-generated Service" false
-start_watch
+# # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
+# systemctlEnableAndStart logrotate.timer || exit 1
+# rm -f /etc/cron.daily/logrotate
+# stop_watch $capture_time "Start Modified Log-rotate Service / Remove Auto-generated Service" false
+# start_watch
 
-systemctlEnableAndStart sync-container-logs.service || exit 1
-stop_watch $capture_time "Sync Container Logs" false
-start_watch
+# systemctlEnableAndStart sync-container-logs.service || exit 1
+# stop_watch $capture_time "Sync Container Logs" false
+# start_watch
 
-# First handle Mariner + FIPS
-if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
-  dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
-  dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-  if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
-    # This is FIPS install for Mariner and has nothing to do with Ubuntu Advantage
-    echo "Install FIPS for Mariner SKU"
-    installFIPS
-  fi
-else
-  # Enable ESM on Ubuntu
-  autoAttachUA
+# # First handle Mariner + FIPS
+# if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
+#   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
+#   dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
+#   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+#     # This is FIPS install for Mariner and has nothing to do with Ubuntu Advantage
+#     echo "Install FIPS for Mariner SKU"
+#     installFIPS
+#   fi
+# else
+#   # Enable ESM on Ubuntu
+#   autoAttachUA
 
-  # Run apt get update to refresh repo list
-  # Run apt dist get upgrade to install packages/kernels
+#   # Run apt get update to refresh repo list
+#   # Run apt dist get upgrade to install packages/kernels
 
-  # CVM breaks on kernel image updates due to nullboot package post-install.
-  # it relies on boot measurements from real tpm hardware.
-  # building on a real CVM would solve this, but packer doesn't support it.
-  # we could make upstream changes but that takes time, and we are broken now.
-  # so we just hold the kernel image packages for now on CVM.
-  # this still allows us base image and package updates on a weekly cadence.
-  if [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT    
-  fi
+#   # CVM breaks on kernel image updates due to nullboot package post-install.
+#   # it relies on boot measurements from real tpm hardware.
+#   # building on a real CVM would solve this, but packer doesn't support it.
+#   # we could make upstream changes but that takes time, and we are broken now.
+#   # so we just hold the kernel image packages for now on CVM.
+#   # this still allows us base image and package updates on a weekly cadence.
+#   if [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
+#     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+#     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT    
+#   fi
 
-  if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
-    # This is FIPS Install for Ubuntu, it purges non FIPS Kernel and attaches UA FIPS Updates
-    echo "Install FIPS for Ubuntu SKU"
-    installFIPS
-  fi
-fi
-stop_watch $capture_time "Handle Mariner / FIPS Configurations" false
-start_watch
+#   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+#     # This is FIPS Install for Ubuntu, it purges non FIPS Kernel and attaches UA FIPS Updates
+#     echo "Install FIPS for Ubuntu SKU"
+#     installFIPS
+#   fi
+# fi
+# stop_watch $capture_time "Handle Mariner / FIPS Configurations" false
+# start_watch
 
-# Handle Azure Linux + CgroupV2
-if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
-  enableCgroupV2forAzureLinux
-fi
-
-# if [[ "${UBUNTU_RELEASE}" == "22.04" ]]; then
-#   echo "Logging the currently running kernel: $(uname -r)"
-#   echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
-
-#   # Purge all current kernels and dependencies
-#   DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
-#   echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
-
-#   # Install lts-22.04 kernel
-#   DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-azure-lts-22.04 linux-cloud-tools-azure-lts-22.04 linux-headers-azure-lts-22.04 linux-modules-extra-azure-lts-22.04 linux-tools-azure-lts-22.04
-#   echo "After installing new kernel, here is a list of kernels/headers installed"; dpkg -l 'linux-*azure*'
-  
-#   update-grub
+# # Handle Azure Linux + CgroupV2
+# if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
+#   enableCgroupV2forAzureLinux
 # fi
 
-echo "Logging the currently running kernel: $(uname -r)"
-echo "Here's a list of kernels/headers installed at the end of pre-install-dependencies:"; dpkg -l 'linux-*azure*'
+# # if [[ "${UBUNTU_RELEASE}" == "22.04" ]]; then
+# #   echo "Logging the currently running kernel: $(uname -r)"
+# #   echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
 
-echo "Here's options for what grub will boot into:"; grep -i "menuentry '" /boot/grub/grub.cfg | cut -d"'" -f2
+# #   # Purge all current kernels and dependencies
+# #   DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
+# #   echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
 
-echo "grub configuration:"; cat /etc/default/grub
+# #   # Install lts-22.04 kernel
+# #   DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-azure-lts-22.04 linux-cloud-tools-azure-lts-22.04 linux-headers-azure-lts-22.04 linux-modules-extra-azure-lts-22.04 linux-tools-azure-lts-22.04
+# #   echo "After installing new kernel, here is a list of kernels/headers installed"; dpkg -l 'linux-*azure*'
+  
+# #   update-grub
+# # fi
+
+# echo "Logging the currently running kernel: $(uname -r)"
+# echo "Here's a list of kernels/headers installed at the end of pre-install-dependencies:"; dpkg -l 'linux-*azure*'
+
+# echo "Here's options for what grub will boot into:"; grep -i "menuentry '" /boot/grub/grub.cfg | cut -d"'" -f2
+
+# echo "grub configuration:"; cat /etc/default/grub
 
 
-stop_watch $capture_time "Handle Azure Linux / CgroupV2" false
+# stop_watch $capture_time "Handle Azure Linux / CgroupV2" false
 
-echo "pre-install-dependencies step finished successfully"
-stop_watch $capture_script_start "pre-install-dependencies.sh" true
-show_benchmarks
+# echo "pre-install-dependencies step finished successfully"
+# stop_watch $capture_script_start "pre-install-dependencies.sh" true
+# show_benchmarks
+
+installFIPS() {
+    echo "Installing FIPS..."
+    wait_for_apt_locks
+
+    # installing fips kernel doesn't remove non-fips kernel now, purge current linux-image-azure
+    echo "purging linux-image-azure..."
+    linuxImages=$(apt list --installed | grep linux-image- | grep azure | cut -d '/' -f 1)
+    for image in $linuxImages; do
+        echo "Removing non-fips kernel ${image}..."
+        if [[ ${image} != "linux-image-$(uname -r)" ]]; then
+            apt_get_purge 5 10 120 ${image} || exit 1
+        fi
+    done
+
+    echo "enabling ua fips-updates..."
+    retrycmd_if_failure 5 10 1200 echo y | ua enable fips-updates || exit $ERR_UA_ENABLE_FIPS
+}
+
+installFIPS
