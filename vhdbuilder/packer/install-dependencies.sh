@@ -261,7 +261,7 @@ echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 PARENT_DIR=$(pwd)
 
 ( 
-  cd $PARENT_DIR
+  cd $PARENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
 
   installBcc
 
@@ -498,6 +498,20 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # update message-of-the-day to start after multi-user.target
   # multi-user.target usually start at the end of the boot sequence
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
+fi
+
+wait $BCC_PID
+BCC_EXIT_CODE=$?
+
+if [ $BCC_EXIT_CODE -eq 0 ]; then
+  # Append the package names to ${VHD_LOGS_FILEPATH}
+  cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - bcc-tools
+  - libbcc-examples
+EOF
+else
+  # Handle the subshell failure
+  echo "Error: installBcc Subshell failed with exit code $BCC_EXIT_CODE" >&2
 fi
 
 # use the private_packages_url to download and cache packages
