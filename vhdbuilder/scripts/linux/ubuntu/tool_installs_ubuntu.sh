@@ -189,8 +189,9 @@ installFIPS() {
     linuxImages=$(apt list --installed | grep linux-image- | grep azure | cut -d '/' -f 1)
     for image in $linuxImages; do
         echo "Removing non-fips kernel ${image}..."
-        if [[ ${image} != "linux-image-$(uname -r)" ]]; then
-            apt_get_purge 5 10 120 ${image} || exit 1
+        # if [[ ${image} != "linux-image-$(uname -r)" ]]; then
+        #     apt_get_purge 5 10 120 ${image} || exit 1
+        apt_get_purge 5 10 120 ${image} || exit 1
         fi
     done
 
