@@ -3,6 +3,6 @@ package nbcontract.v1;
 import "pkg/proto/nbcontract/v1/featurestate.proto";
 
 message TeleportConfig {
-  FeatureState status = 1;
+  bool status = 1;
   string teleportd_plugin_download_url = 2;
 }
