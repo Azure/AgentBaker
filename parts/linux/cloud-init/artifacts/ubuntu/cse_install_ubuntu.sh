@@ -75,7 +75,7 @@ updateAptWithMicrosoftPkg() {
         echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/${UBUNTU_RELEASE}/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list
     }
     fi
-    
+
     retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
@@ -89,7 +89,7 @@ cleanUpGPUDrivers() {
 installStandaloneContainerd() {
     UBUNTU_RELEASE=$(lsb_release -r -s)
     UBUNTU_CODENAME=$(lsb_release -c -s)
-    CONTAINERD_VERSION=$1    
+    CONTAINERD_VERSION=$1
     # we always default to the .1 patch versons
     CONTAINERD_PATCH_VERSION="${2:-1}"
 
@@ -107,6 +107,12 @@ installStandaloneContainerd() {
 
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
     CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
+    if [ "${UBUNTU_RELEASE}" == "20.04" ]; then
+        CONTAINERD_PACKAGE_URL="https://mobyartifacts.azureedge.net/moby/moby-containerd/2.0.0~rc.0+azure/focal/linux_${CPU_ARCH}/moby-containerd_2.0.0~rc.0-ubuntu20.04u1_${CPU_ARCH}.deb"
+    elif [ "${UBUNTU_RELEASE}" == "22.04" ]; then
+        CONTAINERD_PACKAGE_URL="https://mobyartifacts.azureedge.net/moby/moby-containerd/2.0.0~rc.0+azure/jammy/linux_${CPU_ARCH}/moby-containerd_2.0.0~rc.0-ubuntu22.04u1_${CPU_ARCH}.deb"
+    fi
+
     if [[ ! -z ${CONTAINERD_PACKAGE_URL} ]]; then
         echo "Installing containerd from user input: ${CONTAINERD_PACKAGE_URL}"
         # we'll use a user-defined containerd package to install containerd even though it's the same version as
@@ -168,7 +174,7 @@ downloadContainerdFromVersion() {
     # Adding updateAptWithMicrosoftPkg since AB e2e uses an older image version with uncached containerd 1.6 so it needs to download from testing repo.
     # And RP no image pull e2e has apt update restrictions that prevent calls to packages.microsoft.com in CSE
     # This won't be called for new VHDs as they have containerd 1.6 cached
-    updateAptWithMicrosoftPkg 
+    updateAptWithMicrosoftPkg
     apt_get_download 20 30 moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     echo "Succeeded to download containerd version ${CONTAINERD_VERSION}"
@@ -239,7 +245,7 @@ ensureRunc() {
     # after upgrading to 1.1.9, CURRENT_VERSION will also include the patch version (such as 1.1.9-1), so we trim it off
     # since we only care about the major and minor versions when determining if we need to install it
     CURRENT_VERSION=${CURRENT_VERSION%-*} # removes the -1 patch version (or similar)
-    CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar) 
+    CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar)
 
     if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
         echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
