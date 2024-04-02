@@ -4,23 +4,12 @@ package nbcontract.v1;
 import "pkg/proto/nbcontract/v1/featurestate.proto";
 
 message GPUConfig {
-  // NvidiaState represents the Nvidia GPU state
-  optional FeatureState nvidia_state = 1;
-
-  // FeatureState is_mig_node = 2; removed since it only depends on gpu_instance_profile
-
   // ConfigGpuDriver specifies whether bootstrap process should install and configure the GPU driver when necessary. Configuration includes appropriate set up of components like the fabric manager where applicable.
-  optional FeatureState config_gpu_driver = 2;
+  bool config_gpu_driver = 1;
 
   // GpuDevicePlugin specifies whether special config is needed for MIG GPUs that use GPU dedicated VHDs and enable the device plugin (for all GPU dedicated VHDs)
-  optional FeatureState gpu_device_plugin = 3; 
-
-  // FeatureState fabric_manager_status = 5;  removed. consider just extracting vm_size since both GPUNeedsFabricManager and getGPUDriverVersion depend only on the vm_size.
-  // string gpu_driver_version = 6; removed. this is dependent only on VM size, can be calculated on the VHD
+  bool gpu_device_plugin = 2; 
 
   // GpuInstanceProfile represents the GPU instance profile.
-  optional string gpu_instance_profile = 4;
-
-  // GpuImageSha represents AKS-GPU image's SHA
-  optional string gpu_image_sha = 5;
+  string gpu_instance_profile = 3;
 }
