@@ -192,7 +192,7 @@ installFIPS() {
         # if [[ ${image} != "linux-image-$(uname -r)" ]]; then
         #     apt_get_purge 5 10 120 ${image} || exit 1
         apt_get_purge 5 10 120 ${image} || exit 1
-        fi
+#        fi
     done
 
     echo "enabling ua fips-updates..."
