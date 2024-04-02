@@ -8,6 +8,12 @@ if (-not ($validSKU -contains $windowsSKU)) {
     throw "Unsupported windows image SKU: $windowsSKU"
 }
 
+# We use the same temp dir for all temp tools that will be used for vhd build
+$global:aksTempDir = "c:\akstemp"
+
+# We use the same dir for all tools that will be used in AKS Windows nodes
+$global:aksToolsDir = "c:\aks-tools"
+
 # We need to guarantee that the node provisioning will not fail because the vhd is full before resize-osdisk is called in AKS Windows CSE script.
 $global:lowestFreeSpace = 2*1024*1024*1024 # 2GB
 
@@ -91,6 +97,7 @@ $global:imagesToPull += @(
     # Addon of Azure secrets store. Owner: jiashun0011 (Jiashun Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.3.4",
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.1",
+    "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.2",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.4.1",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.1",
     # Azure cloud node manager. Owner: nilo19 (Qi Ni)
@@ -100,11 +107,11 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.8", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.3", # for k8s 1.29.x
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.18",
+    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.19",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.52",
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.5.17",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.23",
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.5.24",
     # Dropgz (init container to CNS). Owner: pjohnst5 (Paul Johnston)
     "mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.13"
 )

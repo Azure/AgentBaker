@@ -26,7 +26,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.8.7",
-        "v1.9.4"
+        "v1.9.4",
+        "v1.9.4-hotfix.20240327"
       ]
     },
     {
@@ -83,7 +84,7 @@
       "multiArchVersions": [
         "v1.3.4-1",
         "v1.4.1",
-        "v1.4.1-2"
+        "v1.4.2"
       ]
     },
     {
@@ -98,7 +99,7 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "3.1.18"
+        "3.1.19"
       ]
     },
     {
