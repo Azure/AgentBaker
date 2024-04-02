@@ -4,8 +4,8 @@ import "pkg/proto/nbcontract/v1/featurestate.proto";
 
 message CustomCloudConfig {
 
-    // Status shows whether CustomCloudConfig is enabled or not
-    optional FeatureState status = 1;
+    // EnableCustomCloudConfig is a flag to enable custom cloud config
+    bool enable_custom_cloud_config = 1;
 
     // InitFilePath is the path to the file that contains the init script
     optional string init_file_path = 2;
