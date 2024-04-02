@@ -48,7 +48,7 @@ func IsMIGNode(gpuInstanceProfile string) bool {
 	return gpuInstanceProfile != ""
 }
 
-// IsNvidiaEnabledSKU determines if an VM SKU has nvidia driver support
+// IsNvidiaEnabledSKU determines if an VM SKU has nvidia driver support.
 func IsNvidiaEnabledSKU(vmSize string) bool {
 	// Trim the optional _Promo suffix.
 	vmSize = strings.ToLower(vmSize)
@@ -56,7 +56,7 @@ func IsNvidiaEnabledSKU(vmSize string) bool {
 	return NvidiaEnabledSKUs[vmSize]
 }
 
-// IsNvidiaEnabledSKU determines if an VM SKU has nvidia driver support
+// IsNvidiaEnabledSKU determines if an VM SKU has nvidia driver support.
 func IsMarinerEnabledGPUSKU(vmSize string) bool {
 	// Trim the optional _Promo suffix.
 	vmSize = strings.ToLower(vmSize)
