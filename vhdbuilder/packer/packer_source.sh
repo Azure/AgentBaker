@@ -271,9 +271,9 @@ copyPackerFiles() {
   cpAndMode $AKS_CHECK_NETWORK_SCRIPT_SRC $AKS_CHECK_NETWORK_SCRIPT_DEST 755
   cpAndMode $AKS_CHECK_NETWORK_SERVICE_SRC $AKS_CHECK_NETWORK_SERVICE_DEST 644
 
-  if [[ ${UBUNTU_RELEASE} == "22.04" ]]; then
-    PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth-2204
-  fi
+  # if [[ ${UBUNTU_RELEASE} == "22.04" ]]; then
+  #   PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth-2204
+  # fi
 
   cpAndMode $KUBELET_SERVICE_SRC $KUBELET_SERVICE_DEST 600
   cpAndMode $BLOCK_WIRESERVER_SRC $BLOCK_WIRESERVER_DEST 755
