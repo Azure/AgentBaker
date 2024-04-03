@@ -45,6 +45,14 @@
         "v1.4.52",
         "v1.5.17",
         "v1.5.23"
+      ],
+      "prefetchOptimizations": [
+        {
+          "version": "v1.5.23",
+          "binaries": [
+            "usr/local/bin/azure-cns"
+          ]
+        }
       ]
     },
     {
@@ -57,7 +65,7 @@
       ],
       "prefetchOptimizations": [
         {
-          "version": "v0.1.1",
+          "version": "v0.0.15",
           "binaries": [
             "dropgz"
           ]
