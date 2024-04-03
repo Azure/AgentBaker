@@ -185,7 +185,7 @@ var fabricManagerGPUSizes = sets.NewString(
 	"standard_nd100isr_h100_v5",
 )
 
-// IsNvidiaEnabledSKU determines if an VM SKU has nvidia driver support
+// IsNvidiaEnabledSKU determines if an VM SKU has nvidia driver support.
 func IsNvidiaEnabledSKU(vmSize string) bool {
 	// Trim the optional _Promo suffix.
 	vmSize = strings.ToLower(vmSize)
@@ -193,7 +193,7 @@ func IsNvidiaEnabledSKU(vmSize string) bool {
 	return nvidiaEnabledSKUs.Has(vmSize)
 }
 
-// IsNvidiaEnabledSKU determines if an VM SKU has nvidia driver support
+// IsMarinerNvidiaEnabledSKU determines if an Mariner VM SKU has nvidia driver support.
 func IsMarinerEnabledGPUSKU(vmSize string) bool {
 	// Trim the optional _Promo suffix.
 	vmSize = strings.ToLower(vmSize)
@@ -202,13 +202,13 @@ func IsMarinerEnabledGPUSKU(vmSize string) bool {
 }
 
 func UseWindowsCudaGPUDriver(vmSize string) bool {
-	lowerVmSize := strings.ToLower(vmSize)
-	return strings.Contains(lowerVmSize, "_nc") || strings.Contains(lowerVmSize, "_nd")
+	lowerVMSize := strings.ToLower(vmSize)
+	return strings.Contains(lowerVMSize, "_nc") || strings.Contains(lowerVMSize, "_nd")
 }
 
 func UseWindowsGridGPUDriver(vmSize string) bool {
-	lowerVmSize := strings.ToLower(vmSize)
-	return strings.Contains(lowerVmSize, "_nv")
+	lowerVMSize := strings.ToLower(vmSize)
+	return strings.Contains(lowerVMSize, "_nv")
 }
 
 // Below GPU helper functions are used for populating cse_cmd,
