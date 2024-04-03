@@ -180,7 +180,7 @@ STORAGE_ACCOUNT_EXPIRATION_IN_HOURS=12
 # deadline = the "date +%s" representation of the oldest age we're willing to keep
 (( storageAccountDeadline=$(date +%s)-${storageAccountExpirationSecs%.*} ))
 
-# clean up storage accounts created over a week ago
+# clean up storage accounts created more than 12 hours ago
 if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
   if [[ "${MODE}" == "linuxVhdMode" ]] || [[ "${DRY_RUN}" == "False" ]]; then
     echo "Looking for storage accounts in ${AZURE_RESOURCE_GROUP_NAME} created over ${EXPIRATION_IN_HOURS} hours ago..."
