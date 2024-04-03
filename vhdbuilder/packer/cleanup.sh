@@ -184,7 +184,7 @@ STORAGE_ACCOUNT_EXPIRATION_IN_HOURS=12
 if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
   if [[ "${MODE}" == "linuxVhdMode" ]] || [[ "${DRY_RUN}" == "False" ]]; then
     old_storage_accounts=""
-    echo "Looking for storage accounts in ${AZURE_RESOURCE_GROUP_NAME} created over ${EXPIRATION_IN_HOURS} hours ago..."
+    echo "Looking for storage accounts in ${AZURE_RESOURCE_GROUP_NAME} created over ${STORAGE_ACCOUNT_EXPIRATION_IN_HOURS} hours ago..."
     echo "That is, those created before $(date -d@$storageAccountDeadline) As shown below"
     az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $storageAccountDeadline '.[] | select(.tags.now < $dl).name' | tr -d '\"' || ""
     for storage_account_id in $(az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $storageAccountDeadline '.[] | select(.tags.now < $dl).id' | tr -d '\"' || ""); do
