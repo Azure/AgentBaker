@@ -190,7 +190,11 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
     for storage_account_id in $(az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $storageAccountDeadline '.[] | select(.tags.now < $dl).id' | tr -d '\"' || ""); do
         if [[ $storage_account_id = *aksimages* ]]; then
             echo "Will delete storage account ${storage_account_id}# from resource group ${AZURE_RESOURCE_GROUP_NAME}..."
-            old_storage_accounts="${old_storage_accounts} ${storage_account_id}"
+            if [ -z "$old_storage_accounts" ]; then
+              old_storage_accounts="$storage_account_id"
+            else
+              old_storage_accounts="${old_storage_accounts} ${storage_account_id}"
+            fi
         fi
     done
     az storage account delete --yes --ids "$old_storage_accounts" || echo "old storage account deletion was not successful, continuing..."
