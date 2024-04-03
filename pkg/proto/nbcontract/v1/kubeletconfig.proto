@@ -1,6 +1,5 @@
 syntax = "proto3";
 package nbcontract.v1;
-import "pkg/proto/nbcontract/v1/featurestate.proto";
 
 message KubeletConfig {
   // TODO(ace): remove these/make api defensible
@@ -22,7 +21,7 @@ message Taint {
 }
 
 enum KubeletDiskType {
-  KUBELET_DISK_TYPE_UNSPECIFIED = 0;
-  KUBELET_DISK_TYPE_OS_DISK = 1;
-  KUBELET_DISK_TYPE_TEMP_DISK = 2;
+  KDT_UNSPECIFIED = 0;
+  OS_DISK = 1;
+  TEMP_DISK = 2;
 }
