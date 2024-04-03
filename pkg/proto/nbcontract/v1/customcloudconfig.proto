@@ -14,5 +14,4 @@ message CustomCloudConfig {
     string repo_depot_endpoint = 3;
 
     string target_environment = 4;
-    string custom_env_json_content = 5; // can be generated on the VHD, also rename
 }
