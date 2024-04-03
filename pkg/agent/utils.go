@@ -497,6 +497,12 @@ func setCustomKubeletConfig(customKc *datamodel.CustomKubeletConfig,
 		if customKc.PodMaxPids != nil {
 			kubeletConfig.PodPidsLimit = to.Int64Ptr(int64(*customKc.PodMaxPids))
 		}
+		if customKc.ShutdownGracePeriod != nil {
+			kubeletConfig.ShutdownGracePeriod = datamodel.Duration(fmt.Sprintf("%ds", *customKc.ShutdownGracePeriod))
+		}
+		if customKc.ShutdownGracePeriodCriticalPods != nil {
+			kubeletConfig.ShutdownGracePeriodCriticalPods = datamodel.Duration(fmt.Sprintf("%ds", *customKc.ShutdownGracePeriodCriticalPods))
+		}
 	}
 }
 

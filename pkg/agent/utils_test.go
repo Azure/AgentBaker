@@ -47,17 +47,19 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 	}
 	customKc := &datamodel.CustomKubeletConfig{
-		CPUManagerPolicy:      "static",
-		CPUCfsQuota:           to.BoolPtr(false),
-		CPUCfsQuotaPeriod:     "200ms",
-		ImageGcHighThreshold:  to.Int32Ptr(90),
-		ImageGcLowThreshold:   to.Int32Ptr(70),
-		TopologyManagerPolicy: "best-effort",
-		AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
-		FailSwapOn:            to.BoolPtr(false),
-		ContainerLogMaxSizeMB: to.Int32Ptr(1000),
-		ContainerLogMaxFiles:  to.Int32Ptr(99),
-		PodMaxPids:            to.Int32Ptr(12345),
+		CPUManagerPolicy:                "static",
+		CPUCfsQuota:                     to.BoolPtr(false),
+		CPUCfsQuotaPeriod:               "200ms",
+		ImageGcHighThreshold:            to.Int32Ptr(90),
+		ImageGcLowThreshold:             to.Int32Ptr(70),
+		TopologyManagerPolicy:           "best-effort",
+		AllowedUnsafeSysctls:            &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+		FailSwapOn:                      to.BoolPtr(false),
+		ContainerLogMaxSizeMB:           to.Int32Ptr(1000),
+		ContainerLogMaxFiles:            to.Int32Ptr(99),
+		PodMaxPids:                      to.Int32Ptr(12345),
+		ShutdownGracePeriod:             to.Int32Ptr(30),
+		ShutdownGracePeriodCriticalPods: to.Int32Ptr(15),
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
 	diff := cmp.Diff(expectedKubeletJSON, configFileStr)
@@ -214,7 +216,9 @@ var expectedKubeletJSON = `{
     "allowedUnsafeSysctls": [
         "kernel.msg*",
         "net.ipv4.route.min_pmtu"
-    ]
+    ],
+    "shutdownGracePeriod": "30s",
+    "shutdownGracePeriodCriticalPods": "15s"
 }`
 
 var expectedKubeletJSONWithNodeStatusReportFrequency = `{
@@ -294,7 +298,9 @@ var expectedKubeletJSONWithNodeStatusReportFrequency = `{
     "allowedUnsafeSysctls": [
         "kernel.msg*",
         "net.ipv4.route.min_pmtu"
-    ]
+    ],
+    "shutdownGracePeriod": "30s",
+    "shutdownGracePeriodCriticalPods": "15s"
 }`
 
 var expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags = `{
@@ -375,21 +381,25 @@ var expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags = `{
     "allowedUnsafeSysctls": [
         "kernel.msg*",
         "net.ipv4.route.min_pmtu"
-    ]
+    ],
+    "shutdownGracePeriod": "30s",
+    "shutdownGracePeriodCriticalPods": "15s"
 }`
 
 func TestGetKubeletConfigFileFlagsWithNodeStatusReportFrequency(t *testing.T) {
 	kc := getExampleKcWithNodeStatusReportFrequency()
 	customKc := &datamodel.CustomKubeletConfig{
-		CPUManagerPolicy:      "static",
-		CPUCfsQuota:           to.BoolPtr(false),
-		CPUCfsQuotaPeriod:     "200ms",
-		ImageGcHighThreshold:  to.Int32Ptr(90),
-		ImageGcLowThreshold:   to.Int32Ptr(70),
-		TopologyManagerPolicy: "best-effort",
-		AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
-		FailSwapOn:            to.BoolPtr(false),
-		PodMaxPids:            to.Int32Ptr(12345),
+		CPUManagerPolicy:                "static",
+		CPUCfsQuota:                     to.BoolPtr(false),
+		CPUCfsQuotaPeriod:               "200ms",
+		ImageGcHighThreshold:            to.Int32Ptr(90),
+		ImageGcLowThreshold:             to.Int32Ptr(70),
+		TopologyManagerPolicy:           "best-effort",
+		AllowedUnsafeSysctls:            &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+		FailSwapOn:                      to.BoolPtr(false),
+		PodMaxPids:                      to.Int32Ptr(12345),
+		ShutdownGracePeriod:             to.Int32Ptr(30),
+		ShutdownGracePeriodCriticalPods: to.Int32Ptr(15),
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
 	diff := cmp.Diff(expectedKubeletJSONWithNodeStatusReportFrequency, configFileStr)
@@ -401,16 +411,18 @@ func TestGetKubeletConfigFileFlagsWithNodeStatusReportFrequency(t *testing.T) {
 func TestGetKubeletConfigFileFromFlagsWithContainerLogMaxSize(t *testing.T) {
 	kc := getExampleKcWithContainerLogMaxSize()
 	customKc := &datamodel.CustomKubeletConfig{
-		CPUManagerPolicy:      "static",
-		CPUCfsQuota:           to.BoolPtr(false),
-		CPUCfsQuotaPeriod:     "200ms",
-		ImageGcHighThreshold:  to.Int32Ptr(90),
-		ImageGcLowThreshold:   to.Int32Ptr(70),
-		TopologyManagerPolicy: "best-effort",
-		AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
-		FailSwapOn:            to.BoolPtr(false),
-		ContainerLogMaxFiles:  to.Int32Ptr(99),
-		PodMaxPids:            to.Int32Ptr(12345),
+		CPUManagerPolicy:                "static",
+		CPUCfsQuota:                     to.BoolPtr(false),
+		CPUCfsQuotaPeriod:               "200ms",
+		ImageGcHighThreshold:            to.Int32Ptr(90),
+		ImageGcLowThreshold:             to.Int32Ptr(70),
+		TopologyManagerPolicy:           "best-effort",
+		AllowedUnsafeSysctls:            &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+		FailSwapOn:                      to.BoolPtr(false),
+		ContainerLogMaxFiles:            to.Int32Ptr(99),
+		PodMaxPids:                      to.Int32Ptr(12345),
+		ShutdownGracePeriod:             to.Int32Ptr(30),
+		ShutdownGracePeriodCriticalPods: to.Int32Ptr(15),
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
 	diff := cmp.Diff(expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags, configFileStr)
@@ -422,17 +434,19 @@ func TestGetKubeletConfigFileFromFlagsWithContainerLogMaxSize(t *testing.T) {
 func TestGetKubeletConfigFileCustomKCShouldOverrideValuesPassedInKc(t *testing.T) {
 	kc := getExampleKcWithContainerLogMaxSize()
 	customKc := &datamodel.CustomKubeletConfig{
-		CPUManagerPolicy:      "static",
-		CPUCfsQuota:           to.BoolPtr(false),
-		CPUCfsQuotaPeriod:     "200ms",
-		ImageGcHighThreshold:  to.Int32Ptr(90),
-		ImageGcLowThreshold:   to.Int32Ptr(70),
-		TopologyManagerPolicy: "best-effort",
-		AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
-		FailSwapOn:            to.BoolPtr(false),
-		ContainerLogMaxFiles:  to.Int32Ptr(99),
-		ContainerLogMaxSizeMB: to.Int32Ptr(1000),
-		PodMaxPids:            to.Int32Ptr(12345),
+		CPUManagerPolicy:                "static",
+		CPUCfsQuota:                     to.BoolPtr(false),
+		CPUCfsQuotaPeriod:               "200ms",
+		ImageGcHighThreshold:            to.Int32Ptr(90),
+		ImageGcLowThreshold:             to.Int32Ptr(70),
+		TopologyManagerPolicy:           "best-effort",
+		AllowedUnsafeSysctls:            &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+		FailSwapOn:                      to.BoolPtr(false),
+		ContainerLogMaxFiles:            to.Int32Ptr(99),
+		ContainerLogMaxSizeMB:           to.Int32Ptr(1000),
+		PodMaxPids:                      to.Int32Ptr(12345),
+		ShutdownGracePeriod:             to.Int32Ptr(30),
+		ShutdownGracePeriodCriticalPods: to.Int32Ptr(15),
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
 	diff := cmp.Diff(expectedKubeletJSON, configFileStr)
