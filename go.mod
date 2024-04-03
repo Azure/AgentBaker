@@ -2,8 +2,6 @@ module github.com/Azure/agentbaker
 
 go 1.21
 
-toolchain go1.21.3
-
 require (
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/Masterminds/semver/v3 v3.2.1

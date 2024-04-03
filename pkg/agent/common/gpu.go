@@ -28,7 +28,7 @@ const (
 	nvidia535GridDriverVersion = "grid-535.54.03"
 )
 
-// These SHAs will change once we update aks-gpu images in aks-gpu repository. We do that fairly rarely at this time
+// These SHAs will change once we update aks-gpu images in aks-gpu repository. We do that fairly rarely at this time.
 // So for now these will be kept here like this.
 const (
 	aksGPUGridSHA = "sha-20ffa2"
@@ -37,9 +37,9 @@ const (
 
 /*
 	nvidiaEnabledSKUs :  If a new GPU sku becomes available, add a key to this map, but only if you have a confirmation
-
-// that we have an agreement with NVIDIA for this specific gpu.
+	that we have an agreement with NVIDIA for this specific gpu.
 */
+//nolint:gochecknoglobals
 var nvidiaEnabledSKUs = sets.NewString(
 	// K80: https://learn.microsoft.com/en-us/azure/virtual-machines/nc-series
 	"standard_nc6",
@@ -116,9 +116,9 @@ var nvidiaEnabledSKUs = sets.NewString(
 
 /*
 	marinerNvidiaEnabledSKUs :  List of GPU SKUs currently enabled and validated for Mariner. Will expand the support
-
-// to cover other SKUs available in Azure
+	to cover other SKUs available in Azure.
 */
+//nolint:gochecknoglobals
 var marinerNvidiaEnabledSKUs = sets.NewString(
 	// V100
 	"standard_nc6s_v3",
@@ -134,7 +134,7 @@ var marinerNvidiaEnabledSKUs = sets.NewString(
 	"standard_nc64as_t4_v3",
 )
 
-/* ConvergedGPUDriverSizes : these sizes use a "converged" driver to support both cuda/grid workloads.
+/* convergedGPUDriverSizes : these sizes use a "converged" driver to support both cuda/grid workloads.
 how do you figure this out? ask HPC or find out by trial and error.
 installing vanilla cuda drivers will fail to install with opaque errors.
 nvidia-bug-report.sh may be helpful, but usually it tells you the pci card id is incompatible.
@@ -142,7 +142,7 @@ That sends me to HPC folks.
 see https://github.com/Azure/azhpc-extensions/blob/daaefd78df6f27012caf30f3b54c3bd6dc437652/NvidiaGPU/resources.json
 */
 //nolint:gochecknoglobals
-var ConvergedGPUDriverSizes = sets.NewString(
+var convergedGPUDriverSizes = sets.NewString(
 	"standard_nv6ads_a10_v5",
 	"standard_nv12ads_a10_v5",
 	"standard_nv18ads_a10_v5",
@@ -155,13 +155,13 @@ var ConvergedGPUDriverSizes = sets.NewString(
 )
 
 /*
-FabricManagerGPUSizes list should be updated as needed if AKS supports
+fabricManagerGPUSizes list should be updated as needed if AKS supports
 new MIG-capable skus which require fabricmanager for nvlink training.
 Specifically, the 8-board VM sizes (ND96 and larger).
 Check with HPC or SKU API folks if we can improve this...
 */
 //nolint:gochecknoglobals
-var FabricManagerGPUSizes = sets.NewString(
+var fabricManagerGPUSizes = sets.NewString(
 	// A100
 	"standard_nd96asr_v4",
 	"standard_nd112asr_a100_v4",
@@ -227,7 +227,7 @@ func GetAKSGPUImageSHA(size string) string {
 }
 
 func GPUNeedsFabricManager(size string) bool {
-	return FabricManagerGPUSizes.Has(strings.ToLower(size))
+	return fabricManagerGPUSizes.Has(strings.ToLower(size))
 }
 
 func GetCommaSeparatedGPUSizes() string {
@@ -258,5 +258,5 @@ func isStandardNCv1(size string) bool {
 }
 
 func useGridDrivers(size string) bool {
-	return ConvergedGPUDriverSizes.Has(strings.ToLower(size))
+	return convergedGPUDriverSizes.Has(strings.ToLower(size))
 }
