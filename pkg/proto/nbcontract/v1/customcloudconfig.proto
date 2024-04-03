@@ -8,10 +8,10 @@ message CustomCloudConfig {
     bool enable_custom_cloud_config = 1;
 
     // InitFilePath is the path to the file that contains the init script
-    optional string init_file_path = 2;
+    string init_file_path = 2;
 
     // RepoDepotEndpoint is the endpoint of the repo depot
-    optional string repo_depot_endpoint = 3;
+    string repo_depot_endpoint = 3;
 
     string target_environment = 4;
     string custom_env_json_content = 5; // can be generated on the VHD, also rename
