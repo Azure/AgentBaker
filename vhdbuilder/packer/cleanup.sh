@@ -193,6 +193,11 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
             old_storage_accounts="${old_storage_accounts} ${storage_account_id}"
         fi
     done
-    az storage account delete --yes --ids $old_storage_accounts || echo "old storage account deletion was not successful, continuing..."
+    if [ -n "$old_storage_accounts" ]; then
+      echo "attempting to delete old storage accounts..."
+      az storage account delete --yes --ids $old_storage_accounts || echo "old storage account deletion was not successful, continuing..."
+    else
+      echo "did not find any old storage accounts eligible for deletion"
+    fi
   fi
 fi
