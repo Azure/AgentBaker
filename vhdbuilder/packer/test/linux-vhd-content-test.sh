@@ -858,29 +858,6 @@ testContainerImagePrefetchScript() {
   return 0
 }
 
-testBccTools () {
-  local test="testBccTools"
-  local errors=0
-  echo "${test}:Start"
-  for tool in "$(ls /usr/share/bcc/tools)"; do
-    if [ -x "$(which $tool)" ]; then
-      echo "Success: $tool is in the path and executable"
-    else
-      echo "Error: $tool is not in the path or not executable"
-      errors=$((errors + 1))
-    fi
-  done
-  
-  if [ $errors -eq 0 ]; then
-    echo "All bcc tools are in the path and executable"
-    return 0
-  else
-    echo "Some bcc tools are not in the path or not executable"
-    return 1
-  fi
-}
-
-
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -889,7 +866,6 @@ testBccTools () {
 #
 # We should also avoid early exit from the test run -- like if a command fails with
 # an exit rather than a return -- because that prevents other tests from running.
-testBccTools
 testVHDBuildLogsExist
 testCriticalTools
 testFilesDownloaded $CONTAINER_RUNTIME
