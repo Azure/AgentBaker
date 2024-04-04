@@ -870,8 +870,14 @@ testBccTools () {
       errors=$((errors + 1))
     fi
   done
-  echo "${test} had ${errors} errors."
-  echo "${test}:Finish"
+  
+  if [ $errors -eq 0 ]; then
+    echo "All bcc tools are in the path and executable"
+    return 0
+  else
+    echo "Some bcc tools are not in the path or not executable"
+    return 1
+  fi
 }
 
 
