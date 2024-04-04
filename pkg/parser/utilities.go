@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"text/template"
+
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 )
 
@@ -17,4 +19,8 @@ func getBaseTemplate() *nbcontractv1.Configuration {
 		KubeproxyUrl: "",
 		EnableSsh:    true,
 	}
+}
+
+func getFuncMap() template.FuncMap {
+	return template.FuncMap{}
 }
