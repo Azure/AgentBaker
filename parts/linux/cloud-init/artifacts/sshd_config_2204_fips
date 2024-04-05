@@ -1,4 +1,4 @@
-# This file is a copy of the default sshd_config file, but relaxes used encryption 
+# This file is a copy of the default sshd_config file, but relaxes used encryption
 # for sshd to work with 5.15.0-1059-azure-fips
 
 # What ports, IPs and protocols we listen for
