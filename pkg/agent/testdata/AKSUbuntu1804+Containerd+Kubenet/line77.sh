@@ -7,7 +7,7 @@
         "pinned": {
             "1804": "1.7.1-1"
         },
-        "edge": "1.7.14-1"
+        "edge": "1.7.14-2"
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",

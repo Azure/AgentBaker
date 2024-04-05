@@ -5357,7 +5357,7 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "pinned": {
             "1804": "1.7.1-1"
         },
-        "edge": "1.7.14-1"
+        "edge": "1.7.14-2"
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
@@ -7324,7 +7324,7 @@ installStandaloneContainerd() {
         if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
             CONTAINERD_VERSION="1.7.1"
         fi
-        CONTAINERD_PATCH_VERSION="1"
+        CONTAINERD_PATCH_VERSION="2"
         echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     else
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
