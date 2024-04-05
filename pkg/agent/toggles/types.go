@@ -1,6 +1,8 @@
 package toggles
 
 import (
+	"log"
+
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/agent/toggles/fieldnames"
 )
@@ -66,20 +68,23 @@ func New() *Toggles {
 
 // getMap attempts to resolve the named map toggle against the specified Entity.
 func (t *Toggles) getMap(name string, entity *Entity) map[string]string {
-	if t != nil && t.Maps != nil {
-		if toggle, ok := t.Maps[name]; ok {
-			return toggle(entity)
-		}
+	if t == nil || t.Maps == nil {
+		log.Printf("map toggles are nil, resolving to default empty map value for toggle: %q", name)
+		return map[string]string{}
+	}
+	if toggle, ok := t.Maps[name]; ok {
+		return toggle(entity)
 	}
 	return map[string]string{}
 }
 
 // getString attempts to resolve the named string toggle against the specified Entity.
 func (t *Toggles) getString(name string, entity *Entity) string {
-	if t != nil && t.Strings != nil {
-		if toggle, ok := t.Strings[name]; ok {
-			return toggle(entity)
-		}
+	if t == nil || t.Strings == nil {
+		log.Printf("string toggles are nil, resolving to default empty string value for toggle: %q", name)
+	}
+	if toggle, ok := t.Strings[name]; ok {
+		return toggle(entity)
 	}
 	return ""
 }
