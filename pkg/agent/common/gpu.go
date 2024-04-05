@@ -77,7 +77,7 @@ var nvidiaEnabledSKUs = sets.NewString(
 	"standard_nc16as_t4_v3",
 	"standard_nc64as_t4_v3",
 	// A100 40GB: https://learn.microsoft.com/en-us/azure/virtual-machines/nda100-v4-series
-	"standard_nd96asr_a100_v4",
+	"standard_nd96asr_v4",
 	"standard_nd112asr_a100_v4",
 	"standard_nd120asr_a100_v4",
 	// A100 80GB: https://learn.microsoft.com/en-us/azure/virtual-machines/ndm-a100-v4-series
