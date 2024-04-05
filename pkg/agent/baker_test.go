@@ -229,7 +229,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(err).To(BeNil())
 		customDataBytes, err := base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
 		customData := string(customDataBytes)
-		fmt.Println(customData)
 		Expect(err).To(BeNil())
 
 		if generateTestData() {
