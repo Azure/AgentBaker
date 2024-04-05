@@ -113,6 +113,31 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 
+{{if EnableSecureTLSBootstrapping -}}
+- path: /opt/azure/tlsbootstrap/secure-tls-bootstrap.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "secureTLSBootstrapScript"}}
+
+- path: /etc/systemd/system/secure-tls-bootstrap.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "secureTLSBootstrapSystemdService"}}
+
+- path: /etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    Environment="API_SERVER_NAME={{GetKubernetesEndpoint}}"
+    Environment="AAD_RESOURCE={{GetSecureTLSBootstrapAADResource}}"
+    #EOF 
+{{- end}}
+
 - path: /etc/systemd/system/kubelet.service
   permissions: "0600"
   encoding: gzip
@@ -335,23 +360,7 @@ write_files:
     users:
     - name: kubelet-bootstrap
       user:
-      {{- if EnableSecureTLSBootstrapping }}
-        exec:
-          apiVersion: client.authentication.k8s.io/v1
-          command: /opt/azure/tlsbootstrap/tls-bootstrap-client
-          args:
-          - bootstrap
-          - --next-proto=aks-tls-bootstrap
-          {{- if GetCustomSecureTLSBootstrapAADServerAppID}}
-          - --aad-resource={{GetCustomSecureTLSBootstrapAADServerAppID}}
-          {{- else}}
-          - --aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630
-          {{- end}}
-          interactiveMode: Never
-          provideClusterInfo: true
-      {{- else }}
         token: "{{GetTLSBootstrapTokenForKubeConfig}}"
-      {{- end }}
     contexts:
     - context:
         cluster: localcluster

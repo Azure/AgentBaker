@@ -82,7 +82,9 @@ ERR_ARTIFACT_STREAMING_INSTALL=153 # Error installing mirror proxy and overlaybd
 
 ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
 ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
-ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT_TIMEOUT=169 # Timeout waiting for secure TLS bootrstrap kubelet exec plugin download
+ERR_SECURE_TLS_BOOTSTRAP_CLIENT_FAIL=167 # Error generating kubelet client credential via the secure TLS bootstrap client
+ERR_SECURE_TLS_BOOTSTRAP_MISSING_KUBECONFIG=168 # Unable to find kubeconfig after completion of secure TLS bootstrapping
+ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT_TIMEOUT=169 # Timeout waiting for secure TLS bootrstrap client download
 
 ERR_DISBALE_IPTABLES=170 # Error disabling iptables service
 

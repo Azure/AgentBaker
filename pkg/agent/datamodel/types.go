@@ -1665,23 +1665,23 @@ type NodeBootstrappingConfiguration struct {
 	// instead we create a modified bootstrap kubeconfig which points towards the STLS bootstrap client-go
 	// credential plugin installed on the VHD, which will be responsible for generating TLS bootstrap tokens on the fly
 	EnableSecureTLSBootstrapping bool
-	// CustomSecureTLSBootstrapAADServerAppID serves as an optional override of the AAD server application ID
-	// used by the secure TLS bootstrap client-go credential plugin when requesting JWTs from AAD
-	CustomSecureTLSBootstrapAADServerAppID string
-	FIPSEnabled                            bool
-	HTTPProxyConfig                        *HTTPProxyConfig
-	KubeletConfig                          map[string]string
-	KubeproxyConfig                        map[string]string
-	EnableRuncShimV2                       bool
-	GPUInstanceProfile                     string
-	PrimaryScaleSetName                    string
-	SIGConfig                              SIGConfig
-	IsARM64                                bool
-	CustomCATrustConfig                    *CustomCATrustConfig
-	DisableUnattendedUpgrades              bool
-	SSHStatus                              SSHStatus
-	DisableCustomData                      bool
-	OutboundType                           string
+	// CustomSecureTLSBootstrapAADResource serves as an optional override of the AAD resource
+	// used by the secure TLS bootstrap client requesting JWTs from AAD
+	CustomSecureTLSBootstrapAADResource string
+	FIPSEnabled                         bool
+	HTTPProxyConfig                     *HTTPProxyConfig
+	KubeletConfig                       map[string]string
+	KubeproxyConfig                     map[string]string
+	EnableRuncShimV2                    bool
+	GPUInstanceProfile                  string
+	PrimaryScaleSetName                 string
+	SIGConfig                           SIGConfig
+	IsARM64                             bool
+	CustomCATrustConfig                 *CustomCATrustConfig
+	DisableUnattendedUpgrades           bool
+	SSHStatus                           SSHStatus
+	DisableCustomData                   bool
+	OutboundType                        string
 }
 
 type SSHStatus int

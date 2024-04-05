@@ -383,8 +383,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			// this will be true when we can perform TLS bootstrapping without the use of a hard-coded bootstrap token.
 			return config.EnableSecureTLSBootstrapping
 		},
-		"GetCustomSecureTLSBootstrapAADServerAppID": func() string {
-			return config.CustomSecureTLSBootstrapAADServerAppID
+		"GetSecureTLSBootstrapAADResource": func() string {
+			if config.CustomSecureTLSBootstrapAADResource != "" {
+				return config.CustomSecureTLSBootstrapAADResource
+			}
+			// TODO(cameissner): will this depend on cloud?
+			return aksAADServerAppID
 		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
@@ -1015,6 +1019,8 @@ func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfigurat
 func isMariner(osSku string) bool {
 	return osSku == datamodel.OSSKUCBLMariner || osSku == datamodel.OSSKUMariner || osSku == datamodel.OSSKUAzureLinux
 }
+
+const aksAADServerAppID = "6dae42f8-4368-4678-94ff-3960e28e3630"
 
 const sysctlTemplateString = `# This is a partial workaround to this upstream Kubernetes issue:
 # https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731

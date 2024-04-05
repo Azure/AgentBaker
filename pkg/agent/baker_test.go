@@ -229,6 +229,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(err).To(BeNil())
 		customDataBytes, err := base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
 		customData := string(customDataBytes)
+		fmt.Println(customData)
 		Expect(err).To(BeNil())
 
 		if generateTestData() {
@@ -685,38 +686,30 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				config.EnableSecureTLSBootstrapping = true
 			}, func(o *nodeBootstrappingOutput) {
 				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
-				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID"]).To(BeEmpty())
+				Expect(o.vars["SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"]).To(Equal(aksAADServerAppID))
 
-				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
-				Expect(bootstrapKubeconfig).ToNot(BeEmpty())
-				Expect(bootstrapKubeconfig).To(ContainSubstring("apiVersion: client.authentication.k8s.io/v1"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("- bootstrap"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("--next-proto=aks-tls-bootstrap"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("--aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("interactiveMode: Never"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("provideClusterInfo: true"))
-				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("token:"))
+				secureTLSBootstrapScript := o.files["/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh"]
+				Expect(secureTLSBootstrapScript).ToNot(BeNil())
+				secureTLSBootstrapService := o.files["/etc/systemd/system/secure-tls-bootstrap.service"]
+				Expect(secureTLSBootstrapService).ToNot(BeNil())
+				secureTLSBootstrapConfigDropin := o.files["/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"]
+				Expect(secureTLSBootstrapConfigDropin).ToNot(BeNil())
 			}),
 
-		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled using custom AAD server application ID", "AKSUbuntu2204+SecureTLSBootstrapping+CustomAADResource", "1.25.6",
+		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled using custom AAD resource", "AKSUbuntu2204+SecureTLSBootstrapping+CustomAADResource", "1.25.6",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableSecureTLSBootstrapping = true
-				config.CustomSecureTLSBootstrapAADServerAppID = "appID"
+				config.CustomSecureTLSBootstrapAADResource = "appID"
 			}, func(o *nodeBootstrappingOutput) {
 				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
-				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID"]).To(Equal("appID"))
+				Expect(o.vars["SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"]).To(Equal("appID"))
 
-				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
-				Expect(bootstrapKubeconfig).ToNot(BeEmpty())
-				Expect(bootstrapKubeconfig).To(ContainSubstring("apiVersion: client.authentication.k8s.io/v1"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("- bootstrap"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("--next-proto=aks-tls-bootstrap"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("--aad-resource=appID"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("interactiveMode: Never"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("provideClusterInfo: true"))
-				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("token:"))
+				secureTLSBootstrapScript := o.files["/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh"]
+				Expect(secureTLSBootstrapScript).ToNot(BeNil())
+				secureTLSBootstrapService := o.files["/etc/systemd/system/secure-tls-bootstrap.service"]
+				Expect(secureTLSBootstrapService).ToNot(BeNil())
+				secureTLSBootstrapConfigDropin := o.files["/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"]
+				Expect(secureTLSBootstrapConfigDropin).ToNot(BeNil())
 			}),
 
 		Entry("AKSUbuntu1804 with DisableCustomData = true", "AKSUbuntu1804+DisableCustomData", "1.19.0",
