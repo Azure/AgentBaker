@@ -178,11 +178,16 @@ type NetworkConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	NetworkPlugin     NetworkPlugin `protobuf:"varint,1,opt,name=network_plugin,json=networkPlugin,proto3,enum=nbcontract.v1.NetworkPlugin" json:"network_plugin,omitempty"`
-	NetworkPolicy     NetworkPolicy `protobuf:"varint,2,opt,name=network_policy,json=networkPolicy,proto3,enum=nbcontract.v1.NetworkPolicy" json:"network_policy,omitempty"`
-	NetworkMode       NetworkMode   `protobuf:"varint,3,opt,name=network_mode,json=networkMode,proto3,enum=nbcontract.v1.NetworkMode" json:"network_mode,omitempty"`
-	VnetCniPluginsUrl string        `protobuf:"bytes,4,opt,name=vnet_cni_plugins_url,json=vnetCniPluginsUrl,proto3" json:"vnet_cni_plugins_url,omitempty"`
-	CniPluginsUrl     string        `protobuf:"bytes,5,opt,name=cni_plugins_url,json=cniPluginsUrl,proto3" json:"cni_plugins_url,omitempty"`
+	// NetworkPlugin is the network plugin to be used by the cluster. Options are NONE, AZURE, KUBENET.
+	NetworkPlugin NetworkPlugin `protobuf:"varint,1,opt,name=network_plugin,json=networkPlugin,proto3,enum=nbcontract.v1.NetworkPlugin" json:"network_plugin,omitempty"`
+	// NetworkPolicy is the network policy to be used by the cluster.
+	// This is still needed to compute ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE.
+	// Other than that, it is not used by others. See the discussions here https://github.com/Azure/AgentBaker/pull/4241#discussion_r1554283228
+	NetworkPolicy NetworkPolicy `protobuf:"varint,2,opt,name=network_policy,json=networkPolicy,proto3,enum=nbcontract.v1.NetworkPolicy" json:"network_policy,omitempty"`
+	// NetworkMode is the network mode to be used by the cluster. Options are BRIDGE and TRANSPARENT.
+	NetworkMode       NetworkMode `protobuf:"varint,3,opt,name=network_mode,json=networkMode,proto3,enum=nbcontract.v1.NetworkMode" json:"network_mode,omitempty"`
+	VnetCniPluginsUrl string      `protobuf:"bytes,4,opt,name=vnet_cni_plugins_url,json=vnetCniPluginsUrl,proto3" json:"vnet_cni_plugins_url,omitempty"`
+	CniPluginsUrl     string      `protobuf:"bytes,5,opt,name=cni_plugins_url,json=cniPluginsUrl,proto3" json:"cni_plugins_url,omitempty"`
 }
 
 func (x *NetworkConfig) Reset() {
