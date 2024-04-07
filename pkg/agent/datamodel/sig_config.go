@@ -268,6 +268,10 @@ func (d Distro) IsWindowsPIRDistro() bool {
 	return false
 }
 
+func (d Distro) IsWindowsDistro() bool {
+	return d.IsWindowsSIGDistro() || d.IsWindowsPIRDistro()
+}
+
 // SigImageConfigTemplate represents the SIG image configuration template.
 //
 //nolint:musttag // tags can be added if deemed necessary
