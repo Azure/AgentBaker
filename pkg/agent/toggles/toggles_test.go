@@ -5,17 +5,17 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("toggles tests", func() {
+var _ = Describe("tgls tests", func() {
 	var (
-		toggles *Toggles
-		e       = &Entity{Fields: map[string]string{
+		tgls *Toggles
+		e    = &Entity{Fields: map[string]string{
 			"subscriptionId": "sid",
 			"tenantId":       "tid",
 		}}
 	)
 
 	BeforeEach(func() {
-		toggles = &Toggles{
+		tgls = &Toggles{
 			Maps: map[string]MapToggle{
 				"mt1": func(entity *Entity) map[string]string {
 					return map[string]string{"key": "value"}
@@ -39,9 +39,27 @@ var _ = Describe("toggles tests", func() {
 	})
 
 	Context("getMap tests", func() {
+		When("toggles are nil", func() {
+			It("should return the empty default value", func() {
+				tgls = nil
+				m := tgls.getMap("mt", e)
+				Expect(m).ToNot(BeNil())
+				Expect(m).To(BeEmpty())
+			})
+		})
+
+		When("map toggles are nil", func() {
+			It("should return the empty default value", func() {
+				tgls.Maps = nil
+				m := tgls.getMap("mt", e)
+				Expect(m).ToNot(BeNil())
+				Expect(m).To(BeEmpty())
+			})
+		})
+
 		When("toggle does not exist", func() {
 			It("should return the correct default value", func() {
-				m := toggles.getMap("mt", e)
+				m := tgls.getMap("mt", e)
 				Expect(m).ToNot(BeNil())
 				Expect(m).To(BeEmpty())
 			})
@@ -49,11 +67,11 @@ var _ = Describe("toggles tests", func() {
 
 		When("toggle exists", func() {
 			It("should return the correct value", func() {
-				m := toggles.getMap("mt1", e)
+				m := tgls.getMap("mt1", e)
 				Expect(len(m)).To(Equal(1))
 				Expect(m).To(HaveKeyWithValue("key", "value"))
 
-				m = toggles.getMap("mt2", e)
+				m = tgls.getMap("mt2", e)
 				Expect(len(m)).To(Equal(2))
 				Expect(m).To(HaveKeyWithValue("otherKey", "otherValue"))
 				Expect(m).To(HaveKeyWithValue("someOtherKey", "someOtherValue"))
@@ -62,19 +80,33 @@ var _ = Describe("toggles tests", func() {
 	})
 
 	Context("getString tests", func() {
+		When("toggles are nil", func() {
+			It("should return the empty default value", func() {
+				s := tgls.getString("st", e)
+				Expect(s).To(BeEmpty())
+			})
+		})
+
+		When("string toggles are nil", func() {
+			It("should return the empty default value", func() {
+				s := tgls.getString("st", e)
+				Expect(s).To(BeEmpty())
+			})
+		})
+
 		When("toggle does not exist", func() {
 			It("should return the correct default value", func() {
-				s := toggles.getString("st", e)
+				s := tgls.getString("st", e)
 				Expect(s).To(BeEmpty())
 			})
 		})
 
 		When("toggle exists", func() {
 			It("should return the correct value", func() {
-				s := toggles.getString("st1", e)
+				s := tgls.getString("st1", e)
 				Expect(s).To(Equal("value"))
 
-				s = toggles.getString("st2", e)
+				s = tgls.getString("st2", e)
 				Expect(s).To(Equal("otherValue"))
 			})
 		})
