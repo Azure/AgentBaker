@@ -303,10 +303,10 @@ for imageToBePulled in ${ContainerImages[*]}; do
 
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE} & # pullContainerImage in the background and continue with for loop
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
     containerImagePids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    while [[ $(jobs -p | wc -l) -ge 12 ]]; do # No more than 14 container images are pulled in parallel, installBcc is running in the background
+    while [[ $(jobs -p | wc -l) -ge 13 ]]; do # 13 maximum parallel container image pulls
       wait -n
     done    
   done
