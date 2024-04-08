@@ -1623,9 +1623,11 @@ type K8sComponents struct {
 //
 //nolint:musttag // tags can be added if deemed necessary
 type GetLatestSigImageConfigRequest struct {
-	SIGConfig SIGConfig
-	Region    string
-	Distro    Distro
+	SIGConfig      SIGConfig
+	SubscriptionID string
+	TenantID       string
+	Region         string
+	Distro         Distro
 }
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
