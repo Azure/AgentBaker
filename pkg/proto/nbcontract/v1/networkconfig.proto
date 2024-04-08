@@ -11,16 +11,8 @@ message NetworkConfig {
   // Other than that, it is not used by others. See the discussions here https://github.com/Azure/AgentBaker/pull/4241#discussion_r1554283228
   NetworkPolicy network_policy = 2;
 
-  // NetworkMode is the network mode to be used by the cluster. Options are BRIDGE and TRANSPARENT.
-  NetworkMode network_mode = 3;
-  string vnet_cni_plugins_url = 4;
-  string cni_plugins_url = 5;
-}
-
-enum NetworkMode {
-  NM_UNSPECIFIED = 0;
-  BRIDGE = 1;
-  TRANSPARENT = 2;
+  string vnet_cni_plugins_url = 3;
+  string cni_plugins_url = 4;
 }
 
 enum NetworkPlugin {
