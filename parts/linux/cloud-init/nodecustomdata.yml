@@ -114,6 +114,29 @@ write_files:
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 
 {{if EnableSecureTLSBootstrapping -}}
+- path: /opt/azure/tlsbootstrap/download-secure-tls-bootstrap-client.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "downloadSecureTLSBootstrapClientScript"}}
+
+- path: /etc/systemd/system/download-secure-tls-bootstrap-client.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "downloadSecureTLSBootstrapClientService"}}
+
+- path: /etc/systemd/system/download-secure-tls-bootstrap-client.service.d/10-download.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    Environment="DOWNLOAD_URL=https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/v0.1.0-alpha.2/linux/amd64/tls-bootstrap-client}"
+    Environment="DOWNLOAD_DIR=/opt/azure/tlsbootstrap"
+    #EOF 
+
 - path: /opt/azure/tlsbootstrap/secure-tls-bootstrap.sh
   permissions: "0744"
   encoding: gzip
@@ -134,7 +157,11 @@ write_files:
   content: |
     [Service]
     Environment="API_SERVER_NAME={{GetKubernetesEndpoint}}"
-    Environment="AAD_RESOURCE={{GetSecureTLSBootstrapAADResource}}"
+    {{if GetCustomSecureTLSBootstrapAADResource -}}
+    Environment="AAD_RESOURCE={{GetCustomSecureTLSBootstrapAADResource}}"
+    {{- else}}
+    Environment="AAD_RESOURCE=6dae42f8-4368-4678-94ff-3960e28e3630"
+    {{- end}}
     #EOF 
 {{- end}}
 
