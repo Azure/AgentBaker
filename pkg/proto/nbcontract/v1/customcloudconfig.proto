@@ -1,18 +1,18 @@
 syntax = "proto3";
 package nbcontract.v1;
-import "pkg/proto/nbcontract/v1/featurestate.proto";
 
 message CustomCloudConfig {
 
-    // Status shows whether CustomCloudConfig is enabled or not
-    optional FeatureState status = 1;
+    // IsAKSCustomCloud is a flag to indicate if it is AKS custom cloud
+    bool is_aks_custom_cloud = 1;
 
     // InitFilePath is the path to the file that contains the init script
-    optional string init_file_path = 2;
+    string init_file_path = 2;
 
     // RepoDepotEndpoint is the endpoint of the repo depot
-    optional string repo_depot_endpoint = 3;
+    string repo_depot_endpoint = 3;
 
     string target_environment = 4;
-    string custom_env_json_content = 5; // can be generated on the VHD, also rename
+
+    string custom_env_json_content = 5;
 }

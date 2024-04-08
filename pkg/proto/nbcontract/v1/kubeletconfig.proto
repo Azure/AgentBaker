@@ -1,6 +1,5 @@
 syntax = "proto3";
 package nbcontract.v1;
-import "pkg/proto/nbcontract/v1/featurestate.proto";
 
 message KubeletConfig {
   // TODO(ace): remove these/make api defensible
@@ -8,7 +7,7 @@ message KubeletConfig {
   map<string, string> kubelet_node_labels = 2;
   repeated Taint taints = 3;
   repeated Taint startup_taints = 4;
-  KubeletDiskType kubelet_disk_type = 5;
+  KubeletDisk kubelet_disk_type = 5;
 
   // kubelet_config_file_content is the content of the kubelet config file.
   string kubelet_config_file_content = 6;
@@ -21,8 +20,8 @@ message Taint {
   string effect = 2;
 }
 
-enum KubeletDiskType {
-  KUBELET_DISK_TYPE_UNSPECIFIED = 0;
-  KUBELET_DISK_TYPE_OS_DISK = 1;
-  KUBELET_DISK_TYPE_TEMP_DISK = 2;
+enum KubeletDisk {
+  KD_UNSPECIFIED = 0;
+  OS_DISK = 1;
+  TEMP_DISK = 2;
 }

@@ -1,6 +1,5 @@
 syntax = "proto3";
 package nbcontract.v1;
-import "pkg/proto/nbcontract/v1/featurestate.proto";
 
 message HTTPProxyConfig {
   // HTTPProxy represents the proxy endpoint/URL using HTTP, that the traffic should go through for making HTTP connections outside the cluster

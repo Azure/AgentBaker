@@ -5,18 +5,18 @@ package nbcontract.v1;
 message ClusterConfig {
   string resource_group = 1;
   string location = 2;
-  VmType vm_type = 3; // default to standard for v1.27 and below versions and vmss for v1.28+ versions
+  VM vm_type = 3; // default to standard for v1.27 and below versions and vmss for v1.28+ versions
   string primary_availability_set = 4;
   string primary_scale_set = 5;
   ClusterNetworkConfig virtual_network_config = 6;
   bool use_instance_metadata = 7; // default to false
   LoadBalancerConfig load_balancer_config = 8;
-}
 
-enum VmType {
-  VM_TYPE_UNSPECIFIED = 0;
-  VM_TYPE_STANDARD = 1;
-  VM_TYPE_VMSS = 2;
+  enum VM {
+    UNSPECIFIED = 0;
+    STANDARD = 1;
+    VMSS = 2;
+  }
 }
 
 message ClusterNetworkConfig {
@@ -31,10 +31,12 @@ message LoadBalancerConfig {
   LoadBalancerSku load_balancer_sku = 1; // default to basic
   optional bool exclude_master_from_standard_load_balancer = 2; // default to true
   optional int32 max_load_balancer_rule_count = 3; // default to 148
+  optional bool disable_outbound_snat = 4; // default to false
+
+  enum LoadBalancerSku {
+    UNSPECIFIED = 0;
+    BASIC = 1;
+    STANDARD = 2;
+  }
 }
 
-enum LoadBalancerSku {
-  LOAD_BALANCER_SKU_UNSPECIFIED = 0;
-  LOAD_BALANCER_SKU_BASIC = 1;
-  LOAD_BALANCER_SKU_STANDARD = 2;
-}
