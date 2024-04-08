@@ -175,10 +175,12 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
 fi
 
 if [[ -z "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
+  echo "AZURE_RESOURCE_GROUP_NAME is not set, skipping storage account backfill deletion..."
   exit 0
 fi
 
 if [[ "${MODE}" != "linuxVhdMode" ]] && [[ "${DRY_RUN}" == "True" ]]; then
+  echo "MODE is $MODE and DRY_RUN is $DRY_RUN, skipping storage account backfill deletion..."
   exit 0
 fi
 
