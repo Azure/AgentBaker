@@ -21,25 +21,6 @@ func getBaseTemplate() *nbcontractv1.Configuration {
 	}
 }
 
-func getBoolStr(state nbcontractv1.FeatureState) string {
-	if state == nbcontractv1.FeatureState_FEATURE_STATE_ENABLED {
-		return "true"
-	}
-
-	return "false"
-}
-
-func getInverseBoolStr(state nbcontractv1.FeatureState) string {
-	if state == nbcontractv1.FeatureState_FEATURE_STATE_ENABLED {
-		return "false"
-	}
-
-	return "true"
-}
-
 func getFuncMap() template.FuncMap {
-	return template.FuncMap{
-		"getBoolStr":        getBoolStr,
-		"getInverseBoolStr": getInverseBoolStr,
-	}
+	return template.FuncMap{}
 }
