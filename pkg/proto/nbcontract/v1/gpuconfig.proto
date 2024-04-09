@@ -1,8 +1,6 @@
 syntax = "proto3";
 package nbcontract.v1;
 
-import "pkg/proto/nbcontract/v1/featurestate.proto";
-
 message GPUConfig {
   // ConfigGpuDriver specifies whether bootstrap process should install and configure the GPU driver when necessary. Configuration includes appropriate set up of components like the fabric manager where applicable.
   bool config_gpu_driver = 1;

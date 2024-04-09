@@ -1,31 +1,30 @@
 syntax = "proto3";
 package nbcontract.v1;
-import "pkg/proto/nbcontract/v1/featurestate.proto";
 
 message NetworkConfig {
-  NetworkPluginType network_plugin = 1;
-  NetworkPolicyType network_policy = 2;
-  NetworkModeType network_mode = 3;
-  string vnet_cni_plugins_url = 4;
-  string cni_plugins_url = 5;
+
+  // NetworkPlugin is the network plugin to be used by the cluster. Options are NONE, AZURE, KUBENET.
+  NetworkPlugin network_plugin = 1;
+
+  // NetworkPolicy is the network policy to be used by the cluster.
+  // This is still needed to compute ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE. 
+  // Other than that, it is not used by others. See the discussions here https://github.com/Azure/AgentBaker/pull/4241#discussion_r1554283228
+  NetworkPolicy network_policy = 2;
+
+  string vnet_cni_plugins_url = 3;
+  string cni_plugins_url = 4;
 }
 
-enum NetworkModeType {
-  NETWORK_MODE_UNSPECIFIED = 0;
-  NETWORK_MODE_BRIDGE = 1;
-  NETWORK_MODE_TRANSPARENT = 2;
+enum NetworkPlugin {
+  NP_UNSPECIFIED = 0;
+  NP_NONE = 1;
+  NP_AZURE = 2;
+  NP_KUBENET = 3;
 }
 
-enum NetworkPluginType {
-  NETWORK_PLUGIN_TYPE_UNSPECIFIED = 0;
-  NETWORK_PLUGIN_TYPE_NONE = 1;
-  NETWORK_PLUGIN_TYPE_AZURE = 2;
-  NETWORK_PLUGIN_TYPE_KUBENET = 3;
-}
-
-enum NetworkPolicyType {
-  NETWORK_POLICY_TYPE_UNSPECIFIED = 0;
-  NETWORK_POLICY_TYPE_NONE = 1;
-  NETWORK_POLICY_TYPE_AZURE = 2;
-  NETWORK_POLICY_TYPE_CALICO = 3;
+enum NetworkPolicy {
+  NPO_UNSPECIFIED = 0;
+  NPO_NONE = 1;
+  NPO_AZURE = 2;
+  NPO_CALICO = 3;
 }
