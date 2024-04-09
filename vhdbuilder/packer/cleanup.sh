@@ -185,7 +185,7 @@ if [[ "${MODE}" != "linuxVhdMode" ]] && [[ "${DRY_RUN}" == "True" ]]; then
 fi
 
 
-STORAGE_ACCOUNT_EXPIRATION_IN_HOURS=12
+STORAGE_ACCOUNT_EXPIRATION_IN_HOURS=4
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
 (( storageAccountExpirationSecs = ${STORAGE_ACCOUNT_EXPIRATION_IN_HOURS} * 60 * 60 ))
 # deadline = the "date +%s" representation of the oldest age we're willing to keep
