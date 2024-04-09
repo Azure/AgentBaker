@@ -1616,6 +1616,14 @@ type K8sComponents struct {
 	// Full path to the Linux package (tar.gz) to use.
 	// For example: url=https://acs-mirror.azureedge.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz
 	LinuxPrivatePackageURL string
+
+	// Full path to the Windows credential provider (tar.gz) to use.
+	// For example: https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.4/binaries/azure-acr-credential-provider-linux-amd64-v1.29.4.tar.gz
+	WindowsCredentialProviderURL string
+
+	// Full path to the Linux credential provider (tar.gz) to use.
+	// For example: "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.4/binaries/azure-acr-credential-provider-windows-amd64-v1.29.4.tar.gz"
+	LinuxCredentialProviderURL string
 }
 
 // GetLatestSigImageConfigRequest describes the input for a GetLatestSigImageConfig HTTP request.

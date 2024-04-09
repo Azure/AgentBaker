@@ -165,15 +165,17 @@ func assignKubernetesParametersfromKubernetesConfig(properties *datamodel.Proper
 		addValue(parametersMap, "vnetCniLinuxPluginsURL", kubernetesConfig.GetAzureCNIURLLinux(cloudSpecConfig))
 	}
 	addValue(parametersMap, "vnetCniWindowsPluginsURL", kubernetesConfig.GetAzureCNIURLWindows(cloudSpecConfig))
+	addValue(parametersMap, "linuxCredentialProviderURL", k8sComponents.LinuxCredentialProviderURL)
 
 	if properties.HasWindows() {
 		addValue(parametersMap, "kubeBinariesSASURL", k8sComponents.WindowsPackageURL)
-
+		addValue(parametersMap, "credentialProviderWindowsURL", cloudSpecConfig.KubernetesSpecConfig.CredentialProviderWindowsURL)
 		addValue(parametersMap, "windowsContainerdURL", kubernetesConfig.WindowsContainerdURL)
 		addValue(parametersMap, "kubeServiceCidr", kubernetesConfig.ServiceCIDR)
 		addValue(parametersMap, "kubeBinariesVersion", k8sVersion)
 		addValue(parametersMap, "windowsTelemetryGUID", cloudSpecConfig.KubernetesSpecConfig.WindowsTelemetryGUID)
 		addValue(parametersMap, "windowsSdnPluginURL", kubernetesConfig.WindowsSdnPluginURL)
+		addValue(parametersMap, "windowsCredentialProviderURL", k8sComponents.WindowsCredentialProviderURL)
 	}
 }
 

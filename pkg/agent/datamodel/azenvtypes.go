@@ -42,6 +42,8 @@ type KubernetesSpecConfig struct {
 	CseScriptsPackageURL                 string `json:"cseScriptsPackageURL,omitempty"`
 	CNIARM64PluginsDownloadURL           string `json:"cniARM64PluginsDownloadURL,omitempty"`
 	VnetCNIARM64LinuxPluginsDownloadURL  string `json:"vnetCNIARM64LinuxPluginsDownloadURL,omitempty"`
+	CredentialProviderURL                string `json:"credentialProviderURL,omitempty"`
+	CredentialProviderWindowsURL         string `json:"credentialProviderWindowsURL,omitempty"`
 }
 
 // AzureEndpointConfig describes an Azure endpoint.
