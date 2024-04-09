@@ -725,5 +725,4 @@ var _ = Describe("Test removeComments", func() {
 		result := removeComments(input)
 		Expect(string(result)).To(Equal(expected))
 	})
-
 })

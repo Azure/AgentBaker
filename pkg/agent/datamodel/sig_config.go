@@ -15,6 +15,13 @@ const (
 	AzurePublicCloudSigSubscription string = "109a5e88-712a-48ae-9078-9ca8b3c81345" // AKS VHD
 )
 
+//nolint:gochecknoglobals
+var (
+	CachedFromComponsents = make(map[string]ProcessedComponents)
+	CachedFromManifest    = make(map[string]ProcessedManifest)
+)
+
+//nolint:gochecknoinits
 func init() {
 	CacheManifest()
 	CacheComponents()
@@ -896,8 +903,6 @@ func withSubscription(subscriptionID string) SigImageConfigOpt {
 	}
 }
 
-var CachedFromManifest = make(map[string]ProcessedManifest)
-
 type Manifest struct {
 	Containerd struct {
 		Edge     string            `json:"edge"`
@@ -987,8 +992,6 @@ type ProcessedComponents struct {
 	Amd64OnlyVersions     []string
 	PrefetchOptimizations PrefetchOptimizations
 }
-
-var CachedFromComponsents = make(map[string]ProcessedComponents)
 
 func getCachedComponentsFromComponents(componentsFilePath string) {
 	data, err := os.ReadFile(componentsFilePath)
