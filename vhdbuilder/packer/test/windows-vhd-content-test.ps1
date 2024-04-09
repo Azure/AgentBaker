@@ -214,6 +214,68 @@ function Test-ImagesPulled {
     }
 }
 
+function Validate-WindowsFixInFeatureManagement {
+    Param(
+      [Parameter(Mandatory = $true)][string]
+      $Name,
+      [Parameter(Mandatory = $false)][string]
+      $Value = "1"
+    )
+    
+    $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name $Name)
+    if ($result.$Name -ne $Value) {
+        Write-ErrorWithTimestamp "The registry for $Name in FeatureManagement\Overrides is not added"
+        exit 1
+    }
+}
+
+function Validate-WindowsFixInHnsState {
+    Param(
+      [Parameter(Mandatory = $true)][string]
+      $Name,
+      [Parameter(Mandatory = $false)][string]
+      $Value = "1"
+    )
+    
+    $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name $Name)
+    if ($result.$Name -ne $Value) {
+        Write-ErrorWithTimestamp "The registry for $Name in hns\State is not added"
+        exit 1
+    }
+}
+
+function Validate-WindowsFixInVfpExtParameters {
+    Param(
+      [Parameter(Mandatory = $true)][string]
+      $Name,
+      [Parameter(Mandatory = $false)][string]
+      $Value = "1"
+    )
+    
+    $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name $Name)
+    if ($result.$Name -ne $Value) {
+        Write-ErrorWithTimestamp "The registry for $Name in VfpExt\Parameters is not added"
+        exit 1
+    }
+}
+
+function Validate-WindowsFixInPath {
+    Param(
+      [Parameter(Mandatory = $true)][string]
+      $Path,
+      [Parameter(Mandatory = $true)][string]
+      $Name,
+      [Parameter(Mandatory = $false)][string]
+      $Value = "1"
+    )
+    
+    $result=(Get-ItemProperty -Path $Path -Name $Name)
+    if ($result.$Name -ne $Value) {
+        Write-ErrorWithTimestamp "The registry for $Name in $Path is not added"
+        exit 1
+    }
+}
+
 function Test-RegistryAdded {
     if ($skipValidateReofferUpdate -eq $true) {
         Write-Output "Skip validating ReofferUpdate"
@@ -227,11 +289,7 @@ function Test-RegistryAdded {
         Write-Output "The registry for ReofferUpdate is \"$result\" ."
     }
 
-    $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name EnableCompartmentNamespace)
-    if ($result.EnableCompartmentNamespace -ne 1) {
-        Write-ErrorWithTimestamp "The registry for SMB Resolution Fix for containerD is not added"
-        exit 1
-    }
+    Validate-WindowsFixInHnsState -Name EnableCompartmentNamespace
 
     if ($env:WindowsSKU -Like '2019*') {
         $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag)
@@ -239,265 +297,60 @@ function Test-RegistryAdded {
             Write-ErrorWithTimestamp "The registry for the two HNS fixes is not added"
             exit 1
         }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\wcifs" -Name WcifsSOPCountDisabled)
-        if ($result.WcifsSOPCountDisabled -ne 0) {
-            Write-ErrorWithTimestamp "The registry for the WCIFS fix in 2022-10B is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsPolicyUpdateChange)
-        if ($result.HnsPolicyUpdateChange -ne 1) {
-            Write-ErrorWithTimestamp "The registry for HnsPolicyUpdateChange is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNatAllowRuleUpdateChange)
-        if ($result.HnsNatAllowRuleUpdateChange -ne 1) {
-            Write-ErrorWithTimestamp "The registry for HnsNatAllowRuleUpdateChange is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3105872524)
-        if ($result.3105872524 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 3105872524 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled)
-        if ($result.VfpEvenPodDistributionIsEnabled -ne 1) {
-            Write-ErrorWithTimestamp "The registry for VfpEvenPodDistributionIsEnabled is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3230913164)
-        if ($result.3230913164 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 3230913164 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpNotReuseTcpOneWayFlowIsEnabled)
-        if ($result.VfpNotReuseTcpOneWayFlowIsEnabled -ne 1) {
-            Write-ErrorWithTimestamp "The registry for VfpNotReuseTcpOneWayFlowIsEnabled is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name CleanupReservedPorts)
-        if ($result.CleanupReservedPorts -ne 1) {
-            Write-ErrorWithTimestamp "The registry for CleanupReservedPorts is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 652313229)
-        if ($result.652313229 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 652313229 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2059235981)
-        if ($result.2059235981 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 2059235981 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3767762061)
-        if ($result.3767762061 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 3767762061 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1102009996)
-        if ($result.1102009996 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 1102009996 is not added"
-            exit 1
-        }
+        Validate-WindowsFixInPath -Path "HKLM:\SYSTEM\CurrentControlSet\Services\wcifs" -Name WcifsSOPCountDisabled -Value 0
+        Validate-WindowsFixInHnsState -Name HnsPolicyUpdateChange
+        Validate-WindowsFixInHnsState -Name HnsNatAllowRuleUpdateChange
+        Validate-WindowsFixInFeatureManagement -Name 3105872524
+        Validate-WindowsFixInVfpExtParameters -Name VfpEvenPodDistributionIsEnabled
+        Validate-WindowsFixInFeatureManagement -Name 3230913164
+        Validate-WindowsFixInVfpExtParameters -Name VfpNotReuseTcpOneWayFlowIsEnabled
+        Validate-WindowsFixInHnsState -Name CleanupReservedPorts
+        Validate-WindowsFixInFeatureManagement -Name 652313229
+        Validate-WindowsFixInFeatureManagement -Name 2059235981
+        Validate-WindowsFixInFeatureManagement -Name 3767762061
+        Validate-WindowsFixInFeatureManagement -Name 1102009996
     }
     if ($env:WindowsSKU -Like '2022*') {
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2629306509)
-        if ($result.2629306509 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for the WCIFS fix in 2022-10B is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsPolicyUpdateChange)
-        if ($result.HnsPolicyUpdateChange -ne 1) {
-            Write-ErrorWithTimestamp "The registry for HnsPolicyUpdateChange is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNatAllowRuleUpdateChange)
-        if ($result.HnsNatAllowRuleUpdateChange -ne 1) {
-            Write-ErrorWithTimestamp "The registry for HnsNatAllowRuleUpdateChange is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3508525708)
-        if ($result.3508525708 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 3508525708 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsAclUpdateChange)
-        if ($result.HnsAclUpdateChange -ne 1) {
-            Write-ErrorWithTimestamp "The registry for HnsAclUpdateChange is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNpmRefresh)
-        if ($result.HnsNpmRefresh -ne 1) {
-            Write-ErrorWithTimestamp "The registry for HnsNpmRefresh is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1995963020)
-        if ($result.1995963020 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 1995963020 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 189519500)
-        if ($result.189519500 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 189519500 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled)
-        if ($result.VfpEvenPodDistributionIsEnabled -ne 1) {
-            Write-ErrorWithTimestamp "The registry for VfpEvenPodDistributionIsEnabled is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3398685324)
-        if ($result.3398685324 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 3398685324 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNodeToClusterIpv6)
-        if ($result.HnsNodeToClusterIpv6 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for HnsNodeToClusterIpv6 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSNpmIpsetLimitChange)
-        if ($result.HNSNpmIpsetLimitChange -ne 1) {
-            Write-ErrorWithTimestamp "The registry for HNSNpmIpsetLimitChange is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSLbNatDupRuleChange)
-        if ($result.HNSLbNatDupRuleChange -ne 1) {
-            Write-ErrorWithTimestamp "The registry for HNSLbNatDupRuleChange is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpIpv6DipsPrintingIsEnabled)
-        if ($result.VfpIpv6DipsPrintingIsEnabled -ne 1) {
-            Write-ErrorWithTimestamp "The registry for VfpIpv6DipsPrintingIsEnabled is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSUpdatePolicyForEndpointChange)
-        if ($result.HNSUpdatePolicyForEndpointChange -ne 1) {
-            Write-ErrorWithTimestamp "The registry for HNSUpdatePolicyForEndpointChange is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSFixExtensionUponRehydration)
-        if ($result.HNSFixExtensionUponRehydration -ne 1) {
-            Write-ErrorWithTimestamp "The registry for HNSFixExtensionUponRehydration is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 87798413)
-        if ($result.87798413 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 87798413 is not added"
-            exit 1
-        }
-
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4289201804)
-        if ($result.4289201804 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 4289201804 is not added"
-            exit 1
-        }
-
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1355135117)
-        if ($result.1355135117 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 1355135117 is not added"
-            exit 1
-        }
-
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name RemoveSourcePortPreservationForRest)
-        if ($result.RemoveSourcePortPreservationForRest -ne 1) {
-            Write-ErrorWithTimestamp "The registry for RemoveSourcePortPreservationForRest is not added"
-            exit 1
-        }
-
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2214038156)
-        if ($result.2214038156 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 2214038156 is not added"
-            exit 1
-        }
-
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1673770637)
-        if ($result.1673770637 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 1673770637 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpNotReuseTcpOneWayFlowIsEnabled)
-        if ($result.VfpNotReuseTcpOneWayFlowIsEnabled -ne 1) {
-            Write-ErrorWithTimestamp "The registry for VfpNotReuseTcpOneWayFlowIsEnabled is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name FwPerfImprovementChange)
-        if ($result.FwPerfImprovementChange -ne 1) {
-            Write-ErrorWithTimestamp "The registry for FwPerfImprovementChange is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name CleanupReservedPorts)
-        if ($result.CleanupReservedPorts -ne 1) {
-            Write-ErrorWithTimestamp "The registry for CleanupReservedPorts is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 527922829)
-        if ($result.527922829 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 527922829 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers" -Name DeltaHivePolicy)
-        if ($result.DeltaHivePolicy -ne 2) {
-            Write-ErrorWithTimestamp "The registry for DeltaHivePolicy is not equal to 2"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2193453709)
-        if ($result.2193453709 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 2193453709 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3331554445)
-        if ($result.3331554445 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 3331554445 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv4)
-        if ($result.OverrideReceiveRoutingForLocalAddressesIpv4 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for OverrideReceiveRoutingForLocalAddressesIpv4 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv6)
-        if ($result.OverrideReceiveRoutingForLocalAddressesIpv6 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for OverrideReceiveRoutingForLocalAddressesIpv6 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1327590028)
-        if ($result.1327590028 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 1327590028 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1114842764)
-        if ($result.1114842764 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 1114842764 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsPreallocatePortRange)
-        if ($result.HnsPreallocatePortRange -ne 1) {
-            Write-ErrorWithTimestamp "The registry for HnsPreallocatePortRange is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4154935436)
-        if ($result.4154935436 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 4154935436 is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 124082829)
-        if ($result.124082829 -ne 1) {
-            Write-ErrorWithTimestamp "The registry for 124082829 is not added"
-            exit 1
-        }
+        Validate-WindowsFixInFeatureManagement -Name 2629306509
+        Validate-WindowsFixInHnsState -Name HnsPolicyUpdateChange
+        Validate-WindowsFixInHnsState -Name HnsNatAllowRuleUpdateChange
+        Validate-WindowsFixInFeatureManagement -Name 3508525708
+        Validate-WindowsFixInHnsState -Name HnsAclUpdateChange
+        Validate-WindowsFixInHnsState -Name HnsNpmRefresh
+        Validate-WindowsFixInFeatureManagement -Name 1995963020
+        Validate-WindowsFixInFeatureManagement -Name 189519500
+        Validate-WindowsFixInVfpExtParameters -Name VfpEvenPodDistributionIsEnabled
+        Validate-WindowsFixInFeatureManagement -Name 3398685324
+        Validate-WindowsFixInHnsState -Name HnsNodeToClusterIpv6
+        Validate-WindowsFixInHnsState -Name HNSNpmIpsetLimitChange
+        Validate-WindowsFixInHnsState -Name HNSLbNatDupRuleChange
+        Validate-WindowsFixInVfpExtParameters -Name VfpIpv6DipsPrintingIsEnabled
+        Validate-WindowsFixInHnsState -Name HNSUpdatePolicyForEndpointChange
+        Validate-WindowsFixInHnsState -Name HNSFixExtensionUponRehydration
+        Validate-WindowsFixInFeatureManagement -Name 87798413
+        Validate-WindowsFixInFeatureManagement -Name 4289201804
+        Validate-WindowsFixInFeatureManagement -Name 1355135117
+        Validate-WindowsFixInHnsState -Name RemoveSourcePortPreservationForRest
+        Validate-WindowsFixInFeatureManagement -Name 2214038156
+        Validate-WindowsFixInFeatureManagement -Name 1673770637
+        Validate-WindowsFixInVfpExtParameters -Name VfpNotReuseTcpOneWayFlowIsEnabled
+        Validate-WindowsFixInHnsState -Name FwPerfImprovementChange
+        Validate-WindowsFixInHnsState -Name CleanupReservedPorts
+        Validate-WindowsFixInFeatureManagement -Name 527922829
+        Validate-WindowsFixInPath -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers" -Name DeltaHivePolicy -Value 2
+        Validate-WindowsFixInFeatureManagement -Name 2193453709
+        Validate-WindowsFixInFeatureManagement -Name 3331554445
+        Validate-WindowsFixInHnsState -Name OverrideReceiveRoutingForLocalAddressesIpv4
+        Validate-WindowsFixInHnsState -Name OverrideReceiveRoutingForLocalAddressesIpv6
+        Validate-WindowsFixInFeatureManagement -Name 1327590028
+        Validate-WindowsFixInFeatureManagement -Name 1114842764
+        Validate-WindowsFixInHnsState -Name HnsPreallocatePortRange
+        Validate-WindowsFixInFeatureManagement -Name 4154935436
+        Validate-WindowsFixInFeatureManagement -Name 124082829
     }
     if ($env:WindowsSKU -Like '23H2*') {
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts)
-        if ($result.NamespaceExcludedUdpPorts -ne 65330) {
-            Write-ErrorWithTimestamp "The registry for NamespaceExcludedUdpPorts is not added"
-            exit 1
-        }
-        $result=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange)
-        if ($result.PortExclusionChange -ne 1) {
-            Write-ErrorWithTimestamp "The registry for PortExclusionChange is not added"
-            exit 1
-        }        
+        Validate-WindowsFixInHnsState -Name NamespaceExcludedUdpPorts -Value 65330
+        Validate-WindowsFixInHnsState -Name PortExclusionChange -Value 1
     }
 }
 
