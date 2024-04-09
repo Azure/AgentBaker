@@ -5,16 +5,16 @@ source /home/packer/provision_source.sh
 assignRootPW() {
     if grep '^root:[!*]:' /etc/shadow; then
         VERSION=$(grep DISTRIB_RELEASE /etc/*-release | cut -f 2 -d "=")
-        SALT=$(openssl rand -base64 5 >/dev/null)
-        SECRET=$(openssl rand -base64 37 >/dev/null)
-        (CMD="import crypt, getpass, pwd; print(crypt.crypt('$SECRET', '\$6\$$SALT\$'))") >/dev/null
+        SALT=$(openssl rand -base64 5)
+        SECRET=$(openssl rand -base64 37)
+        CMD="import crypt, getpass, pwd; print(crypt.crypt('$SECRET', '\$6\$$SALT\$'))"
         if [[ "${VERSION}" == "22.04" ]]; then
-            HASH=$(python3 -c "$CMD" >/dev/null)
+            HASH=$(python3 -c "$CMD")
         else
-            HASH=$(python -c "$CMD" >/dev/null)
+            HASH=$(python -c "$CMD")
         fi
 
-        echo 'root:'$HASH | /usr/sbin/chpasswd -e || exit $ERR_CIS_ASSIGN_ROOT_PW 
+        echo 'root:'$HASH | /usr/sbin/chpasswd -e || exit $ERR_CIS_ASSIGN_ROOT_PW
     fi
 }
 
