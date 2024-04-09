@@ -395,15 +395,6 @@ configureSecureTLSBootstrap() {
         DOWNLOAD_URL="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/arm64/tls-bootstrap-client}"
     fi
 
-    DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT_DROPIN="/etc/systemd/system/download-secure-tls-bootstrap-client.service.d/10-download.conf"
-    touch "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
-    chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
-    cat "$DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT_DROPIN" <<EOF
-    [Service]
-Environment="DOWNLOAD_URL=${DOWNLOAD_URL}"
-Environment="DOWNLOAD_DIR=/opt/azure/tlsbootstrap"
-EOF
-
     # default AAD resource here so we can minimze bootstrap contract surface
     AAD_RESOURCE="6dae42f8-4368-4678-94ff-3960e28e3630"
     if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE" ]; then
@@ -414,8 +405,9 @@ EOF
     touch "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
     chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
 
-    cat "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
+    cat > "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
 [Service]
+Environment="CLIENT_BINARY_DOWNLOAD_URL=${DOWNLOAD_URL}"
 Environment="API_SERVER_NAME=${API_SERVER_NAME}"
 Environment="AAD_RESOURCE=${AAD_RESOURCE}"
 EOF
@@ -428,9 +420,13 @@ ensureSecureTLSBootstrap() {
     done
     STATUS="$(systemctl is-active secure-tls-bootstrap)"
     if [ "$STATUS" == "failed" ] || [ "$STATUS" == "is-failed" ]; then
+        systemctl status secure-tls-bootstrap --no-pager -l
+        journalctl -u secure-tls-bootstrap
         exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_FAIL
     fi
     if [ ! -f "$KUBECONFIG_FILE" ]; then
+        systemctl status secure-tls-bootstrap --no-pager -l
+        journalctl -u secure-tls-bootstrap
         exit $ERR_SECURE_TLS_BOOTSTRAP_MISSING_KUBECONFIG
     fi
 } 

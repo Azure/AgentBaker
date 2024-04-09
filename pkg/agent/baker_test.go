@@ -677,25 +677,16 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 				Expect(bootstrapKubeconfig).To(ContainSubstring("token"))
 				Expect(bootstrapKubeconfig).To(ContainSubstring("07401b.f395accd246ae52d"))
-				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
 			}),
 
 		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled", "AKSUbuntu2204+SecureTLSBoostrapping", "1.25.6",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.HostedMasterProfile.FQDN = "aks-hcp"
 				config.EnableSecureTLSBootstrapping = true
 			}, func(o *nodeBootstrappingOutput) {
 				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
 				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"]).To(BeEmpty())
 
-				clientDownloadScript := o.files["/opt/azure/tlsbootstrap/download-secure-tls-bootstrap-client.sh"]
-				Expect(clientDownloadScript).ToNot(BeNil())
-				Expect(clientDownloadScript.value).ToNot(BeEmpty())
-				clientDownloadService := o.files["/etc/systemd/system/download-secure-tls-bootstrap-client.service"]
-				Expect(clientDownloadService).ToNot(BeNil())
-				Expect(clientDownloadScript.value).ToNot(BeEmpty())
-				clientDownloadDropin := o.files["/etc/systemd/system/download-secure-tls-bootstrap-client.service.d/10-download.conf"]
-				Expect(clientDownloadDropin).ToNot(BeNil())
-				Expect(clientDownloadDropin.value).ToNot(BeEmpty())
 				secureTLSBootstrapScript := o.files["/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh"]
 				Expect(secureTLSBootstrapScript).ToNot(BeNil())
 				Expect(secureTLSBootstrapScript.value).ToNot(BeEmpty())
@@ -706,6 +697,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(secureTLSBootstrapConfigDropin).ToNot(BeNil())
 				Expect(secureTLSBootstrapConfigDropin.value).ToNot(BeEmpty())
 				Expect(secureTLSBootstrapConfigDropin.value).To(ContainSubstring("AAD_RESOURCE=6dae42f8-4368-4678-94ff-3960e28e3630"))
+				Expect(secureTLSBootstrapConfigDropin.value).To(ContainSubstring("API_SERVER_NAME=aks-hcp"))
 
 				// for now we also assert that bootstrap-kubeconfig content is available when performing secure TLS bootstrapping
 				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"]
@@ -715,21 +707,13 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled using custom AAD resource", "AKSUbuntu2204+SecureTLSBootstrapping+CustomAADResource", "1.25.6",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.HostedMasterProfile.FQDN = "aks-hcp"
 				config.EnableSecureTLSBootstrapping = true
 				config.CustomSecureTLSBootstrapAADResource = "appID"
 			}, func(o *nodeBootstrappingOutput) {
 				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
 				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"]).To(Equal("appID"))
 
-				clientDownloadScript := o.files["/opt/azure/tlsbootstrap/download-secure-tls-bootstrap-client.sh"]
-				Expect(clientDownloadScript).ToNot(BeNil())
-				Expect(clientDownloadScript.value).ToNot(BeEmpty())
-				clientDownloadService := o.files["/etc/systemd/system/download-secure-tls-bootstrap-client.service"]
-				Expect(clientDownloadService).ToNot(BeNil())
-				Expect(clientDownloadScript.value).ToNot(BeEmpty())
-				clientDownloadDropin := o.files["/etc/systemd/system/download-secure-tls-bootstrap-client.service.d/10-download.conf"]
-				Expect(clientDownloadDropin).ToNot(BeNil())
-				Expect(clientDownloadDropin.value).ToNot(BeEmpty())
 				secureTLSBootstrapScript := o.files["/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh"]
 				Expect(secureTLSBootstrapScript).ToNot(BeNil())
 				Expect(secureTLSBootstrapScript.value).ToNot(BeEmpty())
@@ -740,6 +724,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(secureTLSBootstrapConfigDropin).ToNot(BeNil())
 				Expect(secureTLSBootstrapConfigDropin.value).ToNot(BeEmpty())
 				Expect(secureTLSBootstrapConfigDropin.value).To(ContainSubstring("AAD_RESOURCE=appID"))
+				Expect(secureTLSBootstrapConfigDropin.value).To(ContainSubstring("API_SERVER_NAME=aks-hcp"))
 
 				// for now we also assert that bootstrap-kubeconfig content is available when performing secure TLS bootstrapping
 				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"]

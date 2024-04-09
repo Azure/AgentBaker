@@ -1,10 +1,11 @@
 [Unit]
-Description=Downloads the secure TLS bootstrapping client binary
+Description=Runs the secure TLS bootstrapping client binary to generate a kubelet client credential
 Wants=network-online.target
 After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/opt/azure/tlsbootstrap/download-secure-tls-bootstrap-client.sh
+ExecStartPre=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh download
+ExecStart=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh bootstrap
 
 #EOF

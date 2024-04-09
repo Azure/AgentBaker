@@ -46,8 +46,6 @@
 // linux/cloud-init/artifacts/dhcpv6.service
 // linux/cloud-init/artifacts/disk_queue.service
 // linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf
-// linux/cloud-init/artifacts/download-secure-tls-bootstrap-client.service
-// linux/cloud-init/artifacts/download-secure-tls-bootstrap-client.sh
 // linux/cloud-init/artifacts/enable-dhcpv6.sh
 // linux/cloud-init/artifacts/ensure-no-dup.service
 // linux/cloud-init/artifacts/ensure-no-dup.sh
@@ -2764,15 +2762,6 @@ configureSecureTLSBootstrap() {
         DOWNLOAD_URL="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/arm64/tls-bootstrap-client}"
     fi
 
-    DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT_DROPIN="/etc/systemd/system/download-secure-tls-bootstrap-client.service.d/10-download.conf"
-    touch "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
-    chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
-    cat "$DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT_DROPIN" <<EOF
-    [Service]
-Environment="DOWNLOAD_URL=${DOWNLOAD_URL}"
-Environment="DOWNLOAD_DIR=/opt/azure/tlsbootstrap"
-EOF
-
     # default AAD resource here so we can minimze bootstrap contract surface
     AAD_RESOURCE="6dae42f8-4368-4678-94ff-3960e28e3630"
     if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE" ]; then
@@ -2783,8 +2772,9 @@ EOF
     touch "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
     chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
 
-    cat "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
+    cat > "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
 [Service]
+Environment="CLIENT_BINARY_DOWNLOAD_URL=${DOWNLOAD_URL}"
 Environment="API_SERVER_NAME=${API_SERVER_NAME}"
 Environment="AAD_RESOURCE=${AAD_RESOURCE}"
 EOF
@@ -2797,9 +2787,13 @@ ensureSecureTLSBootstrap() {
     done
     STATUS="$(systemctl is-active secure-tls-bootstrap)"
     if [ "$STATUS" == "failed" ] || [ "$STATUS" == "is-failed" ]; then
+        systemctl status secure-tls-bootstrap --no-pager -l
+        journalctl -u secure-tls-bootstrap
         exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_FAIL
     fi
     if [ ! -f "$KUBECONFIG_FILE" ]; then
+        systemctl status secure-tls-bootstrap --no-pager -l
+        journalctl -u secure-tls-bootstrap
         exit $ERR_SECURE_TLS_BOOTSTRAP_MISSING_KUBECONFIG
     fi
 } 
@@ -4806,86 +4800,6 @@ func linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf() (*asset, 
 	return a, nil
 }
 
-var _linuxCloudInitArtifactsDownloadSecureTlsBootstrapClientService = []byte(`[Unit]
-Description=Downloads the secure TLS bootstrapping client binary
-Wants=network-online.target
-After=network-online.target
-
-[Service]
-Type=oneshot
-ExecStart=/opt/azure/tlsbootstrap/download-secure-tls-bootstrap-client.sh
-
-#EOF`)
-
-func linuxCloudInitArtifactsDownloadSecureTlsBootstrapClientServiceBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsDownloadSecureTlsBootstrapClientService, nil
-}
-
-func linuxCloudInitArtifactsDownloadSecureTlsBootstrapClientService() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsDownloadSecureTlsBootstrapClientServiceBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/download-secure-tls-bootstrap-client.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _linuxCloudInitArtifactsDownloadSecureTlsBootstrapClientSh = []byte(`#!/bin/bash
-
-set -uxo pipefail
-
-DEFAULT_VERSION="v0.1.0-alpha.2"
-
-ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT_TIMEOUT=169 # TODO(cameissner): how to handle this in CSE?
-
-DOWNLOAD_URL="${1-:https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${DEFAULT_VERSION}/linux/amd64/tls-bootstrap-client}"
-DOWNLOAD_DIR="${2-:/opt/azure/tlsbootstrap}"
-
-retrycmd_if_failure() {
-    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
-    for i in $(seq 1 $retries); do
-        timeout $timeout "${@}" && break || \
-        if [ $i -eq $retries ]; then
-            echo Executed \"$@\" $i times;
-            return 1
-        else
-            sleep $wait_sleep
-        fi
-    done
-    echo Executed \"$@\" $i times;
-}
-
-downloadClient() {
-    BINARY_PATH="${DOWNLOAD_DIR}/tls-bootstrap-client"
-
-    [ -f "$BINARY_PATH" ] && exit 0
-
-    retrycmd_if_failure 30 5 60 curl -fSL -o "$BINARY_PATH" "$DOWNLOAD_URL" || exit $ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT_TIMEOUT
-    chown -R root:root "$DOWNLOAD_DIR"
-    chmod -R 755 "$DOWNLOAD_DIR"
-}
-
-downloadClient "$@"
-
-#EOF`)
-
-func linuxCloudInitArtifactsDownloadSecureTlsBootstrapClientShBytes() ([]byte, error) {
-	return _linuxCloudInitArtifactsDownloadSecureTlsBootstrapClientSh, nil
-}
-
-func linuxCloudInitArtifactsDownloadSecureTlsBootstrapClientSh() (*asset, error) {
-	bytes, err := linuxCloudInitArtifactsDownloadSecureTlsBootstrapClientShBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "linux/cloud-init/artifacts/download-secure-tls-bootstrap-client.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _linuxCloudInitArtifactsEnableDhcpv6Sh = []byte(`#!/usr/bin/env bash
 
 set -e
@@ -6597,13 +6511,13 @@ func linuxCloudInitArtifactsRsyslogD60CisConf() (*asset, error) {
 
 var _linuxCloudInitArtifactsSecureTlsBootstrapService = []byte(`[Unit]
 Description=Runs the secure TLS bootstrapping client binary to generate a kubelet client credential
-ConditionPathExists=/opt/azure/tlsbootstrap/tls-bootstrap-client
-Wants=network-online.target download-secure-tls-bootstrap-client.service
-After=network-online.target download-secure-tls-bootstrap-client.service
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh
+ExecStartPre=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh download
+ExecStart=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh bootstrap
 
 #EOF`)
 
@@ -6626,15 +6540,71 @@ var _linuxCloudInitArtifactsSecureTlsBootstrapSh = []byte(`#!/bin/bash
 
 set -uxo pipefail
 
+DEFAULT_CLIENT_VERSION="v0.1.0-alpha.2"
+
 RETRY_PERIOD_SECONDS=180 # 3 minutes
 RETRY_WAIT_SECONDS=5
 
-CLIENT_BINARY_PATH="${1:-/opt/azure/tlsbootstrap/tls-bootstrap-client}"
-KUBECONFIG_PATH="${2:-/var/lib/kubelet/kubeconfig}"
-API_SERVER_NAME="${3:-""}"
-AZURE_CONFIG_PATH="${4:-/etc/kubernetes/azure.json}"
-CLUSTER_CA_FILE_PATH="${5:-/etc/kubernetes/certs/ca.crt}"
-AAD_RESOURCE="${6:-""}"
+CLIENT_BINARY_DOWNLOAD_URL="${CLIENT_BINARY_DOWNLOAD_URL:-https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${DEFAULT_CLIENT_VERSION}/linux/amd64/tls-bootstrap-client}"
+CLIENT_BINARY_PATH="${CLIENT_BINARY_PATH:-/opt/azure/tlsbootstrap/tls-bootstrap-client}"
+KUBECONFIG_PATH="${KUBECONFIG_PATH:-/var/lib/kubelet/kubeconfig}"
+API_SERVER_NAME="${API_SERVER_NAME:-""}"
+AZURE_CONFIG_PATH="${AZURE_CONFIG_PATH:-/etc/kubernetes/azure.json}"
+CLUSTER_CA_FILE_PATH="${CLUSTER_CA_FILE_PATH:-/etc/kubernetes/certs/ca.crt}"
+AAD_RESOURCE="${AAD_RESOURCE:-""}"
+
+retrycmd_if_failure() {
+    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+    for i in $(seq 1 $retries); do
+        timeout $timeout "${@}" && break || \
+        if [ $i -eq $retries ]; then
+            echo Executed \"$@\" $i times;
+            return 1
+        else
+            sleep $wait_sleep
+        fi
+    done
+    echo Executed \"$@\" $i times;
+}
+
+logs_to_events() {
+    local task=$1; shift
+    local eventsFileName=$(date +%s%3N)
+
+    local startTime=$(date +"%F %T.%3N")
+    ${@}
+    ret=$?
+    local endTime=$(date +"%F %T.%3N")
+
+    json_string=$( jq -n \
+        --arg Timestamp   "${startTime}" \
+        --arg OperationId "${endTime}" \
+        --arg Version     "1.23" \
+        --arg TaskName    "${task}" \
+        --arg EventLevel  "Informational" \
+        --arg Message     "Completed: $*" \
+        --arg EventPid    "0" \
+        --arg EventTid    "0" \
+        '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
+    )
+    echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
+
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
+}
+
+downloadClient() {
+    [ -f "$CLIENT_BINARY_PATH" ] && exit 0
+    DOWNLOAD_DIR=$(dirname $CLIENT_BINARY_PATH)
+
+    if ! retrycmd_if_failure 30 5 60 curl -fSL -o "$CLIENT_BINARY_PATH" "$CLIENT_BINARY_DOWNLOAD_URL"; then
+        echo "ERROR: unable to download secure TLS bootstrapping client binary from $CLIENT_BINARY_DOWNLOAD_URL"
+        exit 1
+    fi
+    chown -R root:root "$DOWNLOAD_DIR"
+    chmod -R 755 "$DOWNLOAD_DIR"
+}
 
 bootstrap() {
     if [ -z "$API_SERVER_NAME" ]; then
@@ -6670,7 +6640,15 @@ bootstrap() {
     done
 }
 
-bootstrap "$@"
+SUB_COMMAND=$1
+if [ "${SUB_COMMAND,,}" == "download" ]; then
+    logs_to_events "AKS.downloadSecureTLSBootstrapClient" downloadClient
+elif [ "${SUB_COMMAND,,}" == "bootstrap" ]; then
+    logs_to_events "AKS.performSecureTLSBootstrapping" bootstrap
+else
+    echo "ERROR: unknown subcommand $SUB_COMMAND for secure-tls-bootstrap.sh"
+    exit 1
+fi
 
 #EOF`)
 
@@ -8083,29 +8061,6 @@ write_files:
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 
 {{if EnableSecureTLSBootstrapping -}}
-- path: /opt/azure/tlsbootstrap/download-secure-tls-bootstrap-client.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "downloadSecureTLSBootstrapClientScript"}}
-
-- path: /etc/systemd/system/download-secure-tls-bootstrap-client.service
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "downloadSecureTLSBootstrapClientService"}}
-
-- path: /etc/systemd/system/download-secure-tls-bootstrap-client.service.d/10-download.conf
-  permissions: "0644"
-  owner: root
-  content: |
-    [Service]
-    Environment="DOWNLOAD_URL=https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/v0.1.0-alpha.2/linux/amd64/tls-bootstrap-client}"
-    Environment="DOWNLOAD_DIR=/opt/azure/tlsbootstrap"
-    #EOF 
-
 - path: /opt/azure/tlsbootstrap/secure-tls-bootstrap.sh
   permissions: "0744"
   encoding: gzip
@@ -9586,113 +9541,111 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"linux/cloud-init/artifacts/10-bindmount.conf":                            linuxCloudInitArtifacts10BindmountConf,
-	"linux/cloud-init/artifacts/10-cgroupv2.conf":                             linuxCloudInitArtifacts10Cgroupv2Conf,
-	"linux/cloud-init/artifacts/10-componentconfig.conf":                      linuxCloudInitArtifacts10ComponentconfigConf,
-	"linux/cloud-init/artifacts/10-containerd.conf":                           linuxCloudInitArtifacts10ContainerdConf,
-	"linux/cloud-init/artifacts/10-httpproxy.conf":                            linuxCloudInitArtifacts10HttpproxyConf,
-	"linux/cloud-init/artifacts/10-tlsbootstrap.conf":                         linuxCloudInitArtifacts10TlsbootstrapConf,
-	"linux/cloud-init/artifacts/aks-check-network.service":                    linuxCloudInitArtifactsAksCheckNetworkService,
-	"linux/cloud-init/artifacts/aks-check-network.sh":                         linuxCloudInitArtifactsAksCheckNetworkSh,
-	"linux/cloud-init/artifacts/aks-log-collector-send.py":                    linuxCloudInitArtifactsAksLogCollectorSendPy,
-	"linux/cloud-init/artifacts/aks-log-collector.service":                    linuxCloudInitArtifactsAksLogCollectorService,
-	"linux/cloud-init/artifacts/aks-log-collector.sh":                         linuxCloudInitArtifactsAksLogCollectorSh,
-	"linux/cloud-init/artifacts/aks-log-collector.slice":                      linuxCloudInitArtifactsAksLogCollectorSlice,
-	"linux/cloud-init/artifacts/aks-log-collector.timer":                      linuxCloudInitArtifactsAksLogCollectorTimer,
-	"linux/cloud-init/artifacts/aks-logrotate-override.conf":                  linuxCloudInitArtifactsAksLogrotateOverrideConf,
-	"linux/cloud-init/artifacts/aks-logrotate.service":                        linuxCloudInitArtifactsAksLogrotateService,
-	"linux/cloud-init/artifacts/aks-logrotate.sh":                             linuxCloudInitArtifactsAksLogrotateSh,
-	"linux/cloud-init/artifacts/aks-logrotate.timer":                          linuxCloudInitArtifactsAksLogrotateTimer,
-	"linux/cloud-init/artifacts/aks-rsyslog":                                  linuxCloudInitArtifactsAksRsyslog,
-	"linux/cloud-init/artifacts/apt-preferences":                              linuxCloudInitArtifactsAptPreferences,
-	"linux/cloud-init/artifacts/bind-mount.service":                           linuxCloudInitArtifactsBindMountService,
-	"linux/cloud-init/artifacts/bind-mount.sh":                                linuxCloudInitArtifactsBindMountSh,
-	"linux/cloud-init/artifacts/block_wireserver.sh":                          linuxCloudInitArtifactsBlock_wireserverSh,
-	"linux/cloud-init/artifacts/cgroup-memory-telemetry.service":              linuxCloudInitArtifactsCgroupMemoryTelemetryService,
-	"linux/cloud-init/artifacts/cgroup-memory-telemetry.sh":                   linuxCloudInitArtifactsCgroupMemoryTelemetrySh,
-	"linux/cloud-init/artifacts/cgroup-memory-telemetry.timer":                linuxCloudInitArtifactsCgroupMemoryTelemetryTimer,
-	"linux/cloud-init/artifacts/cgroup-pressure-telemetry.service":            linuxCloudInitArtifactsCgroupPressureTelemetryService,
-	"linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh":                 linuxCloudInitArtifactsCgroupPressureTelemetrySh,
-	"linux/cloud-init/artifacts/cgroup-pressure-telemetry.timer":              linuxCloudInitArtifactsCgroupPressureTelemetryTimer,
-	"linux/cloud-init/artifacts/ci-syslog-watcher.path":                       linuxCloudInitArtifactsCiSyslogWatcherPath,
-	"linux/cloud-init/artifacts/ci-syslog-watcher.service":                    linuxCloudInitArtifactsCiSyslogWatcherService,
-	"linux/cloud-init/artifacts/ci-syslog-watcher.sh":                         linuxCloudInitArtifactsCiSyslogWatcherSh,
-	"linux/cloud-init/artifacts/cis.sh":                                       linuxCloudInitArtifactsCisSh,
-	"linux/cloud-init/artifacts/containerd.service":                           linuxCloudInitArtifactsContainerdService,
-	"linux/cloud-init/artifacts/containerd_exec_start.conf":                   linuxCloudInitArtifactsContainerd_exec_startConf,
-	"linux/cloud-init/artifacts/crictl.yaml":                                  linuxCloudInitArtifactsCrictlYaml,
-	"linux/cloud-init/artifacts/cse_cmd.sh":                                   linuxCloudInitArtifactsCse_cmdSh,
-	"linux/cloud-init/artifacts/cse_config.sh":                                linuxCloudInitArtifactsCse_configSh,
-	"linux/cloud-init/artifacts/cse_helpers.sh":                               linuxCloudInitArtifactsCse_helpersSh,
-	"linux/cloud-init/artifacts/cse_install.sh":                               linuxCloudInitArtifactsCse_installSh,
-	"linux/cloud-init/artifacts/cse_main.sh":                                  linuxCloudInitArtifactsCse_mainSh,
-	"linux/cloud-init/artifacts/cse_redact_cloud_config.py":                   linuxCloudInitArtifactsCse_redact_cloud_configPy,
-	"linux/cloud-init/artifacts/cse_send_logs.py":                             linuxCloudInitArtifactsCse_send_logsPy,
-	"linux/cloud-init/artifacts/cse_start.sh":                                 linuxCloudInitArtifactsCse_startSh,
-	"linux/cloud-init/artifacts/dhcpv6.service":                               linuxCloudInitArtifactsDhcpv6Service,
-	"linux/cloud-init/artifacts/disk_queue.service":                           linuxCloudInitArtifactsDisk_queueService,
-	"linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf":    linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf,
-	"linux/cloud-init/artifacts/download-secure-tls-bootstrap-client.service": linuxCloudInitArtifactsDownloadSecureTlsBootstrapClientService,
-	"linux/cloud-init/artifacts/download-secure-tls-bootstrap-client.sh":      linuxCloudInitArtifactsDownloadSecureTlsBootstrapClientSh,
-	"linux/cloud-init/artifacts/enable-dhcpv6.sh":                             linuxCloudInitArtifactsEnableDhcpv6Sh,
-	"linux/cloud-init/artifacts/ensure-no-dup.service":                        linuxCloudInitArtifactsEnsureNoDupService,
-	"linux/cloud-init/artifacts/ensure-no-dup.sh":                             linuxCloudInitArtifactsEnsureNoDupSh,
-	"linux/cloud-init/artifacts/etc-issue":                                    linuxCloudInitArtifactsEtcIssue,
-	"linux/cloud-init/artifacts/etc-issue.net":                                linuxCloudInitArtifactsEtcIssueNet,
-	"linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh":             linuxCloudInitArtifactsInitAksCustomCloudMarinerSh,
-	"linux/cloud-init/artifacts/init-aks-custom-cloud.sh":                     linuxCloudInitArtifactsInitAksCustomCloudSh,
-	"linux/cloud-init/artifacts/ipv6_nftables":                                linuxCloudInitArtifactsIpv6_nftables,
-	"linux/cloud-init/artifacts/ipv6_nftables.service":                        linuxCloudInitArtifactsIpv6_nftablesService,
-	"linux/cloud-init/artifacts/ipv6_nftables.sh":                             linuxCloudInitArtifactsIpv6_nftablesSh,
-	"linux/cloud-init/artifacts/kms.service":                                  linuxCloudInitArtifactsKmsService,
-	"linux/cloud-init/artifacts/kubelet.service":                              linuxCloudInitArtifactsKubeletService,
-	"linux/cloud-init/artifacts/manifest.json":                                linuxCloudInitArtifactsManifestJson,
-	"linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh":               linuxCloudInitArtifactsMarinerCse_helpers_marinerSh,
-	"linux/cloud-init/artifacts/mariner/cse_install_mariner.sh":               linuxCloudInitArtifactsMarinerCse_install_marinerSh,
-	"linux/cloud-init/artifacts/mariner/mariner-package-update.sh":            linuxCloudInitArtifactsMarinerMarinerPackageUpdateSh,
-	"linux/cloud-init/artifacts/mariner/package-update.service":               linuxCloudInitArtifactsMarinerPackageUpdateService,
-	"linux/cloud-init/artifacts/mariner/package-update.timer":                 linuxCloudInitArtifactsMarinerPackageUpdateTimer,
-	"linux/cloud-init/artifacts/mariner/pam-d-system-auth":                    linuxCloudInitArtifactsMarinerPamDSystemAuth,
-	"linux/cloud-init/artifacts/mariner/pam-d-system-password":                linuxCloudInitArtifactsMarinerPamDSystemPassword,
-	"linux/cloud-init/artifacts/mariner/update_certs_mariner.service":         linuxCloudInitArtifactsMarinerUpdate_certs_marinerService,
-	"linux/cloud-init/artifacts/mig-partition.service":                        linuxCloudInitArtifactsMigPartitionService,
-	"linux/cloud-init/artifacts/mig-partition.sh":                             linuxCloudInitArtifactsMigPartitionSh,
-	"linux/cloud-init/artifacts/modprobe-CIS.conf":                            linuxCloudInitArtifactsModprobeCisConf,
-	"linux/cloud-init/artifacts/nvidia-device-plugin.service":                 linuxCloudInitArtifactsNvidiaDevicePluginService,
-	"linux/cloud-init/artifacts/nvidia-docker-daemon.json":                    linuxCloudInitArtifactsNvidiaDockerDaemonJson,
-	"linux/cloud-init/artifacts/nvidia-modprobe.service":                      linuxCloudInitArtifactsNvidiaModprobeService,
-	"linux/cloud-init/artifacts/pam-d-common-auth":                            linuxCloudInitArtifactsPamDCommonAuth,
-	"linux/cloud-init/artifacts/pam-d-common-auth-2204":                       linuxCloudInitArtifactsPamDCommonAuth2204,
-	"linux/cloud-init/artifacts/pam-d-common-password":                        linuxCloudInitArtifactsPamDCommonPassword,
-	"linux/cloud-init/artifacts/pam-d-su":                                     linuxCloudInitArtifactsPamDSu,
-	"linux/cloud-init/artifacts/profile-d-cis.sh":                             linuxCloudInitArtifactsProfileDCisSh,
-	"linux/cloud-init/artifacts/pwquality-CIS.conf":                           linuxCloudInitArtifactsPwqualityCisConf,
-	"linux/cloud-init/artifacts/reconcile-private-hosts.service":              linuxCloudInitArtifactsReconcilePrivateHostsService,
-	"linux/cloud-init/artifacts/reconcile-private-hosts.sh":                   linuxCloudInitArtifactsReconcilePrivateHostsSh,
-	"linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf":                        linuxCloudInitArtifactsRsyslogD60CisConf,
-	"linux/cloud-init/artifacts/secure-tls-bootstrap.service":                 linuxCloudInitArtifactsSecureTlsBootstrapService,
-	"linux/cloud-init/artifacts/secure-tls-bootstrap.sh":                      linuxCloudInitArtifactsSecureTlsBootstrapSh,
-	"linux/cloud-init/artifacts/setup-custom-search-domains.sh":               linuxCloudInitArtifactsSetupCustomSearchDomainsSh,
-	"linux/cloud-init/artifacts/sshd_config":                                  linuxCloudInitArtifactsSshd_config,
-	"linux/cloud-init/artifacts/sshd_config_1604":                             linuxCloudInitArtifactsSshd_config_1604,
-	"linux/cloud-init/artifacts/sshd_config_1804_fips":                        linuxCloudInitArtifactsSshd_config_1804_fips,
-	"linux/cloud-init/artifacts/sync-container-logs.service":                  linuxCloudInitArtifactsSyncContainerLogsService,
-	"linux/cloud-init/artifacts/sync-container-logs.sh":                       linuxCloudInitArtifactsSyncContainerLogsSh,
-	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                         linuxCloudInitArtifactsSysctlD60CisConf,
-	"linux/cloud-init/artifacts/teleportd.service":                            linuxCloudInitArtifactsTeleportdService,
-	"linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh":                 linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh,
-	"linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh":                 linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh,
-	"linux/cloud-init/artifacts/ubuntu/snapshot-update.service":               linuxCloudInitArtifactsUbuntuSnapshotUpdateService,
-	"linux/cloud-init/artifacts/ubuntu/snapshot-update.timer":                 linuxCloudInitArtifactsUbuntuSnapshotUpdateTimer,
-	"linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh":             linuxCloudInitArtifactsUbuntuUbuntuSnapshotUpdateSh,
-	"linux/cloud-init/artifacts/update_certs.path":                            linuxCloudInitArtifactsUpdate_certsPath,
-	"linux/cloud-init/artifacts/update_certs.service":                         linuxCloudInitArtifactsUpdate_certsService,
-	"linux/cloud-init/artifacts/update_certs.sh":                              linuxCloudInitArtifactsUpdate_certsSh,
-	"linux/cloud-init/nodecustomdata.yml":                                     linuxCloudInitNodecustomdataYml,
-	"windows/csecmd.ps1":                                                      windowsCsecmdPs1,
-	"windows/kuberneteswindowssetup.ps1":                                      windowsKuberneteswindowssetupPs1,
-	"windows/sendlogs.ps1":                                                    windowsSendlogsPs1,
-	"windows/windowscsehelper.ps1":                                            windowsWindowscsehelperPs1,
+	"linux/cloud-init/artifacts/10-bindmount.conf":                         linuxCloudInitArtifacts10BindmountConf,
+	"linux/cloud-init/artifacts/10-cgroupv2.conf":                          linuxCloudInitArtifacts10Cgroupv2Conf,
+	"linux/cloud-init/artifacts/10-componentconfig.conf":                   linuxCloudInitArtifacts10ComponentconfigConf,
+	"linux/cloud-init/artifacts/10-containerd.conf":                        linuxCloudInitArtifacts10ContainerdConf,
+	"linux/cloud-init/artifacts/10-httpproxy.conf":                         linuxCloudInitArtifacts10HttpproxyConf,
+	"linux/cloud-init/artifacts/10-tlsbootstrap.conf":                      linuxCloudInitArtifacts10TlsbootstrapConf,
+	"linux/cloud-init/artifacts/aks-check-network.service":                 linuxCloudInitArtifactsAksCheckNetworkService,
+	"linux/cloud-init/artifacts/aks-check-network.sh":                      linuxCloudInitArtifactsAksCheckNetworkSh,
+	"linux/cloud-init/artifacts/aks-log-collector-send.py":                 linuxCloudInitArtifactsAksLogCollectorSendPy,
+	"linux/cloud-init/artifacts/aks-log-collector.service":                 linuxCloudInitArtifactsAksLogCollectorService,
+	"linux/cloud-init/artifacts/aks-log-collector.sh":                      linuxCloudInitArtifactsAksLogCollectorSh,
+	"linux/cloud-init/artifacts/aks-log-collector.slice":                   linuxCloudInitArtifactsAksLogCollectorSlice,
+	"linux/cloud-init/artifacts/aks-log-collector.timer":                   linuxCloudInitArtifactsAksLogCollectorTimer,
+	"linux/cloud-init/artifacts/aks-logrotate-override.conf":               linuxCloudInitArtifactsAksLogrotateOverrideConf,
+	"linux/cloud-init/artifacts/aks-logrotate.service":                     linuxCloudInitArtifactsAksLogrotateService,
+	"linux/cloud-init/artifacts/aks-logrotate.sh":                          linuxCloudInitArtifactsAksLogrotateSh,
+	"linux/cloud-init/artifacts/aks-logrotate.timer":                       linuxCloudInitArtifactsAksLogrotateTimer,
+	"linux/cloud-init/artifacts/aks-rsyslog":                               linuxCloudInitArtifactsAksRsyslog,
+	"linux/cloud-init/artifacts/apt-preferences":                           linuxCloudInitArtifactsAptPreferences,
+	"linux/cloud-init/artifacts/bind-mount.service":                        linuxCloudInitArtifactsBindMountService,
+	"linux/cloud-init/artifacts/bind-mount.sh":                             linuxCloudInitArtifactsBindMountSh,
+	"linux/cloud-init/artifacts/block_wireserver.sh":                       linuxCloudInitArtifactsBlock_wireserverSh,
+	"linux/cloud-init/artifacts/cgroup-memory-telemetry.service":           linuxCloudInitArtifactsCgroupMemoryTelemetryService,
+	"linux/cloud-init/artifacts/cgroup-memory-telemetry.sh":                linuxCloudInitArtifactsCgroupMemoryTelemetrySh,
+	"linux/cloud-init/artifacts/cgroup-memory-telemetry.timer":             linuxCloudInitArtifactsCgroupMemoryTelemetryTimer,
+	"linux/cloud-init/artifacts/cgroup-pressure-telemetry.service":         linuxCloudInitArtifactsCgroupPressureTelemetryService,
+	"linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh":              linuxCloudInitArtifactsCgroupPressureTelemetrySh,
+	"linux/cloud-init/artifacts/cgroup-pressure-telemetry.timer":           linuxCloudInitArtifactsCgroupPressureTelemetryTimer,
+	"linux/cloud-init/artifacts/ci-syslog-watcher.path":                    linuxCloudInitArtifactsCiSyslogWatcherPath,
+	"linux/cloud-init/artifacts/ci-syslog-watcher.service":                 linuxCloudInitArtifactsCiSyslogWatcherService,
+	"linux/cloud-init/artifacts/ci-syslog-watcher.sh":                      linuxCloudInitArtifactsCiSyslogWatcherSh,
+	"linux/cloud-init/artifacts/cis.sh":                                    linuxCloudInitArtifactsCisSh,
+	"linux/cloud-init/artifacts/containerd.service":                        linuxCloudInitArtifactsContainerdService,
+	"linux/cloud-init/artifacts/containerd_exec_start.conf":                linuxCloudInitArtifactsContainerd_exec_startConf,
+	"linux/cloud-init/artifacts/crictl.yaml":                               linuxCloudInitArtifactsCrictlYaml,
+	"linux/cloud-init/artifacts/cse_cmd.sh":                                linuxCloudInitArtifactsCse_cmdSh,
+	"linux/cloud-init/artifacts/cse_config.sh":                             linuxCloudInitArtifactsCse_configSh,
+	"linux/cloud-init/artifacts/cse_helpers.sh":                            linuxCloudInitArtifactsCse_helpersSh,
+	"linux/cloud-init/artifacts/cse_install.sh":                            linuxCloudInitArtifactsCse_installSh,
+	"linux/cloud-init/artifacts/cse_main.sh":                               linuxCloudInitArtifactsCse_mainSh,
+	"linux/cloud-init/artifacts/cse_redact_cloud_config.py":                linuxCloudInitArtifactsCse_redact_cloud_configPy,
+	"linux/cloud-init/artifacts/cse_send_logs.py":                          linuxCloudInitArtifactsCse_send_logsPy,
+	"linux/cloud-init/artifacts/cse_start.sh":                              linuxCloudInitArtifactsCse_startSh,
+	"linux/cloud-init/artifacts/dhcpv6.service":                            linuxCloudInitArtifactsDhcpv6Service,
+	"linux/cloud-init/artifacts/disk_queue.service":                        linuxCloudInitArtifactsDisk_queueService,
+	"linux/cloud-init/artifacts/docker_clear_mount_propagation_flags.conf": linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf,
+	"linux/cloud-init/artifacts/enable-dhcpv6.sh":                          linuxCloudInitArtifactsEnableDhcpv6Sh,
+	"linux/cloud-init/artifacts/ensure-no-dup.service":                     linuxCloudInitArtifactsEnsureNoDupService,
+	"linux/cloud-init/artifacts/ensure-no-dup.sh":                          linuxCloudInitArtifactsEnsureNoDupSh,
+	"linux/cloud-init/artifacts/etc-issue":                                 linuxCloudInitArtifactsEtcIssue,
+	"linux/cloud-init/artifacts/etc-issue.net":                             linuxCloudInitArtifactsEtcIssueNet,
+	"linux/cloud-init/artifacts/init-aks-custom-cloud-mariner.sh":          linuxCloudInitArtifactsInitAksCustomCloudMarinerSh,
+	"linux/cloud-init/artifacts/init-aks-custom-cloud.sh":                  linuxCloudInitArtifactsInitAksCustomCloudSh,
+	"linux/cloud-init/artifacts/ipv6_nftables":                             linuxCloudInitArtifactsIpv6_nftables,
+	"linux/cloud-init/artifacts/ipv6_nftables.service":                     linuxCloudInitArtifactsIpv6_nftablesService,
+	"linux/cloud-init/artifacts/ipv6_nftables.sh":                          linuxCloudInitArtifactsIpv6_nftablesSh,
+	"linux/cloud-init/artifacts/kms.service":                               linuxCloudInitArtifactsKmsService,
+	"linux/cloud-init/artifacts/kubelet.service":                           linuxCloudInitArtifactsKubeletService,
+	"linux/cloud-init/artifacts/manifest.json":                             linuxCloudInitArtifactsManifestJson,
+	"linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh":            linuxCloudInitArtifactsMarinerCse_helpers_marinerSh,
+	"linux/cloud-init/artifacts/mariner/cse_install_mariner.sh":            linuxCloudInitArtifactsMarinerCse_install_marinerSh,
+	"linux/cloud-init/artifacts/mariner/mariner-package-update.sh":         linuxCloudInitArtifactsMarinerMarinerPackageUpdateSh,
+	"linux/cloud-init/artifacts/mariner/package-update.service":            linuxCloudInitArtifactsMarinerPackageUpdateService,
+	"linux/cloud-init/artifacts/mariner/package-update.timer":              linuxCloudInitArtifactsMarinerPackageUpdateTimer,
+	"linux/cloud-init/artifacts/mariner/pam-d-system-auth":                 linuxCloudInitArtifactsMarinerPamDSystemAuth,
+	"linux/cloud-init/artifacts/mariner/pam-d-system-password":             linuxCloudInitArtifactsMarinerPamDSystemPassword,
+	"linux/cloud-init/artifacts/mariner/update_certs_mariner.service":      linuxCloudInitArtifactsMarinerUpdate_certs_marinerService,
+	"linux/cloud-init/artifacts/mig-partition.service":                     linuxCloudInitArtifactsMigPartitionService,
+	"linux/cloud-init/artifacts/mig-partition.sh":                          linuxCloudInitArtifactsMigPartitionSh,
+	"linux/cloud-init/artifacts/modprobe-CIS.conf":                         linuxCloudInitArtifactsModprobeCisConf,
+	"linux/cloud-init/artifacts/nvidia-device-plugin.service":              linuxCloudInitArtifactsNvidiaDevicePluginService,
+	"linux/cloud-init/artifacts/nvidia-docker-daemon.json":                 linuxCloudInitArtifactsNvidiaDockerDaemonJson,
+	"linux/cloud-init/artifacts/nvidia-modprobe.service":                   linuxCloudInitArtifactsNvidiaModprobeService,
+	"linux/cloud-init/artifacts/pam-d-common-auth":                         linuxCloudInitArtifactsPamDCommonAuth,
+	"linux/cloud-init/artifacts/pam-d-common-auth-2204":                    linuxCloudInitArtifactsPamDCommonAuth2204,
+	"linux/cloud-init/artifacts/pam-d-common-password":                     linuxCloudInitArtifactsPamDCommonPassword,
+	"linux/cloud-init/artifacts/pam-d-su":                                  linuxCloudInitArtifactsPamDSu,
+	"linux/cloud-init/artifacts/profile-d-cis.sh":                          linuxCloudInitArtifactsProfileDCisSh,
+	"linux/cloud-init/artifacts/pwquality-CIS.conf":                        linuxCloudInitArtifactsPwqualityCisConf,
+	"linux/cloud-init/artifacts/reconcile-private-hosts.service":           linuxCloudInitArtifactsReconcilePrivateHostsService,
+	"linux/cloud-init/artifacts/reconcile-private-hosts.sh":                linuxCloudInitArtifactsReconcilePrivateHostsSh,
+	"linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf":                     linuxCloudInitArtifactsRsyslogD60CisConf,
+	"linux/cloud-init/artifacts/secure-tls-bootstrap.service":              linuxCloudInitArtifactsSecureTlsBootstrapService,
+	"linux/cloud-init/artifacts/secure-tls-bootstrap.sh":                   linuxCloudInitArtifactsSecureTlsBootstrapSh,
+	"linux/cloud-init/artifacts/setup-custom-search-domains.sh":            linuxCloudInitArtifactsSetupCustomSearchDomainsSh,
+	"linux/cloud-init/artifacts/sshd_config":                               linuxCloudInitArtifactsSshd_config,
+	"linux/cloud-init/artifacts/sshd_config_1604":                          linuxCloudInitArtifactsSshd_config_1604,
+	"linux/cloud-init/artifacts/sshd_config_1804_fips":                     linuxCloudInitArtifactsSshd_config_1804_fips,
+	"linux/cloud-init/artifacts/sync-container-logs.service":               linuxCloudInitArtifactsSyncContainerLogsService,
+	"linux/cloud-init/artifacts/sync-container-logs.sh":                    linuxCloudInitArtifactsSyncContainerLogsSh,
+	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
+	"linux/cloud-init/artifacts/teleportd.service":                         linuxCloudInitArtifactsTeleportdService,
+	"linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_helpers_ubuntuSh,
+	"linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh":              linuxCloudInitArtifactsUbuntuCse_install_ubuntuSh,
+	"linux/cloud-init/artifacts/ubuntu/snapshot-update.service":            linuxCloudInitArtifactsUbuntuSnapshotUpdateService,
+	"linux/cloud-init/artifacts/ubuntu/snapshot-update.timer":              linuxCloudInitArtifactsUbuntuSnapshotUpdateTimer,
+	"linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh":          linuxCloudInitArtifactsUbuntuUbuntuSnapshotUpdateSh,
+	"linux/cloud-init/artifacts/update_certs.path":                         linuxCloudInitArtifactsUpdate_certsPath,
+	"linux/cloud-init/artifacts/update_certs.service":                      linuxCloudInitArtifactsUpdate_certsService,
+	"linux/cloud-init/artifacts/update_certs.sh":                           linuxCloudInitArtifactsUpdate_certsSh,
+	"linux/cloud-init/nodecustomdata.yml":                                  linuxCloudInitNodecustomdataYml,
+	"windows/csecmd.ps1":                                                   windowsCsecmdPs1,
+	"windows/kuberneteswindowssetup.ps1":                                   windowsKuberneteswindowssetupPs1,
+	"windows/sendlogs.ps1":                                                 windowsSendlogsPs1,
+	"windows/windowscsehelper.ps1":                                         windowsWindowscsehelperPs1,
 }
 
 // AssetDir returns the file names below a certain
@@ -9739,67 +9692,65 @@ var _bintree = &bintree{nil, map[string]*bintree{
 	"linux": &bintree{nil, map[string]*bintree{
 		"cloud-init": &bintree{nil, map[string]*bintree{
 			"artifacts": &bintree{nil, map[string]*bintree{
-				"10-bindmount.conf":                            &bintree{linuxCloudInitArtifacts10BindmountConf, map[string]*bintree{}},
-				"10-cgroupv2.conf":                             &bintree{linuxCloudInitArtifacts10Cgroupv2Conf, map[string]*bintree{}},
-				"10-componentconfig.conf":                      &bintree{linuxCloudInitArtifacts10ComponentconfigConf, map[string]*bintree{}},
-				"10-containerd.conf":                           &bintree{linuxCloudInitArtifacts10ContainerdConf, map[string]*bintree{}},
-				"10-httpproxy.conf":                            &bintree{linuxCloudInitArtifacts10HttpproxyConf, map[string]*bintree{}},
-				"10-tlsbootstrap.conf":                         &bintree{linuxCloudInitArtifacts10TlsbootstrapConf, map[string]*bintree{}},
-				"aks-check-network.service":                    &bintree{linuxCloudInitArtifactsAksCheckNetworkService, map[string]*bintree{}},
-				"aks-check-network.sh":                         &bintree{linuxCloudInitArtifactsAksCheckNetworkSh, map[string]*bintree{}},
-				"aks-log-collector-send.py":                    &bintree{linuxCloudInitArtifactsAksLogCollectorSendPy, map[string]*bintree{}},
-				"aks-log-collector.service":                    &bintree{linuxCloudInitArtifactsAksLogCollectorService, map[string]*bintree{}},
-				"aks-log-collector.sh":                         &bintree{linuxCloudInitArtifactsAksLogCollectorSh, map[string]*bintree{}},
-				"aks-log-collector.slice":                      &bintree{linuxCloudInitArtifactsAksLogCollectorSlice, map[string]*bintree{}},
-				"aks-log-collector.timer":                      &bintree{linuxCloudInitArtifactsAksLogCollectorTimer, map[string]*bintree{}},
-				"aks-logrotate-override.conf":                  &bintree{linuxCloudInitArtifactsAksLogrotateOverrideConf, map[string]*bintree{}},
-				"aks-logrotate.service":                        &bintree{linuxCloudInitArtifactsAksLogrotateService, map[string]*bintree{}},
-				"aks-logrotate.sh":                             &bintree{linuxCloudInitArtifactsAksLogrotateSh, map[string]*bintree{}},
-				"aks-logrotate.timer":                          &bintree{linuxCloudInitArtifactsAksLogrotateTimer, map[string]*bintree{}},
-				"aks-rsyslog":                                  &bintree{linuxCloudInitArtifactsAksRsyslog, map[string]*bintree{}},
-				"apt-preferences":                              &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
-				"bind-mount.service":                           &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
-				"bind-mount.sh":                                &bintree{linuxCloudInitArtifactsBindMountSh, map[string]*bintree{}},
-				"block_wireserver.sh":                          &bintree{linuxCloudInitArtifactsBlock_wireserverSh, map[string]*bintree{}},
-				"cgroup-memory-telemetry.service":              &bintree{linuxCloudInitArtifactsCgroupMemoryTelemetryService, map[string]*bintree{}},
-				"cgroup-memory-telemetry.sh":                   &bintree{linuxCloudInitArtifactsCgroupMemoryTelemetrySh, map[string]*bintree{}},
-				"cgroup-memory-telemetry.timer":                &bintree{linuxCloudInitArtifactsCgroupMemoryTelemetryTimer, map[string]*bintree{}},
-				"cgroup-pressure-telemetry.service":            &bintree{linuxCloudInitArtifactsCgroupPressureTelemetryService, map[string]*bintree{}},
-				"cgroup-pressure-telemetry.sh":                 &bintree{linuxCloudInitArtifactsCgroupPressureTelemetrySh, map[string]*bintree{}},
-				"cgroup-pressure-telemetry.timer":              &bintree{linuxCloudInitArtifactsCgroupPressureTelemetryTimer, map[string]*bintree{}},
-				"ci-syslog-watcher.path":                       &bintree{linuxCloudInitArtifactsCiSyslogWatcherPath, map[string]*bintree{}},
-				"ci-syslog-watcher.service":                    &bintree{linuxCloudInitArtifactsCiSyslogWatcherService, map[string]*bintree{}},
-				"ci-syslog-watcher.sh":                         &bintree{linuxCloudInitArtifactsCiSyslogWatcherSh, map[string]*bintree{}},
-				"cis.sh":                                       &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
-				"containerd.service":                           &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},
-				"containerd_exec_start.conf":                   &bintree{linuxCloudInitArtifactsContainerd_exec_startConf, map[string]*bintree{}},
-				"crictl.yaml":                                  &bintree{linuxCloudInitArtifactsCrictlYaml, map[string]*bintree{}},
-				"cse_cmd.sh":                                   &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
-				"cse_config.sh":                                &bintree{linuxCloudInitArtifactsCse_configSh, map[string]*bintree{}},
-				"cse_helpers.sh":                               &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},
-				"cse_install.sh":                               &bintree{linuxCloudInitArtifactsCse_installSh, map[string]*bintree{}},
-				"cse_main.sh":                                  &bintree{linuxCloudInitArtifactsCse_mainSh, map[string]*bintree{}},
-				"cse_redact_cloud_config.py":                   &bintree{linuxCloudInitArtifactsCse_redact_cloud_configPy, map[string]*bintree{}},
-				"cse_send_logs.py":                             &bintree{linuxCloudInitArtifactsCse_send_logsPy, map[string]*bintree{}},
-				"cse_start.sh":                                 &bintree{linuxCloudInitArtifactsCse_startSh, map[string]*bintree{}},
-				"dhcpv6.service":                               &bintree{linuxCloudInitArtifactsDhcpv6Service, map[string]*bintree{}},
-				"disk_queue.service":                           &bintree{linuxCloudInitArtifactsDisk_queueService, map[string]*bintree{}},
-				"docker_clear_mount_propagation_flags.conf":    &bintree{linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf, map[string]*bintree{}},
-				"download-secure-tls-bootstrap-client.service": &bintree{linuxCloudInitArtifactsDownloadSecureTlsBootstrapClientService, map[string]*bintree{}},
-				"download-secure-tls-bootstrap-client.sh":      &bintree{linuxCloudInitArtifactsDownloadSecureTlsBootstrapClientSh, map[string]*bintree{}},
-				"enable-dhcpv6.sh":                             &bintree{linuxCloudInitArtifactsEnableDhcpv6Sh, map[string]*bintree{}},
-				"ensure-no-dup.service":                        &bintree{linuxCloudInitArtifactsEnsureNoDupService, map[string]*bintree{}},
-				"ensure-no-dup.sh":                             &bintree{linuxCloudInitArtifactsEnsureNoDupSh, map[string]*bintree{}},
-				"etc-issue":                                    &bintree{linuxCloudInitArtifactsEtcIssue, map[string]*bintree{}},
-				"etc-issue.net":                                &bintree{linuxCloudInitArtifactsEtcIssueNet, map[string]*bintree{}},
-				"init-aks-custom-cloud-mariner.sh":             &bintree{linuxCloudInitArtifactsInitAksCustomCloudMarinerSh, map[string]*bintree{}},
-				"init-aks-custom-cloud.sh":                     &bintree{linuxCloudInitArtifactsInitAksCustomCloudSh, map[string]*bintree{}},
-				"ipv6_nftables":                                &bintree{linuxCloudInitArtifactsIpv6_nftables, map[string]*bintree{}},
-				"ipv6_nftables.service":                        &bintree{linuxCloudInitArtifactsIpv6_nftablesService, map[string]*bintree{}},
-				"ipv6_nftables.sh":                             &bintree{linuxCloudInitArtifactsIpv6_nftablesSh, map[string]*bintree{}},
-				"kms.service":                                  &bintree{linuxCloudInitArtifactsKmsService, map[string]*bintree{}},
-				"kubelet.service":                              &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
-				"manifest.json":                                &bintree{linuxCloudInitArtifactsManifestJson, map[string]*bintree{}},
+				"10-bindmount.conf":                         &bintree{linuxCloudInitArtifacts10BindmountConf, map[string]*bintree{}},
+				"10-cgroupv2.conf":                          &bintree{linuxCloudInitArtifacts10Cgroupv2Conf, map[string]*bintree{}},
+				"10-componentconfig.conf":                   &bintree{linuxCloudInitArtifacts10ComponentconfigConf, map[string]*bintree{}},
+				"10-containerd.conf":                        &bintree{linuxCloudInitArtifacts10ContainerdConf, map[string]*bintree{}},
+				"10-httpproxy.conf":                         &bintree{linuxCloudInitArtifacts10HttpproxyConf, map[string]*bintree{}},
+				"10-tlsbootstrap.conf":                      &bintree{linuxCloudInitArtifacts10TlsbootstrapConf, map[string]*bintree{}},
+				"aks-check-network.service":                 &bintree{linuxCloudInitArtifactsAksCheckNetworkService, map[string]*bintree{}},
+				"aks-check-network.sh":                      &bintree{linuxCloudInitArtifactsAksCheckNetworkSh, map[string]*bintree{}},
+				"aks-log-collector-send.py":                 &bintree{linuxCloudInitArtifactsAksLogCollectorSendPy, map[string]*bintree{}},
+				"aks-log-collector.service":                 &bintree{linuxCloudInitArtifactsAksLogCollectorService, map[string]*bintree{}},
+				"aks-log-collector.sh":                      &bintree{linuxCloudInitArtifactsAksLogCollectorSh, map[string]*bintree{}},
+				"aks-log-collector.slice":                   &bintree{linuxCloudInitArtifactsAksLogCollectorSlice, map[string]*bintree{}},
+				"aks-log-collector.timer":                   &bintree{linuxCloudInitArtifactsAksLogCollectorTimer, map[string]*bintree{}},
+				"aks-logrotate-override.conf":               &bintree{linuxCloudInitArtifactsAksLogrotateOverrideConf, map[string]*bintree{}},
+				"aks-logrotate.service":                     &bintree{linuxCloudInitArtifactsAksLogrotateService, map[string]*bintree{}},
+				"aks-logrotate.sh":                          &bintree{linuxCloudInitArtifactsAksLogrotateSh, map[string]*bintree{}},
+				"aks-logrotate.timer":                       &bintree{linuxCloudInitArtifactsAksLogrotateTimer, map[string]*bintree{}},
+				"aks-rsyslog":                               &bintree{linuxCloudInitArtifactsAksRsyslog, map[string]*bintree{}},
+				"apt-preferences":                           &bintree{linuxCloudInitArtifactsAptPreferences, map[string]*bintree{}},
+				"bind-mount.service":                        &bintree{linuxCloudInitArtifactsBindMountService, map[string]*bintree{}},
+				"bind-mount.sh":                             &bintree{linuxCloudInitArtifactsBindMountSh, map[string]*bintree{}},
+				"block_wireserver.sh":                       &bintree{linuxCloudInitArtifactsBlock_wireserverSh, map[string]*bintree{}},
+				"cgroup-memory-telemetry.service":           &bintree{linuxCloudInitArtifactsCgroupMemoryTelemetryService, map[string]*bintree{}},
+				"cgroup-memory-telemetry.sh":                &bintree{linuxCloudInitArtifactsCgroupMemoryTelemetrySh, map[string]*bintree{}},
+				"cgroup-memory-telemetry.timer":             &bintree{linuxCloudInitArtifactsCgroupMemoryTelemetryTimer, map[string]*bintree{}},
+				"cgroup-pressure-telemetry.service":         &bintree{linuxCloudInitArtifactsCgroupPressureTelemetryService, map[string]*bintree{}},
+				"cgroup-pressure-telemetry.sh":              &bintree{linuxCloudInitArtifactsCgroupPressureTelemetrySh, map[string]*bintree{}},
+				"cgroup-pressure-telemetry.timer":           &bintree{linuxCloudInitArtifactsCgroupPressureTelemetryTimer, map[string]*bintree{}},
+				"ci-syslog-watcher.path":                    &bintree{linuxCloudInitArtifactsCiSyslogWatcherPath, map[string]*bintree{}},
+				"ci-syslog-watcher.service":                 &bintree{linuxCloudInitArtifactsCiSyslogWatcherService, map[string]*bintree{}},
+				"ci-syslog-watcher.sh":                      &bintree{linuxCloudInitArtifactsCiSyslogWatcherSh, map[string]*bintree{}},
+				"cis.sh":                                    &bintree{linuxCloudInitArtifactsCisSh, map[string]*bintree{}},
+				"containerd.service":                        &bintree{linuxCloudInitArtifactsContainerdService, map[string]*bintree{}},
+				"containerd_exec_start.conf":                &bintree{linuxCloudInitArtifactsContainerd_exec_startConf, map[string]*bintree{}},
+				"crictl.yaml":                               &bintree{linuxCloudInitArtifactsCrictlYaml, map[string]*bintree{}},
+				"cse_cmd.sh":                                &bintree{linuxCloudInitArtifactsCse_cmdSh, map[string]*bintree{}},
+				"cse_config.sh":                             &bintree{linuxCloudInitArtifactsCse_configSh, map[string]*bintree{}},
+				"cse_helpers.sh":                            &bintree{linuxCloudInitArtifactsCse_helpersSh, map[string]*bintree{}},
+				"cse_install.sh":                            &bintree{linuxCloudInitArtifactsCse_installSh, map[string]*bintree{}},
+				"cse_main.sh":                               &bintree{linuxCloudInitArtifactsCse_mainSh, map[string]*bintree{}},
+				"cse_redact_cloud_config.py":                &bintree{linuxCloudInitArtifactsCse_redact_cloud_configPy, map[string]*bintree{}},
+				"cse_send_logs.py":                          &bintree{linuxCloudInitArtifactsCse_send_logsPy, map[string]*bintree{}},
+				"cse_start.sh":                              &bintree{linuxCloudInitArtifactsCse_startSh, map[string]*bintree{}},
+				"dhcpv6.service":                            &bintree{linuxCloudInitArtifactsDhcpv6Service, map[string]*bintree{}},
+				"disk_queue.service":                        &bintree{linuxCloudInitArtifactsDisk_queueService, map[string]*bintree{}},
+				"docker_clear_mount_propagation_flags.conf": &bintree{linuxCloudInitArtifactsDocker_clear_mount_propagation_flagsConf, map[string]*bintree{}},
+				"enable-dhcpv6.sh":                          &bintree{linuxCloudInitArtifactsEnableDhcpv6Sh, map[string]*bintree{}},
+				"ensure-no-dup.service":                     &bintree{linuxCloudInitArtifactsEnsureNoDupService, map[string]*bintree{}},
+				"ensure-no-dup.sh":                          &bintree{linuxCloudInitArtifactsEnsureNoDupSh, map[string]*bintree{}},
+				"etc-issue":                                 &bintree{linuxCloudInitArtifactsEtcIssue, map[string]*bintree{}},
+				"etc-issue.net":                             &bintree{linuxCloudInitArtifactsEtcIssueNet, map[string]*bintree{}},
+				"init-aks-custom-cloud-mariner.sh":          &bintree{linuxCloudInitArtifactsInitAksCustomCloudMarinerSh, map[string]*bintree{}},
+				"init-aks-custom-cloud.sh":                  &bintree{linuxCloudInitArtifactsInitAksCustomCloudSh, map[string]*bintree{}},
+				"ipv6_nftables":                             &bintree{linuxCloudInitArtifactsIpv6_nftables, map[string]*bintree{}},
+				"ipv6_nftables.service":                     &bintree{linuxCloudInitArtifactsIpv6_nftablesService, map[string]*bintree{}},
+				"ipv6_nftables.sh":                          &bintree{linuxCloudInitArtifactsIpv6_nftablesSh, map[string]*bintree{}},
+				"kms.service":                               &bintree{linuxCloudInitArtifactsKmsService, map[string]*bintree{}},
+				"kubelet.service":                           &bintree{linuxCloudInitArtifactsKubeletService, map[string]*bintree{}},
+				"manifest.json":                             &bintree{linuxCloudInitArtifactsManifestJson, map[string]*bintree{}},
 				"mariner": &bintree{nil, map[string]*bintree{
 					"cse_helpers_mariner.sh":       &bintree{linuxCloudInitArtifactsMarinerCse_helpers_marinerSh, map[string]*bintree{}},
 					"cse_install_mariner.sh":       &bintree{linuxCloudInitArtifactsMarinerCse_install_marinerSh, map[string]*bintree{}},
