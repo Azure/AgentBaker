@@ -486,14 +486,14 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204fipscontainerd",
-		Version:       "202404.09.0",  // TODO(artunduman): Update version when the image is ready
+		Version:       "202404.09.0", // TODO(artunduman): Update version when the image is ready
 	}
 
 	SIGUbuntuFipsContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2204gen2fipscontainerd",
-		Version:       "202404.09.0",  // TODO(artunduman): Update version when the image is ready
+		Version:       "202404.09.0", // TODO(artunduman): Update version when the image is ready
 	}
 
 	SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
@@ -722,8 +722,8 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuFipsContainerd1804Gen2:    SIGUbuntuFipsContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuFipsContainerd2004:        SIGUbuntuFipsContainerd2004ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuFipsContainerd2004Gen2:    SIGUbuntuFipsContainerd2004Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuFipsContainerd2204:		SIGUbuntuFipsContainerd2204ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuFipsContainerd2204Gen2:	SIGUbuntuFipsContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuFipsContainerd2204:        SIGUbuntuFipsContainerd2204ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuFipsContainerd2204Gen2:    SIGUbuntuFipsContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2204:            SIGUbuntuContainerd2204ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2204Gen2:        SIGUbuntuContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2004CVMGen2:     SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),
