@@ -277,6 +277,10 @@ func (d Distro) IsWindowsPIRDistro() bool {
 	return false
 }
 
+func (d Distro) IsWindowsDistro() bool {
+	return d.IsWindowsSIGDistro() || d.IsWindowsPIRDistro()
+}
+
 // SigImageConfigTemplate represents the SIG image configuration template.
 type SigImageConfigTemplate struct {
 	ResourceGroup string

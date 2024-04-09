@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	agenttoggles "github.com/Azure/agentbaker/pkg/agent/toggles"
 	"github.com/barkimedes/go-deepcopy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -14,9 +15,12 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		cs        *datamodel.ContainerService
 		config    *datamodel.NodeBootstrappingConfiguration
 		sigConfig *datamodel.SIGConfig
+		toggles   *agenttoggles.Toggles
 	)
 
 	BeforeEach(func() {
+		toggles = agenttoggles.New()
+
 		cs = &datamodel.ContainerService{
 			Location: "southcentralus",
 			Type:     "Microsoft.ContainerService/ManagedClusters",
@@ -157,6 +161,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		It("should return correct boot strapping data", func() {
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 
 			nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
@@ -177,6 +182,59 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(nodeBootStrapping.SigImageConfig.Version).To(Equal("2021.11.06"))
 		})
 
+		It("should return the correct bootstrapping data when linux node image version override is present", func() {
+			toggles.Maps = map[string]agenttoggles.MapToggle{
+				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
+					return map[string]string{
+						string(datamodel.AKSUbuntu1604): "202402.27.0",
+					}
+				},
+			}
+
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
+
+			nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(context.Background(), config)
+			Expect(err).NotTo(HaveOccurred())
+
+			// baker_test.go tested the correctness of the generated Custom Data and CSE, so here
+			// we just do a sanity check of them not being empty.
+			Expect(nodeBootStrapping.CustomData).NotTo(Equal(""))
+			Expect(nodeBootStrapping.CSE).NotTo(Equal(""))
+
+			Expect(nodeBootStrapping.SigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
+			Expect(nodeBootStrapping.SigImageConfig.Gallery).To(Equal("aksubuntu"))
+			Expect(nodeBootStrapping.SigImageConfig.Definition).To(Equal("1604"))
+			Expect(nodeBootStrapping.SigImageConfig.Version).To(Equal("202402.27.0"))
+		})
+
+		It("should return the correct bootstrapping data when linux node image version is present but does not specify for distro", func() {
+			toggles.Maps = map[string]agenttoggles.MapToggle{
+				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
+					return map[string]string{
+						string(datamodel.AKSUbuntu1804): "202402.27.0",
+					}
+				},
+			}
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
+
+			nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(context.Background(), config)
+			Expect(err).NotTo(HaveOccurred())
+
+			// baker_test.go tested the correctness of the generated Custom Data and CSE, so here
+			// we just do a sanity check of them not being empty.
+			Expect(nodeBootStrapping.CustomData).NotTo(Equal(""))
+			Expect(nodeBootStrapping.CSE).NotTo(Equal(""))
+
+			Expect(nodeBootStrapping.SigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
+			Expect(nodeBootStrapping.SigImageConfig.Gallery).To(Equal("aksubuntu"))
+			Expect(nodeBootStrapping.SigImageConfig.Definition).To(Equal("1604"))
+			Expect(nodeBootStrapping.SigImageConfig.Version).To(Equal("2021.11.06"))
+		})
+
 		It("should return an error if cloud is not found", func() {
 			// this CloudSpecConfig is shared across all AgentBaker UTs,
 			// thus we need to make and use a copy when performing mutations for mocking
@@ -189,6 +247,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			config.CloudSpecConfig.CloudName = "UnknownCloud"
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).To(HaveOccurred())
 		})
@@ -197,6 +256,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			config.AgentPoolProfile.Distro = "unknown"
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 
 			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).To(HaveOccurred())
@@ -206,6 +266,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			config.AgentPoolProfile.Distro = datamodel.CustomizedImage
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 
 			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
@@ -215,6 +276,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			config.AgentPoolProfile.Distro = datamodel.CustomizedImageKata
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 
 			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
@@ -224,6 +286,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			config.AgentPoolProfile.Distro = datamodel.CustomizedWindowsOSImage
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 
 			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
@@ -234,8 +297,63 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		It("should return correct value for existing distro", func() {
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 
-			sigImageConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, cs.Location, datamodel.AKSUbuntu1604)
+			sigImageConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, datamodel.AKSUbuntu1604, &datamodel.EnvironmentInfo{
+				SubscriptionID: config.SubscriptionID,
+				TenantID:       config.TenantID,
+				Region:         cs.Location,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(sigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
+			Expect(sigImageConfig.Gallery).To(Equal("aksubuntu"))
+			Expect(sigImageConfig.Definition).To(Equal("1604"))
+			Expect(sigImageConfig.Version).To(Equal("2021.11.06"))
+		})
+
+		It("should return correct value for existing distro when linux node image version override is provided", func() {
+			toggles.Maps = map[string]agenttoggles.MapToggle{
+				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
+					return map[string]string{
+						string(datamodel.AKSUbuntu1604): "202402.27.0",
+					}
+				},
+			}
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
+
+			sigImageConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, datamodel.AKSUbuntu1604, &datamodel.EnvironmentInfo{
+				SubscriptionID: config.SubscriptionID,
+				TenantID:       config.TenantID,
+				Region:         cs.Location,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(sigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
+			Expect(sigImageConfig.Gallery).To(Equal("aksubuntu"))
+			Expect(sigImageConfig.Definition).To(Equal("1604"))
+			Expect(sigImageConfig.Version).To(Equal("202402.27.0"))
+		})
+
+		It("should return correct value for existing distro when linux node image version override is provided but not for distro", func() {
+			toggles.Maps = map[string]agenttoggles.MapToggle{
+				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
+					return map[string]string{
+						string(datamodel.AKSUbuntu1804): "202402.27.0",
+					}
+				},
+			}
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
+
+			sigImageConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, datamodel.AKSUbuntu1604, &datamodel.EnvironmentInfo{
+				SubscriptionID: config.SubscriptionID,
+				TenantID:       config.TenantID,
+				Region:         cs.Location,
+			})
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(sigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
@@ -247,22 +365,162 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		It("should return error if image config not found for distro", func() {
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
 
-			_, err = agentBaker.GetLatestSigImageConfig(config.SIGConfig, cs.Location, "unknown")
+			_, err = agentBaker.GetLatestSigImageConfig(config.SIGConfig, "unknown", &datamodel.EnvironmentInfo{
+				SubscriptionID: config.SubscriptionID,
+				TenantID:       config.TenantID,
+				Region:         cs.Location,
+			})
 			Expect(err).To(HaveOccurred())
 		})
 	})
 
-	Context("GetCachedK8sVersions", func() {
-		It("should return the k8s version in manifest.json", func() {
+	Context("GetDistroSigImageConfig", func() {
+		var (
+			ubuntuDistros     []datamodel.Distro
+			marinerDistros    []datamodel.Distro
+			azureLinuxDistros []datamodel.Distro
+			allLinuxDistros   []datamodel.Distro
+		)
+
+		BeforeEach(func() {
+			ubuntuDistros = []datamodel.Distro{
+				datamodel.AKSUbuntuContainerd1804,
+				datamodel.AKSUbuntuContainerd1804Gen2,
+				datamodel.AKSUbuntuGPUContainerd1804,
+				datamodel.AKSUbuntuGPUContainerd1804Gen2,
+				datamodel.AKSUbuntuFipsContainerd1804,
+				datamodel.AKSUbuntuFipsContainerd1804Gen2,
+				datamodel.AKSUbuntuFipsContainerd2004,
+				datamodel.AKSUbuntuFipsContainerd2004Gen2,
+				datamodel.AKSUbuntuContainerd2204,
+				datamodel.AKSUbuntuContainerd2204Gen2,
+				datamodel.AKSUbuntuContainerd2004CVMGen2,
+				datamodel.AKSUbuntuArm64Containerd2204Gen2,
+				datamodel.AKSUbuntuContainerd2204TLGen2,
+			}
+
+			marinerDistros = []datamodel.Distro{
+				datamodel.AKSCBLMarinerV2,
+				datamodel.AKSCBLMarinerV2Gen2,
+				datamodel.AKSCBLMarinerV2FIPS,
+				datamodel.AKSCBLMarinerV2Gen2FIPS,
+				datamodel.AKSCBLMarinerV2Gen2Kata,
+				datamodel.AKSCBLMarinerV2Arm64Gen2,
+				datamodel.AKSCBLMarinerV2Gen2TL,
+			}
+
+			azureLinuxDistros = []datamodel.Distro{
+				datamodel.AKSAzureLinuxV2,
+				datamodel.AKSAzureLinuxV2Gen2,
+				datamodel.AKSAzureLinuxV2FIPS,
+				datamodel.AKSAzureLinuxV2Gen2FIPS,
+				datamodel.AKSAzureLinuxV2Gen2Kata,
+				datamodel.AKSAzureLinuxV2Arm64Gen2,
+				datamodel.AKSAzureLinuxV2Gen2TL,
+			}
+
+			allLinuxDistros = append(allLinuxDistros, ubuntuDistros...)
+			allLinuxDistros = append(allLinuxDistros, marinerDistros...)
+			allLinuxDistros = append(allLinuxDistros, azureLinuxDistros...)
+		})
+
+		It("should return correct value for all existing distros", func() {
 			agentBaker, err := NewAgentBaker()
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).To(BeNil())
+			agentBaker = agentBaker.WithToggles(toggles)
 
-			images := agentBaker.GetCachedK8sVersions()
-			Expect(err).NotTo(HaveOccurred())
+			configs, err := agentBaker.GetDistroSigImageConfig(config.SIGConfig, &datamodel.EnvironmentInfo{
+				SubscriptionID: config.SubscriptionID,
+				TenantID:       config.TenantID,
+				Region:         cs.Location,
+			})
+			Expect(err).To(BeNil())
 
-			cachedVersions := []string{"1.26.6", "1.26.10", "1.26.12", "1.27.3", "1.27.7", "1.27.9", "1.28.1", "1.28.3", "1.28.5", "1.29.0", "1.29.2"}
-			Expect(images).To(Equal(cachedVersions))
+			for _, distro := range allLinuxDistros {
+				Expect(configs).To(HaveKey(distro))
+				config := configs[distro]
+				Expect(config.ResourceGroup).To(Equal("resourcegroup"))
+				Expect(config.SubscriptionID).To(Equal("somesubid"))
+				Expect(config.Version).To(Equal(datamodel.LinuxSIGImageVersion))
+				Expect(config.Definition).ToNot(BeEmpty())
+			}
+
+			for _, distro := range ubuntuDistros {
+				config := configs[distro]
+				Expect(config.Gallery).To(Equal("aksubuntu"))
+			}
+
+			for _, distro := range marinerDistros {
+				config := configs[distro]
+				Expect(config.Gallery).To(Equal("akscblmariner"))
+			}
+
+			for _, distro := range azureLinuxDistros {
+				config := configs[distro]
+				Expect(config.Gallery).To(Equal("aksazurelinux"))
+			}
+		})
+
+		It("should return correct value for all existing distros with linux node image version override", func() {
+			var (
+				ubuntuOverrideVersion     = "202402.25.0"
+				marinerOverrideVersion    = "202402.25.1"
+				azureLinuxOverrideVersion = "202402.25.2"
+			)
+			imageVersionOverrides := map[string]string{}
+			for _, distro := range ubuntuDistros {
+				imageVersionOverrides[string(distro)] = ubuntuOverrideVersion
+			}
+			for _, distro := range marinerDistros {
+				imageVersionOverrides[string(distro)] = marinerOverrideVersion
+			}
+			for _, distro := range azureLinuxDistros {
+				imageVersionOverrides[string(distro)] = azureLinuxOverrideVersion
+			}
+			toggles.Maps = map[string]agenttoggles.MapToggle{
+				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
+					return imageVersionOverrides
+				},
+			}
+
+			agentBaker, err := NewAgentBaker()
+			Expect(err).To(BeNil())
+			agentBaker = agentBaker.WithToggles(toggles)
+
+			configs, err := agentBaker.GetDistroSigImageConfig(config.SIGConfig, &datamodel.EnvironmentInfo{
+				SubscriptionID: config.SubscriptionID,
+				TenantID:       config.TenantID,
+				Region:         cs.Location,
+			})
+			Expect(err).To(BeNil())
+
+			for _, distro := range allLinuxDistros {
+				Expect(configs).To(HaveKey(distro))
+				config := configs[distro]
+				Expect(config.ResourceGroup).To(Equal("resourcegroup"))
+				Expect(config.SubscriptionID).To(Equal("somesubid"))
+				Expect(config.Definition).ToNot(BeEmpty())
+			}
+
+			for _, distro := range ubuntuDistros {
+				config := configs[distro]
+				Expect(config.Gallery).To(Equal("aksubuntu"))
+				Expect(config.Version).To(Equal(ubuntuOverrideVersion))
+			}
+
+			for _, distro := range marinerDistros {
+				config := configs[distro]
+				Expect(config.Gallery).To(Equal("akscblmariner"))
+				Expect(config.Version).To(Equal(marinerOverrideVersion))
+			}
+
+			for _, distro := range azureLinuxDistros {
+				config := configs[distro]
+				Expect(config.Gallery).To(Equal("aksazurelinux"))
+				Expect(config.Version).To(Equal(azureLinuxOverrideVersion))
+			}
 		})
 	})
 })

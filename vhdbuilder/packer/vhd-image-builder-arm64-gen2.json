@@ -53,10 +53,12 @@
         "SkipLinuxAzSecPack": "true",
         "os": "Linux",
         "now": "{{user `create_time`}}",
-        "createdBy": "aks-vhd-pipeline"
+        "createdBy": "aks-vhd-pipeline",
+        "image_sku": "{{user `img_sku`}}"
       },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
+      "managed_image_storage_account_type": "Premium_LRS",
       "managed_image_os_disk_snapshot_name": "{{user `arm64_os_disk_snapshot_name`}}",
       "skip_create_image": "true",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
@@ -310,11 +312,6 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sshd_config_1604",
       "destination": "/home/packer/sshd_config_1604"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/sshd_config_1804_fips",
-      "destination": "/home/packer/sshd_config_1804_fips"
     },
     {
       "type": "file",
