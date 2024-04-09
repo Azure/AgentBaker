@@ -16,9 +16,20 @@ const (
 )
 
 func init() {
+	CacheManifest()
+	CacheComponents()
+}
+
+func CacheManifest() {
 	_, filename, _, _ := runtime.Caller(0)
 	manifestFilePath := "../../../parts/linux/cloud-init/artifacts/manifest.json"
 	getCachedK8sVersionFromManifest(path.Join(path.Dir(filename), manifestFilePath))
+}
+
+func CacheComponents() {
+	_, filename, _, _ := runtime.Caller(0)
+	componentsFilePath := "../../../vhdbuilder/packer/components.json"
+	getCachedComponentsFromComponents(path.Join(path.Dir(filename), componentsFilePath))
 }
 
 // SIGAzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
@@ -292,7 +303,9 @@ type SigImageConfigTemplate struct {
 // SigImageConfig represents the SIG image configuration.
 type SigImageConfig struct {
 	SigImageConfigTemplate
-	SubscriptionID string
+	SubscriptionID        string
+	CachedFromManifest    map[string]ProcessedManifest
+	CachedFromComponsents map[string]ProcessedComponents
 }
 
 // WithOptions converts a SigImageConfigTemplate to SigImageConfig instance via function opts.
@@ -883,12 +896,36 @@ func withSubscription(subscriptionID string) SigImageConfigOpt {
 	}
 }
 
-var CachedK8sVersions []string
+var CachedFromManifest = make(map[string]ProcessedManifest)
 
 type Manifest struct {
+	Containerd struct {
+		Edge     string            `json:"edge"`
+		Versions []string          `json:"versions"`
+		Pinned   map[string]string `json:"pinned"`
+	} `json:"containerd"`
+	Runc struct {
+		Versions  []string          `json:"versions"`
+		Pinned    map[string]string `json:"pinned"`
+		Installed map[string]string `json:"installed"`
+	} `json:"runc"`
+	NvidiaContainerRuntime struct {
+		Versions []string `json:"versions"`
+	} `json:"nvidia-container-runtime"`
+	NvidiaDrivers struct {
+		Versions []string `json:"versions"`
+	} `json:"nvidia-drivers"`
 	Kubernetes struct {
 		Versions []string `json:"versions"`
 	} `json:"kubernetes"`
+}
+
+type ProcessedManifest struct {
+	Name      string
+	Versions  []string
+	Pinned    map[string]string
+	Edge      string
+	Installed map[string]string
 }
 
 func getCachedK8sVersionFromManifest(manifestFilePath string) {
@@ -901,5 +938,91 @@ func getCachedK8sVersionFromManifest(manifestFilePath string) {
 	if err = json.Unmarshal(data, &manifest); err != nil {
 		panic(err)
 	}
-	CachedK8sVersions = manifest.Kubernetes.Versions
+
+	CachedFromManifest["kubernetes"] = ProcessedManifest{
+		Name:     "kubernetes",
+		Versions: manifest.Kubernetes.Versions,
+	}
+	CachedFromManifest["runc"] = ProcessedManifest{
+		Name:      "runc",
+		Versions:  manifest.Runc.Versions,
+		Pinned:    manifest.Runc.Pinned,
+		Installed: manifest.Runc.Installed,
+	}
+	CachedFromManifest["containerd"] = ProcessedManifest{
+		Name:     "containerd",
+		Versions: manifest.Containerd.Versions,
+		Pinned:   manifest.Containerd.Pinned,
+		Edge:     manifest.Containerd.Edge,
+	}
+	CachedFromManifest["nvidia-container-runtime"] = ProcessedManifest{
+		Name:     "nvidia-container-runtime",
+		Versions: manifest.NvidiaContainerRuntime.Versions,
+	}
+	CachedFromManifest["nvidia-drivers"] = ProcessedManifest{
+		Name:     "nvidia-drivers",
+		Versions: manifest.NvidiaDrivers.Versions,
+	}
+}
+
+type Components struct {
+	ContainerImages []struct {
+		DownloadURL           string   `json:"downloadURL"`
+		Amd64OnlyVersions     []string `json:"amd64OnlyVersions"`
+		MultiArchVersions     []string `json:"multiArchVersions"`
+		PrefetchOptimizations []struct {
+			Version  string   `json:"version"`
+			Binaries []string `json:"binaries"`
+		} `json:"prefetchOptimizations"`
+	} `json:"ContainerImages"`
+}
+type PrefetchOptimizations struct {
+	Version  string
+	Binaries []string
+}
+
+type ProcessedComponents struct {
+	Name                  string
+	MultiArchVersions     []string
+	Amd64OnlyVersions     []string
+	PrefetchOptimizations PrefetchOptimizations
+}
+
+var CachedFromComponsents = make(map[string]ProcessedComponents)
+
+func getCachedComponentsFromComponents(componentsFilePath string) {
+	data, err := os.ReadFile(componentsFilePath)
+	if err != nil {
+		panic(err)
+	}
+	var components Components
+	if err = json.Unmarshal(data, &components); err != nil {
+		panic(err)
+	}
+
+	for _, image := range components.ContainerImages {
+		componentName := processDownloadURL(image.DownloadURL)
+		processed := ProcessedComponents{
+			Name:              componentName,
+			MultiArchVersions: image.MultiArchVersions,
+			Amd64OnlyVersions: image.Amd64OnlyVersions,
+		}
+		if len(image.PrefetchOptimizations) > 0 {
+			processed.PrefetchOptimizations = PrefetchOptimizations{
+				Version:  image.PrefetchOptimizations[0].Version,
+				Binaries: image.PrefetchOptimizations[0].Binaries,
+			}
+		}
+		CachedFromComponsents[componentName] = processed
+	}
+}
+
+func processDownloadURL(downloadURL string) string {
+	// example URL "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
+	// getting the data between the last / and the last :
+	parts := strings.Split(downloadURL, "/")
+	lastPart := parts[len(parts)-1]
+	component := strings.Split(lastPart, ":")
+	componentName := component[0]
+	return componentName
 }

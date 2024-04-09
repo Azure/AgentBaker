@@ -106,6 +106,10 @@ func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(sigConfig datamodel.SI
 			sigImageConfig.Version = imageVersion
 		}
 	}
+
+	sigImageConfig.CachedFromManifest = datamodel.CachedFromManifest
+	sigImageConfig.CachedFromComponsents = datamodel.CachedFromComponsents
+
 	return sigImageConfig, nil
 }
 

@@ -19,6 +19,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 	)
 
 	BeforeEach(func() {
+		datamodel.CacheManifest()
+		datamodel.CacheComponents()
+
 		toggles = agenttoggles.New()
 
 		cs = &datamodel.ContainerService{
@@ -310,6 +313,26 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(sigImageConfig.Gallery).To(Equal("aksubuntu"))
 			Expect(sigImageConfig.Definition).To(Equal("1604"))
 			Expect(sigImageConfig.Version).To(Equal("2021.11.06"))
+		})
+
+		It("should return cached VHD data", func() {
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
+
+			sigImageConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, datamodel.AKSUbuntu1604, &datamodel.EnvironmentInfo{
+				SubscriptionID: config.SubscriptionID,
+				TenantID:       config.TenantID,
+				Region:         cs.Location,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(sigImageConfig.CachedFromManifest["runc"].Installed["default"]).To(Equal("1.1.12"))
+			Expect(sigImageConfig.CachedFromManifest["containerd"].Pinned["1804"]).To(Equal("1.7.1-1"))
+			Expect(sigImageConfig.CachedFromManifest["containerd"].Edge).To(Equal("1.7.15-1"))
+			Expect(sigImageConfig.CachedFromComponsents["pause"].MultiArchVersions[0]).To(Equal("3.6"))
+			Expect(sigImageConfig.CachedFromComponsents["azure-cns"].PrefetchOptimizations.Version).To(Equal("v1.5.23"))
+			Expect(sigImageConfig.CachedFromComponsents["azure-cns"].PrefetchOptimizations.Binaries[0]).To(Equal("usr/local/bin/azure-cns"))
 		})
 
 		It("should return correct value for existing distro when linux node image version override is provided", func() {
