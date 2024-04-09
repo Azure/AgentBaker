@@ -6513,6 +6513,7 @@ var _linuxCloudInitArtifactsSecureTlsBootstrapService = []byte(`[Unit]
 Description=Runs the secure TLS bootstrapping client binary to generate a kubelet client credential
 Wants=network-online.target
 After=network-online.target
+Before=kubelet.service
 
 [Service]
 Type=oneshot

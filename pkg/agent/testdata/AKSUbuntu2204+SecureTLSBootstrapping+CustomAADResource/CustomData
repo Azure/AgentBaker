@@ -109,7 +109,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/5SPvU7DQBCE+3uKlagdP4ELJEKFBMJBFFGK83mwTzntWntjQnh6CoSpKCjnR59mji+aeQp3qMnzwmzaPa9ahTOkIq0OOTz0Mpix0uOyZJ0klQylDFmjX4UmExQeCYlyXgcU8KeTHCOUOZbwGpW1U/Bifm5MS1bsGH0Cw+0b4X9k4djD33PCKRyuCzpT1NkY9h9IPaPzydG1trCNn6ujZanb3Pb7Q8NSm83c1VlGu2ixOP5S/o3YRAg3+8f7rwAAAP//4B4w9EoBAAA=
+    H4sIAAAAAAAA/5SPsU7DQBBE+/uKlagTf4ELEKFCApEgiijF+TyxTzntWntjQvh6ioCpKOh2Z0ZPevtXzTyEe9TkeWI2bV9mrcIRUpFmh+wet9KZsdLjNGUdJJUMpXRZo1+EJgMUHgmJcpo7FPBnkxw9lDmW8BaVtVXwbH5amZasWDP6AIbbI+F/dHc4mqP9Bq8r/D0nhLDfXq9D2F0mtKaoozFsPpC2jM5nR9vYxCZ+zo6GpS4WzVVtxVJXS7iuo/R21mKx/6X8G7E8Idxsnh6+AgAA//+HkU4PYQEAAA==
 
 - path: /etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf
   permissions: "0644"
