@@ -5342,8 +5342,8 @@ func linuxCloudInitArtifactsKmsService() (*asset, error) {
 var _linuxCloudInitArtifactsKubeletService = []byte(`[Unit]
 Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
-Wants=network-online.target containerd.service secure-tls-bootstrap.service
-After=network-online.target containerd.service secure-tls-bootstrap.service
+Wants=network-online.target containerd.service
+After=network-online.target containerd.service
 
 [Service]
 Restart=always
