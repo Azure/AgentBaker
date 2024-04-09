@@ -2757,10 +2757,10 @@ ensureKubeCAFile() {
 }
 
 configureSecureTLSBootstrap() {
-    CLIENT_VERSION="v0.1.0-alpha.2"
-    DOWNLOAD_URL="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/amd64/tls-bootstrap-client}"
+    CLIENT_VERSION="client-v0.1.0-alpha.0"
+    DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/amd64/tls-bootstrap-client"
     if [[ $(isARM64) == 1 ]]; then
-        DOWNLOAD_URL="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/arm64/tls-bootstrap-client}"
+        DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/arm64/tls-bootstrap-client"
     fi
 
     # default AAD resource here so we can minimze bootstrap contract surface
@@ -8191,6 +8191,7 @@ write_files:
   owner: root
   content: |
     [Service]
+    Environment="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/client-v0.1.0-alpha.0/linux/amd64/tls-bootstrap-client}"
     Environment="API_SERVER_NAME={{GetKubernetesEndpoint}}"
     {{if GetCustomSecureTLSBootstrapAADResource -}}
     Environment="AAD_RESOURCE={{GetCustomSecureTLSBootstrapAADResource}}"
