@@ -3,7 +3,6 @@ set -x
 CDIR=$(dirname "${BASH_SOURCE}")
 
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
-SP_JSON="${SP_JSON:-./packer/sp.json}"
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
@@ -42,20 +41,6 @@ echo "VNET_RG_NAME set to: ${VNET_RG_NAME}"
 echo "CAPTURED_SIG_VERSION set to: ${CAPTURED_SIG_VERSION}"
 
 echo "Subscription ID: ${SUBSCRIPTION_ID}"
-echo "Service Principal Path: ${SP_JSON}"
-
-if [ "$MODE" == "linuxVhdMode" ]; then
-	if [ -a "${SP_JSON}" ]; then
-		echo "Existing credentials file found."
-		exit 0
-	elif [ -z "${CLIENT_ID}" ]; then
-		echo "Service principal not found! Generating one @ ${SP_JSON}"
-		az ad sp create-for-rbac -n aks-images-packer${CREATE_TIME} -o json > ${SP_JSON}
-		CLIENT_ID=$(jq -r .appId ${SP_JSON})
-		CLIENT_SECRET=$(jq -r .password ${SP_JSON})
-		TENANT_ID=$(jq -r .tenant ${SP_JSON})
-	fi
-fi
 
 rg_id=$(az group show --name $AZURE_RESOURCE_GROUP_NAME) || rg_id=""
 if [ -z "$rg_id" ]; then
@@ -76,24 +61,7 @@ if [ "$MODE" != "linuxVhdMode" ]; then
 	fi
 fi
 
-if [ "$MODE" == "linuxVhdMode" ]; then
-	if [ -z "${CLIENT_ID}" ]; then
-		echo "CLIENT_ID was not set! Something happened when generating the service principal or when trying to read the sp file!"
-		exit 1
-	fi
-
-	if [ -z "${CLIENT_SECRET}" ]; then
-		echo "CLIENT_SECRET was not set! Something happened when generating the service principal or when trying to read the sp file!"
-		exit 1
-	fi
-
-	if [ -z "${TENANT_ID}" ]; then
-		echo "TENANT_ID was not set! Something happened when generating the service principal or when trying to read the sp file!"
-		exit 1
-	fi
-fi
-
-[ "$MODE" != "linuxVhdMode" ] && echo "storage name: ${STORAGE_ACCOUNT_NAME}"
+echo "storage name: ${STORAGE_ACCOUNT_NAME}"
 
 # If SIG_GALLERY_NAME/SIG_IMAGE_NAME hasnt been provided in linuxVhdMode, use defaults
 if [[ "${MODE}" == "linuxVhdMode" ]]; then
@@ -144,7 +112,7 @@ if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
   azversion=$(az version | jq '."azure-cli"' | tr -d '"')
   if [[ "${azversion}" < "2.35.0" ]]; then
     az upgrade -y
-    az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
+    az login --identity
     az account set -s ${SUBSCRIPTION_ID}
   fi
 fi
@@ -428,11 +396,5 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "aks_windows_image_version": "${AKS_WINDOWS_IMAGE_VERSION}"
 }
 EOF
-
-if [ "$MODE" == "linuxVhdMode" ]; then
-	jq -r --arg key "client_id" --arg value "${CLIENT_ID}"  '. + { ($key) : $value}' < vhdbuilder/packer/settings.json > tmp.json && mv tmp.json vhdbuilder/packer/settings.json
-	jq -r --arg key "client_secret" --arg value "${CLIENT_SECRET}"  '. + { ($key) : $value}' < vhdbuilder/packer/settings.json > tmp.json && mv tmp.json vhdbuilder/packer/settings.json
-	jq -r --arg key "tenant_id" --arg value "${TENANT_ID}"  '. + { ($key) : $value}' < vhdbuilder/packer/settings.json > tmp.json && mv tmp.json vhdbuilder/packer/settings.json
-fi
 
 cat vhdbuilder/packer/settings.json
