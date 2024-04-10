@@ -132,7 +132,20 @@ $wuRegistryNames = @(
     "4154935436",
     "124082829",
     "NamespaceExcludedUdpPorts",
-    "PortExclusionChange"
+    "PortExclusionChange",
+    "2290715789",
+    "3152880268",
+    "3744292492",
+    "3838270605",
+    "851795084",
+    "26691724",
+    "3834988172",
+    "1535854221",
+    "3632636556",
+    "1552261773",
+    "4186914956",
+    "3173070476",
+    "3958450316"
 )
 
 foreach ($key in $wuRegistryKeys) {
