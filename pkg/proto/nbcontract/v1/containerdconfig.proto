@@ -2,7 +2,6 @@ syntax = "proto3";
 package nbcontract.v1;
 
 message ContainerdConfig {
-
   // The base URL for downloading containerd.
   string containerd_download_url_base = 1;
 

@@ -25,7 +25,6 @@ enum WorkloadRuntime {
 }
 
 message Configuration {
-  
   // Semantic version of this node bootstrap contract
   string version = 1;
 

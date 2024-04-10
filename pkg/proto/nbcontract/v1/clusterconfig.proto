@@ -3,7 +3,6 @@ package nbcontract.v1;
 
 // Cluster Config fields stored in azure.json used by cloud-provider-azure
 message ClusterConfig {
-
   // Rescource group name
   string resource_group = 1;
 
