@@ -154,8 +154,6 @@ $global:map = @{
     #    2. Keep 1.18.10, 1.18.14, 1.18.17, 1.18.18
     #    3. Keep v1.18.17-hotfix.20210322 when adding v1.18.17-hotfix.20210505
     "c:\akse-cache\win-k8s\"      = @(
-        "https://acs-mirror.azureedge.net/kubernetes/v1.25.11-hotfix.20231102/windowszip/v1.25.11-hotfix.20231102-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.25.15-hotfix.20231103/windowszip/v1.25.15-hotfix.20231103-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.26.3-hotfix.20231102/windowszip/v1.26.3-hotfix.20231102-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.26.6-hotfix.20231102/windowszip/v1.26.6-hotfix.20231102-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.26.10-hotfix.20231103/windowszip/v1.26.10-hotfix.20231103-1int.zip",
@@ -179,7 +177,6 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.39.2/binaries/azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.39.2.zip"
     );
     "c:\akse-cache\calico\" = @(
-        "https://acs-mirror.azureedge.net/calico-node/v3.21.6/binaries/calico-windows-v3.21.6.zip",
         "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
     );
     "c:\akse-cache\tools\" = @(
