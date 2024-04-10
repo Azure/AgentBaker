@@ -62,7 +62,7 @@ message LoadBalancerConfig {
   optional int32 max_load_balancer_rule_count = 3;
 
   // Disable outbound SNAT (Source Network Address Translation) for load balancer, default to false
-  optional bool disable_outbound_snat = 4;
+  bool disable_outbound_snat = 4;
 
   enum LoadBalancerSku {
     UNSPECIFIED = 0;
