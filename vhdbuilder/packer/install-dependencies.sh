@@ -303,12 +303,12 @@ for imageToBePulled in ${ContainerImages[*]}; do
 
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
     containerImagePids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    while [[ $(jobs -p | wc -l) -ge 13 ]]; do # 13 maximum parallel container image pulls
-      wait -n
-    done    
+    #while [[ $(jobs -p | wc -l) -ge 13 ]]; do # 13 maximum parallel container image pulls
+      #wait -n
+    #done    
   done
   wait ${containerImagePids[@]}
 done
