@@ -27,9 +27,10 @@ installDeps() {
 
 installKataDeps() {
     if [[ $OS_VERSION != "1.0" ]]; then
-      if ! dnf_install 30 1 600 kata-packages-host; then
-        exit $ERR_APT_INSTALL_TIMEOUT
-      fi
+      #if ! dnf_install 30 1 600 kata-packages-host; then
+      #  exit $ERR_APT_INSTALL_TIMEOUT
+      #fi
+      echo "[placeholder] install kata-packages-host"
     fi
 }
 
