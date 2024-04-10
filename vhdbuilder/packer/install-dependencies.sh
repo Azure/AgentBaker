@@ -303,7 +303,7 @@ for imageToBePulled in ${ContainerImages[*]}; do
 
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
     containerImagePids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     while [[ $(jobs -p | wc -l) -ge 13 ]]; do # 13 maximum parallel container image pulls
@@ -450,7 +450,7 @@ declare -a kubeProxyPids=()
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # use kube-proxy as well
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
+  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
   kubeProxyPids+=($!)
   while [[ $(jobs -p | wc -l) -ge 13 ]]; do # 13 maximum parallel container image pulls
     wait -n
