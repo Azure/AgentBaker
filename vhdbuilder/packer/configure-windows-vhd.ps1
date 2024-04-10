@@ -426,13 +426,117 @@ function Update-WindowsFeatures {
     }
 }
 
+function Enable-WindowsFixInFeatureManagement {
+    Param(
+      [Parameter(Mandatory = $true)][string]
+      $Name,
+      [Parameter(Mandatory = $false)][string]
+      $Value = "1",
+      [Parameter(Mandatory = $false)][string]
+      $Type = "DWORD"
+    )
+
+    $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft" -ErrorAction Ignore)
+    if (!$regPath) {
+        Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft"
+        New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft"
+    }
+
+    $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement" -ErrorAction Ignore)
+    if (!$regPath) {
+        Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement"
+        New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement"
+    }
+
+    $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -ErrorAction Ignore)
+    if (!$regPath) {
+        Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides"
+        New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides"
+    }
+
+    $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name $Name -ErrorAction Ignore)
+    if (![string]::IsNullOrEmpty($currentValue)) {
+        Write-Log "The current value of $Name in FeatureManagement\Overrides is $currentValue"
+    }
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name $Name -Value $Value -Type $Type
+}
+
+function Enable-WindowsFixInHnsState {
+    Param(
+      [Parameter(Mandatory = $true)][string]
+      $Name,
+      [Parameter(Mandatory = $false)][string]
+      $Value = "1",
+      [Parameter(Mandatory = $false)][string]
+      $Type = "DWORD"
+    )
+
+    $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name $Name -ErrorAction Ignore)
+    if (![string]::IsNullOrEmpty($currentValue)) {
+        Write-Log "The current value of $Name in hns\State is $currentValue"
+    }
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name $Name -Value $Value -Type $Type
+}
+
+function Enable-WindowsFixInVfpExtParameters {
+    Param(
+      [Parameter(Mandatory = $true)][string]
+      $Name,
+      [Parameter(Mandatory = $false)][string]
+      $Value = "1",
+      [Parameter(Mandatory = $false)][string]
+      $Type = "DWORD"
+    )
+
+    $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt" -ErrorAction Ignore)
+    if (!$regPath) {
+        Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt"
+        New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt"
+    }
+
+    $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -ErrorAction Ignore)
+    if (!$regPath) {
+        Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters"
+        New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters"
+    }
+
+    $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name $Name -ErrorAction Ignore)
+    if (![string]::IsNullOrEmpty($currentValue)) {
+        Write-Log "The current value of $Name in VfpExt\Parameters is $currentValue"
+    }
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name $Name $Value -Type $Type
+}
+
+function Enable-WindowsFixInPath {
+    Param(
+      [Parameter(Mandatory = $true)][string]
+      $Path,
+      [Parameter(Mandatory = $true)][string]
+      $Name,
+      [Parameter(Mandatory = $false)][string]
+      $Value = "1",
+      [Parameter(Mandatory = $false)][string]
+      $Type = "DWORD"
+    )
+    $regPath=(Get-Item -Path $Path -ErrorAction Ignore)
+    if (!$regPath) {
+        Write-Log "Creating $Path"
+        New-Item -Path $Path
+    }
+    $currentValue=(Get-ItemProperty -Path $Path -Name $Name -ErrorAction Ignore)
+    if (![string]::IsNullOrEmpty($currentValue)) {
+        Write-Log "The current value of $Name in $Path is $currentValue"
+    }
+    Set-ItemProperty -Path $Path -Name $Name $Value -Type $Type
+}
+
 # If you need to add registry key in this function,
 # please update $wuRegistryKeys and $wuRegistryNames in vhdbuilder/packer/write-release-notes-windows.ps1 at the same time
 function Update-Registry {
     # Enables DNS resolution of SMB shares for containerD
     # https://github.com/kubernetes-sigs/windows-gmsa/issues/30#issuecomment-802240945
     Write-Log "Apply SMB Resolution Fix for containerD"
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name EnableCompartmentNamespace -Value 1 -Type DWORD
+    Enable-WindowsFixInHnsState -Name EnableCompartmentNamespace
 
     if ($env:WindowsSKU -Like '2019*') {
         Write-Log "Keep the HNS fix (0x10) even though it is enabled by default. Windows are still using HNSControlFlag and may need it in the future."
@@ -442,405 +546,166 @@ function Update-Registry {
             Write-Log "The current value of HNSControlFlag is $currentValue"
             $hnsControlFlag=([int]$currentValue.HNSControlFlag -bor $hnsControlFlag)
         }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Value $hnsControlFlag -Type DWORD
+        Enable-WindowsFixInHnsState -Name HNSControlFlag -Value $hnsControlFlag
 
         Write-Log "Enable a WCIFS fix in 2022-10B"
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\wcifs" -Name WcifsSOPCountDisabled -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of WcifsSOPCountDisabled is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\wcifs" -Name WcifsSOPCountDisabled -Value 0 -Type DWORD
+        Enable-WindowsFixInPath -Path "HKLM:\SYSTEM\CurrentControlSet\Services\wcifs" -Name WcifsSOPCountDisabled -Value 0
 
         Write-Log "Enable 3 fixes in 2023-04B"
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsPolicyUpdateChange -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of HnsPolicyUpdateChange is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsPolicyUpdateChange -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNatAllowRuleUpdateChange -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of HnsNatAllowRuleUpdateChange is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNatAllowRuleUpdateChange -Value 1 -Type DWORD
-
-        $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft" -ErrorAction Ignore)
-        if (!$regPath) {
-            Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft"
-            New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft"
-        }
-
-        $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement" -ErrorAction Ignore)
-        if (!$regPath) {
-            Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement"
-            New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement"
-        }
-
-        $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -ErrorAction Ignore)
-        if (!$regPath) {
-            Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides"
-            New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides"
-        }
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3105872524 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 3105872524 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3105872524 -Value 1 -Type DWORD
+        Enable-WindowsFixInHnsState -Name HnsPolicyUpdateChange
+        Enable-WindowsFixInHnsState -Name HnsNatAllowRuleUpdateChange
+        Enable-WindowsFixInFeatureManagement -Name 3105872524
 
         Write-Log "Enable 1 fix in 2023-05B"
-        $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt" -ErrorAction Ignore)
-        if (!$regPath) {
-            Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt"
-            New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt"
-        }
-
-        $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -ErrorAction Ignore)
-        if (!$regPath) {
-            Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters"
-            New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters"
-        }
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of VfpEvenPodDistributionIsEnabled is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled -Value 1 -Type DWORD
+        Enable-WindowsFixInVfpExtParameters -Name VfpEvenPodDistributionIsEnabled
 
         Write-Log "Enable 1 fix in 2023-06B"
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3230913164 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 3230913164 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3230913164 -Value 1 -Type DWORD
+        Enable-WindowsFixInFeatureManagement -Name 3230913164
 
         Write-Log "Enable 1 fix in 2023-10B"
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpNotReuseTcpOneWayFlowIsEnabled -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of VfpNotReuseTcpOneWayFlowIsEnabled is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpNotReuseTcpOneWayFlowIsEnabled -Value 1 -Type DWORD
+        Enable-WindowsFixInVfpExtParameters -Name VfpNotReuseTcpOneWayFlowIsEnabled
 
         Write-Log "Enable 4 fixes in 2023-11B"
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name CleanupReservedPorts -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of CleanupReservedPorts is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name CleanupReservedPorts -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 652313229 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 652313229 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 652313229 -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2059235981 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 2059235981 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2059235981 -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3767762061 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 3767762061 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3767762061 -Value 1 -Type DWORD
+        Enable-WindowsFixInHnsState -Name CleanupReservedPorts
+        Enable-WindowsFixInFeatureManagement -Name 652313229
+        Enable-WindowsFixInFeatureManagement -Name 2059235981
+        Enable-WindowsFixInFeatureManagement -Name 3767762061
 
         Write-Log "Enable 1 fix in 2024-01B"
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1102009996 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 1102009996 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1102009996 -Value 1 -Type DWORD
+        Enable-WindowsFixInFeatureManagement -Name 1102009996
+
+        Write-Log "Enable 2 fixes in 2024-04B"
+        Enable-WindowsFixInFeatureManagement -Name 2290715789
+        Enable-WindowsFixInFeatureManagement -Name 3152880268
     }
 
     if ($env:WindowsSKU -Like '2022*') {
         Write-Log "Enable a WCIFS fix in 2022-10B"
-        $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft" -ErrorAction Ignore)
-        if (!$regPath) {
-            Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft"
-            New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft"
-        }
-
-        $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement" -ErrorAction Ignore)
-        if (!$regPath) {
-            Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement"
-            New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement"
-        }
-
-        $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -ErrorAction Ignore)
-        if (!$regPath) {
-            Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides"
-            New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides"
-        }
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2629306509 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 2629306509 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2629306509 -Value 1 -Type DWORD
+        Enable-WindowsFixInFeatureManagement -Name 2629306509
 
         Write-Log "Enable 4 fixes in 2023-04B"
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsPolicyUpdateChange -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of HnsPolicyUpdateChange is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsPolicyUpdateChange -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNatAllowRuleUpdateChange -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of HnsNatAllowRuleUpdateChange is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNatAllowRuleUpdateChange -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3508525708 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 3508525708 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3508525708 -Value 1 -Type DWORD
-        
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsAclUpdateChange -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of HnsAclUpdateChange is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsAclUpdateChange -Value 1 -Type DWORD
+        Enable-WindowsFixInHnsState -Name HnsPolicyUpdateChange
+        Enable-WindowsFixInHnsState -Name HnsNatAllowRuleUpdateChange
+        Enable-WindowsFixInHnsState -Name HnsAclUpdateChange
+        Enable-WindowsFixInFeatureManagement -Name 3508525708
 
         Write-Log "Enable 4 fixes in 2023-05B"
-        $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt" -ErrorAction Ignore)
-        if (!$regPath) {
-            Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt"
-            New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt"
-        }
-
-        $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -ErrorAction Ignore)
-        if (!$regPath) {
-            Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters"
-            New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters"
-        }
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of VfpEvenPodDistributionIsEnabled is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpEvenPodDistributionIsEnabled -Value 1 -Type DWORD
-        
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNpmRefresh -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of HnsNpmRefresh is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNpmRefresh -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1995963020 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 1995963020 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1995963020 -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 189519500 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 189519500 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 189519500 -Value 1 -Type DWORD
+        Enable-WindowsFixInHnsState -Name HnsNpmRefresh
+        Enable-WindowsFixInVfpExtParameters -Name VfpEvenPodDistributionIsEnabled
+        Enable-WindowsFixInFeatureManagement -Name 1995963020
+        Enable-WindowsFixInFeatureManagement -Name 189519500
 
         Write-Log "Enable 1 fix in 2023-06B"
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3398685324 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 3398685324 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3398685324 -Value 1 -Type DWORD
+        Enable-WindowsFixInFeatureManagement -Name 3398685324
 
         Write-Log "Enable 4 fixes in 2023-07B"
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNodeToClusterIpv6 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of HnsNodeToClusterIpv6 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsNodeToClusterIpv6 -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSNpmIpsetLimitChange -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of HNSNpmIpsetLimitChange is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSNpmIpsetLimitChange -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSLbNatDupRuleChange -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of HNSLbNatDupRuleChange is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSLbNatDupRuleChange -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpIpv6DipsPrintingIsEnabled -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of VfpIpv6DipsPrintingIsEnabled is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpIpv6DipsPrintingIsEnabled -Value 1 -Type DWORD
+        Enable-WindowsFixInHnsState -Name HnsNodeToClusterIpv6
+        Enable-WindowsFixInHnsState -Name HNSNpmIpsetLimitChange
+        Enable-WindowsFixInHnsState -Name HNSLbNatDupRuleChange
+        Enable-WindowsFixInVfpExtParameters -Name VfpIpv6DipsPrintingIsEnabled
 
         Write-Log "Enable 3 fixes in 2023-08B"
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSUpdatePolicyForEndpointChange -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of HNSUpdatePolicyForEndpointChange is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSUpdatePolicyForEndpointChange -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSFixExtensionUponRehydration -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of HNSFixExtensionUponRehydration is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSFixExtensionUponRehydration -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 87798413 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 87798413 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 87798413 -Value 1 -Type DWORD
+        Enable-WindowsFixInHnsState -Name HNSUpdatePolicyForEndpointChange
+        Enable-WindowsFixInHnsState -Name HNSFixExtensionUponRehydration
+        Enable-WindowsFixInFeatureManagement -Name 87798413
 
         Write-Log "Enable 4 fixes in 2023-09B"
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4289201804 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 4289201804 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4289201804 -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1355135117 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 1355135117 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1355135117 -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name RemoveSourcePortPreservationForRest -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of RemoveSourcePortPreservationForRest is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name RemoveSourcePortPreservationForRest -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2214038156 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 2214038156 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2214038156 -Value 1 -Type DWORD
+        Enable-WindowsFixInHnsState -Name RemoveSourcePortPreservationForRest
+        Enable-WindowsFixInFeatureManagement -Name 4289201804
+        Enable-WindowsFixInFeatureManagement -Name 1355135117
+        Enable-WindowsFixInFeatureManagement -Name 2214038156
 
         Write-Log "Enable 3 fixes in 2023-10B"
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1673770637 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 1673770637 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1673770637 -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpNotReuseTcpOneWayFlowIsEnabled -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of VfpNotReuseTcpOneWayFlowIsEnabled is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name VfpNotReuseTcpOneWayFlowIsEnabled -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name FwPerfImprovementChange -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of FwPerfImprovementChange is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name FwPerfImprovementChange -Value 1 -Type DWORD
+        Enable-WindowsFixInHnsState -Name FwPerfImprovementChange
+        Enable-WindowsFixInVfpExtParameters -Name VfpNotReuseTcpOneWayFlowIsEnabled
+        Enable-WindowsFixInFeatureManagement -Name 1673770637
 
         Write-Log "Enable 4 fixes in 2023-11B"
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name CleanupReservedPorts -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of CleanupReservedPorts is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name CleanupReservedPorts -Value 1 -Type DWORD
+        Enable-WindowsFixInHnsState -Name CleanupReservedPorts
 
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 527922829 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 527922829 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 527922829 -Value 1 -Type DWORD
+        Enable-WindowsFixInFeatureManagement -Name 527922829
         # Then based on 527922829 to set DeltaHivePolicy=2: use delta hives, and stop generating rollups
-        $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers" -ErrorAction Ignore)
-        if (!$regPath) {
-            Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers"
-            New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers"
-        }
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers" -Name DeltaHivePolicy -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of DeltaHivePolicy is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers" -Name DeltaHivePolicy -Value 2 -Type DWORD
+        Enable-WindowsFixInPath -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers" -Name DeltaHivePolicy -Value 2
 
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2193453709 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 2193453709 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 2193453709 -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3331554445 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 3331554445 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 3331554445 -Value 1 -Type DWORD
+        Enable-WindowsFixInFeatureManagement -Name 2193453709
+        Enable-WindowsFixInFeatureManagement -Name 3331554445
 
         Write-Log "Enable 2 fixes in 2024-01B"
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv4 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of OverrideReceiveRoutingForLocalAddressesIpv4 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv4 -Value 1 -Type DWORD
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv6 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of OverrideReceiveRoutingForLocalAddressesIpv6 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name OverrideReceiveRoutingForLocalAddressesIpv6 -Value 1 -Type DWORD
+        Enable-WindowsFixInHnsState -Name OverrideReceiveRoutingForLocalAddressesIpv4
+        Enable-WindowsFixInHnsState -Name OverrideReceiveRoutingForLocalAddressesIpv6
 
         Write-Log "Enable 1 fix in 2024-02B"
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1327590028 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 1327590028 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1327590028 -Value 1 -Type DWORD
+        Enable-WindowsFixInFeatureManagement -Name 1327590028
 
         Write-Log "Enable 4 fixes in 2024-03B"
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1114842764 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 1114842764 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 1114842764 -Value 1 -Type DWORD
+        Enable-WindowsFixInHnsState -Name HnsPreallocatePortRange
+        Enable-WindowsFixInFeatureManagement -Name 1114842764
+        Enable-WindowsFixInFeatureManagement -Name 4154935436
+        Enable-WindowsFixInFeatureManagement -Name 124082829
 
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsPreallocatePortRange -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of HnsPreallocatePortRange is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsPreallocatePortRange -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4154935436 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 4154935436 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 4154935436 -Value 1 -Type DWORD
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 124082829 -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of 124082829 is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name 124082829 -Value 1 -Type DWORD
+        Write-Log "Enable 11 fixes in 2024-04B"
+        Enable-WindowsFixInFeatureManagement -Name 3744292492
+        Enable-WindowsFixInFeatureManagement -Name 3838270605
+        Enable-WindowsFixInFeatureManagement -Name 851795084
+        Enable-WindowsFixInFeatureManagement -Name 26691724
+        Enable-WindowsFixInFeatureManagement -Name 3834988172
+        Enable-WindowsFixInFeatureManagement -Name 1535854221
+        Enable-WindowsFixInFeatureManagement -Name 3632636556
+        Enable-WindowsFixInFeatureManagement -Name 1552261773
+        Enable-WindowsFixInFeatureManagement -Name 4186914956
+        Enable-WindowsFixInFeatureManagement -Name 3173070476
+        Enable-WindowsFixInFeatureManagement -Name 3958450316
     }
 
     if ($env:WindowsSKU -Like '23H2*') {
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of NamespaceExcludedUdpPorts is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name NamespaceExcludedUdpPorts -Value 65330 -Type REG_SZ
-
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
-            Write-Log "The current value of PortExclusionChange is $currentValue"
-        }
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name PortExclusionChange -Value 1 -Type DWORD
-
+        Enable-WindowsFixInHnsState -Name NamespaceExcludedUdpPorts -Value 65330 -Type REG_SZ
+        Enable-WindowsFixInHnsState -Name PortExclusionChange -Value 1
     }
 }
 
+function Clear-TempFolder {
+    $tempFolders = @()
+    $tempFolders += [System.Environment]::GetFolderPath('LocalApplicationData') + '\Temp'
+    $tempFolders += [System.Environment]::GetFolderPath('InternetCache')
+    $tempFolders += [System.Environment]::GetFolderPath('Windows') + '\Temp'
+
+    # Iterate over each temporary folder
+    foreach ($folder in $tempFolders) {
+        # Check if the folder exists
+        if (-not (Test-Path -Path $folder -PathType Container)) {
+            Write-Host "The folder '$folder' does not exist."
+            continue
+        }
+
+        # Get all files in the temporary folder
+        $tempFiles = Get-ChildItem -Path $folder -File -Force
+
+        # Delete each file in the temporary folder
+        foreach ($file in $tempFiles) {
+            # skip file if the file name contains "packer"
+            if ($file.Name -like "*packer*") {
+                continue
+            }
+
+            try {
+                Remove-Item -Path $file.FullName -Force
+            } catch {
+                Write-Host "Failed to remove file: $($file.FullName)"
+                continue
+            }
+        }
+
+        # Confirm completion for each folder
+        Write-Host "Temporary files in '$folder' cleaned up successfully."
+    }
+
+    # Give the system some time to release the file handles
+    Start-Sleep -Seconds 1
+}
+
+
 function Get-SystemDriveDiskInfo {
+    Clear-TempFolder
     Write-Log "Get Disk info"
     $disksInfo=Get-CimInstance -ClassName Win32_LogicalDisk
     foreach($disk in $disksInfo) {
