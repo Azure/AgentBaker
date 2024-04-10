@@ -3,7 +3,6 @@ package nbcontract.v1;
 
 // Kube Binary Config
 message KubeBinaryConfig {
-
   //default kube binary url
   string kube_binary_url = 1;
 

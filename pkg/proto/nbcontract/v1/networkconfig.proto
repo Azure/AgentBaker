@@ -2,7 +2,6 @@ syntax = "proto3";
 package nbcontract.v1;
 
 message NetworkConfig {
-
   // Network plugin to be used by the cluster. Options are NONE, AZURE, KUBENET.
   NetworkPlugin network_plugin = 1;
 

@@ -2,7 +2,6 @@ syntax = "proto3";
 package nbcontract.v1;
 
 message KubeletConfig {
-  
   // A map of kubelet flags to their values.
   map<string, string> kubelet_flags = 1;
 

@@ -2,7 +2,6 @@ syntax = "proto3";
 package nbcontract.v1;
 
 message RuncConfig {
-
   // The version of runc to use.
   string runc_version = 1;
 

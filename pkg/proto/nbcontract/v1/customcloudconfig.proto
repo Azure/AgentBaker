@@ -2,7 +2,6 @@ syntax = "proto3";
 package nbcontract.v1;
 
 message CustomCloudConfig {
-
     // IsAKSCustomCloud is a flag to indicate if it is AKS custom cloud
     bool is_aks_custom_cloud = 1;
 

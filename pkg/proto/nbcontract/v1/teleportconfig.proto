@@ -2,7 +2,6 @@ syntax = "proto3";
 package nbcontract.v1;
 
 message TeleportConfig {
-
   // The status of the teleportd plugin. If true, the plugin is enabled.
   bool status = 1;
 
