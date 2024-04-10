@@ -323,7 +323,7 @@ copyPackerFiles() {
     cpAndMode $MPU_SH_SRC $MPU_SH_DEST 544
 
     # MarinerV2 uses system-auth and system-password instead of common-auth and common-password.
-    if [[ ${OS_VERSION} == "2.0" ]]; then
+    if [[ ${OS_VERSION} == "3.0" ]]; then
       cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
       cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
     else
