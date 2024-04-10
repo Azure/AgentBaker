@@ -15,7 +15,7 @@ import "pkg/proto/nbcontract/v1/teleportconfig.proto";
 import "pkg/proto/nbcontract/v1/runcconfig.proto";
 import "pkg/proto/nbcontract/v1/customcloudconfig.proto";
 import "pkg/proto/nbcontract/v1/apiserverconfig.proto";
-import "pkg/proto/nbcontract/v1/tlsbootstrapconfig.proto";
+import "pkg/proto/nbcontract/v1/tlsbootstrappingconfig.proto";
 import "pkg/proto/nbcontract/v1/clusterconfig.proto";
 
 enum WorkloadRuntime {
@@ -29,11 +29,11 @@ message Configuration {
   // Semantic version of this node bootstrap contract
   string version = 1;
 
-  // Kubernetes certificate authority certificate, required by the node to establish TLS with the API server
-  string kubernetes_CA_cert = 2;
+  // Kubernetes certificate authority (CA) certificate, required by the node to establish TLS with the API server
+  string kubernetes_ca_cert = 2;
 
   // TLS bootstrap config 
-  TLSBootstrapConfig tls_bootstrap_config = 3;
+  TLSBootstrappingConfig tls_bootstrapping_config = 3;
 
   // Cluster/user config
   string kubernetes_version = 4; // Q: can this be auto-detected? Or is this part of specifying the desired node version?
