@@ -108,14 +108,12 @@ Describe 'Resize-OSDrive' {
 
 Describe 'Config-CredentialProvider' {
     BeforeEach {
-        $global:KubeDir = "$PSScriptRoot\configfunc.tests.suites"
+        $global:KubeDir = "$PSScriptRoot"
         $CredentialProviderConfPATH=[Io.path]::Combine("$global:KubeDir", "credential-provider-config.yaml")
     }
 
     AfterEach {
-        if (Test-Path $CredentialProviderConfPATH) {
-            Remove-Item -Path $CredentialProviderConfPATH
-        }
+        Remove-Item -Path $CredentialProviderConfPATH
     }
 
     Context 'CustomCloudContainerRegistryDNSSuffix is empty' {
@@ -134,15 +132,19 @@ providers:
     apiVersion: credentialprovider.kubelet.k8s.io/v1
     args:
       - $global:KubeDir\azure.json
+
+
 "@
             Config-CredentialProvider -CustomCloudContainerRegistryDNSSuffix ""
-            $acutalCredentialProviderConfig = Get-Content $CredentialProviderConfPATH
-            $diffence = Compare-Object $actualConfigJson $expectedCredentialProviderConfig
+            $acutalCredentialProviderConfigStr = Get-Content $CredentialProviderConfPATH -Raw | Out-String
+            $acutalCredentialProviderConfig = @"
+$acutalCredentialProviderConfigStr
+"@
+            $diffence = Compare-Object $acutalCredentialProviderConfig $expectedCredentialProviderConfig
             $diffence | Should -Be $null
         }
     }
-
-    Context 'CustomCloudContainerRegistryDNSSuffix is not empty' {
+   Context 'CustomCloudContainerRegistryDNSSuffix is not empty' {
        It "should match the expected config file content" {
             $expectedCredentialProviderConfig = @"
 apiVersion: kubelet.config.k8s.io/v1
@@ -159,10 +161,15 @@ providers:
     apiVersion: credentialprovider.kubelet.k8s.io/v1
     args:
       - $global:KubeDir\azure.json
+
+
 "@
             Config-CredentialProvider -CustomCloudContainerRegistryDNSSuffix ".azurecr.microsoft.fakecloud"
-            $acutalCredentialProviderConfig = Get-Content $CredentialProviderConfPATH
-            $diffence = Compare-Object $actualConfigJson $expectedCredentialProviderConfig
+            $acutalCredentialProviderConfigStr = Get-Content $CredentialProviderConfPATH -Raw | Out-String
+            $acutalCredentialProviderConfig = @"
+$acutalCredentialProviderConfigStr
+"@
+            $diffence = Compare-Object $acutalCredentialProviderConfig $expectedCredentialProviderConfig
             $diffence | Should -Be $null
         }
     }
