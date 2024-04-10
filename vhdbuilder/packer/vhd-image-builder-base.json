@@ -36,6 +36,7 @@
       "virtual_network_subnet_name": "{{user `subnet_name`}}",
       "ssh_read_write_timeout": "5m",
       "subscription_id": "{{user `subscription_id`}}",
+      "client_id": "6ebf295f-2e93-40f2-b939-d80c69ee7b55",
       "os_type": "Linux",
       "os_disk_size_gb": 30,
       "image_publisher": "{{user `img_publisher`}}",
