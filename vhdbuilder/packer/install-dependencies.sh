@@ -11,7 +11,7 @@ declare -a benchmarks=()
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"
-MARINER_OS_NAME="MARINER"
+MARINER_OS_NAME="AZURELINUX"
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 source /home/packer/provision_installs.sh
@@ -214,7 +214,7 @@ if [ $OS == $UBUNTU_OS_NAME ] && [ $(isARM64)  != 1 ] && [ $UBUNTU_MAJOR_VERSION
   installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
 fi
 
-if [ $OS == $MARINER_OS_NAME ]  && [ $OS_VERSION == "2.0" ] && [ $(isARM64)  != 1 ]; then
+if [ $OS == $MARINER_OS_NAME ]  && [ $OS_VERSION == "3.0" ] && [ $(isARM64)  != 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
 fi
 
@@ -373,7 +373,7 @@ for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
 done
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner v2
-if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) ]]; then
+if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "3.0" ) ]]; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
 stop_watch $capture_time "Configure Networking and Interface" false

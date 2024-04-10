@@ -66,7 +66,7 @@ EOF
 # On Mariner 2.0 Marketplace images, the default systemd network config
 # has an additional change that prevents Mariner from changing IP addresses
 # every reboot
-if [[ $OS_VERSION == "2.0" ]]; then 
+if [[ $OS_VERSION == "3.0" ]]; then 
     cat << EOF >> ${CONFIG_FILEPATH}
 
     [DHCPv4]
