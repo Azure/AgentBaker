@@ -4,6 +4,8 @@ set -uxo pipefail
 
 DEFAULT_CLIENT_VERSION="v0.1.0-alpha.2"
 
+EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+
 RETRY_PERIOD_SECONDS=180 # 3 minutes
 RETRY_WAIT_SECONDS=5
 
