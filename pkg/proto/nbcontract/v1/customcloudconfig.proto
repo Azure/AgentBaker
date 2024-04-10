@@ -12,7 +12,9 @@ message CustomCloudConfig {
     // RepoDepotEndpoint is the endpoint of the repo depot
     string repo_depot_endpoint = 3;
 
+    // Specifies if target environment is a sovereign cloud, which has its own data compliance regulation, or standard public cloud.
     string target_environment = 4;
 
+    // Base64 encoded JSON string of custom cloud environment
     string custom_env_json_content = 5;
 }

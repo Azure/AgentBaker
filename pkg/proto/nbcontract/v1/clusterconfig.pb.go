@@ -124,14 +124,22 @@ type ClusterConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ResourceGroup          string                `protobuf:"bytes,1,opt,name=resource_group,json=resourceGroup,proto3" json:"resource_group,omitempty"`
-	Location               string                `protobuf:"bytes,2,opt,name=location,proto3" json:"location,omitempty"`
-	VmType                 ClusterConfig_VM      `protobuf:"varint,3,opt,name=vm_type,json=vmType,proto3,enum=nbcontract.v1.ClusterConfig_VM" json:"vm_type,omitempty"` // default to standard for v1.27 and below versions and vmss for v1.28+ versions
-	PrimaryAvailabilitySet string                `protobuf:"bytes,4,opt,name=primary_availability_set,json=primaryAvailabilitySet,proto3" json:"primary_availability_set,omitempty"`
-	PrimaryScaleSet        string                `protobuf:"bytes,5,opt,name=primary_scale_set,json=primaryScaleSet,proto3" json:"primary_scale_set,omitempty"`
-	VirtualNetworkConfig   *ClusterNetworkConfig `protobuf:"bytes,6,opt,name=virtual_network_config,json=virtualNetworkConfig,proto3" json:"virtual_network_config,omitempty"`
-	UseInstanceMetadata    bool                  `protobuf:"varint,7,opt,name=use_instance_metadata,json=useInstanceMetadata,proto3" json:"use_instance_metadata,omitempty"` // default to false
-	LoadBalancerConfig     *LoadBalancerConfig   `protobuf:"bytes,8,opt,name=load_balancer_config,json=loadBalancerConfig,proto3" json:"load_balancer_config,omitempty"`
+	// Rescource group name
+	ResourceGroup string `protobuf:"bytes,1,opt,name=resource_group,json=resourceGroup,proto3" json:"resource_group,omitempty"`
+	// Location
+	Location string `protobuf:"bytes,2,opt,name=location,proto3" json:"location,omitempty"`
+	// VM type
+	VmType ClusterConfig_VM `protobuf:"varint,3,opt,name=vm_type,json=vmType,proto3,enum=nbcontract.v1.ClusterConfig_VM" json:"vm_type,omitempty"` // default to standard for v1.27 and below versions and vmss for v1.28+ versions
+	// Primary availability set name
+	PrimaryAvailabilitySet string `protobuf:"bytes,4,opt,name=primary_availability_set,json=primaryAvailabilitySet,proto3" json:"primary_availability_set,omitempty"`
+	// Primary scale set name
+	PrimaryScaleSet string `protobuf:"bytes,5,opt,name=primary_scale_set,json=primaryScaleSet,proto3" json:"primary_scale_set,omitempty"`
+	// Cluster network config
+	VirtualNetworkConfig *ClusterNetworkConfig `protobuf:"bytes,6,opt,name=virtual_network_config,json=virtualNetworkConfig,proto3" json:"virtual_network_config,omitempty"`
+	// Specifiy if it uses instance metadata
+	UseInstanceMetadata bool `protobuf:"varint,7,opt,name=use_instance_metadata,json=useInstanceMetadata,proto3" json:"use_instance_metadata,omitempty"` // default to false
+	// Load balancer config
+	LoadBalancerConfig *LoadBalancerConfig `protobuf:"bytes,8,opt,name=load_balancer_config,json=loadBalancerConfig,proto3" json:"load_balancer_config,omitempty"`
 }
 
 func (x *ClusterConfig) Reset() {
@@ -227,11 +235,16 @@ type ClusterNetworkConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	VnetName          string `protobuf:"bytes,1,opt,name=vnet_name,json=vnetName,proto3" json:"vnet_name,omitempty"`
+	// Virtual network name
+	VnetName string `protobuf:"bytes,1,opt,name=vnet_name,json=vnetName,proto3" json:"vnet_name,omitempty"`
+	// Virtual network resource group
 	VnetResourceGroup string `protobuf:"bytes,2,opt,name=vnet_resource_group,json=vnetResourceGroup,proto3" json:"vnet_resource_group,omitempty"`
-	Subnet            string `protobuf:"bytes,3,opt,name=subnet,proto3" json:"subnet,omitempty"`
+	// Subnet name
+	Subnet string `protobuf:"bytes,3,opt,name=subnet,proto3" json:"subnet,omitempty"`
+	// Network security group name
 	SecurityGroupName string `protobuf:"bytes,4,opt,name=security_group_name,json=securityGroupName,proto3" json:"security_group_name,omitempty"`
-	RouteTable        string `protobuf:"bytes,5,opt,name=route_table,json=routeTable,proto3" json:"route_table,omitempty"`
+	// Route table name
+	RouteTable string `protobuf:"bytes,5,opt,name=route_table,json=routeTable,proto3" json:"route_table,omitempty"`
 }
 
 func (x *ClusterNetworkConfig) Reset() {
@@ -306,10 +319,14 @@ type LoadBalancerConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	LoadBalancerSku                       LoadBalancerConfig_LoadBalancerSku `protobuf:"varint,1,opt,name=load_balancer_sku,json=loadBalancerSku,proto3,enum=nbcontract.v1.LoadBalancerConfig_LoadBalancerSku" json:"load_balancer_sku,omitempty"`                         // default to basic
-	ExcludeMasterFromStandardLoadBalancer *bool                              `protobuf:"varint,2,opt,name=exclude_master_from_standard_load_balancer,json=excludeMasterFromStandardLoadBalancer,proto3,oneof" json:"exclude_master_from_standard_load_balancer,omitempty"` // default to true
-	MaxLoadBalancerRuleCount              *int32                             `protobuf:"varint,3,opt,name=max_load_balancer_rule_count,json=maxLoadBalancerRuleCount,proto3,oneof" json:"max_load_balancer_rule_count,omitempty"`                                          // default to 148
-	DisableOutboundSnat                   *bool                              `protobuf:"varint,4,opt,name=disable_outbound_snat,json=disableOutboundSnat,proto3,oneof" json:"disable_outbound_snat,omitempty"`                                                             // default to false
+	// Load balancer sku, default to basic
+	LoadBalancerSku LoadBalancerConfig_LoadBalancerSku `protobuf:"varint,1,opt,name=load_balancer_sku,json=loadBalancerSku,proto3,enum=nbcontract.v1.LoadBalancerConfig_LoadBalancerSku" json:"load_balancer_sku,omitempty"`
+	// Specify if master node should be excluded from standard load balancer, default to true
+	ExcludeMasterFromStandardLoadBalancer *bool `protobuf:"varint,2,opt,name=exclude_master_from_standard_load_balancer,json=excludeMasterFromStandardLoadBalancer,proto3,oneof" json:"exclude_master_from_standard_load_balancer,omitempty"`
+	// Maximum number of load balancer rules, default to 148
+	MaxLoadBalancerRuleCount *int32 `protobuf:"varint,3,opt,name=max_load_balancer_rule_count,json=maxLoadBalancerRuleCount,proto3,oneof" json:"max_load_balancer_rule_count,omitempty"`
+	// Disable outbound SNAT (Source Network Address Translation) for load balancer, default to false
+	DisableOutboundSnat *bool `protobuf:"varint,4,opt,name=disable_outbound_snat,json=disableOutboundSnat,proto3,oneof" json:"disable_outbound_snat,omitempty"`
 }
 
 func (x *LoadBalancerConfig) Reset() {

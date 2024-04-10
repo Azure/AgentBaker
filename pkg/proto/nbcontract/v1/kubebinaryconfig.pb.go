@@ -26,9 +26,12 @@ type KubeBinaryConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	KubeBinaryUrl        string `protobuf:"bytes,1,opt,name=kube_binary_url,json=kubeBinaryUrl,proto3" json:"kube_binary_url,omitempty"`                        //default kube binary url
-	CustomKubeBinaryUrl  string `protobuf:"bytes,2,opt,name=custom_kube_binary_url,json=customKubeBinaryUrl,proto3" json:"custom_kube_binary_url,omitempty"`    //user's custom kube binary url
-	PrivateKubeBinaryUrl string `protobuf:"bytes,3,opt,name=private_kube_binary_url,json=privateKubeBinaryUrl,proto3" json:"private_kube_binary_url,omitempty"` //privately cached kube binary url
+	// default kube binary url
+	KubeBinaryUrl string `protobuf:"bytes,1,opt,name=kube_binary_url,json=kubeBinaryUrl,proto3" json:"kube_binary_url,omitempty"`
+	// user's custom kube binary url
+	CustomKubeBinaryUrl string `protobuf:"bytes,2,opt,name=custom_kube_binary_url,json=customKubeBinaryUrl,proto3" json:"custom_kube_binary_url,omitempty"`
+	// privately cached kube binary url
+	PrivateKubeBinaryUrl string `protobuf:"bytes,3,opt,name=private_kube_binary_url,json=privateKubeBinaryUrl,proto3" json:"private_kube_binary_url,omitempty"`
 }
 
 func (x *KubeBinaryConfig) Reset() {
