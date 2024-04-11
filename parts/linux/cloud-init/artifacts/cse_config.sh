@@ -414,6 +414,8 @@ EOF
 }
 
 ensureSecureTLSBootstrap() {
+    KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
+    
     while [ "$(systemctl is-active secure-tls-bootstrap)" == "activating" ]; do
         echo "secure TLS bootstrapping is still in progressing, waiting for terminal state..."
         sleep 1
