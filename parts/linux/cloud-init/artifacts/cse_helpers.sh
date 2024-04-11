@@ -63,7 +63,7 @@ ERR_SYSTEMD_DOCKER_STOP_FAIL=116 # Error stopping dockerd
 ERR_CRICTL_DOWNLOAD_TIMEOUT=117 # Timeout waiting for crictl downloads
 ERR_CRICTL_OPERATION_ERROR=118 # Error executing a crictl operation
 ERR_CTR_OPERATION_ERROR=119 # Error executing a ctr containerd cli operation
-
+ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=120 # Timeout waiting for credential provider downloads
 # Azure Stack specific errors
 ERR_AZURE_STACK_GET_ARM_TOKEN=120 # Error generating a token to use with Azure Resource Manager
 ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 # Error fetching the network configuration for the node
