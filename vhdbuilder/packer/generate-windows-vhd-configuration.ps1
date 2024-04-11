@@ -61,8 +61,8 @@ switch -Regex ($windowsSku) {
         )
     }
     "23H2*" {
-        $global:patchUrls = @("https://catalog.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/b76e5371-a72b-4c72-8a98-7714e89d11a0/public/windows11.0-kb5036910-x64_4b455aa7ad2f9ed599ac9072f93f4259069a8e66.msu")
-        $global:patchIDs = @("KB5036910")
+        $global:patchUrls = @()
+        $global:patchIDs = @()
 
         $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2022",

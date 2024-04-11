@@ -30,8 +30,10 @@ type CustomCloudConfig struct {
 	// InitFilePath is the path to the file that contains the init script
 	InitFilePath string `protobuf:"bytes,2,opt,name=init_file_path,json=initFilePath,proto3" json:"init_file_path,omitempty"`
 	// RepoDepotEndpoint is the endpoint of the repo depot
-	RepoDepotEndpoint    string `protobuf:"bytes,3,opt,name=repo_depot_endpoint,json=repoDepotEndpoint,proto3" json:"repo_depot_endpoint,omitempty"`
-	TargetEnvironment    string `protobuf:"bytes,4,opt,name=target_environment,json=targetEnvironment,proto3" json:"target_environment,omitempty"`
+	RepoDepotEndpoint string `protobuf:"bytes,3,opt,name=repo_depot_endpoint,json=repoDepotEndpoint,proto3" json:"repo_depot_endpoint,omitempty"`
+	// Specifies if target environment is a sovereign cloud, which has its own data compliance regulation, or standard public cloud.
+	TargetEnvironment string `protobuf:"bytes,4,opt,name=target_environment,json=targetEnvironment,proto3" json:"target_environment,omitempty"`
+	// Base64 encoded JSON string of custom cloud environment
 	CustomEnvJsonContent string `protobuf:"bytes,5,opt,name=custom_env_json_content,json=customEnvJsonContent,proto3" json:"custom_env_json_content,omitempty"`
 }
 
