@@ -114,7 +114,7 @@ if [[ "$MODE" == "linuxVhdMode" ]]; then
   azversion=$(az version | jq '."azure-cli"' | tr -d '"')
   if [[ "${azversion}" < "2.35.0" ]]; then
     az upgrade -y
-    az login --service-principal -u ${CLIENT_ID} -p ${CLIENT_SECRET} --tenant ${TENANT_ID}
+    az login --identity
     az account set -s ${SUBSCRIPTION_ID}
   fi
 fi
