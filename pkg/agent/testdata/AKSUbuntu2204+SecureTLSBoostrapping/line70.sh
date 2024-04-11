@@ -381,7 +381,7 @@ ensureKubeCAFile() {
 }
 
 configureSecureTLSBootstrap() {
-    CLIENT_VERSION="client-v0.1.0-alpha.0"
+    CLIENT_VERSION="client-v0.1.0-alpha.1"
     DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/amd64/tls-bootstrap-client"
     if [[ $(isARM64) == 1 ]]; then
         DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/arm64/tls-bootstrap-client"

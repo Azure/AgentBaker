@@ -2757,7 +2757,7 @@ ensureKubeCAFile() {
 }
 
 configureSecureTLSBootstrap() {
-    CLIENT_VERSION="client-v0.1.0-alpha.0"
+    CLIENT_VERSION="client-v0.1.0-alpha.1"
     DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/amd64/tls-bootstrap-client"
     if [[ $(isARM64) == 1 ]]; then
         DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/arm64/tls-bootstrap-client"
@@ -6632,7 +6632,7 @@ bootstrap() {
 
         $CLIENT_BINARY_PATH bootstrap \
          --aad-resource="$AAD_RESOURCE" \
-         --apiserver-fqdn="${API_SERVER_NAME}:443" \
+         --apiserver-fdqn="${API_SERVER_NAME}:443" \
          --cluster-ca-file="$CLUSTER_CA_FILE_PATH" \
          --azure-config="$AZURE_CONFIG_PATH" \
          --next-proto="aks-tls-bootstrap" \
@@ -8193,7 +8193,7 @@ write_files:
   owner: root
   content: |
     [Service]
-    Environment="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/client-v0.1.0-alpha.0/linux/amd64/tls-bootstrap-client"
+    Environment="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/client-v0.1.0-alpha.1/linux/amd64/tls-bootstrap-client"
     Environment="API_SERVER_NAME={{GetKubernetesEndpoint}}"
     {{if GetCustomSecureTLSBootstrapAADResource -}}
     Environment="AAD_RESOURCE={{GetCustomSecureTLSBootstrapAADResource}}"
