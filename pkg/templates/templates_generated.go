@@ -8547,8 +8547,6 @@ $global:IsAzureCNIOverlayEnabled = {{if IsAzureCNIOverlayFeatureEnabled}}$true{{
 
 # Kubelet credential provider
 $global:CredentialProviderURL = "{{GetParameter "windowsCredentialProviderURL"}}"
-$global:CredentialProviderBinDir = "c:\var\lib\kubelet\credential-provider"
-$global:CredentialProviderConfPATH = [Io.path]::Combine("$global:KubeDir", "credential-provider-config.yaml")
 
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("{{GetVariable "windowsEnableCSIProxy" }}");
@@ -8679,51 +8677,7 @@ try
     
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 
-    $KubeletConfigArgsStr=$global:KubeletConfigArgs -join " "
-    # Starting from Kubernetes 1.30, out of tree credential provider is enabled as a must. Otherwise, related kubelet flags will be set.
-    if ($KubeletConfigArgsStr -Like "*image-credential-provider-config*" -And $KubeletConfigArgsStr -Like "*image-credential-provider-bin-dir*") {
-        Write-Log "Configuring kubelet credential provider"
-        $azureConfigFile = [io.path]::Combine($KubeDir, "azure.json")
-
-        $credentialProviderConfig = @"
-apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-"@
-        {{if IsAKSCustomCloud}}
-        # Add custom cloud container registry DNS suffix to the matchImages of credential provider config
-        $credentialProviderConfig += @"
-
-      - "*{{AKSCustomCloudContainerRegistryDNSSuffix}}
-        "@
-        {{end}}
-$credentialProviderConfig+=@"
-
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
-    args:
-      - $azureConfigFile
-"@
-
-        $credentialProviderConfig | Out-File -encoding ASCII -filepath "$global:CredentialProviderConfPATH"
-
-        $tempDir = New-TemporaryDirectory
-        $credentialproviderbinaryPackage = "$tempDir\credentialprovider.tar.gz"
-        DownloadFileOverHttp -Url $CredentialProviderURL -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
-        tar -xzf $credentialproviderbinaryPackage -C $tempDir
-        Create-Directory -FullPath $global:CredentialProviderBinDir
-        cp "$tempDir\azure-acr-credential-provider.exe" "$global:CredentialProviderBinDir\acr-credential-provider.exe"
-        # acr-credential-provider.exe cannot be found by kubelet through provider name before the fix https://github.com/kubernetes/kubernetes/pull/120291
-        # so we copy the exe file to acr-credential-provider to make all 1.29 release work.
-        cp "$global:CredentialProviderBinDir\acr-credential-provider.exe" "$global:CredentialProviderBinDir\acr-credential-provider"
-        del $tempDir -Recurse
-    }
+    Install-CredentialProvider -CustomCloudContainerRegistryDNSSuffix {{if IsAKSCustomCloud}}"{{ AKSCustomCloudContainerRegistryDNSSuffix }}"{{else}}""{{end}} 
 
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
     
@@ -9155,7 +9109,8 @@ $global:ErrorCodeNames = @(
     "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE",
     "WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG",
     "WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP",
-    "WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION"
+    "WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER"
 )
 
 # NOTE: KubernetesVersion does not contain "v"
