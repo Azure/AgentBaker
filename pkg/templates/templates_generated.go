@@ -2776,7 +2776,7 @@ configureSecureTLSBootstrap() {
     cat > "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
 [Service]
 Environment="CLIENT_BINARY_DOWNLOAD_URL=${DOWNLOAD_URL}"
-Environment="API_SERVER_NAME=${API_SERVER_NAME}:443"
+Environment="API_SERVER_NAME=${API_SERVER_NAME}"
 Environment="AAD_RESOURCE=${AAD_RESOURCE}"
 EOF
 }
@@ -8196,7 +8196,7 @@ write_files:
   content: |
     [Service]
     Environment="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/client-v0.1.0-alpha.3/linux/amd64/tls-bootstrap-client"
-    Environment="API_SERVER_NAME={{GetKubernetesEndpoint}}:443"
+    Environment="API_SERVER_NAME={{GetKubernetesEndpoint}}"
     {{if GetCustomSecureTLSBootstrapAADResource -}}
     Environment="AAD_RESOURCE={{GetCustomSecureTLSBootstrapAADResource}}"
     {{- else}}

@@ -408,7 +408,7 @@ configureSecureTLSBootstrap() {
     cat > "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
 [Service]
 Environment="CLIENT_BINARY_DOWNLOAD_URL=${DOWNLOAD_URL}"
-Environment="API_SERVER_NAME=${API_SERVER_NAME}:443"
+Environment="API_SERVER_NAME=${API_SERVER_NAME}"
 Environment="AAD_RESOURCE=${AAD_RESOURCE}"
 EOF
 }
