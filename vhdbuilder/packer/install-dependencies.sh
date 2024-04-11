@@ -278,7 +278,7 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
-declare -a containerImagePids=()
+#declare -a containerImagePids=()
 
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for imageToBePulled in ${ContainerImages[*]}; do
@@ -303,14 +303,14 @@ for imageToBePulled in ${ContainerImages[*]}; do
 
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
-    containerImagePids+=($!)
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+    #containerImagePids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     #while [[ $(jobs -p | wc -l) -ge 13 ]]; do # 13 maximum parallel container image pulls
       #wait -n
     #done    
   done
-  wait ${containerImagePids[@]}
+  #wait ${containerImagePids[@]}
 done
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
