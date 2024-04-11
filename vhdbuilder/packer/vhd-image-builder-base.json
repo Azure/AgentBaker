@@ -15,6 +15,7 @@
     "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
     "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
     "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}",
+    "os_disk_snapshot_name": "{{env `${OS_DISK_SNAPSHOT_NAME`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
     "captured_sig_version": "{{env `${CAPTURED_SIG_VERSION`}}",
@@ -55,18 +56,10 @@
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
       "managed_image_storage_account_type": "Premium_LRS",
+      "managed_image_os_disk_snapshot_name": "{{user `os_disk_snapshot_name`}}",
+      "skip_create_image": "true",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
-      "polling_duration_timeout": "1h",
-      "shared_image_gallery_destination": {
-        "resource_group": "{{user `resource_group_name`}}",
-        "gallery_name": "{{user `sig_gallery_name`}}",
-        "image_name": "{{user `sig_image_name`}}",
-        "image_version": "{{user `captured_sig_version`}}",
-        "replication_regions": [
-          "{{user `location`}}"
-        ]
-      },
       "user_assigned_managed_identities": "{{user `linux_msi_resource_ids`}}"
     }
   ],
