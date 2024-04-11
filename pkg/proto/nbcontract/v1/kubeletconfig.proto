@@ -2,16 +2,28 @@ syntax = "proto3";
 package nbcontract.v1;
 
 message KubeletConfig {
-  // TODO(ace): remove these/make api defensible
+  // A map of kubelet flags to their values.
   map<string, string> kubelet_flags = 1;
+
+  // A map of node labels to their values.
   map<string, string> kubelet_node_labels = 2;
+
+  // A list of taints to apply to the node.
   repeated Taint taints = 3;
+
+  // A list of taints to apply to the node at startup.
   repeated Taint startup_taints = 4;
+
+  // The type of disk to use for the kubelet.
   KubeletDisk kubelet_disk_type = 5;
 
-  // kubelet_config_file_content is the content of the kubelet config file.
+  // Base64 encoded content of the kubelet config file.
   string kubelet_config_file_content = 6;
+
+  // Kubelet client private key
   string kubelet_client_key = 7;
+
+  // The content of the kubelet client certificate file.
   string kubelet_client_cert_content = 8;
 }
 

@@ -24,121 +24,116 @@ enum WorkloadRuntime {
   WASM_WASI = 2;
 }
 
-// illustrative division only
 message Configuration {
-  // System Configuration
-  string cluster_certificate_authority = 1;
-  TLSBootstrappingConfig tls_bootstrapping_config = 2;
+  // Semantic version of this node bootstrap contract
+  string version = 1;
 
-  // cluster/user config
-  string kubernetes_version = 3; // Q: can this be auto-detected? Or is this part of specifying the desired node version?
-  KubeBinaryConfig kube_binary_config = 4;
-  optional CustomCloudConfig custom_cloud_config = 5;
-  string kubeproxy_url = 6;
-  ApiServerConfig apiserver_config = 7;
+  // Kubernetes certificate authority (CA) certificate, required by the node to establish TLS with the API server
+  string kubernetes_ca_cert = 2;
+
+  // TLS bootstrap config 
+  TLSBootstrappingConfig tls_bootstrapping_config = 3;
+
+  // Cluster/user config
+  string kubernetes_version = 4; // Q: can this be auto-detected? Or is this part of specifying the desired node version?
+
+  // Kube binary URL config
+  KubeBinaryConfig kube_binary_config = 5;
+
+  // Custom cloud config
+  CustomCloudConfig custom_cloud_config = 6;
+
+  // Kube proxy URL
+  string kube_proxy_url = 7;
+
+  // Kubernetes API server configuration
+  ApiServerConfig api_server_config = 8;
   
-  ClusterConfig cluster_config = 14;
-  AuthConfig auth_config = 15;
-  RuncConfig runc_config = 16;
-  string vm_size = 17;
+  // Various Kubernetes cluster level configuration
+  ClusterConfig cluster_config = 9;
 
-  // ... and a bunch of user-specified config
-  string linux_admin_username = 18;
-  ContainerdConfig containerd_config = 22;
-  bool is_vhd = 23;
-  NetworkConfig network_config = 24;
-  TeleportConfig teleport_config = 26;
+  // Authentication configuration
+  AuthConfig auth_config = 10;
 
-  // enable_ssh specifies whether SSH is enabled or disabled on the VM node
-  bool enable_ssh = 27;
+  // The CLI tool runc configuration
+  RuncConfig runc_config = 11;
 
-  // enable_unattended_upgrade specifies whether unattended upgrade is enabled or disabled on the VM node
-  bool enable_unattended_upgrade = 28;
+  // The VM size of the node
+  string vm_size = 12;
 
-  // message_of_the_day specifies the message of the day that is displayed on the VM node when a user logs in
-  string message_of_the_day = 29;
+  // Linux admin username. If not specified, the default value is "azureuser"
+  string linux_admin_username = 13;
 
-  // kubelet_config specifies the kubelet configuration
-  KubeletConfig kubelet_config = 31;
+  // Containerd configuration
+  ContainerdConfig containerd_config = 14;
 
-  // enable_hosts_config_agent specifies whether the hosts config agent is enabled or disabled on the VM node
-  bool enable_hosts_config_agent = 32;
+  // Specifies whether the node is a VHD node. This is still needed for some customized scenarios.
+  bool is_vhd = 15;
 
-  // custom_ca_certs specifies the custom CA certificates
-  repeated string custom_ca_certs = 33;  
+  // Network configuration. We assumed network mode is always "transparent" now so it's removed from the contract.
+  NetworkConfig network_config = 16;
 
-  // provision_output specifies where cluster provision cse output should be stored at
-  string provision_output = 34;
+  // Teleport configuration
+  TeleportConfig teleport_config = 17;
 
-  // workload_runtime describes the workload runtime, e.g., either "OCIContainer" or "WasmWasi", currently.
-  WorkloadRuntime workload_runtime = 40;
+  // Specifies whether SSH is enabled or disabled on the VM node
+  bool enable_ssh = 18;
 
-  // ipv6_dual_stack_enabled specifies whether IPv6 dual stack is enabled or disabled on the VM node
-  bool ipv6_dual_stack_enabled = 42;
+  // Specifies whether unattended upgrade is enabled or disabled on the VM node
+  bool enable_unattended_upgrade = 19;
 
-  // outbound_command specifies the command to use for outbound traffic
-  string outbound_command = 43; 
+  // The message of the day that is displayed on the VM node when a user logs in
+  string message_of_the_day = 20;
 
-  // ensure_no_dupe_promiscuous_bridge specifies whether to ensure no duplicate promiscuous bridge
-  bool ensure_no_dupe_promiscuous_bridge = 45; 
+  // Kubelet configuration
+  KubeletConfig kubelet_config = 21;
 
-  // custom_search_domain specifies the custom search domain configurations
-  CustomSearchDomain custom_search_domain = 46;
+  // Specifies whether the hosts config agent is enabled or disabled on the VM node
+  bool enable_hosts_config_agent = 22;
 
-  // custom_linux_os_config specifies the custom Linux OS configurations including SwapFile, SysCtl configs, etc.
-  CustomLinuxOSConfig custom_linux_os_config = 47;
+  // Custom CA certificates to be added to the system trust store
+  repeated string custom_ca_certs = 23;  
 
-  // azure_private_registry_server specifies the Azure private registry server
-  string azure_private_registry_server = 56;
+  // A local file path where cluster provision cse output should be stored
+  string provision_output = 24;
 
-  // private_egress_proxy_address specifies the private egress proxy address
-  string private_egress_proxy_address = 57;
+  // Workload runtime, e.g., either "OCIContainer" or "WasmWasi", currently.
+  WorkloadRuntime workload_runtime = 25;
 
-  // enable_artifact_streaming specifies whether artifact streaming is enabled or disabled on the VM node
-  bool enable_artifact_streaming = 58;
+  // Specifies whether IPv6 dual stack is enabled or disabled on the VM node
+  bool ipv6_dual_stack_enabled = 26;
 
-  // is_kata specifies whether the node is a Kata node
-  bool is_kata = 59; 
+  // Command to use for outbound traffic
+  string outbound_command = 27; 
 
-  // needs_cgroupv2 specifies whether the node needs cgroupv2
-  // when we actually work on the go binary, we should be able to query from the system. By then we can remove this.
-  bool needs_cgroupv2 = 60;
+  // specifies whether to ensure no duplicate promiscuous bridge
+  bool ensure_no_dupe_promiscuous_bridge = 28; 
 
-  // Here begins the final contract
-  optional HTTPProxyConfig http_proxy_config = 61;
-  optional GPUConfig gpu_config = 62;
+  // Custom search domain configurations
+  CustomSearchDomain custom_search_domain = 29;
+
+  // Custom Linux OS configurations including SwapFile, SysCtl configs, etc.
+  CustomLinuxOSConfig custom_linux_os_config = 30;
+
+  // Azure private registry server URI
+  string azure_private_registry_server = 31;
+
+  //Private egress proxy address
+  string private_egress_proxy_address = 32;
+
+  // Specifies whether artifact streaming is enabled or disabled on the VM node
+  bool enable_artifact_streaming = 33;
+
+  // Specifies whether the node is a Kata node
+  bool is_kata = 34; 
+
+  // Specifies whether the node needs cgroupv2.
+  // When we actually work on the go binary, we should be able to query from the system. By then we can remove this.
+  bool needs_cgroupv2 = 35;
+
+  // HTTP/HTTPS proxy configuration for the node
+  HTTPProxyConfig http_proxy_config = 36;
+
+  // GPU configuration for the node
+  GPUConfig gpu_config = 37;
 }
-
-// The following variables are removed from the contract
-// Leaving them there for note. 
-// All of them need default values configured in the VHD, likely in the go binary.
-// will remove this section before release
-/*
-
-message CloudProviderConfig {
-  CloudProviderBackoffConfig cloud_provider_backoff_config = 1;
-  CloudProviderRateLimitConfig cloud_provider_rate_limit_config = 2;
-  bool cloud_provider_disable_out_bound_snat = 3;
-}
-
-message CloudProviderBackoffConfig {
-  FeatureState status = 1;
-  string mode = 2;
-  int32 retries = 3;
-  double exponent = 4;
-  int32 duration = 5;
-  double jitter = 6;
-}
-
-message CloudProviderRateLimitConfig {
-  FeatureState status = 1;
-  double qps = 2;
-  double qps_write = 3;
-  int32 bucket = 4;
-  int32 bucket_write = 5;  
-}
-
-CONTAINER_RUNTIME = "containerd"
-CLI_TOOL = "ctr"
-
-*/

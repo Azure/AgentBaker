@@ -26,13 +26,20 @@ type AuthConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	TargetCloud                 string `protobuf:"bytes,1,opt,name=target_cloud,json=targetCloud,proto3" json:"target_cloud,omitempty"` // set to cloud, default to AzurePublicCloud
-	TenantId                    string `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	SubscriptionId              string `protobuf:"bytes,3,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`
-	ServicePrincipalId          string `protobuf:"bytes,4,opt,name=service_principal_id,json=servicePrincipalId,proto3" json:"service_principal_id,omitempty"`                               // set to aadClientId
-	ServicePrincipalSecret      string `protobuf:"bytes,5,opt,name=service_principal_secret,json=servicePrincipalSecret,proto3" json:"service_principal_secret,omitempty"`                   // set to aadClientSecret
-	AssignedIdentityId          string `protobuf:"bytes,6,opt,name=assigned_identity_id,json=assignedIdentityId,proto3" json:"assigned_identity_id,omitempty"`                               //could be user or system assigned, depending on the type
-	UseManagedIdentityExtension bool   `protobuf:"varint,7,opt,name=use_managed_identity_extension,json=useManagedIdentityExtension,proto3" json:"use_managed_identity_extension,omitempty"` // default to false
+	// Target cloud. Set to cloud. Default to AzurePublicCloud
+	TargetCloud string `protobuf:"bytes,1,opt,name=target_cloud,json=targetCloud,proto3" json:"target_cloud,omitempty"`
+	// Tenant ID
+	TenantId string `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	// Subscription ID
+	SubscriptionId string `protobuf:"bytes,3,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`
+	// Service Principal ID. set to aadClientId
+	ServicePrincipalId string `protobuf:"bytes,4,opt,name=service_principal_id,json=servicePrincipalId,proto3" json:"service_principal_id,omitempty"`
+	// Service Principal Secret. set to aadClientSecret
+	ServicePrincipalSecret string `protobuf:"bytes,5,opt,name=service_principal_secret,json=servicePrincipalSecret,proto3" json:"service_principal_secret,omitempty"`
+	// Assigned identity id, could be user or system assigned, depending on the type.
+	AssignedIdentityId string `protobuf:"bytes,6,opt,name=assigned_identity_id,json=assignedIdentityId,proto3" json:"assigned_identity_id,omitempty"`
+	// Specify if use managed identity extension, default to false
+	UseManagedIdentityExtension bool `protobuf:"varint,7,opt,name=use_managed_identity_extension,json=useManagedIdentityExtension,proto3" json:"use_managed_identity_extension,omitempty"`
 }
 
 func (x *AuthConfig) Reset() {
