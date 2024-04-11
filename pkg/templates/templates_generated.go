@@ -6632,7 +6632,7 @@ bootstrap() {
 
         $CLIENT_BINARY_PATH bootstrap \
          --aad-resource="$AAD_RESOURCE" \
-         --apiserver-fdqn="${API_SERVER_NAME}:443" \
+         --apiserver-fqdn="${API_SERVER_NAME}:443" \
          --cluster-ca-file="$CLUSTER_CA_FILE_PATH" \
          --azure-config="$AZURE_CONFIG_PATH" \
          --next-proto="aks-tls-bootstrap" \
