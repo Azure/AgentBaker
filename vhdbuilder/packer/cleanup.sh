@@ -102,7 +102,7 @@ if [[ "${MODE}" == "windowsVhdMode" && "$SIG_FOR_PRODUCTION" == "True" ]]; then
 fi
 
 #clean up OS disk snapshot
-if [[ "${MODE}" == "linuxVhdMode" ]] && [[ ${ARCHITECTURE,,} == "arm64" ]] && [ -n "${OS_DISK_SNAPSHOT_NAME}" ]; then
+if [[ "${MODE}" == "linuxVhdMode" ]] && [ -n "${OS_DISK_SNAPSHOT_NAME}" ]; then
   id=$(az snapshot show -n ${OS_DISK_SNAPSHOT_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
   if [ -n "$id" ]; then
     az snapshot delete -n ${OS_DISK_SNAPSHOT_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
