@@ -400,3 +400,4 @@ cat <<EOF > vhdbuilder/packer/settings.json
 EOF
 
 cat vhdbuilder/packer/settings.json
+echo "Complete"
