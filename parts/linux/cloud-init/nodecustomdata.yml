@@ -133,8 +133,8 @@ write_files:
   owner: root
   content: |
     [Service]
-    Environment="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/client-v0.1.0-alpha.1/linux/amd64/tls-bootstrap-client"
-    Environment="API_SERVER_NAME={{GetKubernetesEndpoint}}"
+    Environment="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/client-v0.1.0-alpha.3/linux/amd64/tls-bootstrap-client"
+    Environment="API_SERVER_NAME={{GetKubernetesEndpoint}}:443"
     {{if GetCustomSecureTLSBootstrapAADResource -}}
     Environment="AAD_RESOURCE={{GetCustomSecureTLSBootstrapAADResource}}"
     {{- else}}

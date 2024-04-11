@@ -2757,7 +2757,7 @@ ensureKubeCAFile() {
 }
 
 configureSecureTLSBootstrap() {
-    CLIENT_VERSION="client-v0.1.0-alpha.1"
+    CLIENT_VERSION="client-v0.1.0-alpha.3"
     DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/amd64/tls-bootstrap-client"
     if [[ $(isARM64) == 1 ]]; then
         DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/arm64/tls-bootstrap-client"
@@ -2776,7 +2776,7 @@ configureSecureTLSBootstrap() {
     cat > "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
 [Service]
 Environment="CLIENT_BINARY_DOWNLOAD_URL=${DOWNLOAD_URL}"
-Environment="API_SERVER_NAME=${API_SERVER_NAME}"
+Environment="API_SERVER_NAME=${API_SERVER_NAME}:443"
 Environment="AAD_RESOURCE=${AAD_RESOURCE}"
 EOF
 }
@@ -6544,9 +6544,9 @@ var _linuxCloudInitArtifactsSecureTlsBootstrapSh = []byte(`#!/bin/bash
 
 set -uxo pipefail
 
-DEFAULT_CLIENT_VERSION="v0.1.0-alpha.2"
-
+DEFAULT_CLIENT_VERSION="client-v0.1.0-alpha.3"
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+NEXT_PROTO_VALUE="aks-tls-bootstrap"
 
 RETRY_PERIOD_SECONDS=180 # 3 minutes
 RETRY_WAIT_SECONDS=5
@@ -6634,10 +6634,10 @@ bootstrap() {
 
         $CLIENT_BINARY_PATH bootstrap \
          --aad-resource="$AAD_RESOURCE" \
-         --apiserver-fqdn="${API_SERVER_NAME}:443" \
+         --apiserver-fqdn="$API_SERVER_NAME" \
          --cluster-ca-file="$CLUSTER_CA_FILE_PATH" \
          --azure-config="$AZURE_CONFIG_PATH" \
-         --next-proto="aks-tls-bootstrap" \
+         --next-proto="$NEXT_PROTO_VALUE" \
          --kubeconfig="$KUBECONFIG_PATH"
 
         [ $? -eq 0 ] && exit 0
@@ -8195,8 +8195,8 @@ write_files:
   owner: root
   content: |
     [Service]
-    Environment="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/client-v0.1.0-alpha.1/linux/amd64/tls-bootstrap-client"
-    Environment="API_SERVER_NAME={{GetKubernetesEndpoint}}"
+    Environment="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/client-v0.1.0-alpha.3/linux/amd64/tls-bootstrap-client"
+    Environment="API_SERVER_NAME={{GetKubernetesEndpoint}}:443"
     {{if GetCustomSecureTLSBootstrapAADResource -}}
     Environment="AAD_RESOURCE={{GetCustomSecureTLSBootstrapAADResource}}"
     {{- else}}

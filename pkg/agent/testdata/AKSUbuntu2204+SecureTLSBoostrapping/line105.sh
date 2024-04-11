@@ -2,9 +2,9 @@
 
 set -uxo pipefail
 
-DEFAULT_CLIENT_VERSION="v0.1.0-alpha.2"
-
+DEFAULT_CLIENT_VERSION="client-v0.1.0-alpha.3"
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+NEXT_PROTO_VALUE="aks-tls-bootstrap"
 
 RETRY_PERIOD_SECONDS=180 
 RETRY_WAIT_SECONDS=5
@@ -92,10 +92,10 @@ bootstrap() {
 
         $CLIENT_BINARY_PATH bootstrap \
          --aad-resource="$AAD_RESOURCE" \
-         --apiserver-fqdn="${API_SERVER_NAME}:443" \
+         --apiserver-fqdn="$API_SERVER_NAME" \
          --cluster-ca-file="$CLUSTER_CA_FILE_PATH" \
          --azure-config="$AZURE_CONFIG_PATH" \
-         --next-proto="aks-tls-bootstrap" \
+         --next-proto="$NEXT_PROTO_VALUE" \
          --kubeconfig="$KUBECONFIG_PATH"
 
         [ $? -eq 0 ] && exit 0
