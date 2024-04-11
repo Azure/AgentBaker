@@ -80,6 +80,44 @@
     {
       "type": "shell",
       "inline": [
+        "PACKER_HOSTNAME=$(hostname)",
+        "echo The value of PACKER_HOSTNAME is $PACKER_HOSTNAME",
+        "echo $PACKER_HOSTNAME > /tmp/hostname.txt"
+      ]
+    },
+    {
+      "type": "file",
+      "source": "/tmp/hostname.txt",
+      "destination": "/tmp/hostname.txt",
+      "direction": "download"
+    },
+    {
+      "type": "shell-local",
+      "inline": [
+        "PACKER_HOSTNAME=$(cat /tmp/hostname.txt)",
+    
+        "nic=$(echo $PACKER_HOSTNAME | sed 's/vm/ni/')",
+    
+        "temp_pkr_rg_name=\"pkr-Resource-Group-$(echo $PACKER_HOSTNAME | awk '{gsub(\"pkrvm\",\"\"); print}')\"",
+    
+        "az network nic update -g ${temp_pkr_rg_name} -n ${nic} --accelerated-networking true"
+      ]
+    },
+    {
+      "type": "shell-local",
+      "inline": [
+        "rm /tmp/hostname.txt"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "rm /tmp/hostname.txt"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": [
         "sudo mkdir -p /opt/azure/containers",
         "sudo chown -R $USER /opt/azure/containers"
       ]
