@@ -342,6 +342,77 @@ function Install-OpenSSH {
     Write-Log "OpenSSH installed and configured successfully"
 }
 
+function Config-CredentialProvider {
+    Param(
+        [Parameter(Mandatory = $false)][string]
+        $CustomCloudContainerRegistryDNSSuffix
+    )
+
+    $CredentialProviderConfPATH = [Io.path]::Combine("$global:KubeDir", "credential-provider-config.yaml")
+
+    Write-Log "Configuring kubelet credential provider"
+    $azureConfigFile = [io.path]::Combine($global:KubeDir, "azure.json")
+
+    $credentialProviderConfig = @"
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+"@
+    if ($CustomCloudContainerRegistryDNSSuffix) {
+        $credentialProviderConfig += @"
+
+      - "*$CustomCloudContainerRegistryDNSSuffix"
+"@
+    }
+
+    $credentialProviderConfig+=@"
+
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - $azureConfigFile
+"@
+    $credentialProviderConfig | Out-File -encoding ASCII -filepath "$CredentialProviderConfPATH"
+}
+
+function Install-CredentialProvider {
+    Param(
+        [Parameter(Mandatory = $false)][string]
+        $CustomCloudContainerRegistryDNSSuffix
+    )
+    Logs-To-Event -TaskName "AKS.WindowsCSE.Install-CredentialProvider" -TaskMessage "Start to install credential provider"
+
+    $KubeletConfigArgsStr=$global:KubeletConfigArgs -join " "
+    # Starting from Kubernetes 1.30, out of tree credential provider is enabled as a must. Otherwise, related kubelet flags will be set.
+    if ($KubeletConfigArgsStr -Like "*image-credential-provider-config*" -And $KubeletConfigArgsStr -Like "*image-credential-provider-bin-dir*") {
+        Write-Log "Credential provider is enabled"
+
+        Write-Log "Create credential provider configuration file"
+        Config-CredentialProvider -CustomCloudContainerRegistryDNSSuffix $CustomCloudContainerRegistryDNSSuffix
+
+        $CredentialProviderBinDir = "c:\var\lib\kubelet\credential-provider"
+        Write-Log "Download credential provider binary from $global:CredentialProviderURL to $CredentialProviderBinDir"
+        $tempDir = New-TemporaryDirectory
+        $credentialproviderbinaryPackage = "$tempDir\credentialprovider.tar.gz"
+        DownloadFileOverHttp -Url $global:CredentialProviderURL -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
+        tar -xzf $credentialproviderbinaryPackage -C $tempDir
+        Create-Directory -FullPath $CredentialProviderBinDir
+        cp "$tempDir\azure-acr-credential-provider.exe" "$CredentialProviderBinDir\acr-credential-provider.exe"
+        # acr-credential-provider.exe cannot be found by kubelet through provider name before the fix https://github.com/kubernetes/kubernetes/pull/120291
+        # so we copy the exe file to acr-credential-provider to make all 1.29 release work.
+        cp "$CredentialProviderBinDir\acr-credential-provider.exe" "$CredentialProviderBinDir\acr-credential-provider"
+        del $tempDir -Recurse
+    } else {
+        Write-Log "Credential provider is not enabled"
+    }
+}
+
 function New-CsiProxyService {
     Param(
         [Parameter(Mandatory = $true)][string]
