@@ -1,6 +1,6 @@
 {
   "sku": "V2fips",
-  "imageVersion": "202404.01.0",
+  "imageVersion": "202404.09.0",
   "imageBom": [
     {
       "id": "sha256:00340387ee9d90fda9b6cfcaaf491b5815f04494f41142eb3b5ac3e86be63ef3",
@@ -838,6 +838,15 @@
       ],
       "repoDigests": [
         "sha256:69ec4335573f46f8c38e6926eb9403874a68d9582e2dbef1d92fd9f8bd5e0e8d"
+      ]
+    },
+    {
+      "id": "sha256:fbdeebf9e13a5dbe59252bd26906c08d58514bae8c88c7540c2dd7a32c8a33b4",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.1"
+      ],
+      "repoDigests": [
+        "sha256:a28e6dd4988e90e4142dbcbd4d8f4652db7bc3c2cd8486ed72deae8857818ecd"
       ]
     },
     {

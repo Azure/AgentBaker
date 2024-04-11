@@ -1,18 +1,29 @@
 syntax = "proto3";
 package nbcontract.v1;
-import "pkg/proto/nbcontract/v1/featurestate.proto";
 
 message KubeletConfig {
-  // TODO(ace): remove these/make api defensible
+  // A map of kubelet flags to their values.
   map<string, string> kubelet_flags = 1;
-  map<string, string> kubelet_node_labels = 2;
-  repeated Taint taints = 3;
-  repeated Taint startup_taints = 4;
-  KubeletDiskType kubelet_disk_type = 5;
 
-  // kubelet_config_file_content is the content of the kubelet config file.
+  // A map of node labels to their values.
+  map<string, string> kubelet_node_labels = 2;
+
+  // A list of taints to apply to the node.
+  repeated Taint taints = 3;
+
+  // A list of taints to apply to the node at startup.
+  repeated Taint startup_taints = 4;
+
+  // The type of disk to use for the kubelet.
+  KubeletDisk kubelet_disk_type = 5;
+
+  // Base64 encoded content of the kubelet config file.
   string kubelet_config_file_content = 6;
+
+  // Kubelet client private key
   string kubelet_client_key = 7;
+
+  // The content of the kubelet client certificate file.
   string kubelet_client_cert_content = 8;
 }
 
@@ -21,8 +32,8 @@ message Taint {
   string effect = 2;
 }
 
-enum KubeletDiskType {
-  KUBELET_DISK_TYPE_UNSPECIFIED = 0;
-  KUBELET_DISK_TYPE_OS_DISK = 1;
-  KUBELET_DISK_TYPE_TEMP_DISK = 2;
+enum KubeletDisk {
+  KD_UNSPECIFIED = 0;
+  OS_DISK = 1;
+  TEMP_DISK = 2;
 }

@@ -1,15 +1,13 @@
 syntax = "proto3";
 package nbcontract.v1;
 
-import "pkg/proto/nbcontract/v1/featurestate.proto";
-
 message GPUConfig {
-  // ConfigGpuDriver specifies whether bootstrap process should install and configure the GPU driver when necessary. Configuration includes appropriate set up of components like the fabric manager where applicable.
+  // Specifies whether bootstrap process should install and configure the GPU driver when necessary. Configuration includes appropriate set up of components like the fabric manager where applicable.
   bool config_gpu_driver = 1;
 
-  // GpuDevicePlugin specifies whether special config is needed for MIG GPUs that use GPU dedicated VHDs and enable the device plugin (for all GPU dedicated VHDs)
+  // Specifies whether special config is needed for MIG GPUs that use GPU dedicated VHDs and enable the device plugin (for all GPU dedicated VHDs)
   bool gpu_device_plugin = 2; 
 
-  // GpuInstanceProfile represents the GPU instance profile.
+  // Represents the GPU instance profile.
   string gpu_instance_profile = 3;
 }

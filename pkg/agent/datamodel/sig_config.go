@@ -108,6 +108,8 @@ var AvailableUbuntu2204Distros = []Distro{
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
 	AKSUbuntuMinimalContainerd2204,
 	AKSUbuntuMinimalContainerd2204Gen2,
+	AKSUbuntuFipsContainerd2204,
+	AKSUbuntuFipsContainerd2204Gen2,
 }
 
 //nolint:gochecknoglobals
@@ -120,6 +122,8 @@ var AvailableContainerdDistros = []Distro{
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsContainerd2004,
 	AKSUbuntuFipsContainerd2004Gen2,
+	AKSUbuntuFipsContainerd2204,
+	AKSUbuntuFipsContainerd2204Gen2,
 	AKSUbuntuEdgeZoneContainerd1804,
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSCBLMarinerV1,
@@ -165,6 +169,7 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuGPUContainerd1804Gen2,
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsContainerd2004Gen2,
+	AKSUbuntuFipsContainerd2204Gen2,
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuContainerd2204Gen2,
@@ -266,6 +271,10 @@ func (d Distro) IsWindowsPIRDistro() bool {
 		}
 	}
 	return false
+}
+
+func (d Distro) IsWindowsDistro() bool {
+	return d.IsWindowsSIGDistro() || d.IsWindowsPIRDistro()
 }
 
 // SigImageConfigTemplate represents the SIG image configuration template.
@@ -471,6 +480,20 @@ var (
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2004gen2fipscontainerd",
 		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGUbuntuFipsContainerd2204ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2204fipscontainerd",
+		Version:       "202404.09.0", // TODO(artunduman): Update version when the image is ready
+	}
+
+	SIGUbuntuFipsContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2204gen2fipscontainerd",
+		Version:       "202404.09.0", // TODO(artunduman): Update version when the image is ready
 	}
 
 	SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
@@ -699,6 +722,8 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuFipsContainerd1804Gen2:    SIGUbuntuFipsContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuFipsContainerd2004:        SIGUbuntuFipsContainerd2004ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuFipsContainerd2004Gen2:    SIGUbuntuFipsContainerd2004Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuFipsContainerd2204:        SIGUbuntuFipsContainerd2204ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuFipsContainerd2204Gen2:    SIGUbuntuFipsContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2204:            SIGUbuntuContainerd2204ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2204Gen2:        SIGUbuntuContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2004CVMGen2:     SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),

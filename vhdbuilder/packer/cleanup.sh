@@ -174,16 +174,37 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
   set -x
 fi
 
-# clean up storage accounts created over a week ago
-if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN}" == "False" ]]; then
-  echo "Looking for storage accounts in ${AZURE_RESOURCE_GROUP_NAME} created over ${EXPIRATION_IN_HOURS} hours ago..."
-  echo "That is, those created before $(date -d@$deadline) As shown below"
-  az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | tr -d '\"' || ""
-  for storage_account in $(az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | tr -d '\"' || ""); do
-      if [[ $storage_account = aksimages* ]]; then
-          echo "Will delete storage account ${storage_account}# from resource group ${AZURE_RESOURCE_GROUP_NAME}..."
-          az storage account delete --name ${storage_account} -g ${AZURE_RESOURCE_GROUP_NAME} --yes  || echo "unable to delete storage account ${storage_account}, will continue..."
-          echo "Deletion completed"
-      fi
-  done
+if [[ -z "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
+  echo "AZURE_RESOURCE_GROUP_NAME is not set, skipping storage account backfill deletion..."
+  exit 0
+fi
+
+if [[ "${MODE}" != "linuxVhdMode" ]] && [[ "${DRY_RUN}" == "True" ]]; then
+  echo "MODE is $MODE and DRY_RUN is $DRY_RUN, skipping storage account backfill deletion..."
+  exit 0
+fi
+
+
+STORAGE_ACCOUNT_EXPIRATION_IN_HOURS=4
+# convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
+(( storageAccountExpirationSecs = ${STORAGE_ACCOUNT_EXPIRATION_IN_HOURS} * 60 * 60 ))
+# deadline = the "date +%s" representation of the oldest age we're willing to keep
+(( storageAccountDeadline=$(date +%s)-${storageAccountExpirationSecs%.*} ))
+
+# clean up storage accounts created more than 12 hours ago
+old_storage_accounts=""
+echo "Looking for storage accounts in ${AZURE_RESOURCE_GROUP_NAME} created over ${STORAGE_ACCOUNT_EXPIRATION_IN_HOURS} hours ago..."
+echo "That is, those created before $(date -d@$storageAccountDeadline) As shown below"
+az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $storageAccountDeadline '.[] | select(.tags.now < $dl).name' | tr -d '\"' || ""
+for storage_account_id in $(az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $storageAccountDeadline '.[] | select(.tags.now < $dl).id' | tr -d '\"' || ""); do
+    if [[ $storage_account_id = *aksimages* ]]; then
+        echo "Will delete storage account ${storage_account_id}# from resource group ${AZURE_RESOURCE_GROUP_NAME}..."
+        old_storage_accounts="${old_storage_accounts} ${storage_account_id}"
+    fi
+done
+if [ -n "$old_storage_accounts" ]; then
+  echo "attempting to delete old storage accounts..."
+  az storage account delete --yes --ids $old_storage_accounts || echo "old storage account deletion was not successful, continuing..."
+else
+  echo "did not find any old storage accounts eligible for deletion"
 fi

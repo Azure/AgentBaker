@@ -247,6 +247,8 @@ copyPackerFiles() {
     SSHD_CONFIG_SRC=/home/packer/sshd_config_1604
   elif [[ ${UBUNTU_RELEASE} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then
     SSHD_CONFIG_SRC=/home/packer/sshd_config_1804_fips
+  elif [[ ${UBUNTU_RELEASE} == "22.04" && ${ENABLE_FIPS,,} == "true" ]]; then
+    SSHD_CONFIG_SRC=/home/packer/sshd_config_2204_fips
   fi
 
   # Install AKS log collector
