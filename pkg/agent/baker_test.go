@@ -1266,8 +1266,8 @@ oom_score = 0
 				config.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 			}, func(o *nodeBootstrappingOutput) {
 
-				Expect(o.vars["AKSCustomCloudContainerRegistryDNSSuffix"]).NotTo(BeEmpty())
-				Expect(o.vars["AKSCustomCloudContainerRegistryDNSSuffix"]).To(Equal(".azurecr.microsoft.fakecustomcloud"))
+				Expect(o.vars["AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"]).NotTo(BeEmpty())
+				Expect(o.vars["AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"]).To(Equal(".azurecr.microsoft.fakecustomcloud"))
 
 				Expect(o.vars["KUBELET_FLAGS"]).NotTo(BeEmpty())
 				Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--image-credential-provider-config=/var/lib/kubelet/credential-provider-config.yaml")).To(BeTrue())

@@ -2294,7 +2294,7 @@ TARGET_CLOUD="{{- if IsAKSCustomCloud -}} AzureStackCloud {{- else -}} {{GetTarg
 TARGET_ENVIRONMENT="{{GetTargetEnvironment}}"
 CUSTOM_ENV_JSON="{{GetBase64EncodedEnvironmentJSON}}"
 IS_CUSTOM_CLOUD="{{IsAKSCustomCloud}}"
-AKSCustomCloudContainerRegistryDNSSuffix="{{- if IsAKSCustomCloud}}{{AKSCustomCloudContainerRegistryDNSSuffix}}{{end}}"
+AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX="{{- if IsAKSCustomCloud}}{{AKSCustomCloudContainerRegistryDNSSuffix}}{{end}}"
 CSE_HELPERS_FILEPATH="{{GetCSEHelpersScriptFilepath}}"
 CSE_DISTRO_HELPERS_FILEPATH="{{GetCSEHelpersScriptDistroFilepath}}"
 CSE_INSTALL_FILEPATH="{{GetCSEInstallScriptFilepath}}"
@@ -3076,6 +3076,24 @@ configCredentialProvider() {
     CREDENTIAL_PROVIDER_CONFIG_FILE=/var/lib/kubelet/credential-provider-config.yaml
     mkdir -p "$(dirname "${CREDENTIAL_PROVIDER_CONFIG_FILE}")"
     touch "${CREDENTIAL_PROVIDER_CONFIG_FILE}"
+    if [[ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]]; then
+        tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+      - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json
+EOF
+    else
     tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
 apiVersion: kubelet.config.k8s.io/v1
 kind: CredentialProviderConfig
@@ -3086,18 +3104,12 @@ providers:
       - "*.azurecr.cn"
       - "*.azurecr.de"
       - "*.azurecr.us"
-$(if [[ -n "$AKSCustomCloudContainerRegistryDNSSuffix" ]]; then
-      echo "      - \"*$AKSCustomCloudContainerRegistryDNSSuffix\""
-fi)
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1
     args:
       - /etc/kubernetes/azure.json
 EOF
-
-# remove blank lines from the config file.
-sed -i '/^$/d' "${CREDENTIAL_PROVIDER_CONFIG_FILE}"
-chmod 0600 "${CREDENTIAL_PROVIDER_CONFIG_FILE}"
+    fi
 }
 
 #EOF`)
