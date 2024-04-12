@@ -89,13 +89,8 @@
         "downloadLocation": "",
         "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
         "versions": [
-            "1.26.6",
-            "1.26.10",
-            "1.26.12",
-            "1.27.3",
             "1.27.7",
             "1.27.9",
-            "1.28.1",
             "1.28.3",
             "1.28.5",
             "1.29.0",

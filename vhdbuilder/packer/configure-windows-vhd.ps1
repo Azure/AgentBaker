@@ -573,6 +573,10 @@ function Update-Registry {
 
         Write-Log "Enable 1 fix in 2024-01B"
         Enable-WindowsFixInFeatureManagement -Name 1102009996
+
+        Write-Log "Enable 2 fixes in 2024-04B"
+        Enable-WindowsFixInFeatureManagement -Name 2290715789
+        Enable-WindowsFixInFeatureManagement -Name 3152880268
     }
 
     if ($env:WindowsSKU -Like '2022*') {
@@ -638,15 +642,71 @@ function Update-Registry {
         Enable-WindowsFixInFeatureManagement -Name 1114842764
         Enable-WindowsFixInFeatureManagement -Name 4154935436
         Enable-WindowsFixInFeatureManagement -Name 124082829
+
+        Write-Log "Enable 11 fixes in 2024-04B"
+        Enable-WindowsFixInFeatureManagement -Name 3744292492
+        Enable-WindowsFixInFeatureManagement -Name 3838270605
+        Enable-WindowsFixInFeatureManagement -Name 851795084
+        Enable-WindowsFixInFeatureManagement -Name 26691724
+        Enable-WindowsFixInFeatureManagement -Name 3834988172
+        Enable-WindowsFixInFeatureManagement -Name 1535854221
+        Enable-WindowsFixInFeatureManagement -Name 3632636556
+        Enable-WindowsFixInFeatureManagement -Name 1552261773
+        Enable-WindowsFixInFeatureManagement -Name 4186914956
+        Enable-WindowsFixInFeatureManagement -Name 3173070476
+        Enable-WindowsFixInFeatureManagement -Name 3958450316
     }
 
     if ($env:WindowsSKU -Like '23H2*') {
-        Enable-WindowsFixInHnsState -Name NamespaceExcludedUdpPorts -Value 65330 -Type REG_SZ
+        Write-Log "Exclude port 65330 in 23H2"
+        Enable-WindowsFixInHnsState -Name NamespaceExcludedUdpPorts -Value 65330 -Type STRING
         Enable-WindowsFixInHnsState -Name PortExclusionChange -Value 1
     }
 }
 
+function Clear-TempFolder {
+    $tempFolders = @()
+    $tempFolders += [System.Environment]::GetFolderPath('LocalApplicationData') + '\Temp'
+    $tempFolders += [System.Environment]::GetFolderPath('InternetCache')
+    $tempFolders += [System.Environment]::GetFolderPath('Windows') + '\Temp'
+
+    # Iterate over each temporary folder
+    foreach ($folder in $tempFolders) {
+        # Check if the folder exists
+        if (-not (Test-Path -Path $folder -PathType Container)) {
+            Write-Host "The folder '$folder' does not exist."
+            continue
+        }
+
+        # Get all files in the temporary folder
+        $tempFiles = Get-ChildItem -Path $folder -File -Force
+
+        # Delete each file in the temporary folder
+        foreach ($file in $tempFiles) {
+            # skip file if the file name contains "packer"
+            if ($file.Name -like "*packer*") {
+                continue
+            }
+
+            try {
+                Remove-Item -Path $file.FullName -Force
+            } catch {
+                Write-Host "Failed to remove file: $($file.FullName)"
+                continue
+            }
+        }
+
+        # Confirm completion for each folder
+        Write-Host "Temporary files in '$folder' cleaned up successfully."
+    }
+
+    # Give the system some time to release the file handles
+    Start-Sleep -Seconds 1
+}
+
+
 function Get-SystemDriveDiskInfo {
+    Clear-TempFolder
     Write-Log "Get Disk info"
     $disksInfo=Get-CimInstance -ClassName Win32_LogicalDisk
     foreach($disk in $disksInfo) {
