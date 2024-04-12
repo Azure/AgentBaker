@@ -392,8 +392,7 @@ function Install-CredentialProvider {
         # Out of tree credential provider is turned on as a must after 1.30, and is optinal in 1.29, for cluster < 1.29, it's not enabled.
         # And only when it's enabled, the credential provider flags are set.
         if ($KubeletConfigArgsStr -Like "*image-credential-provider-config*" -And $KubeletConfigArgsStr -Like "*image-credential-provider-bin-dir*") {
-            Write-Log "Credential provider is enabled"
-            Logs-To-Event -TaskName "AKS.WindowsCSE.Install-CredentialProvider" -TaskMessage "Start to install credential provider"
+            Logs-To-Event -TaskName "AKS.WindowsCSE.Install-CredentialProvider" -TaskMessage "Start to install out of tree credential provider"
 
             Write-Log "Create credential provider configuration file"
             Config-CredentialProvider -CustomCloudContainerRegistryDNSSuffix $CustomCloudContainerRegistryDNSSuffix
@@ -410,8 +409,6 @@ function Install-CredentialProvider {
             # so we copy the exe file to acr-credential-provider to make all 1.29 release work.
             cp "$CredentialProviderBinDir\acr-credential-provider.exe" "$CredentialProviderBinDir\acr-credential-provider"
             del $tempDir -Recurse
-        } else {
-            Write-Log "Credential provider is not enabled"
         }
     } catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER -ErrorMessage "Error installing credential provider. Error: $_"
