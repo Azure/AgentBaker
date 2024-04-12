@@ -858,7 +858,7 @@ testContainerImagePrefetchScript() {
   return 0
 }
 
-testBccTools () {
+testBccTools() {
 
 os="$1"
 executable=0
@@ -867,10 +867,10 @@ declare -a notExecutableTools=()
 
 for tool in /usr/share/bcc/tools/*; do
   if [ -x "$tool" ]; then
-    executable=$((ex + 1))
+    executable=$((executable + 1))
   else
     not_executable=$((not_executable + 1))
-    notExecutableTools+="$tool:"
+    notExecutableTools+="$tool"
     echo "Not Executable: $tool"
   fi
 done
@@ -889,6 +889,7 @@ else
     echo "Tool numbers don't match expected output."
     return 1
   fi
+fi
 
 for tool in "${notExecutableTools[@]}"; do
   if [[ ! "$tool" == *.c ]]; then
