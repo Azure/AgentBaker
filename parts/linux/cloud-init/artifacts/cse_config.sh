@@ -445,20 +445,33 @@ ensureKubelet() {
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
     fi
 
+    KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
+
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ] || [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
-        # For now we very explicitly populate bootstrap-kubeconfig in both the vanilla and secure TLS bootstrapping cases.
-        # We do this such that kubelet can fall back to using a TLS bootstrap token in order to bootstrap a client certificate
-        # in cases where the secure bootstrap client is unable to negotiate a client certificate on kubelet's behalf.
-        # Once Phase 2 has finished and we receive good signals, we will no longer provide TLS bootstrap tokens, and necessarily
-        # will no longer generate bootstrap kubeconfigs and solely rely on secure bootstrapping.
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
         touch "${KUBELET_TLS_DROP_IN}"
         chmod 0600 "${KUBELET_TLS_DROP_IN}"
-        tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
+
+        if [ ! -f "$KUBECONFIG_FILE" ]; then
+            # if we don't have a kubelet config file, meaning that we are either bootstrapping with vanilla TLS bootstrapping
+            # or with secure TLS bootstrapping but the bootstrapping process failed, then specify the bootstrap-kubeconfig file
+            # so kubelet can request its own certificate
+            tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
 [Service]
 Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
 EOF
+        else
+            # otherwise, if we already have a kubeconfig we can use, omit the bootstrap-kubeconfig flag
+            # so kubelet doesn't try to request its own certificate
+            tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig"
+EOF
+        fi
+
+        # for now always write out the bootstrap-kubeconfig containing the bootstrap token in both the vanilla and secure
+        # bootstrapping cases so kubelet can fall back to requesting its own certificate if secure TLS bootstrapping fails
         BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
         mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
         touch "${BOOTSTRAP_KUBECONFIG_FILE}"
@@ -483,7 +496,6 @@ contexts:
 current-context: bootstrap-context
 EOF
     else
-        KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
         mkdir -p "$(dirname "${KUBECONFIG_FILE}")"
         touch "${KUBECONFIG_FILE}"
         chmod 0644 "${KUBECONFIG_FILE}"
