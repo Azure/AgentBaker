@@ -1,8 +1,10 @@
 syntax = "proto3";
 package nbcontract.v1;
-import "pkg/proto/nbcontract/v1/featurestate.proto";
 
 message ApiServerConfig {
-    string apiserver_public_key = 1;
-    string apiserver_name = 2;
-  }
+  // The certificate public key of the API server.
+  string api_server_public_key = 1;
+
+  // The name or endpoint URI of the API server.
+  string api_server_name = 2;
+}

@@ -13,9 +13,13 @@ import (
 )
 
 // Execute adds all child commands to the root command and sets flags appropriately.
-func Execute() {
+func Execute(configurators ...apiserver.OptionConfigurator) {
 	rootCmd.AddCommand(startCmd)
 	startCmd.Flags().StringVar(&options.Addr, "addr", ":8080", "the addr to serve the api on")
+
+	for _, configurator := range configurators {
+		configurator(options)
+	}
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Println(err)

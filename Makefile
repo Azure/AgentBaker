@@ -208,5 +208,9 @@ ci: bootstrap test-style build test lint
 coverage:
 	@scripts/ginkgo.coverage.sh --codecov
 
+.PHONY: unit-tests
+unit-tests:
+	$(GO) test `go list ./... | grep -v e2e` -coverprofile coverage_raw.out -covermode count
+
 include versioning.mk
 include test.mk
