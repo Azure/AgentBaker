@@ -2,7 +2,7 @@
 
 set -uxo pipefail
 
-DEFAULT_CLIENT_VERSION="client-v0.1.0-alpha.3"
+DEFAULT_CLIENT_VERSION="client-v0.1.0-alpha.cameissner0"
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 NEXT_PROTO_VALUE="aks-tls-bootstrap"
 
@@ -12,6 +12,8 @@ RETRY_WAIT_SECONDS=5
 CLIENT_BINARY_DOWNLOAD_URL="${CLIENT_BINARY_DOWNLOAD_URL:-https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${DEFAULT_CLIENT_VERSION}/linux/amd64/tls-bootstrap-client}"
 CLIENT_BINARY_PATH="${CLIENT_BINARY_PATH:-/opt/azure/tlsbootstrap/tls-bootstrap-client}"
 KUBECONFIG_PATH="${KUBECONFIG_PATH:-/var/lib/kubelet/kubeconfig}"
+CLIENT_CERT_PATH="${CLIENT_CERT_PATH:-/etc/kubernetes/certs/client.crt}"
+CLIENT_KEY_PATH="${CLIENT_KEY_PATH:-/etc/kubernetes/certs/client.key}"
 API_SERVER_NAME="${API_SERVER_NAME:-""}"
 AZURE_CONFIG_PATH="${AZURE_CONFIG_PATH:-/etc/kubernetes/azure.json}"
 CLUSTER_CA_FILE_PATH="${CLUSTER_CA_FILE_PATH:-/etc/kubernetes/certs/ca.crt}"
@@ -95,6 +97,8 @@ bootstrap() {
          --apiserver-fqdn="$API_SERVER_NAME" \
          --cluster-ca-file="$CLUSTER_CA_FILE_PATH" \
          --azure-config="$AZURE_CONFIG_PATH" \
+         --cert-file="$CLIENT_CERT_PATH" \
+         --key-file="$CLIENT_KEY_PATH" \
          --next-proto="$NEXT_PROTO_VALUE" \
          --kubeconfig="$KUBECONFIG_PATH"
 
