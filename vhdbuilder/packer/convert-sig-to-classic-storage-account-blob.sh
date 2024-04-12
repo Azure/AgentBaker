@@ -17,7 +17,7 @@ if [[ "${OS_NAME,,}" != "windows" ]]; then
     echo "storage container name: ${OUTPUT_STORAGE_CONTAINER_NAME}"
     # max of 7 day expiration time when using user delegation SAS
     expiry_date=$(date +"%Y-%m-%dT00:00Z" -d "+7 day")
-    storage_sas_token=$(az storage container generate-sas --account-name ${OUTPUT_STORAGE_ACCOUNT_NAME} --name ${OUTPUT_STORAGE_CONTAINER_NAME} --permissions lr --expiry ${expiry_date} --auth-mode login --as-user | tr -d '"')
+    storage_sas_token=$(az storage container generate-sas --account-name ${OUTPUT_STORAGE_ACCOUNT_NAME} --name ${OUTPUT_STORAGE_CONTAINER_NAME} --permissions acwlr --expiry ${expiry_date} --auth-mode login --as-user | tr -d '"')
 else
     echo "windows VHD - generating traditional SAS token with CLASSIC_SA_CONNECTION_STRING for classic storage account conversion"
     [ -z "${CLASSIC_SA_CONNECTION_STRING}" ] && echo "CLASSIC_SA_CONNECTION_STRING should be set when generating traditional SAS token" && exit 1
