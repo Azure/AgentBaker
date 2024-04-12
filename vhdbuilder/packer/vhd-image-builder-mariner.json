@@ -67,7 +67,8 @@
           "{{user `location`}}"
         ]
       },
-      "user_assigned_managed_identities": "{{user `linux_msi_resource_ids`}}"
+      "user_assigned_managed_identities": "{{user `linux_msi_resource_ids`}}",
+      "use_shallow_replication": "true"
     }
   ],
   "provisioners": [
