@@ -469,7 +469,7 @@ wait ${kubeProxyPids[@]} # Wait for all background processes to finish
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # use kube-proxy as well
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
-  ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains     no nf_tables" 
+  ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables" 
 
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
