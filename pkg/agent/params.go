@@ -169,7 +169,6 @@ func assignKubernetesParametersfromKubernetesConfig(properties *datamodel.Proper
 
 	if properties.HasWindows() {
 		addValue(parametersMap, "kubeBinariesSASURL", k8sComponents.WindowsPackageURL)
-		addValue(parametersMap, "credentialProviderWindowsURL", cloudSpecConfig.KubernetesSpecConfig.CredentialProviderWindowsURL)
 		addValue(parametersMap, "windowsContainerdURL", kubernetesConfig.WindowsContainerdURL)
 		addValue(parametersMap, "kubeServiceCidr", kubernetesConfig.ServiceCIDR)
 		addValue(parametersMap, "kubeBinariesVersion", k8sVersion)
