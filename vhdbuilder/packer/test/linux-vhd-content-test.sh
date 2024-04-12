@@ -862,7 +862,7 @@ testBccTools () {
   local test="testBccTools"
   local errors=0
   echo "${test}:Start"
-  for tool in "$(ls /usr/share/bcc/tools)"; do
+  for tool in "$(find /usr/share/bcc/tools -type f)"; do
     if [ -x "$(which $tool)" ]; then
       echo "Success: $tool is in the path and executable"
     else
