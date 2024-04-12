@@ -386,30 +386,35 @@ function Install-CredentialProvider {
         [Parameter(Mandatory = $false)][string]
         $CustomCloudContainerRegistryDNSSuffix
     )
-    Logs-To-Event -TaskName "AKS.WindowsCSE.Install-CredentialProvider" -TaskMessage "Start to install credential provider"
 
-    $KubeletConfigArgsStr=$global:KubeletConfigArgs -join " "
-    # Starting from Kubernetes 1.30, out of tree credential provider is enabled as a must. Otherwise, related kubelet flags will be set.
-    if ($KubeletConfigArgsStr -Like "*image-credential-provider-config*" -And $KubeletConfigArgsStr -Like "*image-credential-provider-bin-dir*") {
-        Write-Log "Credential provider is enabled"
+    try {
+        $KubeletConfigArgsStr=$global:KubeletConfigArgs -join " "
+        # Out of tree credential provider is turned on as a must after 1.30, and is optinal in 1.29, for cluster < 1.29, it's not enabled.
+        # And only when it's enabled, the credential provider flags are set.
+        if ($KubeletConfigArgsStr -Like "*image-credential-provider-config*" -And $KubeletConfigArgsStr -Like "*image-credential-provider-bin-dir*") {
+            Write-Log "Credential provider is enabled"
+            Logs-To-Event -TaskName "AKS.WindowsCSE.Install-CredentialProvider" -TaskMessage "Start to install credential provider"
 
-        Write-Log "Create credential provider configuration file"
-        Config-CredentialProvider -CustomCloudContainerRegistryDNSSuffix $CustomCloudContainerRegistryDNSSuffix
+            Write-Log "Create credential provider configuration file"
+            Config-CredentialProvider -CustomCloudContainerRegistryDNSSuffix $CustomCloudContainerRegistryDNSSuffix
 
-        $CredentialProviderBinDir = "c:\var\lib\kubelet\credential-provider"
-        Write-Log "Download credential provider binary from $global:CredentialProviderURL to $CredentialProviderBinDir"
-        $tempDir = New-TemporaryDirectory
-        $credentialproviderbinaryPackage = "$tempDir\credentialprovider.tar.gz"
-        DownloadFileOverHttp -Url $global:CredentialProviderURL -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
-        tar -xzf $credentialproviderbinaryPackage -C $tempDir
-        Create-Directory -FullPath $CredentialProviderBinDir
-        cp "$tempDir\azure-acr-credential-provider.exe" "$CredentialProviderBinDir\acr-credential-provider.exe"
-        # acr-credential-provider.exe cannot be found by kubelet through provider name before the fix https://github.com/kubernetes/kubernetes/pull/120291
-        # so we copy the exe file to acr-credential-provider to make all 1.29 release work.
-        cp "$CredentialProviderBinDir\acr-credential-provider.exe" "$CredentialProviderBinDir\acr-credential-provider"
-        del $tempDir -Recurse
-    } else {
-        Write-Log "Credential provider is not enabled"
+            $CredentialProviderBinDir = "c:\var\lib\kubelet\credential-provider"
+            Write-Log "Download credential provider binary from $global:CredentialProviderURL to $CredentialProviderBinDir"
+            $tempDir = New-TemporaryDirectory
+            $credentialproviderbinaryPackage = "$tempDir\credentialprovider.tar.gz"
+            DownloadFileOverHttp -Url $global:CredentialProviderURL -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
+            tar -xzf $credentialproviderbinaryPackage -C $tempDir
+            Create-Directory -FullPath $CredentialProviderBinDir
+            cp "$tempDir\azure-acr-credential-provider.exe" "$CredentialProviderBinDir\acr-credential-provider.exe"
+            # acr-credential-provider.exe cannot be found by kubelet through provider name before the fix https://github.com/kubernetes/kubernetes/pull/120291
+            # so we copy the exe file to acr-credential-provider to make all 1.29 release work.
+            cp "$CredentialProviderBinDir\acr-credential-provider.exe" "$CredentialProviderBinDir\acr-credential-provider"
+            del $tempDir -Recurse
+        } else {
+            Write-Log "Credential provider is not enabled"
+        }
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER -ErrorMessage "Error installing credential provider. Error: $_"
     }
 }
 
