@@ -3182,7 +3182,7 @@ ERR_SYSTEMD_DOCKER_STOP_FAIL=116 # Error stopping dockerd
 ERR_CRICTL_DOWNLOAD_TIMEOUT=117 # Timeout waiting for crictl downloads
 ERR_CRICTL_OPERATION_ERROR=118 # Error executing a crictl operation
 ERR_CTR_OPERATION_ERROR=119 # Error executing a ctr containerd cli operation
-ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=120 # Timeout waiting for credential provider downloads
+
 # Azure Stack specific errors
 ERR_AZURE_STACK_GET_ARM_TOKEN=120 # Error generating a token to use with Azure Resource Manager
 ERR_AZURE_STACK_GET_NETWORK_CONFIGURATION=121 # Error fetching the network configuration for the node
@@ -3216,6 +3216,8 @@ ERR_PRIVATE_K8S_PKG_ERR=203 # Error downloading (at build-time) or extracting (a
 ERR_K8S_INSTALL_ERR=204 # Error installing or setting up kubernetes binaries on disk
 
 ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
+
+ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205 # Timeout waiting for credential provider downloads
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')

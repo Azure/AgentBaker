@@ -1622,11 +1622,11 @@ type K8sComponents struct {
 	LinuxPrivatePackageURL string
 
 	// Full path to the Windows credential provider (tar.gz) to use.
-	// For example: https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.4/binaries/azure-acr-credential-provider-linux-amd64-v1.29.4.tar.gz
+	// For example: https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.4/binaries/azure-acr-credential-provider-windows-amd64-v1.29.4.tar.gz
 	WindowsCredentialProviderURL string
 
 	// Full path to the Linux credential provider (tar.gz) to use.
-	// For example: "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.4/binaries/azure-acr-credential-provider-windows-amd64-v1.29.4.tar.gz"
+	// For example: "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.4/binaries/azure-acr-credential-provider-linux-amd64-v1.29.4.tar.gz"
 	LinuxCredentialProviderURL string
 }
 
