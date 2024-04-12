@@ -12,6 +12,8 @@
     "os_version": "{{env `OS_VERSION`}}",
     "sku_name": "{{env `SKU_NAME`}}",
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
+    "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
+    "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
     "os_disk_snapshot_name": "{{env `${OS_DISK_SNAPSHOT_NAME`}}",
@@ -24,6 +26,7 @@
     "sgx_install": "{{env `SGX_INSTALL`}}",
     "vnet_name": "{{env `VNET_NAME`}}",
     "subnet_name": "{{env `SUBNET_NAME`}}",
+    "enable_cgroupv2": "{{env `ENABLE_CGROUPV2`}}",
     "private_packages_url": "{{env `PRIVATE_PACKAGES_URL`}}",
     "linux_msi_resource_id": "{{env `LINUX_MSI_RESOURCE_ID`}}"
   },
