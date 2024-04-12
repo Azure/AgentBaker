@@ -1,8 +1,6 @@
 #!/bin/bash -e
 
 required_env_vars=(
-    "CLASSIC_SA_CONNECTION_STRING"
-    "OUTPUT_STORAGE_CONTAINER_NAME"
     "SUBSCRIPTION_ID"
     "RESOURCE_GROUP_NAME"
     "CAPTURED_SIG_VERSION"
@@ -11,15 +9,20 @@ required_env_vars=(
     "SIG_IMAGE_NAME"
 )
 
-start_date=$(date +"%Y-%m-%dT00:00Z" -d "-1 day")
-expiry_date=$(date +"%Y-%m-%dT00:00Z" -d "+1 year")
 if [[ "${OS_NAME,,}" != "windows" ]]; then
-    [ -z "${OUTPUT_STORAGE_CONTAINER_NAME}" ] && echo "OUTPUT_STORAGE_CONTAINER_NAME should be set..." && exit 1
+    echo "linux VHD - generating user-delegation SAS token for classic storage account conversion"
+    [ -z "${OUTPUT_STORAGE_ACCOUNT_NAME}" ] && echo "OUTPUT_STORAGE_ACCOUNT_NAME should be set when generating user-delegation SAS token with agent identity" && exit 1
+    [ -z "${OUTPUT_STORAGE_CONTAINER_NAME}" ] && echo "OUTPUT_STORAGE_CONTAINER_NAME should be set when generating user-delegation SAS token with agent identity" && exit 1
+    echo "storage account name: ${OUTPUT_STORAGE_ACCOUNT_NAME}"
     echo "storage container name: ${OUTPUT_STORAGE_CONTAINER_NAME}"
     # max of 7 day expiration time when using user delegation SAS
-    storage_sas_token=$(az storage container generate-sas --name ${OUTPUT_STORAGE_CONTAINER_NAME} --permissions acwlr --connection-string ${CLASSIC_SA_CONNECTION_STRING} --start ${start_date} --expiry ${expiry_date} | tr -d '"')
+    expiry_date=$(date +"%Y-%m-%dT00:00Z" -d "+7 day")
+    storage_sas_token=$(az storage container generate-sas --account-name ${OUTPUT_STORAGE_ACCOUNT_NAME} --name ${OUTPUT_STORAGE_CONTAINER_NAME} --permissions lr --expiry ${expiry_date} --auth-mode login --as-user | tr -d '"')
 else
-    # we still need to use the original connection string when not using a system-assigned identity on 1ES pools
+    echo "windows VHD - generating traditional SAS token with CLASSIC_SA_CONNECTION_STRING for classic storage account conversion"
+    [ -z "${CLASSIC_SA_CONNECTION_STRING}" ] && echo "CLASSIC_SA_CONNECTION_STRING should be set when generating traditional SAS token" && exit 1
+    start_date=$(date +"%Y-%m-%dT00:00Z" -d "-1 day")
+    expiry_date=$(date +"%Y-%m-%dT00:00Z" -d "+1 year")
     storage_sas_token=$(az storage container generate-sas --name vhds --permissions acwlr --connection-string ${CLASSIC_SA_CONNECTION_STRING} --start ${start_date} --expiry ${expiry_date} | tr -d '"')
 fi
 
