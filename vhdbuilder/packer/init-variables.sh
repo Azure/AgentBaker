@@ -389,7 +389,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "windows_sigmode_source_image_version": "${windows_sigmode_source_image_version}",
   "vnet_name": "${VNET_NAME}",
   "subnet_name": "${SUBNET_NAME}",
-  "vnet_resource_group_name": "${VNET_RG_NAME}",
+  "virtual_network_resource_group_name": "${VNET_RG_NAME}",
   "windows_msi_resource_strings": "${windows_msi_resource_strings}",
   "linux_msi_resource_ids": "${linux_msi_resource_ids}",
   "private_packages_url": "${private_packages_url}",
