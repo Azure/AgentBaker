@@ -164,6 +164,9 @@ $global:VNetCNIPluginsURL = "{{GetParameter "vnetCniWindowsPluginsURL"}}"
 $global:IsDualStackEnabled = {{if IsIPv6DualStackFeatureEnabled}}$true{{else}}$false{{end}}
 $global:IsAzureCNIOverlayEnabled = {{if IsAzureCNIOverlayFeatureEnabled}}$true{{else}}$false{{end}}
 
+# Kubelet credential provider
+$global:CredentialProviderURL = "{{GetParameter "windowsCredentialProviderURL"}}"
+
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("{{GetVariable "windowsEnableCSIProxy" }}");
 $global:CsiProxyUrl = "{{GetVariable "windowsCSIProxyURL" }}";
@@ -236,6 +239,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
+    # TODO(qinhao): need a separate PR to bump cse package version
     $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.40.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
@@ -292,7 +296,9 @@ try
     Get-LogCollectionScripts
     
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
-    
+
+    Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix {{if IsAKSCustomCloud}}"{{ AKSCustomCloudContainerRegistryDNSSuffix }}"{{else}}""{{end}} 
+
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
     
     $cniBinPath = $global:AzureCNIBinDir
