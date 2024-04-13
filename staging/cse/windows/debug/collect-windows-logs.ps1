@@ -77,6 +77,12 @@ if (Test-Path "c:\k\bootstrap-config") {
   $paths += "c:\k\bootstrap-config"
 }
 
+
+if (Test-Path "c:\k\credential-provider-config.yaml") {
+  Write-Host "Collecting credential provider config"
+  $paths += "c:\k\credential-provider-config.yaml"
+}
+
 Write-Host "Collecting Azure CNI configurations"
 $paths += "C:\k\azurecni\netconf\10-azure.conflist"
 $azureCNIConfigurations = @(
