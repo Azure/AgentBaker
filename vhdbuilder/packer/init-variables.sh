@@ -105,9 +105,11 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 	fi
 fi
 
-if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-  ARM64_OS_DISK_SNAPSHOT_NAME="arm64_osdisk_snapshot_${CREATE_TIME}_$RANDOM"
-  SIG_IMAGE_NAME=${SIG_IMAGE_NAME//./}Arm64
+if [[ "$MODE" == "linuxVhdMode" ]]; then
+  OS_DISK_SNAPSHOT_NAME="osdisk_snapshot_${CREATE_TIME}_$RANDOM"
+  if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+  	SIG_IMAGE_NAME=${SIG_IMAGE_NAME//./}Arm64
+  fi
   # Only az published after April 06 2022 supports --architecture for command 'az sig image-definition create...'
   azversion=$(az version | jq '."azure-cli"' | tr -d '"')
   if [[ "${azversion}" < "2.35.0" ]]; then
@@ -376,7 +378,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "imported_image_name": "${IMPORTED_IMAGE_NAME}",
   "sig_image_name":  "${SIG_IMAGE_NAME}",
   "sig_gallery_name": "${SIG_GALLERY_NAME}",
-  "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}",
+  "os_disk_snapshot_name": "${OS_DISK_SNAPSHOT_NAME}",
   "captured_sig_version": "${CAPTURED_SIG_VERSION}",
   "os_disk_size_gb": "${os_disk_size_gb}",
   "nano_image_url": "${windows_nanoserver_image_url}",
