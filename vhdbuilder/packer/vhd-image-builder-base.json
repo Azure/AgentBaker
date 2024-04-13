@@ -1,5 +1,8 @@
 {
   "variables": {
+    "client_id": "{{env `AZURE_CLIENT_ID`}}",
+    "client_secret": "{{env `AZURE_CLIENT_SECRET`}}",
+    "tenant_id": "{{env `AZURE_TENANT_ID`}}",
     "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
     "location": "{{env `AZURE_LOCATION`}}",
     "vm_size": "{{env `AZURE_VM_SIZE`}}",
@@ -12,13 +15,12 @@
     "os_version": "{{env `OS_VERSION`}}",
     "sku_name": "{{env `SKU_NAME`}}",
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
-    "sig_gallery_name": "{{env `SIG_GALLERY_NAME`}}",
-    "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
-    "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
+    "os_disk_snapshot_name": "{{env `${OS_DISK_SNAPSHOT_NAME`}}",
     "captured_sig_version": "{{env `${CAPTURED_SIG_VERSION`}}",
     "enable_fips": "{{env `ENABLE_FIPS`}}",
+    "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
     "img_publisher": "{{env `IMG_PUBLISHER`}}",
     "img_offer": "{{env `IMG_OFFER`}}",
     "img_sku": "{{env `IMG_SKU`}}",
@@ -55,22 +57,59 @@
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
       "managed_image_storage_account_type": "Premium_LRS",
+      "managed_image_os_disk_snapshot_name": "{{user `os_disk_snapshot_name`}}",
+      "skip_create_image": "true",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
-      "polling_duration_timeout": "1h",
-      "shared_image_gallery_destination": {
-        "resource_group": "{{user `resource_group_name`}}",
-        "gallery_name": "{{user `sig_gallery_name`}}",
-        "image_name": "{{user `sig_image_name`}}",
-        "image_version": "{{user `captured_sig_version`}}",
-        "replication_regions": [
-          "{{user `location`}}"
-        ]
-      },
       "user_assigned_managed_identities": "{{user `linux_msi_resource_ids`}}"
     }
   ],
   "provisioners": [
+    {
+      "type": "shell",
+      "inline": [
+        "PACKER_HOSTNAME=$(hostname)",
+        "echo The value of PACKER_HOSTNAME is $PACKER_HOSTNAME",
+        "echo $PACKER_HOSTNAME > /tmp/hostname.txt"
+      ]
+    },
+    {
+      "type": "file",
+      "source": "/tmp/hostname.txt",
+      "destination": "/tmp/hostname.txt",
+      "direction": "download"
+    },
+    {
+      "type": "shell-local",
+      "inline": [
+        "PACKER_HOSTNAME=$(cat /tmp/hostname.txt)",
+    
+        "nic=$(echo $PACKER_HOSTNAME | sed 's/vm/ni/')",
+    
+        "temp_pkr_rg_name=\"pkr-Resource-Group-$(echo $PACKER_HOSTNAME | awk '{gsub(\"pkrvm\",\"\"); print}')\"",
+    
+        "az network nic update -g ${temp_pkr_rg_name} -n ${nic} --accelerated-networking true"
+      ]
+    },
+    {
+      "type": "shell-local",
+      "inline": [
+        "rm /tmp/hostname.txt"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "rm /tmp/hostname.txt"
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo mkdir -p /opt/azure/containers",
+        "sudo chown -R $USER /opt/azure/containers"
+      ]
+    },
     {
       "type": "shell",
       "inline": [
