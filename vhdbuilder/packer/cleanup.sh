@@ -109,13 +109,6 @@ if [[ "${MODE}" == "linuxVhdMode" ]] && [ -n "${OS_DISK_SNAPSHOT_NAME}" ]; then
   fi
 fi
 
-#clean up the temporary storage account
-if [[ -n "${SA_NAME}" ]]; then
-  id=$(az storage account show -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
-  if [ -n "$id" ]; then
-    az storage account delete -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --yes
-  fi
-fi
 
 #delete the SIG version that was created during a dry-run of linuxVhdMode
 if [[ "${MODE}" == "linuxVhdMode" && "${DRY_RUN,,}" == "true" ]]; then
