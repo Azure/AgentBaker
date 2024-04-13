@@ -34,9 +34,6 @@
     {
       "type": "azure-arm",
       "subscription_id": "{{user `subscription_id`}}",
-      "virtual_network_name": "{{user `vnet_name`}}",
-      "virtual_network_subnet_name": "{{user `subnet_name`}}",
-      "virtual_network_resource_group_name": "{{user `vnet_rg_name`}}",
       "ssh_read_write_timeout": "5m",
       "os_type": "Linux",
       "os_disk_size_gb": 30,
