@@ -344,14 +344,16 @@ function Install-OpenSSH {
 
 function Config-CredentialProvider {
     Param(
+        [Parameter(Mandatory=$true)][string]
+        $KubeDir,
         [Parameter(Mandatory = $false)][string]
         $CustomCloudContainerRegistryDNSSuffix
     )
 
-    $CredentialProviderConfPATH = [Io.path]::Combine("$global:KubeDir", "credential-provider-config.yaml")
+    $CredentialProviderConfPATH = [Io.path]::Combine("$KubeDir", "credential-provider-config.yaml")
 
     Write-Log "Configuring kubelet credential provider"
-    $azureConfigFile = [io.path]::Combine($global:KubeDir, "azure.json")
+    $azureConfigFile = [io.path]::Combine("$KubeDir", "azure.json")
 
     $credentialProviderConfig = @"
 apiVersion: kubelet.config.k8s.io/v1
@@ -363,26 +365,37 @@ providers:
       - "*.azurecr.cn"
       - "*.azurecr.de"
       - "*.azurecr.us"
-"@
-    if ($CustomCloudContainerRegistryDNSSuffix) {
-        $credentialProviderConfig += @"
-
-      - "*$CustomCloudContainerRegistryDNSSuffix"
-"@
-    }
-
-    $credentialProviderConfig+=@"
-
     defaultCacheDuration: "10m"
     apiVersion: credentialprovider.kubelet.k8s.io/v1
     args:
       - $azureConfigFile
 "@
+
+    if ($CustomCloudContainerRegistryDNSSuffix) {
+        $credentialProviderConfig = @"
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+      - "*$CustomCloudContainerRegistryDNSSuffix"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - $azureConfigFile
+"@
+    }
     $credentialProviderConfig | Out-File -encoding ASCII -filepath "$CredentialProviderConfPATH"
 }
 
 function Install-CredentialProvider {
     Param(
+        [Parameter(Mandatory=$true)][string]
+        $KubeDir,
         [Parameter(Mandatory = $false)][string]
         $CustomCloudContainerRegistryDNSSuffix
     )
@@ -395,7 +408,7 @@ function Install-CredentialProvider {
             Logs-To-Event -TaskName "AKS.WindowsCSE.Install-CredentialProvider" -TaskMessage "Start to install out of tree credential provider"
 
             Write-Log "Create credential provider configuration file"
-            Config-CredentialProvider -CustomCloudContainerRegistryDNSSuffix $CustomCloudContainerRegistryDNSSuffix
+            Config-CredentialProvider -KubeDir $KubeDir -CustomCloudContainerRegistryDNSSuffix $CustomCloudContainerRegistryDNSSuffix
 
             $CredentialProviderBinDir = "c:\var\lib\kubelet\credential-provider"
             Write-Log "Download credential provider binary from $global:CredentialProviderURL to $CredentialProviderBinDir"

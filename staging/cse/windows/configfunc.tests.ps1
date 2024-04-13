@@ -108,8 +108,13 @@ Describe 'Resize-OSDrive' {
 
 Describe 'Config-CredentialProvider' {
     BeforeEach {
-        $global:KubeDir = "$PSScriptRoot"
-        $CredentialProviderConfPATH=[Io.path]::Combine("$global:KubeDir", "credential-provider-config.yaml")
+        $global:credentialProviderConfigDir = "staging/cse/windows/credentialProvider.tests.suites"
+        $CredentialProviderConfPATH=[Io.path]::Combine("$global:credentialProviderConfigDir", "credential-provider-config.yaml")
+        function Read-Format-Yaml ([string]$YamlFile) {
+            $yaml = Get-Content $YamlFile | ConvertFrom-Yaml
+            $yaml = $yaml | ConvertTo-Yaml
+            return $yaml
+        }
     }
 
     AfterEach {
@@ -118,59 +123,20 @@ Describe 'Config-CredentialProvider' {
 
     Context 'CustomCloudContainerRegistryDNSSuffix is empty' {
         It "should match the expected config file content" {
-            $expectedCredentialProviderConfig = @"
-apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
-    args:
-      - $global:KubeDir\azure.json
-
-
-"@
-            Config-CredentialProvider -CustomCloudContainerRegistryDNSSuffix ""
-            $acutalCredentialProviderConfigStr = Get-Content $CredentialProviderConfPATH -Raw | Out-String
-            $acutalCredentialProviderConfig = @"
-$acutalCredentialProviderConfigStr
-"@
+            $expectedCredentialProviderConfig = Read-Format-Yaml ([Io.path]::Combine($CredentialProviderConfPATH, "DNSSufixEmpty.config.yaml"))
+            Config-CredentialProvider -KubeDir $credentialProviderConfigDir -CustomCloudContainerRegistryDNSSuffix ""
+            $expectedCredentialProviderConfig = Get-Content $CredentialProviderConfPATH -Raw | Out-String
             $diffence = Compare-Object $acutalCredentialProviderConfig $expectedCredentialProviderConfig
             $diffence | Should -Be $null
         }
     }
    Context 'CustomCloudContainerRegistryDNSSuffix is not empty' {
        It "should match the expected config file content" {
-            $expectedCredentialProviderConfig = @"
-apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-      - "*.azurecr.microsoft.fakecloud"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
-    args:
-      - $global:KubeDir\azure.json
-
-
-"@
-            Config-CredentialProvider -CustomCloudContainerRegistryDNSSuffix ".azurecr.microsoft.fakecloud"
-            $acutalCredentialProviderConfigStr = Get-Content $CredentialProviderConfPATH -Raw | Out-String
-            $acutalCredentialProviderConfig = @"
-$acutalCredentialProviderConfigStr
-"@
+            $expectedCredentialProviderConfig = Read-Format-Yaml ([Io.path]::Combine($CredentialProviderConfPATH, "DNSSufixNotEmpty.config.yaml"))
+            Config-CredentialProvider -KubeDir $credentialProviderConfigDir -CustomCloudContainerRegistryDNSSuffix ""
+            $expectedCredentialProviderConfig = Get-Content $CredentialProviderConfPATH -Raw | Out-String
             $diffence = Compare-Object $acutalCredentialProviderConfig $expectedCredentialProviderConfig
             $diffence | Should -Be $null
-        }
+       }
     }
 }
