@@ -73,6 +73,9 @@ steps:
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
         -e POOL_NAME=$(POOL_NAME) \
+        -e CLIENT_ID=${CLIENT_ID} \
+        -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+        -e TENANT_ID=${TENANT_ID} \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
         -e AZURE_VM_SIZE=$(AZURE_VM_SIZE) \
         -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
@@ -114,6 +117,10 @@ steps:
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
+        -e POOL_NAME=$(POOL_NAME) \
+        -e CLIENT_ID=${CLIENT_ID} \
+        -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+        -e TENANT_ID=${TENANT_ID} \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
         -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
         -e OS_DISK_URI=${OS_DISK_URI} \
@@ -164,6 +171,10 @@ steps:
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
+      -e POOL_NAME=$(POOL_NAME) \
+      -e CLIENT_ID=${CLIENT_ID} \
+      -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+      -e TENANT_ID=${TENANT_ID} \
       -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
       -e PKR_RG_NAME=${PKR_RG_NAME} \
       -e MODE=${MODE} \
@@ -193,6 +204,10 @@ steps:
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+        -e POOL_NAME=$(POOL_NAME) \
+        -e CLIENT_ID=${CLIENT_ID} \
+        -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+        -e TENANT_ID=${TENANT_ID} \
         -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
         -e LOCATION="${AZURE_LOCATION}" \
         -e OS_TYPE="Linux" \
@@ -217,6 +232,10 @@ steps:
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
+        -e POOL_NAME=$(POOL_NAME) \
+        -e CLIENT_ID=${CLIENT_ID} \
+        -e CLIENT_SECRET="$(CLIENT_SECRET)" \
+        -e TENANT_ID=${TENANT_ID} \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
         -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
