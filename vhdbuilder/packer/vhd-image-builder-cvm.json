@@ -70,6 +70,7 @@
           "{{user `location`}}"
         ]
       },
+      "async_resourcegroup_delete": "true",
       "user_assigned_managed_identities": "{{user `linux_msi_resource_ids`}}"
     }
   ],

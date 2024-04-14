@@ -60,6 +60,7 @@
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
       "skip_create_image": "true",
+      "async_resourcegroup_delete": "true",
       "user_assigned_managed_identities": "{{user `linux_msi_resource_ids`}}"
     }
   ],
