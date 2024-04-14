@@ -119,9 +119,6 @@ if [[ "$MODE" == "linuxVhdMode" ]]; then
   fi
 fi
 
-az login --identity
-az account set -s ${SUBSCRIPTION_ID}
-
 echo "Using finalized SIG_IMAGE_NAME: ${SIG_IMAGE_NAME}, SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
 
 # If we're building a Linux VHD or we're building a windows VHD in windowsVhdMode, ensure SIG resources
