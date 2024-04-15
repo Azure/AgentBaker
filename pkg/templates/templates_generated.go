@@ -8568,6 +8568,9 @@ $global:VNetCNIPluginsURL = "{{GetParameter "vnetCniWindowsPluginsURL"}}"
 $global:IsDualStackEnabled = {{if IsIPv6DualStackFeatureEnabled}}$true{{else}}$false{{end}}
 $global:IsAzureCNIOverlayEnabled = {{if IsAzureCNIOverlayFeatureEnabled}}$true{{else}}$false{{end}}
 
+# Kubelet credential provider
+$global:CredentialProviderURL = "{{GetParameter "windowsCredentialProviderURL"}}"
+
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("{{GetVariable "windowsEnableCSIProxy" }}");
 $global:CsiProxyUrl = "{{GetVariable "windowsCSIProxyURL" }}";
@@ -8640,7 +8643,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.40.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.40.1.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -8696,7 +8699,9 @@ try
     Get-LogCollectionScripts
     
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
-    
+
+    Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix {{if IsAKSCustomCloud}}"{{ AKSCustomCloudContainerRegistryDNSSuffix }}"{{else}}""{{end}} 
+
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
     
     $cniBinPath = $global:AzureCNIBinDir
@@ -9059,6 +9064,9 @@ $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE=61
 $global:WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG=62
 $global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP=63
 $global:WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION=64
+$global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER = 65 # exit code for installing credential provider
+
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER=205 # same exit code for downloading credential provider failure duing Linux CSE
 
 # Please add new error code for downloading new packages in RP code too
 $global:ErrorCodeNames = @(
@@ -9126,7 +9134,9 @@ $global:ErrorCodeNames = @(
     "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE",
     "WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG",
     "WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP",
-    "WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION"
+    "WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION",
+    "WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER"
 )
 
 # NOTE: KubernetesVersion does not contain "v"
