@@ -88,6 +88,11 @@ function Adjust-DynamicPortRange()
     }
 }
 
+function Enable-NextGenNetworking()
+{
+    Logs-To-Event -TaskName "AKS.WindowsCSE.EnableNextGenNetworking" -TaskMessage "Enable next gen networking"
+}
+
 # TODO: should this be in this PR?
 # Service start actions. These should be split up later and included in each install step
 function Update-ServiceFailureActions
