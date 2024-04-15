@@ -513,6 +513,13 @@ EOF
 #
 iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
 EOF
+
+    if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
+        echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
+        logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
+        logs_to_events "AKS.CSE.ensureKubelet.installCredentalProvider" installCredentalProvider
+    fi
+
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
 }
 
@@ -699,6 +706,46 @@ ensureGPUDrivers() {
 
 disableSSH() {
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
+}
+
+configCredentialProvider() {
+    CREDENTIAL_PROVIDER_CONFIG_FILE=/var/lib/kubelet/credential-provider-config.yaml
+    mkdir -p "$(dirname "${CREDENTIAL_PROVIDER_CONFIG_FILE}")"
+    touch "${CREDENTIAL_PROVIDER_CONFIG_FILE}"
+    if [[ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]]; then
+        tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+      - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json
+EOF
+    else
+    tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json
+EOF
+    fi
 }
 
 #EOF

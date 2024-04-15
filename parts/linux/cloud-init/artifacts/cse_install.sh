@@ -13,6 +13,8 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 K8S_PRIVATE_PACKAGES_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
+CREDENTIAL_PROVIDER_DOWNLOAD_DIR="/opt/credentialprovider/downloads"
+CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1 v0.8.0"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
@@ -70,6 +72,22 @@ downloadCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+}
+
+downloadCredentalProvider() {
+    mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
+    CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+}
+
+installCredentalProvider() {
+    logs_to_events "AKS.CSE.installCredentalProvider.downloadCredentalProvider" downloadCredentalProvider
+    tar -xzf "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/${CREDENTIAL_PROVIDER_TGZ_TMP}" -C $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
+    mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    mv "${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}/azure-acr-credential-provider" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"
+    chmod 755 "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"
+    rm -rf ${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}
 }
 
 downloadContainerdWasmShims() {

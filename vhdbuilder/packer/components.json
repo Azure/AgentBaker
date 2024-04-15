@@ -4,14 +4,14 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.8.19"
+        "1.8.20"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/metrics-server:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.6.3"
+        "v0.7.0"
       ]
     },
     {
@@ -238,7 +238,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.8.8"
+        "v1.8.9"
       ]
     },
     {
