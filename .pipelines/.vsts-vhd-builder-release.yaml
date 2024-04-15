@@ -141,7 +141,7 @@ parameters:
 
 variables:
 - name: CONTAINER_IMAGE
-  value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.37.0'
+  value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.36.2'
   
 pool:
   name: $(POOL_NAME)
