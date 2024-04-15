@@ -519,6 +519,7 @@ type WindowsProfile struct {
 	GpuDriverURL                   string  `json:"gpuDriverUrl,omitempty"`
 	HnsRemediatorIntervalInMinutes *uint32 `json:"hnsRemediatorIntervalInMinutes,omitempty"`
 	LogGeneratorIntervalInMinutes  *uint32 `json:"logGeneratorIntervalInMinutes,omitempty"`
+	EnableNextGenNetworking        bool    `json:"enableNextGenNetworking,omitempty"`
 }
 
 // ContainerdWindowsRuntimes configures containerd runtimes that are available on the windows nodes.
