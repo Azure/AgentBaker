@@ -371,7 +371,7 @@ providers:
       - $azureConfigFile
 "@
 
-    if ($CustomCloudContainerRegistryDNSSuffix) {
+    if (![string]::IsNullOrEmpty($CustomCloudContainerRegistryDNSSuffix)) {
         $credentialProviderConfig = @"
 apiVersion: kubelet.config.k8s.io/v1
 kind: CredentialProviderConfig
