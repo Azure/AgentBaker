@@ -214,7 +214,7 @@ listInstalledPackages() {
 
 autoAttachUA() {
     echo "refresh UA contract..."
-    retrycmd_if_failure 5 10 120 ua refresh || exit $ERR_AUTO_UA_ATTACH
+    ua refresh
 
     echo "auto attaching ua..."
     retrycmd_if_failure 5 10 120 ua auto-attach || exit $ERR_AUTO_UA_ATTACH
