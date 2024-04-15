@@ -2757,7 +2757,7 @@ ensureKubeCAFile() {
 }
 
 configureSecureTLSBootstrap() {
-    CLIENT_VERSION="client-v0.1.0-alpha.cameissner0"
+    CLIENT_VERSION="client-v0.1.0-alpha.cameissner1"
     DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/amd64/tls-bootstrap-client"
     if [[ $(isARM64) == 1 ]]; then
         DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/arm64/tls-bootstrap-client"
@@ -6563,7 +6563,7 @@ var _linuxCloudInitArtifactsSecureTlsBootstrapSh = []byte(`#!/bin/bash
 
 set -uxo pipefail
 
-DEFAULT_CLIENT_VERSION="client-v0.1.0-alpha.cameissner0"
+DEFAULT_CLIENT_VERSION="client-v0.1.0-alpha.cameissner1"
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 NEXT_PROTO_VALUE="aks-tls-bootstrap"
 
@@ -8218,7 +8218,7 @@ write_files:
   owner: root
   content: |
     [Service]
-    Environment="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/client-v0.1.0-alpha.cameissner0/linux/amd64/tls-bootstrap-client"
+    Environment="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/client-v0.1.0-alpha.cameissner1/linux/amd64/tls-bootstrap-client"
     Environment="API_SERVER_NAME={{GetKubernetesEndpoint}}"
     {{if GetCustomSecureTLSBootstrapAADResource -}}
     Environment="AAD_RESOURCE={{GetCustomSecureTLSBootstrapAADResource}}"
