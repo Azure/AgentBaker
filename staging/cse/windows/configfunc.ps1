@@ -346,11 +346,11 @@ function Config-CredentialProvider {
     Param(
         [Parameter(Mandatory=$true)][string]
         $KubeDir,
+        [Parameter(Mandatory=$true)][string]
+        $CredentialProviderConfPath,
         [Parameter(Mandatory = $false)][string]
         $CustomCloudContainerRegistryDNSSuffix
     )
-
-    $CredentialProviderConfPATH = [Io.path]::Combine("$KubeDir", "credential-provider-config.yaml")
 
     Write-Log "Configuring kubelet credential provider"
     $azureConfigFile = [io.path]::Combine("$KubeDir", "azure.json")
@@ -401,28 +401,55 @@ function Install-CredentialProvider {
     )
 
     try {
-        $KubeletConfigArgsStr=$global:KubeletConfigArgs -join " "
         # Out of tree credential provider is turned on as a must after 1.30, and is optinal in 1.29, for cluster < 1.29, it's not enabled.
         # And only when it's enabled, the credential provider flags are set.
-        if ($KubeletConfigArgsStr -Like "*image-credential-provider-config*" -And $KubeletConfigArgsStr -Like "*image-credential-provider-bin-dir*") {
-            Logs-To-Event -TaskName "AKS.WindowsCSE.Install-CredentialProvider" -TaskMessage "Start to install out of tree credential provider"
-
-            Write-Log "Create credential provider configuration file"
-            Config-CredentialProvider -KubeDir $KubeDir -CustomCloudContainerRegistryDNSSuffix $CustomCloudContainerRegistryDNSSuffix
-
-            $CredentialProviderBinDir = "c:\var\lib\kubelet\credential-provider"
-            Write-Log "Download credential provider binary from $global:CredentialProviderURL to $CredentialProviderBinDir"
-            $tempDir = New-TemporaryDirectory
-            $credentialproviderbinaryPackage = "$tempDir\credentialprovider.tar.gz"
-            DownloadFileOverHttp -Url $global:CredentialProviderURL -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
-            tar -xzf $credentialproviderbinaryPackage -C $tempDir
-            Create-Directory -FullPath $CredentialProviderBinDir
-            cp "$tempDir\azure-acr-credential-provider.exe" "$CredentialProviderBinDir\acr-credential-provider.exe"
-            # acr-credential-provider.exe cannot be found by kubelet through provider name before the fix https://github.com/kubernetes/kubernetes/pull/120291
-            # so we copy the exe file to acr-credential-provider to make all 1.29 release work.
-            cp "$CredentialProviderBinDir\acr-credential-provider.exe" "$CredentialProviderBinDir\acr-credential-provider"
-            del $tempDir -Recurse
+        function getKubeletFlagValue {
+            Param(
+                [Parameter(Mandatory=$true)][string]
+                $KubeletConfigArg
+            )
+            $splitResult=($KubeletConfigArg -split "=")
+            if ($splitResult.Length -ne 2) {
+                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG -ErrorMessage "Failed to get kubelet flag value from flag $KubeletConfigArg"
+            }
+            return $splitResult[1]
         }
+        $credentialProviderConfigPath = ""
+        $credentialProviderBinDir = ""
+        ForEach ($kubeletConfigArg in $global:KubeletConfigArgs){
+            if ($kubeletConfigArg -like "--image-credential-provider-config*") {
+                $credentialProviderConfigPath=getKubeletFlagValue -KubeletConfigArg $kubeletConfigArg
+            }
+            if ($kubeletConfigArg -like "--image-credential-provider-bin-dir*") {
+                $credentialProviderBinDir=getKubeletFlagValue -KubeletConfigArg $kubeletConfigArg
+            }
+        }
+
+        # Both flags should be set to enable out of tree credential provider or not set at the same time to disable it.
+        if ([string]::IsNullOrEmpty($credentialProviderConfigPath) -xor [string]::IsNullOrEmpty($credentialProviderBinDir)) {
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG -ErrorMessage "Not all credential provider flags are configured: --image-credential-provider-config=$imageCredentialProviderConfigPath, --image-credential-provider-bin-dir=$imageCredentialProviderBinDir"
+        }
+        if ([string]::IsNullOrEmpty($credentialProviderConfigPath) -and [string]::IsNullOrEmpty($credentialProviderBinDir)) {
+            Write-Log "Out of tree credential provider is not enabled"
+            return
+        }
+
+        Logs-To-Event -TaskName "AKS.WindowsCSE.Install-CredentialProvider" -TaskMessage "Start to install out of tree credential provider"
+
+        Write-Log "Create credential provider configuration file"
+        Config-CredentialProvider -KubeDir $KubeDir -CredentialProviderConfPath $credentialProviderConfigPath -CustomCloudContainerRegistryDNSSuffix $CustomCloudContainerRegistryDNSSuffix
+
+        Write-Log "Download credential provider binary from $global:CredentialProviderURL to $credentialProviderBinDir"
+        $tempDir = New-TemporaryDirectory
+        $credentialproviderbinaryPackage = "$tempDir\credentialprovider.tar.gz"
+        DownloadFileOverHttp -Url $global:CredentialProviderURL -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
+        tar -xzf $credentialproviderbinaryPackage -C $tempDir
+        Create-Directory -FullPath $credentialProviderBinDir
+        cp "$tempDir\azure-acr-credential-provider.exe" "$credentialProviderBinDir\acr-credential-provider.exe"
+        # acr-credential-provider.exe cannot be found by kubelet through provider name before the fix https://github.com/kubernetes/kubernetes/pull/120291
+        # so we copy the exe file to acr-credential-provider to make all 1.29 release work.
+        cp "$credentialProviderBinDir\acr-credential-provider.exe" "$credentialProviderBinDir\acr-credential-provider"
+        del $tempDir -Recurse
     } catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER -ErrorMessage "Error installing credential provider. Error: $_"
     }

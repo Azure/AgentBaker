@@ -124,7 +124,8 @@ Describe 'Config-CredentialProvider' {
     Context 'CustomCloudContainerRegistryDNSSuffix is empty' {
         It "should match the expected config file content" {
             $expectedCredentialProviderConfig = Read-Format-Yaml ([Io.path]::Combine($credentialProviderConfigDir, "CustomCloudContainerRegistryDNSSuffixEmpty.config.yaml"))
-            Config-CredentialProvider -KubeDir $credentialProviderConfigDir -CustomCloudContainerRegistryDNSSuffix ""
+            Config-CredentialProvider -KubeDir $credentialProviderConfigDir -CredentialProviderConfPath $CredentialProviderConfPATH -CustomCloudContainerRegistryDNSSuffix ""
+            
             $acutalCredentialProviderConfig = Read-Format-Yaml $CredentialProviderConfPATH
             $diffence = Compare-Object $acutalCredentialProviderConfig $expectedCredentialProviderConfig
             $diffence | Should -Be $null
@@ -133,7 +134,7 @@ Describe 'Config-CredentialProvider' {
    Context 'CustomCloudContainerRegistryDNSSuffix is not empty' {
        It "should match the expected config file content" {
             $expectedCredentialProviderConfig = Read-Format-Yaml ([Io.path]::Combine($credentialProviderConfigDir, "CustomCloudContainerRegistryDNSSuffixNotEmpty.config.yaml"))
-            Config-CredentialProvider -KubeDir $credentialProviderConfigDir -CustomCloudContainerRegistryDNSSuffix ".azurecr.microsoft.fakecloud"
+            Config-CredentialProvider -KubeDir $credentialProviderConfigDir -CredentialProviderConfPath $CredentialProviderConfPATH -CustomCloudContainerRegistryDNSSuffix ".azurecr.microsoft.fakecloud"
             $acutalCredentialProviderConfig = Read-Format-Yaml $CredentialProviderConfPATH
             $diffence = Compare-Object $acutalCredentialProviderConfig $expectedCredentialProviderConfig
             $diffence | Should -Be $null
