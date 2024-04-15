@@ -8612,6 +8612,9 @@ $global:HNSRemediatorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetHnsRem
 # Log generator
 $global:LogGeneratorIntervalInMinutes = [System.Convert]::ToUInt32("{{GetLogGeneratorIntervalInMinutes}}");
 
+# Next-gen networking
+$global:EnableNextGenNetworking = [System.Convert]::ToBoolean("{{GetVariable "enableNextGenNetworking" }}");
+
 $global:EnableIncreaseDynamicPortRange = $false
 
 $global:RebootNeeded = $false
@@ -8848,6 +8851,13 @@ try
     }
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
+
+    if ($global:EnableNextGenNetworking) {
+        Write-Log "ENABLING next-gen networking"
+        Enable-NextGenNetworking
+    } else {
+        Write-Log "next-gen networking is DISABLED"
+    }
     
     if (Test-Path $CacheDir)
     {
