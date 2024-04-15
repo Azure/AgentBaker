@@ -448,12 +448,12 @@ try
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
 
-	if ($global:EnableNextGenNetworking) {
+    if ($global:EnableNextGenNetworking) {
         Write-Log "ENABLING next-gen networking"
-		Enable-NextGenNetworking
-	} else {
+        Enable-NextGenNetworking
+    } else {
         Write-Log "next-gen networking is DISABLED"
-	}
+    }
     
     if (Test-Path $CacheDir)
     {
