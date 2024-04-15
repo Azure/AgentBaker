@@ -211,17 +211,22 @@ EOF
 }
 
 configureK8s() {
+    mkdir -p "/etc/kubernetes/certs"
+
     APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
     touch "${APISERVER_PUBLIC_KEY_PATH}"
     chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
     chown root:root "${APISERVER_PUBLIC_KEY_PATH}"
 
-    mkdir -p "/etc/kubernetes/certs"
-    if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
-        echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
-    fi
-    if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
-        echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
+    if [ "$ENABLE_SECURE_TLS_BOOTSTRAPPING" == "false" ] && [ "$ENABLE_TLS_BOOTSTRAPPING" == "false" ]; then
+        # we guard the following cert creation logic since it seems RP always gives agentbaker a kubelet client cert/key pair
+        # regardless of whether the node is being bootstrapped with some flavor of TLS bootstrapping
+        if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
+            echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
+        fi
+        if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
+            echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
+        fi
     fi
 
     set +x
