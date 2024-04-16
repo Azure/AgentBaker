@@ -139,6 +139,9 @@ $global:map = @{
     "c:\akse-cache\csi-proxy\"    = @(
         "https://acs-mirror.azureedge.net/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz"
     );
+    "c:\akse-cache\credential-provider\"    = @(
+        "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.3/binaries/azure-acr-credential-provider-windows-amd64-v1.29.3.tar.gz"
+    );
     # When to remove depracted Kubernetes Windows packages:
     # There are 30 days grace period before a depracted Kubernetes version is out of supported
     # xref: https://docs.microsoft.com/en-us/azure/aks/supported-kubernetes-versions
