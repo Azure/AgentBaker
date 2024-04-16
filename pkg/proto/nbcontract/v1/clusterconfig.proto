@@ -19,7 +19,7 @@ message ClusterConfig {
   string primary_scale_set = 5;
 
   // Cluster network config
-  ClusterNetworkConfig virtual_network_config = 6;
+  ClusterNetworkConfig cluster_network_config = 6;
 
   // Specifiy if it uses instance metadata
   bool use_instance_metadata = 7; // default to false
