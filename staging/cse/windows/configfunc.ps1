@@ -407,15 +407,13 @@ function Validate-CredentialProviderConfigFlags {
     $credentialProviderConfigPath = ""
     $credentialProviderBinDir = ""
     ForEach ($kubeletConfigArg in $global:KubeletConfigArgs){
-        if ($kubeletConfigArg -like "--image-credential-provider-config*") {
+        if ($kubeletConfigArg -like "--image-credential-provider-config=*") {
             $credentialProviderConfigPath=get-KubeletFlagValue -KubeletConfigArg $kubeletConfigArg
         }
-        if ($kubeletConfigArg -like "--image-credential-provider-bin-dir*") {
+        if ($kubeletConfigArg -like "--image-credential-provider-bin-dir=*") {
             $credentialProviderBinDir=get-KubeletFlagValue -KubeletConfigArg $kubeletConfigArg
         }
     }
-    echo $credentialProviderConfigPath
-    echo $credentialProviderBinDir
 
     # Both flags should be set to enable out of tree credential provider or not set at the same time to disable it.
     if ([string]::IsNullOrEmpty($credentialProviderConfigPath) -xor [string]::IsNullOrEmpty($credentialProviderBinDir)) {
