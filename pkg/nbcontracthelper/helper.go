@@ -49,13 +49,13 @@ func NewNBContractBuilder() *NBContractBuilder {
 	return nBCB
 }
 
-// Apply the configuration to the nodeBootstrapConfig object
+// Apply the configuration to the nodeBootstrapConfig object.
 func (nBCB *NBContractBuilder) ApplyConfiguration(config *nbcontractv1.Configuration) {
 	if config == nil {
 		return
 	}
 
-	// Use deep copy to avoid modifying the original object 'config'
+	// Use deep copy to avoid modifying the original object 'config'.
 	if err := nBCB.deepCopy(config, nBCB.nodeBootstrapConfig); err != nil {
 		log.Printf("Failed to deep copy the configuration: %v", err)
 		ensureConfigsNonNil(nBCB.nodeBootstrapConfig)
