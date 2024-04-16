@@ -1755,6 +1755,12 @@ type NodeBootstrappingConfiguration struct {
 	SSHStatus                              SSHStatus
 	DisableCustomData                      bool
 	OutboundType                           string
+	EnableIMDSRestriction                  bool
+	// InsertIMDSRestrictionRuleToMangleTable is only checked when EnableIMDSRestriction is true.
+	// When this is true, iptables rule will be inserted to `mangle` table. This is for Linux Cilium
+	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
+	// our added rule is overwritten by Cilium.
+	InsertIMDSRestrictionRuleToMangleTable bool
 }
 
 type SSHStatus int
