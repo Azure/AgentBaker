@@ -1,4 +1,4 @@
-package parser
+package nbcontracthelper
 
 import (
 	"reflect"
@@ -7,7 +7,7 @@ import (
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 )
 
-func Test_ensureConfigsNonNil(t *testing.T) {
+func TestNewNBContractConfiguration(t *testing.T) {
 	type args struct {
 		v *nbcontractv1.Configuration
 	}
@@ -82,8 +82,8 @@ func Test_ensureConfigsNonNil(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ensureConfigsNonNil(tt.args.v); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ensureConfigsNonNil() = %v, want %v", got, tt.want)
+			if got := NewNBContractConfiguration(tt.args.v); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewNBContractConfiguration() = %v, want %v", got, tt.want)
 			}
 		})
 	}
