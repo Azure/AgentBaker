@@ -4,7 +4,7 @@ import (
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 )
 
-type NBContractConfig struct {
+type NBContractBuilder struct {
 	// NBContractConfiguration is the configuration object for the NBContract (Node Bootstrap Contract)
 	nBContractConfiguration *nbcontractv1.Configuration
 }
@@ -17,27 +17,27 @@ func initializeIfNil[T any](field **T) {
 }
 
 // Ensure all objects are non-nil. Please add new objects here.
-func (nbcc *NBContractConfig) ensureConfigsNonNil() {
-	initializeIfNil(&nbcc.nBContractConfiguration.KubeBinaryConfig)
-	initializeIfNil(&nbcc.nBContractConfiguration.ApiServerConfig)
-	initializeIfNil(&nbcc.nBContractConfiguration.AuthConfig)
-	initializeIfNil(&nbcc.nBContractConfiguration.ClusterConfig)
-	initializeIfNil(&nbcc.nBContractConfiguration.NetworkConfig)
-	initializeIfNil(&nbcc.nBContractConfiguration.GpuConfig)
-	initializeIfNil(&nbcc.nBContractConfiguration.TlsBootstrappingConfig)
-	initializeIfNil(&nbcc.nBContractConfiguration.KubeletConfig)
-	initializeIfNil(&nbcc.nBContractConfiguration.RuncConfig)
-	initializeIfNil(&nbcc.nBContractConfiguration.ContainerdConfig)
-	initializeIfNil(&nbcc.nBContractConfiguration.TeleportConfig)
-	initializeIfNil(&nbcc.nBContractConfiguration.CustomLinuxOsConfig)
-	initializeIfNil(&nbcc.nBContractConfiguration.HttpProxyConfig)
-	initializeIfNil(&nbcc.nBContractConfiguration.CustomCloudConfig)
-	initializeIfNil(&nbcc.nBContractConfiguration.CustomSearchDomainConfig)
+func (nBCB *NBContractBuilder) ensureConfigsNonNil() {
+	initializeIfNil(&nBCB.nBContractConfiguration.KubeBinaryConfig)
+	initializeIfNil(&nBCB.nBContractConfiguration.ApiServerConfig)
+	initializeIfNil(&nBCB.nBContractConfiguration.AuthConfig)
+	initializeIfNil(&nBCB.nBContractConfiguration.ClusterConfig)
+	initializeIfNil(&nBCB.nBContractConfiguration.NetworkConfig)
+	initializeIfNil(&nBCB.nBContractConfiguration.GpuConfig)
+	initializeIfNil(&nBCB.nBContractConfiguration.TlsBootstrappingConfig)
+	initializeIfNil(&nBCB.nBContractConfiguration.KubeletConfig)
+	initializeIfNil(&nBCB.nBContractConfiguration.RuncConfig)
+	initializeIfNil(&nBCB.nBContractConfiguration.ContainerdConfig)
+	initializeIfNil(&nBCB.nBContractConfiguration.TeleportConfig)
+	initializeIfNil(&nBCB.nBContractConfiguration.CustomLinuxOsConfig)
+	initializeIfNil(&nBCB.nBContractConfiguration.HttpProxyConfig)
+	initializeIfNil(&nBCB.nBContractConfiguration.CustomCloudConfig)
+	initializeIfNil(&nBCB.nBContractConfiguration.CustomSearchDomainConfig)
 }
 
 // Creates a new instance of NBContractConfig and ensures all objects are non-nil
-func NewNBContractConfiguration() *NBContractConfig {
-	nbcc := &NBContractConfig{
+func NewNBContractBuilder() *NBContractBuilder {
+	nBCB := &NBContractBuilder{
 		nBContractConfiguration: &nbcontractv1.Configuration{
 			KubeBinaryConfig:         &nbcontractv1.KubeBinaryConfig{},
 			ApiServerConfig:          &nbcontractv1.ApiServerConfig{},
@@ -56,19 +56,19 @@ func NewNBContractConfiguration() *NBContractConfig {
 			CustomSearchDomainConfig: &nbcontractv1.CustomSearchDomainConfig{},
 		},
 	}
-	return nbcc
+	return nBCB
 }
 
 // Apply the configuration to the NBContractConfig nbContractConfiguration object
-func (nbcc *NBContractConfig) ApplyConfiguration(config *nbcontractv1.Configuration) {
+func (nBCB *NBContractBuilder) ApplyConfiguration(config *nbcontractv1.Configuration) {
 	if config == nil {
 		return
 	}
-	nbcc.nBContractConfiguration = config
-	nbcc.ensureConfigsNonNil()
+	nBCB.nBContractConfiguration = config
+	nBCB.ensureConfigsNonNil()
 }
 
 // Get the NBContractConfiguration object
-func (nbcc *NBContractConfig) GetNBContractConfiguration() *nbcontractv1.Configuration {
-	return nbcc.nBContractConfiguration
+func (nBCB *NBContractBuilder) GetNBContractConfiguration() *nbcontractv1.Configuration {
+	return nBCB.nBContractConfiguration
 }

@@ -7,7 +7,7 @@ import (
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 )
 
-func TestNewNBContractConfiguration(t *testing.T) {
+func TestNewNBContractBuilder(t *testing.T) {
 	wantedResult := &nbcontractv1.Configuration{
 		KubeBinaryConfig:         &nbcontractv1.KubeBinaryConfig{},
 		ApiServerConfig:          &nbcontractv1.ApiServerConfig{},
@@ -36,14 +36,14 @@ func TestNewNBContractConfiguration(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewNBContractConfiguration().nBContractConfiguration; !reflect.DeepEqual(got, tt.want) {
+			if got := NewNBContractBuilder().nBContractConfiguration; !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewNBContractConfiguration() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestNBContractConfig_ApplyConfiguration(t *testing.T) {
+func TestNBContractBuilder_ApplyConfiguration(t *testing.T) {
 	type fields struct {
 		nBContractConfiguration *nbcontractv1.Configuration
 	}
@@ -96,7 +96,7 @@ func TestNBContractConfig_ApplyConfiguration(t *testing.T) {
 				},
 			},
 			want: func() *nbcontractv1.Configuration {
-				tmpResult := NewNBContractConfiguration().nBContractConfiguration
+				tmpResult := NewNBContractBuilder().nBContractConfiguration
 				tmpResult.AuthConfig.TargetCloud = "some-cloud"
 				tmpResult.LinuxAdminUsername = "testuser"
 				return tmpResult
@@ -105,9 +105,9 @@ func TestNBContractConfig_ApplyConfiguration(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			nbcc := NewNBContractConfiguration()
-			nbcc.ApplyConfiguration(tt.fields.nBContractConfiguration)
-			if got := nbcc.nBContractConfiguration; !reflect.DeepEqual(got, tt.want) {
+			builder := NewNBContractBuilder()
+			builder.ApplyConfiguration(tt.fields.nBContractConfiguration)
+			if got := builder.nBContractConfiguration; !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ApplyConfiguration() = %v, want %v", got, tt.want)
 			}
 		})
