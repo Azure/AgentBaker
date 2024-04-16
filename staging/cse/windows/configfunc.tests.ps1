@@ -141,3 +141,68 @@ Describe 'Config-CredentialProvider' {
        }
     }
 }
+
+Describe 'Validate-CredentialProviderConfigFlags' {
+    BeforeEach {
+        $global:KubeletConfigArgs = @( "--address=0.0.0.0" )
+    }
+
+    BeforeAll{
+        Mock Set-ExitCode -MockWith {
+            Param(
+              $ExitCode,
+              $ErrorMessage
+            )
+            Write-Host "Set-ExitCode $ExitCode $ErrorMessage"
+        } -Verifiable
+    }
+    
+    Context 'success' {
+        It "Should return expected config path and bin path" {
+            $expectedCredentialProviderConfigPath="c:\k\credential-provider-config.yaml"
+            $expectedCredentialProviderBinDir="c:\var\lib\kubelet\credential-provider"
+            $global:KubeletConfigArgs+="--image-credential-provider-config="+$expectedCredentialProviderConfigPath
+            $global:KubeletConfigArgs+="--image-credential-provider-bin-dir="+$expectedCredentialProviderBinDir
+            $credentialProviderConfigs = Validate-CredentialProviderConfigFlags
+            $actualCredentialProviderConfigPath, $actualCredentialProviderBinDir = $credentialProviderConfigs[0], $credentialProviderConfigs[1]
+            Compare-Object $actualCredentialProviderConfigPath $expectedCredentialProviderConfigPath | Should -Be $null
+            Compare-Object $actualCredentialProviderBinDir $expectedCredentialProviderBinDir | Should -Be $null
+        }
+
+        It "Should return empty config path and bin path" {
+            $expectedCredentialProviderConfigPath=""
+            $expectedCredentialProviderBinDir=""
+            $credentialProviderConfigs = Validate-CredentialProviderConfigFlags
+            $actualCredentialProviderConfigPath, $actualCredentialProviderBinDir = $credentialProviderConfigs[0], $credentialProviderConfigs[1]
+            Compare-Object $actualCredentialProviderConfigPath $expectedCredentialProviderConfigPath | Should -Be $null
+            Compare-Object $actualCredentialProviderBinDir $expectedCredentialProviderBinDir | Should -Be $null
+        }
+    }
+
+    Context 'fail' {
+        It "Should call Set-ExitCode when only config path is specified" {
+            $expectedCredentialProviderConfigPath="c:\k\credential-provider_config.yaml"
+            $global:KubeletConfigArgs+="--image-credential-provider-config="+$expectedCredentialProviderConfigPath
+            $credentialProviderConfigs = Validate-CredentialProviderConfigFlags
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG }
+        }
+        It "Should call Set-ExitCode when only bin dir is specified" {
+            $expectedCredentialProviderBinDir="c:\var\lib\kubelet\credential-provider"
+            $global:KubeletConfigArgs+="--image-credential-provider-bin-dir="+$expectedCredentialProviderBinDir
+            $credentialProviderConfigs = Validate-CredentialProviderConfigFlags
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG }
+        }
+        It "Should call Set-ExitCode when flag value is emtpy string" {
+            $expectedCredentialProviderBinDir="c:\var\lib\kubelet\credential-provider"
+            $global:KubeletConfigArgs+="--image-credential-provider-bin-dir="
+            $credentialProviderConfigs = Validate-CredentialProviderConfigFlags
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG }
+        }
+        It "Should call Set-ExitCode when flag value is emtpy" {
+            $expectedCredentialProviderBinDir="c:\var\lib\kubelet\credential-provider"
+            $global:KubeletConfigArgs+="--image-credential-provider-bin-dir"
+            $credentialProviderConfigs = Validate-CredentialProviderConfigFlags
+            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG }
+        }
+    }
+}

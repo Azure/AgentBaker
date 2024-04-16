@@ -392,6 +392,38 @@ providers:
     $credentialProviderConfig | Out-File -encoding ASCII -filepath "$CredentialProviderConfPATH"
 }
 
+function Validate-CredentialProviderConfigFlags {
+    function get-KubeletFlagValue {
+        Param(
+            [Parameter(Mandatory=$true)][string]
+            $KubeletConfigArg
+        )
+        $splitResult=($KubeletConfigArg -split "=")
+        if ($splitResult.Length -ne 2 -or [string]::IsNullOrEmpty($splitResult[1])){
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG -ErrorMessage "Failed to get kubelet flag value from flag $KubeletConfigArg"
+        }
+        return $splitResult[1]
+    }
+    $credentialProviderConfigPath = ""
+    $credentialProviderBinDir = ""
+    ForEach ($kubeletConfigArg in $global:KubeletConfigArgs){
+        if ($kubeletConfigArg -like "--image-credential-provider-config*") {
+            $credentialProviderConfigPath=get-KubeletFlagValue -KubeletConfigArg $kubeletConfigArg
+        }
+        if ($kubeletConfigArg -like "--image-credential-provider-bin-dir*") {
+            $credentialProviderBinDir=get-KubeletFlagValue -KubeletConfigArg $kubeletConfigArg
+        }
+    }
+    echo $credentialProviderConfigPath
+    echo $credentialProviderBinDir
+
+    # Both flags should be set to enable out of tree credential provider or not set at the same time to disable it.
+    if ([string]::IsNullOrEmpty($credentialProviderConfigPath) -xor [string]::IsNullOrEmpty($credentialProviderBinDir)) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG -ErrorMessage "Not all credential provider flags are configured: --image-credential-provider-config=$credentialProviderConfigPath, --image-credential-provider-bin-dir=$credentialProviderBinDir"
+    }
+    return $credentialProviderConfigPath, $credentialProviderBinDir
+}
+
 function Install-CredentialProvider {
     Param(
         [Parameter(Mandatory=$true)][string]
@@ -403,32 +435,8 @@ function Install-CredentialProvider {
     try {
         # Out of tree credential provider is turned on as a must after 1.30, and is optinal in 1.29, for cluster < 1.29, it's not enabled.
         # And only when it's enabled, the credential provider flags are set.
-        function getKubeletFlagValue {
-            Param(
-                [Parameter(Mandatory=$true)][string]
-                $KubeletConfigArg
-            )
-            $splitResult=($KubeletConfigArg -split "=")
-            if ($splitResult.Length -ne 2) {
-                Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG -ErrorMessage "Failed to get kubelet flag value from flag $KubeletConfigArg"
-            }
-            return $splitResult[1]
-        }
-        $credentialProviderConfigPath = ""
-        $credentialProviderBinDir = ""
-        ForEach ($kubeletConfigArg in $global:KubeletConfigArgs){
-            if ($kubeletConfigArg -like "--image-credential-provider-config*") {
-                $credentialProviderConfigPath=getKubeletFlagValue -KubeletConfigArg $kubeletConfigArg
-            }
-            if ($kubeletConfigArg -like "--image-credential-provider-bin-dir*") {
-                $credentialProviderBinDir=getKubeletFlagValue -KubeletConfigArg $kubeletConfigArg
-            }
-        }
-
-        # Both flags should be set to enable out of tree credential provider or not set at the same time to disable it.
-        if ([string]::IsNullOrEmpty($credentialProviderConfigPath) -xor [string]::IsNullOrEmpty($credentialProviderBinDir)) {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG -ErrorMessage "Not all credential provider flags are configured: --image-credential-provider-config=$imageCredentialProviderConfigPath, --image-credential-provider-bin-dir=$imageCredentialProviderBinDir"
-        }
+        $credentialProviderConfigs=Validate-CredentialProviderConfigFlags
+        $credentialProviderConfigPath, $credentialProviderBinDir = $credentialProviderConfigs[0], $credentialProviderConfigs[1]
         if ([string]::IsNullOrEmpty($credentialProviderConfigPath) -and [string]::IsNullOrEmpty($credentialProviderBinDir)) {
             Write-Log "Out of tree credential provider is not enabled"
             return
