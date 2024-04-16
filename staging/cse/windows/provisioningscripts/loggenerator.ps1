@@ -81,7 +81,8 @@ $kLogFiles = @(
     "containerd.log",
     "containerd.err.log",
     "hnsremediator.log",
-    "windowslogscleanup.log"
+    "windowslogscleanup.log",
+    "credential-provider-config.yaml"
 )
 $kLogFiles | Foreach-Object {
     Create-SymbolLinkFile -SrcFile (Join-Path "C:\k\" $_) -DestFile (Join-Path $aksLogFolder $_)

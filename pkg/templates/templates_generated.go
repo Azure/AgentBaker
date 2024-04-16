@@ -8640,7 +8640,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.40.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.41.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -9059,6 +9059,9 @@ $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE=61
 $global:WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG=62
 $global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP=63
 $global:WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION=64
+$global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER = 65 # exit code for installing credential provider
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER=66 # exit code for downloading credential provider failure
+$global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG=67 # exit code for checking credential provider config failure
 
 # Please add new error code for downloading new packages in RP code too
 $global:ErrorCodeNames = @(
@@ -9126,7 +9129,10 @@ $global:ErrorCodeNames = @(
     "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE",
     "WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG",
     "WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP",
-    "WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION"
+    "WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION",
+    "WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER",
+    "WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG"
 )
 
 # NOTE: KubernetesVersion does not contain "v"
