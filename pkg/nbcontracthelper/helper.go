@@ -36,6 +36,8 @@ func ensureConfigsNonNil(v *nbcontractv1.Configuration) *nbcontractv1.Configurat
 	return v
 }
 
+// Creates a new instance of nbcontractv1.Configuration and ensures that
+// all fields are non-nil unless it's set as proto3 explicit presence (with label optional).
 func NewNBContractConfiguration(v *nbcontractv1.Configuration) *nbcontractv1.Configuration {
 	return ensureConfigsNonNil(v)
 }
