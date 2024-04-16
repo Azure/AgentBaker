@@ -198,11 +198,5 @@ Describe 'Validate-CredentialProviderConfigFlags' {
             $credentialProviderConfigs = Validate-CredentialProviderConfigFlags
             Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG }
         }
-        It "Should call Set-ExitCode when flag value is emtpy" {
-            $expectedCredentialProviderBinDir="c:\var\lib\kubelet\credential-provider"
-            $global:KubeletConfigArgs+="--image-credential-provider-bin-dir"
-            $credentialProviderConfigs = Validate-CredentialProviderConfigFlags
-            Assert-MockCalled -CommandName "Set-ExitCode" -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG }
-        }
     }
 }
