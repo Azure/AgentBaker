@@ -963,6 +963,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsArtifactStreamingEnabled": func() bool {
 			return config.EnableArtifactStreaming
 		},
+		"EnableIMDSRestriction": func() bool {
+			return config.EnableIMDSRestriction
+		},
+		"InsertIMDSRestrictionRuleToMangleTable": func() bool {
+			return config.InsertIMDSRestrictionRuleToMangleTable
+		},
 	}
 }
 
