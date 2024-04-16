@@ -145,6 +145,8 @@ Describe 'Config-CredentialProvider' {
 Describe 'Validate-CredentialProviderConfigFlags' {
     BeforeEach {
         $global:KubeletConfigArgs = @( "--address=0.0.0.0" )
+        $global:credentialProviderConfigPath = ""
+        $global:credentialProviderBinDir = ""
     }
 
     BeforeAll{
@@ -163,19 +165,17 @@ Describe 'Validate-CredentialProviderConfigFlags' {
             $expectedCredentialProviderBinDir="c:\var\lib\kubelet\credential-provider"
             $global:KubeletConfigArgs+="--image-credential-provider-config="+$expectedCredentialProviderConfigPath
             $global:KubeletConfigArgs+="--image-credential-provider-bin-dir="+$expectedCredentialProviderBinDir
-            $credentialProviderConfigs = Validate-CredentialProviderConfigFlags
-            $actualCredentialProviderConfigPath, $actualCredentialProviderBinDir = $credentialProviderConfigs[0], $credentialProviderConfigs[1]
-            Compare-Object $actualCredentialProviderConfigPath $expectedCredentialProviderConfigPath | Should -Be $null
-            Compare-Object $actualCredentialProviderBinDir $expectedCredentialProviderBinDir | Should -Be $null
+            Validate-CredentialProviderConfigFlags
+            Compare-Object $global:credentialProviderConfigPath $expectedCredentialProviderConfigPath | Should -Be $null
+            Compare-Object $global:credentialProviderBinDir $expectedCredentialProviderBinDir | Should -Be $null
         }
 
         It "Should return empty config path and bin path" {
             $expectedCredentialProviderConfigPath=""
             $expectedCredentialProviderBinDir=""
-            $credentialProviderConfigs = Validate-CredentialProviderConfigFlags
-            $actualCredentialProviderConfigPath, $actualCredentialProviderBinDir = $credentialProviderConfigs[0], $credentialProviderConfigs[1]
-            Compare-Object $actualCredentialProviderConfigPath $expectedCredentialProviderConfigPath | Should -Be $null
-            Compare-Object $actualCredentialProviderBinDir $expectedCredentialProviderBinDir | Should -Be $null
+            Validate-CredentialProviderConfigFlags
+            Compare-Object $global:credentialProviderConfigPath $expectedCredentialProviderConfigPath | Should -Be $null
+            Compare-Object $global:credentialProviderBinDir $expectedCredentialProviderBinDir | Should -Be $null
         }
     }
 
