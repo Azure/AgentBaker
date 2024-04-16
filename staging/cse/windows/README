@@ -55,6 +55,15 @@ popd
 # AKS Windows CSE Scripts Package
 All files except *.test.ps1 and README will be published in AKS Windows CSE Scripts Package.
 
+## v0.0.41
+- feat: update window cse to install credental provider #4281
+- Add more containerd logs to collect-windows-logs.ps1 #3952
+- feat: add system startup task to expand os volume #4213
+- feat: refine the code to get the Windows containerd version #4226
+- feat: collect Windows extensions logs #4169
+- feat: collect Windows memroy dump in collect-windows-logs.ps1 #4168
+- fix: avoid running Windows CSE multiple times. #4158
+
 ## v0.0.40
 - feat: set --node-ip for Windows kubelet in k8s v1.29+ #4148
 
