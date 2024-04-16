@@ -38,7 +38,7 @@ func TestNewNBContractBuilder(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewNBContractBuilder().nBContractConfiguration; !reflect.DeepEqual(got, tt.want) {
+			if got := NewNBContractBuilder().nodeBootstrapConfig; !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewNBContractConfiguration() = %v, want %v", got, tt.want)
 			}
 		})
@@ -98,7 +98,7 @@ func TestNBContractBuilder_ApplyConfiguration(t *testing.T) {
 				},
 			},
 			want: func() *nbcontractv1.Configuration {
-				tmpResult := NewNBContractBuilder().nBContractConfiguration
+				tmpResult := NewNBContractBuilder().nodeBootstrapConfig
 				tmpResult.AuthConfig.TargetCloud = "some-cloud"
 				tmpResult.LinuxAdminUsername = "testuser"
 				return tmpResult
@@ -109,7 +109,7 @@ func TestNBContractBuilder_ApplyConfiguration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			builder := NewNBContractBuilder()
 			builder.ApplyConfiguration(tt.fields.nBContractConfiguration)
-			if got := builder.nBContractConfiguration; !reflect.DeepEqual(got, tt.want) {
+			if got := builder.nodeBootstrapConfig; !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ApplyConfiguration() = %v, want %v", got, tt.want)
 			}
 		})
@@ -197,7 +197,7 @@ func TestNBContractBuilder_deepCopy(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			nBCB := &NBContractBuilder{
-				nBContractConfiguration: &nbcontractv1.Configuration{},
+				nodeBootstrapConfig: &nbcontractv1.Configuration{},
 			}
 			nBCB.deepCopy(tt.args.src, tt.args.dst)
 			log.Printf("dst = %v, src %v", tt.args.dst, tt.args.src)

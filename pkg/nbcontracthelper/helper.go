@@ -8,8 +8,8 @@ import (
 )
 
 type NBContractBuilder struct {
-	// NBContractConfiguration is the configuration object for the NBContract (Node Bootstrap Contract)
-	nBContractConfiguration *nbcontractv1.Configuration
+	// nodeBootstrapConfig is the configuration object for the NBContract (Node Bootstrap Contract)
+	nodeBootstrapConfig *nbcontractv1.Configuration
 }
 
 // Check and initialize each field if it is nil
@@ -38,28 +38,28 @@ func ensureConfigsNonNil(nBC *nbcontractv1.Configuration) {
 	initializeIfNil(&nBC.CustomSearchDomainConfig)
 }
 
-// Creates a new instance of NBContractBuilder and ensures all objects in nBContractConfiguration are non-nil
+// Creates a new instance of NBContractBuilder and ensures all objects in nodeBootstrapConfig are non-nil
 func NewNBContractBuilder() *NBContractBuilder {
 	nbc := &nbcontractv1.Configuration{}
 	ensureConfigsNonNil(nbc)
-	nBCB := &NBContractBuilder{nBContractConfiguration: nbc}
+	nBCB := &NBContractBuilder{nodeBootstrapConfig: nbc}
 	return nBCB
 }
 
-// Apply the configuration to the nbContractConfiguration object
+// Apply the configuration to the nodeBootstrapConfig object
 func (nBCB *NBContractBuilder) ApplyConfiguration(config *nbcontractv1.Configuration) {
 	if config == nil {
 		return
 	}
 
 	// Use deep copy to avoid modifying the original object 'config'
-	nBCB.deepCopy(config, nBCB.nBContractConfiguration)
-	ensureConfigsNonNil(nBCB.nBContractConfiguration)
+	nBCB.deepCopy(config, nBCB.nodeBootstrapConfig)
+	ensureConfigsNonNil(nBCB.nodeBootstrapConfig)
 }
 
-// Get the NBContractConfiguration object
-func (nBCB *NBContractBuilder) GetNBContractConfiguration() *nbcontractv1.Configuration {
-	return nBCB.nBContractConfiguration
+// Get the nodeBootstrapConfig object
+func (nBCB *NBContractBuilder) GetNodeBootstrapConfig() *nbcontractv1.Configuration {
+	return nBCB.nodeBootstrapConfig
 }
 
 // Deep copy the source object to the destination object.
