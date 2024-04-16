@@ -1,6 +1,9 @@
 package nbcontracthelper
 
 import (
+	"bytes"
+	"encoding/gob"
+
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 )
 
@@ -35,7 +38,7 @@ func (nBCB *NBContractBuilder) ensureConfigsNonNil() {
 	initializeIfNil(&nBCB.nBContractConfiguration.CustomSearchDomainConfig)
 }
 
-// Creates a new instance of NBContractConfig and ensures all objects are non-nil
+// Creates a new instance of NBContractBuilder and ensures all objects in nBContractConfiguration are non-nil
 func NewNBContractBuilder() *NBContractBuilder {
 	nBCB := &NBContractBuilder{
 		nBContractConfiguration: &nbcontractv1.Configuration{
@@ -59,16 +62,36 @@ func NewNBContractBuilder() *NBContractBuilder {
 	return nBCB
 }
 
-// Apply the configuration to the NBContractConfig nbContractConfiguration object
+// Apply the configuration to the nbContractConfiguration object
 func (nBCB *NBContractBuilder) ApplyConfiguration(config *nbcontractv1.Configuration) {
 	if config == nil {
 		return
 	}
-	nBCB.nBContractConfiguration = config
+
+	// Use deep copy to avoid modifying the original object 'config'
+	nBCB.deepCopy(config, nBCB.nBContractConfiguration)
 	nBCB.ensureConfigsNonNil()
 }
 
 // Get the NBContractConfiguration object
 func (nBCB *NBContractBuilder) GetNBContractConfiguration() *nbcontractv1.Configuration {
 	return nBCB.nBContractConfiguration
+}
+
+// Deep copy the source object to the destination object.
+// Note that the existing value in the destination object will not be cleared
+// if the source object doesn't have that field
+func (nBCB *NBContractBuilder) deepCopy(src, dst interface{}) error {
+	if src == nil {
+		return nil
+	}
+
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(src); err != nil {
+		return err
+	}
+	if err := gob.NewDecoder(&buf).Decode(dst); err != nil {
+		return err
+	}
+	return nil
 }
