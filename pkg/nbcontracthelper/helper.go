@@ -20,45 +20,29 @@ func initializeIfNil[T any](field **T) {
 }
 
 // Ensure all objects are non-nil. Please add new objects here.
-func (nBCB *NBContractBuilder) ensureConfigsNonNil() {
-	initializeIfNil(&nBCB.nBContractConfiguration.KubeBinaryConfig)
-	initializeIfNil(&nBCB.nBContractConfiguration.ApiServerConfig)
-	initializeIfNil(&nBCB.nBContractConfiguration.AuthConfig)
-	initializeIfNil(&nBCB.nBContractConfiguration.ClusterConfig)
-	initializeIfNil(&nBCB.nBContractConfiguration.NetworkConfig)
-	initializeIfNil(&nBCB.nBContractConfiguration.GpuConfig)
-	initializeIfNil(&nBCB.nBContractConfiguration.TlsBootstrappingConfig)
-	initializeIfNil(&nBCB.nBContractConfiguration.KubeletConfig)
-	initializeIfNil(&nBCB.nBContractConfiguration.RuncConfig)
-	initializeIfNil(&nBCB.nBContractConfiguration.ContainerdConfig)
-	initializeIfNil(&nBCB.nBContractConfiguration.TeleportConfig)
-	initializeIfNil(&nBCB.nBContractConfiguration.CustomLinuxOsConfig)
-	initializeIfNil(&nBCB.nBContractConfiguration.HttpProxyConfig)
-	initializeIfNil(&nBCB.nBContractConfiguration.CustomCloudConfig)
-	initializeIfNil(&nBCB.nBContractConfiguration.CustomSearchDomainConfig)
+func ensureConfigsNonNil(nBC *nbcontractv1.Configuration) {
+	initializeIfNil(&nBC.KubeBinaryConfig)
+	initializeIfNil(&nBC.ApiServerConfig)
+	initializeIfNil(&nBC.AuthConfig)
+	initializeIfNil(&nBC.ClusterConfig)
+	initializeIfNil(&nBC.NetworkConfig)
+	initializeIfNil(&nBC.GpuConfig)
+	initializeIfNil(&nBC.TlsBootstrappingConfig)
+	initializeIfNil(&nBC.KubeletConfig)
+	initializeIfNil(&nBC.RuncConfig)
+	initializeIfNil(&nBC.ContainerdConfig)
+	initializeIfNil(&nBC.TeleportConfig)
+	initializeIfNil(&nBC.CustomLinuxOsConfig)
+	initializeIfNil(&nBC.HttpProxyConfig)
+	initializeIfNil(&nBC.CustomCloudConfig)
+	initializeIfNil(&nBC.CustomSearchDomainConfig)
 }
 
 // Creates a new instance of NBContractBuilder and ensures all objects in nBContractConfiguration are non-nil
 func NewNBContractBuilder() *NBContractBuilder {
-	nBCB := &NBContractBuilder{
-		nBContractConfiguration: &nbcontractv1.Configuration{
-			KubeBinaryConfig:         &nbcontractv1.KubeBinaryConfig{},
-			ApiServerConfig:          &nbcontractv1.ApiServerConfig{},
-			AuthConfig:               &nbcontractv1.AuthConfig{},
-			ClusterConfig:            &nbcontractv1.ClusterConfig{},
-			NetworkConfig:            &nbcontractv1.NetworkConfig{},
-			GpuConfig:                &nbcontractv1.GPUConfig{},
-			TlsBootstrappingConfig:   &nbcontractv1.TLSBootstrappingConfig{},
-			KubeletConfig:            &nbcontractv1.KubeletConfig{},
-			RuncConfig:               &nbcontractv1.RuncConfig{},
-			ContainerdConfig:         &nbcontractv1.ContainerdConfig{},
-			TeleportConfig:           &nbcontractv1.TeleportConfig{},
-			CustomLinuxOsConfig:      &nbcontractv1.CustomLinuxOSConfig{},
-			HttpProxyConfig:          &nbcontractv1.HTTPProxyConfig{},
-			CustomCloudConfig:        &nbcontractv1.CustomCloudConfig{},
-			CustomSearchDomainConfig: &nbcontractv1.CustomSearchDomainConfig{},
-		},
-	}
+	nbc := &nbcontractv1.Configuration{}
+	ensureConfigsNonNil(nbc)
+	nBCB := &NBContractBuilder{nBContractConfiguration: nbc}
 	return nBCB
 }
 
@@ -70,7 +54,7 @@ func (nBCB *NBContractBuilder) ApplyConfiguration(config *nbcontractv1.Configura
 
 	// Use deep copy to avoid modifying the original object 'config'
 	nBCB.deepCopy(config, nBCB.nBContractConfiguration)
-	nBCB.ensureConfigsNonNil()
+	ensureConfigsNonNil(nBCB.nBContractConfiguration)
 }
 
 // Get the NBContractConfiguration object
