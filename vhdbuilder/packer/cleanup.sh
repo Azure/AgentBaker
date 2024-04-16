@@ -94,10 +94,6 @@ if [[ "${MODE}" == "windowsVhdMode" && "$SIG_FOR_PRODUCTION" == "True" ]]; then
           echo "Deletion of sig image-definition ${SIG_IMAGE_NAME} completed"
       fi
     fi
-
-    # Delete sig image gallery
-    echo "SIG_GALLERY_NAME is ${SIG_GALLERY_NAME}, deleting sig gallery since sig is no longer needed"
-    az sig delete --gallery-name ${SIG_GALLERY_NAME} --resource-group ${AZURE_RESOURCE_GROUP_NAME}
   fi
 fi
 
@@ -185,7 +181,7 @@ if [[ "${MODE}" != "linuxVhdMode" ]] && [[ "${DRY_RUN}" == "True" ]]; then
 fi
 
 
-STORAGE_ACCOUNT_EXPIRATION_IN_HOURS=12
+STORAGE_ACCOUNT_EXPIRATION_IN_HOURS=4
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
 (( storageAccountExpirationSecs = ${STORAGE_ACCOUNT_EXPIRATION_IN_HOURS} * 60 * 60 ))
 # deadline = the "date +%s" representation of the oldest age we're willing to keep

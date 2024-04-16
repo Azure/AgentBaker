@@ -3,6 +3,7 @@
 source /home/packer/provision_source.sh
 
 assignRootPW() {
+    set +x
     if grep '^root:[!*]:' /etc/shadow; then
         VERSION=$(grep DISTRIB_RELEASE /etc/*-release | cut -f 2 -d "=")
         SALT=$(openssl rand -base64 5)
@@ -16,6 +17,7 @@ assignRootPW() {
 
         echo 'root:'$HASH | /usr/sbin/chpasswd -e || exit $ERR_CIS_ASSIGN_ROOT_PW
     fi
+    set -x
 }
 
 assignFilePermissions() {

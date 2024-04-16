@@ -4,14 +4,14 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.8.19"
+        "1.8.20"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/metrics-server:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.6.3"
+        "v0.7.0"
       ]
     },
     {
@@ -43,12 +43,18 @@
       "multiArchVersions": [
         "v1.4.50",
         "v1.4.52",
-        "v1.5.17",
-        "v1.5.23"
+        "v1.5.23",
+        "v1.5.26"
       ],
       "prefetchOptimizations": [
         {
           "version": "v1.5.23",
+          "binaries": [
+            "usr/local/bin/azure-cns"
+          ]
+        },
+        {
+          "version": "v1.5.26",
           "binaries": [
             "usr/local/bin/azure-cns"
           ]
@@ -121,12 +127,12 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "6.8.4-main-02-14-2024-90d01292",
-        "6.8.4-main-02-14-2024-90d01292-targetallocator",
-        "6.8.4-main-02-14-2024-90d01292-cfg",
         "6.8.6-main-03-08-2024-fd4f13cb",
         "6.8.6-main-03-08-2024-fd4f13cb-targetallocator",
-        "6.8.6-main-03-08-2024-fd4f13cb-cfg"
+        "6.8.6-main-03-08-2024-fd4f13cb-cfg",
+        "6.8.7-main-04-09-2024-82adbf97",
+        "6.8.7-main-04-09-2024-82adbf97-targetallocator",
+        "6.8.7-main-04-09-2024-82adbf97-cfg"
       ]
     },
     {
@@ -238,7 +244,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.8.8"
+        "v1.8.9"
       ]
     },
     {
@@ -253,10 +259,11 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.26.9",
         "v1.28.6",
+        "v1.28.7",
         "v1.29.3",
-        "v1.29.4"
+        "v1.29.4",
+        "v1.30.1"
       ]
     },
     {
@@ -275,11 +282,11 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.21.7",
-        "v1.22.5",
         "v1.22.5-3",
+        "v1.22.6",
         "v1.23.3",
-        "v1.23.4"
+        "v1.23.4",
+        "v1.24.1"
       ]
     },
     {
