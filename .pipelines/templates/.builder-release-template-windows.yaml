@@ -38,9 +38,9 @@ steps:
           echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]False"; \
           echo "##vso[task.setvariable variable=SKIPVALIDATEREOFFERUPDATE]True"; \
       else
-          sigImageName="windows-${WINDOWS_SKU}-$RANDOM"; \
+          sigImageName="windows-${WINDOWS_SKU}-$(date +"%H%M%S")-$RANDOM"; \
           WS_SKU=$(echo $WINDOWS_SKU | tr '-' '_')
-          sigGalleryName="WS${WS_SKU}Gallery$(date +"%y%m%d%H%M%S")$RANDOM"; \
+          sigGalleryName="WSGallery$(date +"%y%m%d")";\
           echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$sigGalleryName"; \
           echo "##vso[task.setvariable variable=SIG_IMAGE_VERSION]1.0.0"; \
           echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]True"; \
