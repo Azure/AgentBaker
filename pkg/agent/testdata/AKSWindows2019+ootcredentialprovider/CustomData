@@ -86,9 +86,9 @@ $global:CACertificate = ""
 $global:AgentCertificate = ""
 
 ## Download sources provided by aks-engine
-$global:KubeBinariesPackageSASURL = "https://acs-mirror.azureedge.net/kubernetes/v1.19.0/windowszip/v1.19.0-1int.zip"
+$global:KubeBinariesPackageSASURL = "https://acs-mirror.azureedge.net/kubernetes/"
 $global:WindowsKubeBinariesURL = ""
-$global:KubeBinariesVersion = "1.19.0"
+$global:KubeBinariesVersion = "1.29.0"
 $global:ContainerdUrl = "https://k8swin.blob.core.windows.net/k8s-windows/containerd/containerplat-aks-test-0.0.8.zip"
 $global:ContainerdSdnPluginUrl = ""
 
@@ -107,23 +107,23 @@ $global:TenantId = "tenantID"
 $global:SubscriptionId = "subID"
 $global:ResourceGroup = "resourceGroupName"
 $global:VmType = "vmss"
-$global:SubnetName = "subnet2"
+$global:SubnetName = "aks-subnet"
 # NOTE: MasterSubnet is still referenced by `kubeletstart.ps1` and `windowsnodereset.ps1`
 # for case of Kubenet
 $global:MasterSubnet = ""
 $global:SecurityGroupName = "aks-agentpool-36873793-nsg"
-$global:VNetName = "aks-vnet-07752737"
+$global:VNetName = "aks-vnet-36873793"
 $global:RouteTableName = "aks-agentpool-36873793-routetable"
 $global:PrimaryAvailabilitySetName = ""
 $global:PrimaryScaleSetName = "akswpool2"
 
-$global:KubeClusterCIDR = "172.17.0.0/24"
-$global:KubeServiceCIDR = "172.17.255.0/24"
-$global:VNetCIDR = "172.17.0.0/16"
+$global:KubeClusterCIDR = "10.240.0.0/16"
+$global:KubeServiceCIDR = "10.0.0.0/16"
+$global:VNetCIDR = "10.0.0.0/8"
 
 $global:KubeletNodeLabels = "agentpool=wpool2,kubernetes.azure.com/agentpool=wpool2,kubernetes.azure.com/node-image-version=AKSWindows-2019-17763.1577.201111"
 
-$global:KubeletConfigArgs = @( "--address=0.0.0.0", "--anonymous-auth=false", "--authentication-token-webhook=true", "--authorization-mode=Webhook", "--azure-container-registry-config=c:\k\azure.json", "--cgroups-per-qos=false", "--client-ca-file=c:\k\ca.crt", "--cloud-config=c:\k\azure.json", "--cloud-provider=azure", "--cluster-dns=172.17.255.10", "--cluster-domain=cluster.local", "--enforce-node-allocatable=", "--event-qps=0", "--eviction-hard=", "--feature-gates=DynamicKubeletConfig=false,RotateKubeletServerCertificate=true", "--hairpin-mode=promiscuous-bridge", "--image-gc-high-threshold=85", "--image-gc-low-threshold=80", "--keep-terminated-pod-volumes=false", "--kube-reserved=cpu=100m,memory=1843Mi", "--kubeconfig=c:\k\config", "--max-pods=30", "--network-plugin=cni", "--node-status-update-frequency=10s", "--pod-infra-container-image=mcr.microsoft.com/oss/kubernetes/pause:3.9", "--pod-max-pids=-1", "--read-only-port=0", "--resolv-conf=""", "--rotate-certificates=false", "--streaming-connection-idle-timeout=4h", "--system-reserved=memory=2Gi", "--tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256" )
+$global:KubeletConfigArgs = @( "--address=0.0.0.0", "--anonymous-auth=false", "--authentication-token-webhook=true", "--authorization-mode=Webhook", "--azure-container-registry-config=c:\k\azure.json", "--cgroups-per-qos=false", "--client-ca-file=c:\k\ca.crt", "--cloud-config=c:\k\azure.json", "--cloud-provider=azure", "--cluster-dns=10.0.0.10", "--cluster-domain=cluster.local", "--enforce-node-allocatable=", "--event-qps=0", "--eviction-hard=", "--feature-gates=RotateKubeletServerCertificate=true", "--hairpin-mode=promiscuous-bridge", "--image-credential-provider-bin-dir=c:\var\lib\kubelet\credential-provider", "--image-credential-provider-config=c:\var\lib\kubelet\credential-provider-config.yaml", "--image-gc-high-threshold=85", "--image-gc-low-threshold=80", "--keep-terminated-pod-volumes=false", "--kube-reserved=cpu=100m,memory=1843Mi", "--kubeconfig=c:\k\config", "--max-pods=30", "--network-plugin=cni", "--node-status-update-frequency=10s", "--pod-infra-container-image=mcr.microsoft.com/oss/kubernetes/pause:3.9", "--pod-max-pids=-1", "--read-only-port=0", "--resolv-conf=""", "--rotate-certificates=false", "--streaming-connection-idle-timeout=4h", "--system-reserved=memory=2Gi", "--tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256" )
 $global:KubeproxyConfigArgs = @( "--metrics-bind-address=0.0.0.0:10249" )
 
 $global:KubeproxyFeatureGates = @( "WinDSR=true", "WinOverlay=false" )
@@ -161,7 +161,7 @@ $global:IsDualStackEnabled = $false
 $global:IsAzureCNIOverlayEnabled = $false
 
 # Kubelet credential provider
-$global:CredentialProviderURL = ""
+$global:CredentialProviderURL = "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.0/binaries/azure-acr-credential-provider-windows-amd64-v1.29.0.tar.gz"
 
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("false");
@@ -178,7 +178,7 @@ $global:GpuDriverURL = "";
 
 # PauseImage
 $global:WindowsPauseImageURL = "mcr.microsoft.com/oss/kubernetes/pause:1.4.0";
-$global:AlwaysPullWindowsPauseImage = [System.Convert]::ToBoolean("false");
+$global:AlwaysPullWindowsPauseImage = [System.Convert]::ToBoolean("true");
 
 # Calico
 $global:WindowsCalicoPackageURL = "";
