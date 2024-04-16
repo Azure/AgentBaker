@@ -1328,6 +1328,17 @@ oom_score = 0
 					},
 				}
 			}, nil),
+		Entry("AKSUbuntu2204 IMDSRestriction with enable restriction and insert to mangle table", "AKSUbuntu2204+IMDSRestrictionOnWithMangleTable", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.EnableIMDSRestriction = true
+			config.InsertIMDSRestrictionRuleToMangleTable = true
+		}, nil),
+		Entry("AKSUbuntu2204 IMDSRestriction with enable restriction and not insert to mangle table", "AKSUbuntu2204+IMDSRestrictionOnWithFilterTable", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.EnableIMDSRestriction = true
+			config.InsertIMDSRestrictionRuleToMangleTable = false
+		}, nil),
+		Entry("AKSUbuntu2204 IMDSRestriction with disable restriction", "AKSUbuntu2204+IMDSRestrictionOff", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.EnableIMDSRestriction = false
+		}, nil),
 	)
 })
 
