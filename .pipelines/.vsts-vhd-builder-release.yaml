@@ -977,7 +977,7 @@ stages:
               parameters:
                 artifactName: 2404-containerd
         - stage: build_vhd_2404_gen2_containerd
-          dependsOn: [ ]
+          dependsOn: []
           condition: eq('${{ parameters.build2404gen2containerd }}', true)
           jobs:
             - job: build
