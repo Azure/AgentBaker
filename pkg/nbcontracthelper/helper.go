@@ -62,7 +62,7 @@ func (nBCB *NBContractBuilder) ApplyConfiguration(config *nbcontractv1.Configura
 	}
 }
 
-// Get the nodeBootstrapConfig object
+// Get the nodeBootstrapConfig object.
 func (nBCB *NBContractBuilder) GetNodeBootstrapConfig() *nbcontractv1.Configuration {
 	return nBCB.nodeBootstrapConfig
 }
