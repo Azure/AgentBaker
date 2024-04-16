@@ -11,10 +11,13 @@ import (
 
 func TestNewNBContractBuilder(t *testing.T) {
 	wantedResult := &nbcontractv1.Configuration{
-		KubeBinaryConfig:         &nbcontractv1.KubeBinaryConfig{},
-		ApiServerConfig:          &nbcontractv1.ApiServerConfig{},
-		AuthConfig:               &nbcontractv1.AuthConfig{},
-		ClusterConfig:            &nbcontractv1.ClusterConfig{},
+		KubeBinaryConfig: &nbcontractv1.KubeBinaryConfig{},
+		ApiServerConfig:  &nbcontractv1.ApiServerConfig{},
+		AuthConfig:       &nbcontractv1.AuthConfig{},
+		ClusterConfig: &nbcontractv1.ClusterConfig{
+			LoadBalancerConfig:   &nbcontractv1.LoadBalancerConfig{},
+			ClusterNetworkConfig: &nbcontractv1.ClusterNetworkConfig{},
+		},
 		NetworkConfig:            &nbcontractv1.NetworkConfig{},
 		GpuConfig:                &nbcontractv1.GPUConfig{},
 		TlsBootstrappingConfig:   &nbcontractv1.TLSBootstrappingConfig{},
@@ -50,10 +53,13 @@ func TestNBContractBuilder_ApplyConfiguration(t *testing.T) {
 		nBContractConfiguration *nbcontractv1.Configuration
 	}
 	wantedResult := &nbcontractv1.Configuration{
-		KubeBinaryConfig:         &nbcontractv1.KubeBinaryConfig{},
-		ApiServerConfig:          &nbcontractv1.ApiServerConfig{},
-		AuthConfig:               &nbcontractv1.AuthConfig{},
-		ClusterConfig:            &nbcontractv1.ClusterConfig{},
+		KubeBinaryConfig: &nbcontractv1.KubeBinaryConfig{},
+		ApiServerConfig:  &nbcontractv1.ApiServerConfig{},
+		AuthConfig:       &nbcontractv1.AuthConfig{},
+		ClusterConfig: &nbcontractv1.ClusterConfig{
+			LoadBalancerConfig:   &nbcontractv1.LoadBalancerConfig{},
+			ClusterNetworkConfig: &nbcontractv1.ClusterNetworkConfig{},
+		},
 		NetworkConfig:            &nbcontractv1.NetworkConfig{},
 		GpuConfig:                &nbcontractv1.GPUConfig{},
 		TlsBootstrappingConfig:   &nbcontractv1.TLSBootstrappingConfig{},

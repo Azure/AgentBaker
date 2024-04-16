@@ -25,6 +25,8 @@ func ensureConfigsNonNil(nBC *nbcontractv1.Configuration) {
 	initializeIfNil(&nBC.ApiServerConfig)
 	initializeIfNil(&nBC.AuthConfig)
 	initializeIfNil(&nBC.ClusterConfig)
+	initializeIfNil(&nBC.ClusterConfig.LoadBalancerConfig)
+	initializeIfNil(&nBC.ClusterConfig.ClusterNetworkConfig)
 	initializeIfNil(&nBC.NetworkConfig)
 	initializeIfNil(&nBC.GpuConfig)
 	initializeIfNil(&nBC.TlsBootstrappingConfig)
