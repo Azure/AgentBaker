@@ -94,10 +94,6 @@ if [[ "${MODE}" == "windowsVhdMode" && "$SIG_FOR_PRODUCTION" == "True" ]]; then
           echo "Deletion of sig image-definition ${SIG_IMAGE_NAME} completed"
       fi
     fi
-
-    # Delete sig image gallery
-    echo "SIG_GALLERY_NAME is ${SIG_GALLERY_NAME}, deleting sig gallery since sig is no longer needed"
-    az sig delete --gallery-name ${SIG_GALLERY_NAME} --resource-group ${AZURE_RESOURCE_GROUP_NAME}
   fi
 fi
 
