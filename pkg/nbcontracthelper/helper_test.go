@@ -205,7 +205,9 @@ func TestNBContractBuilder_deepCopy(t *testing.T) {
 			nBCB := &NBContractBuilder{
 				nodeBootstrapConfig: &nbcontractv1.Configuration{},
 			}
-			nBCB.deepCopy(tt.args.src, tt.args.dst)
+			if err := nBCB.deepCopy(tt.args.src, tt.args.dst); err != nil {
+				log.Printf("Failed to deep copy the configuration: %v", err)
+			}
 			log.Printf("dst = %v, src %v", tt.args.dst, tt.args.src)
 			if got := tt.args.dst; !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got = %v, want %v", got, tt.want)

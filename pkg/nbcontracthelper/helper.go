@@ -3,16 +3,17 @@ package nbcontracthelper
 import (
 	"bytes"
 	"encoding/gob"
+	"log"
 
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 )
 
 type NBContractBuilder struct {
-	// nodeBootstrapConfig is the configuration object for the NBContract (Node Bootstrap Contract)
+	// nodeBootstrapConfig is the configuration object for the NBContract (Node Bootstrap Contract).
 	nodeBootstrapConfig *nbcontractv1.Configuration
 }
 
-// Check and initialize each field if it is nil
+// Check and initialize each field if it is nil.
 func initializeIfNil[T any](field **T) {
 	if *field == nil {
 		*field = new(T)
@@ -40,7 +41,7 @@ func ensureConfigsNonNil(nBC *nbcontractv1.Configuration) {
 	initializeIfNil(&nBC.CustomSearchDomainConfig)
 }
 
-// Creates a new instance of NBContractBuilder and ensures all objects in nodeBootstrapConfig are non-nil
+// Creates a new instance of NBContractBuilder and ensures all objects in nodeBootstrapConfig are non-nil.
 func NewNBContractBuilder() *NBContractBuilder {
 	nbc := &nbcontractv1.Configuration{}
 	ensureConfigsNonNil(nbc)
@@ -55,8 +56,10 @@ func (nBCB *NBContractBuilder) ApplyConfiguration(config *nbcontractv1.Configura
 	}
 
 	// Use deep copy to avoid modifying the original object 'config'
-	nBCB.deepCopy(config, nBCB.nodeBootstrapConfig)
-	ensureConfigsNonNil(nBCB.nodeBootstrapConfig)
+	if err := nBCB.deepCopy(config, nBCB.nodeBootstrapConfig); err != nil {
+		log.Printf("Failed to deep copy the configuration: %v", err)
+		ensureConfigsNonNil(nBCB.nodeBootstrapConfig)
+	}
 }
 
 // Get the nodeBootstrapConfig object
@@ -66,7 +69,7 @@ func (nBCB *NBContractBuilder) GetNodeBootstrapConfig() *nbcontractv1.Configurat
 
 // Deep copy the source object to the destination object.
 // Note that the existing value in the destination object will not be cleared
-// if the source object doesn't have that field
+// if the source object doesn't have that field.
 func (nBCB *NBContractBuilder) deepCopy(src, dst interface{}) error {
 	if src == nil {
 		return nil
