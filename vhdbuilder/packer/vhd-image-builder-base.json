@@ -1,8 +1,5 @@
 {
   "variables": {
-    "client_id": "{{env `AZURE_CLIENT_ID`}}",
-    "client_secret": "{{env `AZURE_CLIENT_SECRET`}}",
-    "tenant_id": "{{env `AZURE_TENANT_ID`}}",
     "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
     "location": "{{env `AZURE_LOCATION`}}",
     "vm_size": "{{env `AZURE_VM_SIZE`}}",
@@ -35,13 +32,10 @@
   "builders": [
     {
       "type": "azure-arm",
+      "subscription_id": "{{user `subscription_id`}}",
       "virtual_network_name": "{{user `vnet_name`}}",
       "virtual_network_subnet_name": "{{user `subnet_name`}}",
       "ssh_read_write_timeout": "5m",
-      "client_id": "{{user `client_id`}}",
-      "client_secret": "{{user `client_secret`}}",
-      "tenant_id": "{{user `tenant_id`}}",
-      "subscription_id": "{{user `subscription_id`}}",
       "os_type": "Linux",
       "os_disk_size_gb": 30,
       "image_publisher": "{{user `img_publisher`}}",
@@ -55,10 +49,12 @@
         "SkipLinuxAzSecPack": "true",
         "os": "Linux",
         "now": "{{user `create_time`}}",
-        "createdBy": "aks-vhd-pipeline"
+        "createdBy": "aks-vhd-pipeline",
+        "image_sku": "{{user `img_sku`}}"
       },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
+      "managed_image_storage_account_type": "Premium_LRS",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
       "polling_duration_timeout": "1h",
@@ -325,6 +321,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sshd_config_1804_fips",
       "destination": "/home/packer/sshd_config_1804_fips"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/sshd_config_2204_fips",
+      "destination": "/home/packer/sshd_config_2204_fips"
     },
     {
       "type": "file",

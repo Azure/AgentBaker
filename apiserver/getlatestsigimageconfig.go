@@ -33,7 +33,15 @@ func (api *APIServer) GetLatestSigImageConfig(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	latestSigConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, config.Region, config.Distro)
+	if api.Options != nil && api.Options.Toggles != nil {
+		agentBaker = agentBaker.WithToggles(api.Options.Toggles)
+	}
+
+	latestSigConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, config.Distro, &datamodel.EnvironmentInfo{
+		SubscriptionID: config.SubscriptionID,
+		TenantID:       config.TenantID,
+		Region:         config.Region,
+	})
 	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)

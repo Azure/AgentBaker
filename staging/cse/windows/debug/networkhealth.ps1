@@ -25,6 +25,8 @@ enum TestStatus {
 
 # Globals
 set-variable -name MODE -value ([Mode]$OutputMode) -Scope Global
+set-variable -name HNS_THREAD_COUNT_THRESHOLD -value ([int]200) -Scope Global
+set-variable -name BASE_DIRECTORY -value ([string]"c:\k\debug") -Scope Global
 
 if ($MODE -ne [Mode]::HtmlOnly ) {
     set-variable -name EVENT_SOURCE_NAME -value ([string]"NetworkHealth") -Scope Global
@@ -209,6 +211,9 @@ class NetworkTroubleshooter {
                 $message = "{0} {1} {2}" -f (Get-Date).ToString(),$(hostname), $problems.Problem
                 Write-Host $message
             }
+        } else{
+            $message = "{0} {1} {2}" -f (Get-Date).ToString(),$(hostname), "No Network Error Detected"
+            Write-Host $message
         }
     }
 }
@@ -374,7 +379,9 @@ class AKSNodeDiagnosticDataProvider : DiagnosticDataProvider {
      
         # Then, remove any extra space characters. Only capture the numbers representing the beginning and end of range
         $tcpRangesArray = $tcpRanges -replace "\s+(\d+)\s+(\d+)\s+", '$1,$2' | ConvertFrom-String -Delimiter ","
-    
+        #Convert from PSCustomObject to Object[] type
+        $tcpRangesArray = @($tcpRangesArray)
+        
         # Extract the ephemeral ports ranges
         $EphemeralPortRange = (netsh int ipv4 sh dynamicportrange $protocol) -replace "[^0-9]", '' | ? { $_.trim() -ne "" }
         $EphemeralPortStart = [Convert]::ToUInt32($EphemeralPortRange[0])
@@ -924,7 +931,7 @@ class DSRLoadBalancerPolicyVfpRules : DiagnosticTest {
 }
 
 class StaleRemoteEndpoints : DiagnosticTest {
-    # Ensure that all remote endpoints on the node belong to atleast one policyList 
+    # Ensure that all remote endpoints on the node belong to atleast one LB policy
 
     [TestStatus]Run([DiagnosticDataProvider] $DiagnosticDataProvider) {
         [EndpointData[]]$endpointsData = $DiagnosticDataProvider.GetEndpointData()
@@ -937,8 +944,7 @@ class StaleRemoteEndpoints : DiagnosticTest {
             $stale_remote_endpoint = $true
             if ($endpoint.IsRemoteEndpoint -eq $true) {
                 foreach ($lbPolicy in $lbPolicies) {
-                    if ($endpoint.IsRemoteEndpoint -eq $true -and $lbPolicy.EndpointIpAddresses.Contains($endpoint.IPAddress))
-                    {
+                    if ($lbPolicy.EndpointIpAddresses.Contains($endpoint.IPAddress)) {
                         $stale_remote_endpoint = $false
                         break
                     }
@@ -964,6 +970,40 @@ class StaleRemoteEndpoints : DiagnosticTest {
         return "No stale remote endpoints found"
     }
 }
+
+
+class LoadBalancerStaleRemoteEndpoints : DiagnosticTest {
+    # Ensure that all remote endpoints in the Load Balancer policies are present in the endpoints data
+
+    [TestStatus]Run([DiagnosticDataProvider] $DiagnosticDataProvider) {
+        [EndpointData[]]$endpointsData = $DiagnosticDataProvider.GetEndpointData()
+        [LoadBalancerPolicyData[]] $lbPolicies = $DiagnosticDataProvider.GetLoadBalancerPolicyData()
+
+        $this.Status = [TestStatus]::Passed
+        $lb_endpoints = [System.Collections.ArrayList]::new()
+        $stale_endpoints = [System.Collections.ArrayList]::new()
+        foreach ($lbPolicy in $lbPolicies) {
+            $lb_endpoints += $lbPolicy.Endpoints
+        }
+        $stale_endpoints = [System.Collections.ArrayList] ($lb_endpoints | Select-Object -Unique)
+        foreach($endpoint in $endpointsData) {
+            if($stale_endpoints -Contains $endpoint.Identifier) {
+                $stale_endpoints = $stale_endpoints -ne $endpoint.Identifier
+            }
+        }
+        if($stale_endpoints.Count -gt 0) {
+            $this.Status = [TestStatus]::Failed
+            $this.RootCause = "Detected {0} Load balancerstale remote endpoints {1} " -f $stale_endpoints.Count, ($stale_endpoints -join ' ')
+            $this.Resolution = "Reconfigure Load balancer policies or remove the stale endpoints"
+        }
+        return $this.Status
+    }
+
+    [string]GetTestDescription() {
+        return "No Load balancer stale remote endpoints found"
+    }
+}
+
 
 class ValidDNSLoadbalancerPolicy : DiagnosticTest {
     # Ensure that a valid HNS LoadBalancer policy exists for the DNS IP
@@ -992,6 +1032,20 @@ class ValidDNSLoadbalancerPolicy : DiagnosticTest {
     }
 }
 
+class HNSCrash : DiagnosticTest {
+    
+    [TestStatus]Run([DiagnosticDataProvider] $DiagnosticDataProvider) {
+        $numCrash = (Get-WinEvent -FilterHashtable @{logname = 'System'; ProviderName = 'Service Control Manager' } | Select-Object -Property TimeCreated, Id, LevelDisplayName, Message | Where-Object Message -like "*The Host Network Service terminated unexpectedly*").Count
+        if ($numCrash -gt 0)
+        {
+            $this.Status = [TestStatus]::Failed
+            $this.RootCause = "HNS Crashed Detected"
+            $this.Resolution = "Need to check crash dump"
+        }
+        return $this.Status
+    }
+}
+
 class ClusterIPServiceDSR : DiagnosticTest {
     # Ensure all the HNS Load balancer policies for the ClusterIP are configured in DSR mode
 
@@ -1014,6 +1068,98 @@ class ClusterIPServiceDSR : DiagnosticTest {
     }
 }
 
+class HNSPotentialDeadlock : DiagnosticTest {
+    [TestStatus]Run([DiagnosticDataProvider] $DiagnosticDataProvider) {
+        [NodeData] $nodeData = $DiagnosticDataProvider.GetNodeData()
+        $this.Status = [TestStatus]::Passed
+        if ($nodeData.HNSData.ThreadInfo.Count -gt $Global:HNS_THREAD_COUNT_THRESHOLD){
+            $this.Status = [TestStatus]::Failed
+            $this.RootCause = "Thread count too high, HNS has likely entered a deadlock state"
+            $this.Resolution = "Restart the computer"
+        }
+        # Get hread count and check if it is greater than 200
+        return $this.Status
+    }
+    [string]GetTestDescription() {
+        return "HNS thread count is satisfactory"
+    }
+}
+
+class BasicConnectivity : DiagnosticTest {
+    [TestStatus]Run([DiagnosticDataProvider] $DiagnosticDataProvider) {
+        $this.Status = [TestStatus]::Passed
+        $tcping = Test-NetConnection -Port 80
+        if (!$tcping.TcpTestSucceeded){
+            $this.Status = [TestStatus]::Failed
+            $this.RootCause = "TCPing (TCP) has failed, node has no Internet connectivity"
+            $this.Resolution = "" # TODO
+        }
+        return $this.Status
+    }
+    [string]GetTestDescription() {
+        return "Node has external connectivity"
+    }
+}
+
+class HNSManagement : DiagnosticTest {
+    [TestStatus]Run([DiagnosticDataProvider] $DiagnosticDataProvider) {
+        $this.Status = [TestStatus]::Passed
+        $lb_ipv4_vip = "250.0.0.10" # Should not be used by users, "reserved for future use" address
+        $hns_module_path = Join-Path -Path $Global:BASE_DIRECTORY -ChildPath "hns.v2.psm1"
+        # check if path exists, skip the test otherwise
+        if (!(Test-Path -Path $hns_module_path)){
+            return [TestStatus]::Skipped
+        }
+        # Import module
+        ipmo $hns_module_path -Force
+        # Create endpoint
+        [NetworkData] $networkData = $DiagnosticDataProvider.GetNetworkData()
+        $hnsEndpoint = New-HnsRemoteEndpoint -NetworkId $networkData.Identifier -MacAddress 02-11-ab-aa-aa-aa
+        if (!$hnsEndpoint){
+            $this.Status = [TestStatus]::Failed
+            $this.RootCause = "HNS failure creating endpoints"
+            $this.Resolution = "Restart HNS service by executing: Restart-Service -f HNS "
+            return $this.Status
+        }
+        # Create load balancer
+        $hnsLoadBalancer = New-HnsLoadBalancer -Endpoints $hnsEndpoint.ID -InternalPort 80 -ExternalPort 8090 -Protocol 6 -Vip $lb_ipv4_vip -DSR
+        if (!$hnsLoadBalancer){
+            $this.Status = [TestStatus]::Failed
+            $this.RootCause = "HNS failure creating loadbalancer"
+            $this.Resolution = "Restart HNS service by executing: Restart-Service -f HNS "
+        }
+        # Delete load balancer
+        $hnsLoadBalancer | Remove-HnsLoadBalancer -Verbose
+        # Check if lb still exists, should not exist
+        $lb_delete_check = Get-HnsLoadBalancer -Id $hnsLoadBalancer.ID -ErrorAction SilentlyContinue
+
+        # Delete endpoint
+        $hnsEndpoint | Remove-HnsEndpoint -Verbose
+        # Check if ep still exists, should not exist
+        $ep_delete_check = Get-HnsEndpoint -Id $hnsEndpoint.ID -ErrorAction SilentlyContinue
+
+        if ($ep_delete_check -or $lb_delete_check){
+            $this.Status = [TestStatus]::Failed
+            $this.RootCause = "HNS failure deleting loadbalancer or endpoint"
+            $this.Resolution = "Restart HNS service by executing: Restart-Service -f HNS "
+        }
+        if ($lb_delete_check){
+            $this.Resolution += "`nThen execute  Get-HnsLoadBalancer -Id $($hnsLoadBalancer.ID) | Remove-HnsLoadBalancer"
+        }
+
+        if ($ep_delete_check){
+            $this.Resolution += "`nThen execute Get-HnsEndpoint -Id $($hnsEndpoint.ID) | Remove-HnsEndpoint"
+        }
+
+        return $this.Status
+    }
+
+    [string]GetTestDescription() {
+        return "HNS can create/delete endpoints and loadbalancers"
+    }
+}
+
+
 ####################### Main ###########################################
 
 if ($Replay) {
@@ -1032,8 +1178,20 @@ $networkTroubleshooter.RegisterDiagnosticTest([IncorrectManagementIpTest]::new()
 $networkTroubleshooter.RegisterDiagnosticTest([LoadBalancerPolicyState]::new())
 $networkTroubleshooter.RegisterDiagnosticTest([DSRLoadBalancerPolicyVfpRules]::new())
 $networkTroubleshooter.RegisterDiagnosticTest([StaleRemoteEndpoints]::new())
+$networkTroubleshooter.RegisterDiagnosticTest([LoadBalancerStaleRemoteEndpoints]::new())
 $networkTroubleshooter.RegisterDiagnosticTest([ValidDNSLoadbalancerPolicy]::new())
 $networkTroubleshooter.RegisterDiagnosticTest([ClusterIPServiceDSR]::new())
+$networkTroubleshooter.RegisterDiagnosticTest([HNSCrash]::new())
+$networkTroubleshooter.RegisterDiagnosticTest([HNSPotentialDeadlock]::new())
+$networkTroubleshooter.RegisterDiagnosticTest([BasicConnectivity]::new())
+$networkTroubleshooter.RegisterDiagnosticTest([HNSManagement]::new())
+# TODO: Implement below
+#$networkTroubleshooter.RegisterDiagnosticTest([OutboundNatExceptions]::new())
+#$networkTroubleshooter.RegisterDiagnosticTest([AclPolicies]::new())
+#$networkTroubleshooter.RegisterDiagnosticTest([PodToNonDsrService]::new())
+#$networkTroubleshooter.RegisterDiagnosticTest([PodToPod]::new())
+#$networkTroubleshooter.RegisterDiagnosticTest([OverlayNetworking]::new())
+#$networkTroubleshooter.RegisterDiagnosticTest([SwiftScenarios]::new())
 
 # Run Diagnostic tests against data
 $networkTroubleshooter.RunDiagnosticTests()
@@ -1083,6 +1241,8 @@ if (($MODE -ne [Mode]::EventOnly -or ($networkTroubleshooter.GetNetworkStatus() 
 }
 
 # Clean up globals
+Remove-Variable -Name HNS_THREAD_COUNT_THRESHOLD -Scope Global
+Remove-Variable -name BASE_DIRECTORY -Scope Global
 if ($MODE -ne [Mode]::HtmlOnly) {
     Remove-Variable -name EVENT_SOURCE_NAME -Scope Global
     Remove-Variable -name LOG_NAME -Scope Global

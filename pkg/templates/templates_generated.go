@@ -86,6 +86,7 @@
 // linux/cloud-init/artifacts/sshd_config
 // linux/cloud-init/artifacts/sshd_config_1604
 // linux/cloud-init/artifacts/sshd_config_1804_fips
+// linux/cloud-init/artifacts/sshd_config_2204_fips
 // linux/cloud-init/artifacts/sync-container-logs.service
 // linux/cloud-init/artifacts/sync-container-logs.sh
 // linux/cloud-init/artifacts/sysctl-d-60-CIS.conf
@@ -1880,6 +1881,7 @@ var _linuxCloudInitArtifactsCisSh = []byte(`#!/bin/bash
 source /home/packer/provision_source.sh
 
 assignRootPW() {
+    set +x
     if grep '^root:[!*]:' /etc/shadow; then
         VERSION=$(grep DISTRIB_RELEASE /etc/*-release | cut -f 2 -d "=")
         SALT=$(openssl rand -base64 5)
@@ -1893,6 +1895,7 @@ assignRootPW() {
 
         echo 'root:'$HASH | /usr/sbin/chpasswd -e || exit $ERR_CIS_ASSIGN_ROOT_PW
     fi
+    set -x
 }
 
 assignFilePermissions() {
@@ -2256,6 +2259,7 @@ MIG_NODE={{GetVariable "migNode"}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
+CREDENTIAL_PROVIDER_DOWNLOAD_URL={{GetParameter "linuxCredentialProviderURL"}}
 CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
 CONTAINERD_PACKAGE_URL={{GetParameter "containerdPackageURL"}}
 RUNC_VERSION={{GetParameter "runcVersion"}}
@@ -2292,6 +2296,7 @@ TARGET_CLOUD="{{- if IsAKSCustomCloud -}} AzureStackCloud {{- else -}} {{GetTarg
 TARGET_ENVIRONMENT="{{GetTargetEnvironment}}"
 CUSTOM_ENV_JSON="{{GetBase64EncodedEnvironmentJSON}}"
 IS_CUSTOM_CLOUD="{{IsAKSCustomCloud}}"
+AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX="{{- if IsAKSCustomCloud}}{{AKSCustomCloudContainerRegistryDNSSuffix}}{{end}}"
 CSE_HELPERS_FILEPATH="{{GetCSEHelpersScriptFilepath}}"
 CSE_DISTRO_HELPERS_FILEPATH="{{GetCSEHelpersScriptDistroFilepath}}"
 CSE_INSTALL_FILEPATH="{{GetCSEInstallScriptFilepath}}"
@@ -2868,6 +2873,14 @@ EOF
 # for DNS.
 iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
 EOF
+
+    # check if kubelet flags contain image-credential-provider-config and image-credential-provider-bin-dir
+    if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
+        echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
+        logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
+        logs_to_events "AKS.CSE.ensureKubelet.installCredentalProvider" installCredentalProvider
+    fi
+
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
 }
 
@@ -3061,6 +3074,46 @@ disableSSH() {
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
 }
 
+configCredentialProvider() {
+    CREDENTIAL_PROVIDER_CONFIG_FILE=/var/lib/kubelet/credential-provider-config.yaml
+    mkdir -p "$(dirname "${CREDENTIAL_PROVIDER_CONFIG_FILE}")"
+    touch "${CREDENTIAL_PROVIDER_CONFIG_FILE}"
+    if [[ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]]; then
+        tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+      - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json
+EOF
+    else
+    tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json
+EOF
+    fi
+}
+
 #EOF`)
 
 func linuxCloudInitArtifactsCse_configShBytes() ([]byte, error) {
@@ -3177,6 +3230,8 @@ ERR_PRIVATE_K8S_PKG_ERR=203 # Error downloading (at build-time) or extracting (a
 ERR_K8S_INSTALL_ERR=204 # Error installing or setting up kubernetes binaries on disk
 
 ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
+
+ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205 # Timeout waiting for credential provider downloads
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
@@ -3527,6 +3582,8 @@ UBUNTU_RELEASE=$(lsb_release -r -s)
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR="/opt/azure/tlsbootstrap"
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION="v0.1.0-alpha.2"
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
+CREDENTIAL_PROVIDER_DOWNLOAD_DIR="/opt/credentialprovider/downloads"
+CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1 v0.8.0"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
@@ -3586,6 +3643,22 @@ downloadCNI() {
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
+downloadCredentalProvider() {
+    mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
+    CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+}
+
+installCredentalProvider() {
+    logs_to_events "AKS.CSE.installCredentalProvider.downloadCredentalProvider" downloadCredentalProvider
+    tar -xzf "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/${CREDENTIAL_PROVIDER_TGZ_TMP}" -C $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
+    mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    mv "${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}/azure-acr-credential-provider" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"
+    chmod 755 "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"
+    rm -rf ${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}
+}
+
 downloadSecureTLSBootstrapKubeletExecPlugin() {
     local plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION}/linux/amd64/tls-bootstrap-client"
     if [[ $(isARM64) == 1 ]]; then
@@ -3603,20 +3676,32 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
 }
 
 downloadContainerdWasmShims() {
+    declare -a wasmShimPids=()
     for shim_version in $CONTAINERD_WASM_VERSIONS; do
         binary_version="$(echo "${shim_version}" | tr . -)"
-        local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/amd64"
         local containerd_wasm_filepath="/usr/local/bin"
+        local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/amd64"
         if [[ $(isARM64) == 1 ]]; then
             containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/arm64"
         fi
 
         if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT)
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT)
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT)
-            chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
-            chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+            wasmShimPids+=($!)
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+            wasmShimPids+=($!)
+            if [ "$shim_version" == "v0.8.0" ]; then
+                retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+                wasmShimPids+=($!)
+            fi
+        fi
+    done
+    wait ${wasmShimPids[@]}
+    for shim_version in $CONTAINERD_WASM_VERSIONS; do
+        binary_version="$(echo "${shim_version}" | tr . -)"
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
+        if [ "$shim_version" == "v0.8.0" ]; then
             chmod 755 "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1"
         fi
     done
@@ -5357,7 +5442,7 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "pinned": {
             "1804": "1.7.1-1"
         },
-        "edge": "1.7.14-1"
+        "edge": "1.7.15-1"
     },
     "runc": {
         "fileName": "moby-runc_${RUNC_VERSION}+azure-ubuntu${RUNC_PATCH_VERSION}_${CPU_ARCH}.deb",
@@ -5388,13 +5473,8 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "downloadLocation": "",
         "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz",
         "versions": [
-            "1.26.6",
-            "1.26.10",
-            "1.26.12",
-            "1.27.3",
             "1.27.7",
             "1.27.9",
-            "1.28.1",
             "1.28.3",
             "1.28.5",
             "1.29.0",
@@ -6860,6 +6940,115 @@ func linuxCloudInitArtifactsSshd_config_1804_fips() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsSshd_config_2204_fips = []byte(`# This file is a copy of the default sshd_config file, but relaxes used encryption
+# for sshd to work with 5.15.0-1059-azure-fips
+
+# What ports, IPs and protocols we listen for
+Port 22
+# Use these options to restrict which interfaces/protocols sshd will bind to
+#ListenAddress ::
+#ListenAddress 0.0.0.0
+Protocol 2
+
+# 5.2.11 Ensure only approved MAC algorithms are used
+# Disabled for FIPS
+# MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,umac-128@openssh.com
+# KexAlgorithms curve25519-sha256@libssh.org
+# Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+
+# 5.2.12 Ensure SSH Idle Timeout Interval is configured
+ClientAliveInterval 120
+ClientAliveCountMax 3
+
+# HostKeys for protocol version 2
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_dsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+# Logging
+SyslogFacility AUTH
+LogLevel INFO
+
+# Authentication:
+LoginGraceTime 60
+
+# 5.2.8 Ensure SSH root login is disabled
+PermitRootLogin no
+# 5.2.10 Ensure SSH PermitUserEnvironment is disabled
+PermitUserEnvironment no
+
+StrictModes yes
+PubkeyAuthentication yes
+#AuthorizedKeysFile	%h/.ssh/authorized_keys
+
+# Don't read the user's ~/.rhosts and ~/.shosts files
+IgnoreRhosts yes
+# similar for protocol version 2
+HostbasedAuthentication no
+
+# To enable empty passwords, change to yes (NOT RECOMMENDED)
+PermitEmptyPasswords no
+
+# Change to yes to enable challenge-response passwords (beware issues with
+# some PAM modules and threads)
+ChallengeResponseAuthentication no
+
+# Change to no to disable tunnelled clear text passwords
+PasswordAuthentication no
+
+# 5.2.4 Ensure SSH X11 forwarding is disabled
+X11Forwarding no
+
+# 5.2.5 Ensure SSH MaxAuthTries is set to 4 or less
+MaxAuthTries 4
+
+X11DisplayOffset 10
+PrintMotd no
+PrintLastLog yes
+TCPKeepAlive yes
+#UseLogin no
+
+#MaxStartups 10:30:60
+Banner /etc/issue.net
+
+# Allow client to pass locale environment variables
+AcceptEnv LANG LC_*
+
+Subsystem sftp /usr/lib/openssh/sftp-server
+
+# Set this to 'yes' to enable PAM authentication, account processing,
+# and session processing. If this is enabled, PAM authentication will
+# be allowed through the ChallengeResponseAuthentication and
+# PasswordAuthentication.  Depending on your PAM configuration,
+# PAM authentication via ChallengeResponseAuthentication may bypass
+# the setting of "PermitRootLogin without-password".
+# If you just want the PAM account and session checks to run without
+# PAM authentication, then enable this but set PasswordAuthentication
+# and ChallengeResponseAuthentication to 'no'.
+UsePAM yes
+UseDNS no
+GSSAPIAuthentication no
+
+# Mariner AKS CIS Benchmark: Ensure SSH access is limited
+DenyUsers root omsagent nxautomation
+`)
+
+func linuxCloudInitArtifactsSshd_config_2204_fipsBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsSshd_config_2204_fips, nil
+}
+
+func linuxCloudInitArtifactsSshd_config_2204_fips() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsSshd_config_2204_fipsBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/sshd_config_2204_fips", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsSyncContainerLogsService = []byte(`[Unit]
 Description=Syncs AKS pod log symlinks so that WALinuxAgent can include kube-system pod logs in the hourly upload.
 After=containerd.service
@@ -7212,7 +7401,7 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
-    pkg_list=(ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop iftop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat traceroute util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
+    pkg_list=(ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
 
     if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
         # bind9-dnsutils is not available in the 1804 pkg set
@@ -7320,7 +7509,7 @@ installStandaloneContainerd() {
     #if there is no containerd_version input from RP, use hardcoded version
     if [[ -z ${CONTAINERD_VERSION} ]]; then
         # pin 18.04 to 1.7.1
-        CONTAINERD_VERSION="1.7.14"
+        CONTAINERD_VERSION="1.7.15"
         if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
             CONTAINERD_VERSION="1.7.1"
         fi
@@ -8451,7 +8640,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.40.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.41.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -8870,6 +9059,9 @@ $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE=61
 $global:WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG=62
 $global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP=63
 $global:WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION=64
+$global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER = 65 # exit code for installing credential provider
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER=66 # exit code for downloading credential provider failure
+$global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG=67 # exit code for checking credential provider config failure
 
 # Please add new error code for downloading new packages in RP code too
 $global:ErrorCodeNames = @(
@@ -8937,11 +9129,15 @@ $global:ErrorCodeNames = @(
     "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE",
     "WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG",
     "WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP",
-    "WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION"
+    "WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION",
+    "WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER",
+    "WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG"
 )
 
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version
+# DEPRECATED: The contianerd package url will be set in AKS RP code. We will remove the following variables in the future.
 $global:StableContainerdPackage = "v1.6.21-azure.1/binaries/containerd-v1.6.21-azure.1-windows-amd64.tar.gz"
 # The latest containerd version
 $global:LatestContainerdPackage = "v1.7.9-azure.1/binaries/containerd-v1.7.9-azure.1-windows-amd64.tar.gz"
@@ -9414,6 +9610,7 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/sshd_config":                               linuxCloudInitArtifactsSshd_config,
 	"linux/cloud-init/artifacts/sshd_config_1604":                          linuxCloudInitArtifactsSshd_config_1604,
 	"linux/cloud-init/artifacts/sshd_config_1804_fips":                     linuxCloudInitArtifactsSshd_config_1804_fips,
+	"linux/cloud-init/artifacts/sshd_config_2204_fips":                     linuxCloudInitArtifactsSshd_config_2204_fips,
 	"linux/cloud-init/artifacts/sync-container-logs.service":               linuxCloudInitArtifactsSyncContainerLogsService,
 	"linux/cloud-init/artifacts/sync-container-logs.sh":                    linuxCloudInitArtifactsSyncContainerLogsSh,
 	"linux/cloud-init/artifacts/sysctl-d-60-CIS.conf":                      linuxCloudInitArtifactsSysctlD60CisConf,
@@ -9565,6 +9762,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"sshd_config":                     &bintree{linuxCloudInitArtifactsSshd_config, map[string]*bintree{}},
 				"sshd_config_1604":                &bintree{linuxCloudInitArtifactsSshd_config_1604, map[string]*bintree{}},
 				"sshd_config_1804_fips":           &bintree{linuxCloudInitArtifactsSshd_config_1804_fips, map[string]*bintree{}},
+				"sshd_config_2204_fips":           &bintree{linuxCloudInitArtifactsSshd_config_2204_fips, map[string]*bintree{}},
 				"sync-container-logs.service":     &bintree{linuxCloudInitArtifactsSyncContainerLogsService, map[string]*bintree{}},
 				"sync-container-logs.sh":          &bintree{linuxCloudInitArtifactsSyncContainerLogsSh, map[string]*bintree{}},
 				"sysctl-d-60-CIS.conf":            &bintree{linuxCloudInitArtifactsSysctlD60CisConf, map[string]*bintree{}},

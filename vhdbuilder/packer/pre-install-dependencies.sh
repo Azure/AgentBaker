@@ -87,8 +87,10 @@ if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
     installFIPS
   fi
 else
-  # Enable ESM on Ubuntu
-  autoAttachUA
+  # Enable ESM for 18.04 and FIPS only
+  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+    autoAttachUA
+  fi
 
   # Run apt get update to refresh repo list
   # Run apt dist get upgrade to install packages/kernels
@@ -118,7 +120,7 @@ if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; 
   enableCgroupV2forAzureLinux
 fi
 
-if [[ "${UBUNTU_RELEASE}" == "22.04" ]]; then
+if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
   echo "Logging the currently running kernel: $(uname -r)"
   echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
 
