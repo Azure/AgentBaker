@@ -48,6 +48,12 @@
       ],
       "prefetchOptimizations": [
         {
+          "version": "v1.5.23",
+          "binaries": [
+            "usr/local/bin/azure-cns"
+          ]
+        },
+        {
           "version": "v1.5.26",
           "binaries": [
             "usr/local/bin/azure-cns"
@@ -133,7 +139,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-state-metrics:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.9.2"
+        "v2.11.0"
       ]
     },
     {
