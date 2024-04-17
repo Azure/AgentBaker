@@ -138,6 +138,9 @@ $global:map = @{
     "c:\akse-cache\csi-proxy\"    = @(
         "https://acs-mirror.azureedge.net/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz"
     );
+    "c:\akse-cache\credential-provider\"    = @(
+        "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.2/binaries/azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz"
+    );
     # When to remove depracted Kubernetes Windows packages:
     # There are 30 days grace period before a depracted Kubernetes version is out of supported
     # xref: https://docs.microsoft.com/en-us/azure/aks/supported-kubernetes-versions
@@ -156,10 +159,13 @@ $global:map = @{
     "c:\akse-cache\win-k8s\"      = @(
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.7-hotfix.20231103/windowszip/v1.27.7-hotfix.20231103-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.9/windowszip/v1.27.9-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.27.12/windowszip/v1.27.12-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.3-hotfix.20231103/windowszip/v1.28.3-hotfix.20231103-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.5/windowszip/v1.28.5-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.28.8/windowszip/v1.28.8-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.0/windowszip/v1.29.0-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.29.3/windowszip/v1.29.3-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         # Azure CNI v1 (legacy)
