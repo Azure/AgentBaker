@@ -1,7 +1,7 @@
 #!/bin/bash
 
 script_start_timestamp=$(date +%H:%M:%S)
-ection_start_timestamp=$(date +%H:%M:%S)
+section_start_timestamp=$(date +%H:%M:%S)
 
 script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)

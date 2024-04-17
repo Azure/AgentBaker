@@ -393,10 +393,22 @@ installSnapd () {
     export PATH=$PATH:/snap/bin
     echo "jq was installed"
   else
-    sudo apt install snapd
-    sudo snap install jq
-    export PATH=$PATH:/snap/bin
-    echo "snapd and jq were installed"
+    if [[ "${OS_SKU}" == "Ubuntu" ]]; then
+        sudo apt install snapd
+        export PATH=$PATH:/snap/bin
+        sudo snap install jq
+        echo "snapd and jq were installed"
+    elif [[ "${OS_SKU}" == "CBLMariner" ]]; then
+        sudo tdnf install snapd
+        sudo systemctl enable --now snapd.socket
+        sudo ln -s /var/lib/snapd/snap /snap
+        sudo snap install jq
+    elif [[ "${OS_SKU}" == "AzureLinux" ]]; then 
+        sudo yum install snapd
+        sudo systemctl enable --now snapd.socket
+        sudo ln -s /var/lib/snapd/snap /snap
+        sudo snap install jq
+    fi
   fi
   set -x
 }
