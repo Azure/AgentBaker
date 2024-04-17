@@ -25,7 +25,7 @@ source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
 
-snap install jq
+sudo snap install jq
 export PATH=$PATH:/snap/bin
 jq --version
 capture_benchmarks false "declare_variables_remove_comments_and_execute_packer_files"
