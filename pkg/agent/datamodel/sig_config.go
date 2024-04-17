@@ -1,6 +1,7 @@
 package datamodel
 
 import (
+	"bytes"
 	_ "embed"
 	"encoding/json"
 	"fmt"
@@ -958,7 +959,7 @@ func getCachedVersionsFromManifestJSON(manifestFilePath string) {
 	if err != nil {
 		panic(err)
 	}
-	data = trimEOF(data)
+	data = bytes.ReplaceAll(data, []byte("#EOF"), []byte(""))
 	var manifest Manifest
 	if err = json.Unmarshal(data, &manifest); err != nil {
 		panic(err)
