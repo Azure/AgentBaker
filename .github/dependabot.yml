@@ -15,3 +15,28 @@ updates:
       time: "01:00"
     labels:
       - "cleanup"
+
+  - package-ecosystem: gomod
+    directory: /e2e
+    schedule:
+      interval: daily
+
+  - package-ecosystem: gomod
+    directory: /hack/tools
+    schedule:
+      interval: daily
+
+  - package-ecosystem: pip
+    directory: /vhdbuilder/packer/test/pam
+    schedule:
+      interval: daily
+
+  - package-ecosystem: gomod
+    directory: /vhdbuilder/prefetch
+    schedule:
+      interval: daily
+
+  - package-ecosystem: gomod
+    directory: /vhdbuilder/release-notes/autonotes
+    schedule:
+      interval: daily
