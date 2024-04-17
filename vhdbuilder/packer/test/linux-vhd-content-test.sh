@@ -858,6 +858,50 @@ testContainerImagePrefetchScript() {
   return 0
 }
 
+testBccTools() {
+
+os="$1"
+executable=0
+not_executable=0
+declare -a notExecutableTools=()
+
+for tool in /usr/share/bcc/tools/*; do
+  if [ -x "$tool" ]; then
+    executable=$((executable + 1))
+  else
+    not_executable=$((not_executable + 1))
+    notExecutableTools+="$tool"
+    echo "Not Executable: $tool"
+  fi
+done
+
+echo "Total tools: $((not_executable + executable))"
+echo "Executable Tools: $executable"
+echo "Not Executable Tools: $not_executable"
+
+if [ "$os" == "Ubuntu" ]; then
+  if [ "$executable" -ne 127 ] || [ "$not_executable" -ne 2 ]; then
+    echo "Tool numbers don't match expected output."
+    return 1
+  fi
+else
+  if [ "$executable" -ne 131 ] || [ "$not_executable" -ne 2 ]; then
+    echo "Tool numbers don't match expected output."
+    return 1
+  fi
+fi
+
+for tool in "${notExecutableTools[@]}"; do
+  if [[ ! "$tool" == *.c ]]; then
+    echo "Failed: tool $tool is not a .c file"
+    return 1
+  fi
+done
+
+echo "All Bcc tools tests passed."
+return 0
+}
+
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
@@ -867,6 +911,7 @@ testContainerImagePrefetchScript() {
 #
 # We should also avoid early exit from the test run -- like if a command fails with
 # an exit rather than a return -- because that prevents other tests from running.
+testBccTools $OS_SKU
 testVHDBuildLogsExist
 testCriticalTools
 testFilesDownloaded $CONTAINER_RUNTIME
