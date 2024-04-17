@@ -138,5 +138,5 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
   update-grub
 fi
 capture_benchmarks false "handle_azureLinux_and_cgroupV2"
-@echo "pre-install-dependencies step finished successfully"
+echo "pre-install-dependencies step finished successfully"
 capture_benchmarks true "pre_install_dependencies.sh"

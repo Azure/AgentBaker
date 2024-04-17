@@ -113,5 +113,5 @@ if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_R
   fi
 fi
 capture_benchmarks false "resolve_conf"
-@echo "post-install-dependencies step completed successfully"
+echo "post-install-dependencies step completed successfully"
 capture_benchmarks true "post_install_dependencies.sh"
