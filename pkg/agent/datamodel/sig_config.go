@@ -24,20 +24,141 @@ var (
 
 //nolint:gochecknoinits
 func init() {
-	CacheManifest()
-	CacheComponents()
+	manifest := CacheManifest()
+	processManifest(manifest)
+
+	components := CacheComponents()
+	processComponents(components)
 }
 
-func CacheManifest() {
+func CacheManifest() Manifest {
 	_, filename, _, _ := runtime.Caller(0)
 	manifestFilePath := "../../../parts/linux/cloud-init/artifacts/manifest.json"
-	getCachedVersionsFromManifestJSON(path.Join(path.Dir(filename), manifestFilePath))
+	return getCachedVersionsFromManifestJSON(path.Join(path.Dir(filename), manifestFilePath))
 }
 
-func CacheComponents() {
+func CacheComponents() Components {
 	_, filename, _, _ := runtime.Caller(0)
 	componentsFilePath := "../../../vhdbuilder/packer/components.json"
-	getCachedVersionsFromComponentsJSON(path.Join(path.Dir(filename), componentsFilePath))
+	return getCachedVersionsFromComponentsJSON(path.Join(path.Dir(filename), componentsFilePath))
+}
+
+func processManifest(manifest Manifest) {
+	CachedFromManifest["kubernetes"] = ProcessedManifest{
+		Versions: manifest.Kubernetes.Versions,
+	}
+	CachedFromManifest["runc"] = ProcessedManifest{
+		Versions:  manifest.Runc.Versions,
+		Pinned:    manifest.Runc.Pinned,
+		Installed: manifest.Runc.Installed,
+	}
+	CachedFromManifest["containerd"] = ProcessedManifest{
+		Versions: manifest.Containerd.Versions,
+		Pinned:   manifest.Containerd.Pinned,
+		Edge:     manifest.Containerd.Edge,
+	}
+	CachedFromManifest["nvidia-container-runtime"] = ProcessedManifest{
+		Versions: manifest.NvidiaContainerRuntime.Versions,
+	}
+	CachedFromManifest["nvidia-drivers"] = ProcessedManifest{
+		Versions: manifest.NvidiaDrivers.Versions,
+	}
+}
+
+func processComponents(components Components) {
+	for _, image := range components.ContainerImages {
+		componentName, err := processContainerImageTag(image.DownloadURL)
+		if err != nil {
+			panic(err)
+		}
+		processed := ContainerImage{
+			MultiArchVersions: image.MultiArchVersions,
+			Amd64OnlyVersions: image.Amd64OnlyVersions,
+		}
+		if len(image.PrefetchOptimizations) > 0 {
+			processed.PrefetchOptimizations = PrefetchOptimizations{
+				Version:  image.PrefetchOptimizations[0].Version,
+				Binaries: image.PrefetchOptimizations[0].Binaries,
+			}
+		}
+		CachedFromComponents[componentName] = processed
+	}
+}
+
+type Manifest struct {
+	Containerd struct {
+		Edge     string            `json:"edge"`
+		Versions []string          `json:"versions"`
+		Pinned   map[string]string `json:"pinned"`
+	} `json:"containerd"`
+	Runc struct {
+		Versions  []string          `json:"versions"`
+		Pinned    map[string]string `json:"pinned"`
+		Installed map[string]string `json:"installed"`
+	} `json:"runc"`
+	NvidiaContainerRuntime struct {
+		Versions []string `json:"versions"`
+	} `json:"nvidia-container-runtime"`
+	NvidiaDrivers struct {
+		Versions []string `json:"versions"`
+	} `json:"nvidia-drivers"`
+	Kubernetes struct {
+		Versions []string `json:"versions"`
+	} `json:"kubernetes"`
+}
+
+type ProcessedManifest struct {
+	Versions  []string
+	Pinned    map[string]string
+	Edge      string
+	Installed map[string]string
+}
+
+func getCachedVersionsFromManifestJSON(manifestFilePath string) Manifest {
+	data, err := os.ReadFile(manifestFilePath)
+	if err != nil {
+		panic(err)
+	}
+	data = bytes.ReplaceAll(data, []byte("#EOF"), []byte(""))
+	var manifest Manifest
+	if err = json.Unmarshal(data, &manifest); err != nil {
+		panic(err)
+	}
+	return manifest
+}
+
+type Components struct {
+	ContainerImages []struct {
+		DownloadURL           string   `json:"downloadURL"`
+		Amd64OnlyVersions     []string `json:"amd64OnlyVersions"`
+		MultiArchVersions     []string `json:"multiArchVersions"`
+		PrefetchOptimizations []struct {
+			Version  string   `json:"version"`
+			Binaries []string `json:"binaries"`
+		} `json:"prefetchOptimizations"`
+	} `json:"ContainerImages"`
+}
+type PrefetchOptimizations struct {
+	Version  string
+	Binaries []string
+}
+
+type ContainerImage struct {
+	MultiArchVersions     []string
+	Amd64OnlyVersions     []string
+	PrefetchOptimizations PrefetchOptimizations
+}
+
+func getCachedVersionsFromComponentsJSON(componentsFilePath string) Components {
+	data, err := os.ReadFile(componentsFilePath)
+	if err != nil {
+		panic(err)
+	}
+	var components Components
+	if err = json.Unmarshal(data, &components); err != nil {
+		panic(err)
+	}
+	return components
 }
 
 // SIGAzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
@@ -922,117 +1043,5 @@ func withEdgeZoneConfig(acsSigConfig SIGConfig) SigImageConfigOpt {
 func withSubscription(subscriptionID string) SigImageConfigOpt {
 	return func(c *SigImageConfig) {
 		c.SubscriptionID = subscriptionID
-	}
-}
-
-type Manifest struct {
-	Containerd struct {
-		Edge     string            `json:"edge"`
-		Versions []string          `json:"versions"`
-		Pinned   map[string]string `json:"pinned"`
-	} `json:"containerd"`
-	Runc struct {
-		Versions  []string          `json:"versions"`
-		Pinned    map[string]string `json:"pinned"`
-		Installed map[string]string `json:"installed"`
-	} `json:"runc"`
-	NvidiaContainerRuntime struct {
-		Versions []string `json:"versions"`
-	} `json:"nvidia-container-runtime"`
-	NvidiaDrivers struct {
-		Versions []string `json:"versions"`
-	} `json:"nvidia-drivers"`
-	Kubernetes struct {
-		Versions []string `json:"versions"`
-	} `json:"kubernetes"`
-}
-
-type ProcessedManifest struct {
-	Versions  []string
-	Pinned    map[string]string
-	Edge      string
-	Installed map[string]string
-}
-
-func getCachedVersionsFromManifestJSON(manifestFilePath string) {
-	data, err := os.ReadFile(manifestFilePath)
-	if err != nil {
-		panic(err)
-	}
-	data = bytes.ReplaceAll(data, []byte("#EOF"), []byte(""))
-	var manifest Manifest
-	if err = json.Unmarshal(data, &manifest); err != nil {
-		panic(err)
-	}
-
-	CachedFromManifest["kubernetes"] = ProcessedManifest{
-		Versions: manifest.Kubernetes.Versions,
-	}
-	CachedFromManifest["runc"] = ProcessedManifest{
-		Versions:  manifest.Runc.Versions,
-		Pinned:    manifest.Runc.Pinned,
-		Installed: manifest.Runc.Installed,
-	}
-	CachedFromManifest["containerd"] = ProcessedManifest{
-		Versions: manifest.Containerd.Versions,
-		Pinned:   manifest.Containerd.Pinned,
-		Edge:     manifest.Containerd.Edge,
-	}
-	CachedFromManifest["nvidia-container-runtime"] = ProcessedManifest{
-		Versions: manifest.NvidiaContainerRuntime.Versions,
-	}
-	CachedFromManifest["nvidia-drivers"] = ProcessedManifest{
-		Versions: manifest.NvidiaDrivers.Versions,
-	}
-}
-
-type Components struct {
-	ContainerImages []struct {
-		DownloadURL           string   `json:"downloadURL"`
-		Amd64OnlyVersions     []string `json:"amd64OnlyVersions"`
-		MultiArchVersions     []string `json:"multiArchVersions"`
-		PrefetchOptimizations []struct {
-			Version  string   `json:"version"`
-			Binaries []string `json:"binaries"`
-		} `json:"prefetchOptimizations"`
-	} `json:"ContainerImages"`
-}
-type PrefetchOptimizations struct {
-	Version  string
-	Binaries []string
-}
-
-type ContainerImage struct {
-	MultiArchVersions     []string
-	Amd64OnlyVersions     []string
-	PrefetchOptimizations PrefetchOptimizations
-}
-
-func getCachedVersionsFromComponentsJSON(componentsFilePath string) {
-	data, err := os.ReadFile(componentsFilePath)
-	if err != nil {
-		panic(err)
-	}
-	var components Components
-	if err = json.Unmarshal(data, &components); err != nil {
-		panic(err)
-	}
-
-	for _, image := range components.ContainerImages {
-		componentName, err := processContainerImageTag(image.DownloadURL)
-		if err != nil {
-			panic(err)
-		}
-		processed := ContainerImage{
-			MultiArchVersions: image.MultiArchVersions,
-			Amd64OnlyVersions: image.Amd64OnlyVersions,
-		}
-		if len(image.PrefetchOptimizations) > 0 {
-			processed.PrefetchOptimizations = PrefetchOptimizations{
-				Version:  image.PrefetchOptimizations[0].Version,
-				Binaries: image.PrefetchOptimizations[0].Binaries,
-			}
-		}
-		CachedFromComponents[componentName] = processed
 	}
 }
