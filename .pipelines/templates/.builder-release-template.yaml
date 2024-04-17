@@ -241,6 +241,11 @@ steps:
         artifactName: 'publishing-info-${{ parameters.artifactName }}'
         targetPath: 'vhd-publishing-info.json'
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+  - task: PublishPipelineArtifact@1
+    inputs:
+        artifactName: 'build-performance-info-${{ parameters.artifactName }}'
+        targetPath: 'jsonBenchmarks.json'
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - task: UniversalPackages@0
     displayName: Universal Publish
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
