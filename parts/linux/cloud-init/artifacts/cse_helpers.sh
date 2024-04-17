@@ -388,8 +388,8 @@ start_watch () {
 
 capture_benchmarks () {
   set +x
-  local is_final_section={$1}
-  local title={$2}
+  local is_final_section=$1
+  local title=$2
 
   local current_time=$(date +%s)
   local end_timestamp=$(date +%H:%M:%S)
