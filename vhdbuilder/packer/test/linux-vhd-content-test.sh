@@ -870,7 +870,7 @@ for tool in /usr/share/bcc/tools/*; do
     executable=$((executable + 1))
   else
     not_executable=$((not_executable + 1))
-    notExecutableTools+="$tool"
+    notExecutableTools+=("$tool")
     echo "Not Executable: $tool"
   fi
 done
