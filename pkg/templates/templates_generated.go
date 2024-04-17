@@ -5475,10 +5475,13 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "versions": [
             "1.27.7",
             "1.27.9",
+            "1.27.12",
             "1.28.3",
             "1.28.5",
+            "1.28.8",
             "1.29.0",
-            "1.29.2"
+            "1.29.2",
+            "1.29.3"
         ]
     },
     "_template": {
@@ -5777,6 +5780,9 @@ if [ -z "${node_name}" ]; then
     echo "cannot get node name"
     exit 1
 fi
+
+# Azure cloud provider assigns node name as the lowner case of the hostname
+node_name=$(echo "$node_name" | tr '[:upper:]' '[:lower:]')
 
 # retrieve golden timestamp from node annotation
 golden_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-golden-timestamp']}")
@@ -7768,6 +7774,9 @@ if [ -z "${node_name}" ]; then
     exit 1
 fi
 
+# Azure cloud provider assigns node name as the lowner case of the hostname
+node_name=$(echo "$node_name" | tr '[:upper:]' '[:lower:]')
+
 # retrieve golden timestamp from node annotation
 golden_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-golden-timestamp']}")
 if [ -z "${golden_timestamp}" ]; then
@@ -8568,6 +8577,9 @@ $global:VNetCNIPluginsURL = "{{GetParameter "vnetCniWindowsPluginsURL"}}"
 $global:IsDualStackEnabled = {{if IsIPv6DualStackFeatureEnabled}}$true{{else}}$false{{end}}
 $global:IsAzureCNIOverlayEnabled = {{if IsAzureCNIOverlayFeatureEnabled}}$true{{else}}$false{{end}}
 
+# Kubelet credential provider
+$global:CredentialProviderURL = "{{GetParameter "windowsCredentialProviderURL"}}"
+
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("{{GetVariable "windowsEnableCSIProxy" }}");
 $global:CsiProxyUrl = "{{GetVariable "windowsCSIProxyURL" }}";
@@ -8696,7 +8708,9 @@ try
     Get-LogCollectionScripts
     
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
-    
+
+    Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix {{if IsAKSCustomCloud}}"{{ AKSCustomCloudContainerRegistryDNSSuffix }}"{{else}}""{{end}} 
+
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
     
     $cniBinPath = $global:AzureCNIBinDir

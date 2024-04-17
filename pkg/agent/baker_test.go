@@ -1642,6 +1642,50 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 					},
 				}
 			}),
+		Entry("AKSWindows2019 with out of tree credential provider", "AKSWindows2019+ootcredentialprovider", "1.29.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.WindowsProfile.AlwaysPullWindowsPauseImage = to.BoolPtr(true)
+			config.KubeletConfig["--image-credential-provider-config"] = "c:\\var\\lib\\kubelet\\credential-provider-config.yaml"
+			config.KubeletConfig["--image-credential-provider-bin-dir"] = "c:\\var\\lib\\kubelet\\credential-provider"
+		}),
+		Entry("AKSWindows2019 with custom cloud and out of tree credential provider", "AKSWindows2019+CustomCloud+ootcredentialprovider", "1.29.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.WindowsProfile.AlwaysPullWindowsPauseImage = to.BoolPtr(true)
+				config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+					Name:                         "akscustom",
+					McrURL:                       "mcr.microsoft.fakecustomcloud",
+					RepoDepotEndpoint:            "https://repodepot.azure.microsoft.fakecustomcloud/ubuntu",
+					ManagementPortalURL:          "https://portal.azure.microsoft.fakecustomcloud/",
+					PublishSettingsURL:           "",
+					ServiceManagementEndpoint:    "https://management.core.microsoft.fakecustomcloud/",
+					ResourceManagerEndpoint:      "https://management.azure.microsoft.fakecustomcloud/",
+					ActiveDirectoryEndpoint:      "https://login.microsoftonline.microsoft.fakecustomcloud/",
+					GalleryEndpoint:              "",
+					KeyVaultEndpoint:             "https://vault.cloudapi.microsoft.fakecustomcloud/",
+					GraphEndpoint:                "https://graph.cloudapi.microsoft.fakecustomcloud/",
+					ServiceBusEndpoint:           "",
+					BatchManagementEndpoint:      "",
+					StorageEndpointSuffix:        "core.microsoft.fakecustomcloud",
+					SQLDatabaseDNSSuffix:         "database.cloudapi.microsoft.fakecustomcloud",
+					TrafficManagerDNSSuffix:      "",
+					KeyVaultDNSSuffix:            "vault.cloudapi.microsoft.fakecustomcloud",
+					ServiceBusEndpointSuffix:     "",
+					ServiceManagementVMDNSSuffix: "",
+					ResourceManagerVMDNSSuffix:   "cloudapp.azure.microsoft.fakecustomcloud/",
+					ContainerRegistryDNSSuffix:   ".azurecr.microsoft.fakecustomcloud",
+					CosmosDBDNSSuffix:            "documents.core.microsoft.fakecustomcloud/",
+					TokenAudience:                "https://management.core.microsoft.fakecustomcloud/",
+					ResourceIdentifiers: datamodel.ResourceIdentifiers{
+						Graph:               "",
+						KeyVault:            "",
+						Datalake:            "",
+						Batch:               "",
+						OperationalInsights: "",
+						Storage:             "",
+					},
+				}
+				config.KubeletConfig["--image-credential-provider-config"] = "c:\\var\\lib\\kubelet\\credential-provider-config.yaml"
+				config.KubeletConfig["--image-credential-provider-bin-dir"] = "c:\\var\\lib\\kubelet\\credential-provider"
+			}),
 	)
 
 })
