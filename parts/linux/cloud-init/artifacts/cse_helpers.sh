@@ -387,15 +387,17 @@ start_watch () {
 }
 
 installSnapd () {
-if snap version > /dev/null 2>&1; then
-  sudo snap install jq
-  echo "jq was installed"
-else
-  sudo apt install snapd
-  sudo snap install jq
-  export PATH=$PATH:/snap/bin
-  echo "snapd and jq were installed"
-fi
+  set +x
+  if snap version > /dev/null 2>&1; then
+    sudo snap install jq
+    echo "jq was installed"
+  else
+    sudo apt install snapd
+    sudo snap install jq
+    export PATH=$PATH:/snap/bin
+    echo "snapd and jq were installed"
+  fi
+  set -x
 }
 
 capture_benchmarks () {
