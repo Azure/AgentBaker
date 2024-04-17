@@ -380,10 +380,10 @@ should_skip_nvidia_drivers() {
 }
 
 start_watch () {
-  @set +x
+  set +x
   section_start_stopwatch=$(date +%s)
   section_start_timestamp=$(date +%H:%M:%S)
-  @set -x
+  set -x
 }
 
 installSnapd () {
