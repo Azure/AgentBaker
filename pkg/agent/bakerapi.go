@@ -177,5 +177,8 @@ func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distr
 }
 
 func (agentBaker *agentBakerImpl) GetCachedVersionsOnVHD() (map[string]datamodel.ProcessedManifest, map[string]datamodel.ContainerImage, error) {
+	if datamodel.CachedFromManifest == nil || datamodel.CachedFromComponents == nil {
+		return nil, nil, fmt.Errorf("cached versions are not available")
+	}
 	return datamodel.CachedFromManifest, datamodel.CachedFromComponents, nil
 }
