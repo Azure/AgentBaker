@@ -7,12 +7,18 @@ import (
 	"net/http"
 
 	agent "github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
 const (
 	// RoutePathGetCachedComponentVersions the route path to get cached vhd images.
 	RoutePathGetCachedComponentVersions string = "/getcachedcomponentversions"
 )
+
+type CachedOnVHD struct {
+	CachedFromManifest   map[string]datamodel.ProcessedManifest
+	CachedFromComponents map[string]datamodel.ProcessedComponents
+}
 
 // GetCachedComponentVersions endpoint for getting cached VHD images.
 func (api *APIServer) GetCachedComponentVersions(w http.ResponseWriter, r *http.Request) {
@@ -23,14 +29,24 @@ func (api *APIServer) GetCachedComponentVersions(w http.ResponseWriter, r *http.
 		return
 	}
 
-	cachedVersions := agentBaker.GetCachedComponentVersions()
+	cachedFromManifest, cachedFromComponents, err := agentBaker.GetCachedComponentVersions()
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-	result, err := json.Marshal(cachedVersions)
+	result := CachedOnVHD{
+		CachedFromManifest:   cachedFromManifest,
+		CachedFromComponents: cachedFromComponents,
+	}
+
+	jsonResponse, err := json.Marshal(result)
 	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, string(result))
+	fmt.Fprint(w, string(jsonResponse))
 }
