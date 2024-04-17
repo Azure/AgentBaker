@@ -42,9 +42,9 @@ func (api *APIServer) NewRouter() *mux.Router {
 
 	router.
 		Methods("GET").
-		Path(RoutePathGetCachedComponentVersions).
-		Name("GetCachedComponentVersions").
-		HandlerFunc(api.GetCachedComponentVersions)
+		Path(RoutePathGetCachedVersionsOnVHD).
+		Name("GetCachedVersionsOnVHD").
+		HandlerFunc(api.GetCachedVersionsOnVHD)
 
 	router.Methods("GET").Path("/healthz").Name("healthz").HandlerFunc(healthz)
 

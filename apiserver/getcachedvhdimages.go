@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	// RoutePathGetCachedComponentVersions the route path to get cached vhd images.
-	RoutePathGetCachedComponentVersions string = "/getcachedcomponentversions"
+	// RoutePathGetCachedVersionsOnVHD the route path to get cached vhd images.
+	RoutePathGetCachedVersionsOnVHD string = "/getcachedversionsonvhd"
 )
 
 type CachedOnVHD struct {
@@ -20,8 +20,8 @@ type CachedOnVHD struct {
 	CachedFromComponents map[string]datamodel.ProcessedComponents
 }
 
-// GetCachedComponentVersions endpoint for getting cached VHD images.
-func (api *APIServer) GetCachedComponentVersions(w http.ResponseWriter, r *http.Request) {
+// GetCachedVersionsOnVHD endpoint for getting cached VHD versions.
+func (api *APIServer) GetCachedVersionsOnVHD(w http.ResponseWriter, r *http.Request) {
 	agentBaker, err := agent.NewAgentBaker()
 	if err != nil {
 		log.Println(err.Error())
@@ -29,7 +29,7 @@ func (api *APIServer) GetCachedComponentVersions(w http.ResponseWriter, r *http.
 		return
 	}
 
-	cachedFromManifest, cachedFromComponents, err := agentBaker.GetCachedComponentVersions()
+	cachedFromManifest, cachedFromComponents, err := agentBaker.GetCachedVersionsOnVHD()
 	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)

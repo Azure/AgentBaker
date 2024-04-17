@@ -527,12 +527,12 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		})
 	})
 
-	Context("GetCachedComponentVersions", func() {
+	Context("GetCachedVersionsOnVHD", func() {
 		It("should return cached VHD data", func() {
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
 
-			fromManifest, fromComponents, err := agentBaker.GetCachedComponentVersions()
+			fromManifest, fromComponents, err := agentBaker.GetCachedVersionsOnVHD()
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(fromManifest["runc"].Installed["default"]).To(Equal("1.1.12"))
