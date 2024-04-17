@@ -17,6 +17,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 	)
 
 	BeforeEach(func() {
+		datamodel.CacheManifest()
+		datamodel.CacheComponents()
+
 		cs = &datamodel.ContainerService{
 			Location: "southcentralus",
 			Type:     "Microsoft.ContainerService/ManagedClusters",
@@ -254,15 +257,20 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 	})
 
 	Context("GetCachedComponentVersions", func() {
-		It("should return the k8s version in manifest.json", func() {
+		It("should return cached VHD data", func() {
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
 
-			images := agentBaker.GetCachedComponentVersions()
+			fromManifest, fromComponents, err := agentBaker.GetCachedComponentVersions()
 			Expect(err).NotTo(HaveOccurred())
 
-			cachedVersions := []string{"1.26.6", "1.26.10", "1.26.12", "1.27.3", "1.27.7", "1.27.9", "1.28.1", "1.28.3", "1.28.5", "1.29.0", "1.29.2"}
-			Expect(images).To(Equal(cachedVersions))
+			Expect(fromManifest["runc"].Installed["default"]).To(Equal("1.1.12"))
+			Expect(fromManifest["containerd"].Pinned["1804"]).To(Equal("1.7.1-1"))
+			Expect(fromManifest["containerd"].Edge).To(Equal("1.7.14-1"))
+			Expect(fromManifest["kubernetes"].Versions[0]).To(Equal("1.26.6"))
+			Expect(fromComponents["pause"].MultiArchVersions[0]).To(Equal("3.6"))
+			Expect(fromComponents["azure-cns"].PrefetchOptimizations.Version).To(Equal("v1.5.23"))
+			Expect(fromComponents["azure-cns"].PrefetchOptimizations.Binaries[0]).To(Equal("usr/local/bin/azure-cns"))
 		})
 	})
 })
