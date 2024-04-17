@@ -521,4 +521,4 @@ rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 capture_benchmarks false "download_kubernetes_binaries"
 
 echo "install-dependencies step completed successfully"
-capture_benchmarks true "install-dependencies.sh"
+capture_benchmarks true "install_dependencies.sh"
