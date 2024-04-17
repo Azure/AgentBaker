@@ -1,13 +1,13 @@
 #!/bin/bash
 
-@script_start_timestamp=$(date +%H:%M:%S)
-@ection_start_timestamp=$(date +%H:%M:%S)
+script_start_timestamp=$(date +%H:%M:%S)
+ection_start_timestamp=$(date +%H:%M:%S)
 
-@script_start_stopwatch=$(date +%s)
-@section_start_stopwatch=$(date +%s)
+script_start_stopwatch=$(date +%s)
+section_start_stopwatch=$(date +%s)
 
-@declare -a benchmarks=()
-@declare -a jsonBenchmarks=()
+declare -a benchmarks=()
+declare -a jsonBenchmarks=()
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
