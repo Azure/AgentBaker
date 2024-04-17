@@ -243,7 +243,10 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
-      "amd64OnlyVersions": [],
+      "amd64OnlyVersions": [
+        "1.7.1-hotfix.20200403-1",
+        "1.7.1-hotfix.20200403.1"
+      ],
       "multiArchVersions": [
         "v1.8.9"
       ]
@@ -261,10 +264,11 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.28.6",
-        "v1.28.6-1",
+        "v1.28.6-2",
         "v1.28.7",
         "v1.29.3",
         "v1.29.4",
+        "v1.29.4-1",
         "v1.30.1"
       ]
     },
@@ -286,10 +290,10 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.22.5-3",
-        "v1.22.5-4",
+        "v1.22.5-5",
         "v1.22.6",
         "v1.23.4",
-        "v1.23.4-1",
+        "v1.23.4-2",
         "v1.24.1"
       ]
     },
