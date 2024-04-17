@@ -410,7 +410,7 @@ start_watch
 
 # Kubelet credential provider plugins
 CREDENTIAL_PROVIDER_VERSIONS="
-1.29.3
+1.29.2
 "
 for CREDENTIAL_PROVIDER_VERSION in $CREDENTIAL_PROVIDER_VERSIONS; do
     CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
