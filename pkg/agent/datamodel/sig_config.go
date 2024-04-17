@@ -17,7 +17,7 @@ const (
 
 //nolint:gochecknoglobals
 var (
-	CachedFromComponents = make(map[string]ProcessedComponents)
+	CachedFromComponents = make(map[string]ContainerImage)
 	CachedFromManifest   = make(map[string]ProcessedManifest)
 )
 
@@ -317,7 +317,7 @@ type SigImageConfig struct {
 	SigImageConfigTemplate
 	SubscriptionID       string
 	CachedFromManifest   map[string]ProcessedManifest
-	CachedFromComponents map[string]ProcessedComponents
+	CachedFromComponents map[string]ContainerImage
 }
 
 // WithOptions converts a SigImageConfigTemplate to SigImageConfig instance via function opts.
@@ -1001,7 +1001,7 @@ type PrefetchOptimizations struct {
 	Binaries []string
 }
 
-type ProcessedComponents struct {
+type ContainerImage struct {
 	MultiArchVersions     []string
 	Amd64OnlyVersions     []string
 	PrefetchOptimizations PrefetchOptimizations
@@ -1018,8 +1018,11 @@ func getCachedVersionsFromComponentsJSON(componentsFilePath string) {
 	}
 
 	for _, image := range components.ContainerImages {
-		componentName := processDownloadURL(image.DownloadURL)
-		processed := ProcessedComponents{
+		componentName, err := processDownloadURL(image.DownloadURL)
+		if err != nil {
+			panic(err)
+		}
+		processed := ContainerImage{
 			MultiArchVersions: image.MultiArchVersions,
 			Amd64OnlyVersions: image.Amd64OnlyVersions,
 		}

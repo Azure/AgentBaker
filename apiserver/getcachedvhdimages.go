@@ -16,8 +16,8 @@ const (
 )
 
 type CachedOnVHD struct {
-	CachedFromManifest   map[string]datamodel.ProcessedManifest   `json:"cached_from_manifest"`
-	CachedFromComponents map[string]datamodel.ProcessedComponents `json:"cached_from_components"`
+	CachedFromManifest   map[string]datamodel.ProcessedManifest `json:"cached_from_manifest"`
+	CachedFromComponents map[string]datamodel.ContainerImage    `json:"cached_from_components"`
 }
 
 // GetCachedVersionsOnVHD endpoint for getting the current versions of components cached on the vhd.

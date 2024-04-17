@@ -16,7 +16,7 @@ type AgentBaker interface {
 	GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
 	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, distro datamodel.Distro, envInfo *datamodel.EnvironmentInfo) (*datamodel.SigImageConfig, error)
 	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, envInfo *datamodel.EnvironmentInfo) (map[datamodel.Distro]datamodel.SigImageConfig, error)
-	GetCachedVersionsOnVHD() (map[string]datamodel.ProcessedManifest, map[string]datamodel.ProcessedComponents, error)
+	GetCachedVersionsOnVHD() (map[string]datamodel.ProcessedManifest, map[string]datamodel.ContainerImage, error)
 }
 
 type agentBakerImpl struct {
@@ -176,6 +176,6 @@ func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distr
 	return nil
 }
 
-func (agentBaker *agentBakerImpl) GetCachedVersionsOnVHD() (map[string]datamodel.ProcessedManifest, map[string]datamodel.ProcessedComponents, error) {
+func (agentBaker *agentBakerImpl) GetCachedVersionsOnVHD() (map[string]datamodel.ProcessedManifest, map[string]datamodel.ContainerImage, error) {
 	return datamodel.CachedFromManifest, datamodel.CachedFromComponents, nil
 }

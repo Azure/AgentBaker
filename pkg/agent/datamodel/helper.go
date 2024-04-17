@@ -105,12 +105,18 @@ func trimEOF(data []byte) []byte {
 	return data
 }
 
-func processDownloadURL(downloadURL string) string {
+func processDownloadURL(downloadURL string) (string, error) {
 	// example URL "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
 	// getting the data between the last / and the last :
 	parts := strings.Split(downloadURL, "/")
+	if len(parts) == 0 || len(parts[len(parts)-1]) == 0 {
+		return "", errors.New("downloadURL is not in the expected format")
+	}
 	lastPart := parts[len(parts)-1]
+
 	component := strings.Split(lastPart, ":")
-	componentName := component[0]
-	return componentName
+	if len(component) == 0 || len(component[0]) == 0 {
+		return "", errors.New("downloadURL is not in the expected format")
+	}
+	return component[0], nil
 }
