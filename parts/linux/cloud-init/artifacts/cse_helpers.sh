@@ -387,7 +387,7 @@ start_watch () {
 }
 
 installSnapd () {
-  @set +x
+  set +x
   if snap version > /dev/null 2>&1; then
     sudo snap install jq
     export PATH=$PATH:/snap/bin
@@ -398,11 +398,11 @@ installSnapd () {
     export PATH=$PATH:/snap/bin
     echo "snapd and jq were installed"
   fi
-  @set -x
+  set -x
 }
 
 capture_benchmarks () {
-  @set +x
+  set +x
   local is_final_section=$1
   local title=$2
 
@@ -436,7 +436,7 @@ capture_benchmarks () {
      
       section_object=$(jq -n --arg section_name "${benchmarks[i]}" --arg section_start_timestamp "${benchmarks[i+1]}" --arg end_timestamp "${benchmarks[i+2]}" --arg total_time_elapsed "${benchmarks[i+3]}" '{($section_name): {"start_time": $section_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}')
 
-      script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "$title" '$script_object | .[$title] += $section_object')
+      script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "$title" '$script_object | .[$script_name] += $section_object')
 
     done
 
@@ -450,7 +450,7 @@ capture_benchmarks () {
 
     echo "$section_object" | jq -C .
   fi
-  @set -x
+  set -x
 }
 
 #HELPERSEOF
