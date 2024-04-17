@@ -380,12 +380,14 @@ should_skip_nvidia_drivers() {
 }
 
 start_watch () {
+  set +x
   section_start_stopwatch=$(date +%s)
   section_start_timestamp=$(date +%H:%M:%S)
+  set -x
 }
 
 capture_benchmarks () {
-
+  set +x
   local is_final_section={$1}
   local title={$2}
 
@@ -433,6 +435,7 @@ capture_benchmarks () {
 
     echo "$section_object" | jq -C .
   fi
+  set -x
 }
 
 #HELPERSEOF

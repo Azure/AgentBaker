@@ -142,4 +142,3 @@ fi
 capture_benchmarks false "handle_azureLinux_and_cgroupV2"
 
 echo "pre-install-dependencies step finished successfully"
-stop_watch true "pre_install_dependencies.sh"
