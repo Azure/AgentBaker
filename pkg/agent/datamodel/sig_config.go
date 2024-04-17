@@ -437,9 +437,7 @@ type SigImageConfigTemplate struct {
 // SigImageConfig represents the SIG image configuration.
 type SigImageConfig struct {
 	SigImageConfigTemplate
-	SubscriptionID       string
-	CachedFromManifest   map[string]ProcessedManifest
-	CachedFromComponents map[string]ContainerImage
+	SubscriptionID string
 }
 
 // WithOptions converts a SigImageConfigTemplate to SigImageConfig instance via function opts.
