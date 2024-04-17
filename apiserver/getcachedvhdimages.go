@@ -10,12 +10,12 @@ import (
 )
 
 const (
-	// RoutePathGetCachedK8sVersions the route path to get cached vhd images.
-	RoutePathGetCachedK8sVersions string = "/getcachedk8sversions"
+	// RoutePathGetCachedComponentVersions the route path to get cached vhd images.
+	RoutePathGetCachedComponentVersions string = "/getcachedcomponentversions"
 )
 
-// GetCachedK8sVersions endpoint for getting cached VHD images.
-func (api *APIServer) GetCachedK8sVersions(w http.ResponseWriter, r *http.Request) {
+// GetCachedComponentVersions endpoint for getting cached VHD images.
+func (api *APIServer) GetCachedComponentVersions(w http.ResponseWriter, r *http.Request) {
 	agentBaker, err := agent.NewAgentBaker()
 	if err != nil {
 		log.Println(err.Error())
@@ -23,9 +23,9 @@ func (api *APIServer) GetCachedK8sVersions(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	images := agentBaker.GetCachedK8sVersions()
-	
-	result, err := json.Marshal(images)
+	cachedVersions := agentBaker.GetCachedComponentVersions()
+
+	result, err := json.Marshal(cachedVersions)
 	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)

@@ -41,10 +41,10 @@ func (api *APIServer) NewRouter() *mux.Router {
 		HandlerFunc(api.GetDistroSigImageConfig)
 
 	router.
-		Methods("POST").
-		Path(RoutePathGetCachedK8sVersions).
-		Name("GetCachedK8sVersions").
-		HandlerFunc(api.GetCachedK8sVersions)
+		Methods("GET").
+		Path(RoutePathGetCachedComponentVersions).
+		Name("GetCachedComponentVersions").
+		HandlerFunc(api.GetCachedComponentVersions)
 
 	router.Methods("GET").Path("/healthz").Name("healthz").HandlerFunc(healthz)
 

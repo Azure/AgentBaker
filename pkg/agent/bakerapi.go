@@ -15,7 +15,7 @@ type AgentBaker interface {
 	GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
 	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, region string, distro datamodel.Distro) (*datamodel.SigImageConfig, error)
 	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, region string) (map[datamodel.Distro]datamodel.SigImageConfig, error)
-	GetCachedK8sVersions() []string
+	GetCachedComponentVersions() []string
 }
 
 func NewAgentBaker() (AgentBaker, error) {
@@ -138,6 +138,6 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 	return allDistros, nil
 }
 
-func (agentBaker *agentBakerImpl) GetCachedK8sVersions() []string {
+func (agentBaker *agentBakerImpl) GetCachedComponentVersions() []string {
 	return datamodel.CachedK8sVersions
 }
