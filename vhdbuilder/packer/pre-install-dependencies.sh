@@ -1,13 +1,13 @@
 #!/bin/bash
 
-script_start_timestamp=$(date +%H:%M:%S)
-section_start_timestamp=$(date +%H:%M:%S)
+@script_start_timestamp=$(date +%H:%M:%S)
+@section_start_timestamp=$(date +%H:%M:%S)
 
-script_start_stopwatch=$(date +%s)
-section_start_stopwatch=$(date +%s)
+@script_start_stopwatch=$(date +%s)
+@section_start_stopwatch=$(date +%s)
 
-declare -a benchmarks=()
-declare -a jsonBenchmarks=()
+@declare -a benchmarks=()
+@declare -a jsonBenchmarks=()
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
@@ -25,11 +25,9 @@ source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
 
-sudo snap install jq
-export PATH=$PATH:/snap/bin
-jq --version
-capture_benchmarks false "declare_variables_remove_comments_and_execute_packer_files"
-start_watch
+@installSnapd
+@capture_benchmarks false "declare_variables_remove_comments_and_execute_packer_files"
+@start_watch
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
@@ -41,27 +39,27 @@ cat components.json > ${COMPONENTS_FILEPATH}
 cat manifest.json > ${MANIFEST_FILEPATH}
 cat ${THIS_DIR}/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
-capture_benchmarks false "create_post_build_test"
-start_watch
+@capture_benchmarks false "create_post_build_test"
+@start_watch
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
   chmod 755 /opt
   chmod 755 /opt/azure
   chmod 644 ${VHD_LOGS_FILEPATH}
 fi
-capture_benchmarks false "set_permissions_if_mariner"
-start_watch
+@capture_benchmarks false "set_permissions_if_mariner"
+@start_watch
 
 copyPackerFiles
 systemctlEnableAndStart disk_queue || exit 1
-capture_benchmarks false "copy_packer_files"
-start_watch
+@capture_benchmarks false "copy_packer_files"
+@start_watch
 
 mkdir /opt/certs
 chmod 1666 /opt/certs
 systemctlEnableAndStart update_certs.path || exit 1
-capture_benchmarks false "update_certs_make_directory_and_set_permissions"
-start_watch
+@capture_benchmarks false "update_certs_make_directory_and_set_permissions"
+@start_watch
 
 systemctlEnableAndStart ci-syslog-watcher.path || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service || exit 1
@@ -69,18 +67,18 @@ systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 # enable AKS log collector
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
 systemctlEnableAndStart aks-log-collector.timer || exit 1
-capture_benchmarks false "start_sys_logs_and_aks_log_collector"
-start_watch
+@capture_benchmarks false "start_sys_logs_and_aks_log_collector"
+@start_watch
 
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
 systemctlEnableAndStart logrotate.timer || exit 1
 rm -f /etc/cron.daily/logrotate
-capture_benchmarks false "enable_modified_log_rotate_service"
-start_watch
+@capture_benchmarks false "enable_modified_log_rotate_service"
+@start_watch
 
 systemctlEnableAndStart sync-container-logs.service || exit 1
-capture_benchmarks false "sync_container_logs"
-start_watch
+@capture_benchmarks false "sync_container_logs"
+@start_watch
 
 # First handle Mariner + FIPS
 if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
@@ -117,8 +115,8 @@ else
     installFIPS
   fi
 fi
-capture_benchmarks false "handle_mariner_and_fips_configurations"
-start_watch
+@capture_benchmarks false "handle_mariner_and_fips_configurations"
+@start_watch
 
 # Handle Azure Linux + CgroupV2
 if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
@@ -139,6 +137,6 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
   
   update-grub
 fi
-capture_benchmarks false "handle_azureLinux_and_cgroupV2"
-echo "pre-install-dependencies step finished successfully"
-capture_benchmarks true "pre_install_dependencies.sh"
+@capture_benchmarks false "handle_azureLinux_and_cgroupV2"
+@echo "pre-install-dependencies step finished successfully"
+@capture_benchmarks true "pre_install_dependencies.sh"

@@ -1,13 +1,13 @@
 #!/bin/bash
 
-script_start_timestamp=$(date +%H:%M:%S)
-section_start_timestamp=$(date +%H:%M:%S)
+@script_start_timestamp=$(date +%H:%M:%S)
+@section_start_timestamp=$(date +%H:%M:%S)
 
-script_start_stopwatch=$(date +%s)
-section_start_stopwatch=$(date +%s)
+@script_start_stopwatch=$(date +%s)
+@section_start_stopwatch=$(date +%s)
 
-declare -a benchmarks=()
-declare -a jsonBenchmarks=()
+@declare -a benchmarks=()
+@declare -a jsonBenchmarks=()
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
@@ -28,8 +28,8 @@ COMPONENTS_FILEPATH=/opt/azure/components.json
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
-capture_benchmarks false "declare_variables_and_configure_environment"
-start_watch
+@capture_benchmarks false "declare_variables_and_configure_environment"
+@start_watch
 
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
@@ -54,8 +54,8 @@ APT::Periodic::AutocleanInterval "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
-capture_benchmarks false "purge_and_reinstall_ubuntu"
-start_watch
+@capture_benchmarks false "purge_and_reinstall_ubuntu"
+@start_watch
 
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
@@ -84,8 +84,8 @@ SystemMaxUse=1G
 RuntimeMaxUse=1G
 ForwardToSyslog=yes
 EOF
-capture_benchmarks false "install_dependencies"
-start_watch
+@capture_benchmarks false "install_dependencies"
+@start_watch
 
 if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then
   echo "Unsupported container runtime. Only containerd is supported for new VHD builds."
@@ -112,8 +112,8 @@ if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBU
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
-capture_benchmarks false "check_container_runtime_and_network_configurations"
-start_watch
+@capture_benchmarks false "check_container_runtime_and_network_configurations"
+@start_watch
 
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
@@ -169,8 +169,8 @@ containerd_version="$(echo "$installed_version" | cut -d- -f1)"
 containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
 installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
 echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
-capture_benchmarks false "create_containerd_service_directory_download_shims_configure_runtime_and_network"
-start_watch
+@capture_benchmarks false "create_containerd_service_directory_download_shims_configure_runtime_and_network"
+@start_watch
 
 DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for componentToDownload in ${DOWNLOAD_FILES[*]}; do
@@ -191,8 +191,8 @@ for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
   downloadCrictl ${CRICTL_VERSION}
   echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
-capture_benchmarks false "download_crictl"
-start_watch
+@capture_benchmarks false "download_crictl"
+@start_watch
 
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
@@ -230,8 +230,8 @@ downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-capture_benchmarks false "artifact_streaming_and_teleportd_download"
-start_watch
+@capture_benchmarks false "artifact_streaming_and_teleportd_download"
+@start_watch
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
@@ -314,8 +314,8 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 
 # can't use cliTool because crictl doesn't support retagging.
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
-capture_benchmarks false "pull_and_retag_container_images"
-start_watch
+@capture_benchmarks false "pull_and_retag_container_images"
+@start_watch
 
 # doing this at vhd allows CSE to be faster with just mv
 unpackAzureCNI() {
@@ -377,8 +377,8 @@ done
 if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) ]]; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
-capture_benchmarks false "configure_networking_and_interface"
-start_watch
+@capture_benchmarks false "configure_networking_and_interface"
+@start_watch
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
@@ -406,8 +406,8 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   systemctlEnableAndStart nvidia-device-plugin || exit 1
 fi
 fi
-capture_benchmarks false "gpu_device_plugin"
-start_watch
+@capture_benchmarks false "gpu_device_plugin"
+@start_watch
 
 # Kubelet credential provider plugins
 CREDENTIAL_PROVIDER_VERSIONS="
@@ -452,8 +452,8 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
-capture_benchmarks false "configure_telemetry_create_logging_directory_and_download_kube-proxy_images"
-start_watch
+@capture_benchmarks false "configure_telemetry_create_logging_directory_and_download_kube-proxy_images"
+@start_watch
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
@@ -518,6 +518,6 @@ for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
 done
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
-capture_benchmarks false "download_kubernetes_binaries"
-echo "install-dependencies step completed successfully"
-capture_benchmarks true "install_dependencies.sh"
+@capture_benchmarks false "download_kubernetes_binaries"
+@echo "install-dependencies step completed successfully"
+@capture_benchmarks true "install_dependencies.sh"

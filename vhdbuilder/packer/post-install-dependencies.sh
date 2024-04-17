@@ -1,13 +1,13 @@
 #!/bin/bash
 
-script_start_timestamp=$(date +%H:%M:%S)
-section_start_timestamp=$(date +%H:%M:%S)
+@script_start_timestamp=$(date +%H:%M:%S)
+@ection_start_timestamp=$(date +%H:%M:%S)
 
-script_start_stopwatch=$(date +%s)
-section_start_stopwatch=$(date +%s)
+@script_start_stopwatch=$(date +%s)
+@section_start_stopwatch=$(date +%s)
 
-declare -a benchmarks=()
-declare -a jsonBenchmarks=()
+@declare -a benchmarks=()
+@declare -a jsonBenchmarks=()
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -18,16 +18,16 @@ source /home/packer/provision_source.sh
 source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
-capture_benchmarks false "determine_os_set_comparison_and_execute_packer_files"
-start_watch
+@capture_benchmarks false "determine_os_set_comparison_and_execute_packer_files"
+@start_watch
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
 MAX_BLOCK_COUNT=30298176 # 30 GB
-capture_benchmarks false "set_variables"
-start_watch
+@capture_benchmarks false "set_variables"
+@start_watch
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # shellcheck disable=SC2021
@@ -53,8 +53,8 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
     detachAndCleanUpUA
   fi
 fi
-capture_benchmarks false "log_and_detach_ua"
-start_watch
+@capture_benchmarks false "log_and_detach_ua"
+@start_watch
 
 # shellcheck disable=SC2129
 echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
@@ -64,8 +64,8 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
 
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
-capture_benchmarks false "list_installed_packages"
-start_watch
+@capture_benchmarks false "list_installed_packages"
+@start_watch
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
@@ -97,21 +97,21 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "Container runtime: ${CONTAINER_RUNTIME}"
   echo "FIPS enabled: ${ENABLE_FIPS}"
 } >> ${VHD_LOGS_FILEPATH}
-capture_benchmarks false "write_logs"
-start_watch
+@capture_benchmarks false "write_logs"
+@start_watch
 
 if [[ $(isARM64) != 1 ]]; then
   # no asc-baseline-1.1.0-268.arm64.deb
   installAscBaseline
 fi
-capture_benchmarks false "install_asc_baseline"
-start_watch
+@capture_benchmarks false "install_asc_baseline"
+@start_watch
 
 if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
   if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH} == "arm64" ]]; then
     relinkResolvConf
   fi
 fi
-capture_benchmarks false "resolve_conf"
-echo "post-install-dependencies step completed successfully"
-capture_benchmarks true "post_install_dependencies.sh"
+@capture_benchmarks false "resolve_conf"
+@echo "post-install-dependencies step completed successfully"
+@capture_benchmarks true "post_install_dependencies.sh"
