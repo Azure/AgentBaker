@@ -672,17 +672,5 @@
         "sudo /usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
     }
-  ],
-  "post-processors": [
-    {
-      "type": "file",
-      "source": "jsonBenchmarks.json",
-      "destination": "/mnt/vss/_work/1/s/jsonBenchmarks.json",
-      "direction": "download"
-    },
-    {
-      "type": "shell",
-      "inline": ["rm jsonBenchmarks.json"]
-    }
   ]
 }
