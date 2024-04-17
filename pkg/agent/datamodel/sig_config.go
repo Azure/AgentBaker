@@ -947,7 +947,6 @@ type Manifest struct {
 }
 
 type ProcessedManifest struct {
-	Name      string
 	Versions  []string
 	Pinned    map[string]string
 	Edge      string
@@ -966,27 +965,22 @@ func getCachedVersionsFromManifestJSON(manifestFilePath string) {
 	}
 
 	CachedFromManifest["kubernetes"] = ProcessedManifest{
-		Name:     "kubernetes",
 		Versions: manifest.Kubernetes.Versions,
 	}
 	CachedFromManifest["runc"] = ProcessedManifest{
-		Name:      "runc",
 		Versions:  manifest.Runc.Versions,
 		Pinned:    manifest.Runc.Pinned,
 		Installed: manifest.Runc.Installed,
 	}
 	CachedFromManifest["containerd"] = ProcessedManifest{
-		Name:     "containerd",
 		Versions: manifest.Containerd.Versions,
 		Pinned:   manifest.Containerd.Pinned,
 		Edge:     manifest.Containerd.Edge,
 	}
 	CachedFromManifest["nvidia-container-runtime"] = ProcessedManifest{
-		Name:     "nvidia-container-runtime",
 		Versions: manifest.NvidiaContainerRuntime.Versions,
 	}
 	CachedFromManifest["nvidia-drivers"] = ProcessedManifest{
-		Name:     "nvidia-drivers",
 		Versions: manifest.NvidiaDrivers.Versions,
 	}
 }
@@ -1008,7 +1002,6 @@ type PrefetchOptimizations struct {
 }
 
 type ProcessedComponents struct {
-	Name                  string
 	MultiArchVersions     []string
 	Amd64OnlyVersions     []string
 	PrefetchOptimizations PrefetchOptimizations
@@ -1027,7 +1020,6 @@ func getCachedVersionsFromComponentsJSON(componentsFilePath string) {
 	for _, image := range components.ContainerImages {
 		componentName := processDownloadURL(image.DownloadURL)
 		processed := ProcessedComponents{
-			Name:              componentName,
 			MultiArchVersions: image.MultiArchVersions,
 			Amd64OnlyVersions: image.Amd64OnlyVersions,
 		}
