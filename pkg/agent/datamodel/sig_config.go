@@ -18,7 +18,7 @@ const (
 //nolint:gochecknoglobals
 var (
 	CachedFromComponents = make(map[string]ProcessedComponents)
-	CachedFromManifest    = make(map[string]ProcessedManifest)
+	CachedFromManifest   = make(map[string]ProcessedManifest)
 )
 
 //nolint:gochecknoinits
@@ -30,13 +30,13 @@ func init() {
 func CacheManifest() {
 	_, filename, _, _ := runtime.Caller(0)
 	manifestFilePath := "../../../parts/linux/cloud-init/artifacts/manifest.json"
-	getCachedK8sVersionFromManifest(path.Join(path.Dir(filename), manifestFilePath))
+	getCachedVersionsFromManifestJSON(path.Join(path.Dir(filename), manifestFilePath))
 }
 
 func CacheComponents() {
 	_, filename, _, _ := runtime.Caller(0)
 	componentsFilePath := "../../../vhdbuilder/packer/components.json"
-	getCachedComponentsFromComponents(path.Join(path.Dir(filename), componentsFilePath))
+	getCachedVersionsFromComponentsJSON(path.Join(path.Dir(filename), componentsFilePath))
 }
 
 // SIGAzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
@@ -315,8 +315,8 @@ type SigImageConfigTemplate struct {
 // SigImageConfig represents the SIG image configuration.
 type SigImageConfig struct {
 	SigImageConfigTemplate
-	SubscriptionID        string
-	CachedFromManifest    map[string]ProcessedManifest
+	SubscriptionID       string
+	CachedFromManifest   map[string]ProcessedManifest
 	CachedFromComponents map[string]ProcessedComponents
 }
 
@@ -954,7 +954,7 @@ type ProcessedManifest struct {
 	Installed map[string]string
 }
 
-func getCachedK8sVersionFromManifest(manifestFilePath string) {
+func getCachedVersionsFromManifestJSON(manifestFilePath string) {
 	data, err := os.ReadFile(manifestFilePath)
 	if err != nil {
 		panic(err)
@@ -1014,7 +1014,7 @@ type ProcessedComponents struct {
 	PrefetchOptimizations PrefetchOptimizations
 }
 
-func getCachedComponentsFromComponents(componentsFilePath string) {
+func getCachedVersionsFromComponentsJSON(componentsFilePath string) {
 	data, err := os.ReadFile(componentsFilePath)
 	if err != nil {
 		panic(err)

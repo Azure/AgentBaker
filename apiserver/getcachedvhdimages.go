@@ -20,7 +20,7 @@ type CachedOnVHD struct {
 	CachedFromComponents map[string]datamodel.ProcessedComponents
 }
 
-// GetCachedVersionsOnVHD endpoint for getting cached VHD versions.
+// GetCachedVersionsOnVHD endpoint for getting the current versions of components cached on the vhd.
 func (api *APIServer) GetCachedVersionsOnVHD(w http.ResponseWriter, r *http.Request) {
 	agentBaker, err := agent.NewAgentBaker()
 	if err != nil {
