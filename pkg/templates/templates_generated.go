@@ -1881,6 +1881,7 @@ var _linuxCloudInitArtifactsCisSh = []byte(`#!/bin/bash
 source /home/packer/provision_source.sh
 
 assignRootPW() {
+    set +x
     if grep '^root:[!*]:' /etc/shadow; then
         VERSION=$(grep DISTRIB_RELEASE /etc/*-release | cut -f 2 -d "=")
         SALT=$(openssl rand -base64 5)
@@ -1894,6 +1895,7 @@ assignRootPW() {
 
         echo 'root:'$HASH | /usr/sbin/chpasswd -e || exit $ERR_CIS_ASSIGN_ROOT_PW
     fi
+    set -x
 }
 
 assignFilePermissions() {
@@ -2257,6 +2259,7 @@ MIG_NODE={{GetVariable "migNode"}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}
 ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED={{GetVariable "enableGPUDevicePluginIfNeeded"}}
 TELEPORTD_PLUGIN_DOWNLOAD_URL={{GetParameter "teleportdPluginURL"}}
+CREDENTIAL_PROVIDER_DOWNLOAD_URL={{GetParameter "linuxCredentialProviderURL"}}
 CONTAINERD_VERSION={{GetParameter "containerdVersion"}}
 CONTAINERD_PACKAGE_URL={{GetParameter "containerdPackageURL"}}
 RUNC_VERSION={{GetParameter "runcVersion"}}
@@ -2293,6 +2296,7 @@ TARGET_CLOUD="{{- if IsAKSCustomCloud -}} AzureStackCloud {{- else -}} {{GetTarg
 TARGET_ENVIRONMENT="{{GetTargetEnvironment}}"
 CUSTOM_ENV_JSON="{{GetBase64EncodedEnvironmentJSON}}"
 IS_CUSTOM_CLOUD="{{IsAKSCustomCloud}}"
+AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX="{{- if IsAKSCustomCloud}}{{AKSCustomCloudContainerRegistryDNSSuffix}}{{end}}"
 CSE_HELPERS_FILEPATH="{{GetCSEHelpersScriptFilepath}}"
 CSE_DISTRO_HELPERS_FILEPATH="{{GetCSEHelpersScriptDistroFilepath}}"
 CSE_INSTALL_FILEPATH="{{GetCSEInstallScriptFilepath}}"
@@ -2869,6 +2873,14 @@ EOF
 # for DNS.
 iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
 EOF
+
+    # check if kubelet flags contain image-credential-provider-config and image-credential-provider-bin-dir
+    if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
+        echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
+        logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
+        logs_to_events "AKS.CSE.ensureKubelet.installCredentalProvider" installCredentalProvider
+    fi
+
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
 }
 
@@ -3062,6 +3074,46 @@ disableSSH() {
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
 }
 
+configCredentialProvider() {
+    CREDENTIAL_PROVIDER_CONFIG_FILE=/var/lib/kubelet/credential-provider-config.yaml
+    mkdir -p "$(dirname "${CREDENTIAL_PROVIDER_CONFIG_FILE}")"
+    touch "${CREDENTIAL_PROVIDER_CONFIG_FILE}"
+    if [[ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]]; then
+        tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+      - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json
+EOF
+    else
+    tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json
+EOF
+    fi
+}
+
 #EOF`)
 
 func linuxCloudInitArtifactsCse_configShBytes() ([]byte, error) {
@@ -3178,6 +3230,8 @@ ERR_PRIVATE_K8S_PKG_ERR=203 # Error downloading (at build-time) or extracting (a
 ERR_K8S_INSTALL_ERR=204 # Error installing or setting up kubernetes binaries on disk
 
 ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
+
+ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205 # Timeout waiting for credential provider downloads
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
@@ -3528,6 +3582,8 @@ UBUNTU_RELEASE=$(lsb_release -r -s)
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR="/opt/azure/tlsbootstrap"
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION="v0.1.0-alpha.2"
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
+CREDENTIAL_PROVIDER_DOWNLOAD_DIR="/opt/credentialprovider/downloads"
+CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1 v0.8.0"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
@@ -3585,6 +3641,22 @@ downloadCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+}
+
+downloadCredentalProvider() {
+    mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
+    CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+}
+
+installCredentalProvider() {
+    logs_to_events "AKS.CSE.installCredentalProvider.downloadCredentalProvider" downloadCredentalProvider
+    tar -xzf "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/${CREDENTIAL_PROVIDER_TGZ_TMP}" -C $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
+    mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
+    mv "${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}/azure-acr-credential-provider" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"
+    chmod 755 "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"
+    rm -rf ${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}
 }
 
 downloadSecureTLSBootstrapKubeletExecPlugin() {
@@ -5403,10 +5475,13 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "versions": [
             "1.27.7",
             "1.27.9",
+            "1.27.12",
             "1.28.3",
             "1.28.5",
+            "1.28.8",
             "1.29.0",
-            "1.29.2"
+            "1.29.2",
+            "1.29.3"
         ]
     },
     "_template": {
@@ -8496,6 +8571,9 @@ $global:VNetCNIPluginsURL = "{{GetParameter "vnetCniWindowsPluginsURL"}}"
 $global:IsDualStackEnabled = {{if IsIPv6DualStackFeatureEnabled}}$true{{else}}$false{{end}}
 $global:IsAzureCNIOverlayEnabled = {{if IsAzureCNIOverlayFeatureEnabled}}$true{{else}}$false{{end}}
 
+# Kubelet credential provider
+$global:CredentialProviderURL = "{{GetParameter "windowsCredentialProviderURL"}}"
+
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("{{GetVariable "windowsEnableCSIProxy" }}");
 $global:CsiProxyUrl = "{{GetVariable "windowsCSIProxyURL" }}";
@@ -8568,7 +8646,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.40.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.41.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -8624,7 +8702,9 @@ try
     Get-LogCollectionScripts
     
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
-    
+
+    Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix {{if IsAKSCustomCloud}}"{{ AKSCustomCloudContainerRegistryDNSSuffix }}"{{else}}""{{end}} 
+
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
     
     $cniBinPath = $global:AzureCNIBinDir
@@ -8987,6 +9067,9 @@ $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE=61
 $global:WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG=62
 $global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP=63
 $global:WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION=64
+$global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER = 65 # exit code for installing credential provider
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER=66 # exit code for downloading credential provider failure
+$global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG=67 # exit code for checking credential provider config failure
 
 # Please add new error code for downloading new packages in RP code too
 $global:ErrorCodeNames = @(
@@ -9054,7 +9137,10 @@ $global:ErrorCodeNames = @(
     "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE",
     "WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG",
     "WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP",
-    "WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION"
+    "WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION",
+    "WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER",
+    "WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG"
 )
 
 # NOTE: KubernetesVersion does not contain "v"

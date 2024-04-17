@@ -123,6 +123,11 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			WindowsPackageURL:         windowsPackage,
 		}
 
+		if IsKubernetesVersionGe(k8sVersion, "1.29.0") {
+			k8sComponents.WindowsCredentialProviderURL = fmt.Sprintf("https://acs-mirror.azureedge.net/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-windows-amd64-v%s.tar.gz", k8sVersion, k8sVersion) //nolint:lll
+			k8sComponents.LinuxCredentialProviderURL = fmt.Sprintf("https://acs-mirror.azureedge.net/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz", k8sVersion, k8sVersion)     //nolint:lll
+		}
+
 		kubeletConfig := map[string]string{
 			"--address":                           "0.0.0.0",
 			"--pod-manifest-path":                 "/etc/kubernetes/manifests",
@@ -1214,6 +1219,60 @@ oom_score = 0
 				Name: "akscustom",
 			}
 		}, nil),
+		Entry("AKSUbuntu2204 OOT credentialprovider", "AKSUbuntu2204+ootcredentialprovider", "1.29.10", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+			config.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+		}, func(o *nodeBootstrappingOutput) {
+			Expect(o.vars["KUBELET_FLAGS"]).NotTo(BeEmpty())
+			Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--image-credential-provider-config=/var/lib/kubelet/credential-provider-config.yaml")).To(BeTrue())
+			Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--image-credential-provider-bin-dir=/var/lib/kubelet/credential-provider")).To(BeTrue())
+		}),
+		Entry("AKSUbuntu2204 custom cloud and OOT credentialprovider", "AKSUbuntu2204+CustomCloud+ootcredentialprovider", "1.29.10",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+					Name:                         "akscustom",
+					McrURL:                       "mcr.microsoft.fakecustomcloud",
+					RepoDepotEndpoint:            "https://repodepot.azure.microsoft.fakecustomcloud/ubuntu",
+					ManagementPortalURL:          "https://portal.azure.microsoft.fakecustomcloud/",
+					PublishSettingsURL:           "",
+					ServiceManagementEndpoint:    "https://management.core.microsoft.fakecustomcloud/",
+					ResourceManagerEndpoint:      "https://management.azure.microsoft.fakecustomcloud/",
+					ActiveDirectoryEndpoint:      "https://login.microsoftonline.microsoft.fakecustomcloud/",
+					GalleryEndpoint:              "",
+					KeyVaultEndpoint:             "https://vault.cloudapi.microsoft.fakecustomcloud/",
+					GraphEndpoint:                "https://graph.cloudapi.microsoft.fakecustomcloud/",
+					ServiceBusEndpoint:           "",
+					BatchManagementEndpoint:      "",
+					StorageEndpointSuffix:        "core.microsoft.fakecustomcloud",
+					SQLDatabaseDNSSuffix:         "database.cloudapi.microsoft.fakecustomcloud",
+					TrafficManagerDNSSuffix:      "",
+					KeyVaultDNSSuffix:            "vault.cloudapi.microsoft.fakecustomcloud",
+					ServiceBusEndpointSuffix:     "",
+					ServiceManagementVMDNSSuffix: "",
+					ResourceManagerVMDNSSuffix:   "cloudapp.azure.microsoft.fakecustomcloud/",
+					ContainerRegistryDNSSuffix:   ".azurecr.microsoft.fakecustomcloud",
+					CosmosDBDNSSuffix:            "documents.core.microsoft.fakecustomcloud/",
+					TokenAudience:                "https://management.core.microsoft.fakecustomcloud/",
+					ResourceIdentifiers: datamodel.ResourceIdentifiers{
+						Graph:               "",
+						KeyVault:            "",
+						Datalake:            "",
+						Batch:               "",
+						OperationalInsights: "",
+						Storage:             "",
+					},
+				}
+				config.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				config.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			}, func(o *nodeBootstrappingOutput) {
+
+				Expect(o.vars["AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"]).NotTo(BeEmpty())
+				Expect(o.vars["AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"]).To(Equal(".azurecr.microsoft.fakecustomcloud"))
+
+				Expect(o.vars["KUBELET_FLAGS"]).NotTo(BeEmpty())
+				Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--image-credential-provider-config=/var/lib/kubelet/credential-provider-config.yaml")).To(BeTrue())
+				Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--image-credential-provider-bin-dir=/var/lib/kubelet/credential-provider")).To(BeTrue())
+			}),
 		Entry("AKSUbuntu2204 with custom kubeletConfig and osConfig", "AKSUbuntu2204+CustomKubeletConfig+CustomLinuxOSConfig", "1.24.2",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableKubeletConfigFile = false
@@ -1369,6 +1428,12 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			PodInfraContainerImageURL: pauseImage,
 			HyperkubeImageURL:         hyperkubeImage,
 			WindowsPackageURL:         windowsPackage,
+		}
+
+		if IsKubernetesVersionGe(k8sVersion, "1.29.0") {
+			// This is test only, credential provider version does not align with k8s version
+			k8sComponents.WindowsCredentialProviderURL = fmt.Sprintf("https://acs-mirror.azureedge.net/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-windows-amd64-v%s.tar.gz", k8sVersion, k8sVersion) //nolint:lll
+			k8sComponents.LinuxCredentialProviderURL = fmt.Sprintf("https://acs-mirror.azureedge.net/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz", k8sVersion, k8sVersion)     //nolint:lll
 		}
 
 		kubeletConfig := map[string]string{
@@ -1576,6 +1641,50 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 						ProxyAddress: "https://test-pe-proxy",
 					},
 				}
+			}),
+		Entry("AKSWindows2019 with out of tree credential provider", "AKSWindows2019+ootcredentialprovider", "1.29.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.WindowsProfile.AlwaysPullWindowsPauseImage = to.BoolPtr(true)
+			config.KubeletConfig["--image-credential-provider-config"] = "c:\\var\\lib\\kubelet\\credential-provider-config.yaml"
+			config.KubeletConfig["--image-credential-provider-bin-dir"] = "c:\\var\\lib\\kubelet\\credential-provider"
+		}),
+		Entry("AKSWindows2019 with custom cloud and out of tree credential provider", "AKSWindows2019+CustomCloud+ootcredentialprovider", "1.29.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.WindowsProfile.AlwaysPullWindowsPauseImage = to.BoolPtr(true)
+				config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+					Name:                         "akscustom",
+					McrURL:                       "mcr.microsoft.fakecustomcloud",
+					RepoDepotEndpoint:            "https://repodepot.azure.microsoft.fakecustomcloud/ubuntu",
+					ManagementPortalURL:          "https://portal.azure.microsoft.fakecustomcloud/",
+					PublishSettingsURL:           "",
+					ServiceManagementEndpoint:    "https://management.core.microsoft.fakecustomcloud/",
+					ResourceManagerEndpoint:      "https://management.azure.microsoft.fakecustomcloud/",
+					ActiveDirectoryEndpoint:      "https://login.microsoftonline.microsoft.fakecustomcloud/",
+					GalleryEndpoint:              "",
+					KeyVaultEndpoint:             "https://vault.cloudapi.microsoft.fakecustomcloud/",
+					GraphEndpoint:                "https://graph.cloudapi.microsoft.fakecustomcloud/",
+					ServiceBusEndpoint:           "",
+					BatchManagementEndpoint:      "",
+					StorageEndpointSuffix:        "core.microsoft.fakecustomcloud",
+					SQLDatabaseDNSSuffix:         "database.cloudapi.microsoft.fakecustomcloud",
+					TrafficManagerDNSSuffix:      "",
+					KeyVaultDNSSuffix:            "vault.cloudapi.microsoft.fakecustomcloud",
+					ServiceBusEndpointSuffix:     "",
+					ServiceManagementVMDNSSuffix: "",
+					ResourceManagerVMDNSSuffix:   "cloudapp.azure.microsoft.fakecustomcloud/",
+					ContainerRegistryDNSSuffix:   ".azurecr.microsoft.fakecustomcloud",
+					CosmosDBDNSSuffix:            "documents.core.microsoft.fakecustomcloud/",
+					TokenAudience:                "https://management.core.microsoft.fakecustomcloud/",
+					ResourceIdentifiers: datamodel.ResourceIdentifiers{
+						Graph:               "",
+						KeyVault:            "",
+						Datalake:            "",
+						Batch:               "",
+						OperationalInsights: "",
+						Storage:             "",
+					},
+				}
+				config.KubeletConfig["--image-credential-provider-config"] = "c:\\var\\lib\\kubelet\\credential-provider-config.yaml"
+				config.KubeletConfig["--image-credential-provider-bin-dir"] = "c:\\var\\lib\\kubelet\\credential-provider"
 			}),
 	)
 

@@ -77,6 +77,12 @@ if (Test-Path "c:\k\bootstrap-config") {
   $paths += "c:\k\bootstrap-config"
 }
 
+
+if (Test-Path "c:\k\credential-provider-config.yaml") {
+  Write-Host "Collecting credential provider config"
+  $paths += "c:\k\credential-provider-config.yaml"
+}
+
 Write-Host "Collecting Azure CNI configurations"
 $paths += "C:\k\azurecni\netconf\10-azure.conflist"
 $azureCNIConfigurations = @(
@@ -152,6 +158,16 @@ Get-CimInstance win32_pagefileusage | Format-List * | Out-File -Append "$ENV:TEM
 Get-CimInstance win32_computersystem | Format-List AutomaticManagedPagefile | Out-File -Append "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
 $paths += "$ENV:TEMP\\$($timeStamp)_pagefile.txt"
 
+Write-Host "Get disk usage for all drives"
+$res = Get-Command Get-PSDrive -ErrorAction SilentlyContinue
+if ($res) {
+  Get-PSDrive -PSProvider FileSystem > "$ENV:TEMP\$timeStamp-disk-usage-all-drives.txt"
+  $paths += "$ENV:TEMP\$timeStamp-disk-usage-all-drives.txt"
+}
+else {
+  Write-Host "Get-PSDrive command not available"
+}
+
 Write-Host "Collecting networking related logs"
 & 'c:\k\debug\collectlogs.ps1' | write-Host
 $netLogs = Get-ChildItem (Get-ChildItem -Path c:\k\debug -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName | Select-Object -ExpandProperty FullName
@@ -159,24 +175,56 @@ $paths += $netLogs
 $paths += "c:\AzureData\CustomDataSetupScript.log"
 
 # log containerd containers (this is done for docker via networking collectlogs.ps1)
-Write-Host "Collecting Containerd running containers"
+Write-Host "Collecting Containerd info from ctr"
+$ctrLogsDirectory = "$ENV:TEMP\$timeStamp-ctr-logs"
 $res = Get-Command ctr.exe -ErrorAction SilentlyContinue
 if ($res) {
-  Write-Host "Collecting Containerd running containers - containers"
-  & ctr.exe -n k8s.io c ls > "$ENV:TEMP\$timeStamp-containerd-containers.txt"
-  $paths += "$ENV:TEMP\$timeStamp-containerd-containers.txt"
+  New-Item -Type Directory $ctrLogsDirectory
 
-  Write-Host "Collecting Containerd running containers - tasks"
-  & ctr.exe -n k8s.io t ls > "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
-  $paths += "$ENV:TEMP\$timeStamp-containerd-tasks.txt"
+  Write-Host "Collecting ctr plugin ls"
+  & ctr.exe -n k8s.io plugin ls > "$ctrLogsDirectory\containerd-plugin.txt"
 
-  Write-Host "Collecting Containerd running containers - snapshot"
-  & ctr.exe -n k8s.io snapshot ls > "$ENV:TEMP\$timeStamp-containerd-snapshot.txt"
-  $paths += "$ENV:TEMP\$timeStamp-containerd-snapshot.txt"
+  Write-Host "Collecting ctr containers"
+  & ctr.exe -n k8s.io c ls > "$ctrLogsDirectory\containerd-containers.txt"
+
+  Write-Host "Collecting ctr tasks"
+  & ctr.exe -n k8s.io t ls > "$ctrLogsDirectory\containerd-tasks.txt"
+
+  Write-Host "Collecting ctr content ls"
+  & ctr.exe -n k8s.io content ls > "$ctrLogsDirectory\containerd-content.txt"
+
+  Write-Host "Collecting ctr image ls"
+  & ctr.exe -n k8s.io image ls > "$ctrLogsDirectory\containerd-image.txt"
+
+  Write-Host "Collecting ctr snapshot ls"
+  & ctr.exe -n k8s.io snapshot ls > "$ctrLogsDirectory\containerd-snapshot.txt"
+
+  Write-Host "Collecting ctr snapshot tree"
+  & ctr.exe -n k8s.io snapshot tree > "$ctrLogsDirectory\containerd-snapshot-tree.txt"
+
+  Write-Host "Collecting ctr snapshot info for each snapshot"
+  $snapshotsList = (& ctr.exe -n k8s.io snapshot ls)
+  foreach ($snapshot in $snapshotsList) {
+    $snapshotId = ($snapshot.Split(" ")[0])
+    $fileName = ($snapshotId.Split(":")[1])
+    if ($fileName.length -gt 0) {
+      & ctr.exe -n k8s.io snapshot info $snapshotId > "$ctrLogsDirectory\containerd-snapshot-info-$fileName.txt"
+    }
+  }
+  $paths += $ctrLogsDirectory
 }
 else {
   Write-Host "ctr.exe command not available"
 }
+
+# collect disk usage information
+if (Test-Path "C:\aks-tools\DU\du.exe") {
+  C:\aks-tools\DU\du.exe /accepteula
+  C:\aks-tools\DU\du.exe -l 1 C:\ProgramData\containerd\root\io.containerd.snapshotter.v1.windows\snapshots\ > "$ENV:TEMP\$timeStamp-du-snapshot-folder-size.txt"
+  $paths += "$ENV:TEMP\$timeStamp-du-snapshot-folder-size.txt"
+}
+Copy-Item 'C:\ProgramData\containerd\root\io.containerd.snapshotter.v1.windows\metadata.db' "$ENV:TEMP\$timeStamp-snpashot-metadata.db"
+$paths += "$ENV:TEMP\$timeStamp-snpashot-metadata.db"
 
 # log containers, pods and images the CRI plugin is aware of, and their state.
 $res = Get-Command crictl.exe -ErrorAction SilentlyContinue
@@ -192,6 +240,10 @@ if ($res) {
   Write-Host "Collecting CRI plugin images"
   & crictl.exe images > "$ENV:TEMP\$timeStamp-cri-containerd-images.txt"
   $paths += "$ENV:TEMP\$timeStamp-cri-containerd-images.txt"
+
+  Write-Host "Collecting CRI ImageFSInfo"
+  & crictl.exe imagefsinfo > "$ENV:TEMP\$timeStamp-cri-containerd-imageFsInfo.txt"
+  $paths += "$ENV:TEMP\$timeStamp-cri-containerd-imageFsInfo.txt"
 }
 else {
   Write-Host "crictl.exe command not available"
@@ -222,6 +274,10 @@ if ($res) {
   Write-Host "Collecting logs of containerd info"
   & containerd.exe --v > "$ENV:TEMP\$timeStamp-containerd-info.txt"
   $paths += "$ENV:TEMP\$timeStamp-containerd-info.txt"
+
+  Write-Host "Collecting containerd.toml"
+  & containerd.exe config default | Out-File "$ENV:TEMP\$timeStamp-containerd-toml.txt" -Encoding ascii
+  $paths += "$ENV:TEMP\$timeStamp-containerd-toml.txt"
 }
 else {
   Write-Host "containerd.exe command not available"

@@ -408,6 +408,16 @@ fi
 stop_watch $capture_time "GPU Device plugin" false
 start_watch
 
+# Kubelet credential provider plugins
+CREDENTIAL_PROVIDER_VERSIONS="
+1.29.2
+"
+for CREDENTIAL_PROVIDER_VERSION in $CREDENTIAL_PROVIDER_VERSIONS; do
+    CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
+    downloadCredentalProvider $CREDENTIAL_PROVIDER_DOWNLOAD_URL
+    echo "  - Kubelet credential provider version ${CREDENTIAL_PROVIDER_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
+
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
 systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
