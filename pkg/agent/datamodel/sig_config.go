@@ -85,6 +85,31 @@ func processComponents(components Components) {
 	}
 }
 
+func getCachedVersionsFromManifestJSON(manifestFilePath string) Manifest {
+	data, err := os.ReadFile(manifestFilePath)
+	if err != nil {
+		panic(err)
+	}
+	data = bytes.ReplaceAll(data, []byte("#EOF"), []byte(""))
+	var manifest Manifest
+	if err = json.Unmarshal(data, &manifest); err != nil {
+		panic(err)
+	}
+	return manifest
+}
+
+func getCachedVersionsFromComponentsJSON(componentsFilePath string) Components {
+	data, err := os.ReadFile(componentsFilePath)
+	if err != nil {
+		panic(err)
+	}
+	var components Components
+	if err = json.Unmarshal(data, &components); err != nil {
+		panic(err)
+	}
+	return components
+}
+
 type Manifest struct {
 	Containerd struct {
 		Edge     string            `json:"edge"`
@@ -114,19 +139,6 @@ type ProcessedManifest struct {
 	Installed map[string]string
 }
 
-func getCachedVersionsFromManifestJSON(manifestFilePath string) Manifest {
-	data, err := os.ReadFile(manifestFilePath)
-	if err != nil {
-		panic(err)
-	}
-	data = bytes.ReplaceAll(data, []byte("#EOF"), []byte(""))
-	var manifest Manifest
-	if err = json.Unmarshal(data, &manifest); err != nil {
-		panic(err)
-	}
-	return manifest
-}
-
 type Components struct {
 	ContainerImages []struct {
 		DownloadURL           string   `json:"downloadURL"`
@@ -147,18 +159,6 @@ type ContainerImage struct {
 	MultiArchVersions     []string
 	Amd64OnlyVersions     []string
 	PrefetchOptimizations PrefetchOptimizations
-}
-
-func getCachedVersionsFromComponentsJSON(componentsFilePath string) Components {
-	data, err := os.ReadFile(componentsFilePath)
-	if err != nil {
-		panic(err)
-	}
-	var components Components
-	if err = json.Unmarshal(data, &components); err != nil {
-		panic(err)
-	}
-	return components
 }
 
 // SIGAzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
