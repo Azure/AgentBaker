@@ -403,7 +403,11 @@ capture_benchmarks () {
   printf -v total_time_elapsed "%02d:%02d:%02d" $elapsed_hours $elapsed_minutes $elapsed_seconds
 
   benchmarks+=($title)
-  benchmarks+=($section_start_timestamp)
+  if [ "$is_final_section" = true ]; then
+    benchmarks+=($script_start_timestamp)
+  else
+    benchmarks+=($section_start_timestamp)
+  fi
   benchmarks+=($end_timestamp)
   benchmarks+=($total_time_elapsed)
   
