@@ -105,7 +105,7 @@ func trimEOF(data []byte) []byte {
 	return data
 }
 
-func processDownloadURL(downloadURL string) (string, error) {
+func processContainerImageTag(downloadURL string) (string, error) {
 	// example URL "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
 	// getting the data between the last / and the last :
 	parts := strings.Split(downloadURL, "/")

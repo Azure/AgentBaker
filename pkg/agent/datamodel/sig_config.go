@@ -1018,7 +1018,7 @@ func getCachedVersionsFromComponentsJSON(componentsFilePath string) {
 	}
 
 	for _, image := range components.ContainerImages {
-		componentName, err := processDownloadURL(image.DownloadURL)
+		componentName, err := processContainerImageTag(image.DownloadURL)
 		if err != nil {
 			panic(err)
 		}
