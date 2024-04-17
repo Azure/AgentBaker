@@ -386,6 +386,18 @@ start_watch () {
   set -x
 }
 
+installSnapd () {
+if snap version > /dev/null 2>&1; then
+  sudo snap install jq
+  echo "jq was installed"
+else
+  sudo apt install snapd
+  sudo snap install jq
+  export PATH=$PATH:/snap/bin
+  echo "snapd and jq were installed"
+fi
+}
+
 capture_benchmarks () {
   set +x
   local is_final_section=$1
@@ -405,7 +417,7 @@ capture_benchmarks () {
   printf -v total_time_elapsed "%02d:%02d:%02d" $elapsed_hours $elapsed_minutes $elapsed_seconds
 
   benchmarks+=($title)
-  if [ "$is_final_section" = true ]; then
+  if [[ "$is_final_section" == true ]]; then
     benchmarks+=($script_start_timestamp)
   else
     benchmarks+=($section_start_timestamp)
@@ -413,7 +425,7 @@ capture_benchmarks () {
   benchmarks+=($end_timestamp)
   benchmarks+=($total_time_elapsed)
   
-  if [ "$is_final_section" = true ]; then 
+  if [[ "$is_final_section" == true ]]; then 
 
     script_object=$(jq -n --arg script_name "$title" --arg script_start_timestamp "$script_start_timestamp" --arg end_timestamp "$end_timestamp" --arg total_time_elapsed "$total_time_elapsed" '{($script_name): {"overall": {"start_time": $script_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}}')
 
