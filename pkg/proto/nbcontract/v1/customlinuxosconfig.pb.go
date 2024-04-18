@@ -40,6 +40,8 @@ type CustomLinuxOSConfig struct {
 	SysctlConfig *SysctlConfig `protobuf:"bytes,5,opt,name=sysctl_config,json=sysctlConfig,proto3" json:"sysctl_config,omitempty"`
 	// Ulimit settings for Linux agent nodes
 	UlimitConfig *UlimitConfig `protobuf:"bytes,6,opt,name=ulimit_config,json=ulimitConfig,proto3" json:"ulimit_config,omitempty"`
+	// Enable or disable UseDomains= for systemd-networkd 
+	ConfigureSystemdUseDomains bool `protobuf:"bytes,7,opt,name=configure_systemd_use_domains,json=configureSystemdUseDomains,proto3" json:"configure_systemd_use_domains,omitempty"`
 }
 
 func (x *CustomLinuxOSConfig) Reset() {
@@ -114,6 +116,13 @@ func (x *CustomLinuxOSConfig) GetUlimitConfig() *UlimitConfig {
 		return x.UlimitConfig
 	}
 	return nil
+}
+
+func (x *CustomLinuxOSConfig) GetConfigureSystemdUseDomains() bool {
+	if x != nil {
+		return x.ConfigureSystemdUseDomains
+	}
+	return false
 }
 
 type SysctlConfig struct {

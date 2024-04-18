@@ -22,6 +22,9 @@ message CustomLinuxOSConfig {
   
   // Ulimit settings for Linux agent nodes
   UlimitConfig ulimit_config = 6;
+
+  // Enable or disable UseDomains= for systemd-networkd
+  bool configure_systemd_use_domains = 7;
 }
 
 message SysctlConfig {

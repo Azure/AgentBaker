@@ -220,6 +220,14 @@ if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
 fi
 
+# For Azure Linux AKS, configure systemd UseDomains to true to enable hostname resolution
+if [[ $OS == $MARINER_OS_NAME ]]; then
+    if [ "${SHOULD_CONFIG_SYSTEMD_USE_DOMAINS}" == "true" ]; then
+        logs_to_events "AKS.CSE.configureSystemdUseDomains" configureSystemdUseDomains
+
+    fi
+fi
+
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     # containerd should not be configured until cni has been configured first
     logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 

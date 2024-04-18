@@ -28,6 +28,17 @@ configureTransparentHugePage() {
     fi
 }
 
+configureSystemdUseDomains() {
+    sed -i '/^\[DHCPv4\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' /etc/systemd/networkd.conf
+    
+    # Also set UseDomains= to true for DHCPv6 if dhcpv6 service is active
+    if [[ $(systemctl is-active dhcpv6) == "active" ]]; then
+        sed -i '/^\[DHCPv6\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' /etc/systemd/networkd.conf
+    fi
+
+    systemctl restart systemd-networkd
+}
+
 configureSwapFile() {
     # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
     swap_size_kb=$(expr ${SWAP_FILE_SIZE_MB} \* 1000)

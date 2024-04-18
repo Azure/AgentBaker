@@ -471,6 +471,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableKubeletConfigFile = false
 				netIpv4TcpTwReuse := true
+				configureSystemdUseDomains := false
 				failSwapOn := false
 				var swapFileSizeMB int32 = 1500
 				var netCoreSomaxconn int32 = 1638499
@@ -499,6 +500,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 					},
 					TransparentHugePageEnabled: "never",
 					TransparentHugePageDefrag:  "defer+madvise",
+					ConfigureSystemdUseDomains: &configureSystemdUseDomains,
 					SwapFileSizeMB:             &swapFileSizeMB,
 				}
 			}, func(o *nodeBootstrappingOutput) {
@@ -1277,6 +1279,7 @@ oom_score = 0
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableKubeletConfigFile = false
 				netIpv4TcpTwReuse := true
+				configureSystemdUseDomains := false
 				failSwapOn := false
 				var swapFileSizeMB int32 = 1500
 				var netCoreSomaxconn int32 = 1638499
@@ -1305,6 +1308,7 @@ oom_score = 0
 					},
 					TransparentHugePageEnabled: "never",
 					TransparentHugePageDefrag:  "defer+madvise",
+					ConfigureSystemdUseDomains: &configureSystemdUseDomains,
 					SwapFileSizeMB:             &swapFileSizeMB,
 				}
 			}, func(o *nodeBootstrappingOutput) {

@@ -92,6 +92,7 @@ ENABLE_UNATTENDED_UPGRADES="{{EnableUnattendedUpgrade}}"
 ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE="{{ and NeedsContainerd IsKubenet (not HasCalicoNetworkPolicy) }}"
 SHOULD_CONFIG_SWAP_FILE="{{ShouldConfigSwapFile}}"
 SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE="{{ShouldConfigTransparentHugePage}}"
+SHOULD_CONFIG_SYSTEMD_USE_DOMAINS="{{ShouldConfigureSystemdUseDomains}}"
 SHOULD_CONFIG_CONTAINERD_ULIMITS="{{ShouldConfigContainerdUlimits}}"
 CONTAINERD_ULIMITS="{{GetContainerdUlimitString}}"
 {{/* both CLOUD and ENVIRONMENT have special values when IsAKSCustomCloud == true */}}

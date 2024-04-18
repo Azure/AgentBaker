@@ -2285,6 +2285,7 @@ ENABLE_UNATTENDED_UPGRADES="{{EnableUnattendedUpgrade}}"
 ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE="{{ and NeedsContainerd IsKubenet (not HasCalicoNetworkPolicy) }}"
 SHOULD_CONFIG_SWAP_FILE="{{ShouldConfigSwapFile}}"
 SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE="{{ShouldConfigTransparentHugePage}}"
+SHOULD_CONFIG_SYSTEMD_USE_DOMAINS="{{ShouldConfigureSystemdUseDomains}}"
 SHOULD_CONFIG_CONTAINERD_ULIMITS="{{ShouldConfigContainerdUlimits}}"
 CONTAINERD_ULIMITS="{{GetContainerdUlimitString}}"
 {{/* both CLOUD and ENVIRONMENT have special values when IsAKSCustomCloud == true */}}
@@ -2396,6 +2397,17 @@ configureTransparentHugePage() {
         echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
         echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
     fi
+}
+
+configureSystemdUseDomains() {
+    sed -i '/^\[DHCPv4\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' /etc/systemd/networkd.conf
+    
+    # Also set UseDomains= to true for DHCPv6 if dhcpv6 service is active
+    if [[ $(systemctl is-active dhcpv6) == "active" ]]; then
+        sed -i '/^\[DHCPv6\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' /etc/systemd/networkd.conf
+    fi
+
+    systemctl restart systemd-networkd
 }
 
 configureSwapFile() {
@@ -4291,6 +4303,14 @@ logs_to_events "AKS.CSE.configureCNI" configureCNI
 # configure and enable dhcpv6 for dual stack feature
 if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
+fi
+
+# For Azure Linux AKS, configure systemd UseDomains to true to enable hostname resolution
+if [[ $OS == $MARINER_OS_NAME ]]; then
+    if [ "${SHOULD_CONFIG_SYSTEMD_USE_DOMAINS}" == "true" ]; then
+        logs_to_events "AKS.CSE.configureSystemdUseDomains" configureSystemdUseDomains
+
+    fi
 fi
 
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then

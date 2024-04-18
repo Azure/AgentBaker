@@ -431,6 +431,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return profile.CustomLinuxOSConfig.TransparentHugePageDefrag
 		},
+		"ShouldConfigureSystemdUseDomains": func() bool {
+			return profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.ConfigureSystemdUseDomains != nil && *profile.CustomLinuxOSConfig.ConfigureSystemdUseDomains
+		},
 		"ShouldConfigSwapFile": func() bool {
 			// only configure swap file when FailSwapOn is false and SwapFileSizeMB is valid
 			return profile.CustomKubeletConfig != nil && profile.CustomKubeletConfig.FailSwapOn != nil && !*profile.CustomKubeletConfig.FailSwapOn &&

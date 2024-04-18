@@ -28,6 +28,16 @@ configureTransparentHugePage() {
     fi
 }
 
+configureSystemdUseDomains() {
+    sed -i '/^\[DHCPv4\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' /etc/systemd/networkd.conf
+    
+    if [[ $(systemctl is-active dhcpv6) == "active" ]]; then
+        sed -i '/^\[DHCPv6\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' /etc/systemd/networkd.conf
+    fi
+
+    systemctl restart systemd-networkd
+}
+
 configureSwapFile() {
     swap_size_kb=$(expr ${SWAP_FILE_SIZE_MB} \* 1000)
     swap_location=""
