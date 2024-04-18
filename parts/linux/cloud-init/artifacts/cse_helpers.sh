@@ -407,6 +407,7 @@ capture_benchmarks () {
   if [ ! -f /opt/azure/perf/performance-data ]; then
     sudo mkdir -p /opt/azure/perf
     echo '[]' > /opt/azure/perf/performance-data.json
+    chmod 755 /opt/azure/perf/
     chmod 755 /opt/azure/perf/performance-data.json
   fi
 
