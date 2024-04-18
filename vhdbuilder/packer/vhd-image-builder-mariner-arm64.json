@@ -594,13 +594,13 @@
     {
       "type": "file",
       "direction": "download",
-      "source": "/opt/azure/perf/jsonBenchmarks.json",
-      "destination": "jsonBenchmarks.json"
+      "source": "/opt/azure/perf/performance-data.json",
+      "destination": "performance-data.json"
     },
     {
       "type": "shell",
       "inline": [
-        "sudo rm /opt/azure/perf/jsonBenchmarks.json"
+        "sudo rm /opt/azure/perf/performance-data.json"
       ]
     },
     {
