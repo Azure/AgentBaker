@@ -386,25 +386,18 @@ start_watch () {
   set -x
 }
 
-installSnapd () {
+installJq () {
   set +x
   if snap version > /dev/null 2>&1; then
     sudo snap install jq
     export PATH=$PATH:/snap/bin
     echo "jq was installed"
   else
-    if [[ "${OS}" == "UBUNTU" ]]; then
-      sudo apt install snapd
-      export PATH=$PATH:/snap/bin
-      sudo snap install jq
-      echo "snapd and jq were installed"
-    else 
-      sudo tdnf install snapd
-      sudo systemctl enable --now snapd.socket
-      sudo ln -s /var/lib/snapd/snap /snap
-      export PATH=$PATH:/snap/bin
-      sudo snap install jq
-      echo "snapd and jq were installed"
+    if [[ "${OS}" == "MARINER" ]]; then
+      sudo tdnf install jq
+      JQ_DIR=$(dirname "$(which jq)")
+      export PATH="$JQ_DIR:$PATH"
+      echo "jq was installed: $(jq --version)"
     fi
   fi
   set -x
