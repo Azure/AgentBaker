@@ -648,8 +648,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo rm /opt/azure/perf/jsonBenchmarks.json",
-        "sudo rm /opt/azure/perf"
+        "sudo rm /opt/azure/perf/jsonBenchmarks.json"
       ]
     },
     {
