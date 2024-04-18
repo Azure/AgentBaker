@@ -387,7 +387,6 @@ start_watch () {
 }
 
 installJq () {
-  set +x
   if snap version > /dev/null 2>&1; then
     sudo snap install jq
     export PATH=$PATH:/snap/bin
@@ -395,12 +394,11 @@ installJq () {
   else
     if [[ "${OS}" == "MARINER" ]]; then
       sudo tdnf install jq
-      JQ_DIR=$(dirname "$(which jq)")
+      JQ_DIR=$(dirname "$(where jq)")
       export PATH="$JQ_DIR:$PATH"
       echo "jq was installed: $(jq --version)"
     fi
   fi
-  set -x
 }
 
 capture_benchmarks () {
