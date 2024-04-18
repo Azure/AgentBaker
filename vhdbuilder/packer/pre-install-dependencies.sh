@@ -25,11 +25,6 @@ source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
 
-installJq
-echo '[]' > jsonBenchmarks.json
-capture_benchmarks false "declare_variables_remove_comments_and_execute_packer_files"
-start_watch
-
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
@@ -46,9 +41,12 @@ start_watch
 if [[ $OS == $MARINER_OS_NAME ]]; then
   chmod 755 /opt
   chmod 755 /opt/azure
+  chmod 755 /opt/azure/perf
   chmod 644 ${VHD_LOGS_FILEPATH}
 fi
-capture_benchmarks false "set_permissions_if_mariner"
+
+installJq
+capture_benchmarks false "set_mariner_permissions_declare_variables_and_execute_packer_files"
 start_watch
 
 copyPackerFiles

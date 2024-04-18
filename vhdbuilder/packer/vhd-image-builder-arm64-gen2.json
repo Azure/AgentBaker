@@ -78,6 +78,13 @@
       ]
     },
     {
+      "type": "shell",
+      "inline": [
+        "sudo mkdir -p /opt/azure/perf",
+        "sudo chown -R $USER /opt/azure/perf"
+      ]
+    },
+    {
       "type": "file",
       "source": "vhdbuilder/packer/prefetch.sh",
       "destination": "/home/packer/prefetch.sh"
@@ -627,13 +634,14 @@
     {
       "type": "file",
       "direction": "download",
-      "source": "jsonBenchmarks.json",
+      "source": "/opt/azure/perf/jsonBenchmarks.json",
       "destination": "jsonBenchmarks.json"
     },
     {
       "type": "shell",
       "inline": [
-        "rm jsonBenchmarks.json"
+        "sudo rm /opt/azure/perf/jsonBenchmarks.json",
+        "sudo rm /opt/azure/perf"
       ]
     },
     {
