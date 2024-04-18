@@ -110,7 +110,7 @@ message Configuration {
   bool ensure_no_dupe_promiscuous_bridge = 28; 
 
   // Custom search domain configurations
-  CustomSearchDomain custom_search_domain = 29;
+  CustomSearchDomainConfig custom_search_domain_config = 29;
 
   // Custom Linux OS configurations including SwapFile, SysCtl configs, etc.
   CustomLinuxOSConfig custom_linux_os_config = 30;

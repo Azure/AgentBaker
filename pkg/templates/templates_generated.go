@@ -5536,10 +5536,13 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "versions": [
             "1.27.7",
             "1.27.9",
+            "1.27.12",
             "1.28.3",
             "1.28.5",
+            "1.28.8",
             "1.29.0",
-            "1.29.2"
+            "1.29.2",
+            "1.29.3"
         ]
     },
     "_template": {
@@ -5838,6 +5841,9 @@ if [ -z "${node_name}" ]; then
     echo "cannot get node name"
     exit 1
 fi
+
+# Azure cloud provider assigns node name as the lowner case of the hostname
+node_name=$(echo "$node_name" | tr '[:upper:]' '[:lower:]')
 
 # retrieve golden timestamp from node annotation
 golden_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-golden-timestamp']}")
@@ -7994,6 +8000,9 @@ if [ -z "${node_name}" ]; then
     exit 1
 fi
 
+# Azure cloud provider assigns node name as the lowner case of the hostname
+node_name=$(echo "$node_name" | tr '[:upper:]' '[:lower:]')
+
 # retrieve golden timestamp from node annotation
 golden_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-golden-timestamp']}")
 if [ -z "${golden_timestamp}" ]; then
@@ -8808,6 +8817,9 @@ $global:VNetCNIPluginsURL = "{{GetParameter "vnetCniWindowsPluginsURL"}}"
 $global:IsDualStackEnabled = {{if IsIPv6DualStackFeatureEnabled}}$true{{else}}$false{{end}}
 $global:IsAzureCNIOverlayEnabled = {{if IsAzureCNIOverlayFeatureEnabled}}$true{{else}}$false{{end}}
 
+# Kubelet credential provider
+$global:CredentialProviderURL = "{{GetParameter "windowsCredentialProviderURL"}}"
+
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("{{GetVariable "windowsEnableCSIProxy" }}");
 $global:CsiProxyUrl = "{{GetVariable "windowsCSIProxyURL" }}";
@@ -8880,7 +8892,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.40.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.41.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -8936,7 +8948,9 @@ try
     Get-LogCollectionScripts
     
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
-    
+
+    Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix {{if IsAKSCustomCloud}}"{{ AKSCustomCloudContainerRegistryDNSSuffix }}"{{else}}""{{end}} 
+
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
     
     $cniBinPath = $global:AzureCNIBinDir
@@ -9299,6 +9313,9 @@ $global:WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE=61
 $global:WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG=62
 $global:WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP=63
 $global:WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION=64
+$global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER = 65 # exit code for installing credential provider
+$global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER=66 # exit code for downloading credential provider failure
+$global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG=67 # exit code for checking credential provider config failure
 
 # Please add new error code for downloading new packages in RP code too
 $global:ErrorCodeNames = @(
@@ -9366,7 +9383,10 @@ $global:ErrorCodeNames = @(
     "WINDOWS_CSE_ERROR_GPU_DRIVER_INSTALLATION_URL_NOT_EXE",
     "WINDOWS_CSE_ERROR_UPDATING_KUBE_CLUSTER_CONFIG",
     "WINDOWS_CSE_ERROR_GET_NODE_IPV6_IP",
-    "WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION"
+    "WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION",
+    "WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER",
+    "WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER",
+    "WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG"
 )
 
 # NOTE: KubernetesVersion does not contain "v"
