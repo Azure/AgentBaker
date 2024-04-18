@@ -1332,15 +1332,24 @@ oom_score = 0
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableIMDSRestriction = true
 				config.InsertIMDSRestrictionRuleToMangleTable = true
-			}, nil),
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ENABLE_IMDS_RESTRICTION"]).To(Equal("true"))
+				Expect(o.vars["INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE"]).To(Equal("true"))
+			}),
 		Entry("AKSUbuntu2204 IMDSRestriction with enable restriction and not insert to mangle table", "AKSUbuntu2204+IMDSRestrictionOnWithFilterTable", "1.24.2",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableIMDSRestriction = true
 				config.InsertIMDSRestrictionRuleToMangleTable = false
-			}, nil),
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ENABLE_IMDS_RESTRICTION"]).To(Equal("true"))
+				Expect(o.vars["INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE"]).To(Equal("false"))
+			}),
 		Entry("AKSUbuntu2204 IMDSRestriction with disable restriction", "AKSUbuntu2204+IMDSRestrictionOff", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.EnableIMDSRestriction = false
-		}, nil),
+		}, func(o *nodeBootstrappingOutput) {
+			Expect(o.vars["ENABLE_IMDS_RESTRICTION"]).To(Equal("false"))
+			Expect(o.vars["INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE"]).To(Equal("false"))
+		}),
 	)
 })
 
