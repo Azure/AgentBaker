@@ -18,7 +18,7 @@ source /home/packer/provision_source.sh
 source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
-stop_watch $capture_time "Determine OS / Set Comparison / Execute home/packer files" false
+capture_benchmarks false "determine_os_and_source_packer_files"
 start_watch
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
@@ -26,7 +26,7 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
 MAX_BLOCK_COUNT=30298176 # 30 GB
-stop_watch $capture_time "Set Variables" false
+capture_benchmarks false "set_variables"
 start_watch
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -53,7 +53,7 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
     detachAndCleanUpUA
   fi
 fi
-stop_watch $capture_time "Log / Detach UA and Clean-up" false
+capture_benchmarks false "log_and_detach_ua"
 start_watch
 
 # shellcheck disable=SC2129
@@ -64,7 +64,7 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
 
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
-stop_watch $capture_time "List Installed Packages" false
+capture_benchmarks false "list_installed_packages"
 start_watch
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
@@ -77,7 +77,7 @@ usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (
 usage=${usage%.*}
 [ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
 [ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
-stop_watch $capture_time "Determine Disk Usage" false
+capture_benchmarks false "determine_disk_usage"
 start_watch
 
 echo -e "=== os-release Begin" >> ${VHD_LOGS_FILEPATH}
@@ -97,14 +97,14 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "Container runtime: ${CONTAINER_RUNTIME}"
   echo "FIPS enabled: ${ENABLE_FIPS}"
 } >> ${VHD_LOGS_FILEPATH}
-stop_watch $capture_time "Write Logs" false
+capture_benchmarks false "write_logs"
 start_watch
 
 if [[ $(isARM64) != 1 ]]; then
   # no asc-baseline-1.1.0-268.arm64.deb
   installAscBaseline
 fi
-stop_watch $capture_time "Instal Asc Baseline" false
+capture_benchmarks false "install_asc_baseline"
 start_watch
 
 if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
@@ -112,8 +112,6 @@ if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_R
     relinkResolvConf
   fi
 fi
-stop_watch $capture_time "RelinkResolveConf" false
-
+capture_benchmarks false "resolve_conf"
 echo "post-install-dependencies step completed successfully"
-stop_watch $capture_script_start "post-install-dependencies.sh" true
-show_benchmarks
+capture_benchmarks true "post_install_dependencies.sh"
