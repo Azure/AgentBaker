@@ -35,8 +35,8 @@ cat components.json > ${COMPONENTS_FILEPATH}
 cat manifest.json > ${MANIFEST_FILEPATH}
 cat ${THIS_DIR}/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
-capture_benchmarks false "create_post_build_test"
-start_watch
+sudo mkdir -p /opt/azure/perf
+echo '[]' > /opt/azure/perf/jsonBenchmarks.json
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
   chmod 755 /opt
