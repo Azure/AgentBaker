@@ -39,7 +39,7 @@ steps:
   - bash: |
       pwd
       ls -R
-    displayName: show Directory
+    displayName: Show Directory
   - bash: |
       set -x
       GOPATH="$(go env GOPATH)"
@@ -49,7 +49,7 @@ steps:
       GO111MODULE=on go install cuelang.org/go/cmd/cue@latest
       popd
       cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
-    displayName: setup cue
+    displayName: Setup Cue
   - bash: |
       SKU_NAME=${OS_VERSION} && \
       if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
@@ -107,7 +107,7 @@ steps:
         -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
         ${CONTAINER_IMAGE} make -f packer.mk run-packer
     retryCountOnTaskFailure: 3
-    displayName: Building VHD
+    displayName: Build VHD
   - script: |
         OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
         MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
@@ -144,12 +144,18 @@ steps:
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
         targetPath: 'release-notes.txt'
-    displayName: publish release notes
+    displayName: Publish Release Notes
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
         targetPath: 'image-bom.json'
-    displayName: publish container image list
+    displayName: Publish Container Image List
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+  - task: PublishPipelineArtifact@1
+    inputs:
+        artifactName: 'build-performance-data-${{ parameters.artifactName }}'
+        targetPath: 'jsonBenchmarks.json'
+    displayName: Publish Build Performance Data
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - bash: |
       echo MODE=$(MODE) && \
@@ -180,7 +186,7 @@ steps:
       -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
       -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
       ${CONTAINER_IMAGE} make -f packer.mk cleanup
-    displayName: Clean Up Packer Generated Resources
+    displayName: Clean Up Packer-generated Resources
     condition: always()
   - bash: |
         echo MODE=$(MODE) && \
@@ -234,7 +240,7 @@ steps:
         -e ARCHITECTURE=${ARCHITECTURE} \
         -e IMAGE_VERSION=${IMAGE_VERSION} \
         ${CONTAINER_IMAGE} make -f packer.mk generate-sas
-    displayName: Getting Shared Access Signature URI
+    displayName: Get Shared Access Signature URI
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - task: PublishPipelineArtifact@1
     inputs:
