@@ -439,11 +439,12 @@ capture_benchmarks () {
 
     done
 
-    jsonBenchmarks+=("$script_object")
+    #jsonBenchmarks+=("$script_object")
     echo "Benchmarks:"
     echo "$script_object" | jq -C .
  
-    jq -n --slurpfile array <(printf '%s\n' "${jsonBenchmarks[@]}") '$array' > /opt/azure/perf/jsonBenchmarks.json
+    #jq -n --slurpfile array <(printf '%s\n' "${jsonBenchmarks[@]}") '$array' > /opt/azure/perf/jsonBenchmarks.json
+    jq ". += [$script_object]" /opt/azure/perf/jsonBenchmarks.json > tmp.json && mv tmp.json /opt/azure/perf/jsonBenchmarks.json
     chmod 755 /opt/azure/perf/jsonBenchmarks.json
   else
     section_object=$(jq -n --arg section_name "$title" --arg section_start_timestamp "$section_start_timestamp" --arg end_timestamp "$end_timestamp" --arg total_time_elapsed "$total_time_elapsed" '{($section_name): {"start_time": $section_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}')
