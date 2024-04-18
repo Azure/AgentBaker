@@ -1,12 +1,13 @@
 #!/bin/bash
 
 script_start_timestamp=$(date +%H:%M:%S)
-start_timestamp=$(date +%H:%M:%S)
+section_start_timestamp=$(date +%H:%M:%S)
 
-capture_script_start=$(date +%s)
-capture_time=$(date +%s)
+script_start_stopwatch=$(date +%s)
+section_start_stopwatch=$(date +%s)
 
 declare -a benchmarks=()
+declare -a jsonBenchmarks=()
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
