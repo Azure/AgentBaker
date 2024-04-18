@@ -3151,7 +3151,7 @@ ensureIMDSRestrictionRule() {
             return
         fi
         echo "Inserting IMDS restriction rule to mangle table..."
-        iptables -t mangle -I FORWARD 1 ! -s "$primaryNicIP" -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_MANIPULATE_IPTABLES
+        iptables -t mangle -I FORWARD 1 ! -s "$primaryNicIP" -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_MANGLE_TABLE
     else
         echo "Before inserting IMDS restriction rule to filter table, checking whether the rule already exists..."
         iptables -t filter -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
@@ -3160,7 +3160,7 @@ ensureIMDSRestrictionRule() {
             return
         fi
         echo "Inserting IMDS restriction rule to filter table..."
-        iptables -t filter -I FORWARD 1 ! -s "$primaryNicIP" -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_MANIPULATE_IPTABLES
+        iptables -t filter -I FORWARD 1 ! -s "$primaryNicIP" -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_FILTER_TABLE
     fi
 }
 
@@ -3179,7 +3179,7 @@ disableIMDSRestriction() {
         echo "IMDS restriction rule does not exist in mangle table, no need to delete"
     else
         echo "Deleting IMDS restriction rule from mangle table..."
-        iptables -t mangle -D FORWARD ! -s $primaryNicIP -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_MANIPULATE_IPTABLES
+        iptables -t mangle -D FORWARD ! -s $primaryNicIP -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_MANGLE_TABLE
     fi
 
     echo "Checking whether IMDS restriction rule exists in filter table..."
@@ -3188,7 +3188,7 @@ disableIMDSRestriction() {
          echo "IMDS restriction rule does not exist in filter table, no need to delete"
     else
         echo "Deleting IMDS restriction rule from filter table..."
-        iptables -t filter -D FORWARD ! -s $primaryNicIP -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_MANIPULATE_IPTABLES
+        iptables -t filter -D FORWARD ! -s $primaryNicIP -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_FILTER_TABLE
     fi
 }
 
@@ -3300,7 +3300,10 @@ ERR_DISBALE_IPTABLES=170 # Error disabling iptables service
 ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 # Timeout waiting for krustlet downloads
 ERR_DISABLE_SSH=172 # Error disabling ssh service
 ERR_PRIMARY_NIC_IP_NOT_FOUND=173 # Error fetching primary NIC IP address
-ERR_MANIPULATE_IPTABLES=174 # Error manipulating iptables rules
+ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_MANGLE_TABLE=174 # Error insert imds restriction rule into mangle table
+ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_FILTER_TABLE=175 # Error insert imds restriction rule into filter table
+ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_MANGLE_TABLE=176 # Error delete imds restriction rule from mangle table
+ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_FILTER_TABLE=177 # Error delete imds restriction rule from filter table
 
 ERR_VHD_REBOOT_REQUIRED=200 # Reserved for VHD reboot required exit condition
 ERR_NO_PACKAGES_FOUND=201 # Reserved for no security packages found exit condition
