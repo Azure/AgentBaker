@@ -592,6 +592,18 @@
       "destination": "release-notes.txt"
     },
     {
+      "type": "file",
+      "direction": "download",
+      "source": "jsonBenchmarks.json",
+      "destination": "jsonBenchmarks.json"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "rm jsonBenchmarks.json"
+      ]
+    },
+    {
       "type": "shell",
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
