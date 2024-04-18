@@ -444,7 +444,12 @@ capture_benchmarks () {
     echo "Benchmarks:"
     echo "$script_object" | jq -C .
 
-    jq --slurp --slurpfile array <(printf '%s\n' "${jsonBenchmarks[@]}") '$array | add' > jsonBenchmarks.json 
+    if [[ -s jsonBenchmarks.json ]]; then
+      jq --slurp --slurpfile array <(printf '%s\n' "${jsonBenchmarks[@]}") '$array | add' > jsonBenchmarks.json 
+    else
+      jq -n --argjson array <(printf '%s\n' "${jsonBenchmarks[@]}") '$array' > jsonBenchmarks.json 
+    fi
+    #jq --slurp --slurpfile array <(printf '%s\n' "${jsonBenchmarks[@]}") '$array | add' > jsonBenchmarks.json 
     #jq -n --slurpfile array <(printf '%s\n' "${jsonBenchmarks[@]}") '$array' > jsonBenchmarks.json   
   else
     section_object=$(jq -n --arg section_name "$title" --arg section_start_timestamp "$section_start_timestamp" --arg end_timestamp "$end_timestamp" --arg total_time_elapsed "$total_time_elapsed" '{($section_name): {"start_time": $section_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}')
