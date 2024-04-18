@@ -151,6 +151,12 @@ steps:
         targetPath: 'image-bom.json'
     displayName: publish container image list
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+  - task: PublishPipelineArtifact@1
+    inputs:
+        artifactName: 'build-performance-info-${{ parameters.artifactName }}'
+        targetPath: 'jsonBenchmarks.json'
+    displayName: Get Build Performance Information
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - bash: |
       echo MODE=$(MODE) && \
       PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
@@ -240,11 +246,6 @@ steps:
     inputs:
         artifactName: 'publishing-info-${{ parameters.artifactName }}'
         targetPath: 'vhd-publishing-info.json'
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
-  - task: PublishPipelineArtifact@1
-    inputs:
-        artifactName: 'build-performance-info-${{ parameters.artifactName }}'
-        targetPath: 'jsonBenchmarks.json'
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - task: UniversalPackages@0
     displayName: Universal Publish
