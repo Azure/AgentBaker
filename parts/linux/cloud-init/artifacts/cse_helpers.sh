@@ -393,7 +393,7 @@ installJq () {
     echo "jq was installed"
   else
     if [[ "${OS}" == "MARINER" ]]; then
-      sudo tdnf install jq
+      sudo tdnf install -y jq
       JQ_DIR=$(dirname "$(where jq)")
       export PATH="$JQ_DIR:$PATH"
       echo "jq was installed: $(jq --version)"
