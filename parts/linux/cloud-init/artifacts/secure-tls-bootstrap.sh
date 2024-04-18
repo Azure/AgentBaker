@@ -2,7 +2,7 @@
 
 set -uxo pipefail
 
-DEFAULT_CLIENT_VERSION="client-v0.1.0-alpha.cameissner1"
+DEFAULT_CLIENT_VERSION="client-v0.1.0-alpha.cameissner2"
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 NEXT_PROTO_VALUE="aks-tls-bootstrap"
 
