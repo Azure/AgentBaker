@@ -27,6 +27,18 @@ function Install-VnetPlugins
     move $AzureCNIBinDir/*.conflist $AzureCNIConfDir
 }
 
+function Remove-DuplicateValueInExceptionList {
+    param([string[]] $Values)
+
+    $global:ExceptionList = @()
+
+    foreach ($value in $Values) {
+        if (!$global:ExceptionList.contains($value)) {
+            $global:ExceptionList += $value
+        }
+    }
+}
+
 function Set-AzureCNIConfig
 {
     Param(
@@ -145,7 +157,8 @@ function Set-AzureCNIConfig
                 # list for IPv4 and then append a new EnpointPolicy for IPv6. We
                 # probably shouldn't hard code the first one like this and just build
                 # 2 EndpointPolicies and append to the AdditionalArgs.
-                $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $ipv4Cidrs
+                Remove-DuplicateValueInExceptionList -Values $ipv4Cidrs
+                $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $global:ExceptionList
 
                 $outboundException = [PSCustomObject]@{
                     Name = 'EndpointPolicy'
@@ -156,7 +169,8 @@ function Set-AzureCNIConfig
                 }
                 $configJson.plugins[0].AdditionalArgs += $outboundException
             } else {
-                $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $exceptionAddresses
+                Remove-DuplicateValueInExceptionList -Values $exceptionAddresses
+                $configJson.plugins.AdditionalArgs[0].Value.ExceptionList = $global:ExceptionList
             }
         }
     }
