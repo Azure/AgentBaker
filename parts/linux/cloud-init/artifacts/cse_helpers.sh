@@ -387,7 +387,6 @@ start_watch () {
 }
 
 installJq () {
-  set +x
   output=$(jq --version)
   if [ -n "$output" ]; then
     echo "$output"
@@ -403,7 +402,6 @@ installJq () {
 }
 
 capture_benchmarks () {
-  set +x
   local is_final_section=$1
   local title=$2
 
@@ -445,14 +443,13 @@ capture_benchmarks () {
     echo "Benchmarks:"
     echo "$script_object" | jq -C .
  
-    jq -n --slurpfile array <(printf '%s\n' "${jsonBenchmarks[@]}") '$array' > $BUILD_PERF_FILEPATH  
+    jq -n --slurpfile array <(printf '%s\n' "${jsonBenchmarks[@]}") '$array' > /opt/azure/perf/jsonBenchmarks.json
+    chmod 755 /opt/azure/perf/jsonBenchmarks.json
   else
     section_object=$(jq -n --arg section_name "$title" --arg section_start_timestamp "$section_start_timestamp" --arg end_timestamp "$end_timestamp" --arg total_time_elapsed "$total_time_elapsed" '{($section_name): {"start_time": $section_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}')
 
     echo "$section_object" | jq -C .
   fi
-  chmod 755 /opt/azure/perf/jsonBenchmarks.json
-  set -x
 }
 
 #HELPERSEOF
