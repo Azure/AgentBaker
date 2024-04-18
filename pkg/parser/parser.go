@@ -3,6 +3,7 @@ package parser
 import (
 	"bytes"
 	_ "embed"
+	"encoding/json"
 	"log"
 	"text/template"
 
@@ -26,12 +27,21 @@ func executeBootstrapTemplate(inputContract *nbcontractv1.Configuration) (string
 
 // this function will eventually take a pointer to the bootstrap contract struct.
 // it will then template out the variables into the final bootstrap trigger script.
-func Parse(nbc *nbcontractv1.Configuration) {
-	triggerBootstrapScript, err := executeBootstrapTemplate(nbc)
+func Parse(inputJSON []byte) string {
+	// Parse the JSON into a Person struct
+	var nbc nbcontractv1.Configuration
+	err := json.Unmarshal(inputJSON, &nbc)
+	if err != nil {
+		log.Printf("Failed to unmarshal the json to nbcontractv1: %v", err)
+		panic(err)
+	}
+
+	triggerBootstrapScript, err := executeBootstrapTemplate(&nbc)
 	if err != nil {
 		log.Printf("Failed to execute the template: %v", err)
 	}
 
 	log.Println("output env vars:")
 	log.Println(triggerBootstrapScript)
+	return triggerBootstrapScript
 }

@@ -1,13 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 
 	"github.com/Azure/agentbaker/pkg/parser"
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 )
 
 // input to this function will be the serialized JSON from userdata + custom data.
@@ -25,13 +23,8 @@ func main() {
 		panic(err)
 	}
 
-	// Parse the JSON into a Person struct
-	var nbc nbcontractv1.Configuration
-	err = json.Unmarshal(inputJSON, &nbc)
-	if err != nil {
-		log.Printf("Failed to unmarshal the json to nbcontractv1: %v", err)
-		panic(err)
+	cseCmd := parser.Parse(inputJSON)
+	if err := os.WriteFile("cse_cmd.sh", []byte(cseCmd), 0666); err != nil {
+		log.Fatal(err)
 	}
-
-	parser.Parse(&nbc)
 }
