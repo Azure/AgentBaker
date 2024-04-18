@@ -77,6 +77,9 @@ else
   done
 fi
 
+jq --version
+echo "JQ VERSION"
+
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
 Storage=persistent
 SystemMaxUse=1G
