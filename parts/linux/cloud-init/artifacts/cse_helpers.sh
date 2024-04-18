@@ -402,6 +402,14 @@ installJq () {
 }
 
 capture_benchmarks () {
+  set +x
+
+  if [ ! -f /opt/azure/perf/jsonBenchmarks.json ]; then
+    sudo mkdir -p /opt/azure/perf
+    echo '[]' > /opt/azure/perf/jsonBenchmarks.json
+    chmod 755 /opt/azure/perf/jsonBenchmarks.json
+  fi
+
   local is_final_section=$1
   local title=$2
 
@@ -418,20 +426,18 @@ capture_benchmarks () {
   local elapsed_seconds=$(($difference_in_seconds%60))
   printf -v total_time_elapsed "%02d:%02d:%02d" $elapsed_hours $elapsed_minutes $elapsed_seconds
 
-  benchmarks+=($title)
-  if [[ "$is_final_section" == true ]]; then
-    benchmarks+=($script_start_timestamp)
-  else
+  if [[ ! "$is_final_section" == true ]]; then
+    benchmarks+=($title)
     benchmarks+=($section_start_timestamp)
+    benchmarks+=($end_timestamp)
+    benchmarks+=($total_time_elapsed)
   fi
-  benchmarks+=($end_timestamp)
-  benchmarks+=($total_time_elapsed)
   
   if [[ "$is_final_section" == true ]]; then 
 
     script_object=$(jq -n --arg script_name "$title" --arg script_start_timestamp "$script_start_timestamp" --arg end_timestamp "$end_timestamp" --arg total_time_elapsed "$total_time_elapsed" '{($script_name): {"overall": {"start_time": $script_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}}')
 
-    for ((i=0; i<${#benchmarks[@]}-4; i+=4)); do
+    for ((i=0; i<${#benchmarks[@]}; i+=4)); do
      
       section_object=$(jq -n --arg section_name "${benchmarks[i]}" --arg section_start_timestamp "${benchmarks[i+1]}" --arg end_timestamp "${benchmarks[i+2]}" --arg total_time_elapsed "${benchmarks[i+3]}" '{($section_name): {"start_time": $section_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}')
 
@@ -439,18 +445,12 @@ capture_benchmarks () {
 
     done
 
-    #jsonBenchmarks+=("$script_object")
     echo "Benchmarks:"
     echo "$script_object" | jq -C .
  
-    #jq -n --slurpfile array <(printf '%s\n' "${jsonBenchmarks[@]}") '$array' > /opt/azure/perf/jsonBenchmarks.json
     jq ". += [$script_object]" /opt/azure/perf/jsonBenchmarks.json > tmp.json && mv tmp.json /opt/azure/perf/jsonBenchmarks.json
-    chmod 755 /opt/azure/perf/jsonBenchmarks.json
-  else
-    section_object=$(jq -n --arg section_name "$title" --arg section_start_timestamp "$section_start_timestamp" --arg end_timestamp "$end_timestamp" --arg total_time_elapsed "$total_time_elapsed" '{($section_name): {"start_time": $section_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}')
-
-    echo "$section_object" | jq -C .
   fi
+  set -x
 }
 
 #HELPERSEOF

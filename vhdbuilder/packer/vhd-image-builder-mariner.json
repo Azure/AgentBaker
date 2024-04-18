@@ -88,13 +88,6 @@
       ]
     },
     {
-      "type": "shell",
-      "inline": [
-        "sudo mkdir -p /opt/azure/perf",
-        "sudo chown -R $USER /opt/azure/perf"
-      ]
-    },
-    {
       "type": "file",
       "source": "vhdbuilder/packer/prefetch.sh",
       "destination": "/home/packer/prefetch.sh"
