@@ -619,6 +619,18 @@
       "destination": "release-notes.txt"
     },
     {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/perf/jsonBenchmarks.json",
+      "destination": "jsonBenchmarks.json"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo rm /opt/azure/perf/jsonBenchmarks.json"
+      ]
+    },
+    {
       "type": "shell",
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
