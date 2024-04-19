@@ -379,13 +379,6 @@ should_skip_nvidia_drivers() {
     echo "$should_skip"
 }
 
-#start_watch () {
-  #set +x
-  #section_start_stopwatch=$(date +%s)
-  #section_start_timestamp=$(date +%H:%M:%S)
-  #set -x
-#}
-
 installJq () {
   # jq is not available until downloaded in install-dependencies.sh with the installDeps function
   # but it is needed earlier to call the capture_benchmarks function in pre-install-dependencies.sh
