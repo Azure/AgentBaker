@@ -538,15 +538,15 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			manifest := datamodel.CacheManifest()
 			component := datamodel.CacheComponents()
 
-			pause_index := 2
-			azure_cns_index := 5
+			pauseIndx := 2
+			azureCNSIndx := 5
 
 			Expect(fromManifest["runc"].Installed["default"]).To(Equal(manifest.Runc.Installed["default"]))
 			Expect(fromManifest["containerd"].Pinned["1804"]).To(Equal(manifest.Containerd.Pinned["1804"]))
 			Expect(fromManifest["containerd"].Edge).To(Equal(manifest.Containerd.Edge))
 			Expect(fromManifest["kubernetes"].Versions[0]).To(Equal(manifest.Kubernetes.Versions[0]))
-			Expect(fromComponents["pause"].MultiArchVersions[0]).To(Equal(component.ContainerImages[pause_index].MultiArchVersions[0]))
-			Expect(fromComponents["azure-cns"].PrefetchOptimizations.Version).To(Equal(component.ContainerImages[azure_cns_index].PrefetchOptimizations[0].Version))
+			Expect(fromComponents["pause"].MultiArchVersions[0]).To(Equal(component.ContainerImages[pauseIndx].MultiArchVersions[0]))
+			Expect(fromComponents["azure-cns"].PrefetchOptimizations.Version).To(Equal(component.ContainerImages[azureCNSIndx].PrefetchOptimizations[0].Version))
 			Expect(fromComponents["azure-cns"].PrefetchOptimizations.Binaries[0]).To(Equal("usr/local/bin/azure-cns"))
 		})
 	})
