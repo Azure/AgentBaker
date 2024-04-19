@@ -26,7 +26,6 @@ VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
 MAX_BLOCK_COUNT=30298176 # 30 GB
 capture_benchmarks false "set_variables_and_source_packer_files"
-start_watch
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # shellcheck disable=SC2021
@@ -53,7 +52,6 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   fi
 fi
 capture_benchmarks false "log_and_detach_ua"
-start_watch
 
 # shellcheck disable=SC2129
 echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
@@ -64,7 +62,6 @@ ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH}
 
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
 capture_benchmarks false "list_installed_packages"
-start_watch
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
@@ -77,7 +74,6 @@ usage=${usage%.*}
 [ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
 [ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
 capture_benchmarks false "determine_disk_usage"
-start_watch
 
 echo -e "=== os-release Begin" >> ${VHD_LOGS_FILEPATH}
 cat /etc/os-release >> ${VHD_LOGS_FILEPATH}
@@ -97,14 +93,12 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "FIPS enabled: ${ENABLE_FIPS}"
 } >> ${VHD_LOGS_FILEPATH}
 capture_benchmarks false "write_logs"
-start_watch
 
 if [[ $(isARM64) != 1 ]]; then
   # no asc-baseline-1.1.0-268.arm64.deb
   installAscBaseline
 fi
 capture_benchmarks false "install_asc_baseline"
-start_watch
 
 if [[ ${UBUNTU_RELEASE} == "18.04" || ${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then
   if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH} == "arm64" ]]; then

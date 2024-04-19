@@ -46,18 +46,15 @@ fi
 
 installJq
 capture_benchmarks false "source_packer_files_declare_variables_and_set_mariner_permissions"
-start_watch
 
 copyPackerFiles
 systemctlEnableAndStart disk_queue || exit 1
 capture_benchmarks false "copy_packer_files"
-start_watch
 
 mkdir /opt/certs
 chmod 1666 /opt/certs
 systemctlEnableAndStart update_certs.path || exit 1
 capture_benchmarks false "make_directory_and_update_certs"
-start_watch
 
 systemctlEnableAndStart ci-syslog-watcher.path || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service || exit 1
@@ -66,17 +63,14 @@ systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
 systemctlEnableAndStart aks-log-collector.timer || exit 1
 capture_benchmarks false "start_system_logs_and_aks_log_collector"
-start_watch
 
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
 systemctlEnableAndStart logrotate.timer || exit 1
 rm -f /etc/cron.daily/logrotate
 capture_benchmarks false "enable_modified_log_rotate_service"
-start_watch
 
 systemctlEnableAndStart sync-container-logs.service || exit 1
 capture_benchmarks false "sync_container_logs"
-start_watch
 
 # First handle Mariner + FIPS
 if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
@@ -114,7 +108,6 @@ else
   fi
 fi
 capture_benchmarks false "handle_mariner_and_fips_configurations"
-start_watch
 
 # Handle Azure Linux + CgroupV2
 if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
