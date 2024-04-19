@@ -30,15 +30,18 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
-#this is used by post build test to check whether the compoenents do indeed exist
+VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
+#this is used by post build test to check whether the components do indeed exist
 cat components.json > ${COMPONENTS_FILEPATH}
 cat manifest.json > ${MANIFEST_FILEPATH}
 cat ${THIS_DIR}/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
+echo '[]' > ${VHD_BUILD_PERF_DATA}
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
   chmod 755 /opt
   chmod 755 /opt/azure
+  chmod 755 ${VHD_BUILD_PERF_DATA}
   chmod 644 ${VHD_LOGS_FILEPATH}
 fi
 

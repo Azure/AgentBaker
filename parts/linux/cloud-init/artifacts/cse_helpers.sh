@@ -404,13 +404,6 @@ installJq () {
 capture_benchmarks () {
   set +x
 
-  if [ ! -f /opt/azure/perf/performance-data ]; then
-    sudo mkdir -p /opt/azure/perf
-    echo '[]' > /opt/azure/perf/performance-data.json
-    chmod 755 /opt/azure/perf/
-    chmod 755 /opt/azure/perf/performance-data.json
-  fi
-
   local is_final_section=$1
   local title=$2
 
@@ -449,7 +442,7 @@ capture_benchmarks () {
     echo "Benchmarks:"
     echo "$script_object" | jq -C .
  
-    jq ". += [$script_object]" /opt/azure/perf/performance-data.json > tmp.json && mv tmp.json /opt/azure/perf/performance-data.json
+    jq ". += [$script_object]" ${VHD_BUILD_PERF_DATA} > tmp.json && mv tmp.json ${VHD_BUILD_PERF_DATA}
   fi
   set -x
 }
