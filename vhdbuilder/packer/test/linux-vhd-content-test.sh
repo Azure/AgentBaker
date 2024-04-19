@@ -867,12 +867,11 @@ testBccTools () {
     fi
   done
   if [ $result -eq 0 ]; then
-    exit 0
+    return 0
   else
-    exit 1
+    return 1
   fi
 }
-
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
