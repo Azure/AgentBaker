@@ -18,8 +18,6 @@ source /home/packer/provision_source.sh
 source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
-capture_benchmarks false "determine_os_and_source_packer_files"
-start_watch
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
@@ -27,7 +25,7 @@ VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
 
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
 MAX_BLOCK_COUNT=30298176 # 30 GB
-capture_benchmarks false "set_variables"
+capture_benchmarks false "set_variables_and_source_packer_files"
 start_watch
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
