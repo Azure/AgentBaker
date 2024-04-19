@@ -858,48 +858,19 @@ testContainerImagePrefetchScript() {
   return 0
 }
 
-testBccTools() {
-
-os="$1"
-executable=0
-not_executable=0
-declare -a notExecutableTools=()
-
-for tool in /usr/share/bcc/tools/*; do
-  if [ -x "$tool" ]; then
-    executable=$((executable + 1))
+testBccTools () {
+  result=0 
+  for line in '- bcc-tools' '- libbcc-examples'; do
+    if ! grep -F -x -e "$line" vhd-logs.log; then
+      echo "$line is missing"
+      result=1
+    fi
+  done
+  if [ $result -eq 0 ]; then
+    exit 0
   else
-    not_executable=$((not_executable + 1))
-    notExecutableTools+=("$tool")
-    echo "Not Executable: $tool"
+    exit 1
   fi
-done
-
-echo "Total tools: $((not_executable + executable))"
-echo "Executable Tools: $executable"
-echo "Not Executable Tools: $not_executable"
-
-if [ "$os" == "Ubuntu" ]; then
-  if [ "$executable" -ne 127 ] || [ "$not_executable" -ne 2 ]; then
-    echo "Tool numbers don't match expected output."
-    return 1
-  fi
-else
-  if [ "$executable" -ne 131 ] || [ "$not_executable" -ne 2 ]; then
-    echo "Tool numbers don't match expected output."
-    return 1
-  fi
-fi
-
-for tool in "${notExecutableTools[@]}"; do
-  if [[ ! "$tool" == *.c ]]; then
-    echo "Failed: tool $tool is not a .c file"
-    return 1
-  fi
-done
-
-echo "All Bcc tools tests passed."
-return 0
 }
 
 

@@ -258,15 +258,15 @@ ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 installBpftrace
 echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
-PARENT_DIR=$(pwd)
-
+PRESENT_DIR=$(pwd)
+# run installBcc in a subshell and continue on with container image pull in order to decrease total build time
 ( 
-  cd $PARENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
+  cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
 
   installBcc
 
   exit $?
-) > /tmp/bcc.log 2>&1 &
+) > /var/log/bcc_installation.log 2>&1 &
 
 BCC_PID=$!
 
