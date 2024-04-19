@@ -444,6 +444,7 @@ capture_benchmarks () {
  
     jq ". += [$script_object]" ${VHD_BUILD_PERF_DATA} > tmp.json && mv tmp.json ${VHD_BUILD_PERF_DATA}
   fi
+  chmod 755 ${VHD_BUILD_PERF_DATA}
   set -x
 }
 
