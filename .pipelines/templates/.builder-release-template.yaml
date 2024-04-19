@@ -154,7 +154,7 @@ steps:
   - task: PublishPipelineArtifact@1
     inputs:
         artifactName: 'build-performance-data-${{ parameters.artifactName }}'
-        targetPath: 'performance-data.json'
+        targetPath: 'vhd-build-performance-data.json'
     displayName: Publish Build Performance Data
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - bash: |

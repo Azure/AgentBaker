@@ -621,13 +621,13 @@
     {
       "type": "file",
       "direction": "download",
-      "source": "/opt/azure/perf/performance-data.json",
-      "destination": "performance-data.json"
+      "source": "/opt/azure/vhd-build-performance-data.json",
+      "destination": "vhd-build-performance-data.json"
     },
     {
       "type": "shell",
       "inline": [
-        "sudo rm /opt/azure/perf/performance-data.json"
+        "sudo rm /opt/azure/vhd-build-performance-data.json"
       ]
     },
     {
