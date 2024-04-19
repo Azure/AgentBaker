@@ -36,6 +36,7 @@ installAscBaseline() {
 
 installBcc() {
     echo "Installing BCC tools..."
+    section_one_start=$(date +%s)
     wait_for_apt_locks
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
@@ -44,7 +45,10 @@ installBcc() {
     else
         apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev python3-distutils libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
-
+    section_one_end=$(date +%s)
+    section_one_time=$(($section_one_end - $section_one_start))
+    echo "Section 1 time elapsed: $section_one_time"
+    section_two_start=$(date +%s)
     mkdir -p /tmp/bcc
     pushd /tmp/bcc
     git clone https://github.com/iovisor/bcc.git
@@ -67,6 +71,9 @@ installBcc() {
     else
         apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
+    section_two_end=$(date +%s)
+    section_two_time=$(($section_two_end - $section_two_start))
+    echo "Section two time elapsed: $section_two_time"
 }
 
 installBpftrace() {
