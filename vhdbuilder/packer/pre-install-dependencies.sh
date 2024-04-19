@@ -41,7 +41,6 @@ echo '[]' > ${VHD_BUILD_PERF_DATA}
 if [[ $OS == $MARINER_OS_NAME ]]; then
   chmod 755 /opt
   chmod 755 /opt/azure
-  chmod 755 ${VHD_BUILD_PERF_DATA}
   chmod 644 ${VHD_LOGS_FILEPATH}
 fi
 
