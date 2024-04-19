@@ -3512,40 +3512,80 @@ should_skip_nvidia_drivers() {
     echo "$should_skip"
 }
 
-start_watch () {
-  capture_time=$(date +%s)
-  start_timestamp=$(date +%H:%M:%S)
+installJq () {
+  # jq is not available until downloaded in install-dependencies.sh with the installDeps function
+  # but it is needed earlier to call the capture_benchmarks function in pre-install-dependencies.sh
+  output=$(jq --version)
+  if [ -n "$output" ]; then
+    echo "$output"
+  else
+    if [[ "${OS}" == "MARINER" ]]; then
+      sudo tdnf install -y jq
+      echo "jq was installed: $(jq --version)"
+    else
+      apt_get_install 5 1 60 jq
+      echo "jq was installed: $(jq --version)"
+    fi
+  fi
 }
 
-stop_watch () {
+capture_benchmarks () {
+  # the capture_benchmarks function is used to capture benchmark data for each section in VHD build scripts
+  # data will be stored in a JSON file and published as an artifact to be evaluated by github actions
+  set +x
+
+  local is_final_section=$1
+  local title=$2
 
   local current_time=$(date +%s)
   local end_timestamp=$(date +%H:%M:%S)
-  local difference_in_seconds=$((current_time - ${1}))
+  if [ "$is_final_section" = true ]; then
+    local difference_in_seconds=$((current_time - script_start_stopwatch))
+  else
+    local difference_in_seconds=$((current_time - section_start_stopwatch))
+  fi
 
   local elapsed_hours=$(($difference_in_seconds/3600))
   local elapsed_minutes=$((($difference_in_seconds%3600)/60))
   local elapsed_seconds=$(($difference_in_seconds%60))
-  
-  printf -v benchmark "'${2}' - Total Time Elapsed: %02d:%02d:%02d" $elapsed_hours $elapsed_minutes $elapsed_seconds
-  if [ ${3} == true ]; then
-    printf -v start "     Start time: $script_start_timestamp"
-  else
-    printf -v start "     Start time: $start_timestamp"
-  fi
-  printf -v end "     End Time: $end_timestamp"
-  echo -e "\n$benchmark\n"
-  benchmarks+=("$benchmark")
-  benchmarks+=("$start")
-  benchmarks+=("$end")
-}
+  printf -v total_time_elapsed "%02d:%02d:%02d" $elapsed_hours $elapsed_minutes $elapsed_seconds
 
-show_benchmarks () {
-  echo -e "\nBenchmarks:\n"
-  for i in "${benchmarks[@]}"; do
-    echo "   $i"
-  done
-  echo
+  # if the final section of the current script has not yet been reached, store the latest recorded benchmarking data in an array
+  if [[ ! "$is_final_section" == true ]]; then
+    benchmarks+=($title)
+    benchmarks+=($section_start_timestamp)
+    benchmarks+=($end_timestamp)
+    benchmarks+=($total_time_elapsed)
+  fi
+  
+  if [[ "$is_final_section" == true ]]; then 
+    
+    # if current section is the final section of the current sript, create a JSON object for the script as a whole
+    script_object=$(jq -n --arg script_name "$title" --arg script_start_timestamp "$script_start_timestamp" --arg end_timestamp "$end_timestamp" --arg total_time_elapsed "$total_time_elapsed" '{($script_name): {"overall": {"start_time": $script_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}}')
+
+    #iterate over the benchmarks array in order to retrieve data from previous sections and create section objects for each
+    for ((i=0; i<${#benchmarks[@]}; i+=4)); do
+     
+      section_object=$(jq -n --arg section_name "${benchmarks[i]}" --arg section_start_timestamp "${benchmarks[i+1]}" --arg end_timestamp "${benchmarks[i+2]}" --arg total_time_elapsed "${benchmarks[i+3]}" '{($section_name): {"start_time": $section_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}')
+      
+      # append the section objects to the current script object
+      script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "$title" '$script_object | .[$script_name] += $section_object')
+
+    done
+
+    echo "Benchmarks:"
+    echo "$script_object" | jq -C .
+ 
+    # after all section objects are appended to the current script object, append current script object to the array in ${VHD_BUILD_PERF_DATA}
+    jq ". += [$script_object]" ${VHD_BUILD_PERF_DATA} > tmp.json && mv tmp.json ${VHD_BUILD_PERF_DATA}
+    chmod 755 ${VHD_BUILD_PERF_DATA}
+  fi
+
+  # reset timers for next section
+  section_start_stopwatch=$(date +%s)
+  section_start_timestamp=$(date +%H:%M:%S)
+
+  set -x
 }
 
 #HELPERSEOF`)
