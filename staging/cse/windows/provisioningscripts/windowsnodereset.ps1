@@ -126,11 +126,8 @@ if ($IsDualStackEnabled) {
     Restart-HnsService
 }
 
-#
-# Perform cleanup
-#
-
-& "c:\k\cleanupnetwork.ps1"
+# Perform cleanup. It should run when node reset (node provsion and node restart)
+& "c:\k\cleanupnetwork.ps1" >> $global:LogPath
 
 #
 # Start Services
