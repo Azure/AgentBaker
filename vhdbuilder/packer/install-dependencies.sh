@@ -320,9 +320,12 @@ for imageToBePulled in ${ContainerImages[*]}; do
     fi
   done
   other_bg_processes=$((bg_processes - active_pulls))
+  backgroundJobs=$(jobs -p | wc -l)
   echo "Number of background processes: $bg_processes"
   echo "Number of parallel container pulls: $active_pulls"
+  echo "Number of background jobs: $backgroundJobs"
   echo "Number of other background processes: $other_bg_processes"
+  ps -e
   done
   wait ${containerImagePids[@]}
 done
