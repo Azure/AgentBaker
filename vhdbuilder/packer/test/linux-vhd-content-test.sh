@@ -881,7 +881,7 @@ testBccTools () {
 #
 # We should also avoid early exit from the test run -- like if a command fails with
 # an exit rather than a return -- because that prevents other tests from running.
-testBccTools $OS_SKU
+testBccTools
 testVHDBuildLogsExist
 testCriticalTools
 testFilesDownloaded $CONTAINER_RUNTIME
