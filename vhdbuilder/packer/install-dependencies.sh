@@ -311,7 +311,18 @@ for imageToBePulled in ${ContainerImages[*]}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     while [[ $(jobs -p | wc -l) -ge $PARALLEL_CONTAINER_IMAGE_PULL_LIMIT ]]; do
       wait -n
-    done    
+    done
+  bg_processes=$(ps -o pid,cmd --no-headers | wc -l)
+  active_pulls=0
+  for pid in ${containerImagePids[@]}; do
+    if kill -0 $pid 2>/dev/null; then
+      active_pulls=$((active_pulls + 1))
+    fi
+  done
+  other_bg_processes=$((bg_processes - active_pulls))
+  echo "Number of background processes: $bg_processes"
+  echo "Number of parallel container pulls: $active_pulls"
+  echo "Number of other background processes: $other_bg_processes"
   done
   wait ${containerImagePids[@]}
 done
