@@ -278,6 +278,9 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
+PARALLEL_CONTAINER_IMAGE_PULL_LIMIT=$(nproc --ignore=2)
+echo "Limit for parallel container image pulls set to $PARALLEL_CONTAINER_IMAGE_PULL_LIMIT"
+
 declare -a containerImagePids=()
 
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
@@ -306,7 +309,7 @@ for imageToBePulled in ${ContainerImages[*]}; do
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
     containerImagePids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    while [[ $(jobs -p | wc -l) -ge 13 ]]; do # Set maximum number of parallel pulls to 13
+    while [[ $(jobs -p | wc -l) -ge $PARALLEL_CONTAINER_IMAGE_PULL_LIMIT ]]; do
       wait -n
     done    
   done
@@ -463,6 +466,9 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
   pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
   kubeProxyPids+=($!)
+  while [[ $(jobs -p | wc -l) -ge $PARALLEL_CONTAINER_IMAGE_PULL_LIMIT ]]; do
+      wait -n
+  done
 done
 wait ${kubeProxyPids[@]} # Wait for all background processes to finish
 
