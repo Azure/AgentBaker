@@ -1,4 +1,4 @@
-package nbcontracthelper
+package nbcontractv1
 
 import (
 	"bytes"
@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"golang.org/x/mod/semver"
 )
 
@@ -16,7 +15,7 @@ import (
 // It provides methods to apply configuration, get the NBContract object, and validate the contract, etc.
 type NBContractBuilder struct {
 	// nodeBootstrapConfig is the configuration object for the NBContract (Node Bootstrap Contract).
-	nodeBootstrapConfig *nbcontractv1.Configuration
+	nodeBootstrapConfig *Configuration
 }
 
 // Check and initialize each field if it is nil.
@@ -27,7 +26,7 @@ func initializeIfNil[T any](field **T) {
 }
 
 // Ensure all objects are non-nil. Please add new objects here.
-func ensureConfigsNonNil(nBC *nbcontractv1.Configuration) {
+func ensureConfigsNonNil(nBC *Configuration) {
 	initializeIfNil(&nBC.KubeBinaryConfig)
 	initializeIfNil(&nBC.ApiServerConfig)
 	initializeIfNil(&nBC.AuthConfig)
@@ -50,14 +49,16 @@ func ensureConfigsNonNil(nBC *nbcontractv1.Configuration) {
 
 // NewNBContractBuilder creates a new instance of NBContractBuilder and ensures all objects in nodeBootstrapConfig are non-nil.
 func NewNBContractBuilder() *NBContractBuilder {
-	nbc := &nbcontractv1.Configuration{}
-	ensureConfigsNonNil(nbc)
-	nBCB := &NBContractBuilder{nodeBootstrapConfig: nbc}
+	nbc := Configuration{
+		Version: contractVersion,
+	}
+	ensureConfigsNonNil(&nbc)
+	nBCB := &NBContractBuilder{nodeBootstrapConfig: &nbc}
 	return nBCB
 }
 
 // ApplyConfiguration Applies the configuration to the nodeBootstrapConfig object.
-func (nBCB *NBContractBuilder) ApplyConfiguration(config *nbcontractv1.Configuration) {
+func (nBCB *NBContractBuilder) ApplyConfiguration(config *Configuration) {
 	if config == nil {
 		return
 	}
@@ -70,7 +71,7 @@ func (nBCB *NBContractBuilder) ApplyConfiguration(config *nbcontractv1.Configura
 }
 
 // GetNodeBootstrapConfig gets the nodeBootstrapConfig object.
-func (nBCB *NBContractBuilder) GetNodeBootstrapConfig() *nbcontractv1.Configuration {
+func (nBCB *NBContractBuilder) GetNodeBootstrapConfig() *Configuration {
 	return nBCB.nodeBootstrapConfig
 }
 
@@ -104,18 +105,18 @@ func (nBCB *NBContractBuilder) ValidateNBContract() error {
 }
 
 func (nBCB *NBContractBuilder) validateSemVer() error {
-	major := semver.Major(nBCB.GetNodeBootstrapConfig().Version)
+	major := semver.Major(nBCB.nodeBootstrapConfig.Version)
 	if major == "" {
 		return fmt.Errorf("Invalid contract version from contract payload: %s. It should be a semantic version", nBCB.GetNodeBootstrapConfig().Version)
 	}
 
-	ExpectMajor := semver.Major(contractVersion)
-	if ExpectMajor == "" {
+	expectedMajor := semver.Major(contractVersion)
+	if expectedMajor == "" {
 		return fmt.Errorf("Invalid contract version: %s. It should be a semantic version", contractVersion)
 	}
 
-	if major != ExpectMajor {
-		return fmt.Errorf("Contract major versions mismatch. Expecting %s, but got %s", ExpectMajor, major)
+	if major != expectedMajor {
+		return fmt.Errorf("Contract major versions mismatch. Expecting %s, but got %s", expectedMajor, major)
 	}
 
 	minor, err := nBCB.parseMinor(nBCB.GetNodeBootstrapConfig().Version)
@@ -123,14 +124,14 @@ func (nBCB *NBContractBuilder) validateSemVer() error {
 		return err
 	}
 
-	ExpectMinor, err := nBCB.parseMinor(contractVersion)
+	expectedMinor, err := nBCB.parseMinor(contractVersion)
 	if err != nil {
 		return err
 	}
 
-	if minor != ExpectMinor {
+	if minor != expectedMinor {
 		// Minor version mismatch is not a breaking change. So just log a warning.
-		log.Printf("Warning: Contract minor versions mismatch. Expecting %v, but got %v", ExpectMinor, minor)
+		log.Printf("Warning: Contract minor versions mismatch. Expecting %v, but got %v", expectedMinor, minor)
 	}
 
 	return nil

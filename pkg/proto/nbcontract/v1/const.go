@@ -1,4 +1,4 @@
-package nbcontracthelper
+package nbcontractv1
 
 const (
 	// Follow the semantic versioning format. V<Major>.<Minor>.<Patch>

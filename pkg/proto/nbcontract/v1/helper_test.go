@@ -1,42 +1,44 @@
-package nbcontracthelper
+package nbcontractv1
 
 import (
 	"log"
 	"reflect"
 	"testing"
 
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
 func TestNewNBContractBuilder(t *testing.T) {
-	wantedResult := &nbcontractv1.Configuration{
-		KubeBinaryConfig: &nbcontractv1.KubeBinaryConfig{},
-		ApiServerConfig:  &nbcontractv1.ApiServerConfig{},
-		AuthConfig:       &nbcontractv1.AuthConfig{},
-		ClusterConfig: &nbcontractv1.ClusterConfig{
-			LoadBalancerConfig:   &nbcontractv1.LoadBalancerConfig{},
-			ClusterNetworkConfig: &nbcontractv1.ClusterNetworkConfig{},
+	wantedResult := Configuration{
+		Version:          contractVersion,
+		KubeBinaryConfig: &KubeBinaryConfig{},
+		ApiServerConfig:  &ApiServerConfig{},
+		AuthConfig:       &AuthConfig{},
+		ClusterConfig: &ClusterConfig{
+			LoadBalancerConfig:   &LoadBalancerConfig{},
+			ClusterNetworkConfig: &ClusterNetworkConfig{},
 		},
-		NetworkConfig:            &nbcontractv1.NetworkConfig{},
-		GpuConfig:                &nbcontractv1.GPUConfig{},
-		TlsBootstrappingConfig:   &nbcontractv1.TLSBootstrappingConfig{},
-		KubeletConfig:            &nbcontractv1.KubeletConfig{},
-		RuncConfig:               &nbcontractv1.RuncConfig{},
-		ContainerdConfig:         &nbcontractv1.ContainerdConfig{},
-		TeleportConfig:           &nbcontractv1.TeleportConfig{},
-		CustomLinuxOsConfig:      &nbcontractv1.CustomLinuxOSConfig{},
-		HttpProxyConfig:          &nbcontractv1.HTTPProxyConfig{},
-		CustomCloudConfig:        &nbcontractv1.CustomCloudConfig{},
-		CustomSearchDomainConfig: &nbcontractv1.CustomSearchDomainConfig{},
+		GpuConfig:              &GPUConfig{},
+		TlsBootstrappingConfig: &TLSBootstrappingConfig{},
+		KubeletConfig:          &KubeletConfig{},
+		RuncConfig:             &RuncConfig{},
+		ContainerdConfig:       &ContainerdConfig{},
+		TeleportConfig:         &TeleportConfig{},
+		CustomLinuxOsConfig: &CustomLinuxOSConfig{
+			SysctlConfig: &SysctlConfig{},
+			UlimitConfig: &UlimitConfig{},
+		},
+		HttpProxyConfig:          &HTTPProxyConfig{},
+		CustomCloudConfig:        &CustomCloudConfig{},
+		CustomSearchDomainConfig: &CustomSearchDomainConfig{},
 	}
 	tests := []struct {
 		name string
-		want *nbcontractv1.Configuration
+		want *Configuration
 	}{
 		{
 			name: "Test with nil configuration",
-			want: wantedResult,
+			want: &wantedResult,
 		},
 	}
 	for _, tt := range tests {
@@ -50,44 +52,47 @@ func TestNewNBContractBuilder(t *testing.T) {
 
 func TestNBContractBuilder_ApplyConfiguration(t *testing.T) {
 	type fields struct {
-		nBContractConfiguration *nbcontractv1.Configuration
+		nBContractConfiguration *Configuration
 	}
-	wantedResult := &nbcontractv1.Configuration{
-		KubeBinaryConfig: &nbcontractv1.KubeBinaryConfig{},
-		ApiServerConfig:  &nbcontractv1.ApiServerConfig{},
-		AuthConfig:       &nbcontractv1.AuthConfig{},
-		ClusterConfig: &nbcontractv1.ClusterConfig{
-			LoadBalancerConfig:   &nbcontractv1.LoadBalancerConfig{},
-			ClusterNetworkConfig: &nbcontractv1.ClusterNetworkConfig{},
+	wantedResult := &Configuration{
+		Version:          contractVersion,
+		KubeBinaryConfig: &KubeBinaryConfig{},
+		ApiServerConfig:  &ApiServerConfig{},
+		AuthConfig:       &AuthConfig{},
+		ClusterConfig: &ClusterConfig{
+			LoadBalancerConfig:   &LoadBalancerConfig{},
+			ClusterNetworkConfig: &ClusterNetworkConfig{},
 		},
-		NetworkConfig:            &nbcontractv1.NetworkConfig{},
-		GpuConfig:                &nbcontractv1.GPUConfig{},
-		TlsBootstrappingConfig:   &nbcontractv1.TLSBootstrappingConfig{},
-		KubeletConfig:            &nbcontractv1.KubeletConfig{},
-		RuncConfig:               &nbcontractv1.RuncConfig{},
-		ContainerdConfig:         &nbcontractv1.ContainerdConfig{},
-		TeleportConfig:           &nbcontractv1.TeleportConfig{},
-		CustomLinuxOsConfig:      &nbcontractv1.CustomLinuxOSConfig{},
-		HttpProxyConfig:          &nbcontractv1.HTTPProxyConfig{},
-		CustomCloudConfig:        &nbcontractv1.CustomCloudConfig{},
-		CustomSearchDomainConfig: &nbcontractv1.CustomSearchDomainConfig{},
+		GpuConfig:              &GPUConfig{},
+		TlsBootstrappingConfig: &TLSBootstrappingConfig{},
+		KubeletConfig:          &KubeletConfig{},
+		RuncConfig:             &RuncConfig{},
+		ContainerdConfig:       &ContainerdConfig{},
+		TeleportConfig:         &TeleportConfig{},
+		CustomLinuxOsConfig: &CustomLinuxOSConfig{
+			SysctlConfig: &SysctlConfig{},
+			UlimitConfig: &UlimitConfig{},
+		},
+		HttpProxyConfig:          &HTTPProxyConfig{},
+		CustomCloudConfig:        &CustomCloudConfig{},
+		CustomSearchDomainConfig: &CustomSearchDomainConfig{},
 	}
 	tests := []struct {
 		name   string
 		fields fields
-		want   *nbcontractv1.Configuration
+		want   *Configuration
 	}{
 		{
 			name: "Test with nil configuration",
 			fields: fields{
-				nBContractConfiguration: &nbcontractv1.Configuration{},
+				nBContractConfiguration: &Configuration{},
 			},
 			want: wantedResult,
 		},
 		{
 			name: "Apply nil AuthConfig configuration and expect AuthConfig in nBContractConfiguration to be non-nil",
 			fields: fields{
-				nBContractConfiguration: &nbcontractv1.Configuration{
+				nBContractConfiguration: &Configuration{
 					AuthConfig: nil,
 				},
 			},
@@ -96,14 +101,14 @@ func TestNBContractBuilder_ApplyConfiguration(t *testing.T) {
 		{
 			name: "Apply some configurations and expect them to be applied",
 			fields: fields{
-				nBContractConfiguration: &nbcontractv1.Configuration{
-					AuthConfig: &nbcontractv1.AuthConfig{
+				nBContractConfiguration: &Configuration{
+					AuthConfig: &AuthConfig{
 						TargetCloud: "some-cloud",
 					},
 					LinuxAdminUsername: "testuser",
 				},
 			},
-			want: func() *nbcontractv1.Configuration {
+			want: func() *Configuration {
 				tmpResult := NewNBContractBuilder().nodeBootstrapConfig
 				tmpResult.AuthConfig.TargetCloud = "some-cloud"
 				tmpResult.LinuxAdminUsername = "testuser"
@@ -203,7 +208,7 @@ func TestNBContractBuilder_deepCopy(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			nBCB := &NBContractBuilder{
-				nodeBootstrapConfig: &nbcontractv1.Configuration{},
+				nodeBootstrapConfig: &Configuration{},
 			}
 			if err := nBCB.deepCopy(tt.args.src, tt.args.dst); err != nil {
 				log.Printf("Failed to deep copy the configuration: %v", err)
@@ -218,6 +223,71 @@ func TestNBContractBuilder_deepCopy(t *testing.T) {
 				if got := tt.args.src; !reflect.DeepEqual(got, tt.want) {
 					t.Errorf("src = %v, want %v", got, tt.want)
 				}
+			}
+		})
+	}
+}
+
+func TestNBContractBuilder_validateSemVer(t *testing.T) {
+	type fields struct {
+		nodeBootstrapConfig *Configuration
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		{
+			name: "Test with nil version and expect error",
+			fields: fields{
+				nodeBootstrapConfig: &Configuration{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Test with invalid version and expect error",
+			fields: fields{
+				nodeBootstrapConfig: &Configuration{
+					Version: "some-invalid-version",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Test with valid version and expect no error",
+			fields: fields{
+				nodeBootstrapConfig: &Configuration{
+					Version: contractVersion,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Test with mismatch major version and expect error",
+			fields: fields{
+				nodeBootstrapConfig: &Configuration{
+					Version: "v2.0.0",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Test with mismatch minor version and expect no error",
+			fields: fields{
+				nodeBootstrapConfig: &Configuration{
+					Version: "v1.1.0",
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nBCB := NewNBContractBuilder()
+			nBCB.ApplyConfiguration(tt.fields.nodeBootstrapConfig)
+			nBCB.nodeBootstrapConfig.Version = tt.fields.nodeBootstrapConfig.Version
+			if err := nBCB.validateSemVer(); (err != nil) != tt.wantErr {
+				t.Errorf("NBContractBuilder.validateSemVer() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
