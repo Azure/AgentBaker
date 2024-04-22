@@ -1,31 +1,32 @@
 syntax = "proto3";
+
 package nbcontract.v1;
 
 // Cluster Config fields stored in azure.json used by cloud-provider-azure
 message ClusterConfig {
-  // Rescource group name
-  string resource_group = 1;
-
-  // Location
-  string location = 2;
-
-  // VM type
-  VM vm_type = 3; // default to standard for v1.27 and below versions and vmss for v1.28+ versions
-
-  // Primary availability set name
-  string primary_availability_set = 4;
-
-  // Primary scale set name
-  string primary_scale_set = 5;
-
-  // Cluster network config
-  ClusterNetworkConfig cluster_network_config = 6;
-
-  // Specifiy if it uses instance metadata
-  bool use_instance_metadata = 7; // default to false
+  // Cluster network config. We assumed network mode is always "transparent" now so it's removed from the contract.
+  ClusterNetworkConfig cluster_network_config = 1;
 
   // Load balancer config
-  LoadBalancerConfig load_balancer_config = 8;
+  LoadBalancerConfig load_balancer_config = 2;
+
+  // Rescource group name
+  string resource_group = 3;
+
+  // Location
+  string location = 4;
+
+  // VM type
+  VM vm_type = 5; // default to standard for v1.27 and below versions and vmss for v1.28+ versions
+
+  // Primary availability set name
+  string primary_availability_set = 6;
+
+  // Primary scale set name
+  string primary_scale_set = 7;
+
+  // Specifiy if it uses instance metadata
+  bool use_instance_metadata = 8; // default to false
 
   enum VM {
     UNSPECIFIED = 0;
@@ -49,6 +50,34 @@ message ClusterNetworkConfig {
 
   // Route table name
   string route_table = 5;
+
+  // Network plugin to be used by the cluster. Options are NONE, AZURE, KUBENET.
+  NetworkPlugin network_plugin = 6;
+
+  // Network policy to be used by the cluster.
+  // This is still needed to compute ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE. 
+  // Other than that, it is not used by others. See the discussions here https://github.com/Azure/AgentBaker/pull/4241#discussion_r1554283228
+  NetworkPolicy network_policy = 7;
+
+  // URL to the vnet cni plugins tarball.
+  string vnet_cni_plugins_url = 8;
+
+  // URL to the cni plugins tarball.
+  string cni_plugins_url = 9;
+
+  enum NetworkPlugin {
+    NP_UNSPECIFIED = 0;
+    NP_NONE = 1;
+    NP_AZURE = 2;
+    NP_KUBENET = 3;
+  }
+  
+  enum NetworkPolicy {
+    NPO_UNSPECIFIED = 0;
+    NPO_NONE = 1;
+    NPO_AZURE = 2;
+    NPO_CALICO = 3;
+  }
 }
 
 message LoadBalancerConfig {
