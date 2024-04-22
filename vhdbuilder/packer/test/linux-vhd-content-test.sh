@@ -861,7 +861,7 @@ testContainerImagePrefetchScript() {
 testBccTools () {
   result=0 
   for line in '- bcc-tools' '- libbcc-examples'; do
-    if ! grep -F -x -e "$line" vhd-logs.log; then
+    if ! grep -F -x -e "$line" /opt/azure/vhd-install.complete; then
       echo "$line is missing"
       result=1
     fi
