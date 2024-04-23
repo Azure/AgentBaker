@@ -94,7 +94,7 @@ func IndentString(original string, spaces int) string {
 	return out.String()
 }
 
-func processContainerImageTag(downloadURL string) (string, error) {
+func processContainerImage(downloadURL string) (string, error) {
 	// example URL "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
 	// getting the data between the last / and the last :
 	parts := strings.Split(downloadURL, "/")

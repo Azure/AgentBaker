@@ -67,7 +67,7 @@ func processManifest(manifest Manifest) {
 
 func processComponents(components Components) {
 	for _, image := range components.ContainerImages {
-		componentName, err := processContainerImageTag(image.DownloadURL)
+		componentName, err := processContainerImage(image.DownloadURL)
 		if err != nil {
 			panic(err)
 		}
