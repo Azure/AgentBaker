@@ -108,6 +108,12 @@ func getCachedVersionsFromComponentsJSON(componentsFilePath string) Components {
 	return components
 }
 
+type CachedOnVHD struct {
+	CachedFromManifest                 map[string]ProcessedManifest `json:"cached_from_manifest"`
+	CachedFromComponentContainerImages map[string]ContainerImage    `json:"cached_from_component_container_images"`
+	CachedFromComponentDownloadedFiles map[string]DownloadFiles     `json:"cached_from_component_downloaded_files"`
+}
+
 type Manifest struct {
 	Containerd struct {
 		Edge     string            `json:"edge"`
