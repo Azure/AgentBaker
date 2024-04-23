@@ -11,7 +11,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/metrics-server:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.7.0"
+        "v0.7.1"
       ]
     },
     {
@@ -115,7 +115,7 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "3.1.19"
+        "3.1.20"
       ]
     },
     {
