@@ -102,10 +102,6 @@ func processContainerImage(downloadURL string) (string, error) {
 		return "", fmt.Errorf("container image component URL is not in the expected format: %s", downloadURL)
 	}
 	lastPart := parts[len(parts)-1]
-
-	component := strings.Split(lastPart, ":")
-	if len(component) == 0 || len(component[0]) == 0 {
-		return "", errors.New("downloadURL is not in the expected format")
-	}
-	return component[0], nil
+	component := strings.TrimSuffix(lastPart, ":*")
+	return component, nil
 }
