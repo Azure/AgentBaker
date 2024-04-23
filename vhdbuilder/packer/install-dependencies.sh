@@ -288,7 +288,7 @@ else
 fi
 echo "Limit for parallel container image pulls set to $parallel_container_image_pull_limit"
 
-declare -a container_image_pids=()
+declare -A image_pids_and_urls=()
 
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for imageToBePulled in ${ContainerImages[*]}; do
@@ -314,22 +314,23 @@ for imageToBePulled in ${ContainerImages[*]}; do
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
-    container_image_pids+=($!)
+    pid=$!
+    image_pids_and_urls[$pid]+=${CONTAINER_IMAGE}
     # Pull container images in parallel in order to decrease VHD build time
-    # Record process id in order to ensure all images are finished pulling later in the script
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+    # Record process id in order to ensure all images are finished pulling later in the script, record url to ensure that only successful pulls are added to VHD_LOGS_FILEPATH
     while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
       wait -n
     done
-  active_pulls=0
-  for pid in ${containerImagePids[@]}; do
-    if kill -0 $pid 2>/dev/null; then
-      active_pulls=$((active_pulls + 1))
-    fi
   done
-  echo "Number of active container image pulls: $active_pulls"
-  done
-  wait ${container_image_pids[@]}
+  wait ${!image_pids_and_urls[@]}
+  for pid in ${!image_pids_and_urls[@]}; do
+      if wait $pid; then
+        echo "  - ${image_pids_and_urls[$pid]}" >> ${VHD_LOGS_FILEPATH}
+        echo "${image_pids_and_urls[$pid]} added to vhd logs filepath"
+      else
+        echo "${image_pids_and_urls[$pid]} was not successfully pulled."
+      fi
+    done
 done
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
