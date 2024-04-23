@@ -44,6 +44,11 @@ installDeps() {
         BLOBFUSE2_VERSION="2.2.0"
     fi
 
+    # 24.04 has preview version for now
+    if [ "${OSVERSION}" == "24.04" ]; then
+        BLOBFUSE2_VERSION="2.3.0~preview.1"
+    fi
+
     pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
     if [[ $(isARM64) != 1 ]]; then
         # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
