@@ -162,10 +162,13 @@ func (nBCB *NBContractBuilder) validateRequiredFields() error {
 
 func (nBCB *NBContractBuilder) validateRequiredStringsNotEmpty() error {
 	requiredStrings := map[string]string{
-		"AuthConfig.SubscriptionId":   nBCB.nodeBootstrapConfig.GetAuthConfig().GetSubscriptionId(),
-		"AuthConfig.TenantId":         nBCB.nodeBootstrapConfig.GetAuthConfig().GetTenantId(),
-		"ClusterConfig.ResourceGroup": nBCB.nodeBootstrapConfig.GetClusterConfig().GetResourceGroup(),
-		"ClusterConfig.Location":      nBCB.nodeBootstrapConfig.GetClusterConfig().GetLocation(),
+		"AuthConfig.SubscriptionId":                            nBCB.nodeBootstrapConfig.GetAuthConfig().GetSubscriptionId(),
+		"ClusterConfig.ResourceGroup":                          nBCB.nodeBootstrapConfig.GetClusterConfig().GetResourceGroup(),
+		"ClusterConfig.Location":                               nBCB.nodeBootstrapConfig.GetClusterConfig().GetLocation(),
+		"ClusterConfig.ClusterNetworkConfig.VnetName":          nBCB.nodeBootstrapConfig.GetClusterConfig().GetClusterNetworkConfig().GetVnetName(),
+		"ClusterConfig.ClusterNetworkConfig.VnetResourceGroup": nBCB.nodeBootstrapConfig.GetClusterConfig().GetClusterNetworkConfig().GetVnetResourceGroup(),
+		"ClusterConfig.ClusterNetworkConfig.RouteTable":        nBCB.nodeBootstrapConfig.GetClusterConfig().GetClusterNetworkConfig().GetRouteTable(),
+		"ApiServerConfig.ApiServerName":                        nBCB.nodeBootstrapConfig.ApiServerConfig.GetApiServerName(),
 	}
 
 	for field, value := range requiredStrings {
