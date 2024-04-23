@@ -150,6 +150,7 @@ type Components struct {
 		} `json:"prefetchOptimizations"`
 	} `json:"ContainerImages"`
 }
+
 type PrefetchOptimizations struct {
 	Version  string
 	Binaries []string
