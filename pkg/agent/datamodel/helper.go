@@ -99,7 +99,7 @@ func processContainerImageTag(downloadURL string) (string, error) {
 	// getting the data between the last / and the last :
 	parts := strings.Split(downloadURL, "/")
 	if len(parts) == 0 || len(parts[len(parts)-1]) == 0 {
-		return "", errors.New("downloadURL is not in the expected format")
+		return "", fmt.Errorf("container image component URL is not in the expected format: %s", downloadURL)
 	}
 	lastPart := parts[len(parts)-1]
 
