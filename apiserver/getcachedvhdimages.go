@@ -16,8 +16,8 @@ const (
 )
 
 type CachedOnVHD struct {
-	cachedFromManifest   map[string]datamodel.ProcessedManifest `json:"cached_from_manifest"`
-	cachedFromComponents map[string]datamodel.ContainerImage    `json:"cached_from_components"`
+	CachedFromManifest   map[string]datamodel.ProcessedManifest `json:"cached_from_manifest"`
+	CachedFromComponents map[string]datamodel.ContainerImage    `json:"cached_from_components"`
 }
 
 // GetCachedVersionsOnVHD endpoint for getting the current versions of components cached on the vhd.
@@ -37,8 +37,8 @@ func (api *APIServer) GetCachedVersionsOnVHD(w http.ResponseWriter, r *http.Requ
 	}
 
 	result := CachedOnVHD{
-		cachedFromManifest:   cachedFromManifest,
-		cachedFromComponents: cachedFromComponents,
+		CachedFromManifest:   cachedFromManifest,
+		CachedFromComponents: cachedFromComponents,
 	}
 
 	jsonResponse, err := json.Marshal(result)
