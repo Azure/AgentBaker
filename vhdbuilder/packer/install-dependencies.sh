@@ -327,7 +327,7 @@ for imageToBePulled in ${ContainerImages[*]}; do
       active_pulls=$((active_pulls + 1))
     fi
   done
-  echo "Number of parallel container pulls: $active_pulls"
+  echo "Number of active container image pulls: $active_pulls"
   done
   wait ${container_image_pids[@]}
 done
