@@ -278,9 +278,15 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
-parallel_container_image_pull_limit=$(nproc --ignore=2)
+# Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
+# Account for possibility that number of cores is 3 or less
+num_proc=$(nproc)
+if [[ $num_proc -gt 3 ]]; then
+  parallel_container_image_pull_limit=$(nproc --ignore=2)
+else
+  parallel_container_image_pull_limit=1
+fi
 echo "Limit for parallel container image pulls set to $parallel_container_image_pull_limit"
-# Limit number of parallel pulls in order to prevent issues with network, CPU, and disk resources
 
 declare -a container_image_pids=()
 
