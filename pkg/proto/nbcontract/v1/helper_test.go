@@ -292,3 +292,67 @@ func TestNBContractBuilder_validateSemVer(t *testing.T) {
 		})
 	}
 }
+
+func TestNBContractBuilder_validateRequiredFields(t *testing.T) {
+	type fields struct {
+		nodeBootstrapConfig *Configuration
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		{
+			name: "Test with nil AuthConfig and expect error",
+			fields: fields{
+				nodeBootstrapConfig: &Configuration{
+					AuthConfig: nil,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Test with empty SubscriptionId and expect error",
+			fields: fields{
+				nodeBootstrapConfig: &Configuration{
+					AuthConfig: &AuthConfig{
+						SubscriptionId: "",
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Test with required fields and expect no error",
+			fields: fields{
+				nodeBootstrapConfig: &Configuration{
+					AuthConfig: &AuthConfig{
+						SubscriptionId: "some-subscription-id",
+						TenantId:       "some-tenant-id",
+					},
+					ClusterConfig: &ClusterConfig{
+						ResourceGroup: "some-resource-group",
+						Location:      "some-location",
+					},
+					CustomLinuxOsConfig: &CustomLinuxOSConfig{
+						SwapFileSize: 2048,
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nBCB := NewNBContractBuilder()
+			nBCB.ApplyConfiguration(tt.fields.nodeBootstrapConfig)
+			err := nBCB.validateRequiredFields()
+			if err != nil {
+				println(err.Error())
+			}
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NBContractBuilder.validateRequiredFields() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

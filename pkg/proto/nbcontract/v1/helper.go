@@ -95,12 +95,16 @@ func (nBCB *NBContractBuilder) deepCopy(src, dst interface{}) error {
 
 // ValidateNBContract validates the NBContract.
 // It returns an error if the contract is invalid.
-// This function should be called after applying the configuration.
+// This function should be called after applying all configuration and before sending to downstream component.
 func (nBCB *NBContractBuilder) ValidateNBContract() error {
-
 	if err := nBCB.validateSemVer(); err != nil {
 		return err
 	}
+	if err := nBCB.validateRequiredFields(); err != nil {
+		return err
+	}
+	// Add more validations here if needed.
+
 	return nil
 }
 
@@ -145,4 +149,29 @@ func (nBCB *NBContractBuilder) parseMinor(version string) (int, error) {
 		return -1, fmt.Errorf("Failed to parse minor version from %s", version)
 	}
 	return minor, nil
+}
+
+func (nBCB *NBContractBuilder) validateRequiredFields() error {
+	if err := nBCB.validateRequiredStringsNotEmpty(); err != nil {
+		return err
+	}
+	// Add more required fields validations here if needed.
+	// For example, check if a required string is of a specific format.
+	return nil
+}
+
+func (nBCB *NBContractBuilder) validateRequiredStringsNotEmpty() error {
+	requiredStrings := map[string]string{
+		"AuthConfig.SubscriptionId":   nBCB.nodeBootstrapConfig.GetAuthConfig().GetSubscriptionId(),
+		"AuthConfig.TenantId":         nBCB.nodeBootstrapConfig.GetAuthConfig().GetTenantId(),
+		"ClusterConfig.ResoruceGroup": nBCB.nodeBootstrapConfig.GetClusterConfig().GetResourceGroup(),
+		"ClusterConfig.Location":      nBCB.nodeBootstrapConfig.GetClusterConfig().GetLocation(),
+	}
+
+	for field, value := range requiredStrings {
+		if value == "" {
+			return fmt.Errorf("Required field %v is missing", field)
+		}
+	}
+	return nil
 }
