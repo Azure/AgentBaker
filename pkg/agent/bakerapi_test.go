@@ -547,7 +547,8 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(cachedOnVHD.CachedFromManifest["containerd"].Edge).To(Equal(manifest.Containerd.Edge))
 			Expect(cachedOnVHD.CachedFromManifest["kubernetes"].Versions[0]).To(Equal(manifest.Kubernetes.Versions[0]))
 			Expect(cachedOnVHD.CachedFromComponentContainerImages["pause"].MultiArchVersions[0]).To(Equal(component.ContainerImages[pauseIndx].MultiArchVersions[0]))
-			Expect(cachedOnVHD.CachedFromComponentContainerImages["azure-cns"].PrefetchOptimizations[0].Version).To(Equal(component.ContainerImages[azureCNSIndx].PrefetchOptimizations[0].Version))
+			Expect(cachedOnVHD.CachedFromComponentContainerImages["azure-cns"].PrefetchOptimizations[0].Version).To(
+				Equal(component.ContainerImages[azureCNSIndx].PrefetchOptimizations[0].Version))
 			Expect(cachedOnVHD.CachedFromComponentContainerImages["azure-cns"].PrefetchOptimizations[0].Binaries[0]).To(Equal("usr/local/bin/azure-cns"))
 			Expect(cachedOnVHD.CachedFromComponentDownloadedFiles["cni-plugins"].Versions[0]).To(Equal(component.DownloadFiles[cniPluginIndx].Versions[0]))
 			Expect(cachedOnVHD.CachedFromComponentDownloadedFiles["azure-cni"].Versions[1]).To(Equal(component.DownloadFiles[azureCNIIndx].Versions[1]))
