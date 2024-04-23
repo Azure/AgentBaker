@@ -7534,6 +7534,11 @@ installDeps() {
         BLOBFUSE2_VERSION="2.2.0"
     fi
 
+    # 24.04 has preview version for now
+    if [ "${OSVERSION}" == "24.04" ]; then
+        BLOBFUSE2_VERSION="2.3.0~preview.1"
+    fi
+
     pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
     if [[ $(isARM64) != 1 ]]; then
         # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
@@ -7556,7 +7561,7 @@ installDeps() {
 
 updateAptWithMicrosoftPkg() {
     if [[ $(isARM64) == 1 ]]; then
-        if [ "${UBUNTU_RELEASE}" == "22.04" ]; then
+        if [ "${UBUNTU_RELEASE}" == "22.04" || "${UBUNTU_RELEASE}" == "24.04" ]; then
             retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
         else
             retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
