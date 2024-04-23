@@ -41,7 +41,6 @@ installDeps() {
         BLOBFUSE2_VERSION="2.2.0"
     fi
 
-<<<<<<< HEAD
     # Currently skipping blobfuse install on 24.04 since packages are not available upstream, remove this once they are
     if [[ "${OSVERSION}" != "24.04" ]]; then
       pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
