@@ -50,7 +50,7 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
     elif [[ "${gallery}" =~ WS2022_containerd_gen2Gallery* ]]; then
       create_date=${gallery:29:6}
     elif [[ "${gallery}" =~ WSGallery* ]]; then
-      create_date=${galleries:9:6}
+      create_date=${gallery:9:6}
     else
       continue
     fi
