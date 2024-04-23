@@ -306,15 +306,24 @@ testCloudInit() {
     FILE=/var/log/cloud-init.log
     if test -f "$FILE"; then
       echo "Check cloud-init log exist."
-      if grep -q "WARNING\|ERROR" $FILE; then
-        err "Cloud-init log has WARNING/ERROR."
+      if grep "WARNING\|ERROR" $FILE; then
+        err $test "Cloud-init log has WARNING/ERROR."
       else
         echo "Cloud-init log is OK."
       fi
     else
-      err "Check cloud-init log does not exist."
+      err $test "Check cloud-init log does not exist."
+    fi
+
+    if cloud-init status --wait; then
+      echo "Cloud-init status is OK."
+    else
+      status=$(cloud-init status --wait)
+      err $test "Cloud-init status error with ${status}."
     fi
   fi
+
+  
 
   echo "$test:Finish"
 }
