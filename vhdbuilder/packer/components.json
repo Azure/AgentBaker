@@ -97,9 +97,9 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.3.4-1",
-        "v1.4.1",
         "v1.4.2",
-        "v1.4.2-1"
+        "v1.4.2-1",
+        "v1.4.3"
       ]
     },
     {
@@ -107,7 +107,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.4.1",
-        "v1.5.1"
+        "v1.5.1",
+        "v1.5.2"
       ]
     },
     {
