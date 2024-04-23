@@ -333,9 +333,16 @@ func TestNBContractBuilder_validateRequiredFields(t *testing.T) {
 					ClusterConfig: &ClusterConfig{
 						ResourceGroup: "some-resource-group",
 						Location:      "some-location",
+						ClusterNetworkConfig: &ClusterNetworkConfig{
+							RouteTable: "some-route-table",
+							VnetName:   "some-vnet-name",
+						},
 					},
 					CustomLinuxOsConfig: &CustomLinuxOSConfig{
 						SwapFileSize: 2048,
+					},
+					ApiServerConfig: &ApiServerConfig{
+						ApiServerName: "some-api-server-name",
 					},
 				},
 			},
