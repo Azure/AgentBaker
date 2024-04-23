@@ -296,6 +296,27 @@ testFips() {
   echo "$test:Finish"
 }
 
+testCloudInit() {
+  test="testCloudInit"
+  echo "$test:Start"
+  os_sku=$1
+
+  # Limit this test only to Mariner or Azurelinux 
+  if [[ "$os_sku" == "CBLMariner" || "$os_sku" == "AzureLinux" ]]; then
+    FILE=/var/log/cloud-init.log
+    if test -f "$FILE"; then
+      echo "Check cloud-init log exist."
+      if grep -q "WARNING\|ERROR" $FILE; then
+        err "Cloud-init log has WARNING/ERROR."
+      else
+        echo "Cloud-init log is OK."
+    else
+      err "Check cloud-init log does not exist."
+  fi
+
+  echo "$test:Finish"
+}
+
 testKubeBinariesPresent() {
   test="testKubeBinaries"
   echo "$test:Start"
@@ -874,6 +895,7 @@ testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
 testChrony $OS_SKU
 testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS
+testCloudInit $OS_SKU
 testKubeBinariesPresent $CONTAINER_RUNTIME
 testKubeProxyImagesPulled $CONTAINER_RUNTIME
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
