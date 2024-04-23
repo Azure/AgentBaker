@@ -85,7 +85,9 @@ message Configuration {
   string linux_admin_username = 20;
 
   // Specifies whether the node is a VHD node. This is still needed for some customized scenarios.
-  bool is_vhd = 21;
+  // This is labeled as optional (explicit presence) so that we know whether it's set or not.
+  // If it's not set, the default value will be nil.
+  optional bool is_vhd = 21;
 
   // Specifies whether SSH is enabled or disabled on the VM node
   bool enable_ssh = 22;
