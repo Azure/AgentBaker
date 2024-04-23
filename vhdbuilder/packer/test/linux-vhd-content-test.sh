@@ -310,8 +310,10 @@ testCloudInit() {
         err "Cloud-init log has WARNING/ERROR."
       else
         echo "Cloud-init log is OK."
+      fi
     else
       err "Check cloud-init log does not exist."
+    fi
   fi
 
   echo "$test:Finish"
