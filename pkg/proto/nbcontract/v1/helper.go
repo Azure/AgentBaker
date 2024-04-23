@@ -111,16 +111,16 @@ func (nBCB *NBContractBuilder) ValidateNBContract() error {
 func (nBCB *NBContractBuilder) validateSemVer() error {
 	major := semver.Major(nBCB.nodeBootstrapConfig.Version)
 	if major == "" {
-		return fmt.Errorf("Invalid contract version from contract payload: %s. It should be a semantic version", nBCB.GetNodeBootstrapConfig().Version)
+		return fmt.Errorf("invalid contract version from contract payload: %s. It should be a semantic version", nBCB.GetNodeBootstrapConfig().Version)
 	}
 
 	expectedMajor := semver.Major(contractVersion)
 	if expectedMajor == "" {
-		return fmt.Errorf("Invalid contract version: %s. It should be a semantic version", contractVersion)
+		return fmt.Errorf("invalid contract version: %s. It should be a semantic version", contractVersion)
 	}
 
 	if major != expectedMajor {
-		return fmt.Errorf("Contract major versions mismatch. Expecting %s, but got %s", expectedMajor, major)
+		return fmt.Errorf("contract major versions mismatch. Expecting %s, but got %s", expectedMajor, major)
 	}
 
 	minor, err := nBCB.parseMinor(nBCB.GetNodeBootstrapConfig().Version)
@@ -146,7 +146,7 @@ func (nBCB *NBContractBuilder) parseMinor(version string) (int, error) {
 	parts := strings.Split(version, ".")
 	minor, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return -1, fmt.Errorf("Failed to parse minor version from %s", version)
+		return -1, fmt.Errorf("failed to parse minor version from %s", version)
 	}
 	return minor, nil
 }
@@ -172,7 +172,7 @@ func (nBCB *NBContractBuilder) validateRequiredStringsNotEmpty() error {
 
 	for field, value := range requiredStrings {
 		if value == "" {
-			return fmt.Errorf("Required field %v is missing", field)
+			return fmt.Errorf("required field %v is missing", field)
 		}
 	}
 	return nil

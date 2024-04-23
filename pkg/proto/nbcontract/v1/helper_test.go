@@ -354,9 +354,6 @@ func TestNBContractBuilder_validateRequiredFields(t *testing.T) {
 			nBCB := NewNBContractBuilder()
 			nBCB.ApplyConfiguration(tt.fields.nodeBootstrapConfig)
 			err := nBCB.validateRequiredFields()
-			if err != nil {
-				println(err.Error())
-			}
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NBContractBuilder.validateRequiredFields() error = %v, wantErr %v", err, tt.wantErr)
 			}
