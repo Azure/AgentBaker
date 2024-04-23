@@ -1131,6 +1131,12 @@ func (a *AgentPoolProfile) IsWindows() bool {
 	return strings.EqualFold(string(a.OSType), string(Windows))
 }
 
+// IsSkipCleanupNetwork returns true if AKS-RP sets the field NotRebootWindowsNode to true.
+func (a *AgentPoolProfile) IsSkipCleanupNetwork() bool {
+	// Reuse the existing field NotRebootWindowsNode to avoid adding a new field because it is a temporary toggle value from AKS-RP.
+	return a.NotRebootWindowsNode != nil && *a.NotRebootWindowsNode
+}
+
 // IsVirtualMachineScaleSets returns true if the agent pool availability profile is VMSS.
 func (a *AgentPoolProfile) IsVirtualMachineScaleSets() bool {
 	return strings.EqualFold(a.AvailabilityProfile, VirtualMachineScaleSets)
