@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	agent "github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
