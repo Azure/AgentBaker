@@ -18,8 +18,9 @@ const (
 
 //nolint:gochecknoglobals
 var (
-	CachedFromComponents = make(map[string]ContainerImage)
-	CachedFromManifest   = make(map[string]ProcessedManifest)
+	CachedFromComponentContainerImages = make(map[string]ContainerImage)
+	CachedFromComponentDownloadedFiles = make(map[string]DownloadFiles)
+	CachedFromManifest                 = make(map[string]ProcessedManifest)
 )
 
 //nolint:gochecknoinits
@@ -71,7 +72,14 @@ func processComponents(components Components) {
 		if err != nil {
 			panic(err)
 		}
-		CachedFromComponents[componentName] = image
+		CachedFromComponentContainerImages[componentName] = image
+	}
+	for _, file := range components.DownloadFiles {
+		componetName, err := processDownloadFile(file.DownloadURL)
+		if err != nil {
+			panic(err)
+		}
+		CachedFromComponentDownloadedFiles[componetName] = file
 	}
 }
 
@@ -129,32 +137,9 @@ type ProcessedManifest struct {
 	Installed map[string]string
 }
 
-/*
-	type Components struct {
-		ContainerImages []struct {
-			DownloadURL           string   `json:"downloadURL"`
-			Amd64OnlyVersions     []string `json:"amd64OnlyVersions"`
-			MultiArchVersions     []string `json:"multiArchVersions"`
-			PrefetchOptimizations []struct {
-				Version  string   `json:"version"`
-				Binaries []string `json:"binaries"`
-			} `json:"prefetchOptimizations"`
-		} `json:"ContainerImages"`
-	}
-
-	type PrefetchOptimizations struct {
-		Version  string
-		Binaries []string
-	}
-
-	type ContainerImage struct {
-		MultiArchVersions     []string
-		Amd64OnlyVersions     []string
-		PrefetchOptimizations PrefetchOptimizations
-	}
-*/
 type Components struct {
 	ContainerImages []ContainerImage `json:"containerImages"`
+	DownloadFiles   []DownloadFiles  `json:"downloadFiles"`
 }
 
 type ContainerImage struct {
@@ -167,6 +152,13 @@ type ContainerImage struct {
 type PrefetchOptimization struct {
 	Version  string   `json:"version"`
 	Binaries []string `json:"binaries"`
+}
+
+type DownloadFiles struct {
+	FileName         string   `json:"fileName"`
+	DownloadLocation string   `json:"downloadLocation"`
+	DownloadURL      string   `json:"downloadURL"`
+	Versions         []string `json:"versions"`
 }
 
 // SIGAzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.

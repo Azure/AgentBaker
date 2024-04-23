@@ -532,22 +532,27 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
 
-			fromManifest, fromComponents, err := agentBaker.GetCachedVersionsOnVHD()
+			fromManifest, fromComponentsContainerImages, fromComponentsDownloadFiles, err := agentBaker.GetCachedVersionsOnVHD()
 			Expect(err).NotTo(HaveOccurred())
 
 			manifest := datamodel.CacheManifest()
 			component := datamodel.CacheComponents()
 
+			// The indices are hardcoded based on the current components.json.
 			pauseIndx := 2
 			azureCNSIndx := 5
+			cniPluginIndx := 0
+			azureCNIIndx := 1
 
 			Expect(fromManifest["runc"].Installed["default"]).To(Equal(manifest.Runc.Installed["default"]))
 			Expect(fromManifest["containerd"].Pinned["1804"]).To(Equal(manifest.Containerd.Pinned["1804"]))
 			Expect(fromManifest["containerd"].Edge).To(Equal(manifest.Containerd.Edge))
 			Expect(fromManifest["kubernetes"].Versions[0]).To(Equal(manifest.Kubernetes.Versions[0]))
-			Expect(fromComponents["pause"].MultiArchVersions[0]).To(Equal(component.ContainerImages[pauseIndx].MultiArchVersions[0]))
-			Expect(fromComponents["azure-cns"].PrefetchOptimizations[0].Version).To(Equal(component.ContainerImages[azureCNSIndx].PrefetchOptimizations[0].Version))
-			Expect(fromComponents["azure-cns"].PrefetchOptimizations[0].Binaries[0]).To(Equal("usr/local/bin/azure-cns"))
+			Expect(fromComponentsContainerImages["pause"].MultiArchVersions[0]).To(Equal(component.ContainerImages[pauseIndx].MultiArchVersions[0]))
+			Expect(fromComponentsContainerImages["azure-cns"].PrefetchOptimizations[0].Version).To(Equal(component.ContainerImages[azureCNSIndx].PrefetchOptimizations[0].Version))
+			Expect(fromComponentsContainerImages["azure-cns"].PrefetchOptimizations[0].Binaries[0]).To(Equal("usr/local/bin/azure-cns"))
+			Expect(fromComponentsDownloadFiles["cni-plugins"].Versions[0]).To(Equal(component.DownloadFiles[cniPluginIndx].Versions[0]))
+			Expect(fromComponentsDownloadFiles["azure-cni"].Versions[1]).To(Equal(component.DownloadFiles[azureCNIIndx].Versions[1]))
 		})
 	})
 })

@@ -16,8 +16,9 @@ const (
 )
 
 type CachedOnVHD struct {
-	CachedFromManifest   map[string]datamodel.ProcessedManifest `json:"cached_from_manifest"`
-	CachedFromComponents map[string]datamodel.ContainerImage    `json:"cached_from_components"`
+	CachedFromManifest                 map[string]datamodel.ProcessedManifest `json:"cached_from_manifest"`
+	CachedFromComponentContainerImages map[string]datamodel.ContainerImage    `json:"cached_from_component_container_images"`
+	CachedFromComponentDownloadedFiles map[string]datamodel.DownloadFiles     `json:"cached_from_component_downloaded_files"`
 }
 
 // GetCachedVersionsOnVHD endpoint for getting the current versions of components cached on the vhd.
@@ -29,7 +30,7 @@ func (api *APIServer) GetCachedVersionsOnVHD(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	cachedFromManifest, cachedFromComponents, err := agentBaker.GetCachedVersionsOnVHD()
+	cachedFromManifest, cachedFromComponentContainerImages, cachedFromComponentDownloadFiles, err := agentBaker.GetCachedVersionsOnVHD()
 	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -37,8 +38,9 @@ func (api *APIServer) GetCachedVersionsOnVHD(w http.ResponseWriter, r *http.Requ
 	}
 
 	result := CachedOnVHD{
-		CachedFromManifest:   cachedFromManifest,
-		CachedFromComponents: cachedFromComponents,
+		CachedFromManifest:                 cachedFromManifest,
+		CachedFromComponentContainerImages: cachedFromComponentContainerImages,
+		CachedFromComponentDownloadedFiles: cachedFromComponentDownloadFiles,
 	}
 
 	jsonResponse, err := json.Marshal(result)
