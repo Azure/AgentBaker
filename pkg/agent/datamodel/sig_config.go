@@ -71,17 +71,7 @@ func processComponents(components Components) {
 		if err != nil {
 			panic(err)
 		}
-		processed := ContainerImage{
-			MultiArchVersions: image.MultiArchVersions,
-			Amd64OnlyVersions: image.Amd64OnlyVersions,
-		}
-		if len(image.PrefetchOptimizations) > 0 {
-			processed.PrefetchOptimizations = PrefetchOptimizations{
-				Version:  image.PrefetchOptimizations[0].Version,
-				Binaries: image.PrefetchOptimizations[0].Binaries,
-			}
-		}
-		CachedFromComponents[componentName] = processed
+		CachedFromComponents[componentName] = image
 	}
 }
 
@@ -139,27 +129,44 @@ type ProcessedManifest struct {
 	Installed map[string]string
 }
 
-type Components struct {
-	ContainerImages []struct {
-		DownloadURL           string   `json:"downloadURL"`
-		Amd64OnlyVersions     []string `json:"amd64OnlyVersions"`
-		MultiArchVersions     []string `json:"multiArchVersions"`
-		PrefetchOptimizations []struct {
-			Version  string   `json:"version"`
-			Binaries []string `json:"binaries"`
-		} `json:"prefetchOptimizations"`
-	} `json:"ContainerImages"`
-}
+/*
+	type Components struct {
+		ContainerImages []struct {
+			DownloadURL           string   `json:"downloadURL"`
+			Amd64OnlyVersions     []string `json:"amd64OnlyVersions"`
+			MultiArchVersions     []string `json:"multiArchVersions"`
+			PrefetchOptimizations []struct {
+				Version  string   `json:"version"`
+				Binaries []string `json:"binaries"`
+			} `json:"prefetchOptimizations"`
+		} `json:"ContainerImages"`
+	}
 
-type PrefetchOptimizations struct {
-	Version  string
-	Binaries []string
+	type PrefetchOptimizations struct {
+		Version  string
+		Binaries []string
+	}
+
+	type ContainerImage struct {
+		MultiArchVersions     []string
+		Amd64OnlyVersions     []string
+		PrefetchOptimizations PrefetchOptimizations
+	}
+*/
+type Components struct {
+	ContainerImages []ContainerImage `json:"containerImages"`
 }
 
 type ContainerImage struct {
-	MultiArchVersions     []string
-	Amd64OnlyVersions     []string
-	PrefetchOptimizations PrefetchOptimizations
+	DownloadURL           string                 `json:"downloadURL"`
+	MultiArchVersions     []string               `json:"multiArchVersions"`
+	Amd64OnlyVersions     []string               `json:"amd64OnlyVersions"`
+	PrefetchOptimizations []PrefetchOptimization `json:"prefetchOptimizations"`
+}
+
+type PrefetchOptimization struct {
+	Version  string   `json:"version"`
+	Binaries []string `json:"binaries"`
 }
 
 // SIGAzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
