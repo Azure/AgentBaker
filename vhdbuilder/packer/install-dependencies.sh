@@ -326,9 +326,8 @@ for imageToBePulled in ${ContainerImages[*]}; do
   for pid in ${!image_pids_and_urls[@]}; do
       if wait $pid; then
         echo "  - ${image_pids_and_urls[$pid]}" >> ${VHD_LOGS_FILEPATH}
-        echo "${image_pids_and_urls[$pid]} added to vhd logs filepath"
       else
-        echo "${image_pids_and_urls[$pid]} was not successfully pulled."
+        echo "${image_pids_and_urls[$pid]} encountered an error and was not successfully pulled. "
       fi
     done
 done
