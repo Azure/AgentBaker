@@ -1,4 +1,12 @@
+param (
+  [switch]$enableAll,
+  [switch]$enableSnapshotSize
+)
+# param must be at the beginning of the script, add more param if needed
+
 # NOTE: Please also update staging/cse/windows/provisioningscripts/loggenerator.ps1 when collecting new logs.
+
+# SilentlyContinue mode suppresses errors and continues the script execution.
 $ProgressPreference = "SilentlyContinue"
 
 function CollectLogsFromDirectory {
@@ -217,14 +225,18 @@ else {
   Write-Host "ctr.exe command not available"
 }
 
-# collect disk usage information
-if (Test-Path "C:\aks-tools\DU\du.exe") {
-  C:\aks-tools\DU\du.exe /accepteula
-  C:\aks-tools\DU\du.exe -l 1 C:\ProgramData\containerd\root\io.containerd.snapshotter.v1.windows\snapshots\ > "$ENV:TEMP\$timeStamp-du-snapshot-folder-size.txt"
-  $paths += "$ENV:TEMP\$timeStamp-du-snapshot-folder-size.txt"
+if ($enableAll -or $enableSnapshotSize) {
+  Write-Host "Collecting container snapshot size using DU tool"
+  if (Test-Path "C:\aks-tools\DU\du.exe") {
+    C:\aks-tools\DU\du.exe /accepteula
+    C:\aks-tools\DU\du.exe -l 1 C:\ProgramData\containerd\root\io.containerd.snapshotter.v1.windows\snapshots\ > "$ENV:TEMP\$timeStamp-du-snapshot-folder-size.txt"
+    $paths += "$ENV:TEMP\$timeStamp-du-snapshot-folder-size.txt"
+  }
+  Copy-Item 'C:\ProgramData\containerd\root\io.containerd.snapshotter.v1.windows\metadata.db' "$ENV:TEMP\$timeStamp-snpashot-metadata.db"
+  $paths += "$ENV:TEMP\$timeStamp-snpashot-metadata.db"
+} else {
+  Write-Host "Skipping collecting container snapshot size. To enable, use -enableSnapshotSize or -enableAll. E.g. .\collect-windows-logs.ps1 -enableSnapshotSize"
 }
-Copy-Item 'C:\ProgramData\containerd\root\io.containerd.snapshotter.v1.windows\metadata.db' "$ENV:TEMP\$timeStamp-snpashot-metadata.db"
-$paths += "$ENV:TEMP\$timeStamp-snpashot-metadata.db"
 
 # log containers, pods and images the CRI plugin is aware of, and their state.
 $res = Get-Command crictl.exe -ErrorAction SilentlyContinue
