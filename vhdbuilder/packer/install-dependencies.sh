@@ -278,10 +278,11 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
-PARALLEL_CONTAINER_IMAGE_PULL_LIMIT=$(nproc --ignore=2)
-echo "Limit for parallel container image pulls set to $PARALLEL_CONTAINER_IMAGE_PULL_LIMIT"
+parallel_container_image_pull_limit=$(nproc --ignore=2)
+echo "Limit for parallel container image pulls set to $parallel_container_image_pull_limit"
+# Limit number of parallel pulls in order to prevent issues with network, CPU, and disk resources
 
-declare -a containerImagePids=()
+declare -a container_image_pids=()
 
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for imageToBePulled in ${ContainerImages[*]}; do
@@ -307,27 +308,22 @@ for imageToBePulled in ${ContainerImages[*]}; do
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
-    containerImagePids+=($!)
+    container_image_pids+=($!)
+    # Pull container images in parallel in order to decrease VHD build time
+    # Record process id in order to ensure all images are finished pulling later in the script
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    while [[ $(jobs -p | wc -l) -ge $PARALLEL_CONTAINER_IMAGE_PULL_LIMIT ]]; do
+    while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
       wait -n
     done
-  bg_processes=$(ps -o pid,cmd --no-headers | wc -l)
   active_pulls=0
   for pid in ${containerImagePids[@]}; do
     if kill -0 $pid 2>/dev/null; then
       active_pulls=$((active_pulls + 1))
     fi
   done
-  other_bg_processes=$((bg_processes - active_pulls))
-  backgroundJobs=$(jobs -p | wc -l)
-  echo "Number of background processes: $bg_processes"
   echo "Number of parallel container pulls: $active_pulls"
-  echo "Number of background jobs: $backgroundJobs"
-  echo "Number of other background processes: $other_bg_processes"
-  ps -e
   done
-  wait ${containerImagePids[@]}
+  wait ${container_image_pids[@]}
 done
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
@@ -473,18 +469,18 @@ rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
 KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
 
-declare -a kubeProxyPids=()
+declare -a kube_proxy_pids=()
 
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # use kube-proxy as well
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
   pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
-  kubeProxyPids+=($!)
-  while [[ $(jobs -p | wc -l) -ge $PARALLEL_CONTAINER_IMAGE_PULL_LIMIT ]]; do
+  kube_proxy_pids+=($!)
+  while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
       wait -n
   done
 done
-wait ${kubeProxyPids[@]} # Wait for all background processes to finish
+wait ${kube_proxy_pids[@]} # Wait for all parallel pulls to finish
 
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # use kube-proxy as well
