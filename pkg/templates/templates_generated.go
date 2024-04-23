@@ -7534,11 +7534,21 @@ installDeps() {
         BLOBFUSE2_VERSION="2.2.0"
     fi
 
+<<<<<<< HEAD
     if [[ "${OSVERSION}" != "24.04" ]]; then
       pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
     fi
 
     if [[ $(isARM64) != 1 && "${OSVERSION}" != "24.04" ]]; then
+=======
+    # 24.04 has preview version for now
+    if [ "${OSVERSION}" == "24.04" ]; then
+        BLOBFUSE2_VERSION="2.3.0~preview.1"
+    fi
+
+    pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
+    if [[ $(isARM64) != 1 ]]; then
+>>>>>>> 2047c91d2 (make generate)
         # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
         # for 22.04, fuse3 is installed. for all others, fuse is installed
         # for 16.04, installed blobfuse1.3.7, for all others except 22.04, installed blobfuse1.4.5
@@ -7559,7 +7569,7 @@ installDeps() {
 
 updateAptWithMicrosoftPkg() {
     if [[ $(isARM64) == 1 ]]; then
-        if [ "${UBUNTU_RELEASE}" == "22.04" ]; then
+        if [ "${UBUNTU_RELEASE}" == "22.04" || "${UBUNTU_RELEASE}" == "24.04" ]; then
             retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
         else
             retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/multiarch/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
