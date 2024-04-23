@@ -27,6 +27,9 @@ if [ -z "${node_name}" ]; then
     exit 1
 fi
 
+# Azure cloud provider assigns node name as the lowner case of the hostname
+node_name=$(echo "$node_name" | tr '[:upper:]' '[:lower:]')
+
 # retrieve golden timestamp from node annotation
 golden_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-golden-timestamp']}")
 if [ -z "${golden_timestamp}" ]; then

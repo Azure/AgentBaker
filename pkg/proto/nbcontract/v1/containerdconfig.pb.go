@@ -25,9 +25,12 @@ type ContainerdConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// The base URL for downloading containerd.
 	ContainerdDownloadUrlBase string `protobuf:"bytes,1,opt,name=containerd_download_url_base,json=containerdDownloadUrlBase,proto3" json:"containerd_download_url_base,omitempty"`
-	ContainerdVersion         string `protobuf:"bytes,2,opt,name=containerd_version,json=containerdVersion,proto3" json:"containerd_version,omitempty"`
-	ContainerdPackageUrl      string `protobuf:"bytes,3,opt,name=containerd_package_url,json=containerdPackageUrl,proto3" json:"containerd_package_url,omitempty"`
+	// The version of containerd to download.
+	ContainerdVersion string `protobuf:"bytes,2,opt,name=containerd_version,json=containerdVersion,proto3" json:"containerd_version,omitempty"`
+	// The URL for downloading the containerd package.
+	ContainerdPackageUrl string `protobuf:"bytes,3,opt,name=containerd_package_url,json=containerdPackageUrl,proto3" json:"containerd_package_url,omitempty"`
 }
 
 func (x *ContainerdConfig) Reset() {

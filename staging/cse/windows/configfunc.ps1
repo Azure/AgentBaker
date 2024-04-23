@@ -23,11 +23,14 @@ function Resize-OSDrive
         $osDisk = Get-Partition -DriveLetter $osDrive | Get-Disk
         if ($osDisk.Size - $osDisk.AllocatedSize -gt 1GB)
         {
+            Write-Log "Expanding the OS volume"
             # Create a diskpart script (text file) that will select the OS volume, extend it and exit.
             $diskpartScriptPath = [String]::Format("{0}\\diskpart_extendOSVol.script", $env:temp)
             [String]::Format("select volume {0}`nextend`nexit", $osDrive) | Out-File -Encoding "UTF8" $diskpartScriptPath
             Invoke-Executable -Executable "diskpart.exe" -ArgList @("/s", $diskpartScriptPath) -ExitCode $global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE
             Remove-Item -Path $diskpartScriptPath -Force
+        } else {
+            Write-Log "No need to expand the OS volume due to ScheduledTask executed before CSE."
         }
     } catch {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_RESIZE_OS_DRIVE -ErrorMessage "Failed to resize os drive. Error: $_"
@@ -337,6 +340,123 @@ function Install-OpenSSH {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_OPENSSH_FIREWALL_NOT_CONFIGURED -ErrorMessage "OpenSSH's firewall is not configured properly"
     }
     Write-Log "OpenSSH installed and configured successfully"
+}
+
+function Config-CredentialProvider {
+    Param(
+        [Parameter(Mandatory=$true)][string]
+        $KubeDir,
+        [Parameter(Mandatory=$true)][string]
+        $CredentialProviderConfPath,
+        [Parameter(Mandatory = $false)][string]
+        $CustomCloudContainerRegistryDNSSuffix
+    )
+
+    Write-Log "Configuring kubelet credential provider"
+    $azureConfigFile = [io.path]::Combine("$KubeDir", "azure.json")
+
+    $credentialProviderConfig = @"
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - $azureConfigFile
+"@
+
+    if (![string]::IsNullOrEmpty($CustomCloudContainerRegistryDNSSuffix)) {
+        $credentialProviderConfig = @"
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+      - "*$CustomCloudContainerRegistryDNSSuffix"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - $azureConfigFile
+"@
+    }
+    $credentialProviderConfig | Out-File -encoding ASCII -filepath "$CredentialProviderConfPATH"
+}
+
+function Validate-CredentialProviderConfigFlags {
+    function get-KubeletFlagValue {
+        Param(
+            [Parameter(Mandatory=$true)][string]
+            $KubeletConfigArg
+        )
+        $splitResult=($KubeletConfigArg -split "=")
+        if ($splitResult.Length -ne 2 -or [string]::IsNullOrEmpty($splitResult[1])){
+            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG -ErrorMessage "Failed to get kubelet flag value from flag $KubeletConfigArg"
+        }
+        return $splitResult[1]
+    }
+    ForEach ($kubeletConfigArg in $global:KubeletConfigArgs){
+        if ($kubeletConfigArg -like "--image-credential-provider-config=*") {
+            $global:credentialProviderConfigPath=get-KubeletFlagValue -KubeletConfigArg $kubeletConfigArg
+        }
+        if ($kubeletConfigArg -like "--image-credential-provider-bin-dir=*") {
+            $global:credentialProviderBinDir=get-KubeletFlagValue -KubeletConfigArg $kubeletConfigArg
+        }
+    }
+
+    # Both flags should be set to enable out of tree credential provider or not set at the same time to disable it.
+    if ([string]::IsNullOrEmpty($credentialProviderConfigPath) -xor [string]::IsNullOrEmpty($credentialProviderBinDir)) {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG -ErrorMessage "Not all credential provider flags are configured: --image-credential-provider-config=$credentialProviderConfigPath, --image-credential-provider-bin-dir=$credentialProviderBinDir"
+    }
+}
+
+function Install-CredentialProvider {
+    Param(
+        [Parameter(Mandatory=$true)][string]
+        $KubeDir,
+        [Parameter(Mandatory = $false)][string]
+        $CustomCloudContainerRegistryDNSSuffix
+    )
+
+    try {
+        # Out of tree credential provider is turned on as a must after 1.30, and is optinal in 1.29, for cluster < 1.29, it's not enabled.
+        # And only when it's enabled, the credential provider flags are set.
+        $global:credentialProviderConfigPath = ""
+        $global:credentialProviderBinDir = ""
+        Validate-CredentialProviderConfigFlags
+        if ([string]::IsNullOrEmpty($global:credentialProviderConfigPath) -and [string]::IsNullOrEmpty($global:credentialProviderBinDir)) {
+            Write-Log "Out of tree credential provider is not enabled"
+            return
+        }
+
+        Logs-To-Event -TaskName "AKS.WindowsCSE.Install-CredentialProvider" -TaskMessage "Start to install out of tree credential provider"
+
+        Write-Log "Create credential provider configuration file"
+        Config-CredentialProvider -KubeDir $KubeDir -CredentialProviderConfPath $global:credentialProviderConfigPath -CustomCloudContainerRegistryDNSSuffix $CustomCloudContainerRegistryDNSSuffix
+
+        Write-Log "Download credential provider binary from $global:CredentialProviderURL to $global:credentialProviderBinDir"
+        $tempDir = New-TemporaryDirectory
+        $credentialproviderbinaryPackage = "$tempDir\credentialprovider.tar.gz"
+        DownloadFileOverHttp -Url $global:CredentialProviderURL -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
+        tar -xzf $credentialproviderbinaryPackage -C $tempDir
+        Create-Directory -FullPath $global:credentialProviderBinDir
+        cp "$tempDir\azure-acr-credential-provider.exe" "$global:credentialProviderBinDir\acr-credential-provider.exe"
+        # acr-credential-provider.exe cannot be found by kubelet through provider name before the fix https://github.com/kubernetes/kubernetes/pull/120291
+        # so we copy the exe file to acr-credential-provider to make all 1.29 release work.
+        cp "$global:credentialProviderBinDir\acr-credential-provider.exe" "$global:credentialProviderBinDir\acr-credential-provider"
+        del $tempDir -Recurse
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER -ErrorMessage "Error installing credential provider. Error: $_"
+    }
 }
 
 function New-CsiProxyService {

@@ -25,7 +25,9 @@ type RuncConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	RuncVersion    string `protobuf:"bytes,1,opt,name=runc_version,json=runcVersion,proto3" json:"runc_version,omitempty"`
+	// The version of runc to use.
+	RuncVersion string `protobuf:"bytes,1,opt,name=runc_version,json=runcVersion,proto3" json:"runc_version,omitempty"`
+	// The URL to download the runc package from.
 	RuncPackageUrl string `protobuf:"bytes,2,opt,name=runc_package_url,json=runcPackageUrl,proto3" json:"runc_package_url,omitempty"`
 }
 

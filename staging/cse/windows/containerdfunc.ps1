@@ -139,9 +139,6 @@ function Install-Containerd {
 
   # TODO: check if containerd is already installed and is the same version before this.
 
-  $fileName = [IO.Path]::GetFileName($ContainerdUrl)
-  $containerdVersion = $fileName.Split("-")[1].SubString(1) # not full version, just the version number. For example, 1.7.9. The full version is v1.7.9-azure.1
-
   # Extract the package
   # upstream containerd package is a tar 
   $tarfile = [Io.path]::Combine($ENV:TEMP, "containerd.tar.gz")
@@ -182,12 +179,25 @@ function Install-Containerd {
     $hypervRuntimes = CreateHypervisorRuntimes -builds @($hypervHandlers) -image $pauseImage
   }
 
-  # remove the value containerAnnotations and podAnnotations place holder since it is not supported in containerd versions older than 1.7.9
-  if (([version]$containerdVersion).CompareTo([version]"1.7.9") -lt 0) {
-    # remove the value containerAnnotations place holder
-    $template = $template | Select-String -Pattern 'containerAnnotations' -NotMatch
-    # remove the value podAnnotations place holder
-    $template = $template | Select-String -Pattern 'podAnnotations' -NotMatch
+  try {
+    # remove the value containerAnnotations and podAnnotations place holder since it is not supported in containerd versions older than 1.7.9
+    pushd $global:ContainerdInstallLocation
+      # Examples:
+      #  - containerd github.com/containerd/containerd v1.6.21+azure 3dce8eb055cbb6872793272b4f20ed16117344f8
+      #  - containerd github.com/containerd/containerd v1.7.9+azure 4f03e100cb967922bec7459a78d16ccbac9bb81d
+      $versionstring=$(.\containerd.exe -v)
+      Write-Log "containerd version: $versionstring"
+      $containerdVersion=$versionstring.split(" ")[2].Split("+")[0].substring(1)
+    popd
+
+    if (([version]$containerdVersion).CompareTo([version]"1.7.9") -lt 0) {
+      # remove the value containerAnnotations place holder
+      $template = $template | Select-String -Pattern 'containerAnnotations' -NotMatch
+      # remove the value podAnnotations place holder
+      $template = $template | Select-String -Pattern 'podAnnotations' -NotMatch
+    }
+  } catch {
+      Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION -ErrorMessage "Failed in getting Windows containerd version. Error: $_"
   }
 
   # Need to convert the template to string to replace the place holders but

@@ -14,6 +14,7 @@ import (
 	"text/template"
 
 	"github.com/Azure/agentbaker/parts"
+	"github.com/Azure/agentbaker/pkg/agent/common"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
 )
@@ -906,13 +907,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return getOutBoundCmd(config, config.CloudSpecConfig)
 		},
 		"GPUNeedsFabricManager": func() bool {
-			return gpuNeedsFabricManager(profile.VMSize)
+			return common.GPUNeedsFabricManager(profile.VMSize)
 		},
 		"GPUDriverVersion": func() string {
-			return getGPUDriverVersion(profile.VMSize)
+			return common.GetGPUDriverVersion(profile.VMSize)
 		},
 		"GPUImageSHA": func() string {
-			return getAKSGPUImageSHA(profile.VMSize)
+			return common.GetAKSGPUImageSHA(profile.VMSize)
 		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			// Only need to enable HNSRemediator for Windows 2019
@@ -972,40 +973,6 @@ func getPortRangeEndValue(portRange string) int {
 		return -1
 	}
 	return num
-}
-
-// NV series GPUs target graphics workloads vs NC which targets compute.
-// they typically use GRID, not CUDA drivers, and will fail to install CUDA drivers.
-// NVv1 seems to run with CUDA, NVv5 requires GRID.
-// NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?).
-func getGPUDriverVersion(size string) string {
-	if useGridDrivers(size) {
-		return datamodel.Nvidia535GridDriverVersion
-	}
-	if isStandardNCv1(size) {
-		return datamodel.Nvidia470CudaDriverVersion
-	}
-	return datamodel.Nvidia535CudaDriverVersion
-}
-
-func isStandardNCv1(size string) bool {
-	tmp := strings.ToLower(size)
-	return strings.HasPrefix(tmp, "standard_nc") && !strings.Contains(tmp, "_v")
-}
-
-func useGridDrivers(size string) bool {
-	return datamodel.ConvergedGPUDriverSizes[strings.ToLower(size)]
-}
-
-func gpuNeedsFabricManager(size string) bool {
-	return datamodel.FabricManagerGPUSizes[strings.ToLower(size)]
-}
-
-func getAKSGPUImageSHA(size string) string {
-	if useGridDrivers(size) {
-		return datamodel.AKSGPUGridSHA
-	}
-	return datamodel.AKSGPUCudaSHA
 }
 
 func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {
