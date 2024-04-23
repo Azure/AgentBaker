@@ -164,7 +164,7 @@ func (nBCB *NBContractBuilder) validateRequiredStringsNotEmpty() error {
 	requiredStrings := map[string]string{
 		"AuthConfig.SubscriptionId":   nBCB.nodeBootstrapConfig.GetAuthConfig().GetSubscriptionId(),
 		"AuthConfig.TenantId":         nBCB.nodeBootstrapConfig.GetAuthConfig().GetTenantId(),
-		"ClusterConfig.ResoruceGroup": nBCB.nodeBootstrapConfig.GetClusterConfig().GetResourceGroup(),
+		"ClusterConfig.ResourceGroup": nBCB.nodeBootstrapConfig.GetClusterConfig().GetResourceGroup(),
 		"ClusterConfig.Location":      nBCB.nodeBootstrapConfig.GetClusterConfig().GetLocation(),
 	}
 
