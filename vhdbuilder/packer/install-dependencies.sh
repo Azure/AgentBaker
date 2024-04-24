@@ -10,6 +10,7 @@ declare -a benchmarks=()
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
+AZURELINUX_OS_NAME="AZURELINUX"
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 IS_KATA="false"
@@ -128,7 +129,7 @@ fi
 
 # Since we do not build Ubuntu 16.04 images anymore, always override network config and disable NTP + Timesyncd and install Chrony
 # Mariner does this differently, so only do it for Ubuntu
-if [[ $OS != $MARINER_OS_NAME ]]; then
+if [[ $OS != $MARINER_OS_NAME ]] && [[ $OS != $AZURELINUX_OS_NAME ]]; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
@@ -155,7 +156,7 @@ SUBSYSTEM=="bdi", ACTION=="add", PROGRAM="$AWK_PATH -v bdi=\$kernel 'BEGIN{ret=1
 EOF
 udevadm control --reload
 
-if [[ $OS == $MARINER_OS_NAME ]]; then
+if [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
     disableSystemdResolvedCache
     disableSystemdIptables || exit 1
     setMarinerNetworkdConfig
@@ -443,8 +444,9 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
 capture_benchmark "pull_and_retag_container_images"
 
+# TODO: update comment
 # IPv6 nftables rules are only available on Ubuntu or Mariner v2
-if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) ]]; then
+if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) || ( $OS == $AZURELINUX_OS_NAME && $OS_VERSION == "3.0" ) ]]; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
 capture_benchmark "configure_networking_and_interface"
