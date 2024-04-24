@@ -38,6 +38,31 @@ You may also run the test command with custom arguments yourself (assuming you'v
 go test -timeout 90m -v -run Test_All ./
 ```
 
+## Running locally in VS code debug mode
+You can also run the test locally in VS code debug mode by adding the required test env variables to settings.json.
+
+Steps:
+1. Go to Settings (click gear button at the bottom left corner or press Ctrl+, (windows))
+2. Type `testenv` in search bar and you should see one of the results is `Go: Test Env Vars`.
+3. Click on `Edit in settings.json` link and then a global settings.json will pop up.
+4. Add the following default settings in the first level. See the screenshot below for reference.
+```
+"go.testEnvVars": {
+    "SUBSCRIPTION_ID": "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8",
+    "LOCATION": "eastus",
+    "AZURE_TENANT_ID": "72f988bf-86f1-41af-91ab-2d7cd011db47",
+    "SCENARIOS_TO_RUN": "base,gpu,ubuntu2204,ubuntu2204-arm64",
+},
+```
+Note: SCENARIOS_TO_RUN specifies what scenarios you want to test. You can change it as desired.
+
+5. Now you can go to VS code > Test tab > github.com/Azure/agentbakere2e > suite_test.go > Test_All. On the right you will see a Debug test button. You can also set breakpoints.
+
+![alt text](images/e2edebug.png)
+
+Note: You can probably edit the /.vscode/settings.json for local project use but I haven't tried.
+
+
 ## Package Structure
 
 The top-level package of the Golang E2E implementation is named `e2e_test` and is entirely separate from all AgentBaker packages.
