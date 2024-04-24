@@ -500,7 +500,6 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
 fi
 
-
 wait $BCC_PID
 BCC_EXIT_CODE=$?
 
