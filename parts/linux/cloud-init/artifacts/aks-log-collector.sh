@@ -126,35 +126,6 @@ command -v ss >/dev/null && {
   ss -s >>collect/ss.txt 2>&1
 }
 
-# Collect network information from network namespaces
-command -v ip >/dev/null && ip -all netns exec /bin/bash -x -c "
-	command -v conntrack >/dev/null && {
-    conntrack -L 2>&1;
-	  conntrack -S 2>&1;
-  }
-	command -v ip >/dev/null && {
-    ip -4 -d -j addr show 2>&1;
-    ip -4 -d -j neighbor show 2>&1;
-    ip -4 -d -j route show 2>&1;
-    ip -4 -d -j tcpmetrics show 2>&1;
-    ip -6 -d -j addr show table all 2>&1;
-    ip -6 -d -j neighbor show 2>&1;
-    ip -6 -d -j route show table all 2>&1;
-    ip -6 -d -j tcpmetrics show 2>&1;
-    ip -d -j link show 2>&1;
-    ip -d -j netconf show 2>&1;
-    ip -d -j netns show 2>&1;
-    ip -d -j rule show 2>&1;
-  }
-	command -v iptables >/dev/null && iptables -L -vn --line-numbers 2>&1;
-	command -v ip6tables >/dev/null && ip6tables -L -vn --line-numbers 2>&1;
-	command -v nft >/dev/null && nft -jn list ruleset 2>&1;
-	command -v ss >/dev/null && {
-    ss -anoempiO --cgroup 2>&1;
-	  ss -s 2>&1;
-  }
-" >collect/ip_netns_commands.txt 2>&1
-
 # Collect general information
 cp /proc/@(cmdline|cpuinfo|filesystems|interrupts|loadavg|meminfo|modules|mounts|slabinfo|stat|uptime|version*|vmstat) collect/proc/
 cp -r /proc/net/* collect/proc/net/
