@@ -108,7 +108,7 @@ func processContainerImage(downloadURL string) (string, error) {
 
 func processDownloadFile(downloadURL string) (string, error) {
 	// example URL "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
-	parts := strings.Split(downloadURL, "/")
+	parts := strings.Split(downloadURL, "/") // [https:, "", acs-mirror.azureedge.net, cni-plugins, v*, binaries]
 	if len(parts) == 0 || len(parts) != 6 {
 		return "", fmt.Errorf("download file image URL is not in the expected format: %s", downloadURL)
 	}
