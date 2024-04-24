@@ -20,7 +20,7 @@ const (
 var (
 	CachedFromComponentContainerImages = make(map[string]ContainerImage)
 	CachedFromComponentDownloadedFiles = make(map[string]DownloadFiles)
-	CachedFromManifest                 = make(map[string]ProcessedManifest)
+	CachedFromManifest                 = &Manifest{}
 )
 
 //nolint:gochecknoinits
@@ -45,25 +45,11 @@ func CacheComponents() Components {
 }
 
 func processManifest(manifest Manifest) {
-	CachedFromManifest["kubernetes"] = ProcessedManifest{
-		Versions: manifest.Kubernetes.Versions,
-	}
-	CachedFromManifest["runc"] = ProcessedManifest{
-		Versions:  manifest.Runc.Versions,
-		Pinned:    manifest.Runc.Pinned,
-		Installed: manifest.Runc.Installed,
-	}
-	CachedFromManifest["containerd"] = ProcessedManifest{
-		Versions: manifest.Containerd.Versions,
-		Pinned:   manifest.Containerd.Pinned,
-		Edge:     manifest.Containerd.Edge,
-	}
-	CachedFromManifest["nvidia-container-runtime"] = ProcessedManifest{
-		Versions: manifest.NvidiaContainerRuntime.Versions,
-	}
-	CachedFromManifest["nvidia-drivers"] = ProcessedManifest{
-		Versions: manifest.NvidiaDrivers.Versions,
-	}
+	CachedFromManifest.Kubernetes = manifest.Kubernetes
+	CachedFromManifest.Runc = manifest.Runc
+	CachedFromManifest.Containerd = manifest.Containerd
+	CachedFromManifest.NvidiaContainerRuntime = manifest.NvidiaContainerRuntime
+	CachedFromManifest.NvidiaDrivers = manifest.NvidiaDrivers
 }
 
 func processComponents(components Components) {
@@ -109,38 +95,31 @@ func getCachedVersionsFromComponentsJSON(componentsFilePath string) Components {
 }
 
 type CachedOnVHD struct {
-	CachedFromManifest                 map[string]ProcessedManifest `json:"cached_from_manifest"`
-	CachedFromComponentContainerImages map[string]ContainerImage    `json:"cached_from_component_container_images"`
-	CachedFromComponentDownloadedFiles map[string]DownloadFiles     `json:"cached_from_component_downloaded_files"`
+	CachedFromManifest                 *Manifest                 `json:"cached_from_manifest"`
+	CachedFromComponentContainerImages map[string]ContainerImage `json:"cached_from_component_container_images"`
+	CachedFromComponentDownloadedFiles map[string]DownloadFiles  `json:"cached_from_component_downloaded_files"`
+}
+
+type Dependency struct {
+	FileName         string            `json:"fileName"`
+	DownloadLocation string            `json:"downloadLocation"`
+	DownloadURL      string            `json:"downloadURL"`
+	Versions         []string          `json:"versions"`
+	Installed        map[string]string `json:"installed"`
+	Pinned           map[string]string `json:"pinned"`
+	Edge             string            `json:"edge"`
 }
 
 type Manifest struct {
-	Containerd struct {
-		Edge     string            `json:"edge"`
-		Versions []string          `json:"versions"`
-		Pinned   map[string]string `json:"pinned"`
-	} `json:"containerd"`
-	Runc struct {
-		Versions  []string          `json:"versions"`
-		Pinned    map[string]string `json:"pinned"`
-		Installed map[string]string `json:"installed"`
-	} `json:"runc"`
-	NvidiaContainerRuntime struct {
-		Versions []string `json:"versions"`
-	} `json:"nvidia-container-runtime"`
-	NvidiaDrivers struct {
-		Versions []string `json:"versions"`
-	} `json:"nvidia-drivers"`
-	Kubernetes struct {
-		Versions []string `json:"versions"`
-	} `json:"kubernetes"`
+	Containerd             Dependency `json:"containerd"`
+	Runc                   Dependency `json:"runc"`
+	NvidiaContainerRuntime Dependency `json:"nvidia-container-runtime"`
+	NvidiaDrivers          Dependency `json:"nvidia-drivers"`
+	Kubernetes             Dependency `json:"kubernetes"`
 }
 
-type ProcessedManifest struct {
-	Versions  []string
-	Pinned    map[string]string
-	Edge      string
-	Installed map[string]string
+type Versions struct {
+	Versions []string `json:"versions"`
 }
 
 type Components struct {

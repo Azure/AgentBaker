@@ -529,7 +529,6 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
 
-			// fromManifest, fromComponentsContainerImages, fromComponentsDownloadFiles, err := agentBaker.GetCachedVersionsOnVHD()
 			cachedOnVHD, err := agentBaker.GetCachedVersionsOnVHD()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -542,13 +541,14 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			cniPluginIndx := 0
 			azureCNIIndx := 1
 
-			Expect(cachedOnVHD.CachedFromManifest["runc"].Installed["default"]).To(Equal(manifest.Runc.Installed["default"]))
-			Expect(cachedOnVHD.CachedFromManifest["containerd"].Pinned["1804"]).To(Equal(manifest.Containerd.Pinned["1804"]))
-			Expect(cachedOnVHD.CachedFromManifest["containerd"].Edge).To(Equal(manifest.Containerd.Edge))
-			Expect(cachedOnVHD.CachedFromManifest["kubernetes"].Versions[0]).To(Equal(manifest.Kubernetes.Versions[0]))
+			Expect(cachedOnVHD.CachedFromManifest.Runc.Installed["default"]).To(Equal(manifest.Runc.Installed["default"]))
+			Expect(cachedOnVHD.CachedFromManifest.Runc.Pinned["1804"]).To(Equal(manifest.Runc.Pinned["1804"]))
+			Expect(cachedOnVHD.CachedFromManifest.Runc.FileName).To(Equal(manifest.Runc.FileName))
+			Expect(cachedOnVHD.CachedFromManifest.Containerd.Pinned["1804"]).To(Equal(manifest.Containerd.Pinned["1804"]))
+			Expect(cachedOnVHD.CachedFromManifest.Containerd.Edge).To(Equal(manifest.Containerd.Edge))
+			Expect(cachedOnVHD.CachedFromManifest.Kubernetes.Versions[0]).To(Equal(manifest.Kubernetes.Versions[0]))
 			Expect(cachedOnVHD.CachedFromComponentContainerImages["pause"].MultiArchVersions[0]).To(Equal(component.ContainerImages[pauseIndx].MultiArchVersions[0]))
-			Expect(cachedOnVHD.CachedFromComponentContainerImages["azure-cns"].PrefetchOptimizations[0].Version).To(
-				Equal(component.ContainerImages[azureCNSIndx].PrefetchOptimizations[0].Version))
+			Expect(cachedOnVHD.CachedFromComponentContainerImages["azure-cns"].PrefetchOptimizations[0].Version).To(Equal(component.ContainerImages[azureCNSIndx].PrefetchOptimizations[0].Version))
 			Expect(cachedOnVHD.CachedFromComponentContainerImages["azure-cns"].PrefetchOptimizations[0].Binaries[0]).To(Equal("usr/local/bin/azure-cns"))
 			Expect(cachedOnVHD.CachedFromComponentDownloadedFiles["cni-plugins"].Versions[0]).To(Equal(component.DownloadFiles[cniPluginIndx].Versions[0]))
 			Expect(cachedOnVHD.CachedFromComponentDownloadedFiles["azure-cni"].Versions[1]).To(Equal(component.DownloadFiles[azureCNIIndx].Versions[1]))
