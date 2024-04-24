@@ -371,7 +371,7 @@ else
             
         fi
         aptmarkWALinuxAgent unhold &
-    elif [[ $OS == $MARINER_OS_NAME ]]; then
+    elif [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
         if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
             if [ "${IS_KATA}" == "true" ]; then
                 # Currently kata packages must be updated as a unit (including the kernel which requires a reboot). This can
