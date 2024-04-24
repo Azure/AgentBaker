@@ -14,7 +14,7 @@
     "hyperv_generation": "{{env `HYPERV_GENERATION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
-    "arm64_os_disk_snapshot_name": "{{env `${ARM64_OS_DISK_SNAPSHOT_NAME`}}",
+    "os_disk_snapshot_name": "{{env `${OS_DISK_SNAPSHOT_NAME`}}",
     "captured_sig_version": "{{env `${CAPTURED_SIG_VERSION`}}",
     "enable_fips": "{{env `ENABLE_FIPS`}}",
     "img_publisher": "{{env `IMG_PUBLISHER`}}",
@@ -53,11 +53,12 @@
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
       "managed_image_storage_account_type": "Premium_LRS",
-      "managed_image_os_disk_snapshot_name": "{{user `arm64_os_disk_snapshot_name`}}",
+      "managed_image_os_disk_snapshot_name": "{{user `os_disk_snapshot_name`}}",
       "skip_create_image": "true",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
-      "user_assigned_managed_identities": "{{user `linux_msi_resource_ids`}}"
+      "user_assigned_managed_identities": "{{user `linux_msi_resource_ids`}}",
+      "async_resourcegroup_delete": "true"
     }
   ],
   "provisioners": [
