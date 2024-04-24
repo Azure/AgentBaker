@@ -35,7 +35,7 @@ cat manifest.json > ${MANIFEST_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 echo '[]' > ${VHD_BUILD_PERF_DATA}
 
-if [[ $OS == $MARINER_OS_NAME ]]; then
+if [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
   chmod 755 /opt
   chmod 755 /opt/azure
   chmod 644 ${VHD_LOGS_FILEPATH}
@@ -82,7 +82,7 @@ systemctlEnableAndStart sync-container-logs.service || exit 1
 capture_benchmark "sync_container_logs"
 
 # First handle Mariner + FIPS
-if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
+if [[ ${OS} == ${MARINER_OS_NAME} ]] || [[ ${OS} == ${AZURELINUX_OS_NAME} ]]; then
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
   dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
