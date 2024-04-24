@@ -2,8 +2,6 @@ module github.com/Azure/agentbakere2e
 
 go 1.21
 
-toolchain go1.21.3
-
 require (
 	github.com/Azure/agentbaker v0.0.0-00010101000000-000000000000
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.4.0
