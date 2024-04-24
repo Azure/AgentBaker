@@ -9,15 +9,16 @@ NEXT_PROTO_VALUE="aks-tls-bootstrap"
 RETRY_PERIOD_SECONDS=180 # 3 minutes
 RETRY_WAIT_SECONDS=5
 
+AAD_RESOURCE="${AAD_RESOURCE:-""}"
+API_SERVER_NAME="${API_SERVER_NAME:-""}"
 CLIENT_BINARY_DOWNLOAD_URL="${CLIENT_BINARY_DOWNLOAD_URL:-https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${DEFAULT_CLIENT_VERSION}/linux/amd64/tls-bootstrap-client}"
 CLIENT_BINARY_PATH="${CLIENT_BINARY_PATH:-/opt/azure/tlsbootstrap/tls-bootstrap-client}"
 KUBECONFIG_PATH="${KUBECONFIG_PATH:-/var/lib/kubelet/kubeconfig}"
 CLIENT_CERT_PATH="${CLIENT_CERT_PATH:-/etc/kubernetes/certs/client.crt}"
 CLIENT_KEY_PATH="${CLIENT_KEY_PATH:-/etc/kubernetes/certs/client.key}"
-API_SERVER_NAME="${API_SERVER_NAME:-""}"
 AZURE_CONFIG_PATH="${AZURE_CONFIG_PATH:-/etc/kubernetes/azure.json}"
 CLUSTER_CA_FILE_PATH="${CLUSTER_CA_FILE_PATH:-/etc/kubernetes/certs/ca.crt}"
-AAD_RESOURCE="${AAD_RESOURCE:-""}"
+LOG_FILE_PATH="${LOG_FILE_PATH:-/var/log/azure/aks/secure-tls-bootstrap.log}"
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -49,7 +50,7 @@ logs_to_events() {
     if [ "$ret" != "0" ]; then
         if [ "${SUB_COMMAND,,}" == "bootstrap" ]; then
             # bootstrap failure
-            msg_string=$(jq -n --arg Failed "$*" --arg Hostname "$(uname -n)" --arg BootstrapJournal "$(journalctl -u secure-tls-bootstrap --no-pager -l)" '{Failed: $Failed, Hostname: $Hostname, BootstrapJournal: $BootstrapJournal}')
+            msg_string=$(jq -n --arg Failed "$*" --arg Hostname "$(uname -n)" --arg BootstrapJournal "$(cat $LOG_FILE_PATH)" '{Failed: $Failed, Hostname: $Hostname, BootstrapJournal: $BootstrapJournal}')
         else
             msg_string=$(jq -n --arg Failed "$*" --arg Hostname "$(uname -n)" '{Failed: $Failed, Hostname: $Hostname}')
         fi
@@ -74,12 +75,12 @@ logs_to_events() {
 }
 
 downloadClient() {
-    [ -f "$CLIENT_BINARY_PATH" ] && exit 0
+    [ -f "$CLIENT_BINARY_PATH" ] && return 0
     DOWNLOAD_DIR=$(dirname $CLIENT_BINARY_PATH)
 
     if ! retrycmd_if_failure 30 5 60 curl -fSL -o "$CLIENT_BINARY_PATH" "$CLIENT_BINARY_DOWNLOAD_URL"; then
         echo "ERROR: unable to download secure TLS bootstrapping client binary from $CLIENT_BINARY_DOWNLOAD_URL"
-        exit 1
+        return 1
     fi
     chown -R root:root "$DOWNLOAD_DIR"
     chmod -R 755 "$DOWNLOAD_DIR"
@@ -88,11 +89,11 @@ downloadClient() {
 bootstrap() {
     if [ -z "$API_SERVER_NAME" ]; then
         echo "ERROR: missing apiserver FQDN, cannot continue bootstrapping"
-        exit 1
+        return 1
     fi
     if [ ! -f "$CLIENT_BINARY_PATH" ]; then
         echo "ERROR: bootstrap client binary does not exist at path $CLIENT_BINARY_PATH"
-        exit 1
+        return 1
     fi
 
     chmod +x $CLIENT_BINARY_PATH
@@ -102,7 +103,7 @@ bootstrap() {
         now=$(date +%s)
         if [ $((now - deadline)) -ge 0 ]; then
             echo "ERROR: bootstrapping deadline exceeded"
-            exit 1
+            return 1
         fi
 
         $CLIENT_BINARY_PATH bootstrap \
@@ -113,7 +114,8 @@ bootstrap() {
          --cert-file="$CLIENT_CERT_PATH" \
          --key-file="$CLIENT_KEY_PATH" \
          --next-proto="$NEXT_PROTO_VALUE" \
-         --kubeconfig="$KUBECONFIG_PATH"
+         --kubeconfig="$KUBECONFIG_PATH" \
+         --log-file="$LOG_FILE_PATH"
 
         [ $? -eq 0 ] && break
 
