@@ -6692,7 +6692,7 @@ logs_to_events() {
         --arg Version     "1.23" \
         --arg TaskName    "${task}" \
         --arg EventLevel  "Informational" \
-        --arg Message     "Completed: $*" \
+        --arg Message     "$(uname -n): Completed: $*" \
         --arg EventPid    "0" \
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
@@ -6746,7 +6746,7 @@ bootstrap() {
          --next-proto="$NEXT_PROTO_VALUE" \
          --kubeconfig="$KUBECONFIG_PATH"
 
-        [ $? -eq 0 ] && exit 0
+        [ $? -eq 0 ] && break
 
         sleep $RETRY_WAIT_SECONDS
     done
