@@ -34,6 +34,7 @@ func ensureConfigsNonNil(nBC *Configuration) {
 	initializeIfNil(&nBC.ClusterConfig.LoadBalancerConfig)
 	initializeIfNil(&nBC.ClusterConfig.ClusterNetworkConfig)
 	initializeIfNil(&nBC.GpuConfig)
+	initializeIfNil(&nBC.NetworkConfig)
 	initializeIfNil(&nBC.TlsBootstrappingConfig)
 	initializeIfNil(&nBC.KubeletConfig)
 	initializeIfNil(&nBC.RuncConfig)
