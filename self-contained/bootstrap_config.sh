@@ -109,7 +109,7 @@ EOF
 }
 
 configureHTTPProxyCA() {
-    if [[ $OS == $MARINER_OS_NAME ]]; then
+    if [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
         cert_dest="/usr/share/pki/ca-trust-source/anchors"
         update_cmd="update-ca-trust"
     else
