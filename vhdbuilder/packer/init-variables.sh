@@ -358,6 +358,12 @@ if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
 	private_packages_url="${PRIVATE_PACKAGES_URL}"
 fi 
 
+# TODO: add a comment here
+AZURELINUX_WAAGENT_BINDIR="/usr/bin/waagent"
+if [[ "${OS_SKU}" == "AzureLinux" && "${OS_VERSION//./}" == "V3" ]]; then
+	AZURELINUX_WAAGENT_BINDIR="/usr/sbin/waagent"
+fi
+
 # windows_image_version refers to the version from azure gallery
 # aks_windows_image_version refers to the version built by AKS Windows SIG
 cat <<EOF > vhdbuilder/packer/settings.json
@@ -393,7 +399,8 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "windows_msi_resource_strings": "${windows_msi_resource_strings}",
   "linux_msi_resource_ids": "${linux_msi_resource_ids}",
   "private_packages_url": "${private_packages_url}",
-  "aks_windows_image_version": "${AKS_WINDOWS_IMAGE_VERSION}"
+  "aks_windows_image_version": "${AKS_WINDOWS_IMAGE_VERSION}",
+  "azurelinux_waagent_bindir": "${AZURELINUX_WAAGENT_BINDIR}"
 }
 EOF
 
