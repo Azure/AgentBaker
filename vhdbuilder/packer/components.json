@@ -71,6 +71,12 @@
       ],
       "prefetchOptimizations": [
         {
+          "version": "v0.0.15",
+          "binaries": [
+            "dropgz"
+          ]
+        },
+        {
           "version": "v0.1.3",
           "binaries": [
             "dropgz"
