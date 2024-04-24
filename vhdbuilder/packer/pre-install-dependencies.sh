@@ -39,7 +39,7 @@ echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 stop_watch $capture_time "Create Post-build Test" false
 start_watch
 
-if [[ $OS == $MARINER_OS_NAME ]]; then
+if [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
   chmod 755 /opt
   chmod 755 /opt/azure
   chmod 644 ${VHD_LOGS_FILEPATH}
@@ -78,7 +78,7 @@ stop_watch $capture_time "Sync Container Logs" false
 start_watch
 
 # First handle Mariner + FIPS
-if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
+if [[ ${OS} == ${MARINER_OS_NAME} ]] || [[ ${OS} == ${AZURELINUX_OS_NAME} ]]; then
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
   dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
