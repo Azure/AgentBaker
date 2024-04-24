@@ -16,6 +16,7 @@ import "pkg/proto/nbcontract/v1/customcloudconfig.proto";
 import "pkg/proto/nbcontract/v1/apiserverconfig.proto";
 import "pkg/proto/nbcontract/v1/tlsbootstrappingconfig.proto";
 import "pkg/proto/nbcontract/v1/clusterconfig.proto";
+import "pkg/proto/nbcontract/v1/networkconfig.proto";
 
 enum WorkloadRuntime {
   WR_UNSPECIFIED = 0;
@@ -69,70 +70,73 @@ message Configuration {
   // GPU configuration for the node
   GPUConfig gpu_config = 15;
 
+  // Network configuration for the node
+  NetworkConfig network_config = 16;
+
   // Kubernetes certificate authority (CA) certificate, required by the node to establish TLS with the API server
-  string kubernetes_ca_cert = 16;
+  string kubernetes_ca_cert = 17;
 
   // Cluster/user config
-  string kubernetes_version = 17; // Q: can this be auto-detected? Or is this part of specifying the desired node version?
+  string kubernetes_version = 18; // Q: can this be auto-detected? Or is this part of specifying the desired node version?
 
   // Kube proxy URL
-  string kube_proxy_url = 18;
+  string kube_proxy_url = 19;
 
   // The VM size of the node
-  string vm_size = 19;
+  string vm_size = 20;
 
   // Linux admin username. If not specified, the default value is "azureuser"
-  string linux_admin_username = 20;
+  string linux_admin_username = 21;
 
   // Specifies whether the node is a VHD node. This is still needed for some customized scenarios.
   // This is labeled as optional (explicit presence) so that we know whether it's set or not.
   // If it's not set, the default value will be nil.
-  optional bool is_vhd = 21;
+  optional bool is_vhd = 22;
 
   // Specifies whether SSH is enabled or disabled on the VM node
-  bool enable_ssh = 22;
+  bool enable_ssh = 23;
 
   // Specifies whether unattended upgrade is enabled or disabled on the VM node
-  bool enable_unattended_upgrade = 23;
+  bool enable_unattended_upgrade = 24;
 
   // The message of the day that is displayed on the VM node when a user logs in
-  string message_of_the_day = 24;
+  string message_of_the_day = 25;
 
   // Specifies whether the hosts config agent is enabled or disabled on the VM node
-  bool enable_hosts_config_agent = 25;
+  bool enable_hosts_config_agent = 26;
 
   // Custom CA certificates to be added to the system trust store
-  repeated string custom_ca_certs = 26;  
+  repeated string custom_ca_certs = 27;  
 
   // A local file path where cluster provision cse output should be stored
-  string provision_output = 27;
+  string provision_output = 28;
 
   // Workload runtime, e.g., either "OCIContainer" or "WasmWasi", currently.
-  WorkloadRuntime workload_runtime = 28;
+  WorkloadRuntime workload_runtime = 29;
 
   // Specifies whether IPv6 dual stack is enabled or disabled on the VM node
-  bool ipv6_dual_stack_enabled = 29;
+  bool ipv6_dual_stack_enabled = 30;
 
   // Command to use for outbound traffic
-  string outbound_command = 30; 
+  string outbound_command = 31; 
 
   // specifies whether to ensure no duplicate promiscuous bridge
-  bool ensure_no_dupe_promiscuous_bridge = 31; 
+  bool ensure_no_dupe_promiscuous_bridge = 32; 
 
   // Azure private registry server URI
-  string azure_private_registry_server = 32;
+  string azure_private_registry_server = 33;
 
   //Private egress proxy address
-  string private_egress_proxy_address = 33;
+  string private_egress_proxy_address = 34;
 
   // Specifies whether artifact streaming is enabled or disabled on the VM node
-  bool enable_artifact_streaming = 34;
+  bool enable_artifact_streaming = 35;
 
   // Specifies whether the node is a Kata node
-  bool is_kata = 35; 
+  bool is_kata = 36; 
 
   // Specifies whether the node needs cgroupv2.
   // Labeled as optional (explicit presence) so that we know whether it's set or not.
   // If it's not set, the default value will be nil and we will get the value on the VHD during bootstrapping.
-  optional bool needs_cgroupv2 = 36;
+  optional bool needs_cgroupv2 = 37;
 }
