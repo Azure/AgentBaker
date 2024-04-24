@@ -63,13 +63,19 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(mariner.Definition).To(Equal("V1"))
 		Expect(mariner.Version).To(Equal(FrozenCBLMarinerV1SIGImageVersionForDeprecation))
 
-		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(7))
+		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(10))
 
-		azurelinux := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2]
-		Expect(azurelinux.ResourceGroup).To(Equal("resourcegroup"))
-		Expect(azurelinux.Gallery).To(Equal("aksazurelinux"))
-		Expect(azurelinux.Definition).To(Equal("V2"))
-		Expect(azurelinux.Version).To(Equal(LinuxSIGImageVersion))
+		azurelinuxV2 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2]
+		Expect(azurelinuxV2.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV2.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV2.Definition).To(Equal("V2"))
+		Expect(azurelinuxV2.Version).To(Equal(LinuxSIGImageVersion))
+
+		azurelinuxV3 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3]
+		Expect(azurelinuxV3.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV3.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV3.Definition).To(Equal("V3"))
+		Expect(azurelinuxV3.Version).To(Equal(LinuxSIGImageVersion))
 
 		Expect(len(sigConfig.SigWindowsImageConfig)).To(Equal(6))
 
@@ -150,6 +156,12 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(azurelinuxV2Arm64.Gallery).To(Equal("aksazurelinux"))
 		Expect(azurelinuxV2Arm64.Definition).To(Equal("V2gen2arm64"))
 		Expect(azurelinuxV2Arm64.Version).To(Equal(LinuxSIGImageVersion))
+
+		azurelinuxV3Arm64 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3Arm64Gen2]
+		Expect(azurelinuxV3Arm64.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV3Arm64.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV3Arm64.Definition).To(Equal("V3gen2arm64"))
+		Expect(azurelinuxV3Arm64.Version).To(Equal(LinuxSIGImageVersion))
 
 		aksUbuntu2204TLGen2Containerd := sigConfig.SigUbuntuImageConfig[AKSUbuntuContainerd2204TLGen2]
 		Expect(aksUbuntu2204TLGen2Containerd.ResourceGroup).To(Equal("resourcegroup"))
