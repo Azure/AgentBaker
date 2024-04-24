@@ -36,6 +36,22 @@ skip_if_unavailable=True
 sslverify=1
 EOF
     fi
+
+  if [[ $OS_VERSION == "3.0" ]]; then
+        AZURELINUX_NVIDIA_REPO_FILEPATH="/etc/yum.repos.d/azurelinux-nvidia.repo"
+        touch "${AZURELINUX_NVIDIA_REPO_FILEPATH}"
+        cat << EOF > "${AZURELINUX_NVIDIA_REPO_FILEPATH}"
+[mariner-official-nvidia]
+name=Azure Linux Official Preview Nvidia 3.0 x86_64
+baseurl=https://packages.microsoft.com/azurelinux/3.0/preview/NVIDIA/x86_64/
+gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY file:///etc/pki/rpm-gpg/MICROSOFT-METADATA-GPG-KEY
+gpgcheck=1
+repo_gpgcheck=1
+enabled=1
+skip_if_unavailable=True
+sslverify=1
+EOF
+    fi
 }
 
 forceEnableIpForward() {
@@ -63,10 +79,11 @@ setMarinerNetworkdConfig() {
     DHCP=yes
     IPv6AcceptRA=no
 EOF
+# TODO: update comment
 # On Mariner 2.0 Marketplace images, the default systemd network config
 # has an additional change that prevents Mariner from changing IP addresses
 # every reboot
-if [[ $OS_VERSION == "2.0" ]]; then 
+if [[ $OS_VERSION == "2.0" || $OS_VERSION == "3.0" ]]; then
     cat << EOF >> ${CONFIG_FILEPATH}
 
     [DHCPv4]
