@@ -28,7 +28,8 @@
     "subnet_name": "{{env `SUBNET_NAME`}}",
     "enable_cgroupv2": "{{env `ENABLE_CGROUPV2`}}",
     "private_packages_url": "{{env `PRIVATE_PACKAGES_URL`}}",
-    "branch": "{{env `BRANCH`}}"
+    "branch": "{{env `BRANCH`}}",
+    "azurelinux_waagent_bindir": "{{env `AZURELINUX_WAAGENT_BINDIR`}}"
   },
   "builders": [
     {
@@ -637,7 +638,7 @@
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
-        "sudo /usr/bin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
+        "sudo {{user `azurelinux_waagent_bindir`}} -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
     }
   ]
