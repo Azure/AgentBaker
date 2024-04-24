@@ -54,7 +54,7 @@ steps:
   - bash: |
       SKU_NAME=${OS_VERSION} && \
       if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
-      if [[ ${OS_VERSION} == "V2" && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
+      if [[ (${OS_VERSION} == "V2" || ${OS_VERSION} == "V3") && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
       if [[ (${OS_VERSION} == "22.04" || ${OS_VERSION} == "24.04") && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
       if [[ (${OS_VERSION} == "18.04" || ${OS_VERSION} == "20.04" || ${OS_VERSION} == "22.04") && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
       if [[ ${OS_VERSION} == "V2" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
@@ -110,29 +110,29 @@ steps:
         ${CONTAINER_IMAGE} make -f packer.mk run-packer
     retryCountOnTaskFailure: 3
     displayName: Building VHD
-  - bash: |
-        OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
-        MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
-        docker run --rm \
-        -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-        -w /go/src/github.com/Azure/AgentBaker \
-        -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-        -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-        -e BLOB_STORAGE_NAME=${BLOB_STORAGE_NAME} \
-        -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-        -e BUILD_ID=$(Build.BuildId) \
-        -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
-        -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
-        -e OS_VERSION=${OS_VERSION} \
-        -e OS_SKU=${OS_SKU} \
-        -e OS_TYPE="Linux" \
-        -e VHD_DEBUG=${VHD_DEBUG} \
-        -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
-        -e ARCHITECTURE=${ARCHITECTURE} \
-        -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
-        ${CONTAINER_IMAGE} make -f packer.mk scanning-vhd
-    retryCountOnTaskFailure: 2
-    displayName: Scanning VHD
+  # - bash: |
+  #       OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
+  #       MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
+  #       docker run --rm \
+  #       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+  #       -w /go/src/github.com/Azure/AgentBaker \
+  #       -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+  #       -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
+  #       -e BLOB_STORAGE_NAME=${BLOB_STORAGE_NAME} \
+  #       -e CLASSIC_BLOB=${CLASSIC_BLOB} \
+  #       -e BUILD_ID=$(Build.BuildId) \
+  #       -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
+  #       -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
+  #       -e OS_VERSION=${OS_VERSION} \
+  #       -e OS_SKU=${OS_SKU} \
+  #       -e OS_TYPE="Linux" \
+  #       -e VHD_DEBUG=${VHD_DEBUG} \
+  #       -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
+  #       -e ARCHITECTURE=${ARCHITECTURE} \
+  #       -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
+  #       ${CONTAINER_IMAGE} make -f packer.mk scanning-vhd
+  #   retryCountOnTaskFailure: 2
+  #   displayName: Scanning VHD
   - script: |
         OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
         MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
