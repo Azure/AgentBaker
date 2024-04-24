@@ -46,8 +46,13 @@ logs_to_events() {
         msg_string=$(jq -n --arg Completed "$*" --arg Hostname "$(uname -n)" '{Hostname: $Hostname, Completed: $Completed}')
     fi
 
-    if [ "$ret" != "0" ] && [ "${SUB_COMMAND,,}" == "bootsrtap" ]; then # bootstrap failure
-        msg_string=$(jq -n --arg Failed "$*" --arg Hostname "$(uname -n)" --arg ServiceStatus "$(journalctl -u secure-tls-bootstrap --no-pager -l)" '{Failed: $Failed, Hostname: $Hostname, ServiceStatus: $ServiceStatus}')
+    if [ "$ret" != "0" ]; then
+        if [ "${SUB_COMMAND,,}" == "bootstrap" ]; then
+            # bootstrap failure
+            msg_string=$(jq -n --arg Failed "$*" --arg Hostname "$(uname -n)" --arg BootstrapJournal "$(journalctl -u secure-tls-bootstrap --no-pager -l)" '{Failed: $Failed, Hostname: $Hostname, BootstrapJournal: $BootstrapJournal}')
+        else
+            msg_string=$(jq -n --arg Failed "$*" --arg Hostname "$(uname -n)" '{Failed: $Failed, Hostname: $Hostname}')
+        fi
     fi
 
     json_string=$( jq -n \

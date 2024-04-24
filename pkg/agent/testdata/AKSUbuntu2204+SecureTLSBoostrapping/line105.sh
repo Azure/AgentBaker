@@ -42,13 +42,25 @@ logs_to_events() {
     ret=$?
     local endTime=$(date +"%F %T.%3N")
 
+    if [ "$ret" == "0" ]; then
+        msg_string=$(jq -n --arg Completed "$*" --arg Hostname "$(uname -n)" '{Hostname: $Hostname, Completed: $Completed}')
+    fi
+
+    if [ "$ret" != "0" ]; then
+        if [ "${SUB_COMMAND,,}" == "bootstrap" ]; then
+            msg_string=$(jq -n --arg Failed "$*" --arg Hostname "$(uname -n)" --arg BootstrapJournal "$(journalctl -u secure-tls-bootstrap --no-pager -l)" '{Failed: $Failed, Hostname: $Hostname, BootstrapJournal: $BootstrapJournal}')
+        else
+            msg_string=$(jq -n --arg Failed "$*" --arg Hostname "$(uname -n)" '{Failed: $Failed, Hostname: $Hostname}')
+        fi
+    fi
+
     json_string=$( jq -n \
         --arg Timestamp   "${startTime}" \
         --arg OperationId "${endTime}" \
         --arg Version     "1.23" \
         --arg TaskName    "${task}" \
         --arg EventLevel  "Informational" \
-        --arg Message     "$(uname -n): Completed: $*" \
+        --arg Message     "${msg_string}" \
         --arg EventPid    "0" \
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
