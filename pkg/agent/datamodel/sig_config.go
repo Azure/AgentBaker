@@ -19,26 +19,30 @@ const (
 //nolint:gochecknoglobals
 var (
 	CachedFromComponentContainerImages = make(map[string]ContainerImage)
-	CachedFromComponentDownloadedFiles = make(map[string]DownloadFiles)
+	CachedFromComponentDownloadedFiles = make(map[string]DownloadFile)
 	CachedFromManifest                 = &Manifest{}
 )
 
 //nolint:gochecknoinits
 func init() {
-	manifest := CacheManifest()
+	manifest := GetManifest()
 	processManifest(manifest)
 
-	components := CacheComponents()
-	processComponents(components)
+	components := GetComponents()
+	err := processComponents(components)
+	if err != nil {
+		panic(err)
+	}
+
 }
 
-func CacheManifest() Manifest {
+func GetManifest() Manifest {
 	_, filename, _, _ := runtime.Caller(0)
 	manifestFilePath := "../../../parts/linux/cloud-init/artifacts/manifest.json"
 	return getCachedVersionsFromManifestJSON(path.Join(path.Dir(filename), manifestFilePath))
 }
 
-func CacheComponents() Components {
+func GetComponents() Components {
 	_, filename, _, _ := runtime.Caller(0)
 	componentsFilePath := "../../../vhdbuilder/packer/components.json"
 	return getCachedVersionsFromComponentsJSON(path.Join(path.Dir(filename), componentsFilePath))
@@ -52,21 +56,22 @@ func processManifest(manifest Manifest) {
 	CachedFromManifest.NvidiaDrivers = manifest.NvidiaDrivers
 }
 
-func processComponents(components Components) {
+func processComponents(components Components) error {
 	for _, image := range components.ContainerImages {
-		componentName, err := processContainerImage(image.DownloadURL)
+		componentName, err := getContainerImageNameFromURL(image.DownloadURL)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		CachedFromComponentContainerImages[componentName] = image
 	}
 	for _, file := range components.DownloadFiles {
-		componetName, err := processDownloadFile(file.DownloadURL)
+		componetName, err := getComponentNameFromURL(file.DownloadURL)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		CachedFromComponentDownloadedFiles[componetName] = file
 	}
+	return nil
 }
 
 func getCachedVersionsFromManifestJSON(manifestFilePath string) Manifest {
@@ -92,58 +97,6 @@ func getCachedVersionsFromComponentsJSON(componentsFilePath string) Components {
 		panic(err)
 	}
 	return components
-}
-
-type CachedOnVHD struct {
-	CachedFromManifest                 *Manifest                 `json:"cached_from_manifest"`
-	CachedFromComponentContainerImages map[string]ContainerImage `json:"cached_from_component_container_images"`
-	CachedFromComponentDownloadedFiles map[string]DownloadFiles  `json:"cached_from_component_downloaded_files"`
-}
-
-type Dependency struct {
-	FileName         string            `json:"fileName"`
-	DownloadLocation string            `json:"downloadLocation"`
-	DownloadURL      string            `json:"downloadURL"`
-	Versions         []string          `json:"versions"`
-	Installed        map[string]string `json:"installed"`
-	Pinned           map[string]string `json:"pinned"`
-	Edge             string            `json:"edge"`
-}
-
-type Manifest struct {
-	Containerd             Dependency `json:"containerd"`
-	Runc                   Dependency `json:"runc"`
-	NvidiaContainerRuntime Dependency `json:"nvidia-container-runtime"`
-	NvidiaDrivers          Dependency `json:"nvidia-drivers"`
-	Kubernetes             Dependency `json:"kubernetes"`
-}
-
-type Versions struct {
-	Versions []string `json:"versions"`
-}
-
-type Components struct {
-	ContainerImages []ContainerImage `json:"containerImages"`
-	DownloadFiles   []DownloadFiles  `json:"downloadFiles"`
-}
-
-type ContainerImage struct {
-	DownloadURL           string                 `json:"downloadURL"`
-	MultiArchVersions     []string               `json:"multiArchVersions"`
-	Amd64OnlyVersions     []string               `json:"amd64OnlyVersions"`
-	PrefetchOptimizations []PrefetchOptimization `json:"prefetchOptimizations"`
-}
-
-type PrefetchOptimization struct {
-	Version  string   `json:"version"`
-	Binaries []string `json:"binaries"`
-}
-
-type DownloadFiles struct {
-	FileName         string   `json:"fileName"`
-	DownloadLocation string   `json:"downloadLocation"`
-	DownloadURL      string   `json:"downloadURL"`
-	Versions         []string `json:"versions"`
 }
 
 // SIGAzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.

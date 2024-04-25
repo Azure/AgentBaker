@@ -532,8 +532,8 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			cachedOnVHD, err := agentBaker.GetCachedVersionsOnVHD()
 			Expect(err).NotTo(HaveOccurred())
 
-			manifest := datamodel.CacheManifest()
-			component := datamodel.CacheComponents()
+			manifest := datamodel.GetManifest()
+			component := datamodel.GetComponents()
 
 			// The indices are hardcoded based on the current components.json.
 			// Add new components to the bottom of components.json, or update the indices.
@@ -544,7 +544,6 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 			Expect(cachedOnVHD.CachedFromManifest.Runc.Installed["default"]).To(Equal(manifest.Runc.Installed["default"]))
 			Expect(cachedOnVHD.CachedFromManifest.Runc.Pinned["1804"]).To(Equal(manifest.Runc.Pinned["1804"]))
-			Expect(cachedOnVHD.CachedFromManifest.Runc.FileName).To(Equal(manifest.Runc.FileName))
 			Expect(cachedOnVHD.CachedFromManifest.Containerd.Pinned["1804"]).To(Equal(manifest.Containerd.Pinned["1804"]))
 			Expect(cachedOnVHD.CachedFromManifest.Containerd.Edge).To(Equal(manifest.Containerd.Edge))
 			Expect(cachedOnVHD.CachedFromManifest.Kubernetes.Versions[0]).To(Equal(manifest.Kubernetes.Versions[0]))

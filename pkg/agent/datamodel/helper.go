@@ -95,7 +95,7 @@ func IndentString(original string, spaces int) string {
 	return out.String()
 }
 
-func processContainerImage(downloadURL string) (string, error) {
+func getContainerImageNameFromURL(downloadURL string) (string, error) {
 	// example URL "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
 	// getting the data between the last / and the last :
 	parts := strings.Split(downloadURL, "/")
@@ -107,12 +107,19 @@ func processContainerImage(downloadURL string) (string, error) {
 	return component, nil
 }
 
-func processDownloadFile(downloadURL string) (string, error) {
+func getComponentNameFromURL(downloadURL string) (string, error) {
 	// example URL "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
 	url, err := url.Parse(downloadURL) // /cni-plugins/v*/binaries
 	if err != nil {
 		return "", fmt.Errorf("download file image URL is not in the expected format: %s", downloadURL)
 	}
 	urlSplit := strings.Split(url.Path, "/") // ["", cni-plugins, v*, binaries]
-	return urlSplit[1], nil
+	if len(urlSplit) < 2 {
+		return "", fmt.Errorf("download file image URL is not in the expected format: %s", downloadURL)
+	}
+	componentName := urlSplit[1]
+	if componentName == "" {
+		return "", fmt.Errorf("component name is empty in the URL: %s", downloadURL)
+	}
+	return componentName, nil
 }
