@@ -825,7 +825,7 @@ type CachedOnVHD struct {
 	CachedFromComponentDownloadedFiles map[string]DownloadFile   `json:"cachedFromComponentDownloadedFiles"`
 }
 
-// Dependency represents fields that occur on manifest.json
+// Dependency represents fields that occur on manifest.json.
 type Dependency struct {
 	Versions  []string          `json:"versions"`
 	Installed map[string]string `json:"installed"`
@@ -842,7 +842,7 @@ type Manifest struct {
 	Kubernetes             Dependency `json:"kubernetes"`
 }
 
-// Versions of components on manifest.json
+// Versions of components on manifest.json.
 type Versions struct {
 	Versions []string `json:"versions"`
 }
@@ -853,7 +853,7 @@ type Components struct {
 	DownloadFiles   []DownloadFile   `json:"downloadFiles"`
 }
 
-// ContainerImage represents fields that occur on components.json
+// ContainerImage represents fields that occur on components.json.
 type ContainerImage struct {
 	DownloadURL           string                 `json:"downloadURL"`
 	MultiArchVersions     []string               `json:"multiArchVersions"`
@@ -861,13 +861,13 @@ type ContainerImage struct {
 	PrefetchOptimizations []PrefetchOptimization `json:"prefetchOptimizations"`
 }
 
-// PrefetchOptimization represents fields that occur on components.json
+// PrefetchOptimization represents fields that occur on components.json.
 type PrefetchOptimization struct {
 	Version  string   `json:"version"`
 	Binaries []string `json:"binaries"`
 }
 
-// DownloadFile represents DownloadFile fields that occur on components.json
+// DownloadFile represents DownloadFile fields that occur on components.json.
 type DownloadFile struct {
 	FileName         string   `json:"fileName"`
 	DownloadLocation string   `json:"downloadLocation"`

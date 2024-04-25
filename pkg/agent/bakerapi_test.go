@@ -532,8 +532,10 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			cachedOnVHD, err := agentBaker.GetCachedVersionsOnVHD()
 			Expect(err).NotTo(HaveOccurred())
 
-			manifest := datamodel.GetManifest()
-			component := datamodel.GetComponents()
+			manifest, err := datamodel.GetManifest()
+			Expect(err).NotTo(HaveOccurred())
+			component, err := datamodel.GetComponents()
+			Expect(err).NotTo(HaveOccurred())
 
 			// The indices are hardcoded based on the current components.json.
 			// Add new components to the bottom of components.json, or update the indices.

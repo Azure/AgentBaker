@@ -114,10 +114,11 @@ func getComponentNameFromURL(downloadURL string) (string, error) {
 		return "", fmt.Errorf("download file image URL is not in the expected format: %s", downloadURL)
 	}
 	urlSplit := strings.Split(url.Path, "/") // ["", cni-plugins, v*, binaries]
-	if len(urlSplit) < 2 {
+	componentIndx, minURLSplit := 1, 2
+	if len(urlSplit) < minURLSplit {
 		return "", fmt.Errorf("download file image URL is not in the expected format: %s", downloadURL)
 	}
-	componentName := urlSplit[1]
+	componentName := urlSplit[componentIndx]
 	if componentName == "" {
 		return "", fmt.Errorf("component name is empty in the URL: %s", downloadURL)
 	}

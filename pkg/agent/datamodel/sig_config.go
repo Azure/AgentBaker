@@ -25,27 +25,40 @@ var (
 
 //nolint:gochecknoinits
 func init() {
-	manifest := GetManifest()
-	processManifest(manifest)
-
-	components := GetComponents()
-	err := processComponents(components)
+	manifest, err := GetManifest()
 	if err != nil {
 		panic(err)
 	}
+	processManifest(manifest)
 
+	components, err := GetComponents()
+	if err != nil {
+		panic(err)
+	}
+	err = processComponents(components)
+	if err != nil {
+		panic(err)
+	}
 }
 
-func GetManifest() Manifest {
+func GetManifest() (Manifest, error) {
 	_, filename, _, _ := runtime.Caller(0)
 	manifestFilePath := "../../../parts/linux/cloud-init/artifacts/manifest.json"
-	return getCachedVersionsFromManifestJSON(path.Join(path.Dir(filename), manifestFilePath))
+	manifest, err := getCachedVersionsFromManifestJSON(path.Join(path.Dir(filename), manifestFilePath))
+	if err != nil {
+		return manifest, err
+	}
+	return manifest, nil
 }
 
-func GetComponents() Components {
+func GetComponents() (Components, error) {
 	_, filename, _, _ := runtime.Caller(0)
 	componentsFilePath := "../../../vhdbuilder/packer/components.json"
-	return getCachedVersionsFromComponentsJSON(path.Join(path.Dir(filename), componentsFilePath))
+	components, err := getCachedVersionsFromComponentsJSON(path.Join(path.Dir(filename), componentsFilePath))
+	if err != nil {
+		return components, err
+	}
+	return components, nil
 }
 
 func processManifest(manifest Manifest) {
@@ -60,43 +73,43 @@ func processComponents(components Components) error {
 	for _, image := range components.ContainerImages {
 		componentName, err := getContainerImageNameFromURL(image.DownloadURL)
 		if err != nil {
-			return err
+			return fmt.Errorf("error getting component name from URL: %s", err.Error())
 		}
 		CachedFromComponentContainerImages[componentName] = image
 	}
 	for _, file := range components.DownloadFiles {
 		componetName, err := getComponentNameFromURL(file.DownloadURL)
 		if err != nil {
-			return err
+			return fmt.Errorf("error getting component name from URL: %s", err.Error())
 		}
 		CachedFromComponentDownloadedFiles[componetName] = file
 	}
 	return nil
 }
 
-func getCachedVersionsFromManifestJSON(manifestFilePath string) Manifest {
+func getCachedVersionsFromManifestJSON(manifestFilePath string) (Manifest, error) {
 	data, err := os.ReadFile(manifestFilePath)
 	if err != nil {
-		panic(err)
+		return Manifest{}, fmt.Errorf("error reading manifest file: %s", err.Error())
 	}
 	data = bytes.ReplaceAll(data, []byte("#EOF"), []byte(""))
 	var manifest Manifest
 	if err = json.Unmarshal(data, &manifest); err != nil {
-		panic(err)
+		return Manifest{}, fmt.Errorf("error unmarshalling manifest file: %s", err.Error())
 	}
-	return manifest
+	return manifest, nil
 }
 
-func getCachedVersionsFromComponentsJSON(componentsFilePath string) Components {
+func getCachedVersionsFromComponentsJSON(componentsFilePath string) (Components, error) {
 	data, err := os.ReadFile(componentsFilePath)
 	if err != nil {
-		panic(err)
+		return Components{}, fmt.Errorf("error reading components file: %s", err.Error())
 	}
 	var components Components
 	if err = json.Unmarshal(data, &components); err != nil {
-		panic(err)
+		return Components{}, fmt.Errorf("error unmarshalling components file: %s", err.Error())
 	}
-	return components
+	return components, nil
 }
 
 // SIGAzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
