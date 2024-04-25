@@ -329,7 +329,7 @@ for imageToBePulled in ${ContainerImages[*]}; do
       else
         echo "${image_pids_and_urls[$pid]} encountered an error and was not successfully pulled. "
       fi
-    done
+  done
 done
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
