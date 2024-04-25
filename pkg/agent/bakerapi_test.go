@@ -536,6 +536,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			component := datamodel.CacheComponents()
 
 			// The indices are hardcoded based on the current components.json.
+			// Add new components to the bottom of components.json, or update the indices.
 			pauseIndx := 2
 			azureCNSIndx := 5
 			cniPluginIndx := 0

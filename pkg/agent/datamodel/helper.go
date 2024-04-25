@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"net/url"
 	"regexp"
 	"sort"
 	"strings"
@@ -108,9 +109,10 @@ func processContainerImage(downloadURL string) (string, error) {
 
 func processDownloadFile(downloadURL string) (string, error) {
 	// example URL "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
-	parts := strings.Split(downloadURL, "/") // [https:, "", acs-mirror.azureedge.net, cni-plugins, v*, binaries]
-	if len(parts) == 0 || len(parts) != 6 {
+	url, err := url.Parse(downloadURL) // /cni-plugins/v*/binaries
+	if err != nil {
 		return "", fmt.Errorf("download file image URL is not in the expected format: %s", downloadURL)
 	}
-	return parts[3], nil
+	urlSplit := strings.Split(url.Path, "/") // ["", cni-plugins, v*, binaries]
+	return urlSplit[1], nil
 }
