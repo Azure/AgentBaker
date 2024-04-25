@@ -390,8 +390,8 @@ func Test_getLoadBalancerSKU(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getLoadBalancerSKU(tt.args.sku); got != tt.want {
-				t.Errorf("getLoadBalancerSKU() = %v, want %v", got, tt.want)
+			if got := GetLoadBalancerSKU(tt.args.sku); got != tt.want {
+				t.Errorf("GetLoadBalancerSKU() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -509,9 +509,9 @@ func TestGetNetworkPolicyType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := getNetworkPolicyType(tt.networkPolicy)
+			result := GetNetworkPolicyType(tt.networkPolicy)
 			if result != tt.expectedResult {
-				t.Errorf("getNetworkPolicyType() = %v, want %v", result, tt.expectedResult)
+				t.Errorf("GetNetworkPolicyType() = %v, want %v", result, tt.expectedResult)
 			}
 		})
 	}
@@ -541,9 +541,9 @@ func TestGetNetworkPluginType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := getNetworkPluginType(tt.networkPlugin)
+			result := GetNetworkPluginType(tt.networkPlugin)
 			if result != tt.expectedResult {
-				t.Errorf("getNetworkPluginType() = %v, want %v", result, tt.expectedResult)
+				t.Errorf("GetNetworkPluginType() = %v, want %v", result, tt.expectedResult)
 			}
 		})
 	}
