@@ -2,14 +2,14 @@ syntax = "proto3";
 package nbcontract.v1;
 
 message KubeletConfig {
+  // A list of taints to apply to the node.
+  repeated Taint taints = 1;
+  
   // A map of kubelet flags to their values.
-  map<string, string> kubelet_flags = 1;
+  map<string, string> kubelet_flags = 2;
 
   // A map of node labels to their values.
-  map<string, string> kubelet_node_labels = 2;
-
-  // A list of taints to apply to the node.
-  repeated Taint taints = 3;
+  map<string, string> kubelet_node_labels = 3;
 
   // A list of taints to apply to the node at startup.
   repeated Taint startup_taints = 4;
