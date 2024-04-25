@@ -262,7 +262,7 @@ func Test_getContainerdConfig(t *testing.T) {
 			name: "Default Configuration",
 			args: args{
 				nbcontract: &nbcontractv1.Configuration{
-					NeedsCgroupv2: true,
+					NeedsCgroupv2: to.BoolPtr(true),
 				},
 			},
 			want: base64.StdEncoding.EncodeToString([]byte(`version = 2

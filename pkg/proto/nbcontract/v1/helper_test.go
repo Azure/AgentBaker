@@ -104,15 +104,15 @@ func TestNBContractBuilder_ApplyConfiguration(t *testing.T) {
 			name: "Apply some configurations and expect them to be applied",
 			fields: fields{
 				nBContractConfiguration: &Configuration{
-					AuthConfig: &AuthConfig{
-						TargetCloud: "some-cloud",
+					CustomCloudConfig: &CustomCloudConfig{
+						CustomCloudEnvName: "some-cloud",
 					},
 					LinuxAdminUsername: "testuser",
 				},
 			},
 			want: func() *Configuration {
 				tmpResult := NewNBContractBuilder().nodeBootstrapConfig
-				tmpResult.AuthConfig.TargetCloud = "some-cloud"
+				tmpResult.CustomCloudConfig.CustomCloudEnvName = "some-cloud"
 				tmpResult.LinuxAdminUsername = "testuser"
 				return tmpResult
 			}(),
