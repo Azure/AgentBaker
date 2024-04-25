@@ -16,7 +16,7 @@ type AgentBaker interface {
 	GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
 	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, distro datamodel.Distro, envInfo *datamodel.EnvironmentInfo) (*datamodel.SigImageConfig, error)
 	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, envInfo *datamodel.EnvironmentInfo) (map[datamodel.Distro]datamodel.SigImageConfig, error)
-	GetCachedVersionsOnVHD() (datamodel.CachedOnVHD, error)
+	GetCachedVersionsOnVHD() (*datamodel.CachedOnVHD, error)
 }
 
 type agentBakerImpl struct {
@@ -176,7 +176,7 @@ func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distr
 	return nil
 }
 
-func (agentBaker *agentBakerImpl) GetCachedVersionsOnVHD() (datamodel.CachedOnVHD, error) {
+func (agentBaker *agentBakerImpl) GetCachedVersionsOnVHD() (*datamodel.CachedOnVHD, error) {
 	cached := datamodel.CachedOnVHD{
 		CachedFromManifest:                 datamodel.CachedFromManifest,
 		CachedFromComponentContainerImages: datamodel.CachedFromComponentContainerImages,
@@ -184,8 +184,8 @@ func (agentBaker *agentBakerImpl) GetCachedVersionsOnVHD() (datamodel.CachedOnVH
 	}
 
 	if datamodel.CachedFromManifest == nil || datamodel.CachedFromComponentContainerImages == nil || datamodel.CachedFromComponentDownloadedFiles == nil {
-		return cached, fmt.Errorf("cached versions are not available")
+		return &cached, fmt.Errorf("cached versions are not available")
 	}
 
-	return cached, nil
+	return &cached, nil
 }
