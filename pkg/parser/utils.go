@@ -20,7 +20,6 @@ package parser
 
 import (
 	"fmt"
-	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,10 +28,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/blang/semver"
-)
-
-const (
-	azureChinaCloud = "AzureChinaCloud"
 )
 
 // GetLoadBalancerSKI returns the LoadBalancerSku enum based on the input string.
@@ -78,7 +73,9 @@ func GetKubeletNodeLabels(agentPool *datamodel.AgentPoolProfile) map[string]stri
 		"agentpool":                      agentPool.Name,
 		"kubernetes.azure.com/agentpool": agentPool.Name,
 	}
-	maps.Copy(kubeletLabels, agentPool.CustomNodeLabels)
+	for key, val := range agentPool.CustomNodeLabels {
+		kubeletLabels[key] = val
+	}
 	return kubeletLabels
 }
 

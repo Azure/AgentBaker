@@ -29,17 +29,6 @@ const (
 	initAKSCustomCloudFilepath           = "/opt/azure/containers/init-aks-custom-cloud.sh"
 )
 
-// KubeletDiskType describes options for placement of the primary kubelet partition.
-// docker images, emptyDir volumes, and pod logs.
-type KubeletDiskType string
-
-const (
-	// OSDisk indicates data wil be shared with the OS.
-	osDisk KubeletDiskType = "OS"
-	// TempDisk indicates date will be isolated on the temporary disk.
-	tempDisk KubeletDiskType = "Temporary"
-)
-
 const numInPair = 2
 
 const (
