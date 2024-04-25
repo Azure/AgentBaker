@@ -10,7 +10,10 @@ import (
 
 // input to this function will be the serialized JSON from userdata + custom data.
 // it will be deserialized to the contract that the VHD this binary will be on supports.
-// Parse will be called using that deserialized struct.
+// Parse will be called using that deserialized struct and output the generated cse_cmd to trigger the bootstrap process.
+// example usage:
+// to build: go build main.go
+// to run: ./main testdata/test_nbc.json
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Please provide a filename as a command-line argument")
