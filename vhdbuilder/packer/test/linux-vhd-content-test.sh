@@ -864,6 +864,7 @@ testBccTools () {
       echo "BCC tools were not successfully downloaded."
       return 1
     fi
+  done
   echo "BCC tools were successfully downloaded."
   return 0
 }
