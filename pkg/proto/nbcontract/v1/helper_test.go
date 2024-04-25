@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
@@ -268,7 +269,7 @@ func TestNBContractBuilder_validateSemVer(t *testing.T) {
 			name: "Test with mismatch major version and expect error",
 			fields: fields{
 				nodeBootstrapConfig: &Configuration{
-					Version: "v2.0.0",
+					Version: "2.0.0",
 				},
 			},
 			wantErr: true,
@@ -277,7 +278,7 @@ func TestNBContractBuilder_validateSemVer(t *testing.T) {
 			name: "Test with mismatch minor version and expect no error",
 			fields: fields{
 				nodeBootstrapConfig: &Configuration{
-					Version: "v1.1.0",
+					Version: "1.1.0",
 				},
 			},
 			wantErr: false,
@@ -358,6 +359,191 @@ func TestNBContractBuilder_validateRequiredFields(t *testing.T) {
 			err := nBCB.validateRequiredFields()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NBContractBuilder.validateRequiredFields() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func Test_getLoadBalancerSKU(t *testing.T) {
+	type args struct {
+		sku string
+	}
+	tests := []struct {
+		name string
+		args args
+		want LoadBalancerConfig_LoadBalancerSku
+	}{
+		{
+			name: "Test with Standard SKU",
+			args: args{
+				sku: LoadBalancerStandard,
+			},
+			want: LoadBalancerConfig_STANDARD,
+		},
+		{
+			name: "Test with Basic SKU",
+			args: args{
+				sku: LoadBalancerBasic,
+			},
+			want: LoadBalancerConfig_BASIC,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getLoadBalancerSKU(tt.args.sku); got != tt.want {
+				t.Errorf("getLoadBalancerSKU() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetOutBoundCmd(t *testing.T) {
+	type args struct {
+		nbconfig  *datamodel.NodeBootstrappingConfiguration
+		cloudName string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "Test with cloudName as AzureChinaCloud and orchestratorVersion as 1.19.0",
+			args: args{
+				nbconfig: &datamodel.NodeBootstrappingConfiguration{
+					ContainerService: &datamodel.ContainerService{
+						Properties: &datamodel.Properties{
+							OrchestratorProfile: &datamodel.OrchestratorProfile{
+								OrchestratorVersion: "1.19.0",
+							},
+						},
+					},
+				},
+				cloudName: AzureChinaCloud,
+			},
+			want: "curl -v --insecure --proxy-insecure https://gcr.azk8s.cn/v2/",
+		},
+		{
+			name: "Test with cloudName as AzureChinaCloud and orchestratorVersion as 1.17.0",
+			args: args{
+				nbconfig: &datamodel.NodeBootstrappingConfiguration{
+					ContainerService: &datamodel.ContainerService{
+						Properties: &datamodel.Properties{
+							OrchestratorProfile: &datamodel.OrchestratorProfile{
+								OrchestratorVersion: "1.17.0",
+							},
+						},
+					},
+				},
+				cloudName: AzureChinaCloud,
+			},
+			want: "nc -vz gcr.azk8s.cn 443",
+		},
+		{
+			name: "Test with cloudName as AzurePublicCloud and orchestratorVersion as 1.19.0",
+			args: args{
+				nbconfig: &datamodel.NodeBootstrappingConfiguration{
+					ContainerService: &datamodel.ContainerService{
+						Properties: &datamodel.Properties{
+							OrchestratorProfile: &datamodel.OrchestratorProfile{
+								OrchestratorVersion: "1.19.0",
+							},
+						},
+					},
+				},
+				cloudName: DefaultCloudName,
+			},
+			want: "curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/",
+		},
+		{
+			name: "Test with AKSCustomCloud and orchestratorVersion as 1.19.0",
+			args: args{
+				nbconfig: &datamodel.NodeBootstrappingConfiguration{
+					ContainerService: &datamodel.ContainerService{
+						Properties: &datamodel.Properties{
+							OrchestratorProfile: &datamodel.OrchestratorProfile{
+								OrchestratorVersion: "1.19.0",
+							},
+							CustomCloudEnv: &datamodel.CustomCloudEnv{
+								McrURL: "some-mcr-url",
+								Name:   "akscustom",
+							},
+						},
+					},
+				},
+				cloudName: "any cloud name",
+			},
+			want: "curl -v --insecure --proxy-insecure https://some-mcr-url/v2/",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetOutBoundCmd(tt.args.nbconfig, tt.args.cloudName); got != tt.want {
+				t.Errorf("GetOutBoundCmd() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+func TestGetNetworkPolicyType(t *testing.T) {
+	tests := []struct {
+		name           string
+		networkPolicy  string
+		expectedResult NetworkPolicy
+	}{
+		{
+			name:           "Test with NetworkPolicyAzure",
+			networkPolicy:  NetworkPolicyAzure,
+			expectedResult: NetworkPolicy_NPO_AZURE,
+		},
+		{
+			name:           "Test with NetworkPolicyCalico",
+			networkPolicy:  NetworkPolicyCalico,
+			expectedResult: NetworkPolicy_NPO_CALICO,
+		},
+		{
+			name:           "Test with unknown network policy",
+			networkPolicy:  "unknown",
+			expectedResult: NetworkPolicy_NPO_NONE,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getNetworkPolicyType(tt.networkPolicy)
+			if result != tt.expectedResult {
+				t.Errorf("getNetworkPolicyType() = %v, want %v", result, tt.expectedResult)
+			}
+		})
+	}
+}
+func TestGetNetworkPluginType(t *testing.T) {
+	tests := []struct {
+		name           string
+		networkPlugin  string
+		expectedResult NetworkPlugin
+	}{
+		{
+			name:           "Test with Azure network plugin",
+			networkPlugin:  "azure",
+			expectedResult: NetworkPlugin_NP_AZURE,
+		},
+		{
+			name:           "Test with kubenet network plugin",
+			networkPlugin:  "kubenet",
+			expectedResult: NetworkPlugin_NP_KUBENET,
+		},
+		{
+			name:           "Test with unknown network plugin",
+			networkPlugin:  "unknown",
+			expectedResult: NetworkPlugin_NP_NONE,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getNetworkPluginType(tt.networkPlugin)
+			if result != tt.expectedResult {
+				t.Errorf("getNetworkPluginType() = %v, want %v", result, tt.expectedResult)
 			}
 		})
 	}

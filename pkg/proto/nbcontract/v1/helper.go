@@ -8,7 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"golang.org/x/mod/semver"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/blang/semver"
 )
 
 // NBContractBuilder is a helper struct to build the NBContract (Node Bootstrap Contract).
@@ -110,33 +111,24 @@ func (nBCB *NBContractBuilder) ValidateNBContract() error {
 }
 
 func (nBCB *NBContractBuilder) validateSemVer() error {
-	major := semver.Major(nBCB.nodeBootstrapConfig.Version)
-	if major == "" {
-		return fmt.Errorf("invalid contract version from contract payload: %s. It should be a semantic version", nBCB.GetNodeBootstrapConfig().Version)
-	}
-
-	expectedMajor := semver.Major(contractVersion)
-	if expectedMajor == "" {
-		return fmt.Errorf("invalid contract version: %s. It should be a semantic version", contractVersion)
-	}
-
-	if major != expectedMajor {
-		return fmt.Errorf("contract major versions mismatch. Expecting %s, but got %s", expectedMajor, major)
-	}
-
-	minor, err := nBCB.parseMinor(nBCB.GetNodeBootstrapConfig().Version)
+	payloadContractVer, err := semver.Make(nBCB.nodeBootstrapConfig.Version)
 	if err != nil {
-		return err
+		return fmt.Errorf("invalid contract version from contract payload: %s. It should be a semantic version", nBCB.nodeBootstrapConfig.Version)
 	}
 
-	expectedMinor, err := nBCB.parseMinor(contractVersion)
+	expectedContractVer, err := semver.Make(contractVersion)
+
 	if err != nil {
-		return err
+		return fmt.Errorf("invalid contract version from contract payload: %s. It should be a semantic version", nBCB.nodeBootstrapConfig.Version)
 	}
 
-	if minor != expectedMinor {
+	if payloadContractVer.Major != expectedContractVer.Major {
+		return fmt.Errorf("contract major versions mismatch. Expecting %v, but got %v", expectedContractVer.Major, payloadContractVer.Major)
+	}
+
+	if payloadContractVer.Minor != expectedContractVer.Minor {
 		// Minor version mismatch is not a breaking change. So just log a warning.
-		log.Printf("Warning: Contract minor versions mismatch. Expecting %v, but got %v", expectedMinor, minor)
+		log.Printf("Warning: Contract minor versions mismatch. Expecting %v, but got %v", expectedContractVer.Minor, payloadContractVer.Minor)
 	}
 
 	return nil
@@ -177,4 +169,87 @@ func (nBCB *NBContractBuilder) validateRequiredStringsNotEmpty() error {
 		}
 	}
 	return nil
+}
+
+// getLoadBalancerSKI returns the LoadBalancerSku enum based on the input string.
+func getLoadBalancerSKU(sku string) LoadBalancerConfig_LoadBalancerSku {
+	if strings.EqualFold(sku, LoadBalancerStandard) {
+		return LoadBalancerConfig_STANDARD
+	} else if strings.EqualFold(sku, LoadBalancerBasic) {
+		return LoadBalancerConfig_BASIC
+	}
+
+	return LoadBalancerConfig_UNSPECIFIED
+}
+
+// getNetworkPluginType returns the NetworkPluginType enum based on the input string.
+func getNetworkPluginType(networkPlugin string) NetworkPlugin {
+	if strings.EqualFold(networkPlugin, NetworkPluginAzure) {
+		return NetworkPlugin_NP_AZURE
+	} else if strings.EqualFold(networkPlugin, NetworkPluginkubenet) {
+		return NetworkPlugin_NP_KUBENET
+	}
+
+	return NetworkPlugin_NP_NONE
+}
+
+// getNetworkPolicyType returns the NetworkPolicyType enum based on the input string.
+func getNetworkPolicyType(networkPolicy string) NetworkPolicy {
+	if strings.EqualFold(networkPolicy, NetworkPolicyAzure) {
+		return NetworkPolicy_NPO_AZURE
+	} else if strings.EqualFold(networkPolicy, NetworkPolicyCalico) {
+		return NetworkPolicy_NPO_CALICO
+	}
+
+	return NetworkPolicy_NPO_NONE
+}
+
+// GetOutBoundCmd returns a proper outbound traffic command based on some cloud and Linux distro configs.
+func GetOutBoundCmd(nbconfig *datamodel.NodeBootstrappingConfiguration, cloudName string) string {
+	cs := nbconfig.ContainerService
+	if cs.Properties.FeatureFlags.IsFeatureEnabled("BlockOutboundInternet") {
+		return ""
+	}
+
+	registry := ""
+	switch {
+	case cloudName == AzureChinaCloud:
+		registry = `gcr.azk8s.cn`
+	case cs.IsAKSCustomCloud():
+		registry = cs.Properties.CustomCloudEnv.McrURL
+	default:
+		registry = `mcr.microsoft.com`
+	}
+
+	if registry == "" {
+		return ""
+	}
+
+	// curl on Ubuntu 16.04 (shipped prior to AKS 1.18) doesn't support proxy TLS.
+	// so we need to use nc for the connectivity check.
+	orchestratorVersion, err := semver.Make(cs.Properties.OrchestratorProfile.OrchestratorVersion)
+	if err != nil {
+		log.Printf("Failed to parse orchestrator version %s: %v", cs.Properties.OrchestratorProfile.OrchestratorVersion, err)
+		return ""
+	}
+
+	minVersion, err := semver.Make("1.18.0")
+	if err != nil {
+		log.Printf("Failed to parse min version %s: %v", "1.18.0", err)
+		return ""
+	}
+
+	var connectivityCheckCommand string
+	if orchestratorVersion.GTE(minVersion) {
+		connectivityCheckCommand = `curl -v --insecure --proxy-insecure https://` + registry + `/v2/`
+	} else {
+		connectivityCheckCommand = `nc -vz ` + registry + ` 443`
+	}
+
+	return connectivityCheckCommand
+}
+
+// GetDefaultOutboundCommand returns a default outbound traffic command.
+func GetDefaultOutboundCommand() string {
+	return "curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/"
 }
