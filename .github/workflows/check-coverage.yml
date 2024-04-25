@@ -32,7 +32,7 @@ jobs:
       - name: Remove mocks.go lines
         run: |
           sed '/mocks.go/d' coverage_raw.out > coverage-no-mocks.out
-      - nam: Remove proto lines
+      - name: Remove proto lines
         run: |
           sed '/pb.go/d' coverage-no-mocks.out > coverage.out
       - name: Convert coverage to lcov
