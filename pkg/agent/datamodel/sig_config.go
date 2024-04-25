@@ -78,14 +78,14 @@ func processComponents(components Components) error {
 	for _, image := range components.ContainerImages {
 		componentName, err := getContainerImageNameFromURL(image.DownloadURL)
 		if err != nil {
-			return fmt.Errorf("error getting component name from URL: %s", err.Error())
+			return fmt.Errorf("error getting component name from URL: %w", err)
 		}
 		CachedFromComponentContainerImages[componentName] = image
 	}
 	for _, file := range components.DownloadFiles {
 		componetName, err := getComponentNameFromURL(file.DownloadURL)
 		if err != nil {
-			return fmt.Errorf("error getting component name from URL: %s", err.Error())
+			return fmt.Errorf("error getting component name from URL: %w", err)
 		}
 		CachedFromComponentDownloadedFiles[componetName] = file
 	}
@@ -95,12 +95,12 @@ func processComponents(components Components) error {
 func getCachedVersionsFromManifestJSON(manifestFilePath string) (Manifest, error) {
 	data, err := os.ReadFile(manifestFilePath)
 	if err != nil {
-		return Manifest{}, fmt.Errorf("error reading manifest file: %s", err.Error())
+		return Manifest{}, fmt.Errorf("error reading manifest file: %w", err)
 	}
 	data = bytes.ReplaceAll(data, []byte("#EOF"), []byte(""))
 	var manifest Manifest
 	if err = json.Unmarshal(data, &manifest); err != nil {
-		return Manifest{}, fmt.Errorf("error unmarshalling manifest file: %s", err.Error())
+		return Manifest{}, fmt.Errorf("error unmarshalling manifest file: %w", err)
 	}
 	return manifest, nil
 }
@@ -108,11 +108,11 @@ func getCachedVersionsFromManifestJSON(manifestFilePath string) (Manifest, error
 func getCachedVersionsFromComponentsJSON(componentsFilePath string) (Components, error) {
 	data, err := os.ReadFile(componentsFilePath)
 	if err != nil {
-		return Components{}, fmt.Errorf("error reading components file: %s", err.Error())
+		return Components{}, fmt.Errorf("error reading components file: %w", err)
 	}
 	var components Components
 	if err = json.Unmarshal(data, &components); err != nil {
-		return Components{}, fmt.Errorf("error unmarshalling components file: %s", err.Error())
+		return Components{}, fmt.Errorf("error unmarshalling components file: %w", err)
 	}
 	return components, nil
 }
