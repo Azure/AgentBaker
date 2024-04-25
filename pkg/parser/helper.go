@@ -215,10 +215,7 @@ func getIsMIGNode(gpuInstanceProfile string) bool {
 }
 
 func getCustomCACertsStatus(customCACerts []string) bool {
-	if len(customCACerts) > 0 {
-		return true
-	}
-	return false
+	return len(customCACerts) > 0
 }
 
 func getEnableTLSBootstrap(bootstrapConfig *nbcontractv1.TLSBootstrappingConfig) bool {

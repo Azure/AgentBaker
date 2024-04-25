@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/parser"
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
@@ -115,53 +114,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			"--container-log-max-size":            "50M",
 		}
 
-		config := &datamodel.NodeBootstrappingConfiguration{
-			ContainerService:              cs,
-			CloudSpecConfig:               datamodel.AzurePublicCloudSpecForTest,
-			AgentPoolProfile:              agentPool,
-			TenantID:                      "tenantID",
-			SubscriptionID:                "subID",
-			ResourceGroupName:             "resourceGroupName",
-			UserAssignedIdentityClientID:  "userAssignedID",
-			ConfigGPUDriverIfNeeded:       true,
-			EnableGPUDevicePluginIfNeeded: false,
-			EnableKubeletConfigFile:       false,
-			EnableNvidia:                  false,
-			FIPSEnabled:                   false,
-			KubeletConfig:                 kubeletConfig,
-			PrimaryScaleSetName:           "aks-agent2-36873793-vmss",
-			IsARM64:                       false,
-			DisableUnattendedUpgrades:     false,
-			SSHStatus:                     datamodel.SSHUnspecified,
-			SIGConfig: datamodel.SIGConfig{
-				TenantID:       "tenantID",
-				SubscriptionID: "subID",
-				Galleries: map[string]datamodel.SIGGalleryConfig{
-					"AKSUbuntu": {
-						GalleryName:   "aksubuntu",
-						ResourceGroup: "resourcegroup",
-					},
-					"AKSCBLMariner": {
-						GalleryName:   "akscblmariner",
-						ResourceGroup: "resourcegroup",
-					},
-					"AKSAzureLinux": {
-						GalleryName:   "aksazurelinux",
-						ResourceGroup: "resourcegroup",
-					},
-					"AKSWindows": {
-						GalleryName:   "AKSWindows",
-						ResourceGroup: "AKS-Windows",
-					},
-					"AKSUbuntuEdgeZone": {
-						GalleryName:   "AKSUbuntuEdgeZone",
-						ResourceGroup: "AKS-Ubuntu-EdgeZone",
-					},
-				},
-			},
-		}
-
-		parser.ValidateAndSetLinuxKubeletFlags(config.KubeletConfig, config.ContainerService, agentPool)
+		parser.ValidateAndSetLinuxKubeletFlags(kubeletConfig, cs, agentPool)
 		nBCB := nbcontractv1.NewNBContractBuilder()
 		nbc := &nbcontractv1.Configuration{
 			LinuxAdminUsername: "azureuser",
@@ -199,12 +152,11 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			ContainerdConfig: &nbcontractv1.ContainerdConfig{
 				ContainerdDownloadUrlBase: "https://storage.googleapis.com/cri-containerd-release/",
 			},
-			OutboundCommand: parser.GetOutBoundCmd(config),
+			OutboundCommand: parser.GetDefaultOutboundCommand(),
 			KubeletConfig: &nbcontractv1.KubeletConfig{
-				EnableKubeletConfigFile:  false,
-				KubeletConfigFileContent: base64.StdEncoding.EncodeToString([]byte(agent.GetKubeletConfigFileContent(config.KubeletConfig, agentPool.CustomKubeletConfig))),
-				KubeletFlags:             parser.GetKubeletConfigFlag(config.KubeletConfig, cs, agentPool, config.EnableKubeletConfigFile),
-				KubeletNodeLabels:        parser.GetKubeletNodeLabels(agentPool),
+				EnableKubeletConfigFile: false,
+				KubeletFlags:            parser.GetKubeletConfigFlag(kubeletConfig, cs, agentPool, false),
+				KubeletNodeLabels:       parser.GetKubeletNodeLabels(agentPool),
 			},
 		}
 		nBCB.ApplyConfiguration(nbc)
