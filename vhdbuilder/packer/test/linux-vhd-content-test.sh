@@ -859,18 +859,13 @@ testContainerImagePrefetchScript() {
 }
 
 testBccTools () {
-  result=0 
   for line in '- bcc-tools' '- libbcc-examples'; do
     if ! grep -F -x -e "$line" /opt/azure/vhd-install.complete; then
-      echo "$line is missing"
-      result=1
+      echo "BCC tools were not successfully downloaded."
+      return 1
     fi
-  done
-  if [ $result -eq 0 ]; then
-    return 0
-  else
-    return 1
-  fi
+  echo "BCC tools were successfully downloaded."
+  return 0
 }
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
