@@ -171,8 +171,8 @@ func (nBCB *NBContractBuilder) validateRequiredStringsNotEmpty() error {
 	return nil
 }
 
-// getLoadBalancerSKI returns the LoadBalancerSku enum based on the input string.
-func getLoadBalancerSKU(sku string) LoadBalancerConfig_LoadBalancerSku {
+// GetLoadBalancerSKU returns the LoadBalancerSku enum based on the input string.
+func GetLoadBalancerSKU(sku string) LoadBalancerConfig_LoadBalancerSku {
 	if strings.EqualFold(sku, LoadBalancerStandard) {
 		return LoadBalancerConfig_STANDARD
 	} else if strings.EqualFold(sku, LoadBalancerBasic) {
@@ -182,8 +182,8 @@ func getLoadBalancerSKU(sku string) LoadBalancerConfig_LoadBalancerSku {
 	return LoadBalancerConfig_UNSPECIFIED
 }
 
-// getNetworkPluginType returns the NetworkPluginType enum based on the input string.
-func getNetworkPluginType(networkPlugin string) NetworkPlugin {
+// GetNetworkPluginType returns the NetworkPluginType enum based on the input string.
+func GetNetworkPluginType(networkPlugin string) NetworkPlugin {
 	if strings.EqualFold(networkPlugin, NetworkPluginAzure) {
 		return NetworkPlugin_NP_AZURE
 	} else if strings.EqualFold(networkPlugin, NetworkPluginkubenet) {
@@ -193,8 +193,8 @@ func getNetworkPluginType(networkPlugin string) NetworkPlugin {
 	return NetworkPlugin_NP_NONE
 }
 
-// getNetworkPolicyType returns the NetworkPolicyType enum based on the input string.
-func getNetworkPolicyType(networkPolicy string) NetworkPolicy {
+// GetNetworkPolicyType returns the NetworkPolicyType enum based on the input string.
+func GetNetworkPolicyType(networkPolicy string) NetworkPolicy {
 	if strings.EqualFold(networkPolicy, NetworkPolicyAzure) {
 		return NetworkPolicy_NPO_AZURE
 	} else if strings.EqualFold(networkPolicy, NetworkPolicyCalico) {
