@@ -68,7 +68,7 @@ message Configuration {
   ContainerdConfig containerd_config = 14;
 
   // Specifies whether the node is a VHD node. This is still needed for some customized scenarios.
-  bool is_vhd = 15;
+  optional bool is_vhd = 15;
 
   // Network configuration. We assumed network mode is always "transparent" now so it's removed from the contract.
   NetworkConfig network_config = 16;
@@ -77,7 +77,7 @@ message Configuration {
   TeleportConfig teleport_config = 17;
 
   // Specifies whether SSH is enabled or disabled on the VM node
-  bool enable_ssh = 18;
+  optional bool enable_ssh = 18;
 
   // Specifies whether unattended upgrade is enabled or disabled on the VM node
   bool enable_unattended_upgrade = 19;

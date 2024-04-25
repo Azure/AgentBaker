@@ -14,584 +14,271 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/* All the helper functions should be hosted by another public repo later. (e.g. agentbaker)
-This action of populating cse_cmd.sh should happen in the Go binary on VHD.
-Therefore, Karpenter will not use these helper functions once the Go binary is ready. */
-
-// Parser helpers are used to get values of the env variables to populate cse_cmd.sh. For example, default values, values computed by others, etc.
-// It's the go binary parser who will call these functions.
-
+// All the helper functions should be hosted by another public repo later. (e.g. agentbaker)
+// Helper functions in this file will be called by bootstrappers to populate nb contract payload.
 package parser
 
 import (
-	"bytes"
-	_ "embed"
-	"encoding/base64"
 	"fmt"
-	"log"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
-	"text/template"
 
-	"github.com/Azure/agentbaker/pkg/agent/common"
+	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/blang/semver"
 )
 
-var (
-	//go:embed kubenet-cni.json.gtpl
-	kubenetTemplateContent []byte
-	//go:embed  containerd.toml.gtpl
-	containerdConfigTemplateText string
-	containerdConfigTemplate     = template.Must(
-		template.New("containerdconfigfornbcontract").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigTemplateText),
-	)
+const (
+	azureChinaCloud = "AzureChinaCloud"
 )
 
-func getFuncMap() template.FuncMap {
-	return template.FuncMap{
-		"derefString":                               deref[string],
-		"derefBool":                                 deref[bool],
-		"getStringFromVMType":                       getStringFromVMType,
-		"getStringFromNetworkPluginType":            getStringFromNetworkPluginType,
-		"getStringFromNetworkPolicyType":            getStringFromNetworkPolicyType,
-		"getStringFromLoadBalancerSkuType":          getStringFromLoadBalancerSkuType,
-		"getKubenetTemplate":                        getKubenetTemplate,
-		"getSysctlContent":                          getSysctlContent,
-		"getUlimitContent":                          getUlimitContent,
-		"getContainerdConfig":                       getContainerdConfig,
-		"getStringifiedStringArray":                 getStringifiedStringArray,
-		"getIsMIGNode":                              getIsMIGNode,
-		"getCustomCACertsStatus":                    getCustomCACertsStatus,
-		"getEnableTLSBootstrap":                     getEnableTLSBootstrap,
-		"getEnableSecureTLSBootstrap":               getEnableSecureTLSBootstrap,
-		"getTLSBootstrapToken":                      getTLSBootstrapToken,
-		"getCustomSecureTLSBootstrapAADServerAppID": getCustomSecureTLSBootstrapAADServerAppID,
-		"getIsKrustlet":                             getIsKrustlet,
-		"getEnsureNoDupePromiscuousBridge":          getEnsureNoDupePromiscuousBridge,
-		"getHasSearchDomain":                        getHasSearchDomain,
-		"getCSEHelpersFilepath":                     getCSEHelpersFilepath,
-		"getCSEDistroHelpersFilepath":               getCSEDistroHelpersFilepath,
-		"getCSEInstallFilepath":                     getCSEInstallFilepath,
-		"getCSEDistroInstallFilepath":               getCSEDistroInstallFilepath,
-		"getCSEConfigFilepath":                      getCSEConfigFilepath,
-		"getCustomSearchDomainFilepath":             getCustomSearchDomainFilepath,
-		"getDHCPV6ConfigFilepath":                   getDHCPV6ConfigFilepath,
-		"getDHCPV6ServiceFilepath":                  getDHCPV6ServiceFilepath,
-		"getShouldConfigContainerdUlimits":          getShouldConfigContainerdUlimits,
-		"getKubeletConfigFileEnabled":               getKubeletConfigFileEnabled,
-		"createSortedKeyValueStringPairs":           createSortedKeyValuePairs[string],
-		"createSortedKeyValueInt32Pairs":            createSortedKeyValuePairs[int32],
-		"getExcludeMasterFromStandardLB":            getExcludeMasterFromStandardLB,
-		"getMaxLBRuleCount":                         getMaxLBRuleCount,
-		"getGpuNode":                                getGpuNode,
-		"getGpuImageSha":                            getGpuImageSha,
-		"getGpuDriverVersion":                       getGpuDriverVersion,
-		"getIsSgxEnabledSKU":                        getIsSgxEnabledSKU,
-		"getShouldConfigureHTTPProxy":               getShouldConfigureHTTPProxy,
-		"getShouldConfigureHTTPProxyCA":             getShouldConfigureHTTPProxyCA,
-		"getAzureEnvironmentFilepath":               getAzureEnvironmentFilepath,
-		"getLinuxAdminUsername":                     getLinuxAdminUsername,
-		"getTargetEnvironment":                      getTargetEnvironment,
-		"getTargetCloud":                            getTargetCloud,
+// GetLoadBalancerSKI returns the LoadBalancerSku enum based on the input string.
+func GetLoadBalancerSKU(sku string) nbcontractv1.LoadBalancerConfig_LoadBalancerSku {
+	if strings.EqualFold(sku, "Standard") {
+		return nbcontractv1.LoadBalancerConfig_STANDARD
+	} else if strings.EqualFold(sku, "Basic") {
+		return nbcontractv1.LoadBalancerConfig_BASIC
 	}
+
+	return nbcontractv1.LoadBalancerConfig_UNSPECIFIED
 }
 
-func getFuncMapForContainerdConfigTemplate() template.FuncMap {
-	return template.FuncMap{
-		"derefBool":  deref[bool],
-		"getGpuNode": getGpuNode,
+// GetNetworkPluginType returns the NetworkPluginType enum based on the input string.
+func GetNetworkPluginType(networkPlugin string) nbcontractv1.NetworkPlugin {
+	if strings.EqualFold(networkPlugin, "azure") {
+		return nbcontractv1.NetworkPlugin_NP_AZURE
+	} else if strings.EqualFold(networkPlugin, "kubenet") {
+		return nbcontractv1.NetworkPlugin_NP_KUBENET
 	}
+
+	return nbcontractv1.NetworkPlugin_NP_NONE
 }
 
-func getStringFromVMType(enum nbcontractv1.ClusterConfig_VM) string {
-	switch enum {
-	case nbcontractv1.ClusterConfig_STANDARD:
-		return vmTypeStandard
-	case nbcontractv1.ClusterConfig_VMSS:
-		return vmTypeVmss
+// GetNetworkPolicyType returns the NetworkPolicyType enum based on the input string.
+func GetNetworkPolicyType(networkPolicy string) nbcontractv1.NetworkPolicy {
+	if strings.EqualFold(networkPolicy, "azure") {
+		return nbcontractv1.NetworkPolicy_NPO_AZURE
+	} else if strings.EqualFold(networkPolicy, "calico") {
+		return nbcontractv1.NetworkPolicy_NPO_CALICO
+	}
+
+	return nbcontractv1.NetworkPolicy_NPO_NONE
+}
+
+// GetDefaultOutboundCommand returns a default outbound traffic command.
+func GetDefaultOutboundCommand() string {
+	return "curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/"
+}
+
+func GetKubeletNodeLabels(agentPool *datamodel.AgentPoolProfile) map[string]string {
+	kubeletLabels := map[string]string{
+		"agentpool":                      agentPool.Name,
+		"kubernetes.azure.com/agentpool": agentPool.Name,
+	}
+	maps.Copy(kubeletLabels, agentPool.CustomNodeLabels)
+	return kubeletLabels
+}
+
+// NOTE: The following functions are slightly modified versions of those that are already in agent/utils.go.
+// Other functions from agent/utils.go will also need to be added/merged here.
+
+// GetOutBoundCmd returns a proper outbound traffic command based on some cloud and Linux distro configs.
+func GetOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration) string {
+	cs := nbc.ContainerService
+	if cs.Properties.FeatureFlags.IsFeatureEnabled("BlockOutboundInternet") {
+		return ""
+	}
+
+	if strings.EqualFold(nbc.OutboundType, datamodel.OutboundTypeBlock) || strings.EqualFold(nbc.OutboundType, datamodel.OutboundTypeNone) {
+		return ""
+	}
+
+	var registry string
+	switch {
+	case nbc.CloudSpecConfig.CloudName == datamodel.AzureChinaCloud:
+		registry = `gcr.azk8s.cn`
+	case cs.IsAKSCustomCloud():
+		registry = cs.Properties.CustomCloudEnv.McrURL
 	default:
-		return ""
+		registry = `mcr.microsoft.com`
 	}
-}
 
-func getStringFromNetworkPluginType(enum nbcontractv1.NetworkPlugin) string {
-	switch enum {
-	case nbcontractv1.NetworkPlugin_NP_AZURE:
-		return networkPluginAzure
-	case nbcontractv1.NetworkPlugin_NP_KUBENET:
-		return networkPluginkubenet
-	default:
-		return ""
-	}
-}
-
-func getStringFromNetworkPolicyType(enum nbcontractv1.NetworkPolicy) string {
-	switch enum {
-	case nbcontractv1.NetworkPolicy_NPO_AZURE:
-		return networkPolicyAzure
-	case nbcontractv1.NetworkPolicy_NPO_CALICO:
-		return networkPolicyCalico
-	default:
-		return ""
-	}
-}
-
-func getStringFromLoadBalancerSkuType(enum nbcontractv1.LoadBalancerConfig_LoadBalancerSku) string {
-	switch enum {
-	case nbcontractv1.LoadBalancerConfig_BASIC:
-		return loadBalancerBasic
-	case nbcontractv1.LoadBalancerConfig_STANDARD:
-		return loadBalancerStandard
-	default:
-		return ""
-	}
-}
-
-// deref is a helper function to dereference a pointer of any type to its value
-func deref[T interface{}](p *T) T {
-	if p == nil {
-		var zeroValue T
-		return zeroValue
-	}
-	return *p
-}
-
-func getStringifiedStringArray(arr []string, delimiter string) string {
-	if len(arr) == 0 {
+	if registry == "" {
 		return ""
 	}
 
-	return strings.Join(arr, delimiter)
-}
+	// curl on Ubuntu 16.04 (shipped prior to AKS 1.18) doesn't support proxy TLS.
+	// so we need to use nc for the connectivity check.
+	clusterVersion, _ := semver.Make(cs.Properties.OrchestratorProfile.OrchestratorVersion)
+	minVersion, _ := semver.Make("1.18.0")
 
-// getKubenetTemplate returns the base64 encoded Kubenet template.
-func getKubenetTemplate() string {
-	return base64.StdEncoding.EncodeToString(kubenetTemplateContent)
-}
-
-func getContainerdConfig(nbcontract *nbcontractv1.Configuration) string {
-	if nbcontract == nil {
-		return ""
-	}
-
-	containerdConfig, err := containerdConfigFromNodeBootstrapContract(nbcontract)
-	if err != nil {
-		return fmt.Sprintf("error getting containerd config from node bootstrap variables: %v", err)
-	}
-
-	return base64.StdEncoding.EncodeToString([]byte(containerdConfig))
-}
-
-func containerdConfigFromNodeBootstrapContract(nbcontract *nbcontractv1.Configuration) (string, error) {
-	if nbcontract == nil {
-		return "", fmt.Errorf("node bootstrap contract is nil")
-	}
-
-	var buffer bytes.Buffer
-	if err := containerdConfigTemplate.Execute(&buffer, nbcontract); err != nil {
-		return "", fmt.Errorf("error executing containerd config template for NBContract: %w", err)
-	}
-
-	return buffer.String(), nil
-}
-
-func getIsMIGNode(gpuInstanceProfile string) bool {
-	return gpuInstanceProfile != ""
-}
-
-func getCustomCACertsStatus(customCACerts []string) bool {
-	if len(customCACerts) > 0 {
-		return true
-	}
-	return false
-}
-
-func getEnableTLSBootstrap(bootstrapConfig *nbcontractv1.TLSBootstrappingConfig) bool {
-	return bootstrapConfig.GetTlsBootstrappingToken() != ""
-}
-
-func getEnableSecureTLSBootstrap(bootstrapConfig *nbcontractv1.TLSBootstrappingConfig) bool {
-	// TODO: Change logic to default to false once Secure TLS Bootstrapping is complete
-	return bootstrapConfig.GetEnableSecureTlsBootstrapping()
-}
-
-func getTLSBootstrapToken(bootstrapConfig *nbcontractv1.TLSBootstrappingConfig) string {
-	return bootstrapConfig.GetTlsBootstrappingToken()
-}
-
-func getCustomSecureTLSBootstrapAADServerAppID(bootstrapConfig *nbcontractv1.TLSBootstrappingConfig) string {
-	return bootstrapConfig.GetCustomSecureTlsBootstrappingAppserverAppid()
-}
-
-func getIsKrustlet(wr nbcontractv1.WorkloadRuntime) bool {
-	return wr == nbcontractv1.WorkloadRuntime_WASM_WASI
-}
-
-func getEnsureNoDupePromiscuousBridge(nc *nbcontractv1.NetworkConfig) bool {
-	return nc.GetNetworkPlugin() == nbcontractv1.NetworkPlugin_NP_KUBENET && nc.GetNetworkPolicy() != nbcontractv1.NetworkPolicy_NPO_CALICO
-}
-
-func getHasSearchDomain(csd *nbcontractv1.CustomSearchDomainConfig) bool {
-	if csd.GetDomainName() != "" && csd.GetRealmUser() != "" && csd.GetRealmPassword() != "" {
-		return true
-	}
-	return false
-}
-
-func getCSEHelpersFilepath() string {
-	return cseHelpersScriptFilepath
-}
-
-func getCSEDistroHelpersFilepath() string {
-	return cseHelpersScriptDistroFilepath
-}
-
-func getCSEInstallFilepath() string {
-	return cseInstallScriptFilepath
-}
-
-func getCSEDistroInstallFilepath() string {
-	return cseInstallScriptDistroFilepath
-}
-
-func getCSEConfigFilepath() string {
-	return cseConfigScriptFilepath
-}
-
-func getCustomSearchDomainFilepath() string {
-	return customSearchDomainsCSEScriptFilepath
-}
-
-func getDHCPV6ServiceFilepath() string {
-	return dhcpV6ServiceCSEScriptFilepath
-}
-
-func getDHCPV6ConfigFilepath() string {
-	return dhcpV6ConfigCSEScriptFilepath
-}
-
-// getSysctlContent converts nbcontractv1.SysctlConfig to a string with key=value pairs, with default values.
-//
-//gocyclo:ignore
-func getSysctlContent(s *nbcontractv1.SysctlConfig) string {
-	// This is a partial workaround to this upstream Kubernetes issue:
-	// https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
-
-	if s == nil {
-		// If the sysctl config is nil, setting it to non-nil so that it can go through the defaulting logic below to get the default values.
-		s = &nbcontractv1.SysctlConfig{}
-	}
-
-	m := make(map[string]int32)
-	m["net.ipv4.tcp_retries2"] = 8
-	m["net.core.message_burst"] = 80
-	m["net.core.message_cost"] = 40
-
-	// Access the variable directly, instead of using the getter, so that it knows whether it's nil or not.
-	// This is based on protobuf3 explicit presence feature.
-	// Other directly access variables in this function implies the same idea.
-	if s.NetCoreSomaxconn == nil {
-		m["net.core.somaxconn"] = 16384
+	var connectivityCheckCommand string
+	if clusterVersion.GTE(minVersion) {
+		connectivityCheckCommand = `curl -v --insecure --proxy-insecure https://` + registry + `/v2/`
 	} else {
-		// either using getter for NetCoreSomaxconn or direct access is fine because we ensure it's not nil.
-		m["net.core.somaxconn"] = s.GetNetCoreSomaxconn()
+		connectivityCheckCommand = `nc -vz ` + registry + ` 443`
 	}
 
-	if s.NetIpv4TcpMaxSynBacklog == nil {
-		m["net.ipv4.tcp_max_syn_backlog"] = 16384
-	} else {
-		m["net.ipv4.tcp_max_syn_backlog"] = s.GetNetIpv4TcpMaxSynBacklog()
+	return connectivityCheckCommand
+}
+
+// GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs.
+// copied from AKS-Engine and filter out flags that already translated to config file.
+func GetKubeletConfigFlag(k map[string]string, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile,
+	kubeletConfigFileToggleEnabled bool) map[string]string {
+	/* NOTE(mainred): kubeConfigFile now relies on CustomKubeletConfig, while custom configuration is not
+	compatible with CustomKubeletConfig. When custom configuration is set we want to override every
+	configuration with the customized one. */
+	kubeletCustomConfigurations := getKubeletCustomConfiguration(cs.Properties)
+	if kubeletCustomConfigurations != nil {
+		return getKubeletConfigFlagWithCustomConfiguration(kubeletCustomConfigurations, k)
 	}
 
-	if s.NetIpv4NeighDefaultGcThresh1 == nil {
-		m["net.ipv4.neigh.default.gc_thresh1"] = 4096
-	} else {
-		m["net.ipv4.neigh.default.gc_thresh1"] = s.GetNetIpv4NeighDefaultGcThresh1()
+	if k == nil {
+		return nil
 	}
-
-	if s.NetIpv4NeighDefaultGcThresh2 == nil {
-		m["net.ipv4.neigh.default.gc_thresh2"] = 8192
-	} else {
-		m["net.ipv4.neigh.default.gc_thresh2"] = s.GetNetIpv4NeighDefaultGcThresh2()
+	// Always force remove of dynamic-config-dir.
+	kubeletConfigFileEnabled := agent.IsKubeletConfigFileEnabled(cs, profile, kubeletConfigFileToggleEnabled)
+	kubeletConfigFlags := map[string]string{}
+	ommitedKubletConfigFlags := datamodel.GetCommandLineOmittedKubeletConfigFlags()
+	for key := range k {
+		if !kubeletConfigFileEnabled || !agent.TranslatedKubeletConfigFlags[key] {
+			if !ommitedKubletConfigFlags[key] {
+				kubeletConfigFlags[key] = k[key]
+			}
+		}
 	}
+	return kubeletConfigFlags
+}
 
-	if s.NetIpv4NeighDefaultGcThresh3 == nil {
-		m["net.ipv4.neigh.default.gc_thresh3"] = 16384
-	} else {
-		m["net.ipv4.neigh.default.gc_thresh3"] = s.GetNetIpv4NeighDefaultGcThresh3()
-	}
+func getKubeletConfigFlagWithCustomConfiguration(customConfig, defaultConfig map[string]string) map[string]string {
+	config := customConfig
 
-	if s.NetCoreNetdevMaxBacklog != nil {
-		m["net.core.netdev_max_backlog"] = s.GetNetCoreNetdevMaxBacklog()
-	}
-
-	if s.NetCoreRmemDefault != nil {
-		m["net.core.rmem_default"] = s.GetNetCoreRmemDefault()
-	}
-
-	if s.NetCoreRmemMax != nil {
-		m["net.core.rmem_max"] = s.GetNetCoreRmemMax()
-	}
-
-	if s.NetCoreWmemDefault != nil {
-		m["net.core.wmem_default"] = s.GetNetCoreWmemDefault()
-	}
-
-	if s.NetCoreWmemMax != nil {
-		m["net.core.wmem_max"] = s.GetNetCoreWmemMax()
-	}
-
-	if s.NetCoreOptmemMax != nil {
-		m["net.core.optmem_max"] = s.GetNetCoreOptmemMax()
-	}
-
-	if s.NetIpv4TcpMaxTwBuckets != nil {
-		m["net.ipv4.tcp_max_tw_buckets"] = s.GetNetIpv4TcpMaxTwBuckets()
-	}
-
-	if s.NetIpv4TcpFinTimeout != nil {
-		m["net.ipv4.tcp_fin_timeout"] = s.GetNetIpv4TcpFinTimeout()
-	}
-
-	if s.NetIpv4TcpKeepaliveTime != nil {
-		m["net.ipv4.tcp_keepalive_time"] = s.GetNetIpv4TcpKeepaliveTime()
-	}
-
-	if s.NetIpv4TcpKeepaliveProbes != nil {
-		m["net.ipv4.tcp_keepalive_probes"] = s.GetNetIpv4TcpKeepaliveProbes()
-	}
-
-	if s.NetIpv4TcpkeepaliveIntvl != nil {
-		m["net.ipv4.tcp_keepalive_intvl"] = s.GetNetIpv4TcpkeepaliveIntvl()
-	}
-
-	if s.NetIpv4TcpTwReuse != nil {
-		if s.GetNetIpv4TcpTwReuse() {
-			m["net.ipv4.tcp_tw_reuse"] = 1
-		} else {
-			m["net.ipv4.tcp_tw_reuse"] = 0
+	for k, v := range defaultConfig {
+		// add key-value only when the flag does not exist in custom config.
+		if _, ok := config[k]; !ok {
+			config[k] = v
 		}
 	}
 
-	if s.GetNetIpv4IpLocalPortRange() != "" {
-		if getPortRangeEndValue(s.GetNetIpv4IpLocalPortRange()) > 65330 {
-			m["net.ipv4.ip_local_reserved_ports"] = 65330
+	ommitedKubletConfigFlags := datamodel.GetCommandLineOmittedKubeletConfigFlags()
+	for key := range config {
+		if ommitedKubletConfigFlags[key] {
+			delete(config, key)
 		}
 	}
-
-	if s.NetNetfilterNfConntrackMax != nil {
-		m["net.netfilter.nf_conntrack_max"] = s.GetNetNetfilterNfConntrackMax()
-	}
-
-	if s.NetNetfilterNfConntrackBuckets != nil {
-		m["net.netfilter.nf_conntrack_buckets"] = s.GetNetNetfilterNfConntrackBuckets()
-	}
-
-	if s.FsInotifyMaxUserWatches != nil {
-		m["fs.inotify.max_user_watches"] = s.GetFsInotifyMaxUserWatches()
-	}
-
-	if s.FsFileMax != nil {
-		m["fs.file-max"] = s.GetFsFileMax()
-	}
-
-	if s.FsAioMaxNr != nil {
-		m["fs.aio-max-nr"] = s.GetFsAioMaxNr()
-	}
-
-	if s.FsNrOpen != nil {
-		m["fs.nr_open"] = s.GetFsNrOpen()
-	}
-
-	if s.KernelThreadsMax != nil {
-		m["kernel.threads-max"] = s.GetKernelThreadsMax()
-	}
-
-	if s.VMMaxMapCount != nil {
-		m["vm.max_map_count"] = s.GetVMMaxMapCount()
-	}
-
-	if s.VMSwappiness != nil {
-		m["vm.swappiness"] = s.GetVMSwappiness()
-	}
-
-	if s.VMVfsCachePressure != nil {
-		m["vm.vfs_cache_pressure"] = s.GetVMVfsCachePressure()
-	}
-
-	return base64.StdEncoding.EncodeToString([]byte(createSortedKeyValuePairs(m, " ")))
+	return config
 }
 
-func getShouldConfigContainerdUlimits(u *nbcontractv1.UlimitConfig) bool {
-	return u != nil
+func getKubeletCustomConfiguration(properties *datamodel.Properties) map[string]string {
+	if properties.CustomConfiguration == nil || properties.CustomConfiguration.KubernetesConfigurations == nil {
+		return nil
+	}
+	kubeletConfigurations, ok := properties.CustomConfiguration.KubernetesConfigurations["kubelet"]
+	if !ok {
+		return nil
+	}
+	if kubeletConfigurations.Config == nil {
+		return nil
+	}
+	// empty config is treated as nil.
+	if len(kubeletConfigurations.Config) == 0 {
+		return nil
+	}
+	return kubeletConfigurations.Config
 }
 
-// getUlimitContent converts nbcontractv1.UlimitConfig to a string with key=value pairs.
-func getUlimitContent(u *nbcontractv1.UlimitConfig) string {
-	if u == nil {
-		return ""
+func ValidateAndSetLinuxKubeletFlags(kubeletFlags map[string]string, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile) {
+	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
+	// we should only allow users to configure from API (20201101 and later)
+	dockerShimFlags := []string{
+		"--cni-bin-dir",
+		"--cni-cache-dir",
+		"--cni-conf-dir",
+		"--docker-endpoint",
+		"--image-pull-progress-deadline",
+		"--network-plugin",
+		"--network-plugin-mtu",
 	}
 
-	header := "[Service]\n"
-	m := make(map[string]string)
-	if u.NoFile != nil {
-		m["LimitNOFILE"] = u.GetNoFile()
-	}
+	if kubeletFlags != nil {
+		delete(kubeletFlags, "--dynamic-config-dir")
+		delete(kubeletFlags, "--non-masquerade-cidr")
+		if profile != nil && profile.KubernetesConfig != nil &&
+			profile.KubernetesConfig.ContainerRuntime != "" &&
+			profile.KubernetesConfig.ContainerRuntime == "containerd" {
+			for _, flag := range dockerShimFlags {
+				delete(kubeletFlags, flag)
+			}
+		}
+		if IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
+			kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
+		} else if IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
+			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
+		}
 
-	if u.MaxLockedMemory != nil {
-		m["LimitMEMLOCK"] = u.GetMaxLockedMemory()
+		/* ContainerInsights depends on GPU accelerator Usage metrics from Kubelet cAdvisor endpoint but
+		deprecation of this feature moved to beta which breaks the ContainerInsights customers with K8s
+		 version 1.20 or higher */
+		/* Until Container Insights move to new API adding this feature gate to get the GPU metrics
+		continue to work */
+		/* Reference -
+		https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1867-disable-accelerator-usage-metrics */
+		if IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.20.0") &&
+			!IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
+			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
+		}
 	}
-
-	return base64.StdEncoding.EncodeToString([]byte(header + createSortedKeyValuePairs(m, " ")))
 }
 
-// getPortRangeEndValue returns the end value of the port range where the input is in the format of "start end".
-func getPortRangeEndValue(portRange string) int {
-	if portRange == "" {
-		return -1
+func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[string]bool {
+	m := make(map[string]bool)
+	pairs := strings.Split(str, strDelim)
+	for _, pairRaw := range pairs {
+		pair := strings.Split(pairRaw, pairDelim)
+		if len(pair) == numInPair {
+			key := strings.TrimSpace(pair[0])
+			val := strings.TrimSpace(pair[1])
+			m[key] = strToBool(val)
+		}
 	}
-
-	arr := strings.Split(portRange, " ")
-
-	// we are expecting only two values, start and end.
-	if len(arr) != 2 {
-		return -1
-	}
-
-	start, end := int(0), int(0)
-	var err error
-
-	// the start value should be a valid port number.
-	if start, err = strconv.Atoi(arr[0]); err != nil {
-		log.Printf("error converting port range start value to int: %v", err)
-		return -1
-	}
-
-	// the end value should be a valid port number.
-	if end, err = strconv.Atoi(arr[1]); err != nil {
-		log.Printf("error converting port range end value to int: %v", err)
-		return -1
-	}
-
-	if start <= 0 || end <= 0 {
-		log.Printf("port range values should be greater than 0: %d", start)
-		return -1
-	}
-
-	if start >= end {
-		log.Printf("port range end value should be greater than the start value: %d >= %d", start, end)
-		return -1
-	}
-
-	return end
+	return m
 }
 
-// createSortedKeyValuePairs creates a string with key=value pairs, sorted by key, with custom delimiter.
-func createSortedKeyValuePairs[T any](m map[string]T, delimiter string) string {
-	keys := []string{}
-	for key := range m {
-		keys = append(keys, key)
+func removeFeatureGateString(featureGates string, key string) string {
+	fgMap := strKeyValToMapBool(featureGates, ",", "=")
+	delete(fgMap, key)
+	keys := make([]string, 0, len(fgMap))
+	for k := range fgMap {
+		keys = append(keys, k)
 	}
-
-	// we are sorting the keys for deterministic output for readability and testing.
 	sort.Strings(keys)
-	var buf bytes.Buffer
-	i := 0
-	for _, key := range keys {
-		i++
-		// set the last delimiter to empty string
-		if i == len(keys) {
-			delimiter = ""
-		}
-		buf.WriteString(fmt.Sprintf("%s=%v%s", key, m[key], delimiter))
+	pairs := make([]string, 0, len(keys))
+	for _, k := range keys {
+		pairs = append(pairs, fmt.Sprintf("%s=%t", k, fgMap[k]))
 	}
-	return buf.String()
+	return strings.Join(pairs, ",")
 }
 
-// getKubeletConfigFileEnabled returns true if the kubelet config content is not empty and the k8s version is greater than or equal to 1.14.0.
-func getKubeletConfigFileEnabled(configContent string, k8sVersion string) bool {
-	// In AgentBaker's utils.go, it also checks if the orchestrator is Kubernetes. We assume it is always Kubernetes here.
-	return configContent != "" && IsKubernetesVersionGe(k8sVersion, "1.14.0")
-}
-
-// IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.
-func IsKubernetesVersionGe(actualVersion, version string) bool {
-	v1, _ := semver.Make(actualVersion)
-	v2, _ := semver.Make(version)
-	return v1.GE(v2)
-}
-
-func getExcludeMasterFromStandardLB(lb *nbcontractv1.LoadBalancerConfig) bool {
-	if lb == nil || lb.ExcludeMasterFromStandardLoadBalancer == nil {
-		return true
+func addFeatureGateString(featureGates string, key string, value bool) string {
+	fgMap := strKeyValToMapBool(featureGates, ",", "=")
+	fgMap[key] = value
+	keys := make([]string, 0, len(fgMap))
+	for k := range fgMap {
+		keys = append(keys, k)
 	}
-	return lb.GetExcludeMasterFromStandardLoadBalancer()
-}
-
-func getMaxLBRuleCount(lb *nbcontractv1.LoadBalancerConfig) int32 {
-	if lb == nil || lb.MaxLoadBalancerRuleCount == nil {
-		return int32(148)
+	sort.Strings(keys)
+	pairs := make([]string, 0, len(keys))
+	for _, k := range keys {
+		pairs = append(pairs, fmt.Sprintf("%s=%t", k, fgMap[k]))
 	}
-	return lb.GetMaxLoadBalancerRuleCount()
+	return strings.Join(pairs, ",")
 }
 
-func getGpuNode(vmSize string) bool {
-	return common.IsNvidiaEnabledSKU(vmSize)
-}
-
-func getGpuImageSha(vmSize string) string {
-	return common.GetAKSGPUImageSHA(vmSize)
-}
-
-func getGpuDriverVersion(vmSize string) string {
-	return common.GetGPUDriverVersion(vmSize)
-}
-
-// IsSgxEnabledSKU determines if an VM SKU has SGX driver support.
-func getIsSgxEnabledSKU(vmSize string) bool {
-	switch vmSize {
-	case vmSizeStandardDc2s, vmSizeStandardDc4s:
-		return true
-	}
-	return false
-}
-
-func getShouldConfigureHTTPProxy(httpProxyConfig *nbcontractv1.HTTPProxyConfig) bool {
-	return httpProxyConfig.GetHttpProxy() != "" || httpProxyConfig.GetHttpsProxy() != ""
-}
-
-func getShouldConfigureHTTPProxyCA(httpProxyConfig *nbcontractv1.HTTPProxyConfig) bool {
-	return httpProxyConfig.GetProxyTrustedCa() != ""
-}
-
-func getAzureEnvironmentFilepath(v *nbcontractv1.CustomCloudConfig) string {
-	if v.GetIsAksCustomCloud() {
-		return fmt.Sprintf("/etc/kubernetes/%s.json", v.GetTargetEnvironment())
-	}
-	return ""
-}
-
-func getLinuxAdminUsername(username string) string {
-	if username == "" {
-		return defaultLinuxUser
-	}
-	return username
-}
-
-func getTargetEnvironment(v *nbcontractv1.CustomCloudConfig) string {
-	if v.GetTargetEnvironment() == "" {
-		return defaultCloudName
-	}
-
-	return v.GetTargetEnvironment()
-}
-
-func getTargetCloud(v *nbcontractv1.AuthConfig) string {
-	if v.GetTargetCloud() == "" {
-		return defaultCloudName
-	}
-
-	return v.GetTargetCloud()
+func strToBool(str string) bool {
+	b, _ := strconv.ParseBool(str)
+	return b
 }
