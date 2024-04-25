@@ -183,7 +183,7 @@ func (agentBaker *agentBakerImpl) GetCachedVersionsOnVHD() (datamodel.CachedOnVH
 		CachedFromComponentDownloadedFiles: datamodel.CachedFromComponentDownloadedFiles,
 	}
 
-	if datamodel.CachedFromManifest == (&datamodel.Manifest{}) || datamodel.CachedFromComponentContainerImages == nil || datamodel.CachedFromComponentDownloadedFiles == nil {
+	if datamodel.CachedFromManifest == nil || datamodel.CachedFromComponentContainerImages == nil || datamodel.CachedFromComponentDownloadedFiles == nil {
 		return cached, fmt.Errorf("cached versions are not available")
 	}
 

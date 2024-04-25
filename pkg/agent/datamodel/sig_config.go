@@ -18,9 +18,9 @@ const (
 
 //nolint:gochecknoglobals
 var (
-	CachedFromComponentContainerImages = make(map[string]ContainerImage)
-	CachedFromComponentDownloadedFiles = make(map[string]DownloadFile)
-	CachedFromManifest                 = &Manifest{}
+	CachedFromComponentContainerImages map[string]ContainerImage
+	CachedFromComponentDownloadedFiles map[string]DownloadFile
+	CachedFromManifest                 *Manifest
 )
 
 //nolint:gochecknoinits
@@ -62,6 +62,8 @@ func GetComponents() (Components, error) {
 }
 
 func processManifest(manifest Manifest) {
+	CachedFromManifest = &Manifest{}
+
 	CachedFromManifest.Kubernetes = manifest.Kubernetes
 	CachedFromManifest.Runc = manifest.Runc
 	CachedFromManifest.Containerd = manifest.Containerd
@@ -70,6 +72,9 @@ func processManifest(manifest Manifest) {
 }
 
 func processComponents(components Components) error {
+	CachedFromComponentContainerImages = make(map[string]ContainerImage)
+	CachedFromComponentDownloadedFiles = make(map[string]DownloadFile)
+
 	for _, image := range components.ContainerImages {
 		componentName, err := getContainerImageNameFromURL(image.DownloadURL)
 		if err != nil {
