@@ -212,5 +212,9 @@ coverage:
 unit-tests:
 	$(GO) test `go list ./... | grep -v e2e` -coverprofile coverage_raw.out -covermode count
 
+.PHONY: local-lint
+local-lint:
+	golangci-lint run
+
 include versioning.mk
 include test.mk
