@@ -262,7 +262,6 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.28.6",
-        "v1.28.6-2",
         "v1.28.7",
         "v1.29.3",
         "v1.29.4",
@@ -297,8 +296,6 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.10.0",
-        "v2.11.0",
         "v2.12.0"
       ]
     },
@@ -306,8 +303,6 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.8.0",
-        "v2.9.0",
         "v2.10.0"
       ]
     },
