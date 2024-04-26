@@ -116,7 +116,7 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.23",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.26",
     # Dropgz (init container to CNS). Owner: pjohnst5 (Paul Johnston)
-    "mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.13"
+    "mcr.microsoft.com/containernetworking/cni-dropgz:v0.1.3"
 )
 
 $global:map = @{

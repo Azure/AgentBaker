@@ -31,7 +31,10 @@ jobs:
         run: go test `go list ./... | grep -v e2e` -coverprofile coverage_raw.out -covermode count
       - name: Remove mocks.go lines
         run: |
-          sed '/mocks.go/d' coverage_raw.out > coverage.out
+          sed '/mocks.go/d' coverage_raw.out > coverage-no-mocks.out
+      - name: Remove proto lines
+        run: |
+          sed '/pb.go/d' coverage-no-mocks.out > coverage.out
       - name: Convert coverage to lcov
         uses: jandelgado/gcov2lcov-action@v1
       - name: Coveralls
