@@ -322,14 +322,14 @@ for imageToBePulled in ${ContainerImages[*]}; do
       wait -n
     done
   done
-  wait ${!image_pids_and_urls[@]}
-  for pid in ${!image_pids_and_urls[@]}; do
-      if wait $pid; then
-        echo "  - ${image_pids_and_urls[$pid]}" >> ${VHD_LOGS_FILEPATH}
-      else
-        echo "${image_pids_and_urls[$pid]} encountered an error and was not successfully pulled. "
-      fi
-    done
+done
+wait ${!image_pids_and_urls[@]}
+for pid in ${!image_pids_and_urls[@]}; do
+  if wait $pid; then
+    echo "  - ${image_pids_and_urls[$pid]}" >> ${VHD_LOGS_FILEPATH}
+  else
+    echo "${image_pids_and_urls[$pid]} encountered an error and was not successfully pulled. "
+  fi
 done
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
