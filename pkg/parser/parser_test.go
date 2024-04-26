@@ -174,7 +174,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(err).To(BeNil())
 
 		if generateTestData() {
-			if _, err := os.Stat(fmt.Sprintf("./testdata/%s", folder)); os.IsNotExist(err) {
+			if _, err = os.Stat(fmt.Sprintf("./testdata/%s", folder)); os.IsNotExist(err) {
 				e := os.MkdirAll(fmt.Sprintf("./testdata/%s", folder), 0755)
 				Expect(e).To(BeNil())
 			}

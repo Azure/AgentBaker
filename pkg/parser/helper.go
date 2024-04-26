@@ -43,7 +43,8 @@ var (
 	kubenetTemplateContent []byte
 	//go:embed  containerd.toml.gtpl
 	containerdConfigTemplateText string
-	containerdConfigTemplate     = template.Must(
+	//nolint:gochecknoglobals
+	containerdConfigTemplate = template.Must(
 		template.New("containerdconfigfornbcontract").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigTemplateText),
 	)
 )
@@ -123,11 +124,14 @@ func getStringFromVMType(enum nbcontractv1.ClusterConfig_VM) string {
 		return nbcontractv1.VmTypeStandard
 	case nbcontractv1.ClusterConfig_VMSS:
 		return nbcontractv1.VmTypeVmss
+	case nbcontractv1.ClusterConfig_UNSPECIFIED:
+		return ""
 	default:
 		return ""
 	}
 }
 
+//nolint:exhaustive // NetworkPlugin_NP_NONE and NetworkPlugin_NP_UNSPECIFIED should both return ""
 func getStringFromNetworkPluginType(enum nbcontractv1.NetworkPlugin) string {
 	switch enum {
 	case nbcontractv1.NetworkPlugin_NP_AZURE:
@@ -139,6 +143,7 @@ func getStringFromNetworkPluginType(enum nbcontractv1.NetworkPlugin) string {
 	}
 }
 
+//nolint:exhaustive // NetworkPolicy_NPO_NONE and NetworkPolicy_NPO_UNSPECIFIED should both return ""
 func getStringFromNetworkPolicyType(enum nbcontractv1.NetworkPolicy) string {
 	switch enum {
 	case nbcontractv1.NetworkPolicy_NPO_AZURE:
@@ -150,6 +155,7 @@ func getStringFromNetworkPolicyType(enum nbcontractv1.NetworkPolicy) string {
 	}
 }
 
+//nolint:exhaustive // Default and LoadBalancerConfig_UNSPECIFIED should both return ""
 func getStringFromLoadBalancerSkuType(enum nbcontractv1.LoadBalancerConfig_LoadBalancerSku) string {
 	switch enum {
 	case nbcontractv1.LoadBalancerConfig_BASIC:
@@ -161,7 +167,7 @@ func getStringFromLoadBalancerSkuType(enum nbcontractv1.LoadBalancerConfig_LoadB
 	}
 }
 
-// deref is a helper function to dereference a pointer of any type to its value
+// deref is a helper function to dereference a pointer of any type to its value.
 func deref[T interface{}](p *T) T {
 	if p == nil {
 		var zeroValue T
@@ -284,6 +290,7 @@ func getDHCPV6ConfigFilepath() string {
 // getSysctlContent converts nbcontractv1.SysctlConfig to a string with key=value pairs, with default values.
 //
 //gocyclo:ignore
+//nolint:funlen // This function is long because it has to handle all the sysctl values.
 func getSysctlContent(s *nbcontractv1.SysctlConfig) string {
 	// This is a partial workaround to this upstream Kubernetes issue:
 	// https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
@@ -386,8 +393,8 @@ func getSysctlContent(s *nbcontractv1.SysctlConfig) string {
 
 	if s.GetNetIpv4IpLocalPortRange() != "" {
 		m["net.ipv4.ip_local_port_range"] = s.GetNetIpv4IpLocalPortRange()
-		if getPortRangeEndValue(s.GetNetIpv4IpLocalPortRange()) > 65330 {
-			m["net.ipv4.ip_local_reserved_ports"] = 65330
+		if getPortRangeEndValue(s.GetNetIpv4IpLocalPortRange()) > ipLocalReservedPorts {
+			m["net.ipv4.ip_local_reserved_ports"] = ipLocalReservedPorts
 		}
 	}
 
@@ -466,11 +473,11 @@ func getPortRangeEndValue(portRange string) int {
 	arr := strings.Split(portRange, " ")
 
 	// we are expecting only two values, start and end.
-	if len(arr) != 2 {
+	if len(arr) != MinArgs {
 		return -1
 	}
 
-	start, end := int(0), int(0)
+	var start, end int
 	var err error
 
 	// the start value should be a valid port number.
@@ -529,7 +536,7 @@ func getExcludeMasterFromStandardLB(lb *nbcontractv1.LoadBalancerConfig) bool {
 
 func getMaxLBRuleCount(lb *nbcontractv1.LoadBalancerConfig) int32 {
 	if lb == nil || lb.MaxLoadBalancerRuleCount == nil {
-		return int32(148)
+		return int32(maxLBRuleCountDefault)
 	}
 	return lb.GetMaxLoadBalancerRuleCount()
 }

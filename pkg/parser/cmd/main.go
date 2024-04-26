@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 
@@ -15,8 +14,8 @@ import (
 // to build: go build main.go.
 // to run: ./main testdata/test_nbc.json.
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Please provide a filename as a command-line argument")
+	if len(os.Args) < parser.MinArgs {
+		log.Default().Printf("Usage: %s <input.json>", os.Args[0])
 		return
 	}
 
@@ -32,7 +31,7 @@ func main() {
 		log.Fatal(err)
 		return
 	}
-	if err := os.WriteFile("cse_cmd.sh", []byte(cseCmd), 0600); err != nil {
+	if err = os.WriteFile("cse_cmd.sh", []byte(cseCmd), 0600); err != nil {
 		log.Fatal(err)
 		return
 	}

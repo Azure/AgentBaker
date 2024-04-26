@@ -28,3 +28,9 @@ const (
 	dhcpV6ConfigCSEScriptFilepath        = "/opt/azure/containers/enable-dhcpv6.sh"
 	initAKSCustomCloudFilepath           = "/opt/azure/containers/init-aks-custom-cloud.sh"
 )
+
+const (
+	maxLBRuleCountDefault = 148
+	ipLocalReservedPorts  = 65330
+	MinArgs               = 2
+)
