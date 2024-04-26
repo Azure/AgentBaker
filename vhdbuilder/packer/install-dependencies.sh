@@ -272,152 +272,152 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
-ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-for imageToBePulled in ${ContainerImages[*]}; do
-  downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
-  amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-  multiArchVersionsStr=$(echo "${imageToBePulled}" | jq .multiArchVersions -r)
+#ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
+#for imageToBePulled in ${ContainerImages[*]}; do
+#  downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
+#  amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
+#  multiArchVersionsStr=$(echo "${imageToBePulled}" | jq .multiArchVersions -r)
+#
+#  amd64OnlyVersions=""
+#  if [[ ${amd64OnlyVersionsStr} != null ]]; then
+#    amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
+#  fi
+#  multiArchVersions=""
+#  if [[ ${multiArchVersionsStr} != null ]]; then
+#    multiArchVersions=$(echo "${multiArchVersionsStr}" | jq -r ".[]")
+#  fi
+#
+#  if [[ $(isARM64) == 1 ]]; then
+#    versions="${multiArchVersions}"
+#  else
+#    versions="${amd64OnlyVersions} ${multiArchVersions}"
+#  fi
+#
+#  for version in ${versions}; do
+#    CONTAINER_IMAGE=$(string_replace $downloadURL $version)
+#    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+#    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+#  done
+#done
 
-  amd64OnlyVersions=""
-  if [[ ${amd64OnlyVersionsStr} != null ]]; then
-    amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
-  fi
-  multiArchVersions=""
-  if [[ ${multiArchVersionsStr} != null ]]; then
-    multiArchVersions=$(echo "${multiArchVersionsStr}" | jq -r ".[]")
-  fi
-
-  if [[ $(isARM64) == 1 ]]; then
-    versions="${multiArchVersions}"
-  else
-    versions="${amd64OnlyVersions} ${multiArchVersions}"
-  fi
-
-  for version in ${versions}; do
-    CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-  done
-done
-
-watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
-watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
-watcherVersion=$(echo $watcher | jq -r .multiArchVersions[0])
-watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
-
-# this image will never get pulled, the tag must be the same across different SHAs.
-# it will only ever be upgraded via node image changes.
-# we do this because the image is used to bootstrap custom CA trust when MCR egress
-# may be intercepted by an untrusted TLS MITM firewall.
-watcherStaticImg=${watcherBaseImg//\*/static}
-
-# can't use cliTool because crictl doesn't support retagging.
-retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
-stop_watch $capture_time "Pull and Re-tag Container Images" false
+#watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
+#watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
+#watcherVersion=$(echo $watcher | jq -r .multiArchVersions[0])
+#watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
+#
+## this image will never get pulled, the tag must be the same across different SHAs.
+## it will only ever be upgraded via node image changes.
+## we do this because the image is used to bootstrap custom CA trust when MCR egress
+## may be intercepted by an untrusted TLS MITM firewall.
+#watcherStaticImg=${watcherBaseImg//\*/static}
+#
+## can't use cliTool because crictl doesn't support retagging.
+#retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
+#stop_watch $capture_time "Pull and Re-tag Container Images" false
 start_watch
 
-# doing this at vhd allows CSE to be faster with just mv
-unpackAzureCNI() {
-  local URL=$1
-  CNI_TGZ_TMP=${URL##*/}
-  CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
-  mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
-  tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR/$CNI_DIR_TMP
-  rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
-  echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
-}
-
-#must be both amd64/arm64 images
-VNET_CNI_VERSIONS="
-1.4.43.1
-1.4.52
-1.5.11
-1.5.23
-"
-
-
-for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
-    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
-    downloadAzureCNI
-    unpackAzureCNI $VNET_CNI_PLUGINS_URL
-    echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-
-#UNITE swift and overlay versions?
-#Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
-SWIFT_CNI_VERSIONS="
-1.4.43.1
-1.4.52
-1.5.11
-1.5.23
-"
-
-for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
-    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${SWIFT_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-${CPU_ARCH}-v${SWIFT_CNI_VERSION}.tgz"
-    downloadAzureCNI
-    unpackAzureCNI $VNET_CNI_PLUGINS_URL
-    echo "  - Azure Swift CNI version ${SWIFT_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-
-# After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
-MULTI_ARCH_CNI_PLUGIN_VERSIONS="
-1.1.1
-"
-CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
-
-for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
-    CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-${CPU_ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
-    downloadCNI
-    unpackAzureCNI $CNI_PLUGINS_URL
-    echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-
-# IPv6 nftables rules are only available on Ubuntu or Mariner v2
-if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) ]]; then
-  systemctlEnableAndStart ipv6_nftables || exit 1
-fi
-stop_watch $capture_time "Configure Networking and Interface" false
-start_watch
-
-if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
-NVIDIA_DEVICE_PLUGIN_VERSIONS="
-v0.13.0.7
-"
-for NVIDIA_DEVICE_PLUGIN_VERSION in ${NVIDIA_DEVICE_PLUGIN_VERSIONS}; do
-    CONTAINER_IMAGE="mcr.microsoft.com/oss/nvidia/k8s-device-plugin:${NVIDIA_DEVICE_PLUGIN_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-done
-
-# GPU device plugin
-if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_FLAGS"; then
-  kubeletDevicePluginPath="/var/lib/kubelet/device-plugins"
-  mkdir -p $kubeletDevicePluginPath
-  echo "  - $kubeletDevicePluginPath" >> ${VHD_LOGS_FILEPATH}
-
-  DEST="/usr/local/nvidia/bin"
-  mkdir -p $DEST
-  ctr --namespace k8s.io run --rm --mount type=bind,src=${DEST},dst=${DEST},options=bind:rw --cwd ${DEST} "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.13.0.7" plugingextract /bin/sh -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
-  chmod a+x $DEST/nvidia-device-plugin
-  echo "  - extracted nvidia-device-plugin..." >> ${VHD_LOGS_FILEPATH}
-  ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
-
-  systemctlEnableAndStart nvidia-device-plugin || exit 1
-fi
-fi
-stop_watch $capture_time "GPU Device plugin" false
-start_watch
-
-# Kubelet credential provider plugins
-CREDENTIAL_PROVIDER_VERSIONS="
-1.29.2
-1.30.0
-"
-for CREDENTIAL_PROVIDER_VERSION in $CREDENTIAL_PROVIDER_VERSIONS; do
-    CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
-    downloadCredentalProvider $CREDENTIAL_PROVIDER_DOWNLOAD_URL
-    echo "  - Kubelet credential provider version ${CREDENTIAL_PROVIDER_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
+## doing this at vhd allows CSE to be faster with just mv
+#unpackAzureCNI() {
+#  local URL=$1
+#  CNI_TGZ_TMP=${URL##*/}
+#  CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
+#  mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
+#  tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR/$CNI_DIR_TMP
+#  rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
+#  echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
+#}
+#
+##must be both amd64/arm64 images
+#VNET_CNI_VERSIONS="
+#1.4.43.1
+#1.4.52
+#1.5.11
+#1.5.23
+#"
+#
+#
+#for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
+#    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
+#    downloadAzureCNI
+#    unpackAzureCNI $VNET_CNI_PLUGINS_URL
+#    echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
+#done
+#
+##UNITE swift and overlay versions?
+##Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
+#SWIFT_CNI_VERSIONS="
+#1.4.43.1
+#1.4.52
+#1.5.11
+#1.5.23
+#"
+#
+#for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
+#    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${SWIFT_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-${CPU_ARCH}-v${SWIFT_CNI_VERSION}.tgz"
+#    downloadAzureCNI
+#    unpackAzureCNI $VNET_CNI_PLUGINS_URL
+#    echo "  - Azure Swift CNI version ${SWIFT_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
+#done
+#
+## After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
+#MULTI_ARCH_CNI_PLUGIN_VERSIONS="
+#1.1.1
+#"
+#CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
+#
+#for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
+#    CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-${CPU_ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
+#    downloadCNI
+#    unpackAzureCNI $CNI_PLUGINS_URL
+#    echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
+#done
+#
+## IPv6 nftables rules are only available on Ubuntu or Mariner v2
+#if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) ]]; then
+#  systemctlEnableAndStart ipv6_nftables || exit 1
+#fi
+#stop_watch $capture_time "Configure Networking and Interface" false
+#start_watch
+#
+#if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
+#NVIDIA_DEVICE_PLUGIN_VERSIONS="
+#v0.13.0.7
+#"
+#for NVIDIA_DEVICE_PLUGIN_VERSION in ${NVIDIA_DEVICE_PLUGIN_VERSIONS}; do
+#    CONTAINER_IMAGE="mcr.microsoft.com/oss/nvidia/k8s-device-plugin:${NVIDIA_DEVICE_PLUGIN_VERSION}"
+#    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+#    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+#done
+#
+## GPU device plugin
+#if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_FLAGS"; then
+#  kubeletDevicePluginPath="/var/lib/kubelet/device-plugins"
+#  mkdir -p $kubeletDevicePluginPath
+#  echo "  - $kubeletDevicePluginPath" >> ${VHD_LOGS_FILEPATH}
+#
+#  DEST="/usr/local/nvidia/bin"
+#  mkdir -p $DEST
+#  ctr --namespace k8s.io run --rm --mount type=bind,src=${DEST},dst=${DEST},options=bind:rw --cwd ${DEST} "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.13.0.7" plugingextract /bin/sh -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
+#  chmod a+x $DEST/nvidia-device-plugin
+#  echo "  - extracted nvidia-device-plugin..." >> ${VHD_LOGS_FILEPATH}
+#  ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
+#
+#  systemctlEnableAndStart nvidia-device-plugin || exit 1
+#fi
+#fi
+#stop_watch $capture_time "GPU Device plugin" false
+#start_watch
+#
+## Kubelet credential provider plugins
+#CREDENTIAL_PROVIDER_VERSIONS="
+#1.29.2
+#1.30.0
+#"
+#for CREDENTIAL_PROVIDER_VERSION in $CREDENTIAL_PROVIDER_VERSIONS; do
+#    CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
+#    downloadCredentalProvider $CREDENTIAL_PROVIDER_DOWNLOAD_URL
+#    echo "  - Kubelet credential provider version ${CREDENTIAL_PROVIDER_VERSION}" >> ${VHD_LOGS_FILEPATH}
+#done
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
