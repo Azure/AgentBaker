@@ -144,7 +144,7 @@ steps:
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
         targetPath: 'release-notes.txt'
-    displayName: publish release notes
+    displayName: Publish Release Notes
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
@@ -240,7 +240,7 @@ steps:
         -e ARCHITECTURE=${ARCHITECTURE} \
         -e IMAGE_VERSION=${IMAGE_VERSION} \
         ${CONTAINER_IMAGE} make -f packer.mk generate-sas
-    displayName: Getting Shared Access Signature URI
+    displayName: Get Shared Access Signature URI
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - task: PublishPipelineArtifact@1
     inputs:
