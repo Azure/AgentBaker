@@ -23,7 +23,7 @@ To run the Go implementation of the E2E test suite locally, simply use `e2e-loca
 `SCENARIOS_TO_RUN` may also optionally be set to specify a subset of the E2E scenarios to run during the testing session as a comma-separated list, for example:
 
 ```bash
-SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64 ./e2e-local.sh
+SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64,ubuntu2204-gpu-ncv3 ./e2e-local.sh
 ```
 
 Furthermore, `SCENARIOS_TO_EXCLUDE` may also optionally be set to specify the set of scenarios which will be excluded from the testing session as a commma-separated list. If both `SCENARIOS_TO_RUN` and `SCENARIOS_TO_EXCLUDE` are specified, `SCENARIOS_TO_RUN` will take precedence.
@@ -51,7 +51,7 @@ Steps:
     "SUBSCRIPTION_ID": "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8",
     "LOCATION": "eastus",
     "AZURE_TENANT_ID": "72f988bf-86f1-41af-91ab-2d7cd011db47",
-    "SCENARIOS_TO_RUN": "ubuntu2204,ubuntu2204-arm64",
+    "SCENARIOS_TO_RUN": "ubuntu2204,ubuntu2204-arm64,ubuntu2204-gpu-ncv3",
 },
 ```
 Note: SCENARIOS_TO_RUN specifies what scenarios you want to test. You can change it as desired.
@@ -88,7 +88,7 @@ If you'd like to run the E2E suite using a set of VHDs built from some arbitrary
 ***NOTE: This feature can only be used with test VHD builds, using builds from official build pipeline is not supported.***
 
 ```bash
-VHD_BUILD_ID=123456789 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64 ./e2e-local.sh
+VHD_BUILD_ID=123456789 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64,ubuntu2204-gpu-ncv3 ./e2e-local.sh
 ```
 
 ***NOTE: To utilize this feature, you'll also need to provide the suite with an ADO PAT (personal access token) with which it can access the ADO resources to download the appropriate build artifacts.*** 
@@ -96,17 +96,17 @@ VHD_BUILD_ID=123456789 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64 ./e2e-local.
 To specify your PAT, simply set the `ADO_PAT` environment variable accordingly:
 
 ```bash
-ADO_PAT=<secret> VHD_BUILD_ID=123456789 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64 ./e2e-local.sh
+ADO_PAT=<secret> VHD_BUILD_ID=123456789 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64,ubuntu2204-gpu-ncv3 ./e2e-local.sh
 ```
 
 or:
 
 ```bash
 export ADO_PAT=<secret>
-VHD_BUILD_ID=123456789 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64 ./e2e-local.sh
-VHD_BUILD_ID=234567891 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64 ./e2e-local.sh
+VHD_BUILD_ID=123456789 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64,ubuntu2204-gpu-ncv3 ./e2e-local.sh
+VHD_BUILD_ID=234567891 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64,ubuntu2204-gpu-ncv3 ./e2e-local.sh
 ...
-VHD_BUILD_ID=345678912 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64 ./e2e-local.sh
+VHD_BUILD_ID=345678912 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64,ubuntu2204-gpu-ncv3 ./e2e-local.sh
 ```
 
 
