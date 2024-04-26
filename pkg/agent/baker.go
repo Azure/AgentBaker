@@ -13,9 +13,9 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/common"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/agentbaker/pkg/templates"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
@@ -154,7 +154,7 @@ func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, profil
 
 // getSingleLine returns the file as a single line.
 func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface{}, funcMap template.FuncMap, isLinux bool) (string, error) {
-	b, err := templates.Asset(textFilename)
+	b, err := parts.Templates.ReadFile(textFilename)
 	if err != nil {
 		return "", fmt.Errorf("yaml file %s does not exist", textFilename)
 	}
@@ -509,7 +509,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetKubernetesWindowsAgentFunctions": func() string {
 			// Collect all the parts into a zip
-			parts := []string{
+			neededParts := []string{
 				kubernetesWindowsCSEHelperPS1,
 				kubernetesWindowsSendLogsPS1,
 			}
@@ -518,12 +518,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			buf := new(bytes.Buffer)
 			zw := zip.NewWriter(buf)
 
-			for _, part := range parts {
+			for _, part := range neededParts {
 				f, err := zw.Create(part)
 				if err != nil {
 					panic(err)
 				}
-				partContents, err := templates.Asset(part)
+				partContents, err := parts.Templates.ReadFile(part)
 				if err != nil {
 					panic(err)
 				}
