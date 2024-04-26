@@ -30,7 +30,28 @@ installKataDeps() {
       #if ! dnf_install 30 1 600 kata-packages-host; then
       #  exit $ERR_APT_INSTALL_TIMEOUT
       #fi
-      echo "[placeholder] install kata-packages-host"
+      echo "[temp] install kata-packages-host"
+      wget "https://mitchzhu.blob.core.windows.net/mariner3/cloud-hypervisor-37.0-1.azl3.x86_64.rpm"
+      wget "https://mitchzhu.blob.core.windows.net/mariner3/cloud-hypervisor-cvm-32.0.314-2000.geb595874.azl3.x86_64.rpm"
+      wget "https://mitchzhu.blob.core.windows.net/mariner3/hvloader-1.0.1-1.azl3.x86_64.rpm"
+      wget "https://mitchzhu.blob.core.windows.net/mariner3/kata-containers-3.2.0.azl0-2.azl3.x86_64.rpm"
+      wget "https://mitchzhu.blob.core.windows.net/mariner3/kata-containers-cc-3.2.0.azl0-3.azl3.x86_64.rpm"
+      wget "https://mitchzhu.blob.core.windows.net/mariner3/kernel-mshv-5.15.126.mshv9-3.azl3.x86_64.rpm"
+      wget "https://mitchzhu.blob.core.windows.net/mariner3/kernel-uvm-6.1.0.mshv16-2.azl3.x86_64.rpm"
+      wget "https://mitchzhu.blob.core.windows.net/mariner3/moby-containerd-cc-1.7.7-2.azl3.x86_64.rpm"
+      wget "https://mitchzhu.blob.core.windows.net/mariner3/mshv-25941.1000.230825-1352.1.x86_64.rpm"
+      wget "https://mitchzhu.blob.core.windows.net/mariner3/mshv-bootloader-lx-25941.1000.230825-1352.1.x86_64.rpm"
+
+      tdnf install -y cloud-hypervisor-37.0-1.azl3.x86_64.rpm
+      tdnf install -y cloud-hypervisor-cvm-32.0.314-2000.geb595874.azl3.x86_64.rpm
+      tdnf install -y hvloader-1.0.1-1.azl3.x86_64.rpm
+      tdnf install -y kata-containers-3.2.0.azl0-2.azl3.x86_64.rpm
+      tdnf install -y kata-containers-cc-3.2.0.azl0-3.azl3.x86_64.rpm
+      tdnf install -y kernel-mshv-5.15.126.mshv9-3.azl3.x86_64.rpm
+      tdnf install -y kernel-uvm-6.1.0.mshv16-2.azl3.x86_64.rpm
+      tdnf install -y moby-containerd-cc-1.7.7-2.azl3.x86_64.rpm
+      tdnf install -y mshv-25941.1000.230825-1352.1.x86_64.rpm
+      tdnf install -y mshv-bootloader-lx-25941.1000.230825-1352.1.x86_64.rpm
     fi
 }
 
