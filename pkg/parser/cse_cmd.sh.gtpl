@@ -12,5 +12,4 @@ KUBE_BINARY_URL="{{.KubeBinaryUrl}}"
 CUSTOM_KUBE_BINARY_URL="{{.CustomKubeBinaryUrl}}"
 KUBEPROXY_URL="{{.KubeproxyUrl}}"
 
-DISABLE_SSH="{{getInverseBoolStr .SshStatus}}"
 IS_CUSTOM_CLOUD={{.CustomCloudConfig.IsCustomCloud}}

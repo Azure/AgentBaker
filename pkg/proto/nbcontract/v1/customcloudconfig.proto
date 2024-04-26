@@ -2,17 +2,18 @@ syntax = "proto3";
 package nbcontract.v1;
 
 message CustomCloudConfig {
+  // IsAKSCustomCloud is a flag to indicate if it is AKS custom cloud
+  bool is_aks_custom_cloud = 1;
 
-    // IsAKSCustomCloud is a flag to indicate if it is AKS custom cloud
-    bool is_aks_custom_cloud = 1;
+  // InitFilePath is the path to the file that contains the init script
+  string init_file_path = 2;
 
-    // InitFilePath is the path to the file that contains the init script
-    string init_file_path = 2;
+  // RepoDepotEndpoint is the endpoint of the repo depot
+  string repo_depot_endpoint = 3;
 
-    // RepoDepotEndpoint is the endpoint of the repo depot
-    string repo_depot_endpoint = 3;
+  // Specifies if target environment is a sovereign cloud, which has its own data compliance regulation, or standard public cloud.
+  string target_environment = 4;
 
-    string target_environment = 4;
-
-    string custom_env_json_content = 5;
+  // Base64 encoded JSON string of custom cloud environment
+  string custom_env_json_content = 5;
 }

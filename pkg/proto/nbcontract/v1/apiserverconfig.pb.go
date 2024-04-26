@@ -25,8 +25,10 @@ type ApiServerConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// The certificate public key of the API server.
 	ApiServerPublicKey string `protobuf:"bytes,1,opt,name=api_server_public_key,json=apiServerPublicKey,proto3" json:"api_server_public_key,omitempty"`
-	ApiServerName      string `protobuf:"bytes,2,opt,name=api_server_name,json=apiServerName,proto3" json:"api_server_name,omitempty"`
+	// The name or endpoint URI of the API server.
+	ApiServerName string `protobuf:"bytes,2,opt,name=api_server_name,json=apiServerName,proto3" json:"api_server_name,omitempty"`
 }
 
 func (x *ApiServerConfig) Reset() {

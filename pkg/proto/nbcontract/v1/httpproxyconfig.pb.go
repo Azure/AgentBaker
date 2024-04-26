@@ -25,13 +25,13 @@ type HTTPProxyConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// HTTPProxy represents the proxy endpoint/URL using HTTP, that the traffic should go through for making HTTP connections outside the cluster
+	// Proxy endpoint/URL using HTTP through which the traffic should be routed for making HTTP connections outside the cluster
 	HttpProxy string `protobuf:"bytes,1,opt,name=http_proxy,json=httpProxy,proto3" json:"http_proxy,omitempty"`
-	// HTTPSProxy represents the proxy endpoint/URL using HTTPS, that the traffic should go through for making HTTPS connections outside the cluster
+	// Proxy endpoint/URL using HTTPS through which the traffic should be routed for making HTTPS connections outside the cluster
 	HttpsProxy string `protobuf:"bytes,2,opt,name=https_proxy,json=httpsProxy,proto3" json:"https_proxy,omitempty"`
-	// NoProxy represents a list of entries including IPs, domains, or other network CIDRs that should not be accessed through the proxy
+	// A list of entries including IPs, domains, or other network CIDRs that should not be accessed through the proxy
 	NoProxyEntries []string `protobuf:"bytes,3,rep,name=no_proxy_entries,json=noProxyEntries,proto3" json:"no_proxy_entries,omitempty"`
-	// TrustedCA repesents alternative CA certificate content
+	// Custom CA certificate that should be trusted by the proxy
 	ProxyTrustedCa string `protobuf:"bytes,4,opt,name=proxy_trusted_ca,json=proxyTrustedCa,proto3" json:"proxy_trusted_ca,omitempty"`
 }
 

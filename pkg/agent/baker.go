@@ -13,8 +13,9 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Azure/agentbaker/parts"
+	"github.com/Azure/agentbaker/pkg/agent/common"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/agentbaker/pkg/templates"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
@@ -153,7 +154,7 @@ func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, profil
 
 // getSingleLine returns the file as a single line.
 func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface{}, funcMap template.FuncMap, isLinux bool) (string, error) {
-	b, err := templates.Asset(textFilename)
+	b, err := parts.Templates.ReadFile(textFilename)
 	if err != nil {
 		return "", fmt.Errorf("yaml file %s does not exist", textFilename)
 	}
@@ -508,7 +509,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetKubernetesWindowsAgentFunctions": func() string {
 			// Collect all the parts into a zip
-			parts := []string{
+			neededParts := []string{
 				kubernetesWindowsCSEHelperPS1,
 				kubernetesWindowsSendLogsPS1,
 			}
@@ -517,12 +518,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			buf := new(bytes.Buffer)
 			zw := zip.NewWriter(buf)
 
-			for _, part := range parts {
+			for _, part := range neededParts {
 				f, err := zw.Create(part)
 				if err != nil {
 					panic(err)
 				}
-				partContents, err := templates.Asset(part)
+				partContents, err := parts.Templates.ReadFile(part)
 				if err != nil {
 					panic(err)
 				}
@@ -906,13 +907,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return getOutBoundCmd(config, config.CloudSpecConfig)
 		},
 		"GPUNeedsFabricManager": func() bool {
-			return gpuNeedsFabricManager(profile.VMSize)
+			return common.GPUNeedsFabricManager(profile.VMSize)
 		},
 		"GPUDriverVersion": func() string {
-			return getGPUDriverVersion(profile.VMSize)
+			return common.GetGPUDriverVersion(profile.VMSize)
 		},
 		"GPUImageSHA": func() string {
-			return getAKSGPUImageSHA(profile.VMSize)
+			return common.GetAKSGPUImageSHA(profile.VMSize)
 		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			// Only need to enable HNSRemediator for Windows 2019
@@ -972,40 +973,6 @@ func getPortRangeEndValue(portRange string) int {
 		return -1
 	}
 	return num
-}
-
-// NV series GPUs target graphics workloads vs NC which targets compute.
-// they typically use GRID, not CUDA drivers, and will fail to install CUDA drivers.
-// NVv1 seems to run with CUDA, NVv5 requires GRID.
-// NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?).
-func getGPUDriverVersion(size string) string {
-	if useGridDrivers(size) {
-		return datamodel.Nvidia535GridDriverVersion
-	}
-	if isStandardNCv1(size) {
-		return datamodel.Nvidia470CudaDriverVersion
-	}
-	return datamodel.Nvidia535CudaDriverVersion
-}
-
-func isStandardNCv1(size string) bool {
-	tmp := strings.ToLower(size)
-	return strings.HasPrefix(tmp, "standard_nc") && !strings.Contains(tmp, "_v")
-}
-
-func useGridDrivers(size string) bool {
-	return datamodel.ConvergedGPUDriverSizes[strings.ToLower(size)]
-}
-
-func gpuNeedsFabricManager(size string) bool {
-	return datamodel.FabricManagerGPUSizes[strings.ToLower(size)]
-}
-
-func getAKSGPUImageSHA(size string) string {
-	if useGridDrivers(size) {
-		return datamodel.AKSGPUGridSHA
-	}
-	return datamodel.AKSGPUCudaSHA
 }
 
 func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {

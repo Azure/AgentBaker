@@ -25,7 +25,9 @@ type TeleportConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Status                     bool   `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"`
+	// The status of the teleportd plugin. If true, the plugin is enabled.
+	Status bool `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"`
+	// The URL to download the teleportd plugin.
 	TeleportdPluginDownloadUrl string `protobuf:"bytes,2,opt,name=teleportd_plugin_download_url,json=teleportdPluginDownloadUrl,proto3" json:"teleportd_plugin_download_url,omitempty"`
 }
 

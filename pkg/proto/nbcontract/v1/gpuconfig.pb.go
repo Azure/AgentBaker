@@ -25,11 +25,11 @@ type GPUConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// ConfigGpuDriver specifies whether bootstrap process should install and configure the GPU driver when necessary. Configuration includes appropriate set up of components like the fabric manager where applicable.
+	// Specifies whether bootstrap process should install and configure the GPU driver when necessary. Configuration includes appropriate set up of components like the fabric manager where applicable.
 	ConfigGpuDriver bool `protobuf:"varint,1,opt,name=config_gpu_driver,json=configGpuDriver,proto3" json:"config_gpu_driver,omitempty"`
-	// GpuDevicePlugin specifies whether special config is needed for MIG GPUs that use GPU dedicated VHDs and enable the device plugin (for all GPU dedicated VHDs)
+	// Specifies whether special config is needed for MIG GPUs that use GPU dedicated VHDs and enable the device plugin (for all GPU dedicated VHDs)
 	GpuDevicePlugin bool `protobuf:"varint,2,opt,name=gpu_device_plugin,json=gpuDevicePlugin,proto3" json:"gpu_device_plugin,omitempty"`
-	// GpuInstanceProfile represents the GPU instance profile.
+	// Represents the GPU instance profile.
 	GpuInstanceProfile string `protobuf:"bytes,3,opt,name=gpu_instance_profile,json=gpuInstanceProfile,proto3" json:"gpu_instance_profile,omitempty"`
 }
 

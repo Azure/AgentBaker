@@ -1,5 +1,5 @@
 # Please get the latest commit id in https://github.com/microsoft/SDN/tree/master/Kubernetes/windows
-$commit="d9eaf8f330b9c8119c792ba3768bcf4c2da86123"
+$commit="4d908a7143dd603de64afd4abbf0cba8e56e8a39"
 $urls=@(
     "https://github.com/microsoft/SDN/raw/$commit/Kubernetes/windows/debug/networkmonitor/networkhealth.ps1",
     "https://github.com/microsoft/SDN/raw/$commit/Kubernetes/windows/debug/VFP.psm1",
