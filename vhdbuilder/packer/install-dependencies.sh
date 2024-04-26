@@ -288,7 +288,7 @@ else
 fi
 echo "Limit for parallel container image pulls set to $parallel_container_image_pull_limit"
 
-declare -A image_pids_and_urls=()
+declare -a image_pids=()
 
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for imageToBePulled in ${ContainerImages[*]}; do
@@ -314,24 +314,15 @@ for imageToBePulled in ${ContainerImages[*]}; do
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
-    pid=$!
-    image_pids_and_urls[$pid]+=${CONTAINER_IMAGE}
+    image_pids+=($!)
     # Pull container images in parallel in order to decrease VHD build time
-    # Record process id in order to ensure all images are finished pulling later in the script, record url to ensure that only successful pulls are added to VHD_LOGS_FILEPATH
+    # Record process id in order to ensure all images are finished pulling later in the script
     while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
       wait -n
     done
   done
-  wait ${!image_pids_and_urls[@]}
-  image_names=$(ctr -n k8s.io image list | sed 1d | awk '{print $1}')
-  #for pid in ${!image_pids_and_urls[@]}; do
-      #if wait $pid; then
-        #echo "  - ${image_pids_and_urls[$pid]}" >> ${VHD_LOGS_FILEPATH}
-      #else
-        #echo "${image_pids_and_urls[$pid]} encountered an error and was not successfully pulled. "
-      #fi
-  #done
 done
+wait ${image_pids[@]}
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
 watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
