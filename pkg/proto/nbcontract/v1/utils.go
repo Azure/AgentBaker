@@ -16,7 +16,7 @@ limitations under the License.
 
 // All the helper functions should be hosted by another public repo later. (e.g. agentbaker)
 // Helper functions in this file will be called by bootstrappers to populate nb contract payload.
-package parser
+package nbcontractv1
 
 import (
 	"fmt"
@@ -26,41 +26,42 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/blang/semver"
 )
 
+const numInPair = 2
+
 // GetLoadBalancerSKI returns the LoadBalancerSku enum based on the input string.
-func GetLoadBalancerSKU(sku string) nbcontractv1.LoadBalancerConfig_LoadBalancerSku {
+func GetLoadBalancerSKU(sku string) LoadBalancerConfig_LoadBalancerSku {
 	if strings.EqualFold(sku, "Standard") {
-		return nbcontractv1.LoadBalancerConfig_STANDARD
+		return LoadBalancerConfig_STANDARD
 	} else if strings.EqualFold(sku, "Basic") {
-		return nbcontractv1.LoadBalancerConfig_BASIC
+		return LoadBalancerConfig_BASIC
 	}
 
-	return nbcontractv1.LoadBalancerConfig_UNSPECIFIED
+	return LoadBalancerConfig_UNSPECIFIED
 }
 
 // GetNetworkPluginType returns the NetworkPluginType enum based on the input string.
-func GetNetworkPluginType(networkPlugin string) nbcontractv1.NetworkPlugin {
+func GetNetworkPluginType(networkPlugin string) NetworkPlugin {
 	if strings.EqualFold(networkPlugin, "azure") {
-		return nbcontractv1.NetworkPlugin_NP_AZURE
+		return NetworkPlugin_NP_AZURE
 	} else if strings.EqualFold(networkPlugin, "kubenet") {
-		return nbcontractv1.NetworkPlugin_NP_KUBENET
+		return NetworkPlugin_NP_KUBENET
 	}
 
-	return nbcontractv1.NetworkPlugin_NP_NONE
+	return NetworkPlugin_NP_NONE
 }
 
 // GetNetworkPolicyType returns the NetworkPolicyType enum based on the input string.
-func GetNetworkPolicyType(networkPolicy string) nbcontractv1.NetworkPolicy {
+func GetNetworkPolicyType(networkPolicy string) NetworkPolicy {
 	if strings.EqualFold(networkPolicy, "azure") {
-		return nbcontractv1.NetworkPolicy_NPO_AZURE
+		return NetworkPolicy_NPO_AZURE
 	} else if strings.EqualFold(networkPolicy, "calico") {
-		return nbcontractv1.NetworkPolicy_NPO_CALICO
+		return NetworkPolicy_NPO_CALICO
 	}
 
-	return nbcontractv1.NetworkPolicy_NPO_NONE
+	return NetworkPolicy_NPO_NONE
 }
 
 // GetDefaultOutboundCommand returns a default outbound traffic command.
@@ -229,6 +230,13 @@ func ValidateAndSetLinuxKubeletFlags(kubeletFlags map[string]string, cs *datamod
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
 		}
 	}
+}
+
+// IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.
+func IsKubernetesVersionGe(actualVersion, version string) bool {
+	v1, _ := semver.Make(actualVersion)
+	v2, _ := semver.Make(version)
+	return v1.GE(v2)
 }
 
 func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[string]bool {

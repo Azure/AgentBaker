@@ -7,3 +7,20 @@ const (
 	// Patch version is for bug fixes. This should be updated when a patch is released.
 	contractVersion = "v1.0.0"
 )
+
+const (
+	VmTypeStandard       = "standard"
+	VmTypeVmss           = "vmss"
+	NetworkPluginAzure   = "azure"
+	NetworkPluginKubenet = "kubenet"
+	NetworkPolicyAzure   = "azure"
+	NetworkPolicyCalico  = "calico"
+	LoadBalancerBasic    = "basic"
+	LoadBalancerStandard = "Standard"
+	VmSizeStandardDc2s   = "Standard_DC2s"
+	VmSizeStandardDc4s   = "Standard_DC4s"
+	DefaultLinuxUser     = "azureuser"
+	DefaultCloudName     = "AzurePublicCloud"
+	AksCustomCloudName   = "akscustom"
+	AzureStackCloud      = "AzureStackCloud"
+)

@@ -1,14 +1,13 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT license.
 
-package parser
+package nbcontractv1
 
 import (
 	"reflect"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 )
 
 func Test_getLoadBalancerSKU(t *testing.T) {
@@ -18,28 +17,28 @@ func Test_getLoadBalancerSKU(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want nbcontractv1.LoadBalancerConfig_LoadBalancerSku
+		want LoadBalancerConfig_LoadBalancerSku
 	}{
 		{
 			name: "LoadBalancerSKU Standard",
 			args: args{
 				sku: "Standard",
 			},
-			want: nbcontractv1.LoadBalancerConfig_STANDARD,
+			want: LoadBalancerConfig_STANDARD,
 		},
 		{
 			name: "LoadBalancerSKU Basic",
 			args: args{
 				sku: "Basic",
 			},
-			want: nbcontractv1.LoadBalancerConfig_BASIC,
+			want: LoadBalancerConfig_BASIC,
 		},
 		{
 			name: "LoadBalancerSKU Unspecified",
 			args: args{
 				sku: "",
 			},
-			want: nbcontractv1.LoadBalancerConfig_UNSPECIFIED,
+			want: LoadBalancerConfig_UNSPECIFIED,
 		},
 	}
 	for _, tt := range tests {
@@ -58,28 +57,28 @@ func Test_getNetworkPluginType(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want nbcontractv1.NetworkPlugin
+		want NetworkPlugin
 	}{
 		{
 			name: "NetworkPlugin azure",
 			args: args{
 				np: "azure",
 			},
-			want: nbcontractv1.NetworkPlugin_NP_AZURE,
+			want: NetworkPlugin_NP_AZURE,
 		},
 		{
 			name: "NetworkPlugin kubenet",
 			args: args{
 				np: "kubenet",
 			},
-			want: nbcontractv1.NetworkPlugin_NP_KUBENET,
+			want: NetworkPlugin_NP_KUBENET,
 		},
 		{
 			name: "NetworkPlugin Unspecified",
 			args: args{
 				np: "",
 			},
-			want: nbcontractv1.NetworkPlugin_NP_NONE,
+			want: NetworkPlugin_NP_NONE,
 		},
 	}
 	for _, tt := range tests {
@@ -98,28 +97,28 @@ func Test_getNetworkPolicyType(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want nbcontractv1.NetworkPolicy
+		want NetworkPolicy
 	}{
 		{
 			name: "NetworkPolicy azure",
 			args: args{
 				np: "azure",
 			},
-			want: nbcontractv1.NetworkPolicy_NPO_AZURE,
+			want: NetworkPolicy_NPO_AZURE,
 		},
 		{
 			name: "NetworkPolicy calico",
 			args: args{
 				np: "calico",
 			},
-			want: nbcontractv1.NetworkPolicy_NPO_CALICO,
+			want: NetworkPolicy_NPO_CALICO,
 		},
 		{
 			name: "NetworkPolicy Unspecified",
 			args: args{
 				np: "",
 			},
-			want: nbcontractv1.NetworkPolicy_NPO_NONE,
+			want: NetworkPolicy_NPO_NONE,
 		},
 	}
 	for _, tt := range tests {

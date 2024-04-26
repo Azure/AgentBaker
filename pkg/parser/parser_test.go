@@ -114,7 +114,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			"--container-log-max-size":            "50M",
 		}
 
-		parser.ValidateAndSetLinuxKubeletFlags(kubeletConfig, cs, agentPool)
+		nbcontractv1.ValidateAndSetLinuxKubeletFlags(kubeletConfig, cs, agentPool)
 		nBCB := nbcontractv1.NewNBContractBuilder()
 		nbc := &nbcontractv1.Configuration{
 			LinuxAdminUsername: "azureuser",
@@ -152,11 +152,11 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			ContainerdConfig: &nbcontractv1.ContainerdConfig{
 				ContainerdDownloadUrlBase: "https://storage.googleapis.com/cri-containerd-release/",
 			},
-			OutboundCommand: parser.GetDefaultOutboundCommand(),
+			OutboundCommand: nbcontractv1.GetDefaultOutboundCommand(),
 			KubeletConfig: &nbcontractv1.KubeletConfig{
 				EnableKubeletConfigFile: false,
-				KubeletFlags:            parser.GetKubeletConfigFlag(kubeletConfig, cs, agentPool, false),
-				KubeletNodeLabels:       parser.GetKubeletNodeLabels(agentPool),
+				KubeletFlags:            nbcontractv1.GetKubeletConfigFlag(kubeletConfig, cs, agentPool, false),
+				KubeletNodeLabels:       nbcontractv1.GetKubeletNodeLabels(agentPool),
 			},
 		}
 		nBCB.ApplyConfiguration(nbc)
@@ -170,7 +170,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		if err != nil {
 			log.Printf("Failed to marshal the nbcontractv1 to json: %v", err)
 		}
-		cseCmd := parser.Parse(inputJSON)
+		cseCmd, err := parser.Parse(inputJSON)
+		Expect(err).To(BeNil())
 
 		if generateTestData() {
 			if _, err := os.Stat(fmt.Sprintf("./testdata/%s", folder)); os.IsNotExist(err) {
@@ -219,11 +220,11 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}),
 		Entry("AKSUbuntu2204 custom cloud", "AKSUbuntu2204+CustomCloud", "1.24.2",
 			func(nbc *nbcontractv1.Configuration) {
-				nbc.CustomCloudConfig.CustomCloudEnvName = parser.AksCustomCloudName
+				nbc.CustomCloudConfig.CustomCloudEnvName = nbcontractv1.AksCustomCloudName
 				//  CUSTOM_ENV_JSON needs to be computed/set bootstrapper
 			}, func(o *nodeBootstrappingOutput) {
-				Expect(o.vars["TARGET_ENVIRONMENT"]).To(Equal(parser.AksCustomCloudName))
-				Expect(o.vars["TARGET_CLOUD"]).To(Equal(parser.AzureStackCloud))
+				Expect(o.vars["TARGET_ENVIRONMENT"]).To(Equal(nbcontractv1.AksCustomCloudName))
+				Expect(o.vars["TARGET_CLOUD"]).To(Equal(nbcontractv1.AzureStackCloud))
 				Expect(o.vars["IS_CUSTOM_CLOUD"]).To(Equal("true"))
 			}),
 		Entry("AKSUbuntu2204 with custom osConfig", "AKSUbuntu2204+CustomLinuxOSConfig", "1.24.2",
@@ -268,9 +269,9 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}),
 		Entry("AKSUbuntu1804 with containerd and kubenet cni", "AKSUbuntu1804+Containerd+Kubenet+FIPSEnabled", "1.19.13",
 			func(nbc *nbcontractv1.Configuration) {
-				nbc.NetworkConfig.NetworkPlugin = parser.GetNetworkPluginType(parser.NetworkPluginKubenet)
+				nbc.NetworkConfig.NetworkPlugin = nbcontractv1.GetNetworkPluginType(nbcontractv1.NetworkPluginKubenet)
 			}, func(o *nodeBootstrappingOutput) {
-				Expect(o.vars["NETWORK_PLUGIN"]).To(Equal(parser.NetworkPluginKubenet))
+				Expect(o.vars["NETWORK_PLUGIN"]).To(Equal(nbcontractv1.NetworkPluginKubenet))
 			}),
 		Entry("AKSUbuntu1804 with http proxy config", "AKSUbuntu1804+HTTPProxy", "1.18.14",
 			func(nbc *nbcontractv1.Configuration) {

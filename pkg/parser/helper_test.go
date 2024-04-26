@@ -369,7 +369,7 @@ func Test_getAzureEnvironmentFilepath(t *testing.T) {
 			args: args{
 				v: &nbcontractv1.Configuration{
 					CustomCloudConfig: &nbcontractv1.CustomCloudConfig{
-						CustomCloudEnvName: AksCustomCloudName,
+						CustomCloudEnvName: nbcontractv1.AksCustomCloudName,
 					},
 				},
 			},
@@ -643,7 +643,7 @@ func TestIsKubernetesVersionGe(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := IsKubernetesVersionGe(tt.args.actualVersion, tt.args.version); got != tt.want {
+			if got := nbcontractv1.IsKubernetesVersionGe(tt.args.actualVersion, tt.args.version); got != tt.want {
 				t.Errorf("IsKubernetesVersionGe() = %v, want %v", got, tt.want)
 			}
 		})
@@ -856,7 +856,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 		{
 			name: "Nil CustomCloudConfig",
 			args: args{},
-			want: defaultCloudName,
+			want: nbcontractv1.DefaultCloudName,
 		},
 		{
 			name: "Empty CustomCloudConfig",
@@ -865,7 +865,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 					CustomCloudConfig: &nbcontractv1.CustomCloudConfig{},
 				},
 			},
-			want: defaultCloudName,
+			want: nbcontractv1.DefaultCloudName,
 		},
 		{
 			name: "CustomCloudConfig with empty TargetEnvironment",
@@ -874,18 +874,18 @@ func Test_getTargetEnvironment(t *testing.T) {
 					CustomCloudConfig: &nbcontractv1.CustomCloudConfig{},
 				},
 			},
-			want: defaultCloudName,
+			want: nbcontractv1.DefaultCloudName,
 		},
 		{
 			name: "CustomCloudConfig with TargetEnvironment",
 			args: args{
 				v: &nbcontractv1.Configuration{
 					CustomCloudConfig: &nbcontractv1.CustomCloudConfig{
-						CustomCloudEnvName: AksCustomCloudName,
+						CustomCloudEnvName: nbcontractv1.AksCustomCloudName,
 					},
 				},
 			},
-			want: AksCustomCloudName,
+			want: nbcontractv1.AksCustomCloudName,
 		},
 	}
 	for _, tt := range tests {
@@ -909,7 +909,7 @@ func Test_getTargetCloud(t *testing.T) {
 		{
 			name: "Nil CustomCloudConfig",
 			args: args{},
-			want: defaultCloudName,
+			want: nbcontractv1.DefaultCloudName,
 		},
 		{
 			name: "Empty CustomCloudConfig",
@@ -918,18 +918,18 @@ func Test_getTargetCloud(t *testing.T) {
 					CustomCloudConfig: &nbcontractv1.CustomCloudConfig{},
 				},
 			},
-			want: defaultCloudName,
+			want: nbcontractv1.DefaultCloudName,
 		},
 		{
 			name: "CustomCloudConfig with TargetEnvironment",
 			args: args{
 				v: &nbcontractv1.Configuration{
 					CustomCloudConfig: &nbcontractv1.CustomCloudConfig{
-						CustomCloudEnvName: AksCustomCloudName,
+						CustomCloudEnvName: nbcontractv1.AksCustomCloudName,
 					},
 				},
 			},
-			want: AzureStackCloud,
+			want: nbcontractv1.AzureStackCloud,
 		},
 	}
 	for _, tt := range tests {
@@ -955,7 +955,7 @@ func Test_getLinuxAdminUsername(t *testing.T) {
 			args: args{
 				username: "",
 			},
-			want: defaultLinuxUser,
+			want: nbcontractv1.DefaultLinuxUser,
 		},
 		{
 			name: "Non-empty username",
@@ -998,9 +998,9 @@ func Test_getIsSgxEnabledSKU(t *testing.T) {
 			want: false,
 		},
 		{
-			name: vmSizeStandardDc2s,
+			name: nbcontractv1.VmSizeStandardDc2s,
 			args: args{
-				vmSize: vmSizeStandardDc2s,
+				vmSize: nbcontractv1.VmSizeStandardDc2s,
 			},
 			want: true,
 		},

@@ -121,6 +121,8 @@ type Configuration struct {
 	// If it's not set, the default value will be nil.
 	IsVhd *bool `protobuf:"varint,22,opt,name=is_vhd,json=isVhd,proto3,oneof" json:"is_vhd,omitempty"`
 	// Specifies whether SSH is enabled or disabled on the VM node
+	// This is labeled as optional (explicit presence) so that we know whether it's set or not.
+	// If it's not set, the default value will be nil, but will be set to true on the VHD.
 	EnableSsh *bool `protobuf:"varint,23,opt,name=enable_ssh,json=enableSsh,proto3,oneof" json:"enable_ssh,omitempty"`
 	// Specifies whether unattended upgrade is enabled or disabled on the VM node
 	EnableUnattendedUpgrade bool `protobuf:"varint,24,opt,name=enable_unattended_upgrade,json=enableUnattendedUpgrade,proto3" json:"enable_unattended_upgrade,omitempty"`

@@ -12,8 +12,8 @@ import (
 // it will be deserialized to the contract that the VHD this binary will be on supports.
 // Parse will be called using that deserialized struct and output the generated cse_cmd to trigger the bootstrap process.
 // example usage:
-// to build: go build main.go
-// to run: ./main testdata/test_nbc.json
+// to build: go build main.go.
+// to run: ./main testdata/test_nbc.json.
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Please provide a filename as a command-line argument")
@@ -23,11 +23,17 @@ func main() {
 	// Read in the JSON file
 	inputJSON, err := os.ReadFile(os.Args[1])
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
+		return
 	}
 
-	cseCmd := parser.Parse(inputJSON)
-	if err := os.WriteFile("cse_cmd.sh", []byte(cseCmd), 0666); err != nil {
+	cseCmd, err := parser.Parse(inputJSON)
+	if err != nil {
 		log.Fatal(err)
+		return
+	}
+	if err := os.WriteFile("cse_cmd.sh", []byte(cseCmd), 0600); err != nil {
+		log.Fatal(err)
+		return
 	}
 }

@@ -36,7 +36,6 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/common"
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
-	"github.com/blang/semver"
 )
 
 var (
@@ -113,7 +112,7 @@ func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 		"getGpuNode":                       getGpuNode,
 		"getIsKrustlet":                    getIsKrustlet,
 		"getEnsureNoDupePromiscuousBridge": getEnsureNoDupePromiscuousBridge,
-		"isKubernetesVersionGe":            IsKubernetesVersionGe,
+		"isKubernetesVersionGe":            nbcontractv1.IsKubernetesVersionGe,
 		"getHasDataDir":                    getHasDataDir,
 	}
 }
@@ -121,9 +120,9 @@ func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 func getStringFromVMType(enum nbcontractv1.ClusterConfig_VM) string {
 	switch enum {
 	case nbcontractv1.ClusterConfig_STANDARD:
-		return vmTypeStandard
+		return nbcontractv1.VmTypeStandard
 	case nbcontractv1.ClusterConfig_VMSS:
-		return vmTypeVmss
+		return nbcontractv1.VmTypeVmss
 	default:
 		return ""
 	}
@@ -132,9 +131,9 @@ func getStringFromVMType(enum nbcontractv1.ClusterConfig_VM) string {
 func getStringFromNetworkPluginType(enum nbcontractv1.NetworkPlugin) string {
 	switch enum {
 	case nbcontractv1.NetworkPlugin_NP_AZURE:
-		return networkPluginAzure
+		return nbcontractv1.NetworkPluginAzure
 	case nbcontractv1.NetworkPlugin_NP_KUBENET:
-		return NetworkPluginKubenet
+		return nbcontractv1.NetworkPluginKubenet
 	default:
 		return ""
 	}
@@ -143,9 +142,9 @@ func getStringFromNetworkPluginType(enum nbcontractv1.NetworkPlugin) string {
 func getStringFromNetworkPolicyType(enum nbcontractv1.NetworkPolicy) string {
 	switch enum {
 	case nbcontractv1.NetworkPolicy_NPO_AZURE:
-		return networkPolicyAzure
+		return nbcontractv1.NetworkPolicyAzure
 	case nbcontractv1.NetworkPolicy_NPO_CALICO:
-		return networkPolicyCalico
+		return nbcontractv1.NetworkPolicyCalico
 	default:
 		return ""
 	}
@@ -154,9 +153,9 @@ func getStringFromNetworkPolicyType(enum nbcontractv1.NetworkPolicy) string {
 func getStringFromLoadBalancerSkuType(enum nbcontractv1.LoadBalancerConfig_LoadBalancerSku) string {
 	switch enum {
 	case nbcontractv1.LoadBalancerConfig_BASIC:
-		return loadBalancerBasic
+		return nbcontractv1.LoadBalancerBasic
 	case nbcontractv1.LoadBalancerConfig_STANDARD:
-		return loadBalancerStandard
+		return nbcontractv1.LoadBalancerStandard
 	default:
 		return ""
 	}
@@ -521,13 +520,6 @@ func createSortedKeyValuePairs[T any](m map[string]T, delimiter string) string {
 	return buf.String()
 }
 
-// IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.
-func IsKubernetesVersionGe(actualVersion, version string) bool {
-	v1, _ := semver.Make(actualVersion)
-	v2, _ := semver.Make(version)
-	return v1.GE(v2)
-}
-
 func getExcludeMasterFromStandardLB(lb *nbcontractv1.LoadBalancerConfig) bool {
 	if lb == nil || lb.ExcludeMasterFromStandardLoadBalancer == nil {
 		return true
@@ -557,7 +549,7 @@ func getGpuDriverVersion(vmSize string) string {
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support.
 func getIsSgxEnabledSKU(vmSize string) bool {
 	switch vmSize {
-	case vmSizeStandardDc2s, vmSizeStandardDc4s:
+	case nbcontractv1.VmSizeStandardDc2s, nbcontractv1.VmSizeStandardDc4s:
 		return true
 	}
 	return false
@@ -572,7 +564,7 @@ func getShouldConfigureHTTPProxyCA(httpProxyConfig *nbcontractv1.HTTPProxyConfig
 }
 
 func getIsAksCustomCloud(customCloudConfig *nbcontractv1.CustomCloudConfig) bool {
-	return strings.EqualFold(customCloudConfig.GetCustomCloudEnvName(), AksCustomCloudName)
+	return strings.EqualFold(customCloudConfig.GetCustomCloudEnvName(), nbcontractv1.AksCustomCloudName)
 }
 
 /* GetCloudTargetEnv determines and returns whether the region is a sovereign cloud which
@@ -588,20 +580,20 @@ func getCloudTargetEnv(v *nbcontractv1.Configuration) string {
 	case strings.HasPrefix(loc, "usgov") || strings.HasPrefix(loc, "usdod"):
 		return "AzureUSGovernmentCloud"
 	default:
-		return defaultCloudName
+		return nbcontractv1.DefaultCloudName
 	}
 }
 
 func getTargetEnvironment(v *nbcontractv1.Configuration) string {
 	if getIsAksCustomCloud(v.GetCustomCloudConfig()) {
-		return AksCustomCloudName
+		return nbcontractv1.AksCustomCloudName
 	}
 	return getCloudTargetEnv(v)
 }
 
 func getTargetCloud(v *nbcontractv1.Configuration) string {
 	if getIsAksCustomCloud(v.GetCustomCloudConfig()) {
-		return AzureStackCloud
+		return nbcontractv1.AzureStackCloud
 	}
 	return getTargetEnvironment(v)
 }
@@ -615,7 +607,7 @@ func getAzureEnvironmentFilepath(v *nbcontractv1.Configuration) string {
 
 func getLinuxAdminUsername(username string) string {
 	if username == "" {
-		return defaultLinuxUser
+		return nbcontractv1.DefaultLinuxUser
 	}
 	return username
 }
