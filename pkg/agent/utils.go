@@ -15,8 +15,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/agentbaker/pkg/templates"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/blang/semver"
 )
@@ -171,7 +171,7 @@ func escapeSingleLine(escapedStr string) string {
 
 // getBase64EncodedGzippedCustomScript will return a base64 of the CSE.
 func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.NodeBootstrappingConfiguration) string {
-	b, err := templates.Asset(csFilename)
+	b, err := parts.Templates.ReadFile(csFilename)
 	if err != nil {
 		// this should never happen and this is a bug.
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
