@@ -998,9 +998,9 @@ func Test_getIsSgxEnabledSKU(t *testing.T) {
 			want: false,
 		},
 		{
-			name: nbcontractv1.VmSizeStandardDc2s,
+			name: nbcontractv1.VMSizeStandardDc2s,
 			args: args{
-				vmSize: nbcontractv1.VmSizeStandardDc2s,
+				vmSize: nbcontractv1.VMSizeStandardDc2s,
 			},
 			want: true,
 		},

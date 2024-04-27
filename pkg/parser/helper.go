@@ -121,9 +121,9 @@ func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 func getStringFromVMType(enum nbcontractv1.ClusterConfig_VM) string {
 	switch enum {
 	case nbcontractv1.ClusterConfig_STANDARD:
-		return nbcontractv1.VmTypeStandard
+		return nbcontractv1.VMTypeStandard
 	case nbcontractv1.ClusterConfig_VMSS:
-		return nbcontractv1.VmTypeVmss
+		return nbcontractv1.VMTypeVmss
 	case nbcontractv1.ClusterConfig_UNSPECIFIED:
 		return ""
 	default:
@@ -290,7 +290,7 @@ func getDHCPV6ConfigFilepath() string {
 // getSysctlContent converts nbcontractv1.SysctlConfig to a string with key=value pairs, with default values.
 //
 //gocyclo:ignore
-//nolint:funlen // This function is long because it has to handle all the sysctl values.
+//nolint:funlen,gocognit,cyclop // This function is long because it has to handle all the sysctl values.
 func getSysctlContent(s *nbcontractv1.SysctlConfig) string {
 	// This is a partial workaround to this upstream Kubernetes issue:
 	// https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
@@ -556,7 +556,7 @@ func getGpuDriverVersion(vmSize string) string {
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support.
 func getIsSgxEnabledSKU(vmSize string) bool {
 	switch vmSize {
-	case nbcontractv1.VmSizeStandardDc2s, nbcontractv1.VmSizeStandardDc4s:
+	case nbcontractv1.VMSizeStandardDc2s, nbcontractv1.VMSizeStandardDc4s:
 		return true
 	}
 	return false
