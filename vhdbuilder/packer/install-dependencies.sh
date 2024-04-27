@@ -314,8 +314,8 @@ for imageToBePulled in ${ContainerImages[*]}; do
       wait -n
     done
   done
+  wait ${image_pids[@]}
 done
-wait ${image_pids[@]}
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
 watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
