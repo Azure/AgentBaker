@@ -314,6 +314,8 @@ var artifactToPath = map[string]string{
 	"2019-containerd":                      filepath.Join("AKSWindows", "2019-containerd"),
 	"2022-containerd":                      filepath.Join("AKSWindows", "2022-containerd"),
 	"2022-containerd-gen2":                 filepath.Join("AKSWindows", "2022-containerd-gen2"),
+	"23H2":                                 filepath.Join("AKSWindows", "23H2"),
+	"23H2-gen2":                            filepath.Join("AKSWindows", "23H2-gen2"),
 	"azurelinuxv2-gen1":                    filepath.Join("AKSAzureLinux", "gen1"),
 	"azurelinuxv2-gen2":                    filepath.Join("AKSAzureLinux", "gen2"),
 	"azurelinuxv2-gen1-fips":               filepath.Join("AKSAzureLinux", "gen1fips"),
