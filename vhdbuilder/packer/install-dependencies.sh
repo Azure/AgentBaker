@@ -258,11 +258,17 @@ ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 installBpftrace
 echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
-installBcc
-cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - bcc-tools
-  - libbcc-examples
-EOF
+PRESENT_DIR=$(pwd)
+# run installBcc in a subshell and continue on with container image pull in order to decrease total build time
+( 
+  cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
+
+  installBcc
+
+  exit $?
+) > /var/log/bcc_installation.log 2>&1 &
+
+BCC_PID=$!
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 stop_watch $capture_time "Pull NVIDIA driver image (mcr), Start installBcc subshell" false
@@ -492,6 +498,19 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # update message-of-the-day to start after multi-user.target
   # multi-user.target usually start at the end of the boot sequence
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
+fi
+
+wait $BCC_PID
+BCC_EXIT_CODE=$?
+
+if [ $BCC_EXIT_CODE -eq 0 ]; then
+  echo "Bcc tools successfully installed."
+  cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - bcc-tools
+  - libbcc-examples
+EOF
+else
+  echo "Error: installBcc subshell failed with exit code $BCC_EXIT_CODE" >&2
 fi
 
 # use the private_packages_url to download and cache packages
