@@ -197,11 +197,38 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 	}, Entry("AKSUbuntu2204 containerd with multi-instance GPU", "AKSUbuntu2204+Containerd+MIG", "1.19.13",
 		func(nbc *nbcontractv1.Configuration) {
 			nbc.GpuConfig.GpuInstanceProfile = "MIG7g"
-			nbc.GpuConfig.ConfigGpuDriver = true
+			nbc.GpuConfig.ConfigGpuDriver = false
 			nbc.VmSize = "Standard_ND96asr_v4"
 		}, func(o *nodeBootstrappingOutput) {
-			Expect(o.vars["CONFIG_GPU_DRIVER_IF_NEEDED"]).To(Equal("true"))
+			Expect(o.vars["CONFIG_GPU_DRIVER_IF_NEEDED"]).To(Equal("false"))
 			Expect(o.vars["GPU_NODE"]).To(Equal("true"))
+			Expect(o.vars["CONTAINERD_CONFIG_CONTENT"]).NotTo(BeEmpty())
+			// Ensure the containerd config does not use the
+			// nvidia container runtime when skipping the
+			// GPU driver install, since it will fail to run even non-GPU
+			// pods, as it will not be installed.
+			containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
+			Expect(err).To(BeNil())
+			expectedShimConfig := `version = 2
+oom_score = 0
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = ""
+  [plugins."io.containerd.grpc.v1.cri".containerd]
+    default_runtime_name = "runc"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+  [plugins."io.containerd.grpc.v1.cri".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[metrics]
+  address = "0.0.0.0:10257"
+`
+			Expect(containerdConfigFileContent).To(Equal(expectedShimConfig))
 		}),
 		Entry("AKSUbuntu2204 DisableSSH with enabled ssh", "AKSUbuntu2204+SSHStatusOn", "1.24.2",
 			func(nbc *nbcontractv1.Configuration) {
