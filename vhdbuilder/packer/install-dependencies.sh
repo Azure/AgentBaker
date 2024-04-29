@@ -308,11 +308,10 @@ for imageToBePulled in ${ContainerImages[*]}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
     pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
     image_pids+=($!)
-    # Pull container images in parallel in order to decrease VHD build time
-    # Record process id in order to ensure all images are finished pulling later in the script
+    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
       wait -n
-    done
+    done    
   done
 done
 wait ${image_pids[@]}
