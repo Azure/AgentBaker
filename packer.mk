@@ -46,7 +46,7 @@ else ifeq (${OS_SKU},AzureLinux)
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
-	@echo "${MODE}: IMG_SKU is not 20_04-lts-cvm. Converting os disk snapshot to SIG using convert-osdisk-snapshot-to-sig-x64.sh."
+	@echo "${MODE}: Converting os disk snapshot to SIG using convert-osdisk-snapshot-to-sig-x64.sh."
 	@./vhdbuilder/packer/convert-osdisk-snapshot-to-sig-x64.sh
 endif
 
