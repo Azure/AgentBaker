@@ -278,6 +278,18 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
+# Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
+# Account for possibility that number of cores is 3 or less
+num_proc=$(nproc)
+if [[ $num_proc -gt 3 ]]; then
+  parallel_container_image_pull_limit=$(nproc --ignore=2)
+else
+  parallel_container_image_pull_limit=1
+fi
+echo "Limit for parallel container image pulls set to $parallel_container_image_pull_limit"
+
+declare -a image_pids=()
+
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for imageToBePulled in ${ContainerImages[*]}; do
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
@@ -301,10 +313,15 @@ for imageToBePulled in ${ContainerImages[*]}; do
 
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
+    image_pids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+    while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
+      wait -n
+    done    
   done
 done
+wait ${image_pids[@]}
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
 watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
