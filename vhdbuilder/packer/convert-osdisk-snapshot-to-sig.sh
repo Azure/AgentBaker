@@ -24,4 +24,4 @@ disk_snapshot_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOU
 az snapshot update --resource-group ${AZURE_RESOURCE_GROUP_NAME} -n ${OS_DISK_SNAPSHOT_NAME} --architecture Arm64
 az sig image-version create --location $AZURE_LOCATION --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name PackerSigGalleryEastUS \
      --gallery-image-definition ${SIG_IMAGE_NAME} --gallery-image-version ${CAPTURED_SIG_VERSION} \
-     --os-snapshot ${disk_snapshot_id} --tags now=${time_now} --replication-mode Full
+     --os-snapshot ${disk_snapshot_id} --tags now=${time_now} --replication-mode Shallow
