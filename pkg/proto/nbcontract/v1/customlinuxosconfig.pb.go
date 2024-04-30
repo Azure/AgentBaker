@@ -40,7 +40,7 @@ type CustomLinuxOSConfig struct {
 	// Valid values are "always", "madvise" and "never"
 	// If it's unset or set to empty string, it will use the default value in the VHD "madvise"
 	TransparentDefrag string `protobuf:"bytes,6,opt,name=transparent_defrag,json=transparentDefrag,proto3" json:"transparent_defrag,omitempty"`
-	// Enable or disable UseDomains= for systemd-networkd 
+	// Enable or disable UseDomains= for systemd-networkd
 	ConfigureSystemdUseDomains bool `protobuf:"bytes,7,opt,name=configure_systemd_use_domains,json=configureSystemdUseDomains,proto3" json:"configure_systemd_use_domains,omitempty"`
 }
 
@@ -118,21 +118,6 @@ func (x *CustomLinuxOSConfig) GetTransparentDefrag() string {
 	return ""
 }
 
-<<<<<<< HEAD
-func (x *CustomLinuxOSConfig) GetSysctlConfig() *SysctlConfig {
-	if x != nil {
-		return x.SysctlConfig
-	}
-	return nil
-}
-
-func (x *CustomLinuxOSConfig) GetUlimitConfig() *UlimitConfig {
-	if x != nil {
-		return x.UlimitConfig
-	}
-	return nil
-}
-
 func (x *CustomLinuxOSConfig) GetConfigureSystemdUseDomains() bool {
 	if x != nil {
 		return x.ConfigureSystemdUseDomains
@@ -140,8 +125,6 @@ func (x *CustomLinuxOSConfig) GetConfigureSystemdUseDomains() bool {
 	return false
 }
 
-=======
->>>>>>> origin/master
 type SysctlConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

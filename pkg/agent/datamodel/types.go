@@ -693,7 +693,7 @@ type CustomLinuxOSConfig struct {
 	TransparentHugePageDefrag  string        `json:"transparentHugePageDefrag,omitempty"`
 	SwapFileSizeMB             *int32        `json:"swapFileSizeMB,omitempty"`
 	UlimitConfig               *UlimitConfig `json:"ulimitConfig,omitempty"`
-	ConfigureSystemdUseDomains *bool		 `json:"configureSystemdUseDomains,omitempty"`
+	ConfigureSystemdUseDomains *bool         `json:"configureSystemdUseDomains,omitempty"`
 }
 
 func (c *CustomLinuxOSConfig) GetUlimitConfig() *UlimitConfig {
