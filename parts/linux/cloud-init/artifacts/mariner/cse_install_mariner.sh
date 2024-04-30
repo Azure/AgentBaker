@@ -36,7 +36,7 @@ installKataDeps() {
       wget "https://mitchzhu.blob.core.windows.net/mariner3/hvloader-1.0.1-1.azl3.x86_64.rpm"
       wget "https://mitchzhu.blob.core.windows.net/mariner3/kata-containers-3.2.0.azl0-2.azl3.x86_64.rpm"
       wget "https://mitchzhu.blob.core.windows.net/mariner3/kata-containers-cc-3.2.0.azl0-3.azl3.x86_64.rpm"
-      wget "https://mitchzhu.blob.core.windows.net/mariner3/kernel-mshv-5.15.126.mshv9-3.azl3.x86_64.rpm"
+      wget "https://mitchzhu.blob.core.windows.net/mariner3/kernel-mshv-5.15.126.mshv9-4.azl3.x86_64.rpm"
       wget "https://mitchzhu.blob.core.windows.net/mariner3/kernel-uvm-6.1.0.mshv16-2.azl3.x86_64.rpm"
       wget "https://mitchzhu.blob.core.windows.net/mariner3/moby-containerd-cc-1.7.7-2.azl3.x86_64.rpm"
       wget "https://mitchzhu.blob.core.windows.net/mariner3/mshv-25941.1000.230825-1352.1.x86_64.rpm"
@@ -45,7 +45,7 @@ installKataDeps() {
       dnf install -y mshv-bootloader-lx-25941.1000.230825-1352.1.x86_64.rpm
       dnf install -y mshv-25941.1000.230825-1352.1.x86_64.rpm
       dnf install -y hvloader-1.0.1-1.azl3.x86_64.rpm
-      dnf install -y kernel-mshv-5.15.126.mshv9-3.azl3.x86_64.rpm
+      dnf install -y kernel-mshv-5.15.126.mshv9-4.azl3.x86_64.rpm
       dnf install -y cloud-hypervisor-37.0-1.azl3.x86_64.rpm
       dnf install -y cloud-hypervisor-cvm-32.0.314-2000.geb595874.azl3.x86_64.rpm
       dnf install -y kernel-uvm-6.1.0.mshv16-2.azl3.x86_64.rpm
