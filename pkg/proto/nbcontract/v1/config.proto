@@ -94,7 +94,9 @@ message Configuration {
   optional bool is_vhd = 22;
 
   // Specifies whether SSH is enabled or disabled on the VM node
-  bool enable_ssh = 23;
+  // This is labeled as optional (explicit presence) so that we know whether it's set or not.
+  // If it's not set, the default value will be nil, but will be set to true on the VHD. 
+  optional bool enable_ssh = 23;
 
   // Specifies whether unattended upgrade is enabled or disabled on the VM node
   bool enable_unattended_upgrade = 24;
@@ -139,4 +141,7 @@ message Configuration {
   // Labeled as optional (explicit presence) so that we know whether it's set or not.
   // If it's not set, the default value will be nil and we will get the value on the VHD during bootstrapping.
   optional bool needs_cgroupv2 = 37;
+
+  // Specified whether the node wants to disable custom data scripts for bootstrapping
+  bool disable_custom_data = 38;
 }
