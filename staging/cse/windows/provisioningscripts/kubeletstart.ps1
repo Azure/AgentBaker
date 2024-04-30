@@ -13,6 +13,7 @@ $global:ExternalNetwork = "ext"
 $global:CNIConfig = "$CNIConfig"
 $global:NetworkPlugin = $Global:ClusterConfiguration.Cni.Name
 $global:KubeletNodeLabels = $Global:ClusterConfiguration.Kubernetes.Kubelet.NodeLabels
+$global:IsSkipCleanupNetwork = [System.Convert]::ToBoolean($Global:ClusterConfiguration.Services.IsSkipCleanupNetwork)
 
 $global:AzureCNIDir = [Io.path]::Combine("$global:KubeDir", "azurecni")
 $global:AzureCNIBinDir = [Io.path]::Combine("$global:AzureCNIDir", "bin")
@@ -73,10 +74,15 @@ Stop-Service kubeproxy
 if ($global:NetworkPlugin -eq "azure") {
     Write-Host "NetworkPlugin azure, starting kubelet."
 
-    # Find if network created by CNI exists, if yes, remove it
-    # This is required to keep the network non-persistent behavior
-    # Going forward, this would be done by HNS automatically during restart of the node
-    & "c:\k\cleanupnetwork.ps1"
+    if ($global:IsSkipCleanupNetwork) {
+        Write-Host "Skipping legacy code: kubeletstart.ps1 invokes cleanupnetwork.ps1"
+    } else {
+        # Legacy codes
+        # Find if network created by CNI exists, if yes, remove it
+        # This is required to keep the network non-persistent behavior
+        # Going forward, this would be done by HNS automatically during restart of the node
+        & "c:\k\cleanupnetwork.ps1"
+    }
 
     # Restart Kubeproxy, which would wait, until the network is created
     # This was fixed in 1.15, workaround still needed for 1.14 https://github.com/kubernetes/kubernetes/pull/78612

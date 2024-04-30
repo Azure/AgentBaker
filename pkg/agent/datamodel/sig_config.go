@@ -1,9 +1,13 @@
 package datamodel
 
 import (
+	"bytes"
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path"
+	"runtime"
 	"strings"
 )
 
@@ -11,6 +15,107 @@ const (
 	AzurePublicCloudSigTenantID     string = "33e01921-4d64-4f8c-a055-5bdaffd5e33d" // AME Tenant
 	AzurePublicCloudSigSubscription string = "109a5e88-712a-48ae-9078-9ca8b3c81345" // AKS VHD
 )
+
+//nolint:gochecknoglobals
+var (
+	CachedFromComponentContainerImages map[string]ContainerImage
+	CachedFromComponentDownloadedFiles map[string]DownloadFile
+	CachedFromManifest                 *Manifest
+)
+
+//nolint:gochecknoinits
+func init() {
+	manifest, err := GetManifest()
+	if err != nil {
+		panic(err)
+	}
+	processManifest(manifest)
+
+	components, err := GetComponents()
+	if err != nil {
+		panic(err)
+	}
+	err = processComponents(components)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func GetManifest() (Manifest, error) {
+	_, filename, _, _ := runtime.Caller(0)
+	manifestFilePath := "../../../parts/linux/cloud-init/artifacts/manifest.json"
+	manifest, err := getCachedVersionsFromManifestJSON(path.Join(path.Dir(filename), manifestFilePath))
+	if err != nil {
+		return manifest, err
+	}
+	return manifest, nil
+}
+
+func GetComponents() (Components, error) {
+	_, filename, _, _ := runtime.Caller(0)
+	componentsFilePath := "../../../vhdbuilder/packer/components.json"
+	components, err := getCachedVersionsFromComponentsJSON(path.Join(path.Dir(filename), componentsFilePath))
+	if err != nil {
+		return components, err
+	}
+	return components, nil
+}
+
+func processManifest(manifest Manifest) {
+	CachedFromManifest = &Manifest{}
+
+	CachedFromManifest.Kubernetes = manifest.Kubernetes
+	CachedFromManifest.Runc = manifest.Runc
+	CachedFromManifest.Containerd = manifest.Containerd
+	CachedFromManifest.NvidiaContainerRuntime = manifest.NvidiaContainerRuntime
+	CachedFromManifest.NvidiaDrivers = manifest.NvidiaDrivers
+}
+
+func processComponents(components Components) error {
+	CachedFromComponentContainerImages = make(map[string]ContainerImage)
+	CachedFromComponentDownloadedFiles = make(map[string]DownloadFile)
+
+	for _, image := range components.ContainerImages {
+		componentName, err := getContainerImageNameFromURL(image.DownloadURL)
+		if err != nil {
+			return fmt.Errorf("error getting component name from URL: %w", err)
+		}
+		CachedFromComponentContainerImages[componentName] = image
+	}
+	for _, file := range components.DownloadFiles {
+		componetName, err := getComponentNameFromURL(file.DownloadURL)
+		if err != nil {
+			return fmt.Errorf("error getting component name from URL: %w", err)
+		}
+		CachedFromComponentDownloadedFiles[componetName] = file
+	}
+	return nil
+}
+
+func getCachedVersionsFromManifestJSON(manifestFilePath string) (Manifest, error) {
+	data, err := os.ReadFile(manifestFilePath)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("error reading manifest file: %w", err)
+	}
+	data = bytes.ReplaceAll(data, []byte("#EOF"), []byte(""))
+	var manifest Manifest
+	if err = json.Unmarshal(data, &manifest); err != nil {
+		return Manifest{}, fmt.Errorf("error unmarshalling manifest file: %w", err)
+	}
+	return manifest, nil
+}
+
+func getCachedVersionsFromComponentsJSON(componentsFilePath string) (Components, error) {
+	data, err := os.ReadFile(componentsFilePath)
+	if err != nil {
+		return Components{}, fmt.Errorf("error reading components file: %w", err)
+	}
+	var components Components
+	if err = json.Unmarshal(data, &components); err != nil {
+		return Components{}, fmt.Errorf("error unmarshalling components file: %w", err)
+	}
+	return components, nil
+}
 
 // SIGAzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
 /* TODO(tonyxu) merge this with AzureEnvironmentSpecConfig from aks-engine(pkg/api/azenvtypes.go) once
@@ -278,8 +383,6 @@ func (d Distro) IsWindowsDistro() bool {
 }
 
 // SigImageConfigTemplate represents the SIG image configuration template.
-//
-//nolint:musttag // tags can be added if deemed necessary
 type SigImageConfigTemplate struct {
 	ResourceGroup string
 	Gallery       string
