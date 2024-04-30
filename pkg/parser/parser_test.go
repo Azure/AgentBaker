@@ -197,11 +197,11 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 	}, Entry("AKSUbuntu2204 containerd with multi-instance GPU", "AKSUbuntu2204+Containerd+MIG", "1.19.13",
 		func(nbc *nbcontractv1.Configuration) {
 			nbc.GpuConfig.GpuInstanceProfile = "MIG7g"
-			nbc.GpuConfig.ConfigGpuDriver = false
+			// Skip GPU driver install
+			nbc.GpuConfig.EnableNvidia = to.BoolPtr(false)
 			nbc.VmSize = "Standard_ND96asr_v4"
 		}, func(o *nodeBootstrappingOutput) {
-			Expect(o.vars["CONFIG_GPU_DRIVER_IF_NEEDED"]).To(Equal("false"))
-			Expect(o.vars["GPU_NODE"]).To(Equal("true"))
+			Expect(o.vars["GPU_NODE"]).To(Equal("false"))
 			Expect(o.vars["CONTAINERD_CONFIG_CONTENT"]).NotTo(BeEmpty())
 			// Ensure the containerd config does not use the
 			// nvidia container runtime when skipping the

@@ -84,7 +84,6 @@ func getFuncMap() template.FuncMap {
 		"createSortedKeyValueInt32Pairs":            createSortedKeyValuePairs[int32],
 		"getExcludeMasterFromStandardLB":            getExcludeMasterFromStandardLB,
 		"getMaxLBRuleCount":                         getMaxLBRuleCount,
-		"getGpuNode":                                getGpuNode,
 		"getGpuImageSha":                            getGpuImageSha,
 		"getGpuDriverVersion":                       getGpuDriverVersion,
 		"getIsSgxEnabledSKU":                        getIsSgxEnabledSKU,
@@ -104,17 +103,18 @@ func getFuncMap() template.FuncMap {
 		"getTargetCloud":                            getTargetCloud,
 		"getIsAksCustomCloud":                       getIsAksCustomCloud,
 		"getGPUNeedsFabricManager":                  getGPUNeedsFabricManager,
+		"getEnableNvidia":                           getEnableNvidia,
 	}
 }
 
 func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 	return template.FuncMap{
 		"derefBool":                        deref[bool],
-		"getGpuNode":                       getGpuNode,
 		"getIsKrustlet":                    getIsKrustlet,
 		"getEnsureNoDupePromiscuousBridge": getEnsureNoDupePromiscuousBridge,
 		"isKubernetesVersionGe":            nbcontractv1.IsKubernetesVersionGe,
 		"getHasDataDir":                    getHasDataDir,
+		"getEnableNvidia":                  getEnableNvidia,
 	}
 }
 
@@ -541,10 +541,6 @@ func getMaxLBRuleCount(lb *nbcontractv1.LoadBalancerConfig) int32 {
 	return lb.GetMaxLoadBalancerRuleCount()
 }
 
-func getGpuNode(vmSize string) bool {
-	return common.IsNvidiaEnabledSKU(vmSize)
-}
-
 func getGpuImageSha(vmSize string) string {
 	return common.GetAKSGPUImageSHA(vmSize)
 }
@@ -678,4 +674,11 @@ func getInitAKSCustomCloudFilepath() string {
 
 func getGPUNeedsFabricManager(vmSize string) bool {
 	return common.GPUNeedsFabricManager(vmSize)
+}
+
+func getEnableNvidia(config *nbcontractv1.Configuration) bool {
+	if config.GpuConfig != nil && config.GpuConfig.EnableNvidia != nil {
+		return *config.GpuConfig.EnableNvidia
+	}
+	return common.IsNvidiaEnabledSKU(config.GetVmSize())
 }

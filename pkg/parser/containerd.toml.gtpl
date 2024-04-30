@@ -16,7 +16,7 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
     snapshotter = "overlaybd"
     disable_snapshot_annotations = false
     {{- end}}
-    {{- if and (getGpuNode .VmSize) (.GpuConfig.GetConfigGpuDriver) }}
+    {{- if getEnableNvidia . }}
     default_runtime_name = "nvidia-container-runtime"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
       runtime_type = "io.containerd.runc.v2"

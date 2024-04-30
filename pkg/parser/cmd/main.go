@@ -13,6 +13,8 @@ import (
 // example usage:
 // to build: go build main.go.
 // to run: ./main testdata/test_nbc.json.
+//
+//nolint:gosec // generated cse_cmd.sh file needs execute permissions for bootstrapping
 func main() {
 	if len(os.Args) < parser.MinArgs {
 		log.Default().Printf("Usage: %s <input.json>", os.Args[0])
@@ -31,7 +33,7 @@ func main() {
 		log.Fatal(err)
 		return
 	}
-	if err = os.WriteFile("cse_cmd.sh", []byte(cseCmd), 0600); err != nil {
+	if err = os.WriteFile("cse_cmd.sh", []byte(cseCmd), 0655); err != nil {
 		log.Fatal(err)
 		return
 	}

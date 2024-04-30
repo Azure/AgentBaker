@@ -1,6 +1,6 @@
 PROVISION_OUTPUT="/var/log/azure/cluster-provision-cse-output.log";
 echo $(date),$(hostname) > ${PROVISION_OUTPUT};
-{{if true}}
+{{if not .GetDisableCustomData}}
 cloud-init status --wait > /dev/null 2>&1;
 [ $? -ne 0 ] && echo 'cloud-init failed' >> ${PROVISION_OUTPUT} && exit 1;
 echo "cloud-init succeeded" >> ${PROVISION_OUTPUT};
@@ -59,7 +59,7 @@ KUBE_BINARY_URL={{.KubeBinaryConfig.GetKubeBinaryUrl}}
 USER_ASSIGNED_IDENTITY_ID={{.AuthConfig.GetAssignedIdentityId}}
 API_SERVER_NAME={{.ApiServerConfig.GetApiServerName}}
 IS_VHD={{getIsVHD .IsVhd}}
-GPU_NODE={{getGpuNode .VmSize}}
+GPU_NODE={{getEnableNvidia .}}
 SGX_NODE={{getIsSgxEnabledSKU .VmSize}}
 MIG_NODE={{getIsMIGNode .GpuConfig.GetGpuInstanceProfile}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{.GpuConfig.GetConfigGpuDriver}}
