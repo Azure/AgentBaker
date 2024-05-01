@@ -21,9 +21,9 @@ echo "ManagedImageSharedImageGalleryId: /subscriptions/${SUBSCRIPTION_ID}/resour
 
 ARCH_STRING=""
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-ARCH_STRING+="--architecture Arm64"
-elif 
-ARCH_STRING=""
+  ARCH_STRING+="--architecture Arm64"
+else 
+  ARCH_STRING=""
 fi
 
 time_now=$(echo ${CAPTURED_SIG_VERSION} | cut -d '.' -f2)
