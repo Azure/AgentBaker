@@ -409,7 +409,6 @@ EOF
 
 ensureSecureTLSBootstrap() {
     KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
-    
     while [ "$(systemctl is-active secure-tls-bootstrap)" == "activating" ]; do
         echo "secure TLS bootstrapping is still in progressing, waiting for terminal state..."
         sleep 1
@@ -418,12 +417,12 @@ ensureSecureTLSBootstrap() {
     if [ "$STATUS" == "failed" ] || [ "$STATUS" == "is-failed" ]; then
         systemctl status secure-tls-bootstrap --no-pager -l
         journalctl -u secure-tls-bootstrap
-        exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_FAIL
+        exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_FAIL 
     fi
     if [ ! -f "$KUBECONFIG_FILE" ]; then
         systemctl status secure-tls-bootstrap --no-pager -l
         journalctl -u secure-tls-bootstrap
-        exit $ERR_SECURE_TLS_BOOTSTRAP_MISSING_KUBECONFIG
+        exit $ERR_SECURE_TLS_BOOTSTRAP_MISSING_KUBECONFIG 
     fi
 } 
 
@@ -452,18 +451,11 @@ ensureKubelet() {
 [Service]
 Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
 EOF
-        else
-            tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
-[Service]
-Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig"
-EOF
-        fi
-
-        BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-        mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
-        touch "${BOOTSTRAP_KUBECONFIG_FILE}"
-        chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
-        tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+            BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+            mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
+            touch "${BOOTSTRAP_KUBECONFIG_FILE}"
+            chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
+            tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
 apiVersion: v1
 kind: Config
 clusters:
@@ -482,6 +474,12 @@ contexts:
   name: bootstrap-context
 current-context: bootstrap-context
 EOF
+        else
+            tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig"
+EOF
+        fi
     else
         mkdir -p "$(dirname "${KUBECONFIG_FILE}")"
         touch "${KUBECONFIG_FILE}"
