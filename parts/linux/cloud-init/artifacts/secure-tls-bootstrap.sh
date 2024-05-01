@@ -3,7 +3,7 @@
 set -uxo pipefail
 
 DEFAULT_CLIENT_VERSION="client-v0.1.0-alpha.cameissner2"
-EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+EVENTS_LOGGING_DIR="/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events"
 NEXT_PROTO_VALUE="aks-tls-bootstrap"
 
 RETRY_PERIOD_SECONDS=180 # 3 minutes
@@ -43,17 +43,12 @@ logs_to_events() {
     ret=$?
     local endTime=$(date +"%F %T.%3N")
 
-    if [ "$ret" == "0" ]; then
-        msg_string=$(jq -n --arg Completed "$*" --arg Hostname "$(uname -n)" '{Hostname: $Hostname, Completed: $Completed}')
+    msg_string=$(jq -n --arg Status "Succeeded" --arg Hostname "$(uname -n)" '{Status: $Status, Hostname: $Hostname}')
+    if [ "$ret" != "0" ] && [ "${SUB_COMMAND,,}" == "bootstrap" ]; then
+        msg_string=$(jq -n --arg Status "Failed" --arg Hostname "$(uname -n)" --arg LogTail "$(tail -n 20 $LOG_FILE_PATH)" '{Status: $Status, Hostname: $Hostname, LogTail: $LogTail}')
     fi
-
-    if [ "$ret" != "0" ]; then
-        if [ "${SUB_COMMAND,,}" == "bootstrap" ]; then
-            # bootstrap failure
-            msg_string=$(jq -n --arg Failed "$*" --arg Hostname "$(uname -n)" --arg BootstrapJournal "$(cat $LOG_FILE_PATH)" '{Failed: $Failed, Hostname: $Hostname, BootstrapJournal: $BootstrapJournal}')
-        else
-            msg_string=$(jq -n --arg Failed "$*" --arg Hostname "$(uname -n)" '{Failed: $Failed, Hostname: $Hostname}')
-        fi
+    if [ "$ret" != "0" ] && [ "${SUB_COMMAND,,}" == "download" ]; then
+        msg_string=$(jq -n --arg Status "Failed" --arg Hostname "$(uname -n)" '{Status: $Status, Hostname: $Hostname}')
     fi
 
     json_string=$( jq -n \
@@ -67,7 +62,7 @@ logs_to_events() {
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
-    echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
+    echo ${json_string} > "${EVENTS_LOGGING_DIR}/${eventsFileName}.json"
 
     if [ "$ret" != "0" ]; then
       return $ret
