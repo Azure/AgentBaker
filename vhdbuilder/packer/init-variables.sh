@@ -105,9 +105,11 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 	fi
 fi
 
-if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-  ARM64_OS_DISK_SNAPSHOT_NAME="arm64_osdisk_snapshot_${CREATE_TIME}_$RANDOM"
-  SIG_IMAGE_NAME=${SIG_IMAGE_NAME//./}Arm64
+if [[ "$MODE" == "linuxVhdMode" && "${IMG_SKU}" != "20_04-lts-cvm" ]]; then
+  OS_DISK_SNAPSHOT_NAME="osdisk_snapshot_${CREATE_TIME}_$RANDOM"
+  if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+  	SIG_IMAGE_NAME=${SIG_IMAGE_NAME//./}Arm64
+  fi
   # Only az published after April 06 2022 supports --architecture for command 'az sig image-definition create...'
   azversion=$(az version | jq '."azure-cli"' | tr -d '"')
   if [[ "${azversion}" < "2.35.0" ]]; then
