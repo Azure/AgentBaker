@@ -51,16 +51,16 @@ func initVHDCacheContent() error {
 		FromComponentDownloadedFiles = make(map[string]DownloadFile)
 	}
 	for _, image := range components.ContainerImages {
-		componentName, err := getContainerImageNameFromURL(image.DownloadURL)
-		if err != nil {
-			return fmt.Errorf("error getting component name from URL: %w", err)
+		componentName, nameErr := getContainerImageNameFromURL(image.DownloadURL)
+		if nameErr != nil {
+			return fmt.Errorf("error getting component name from URL: %w", nameErr)
 		}
 		FromComponentContainerImages[componentName] = image
 	}
 	for _, file := range components.DownloadFiles {
-		componetName, err := getComponentNameFromURL(file.DownloadURL)
-		if err != nil {
-			return fmt.Errorf("error getting component name from URL: %w", err)
+		componetName, nameErr := getComponentNameFromURL(file.DownloadURL)
+		if nameErr != nil {
+			return fmt.Errorf("error getting component name from URL: %w", nameErr)
 		}
 		FromComponentDownloadedFiles[componetName] = file
 	}
