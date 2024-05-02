@@ -22,17 +22,17 @@ var _ = Describe("cache suite", func() {
 			cniPluginIndx := 0
 			azureCNIIndx := 1
 
-			Expect(FromManifest.Runc.Installed["default"]).To(Equal(manifest.Runc.Installed["default"]))
-			Expect(FromManifest.Runc.Pinned["1804"]).To(Equal(manifest.Runc.Pinned["1804"]))
-			Expect(FromManifest.Containerd.Pinned["1804"]).To(Equal(manifest.Containerd.Pinned["1804"]))
-			Expect(FromManifest.Containerd.Edge).To(Equal(manifest.Containerd.Edge))
-			Expect(FromManifest.Kubernetes.Versions[0]).To(Equal(manifest.Kubernetes.Versions[0]))
-			Expect(FromComponentContainerImages["pause"].MultiArchVersions[0]).To(Equal(components.ContainerImages[pauseIndx].MultiArchVersions[0]))
-			Expect(FromComponentContainerImages["azure-cns"].PrefetchOptimizations[0].Version).To(
+			Expect(onVHD.FromManifest.Runc.Installed["default"]).To(Equal(manifest.Runc.Installed["default"]))
+			Expect(onVHD.FromManifest.Runc.Pinned["1804"]).To(Equal(manifest.Runc.Pinned["1804"]))
+			Expect(onVHD.FromManifest.Containerd.Pinned["1804"]).To(Equal(manifest.Containerd.Pinned["1804"]))
+			Expect(onVHD.FromManifest.Containerd.Edge).To(Equal(manifest.Containerd.Edge))
+			Expect(onVHD.FromManifest.Kubernetes.Versions[0]).To(Equal(manifest.Kubernetes.Versions[0]))
+			Expect(onVHD.FromComponentContainerImages["pause"].MultiArchVersions[0]).To(Equal(components.ContainerImages[pauseIndx].MultiArchVersions[0]))
+			Expect(onVHD.FromComponentContainerImages["azure-cns"].PrefetchOptimizations[0].Version).To(
 				Equal(components.ContainerImages[azureCNSIndx].PrefetchOptimizations[0].Version))
-			Expect(FromComponentContainerImages["azure-cns"].PrefetchOptimizations[0].Binaries[0]).To(Equal("usr/local/bin/azure-cns"))
-			Expect(FromComponentDownloadedFiles["cni-plugins"].Versions[0]).To(Equal(components.DownloadFiles[cniPluginIndx].Versions[0]))
-			Expect(FromComponentDownloadedFiles["azure-cni"].Versions[1]).To(Equal(components.DownloadFiles[azureCNIIndx].Versions[1]))
+			Expect(onVHD.FromComponentContainerImages["azure-cns"].PrefetchOptimizations[0].Binaries[0]).To(Equal("usr/local/bin/azure-cns"))
+			Expect(onVHD.FromComponentDownloadedFiles["cni-plugins"].Versions[0]).To(Equal(components.DownloadFiles[cniPluginIndx].Versions[0]))
+			Expect(onVHD.FromComponentDownloadedFiles["azure-cni"].Versions[1]).To(Equal(components.DownloadFiles[azureCNIIndx].Versions[1]))
 		})
 	})
 

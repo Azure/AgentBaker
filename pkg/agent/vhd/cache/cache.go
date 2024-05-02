@@ -1,5 +1,5 @@
 // Package cache provides types and functionality for reasoning about the content cached on a particular VHD version
-// through the usage of both the components.json and manifest.json file artifacts.
+// through both components.json and manifest.json.
 package cache
 
 import (
@@ -17,64 +17,70 @@ const (
 	componentsFilePartPath = "linux/cloud-init/artifacts/components.json"
 )
 
+//nolint:gochecknoglobals
+var onVHD *OnVHD
+
 //nolint:gochecknoinits
 func init() {
-	if err := initVHDCacheContent(); err != nil {
+	var err error
+	onVHD, err = loadOnVHD()
+	if err != nil {
 		panic(err)
 	}
-	if FromManifest == nil {
-		panic("FromManifest is nil after initialization")
+	if onVHD == nil {
+		panic("onVHD is nil after initialization")
 	}
-	if FromComponentContainerImages == nil {
-		panic("FromComponentContainerImages is nil after initialization")
+	if onVHD.FromManifest == nil {
+		panic("onVHD.FromManifest is nil after initialization")
 	}
-	if FromComponentDownloadedFiles == nil {
-		panic("FromComponentDownloadedFiles is nil after initialization")
+	if onVHD.FromComponentContainerImages == nil {
+		panic("onVHD.FromComponentContainerImages is nil after initialization")
+	}
+	if onVHD.FromComponentDownloadedFiles == nil {
+		panic("onVHD.FromComponentDownloadedFiles is nil after initialization")
 	}
 }
 
-//nolint:gochecknoglobals
-var (
-	FromComponentContainerImages map[string]ContainerImage
-	FromComponentDownloadedFiles map[string]DownloadFile
-	FromManifest                 *Manifest
-)
+// GetOnVHD returns the set of components and binaries that have been cached on the
+// particular VHD corresponding to the given agentbakersvc version.
+func GetOnVHD() *OnVHD {
+	return onVHD
+}
 
-func initVHDCacheContent() error {
+func loadOnVHD() (*OnVHD, error) {
 	// init manifest content
 	manifest, err := getManifest()
 	if err != nil {
-		return fmt.Errorf("initializing manifest.json content: %w", err)
+		return nil, fmt.Errorf("initializing manifest.json content: %w", err)
 	}
-	FromManifest = manifest
 
 	// init components content
 	components, err := getComponents()
 	if err != nil {
-		return fmt.Errorf("initializing components.json content: %w", err)
+		return nil, fmt.Errorf("initializing components.json content: %w", err)
 	}
-	if FromComponentContainerImages == nil {
-		FromComponentContainerImages = make(map[string]ContainerImage)
-	}
-	if FromComponentDownloadedFiles == nil {
-		FromComponentDownloadedFiles = make(map[string]DownloadFile)
-	}
+	componentContainerImages := make(map[string]ContainerImage)
 	for _, image := range components.ContainerImages {
 		imageName, nameErr := getContainerImageNameFromURL(image.DownloadURL)
 		if nameErr != nil {
-			return fmt.Errorf("error getting component name from URL: %w", nameErr)
+			return nil, fmt.Errorf("error getting component name from URL: %w", nameErr)
 		}
-		FromComponentContainerImages[imageName] = image
+		componentContainerImages[imageName] = image
 	}
+	componentDownloadFiles := make(map[string]DownloadFile)
 	for _, file := range components.DownloadFiles {
 		fileName, nameErr := getFileNameFromURL(file.DownloadURL)
 		if nameErr != nil {
-			return fmt.Errorf("error getting component name from URL: %w", nameErr)
+			return nil, fmt.Errorf("error getting component name from URL: %w", nameErr)
 		}
-		FromComponentDownloadedFiles[fileName] = file
+		componentDownloadFiles[fileName] = file
 	}
 
-	return nil
+	return &OnVHD{
+		FromManifest:                 manifest,
+		FromComponentContainerImages: componentContainerImages,
+		FromComponentDownloadedFiles: componentDownloadFiles,
+	}, nil
 }
 
 func getManifest() (*Manifest, error) {

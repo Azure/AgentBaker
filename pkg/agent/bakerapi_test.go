@@ -529,7 +529,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
 
-			cachedOnVHD, err := agentBaker.GetCachedVersionsOnVHD()
+			cachedOnVHD := agentBaker.GetCachedVersionsOnVHD()
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(cachedOnVHD).ToNot(BeNil())

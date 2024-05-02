@@ -14,17 +14,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Azure/agentbaker/pkg/agent/vhd/cache"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/Masterminds/semver/v3"
 )
-
-// CachedOnVHD represents the cached components on a VHD version.
-type CachedOnVHD struct {
-	FromManifest                 *cache.Manifest                 `json:"cachedFromManifest"`
-	FromComponentContainerImages map[string]cache.ContainerImage `json:"cachedFromComponentContainerImages"`
-	FromComponentDownloadedFiles map[string]cache.DownloadFile   `json:"cachedFromComponentDownloadedFiles"`
-}
 
 // TypeMeta describes an individual API model object.
 type TypeMeta struct {
