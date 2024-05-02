@@ -60,18 +60,18 @@ func initVHDCacheContent() error {
 		FromComponentDownloadedFiles = make(map[string]DownloadFile)
 	}
 	for _, image := range components.ContainerImages {
-		componentName, nameErr := getContainerImageNameFromURL(image.DownloadURL)
+		imageName, nameErr := getContainerImageNameFromURL(image.DownloadURL)
 		if nameErr != nil {
 			return fmt.Errorf("error getting component name from URL: %w", nameErr)
 		}
-		FromComponentContainerImages[componentName] = image
+		FromComponentContainerImages[imageName] = image
 	}
 	for _, file := range components.DownloadFiles {
-		componetName, nameErr := getComponentNameFromURL(file.DownloadURL)
+		fileName, nameErr := getFileNameFromURL(file.DownloadURL)
 		if nameErr != nil {
 			return fmt.Errorf("error getting component name from URL: %w", nameErr)
 		}
-		FromComponentDownloadedFiles[componetName] = file
+		FromComponentDownloadedFiles[fileName] = file
 	}
 
 	return nil
@@ -104,7 +104,7 @@ func getComponents() (*Components, error) {
 }
 
 func getContainerImageNameFromURL(downloadURL string) (string, error) {
-	// example URL "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
+	// example URL: "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
 	// getting the data between the last / and the last :
 	parts := strings.Split(downloadURL, "/")
 	if len(parts) == 0 || len(parts[len(parts)-1]) == 0 {
@@ -115,8 +115,8 @@ func getContainerImageNameFromURL(downloadURL string) (string, error) {
 	return component, nil
 }
 
-func getComponentNameFromURL(downloadURL string) (string, error) {
-	// example URL "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
+func getFileNameFromURL(downloadURL string) (string, error) {
+	// example URL: "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
 	url, err := url.Parse(downloadURL) // /cni-plugins/v*/binaries
 	if err != nil {
 		return "", fmt.Errorf("download file image URL is not in the expected format: %s", downloadURL)

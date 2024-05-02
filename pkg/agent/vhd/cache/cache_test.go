@@ -57,11 +57,11 @@ var _ = Describe("cache suite", func() {
 		})
 	})
 
-	Context("getComponentNameFromURL", func() {
+	Context("getFileNameFromURL", func() {
 		When("URL is empty", func() {
 			It("should return an error", func() {
 				var url string
-				name, err := getComponentNameFromURL(url)
+				name, err := getFileNameFromURL(url)
 				Expect(name).To(BeEmpty())
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("download file image URL is not in the expected format: "))
@@ -71,7 +71,7 @@ var _ = Describe("cache suite", func() {
 		When("URL is valid", func() {
 			It("should return the component name", func() {
 				url := "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries"
-				name, err := getComponentNameFromURL(url)
+				name, err := getFileNameFromURL(url)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(name).To(Equal("cni-plugins"))
 			})
