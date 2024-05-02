@@ -349,15 +349,16 @@ var _ = Describe("Test contract compatibility handled by protobuf", func() {
 			// if a string field is unset, it will be set to empty string by protobuf by default
 			Expect(nbc_ut.GetLinuxAdminUsername()).To(Equal(""))
 
-			// if an optional bool field is unset, it will be set to nil by protobuf by default.
+			// if an optional (explict presence) bool field is unset, it will be set to nil by protobuf by default.
 			// Here we don't use the getter because getter is nil safe and will default to false.
 			Expect(nbc_ut.IsVhd).To(BeNil())
 
-			// if an optional field is unset, it will be set to nil by protobuf by default.
+			// if an optional (explict presence) field is unset, it will be set to nil by protobuf by default.
+			// Here we don't use the getter because getter is nil safe and will default to false.
 			Expect(nbc_ut.ClusterConfig.LoadBalancerConfig.ExcludeMasterFromStandardLoadBalancer).To(BeNil())
 
 			// if an optional enum field is unset, it will be set to 0 (in this case LoadBalancerConfig_UNSPECIFIED) by protobuf by default.
-			Expect(nbc_ut.ClusterConfig.LoadBalancerConfig.LoadBalancerSku).To(Equal(nbcontractv1.LoadBalancerConfig_UNSPECIFIED))
+			Expect(nbc_ut.ClusterConfig.LoadBalancerConfig.GetLoadBalancerSku()).To(Equal(nbcontractv1.LoadBalancerConfig_UNSPECIFIED))
 		},
 	),
 	)
