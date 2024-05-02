@@ -23,12 +23,7 @@ func (api *APIServer) GetCachedVersionsOnVHD(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	cachedOnVHD, err := agentBaker.GetCachedVersionsOnVHD()
-	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	cachedOnVHD := agentBaker.GetCachedVersionsOnVHD()
 
 	jsonResponse, err := json.Marshal(cachedOnVHD)
 	if err != nil {
