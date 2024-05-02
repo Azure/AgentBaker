@@ -69,7 +69,7 @@ var _ = Describe("cache suite", func() {
 		})
 
 		When("URL is valid", func() {
-			It("should return an error", func() {
+			It("should return the component name", func() {
 				url := "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries"
 				name, err := getComponentNameFromURL(url)
 				Expect(err).ToNot(HaveOccurred())

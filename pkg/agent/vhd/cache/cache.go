@@ -1,5 +1,5 @@
 // Package cache provides types and functionality for reasoning about the content cached on a particular VHD version
-// primary through the usage of both the components.json and manifest.json file artifacts.
+// through the usage of both the components.json and manifest.json file artifacts.
 package cache
 
 import (
