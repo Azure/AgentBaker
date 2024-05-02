@@ -9,6 +9,7 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/agent/toggles"
+	"github.com/Azure/agentbaker/pkg/agent/vhd/cache"
 )
 
 //nolint:revive // Name does not need to be modified to baker
@@ -177,15 +178,19 @@ func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distr
 }
 
 func (agentBaker *agentBakerImpl) GetCachedVersionsOnVHD() (*datamodel.CachedOnVHD, error) {
-	cached := datamodel.CachedOnVHD{
-		CachedFromManifest:                 datamodel.CachedFromManifest,
-		CachedFromComponentContainerImages: datamodel.CachedFromComponentContainerImages,
-		CachedFromComponentDownloadedFiles: datamodel.CachedFromComponentDownloadedFiles,
+	if cache.FromManifest == nil {
+		return nil, fmt.Errorf("cached versions are not available")
+	}
+	if cache.FromComponentContainerImages == nil {
+		return nil, fmt.Errorf("cached versions are not available")
+	}
+	if cache.FromComponentDownloadedFiles == nil {
+		return nil, fmt.Errorf("cached versions are not available")
 	}
 
-	if datamodel.CachedFromManifest == nil || datamodel.CachedFromComponentContainerImages == nil || datamodel.CachedFromComponentDownloadedFiles == nil {
-		return &cached, fmt.Errorf("cached versions are not available")
-	}
-
-	return &cached, nil
+	return &datamodel.CachedOnVHD{
+		FromManifest:                 cache.FromManifest,
+		FromComponentContainerImages: cache.FromComponentContainerImages,
+		FromComponentDownloadedFiles: cache.FromComponentDownloadedFiles,
+	}, nil
 }

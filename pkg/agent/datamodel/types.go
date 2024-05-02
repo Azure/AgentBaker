@@ -14,9 +14,17 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Azure/agentbaker/pkg/agent/vhd/cache"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/Masterminds/semver/v3"
 )
+
+// CachedOnVHD represents the cached components on a VHD version.
+type CachedOnVHD struct {
+	FromManifest                 *cache.Manifest                 `json:"cachedFromManifest"`
+	FromComponentContainerImages map[string]cache.ContainerImage `json:"cachedFromComponentContainerImages"`
+	FromComponentDownloadedFiles map[string]cache.DownloadFile   `json:"cachedFromComponentDownloadedFiles"`
+}
 
 // TypeMeta describes an individual API model object.
 type TypeMeta struct {
@@ -816,63 +824,6 @@ type ContainerService struct {
 	Type     string                `json:"type"`
 
 	Properties *Properties `json:"properties,omitempty"`
-}
-
-// CachedOnVHD represents the cached components on VHD.
-type CachedOnVHD struct {
-	CachedFromManifest                 *Manifest                 `json:"cachedFromManifest"`
-	CachedFromComponentContainerImages map[string]ContainerImage `json:"cachedFromComponentContainerImages"`
-	CachedFromComponentDownloadedFiles map[string]DownloadFile   `json:"cachedFromComponentDownloadedFiles"`
-}
-
-// Dependency represents fields that occur on manifest.json.
-type Dependency struct {
-	Versions  []string          `json:"versions"`
-	Installed map[string]string `json:"installed"`
-	Pinned    map[string]string `json:"pinned"`
-	Edge      string            `json:"edge"`
-}
-
-// Manifest represents the manifest.json file.
-type Manifest struct {
-	Containerd             Dependency `json:"containerd"`
-	Runc                   Dependency `json:"runc"`
-	NvidiaContainerRuntime Dependency `json:"nvidia-container-runtime"`
-	NvidiaDrivers          Dependency `json:"nvidia-drivers"`
-	Kubernetes             Dependency `json:"kubernetes"`
-}
-
-// Versions of components on manifest.json.
-type Versions struct {
-	Versions []string `json:"versions"`
-}
-
-// Components represents the components.json file.
-type Components struct {
-	ContainerImages []ContainerImage `json:"containerImages"`
-	DownloadFiles   []DownloadFile   `json:"downloadFiles"`
-}
-
-// ContainerImage represents fields that occur on components.json.
-type ContainerImage struct {
-	DownloadURL           string                 `json:"downloadURL"`
-	MultiArchVersions     []string               `json:"multiArchVersions"`
-	Amd64OnlyVersions     []string               `json:"amd64OnlyVersions"`
-	PrefetchOptimizations []PrefetchOptimization `json:"prefetchOptimizations"`
-}
-
-// PrefetchOptimization represents fields that occur on components.json.
-type PrefetchOptimization struct {
-	Version  string   `json:"version"`
-	Binaries []string `json:"binaries"`
-}
-
-// DownloadFile represents DownloadFile fields that occur on components.json.
-type DownloadFile struct {
-	FileName         string   `json:"fileName"`
-	DownloadLocation string   `json:"downloadLocation"`
-	DownloadURL      string   `json:"downloadURL"`
-	Versions         []string `json:"versions"`
 }
 
 // IsAKSCustomCloud checks if it's in AKS custom cloud.
