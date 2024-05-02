@@ -1,6 +1,6 @@
 package cache
 
-// CachedOnVHD represents the cached components on VHD.
+// CachedOnVHD represents the cached components on the VHD.
 type OnVHD struct {
 	FromManifest                 *Manifest                 `json:"cachedFromManifest"`
 	FromComponentContainerImages map[string]ContainerImage `json:"cachedFromComponentContainerImages"`

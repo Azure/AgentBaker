@@ -110,7 +110,7 @@ func getComponents() (*Components, error) {
 }
 
 func getContainerImageNameFromURL(downloadURL string) (string, error) {
-	// example URL: "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
+	// example URL: "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*"
 	// getting the data between the last / and the last :
 	parts := strings.Split(downloadURL, "/")
 	if len(parts) == 0 || len(parts[len(parts)-1]) == 0 {
@@ -122,7 +122,7 @@ func getContainerImageNameFromURL(downloadURL string) (string, error) {
 }
 
 func getFileNameFromURL(downloadURL string) (string, error) {
-	// example URL: "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
+	// example URL: "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries"
 	url, err := url.Parse(downloadURL) // /cni-plugins/v*/binaries
 	if err != nil {
 		return "", fmt.Errorf("download file image URL is not in the expected format: %s", downloadURL)
