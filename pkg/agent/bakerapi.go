@@ -179,13 +179,13 @@ func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distr
 
 func (agentBaker *agentBakerImpl) GetCachedVersionsOnVHD() (*datamodel.CachedOnVHD, error) {
 	if cache.FromManifest == nil {
-		return nil, fmt.Errorf("cached versions are not available")
+		return nil, fmt.Errorf("cached versions from manifest are not available")
 	}
 	if cache.FromComponentContainerImages == nil {
-		return nil, fmt.Errorf("cached versions are not available")
+		return nil, fmt.Errorf("cached versions from component container images are not available")
 	}
 	if cache.FromComponentDownloadedFiles == nil {
-		return nil, fmt.Errorf("cached versions are not available")
+		return nil, fmt.Errorf("cached versions from component download files are not available")
 	}
 
 	return &datamodel.CachedOnVHD{
