@@ -328,6 +328,41 @@ oom_score = 0
 	)
 })
 
+var _ = Describe("Test contract compatibility handled by protobuf", func() {
+	DescribeTable("Test with unexpected new fields", func(folder, nbcUTFilePath string, validator func(*nbcontractv1.Configuration, *nbcontractv1.Configuration)) {
+		nbc_expected := getNBCInstance("./testdata/test_nbc.json")
+		nbc_ut := getNBCInstance(nbcUTFilePath)
+
+		if validator != nil {
+			validator(nbc_expected, nbc_ut)
+		}
+	}, Entry("Input contract payload json has unexpected new fields", "Compatibility", "./testdata/test_nbc_fields_unexpected.json",
+		// test_nbc_fields_unexpected.json is based on test_nbc.json with additional fields "unexpected_new_field1", "unexpected_new_config1" and "unexpected_new_field2"
+		func(nbc_expected *nbcontractv1.Configuration, nbc_ut *nbcontractv1.Configuration) {
+			// the new fields should be ignored because they are not expected by the contract
+			Expect(nbc_expected).To(Equal(nbc_ut))
+		},
+	), Entry("Input contract payload json has missing fields", "Compatibility", "./testdata/test_nbc_fields_missing.json",
+		// test_nbc_fields_missing.json is based on test_nbc.json with missing fields "isVhd" and "excludeMasterFromStandardLoadBalancer".
+		// missing fields should be set to default values by protobuf. Additional defaulting handling is at the stage of executing the CSE command gtpl which is not tested in this test.
+		func(_ *nbcontractv1.Configuration, nbc_ut *nbcontractv1.Configuration) {
+			// if a string field is unset, it will be set to empty string by protobuf by default
+			Expect(nbc_ut.GetLinuxAdminUsername()).To(Equal(""))
+
+			// if an optional bool field is unset, it will be set to nil by protobuf by default.
+			// Here we don't use the getter because getter is nil safe and will default to false.
+			Expect(nbc_ut.IsVhd).To(BeNil())
+
+			// if an optional field is unset, it will be set to nil by protobuf by default.
+			Expect(nbc_ut.ClusterConfig.LoadBalancerConfig.ExcludeMasterFromStandardLoadBalancer).To(BeNil())
+
+			// if an optional enum field is unset, it will be set to 0 (in this case LoadBalancerConfig_UNSPECIFIED) by protobuf by default.
+			Expect(nbc_ut.ClusterConfig.LoadBalancerConfig.LoadBalancerSku).To(Equal(nbcontractv1.LoadBalancerConfig_UNSPECIFIED))
+		},
+	),
+	)
+})
+
 func getDecodedVarsFromCseCmd(data []byte) (map[string]string, error) {
 	cseRegex := regexp.MustCompile(cseRegexString)
 	cseVariableList := cseRegex.FindAllStringSubmatch(string(data), -1)
@@ -361,4 +396,18 @@ func getBase64DecodedValue(data []byte) (string, error) {
 	}
 
 	return string(decoded), nil
+}
+
+func getNBCInstance(jsonFilePath string) *nbcontractv1.Configuration {
+	nBCB := nbcontractv1.NewNBContractBuilder()
+	nbc := nbcontractv1.Configuration{}
+	content, err := os.ReadFile(jsonFilePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(content), &nbc); err != nil {
+		log.Printf("Failed to unmarshal the nbcontractv1 from json: %v", err)
+	}
+	nBCB.ApplyConfiguration(&nbc)
+	return nBCB.GetNodeBootstrapConfig()
 }
