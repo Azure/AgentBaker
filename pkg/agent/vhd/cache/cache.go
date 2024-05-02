@@ -22,6 +22,15 @@ func init() {
 	if err := initVHDCacheContent(); err != nil {
 		panic(err)
 	}
+	if FromManifest == nil {
+		panic("FromManifest is nil after initialization")
+	}
+	if FromComponentContainerImages == nil {
+		panic("FromComponentContainerImages is nil after initialization")
+	}
+	if FromComponentDownloadedFiles == nil {
+		panic("FromComponentDownloadedFiles is nil after initialization")
+	}
 }
 
 //nolint:gochecknoglobals
