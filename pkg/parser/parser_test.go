@@ -318,8 +318,8 @@ oom_score = 0
 	)
 })
 
-var _ = Describe("Assert generated customData and cseCmd from compatibility perspective", func() {
-	DescribeTable("Generated customData and CSE", func(folder string, validator outputValidator) {
+var _ = Describe("Test NBContract compatibility from Json to CSE command", func() {
+	DescribeTable("for test case", func(folder string, validator outputValidator) {
 		nBCB := nbcontractv1.NewNBContractBuilder()
 		nBCB.ApplyConfiguration(&nbcontractv1.Configuration{})
 
@@ -344,7 +344,7 @@ var _ = Describe("Assert generated customData and cseCmd from compatibility pers
 			validator(result)
 		}
 
-	}, Entry("Compatibility test: empty config. Parser Should provide default values to unset fields.", "Compatibility+EmptyConfig",
+	}, Entry("with empty config. Parser Should provide default values to unset fields.", "Compatibility+EmptyConfig",
 		func(o *nodeBootstrappingOutput) {
 			sysctlContent, err := getBase64DecodedValue([]byte(o.vars["SYSCTL_CONTENT"]))
 			Expect(err).To(BeNil())
@@ -390,21 +390,21 @@ var _ = Describe("Assert generated customData and cseCmd from compatibility pers
 })
 
 var _ = Describe("Test contract compatibility handled by protobuf", func() {
-	DescribeTable("Test with unexpected new fields", func(nbcUTFilePath string, validator func(*nbcontractv1.Configuration, *nbcontractv1.Configuration)) {
+	DescribeTable("for test case", func(nbcUTFilePath string, validator func(*nbcontractv1.Configuration, *nbcontractv1.Configuration)) {
 		nbcExpected := getNBCInstance("./testdata/test_nbc.json")
 		nbcUT := getNBCInstance(nbcUTFilePath)
 
 		if validator != nil {
 			validator(nbcExpected, nbcUT)
 		}
-	}, Entry("Input contract payload json has unexpected new fields", "./testdata/test_nbc_fields_unexpected.json",
+	}, Entry("with unexpected new fields in json should be ignored", "./testdata/test_nbc_fields_unexpected.json",
 		// test_nbc_fields_unexpected.json is based on test_nbc.json with additional fields "unexpected_new_field1", "unexpected_new_config1" and "unexpected_new_field2".
 		func(nbcExpected *nbcontractv1.Configuration, nbcUT *nbcontractv1.Configuration) {
 			// The unexpected fields will natively be ignored when unmarshalling the json to the contract object.
 			// We use this test to ensure it.
 			Expect(nbcExpected).To(Equal(nbcUT))
 		},
-	), Entry("Input contract payload json has missing fields", "./testdata/test_nbc_fields_missing.json",
+	), Entry("with missing fields in json should be set with default values", "./testdata/test_nbc_fields_missing.json",
 		// test_nbc_fields_missing.json is based on test_nbc.json with missing fields "isVhd" and "excludeMasterFromStandardLoadBalancer".
 		// Missing fields should be set to default values by protobuf.
 		// Additional defaulting handling is at the stage of executing the CSE command gtpl which is not tested in this test but in the previous Compatibility test.
