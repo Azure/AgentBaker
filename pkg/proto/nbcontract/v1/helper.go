@@ -122,12 +122,14 @@ func (nBCB *NBContractBuilder) validateSemVer() error {
 	}
 
 	if payloadContractVer.Major != expectedContractVer.Major {
-		return fmt.Errorf("contract major versions mismatch. Expecting %v, but got %v. Please update AgentBaker to the latest version.", expectedContractVer.Major, payloadContractVer.Major)
+		return fmt.Errorf("contract major versions mismatch. Expecting %v, but got %v. Please update AgentBaker to the latest version",
+			expectedContractVer.Major,
+			payloadContractVer.Major)
 	}
 
 	if payloadContractVer.Minor != expectedContractVer.Minor {
 		// Minor version mismatch is not a breaking change. So just log a warning.
-		log.Printf("Warning: Contract minor versions mismatch. Expecting %v, but got %v", expectedContractVer.Minor, payloadContractVer.Minor)
+		log.Printf("Warning: Contract minor versions mismatch. Expecting %v, but got %v", expectedContractVer.String(), payloadContractVer.String())
 		log.Printf("Recommended to update the AgentBaker to the latest version to avoid any issues.")
 	}
 
