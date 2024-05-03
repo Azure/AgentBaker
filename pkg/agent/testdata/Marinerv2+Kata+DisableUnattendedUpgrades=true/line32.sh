@@ -193,6 +193,16 @@ if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
 fi
 
+if [[ $OS == $MARINER_OS_NAME ]]; then
+    sed -i '/^\[DHCPv4\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' /etc/systemd/networkd.conf
+
+    if [[ $(systemctl is-active dhcpv6) == "active" ]]; then
+        sed -i '/^\[DHCPv6\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' /etc/systemd/networkd.conf
+    fi
+
+    systemctl restart systemd-networkd
+fi
+
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
 else
