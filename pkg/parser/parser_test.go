@@ -18,17 +18,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func generateTestDataIfRequested(folder, cseCmd string) {
-	if os.Getenv("GENERATE_TEST_DATA") == "true" {
-		if _, err := os.Stat(fmt.Sprintf("./testdata/%s", folder)); os.IsNotExist(err) {
-			e := os.MkdirAll(fmt.Sprintf("./testdata/%s", folder), 0755)
-			Expect(e).To(BeNil())
-		}
-		err := os.WriteFile(fmt.Sprintf("./testdata/%s/generatedCSECommand", folder), []byte(cseCmd), 0644)
-		Expect(err).To(BeNil())
-	}
-}
-
 type nodeBootstrappingOutput struct {
 	cseCmd string
 	vars   map[string]string
@@ -484,4 +473,15 @@ func getNBCInstance(jsonFilePath string) *nbcontractv1.Configuration {
 	}
 	nBCB.ApplyConfiguration(&nbc)
 	return nBCB.GetNodeBootstrapConfig()
+}
+
+func generateTestDataIfRequested(folder, cseCmd string) {
+	if os.Getenv("GENERATE_TEST_DATA") == "true" {
+		if _, err := os.Stat(fmt.Sprintf("./testdata/%s", folder)); os.IsNotExist(err) {
+			e := os.MkdirAll(fmt.Sprintf("./testdata/%s", folder), 0755)
+			Expect(e).To(BeNil())
+		}
+		err := os.WriteFile(fmt.Sprintf("./testdata/%s/generatedCSECommand", folder), []byte(cseCmd), 0644)
+		Expect(err).To(BeNil())
+	}
 }
