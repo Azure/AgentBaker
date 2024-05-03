@@ -479,7 +479,7 @@ func getNBCInstance(jsonFilePath string) *nbcontractv1.Configuration {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := json.Unmarshal(content, &nbc); err != nil {
+	if err = json.Unmarshal(content, &nbc); err != nil {
 		log.Printf("Failed to unmarshal the nbcontractv1 from json: %v", err)
 	}
 	nBCB.ApplyConfiguration(&nbc)
