@@ -427,7 +427,7 @@ capture_benchmarks () {
   
   if [[ "$is_final_section" == true ]]; then 
     
-    # if current section is the final section of the current sript, create a JSON object for the script as a whole
+    # if current section is the final section of the current script, create a JSON object for the script as a whole
     script_object=$(jq -n --arg script_name "$title" --arg script_start_timestamp "$script_start_timestamp" --arg end_timestamp "$end_timestamp" --arg total_time_elapsed "$total_time_elapsed" '{($script_name): {"overall": {"start_time": $script_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}}')
 
     #iterate over the benchmarks array in order to retrieve data from previous sections and create section objects for each
