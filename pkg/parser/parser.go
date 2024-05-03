@@ -29,7 +29,7 @@ func executeBootstrapTemplate(inputContract *nbcontractv1.Configuration) (string
 // this function will eventually take a pointer to the bootstrap contract struct.
 // it will then template out the variables into the final bootstrap trigger script.
 func Parse(inputJSON []byte) (string, error) {
-	// Parse the JSON into a Person struct
+	// Parse the JSON into a nbcontractv1.Configuration struct
 	var nbc nbcontractv1.Configuration
 	err := json.Unmarshal(inputJSON, &nbc)
 	if err != nil {
