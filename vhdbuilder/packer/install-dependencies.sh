@@ -558,13 +558,18 @@ fi
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
 KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
 
+kube_binary_pids=()
+
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   (
+    cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
+
     KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
     extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false
   ) &
+  kube_binary_pids+=($!)
 done
-wait
+wait ${kube_binary_pids[@]}
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 stop_watch $capture_time "Download and Process Kubernetes Packages / Extract Binaries" false
