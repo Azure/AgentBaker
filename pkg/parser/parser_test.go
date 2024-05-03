@@ -1,4 +1,4 @@
-package parser
+package parser_test
 
 import (
 	"encoding/base64"
@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbaker/pkg/parser"
 
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -166,7 +167,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		if err != nil {
 			log.Printf("Failed to marshal the nbcontractv1 to json: %v", err)
 		}
-		cseCmd, err := Parse(inputJSON)
+		cseCmd, err := parser.Parse(inputJSON)
 		Expect(err).To(BeNil())
 
 		generateTestDataIfRequested(folder, cseCmd)
@@ -326,7 +327,7 @@ var _ = Describe("Assert generated customData and cseCmd from compatibility pers
 		if err != nil {
 			log.Printf("Failed to marshal the nbcontractv1 to json: %v", err)
 		}
-		cseCmd, err := Parse(inputJSON)
+		cseCmd, err := parser.Parse(inputJSON)
 		Expect(err).To(BeNil())
 
 		generateTestDataIfRequested(folder, cseCmd)
@@ -347,14 +348,14 @@ var _ = Describe("Assert generated customData and cseCmd from compatibility pers
 		func(o *nodeBootstrappingOutput) {
 			sysctlContent, err := getBase64DecodedValue([]byte(o.vars["SYSCTL_CONTENT"]))
 			Expect(err).To(BeNil())
-			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.ipv4.tcp_retries2=%v", defaultNetIpv4TcpRetries2)))
-			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.core.message_burst=%v", defaultNetCoreMessageBurst)))
-			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.core.message_cost=%v", defaultNetCoreMessageCost)))
-			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.core.somaxconn=%v", defaultNetCoreSomaxconn)))
-			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.ipv4.tcp_max_syn_backlog=%v", defaultNetIpv4TcpMaxSynBacklog)))
-			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.ipv4.neigh.default.gc_thresh1=%v", defaultNetIpv4NeighDefaultGcThresh1)))
-			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.ipv4.neigh.default.gc_thresh2=%v", defaultNetIpv4NeighDefaultGcThresh2)))
-			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.ipv4.neigh.default.gc_thresh3=%v", defaultNetIpv4NeighDefaultGcThresh3)))
+			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.ipv4.tcp_retries2=%v", 8)))
+			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.core.message_burst=%v", 80)))
+			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.core.message_cost=%v", 40)))
+			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.core.somaxconn=%v", 16384)))
+			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.ipv4.tcp_max_syn_backlog=%v", 16384)))
+			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.ipv4.neigh.default.gc_thresh1=%v", 4096)))
+			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.ipv4.neigh.default.gc_thresh2=%v", 8192)))
+			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.ipv4.neigh.default.gc_thresh3=%v", 16384)))
 			Expect(o.vars["IS_KATA"]).To(Equal("false"))
 			Expect(o.vars["ENABLE_UNATTENDED_UPGRADES"]).To(Equal("false"))
 			Expect(o.vars["NEEDS_CGROUPV2"]).To(Equal("false"))
