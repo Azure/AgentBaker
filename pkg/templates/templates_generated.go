@@ -3994,10 +3994,25 @@ pullContainerImage() {
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
     if [[ ${CLI_TOOL} == "ctr" ]]; then
         logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT)
+        if [ $? -eq 0 ]; then
+          echo "  - ${CONTAINER_IMAGE_URL}" >> ${VHD_LOGS_FILEPATH}
+        else
+          echo "${CONTAINER_IMAGE_URL} failed to successfully download."
+        fi
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
         logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT)
+        if [ $? -eq 0 ]; then
+          echo "  - ${CONTAINER_IMAGE_URL}" >> ${VHD_LOGS_FILEPATH}
+        else
+          echo "${CONTAINER_IMAGE_URL} failed to successfully download."
+        fi
     else
         logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT)
+        if [ $? -eq 0 ]; then
+          echo "  - ${CONTAINER_IMAGE_URL}" >> ${VHD_LOGS_FILEPATH}
+        else
+          echo "${CONTAINER_IMAGE_URL} failed to successfully download."
+        fi
     fi
 }
 
@@ -5565,10 +5580,13 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "versions": [
             "1.27.7",
             "1.27.9",
+            "1.27.13",
             "1.28.3",
             "1.28.5",
+            "1.28.9",
             "1.29.0",
-            "1.29.2"
+            "1.29.2",
+            "1.29.4"
         ]
     },
     "_template": {
@@ -5867,6 +5885,9 @@ if [ -z "${node_name}" ]; then
     echo "cannot get node name"
     exit 1
 fi
+
+# Azure cloud provider assigns node name as the lowner case of the hostname
+node_name=$(echo "$node_name" | tr '[:upper:]' '[:lower:]')
 
 # retrieve golden timestamp from node annotation
 golden_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-golden-timestamp']}")
@@ -7858,6 +7879,9 @@ if [ -z "${node_name}" ]; then
     exit 1
 fi
 
+# Azure cloud provider assigns node name as the lowner case of the hostname
+node_name=$(echo "$node_name" | tr '[:upper:]' '[:lower:]')
+
 # retrieve golden timestamp from node annotation
 golden_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-golden-timestamp']}")
 if [ -z "${golden_timestamp}" ]; then
@@ -8658,6 +8682,9 @@ $global:VNetCNIPluginsURL = "{{GetParameter "vnetCniWindowsPluginsURL"}}"
 $global:IsDualStackEnabled = {{if IsIPv6DualStackFeatureEnabled}}$true{{else}}$false{{end}}
 $global:IsAzureCNIOverlayEnabled = {{if IsAzureCNIOverlayFeatureEnabled}}$true{{else}}$false{{end}}
 
+# Kubelet credential provider
+$global:CredentialProviderURL = "{{GetParameter "windowsCredentialProviderURL"}}"
+
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("{{GetVariable "windowsEnableCSIProxy" }}");
 $global:CsiProxyUrl = "{{GetVariable "windowsCSIProxyURL" }}";
@@ -8706,6 +8733,8 @@ $global:EnableIncreaseDynamicPortRange = $false
 
 $global:RebootNeeded = $false
 
+$global:IsSkipCleanupNetwork = [System.Convert]::ToBoolean("{{GetVariable "isSkipCleanupNetwork" }}");
+
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force
@@ -8730,7 +8759,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.40.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.42.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -8786,7 +8815,9 @@ try
     Get-LogCollectionScripts
     
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
-    
+
+    Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix {{if IsAKSCustomCloud}}"{{ AKSCustomCloudContainerRegistryDNSSuffix }}"{{else}}""{{end}} 
+
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
     
     $cniBinPath = $global:AzureCNIBinDir
