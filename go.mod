@@ -18,7 +18,7 @@ require (
 	golang.org/x/mod v0.17.0
 	google.golang.org/protobuf v1.33.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/apimachinery v0.29.4
+	k8s.io/apimachinery v0.28.5
 )
 
 require (
