@@ -1131,6 +1131,12 @@ func (a *AgentPoolProfile) IsWindows() bool {
 	return strings.EqualFold(string(a.OSType), string(Windows))
 }
 
+// IsSkipCleanupNetwork returns true if AKS-RP sets the field NotRebootWindowsNode to true.
+func (a *AgentPoolProfile) IsSkipCleanupNetwork() bool {
+	// Reuse the existing field NotRebootWindowsNode to avoid adding a new field because it is a temporary toggle value from AKS-RP.
+	return a.NotRebootWindowsNode != nil && *a.NotRebootWindowsNode
+}
+
 // IsVirtualMachineScaleSets returns true if the agent pool availability profile is VMSS.
 func (a *AgentPoolProfile) IsVirtualMachineScaleSets() bool {
 	return strings.EqualFold(a.AvailabilityProfile, VirtualMachineScaleSets)
@@ -1632,8 +1638,6 @@ type K8sComponents struct {
 
 // GetLatestSigImageConfigRequest describes the input for a GetLatestSigImageConfig HTTP request.
 // This is mostly a wrapper over existing types so RP doesn't have to manually construct JSON.
-//
-//nolint:musttag // tags can be added if deemed necessary
 type GetLatestSigImageConfigRequest struct {
 	SIGConfig      SIGConfig
 	SubscriptionID string
@@ -1643,8 +1647,6 @@ type GetLatestSigImageConfigRequest struct {
 }
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
-//
-//nolint:musttag // tags can be added if deemed necessary
 type NodeBootstrappingConfiguration struct {
 	ContainerService              *ContainerService
 	CloudSpecConfig               *AzureEnvironmentSpecConfig
@@ -1696,6 +1698,12 @@ type NodeBootstrappingConfiguration struct {
 	SSHStatus                           SSHStatus
 	DisableCustomData                   bool
 	OutboundType                        string
+	EnableIMDSRestriction               bool
+	// InsertIMDSRestrictionRuleToMangleTable is only checked when EnableIMDSRestriction is true.
+	// When this is true, iptables rule will be inserted to `mangle` table. This is for Linux Cilium
+	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
+	// our added rule is overwritten by Cilium.
+	InsertIMDSRestrictionRuleToMangleTable bool
 }
 
 type SSHStatus int
@@ -1707,8 +1715,6 @@ const (
 )
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
-//
-//nolint:musttag // tags can be added if deemed necessary
 type NodeBootstrapping struct {
 	CustomData     string
 	CSE            string

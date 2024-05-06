@@ -42,7 +42,6 @@ collect-logs() {
         fi
     fi
 
-    array=(azcopy_*)
     ${array[0]}/azcopy copy "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-provision.complete" $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-provision.complete || retval=$?
     if [ "$retval" -ne 0 ]; then
         err "Failed in downloading provision.complete. Error code is $retval."
@@ -52,6 +51,18 @@ collect-logs() {
         ${array[0]}/azcopy rm "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-provision.complete" || retval=$?
         if [ "$retval" -ne 0 ]; then
             err "Failed in deleting provision.complete in remote storage. Error code is $retval."
+        fi
+    fi
+
+    ${array[0]}/azcopy copy "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-collected-node-logs.zip" $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-collected-node-logs.zip || retval=$?
+    if [ "$retval" -ne 0 ]; then
+        err "Failed in downloading collected node logs. Error code is $retval."
+        exit 1
+    else
+        log "collected-node-logs.zip is generated"
+        ${array[0]}/azcopy rm "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-collected-node-logs.zip" || retval=$?
+        if [ "$retval" -ne 0 ]; then
+            err "Failed in deleting collected node logs in remote storage. Error code is $retval."
         fi
     fi
 }
