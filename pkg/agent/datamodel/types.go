@@ -1638,6 +1638,8 @@ type K8sComponents struct {
 
 // GetLatestSigImageConfigRequest describes the input for a GetLatestSigImageConfig HTTP request.
 // This is mostly a wrapper over existing types so RP doesn't have to manually construct JSON.
+//
+//nolint:musttag // we don't need to tag
 type GetLatestSigImageConfigRequest struct {
 	SIGConfig      SIGConfig
 	SubscriptionID string
@@ -1647,6 +1649,8 @@ type GetLatestSigImageConfigRequest struct {
 }
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
+//
+//nolint:musttag // we don't need to tag
 type NodeBootstrappingConfiguration struct {
 	ContainerService              *ContainerService
 	CloudSpecConfig               *AzureEnvironmentSpecConfig
@@ -1715,6 +1719,8 @@ const (
 )
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
+//
+//nolint:musttag // we don't need to tag
 type NodeBootstrapping struct {
 	CustomData     string
 	CSE            string
