@@ -194,19 +194,7 @@ if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
 fi
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
-    NETWORK_CONFIG_FILE="/etc/systemd/networkd.conf"
-
-    if awk '/^\[DHCPv4\]/{flag=1; next} /^\[/{flag=0} flag && /#UseDomains=no/' "$NETWORK_CONFIG_FILE"; then
-        sed -i '/^\[DHCPv4\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' $NETWORK_CONFIG_FILE
-    fi
-
-    if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
-        if awk '/^\[DHCPv6\]/{flag=1; next} /^\[/{flag=0} flag && /#UseDomains=no/' "$NETWORK_CONFIG_FILE"; then
-            sed -i '/^\[DHCPv6\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' $NETWORK_CONFIG_FILE
-        fi
-    fi
-
-    systemctl restart systemd-networkd
+    logs_to_events "AKS.CSE.configureSystemdUseDomains" configureSystemdUseDomains
 fi
 
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then

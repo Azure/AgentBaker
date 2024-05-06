@@ -223,20 +223,7 @@ fi
 # For systemd in Azure Linux, UseDomains= is by default disabled for security purposes. Enable this
 # configuration within Azure Linux AKS that operates on trusted networks to support hostname resolution
 if [[ $OS == $MARINER_OS_NAME ]]; then
-    NETWORK_CONFIG_FILE="/etc/systemd/networkd.conf"
-
-    if awk '/^\[DHCPv4\]/{flag=1; next} /^\[/{flag=0} flag && /#UseDomains=no/' "$NETWORK_CONFIG_FILE"; then
-        sed -i '/^\[DHCPv4\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' $NETWORK_CONFIG_FILE
-    fi
-
-    if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
-        if awk '/^\[DHCPv6\]/{flag=1; next} /^\[/{flag=0} flag && /#UseDomains=no/' "$NETWORK_CONFIG_FILE"; then
-            sed -i '/^\[DHCPv6\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' $NETWORK_CONFIG_FILE
-        fi
-    fi
-
-    # Restart systemd networkd service
-    systemctl restart systemd-networkd
+    logs_to_events "AKS.CSE.configureSystemdUseDomains" configureSystemdUseDomains
 fi
 
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
