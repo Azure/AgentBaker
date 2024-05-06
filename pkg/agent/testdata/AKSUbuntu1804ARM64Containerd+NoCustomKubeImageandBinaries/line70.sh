@@ -28,6 +28,22 @@ configureTransparentHugePage() {
     fi
 }
 
+configureSystemdUseDomains() {
+    NETWORK_CONFIG_FILE="/etc/systemd/networkd.conf"
+
+    if awk '/^\[DHCPv4\]/{flag=1; next} /^\[/{flag=0} flag && /#UseDomains=no/' "$NETWORK_CONFIG_FILE"; then
+        sed -i '/^\[DHCPv4\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' $NETWORK_CONFIG_FILE
+    fi
+
+    if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
+        if awk '/^\[DHCPv6\]/{flag=1; next} /^\[/{flag=0} flag && /#UseDomains=no/' "$NETWORK_CONFIG_FILE"; then
+            sed -i '/^\[DHCPv6\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' $NETWORK_CONFIG_FILE
+        fi
+    fi
+
+    systemctl restart systemd-networkd
+}
+
 configureSwapFile() {
     swap_size_kb=$(expr ${SWAP_FILE_SIZE_MB} \* 1000)
     swap_location=""

@@ -199,6 +199,10 @@ if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
 fi
 
+if [[ $OS == $MARINER_OS_NAME ]]; then
+    logs_to_events "AKS.CSE.configureSystemdUseDomains" configureSystemdUseDomains
+fi
+
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
 else
