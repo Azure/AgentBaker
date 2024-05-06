@@ -1,7 +1,6 @@
 package datamodel
 
 import (
-	"io/ioutil"
 	"os"
 
 	. "github.com/onsi/ginkgo"
@@ -123,7 +122,7 @@ var _ = Describe("Test Components", func() {
 
 		It("should return error when file is not valid json", func() {
 			// prepare invalid json file
-			testcomponent, err := ioutil.TempFile("", "invalid.json")
+			testcomponent, err := os.CreateTemp("", "invalid.json")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.Remove(testcomponent.Name())
 
@@ -133,11 +132,11 @@ var _ = Describe("Test Components", func() {
 
 		It("should return correct components", func() {
 			// prepare valid json file
-			testcomponent, err := ioutil.TempFile("", "valid.json")
+			testcomponent, err := os.CreateTemp("", "valid.json")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.Remove(testcomponent.Name())
 			// write MockComponents to test file
-			err = ioutil.WriteFile(testcomponent.Name(), []byte(MockComponents), 0644)
+			err = os.WriteFile(testcomponent.Name(), []byte(MockComponents), 0644)
 			Expect(err).ToNot(HaveOccurred())
 
 			components, err := NewComponentsFromFile(testcomponent.Name())
@@ -162,11 +161,11 @@ var _ = Describe("Test Components", func() {
 
 		It("should return correct components if some config are omitted or null", func() {
 			// prepare valid json file
-			testcomponent, err := ioutil.TempFile("", "valid.json")
+			testcomponent, err := os.CreateTemp("", "valid.json")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.Remove(testcomponent.Name())
 			// write MockComponents to test file
-			err = ioutil.WriteFile(testcomponent.Name(), []byte(MockComponentsBarebone), 0644)
+			err = os.WriteFile(testcomponent.Name(), []byte(MockComponentsBarebone), 0644)
 			Expect(err).ToNot(HaveOccurred())
 
 			components, err := NewComponentsFromFile(testcomponent.Name())
@@ -188,11 +187,11 @@ var _ = Describe("Test Components", func() {
 	Context("Test ToImageList", func() {
 		It("should return correct image list", func() {
 			// prepare valid json file
-			testcomponent, err := ioutil.TempFile("", "valid.json")
+			testcomponent, err := os.CreateTemp("", "valid.json")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.Remove(testcomponent.Name())
 			// write MockComponents to test file
-			err = ioutil.WriteFile(testcomponent.Name(), []byte(MockComponents), 0644)
+			err = os.WriteFile(testcomponent.Name(), []byte(MockComponents), 0644)
 			Expect(err).ToNot(HaveOccurred())
 
 			components, err := NewComponentsFromFile(testcomponent.Name())
@@ -215,7 +214,7 @@ var _ = Describe("Test KubeProxyImages", func() {
 
 		It("should return error when file is not valid json", func() {
 			// prepare invalid json file
-			testcomponent, err := ioutil.TempFile("", "invalid.json")
+			testcomponent, err := os.CreateTemp("", "invalid.json")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.Remove(testcomponent.Name())
 
@@ -225,11 +224,11 @@ var _ = Describe("Test KubeProxyImages", func() {
 
 		It("should return correct components", func() {
 			// prepare valid json file
-			testcomponent, err := ioutil.TempFile("", "valid.json")
+			testcomponent, err := os.CreateTemp("", "valid.json")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.Remove(testcomponent.Name())
 			// write MockKubeProxyImage to test file
-			err = ioutil.WriteFile(testcomponent.Name(), []byte(MockKubeProxyImage), 0644)
+			err = os.WriteFile(testcomponent.Name(), []byte(MockKubeProxyImage), 0644)
 			Expect(err).ToNot(HaveOccurred())
 
 			kubeProxyImages, err := NewKubeProxyImagesFromFile(testcomponent.Name())
@@ -254,11 +253,11 @@ var _ = Describe("Test KubeProxyImages", func() {
 
 		It("should return correct components when one of them is nil", func() {
 			// prepare valid json file
-			testcomponent, err := ioutil.TempFile("", "valid.json")
+			testcomponent, err := os.CreateTemp("", "valid.json")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.Remove(testcomponent.Name())
 			// write MockKubeProxyImage to test file
-			err = ioutil.WriteFile(testcomponent.Name(), []byte(MockKubeProxyImageBarebone), 0644)
+			err = os.WriteFile(testcomponent.Name(), []byte(MockKubeProxyImageBarebone), 0644)
 			Expect(err).ToNot(HaveOccurred())
 
 			kubeProxyImages, err := NewKubeProxyImagesFromFile(testcomponent.Name())
@@ -278,11 +277,11 @@ var _ = Describe("Test KubeProxyImages", func() {
 	Context("test ToImageList", func() {
 		It("should return correct image list", func() {
 			// prepare valid json file
-			testcomponent, err := ioutil.TempFile("", "valid.json")
+			testcomponent, err := os.CreateTemp("", "valid.json")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.Remove(testcomponent.Name())
 			// write MockKubeProxyImage to test file
-			err = ioutil.WriteFile(testcomponent.Name(), []byte(MockKubeProxyImage), 0644)
+			err = os.WriteFile(testcomponent.Name(), []byte(MockKubeProxyImage), 0644)
 			Expect(err).ToNot(HaveOccurred())
 
 			kubeProxyImages, err := NewKubeProxyImagesFromFile(testcomponent.Name())
