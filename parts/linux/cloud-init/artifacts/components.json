@@ -62,8 +62,8 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/cni-dropgz:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.0.15",
-        "v0.1.3",
+        "v0.0.20",
+        "v0.1.4",
         "v0.0.4.1"
       ],
       "prefetchOptimizations": [
@@ -373,9 +373,9 @@
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
         "1.4.43.1",
-        "1.4.52",
+        "1.4.54",
         "1.5.11",
-        "1.5.23"
+        "1.5.28"
       ]
     },
     {
@@ -384,9 +384,9 @@
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
         "1.4.43.1",
-        "1.4.52",
+        "1.4.54",
         "1.5.11",
-        "1.5.23"
+        "1.5.28"
       ]
     },
     {
