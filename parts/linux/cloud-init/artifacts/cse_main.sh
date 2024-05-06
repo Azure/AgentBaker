@@ -227,6 +227,12 @@ if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
 fi
 
+# For systemd in Azure Linux, UseDomains= is by default disabled for security purposes. Enable this
+# configuration within Azure Linux AKS that operates on trusted networks to support hostname resolution
+if [[ $OS == $MARINER_OS_NAME ]]; then
+    logs_to_events "AKS.CSE.configureSystemdUseDomains" configureSystemdUseDomains
+fi
+
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     # containerd should not be configured until cni has been configured first
     logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
