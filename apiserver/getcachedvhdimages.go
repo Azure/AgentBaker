@@ -15,7 +15,7 @@ const (
 )
 
 // GetCachedVersionsOnVHD endpoint for getting the current versions of components cached on the vhd.
-func (api *APIServer) GetCachedVersionsOnVHD(w http.ResponseWriter, r *http.Request) {
+func (api *APIServer) GetCachedVersionsOnVHD(w http.ResponseWriter, _ *http.Request) {
 	agentBaker, err := agent.NewAgentBaker()
 	if err != nil {
 		log.Println(err.Error())
