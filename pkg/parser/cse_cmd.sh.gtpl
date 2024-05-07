@@ -90,7 +90,7 @@ OUTBOUND_COMMAND="{{.GetOutboundCommand}}"
 ENABLE_UNATTENDED_UPGRADES="{{.GetEnableUnattendedUpgrade}}"
 ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE="{{getEnsureNoDupePromiscuousBridge .GetNetworkConfig}}"
 SHOULD_CONFIG_SWAP_FILE="{{getEnableSwapConfig .CustomLinuxOsConfig}}"
-SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE="{{getShouldCOnfigTransparentHugePage .CustomLinuxOsConfig}}"
+SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE="{{getShouldConfigTransparentHugePage .CustomLinuxOsConfig}}"
 SHOULD_CONFIG_CONTAINERD_ULIMITS="{{getShouldConfigContainerdUlimits .CustomLinuxOsConfig.GetUlimitConfig}}"
 CONTAINERD_ULIMITS="{{getUlimitContent .CustomLinuxOsConfig.GetUlimitConfig}}"
 {{/* both CLOUD and ENVIRONMENT have special values when IsAKSCustomCloud == true */}}

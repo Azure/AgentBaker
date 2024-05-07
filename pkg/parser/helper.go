@@ -96,7 +96,7 @@ func getFuncMap() template.FuncMap {
 		"getDisableSSH":                             getDisableSSH,
 		"getServicePrincipalFileContent":            getServicePrincipalFileContent,
 		"getEnableSwapConfig":                       getEnableSwapConfig,
-		"getShouldCOnfigTransparentHugePage":        getShouldCOnfigTransparentHugePage,
+		"getShouldConfigTransparentHugePage":        getShouldConfigTransparentHugePage,
 		"getProxyVariables":                         getProxyVariables,
 		"getHasKubeletDiskType":                     getHasKubeletDiskType,
 		"getInitAKSCustomCloudFilepath":             getInitAKSCustomCloudFilepath,
@@ -301,40 +301,40 @@ func getSysctlContent(s *nbcontractv1.SysctlConfig) string {
 	}
 
 	m := make(map[string]interface{})
-	m["net.ipv4.tcp_retries2"] = 8
-	m["net.core.message_burst"] = 80
-	m["net.core.message_cost"] = 40
+	m["net.ipv4.tcp_retries2"] = defaultNetIpv4TcpRetries2
+	m["net.core.message_burst"] = defaultNetCoreMessageBurst
+	m["net.core.message_cost"] = defaultNetCoreMessageCost
 
 	// Access the variable directly, instead of using the getter, so that it knows whether it's nil or not.
 	// This is based on protobuf3 explicit presence feature.
 	// Other directly access variables in this function implies the same idea.
 	if s.NetCoreSomaxconn == nil {
-		m["net.core.somaxconn"] = 16384
+		m["net.core.somaxconn"] = defaultNetCoreSomaxconn
 	} else {
 		// either using getter for NetCoreSomaxconn or direct access is fine because we ensure it's not nil.
 		m["net.core.somaxconn"] = s.GetNetCoreSomaxconn()
 	}
 
 	if s.NetIpv4TcpMaxSynBacklog == nil {
-		m["net.ipv4.tcp_max_syn_backlog"] = 16384
+		m["net.ipv4.tcp_max_syn_backlog"] = defaultNetIpv4TcpMaxSynBacklog
 	} else {
 		m["net.ipv4.tcp_max_syn_backlog"] = s.GetNetIpv4TcpMaxSynBacklog()
 	}
 
 	if s.NetIpv4NeighDefaultGcThresh1 == nil {
-		m["net.ipv4.neigh.default.gc_thresh1"] = 4096
+		m["net.ipv4.neigh.default.gc_thresh1"] = defaultNetIpv4NeighDefaultGcThresh1
 	} else {
 		m["net.ipv4.neigh.default.gc_thresh1"] = s.GetNetIpv4NeighDefaultGcThresh1()
 	}
 
 	if s.NetIpv4NeighDefaultGcThresh2 == nil {
-		m["net.ipv4.neigh.default.gc_thresh2"] = 8192
+		m["net.ipv4.neigh.default.gc_thresh2"] = defaultNetIpv4NeighDefaultGcThresh2
 	} else {
 		m["net.ipv4.neigh.default.gc_thresh2"] = s.GetNetIpv4NeighDefaultGcThresh2()
 	}
 
 	if s.NetIpv4NeighDefaultGcThresh3 == nil {
-		m["net.ipv4.neigh.default.gc_thresh3"] = 16384
+		m["net.ipv4.neigh.default.gc_thresh3"] = defaultNetIpv4NeighDefaultGcThresh3
 	} else {
 		m["net.ipv4.neigh.default.gc_thresh3"] = s.GetNetIpv4NeighDefaultGcThresh3()
 	}
@@ -640,7 +640,7 @@ func getEnableSwapConfig(v *nbcontractv1.CustomLinuxOSConfig) bool {
 	return v.GetEnableSwapConfig() && v.GetSwapFileSize() > 0
 }
 
-func getShouldCOnfigTransparentHugePage(v *nbcontractv1.CustomLinuxOSConfig) bool {
+func getShouldConfigTransparentHugePage(v *nbcontractv1.CustomLinuxOSConfig) bool {
 	return v.GetTransparentDefrag() != "" || v.GetTransparentHugepageSupport() != ""
 }
 
