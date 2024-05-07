@@ -40,9 +40,15 @@ installBcc() {
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     if [[ "${VERSION}" == "22.04" || "${VERSION}" == "24.04" ]]; then
-        apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev libllvm14 llvm-14-dev libclang-14-dev python3 zlib1g-dev libelf-dev python3-distutils libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+        apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev libllvm14 llvm-14-dev libclang-14-dev python3 zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     else
         apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev python3-distutils libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+    fi
+
+    if [[ "${VERSION}" == "22.04" ]]; then
+      apt_get_install 120 5 300 python3-distutils || exit $ERR_BCC_INSTALL_TIMEOUT
+    elif [[ "${VERSION}" == "24.04" ]]; then
+      apt_get_install 120 5 300 python3-setuptools || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
 
     mkdir -p /tmp/bcc
