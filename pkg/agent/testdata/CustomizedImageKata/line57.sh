@@ -42,8 +42,11 @@ installDeps() {
         BLOBFUSE2_VERSION="2.2.0"
     fi
 
-    pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
-    if [[ $(isARM64) != 1 ]]; then
+    if [[ "${OSVERSION}" != "24.04" ]]; then
+      pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
+    fi
+
+    if [[ $(isARM64) != 1 && "${OSVERSION}" != "24.04" ]]; then
         if [[ "${OSVERSION}" == "22.04" ]]; then
             pkg_list+=(fuse3)
         else
@@ -74,7 +77,7 @@ updateAptWithMicrosoftPkg() {
     if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then {
         echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/18.04/multiarch/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list
     }
-    elif [[ ${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_RELEASE} == "22.04" ]]; then {
+    elif [[ ${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_RELEASE} == "22.04" || ${UBUNTU_RELEASE} == "24.04" ]]; then {
         echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/${UBUNTU_RELEASE}/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list
     }
     fi
