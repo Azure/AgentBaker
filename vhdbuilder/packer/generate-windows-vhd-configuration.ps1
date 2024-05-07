@@ -40,8 +40,8 @@ $global:defenderUpdateInfoUrl = "https://go.microsoft.com/fwlink/?linkid=870379&
 
 switch -Regex ($windowsSku) {
     "2019-containerd" {
-        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2024/04/windows10.0-kb5036896-x64_57eaad3d6f3738831f3f8c6bdf7a77df618429c2.msu")
-        $global:patchIDs = @("KB5036896")
+        $global:patchUrls = @()
+        $global:patchIDs = @()
 
         $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2019",
@@ -49,8 +49,8 @@ switch -Regex ($windowsSku) {
         )
     }
     "2022-containerd*" {
-        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/secu/2024/04/windows10.0-kb5036909-x64_786040b0b0d000b17d6a727ea93ff77d733d1044.msu")
-        $global:patchIDs = @("KB5036909")
+        $global:patchUrls = @()
+        $global:patchIDs = @()
 
         $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2022",
