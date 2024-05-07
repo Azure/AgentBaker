@@ -182,6 +182,10 @@ $global:WindowsCalicoPackageURL = "";
 ## GPU install
 $global:ConfigGPUDriverIfNeeded = [System.Convert]::ToBoolean("true");
 
+# Windows next-gen networking (Windows eBPF)
+$global:EnableNextGenNetworking = [System.Convert]::ToBoolean("false");
+$global:NextGenNetworkingURL = ""
+
 # GMSA
 $global:WindowsGmsaPackageUrl = "";
 
@@ -260,6 +264,11 @@ try
     . c:\AzureData\windows\kubeletfunc.ps1
     . c:\AzureData\windows\kubernetesfunc.ps1
     . c:\AzureData\windows\nvidiagpudriverfunc.ps1
+
+    $windowsNextGenNetworkingScriptPath = "c:\AzureData\windows\nextgennetworking.ps1"
+    if (Test-Path -Path $windowsNextGenNetworkingScriptPath) {
+        . $windowsNextGenNetworkingScriptPath
+    }
 
     # Install OpenSSH if SSH enabled
     $sshEnabled = [System.Convert]::ToBoolean("true")
@@ -437,7 +446,11 @@ try
     }
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
-    
+
+    if (Get-Command -Name "Start-InstallWindowsNextGenNetworkingIfNeeded" -ErrorAction SilentlyContinue) {
+        Start-InstallWindowsNextGenNetworkingIfNeeded -EnableInstall $global:EnableNextGenNetworking -URL $global:NextGenNetworkingURL
+    }
+
     if (Test-Path $CacheDir)
     {
         Write-Log "Removing aks cache directory"
