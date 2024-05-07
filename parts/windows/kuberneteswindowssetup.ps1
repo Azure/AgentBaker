@@ -190,6 +190,10 @@ $global:WindowsCalicoPackageURL = "{{GetVariable "windowsCalicoPackageURL" }}";
 ## GPU install
 $global:ConfigGPUDriverIfNeeded = [System.Convert]::ToBoolean("{{GetVariable "configGPUDriverIfNeeded" }}");
 
+# Windows next-gen networking (Windows eBPF)
+$global:EnableNextGenNetworking = [System.Convert]::ToBoolean("{{GetVariable "windowsEnableNextGenNetworking" }}");
+$global:NextGenNetworkingURL = "{{GetVariable "windowsNextGenNetworkingURL"}}"
+
 # GMSA
 $global:WindowsGmsaPackageUrl = "{{GetVariable "windowsGmsaPackageUrl" }}";
 
@@ -268,6 +272,11 @@ try
     . c:\AzureData\windows\kubeletfunc.ps1
     . c:\AzureData\windows\kubernetesfunc.ps1
     . c:\AzureData\windows\nvidiagpudriverfunc.ps1
+
+    $windowsNextGenNetworkingScriptPath = "c:\AzureData\windows\nextgennetworking.ps1"
+    if (Test-Path -Path $windowsNextGenNetworkingScriptPath) {
+        . $windowsNextGenNetworkingScriptPath
+    }
 
     # Install OpenSSH if SSH enabled
     $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
@@ -451,7 +460,11 @@ try
     }
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
-    
+
+    if (Get-Command -Name "Start-InstallWindowsNextGenNetworkingIfNeeded" -ErrorAction SilentlyContinue) {
+        Start-InstallWindowsNextGenNetworkingIfNeeded -EnableInstall $global:EnableNextGenNetworking -URL $global:NextGenNetworkingURL
+    }
+
     if (Test-Path $CacheDir)
     {
         Write-Log "Removing aks cache directory"
