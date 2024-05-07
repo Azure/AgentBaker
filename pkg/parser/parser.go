@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"log"
+	"strings"
 	"text/template"
 
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
@@ -27,29 +28,24 @@ func executeBootstrapTemplate(inputContract *nbcontractv1.Configuration) (string
 
 // this function will eventually take a pointer to the bootstrap contract struct.
 // it will then template out the variables into the final bootstrap trigger script.
-func Parse() {
-	inputJSON, err := json.Marshal(getBaseTemplate())
-	if err != nil {
-		log.Printf("Failed to marshal the nbcontractv1 to json: %v", err)
-	}
-
-	log.Println("Input Json: ")
-	log.Println(string(inputJSON))
-
-	// inputJson above will be provided by bootstrappers. We are using getBaseTemplate() for dev/test purpose for now.
-	// We can further move it to other file for unit tests later.
-
-	inputContract := nbcontractv1.Configuration{}
-	err = json.Unmarshal(inputJSON, &inputContract)
+func Parse(inputJSON []byte) (string, error) {
+	// Parse the JSON into a nbcontractv1.Configuration struct
+	var nbc nbcontractv1.Configuration
+	err := json.Unmarshal(inputJSON, &nbc)
 	if err != nil {
 		log.Printf("Failed to unmarshal the json to nbcontractv1: %v", err)
+		return "", err
 	}
 
-	triggerBootstrapScript, err := executeBootstrapTemplate(&inputContract)
+	triggerBootstrapScript, err := executeBootstrapTemplate(&nbc)
 	if err != nil {
 		log.Printf("Failed to execute the template: %v", err)
+		return "", err
 	}
 
 	log.Println("output env vars:")
 	log.Println(triggerBootstrapScript)
+
+	// Convert to one-liner
+	return strings.ReplaceAll(triggerBootstrapScript, "\n", " "), nil
 }
