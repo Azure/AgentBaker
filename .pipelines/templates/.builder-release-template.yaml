@@ -238,7 +238,7 @@ steps:
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - script: |
       trivy-scan.sh ${VHD_NAME} "arm64"
-  displayName: Run Trivy Scan
+    displayName: Run Trivy Scan
   - task: PublishPipelineArtifact@1
     inputs:
         artifactName: 'publishing-info-${{ parameters.artifactName }}'
