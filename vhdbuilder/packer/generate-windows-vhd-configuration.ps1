@@ -181,6 +181,13 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.39.2/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.4.39.2.zip",
         # Azure CNI for Overlay upgrading from v1.4.39.1 (unsigned) to v1.4.39.2 (signed)
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.39.2/binaries/azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.39.2.zip"
+
+        # Azure CNI v1 (legacy)
+        "https://acs-mirror.azureedge.net/azure-cni/v1.5.28/binaries/azure-vnet-cni-windows-amd64-v1.5.28.zip",
+        # Azure CNI v2 (pod subnet)
+        "https://acs-mirror.azureedge.net/azure-cni/v1.4.54/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.54.zip",
+        # Azure CNI for Overlay
+        "https://acs-mirror.azureedge.net/azure-cni/v1.4.54/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.54.zip"
     );
     "c:\akse-cache\calico\" = @(
         "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
