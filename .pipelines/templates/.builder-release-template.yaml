@@ -236,6 +236,9 @@ steps:
         ${CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+  - script: |
+      trivy-scan.sh ${VHD_NAME} "arm64"
+  displayName: Run Trivy Scan
   - task: PublishPipelineArtifact@1
     inputs:
         artifactName: 'publishing-info-${{ parameters.artifactName }}'

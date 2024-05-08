@@ -6,7 +6,7 @@ TRIVY_REPORT_TABLE_PATH=/opt/azure/containers/trivy-images-table.txt
 TRIVY_VERSION="0.40.0"
 TRIVY_ARCH=""
 
-arch="$(uname -m)"
+arch=$2
 if [ "${arch,,}" == "arm64" ] || [ "${arch,,}" == "aarch64" ]; then
     TRIVY_ARCH="Linux-ARM64"
 elif [ "${arch,,}" == "x86_64" ]; then
@@ -24,7 +24,7 @@ tar -xvzf "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
 rm "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
 chmod a+x trivy 
 
-./trivy --scanners vuln rootfs -f json --skip-dirs /var/lib/containerd --ignore-unfixed --severity HIGH,CRITICAL -o "${TRIVY_REPORT_JSON_PATH}" /
+./trivy --scanners vuln rootfs -f json --skip-dirs /var/lib/containerd --ignore-unfixed --severity HIGH,CRITICAL -o "${TRIVY_REPORT_JSON_PATH}" "$1"
 
 IMAGE_LIST=$(ctr -n k8s.io image list -q | grep -v sha256)
 
