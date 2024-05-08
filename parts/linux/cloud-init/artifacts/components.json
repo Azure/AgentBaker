@@ -131,7 +131,10 @@
       "multiArchVersions": [
         "6.8.7-main-04-09-2024-82adbf97",
         "6.8.7-main-04-09-2024-82adbf97-targetallocator",
-        "6.8.7-main-04-09-2024-82adbf97-cfg"
+        "6.8.7-main-04-09-2024-82adbf97-cfg",
+        "6.8.10-main-05-06-2024-079dabbc",
+        "6.8.10-main-05-06-2024-079dabbc-targetallocator",
+        "6.8.10-main-05-06-2024-079dabbc-cfg"
       ]
     },
     {

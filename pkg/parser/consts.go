@@ -30,7 +30,15 @@ const (
 )
 
 const (
-	maxLBRuleCountDefault = 148
-	ipLocalReservedPorts  = 65330
-	MinArgs               = 2
+	maxLBRuleCountDefault               = 148
+	ipLocalReservedPorts                = 65330
+	MinArgs                             = 2
+	defaultNetIpv4TcpRetries2           = 8
+	defaultNetCoreMessageBurst          = 80
+	defaultNetCoreMessageCost           = 40
+	defaultNetCoreSomaxconn             = 16384
+	defaultNetIpv4TcpMaxSynBacklog      = 16384
+	defaultNetIpv4NeighDefaultGcThresh1 = 4096
+	defaultNetIpv4NeighDefaultGcThresh2 = 8192
+	defaultNetIpv4NeighDefaultGcThresh3 = 16384
 )
