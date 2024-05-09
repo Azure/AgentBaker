@@ -628,6 +628,23 @@
     },
     {
       "type": "file",
+      "soruce": "vhdbuilder/packer/storage-scan.sh",
+      "destination": "/home/packer/storage-scan.sh"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo /bin/bash -ux /home/packer/storage-scan.sh"
+      ]
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/containers/storage-report.txt",
+      "destination": "storage-report.txt"
+    },
+    {
+      "type": "file",
       "direction": "download",
       "source": "/opt/azure/vhd-install.complete",
       "destination": "release-notes.txt"
