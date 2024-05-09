@@ -446,21 +446,6 @@ ensureKubelet() {
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
     fi
 
-    KUBELET_PRE_START_DROP_IN=/etc/systemd/system/kubelet.service.d/10-pre-start.conf
-    mkdir -p "$(dirname "${KUBELET_PRE_START_DROP_IN}")"
-    touch "${KUBELET_PRE_START_DROP_IN}"
-    chmod 0600 "${KUBELET_PRE_START_DROP_IN}"
-    cat > "${KUBELET_PRE_START_DROP_IN}" <<EOF
-[Service]
-ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh
-ExecStartPre=/bin/mkdir -p /var/lib/kubelet
-ExecStartPre=/bin/mkdir -p /var/lib/cni
-ExecStartPre=/bin/bash -c "if [ $(mount | grep \"/var/lib/kubelet\" | wc -l) -le 0 ] ; then /bin/mount --bind /var/lib/kubelet /var/lib/kubelet ; fi"
-ExecStartPre=/bin/mount --make-shared /var/lib/kubelet
-ExecStartPre=-/sbin/ebtables -t nat --list
-ExecStartPre=-/sbin/iptables -t nat --numeric --list
-EOF
-
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
         configureSecureTLSBootstrap 
     fi
