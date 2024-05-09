@@ -381,7 +381,7 @@ write_files:
 {{- end}}
 
 - path: /opt/azure/containers/start-kubelet.sh
-  permissions: "0600"
+  permissions: "0644"
   encoding: gzip
   owner: root
   content: !!binary |

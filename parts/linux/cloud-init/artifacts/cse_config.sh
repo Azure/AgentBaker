@@ -300,12 +300,13 @@ configureSecureTLSBootstrap() {
         AAD_RESOURCE="$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"
     fi
 
-    KUBELET_PRE_START_DROP_IN=/etc/systemd/system/kubelet.service.d/10-pre-start.conf
+    KUBELET_PRE_START_DROP_IN=/etc/systemd/system/kubelet.service.d/10-stls-prestart.conf
     mkdir -p "$(dirname "${KUBELET_PRE_START_DROP_IN}")"
     touch "${KUBELET_PRE_START_DROP_IN}"
     chmod 0600 "${KUBELET_PRE_START_DROP_IN}"
     cat >> "${KUBELET_PRE_START_DROP_IN}" <<EOF
-ExecStartPre=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh
+[Service]
+ExecStartPre=-/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh
 EOF
 
     KUBELET_ENV_DROP_IN="/etc/systemd/system/kubelet.service.d/10-env.conf"
