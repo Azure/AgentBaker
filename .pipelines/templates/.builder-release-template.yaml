@@ -109,6 +109,12 @@ steps:
     retryCountOnTaskFailure: 3
     displayName: Building VHD
   - script: |
+          chmod +x vhdbuilder/packer/trivy-scan.sh
+          captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+          VHD_NAME="${captured_sig_version}.vhd"
+          vhdbuilder/packer/trivy-scan.sh "${CONTAINER_IMAGE}" "arm64"
+    displayName: Run Trivy Scan
+  - script: |
         OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
         MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
         docker run --rm \
@@ -236,12 +242,6 @@ steps:
         ${CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
-  - script: |
-          chmod +x vhdbuilder/packer/trivy-scan.sh
-          captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
-          VHD_NAME="${captured_sig_version}.vhd"
-          vhdbuilder/packer/trivy-scan.sh "${VHD_NAME}" "arm64"
-    displayName: Run Trivy Scan
   - task: PublishPipelineArtifact@1
     inputs:
         artifactName: 'publishing-info-${{ parameters.artifactName }}'
