@@ -82,9 +82,7 @@ ERR_ARTIFACT_STREAMING_INSTALL=153 # Error installing mirror proxy and overlaybd
 
 ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
 ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
-ERR_SECURE_TLS_BOOTSTRAP_CLIENT_FAIL=167 # Error generating kubelet client credential via the secure TLS bootstrap client
-ERR_SECURE_TLS_BOOTSTRAP_MISSING_KUBECONFIG=168 # Unable to find kubeconfig after completion of secure TLS bootstrapping
-ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT_TIMEOUT=169 # Timeout waiting for secure TLS bootrstrap client download
+ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT_BINARY=169 # Timeout waiting for secure TLS bootrstrap client binary download
 
 ERR_DISBALE_IPTABLES=170 # Error disabling iptables service
 
@@ -233,20 +231,6 @@ systemctl_restart() {
         fi
     done
 }
-systemctl_restart_noblock() {
-    retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
-    for i in $(seq 1 $retries); do
-        timeout $timeout systemctl daemon-reload
-        timeout $timeout systemctl restart $svcname --no-block && break || \
-        if [ $i -eq $retries ]; then
-            return 1
-        else
-            systemctl status $svcname --no-pager -l
-            journalctl -u $svcname
-            sleep $wait_sleep
-        fi
-    done
-}
 systemctl_stop() {
     retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
     for i in $(seq 1 $retries); do
@@ -295,20 +279,6 @@ systemctlEnableAndStart() {
         return 1
     fi
     if ! retrycmd_if_failure 120 5 25 systemctl enable $1; then
-        echo "$1 could not be enabled by systemctl"
-        return 1
-    fi
-}
-
-systemctlEnableAndStartNoBlock() {
-    systemctl_restart_noblock 100 5 30 $1
-    RESTART_STATUS=$?
-    systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
-    if [ $RESTART_STATUS -ne 0 ]; then
-        echo "$1 could not be started"
-        return 1
-    fi
-    if ! retrycmd_if_failure 120 5 25 systemctl enable --no-block $1; then
         echo "$1 could not be enabled by systemctl"
         return 1
     fi

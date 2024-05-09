@@ -411,39 +411,42 @@ configureSecureTLSBootstrap() {
         AAD_RESOURCE="$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"
     fi
 
-    SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
-    touch "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
-    chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
+    KUBELET_PRE_START_DROP_IN=/etc/systemd/system/kubelet.service.d/10-pre-start.conf
+    mkdir -p "$(dirname "${KUBELET_PRE_START_DROP_IN}")"
+    touch "${KUBELET_PRE_START_DROP_IN}"
+    chmod 0600 "${KUBELET_PRE_START_DROP_IN}"
+    cat >> "${KUBELET_PRE_START_DROP_IN}" <<EOF
+ExecStartPre=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh download
+ExecStartPre=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh bootstrap
+EOF
 
-    cat > "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
+    KUBELET_ENV_DROP_IN="/etc/systemd/system/kubelet.service.d/10-env.conf"
+    mkdir -p "$(dirname "${KUBELET_ENV_DROP_IN}")"
+    touch "${KUBELET_ENV_DROP_IN}"
+    chmod 0600 "${KUBELET_ENV_DROP_IN}"
+    cat >> "${KUBELET_ENV_DROP_IN}" <<EOF 
 [Service]
-Environment="CLIENT_BINARY_DOWNLOAD_URL=${DOWNLOAD_URL}"
+Environment="SECURE_TLS_BOOTSTRAP_CLIENT_BINARY_DOWNLOAD_URL=${DOWNLOAD_URL}"
+Environment="SECURE_TLS_BOOTSTRAP_AAD_RESOURCE=${AAD_RESOURCE}"
 Environment="API_SERVER_NAME=${API_SERVER_NAME}"
-Environment="AAD_RESOURCE=${AAD_RESOURCE}"
 EOF
 }
 
-ensureSecureTLSBootstrap() {
-    KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
-    while [ "$(systemctl is-active secure-tls-bootstrap)" == "activating" ]; do
-        echo "secure TLS bootstrapping is still in progressing, waiting for terminal state..."
-        sleep 1
-    done
-    STATUS="$(systemctl is-active secure-tls-bootstrap)"
-    if [ "$STATUS" == "failed" ] || [ "$STATUS" == "is-failed" ]; then
-        systemctl status secure-tls-bootstrap --no-pager -l
-        journalctl -u secure-tls-bootstrap
-        exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_FAIL 
-    fi
-    if [ ! -f "$KUBECONFIG_FILE" ]; then
-        systemctl status secure-tls-bootstrap --no-pager -l
-        journalctl -u secure-tls-bootstrap
-        exit $ERR_SECURE_TLS_BOOTSTRAP_MISSING_KUBECONFIG 
-    fi
-} 
+configureVanillaTLSBootstrap() {
+    KUBELET_ENV_DROP_IN="/etc/systemd/system/kubelet.service.d/10-env.conf"
+    mkdir -p "$(dirname "${KUBELET_ENV_DROP_IN}")"
+    touch "${KUBELET_ENV_DROP_IN}"
+    chmod 0600 "${KUBELET_ENV_DROP_IN}"
+    cat >> "${KUBELET_ENV_DROP_IN}" <<EOF 
+[Service]
+Environment="TLS_BOOTSTRAP_TOKEN=${TLS_BOOTSTRAP_TOKEN}"
+Environment="API_SERVER_NAME=${API_SERVER_NAME}"
+EOF
+}
 
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
+
     mkdir -p /etc/default
     echo "KUBELET_FLAGS=${KUBELET_FLAGS}" > "${KUBELET_DEFAULT_FILE}"
     echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
@@ -454,49 +457,31 @@ ensureKubelet() {
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
     fi
 
-    KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
-
-    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ] || [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
-        KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
-        mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
-        touch "${KUBELET_TLS_DROP_IN}"
-        chmod 0600 "${KUBELET_TLS_DROP_IN}"
-
-        if [ ! -f "$KUBECONFIG_FILE" ]; then
-            tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
+    KUBELET_PRE_START_DROP_IN=/etc/systemd/system/kubelet.service.d/10-pre-start.conf
+    mkdir -p "$(dirname "${KUBELET_PRE_START_DROP_IN}")"
+    touch "${KUBELET_PRE_START_DROP_IN}"
+    chmod 0600 "${KUBELET_PRE_START_DROP_IN}"
+    cat > "${KUBELET_PRE_START_DROP_IN}" <<EOF
 [Service]
-Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh
+ExecStartPre=/bin/mkdir -p /var/lib/kubelet
+ExecStartPre=/bin/mkdir -p /var/lib/cni
+ExecStartPre=/bin/bash -c "if [ $(mount | grep \"/var/lib/kubelet\" | wc -l) -le 0 ] ; then /bin/mount --bind /var/lib/kubelet /var/lib/kubelet ; fi"
+ExecStartPre=/bin/mount --make-shared /var/lib/kubelet
+ExecStartPre=-/sbin/ebtables -t nat --list
+ExecStartPre=-/sbin/iptables -t nat --numeric --list
 EOF
-            BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-            mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
-            touch "${BOOTSTRAP_KUBECONFIG_FILE}"
-            chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
-            tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
-apiVersion: v1
-kind: Config
-clusters:
-- name: localcluster
-  cluster:
-    certificate-authority: /etc/kubernetes/certs/ca.crt
-    server: https://${API_SERVER_NAME}:443
-users:
-- name: kubelet-bootstrap
-  user:
-    token: "${TLS_BOOTSTRAP_TOKEN}"
-contexts:
-- context:
-    cluster: localcluster
-    user: kubelet-bootstrap
-  name: bootstrap-context
-current-context: bootstrap-context
-EOF
-        else
-            tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
-[Service]
-Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig"
-EOF
-        fi
-    else
+
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+        configureSecureTLSBootstrap
+    fi
+
+    if [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
+        configureVanillaTLSBootstrap
+    fi
+
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "false" ] && [ "${ENABLE_TLS_BOOTSTRAPPING}" == "false" ]; then
+        KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
         mkdir -p "$(dirname "${KUBECONFIG_FILE}")"
         touch "${KUBECONFIG_FILE}"
         chmod 0644 "${KUBECONFIG_FILE}"
