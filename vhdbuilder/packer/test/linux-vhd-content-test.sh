@@ -591,7 +591,7 @@ testNfsServerService() {
   echo "$test: logging ${is_enabled} here"
   if [[ "${is_enabled}" == "masked" ]]; then
     echo "$test: $service_name is correctly masked"
-  elif [[ "${is_enabled}" == "" ]]; then
+  elif [[ "${is_enabled}" == "" || "${is_enabled}" == "not-found" ]]; then
     echo "$test: $service_name is not installed, which is fine"
   else
     err $test "$service_name is not masked"
