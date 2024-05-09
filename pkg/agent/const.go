@@ -64,7 +64,6 @@ const (
 	reconcilePrivateHostsScript         = "linux/cloud-init/artifacts/reconcile-private-hosts.sh"
 	reconcilePrivateHostsService        = "linux/cloud-init/artifacts/reconcile-private-hosts.service"
 	secureTLSBootstrapScript            = "linux/cloud-init/artifacts/secure-tls-bootstrap.sh"
-	secureTLSBootstrapService           = "linux/cloud-init/artifacts/secure-tls-bootstrap.service"
 	bindMountScript                     = "linux/cloud-init/artifacts/bind-mount.sh"
 	bindMountSystemdService             = "linux/cloud-init/artifacts/bind-mount.service"
 	snapshotUpdateScript                = "linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh"
