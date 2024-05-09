@@ -628,7 +628,7 @@
     },
     {
       "type": "file",
-      "soruce": "vhdbuilder/packer/storage-scan.sh",
+      "source": "vhdbuilder/packer/storage-scan.sh",
       "destination": "/home/packer/storage-scan.sh"
     },
     {
