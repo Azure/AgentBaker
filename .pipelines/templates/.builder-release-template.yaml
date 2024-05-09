@@ -142,6 +142,11 @@ steps:
     displayName: Run VHD Tests
   - task: PublishPipelineArtifact@0
     inputs:
+        artifactName: 'storage-report-${{ parameters.artifactName }}'
+        targetPath: 'storage-report.txt'
+    displayName: publish storage report
+  - task: PublishPipelineArtifact@0
+    inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
         targetPath: 'release-notes.txt'
     displayName: publish release notes
