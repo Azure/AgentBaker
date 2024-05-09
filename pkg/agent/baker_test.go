@@ -259,8 +259,15 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			Expect(err).To(BeNil())
 		}
 
+		fmt.Printf("test data path: ./testdata/%s/CSECommand\n", folder)
+
 		expectedCSECommand, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
 		Expect(err).To(BeNil())
+
+		if cseCommand != string(expectedCSECommand) {
+			fmt.Println(cseCommand)
+			fmt.Println(string(expectedCSECommand))
+		}
 		Expect(cseCommand).To(Equal(string(expectedCSECommand)))
 
 		files, err := getDecodedFilesFromCustomdata(customDataBytes)
@@ -715,7 +722,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(secureTLSBootstrapScript.value).ToNot(BeEmpty())
 			}),
 
-		Entry("AKSUbuntu2204 with secure TLS bootstrapping + vanilla TLS bootstrapping enabled", "AKSUbuntu2204+SecureTLSBoostrapping", "1.25.6",
+		Entry("AKSUbuntu2204 with secure TLS bootstrapping + vanilla TLS bootstrapping enabled", "AKSUbuntu2204+TLSBootstrapping+SecureTLSBoostrapping", "1.25.6",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.HostedMasterProfile.FQDN = "aks-hcp"
 				config.EnableSecureTLSBootstrapping = true
