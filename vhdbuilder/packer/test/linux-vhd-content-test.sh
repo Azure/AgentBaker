@@ -588,6 +588,7 @@ testNfsServerService() {
   echo "$test: Checking that $service_name is masked"
   local is_enabled=
   is_enabled=$(systemctl is-enabled $service_name 2>/dev/null)
+  echo "$test: logging ${is_enabled} here"
   if [[ "${is_enabled}" == "masked" ]]; then
     echo "$test: $service_name is correctly masked"
   elif [[ "${is_enabled}" == "" ]]; then
