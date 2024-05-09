@@ -94,7 +94,7 @@ installCredentalProvider() {
 
 downloadSecureTLSBootstrapClient() {
     CPU_ARCH=$(getCPUArch)
-    CLIENT_BINARY_DOWNLOAD_URL="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${SECURE_TLS_BOOTSTRAP_CLIENT_BINARY_VERSION}/linux/${CPU_ARCH}/tls-bootstrap-client"
+    CLIENT_BINARY_DOWNLOAD_URL=""https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${SECURE_TLS_BOOTSTRAP_CLIENT_BINARY_VERSION}/linux/${CPU_ARCH}/tls-bootstrap-client""
 
     mkdir -p $SECURE_TLS_BOOTSTRAP_CLIENT_BINARY_DIR
     CLIENT_BINARY_PATH="${CLIENT_BINARY_DIR}/tls-bootstrap-client"
