@@ -1,10 +1,12 @@
 [Unit]
-Description=Apply MIG configuration on Nvidia A100 GPU
+Description=Runs the secure TLS bootstrapping client binary to generate a kubelet client credential
+Wants=network-online.target
+After=network-online.target
+Before=kubelet.service
 
 [Service]
-Restart=on-failure
-ExecStartPre=/usr/bin/nvidia-smi -mig 1
-ExecStart=/bin/bash /opt/azure/containers/mig-partition.sh ${GPU_INSTANCE_PROFILE}
+Type=oneshot
+ExecStartPre=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh download
+ExecStart=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh bootstrap
 
-[Install]
-WantedBy=multi-user.target
+#EOF

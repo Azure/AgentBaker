@@ -82,6 +82,8 @@
 // linux/cloud-init/artifacts/reconcile-private-hosts.service
 // linux/cloud-init/artifacts/reconcile-private-hosts.sh
 // linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf
+// linux/cloud-init/artifacts/secure-tls-bootstrap.service
+// linux/cloud-init/artifacts/secure-tls-bootstrap.sh
 // linux/cloud-init/artifacts/setup-custom-search-domains.sh
 // linux/cloud-init/artifacts/sshd_config
 // linux/cloud-init/artifacts/sshd_config_1604
@@ -2311,7 +2313,7 @@ NO_PROXY_URLS="{{GetNoProxy}}"
 PROXY_VARS="{{GetProxyVariables}}"
 ENABLE_TLS_BOOTSTRAPPING="{{EnableTLSBootstrapping}}"
 ENABLE_SECURE_TLS_BOOTSTRAPPING="{{EnableSecureTLSBootstrapping}}"
-CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID="{{GetCustomSecureTLSBootstrapAADServerAppID}}"
+CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE="{{GetCustomSecureTLSBootstrapAADResource}}"
 DHCPV6_SERVICE_FILEPATH="{{GetDHCPv6ServiceCSEScriptFilepath}}"
 DHCPV6_CONFIG_FILEPATH="{{GetDHCPv6ConfigCSEScriptFilepath}}"
 THP_ENABLED="{{GetTransparentHugePageEnabled}}"
@@ -2523,35 +2525,22 @@ configureKubeletServerCert() {
     openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}" -addext "subjectAltName=DNS:${NODE_NAME}"
 }
 
-configureK8s() {
-    APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
-    touch "${APISERVER_PUBLIC_KEY_PATH}"
-    chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
-    chown root:root "${APISERVER_PUBLIC_KEY_PATH}"
-
+configureAzureJson() {
     AZURE_JSON_PATH="/etc/kubernetes/azure.json"
     touch "${AZURE_JSON_PATH}"
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
-
-    mkdir -p "/etc/kubernetes/certs"
-    if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
-        echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
-    fi
-    if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
-        echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
-    fi
-    if [ -n "${SERVICE_PRINCIPAL_FILE_CONTENT}" ]; then
-        echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > /etc/kubernetes/sp.txt
-    fi
-
+    
     set +x
-    echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
     SP_FILE="/etc/kubernetes/sp.txt"
+    if [ -n "${SERVICE_PRINCIPAL_FILE_CONTENT}" ]; then
+        echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > $SP_FILE
+    fi
     SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
     rm "$SP_FILE"
+
     cat << EOF > "${AZURE_JSON_PATH}"
 {
     "cloud": "${TARGET_CLOUD}",
@@ -2593,6 +2582,31 @@ configureK8s() {
 }
 EOF
     set -x
+}
+
+configureK8s() {
+    mkdir -p "/etc/kubernetes/certs"
+
+    APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
+    touch "${APISERVER_PUBLIC_KEY_PATH}"
+    chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
+    chown root:root "${APISERVER_PUBLIC_KEY_PATH}"
+
+    if [ "$ENABLE_SECURE_TLS_BOOTSTRAPPING" == "false" ] && [ "$ENABLE_TLS_BOOTSTRAPPING" == "false" ]; then
+        # we guard the following cert creation logic since it seems RP always gives agentbaker a kubelet client cert/key pair
+        # regardless of whether the node is being bootstrapped with some flavor of TLS bootstrapping
+        if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
+            echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
+        fi
+        if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
+            echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
+        fi
+    fi
+
+    set +x
+    echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
+    set -x
+
     if [[ "${CLOUDPROVIDER_BACKOFF_MODE}" = "v2" ]]; then
         sed -i "/cloudProviderBackoffExponent/d" /etc/kubernetes/azure.json
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
@@ -2746,6 +2760,57 @@ ensureDHCPv6() {
     retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
 }
 
+ensureKubeCAFile() {
+    KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
+    mkdir -p "$(dirname "${KUBE_CA_FILE}")"
+    echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
+    chmod 0644 "${KUBE_CA_FILE}"
+}
+
+configureSecureTLSBootstrap() {
+    CLIENT_VERSION="client-v0.1.0-alpha.cameissner2"
+    DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/amd64/tls-bootstrap-client"
+    if [[ $(isARM64) == 1 ]]; then
+        DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/arm64/tls-bootstrap-client"
+    fi
+
+    # default AAD resource here so we can minimze bootstrap contract surface
+    AAD_RESOURCE="6dae42f8-4368-4678-94ff-3960e28e3630"
+    if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE" ]; then
+        AAD_RESOURCE="$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"
+    fi
+
+    SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
+    touch "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
+    chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
+
+    cat > "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
+[Service]
+Environment="CLIENT_BINARY_DOWNLOAD_URL=${DOWNLOAD_URL}"
+Environment="API_SERVER_NAME=${API_SERVER_NAME}"
+Environment="AAD_RESOURCE=${AAD_RESOURCE}"
+EOF
+}
+
+ensureSecureTLSBootstrap() {
+    KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
+    while [ "$(systemctl is-active secure-tls-bootstrap)" == "activating" ]; do
+        echo "secure TLS bootstrapping is still in progressing, waiting for terminal state..."
+        sleep 1
+    done
+    STATUS="$(systemctl is-active secure-tls-bootstrap)"
+    if [ "$STATUS" == "failed" ] || [ "$STATUS" == "is-failed" ]; then
+        systemctl status secure-tls-bootstrap --no-pager -l
+        journalctl -u secure-tls-bootstrap
+        exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_FAIL # exit hard here until ready for preview
+    fi
+    if [ ! -f "$KUBECONFIG_FILE" ]; then
+        systemctl status secure-tls-bootstrap --no-pager -l
+        journalctl -u secure-tls-bootstrap
+        exit $ERR_SECURE_TLS_BOOTSTRAP_MISSING_KUBECONFIG # exit hard here until ready for preview
+    fi
+} 
+
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
@@ -2757,65 +2822,30 @@ ensureKubelet() {
     if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
     fi
-    
-    KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
-    mkdir -p "$(dirname "${KUBE_CA_FILE}")"
-    echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
-    chmod 0600 "${KUBE_CA_FILE}"
+
+    KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
 
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ] || [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
         touch "${KUBELET_TLS_DROP_IN}"
         chmod 0600 "${KUBELET_TLS_DROP_IN}"
-        tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
+
+        if [ ! -f "$KUBECONFIG_FILE" ]; then
+            # if we don't have a kubelet config file, meaning that we are either bootstrapping with vanilla TLS bootstrapping
+            # or with secure TLS bootstrapping but the bootstrapping process failed, then specify the bootstrap-kubeconfig file
+            # so kubelet can request its own certificate
+            tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
 [Service]
 Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
 EOF
-    fi
-
-    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
-        AAD_RESOURCE="6dae42f8-4368-4678-94ff-3960e28e3630"
-        if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID" ]; then
-            AAD_RESOURCE=$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID
-        fi
-        SECURE_BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-        mkdir -p "$(dirname "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}")"
-        touch "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}"
-        chmod 0644 "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}"
-        tee "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
-apiVersion: v1
-kind: Config
-clusters:
-- name: localcluster
-  cluster:
-    certificate-authority: /etc/kubernetes/certs/ca.crt
-    server: https://${API_SERVER_NAME}:443
-users:
-- name: kubelet-bootstrap
-  user:
-    exec:
-        apiVersion: client.authentication.k8s.io/v1
-        command: /opt/azure/tlsbootstrap/tls-bootstrap-client
-        args:
-        - bootstrap
-        - --next-proto=aks-tls-bootstrap
-        - --aad-resource=${AAD_RESOURCE}
-        interactiveMode: Never
-        provideClusterInfo: true
-contexts:
-- context:
-    cluster: localcluster
-    user: kubelet-bootstrap
-  name: bootstrap-context
-current-context: bootstrap-context
-EOF
-    elif [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
-        BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-        mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
-        touch "${BOOTSTRAP_KUBECONFIG_FILE}"
-        chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
-        tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+            # used in vanilla TLS bootstrapping cases and when secure TLS bootstrapping has failed to generate a kubeconfig
+            # by the time we need to start kubelet
+            BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+            mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
+            touch "${BOOTSTRAP_KUBECONFIG_FILE}"
+            chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
+            tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
 apiVersion: v1
 kind: Config
 clusters:
@@ -2834,8 +2864,15 @@ contexts:
   name: bootstrap-context
 current-context: bootstrap-context
 EOF
+        else
+            # otherwise, if we already have a kubeconfig we can use, omit the bootstrap-kubeconfig flag
+            # so kubelet doesn't try to request its own certificate
+            tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig"
+EOF
+        fi
     else
-        KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
         mkdir -p "$(dirname "${KUBECONFIG_FILE}")"
         touch "${KUBECONFIG_FILE}"
         chmod 0644 "${KUBECONFIG_FILE}"
@@ -3293,7 +3330,9 @@ ERR_ARTIFACT_STREAMING_INSTALL=153 # Error installing mirror proxy and overlaybd
 
 ERR_HTTP_PROXY_CA_CONVERT=160 # Error converting http proxy ca cert from pem to crt format
 ERR_UPDATE_CA_CERTS=161 # Error updating ca certs to include user-provided certificates
-ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_TIMEOUT=169 # Timeout waiting for secure TLS bootrstrap kubelet exec plugin download
+ERR_SECURE_TLS_BOOTSTRAP_CLIENT_FAIL=167 # Error generating kubelet client credential via the secure TLS bootstrap client
+ERR_SECURE_TLS_BOOTSTRAP_MISSING_KUBECONFIG=168 # Unable to find kubeconfig after completion of secure TLS bootstrapping
+ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT_TIMEOUT=169 # Timeout waiting for secure TLS bootrstrap client download
 
 ERR_DISBALE_IPTABLES=170 # Error disabling iptables service
 
@@ -3442,6 +3481,20 @@ systemctl_restart() {
         fi
     done
 }
+systemctl_restart_noblock() {
+    retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
+    for i in $(seq 1 $retries); do
+        timeout $timeout systemctl daemon-reload
+        timeout $timeout systemctl restart $svcname --no-block && break || \
+        if [ $i -eq $retries ]; then
+            return 1
+        else
+            systemctl status $svcname --no-pager -l
+            journalctl -u $svcname
+            sleep $wait_sleep
+        fi
+    done
+}
 systemctl_stop() {
     retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
     for i in $(seq 1 $retries); do
@@ -3490,6 +3543,20 @@ systemctlEnableAndStart() {
         return 1
     fi
     if ! retrycmd_if_failure 120 5 25 systemctl enable $1; then
+        echo "$1 could not be enabled by systemctl"
+        return 1
+    fi
+}
+
+systemctlEnableAndStartNoBlock() {
+    systemctl_restart_noblock 100 5 30 $1
+    RESTART_STATUS=$?
+    systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
+    if [ $RESTART_STATUS -ne 0 ]; then
+        echo "$1 could not be started"
+        return 1
+    fi
+    if ! retrycmd_if_failure 120 5 25 systemctl enable --no-block $1; then
         echo "$1 could not be enabled by systemctl"
         return 1
     fi
@@ -3662,8 +3729,6 @@ RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 K8S_PRIVATE_PACKAGES_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
 UBUNTU_RELEASE=$(lsb_release -r -s)
-SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR="/opt/azure/tlsbootstrap"
-SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION="v0.1.0-alpha.2"
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 CREDENTIAL_PROVIDER_DOWNLOAD_DIR="/opt/credentialprovider/downloads"
 CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
@@ -3740,22 +3805,6 @@ installCredentalProvider() {
     mv "${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}/azure-acr-credential-provider" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"
     chmod 755 "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"
     rm -rf ${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}
-}
-
-downloadSecureTLSBootstrapKubeletExecPlugin() {
-    local plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION}/linux/amd64/tls-bootstrap-client"
-    if [[ $(isARM64) == 1 ]]; then
-        plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION}/linux/arm64/tls-bootstrap-client"
-    fi
-
-    mkdir -p $SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR
-    plugin_download_path="${SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR}/tls-bootstrap-client"
-
-    if [ ! -f "$plugin_download_path" ]; then
-        retrycmd_if_failure 30 5 60 curl -fSL -o "$plugin_download_path" "$plugin_url" || exit $ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_TIMEOUT
-        chown -R root:root "$SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR"
-        chmod -R 755 "$SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR"
-    fi
 }
 
 downloadContainerdWasmShims() {
@@ -4223,6 +4272,15 @@ source "${CSE_INSTALL_FILEPATH}"
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 source "${CSE_CONFIG_FILEPATH}"
 
+logs_to_events "AKS.CSE.ensureKubeCAFile" ensureKubeCAFile
+
+logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
+
+if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+    logs_to_events "AKS.CSE.configureSecureTLSBootstrap" configureSecureTLSBootstrap
+    logs_to_events "AKS.CSE.start.SecureTLSBootstrap" systemctlEnableAndStartNoBlock secure-tls-bootstrap
+fi
+
 if [[ "${DISABLE_SSH}" == "true" ]]; then
     disableSSH || exit $ERR_DISABLE_SSH
 fi
@@ -4303,10 +4361,6 @@ logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
 if [ "${IS_KRUSTLET}" == "true" ]; then
     logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
-fi
-
-if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
-    logs_to_events "AKS.CSE.downloadSecureTLSBootstrapKubeletExecPlugin" downloadSecureTLSBootstrapKubeletExecPlugin
 fi
 
 # By default, never reboot new nodes.
@@ -4474,7 +4528,12 @@ if [ "${NEEDS_CONTAINERD}" == "true" ] &&  [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS
   logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
 fi
 
+if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+    logs_to_events "AKS.CSE.ensureSecureTLSBootstrap" ensureSecureTLSBootstrap
+fi
+
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
+
 if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
 fi
@@ -6658,6 +6717,181 @@ func linuxCloudInitArtifactsRsyslogD60CisConf() (*asset, error) {
 	return a, nil
 }
 
+var _linuxCloudInitArtifactsSecureTlsBootstrapService = []byte(`[Unit]
+Description=Runs the secure TLS bootstrapping client binary to generate a kubelet client credential
+Wants=network-online.target
+After=network-online.target
+Before=kubelet.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh download
+ExecStart=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh bootstrap
+
+#EOF`)
+
+func linuxCloudInitArtifactsSecureTlsBootstrapServiceBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsSecureTlsBootstrapService, nil
+}
+
+func linuxCloudInitArtifactsSecureTlsBootstrapService() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsSecureTlsBootstrapServiceBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/secure-tls-bootstrap.service", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _linuxCloudInitArtifactsSecureTlsBootstrapSh = []byte(`#!/bin/bash
+
+set -uxo pipefail
+
+DEFAULT_CLIENT_VERSION="client-v0.1.0-alpha.cameissner2"
+EVENTS_LOGGING_DIR="/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events"
+NEXT_PROTO_VALUE="aks-tls-bootstrap"
+
+RETRY_PERIOD_SECONDS=180 # 3 minutes
+RETRY_WAIT_SECONDS=5
+
+AAD_RESOURCE="${AAD_RESOURCE:-""}"
+API_SERVER_NAME="${API_SERVER_NAME:-""}"
+CLIENT_BINARY_DOWNLOAD_URL="${CLIENT_BINARY_DOWNLOAD_URL:-https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${DEFAULT_CLIENT_VERSION}/linux/amd64/tls-bootstrap-client}"
+CLIENT_BINARY_PATH="${CLIENT_BINARY_PATH:-/opt/azure/tlsbootstrap/tls-bootstrap-client}"
+KUBECONFIG_PATH="${KUBECONFIG_PATH:-/var/lib/kubelet/kubeconfig}"
+CLIENT_CERT_PATH="${CLIENT_CERT_PATH:-/etc/kubernetes/certs/client.crt}"
+CLIENT_KEY_PATH="${CLIENT_KEY_PATH:-/etc/kubernetes/certs/client.key}"
+AZURE_CONFIG_PATH="${AZURE_CONFIG_PATH:-/etc/kubernetes/azure.json}"
+CLUSTER_CA_FILE_PATH="${CLUSTER_CA_FILE_PATH:-/etc/kubernetes/certs/ca.crt}"
+LOG_FILE_PATH="${LOG_FILE_PATH:-/var/log/azure/aks/secure-tls-bootstrap.log}"
+
+retrycmd_if_failure() {
+    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+    for i in $(seq 1 $retries); do
+        timeout $timeout "${@}" && break || \
+        if [ $i -eq $retries ]; then
+            echo Executed \"$@\" $i times;
+            return 1
+        else
+            sleep $wait_sleep
+        fi
+    done
+    echo Executed \"$@\" $i times;
+}
+
+logs_to_events() {
+    local task=$1; shift
+    local eventsFileName=$(date +%s%3N)
+
+    local startTime=$(date +"%F %T.%3N")
+    ${@}
+    ret=$?
+    local endTime=$(date +"%F %T.%3N")
+
+    msg_string=$(jq -n --arg Status "Succeeded" --arg Hostname "$(uname -n)" '{Status: $Status, Hostname: $Hostname}')
+    if [ "$ret" != "0" ] && [ "${SUB_COMMAND,,}" == "bootstrap" ]; then
+        msg_string=$(jq -n --arg Status "Failed" --arg Hostname "$(uname -n)" --arg LogTail "$(tail -n 20 $LOG_FILE_PATH)" '{Status: $Status, Hostname: $Hostname, LogTail: $LogTail}')
+    fi
+    if [ "$ret" != "0" ] && [ "${SUB_COMMAND,,}" == "download" ]; then
+        msg_string=$(jq -n --arg Status "Failed" --arg Hostname "$(uname -n)" '{Status: $Status, Hostname: $Hostname}')
+    fi
+
+    json_string=$( jq -n \
+        --arg Timestamp   "${startTime}" \
+        --arg OperationId "${endTime}" \
+        --arg Version     "1.23" \
+        --arg TaskName    "${task}" \
+        --arg EventLevel  "Informational" \
+        --arg Message     "${msg_string}" \
+        --arg EventPid    "0" \
+        --arg EventTid    "0" \
+        '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
+    )
+    echo ${json_string} > "${EVENTS_LOGGING_DIR}/${eventsFileName}.json"
+
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
+}
+
+downloadClient() {
+    [ -f "$CLIENT_BINARY_PATH" ] && return 0
+    DOWNLOAD_DIR=$(dirname $CLIENT_BINARY_PATH)
+
+    if ! retrycmd_if_failure 30 5 60 curl -fSL -o "$CLIENT_BINARY_PATH" "$CLIENT_BINARY_DOWNLOAD_URL"; then
+        echo "ERROR: unable to download secure TLS bootstrapping client binary from $CLIENT_BINARY_DOWNLOAD_URL"
+        return 1
+    fi
+    chown -R root:root "$DOWNLOAD_DIR"
+    chmod -R 755 "$DOWNLOAD_DIR"
+}
+
+bootstrap() {
+    if [ -z "$API_SERVER_NAME" ]; then
+        echo "ERROR: missing apiserver FQDN, cannot continue bootstrapping"
+        return 1
+    fi
+    if [ ! -f "$CLIENT_BINARY_PATH" ]; then
+        echo "ERROR: bootstrap client binary does not exist at path $CLIENT_BINARY_PATH"
+        return 1
+    fi
+
+    chmod +x $CLIENT_BINARY_PATH
+
+    deadline=$(($(date +%s) + RETRY_PERIOD_SECONDS))
+    while true; do
+        now=$(date +%s)
+        if [ $((now - deadline)) -ge 0 ]; then
+            echo "ERROR: bootstrapping deadline exceeded"
+            return 1
+        fi
+
+        $CLIENT_BINARY_PATH bootstrap \
+         --aad-resource="$AAD_RESOURCE" \
+         --apiserver-fqdn="$API_SERVER_NAME" \
+         --cluster-ca-file="$CLUSTER_CA_FILE_PATH" \
+         --azure-config="$AZURE_CONFIG_PATH" \
+         --cert-file="$CLIENT_CERT_PATH" \
+         --key-file="$CLIENT_KEY_PATH" \
+         --next-proto="$NEXT_PROTO_VALUE" \
+         --kubeconfig="$KUBECONFIG_PATH" \
+         --log-file="$LOG_FILE_PATH"
+
+        [ $? -eq 0 ] && break
+
+        sleep $RETRY_WAIT_SECONDS
+    done
+}
+
+SUB_COMMAND=$1
+if [ "${SUB_COMMAND,,}" == "download" ]; then
+    logs_to_events "AKS.downloadSecureTLSBootstrapClient" downloadClient
+elif [ "${SUB_COMMAND,,}" == "bootstrap" ]; then
+    logs_to_events "AKS.performSecureTLSBootstrapping" bootstrap
+else
+    echo "ERROR: unknown subcommand $SUB_COMMAND for secure-tls-bootstrap.sh"
+    exit 1
+fi
+
+#EOF`)
+
+func linuxCloudInitArtifactsSecureTlsBootstrapShBytes() ([]byte, error) {
+	return _linuxCloudInitArtifactsSecureTlsBootstrapSh, nil
+}
+
+func linuxCloudInitArtifactsSecureTlsBootstrapSh() (*asset, error) {
+	bytes, err := linuxCloudInitArtifactsSecureTlsBootstrapShBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "linux/cloud-init/artifacts/secure-tls-bootstrap.sh", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _linuxCloudInitArtifactsSetupCustomSearchDomainsSh = []byte(`#!/bin/bash
 set -x
 source "${CSE_HELPERS_FILEPATH}"
@@ -8163,6 +8397,36 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 
+{{if EnableSecureTLSBootstrapping -}}
+- path: /opt/azure/tlsbootstrap/secure-tls-bootstrap.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "secureTLSBootstrapScript"}}
+
+- path: /etc/systemd/system/secure-tls-bootstrap.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "secureTLSBootstrapSystemdService"}}
+
+- path: /etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    Environment="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/client-v0.1.0-alpha.cameissner2/linux/amd64/tls-bootstrap-client"
+    Environment="API_SERVER_NAME={{GetKubernetesEndpoint}}"
+    {{if GetCustomSecureTLSBootstrapAADResource -}}
+    Environment="AAD_RESOURCE={{GetCustomSecureTLSBootstrapAADResource}}"
+    {{- else}}
+    Environment="AAD_RESOURCE=6dae42f8-4368-4678-94ff-3960e28e3630"
+    {{- end}}
+    #EOF 
+{{- end}}
+
 - path: /etc/systemd/system/kubelet.service
   permissions: "0600"
   encoding: gzip
@@ -8385,23 +8649,7 @@ write_files:
     users:
     - name: kubelet-bootstrap
       user:
-      {{- if EnableSecureTLSBootstrapping }}
-        exec:
-          apiVersion: client.authentication.k8s.io/v1
-          command: /opt/azure/tlsbootstrap/tls-bootstrap-client
-          args:
-          - bootstrap
-          - --next-proto=aks-tls-bootstrap
-          {{- if GetCustomSecureTLSBootstrapAADServerAppID}}
-          - --aad-resource={{GetCustomSecureTLSBootstrapAADServerAppID}}
-          {{- else}}
-          - --aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630
-          {{- end}}
-          interactiveMode: Never
-          provideClusterInfo: true
-      {{- else }}
         token: "{{GetTLSBootstrapTokenForKubeConfig}}"
-      {{- end }}
     contexts:
     - context:
         cluster: localcluster
@@ -9727,6 +9975,8 @@ var _bindata = map[string]func() (*asset, error){
 	"linux/cloud-init/artifacts/reconcile-private-hosts.service":           linuxCloudInitArtifactsReconcilePrivateHostsService,
 	"linux/cloud-init/artifacts/reconcile-private-hosts.sh":                linuxCloudInitArtifactsReconcilePrivateHostsSh,
 	"linux/cloud-init/artifacts/rsyslog-d-60-CIS.conf":                     linuxCloudInitArtifactsRsyslogD60CisConf,
+	"linux/cloud-init/artifacts/secure-tls-bootstrap.service":              linuxCloudInitArtifactsSecureTlsBootstrapService,
+	"linux/cloud-init/artifacts/secure-tls-bootstrap.sh":                   linuxCloudInitArtifactsSecureTlsBootstrapSh,
 	"linux/cloud-init/artifacts/setup-custom-search-domains.sh":            linuxCloudInitArtifactsSetupCustomSearchDomainsSh,
 	"linux/cloud-init/artifacts/sshd_config":                               linuxCloudInitArtifactsSshd_config,
 	"linux/cloud-init/artifacts/sshd_config_1604":                          linuxCloudInitArtifactsSshd_config_1604,
@@ -9879,6 +10129,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"reconcile-private-hosts.service": &bintree{linuxCloudInitArtifactsReconcilePrivateHostsService, map[string]*bintree{}},
 				"reconcile-private-hosts.sh":      &bintree{linuxCloudInitArtifactsReconcilePrivateHostsSh, map[string]*bintree{}},
 				"rsyslog-d-60-CIS.conf":           &bintree{linuxCloudInitArtifactsRsyslogD60CisConf, map[string]*bintree{}},
+				"secure-tls-bootstrap.service":    &bintree{linuxCloudInitArtifactsSecureTlsBootstrapService, map[string]*bintree{}},
+				"secure-tls-bootstrap.sh":         &bintree{linuxCloudInitArtifactsSecureTlsBootstrapSh, map[string]*bintree{}},
 				"setup-custom-search-domains.sh":  &bintree{linuxCloudInitArtifactsSetupCustomSearchDomainsSh, map[string]*bintree{}},
 				"sshd_config":                     &bintree{linuxCloudInitArtifactsSshd_config, map[string]*bintree{}},
 				"sshd_config_1604":                &bintree{linuxCloudInitArtifactsSshd_config_1604, map[string]*bintree{}},
