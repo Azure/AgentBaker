@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euxo pipefail
+set -euo pipefail
 
 TLS_BOOTSTRAP_TOKEN="${TLS_BOOTSTRAP_TOKEN:-""}"
 
@@ -20,7 +20,6 @@ setKubeletTLSBootstrapFlags() {
     touch "${BOOTSTRAP_KUBECONFIG_FILE}"
     chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
     
-    set +x
     tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
 apiVersion: v1
 kind: Config
@@ -40,7 +39,6 @@ contexts:
   name: bootstrap-context
 current-context: bootstrap-context
 EOF
-    set -x
 
     KUBELET_TLS_BOOTSTRAP_FLAGS="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
   fi
