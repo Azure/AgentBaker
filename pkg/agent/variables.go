@@ -33,6 +33,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"dhcpv6SystemdService":             getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, config),
 			"dhcpv6ConfigurationScript":        getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, config),
 			"kubeletSystemdService":            getBase64EncodedGzippedCustomScript(kubeletSystemdService, config),
+			"kubeletStartScript":               getBase64EncodedGzippedCustomScript(kubeletStartScript, config),
 			"reconcilePrivateHostsScript":      getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, config),
 			"reconcilePrivateHostsService":     getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
 			"secureTLSBootstrapScript":         getBase64EncodedGzippedCustomScript(secureTLSBootstrapScript, config),

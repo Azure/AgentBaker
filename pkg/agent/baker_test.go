@@ -661,27 +661,38 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 		Entry("AKSUbuntu1804 with kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+KubeletClientTLSBootstrapping", "1.18.3",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.HostedMasterProfile.FQDN = "aks-hcp"
 				config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
 				config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
 					CaCertificate: "fooBarBaz",
 				}
 			}, func(o *nodeBootstrappingOutput) {
 				// Please see #2815 for more details
-				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
-				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
-				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
-				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
-				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
+				etcDefaultKubelet := o.files["/etc/default/kubelet"]
+				Expect(etcDefaultKubelet).ToNot(BeNil())
+				Expect(etcDefaultKubelet.value).ToNot(BeEmpty())
 
-				Expect(etcDefaultKubelet).NotTo(BeEmpty())
-				Expect(bootstrapKubeconfig).NotTo(BeEmpty())
-				Expect(kubeletSh).NotTo(BeEmpty())
-				Expect(tlsBootstrapDropin).ToNot(BeEmpty())
-				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
-				Expect(caCRT).NotTo(BeEmpty())
+				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"]
+				Expect(etcDefaultKubeletService).ToNot(BeNil())
+				Expect(etcDefaultKubeletService.value).ToNot(BeEmpty())
 
-				Expect(bootstrapKubeconfig).To(ContainSubstring("token"))
-				Expect(bootstrapKubeconfig).To(ContainSubstring("07401b.f395accd246ae52d"))
+				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"]
+				Expect(kubeletSh).ToNot(BeNil())
+				Expect(kubeletSh.value).ToNot(BeEmpty())
+
+				kubeletStartScript := o.files["/opt/azure/containers/start-kubelet.sh"]
+				Expect(kubeletStartScript).ToNot(BeNil())
+				Expect(kubeletStartScript.value).ToNot(BeEmpty())
+
+				caCRT := o.files["/etc/kubernetes/certs/ca.crt"]
+				Expect(caCRT).ToNot(BeNil())
+				Expect(caCRT.value).ToNot(BeEmpty())
+
+				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"]
+				Expect(bootstrapKubeconfig).ToNot(BeNil())
+				Expect(bootstrapKubeconfig.value).ToNot(BeEmpty())
+				Expect(bootstrapKubeconfig.value).To(ContainSubstring("token"))
+				Expect(bootstrapKubeconfig.value).To(ContainSubstring("07401b.f395accd246ae52d"))
 			}),
 
 		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled", "AKSUbuntu2204+SecureTLSBoostrapping", "1.25.6",
@@ -692,22 +703,37 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
 				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"]).To(BeEmpty())
 
+				// assert a bootstrap-kubeconfig is not initially created by cloud-init
+				Expect(o.files).ToNot(HaveKey("/var/lib/kubelet/bootstrap-kubeconfig"))
+
+				kubeletStartScript := o.files["/opt/azure/containers/start-kubelet.sh"]
+				Expect(kubeletStartScript).ToNot(BeNil())
+				Expect(kubeletStartScript.value).ToNot(BeEmpty())
+
 				secureTLSBootstrapScript := o.files["/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh"]
 				Expect(secureTLSBootstrapScript).ToNot(BeNil())
 				Expect(secureTLSBootstrapScript.value).ToNot(BeEmpty())
-				secureTLSBootstrapService := o.files["/etc/systemd/system/secure-tls-bootstrap.service"]
-				Expect(secureTLSBootstrapService).ToNot(BeNil())
-				Expect(secureTLSBootstrapService.value).ToNot(BeEmpty())
-				secureTLSBootstrapConfigDropin := o.files["/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"]
-				Expect(secureTLSBootstrapConfigDropin).ToNot(BeNil())
-				Expect(secureTLSBootstrapConfigDropin.value).ToNot(BeEmpty())
-				Expect(secureTLSBootstrapConfigDropin.value).To(ContainSubstring("AAD_RESOURCE=6dae42f8-4368-4678-94ff-3960e28e3630"))
-				Expect(secureTLSBootstrapConfigDropin.value).To(ContainSubstring("API_SERVER_NAME=aks-hcp"))
+			}),
 
-				// for now we also assert that bootstrap-kubeconfig content is available when performing secure TLS bootstrapping
-				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"]
-				Expect(bootstrapKubeconfig).ToNot(BeNil())
-				Expect(bootstrapKubeconfig.value).ToNot(BeEmpty())
+		Entry("AKSUbuntu2204 with secure TLS bootstrapping + vanilla TLS bootstrapping enabled", "AKSUbuntu2204+SecureTLSBoostrapping", "1.25.6",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.HostedMasterProfile.FQDN = "aks-hcp"
+				config.EnableSecureTLSBootstrapping = true
+				config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
+				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"]).To(BeEmpty())
+
+				// assert a bootstrap-kubeconfig is not initially created by cloud-init
+				Expect(o.files).ToNot(HaveKey("/var/lib/kubelet/bootstrap-kubeconfig"))
+
+				kubeletStartScript := o.files["/opt/azure/containers/start-kubelet.sh"]
+				Expect(kubeletStartScript).ToNot(BeNil())
+				Expect(kubeletStartScript.value).ToNot(BeEmpty())
+
+				secureTLSBootstrapScript := o.files["/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh"]
+				Expect(secureTLSBootstrapScript).ToNot(BeNil())
+				Expect(secureTLSBootstrapScript.value).ToNot(BeEmpty())
 			}),
 
 		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled using custom AAD resource", "AKSUbuntu2204+SecureTLSBootstrapping+CustomAADResource", "1.25.6",
@@ -719,22 +745,16 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
 				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"]).To(Equal("appID"))
 
+				// assert a bootstrap-kubeconfig is not initially created by cloud-init
+				Expect(o.files).ToNot(HaveKey("/var/lib/kubelet/bootstrap-kubeconfig"))
+
+				kubeletStartScript := o.files["/opt/azure/containers/start-kubelet.sh"]
+				Expect(kubeletStartScript).ToNot(BeNil())
+				Expect(kubeletStartScript.value).ToNot(BeEmpty())
+
 				secureTLSBootstrapScript := o.files["/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh"]
 				Expect(secureTLSBootstrapScript).ToNot(BeNil())
 				Expect(secureTLSBootstrapScript.value).ToNot(BeEmpty())
-				secureTLSBootstrapService := o.files["/etc/systemd/system/secure-tls-bootstrap.service"]
-				Expect(secureTLSBootstrapService).ToNot(BeNil())
-				Expect(secureTLSBootstrapService.value).ToNot(BeEmpty())
-				secureTLSBootstrapConfigDropin := o.files["/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"]
-				Expect(secureTLSBootstrapConfigDropin).ToNot(BeNil())
-				Expect(secureTLSBootstrapConfigDropin.value).ToNot(BeEmpty())
-				Expect(secureTLSBootstrapConfigDropin.value).To(ContainSubstring("AAD_RESOURCE=appID"))
-				Expect(secureTLSBootstrapConfigDropin.value).To(ContainSubstring("API_SERVER_NAME=aks-hcp"))
-
-				// for now we also assert that bootstrap-kubeconfig content is available when performing secure TLS bootstrapping
-				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"]
-				Expect(bootstrapKubeconfig).ToNot(BeNil())
-				Expect(bootstrapKubeconfig.value).ToNot(BeEmpty())
 			}),
 
 		Entry("AKSUbuntu1804 with DisableCustomData = true", "AKSUbuntu1804+DisableCustomData", "1.19.0",

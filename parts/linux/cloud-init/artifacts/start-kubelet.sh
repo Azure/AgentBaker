@@ -1,32 +1,33 @@
 #!/bin/bash
 
-set -ex
+set -euxo pipefail
 
 TLS_BOOTSTRAP_TOKEN="${TLS_BOOTSTRAP_TOKEN:-""}"
 
 setKubeletTLSBootstrapFlags() {
-    KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
-    KUBELET_TLS_BOOTSTRAP_FLAGS="--kubeconfig /var/lib/kubelet/kubeconfig"
+  KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
+  KUBELET_TLS_BOOTSTRAP_FLAGS="--kubeconfig /var/lib/kubelet/kubeconfig"
 
-    if [ ! -f "$KUBECONFIG_FILE" ]; then
-        # if we don't have a kubelet config file, meaning that we are either bootstrapping with vanilla TLS bootstrapping
-        # or with secure TLS bootstrapping but the bootstrapping process failed, then specify the bootstrap-kubeconfig file
-        # containing a TLS bootstrap token so kubelet can request its own certificate
+  if [ ! -f "$KUBECONFIG_FILE" ]; then
+    # if we don't have a kubelet config file, meaning that we are either bootstrapping with vanilla TLS bootstrapping
+    # or with secure TLS bootstrapping but the bootstrapping process failed, then specify the bootstrap-kubeconfig file
+    # containing a TLS bootstrap token so kubelet can request its own certificate
 
-        # fail fast if we don't have a TLS bootstrap token
-        if [ -z "$TLS_BOOTSTRAP_TOKEN" ]; then
-            echo "ERROR: unable to write bootstrap-kubeconfig: no TLS bootstrap token has been provided"
-            exit 1
-        fi
+    # fail fast if we don't have a TLS bootstrap token
+    if [ -z "$TLS_BOOTSTRAP_TOKEN" ]; then
+        echo "ERROR: unable to write bootstrap-kubeconfig: no TLS bootstrap token has been provided"
+        exit 1
+    fi
 
-        KUBELET_TLS_BOOTSTRAP_FLAGS="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
-        # used in vanilla TLS bootstrapping cases and when secure TLS bootstrapping has failed to generate a kubeconfig
-        # by the time we need to start kubelet
-        BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-        mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
-        touch "${BOOTSTRAP_KUBECONFIG_FILE}"
-        chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
-        tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+    # used in vanilla TLS bootstrapping cases and when secure TLS bootstrapping has failed to generate a kubeconfig
+    # by the time we need to start kubelet
+    BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+    mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
+    touch "${BOOTSTRAP_KUBECONFIG_FILE}"
+    chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
+    
+    set +x
+    tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
 apiVersion: v1
 kind: Config
 clusters:
@@ -45,7 +46,10 @@ contexts:
   name: bootstrap-context
 current-context: bootstrap-context
 EOF
-    fi
+    set -x
+
+    KUBELET_TLS_BOOTSTRAP_FLAGS="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+  fi
 }
 
 setKubeletTLSBootstrapFlags

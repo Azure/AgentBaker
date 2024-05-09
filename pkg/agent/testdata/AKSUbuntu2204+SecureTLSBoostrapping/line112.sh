@@ -1,12 +1,18 @@
 [Unit]
-Description=Runs the secure TLS bootstrapping client binary to generate a kubelet client credential
-Wants=network-online.target
-After=network-online.target
-Before=kubelet.service
+Description=Kubelet
+ConditionPathExists=/usr/local/bin/kubelet
+ConditionPathExists=/opt/azure/containers/start-kubelet.sh
+Wants=network-online.target containerd.service
+After=network-online.target containerd.service
 
 [Service]
-Type=oneshot
-ExecStartPre=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh download
-ExecStart=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh bootstrap
+Restart=always
+RestartSec=2
+TimeoutStartSec=270 
+EnvironmentFile=/etc/default/kubelet
+SuccessExitStatus=143
 
-#EOF
+ExecStart=/opt/azure/containers/start-kubelet.sh
+
+[Install]
+WantedBy=multi-user.target

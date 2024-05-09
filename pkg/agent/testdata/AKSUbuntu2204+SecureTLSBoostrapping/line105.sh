@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -uxo pipefail
+set -euxo pipefail
 
 EVENTS_LOGGING_DIR="/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events"
 NEXT_PROTO_VALUE="aks-tls-bootstrap"
@@ -11,6 +11,7 @@ RETRY_WAIT_SECONDS=5
 AAD_RESOURCE="${SECURE_TLS_BOOTSTRAP_AAD_RESOURCE:-""}"
 API_SERVER_NAME="${API_SERVER_NAME:-""}"
 
+CLIENT_BINARY_PATH="${SECURE_TLS_BOOTSTRAP_CLIENT_BINARY_PATH:-/opt/azure/tlsbootstrap/tls-bootstrap-client}"
 KUBECONFIG_PATH="${SECURE_TLS_BOOTSTRAP_KUBECONFIG_PATH:-/var/lib/kubelet/kubeconfig}"
 CLIENT_CERT_PATH="${SECURE_TLS_BOOTSTRAP_CLIENT_CERT_PATH:-/etc/kubernetes/certs/client.crt}"
 CLIENT_KEY_PATH="${SECURE_TLS_BOOTSTRAP_CLIENT_KEY_PATH:-/etc/kubernetes/certs/client.key}"
@@ -28,11 +29,8 @@ logs_to_events() {
     local endTime=$(date +"%F %T.%3N")
 
     msg_string=$(jq -n --arg Status "Succeeded" --arg Hostname "$(uname -n)" '{Status: $Status, Hostname: $Hostname}')
-    if [ "$ret" != "0" ] && [ "${SUB_COMMAND,,}" == "bootstrap" ]; then
+    if [ "$ret" != "0" ]; then
         msg_string=$(jq -n --arg Status "Failed" --arg Hostname "$(uname -n)" --arg LogTail "$(tail -n 20 $LOG_FILE_PATH)" '{Status: $Status, Hostname: $Hostname, LogTail: $LogTail}')
-    fi
-    if [ "$ret" != "0" ] && [ "${SUB_COMMAND,,}" == "download" ]; then
-        msg_string=$(jq -n --arg Status "Failed" --arg Hostname "$(uname -n)" '{Status: $Status, Hostname: $Hostname}')
     fi
 
     json_string=$( jq -n \

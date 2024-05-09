@@ -168,22 +168,35 @@ configureKubeletServerCert() {
     openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}" -addext "subjectAltName=DNS:${NODE_NAME}"
 }
 
-configureAzureJson() {
+configureK8s() {
+    APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
+    touch "${APISERVER_PUBLIC_KEY_PATH}"
+    chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
+    chown root:root "${APISERVER_PUBLIC_KEY_PATH}"
+
     AZURE_JSON_PATH="/etc/kubernetes/azure.json"
     touch "${AZURE_JSON_PATH}"
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
-    
-    set +x
-    SP_FILE="/etc/kubernetes/sp.txt"
-    if [ -n "${SERVICE_PRINCIPAL_FILE_CONTENT}" ]; then
-        echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > $SP_FILE
+
+    mkdir -p "/etc/kubernetes/certs"
+    if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
+        echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
     fi
+    if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
+        echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
+    fi
+    if [ -n "${SERVICE_PRINCIPAL_FILE_CONTENT}" ]; then
+        echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > /etc/kubernetes/sp.txt
+    fi
+
+    set +x
+    echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
+    SP_FILE="/etc/kubernetes/sp.txt"
     SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
     rm "$SP_FILE"
-
     cat << EOF > "${AZURE_JSON_PATH}"
 {
     "cloud": "${TARGET_CLOUD}",
@@ -225,31 +238,6 @@ configureAzureJson() {
 }
 EOF
     set -x
-}
-
-configureK8s() {
-    mkdir -p "/etc/kubernetes/certs"
-
-    APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
-    touch "${APISERVER_PUBLIC_KEY_PATH}"
-    chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
-    chown root:root "${APISERVER_PUBLIC_KEY_PATH}"
-
-    if [ "$ENABLE_SECURE_TLS_BOOTSTRAPPING" == "false" ] && [ "$ENABLE_TLS_BOOTSTRAPPING" == "false" ]; then
-        # we guard the following cert creation logic since it seems RP always gives agentbaker a kubelet client cert/key pair
-        # regardless of whether the node is being bootstrapped with some flavor of TLS bootstrapping
-        if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
-            echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
-        fi
-        if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
-            echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
-        fi
-    fi
-
-    set +x
-    echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
-    set -x
-
     if [[ "${CLOUDPROVIDER_BACKOFF_MODE}" = "v2" ]]; then
         sed -i "/cloudProviderBackoffExponent/d" /etc/kubernetes/azure.json
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
@@ -303,6 +291,44 @@ configureCNIIPTables() {
         fi
         /sbin/ebtables -t nat --list
     fi
+}
+
+configureSecureTLSBootstrap() {
+    # default AAD resource here so we can minimze bootstrap contract surface
+    AAD_RESOURCE="6dae42f8-4368-4678-94ff-3960e28e3630"
+    if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE" ]; then
+        AAD_RESOURCE="$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"
+    fi
+
+    KUBELET_PRE_START_DROP_IN=/etc/systemd/system/kubelet.service.d/10-pre-start.conf
+    mkdir -p "$(dirname "${KUBELET_PRE_START_DROP_IN}")"
+    touch "${KUBELET_PRE_START_DROP_IN}"
+    chmod 0600 "${KUBELET_PRE_START_DROP_IN}"
+    cat >> "${KUBELET_PRE_START_DROP_IN}" <<EOF
+ExecStartPre=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh
+EOF
+
+    KUBELET_ENV_DROP_IN="/etc/systemd/system/kubelet.service.d/10-env.conf"
+    mkdir -p "$(dirname "${KUBELET_ENV_DROP_IN}")"
+    touch "${KUBELET_ENV_DROP_IN}"
+    chmod 0600 "${KUBELET_ENV_DROP_IN}"
+    cat >> "${KUBELET_ENV_DROP_IN}" <<EOF # append to prevent clobbering
+[Service]
+Environment="SECURE_TLS_BOOTSTRAP_AAD_RESOURCE=${AAD_RESOURCE}"
+Environment="API_SERVER_NAME=${API_SERVER_NAME}"
+EOF
+}
+
+configureVanillaTLSBootstrap() {
+    KUBELET_ENV_DROP_IN="/etc/systemd/system/kubelet.service.d/10-env.conf"
+    mkdir -p "$(dirname "${KUBELET_ENV_DROP_IN}")"
+    touch "${KUBELET_ENV_DROP_IN}"
+    chmod 0600 "${KUBELET_ENV_DROP_IN}"
+    cat >> "${KUBELET_ENV_DROP_IN}" <<EOF # append to prevent clobbering
+[Service]
+Environment="TLS_BOOTSTRAP_TOKEN=${TLS_BOOTSTRAP_TOKEN}"
+Environment="API_SERVER_NAME=${API_SERVER_NAME}"
+EOF
 }
 
 disableSystemdResolved() {
@@ -403,61 +429,22 @@ ensureDHCPv6() {
     retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
 }
 
-ensureKubeCAFile() {
+ensureKubelet() {
+    KUBELET_DEFAULT_FILE=/etc/default/kubelet
+    mkdir -p /etc/default
+    echo "KUBELET_FLAGS=${KUBELET_FLAGS}" > "${KUBELET_DEFAULT_FILE}"
+    echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
+    echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
+    echo "KUBELET_IMAGE=${KUBELET_IMAGE}" >> "${KUBELET_DEFAULT_FILE}"
+    echo "KUBELET_NODE_LABELS=${KUBELET_NODE_LABELS}" >> "${KUBELET_DEFAULT_FILE}"
+    if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
+        echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
+    fi
+    
     KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
     mkdir -p "$(dirname "${KUBE_CA_FILE}")"
     echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
-    chmod 0644 "${KUBE_CA_FILE}"
-}
-
-configureSecureTLSBootstrap() {
-    CLIENT_VERSION="client-v0.1.0-alpha.cameissner2"
-    DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/amd64/tls-bootstrap-client"
-    if [[ $(isARM64) == 1 ]]; then
-        DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/arm64/tls-bootstrap-client"
-    fi
-
-    # default AAD resource here so we can minimze bootstrap contract surface
-    AAD_RESOURCE="6dae42f8-4368-4678-94ff-3960e28e3630"
-    if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE" ]; then
-        AAD_RESOURCE="$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"
-    fi
-
-    KUBELET_PRE_START_DROP_IN=/etc/systemd/system/kubelet.service.d/10-pre-start.conf
-    mkdir -p "$(dirname "${KUBELET_PRE_START_DROP_IN}")"
-    touch "${KUBELET_PRE_START_DROP_IN}"
-    chmod 0600 "${KUBELET_PRE_START_DROP_IN}"
-    cat >> "${KUBELET_PRE_START_DROP_IN}" <<EOF
-ExecStartPre=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh download
-ExecStartPre=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh bootstrap
-EOF
-
-    KUBELET_ENV_DROP_IN="/etc/systemd/system/kubelet.service.d/10-env.conf"
-    mkdir -p "$(dirname "${KUBELET_ENV_DROP_IN}")"
-    touch "${KUBELET_ENV_DROP_IN}"
-    chmod 0600 "${KUBELET_ENV_DROP_IN}"
-    cat >> "${KUBELET_ENV_DROP_IN}" <<EOF # append to prevent clobbering
-[Service]
-Environment="SECURE_TLS_BOOTSTRAP_CLIENT_BINARY_DOWNLOAD_URL=${DOWNLOAD_URL}"
-Environment="SECURE_TLS_BOOTSTRAP_AAD_RESOURCE=${AAD_RESOURCE}"
-Environment="API_SERVER_NAME=${API_SERVER_NAME}"
-EOF
-}
-
-configureVanillaTLSBootstrap() {
-    KUBELET_ENV_DROP_IN="/etc/systemd/system/kubelet.service.d/10-env.conf"
-    mkdir -p "$(dirname "${KUBELET_ENV_DROP_IN}")"
-    touch "${KUBELET_ENV_DROP_IN}"
-    chmod 0600 "${KUBELET_ENV_DROP_IN}"
-    cat >> "${KUBELET_ENV_DROP_IN}" <<EOF # append to prevent clobbering
-[Service]
-Environment="TLS_BOOTSTRAP_TOKEN=${TLS_BOOTSTRAP_TOKEN}"
-Environment="API_SERVER_NAME=${API_SERVER_NAME}"
-EOF
-}
-
-ensureKubelet() {
-    KUBELET_DEFAULT_FILE=/etc/default/kubelet
+    chmod 0600 "${KUBE_CA_FILE}"
 
     mkdir -p /etc/default
     echo "KUBELET_FLAGS=${KUBELET_FLAGS}" > "${KUBELET_DEFAULT_FILE}"
@@ -486,11 +473,11 @@ ExecStartPre=-/sbin/iptables -t nat --numeric --list
 EOF
 
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
-        configureSecureTLSBootstrap
+        configureSecureTLSBootstrap # adds to both pre start and env drop-ins
     fi
 
     if [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
-        configureVanillaTLSBootstrap
+        configureVanillaTLSBootstrap # adds to env drop-in
     fi
 
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "false" ] && [ "${ENABLE_TLS_BOOTSTRAPPING}" == "false" ]; then
