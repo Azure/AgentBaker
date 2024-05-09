@@ -570,13 +570,32 @@
     {
       "type": "shell",
       "inline": [
-        "sudo SKU_NAME={{user `sku_name`}} IMAGE_VERSION={{user `image_version`}} CONTAINER_RUNTIME={{user `container_runtime`}} /bin/bash -ux /home/packer/list-images.sh"
+        "sudo /bin/bash -ux /home/packer/trivy-scan.sh"
+      ]
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/containers/trivy-report.json",
+      "destination": "trivy-report.json"
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/containers/trivy-images-table.txt",
+      "destination": "trivy-images-table.txt"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo rm -f /opt/azure/containers/trivy-report.json",
+        "sudo rm -f /opt/azure/containers/trivy-images-table.txt"
       ]
     },
     {
       "type": "shell",
       "inline": [
-        "sudo /bin/bash -ux /home/packer/trivy-scan.sh"
+        "sudo SKU_NAME={{user `sku_name`}} IMAGE_VERSION={{user `image_version`}} CONTAINER_RUNTIME={{user `container_runtime`}} /bin/bash -ux /home/packer/list-images.sh"
       ]
     },
     {
