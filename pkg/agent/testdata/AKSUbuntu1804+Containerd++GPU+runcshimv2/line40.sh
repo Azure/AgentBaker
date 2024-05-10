@@ -20,7 +20,6 @@ CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1 v0.8.0"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 CURL_OUTPUT=/tmp/curl_verbose.out
-SECURE_TLS_BOOTSTRAP_CLIENT_BINARY_DIR="/opt/azure/tlsbootstrap"
 SECURE_TLS_BOOTSTRAP_CLIENT_BINARY_VERSION="client-v0.1.0-alpha.cameissner2"
 
 removeManDbAutoUpdateFlagFile() {
@@ -95,14 +94,14 @@ installCredentalProvider() {
 downloadSecureTLSBootstrapClient() {
     CPU_ARCH=$(getCPUArch)
     CLIENT_BINARY_DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${SECURE_TLS_BOOTSTRAP_CLIENT_BINARY_VERSION}/linux/${CPU_ARCH}/tls-bootstrap-client"
-
-    mkdir -p $SECURE_TLS_BOOTSTRAP_CLIENT_BINARY_DIR
+    CLIENT_BINARY_DIR="/opt/azure/tlsbootstrap"
     CLIENT_BINARY_PATH="${CLIENT_BINARY_DIR}/tls-bootstrap-client"
 
+    mkdir -p $CLIENT_BINARY_DIR
     if [ ! -f "$CLIENT_BINARY_PATH" ]; then
         retrycmd_if_failure 30 5 60 curl -fSL -o "$CLIENT_BINARY_PATH" "$CLIENT_BINARY_DOWNLOAD_URL" || exit $ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT_BINARY
-        chown -R root:root "$SECURE_TLS_BOOTSTRAP_CLIENT_BINARY_DIR"
-        chmod -R 755 "$SECURE_TLS_BOOTSTRAP_CLIENT_BINARY_DIR"
+        chown -R root:root "$CLIENT_BINARY_DIR"
+        chmod -R 755 "$CLIENT_BINARY_DIR"
     fi
 }
 

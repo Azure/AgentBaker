@@ -2,8 +2,6 @@
 
 set -euo pipefail
 
-TLS_BOOTSTRAP_TOKEN="${TLS_BOOTSTRAP_TOKEN:-""}"
-
 KUBELET_CONFIG_FILE_FLAGS="${KUBELET_CONFIG_FILE_FLAGS:-""}"
 KUBELET_CONTAINERD_FLAGS="${KUBELET_CONTAINERD_FLAGS:-""}"
 KUBELET_CONTAINER_RUNTIME_FLAG="${KUBELET_CONTAINER_RUNTIME_FLAG:-""}"
@@ -12,40 +10,15 @@ KUBELET_FLAGS="${KUBELET_FLAGS:-""}"
 
 setKubeletTLSBootstrapFlags() {
   KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
+  BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
   KUBELET_TLS_BOOTSTRAP_FLAGS="--kubeconfig /var/lib/kubelet/kubeconfig"
 
-  if [ ! -f "$KUBECONFIG_FILE" ]; then
+  if [ -f "${KUBECONFIG_FILE}" ]; then
+    rm -f "${BOOTSTRAP_KUBECONFIG_FILE}"
+    return 0
+  fi
 
-    if [ -z "$TLS_BOOTSTRAP_TOKEN" ]; then
-        echo "ERROR: unable to write bootstrap-kubeconfig: no TLS bootstrap token has been provided"
-        exit 1
-    fi
-
-    BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-    mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
-    touch "${BOOTSTRAP_KUBECONFIG_FILE}"
-    chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
-    
-    tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
-apiVersion: v1
-kind: Config
-clusters:
-- name: localcluster
-  cluster:
-    certificate-authority: /etc/kubernetes/certs/ca.crt
-    server: https://${API_SERVER_NAME}:443
-users:
-- name: kubelet-bootstrap
-  user:
-    token: "${TLS_BOOTSTRAP_TOKEN}"
-contexts:
-- context:
-    cluster: localcluster
-    user: kubelet-bootstrap
-  name: bootstrap-context
-current-context: bootstrap-context
-EOF
-
+  if [ -f "${BOOTSTRAP_KUBECONFIG_FILE}" ]; then
     KUBELET_TLS_BOOTSTRAP_FLAGS="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
   fi
 }

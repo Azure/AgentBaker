@@ -724,9 +724,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
 				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"]).To(BeEmpty())
 
-				// assert a bootstrap-kubeconfig is not initially created by cloud-init
-				Expect(o.files).ToNot(HaveKey("/var/lib/kubelet/bootstrap-kubeconfig"))
-
 				kubeletStartScript := o.files["/opt/azure/containers/start-kubelet.sh"]
 				Expect(kubeletStartScript).ToNot(BeNil())
 				Expect(kubeletStartScript.value).ToNot(BeEmpty())
@@ -734,6 +731,12 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				secureTLSBootstrapScript := o.files["/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh"]
 				Expect(secureTLSBootstrapScript).ToNot(BeNil())
 				Expect(secureTLSBootstrapScript.value).ToNot(BeEmpty())
+
+				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"]
+				Expect(bootstrapKubeconfig).ToNot(BeNil())
+				Expect(bootstrapKubeconfig.value).ToNot(BeEmpty())
+				Expect(bootstrapKubeconfig.value).To(ContainSubstring("token"))
+				Expect(bootstrapKubeconfig.value).To(ContainSubstring("07401b.f395accd246ae52d"))
 			}),
 
 		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled using custom AAD resource", "AKSUbuntu2204+SecureTLSBootstrapping+CustomAADResource", "1.25.6",

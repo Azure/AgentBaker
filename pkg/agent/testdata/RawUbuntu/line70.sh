@@ -284,40 +284,20 @@ configureCNIIPTables() {
     fi
 }
 
-configureSecureTLSBootstrap() {
+configureKubeletSecureTLSBootstrap() {
     AAD_RESOURCE="6dae42f8-4368-4678-94ff-3960e28e3630"
     if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE" ]; then
         AAD_RESOURCE="$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"
     fi
 
-    KUBELET_PRE_START_DROP_IN=/etc/systemd/system/kubelet.service.d/10-stls-prestart.conf
-    mkdir -p "$(dirname "${KUBELET_PRE_START_DROP_IN}")"
-    touch "${KUBELET_PRE_START_DROP_IN}"
-    chmod 0600 "${KUBELET_PRE_START_DROP_IN}"
-    cat >> "${KUBELET_PRE_START_DROP_IN}" <<EOF
+    SECURE_TLS_BOOTSTRAP_KUBELET_DROP_IN=/etc/systemd/system/kubelet.service.d/10-securetlsbootstrap.conf
+    mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAP_KUBELET_DROP_IN}")"
+    touch "${SECURE_TLS_BOOTSTRAP_KUBELET_DROP_IN}"
+    chmod 0600 "${SECURE_TLS_BOOTSTRAP_KUBELET_DROP_IN}"
+    cat > "${SECURE_TLS_BOOTSTRAP_KUBELET_DROP_IN}" <<EOF
 [Service]
 ExecStartPre=-/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh
-EOF
-
-    KUBELET_ENV_DROP_IN="/etc/systemd/system/kubelet.service.d/10-env.conf"
-    mkdir -p "$(dirname "${KUBELET_ENV_DROP_IN}")"
-    touch "${KUBELET_ENV_DROP_IN}"
-    chmod 0600 "${KUBELET_ENV_DROP_IN}"
-    cat >> "${KUBELET_ENV_DROP_IN}" <<EOF 
-[Service]
 Environment="SECURE_TLS_BOOTSTRAP_AAD_RESOURCE=${AAD_RESOURCE}"
-Environment="API_SERVER_NAME=${API_SERVER_NAME}"
-EOF
-}
-
-configureVanillaTLSBootstrap() {
-    KUBELET_ENV_DROP_IN="/etc/systemd/system/kubelet.service.d/10-env.conf"
-    mkdir -p "$(dirname "${KUBELET_ENV_DROP_IN}")"
-    touch "${KUBELET_ENV_DROP_IN}"
-    chmod 0600 "${KUBELET_ENV_DROP_IN}"
-    cat >> "${KUBELET_ENV_DROP_IN}" <<EOF 
-[Service]
-Environment="TLS_BOOTSTRAP_TOKEN=${TLS_BOOTSTRAP_TOKEN}"
 Environment="API_SERVER_NAME=${API_SERVER_NAME}"
 EOF
 }
@@ -431,18 +411,41 @@ ensureKubelet() {
     if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
     fi
-    
+
     KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
     mkdir -p "$(dirname "${KUBE_CA_FILE}")"
     echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
     chmod 0600 "${KUBE_CA_FILE}"
 
-    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
-        configureSecureTLSBootstrap 
+    if [ -n "${TLS_BOOTSTRAP_TOKEN}" ]; then
+        BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+        mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
+        touch "${BOOTSTRAP_KUBECONFIG_FILE}"
+        chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
+        
+        tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://${API_SERVER_NAME}:443
+users:
+- name: kubelet-bootstrap
+  user:
+    token: "${TLS_BOOTSTRAP_TOKEN}"
+contexts:
+- context:
+    cluster: localcluster
+    user: kubelet-bootstrap
+  name: bootstrap-context
+current-context: bootstrap-context
+EOF
     fi
 
-    if [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
-        configureVanillaTLSBootstrap 
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+        configureKubeletSecureTLSBootstrap
     fi
 
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "false" ] && [ "${ENABLE_TLS_BOOTSTRAPPING}" == "false" ]; then
