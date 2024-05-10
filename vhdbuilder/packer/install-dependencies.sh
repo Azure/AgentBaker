@@ -108,9 +108,11 @@ if [[ $(isARM64) == 1 ]]; then
 fi
 
 # Since we do not build Ubuntu 16.04 images anymore, always override network config and disable NTP + Timesyncd and install Chrony
-overrideNetworkConfig || exit 1
-disableNtpAndTimesyncdInstallChrony || exit 1
-
+# Mariner does this differently, so only do it for Ubuntu
+if [[ $OS != $MARINER_OS_NAME ]]; then
+  overrideNetworkConfig || exit 1
+  disableNtpAndTimesyncdInstallChrony || exit 1
+fi
 stop_watch $capture_time "Check Container Runtime / Network Configurations" false
 start_watch
 
