@@ -17,14 +17,20 @@ message KubeletConfig {
   // The type of disk to use for the kubelet.
   KubeletDisk kubelet_disk_type = 5;
 
+  // Whether kubelet config should be enabled.
+  bool enable_kubelet_config_file = 6;
+
   // Base64 encoded content of the kubelet config file.
-  string kubelet_config_file_content = 6;
+  string kubelet_config_file_content = 7;
 
   // Kubelet client private key
-  string kubelet_client_key = 7;
+  string kubelet_client_key = 8;
 
   // The content of the kubelet client certificate file.
-  string kubelet_client_cert_content = 8;
+  string kubelet_client_cert_content = 9;
+
+  // The path used to mount docker images, emptyDir volumes, and kubelet data.
+  string container_data_dir = 10;
 }
 
 message Taint {

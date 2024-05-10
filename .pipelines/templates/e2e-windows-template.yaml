@@ -60,8 +60,6 @@ jobs:
         cd $WINDOWS_E2E_IMAGE
         bash ./e2e-starter.sh
         bash e2e-create-windows-nodepool.sh
-      env:
-        MAPPED_ACCOUNT_KEY: $(AZURE_E2E_STORAGE_ACCOUNT_KEY)
       displayName: Setup Test Cluster
     - publish: $(System.DefaultWorkingDirectory)/${{ parameters.windowsImage }}
       artifact: ${{ parameters.windowsImage }}${{ parameters.windowsGpuDriverSuffix }}-clusterConfig
@@ -120,8 +118,6 @@ jobs:
         cp -a $(Pipeline.Workspace)/${{ parameters.windowsImage }}${{ parameters.windowsGpuDriverSuffix }}-clusterConfig/* $WINDOWS_E2E_IMAGE
         cd $WINDOWS_E2E_IMAGE
         bash e2e-scenario.sh
-      env:
-        MAPPED_ACCOUNT_KEY: $(AZURE_E2E_STORAGE_ACCOUNT_KEY)
     - publish: $(System.DefaultWorkingDirectory)/${{ parameters.windowsImage }}/$(SCENARIO_NAME)-logs
       artifact: ${{ parameters.windowsImage }}${{ parameters.windowsGpuDriverSuffix }}-$(SCENARIO_NAME)-logs
       condition: always()

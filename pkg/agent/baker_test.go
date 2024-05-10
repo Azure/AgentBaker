@@ -10,7 +10,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -240,7 +240,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			backfillCustomData(folder, customData)
 		}
 
-		expectedCustomData, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CustomData", folder))
+		expectedCustomData, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CustomData", folder))
 		Expect(err).To(BeNil())
 		Expect(customData).To(Equal(string(expectedCustomData)))
 
@@ -255,11 +255,11 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		cseCommand := nodeBootstrapping.CSE
 
 		if generateTestData() {
-			err = ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
+			err = os.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
 			Expect(err).To(BeNil())
 		}
 
-		expectedCSECommand, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
+		expectedCSECommand, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
 		Expect(err).To(BeNil())
 		Expect(cseCommand).To(Equal(string(expectedCSECommand)))
 
@@ -1328,6 +1328,28 @@ oom_score = 0
 					},
 				}
 			}, nil),
+		Entry("AKSUbuntu2204 IMDSRestriction with enable restriction and insert to mangle table", "AKSUbuntu2204+IMDSRestrictionOnWithMangleTable", "1.24.2",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.EnableIMDSRestriction = true
+				config.InsertIMDSRestrictionRuleToMangleTable = true
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ENABLE_IMDS_RESTRICTION"]).To(Equal("true"))
+				Expect(o.vars["INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE"]).To(Equal("true"))
+			}),
+		Entry("AKSUbuntu2204 IMDSRestriction with enable restriction and not insert to mangle table", "AKSUbuntu2204+IMDSRestrictionOnWithFilterTable", "1.24.2",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.EnableIMDSRestriction = true
+				config.InsertIMDSRestrictionRuleToMangleTable = false
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ENABLE_IMDS_RESTRICTION"]).To(Equal("true"))
+				Expect(o.vars["INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE"]).To(Equal("false"))
+			}),
+		Entry("AKSUbuntu2204 IMDSRestriction with disable restriction", "AKSUbuntu2204+IMDSRestrictionOff", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.EnableIMDSRestriction = false
+		}, func(o *nodeBootstrappingOutput) {
+			Expect(o.vars["ENABLE_IMDS_RESTRICTION"]).To(Equal("false"))
+			Expect(o.vars["INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE"]).To(Equal("false"))
+		}),
 	)
 })
 
@@ -1532,7 +1554,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			backfillCustomData(folder, customData)
 		}
 
-		expectedCustomData, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CustomData", folder))
+		expectedCustomData, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CustomData", folder))
 		if err != nil {
 			panic(err)
 		}
@@ -1546,11 +1568,11 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		cseCommand := nodeBootstrapping.CSE
 
 		if generateTestData() {
-			err = ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
+			err = os.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
 			Expect(err).To(BeNil())
 		}
 
-		expectedCSECommand, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
+		expectedCSECommand, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
 		if err != nil {
 			panic(err)
 		}
@@ -1695,7 +1717,7 @@ func backfillCustomData(folder, customData string) {
 		e := os.MkdirAll(fmt.Sprintf("./testdata/%s", folder), 0755)
 		Expect(e).To(BeNil())
 	}
-	writeFileError := ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CustomData", folder), []byte(customData), 0644)
+	writeFileError := os.WriteFile(fmt.Sprintf("./testdata/%s/CustomData", folder), []byte(customData), 0644)
 	Expect(writeFileError).To(BeNil())
 	if strings.Contains(folder, "AKSWindows") {
 		return
@@ -1738,7 +1760,7 @@ func getGzipDecodedValue(data []byte) (string, error) {
 		return "", fmt.Errorf("failed to create gzip reader: %w", err)
 	}
 
-	output, err := ioutil.ReadAll(gzipReader)
+	output, err := io.ReadAll(gzipReader)
 	if err != nil {
 		return "", fmt.Errorf("read from gzipped buffered string: %w", err)
 	}
