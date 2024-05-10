@@ -1,0 +1,34 @@
+name: check-update-go-binary
+on: pull_request
+pr:
+  branches:
+    include:
+    - lily/check-go-binary
+    - master
+    - official/*
+  paths:
+    include:
+    - pkg/proto
+    - pkg/parser
+
+jobs:
+check-go-binary:
+  runs-on: ubuntu-latest
+  steps:
+  - uses: actions/checkout@v4
+  - run: |
+      make validate-image-version
+      cp pkg/parser/bin/parser parser
+    name: Generate go binary
+
+  - name: Checkout master branch
+    uses: actions/checkout@v4
+    with:
+      ref: 'master'
+
+  - name: Compare go binary with master branch
+    run: |
+      if ! cmp -s pkg/parser/bin/parser parser; then
+        echo "Error: File is different on current branch"
+        exit 1
+      fi
