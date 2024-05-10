@@ -9,6 +9,7 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/agent/toggles"
+	"github.com/Azure/agentbaker/pkg/agent/vhd/cache"
 )
 
 //nolint:revive // Name does not need to be modified to baker
@@ -16,6 +17,7 @@ type AgentBaker interface {
 	GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
 	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, distro datamodel.Distro, envInfo *datamodel.EnvironmentInfo) (*datamodel.SigImageConfig, error)
 	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, envInfo *datamodel.EnvironmentInfo) (map[datamodel.Distro]datamodel.SigImageConfig, error)
+	GetCachedVersionsOnVHD() *cache.OnVHD
 }
 
 type agentBakerImpl struct {
@@ -173,4 +175,8 @@ func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distr
 	}
 
 	return nil
+}
+
+func (agentBaker *agentBakerImpl) GetCachedVersionsOnVHD() *cache.OnVHD {
+	return cache.GetOnVHD()
 }

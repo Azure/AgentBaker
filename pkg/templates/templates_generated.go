@@ -2351,6 +2351,8 @@ IS_KATA="{{IsKata}}"
 ARTIFACT_STREAMING_ENABLED="{{IsArtifactStreamingEnabled}}"
 SYSCTL_CONTENT="{{GetSysctlContent}}"
 PRIVATE_EGRESS_PROXY_ADDRESS="{{GetPrivateEgressProxyAddress}}"
+ENABLE_IMDS_RESTRICTION="{{EnableIMDSRestriction}}"
+INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE="{{InsertIMDSRestrictionRuleToMangleTable}}"
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"`)
 
 func linuxCloudInitArtifactsCse_cmdShBytes() ([]byte, error) {
@@ -3114,6 +3116,82 @@ EOF
     fi
 }
 
+getPrimaryNicIP() {
+    local sleepTime=1
+    local maxRetries=10
+    local i=0
+    local ip=""
+
+    while [[ $i -lt $maxRetries ]]; do
+        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[].ipv4.ipAddress[0].privateIpAddress')
+        if [[ -n "$ip" && $? -eq 0 ]]; then
+            break
+        fi
+        sleep $sleepTime
+        i=$((i+1))
+    done
+    echo "$ip"
+}
+
+# $1 - boolean, if true, insert the iptables rule to mangle table; otherwise insert the rule to filter table. Default value is false.
+ensureIMDSRestrictionRule() {
+    local primaryNicIP=$(getPrimaryNicIP)
+    if [[ -z "$primaryNicIP" ]]; then
+        echo "Primary NIC IP not found"
+        exit $ERR_PRIMARY_NIC_IP_NOT_FOUND
+    fi
+    echo "Primary NIC IP: $primaryNicIP"
+
+    local insertRuleToMangleTable=${1:-false}
+    if [[ $insertRuleToMangleTable == true ]]; then
+        echo "Before inserting IMDS restriction rule to mangle table, checking whether the rule already exists..."
+        iptables -t mangle -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
+        if [[ $? -eq 0 ]]; then
+            echo "IMDS restriction rule already exists in mangle table, returning..."
+            return
+        fi
+        echo "Inserting IMDS restriction rule to mangle table..."
+        iptables -t mangle -I FORWARD 1 ! -s "$primaryNicIP" -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_MANGLE_TABLE
+    else
+        echo "Before inserting IMDS restriction rule to filter table, checking whether the rule already exists..."
+        iptables -t filter -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
+        if [[ $? -eq 0 ]]; then
+            echo "IMDS restriction rule already exists in filter table, returning..."
+            return
+        fi
+        echo "Inserting IMDS restriction rule to filter table..."
+        iptables -t filter -I FORWARD 1 ! -s "$primaryNicIP" -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_FILTER_TABLE
+    fi
+}
+
+# checks both mangle and filter tables for the IMDS restriction rule and deletes it if found
+disableIMDSRestriction() {
+    local primaryNicIP=$(getPrimaryNicIP)
+    if [[ -z "$primaryNicIP" ]]; then
+        echo "Primary NIC IP not found"
+        exit $ERR_PRIMARY_NIC_IP_NOT_FOUND
+    fi
+    echo "Primary NIC IP: $primaryNicIP"
+
+    echo "Checking whether IMDS restriction rule exists in mangle table..."
+    iptables -t mangle -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
+    if [[ $? -ne 0 ]]; then
+        echo "IMDS restriction rule does not exist in mangle table, no need to delete"
+    else
+        echo "Deleting IMDS restriction rule from mangle table..."
+        iptables -t mangle -D FORWARD ! -s $primaryNicIP -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_MANGLE_TABLE
+    fi
+
+    echo "Checking whether IMDS restriction rule exists in filter table..."
+    iptables -t filter -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
+    if [[ $? -ne 0 ]]; then
+         echo "IMDS restriction rule does not exist in filter table, no need to delete"
+    else
+        echo "Deleting IMDS restriction rule from filter table..."
+        iptables -t filter -D FORWARD ! -s $primaryNicIP -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_FILTER_TABLE
+    fi
+}
+
 #EOF`)
 
 func linuxCloudInitArtifactsCse_configShBytes() ([]byte, error) {
@@ -3221,6 +3299,11 @@ ERR_DISBALE_IPTABLES=170 # Error disabling iptables service
 
 ERR_KRUSTLET_DOWNLOAD_TIMEOUT=171 # Timeout waiting for krustlet downloads
 ERR_DISABLE_SSH=172 # Error disabling ssh service
+ERR_PRIMARY_NIC_IP_NOT_FOUND=173 # Error fetching primary NIC IP address
+ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_MANGLE_TABLE=174 # Error insert imds restriction rule into mangle table
+ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_FILTER_TABLE=175 # Error insert imds restriction rule into filter table
+ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_MANGLE_TABLE=176 # Error delete imds restriction rule from mangle table
+ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_FILTER_TABLE=177 # Error delete imds restriction rule from filter table
 
 ERR_VHD_REBOOT_REQUIRED=200 # Reserved for VHD reboot required exit condition
 ERR_NO_PACKAGES_FOUND=201 # Reserved for no security packages found exit condition
@@ -3911,10 +3994,25 @@ pullContainerImage() {
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
     if [[ ${CLI_TOOL} == "ctr" ]]; then
         logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT)
+        if [ $? -eq 0 ]; then
+          echo "  - ${CONTAINER_IMAGE_URL}" >> ${VHD_LOGS_FILEPATH}
+        else
+          echo "${CONTAINER_IMAGE_URL} failed to successfully download."
+        fi
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
         logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT)
+        if [ $? -eq 0 ]; then
+          echo "  - ${CONTAINER_IMAGE_URL}" >> ${VHD_LOGS_FILEPATH}
+        else
+          echo "${CONTAINER_IMAGE_URL} failed to successfully download."
+        fi
     else
         logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT)
+        if [ $? -eq 0 ]; then
+          echo "  - ${CONTAINER_IMAGE_URL}" >> ${VHD_LOGS_FILEPATH}
+        else
+          echo "${CONTAINER_IMAGE_URL} failed to successfully download."
+        fi
     fi
 }
 
@@ -4270,6 +4368,13 @@ if [ "${NEEDS_DOCKER_LOGIN}" == "true" ]; then
     set +x
     docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET "${AZURE_PRIVATE_REGISTRY_SERVER}"
     set -x
+fi
+
+# Before setting up kubelet, ensure IMDS restriction iptables rules so that all Pods can get desired IMDS access
+if [ "${ENABLE_IMDS_RESTRICTION}" == "true" ]; then
+    logs_to_events "AKS.CSE.ensureIMDSRestrictionRule" ensureIMDSRestrictionRule "${INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE}"
+else
+    logs_to_events "AKS.CSE.disableIMDSRestriction" disableIMDSRestriction
 fi
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
@@ -5475,10 +5580,13 @@ var _linuxCloudInitArtifactsManifestJson = []byte(`{
         "versions": [
             "1.27.7",
             "1.27.9",
+            "1.27.13",
             "1.28.3",
             "1.28.5",
+            "1.28.9",
             "1.29.0",
-            "1.29.2"
+            "1.29.2",
+            "1.29.4"
         ]
     },
     "_template": {
@@ -5777,6 +5885,9 @@ if [ -z "${node_name}" ]; then
     echo "cannot get node name"
     exit 1
 fi
+
+# Azure cloud provider assigns node name as the lowner case of the hostname
+node_name=$(echo "$node_name" | tr '[:upper:]' '[:lower:]')
 
 # retrieve golden timestamp from node annotation
 golden_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-golden-timestamp']}")
@@ -7771,6 +7882,9 @@ if [ -z "${node_name}" ]; then
     exit 1
 fi
 
+# Azure cloud provider assigns node name as the lowner case of the hostname
+node_name=$(echo "$node_name" | tr '[:upper:]' '[:lower:]')
+
 # retrieve golden timestamp from node annotation
 golden_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-golden-timestamp']}")
 if [ -z "${golden_timestamp}" ]; then
@@ -8571,6 +8685,9 @@ $global:VNetCNIPluginsURL = "{{GetParameter "vnetCniWindowsPluginsURL"}}"
 $global:IsDualStackEnabled = {{if IsIPv6DualStackFeatureEnabled}}$true{{else}}$false{{end}}
 $global:IsAzureCNIOverlayEnabled = {{if IsAzureCNIOverlayFeatureEnabled}}$true{{else}}$false{{end}}
 
+# Kubelet credential provider
+$global:CredentialProviderURL = "{{GetParameter "windowsCredentialProviderURL"}}"
+
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("{{GetVariable "windowsEnableCSIProxy" }}");
 $global:CsiProxyUrl = "{{GetVariable "windowsCSIProxyURL" }}";
@@ -8619,6 +8736,8 @@ $global:EnableIncreaseDynamicPortRange = $false
 
 $global:RebootNeeded = $false
 
+$global:IsSkipCleanupNetwork = [System.Convert]::ToBoolean("{{GetVariable "isSkipCleanupNetwork" }}");
+
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force
@@ -8643,7 +8762,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.41.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.42.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -8699,7 +8818,9 @@ try
     Get-LogCollectionScripts
     
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
-    
+
+    Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix {{if IsAKSCustomCloud}}"{{ AKSCustomCloudContainerRegistryDNSSuffix }}"{{else}}""{{end}} 
+
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
     
     $cniBinPath = $global:AzureCNIBinDir

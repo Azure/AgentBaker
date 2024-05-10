@@ -523,4 +523,19 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			}
 		})
 	})
+
+	Context("GetCachedVersionsOnVHD", func() {
+		It("should return non-empty cached VHD data", func() {
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+
+			cachedOnVHD := agentBaker.GetCachedVersionsOnVHD()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(cachedOnVHD).ToNot(BeNil())
+			Expect(cachedOnVHD.FromManifest).ToNot(BeNil())
+			Expect(cachedOnVHD.FromComponentContainerImages).ToNot(BeEmpty())
+			Expect(cachedOnVHD.FromComponentDownloadedFiles).ToNot(BeEmpty())
+		})
+	})
 })
