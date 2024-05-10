@@ -284,6 +284,22 @@ systemctlEnableAndStart() {
     fi
 }
 
+systemctlEnableAndStartNoWait() {
+    SERVICE_NAME=$1
+    if ! systemctl daemon-reload; then
+        echo "unable to systemctl daemon-reload before starting service $SERVICE_NAME"
+        return 1
+    fi
+    if ! systemctl restart $SERVICE_NAME; then
+        systemctl status $SERVICE_NAME --no-pager -l
+        echo "$SERVICE_NAME could not be immediately started, continuing without error..."
+    fi
+    if ! systemctl enable $SERVICE_NAME; then
+        systemctl status $SERVICE_NAME --no-pager -l
+        echo "$SERVICE_NAME could not be immediately enabled, continuing without error..."
+    fi
+}
+
 systemctlDisableAndStop() {
     if systemctl list-units --full --all | grep -q "$1.service"; then
         systemctl_stop 20 5 25 $1 || echo "$1 could not be stopped"
