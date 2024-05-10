@@ -1,15 +1,10 @@
 name: check-update-go-binary
 on: pull_request
-# pr:
-#   branches:
-#     include:
-#     - lily/check-go-binary
-#     - master
-#     - official/*
-#   paths:
-#     include:
-#     - pkg/proto
-#     - pkg/parser
+pr:
+  paths:
+    include:
+    - pkg/proto
+    - pkg/parser
 
 jobs:
 check-go-binary:
