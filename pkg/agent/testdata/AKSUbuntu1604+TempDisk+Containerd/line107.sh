@@ -8,7 +8,6 @@ After=network-online.target containerd.service
 [Service]
 Restart=always
 RestartSec=2
-TimeoutStartSec=270 
 EnvironmentFile=/etc/default/kubelet
 SuccessExitStatus=143
 ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh

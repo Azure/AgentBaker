@@ -8,7 +8,6 @@ After=network-online.target containerd.service
 [Service]
 Restart=always
 RestartSec=2
-TimeoutStartSec=270 # 3 minutes for secure TLS bootstrapping + 90s for everything else
 EnvironmentFile=/etc/default/kubelet
 # Graceful termination (SIGTERM)
 SuccessExitStatus=143

@@ -299,6 +299,7 @@ configureKubeletSecureTLSBootstrap() {
     if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE" ]; then
         AAD_RESOURCE="$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"
     fi
+    TIMEOUT_START_SECONDS=270 # 90s default + 180s for bootstrapping
 
     SECURE_TLS_BOOTSTRAP_KUBELET_DROP_IN=/etc/systemd/system/kubelet.service.d/10-securetlsbootstrap.conf
     mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAP_KUBELET_DROP_IN}")"
@@ -306,6 +307,7 @@ configureKubeletSecureTLSBootstrap() {
     chmod 0600 "${SECURE_TLS_BOOTSTRAP_KUBELET_DROP_IN}"
     cat > "${SECURE_TLS_BOOTSTRAP_KUBELET_DROP_IN}" <<EOF
 [Service]
+TimeoutStartSec=${TIMEOUT_START_SECONDS}
 ExecStartPre=-/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh
 Environment="SECURE_TLS_BOOTSTRAP_AAD_RESOURCE=${AAD_RESOURCE}"
 Environment="API_SERVER_NAME=${API_SERVER_NAME}"
