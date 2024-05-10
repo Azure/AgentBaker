@@ -8,8 +8,8 @@ mkdir -p "$(dirname "${STORAGE_REPORT_PATH}")"
 echo "----" >> $STORAGE_REPORT_PATH
 df -h 2>&1 >> $STORAGE_REPORT_PATH
 echo "----" >> $STORAGE_REPORT_PATH
-if ! sudo find / -type f -size +1M -exec du -h {} + 2>/dev/null | sort -rh >> "$STORAGE_REPORT_PATH"; then
-    error_message=$(sudo find / -type f -size +1M -exec du -h {} + 2>&1 >/dev/null | sort -rh)
+if ! find / -type f -size +1M -maxdepth 0 -exec du -h {} + 2>/dev/null | sort -rh >> "$STORAGE_REPORT_PATH"; then
+    error_message=$(find / -type f -size +1M -maxdepth 0 -exec du -h {} + 2>&1 >/dev/null | sort -rh)
     echo "Error: $error_message" >&2
 fi
 
