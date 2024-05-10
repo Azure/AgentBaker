@@ -1,5 +1,5 @@
-name: $(Date:yyyyMMdd)$(Rev:.r)
-trigger: none
+name: Check Update Go Binary
+on: [pull_request, push]
 pr:
   branches:
     include:
