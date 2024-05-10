@@ -33,7 +33,7 @@ func main() {
 		log.Fatal(err)
 		return
 	}
-	if err = os.WriteFile("cse_cmd.sh", []byte(cseCmd), 0655); err != nil {
+	if err = os.WriteFile("cse_cmd.sh", []byte(cseCmd), 0644); err != nil {
 		log.Fatal(err)
 		return
 	}
