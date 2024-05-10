@@ -23,7 +23,7 @@ setKubeletTLSBootstrapFlags() {
   if [ -f "${BOOTSTRAP_KUBECONFIG_FILE}" ]; then
     # if we don't have a kubeconfig but we do have a bootstrap-kubeconfig, have kubelet
     # use it to request its own certificate at runtime
-    KUBELET_TLS_BOOTSTRAP_FLAGS="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+    KUBELET_TLS_BOOTSTRAP_FLAGS="--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
   fi
 }
 

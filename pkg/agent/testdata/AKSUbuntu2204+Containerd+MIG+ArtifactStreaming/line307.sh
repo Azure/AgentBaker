@@ -19,7 +19,7 @@ setKubeletTLSBootstrapFlags() {
   fi
 
   if [ -f "${BOOTSTRAP_KUBECONFIG_FILE}" ]; then
-    KUBELET_TLS_BOOTSTRAP_FLAGS="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+    KUBELET_TLS_BOOTSTRAP_FLAGS="--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
   fi
 }
 
