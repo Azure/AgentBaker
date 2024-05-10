@@ -45,17 +45,29 @@ installBcc() {
         apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev python3-distutils libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
 
+    # Installing it separately here because python3-distutils is not present in the Ubuntu packages for 24.04
     if [[ "${VERSION}" == "22.04" ]]; then
       apt_get_install 120 5 300 python3-distutils || exit $ERR_BCC_INSTALL_TIMEOUT
-    elif [[ "${VERSION}" == "24.04" ]]; then
-      apt_get_install 120 5 300 python3-setuptools libpolly-14-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+    fi
+
+    # libPolly.a is needed for the make target that runs later, which is not present in the default patch version of llvm-14 that is downloaded for 24.04
+    if [[ "${VERSION}" == "24.04" ]]; then
+      apt_get_install 120 5 300 libpolly-14-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
 
     mkdir -p /tmp/bcc
     pushd /tmp/bcc
     git clone https://github.com/iovisor/bcc.git
     mkdir bcc/build; cd bcc/build
-    git checkout v0.29.0
+
+    if [[ "${VERSION}" == "18.04" ]]; then
+      git checkout v0.24.0
+    else
+      # v0.24.0 is not supported for kernels 6.x and there are some python packages not available in 18.04 repository that are needed to build v0.24.0
+      # Hence this distinction
+      git checkout v0.29.0
+    fi
+
     cmake .. || exit 1
     make
     sudo make install || exit 1
@@ -72,6 +84,11 @@ installBcc() {
         apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm14 llvm-14-dev libclang-14-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     else
         apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
+    fi
+
+    # libPolly.a is needed for the make target that runs later, which is not present in the default patch version of llvm-14 that is downloaded for 24.04
+    if [[ "${VERSION}" == "24.04" ]]; then
+      apt_get_purge 120 5 300 libpolly-14-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
 }
 

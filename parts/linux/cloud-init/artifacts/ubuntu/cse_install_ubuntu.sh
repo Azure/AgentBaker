@@ -37,13 +37,11 @@ installDeps() {
     BLOBFUSE2_VERSION="2.2.1"
 
     # keep legacy version on ubuntu 16.04 and 18.04
-    if [ "${OSVERSION}" == "16.04" ]; then
-        BLOBFUSE_VERSION="1.3.7"
-    fi
     if [ "${OSVERSION}" == "18.04" ]; then
         BLOBFUSE2_VERSION="2.2.0"
     fi
 
+    # Currently skipping blobfuse install on 24.04 since packages are not available upstream, remove this once they are
     if [[ "${OSVERSION}" != "24.04" ]]; then
       pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
     fi

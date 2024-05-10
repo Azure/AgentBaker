@@ -35,9 +35,6 @@ installDeps() {
     BLOBFUSE_VERSION="1.4.5"
     BLOBFUSE2_VERSION="2.2.1"
 
-    if [ "${OSVERSION}" == "16.04" ]; then
-        BLOBFUSE_VERSION="1.3.7"
-    fi
     if [ "${OSVERSION}" == "18.04" ]; then
         BLOBFUSE2_VERSION="2.2.0"
     fi

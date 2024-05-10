@@ -583,8 +583,10 @@ testNfsServerService() {
   local service_name="nfs-server.service"
   echo "$test:Start"
 
-  # is-enabled returns 'masked' if the service is masked and an empty
-  # string if the service is not installed. Either is fine.
+  # is-enabled returns:
+  # 'masked' if the service is masked.
+  # empty string if the service is not installed.
+  # 'not-found' if the unit files are not present. Encountered with Ubuntu 24.04
   echo "$test: Checking that $service_name is masked"
   local is_enabled=
   is_enabled=$(systemctl is-enabled $service_name 2>/dev/null)
