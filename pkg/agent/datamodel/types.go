@@ -172,6 +172,8 @@ const (
 	AKSUbuntuFipsContainerd1804Gen2     Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
 	AKSUbuntuFipsContainerd2004         Distro = "aks-ubuntu-fips-containerd-20.04"
 	AKSUbuntuFipsContainerd2004Gen2     Distro = "aks-ubuntu-fips-containerd-20.04-gen2"
+	AKSUbuntuFipsContainerd2204         Distro = "aks-ubuntu-fips-containerd-22.04"
+	AKSUbuntuFipsContainerd2204Gen2     Distro = "aks-ubuntu-fips-containerd-22.04-gen2"
 	AKSUbuntuEdgeZoneContainerd1804     Distro = "aks-ubuntu-edgezone-containerd-18.04"
 	AKSUbuntuEdgeZoneContainerd1804Gen2 Distro = "aks-ubuntu-edgezone-containerd-18.04-gen2"
 	AKSUbuntuEdgeZoneContainerd2204     Distro = "aks-ubuntu-edgezone-containerd-22.04"
@@ -246,6 +248,8 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsContainerd2004,
 	AKSUbuntuFipsContainerd2004Gen2,
+	AKSUbuntuFipsContainerd2204,
+	AKSUbuntuFipsContainerd2204Gen2,
 	AKSUbuntuEdgeZoneContainerd1804,
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSUbuntuEdgeZoneContainerd2204,
@@ -1127,6 +1131,12 @@ func (a *AgentPoolProfile) IsWindows() bool {
 	return strings.EqualFold(string(a.OSType), string(Windows))
 }
 
+// IsSkipCleanupNetwork returns true if AKS-RP sets the field NotRebootWindowsNode to true.
+func (a *AgentPoolProfile) IsSkipCleanupNetwork() bool {
+	// Reuse the existing field NotRebootWindowsNode to avoid adding a new field because it is a temporary toggle value from AKS-RP.
+	return a.NotRebootWindowsNode != nil && *a.NotRebootWindowsNode
+}
+
 // IsVirtualMachineScaleSets returns true if the agent pool availability profile is VMSS.
 func (a *AgentPoolProfile) IsVirtualMachineScaleSets() bool {
 	return strings.EqualFold(a.AvailabilityProfile, VirtualMachineScaleSets)
@@ -1616,21 +1626,27 @@ type K8sComponents struct {
 	// Full path to the Linux package (tar.gz) to use.
 	// For example: url=https://acs-mirror.azureedge.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz
 	LinuxPrivatePackageURL string
+
+	// Full path to the Windows credential provider (tar.gz) to use.
+	// For example: https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.4/binaries/azure-acr-credential-provider-windows-amd64-v1.29.4.tar.gz
+	WindowsCredentialProviderURL string
+
+	// Full path to the Linux credential provider (tar.gz) to use.
+	// For example: "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.4/binaries/azure-acr-credential-provider-linux-amd64-v1.29.4.tar.gz"
+	LinuxCredentialProviderURL string
 }
 
 // GetLatestSigImageConfigRequest describes the input for a GetLatestSigImageConfig HTTP request.
 // This is mostly a wrapper over existing types so RP doesn't have to manually construct JSON.
-//
-//nolint:musttag // tags can be added if deemed necessary
 type GetLatestSigImageConfigRequest struct {
-	SIGConfig SIGConfig
-	Region    string
-	Distro    Distro
+	SIGConfig      SIGConfig
+	SubscriptionID string
+	TenantID       string
+	Region         string
+	Distro         Distro
 }
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
-//
-//nolint:musttag // tags can be added if deemed necessary
 type NodeBootstrappingConfiguration struct {
 	ContainerService              *ContainerService
 	CloudSpecConfig               *AzureEnvironmentSpecConfig
@@ -1682,6 +1698,12 @@ type NodeBootstrappingConfiguration struct {
 	SSHStatus                              SSHStatus
 	DisableCustomData                      bool
 	OutboundType                           string
+	EnableIMDSRestriction                  bool
+	// InsertIMDSRestrictionRuleToMangleTable is only checked when EnableIMDSRestriction is true.
+	// When this is true, iptables rule will be inserted to `mangle` table. This is for Linux Cilium
+	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
+	// our added rule is overwritten by Cilium.
+	InsertIMDSRestrictionRuleToMangleTable bool
 }
 
 type SSHStatus int
@@ -1693,8 +1715,6 @@ const (
 )
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
-//
-//nolint:musttag // tags can be added if deemed necessary
 type NodeBootstrapping struct {
 	CustomData     string
 	CSE            string

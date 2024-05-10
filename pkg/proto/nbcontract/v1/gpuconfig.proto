@@ -1,26 +1,17 @@
 syntax = "proto3";
 package nbcontract.v1;
 
-import "pkg/proto/nbcontract/v1/featurestate.proto";
-
 message GPUConfig {
-  // NvidiaState represents the Nvidia GPU state
-  optional FeatureState nvidia_state = 1;
+  // Specifies whether any nvidia configurations should be applied for GPU nodes. False when vm size is not a GPU node or driver install is skipped and no GPU configuration is needed.
+  // Making optional so that default will be set to IsNvidiaEnabledSku(vmSize) instead of false
+  optional bool enable_nvidia = 1;
 
-  // FeatureState is_mig_node = 2; removed since it only depends on gpu_instance_profile
+  // Specifies whether bootstrap process should install and configure the GPU driver when necessary. Configuration includes appropriate set up of components like the fabric manager where applicable.
+  bool config_gpu_driver = 2;
 
-  // ConfigGpuDriver specifies whether bootstrap process should install and configure the GPU driver when necessary. Configuration includes appropriate set up of components like the fabric manager where applicable.
-  optional FeatureState config_gpu_driver = 2;
+  // Specifies whether special config is needed for MIG GPUs that use GPU dedicated VHDs and enable the device plugin (for all GPU dedicated VHDs)
+  bool gpu_device_plugin = 3;
 
-  // GpuDevicePlugin specifies whether special config is needed for MIG GPUs that use GPU dedicated VHDs and enable the device plugin (for all GPU dedicated VHDs)
-  optional FeatureState gpu_device_plugin = 3; 
-
-  // FeatureState fabric_manager_status = 5;  removed. consider just extracting vm_size since both GPUNeedsFabricManager and getGPUDriverVersion depend only on the vm_size.
-  // string gpu_driver_version = 6; removed. this is dependent only on VM size, can be calculated on the VHD
-
-  // GpuInstanceProfile represents the GPU instance profile.
-  optional string gpu_instance_profile = 4;
-
-  // GpuImageSha represents AKS-GPU image's SHA
-  optional string gpu_image_sha = 5;
+  // Represents the GPU instance profile.
+  string gpu_instance_profile = 4;
 }

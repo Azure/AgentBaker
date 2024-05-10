@@ -271,7 +271,7 @@ testFips() {
   os_version=$1
   enable_fips=$2
 
-  if [[ (${os_version} == "18.04" || ${os_version} == "20.04" || ${os_version} == "V2") && ${enable_fips,,} == "true" ]]; then
+  if [[ (${os_version} == "18.04" || ${os_version} == "20.04" || ${os_version} == "22.04" || ${os_version} == "V2") && ${enable_fips,,} == "true" ]]; then
     kernel=$(uname -r)
     if [[ -f /proc/sys/crypto/fips_enabled ]]; then
       fips_enabled=$(cat /proc/sys/crypto/fips_enabled)
@@ -858,6 +858,16 @@ testContainerImagePrefetchScript() {
   return 0
 }
 
+testBccTools () {
+  for line in '- bcc-tools' '- libbcc-examples'; do
+    if ! grep -F -x -e "$line" /opt/azure/vhd-install.complete; then
+      echo "BCC tools were not successfully downloaded."
+      return 1
+    fi
+  done
+  echo "BCC tools were successfully downloaded."
+  return 0
+}
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
@@ -867,6 +877,7 @@ testContainerImagePrefetchScript() {
 #
 # We should also avoid early exit from the test run -- like if a command fails with
 # an exit rather than a return -- because that prevents other tests from running.
+testBccTools
 testVHDBuildLogsExist
 testCriticalTools
 testFilesDownloaded $CONTAINER_RUNTIME

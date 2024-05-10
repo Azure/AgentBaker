@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	agent "github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
@@ -39,12 +39,18 @@ func (api *APIServer) GetNodeBootstrapData(w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	if api.Options != nil && api.Options.Toggles != nil {
+		agentBaker = agentBaker.WithToggles(api.Options.Toggles)
+	}
+
 	nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(ctx, &config)
 	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
 	result, err := json.Marshal(nodeBootStrapping)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

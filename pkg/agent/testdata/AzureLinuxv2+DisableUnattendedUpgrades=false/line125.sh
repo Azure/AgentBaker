@@ -25,6 +25,8 @@ if [ -z "${node_name}" ]; then
     exit 1
 fi
 
+node_name=$(echo "$node_name" | tr '[:upper:]' '[:lower:]')
+
 golden_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-golden-timestamp']}")
 if [ -z "${golden_timestamp}" ]; then
     echo "golden timestamp is not set, skip live patching"

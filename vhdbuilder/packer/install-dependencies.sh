@@ -258,11 +258,17 @@ ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 installBpftrace
 echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
-installBcc
-cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - bcc-tools
-  - libbcc-examples
-EOF
+PRESENT_DIR=$(pwd)
+# run installBcc in a subshell and continue on with container image pull in order to decrease total build time
+( 
+  cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
+
+  installBcc
+
+  exit $?
+) > /var/log/bcc_installation.log 2>&1 &
+
+BCC_PID=$!
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 stop_watch $capture_time "Pull NVIDIA driver image (mcr), Start installBcc subshell" false
@@ -271,6 +277,18 @@ start_watch
 string_replace() {
   echo ${1//\*/$2}
 }
+
+# Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
+# Account for possibility that number of cores is 3 or less
+num_proc=$(nproc)
+if [[ $num_proc -gt 3 ]]; then
+  parallel_container_image_pull_limit=$(nproc --ignore=2)
+else
+  parallel_container_image_pull_limit=1
+fi
+echo "Limit for parallel container image pulls set to $parallel_container_image_pull_limit"
+
+declare -a image_pids=()
 
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for imageToBePulled in ${ContainerImages[*]}; do
@@ -295,10 +313,15 @@ for imageToBePulled in ${ContainerImages[*]}; do
 
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
+    image_pids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
+    while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
+      wait -n
+    done    
   done
 done
+wait ${image_pids[@]}
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
 watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
@@ -408,6 +431,17 @@ fi
 stop_watch $capture_time "GPU Device plugin" false
 start_watch
 
+# Kubelet credential provider plugins
+CREDENTIAL_PROVIDER_VERSIONS="
+1.29.2
+1.30.0
+"
+for CREDENTIAL_PROVIDER_VERSION in $CREDENTIAL_PROVIDER_VERSIONS; do
+    CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
+    downloadCredentalProvider $CREDENTIAL_PROVIDER_DOWNLOAD_URL
+    echo "  - Kubelet credential provider version ${CREDENTIAL_PROVIDER_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
+
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
 systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
@@ -432,11 +466,21 @@ rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
 KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
 
+declare -a kube_proxy_pids=()
+
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
-  # use kube-proxy as well
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
-  ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
+  pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
+  kube_proxy_pids+=($!)
+  while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
+      wait -n
+  done
+done
+wait ${kube_proxy_pids[@]} # Wait for all parallel pulls to finish
+
+for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
+  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
+  ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables" 
 
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
@@ -481,6 +525,19 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # update message-of-the-day to start after multi-user.target
   # multi-user.target usually start at the end of the boot sequence
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
+fi
+
+wait $BCC_PID
+BCC_EXIT_CODE=$?
+
+if [ $BCC_EXIT_CODE -eq 0 ]; then
+  echo "Bcc tools successfully installed."
+  cat << EOF >> ${VHD_LOGS_FILEPATH}
+  - bcc-tools
+  - libbcc-examples
+EOF
+else
+  echo "Error: installBcc subshell failed with exit code $BCC_EXIT_CODE" >&2
 fi
 
 # use the private_packages_url to download and cache packages

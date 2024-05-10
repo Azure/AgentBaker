@@ -56,8 +56,7 @@ steps:
       if [[ ${OS_VERSION} == "V2" && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
       if [[ ${OS_VERSION} == "18.04" && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
       if [[ ${OS_VERSION} == "22.04" && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
-      if [[ ${OS_VERSION} == "18.04" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
-      if [[ ${OS_VERSION} == "20.04" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
+      if [[ (${OS_VERSION} == "18.04" || ${OS_VERSION} == "20.04" || ${OS_VERSION} == "22.04") && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
       if [[ ${OS_VERSION} == "V2" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
       if [[ "$(FEATURE_FLAGS)" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
       if [[ "${IMG_SKU}" == "20_04-lts-cvm" ]]; then SKU_NAME="${SKU_NAME}CVM"; fi && \
@@ -74,9 +73,6 @@ steps:
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
         -e POOL_NAME=$(POOL_NAME) \
-        -e CLIENT_ID=${CLIENT_ID} \
-        -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-        -e TENANT_ID=${TENANT_ID} \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
         -e AZURE_VM_SIZE=$(AZURE_VM_SIZE) \
         -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
@@ -118,9 +114,6 @@ steps:
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
-        -e CLIENT_ID=${CLIENT_ID} \
-        -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-        -e TENANT_ID=${TENANT_ID} \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
         -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
         -e OS_DISK_URI=${OS_DISK_URI} \
@@ -161,7 +154,6 @@ steps:
   - bash: |
       echo MODE=$(MODE) && \
       PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
-      SA_NAME="$(cat packer-output | grep "storage name:" | cut -d " " -f 3)" && \
       captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       ARM64_OS_DISK_SNAPSHOT_NAME="$(cat vhdbuilder/packer/settings.json | grep "arm64_os_disk_snapshot_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
@@ -172,16 +164,12 @@ steps:
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
-      -e CLIENT_ID=${CLIENT_ID} \
-      -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-      -e TENANT_ID=${TENANT_ID} \
       -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
       -e PKR_RG_NAME=${PKR_RG_NAME} \
       -e MODE=${MODE} \
       -e DRY_RUN=${DRY_RUN} \
       -e OS_TYPE="Linux" \
       -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-      -e SA_NAME=${SA_NAME} \
       -e IMAGE_NAME=${IMAGE_NAME} \
       -e CAPTURED_SIG_VERSION=${captured_sig_version} \
       -e IMPORTED_IMAGE_NAME=${IMPORTED_IMAGE_NAME} \
@@ -204,9 +192,6 @@ steps:
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
-        -e CLIENT_ID=${CLIENT_ID} \
-        -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-        -e TENANT_ID=${TENANT_ID} \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
         -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
         -e LOCATION="${AZURE_LOCATION}" \
@@ -232,9 +217,6 @@ steps:
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
-        -e CLIENT_ID=${CLIENT_ID} \
-        -e CLIENT_SECRET="$(CLIENT_SECRET)" \
-        -e TENANT_ID=${TENANT_ID} \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
         -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \

@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"net/url"
 	"regexp"
 	"sort"
 	"strings"
@@ -41,11 +42,6 @@ func IsSgxEnabledSKU(vmSize string) bool {
 		return true
 	}
 	return false
-}
-
-// IsMIGNode check if the node should be partitioned.
-func IsMIGNode(gpuInstanceProfile string) bool {
-	return gpuInstanceProfile != ""
 }
 
 // GetStorageAccountType returns the support managed disk storage tier for a give VM size.
@@ -97,4 +93,34 @@ func IndentString(original string, spaces int) string {
 		out.WriteString("\n")
 	}
 	return out.String()
+}
+
+func getContainerImageNameFromURL(downloadURL string) (string, error) {
+	// example URL "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
+	// getting the data between the last / and the last :
+	parts := strings.Split(downloadURL, "/")
+	if len(parts) == 0 || len(parts[len(parts)-1]) == 0 {
+		return "", fmt.Errorf("container image component URL is not in the expected format: %s", downloadURL)
+	}
+	lastPart := parts[len(parts)-1]
+	component := strings.TrimSuffix(lastPart, ":*")
+	return component, nil
+}
+
+func getComponentNameFromURL(downloadURL string) (string, error) {
+	// example URL "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
+	url, err := url.Parse(downloadURL) // /cni-plugins/v*/binaries
+	if err != nil {
+		return "", fmt.Errorf("download file image URL is not in the expected format: %s", downloadURL)
+	}
+	urlSplit := strings.Split(url.Path, "/") // ["", cni-plugins, v*, binaries]
+	componentIndx, minURLSplit := 1, 2
+	if len(urlSplit) < minURLSplit {
+		return "", fmt.Errorf("download file image URL is not in the expected format: %s", downloadURL)
+	}
+	componentName := urlSplit[componentIndx]
+	if componentName == "" {
+		return "", fmt.Errorf("component name is empty in the URL: %s", downloadURL)
+	}
+	return componentName, nil
 }

@@ -10,7 +10,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -121,6 +121,11 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			PodInfraContainerImageURL: pauseImage,
 			HyperkubeImageURL:         hyperkubeImage,
 			WindowsPackageURL:         windowsPackage,
+		}
+
+		if IsKubernetesVersionGe(k8sVersion, "1.29.0") {
+			k8sComponents.WindowsCredentialProviderURL = fmt.Sprintf("https://acs-mirror.azureedge.net/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-windows-amd64-v%s.tar.gz", k8sVersion, k8sVersion) //nolint:lll
+			k8sComponents.LinuxCredentialProviderURL = fmt.Sprintf("https://acs-mirror.azureedge.net/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz", k8sVersion, k8sVersion)     //nolint:lll
 		}
 
 		kubeletConfig := map[string]string{
@@ -235,7 +240,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			backfillCustomData(folder, customData)
 		}
 
-		expectedCustomData, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CustomData", folder))
+		expectedCustomData, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CustomData", folder))
 		Expect(err).To(BeNil())
 		Expect(customData).To(Equal(string(expectedCustomData)))
 
@@ -250,11 +255,11 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		cseCommand := nodeBootstrapping.CSE
 
 		if generateTestData() {
-			err = ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
+			err = os.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
 			Expect(err).To(BeNil())
 		}
 
-		expectedCSECommand, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
+		expectedCSECommand, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
 		Expect(err).To(BeNil())
 		Expect(cseCommand).To(Equal(string(expectedCSECommand)))
 
@@ -1214,6 +1219,60 @@ oom_score = 0
 				Name: "akscustom",
 			}
 		}, nil),
+		Entry("AKSUbuntu2204 OOT credentialprovider", "AKSUbuntu2204+ootcredentialprovider", "1.29.10", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+			config.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+		}, func(o *nodeBootstrappingOutput) {
+			Expect(o.vars["KUBELET_FLAGS"]).NotTo(BeEmpty())
+			Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--image-credential-provider-config=/var/lib/kubelet/credential-provider-config.yaml")).To(BeTrue())
+			Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--image-credential-provider-bin-dir=/var/lib/kubelet/credential-provider")).To(BeTrue())
+		}),
+		Entry("AKSUbuntu2204 custom cloud and OOT credentialprovider", "AKSUbuntu2204+CustomCloud+ootcredentialprovider", "1.29.10",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+					Name:                         "akscustom",
+					McrURL:                       "mcr.microsoft.fakecustomcloud",
+					RepoDepotEndpoint:            "https://repodepot.azure.microsoft.fakecustomcloud/ubuntu",
+					ManagementPortalURL:          "https://portal.azure.microsoft.fakecustomcloud/",
+					PublishSettingsURL:           "",
+					ServiceManagementEndpoint:    "https://management.core.microsoft.fakecustomcloud/",
+					ResourceManagerEndpoint:      "https://management.azure.microsoft.fakecustomcloud/",
+					ActiveDirectoryEndpoint:      "https://login.microsoftonline.microsoft.fakecustomcloud/",
+					GalleryEndpoint:              "",
+					KeyVaultEndpoint:             "https://vault.cloudapi.microsoft.fakecustomcloud/",
+					GraphEndpoint:                "https://graph.cloudapi.microsoft.fakecustomcloud/",
+					ServiceBusEndpoint:           "",
+					BatchManagementEndpoint:      "",
+					StorageEndpointSuffix:        "core.microsoft.fakecustomcloud",
+					SQLDatabaseDNSSuffix:         "database.cloudapi.microsoft.fakecustomcloud",
+					TrafficManagerDNSSuffix:      "",
+					KeyVaultDNSSuffix:            "vault.cloudapi.microsoft.fakecustomcloud",
+					ServiceBusEndpointSuffix:     "",
+					ServiceManagementVMDNSSuffix: "",
+					ResourceManagerVMDNSSuffix:   "cloudapp.azure.microsoft.fakecustomcloud/",
+					ContainerRegistryDNSSuffix:   ".azurecr.microsoft.fakecustomcloud",
+					CosmosDBDNSSuffix:            "documents.core.microsoft.fakecustomcloud/",
+					TokenAudience:                "https://management.core.microsoft.fakecustomcloud/",
+					ResourceIdentifiers: datamodel.ResourceIdentifiers{
+						Graph:               "",
+						KeyVault:            "",
+						Datalake:            "",
+						Batch:               "",
+						OperationalInsights: "",
+						Storage:             "",
+					},
+				}
+				config.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				config.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+			}, func(o *nodeBootstrappingOutput) {
+
+				Expect(o.vars["AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"]).NotTo(BeEmpty())
+				Expect(o.vars["AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"]).To(Equal(".azurecr.microsoft.fakecustomcloud"))
+
+				Expect(o.vars["KUBELET_FLAGS"]).NotTo(BeEmpty())
+				Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--image-credential-provider-config=/var/lib/kubelet/credential-provider-config.yaml")).To(BeTrue())
+				Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--image-credential-provider-bin-dir=/var/lib/kubelet/credential-provider")).To(BeTrue())
+			}),
 		Entry("AKSUbuntu2204 with custom kubeletConfig and osConfig", "AKSUbuntu2204+CustomKubeletConfig+CustomLinuxOSConfig", "1.24.2",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableKubeletConfigFile = false
@@ -1269,6 +1328,28 @@ oom_score = 0
 					},
 				}
 			}, nil),
+		Entry("AKSUbuntu2204 IMDSRestriction with enable restriction and insert to mangle table", "AKSUbuntu2204+IMDSRestrictionOnWithMangleTable", "1.24.2",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.EnableIMDSRestriction = true
+				config.InsertIMDSRestrictionRuleToMangleTable = true
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ENABLE_IMDS_RESTRICTION"]).To(Equal("true"))
+				Expect(o.vars["INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE"]).To(Equal("true"))
+			}),
+		Entry("AKSUbuntu2204 IMDSRestriction with enable restriction and not insert to mangle table", "AKSUbuntu2204+IMDSRestrictionOnWithFilterTable", "1.24.2",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.EnableIMDSRestriction = true
+				config.InsertIMDSRestrictionRuleToMangleTable = false
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ENABLE_IMDS_RESTRICTION"]).To(Equal("true"))
+				Expect(o.vars["INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE"]).To(Equal("false"))
+			}),
+		Entry("AKSUbuntu2204 IMDSRestriction with disable restriction", "AKSUbuntu2204+IMDSRestrictionOff", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.EnableIMDSRestriction = false
+		}, func(o *nodeBootstrappingOutput) {
+			Expect(o.vars["ENABLE_IMDS_RESTRICTION"]).To(Equal("false"))
+			Expect(o.vars["INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE"]).To(Equal("false"))
+		}),
 	)
 })
 
@@ -1371,6 +1452,12 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			WindowsPackageURL:         windowsPackage,
 		}
 
+		if IsKubernetesVersionGe(k8sVersion, "1.29.0") {
+			// This is test only, credential provider version does not align with k8s version
+			k8sComponents.WindowsCredentialProviderURL = fmt.Sprintf("https://acs-mirror.azureedge.net/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-windows-amd64-v%s.tar.gz", k8sVersion, k8sVersion) //nolint:lll
+			k8sComponents.LinuxCredentialProviderURL = fmt.Sprintf("https://acs-mirror.azureedge.net/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz", k8sVersion, k8sVersion)     //nolint:lll
+		}
+
 		kubeletConfig := map[string]string{
 			"--address":                           "0.0.0.0",
 			"--anonymous-auth":                    "false",
@@ -1467,7 +1554,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			backfillCustomData(folder, customData)
 		}
 
-		expectedCustomData, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CustomData", folder))
+		expectedCustomData, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CustomData", folder))
 		if err != nil {
 			panic(err)
 		}
@@ -1481,11 +1568,11 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		cseCommand := nodeBootstrapping.CSE
 
 		if generateTestData() {
-			err = ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
+			err = os.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
 			Expect(err).To(BeNil())
 		}
 
-		expectedCSECommand, err := ioutil.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
+		expectedCSECommand, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
 		if err != nil {
 			panic(err)
 		}
@@ -1577,6 +1664,50 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 					},
 				}
 			}),
+		Entry("AKSWindows2019 with out of tree credential provider", "AKSWindows2019+ootcredentialprovider", "1.29.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.WindowsProfile.AlwaysPullWindowsPauseImage = to.BoolPtr(true)
+			config.KubeletConfig["--image-credential-provider-config"] = "c:\\var\\lib\\kubelet\\credential-provider-config.yaml"
+			config.KubeletConfig["--image-credential-provider-bin-dir"] = "c:\\var\\lib\\kubelet\\credential-provider"
+		}),
+		Entry("AKSWindows2019 with custom cloud and out of tree credential provider", "AKSWindows2019+CustomCloud+ootcredentialprovider", "1.29.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.WindowsProfile.AlwaysPullWindowsPauseImage = to.BoolPtr(true)
+				config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+					Name:                         "akscustom",
+					McrURL:                       "mcr.microsoft.fakecustomcloud",
+					RepoDepotEndpoint:            "https://repodepot.azure.microsoft.fakecustomcloud/ubuntu",
+					ManagementPortalURL:          "https://portal.azure.microsoft.fakecustomcloud/",
+					PublishSettingsURL:           "",
+					ServiceManagementEndpoint:    "https://management.core.microsoft.fakecustomcloud/",
+					ResourceManagerEndpoint:      "https://management.azure.microsoft.fakecustomcloud/",
+					ActiveDirectoryEndpoint:      "https://login.microsoftonline.microsoft.fakecustomcloud/",
+					GalleryEndpoint:              "",
+					KeyVaultEndpoint:             "https://vault.cloudapi.microsoft.fakecustomcloud/",
+					GraphEndpoint:                "https://graph.cloudapi.microsoft.fakecustomcloud/",
+					ServiceBusEndpoint:           "",
+					BatchManagementEndpoint:      "",
+					StorageEndpointSuffix:        "core.microsoft.fakecustomcloud",
+					SQLDatabaseDNSSuffix:         "database.cloudapi.microsoft.fakecustomcloud",
+					TrafficManagerDNSSuffix:      "",
+					KeyVaultDNSSuffix:            "vault.cloudapi.microsoft.fakecustomcloud",
+					ServiceBusEndpointSuffix:     "",
+					ServiceManagementVMDNSSuffix: "",
+					ResourceManagerVMDNSSuffix:   "cloudapp.azure.microsoft.fakecustomcloud/",
+					ContainerRegistryDNSSuffix:   ".azurecr.microsoft.fakecustomcloud",
+					CosmosDBDNSSuffix:            "documents.core.microsoft.fakecustomcloud/",
+					TokenAudience:                "https://management.core.microsoft.fakecustomcloud/",
+					ResourceIdentifiers: datamodel.ResourceIdentifiers{
+						Graph:               "",
+						KeyVault:            "",
+						Datalake:            "",
+						Batch:               "",
+						OperationalInsights: "",
+						Storage:             "",
+					},
+				}
+				config.KubeletConfig["--image-credential-provider-config"] = "c:\\var\\lib\\kubelet\\credential-provider-config.yaml"
+				config.KubeletConfig["--image-credential-provider-bin-dir"] = "c:\\var\\lib\\kubelet\\credential-provider"
+			}),
 	)
 
 })
@@ -1586,7 +1717,7 @@ func backfillCustomData(folder, customData string) {
 		e := os.MkdirAll(fmt.Sprintf("./testdata/%s", folder), 0755)
 		Expect(e).To(BeNil())
 	}
-	writeFileError := ioutil.WriteFile(fmt.Sprintf("./testdata/%s/CustomData", folder), []byte(customData), 0644)
+	writeFileError := os.WriteFile(fmt.Sprintf("./testdata/%s/CustomData", folder), []byte(customData), 0644)
 	Expect(writeFileError).To(BeNil())
 	if strings.Contains(folder, "AKSWindows") {
 		return
@@ -1629,7 +1760,7 @@ func getGzipDecodedValue(data []byte) (string, error) {
 		return "", fmt.Errorf("failed to create gzip reader: %w", err)
 	}
 
-	output, err := ioutil.ReadAll(gzipReader)
+	output, err := io.ReadAll(gzipReader)
 	if err != nil {
 		return "", fmt.Errorf("read from gzipped buffered string: %w", err)
 	}
@@ -1739,31 +1870,5 @@ var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
 			s += "0"
 		}
 		Expect(normalizeResourceGroupNameForLabel(s + "-")).To(Equal(s + "-z"))
-	})
-})
-
-var _ = Describe("getGPUDriverVersion", func() {
-	It("should use 470 with nc v1", func() {
-		Expect(getGPUDriverVersion("standard_nc6")).To(Equal(datamodel.Nvidia470CudaDriverVersion))
-	})
-	It("should use 525 cuda with nc v3", func() {
-		Expect(getGPUDriverVersion("standard_nc6_v3")).To(Equal(datamodel.Nvidia535CudaDriverVersion))
-	})
-	It("should use 535 grid with nv v5", func() {
-		Expect(getGPUDriverVersion("standard_nv6ads_a10_v5")).To(Equal(datamodel.Nvidia535GridDriverVersion))
-		Expect(getGPUDriverVersion("Standard_nv36adms_A10_V5")).To(Equal(datamodel.Nvidia535GridDriverVersion))
-	})
-	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
-	It("should use 535 cuda with nv v1", func() {
-		Expect(getGPUDriverVersion("standard_nv6")).To(Equal(datamodel.Nvidia535CudaDriverVersion))
-	})
-})
-
-var _ = Describe("getAKSGPUImageSHA", func() {
-	It("should use newest AKSGPUGridSHA with nv v5", func() {
-		Expect(getAKSGPUImageSHA("standard_nv6ads_a10_v5")).To(Equal(datamodel.AKSGPUGridSHA))
-	})
-	It("should use newest AKSGPUCudaSHA with non grid SKU", func() {
-		Expect(getAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaSHA))
 	})
 })

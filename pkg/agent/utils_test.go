@@ -42,7 +42,7 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		"--authentication-token-webhook":      "true",
 		"--authorization-mode":                "Webhook",
 		"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false,TopologyManager=true,CustomCPUCFSQuotaPeriod=true", //nolint:lll // what if you turn off dynamic kubelet using dynamic kubelet?
+		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false,CustomCPUCFSQuotaPeriod=true", //nolint:lll // what if you turn off dynamic kubelet using dynamic kubelet?
 		"--system-reserved":                   "cpu=2,memory=1Gi",
 		"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 	}
@@ -94,7 +94,7 @@ func getExampleKcWithNodeStatusReportFrequency() map[string]string {
 		"--authentication-token-webhook":      "true",
 		"--authorization-mode":                "Webhook",
 		"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false,TopologyManager=true,CustomCPUCFSQuotaPeriod=true",
+		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false,CustomCPUCFSQuotaPeriod=true",
 		"--system-reserved":                   "cpu=2,memory=1Gi",
 		"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 	}
@@ -128,7 +128,7 @@ func getExampleKcWithContainerLogMaxSize() map[string]string {
 		"--authentication-token-webhook":      "true",
 		"--authorization-mode":                "Webhook",
 		"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false,TopologyManager=true,CustomCPUCFSQuotaPeriod=true",
+		"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false,CustomCPUCFSQuotaPeriod=true",
 		"--system-reserved":                   "cpu=2,memory=1Gi",
 		"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 		"--container-log-max-size":            "50M",
@@ -194,8 +194,7 @@ var expectedKubeletJSON = `{
     "featureGates": {
         "CustomCPUCFSQuotaPeriod": true,
         "DynamicKubeletConfig": false,
-        "RotateKubeletServerCertificate": true,
-        "TopologyManager": true
+        "RotateKubeletServerCertificate": true
     },
     "failSwapOn": false,
     "containerLogMaxSize": "1000M",
@@ -276,8 +275,7 @@ var expectedKubeletJSONWithNodeStatusReportFrequency = `{
     "featureGates": {
         "CustomCPUCFSQuotaPeriod": true,
         "DynamicKubeletConfig": false,
-        "RotateKubeletServerCertificate": true,
-        "TopologyManager": true
+        "RotateKubeletServerCertificate": true
     },
     "failSwapOn": false,
     "systemReserved": {
@@ -355,8 +353,7 @@ var expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags = `{
     "featureGates": {
         "CustomCPUCFSQuotaPeriod": true,
         "DynamicKubeletConfig": false,
-        "RotateKubeletServerCertificate": true,
-        "TopologyManager": true
+        "RotateKubeletServerCertificate": true
     },
     "failSwapOn": false,
     "containerLogMaxSize": "50M",

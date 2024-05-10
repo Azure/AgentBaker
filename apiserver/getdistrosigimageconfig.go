@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	agent "github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
@@ -33,7 +33,15 @@ func (api *APIServer) GetDistroSigImageConfig(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	allDistros, err := agentBaker.GetDistroSigImageConfig(config.SIGConfig, config.Region)
+	if api.Options != nil && api.Options.Toggles != nil {
+		agentBaker = agentBaker.WithToggles(api.Options.Toggles)
+	}
+
+	allDistros, err := agentBaker.GetDistroSigImageConfig(config.SIGConfig, &datamodel.EnvironmentInfo{
+		SubscriptionID: config.SubscriptionID,
+		TenantID:       config.TenantID,
+		Region:         config.Region,
+	})
 	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
