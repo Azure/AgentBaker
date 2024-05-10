@@ -15,7 +15,7 @@ mkdir -p /mnt/sdb1
 mount /dev/sdb1 /mnt/sdb1
 cd /mnt/sdb1
 
-if ! find / -type f -size +1M -maxdepth 0 -exec du -h {} + 2>/dev/null | sort -rh >> "$STORAGE_REPORT_PATH"; then
+if ! find / -type f -size +1M -exec du -h {} + 2>/dev/null | sort -rh >> "$STORAGE_REPORT_PATH"; then
     error_message=$(find / -type f -size +1M -exec du -h {} + 2>&1 >/dev/null | sort -rh)
     echo "Error: $error_message" >&2
 fi
