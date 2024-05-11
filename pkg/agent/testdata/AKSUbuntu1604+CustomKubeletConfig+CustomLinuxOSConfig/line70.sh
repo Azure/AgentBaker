@@ -492,7 +492,12 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentalProvider" installCredentalProvider
     fi
 
-    systemctlEnableAndStartNoWait kubelet || exit $ERR_KUBELET_START_FAIL
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+        systemctlEnableAndStartNoBlock kubelet || exit $ERR_KUBELET_START_FAIL
+        return 0
+    fi
+
+    systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
 }
 
 ensureSnapshotUpdate() {

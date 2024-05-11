@@ -511,7 +511,17 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentalProvider" installCredentalProvider
     fi
 
-    systemctlEnableAndStartNoWait kubelet || exit $ERR_KUBELET_START_FAIL
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+        # we continue with CSE without ensuring the kubelet startup completed
+        # due to user-assigned managed identities not being assigned by RP to agent nodes
+        # until after the initial PUT has been completed, thus we need to ensure to
+        # complete CSE as quickly as possible so secure bootstrapping as a chance to run
+        # in cases where the node is using a kubelet identity
+        systemctlEnableAndStartNoBlock kubelet || exit $ERR_KUBELET_START_FAIL
+        return 0
+    fi
+
+    systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
 }
 
 ensureSnapshotUpdate() {
