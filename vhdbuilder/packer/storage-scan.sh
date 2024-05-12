@@ -15,9 +15,9 @@ mkdir -p /mnt/sdb1
 mount /dev/sdb1 /mnt/sdb1
 cd /mnt/sdb1
 
-if ! find / -type f -size +1M -exec du -h {} + 2>/dev/null | sort -rh >> "$STORAGE_REPORT_PATH"; then
-    error_message=$(find / -type f -size +1M -exec du -h {} + 2>&1 >/dev/null | sort -rh)
-    echo "Error: $error_message" >&2
+files_found=$(find . -type f -size +1M -exec du -h {} + 2>/dev/null | sort -rh)
+if ! echo "$files_found" >> "$STORAGE_REPORT_PATH"; then
+    echo "Error: $files_found" >&2
 fi
 
 cd "$CUR_DIR"
