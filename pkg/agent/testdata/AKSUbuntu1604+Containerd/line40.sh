@@ -20,7 +20,7 @@ CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1 v0.8.0"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 CURL_OUTPUT=/tmp/curl_verbose.out
-SECURE_TLS_BOOTSTRAP_CLIENT_BINARY_VERSION="client-v0.1.0-alpha.cameissner2"
+SECURE_TLS_BOOTSTRAP_CLIENT_BINARY_VERSION="client-v0.1.0-alpha.4"
 
 removeManDbAutoUpdateFlagFile() {
     rm -f $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
