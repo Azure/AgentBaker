@@ -136,6 +136,7 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
 fi
 stop_watch $capture_time "Handle Azure Linux / CgroupV2" false
 
+MAX_BLOCK_COUNT=30298176 # 30 GB
 os_device=$(readlink -f /dev/disk/azure/root)
 used_blocks=$(df -P / | sed 1d | awk '{print $3}')
 usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')

@@ -471,7 +471,7 @@ rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 
 # kube-proxy regular versions >=v1.17.0  hotfixes versions >= 20211009 are 'multi-arch'. All versions in kube-proxy-images.json are 'multi-arch' version now.
-
+MAX_BLOCK_COUNT=30298176 # 30 GB
 echo "Logging disk usage before installing kube proxy images"
 os_device=$(readlink -f /dev/disk/azure/root)
 used_blocks=$(df -P / | sed 1d | awk '{print $3}')
