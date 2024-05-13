@@ -89,6 +89,11 @@
     },
     {
       "type": "file",
+      "source": "pkg/parser/bin/parser",
+      "destination": "/home/packer/parser"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/prefetch.sh",
       "destination": "/home/packer/prefetch.sh"
     },
