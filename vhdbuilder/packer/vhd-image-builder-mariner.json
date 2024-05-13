@@ -619,10 +619,28 @@
       "destination": "trivy-images-table.txt"
     },
     {
+      "type": "file",
+      "source": "vhdbuilder/packer/storage-scan.sh",
+      "destination": "/home/packer/storage-scan.sh"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo /bin/bash -ux /home/packer/storage-scan.sh"
+      ]
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/containers/storage-report.txt",
+      "destination": "storage-report.txt"
+    },
+    {
       "type": "shell",
       "inline": [
         "sudo rm -f /opt/azure/containers/trivy-report.json",
-        "sudo rm -f /opt/azure/containers/trivy-images-table.txt"
+        "sudo rm -f /opt/azure/containers/trivy-images-table.txt",
+        "sudo rm -f /opt/azure/containers/storage-report.txt"
       ]
     },
     {
