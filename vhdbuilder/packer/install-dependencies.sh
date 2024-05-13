@@ -585,7 +585,23 @@ KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
   extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false
+  echo "Logging disk usage AFTER installing kube binary image for ${PATCHED_KUBE_BINARY_VERSION}"
+  MAX_BLOCK_COUNT=30298176 # 30 GB
+  os_device=$(readlink -f /dev/disk/azure/root)
+  used_blocks=$(df -P / | sed 1d | awk '{print $3}')
+  usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
+  usage=${usage%.*}
+  [ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
+  [ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
 done
+
+echo "Logging disk usage AFTER installing kube binary images"
+os_device=$(readlink -f /dev/disk/azure/root)
+used_blocks=$(df -P / | sed 1d | awk '{print $3}')
+usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
+usage=${usage%.*}
+[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
+[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 stop_watch $capture_time "Download and Process Kubernetes Packages / Extract Binaries" false
