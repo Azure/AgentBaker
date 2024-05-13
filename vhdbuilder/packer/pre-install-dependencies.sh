@@ -133,7 +133,7 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
   for linux_package in ${pkg_list[*]}; do
     # Ideal way to do this is to use apt-cache madison, however, after we purge kernel and do apt-get update, madison gets 1063
     # Therefore hardcoding it now
-    DEBIAN_FRONTEND=noninteractive apt-get install -y ${linux_package}=5.15.0.1061.59
+    DEBIAN_FRONTEND=noninteractive apt-get install -y ${linux_package}=5.15.0.1061.70
   done
   echo "After installing new kernel, here is a list of kernels/headers installed"; dpkg -l 'linux-*azure*'
   
