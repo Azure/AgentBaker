@@ -133,7 +133,7 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
   for linux_package in ${pkg_list[*]}; do
     #kernel_version=$(apt-cache madison ${linux_package} | awk 'NR==1{print $3}')
     #DEBIAN_FRONTEND=noninteractive apt-get install -y ${linux_package}=${kernel_version}
-    apt-cache madison ${linux_package}
+    apt-cache madison --all-versions ${linux_package}
   done
   echo "After installing new kernel, here is a list of kernels/headers installed"; dpkg -l 'linux-*azure*'
   
