@@ -131,9 +131,9 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
   # Install lts-22.04 kernel, ping it to 1061
   pkg_list=(linux-image-azure-lts-22.04 linux-cloud-tools-azure-lts-22.04 linux-headers-azure-lts-22.04 linux-modules-extra-azure-lts-22.04 linux-tools-azure-lts-22.04)
   for linux_package in ${pkg_list[*]}; do
-    #kernel_version=$(apt-cache madison ${linux_package} | awk 'NR==1{print $3}')
-    #DEBIAN_FRONTEND=noninteractive apt-get install -y ${linux_package}=${kernel_version}
-    apt-cache madison --all-versions ${linux_package}
+    # Ideal way to do this is to use apt-cache madison, however, after we purge kernel and do apt-get update, madison gets 1063
+    # Therefore hardcoding it now
+    DEBIAN_FRONTEND=noninteractive apt-get install -y ${linux_package}= 5.15.0.1061.59
   done
   echo "After installing new kernel, here is a list of kernels/headers installed"; dpkg -l 'linux-*azure*'
   
