@@ -29,6 +29,7 @@ cmd/_test_output
 # exclude vendor directory from gitignore
 !/vendor/**/*
 !/test/e2e/vendor/**/*
+!/pkg/parser/bin
 
 translations/
 
