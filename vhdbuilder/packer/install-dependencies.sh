@@ -472,6 +472,14 @@ rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
 # kube-proxy regular versions >=v1.17.0  hotfixes versions >= 20211009 are 'multi-arch'. All versions in kube-proxy-images.json are 'multi-arch' version now.
 
+echo "Logging disk usage before installing kube proxy images"
+os_device=$(readlink -f /dev/disk/azure/root)
+used_blocks=$(df -P / | sed 1d | awk '{print $3}')
+usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
+usage=${usage%.*}
+[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
+[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
+
 KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
 
 declare -a kube_proxy_pids=()
@@ -557,6 +565,14 @@ if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
     cacheKubePackageFromPrivateUrl "$private_url"
   done
 fi
+
+echo "Logging disk usage before installing kube binaries"
+os_device=$(readlink -f /dev/disk/azure/root)
+used_blocks=$(df -P / | sed 1d | awk '{print $3}')
+usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
+usage=${usage%.*}
+[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
+[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
 
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
