@@ -192,20 +192,6 @@ else
 fi
 
 echo "Tests Run Successfully"
-
-echo "Run Trivy and Storage Scans"
-PACKER_DIR=$(dirname "$CDIR")
+ls
 pwd
-az vm run-command invoke --resource-group $RESOURCE_GROUP_NAME --name $VM_NAME --command-id RunShellScript --scripts "$PACKER_DIR/trivy-scan.sh"
-az vm run-command invoke --resource-group $RESOURCE_GROUP_NAME --name $VM_NAME --command-id RunShellScript --scripts "$PACKER_DIR/storage-scan.sh"
 
-IP="10.0.0.4"
-TRIVY_REPORT_JSON_PATH=/opt/azure/containers/trivy-report.json
-TRIVY_REPORT_TABLE_PATH=/opt/azure/containers/trivy-images-table.txt
-STORAGE_REPORT_PATH=/opt/azure/containers/storage-report.txt
-# scp -r azureuser@myserver.eastus.cloudapp.com:/home/azureuser/logs/. /tmp/
-scp -r $TEST_VM_ADMIN_USERNAME@$IP:$TRIVY_REPORT_JSON_PATH .
-scp -r $TEST_VM_ADMIN_USERNAME@$IP:$TRIVY_REPORT_TABLE_PATH .
-scp -r $TEST_VM_ADMIN_USERNAME@$IP:$STORAGE_REPORT_PATH .
-
-az vm show --resource-group $RESOURCE_GROUP_NAME --name $VM_NAME --query fqdns --output tsv
