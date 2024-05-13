@@ -6,7 +6,7 @@ STORAGE_REPORT_PATH=/opt/azure/containers/storage-report.txt
 mkdir -p "$(dirname "${STORAGE_REPORT_PATH}")"
 
 echo "----" >> $STORAGE_REPORT_PATH
-df -h 2>&1 >> $STORAGE_REPORT_PATH
+{ df -h >> "$STORAGE_REPORT_PATH" ; } 2>&1
 echo "----" >> $STORAGE_REPORT_PATH
 
 CUR_DIR=$(pwd)
