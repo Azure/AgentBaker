@@ -504,6 +504,15 @@ done
 stop_watch $capture_time "Configure Telemetry, Create Logging Directory, Kube-proxy" false
 start_watch
 
+MAX_BLOCK_COUNT=30298176 # 30 GB
+echo "Logging disk usage after installing kube proxy images"
+os_device=$(readlink -f /dev/disk/azure/root)
+used_blocks=$(df -P / | sed 1d | awk '{print $3}')
+usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
+usage=${usage%.*}
+[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
+[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
+
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
 cacheKubePackageFromPrivateUrl() {
@@ -534,6 +543,8 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # remove snapd, which is not used by container stack
   apt_get_purge 20 30 120 snapd || exit 1
   apt_get_purge 20 30 120 apache2-utils || exit 1
+ # remove apport
+  retrycmd_if_failure 10 2 60 apt-get purge --auto-remove apport open-vm-tools -y || exit 1
 
   apt-get -y autoclean || exit 1
   apt-get -y autoremove --purge || exit 1
