@@ -15,12 +15,10 @@ mkdir -p /mnt/sdb1
 mount /dev/sdb1 /mnt/sdb1
 cd /mnt/sdb1
 
-{
-    files_found=$(find . -type f -size +1M -exec du -h {} + 2>/dev/null | sort -rh)
-    if ! echo "$files_found" >> "$STORAGE_REPORT_PATH"; then
-        echo "Error: $files_found" >&2
-    fi
-} >> "$STORAGE_REPORT_PATH" 2>&1
+files_found=$(find . -type f -size +1M -exec du -h {} + 2>/dev/null | sort -rh)
+if ! echo "$files_found" >> "$STORAGE_REPORT_PATH"; then
+    echo "Error: $files_found" >&2
+fi
 
 cd "$CUR_DIR"
 umount /mnt/sdb1
