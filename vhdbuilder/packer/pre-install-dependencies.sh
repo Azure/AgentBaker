@@ -129,7 +129,7 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
   echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
 
   # Install lts-22.04 kernel, ping it to 1061
-  DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-azure-lts-22.04=5.15.0.1061.70 linux-cloud-tools-azure-lts-22.04=5.15.0.1061.70 linux-headers-azure-lts-22.04=5.15.0.1061.70 linux-modules-extra-azure-lts-22.04=5.15.0.1061.70 linux-tools-azure-lts-22.04=5.15.0.1061.70
+  DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-azure-lts-22.04 linux-cloud-tools-azure-lts-22.04 linux-headers-azure-lts-22.04 linux-modules-extra-azure-lts-22.04 linux-tools-azure-lts-22.04
   echo "After installing new kernel, here is a list of kernels/headers installed"; dpkg -l 'linux-*azure*'
   
   update-grub
