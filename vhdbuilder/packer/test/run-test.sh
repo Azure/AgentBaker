@@ -194,5 +194,11 @@ fi
 echo "Tests Run Successfully"
 
 echo "Run Trivy and Storage Scans"
-az vm run-command invoke --resource-group $RESOURCE_GROUP_NAME --name $VM_NAME --command-id RunShellScript --scripts "../trivy-scan.sh"
-az vm run-command invoke --resource-group $RESOURCE_GROUP_NAME --name $VM_NAME --command-id RunShellScript --scripts "../storage-scan.sh"
+PACKER_DIR=../$CDIR
+az vm run-command invoke --resource-group $RESOURCE_GROUP_NAME --name $VM_NAME --command-id RunShellScript --scripts "$PACKER_DIR/trivy-scan.sh"
+az vm run-command invoke --resource-group $RESOURCE_GROUP_NAME --name $VM_NAME --command-id RunShellScript --scripts "$PACKER_DIR/storage-scan.sh"
+
+# scp -r azureuser@myserver.eastus.cloudapp.com:/home/azureuser/logs/. /tmp/
+# scp -r $azureuser@
+
+az vm show --resource-group $RESOURCE_GROUP_NAME --name $VM_NAME --query fqdns --output tsv
