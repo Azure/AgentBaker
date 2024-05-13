@@ -176,3 +176,98 @@ func Test_getKubeletNodeLabels(t *testing.T) {
 		})
 	}
 }
+
+func TestGetOutBoundCmd(t *testing.T) {
+	type args struct {
+		nbconfig *datamodel.NodeBootstrappingConfiguration
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "Test with cloudName as AzureChinaCloud and orchestratorVersion as 1.19.0",
+			args: args{
+				nbconfig: &datamodel.NodeBootstrappingConfiguration{
+					ContainerService: &datamodel.ContainerService{
+						Properties: &datamodel.Properties{
+							OrchestratorProfile: &datamodel.OrchestratorProfile{
+								OrchestratorVersion: "1.19.0",
+							},
+						},
+					},
+					CloudSpecConfig: &datamodel.AzureEnvironmentSpecConfig{
+						CloudName: datamodel.AzureChinaCloud,
+					},
+				},
+			},
+			want: "curl -v --insecure --proxy-insecure https://gcr.azk8s.cn/v2/",
+		},
+		{
+			name: "Test with cloudName as AzureChinaCloud and orchestratorVersion as 1.17.0",
+			args: args{
+				nbconfig: &datamodel.NodeBootstrappingConfiguration{
+					ContainerService: &datamodel.ContainerService{
+						Properties: &datamodel.Properties{
+							OrchestratorProfile: &datamodel.OrchestratorProfile{
+								OrchestratorVersion: "1.17.0",
+							},
+						},
+					},
+					CloudSpecConfig: &datamodel.AzureEnvironmentSpecConfig{
+						CloudName: datamodel.AzureChinaCloud,
+					},
+				},
+			},
+			want: "nc -vz gcr.azk8s.cn 443",
+		},
+		{
+			name: "Test with cloudName as AzurePublicCloud and orchestratorVersion as 1.19.0",
+			args: args{
+				nbconfig: &datamodel.NodeBootstrappingConfiguration{
+					ContainerService: &datamodel.ContainerService{
+						Properties: &datamodel.Properties{
+							OrchestratorProfile: &datamodel.OrchestratorProfile{
+								OrchestratorVersion: "1.19.0",
+							},
+						},
+					},
+					CloudSpecConfig: &datamodel.AzureEnvironmentSpecConfig{
+						CloudName: DefaultCloudName,
+					},
+				},
+			},
+			want: "curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/",
+		},
+		{
+			name: "Test with AKSCustomCloud and orchestratorVersion as 1.19.0",
+			args: args{
+				nbconfig: &datamodel.NodeBootstrappingConfiguration{
+					ContainerService: &datamodel.ContainerService{
+						Properties: &datamodel.Properties{
+							OrchestratorProfile: &datamodel.OrchestratorProfile{
+								OrchestratorVersion: "1.19.0",
+							},
+							CustomCloudEnv: &datamodel.CustomCloudEnv{
+								McrURL: "some-mcr-url",
+								Name:   AksCustomCloudName,
+							},
+						},
+					},
+					CloudSpecConfig: &datamodel.AzureEnvironmentSpecConfig{
+						CloudName: AksCustomCloudName,
+					},
+				},
+			},
+			want: "curl -v --insecure --proxy-insecure https://some-mcr-url/v2/",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetOutBoundCmd(tt.args.nbconfig); got != tt.want {
+				t.Errorf("GetOutBoundCmd() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

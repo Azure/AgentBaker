@@ -473,8 +473,6 @@ func setCustomKubeletConfig(customKc *datamodel.CustomKubeletConfig,
 		}
 		if customKc.TopologyManagerPolicy != "" {
 			kubeletConfig.TopologyManagerPolicy = customKc.TopologyManagerPolicy
-			// enable TopologyManager feature gate is required for this configuration.
-			kubeletConfig.FeatureGates["TopologyManager"] = true
 		}
 		if customKc.ImageGcHighThreshold != nil {
 			kubeletConfig.ImageGCHighThresholdPercent = customKc.ImageGcHighThreshold

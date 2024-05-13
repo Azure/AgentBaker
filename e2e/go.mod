@@ -16,18 +16,14 @@ require (
 	github.com/sanity-io/litter v1.5.5
 	go.uber.org/multierr v1.6.0
 	golang.org/x/crypto v0.21.0
-	k8s.io/api v0.29.4
-	k8s.io/apimachinery v0.29.4
-	k8s.io/client-go v0.29.4
+	k8s.io/api v0.28.5
+	k8s.io/apimachinery v0.28.5
+	k8s.io/client-go v0.28.5
 	sigs.k8s.io/controller-runtime v0.14.5
 	sigs.k8s.io/yaml v1.3.0
 )
 
-require (
-	github.com/google/gnostic-models v0.6.8 // indirect
-	github.com/gorilla/websocket v1.5.0 // indirect
-	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
-)
+require github.com/google/gnostic-models v0.6.8 // indirect
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.2.0 // indirect

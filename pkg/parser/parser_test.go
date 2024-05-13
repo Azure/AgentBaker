@@ -11,16 +11,13 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/parser"
+
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/Azure/go-autorest/autorest/to"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
-
-func generateTestData() bool {
-	return os.Getenv("GENERATE_TEST_DATA") == "true"
-}
 
 type nodeBootstrappingOutput struct {
 	cseCmd string
@@ -173,14 +170,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		cseCmd, err := parser.Parse(inputJSON)
 		Expect(err).To(BeNil())
 
-		if generateTestData() {
-			if _, err = os.Stat(fmt.Sprintf("./testdata/%s", folder)); os.IsNotExist(err) {
-				e := os.MkdirAll(fmt.Sprintf("./testdata/%s", folder), 0755)
-				Expect(e).To(BeNil())
-			}
-			err = os.WriteFile(fmt.Sprintf("./testdata/%s/generatedCSECommand", folder), []byte(cseCmd), 0644)
-			Expect(err).To(BeNil())
-		}
+		generateTestDataIfRequested(folder, cseCmd)
 
 		vars, err := getDecodedVarsFromCseCmd([]byte(cseCmd))
 		Expect(err).To(BeNil())
@@ -328,6 +318,115 @@ oom_score = 0
 	)
 })
 
+var _ = Describe("Test NBContract compatibility from Json to CSE command", func() {
+	DescribeTable("for test case", func(folder string, validator outputValidator) {
+		nBCB := nbcontractv1.NewNBContractBuilder()
+		nBCB.ApplyConfiguration(&nbcontractv1.Configuration{})
+
+		inputJSON, err := json.Marshal(nBCB.GetNodeBootstrapConfig())
+		if err != nil {
+			log.Printf("Failed to marshal the nbcontractv1 to json: %v", err)
+		}
+		cseCmd, err := parser.Parse(inputJSON)
+		Expect(err).To(BeNil())
+
+		generateTestDataIfRequested(folder, cseCmd)
+
+		vars, err := getDecodedVarsFromCseCmd([]byte(cseCmd))
+		Expect(err).To(BeNil())
+
+		result := &nodeBootstrappingOutput{
+			cseCmd: cseCmd,
+			vars:   vars,
+		}
+
+		if validator != nil {
+			validator(result)
+		}
+
+	}, Entry("with empty config. Parser Should provide default values to unset fields.", "Compatibility+EmptyConfig",
+		func(o *nodeBootstrappingOutput) {
+			sysctlContent, err := getBase64DecodedValue([]byte(o.vars["SYSCTL_CONTENT"]))
+			Expect(err).To(BeNil())
+			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.ipv4.tcp_retries2=%v", 8)))
+			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.core.message_burst=%v", 80)))
+			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.core.message_cost=%v", 40)))
+			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.core.somaxconn=%v", 16384)))
+			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.ipv4.tcp_max_syn_backlog=%v", 16384)))
+			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.ipv4.neigh.default.gc_thresh1=%v", 4096)))
+			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.ipv4.neigh.default.gc_thresh2=%v", 8192)))
+			Expect(sysctlContent).To(ContainSubstring(fmt.Sprintf("net.ipv4.neigh.default.gc_thresh3=%v", 16384)))
+			Expect(o.vars["IS_KATA"]).To(Equal("false"))
+			Expect(o.vars["ENABLE_UNATTENDED_UPGRADES"]).To(Equal("false"))
+			Expect(o.vars["NEEDS_CGROUPV2"]).To(Equal("false"))
+			Expect(o.vars["ADMINUSER"]).To(Equal("azureuser"))
+			Expect(o.vars["SWAP_FILE_SIZE_MB"]).To(Equal("0"))
+			Expect(o.vars["SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE"]).To(Equal("false"))
+			Expect(o.vars["THP_ENABLED"]).To(Equal(""))
+			Expect(o.vars["THP_DEFRAG"]).To(Equal(""))
+			Expect(o.vars["DISABLE_SSH"]).To(Equal("false"))
+			Expect(o.vars["IS_VHD"]).To(Equal("true"))
+			Expect(o.vars["NEEDS_DOCKER_LOGIN"]).To(Equal("false"))
+			Expect(o.vars["MOBY_VERSION"]).To(Equal(""))
+			Expect(o.vars["LOAD_BALANCER_SKU"]).To(Equal(""))
+			Expect(o.vars["NETWORK_POLICY"]).To(Equal(""))
+			Expect(o.vars["NETWORK_PLUGIN"]).To(Equal(""))
+			Expect(o.vars["CNI_PLUGINS_URL"]).To(Equal(""))
+			Expect(o.vars["VNET_CNI_PLUGINS_URL"]).To(Equal(""))
+			Expect(o.vars["GPU_NODE"]).To(Equal("false"))
+			Expect(o.vars["GPU_INSTANCE_PROFILE"]).To(Equal(""))
+			Expect(o.vars["CUSTOM_CA_TRUST_COUNT"]).To(Equal("0"))
+			Expect(o.vars["SHOULD_CONFIGURE_CUSTOM_CA_TRUST"]).To(Equal("false"))
+			Expect(o.vars["KUBELET_FLAGS"]).To(Equal(""))
+			Expect(o.vars["KUBELET_NODE_LABELS"]).To(Equal(""))
+			Expect(o.vars["HTTP_PROXY"]).To(Equal(""))
+			Expect(o.vars["HTTPS_PROXY"]).To(Equal(""))
+			Expect(o.vars["NO_PROXY"]).To(Equal(""))
+			Expect(o.vars["PROXY_TRUSTED_CA"]).To(Equal(""))
+			Expect(o.vars["TARGET_ENVIRONMENT"]).To(Equal(nbcontractv1.DefaultCloudName))
+
+		}),
+	)
+})
+
+var _ = Describe("Test contract compatibility handled by protobuf", func() {
+	DescribeTable("for test case", func(nbcUTFilePath string, validator func(*nbcontractv1.Configuration, *nbcontractv1.Configuration)) {
+		nbcExpected := getNBCInstance("./testdata/test_nbc.json")
+		nbcUT := getNBCInstance(nbcUTFilePath)
+
+		if validator != nil {
+			validator(nbcExpected, nbcUT)
+		}
+	}, Entry("with unexpected new fields in json should be ignored", "./testdata/test_nbc_fields_unexpected.json",
+		// test_nbc_fields_unexpected.json is based on test_nbc.json with additional fields "unexpected_new_field1", "unexpected_new_config1" and "unexpected_new_field2".
+		func(nbcExpected *nbcontractv1.Configuration, nbcUT *nbcontractv1.Configuration) {
+			// The unexpected fields will natively be ignored when unmarshalling the json to the contract object.
+			// We use this test to ensure it.
+			Expect(nbcExpected).To(Equal(nbcUT))
+		},
+	), Entry("with missing fields in json should be set with default values", "./testdata/test_nbc_fields_missing.json",
+		// test_nbc_fields_missing.json is based on test_nbc.json with missing fields "isVhd" and "excludeMasterFromStandardLoadBalancer".
+		// Missing fields should be set to default values by protobuf.
+		// Additional defaulting handling is at the stage of executing the CSE command gtpl which is not tested in this test but in the previous Compatibility test.
+		func(_ *nbcontractv1.Configuration, nbcUT *nbcontractv1.Configuration) {
+			// if a string field is unset, it will be set to empty string by protobuf by default
+			Expect(nbcUT.GetLinuxAdminUsername()).To(Equal(""))
+
+			// if an optional (explict presence) bool field is unset, it will be set to nil by protobuf by default.
+			// Here we don't use the getter because getter is nil safe and will default to false.
+			Expect(nbcUT.IsVhd).To(BeNil())
+
+			// if an optional (explict presence) field is unset, it will be set to nil by protobuf by default.
+			// Here we don't use the getter because getter is nil safe and will default to false.
+			Expect(nbcUT.ClusterConfig.LoadBalancerConfig.ExcludeMasterFromStandardLoadBalancer).To(BeNil())
+
+			// if an optional enum field is unset, it will be set to 0 (in this case LoadBalancerConfig_UNSPECIFIED) by protobuf by default.
+			Expect(nbcUT.ClusterConfig.LoadBalancerConfig.GetLoadBalancerSku()).To(Equal(nbcontractv1.LoadBalancerConfig_UNSPECIFIED))
+		},
+	),
+	)
+})
+
 func getDecodedVarsFromCseCmd(data []byte) (map[string]string, error) {
 	cseRegex := regexp.MustCompile(cseRegexString)
 	cseVariableList := cseRegex.FindAllStringSubmatch(string(data), -1)
@@ -361,4 +460,29 @@ func getBase64DecodedValue(data []byte) (string, error) {
 	}
 
 	return string(decoded), nil
+}
+
+func getNBCInstance(jsonFilePath string) *nbcontractv1.Configuration {
+	nBCB := nbcontractv1.NewNBContractBuilder()
+	nbc := nbcontractv1.Configuration{}
+	content, err := os.ReadFile(jsonFilePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err = json.Unmarshal(content, &nbc); err != nil {
+		log.Printf("Failed to unmarshal the nbcontractv1 from json: %v", err)
+	}
+	nBCB.ApplyConfiguration(&nbc)
+	return nBCB.GetNodeBootstrapConfig()
+}
+
+func generateTestDataIfRequested(folder, cseCmd string) {
+	if os.Getenv("GENERATE_TEST_DATA") == "true" {
+		if _, err := os.Stat(fmt.Sprintf("./testdata/%s", folder)); os.IsNotExist(err) {
+			e := os.MkdirAll(fmt.Sprintf("./testdata/%s", folder), 0755)
+			Expect(e).To(BeNil())
+		}
+		err := os.WriteFile(fmt.Sprintf("./testdata/%s/generatedCSECommand", folder), []byte(cseCmd), 0644)
+		Expect(err).To(BeNil())
+	}
 }
