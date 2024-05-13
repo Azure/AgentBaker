@@ -192,3 +192,7 @@ else
 fi
 
 echo "Tests Run Successfully"
+
+echo "Run Trivy and Storage Scans"
+az vm run-command invoke --resource-group $RESOURCE_GROUP_NAME --name $VM_NAME --command-id RunShellScript --scripts "../trivy-scan.sh"
+az vm run-command invoke --resource-group $RESOURCE_GROUP_NAME --name $VM_NAME --command-id RunShellScript --scripts "../storage-scan.sh"
