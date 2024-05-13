@@ -35,7 +35,8 @@ for image in $IMAGE_LIST; do
     ./trivy --scanners vuln image --ignore-unfixed --severity HIGH,CRITICAL -f table $image >> ${TRIVY_REPORT_TABLE_PATH} || true
 done
 
-rm ./trivy 
+rm ./trivy
+rm -rf ~/.cache/trivy
 
 chmod a+r "${TRIVY_REPORT_JSON_PATH}"
 chmod a+r "${TRIVY_REPORT_TABLE_PATH}"
