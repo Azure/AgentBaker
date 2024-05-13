@@ -354,8 +354,10 @@ unpackAzureCNI() {
 VNET_CNI_VERSIONS="
 1.4.43.1
 1.4.52
+1.4.54
 1.5.11
 1.5.23
+1.5.28
 "
 
 
@@ -371,8 +373,10 @@ done
 SWIFT_CNI_VERSIONS="
 1.4.43.1
 1.4.52
+1.4.54
 1.5.11
 1.5.23
+1.5.28
 "
 
 for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do

@@ -5,8 +5,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"log"
-	"strconv"
-	"strings"
 
 	"github.com/blang/semver"
 )
@@ -131,16 +129,6 @@ func (nBCB *NBContractBuilder) validateSemVer() error {
 	}
 
 	return nil
-}
-
-func (nBCB *NBContractBuilder) parseMinor(version string) (int, error) {
-	// It's ensured that it's a valid semantic version, namely x.y.z.
-	parts := strings.Split(version, ".")
-	minor, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return -1, fmt.Errorf("failed to parse minor version from %s", version)
-	}
-	return minor, nil
 }
 
 func (nBCB *NBContractBuilder) validateRequiredFields() error {
