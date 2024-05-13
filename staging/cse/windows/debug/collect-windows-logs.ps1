@@ -48,7 +48,9 @@ $lockedFiles = @(
   "containerd.log",
   "containerd.err.log",
   "hosts-config-agent.err.log",
-  "hosts-config-agent.log"
+  "hosts-config-agent.log",
+  "windows-exporter.err.log",
+  "windows-exporter.log"
 )
 
 $timeStamp = get-date -format 'yyyyMMdd-hhmmss'

@@ -82,7 +82,9 @@ $kLogFiles = @(
     "containerd.err.log",
     "hnsremediator.log",
     "windowslogscleanup.log",
-    "credential-provider-config.yaml"
+    "credential-provider-config.yaml",
+    "windows-exporter.err.log",
+    "windows-exporter.log"
 )
 $kLogFiles | Foreach-Object {
     Create-SymbolLinkFile -SrcFile (Join-Path "C:\k\" $_) -DestFile (Join-Path $aksLogFolder $_)
@@ -140,6 +142,7 @@ Collect-OldLogFiles -Folder "C:\k\" -LogFilePattern kubelet.err-*.*.log
 Collect-OldLogFiles -Folder "C:\k\" -LogFilePattern containerd.err-*.*.log
 Collect-OldLogFiles -Folder "C:\k\" -LogFilePattern azure-vnet.log.*
 Collect-OldLogFiles -Folder "C:\k\" -LogFilePattern azure-vnet-ipam.log.*
+Collect-OldLogFiles -Folder "C:\k\" -LogFilePattern windows-exporter.err-*.*.log
 
 # Collect running containers
 $res = Get-Command containerd.exe -ErrorAction SilentlyContinue
