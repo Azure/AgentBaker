@@ -194,10 +194,10 @@ fi
 echo "Tests Run Successfully"
 
 echo "Run Trivy and Storage Scans"
-PACKER_DIR=$(dirname "$CDIR")/..
+PACKER_DIR=$(dirname "$CDIR")
 pwd
-az vm run-command invoke --resource-group $RESOURCE_GROUP_NAME --name $VM_NAME --command-id RunShellScript --scripts "$CDIR/trivy-scan.sh"
-az vm run-command invoke --resource-group $RESOURCE_GROUP_NAME --name $VM_NAME --command-id RunShellScript --scripts "$CDIR/storage-scan.sh"
+az vm run-command invoke --resource-group $RESOURCE_GROUP_NAME --name $VM_NAME --command-id RunShellScript --scripts "$PACKER_DIR/trivy-scan.sh"
+az vm run-command invoke --resource-group $RESOURCE_GROUP_NAME --name $VM_NAME --command-id RunShellScript --scripts "$PACKER_DIR/storage-scan.sh"
 
 IP="10.0.0.4"
 TRIVY_REPORT_JSON_PATH=/opt/azure/containers/trivy-report.json
