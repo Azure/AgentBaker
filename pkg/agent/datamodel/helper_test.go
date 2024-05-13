@@ -346,3 +346,81 @@ func TestIndentString(t *testing.T) {
 		})
 	}
 }
+
+func TestGetContainerImageNameFromURL(t *testing.T) {
+	tests := []struct {
+		name        string
+		downloadURL string
+		expected    string
+		expectedErr string
+	}{
+		{
+			name:        "empty URL",
+			downloadURL: "",
+			expected:    "",
+			expectedErr: "container image component URL is not in the expected format: ",
+		},
+		{
+			name:        "valid URL",
+			downloadURL: "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
+			expected:    "addon-resizer",
+			expectedErr: "",
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := getContainerImageNameFromURL(test.downloadURL)
+			if err != nil {
+				if test.expectedErr != err.Error() {
+					t.Fatalf("expected error %s, instead got %s", test.expectedErr, err.Error())
+				}
+			} else {
+				if test.expected != got {
+					t.Fatalf("expected %s, instead got %s", test.expected, got)
+				}
+			}
+		})
+	}
+}
+
+func TestGetComponentNameFromURL(t *testing.T) {
+	tests := []struct {
+		name        string
+		downloadURL string
+		expected    string
+		expectedErr string
+	}{
+		{
+			name:        "empty URL",
+			downloadURL: "",
+			expected:    "",
+			expectedErr: "download file image URL is not in the expected format: ",
+		},
+		{
+			name:        "valid URL",
+			downloadURL: "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
+			expected:    "cni-plugins",
+			expectedErr: "",
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := getComponentNameFromURL(test.downloadURL)
+			if err != nil {
+				if test.expectedErr != err.Error() {
+					t.Fatalf("expected error %s, instead got %s", test.expectedErr, err.Error())
+				}
+			} else {
+				if test.expected != got {
+					t.Fatalf("expected %s, instead got %s", test.expected, got)
+				}
+			}
+		})
+	}
+}

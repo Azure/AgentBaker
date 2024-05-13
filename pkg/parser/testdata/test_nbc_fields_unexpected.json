@@ -1,0 +1,25 @@
+{
+    "tls_bootstrapping_config": {
+        "enable_secure_tls_bootstrapping": false
+    },
+    "cluster_config": {
+        "vm_type": 2,
+        "cluster_network_config": {
+            "subnet": "aks-subnet"
+        },
+        "use_instance_metadata": true,
+        "load_balancer_config": {
+            "exclude_master_from_standard_load_balancer": true,
+            "max_load_balancer_rule_count": 250
+        }
+    },
+    "is_vhd": true,
+    "enable_ssh": true,
+    "gpu_config": {
+        "config_gpu_driver": true
+    },
+    "unexpected_new_field1": "unexpected_new_value1",
+    "unexpected_new_config2": {
+        "unexpected_new_field2": "unexpected_new_value2"
+    }
+}

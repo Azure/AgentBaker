@@ -1638,8 +1638,6 @@ type K8sComponents struct {
 
 // GetLatestSigImageConfigRequest describes the input for a GetLatestSigImageConfig HTTP request.
 // This is mostly a wrapper over existing types so RP doesn't have to manually construct JSON.
-//
-//nolint:musttag // tags can be added if deemed necessary
 type GetLatestSigImageConfigRequest struct {
 	SIGConfig      SIGConfig
 	SubscriptionID string
@@ -1649,8 +1647,6 @@ type GetLatestSigImageConfigRequest struct {
 }
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
-//
-//nolint:musttag // tags can be added if deemed necessary
 type NodeBootstrappingConfiguration struct {
 	ContainerService              *ContainerService
 	CloudSpecConfig               *AzureEnvironmentSpecConfig
@@ -1702,6 +1698,12 @@ type NodeBootstrappingConfiguration struct {
 	SSHStatus                              SSHStatus
 	DisableCustomData                      bool
 	OutboundType                           string
+	EnableIMDSRestriction                  bool
+	// InsertIMDSRestrictionRuleToMangleTable is only checked when EnableIMDSRestriction is true.
+	// When this is true, iptables rule will be inserted to `mangle` table. This is for Linux Cilium
+	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
+	// our added rule is overwritten by Cilium.
+	InsertIMDSRestrictionRuleToMangleTable bool
 }
 
 type SSHStatus int
@@ -1713,8 +1715,6 @@ const (
 )
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
-//
-//nolint:musttag // tags can be added if deemed necessary
 type NodeBootstrapping struct {
 	CustomData     string
 	CSE            string
