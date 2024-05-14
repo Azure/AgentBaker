@@ -332,7 +332,8 @@ write_files:
 # will be used in vanilla TLS bootstrapping cases, as well as in secure TLS bootstrapping cases
 # as a fall-back in case kubelet needs to negotiate its own signed certificate.
 # removed at runtime if kubelet doesn't need it
-{{ if GetTLSBootstrapTokenForKubeConfig -}}
+# TODO(cameissner): remove from customdata and let CSE create it based on runtime conditionals
+{{ if EnableTLSBootstrapping -}}
 - path: /var/lib/kubelet/bootstrap-kubeconfig
   permissions: "0644"
   owner: root
