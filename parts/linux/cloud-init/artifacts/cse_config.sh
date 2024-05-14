@@ -514,7 +514,7 @@ EOF
         # we continue with CSE without ensuring the kubelet startup completed
         # due to user-assigned managed identities not being assigned by RP to agent nodes
         # until after the initial PUT has been completed, thus we need to ensure to
-        # complete CSE as quickly as possible so secure bootstrapping as a chance to run
+        # complete CSE as quickly as possible so secure bootstrapping has a chance to run
         # in cases where the node is using a kubelet identity
         systemctlEnableAndStartNoBlock kubelet || exit $ERR_KUBELET_START_FAIL
         return 0
