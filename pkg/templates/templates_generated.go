@@ -8682,9 +8682,6 @@ $global:VNetCNIPluginsURL = "{{GetParameter "vnetCniWindowsPluginsURL"}}"
 $global:IsDualStackEnabled = {{if IsIPv6DualStackFeatureEnabled}}$true{{else}}$false{{end}}
 $global:IsAzureCNIOverlayEnabled = {{if IsAzureCNIOverlayFeatureEnabled}}$true{{else}}$false{{end}}
 
-# Kubelet credential provider
-$global:CredentialProviderURL = "{{GetParameter "windowsCredentialProviderURL"}}"
-
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("{{GetVariable "windowsEnableCSIProxy" }}");
 $global:CsiProxyUrl = "{{GetVariable "windowsCSIProxyURL" }}";
@@ -8733,8 +8730,6 @@ $global:EnableIncreaseDynamicPortRange = $false
 
 $global:RebootNeeded = $false
 
-$global:IsSkipCleanupNetwork = [System.Convert]::ToBoolean("{{GetVariable "isSkipCleanupNetwork" }}");
-
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force
@@ -8759,7 +8754,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.42.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.40.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -8791,6 +8786,7 @@ try
     $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
 
     if ( $sshEnabled ) {
+        Write-Log "Install OpenSSH"
         Install-OpenSSH -SSHKeys $SSHKeys
     }
 
@@ -8815,9 +8811,7 @@ try
     Get-LogCollectionScripts
     
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
-
-    Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix {{if IsAKSCustomCloud}}"{{ AKSCustomCloudContainerRegistryDNSSuffix }}"{{else}}""{{end}} 
-
+    
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
     
     $cniBinPath = $global:AzureCNIBinDir
@@ -9020,6 +9014,11 @@ finally
     # $CSEResultFilePath is used to avoid running CSE multiple times
     Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
     Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage." 
+
+    Write-Log "Start to enable full support of CimFS"
+    c:\AzureData\windows\StagingTool.exe /enable 44354424 47273241 47273202 48004466 48230524
+    Postpone-RestartComputer
+
     # Please not use Write-Log or Logs-To-Events after Stop-Transcript
     Stop-Transcript
 
