@@ -299,7 +299,7 @@ configureKubeletSecureTLSBootstrap() {
     if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE" ]; then
         AAD_RESOURCE="$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"
     fi
-    TIMEOUT_START_SECONDS=390 # 6.5 minutes = 90s default + 300s for bootstrapping
+    TIMEOUT_START_SECONDS=270 # 90s (default) + 180s for secure bootstrapping = 4.5 minutes
 
     SECURE_TLS_BOOTSTRAP_KUBELET_DROP_IN=/etc/systemd/system/kubelet.service.d/10-securetlsbootstrap.conf
     mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAP_KUBELET_DROP_IN}")"

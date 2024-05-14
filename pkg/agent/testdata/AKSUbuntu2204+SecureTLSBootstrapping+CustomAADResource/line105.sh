@@ -5,7 +5,7 @@ set -euxo pipefail
 EVENTS_LOGGING_DIR="/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events"
 NEXT_PROTO_VALUE="aks-tls-bootstrap"
 
-RETRY_PERIOD_SECONDS=300 
+RETRY_PERIOD_SECONDS=180 
 RETRY_WAIT_SECONDS=3
 
 AAD_RESOURCE="${SECURE_TLS_BOOTSTRAP_AAD_RESOURCE:-""}"
@@ -30,7 +30,7 @@ logs_to_events() {
 
     msg_string=$(jq -n --arg Status "Succeeded" --arg Hostname "$(uname -n)" '{Status: $Status, Hostname: $Hostname}')
     if [ "$ret" != "0" ]; then
-        msg_string=$(jq -n --arg Status "Failed" --arg Hostname "$(uname -n)" --arg LogTail "$(tail -n 20 $LOG_FILE_PATH)" '{Status: $Status, Hostname: $Hostname, LogTail: $LogTail}')
+        msg_string=$(jq -n --arg Status "Failed" --arg Hostname "$(uname -n)" --arg LogTail "$(tail -n 10 $LOG_FILE_PATH)" '{Status: $Status, Hostname: $Hostname, LogTail: $LogTail}')
     fi
 
     json_string=$( jq -n \
