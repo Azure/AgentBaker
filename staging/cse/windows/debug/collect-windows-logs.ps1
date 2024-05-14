@@ -280,6 +280,9 @@ else {
 $res = Get-Command shimdiag.exe -ErrorAction SilentlyContinue
 if ($res) {
   Write-Host "Collecting logs of runhcs shim diagnostic tool"
+  shimdiag.exe list --pids > "$ENV:TEMP\$timeStamp-shimdiag-list-with-pids.txt"
+  $paths += "$ENV:TEMP\$timeStamp-shimdiag-list-with-pids.txt"
+  
   $tempShimdiagFile = Join-Path ([System.IO.Path]::GetTempPath()) ("shimdiag.txt")
   $shimdiagList = shimdiag.exe list
   Set-Content -Path $tempShimdiagFile -Value $shimdiagList
@@ -293,6 +296,17 @@ if ($res) {
 }
 else {
   Write-Host "shimdiag.exe command not available"
+}
+
+# run hcsdiag list
+$res = Get-Command hcsdiag.exe -ErrorAction SilentlyContinue
+if ($res) {
+  Write-Host "Collecting logs from hcsdiag tool"
+  hcsdiag.exe list > "$ENV:TEMP\$timeStamp-hcsdiag-list.txt"
+  $paths += "$ENV:TEMP\$timeStamp-hcsdiag-list.txt"
+}
+else {
+  Write-Host "hcsdiag.exe command not available"
 }
 
 # log containerd info
