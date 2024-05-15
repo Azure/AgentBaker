@@ -192,6 +192,5 @@ else
 fi
 
 echo "Tests Run Successfully"
-ls
-pwd
 
+# pwd = /go/src/github.com/Azure/AgentBaker

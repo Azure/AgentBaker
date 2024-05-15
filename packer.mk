@@ -97,3 +97,6 @@ convert-sig-to-classic-storage-account-blob: az-login
 
 test-building-vhd: az-login
 	@./vhdbuilder/packer/test/run-test.sh
+
+run-vhd-scans: az-login
+	@./vhdbuilder/packer/scans/vhd-scan.sh
