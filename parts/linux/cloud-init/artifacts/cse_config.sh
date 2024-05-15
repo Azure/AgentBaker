@@ -28,6 +28,23 @@ configureTransparentHugePage() {
     fi
 }
 
+configureSystemdUseDomains() {
+    NETWORK_CONFIG_FILE="/etc/systemd/networkd.conf"
+
+    if awk '/^\[DHCPv4\]/{flag=1; next} /^\[/{flag=0} flag && /#UseDomains=no/' "$NETWORK_CONFIG_FILE"; then
+        sed -i '/^\[DHCPv4\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' $NETWORK_CONFIG_FILE
+    fi
+
+    if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
+        if awk '/^\[DHCPv6\]/{flag=1; next} /^\[/{flag=0} flag && /#UseDomains=no/' "$NETWORK_CONFIG_FILE"; then
+            sed -i '/^\[DHCPv6\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' $NETWORK_CONFIG_FILE
+        fi
+    fi
+
+    # Restart systemd networkd service
+    systemctl restart systemd-networkd
+}
+
 configureSwapFile() {
     # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
     swap_size_kb=$(expr ${SWAP_FILE_SIZE_MB} \* 1000)
@@ -503,6 +520,14 @@ EOF
 # for DNS.
 iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
 EOF
+
+    # check if kubelet flags contain image-credential-provider-config and image-credential-provider-bin-dir
+    if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
+        echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
+        logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
+        logs_to_events "AKS.CSE.ensureKubelet.installCredentalProvider" installCredentalProvider
+    fi
+
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
 }
 
@@ -694,6 +719,122 @@ ensureGPUDrivers() {
 
 disableSSH() {
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
+}
+
+configCredentialProvider() {
+    CREDENTIAL_PROVIDER_CONFIG_FILE=/var/lib/kubelet/credential-provider-config.yaml
+    mkdir -p "$(dirname "${CREDENTIAL_PROVIDER_CONFIG_FILE}")"
+    touch "${CREDENTIAL_PROVIDER_CONFIG_FILE}"
+    if [[ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]]; then
+        tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+      - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json
+EOF
+    else
+    tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json
+EOF
+    fi
+}
+
+getPrimaryNicIP() {
+    local sleepTime=1
+    local maxRetries=10
+    local i=0
+    local ip=""
+
+    while [[ $i -lt $maxRetries ]]; do
+        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[].ipv4.ipAddress[0].privateIpAddress')
+        if [[ -n "$ip" && $? -eq 0 ]]; then
+            break
+        fi
+        sleep $sleepTime
+        i=$((i+1))
+    done
+    echo "$ip"
+}
+
+# $1 - boolean, if true, insert the iptables rule to mangle table; otherwise insert the rule to filter table. Default value is false.
+ensureIMDSRestrictionRule() {
+    local primaryNicIP=$(getPrimaryNicIP)
+    if [[ -z "$primaryNicIP" ]]; then
+        echo "Primary NIC IP not found"
+        exit $ERR_PRIMARY_NIC_IP_NOT_FOUND
+    fi
+    echo "Primary NIC IP: $primaryNicIP"
+
+    local insertRuleToMangleTable=${1:-false}
+    if [[ $insertRuleToMangleTable == true ]]; then
+        echo "Before inserting IMDS restriction rule to mangle table, checking whether the rule already exists..."
+        iptables -t mangle -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
+        if [[ $? -eq 0 ]]; then
+            echo "IMDS restriction rule already exists in mangle table, returning..."
+            return
+        fi
+        echo "Inserting IMDS restriction rule to mangle table..."
+        iptables -t mangle -I FORWARD 1 ! -s "$primaryNicIP" -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_MANGLE_TABLE
+    else
+        echo "Before inserting IMDS restriction rule to filter table, checking whether the rule already exists..."
+        iptables -t filter -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
+        if [[ $? -eq 0 ]]; then
+            echo "IMDS restriction rule already exists in filter table, returning..."
+            return
+        fi
+        echo "Inserting IMDS restriction rule to filter table..."
+        iptables -t filter -I FORWARD 1 ! -s "$primaryNicIP" -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_FILTER_TABLE
+    fi
+}
+
+# checks both mangle and filter tables for the IMDS restriction rule and deletes it if found
+disableIMDSRestriction() {
+    local primaryNicIP=$(getPrimaryNicIP)
+    if [[ -z "$primaryNicIP" ]]; then
+        echo "Primary NIC IP not found"
+        exit $ERR_PRIMARY_NIC_IP_NOT_FOUND
+    fi
+    echo "Primary NIC IP: $primaryNicIP"
+
+    echo "Checking whether IMDS restriction rule exists in mangle table..."
+    iptables -t mangle -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
+    if [[ $? -ne 0 ]]; then
+        echo "IMDS restriction rule does not exist in mangle table, no need to delete"
+    else
+        echo "Deleting IMDS restriction rule from mangle table..."
+        iptables -t mangle -D FORWARD ! -s $primaryNicIP -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_MANGLE_TABLE
+    fi
+
+    echo "Checking whether IMDS restriction rule exists in filter table..."
+    iptables -t filter -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
+    if [[ $? -ne 0 ]]; then
+         echo "IMDS restriction rule does not exist in filter table, no need to delete"
+    else
+        echo "Deleting IMDS restriction rule from filter table..."
+        iptables -t filter -D FORWARD ! -s $primaryNicIP -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_FILTER_TABLE
+    fi
 }
 
 #EOF

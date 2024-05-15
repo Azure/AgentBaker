@@ -1,5 +1,6 @@
 [Unit]
 Description=Configure nftables rules for handling Azure SLB IPv6 health probe packets
+Before=kubelet.service
 
 [Service]
 Type=simple

@@ -199,6 +199,13 @@ if [ "${NEEDS_DOCKER_LOGIN}" == "true" ]; then
     set -x
 fi
 
+# Before setting up kubelet, ensure IMDS restriction iptables rules so that all Pods can get desired IMDS access
+if [ "${ENABLE_IMDS_RESTRICTION}" == "true" ]; then
+    logs_to_events "AKS.CSE.ensureIMDSRestrictionRule" ensureIMDSRestrictionRule "${INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE}"
+else
+    logs_to_events "AKS.CSE.disableIMDSRestriction" disableIMDSRestriction
+fi
+
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
 createKubeManifestDir
@@ -218,6 +225,12 @@ logs_to_events "AKS.CSE.configureCNI" configureCNI
 # configure and enable dhcpv6 for dual stack feature
 if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
+fi
+
+# For systemd in Azure Linux, UseDomains= is by default disabled for security purposes. Enable this
+# configuration within Azure Linux AKS that operates on trusted networks to support hostname resolution
+if [[ $OS == $MARINER_OS_NAME ]]; then
+    logs_to_events "AKS.CSE.configureSystemdUseDomains" configureSystemdUseDomains
 fi
 
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then

@@ -194,8 +194,7 @@ var expectedKubeletJSON = `{
     "featureGates": {
         "CustomCPUCFSQuotaPeriod": true,
         "DynamicKubeletConfig": false,
-        "RotateKubeletServerCertificate": true,
-        "TopologyManager": true
+        "RotateKubeletServerCertificate": true
     },
     "failSwapOn": false,
     "containerLogMaxSize": "1000M",
@@ -276,8 +275,7 @@ var expectedKubeletJSONWithNodeStatusReportFrequency = `{
     "featureGates": {
         "CustomCPUCFSQuotaPeriod": true,
         "DynamicKubeletConfig": false,
-        "RotateKubeletServerCertificate": true,
-        "TopologyManager": true
+        "RotateKubeletServerCertificate": true
     },
     "failSwapOn": false,
     "systemReserved": {
@@ -355,8 +353,7 @@ var expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags = `{
     "featureGates": {
         "CustomCPUCFSQuotaPeriod": true,
         "DynamicKubeletConfig": false,
-        "RotateKubeletServerCertificate": true,
-        "TopologyManager": true
+        "RotateKubeletServerCertificate": true
     },
     "failSwapOn": false,
     "containerLogMaxSize": "50M",

@@ -2,16 +2,18 @@ syntax = "proto3";
 package nbcontract.v1;
 
 message NetworkConfig {
-
-  // NetworkPlugin is the network plugin to be used by the cluster. Options are NONE, AZURE, KUBENET.
+  // Network plugin to be used by the cluster. Options are NONE, AZURE, KUBENET.
   NetworkPlugin network_plugin = 1;
 
-  // NetworkPolicy is the network policy to be used by the cluster.
+  // Network policy to be used by the cluster.
   // This is still needed to compute ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE. 
   // Other than that, it is not used by others. See the discussions here https://github.com/Azure/AgentBaker/pull/4241#discussion_r1554283228
   NetworkPolicy network_policy = 2;
 
+  // URL to the vnet cni plugins tarball.
   string vnet_cni_plugins_url = 3;
+
+  // URL to the cni plugins tarball.
   string cni_plugins_url = 4;
 }
 
