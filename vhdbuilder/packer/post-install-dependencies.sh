@@ -28,14 +28,6 @@ MAX_BLOCK_COUNT=30298176 # 30 GB
 stop_watch $capture_time "Set Variables" false
 start_watch
 
-echo "Logging disk usage before final purge"
-os_device=$(readlink -f /dev/disk/azure/root)
-used_blocks=$(df -P / | sed 1d | awk '{print $3}')
-usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
-usage=${usage%.*}
-[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
-[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
-
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # shellcheck disable=SC2021
   current_kernel="$(uname -r | cut -d- -f-2)"
@@ -44,6 +36,9 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   else
     dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "linux-\(headers\|modules\|image\)-azure" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
   fi
+
+  # remove apport
+  retrycmd_if_failure 10 2 60 apt-get purge --auto-remove apport open-vm-tools -y || exit 1
 
   # strip old kernels/packages
   retrycmd_if_failure 10 2 60 apt-get -y autoclean || exit 1

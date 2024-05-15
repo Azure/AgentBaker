@@ -471,14 +471,6 @@ rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 # NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 
 # kube-proxy regular versions >=v1.17.0  hotfixes versions >= 20211009 are 'multi-arch'. All versions in kube-proxy-images.json are 'multi-arch' version now.
-MAX_BLOCK_COUNT=30298176 # 30 GB
-echo "Logging disk usage before installing kube proxy images"
-os_device=$(readlink -f /dev/disk/azure/root)
-used_blocks=$(df -P / | sed 1d | awk '{print $3}')
-usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
-usage=${usage%.*}
-[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
-[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
 
 KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
 
@@ -503,15 +495,6 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
 done
 stop_watch $capture_time "Configure Telemetry, Create Logging Directory, Kube-proxy" false
 start_watch
-
-MAX_BLOCK_COUNT=30298176 # 30 GB
-echo "Logging disk usage after installing kube proxy images"
-os_device=$(readlink -f /dev/disk/azure/root)
-used_blocks=$(df -P / | sed 1d | awk '{print $3}')
-usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
-usage=${usage%.*}
-[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
-[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
@@ -543,8 +526,6 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # remove snapd, which is not used by container stack
   apt_get_purge 20 30 120 snapd || exit 1
   apt_get_purge 20 30 120 apache2-utils || exit 1
- # remove apport
-  retrycmd_if_failure 10 2 60 apt-get purge --auto-remove apport open-vm-tools -y || exit 1
 
   apt-get -y autoclean || exit 1
   apt-get -y autoremove --purge || exit 1
@@ -577,14 +558,6 @@ if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
   done
 fi
 
-echo "Logging disk usage before installing kube binaries"
-os_device=$(readlink -f /dev/disk/azure/root)
-used_blocks=$(df -P / | sed 1d | awk '{print $3}')
-usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
-usage=${usage%.*}
-[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
-[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
-
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
 # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
@@ -596,23 +569,7 @@ KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
   extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false
-  echo "Logging disk usage AFTER installing kube binary image for ${PATCHED_KUBE_BINARY_VERSION}"
-  MAX_BLOCK_COUNT=30298176 # 30 GB
-  os_device=$(readlink -f /dev/disk/azure/root)
-  used_blocks=$(df -P / | sed 1d | awk '{print $3}')
-  usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
-  usage=${usage%.*}
-  [ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
-  [ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
 done
-
-echo "Logging disk usage AFTER installing kube binary images"
-os_device=$(readlink -f /dev/disk/azure/root)
-used_blocks=$(df -P / | sed 1d | awk '{print $3}')
-usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
-usage=${usage%.*}
-[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
-[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 stop_watch $capture_time "Download and Process Kubernetes Packages / Extract Binaries" false
