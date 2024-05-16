@@ -311,7 +311,7 @@ testCloudInit() {
     if test -f "$FILE"; then
       echo "Check cloud-init log exist."
       if grep 'WARNING\|ERROR' $FILE; then
-        grep 'WARNING\|ERROR' $FILE | while read msg; do 
+        grep 'WARNING\|ERROR' $FILE | while read -r msg; do 
           for pattern in "${CLOUD_INIT_LOG_IGNORING_MSG[@]}"; do
               echo $msg
               if [[ "$a" == *"$pattern"* ]]; then
