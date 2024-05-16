@@ -163,7 +163,8 @@ $global:IsAzureCNIOverlayEnabled = $false
 # Kubelet credential provider
 $global:CredentialProviderURL = ""
 
-# Kubelet secure TLS bootstrapping settings
+# Kubelet secure TLS bootstrapping settings and related vars
+$global:MasterFQDN = "uttestdom-dns-5d7c849e.hcp.southcentralus.azmk8s.io"
 $global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("true")
 $global:CustomSecureTLSBootstrapAADResource = ""
 
@@ -298,6 +299,7 @@ try
     
     Write-KubeClusterConfig `
         -MasterIP $MasterIP `
+        -MasterFQDN $global:MasterFQDN `
         -KubeDnsServiceIp $KubeDnsServiceIp `
         -EnableSecureTLSBootstrapping $global:EnableSecureTLSBootstrapping `
         -CustomSecureTLSBootstrapAADResource $global:CustomSecureTLSBootstrapAADResource

@@ -75,7 +75,7 @@ function Write-KubeClusterConfig {
         [Parameter(Mandatory = $true)][string]
         $MasterIP,
         [Parameter(Mandatory = $true)][string]
-        $MasterFQDNPrefix,
+        $MasterFQDN,
         [Parameter(Mandatory = $true)][string]
         $KubeDnsServiceIp,
         [Parameter(Mandatory = $false)][bool]
@@ -120,6 +120,7 @@ function Write-KubeClusterConfig {
         };
         ControlPlane = @{
             IpAddress    = $MasterIP;
+            MasterFQDN   = $MasterFQDN
             Username     = "azureuser"
             MasterSubnet = $global:MasterSubnet
         };
@@ -132,10 +133,9 @@ function Write-KubeClusterConfig {
             NodeLabels = $global:KubeletNodeLabels;
             ConfigArgs = $global:KubeletConfigArgs
             SecureTLSBootstrapArgs = @{
-                Enabled =          $EnableSecureTLSBootstrapping
-                MasterFQDNPrefix = $MasterFQDNPrefix
-                AADResource =      $CustomSecureTLSBootstrapAADResource
-            }
+                Enabled =     $EnableSecureTLSBootstrapping;
+                AADResource = $CustomSecureTLSBootstrapAADResource
+            };
         };
         Kubeproxy    = @{
             FeatureGates = $global:KubeproxyFeatureGates;

@@ -167,7 +167,8 @@ $global:IsAzureCNIOverlayEnabled = {{if IsAzureCNIOverlayFeatureEnabled}}$true{{
 # Kubelet credential provider
 $global:CredentialProviderURL = "{{GetParameter "windowsCredentialProviderURL"}}"
 
-# Kubelet secure TLS bootstrapping settings
+# Kubelet secure TLS bootstrapping settings and related vars
+$global:MasterFQDN = "{{GetKubernetesEndpoint}}"
 $global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("{{EnableSecureTLSBootstrapping}}")
 $global:CustomSecureTLSBootstrapAADResource = "{{GetCustomSecureTLSBootstrapAADServerAppID}}"
 
@@ -302,6 +303,7 @@ try
     
     Write-KubeClusterConfig `
         -MasterIP $MasterIP `
+        -MasterFQDN $global:MasterFQDN `
         -KubeDnsServiceIp $KubeDnsServiceIp `
         -EnableSecureTLSBootstrapping $global:EnableSecureTLSBootstrapping `
         -CustomSecureTLSBootstrapAADResource $global:CustomSecureTLSBootstrapAADResource

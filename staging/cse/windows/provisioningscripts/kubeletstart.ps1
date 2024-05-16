@@ -1,6 +1,7 @@
 $Global:ClusterConfiguration = ConvertFrom-Json ((Get-Content "c:\k\kubeclusterconfig.json" -ErrorAction Stop) | out-string)
 
 $global:MasterIP = $Global:ClusterConfiguration.Kubernetes.ControlPlane.IpAddress
+$global:MasterFQDN = $Global:ClusterConfiguration.Kubernetes.ControlPlane.MasterFQDN
 $global:KubeDnsSearchPath = "svc.cluster.local"
 $global:KubeDnsServiceIp = $Global:ClusterConfiguration.Kubernetes.Network.DnsIp
 $global:MasterSubnet = $Global:ClusterConfiguration.Kubernetes.ControlPlane.MasterSubnet
@@ -57,15 +58,14 @@ if ($global:KubeBinariesVersion -lt "1.27.0") {
 
 # Run the secure TLS bootstrap script to generate a kubelet client certificate, if enabled
 if ($global:EnableSecureTLSBootstrapping) {
-    if (!$env:MasterFQDNPrefix) {
-        Write-Host "secure TLS bootstrapping is enabled but master FQDN prefix has not been supplied to the kubelet service"
-        exit 1
-    }
     $aadResource = $global:DefaultSecureTLSBootstrapAADResource
-    if ($env:CustomSecureTLSBootstrapAADResource) {
-        $aadResource = $env:CustomSecureTLSBootstrapAADResource
+    if ($global:CustomSecureTLSBootstrapAADResource) {
+        $aadResource = $global:CustomSecureTLSBootstrapAADResource
     }
-    & "c:\k\securetlsbootstrap.ps1 -KubeDir $global:KubeDir -APIServerFQDN $env:MasterFQDNPrefix -AADResource $aadResource"
+    & "c:\k\securetlsbootstrap.ps1 -KubeDir $global:KubeDir -APIServerFQDN $global:MasterFQDN -AADResource $aadResource"
+    if (!$?) {
+        Write-Host "secure TLS bootstrapping failed, will continue to start kubelet..."
+    }
 }
 
 # If we have a kubeconfig at this point, we know this indicates that either:
