@@ -165,7 +165,7 @@ $global:CredentialProviderURL = ""
 
 # Kubelet secure TLS bootstrapping settings and related vars
 $global:MasterFQDN = "uttestdom-dns-5d7c849e.hcp.southcentralus.azmk8s.io"
-$global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("false")
+$global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("true")
 $global:CustomSecureTLSBootstrapAADResource = ""
 
 # CSI Proxy settings
