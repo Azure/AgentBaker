@@ -23,6 +23,12 @@ $global:CNIPath = [Io.path]::Combine("$global:KubeDir", "cni")
 $global:CNIConfig = [Io.path]::Combine($global:CNIPath, "config", "$global:NetworkMode.conf")
 $global:CNIConfigPath = [Io.path]::Combine("$global:CNIPath", "config")
 
+$global:KubeconfigPath = [Io.path]::Combine("$global:KubeDir", "config")
+$global:BootstrapKubeconfigPath = [io.path]::Combine("$global:KubeDir", "bootstrap-config")
+$global:EnableSecureTLSBootstrapping = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.Enabled
+$global:SecureTLSBootstrapScriptPath = [Io.path]::Combine("$global:KubeDir", "securetlsbootstrap.ps1")
+$global:DefaultSecureTLSBootstrapAADResource = "6dae42f8-4368-4678-94ff-3960e28e3630"
+
 $global:HNSModule = "c:\k\hns.v2.psm1"
 
 ipmo $global:HNSModule
@@ -46,6 +52,32 @@ $KubeletArgList += @("--container-runtime-endpoint=npipe://./pipe/containerd-con
 # Reference: https://github.com/kubernetes/kubernetes/blob/master/CHANGELOG/CHANGELOG-1.27.md#other-cleanup-or-flake
 if ($global:KubeBinariesVersion -lt "1.27.0") {
     $KubeletArgList += @("--container-runtime=remote")
+}
+
+# Run the secure TLS bootstrap script to generate a kubelet client certificate, if enabled
+if ($global:EnableSecureTLSBootstrapping) {
+    if (!$env:MasterFQDNPrefix) {
+        Write-Host "secure TLS bootstrapping is enabled but master FQDN prefix has not been supplied to the kubelet service"
+        exit 1
+    }
+    $aadResource = $global:DefaultSecureTLSBootstrapAADResource
+    if ($env:CustomSecureTLSBootstrapAADResource) {
+        $aadResource = $env:CustomSecureTLSBootstrapAADResource
+    }
+    & "c:\k\securetlsbootstrap.ps1 -KubeDir $global:KubeDir -APIServerFQDN $env:MasterFQDNPrefix -AADResource $aadResource"
+}
+
+# If we have a kubeconfig at this point, we know this indicates that either:
+# a) secure TLS bootstrapping has succeeded
+# b) we don't have a bootstrap token with which to create a bootstrap-
+if (Test-Path $global:KubeconfigPath) {
+    Remove-Item $global:BootstrapKubeconfigPath
+}
+
+# If we don't have a kubeconfig but we do have a bootstrap kubeconfig we can fall back to,
+# specify it as a valid bootstrap-kubeconfig in the kubelet arg list
+if (!Test-Path $global:KubeconfigPath -and Test-Path $global:BootstrapKubeconfigPath) {
+    $KubeletArgList += " --bootstrap-kubeconfig=$global:BootstrapKubeconfigPath"
 }
 
 # Used in WinCNI version of kubeletstart.ps1

@@ -318,7 +318,8 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 			config.KubeletConfig = make(map[string]string)
 		}
 
-		config.KubeletConfig["--bootstrap-kubeconfig"] = "c:\\k\\bootstrap-config"
+		// We used to also set bootstrap-kubeconfig here as well, though now we delegate to CSE to determine
+		// at runtime whether we need to pass --bootstrap-kubeconfig to the kubelet process
 		config.KubeletConfig["--cert-dir"] = "c:\\k\\pki"
 	}
 	if config.KubeletConfig != nil {

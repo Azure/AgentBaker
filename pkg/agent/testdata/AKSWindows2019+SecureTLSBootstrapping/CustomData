@@ -164,7 +164,7 @@ $global:IsAzureCNIOverlayEnabled = $false
 $global:CredentialProviderURL = ""
 
 # Kubelet secure TLS bootstrapping settings
-$global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("false")
+$global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("true")
 $global:CustomSecureTLSBootstrapAADResource = ""
 
 # CSI Proxy settings
@@ -172,7 +172,7 @@ $global:EnableCsiProxy = [System.Convert]::ToBoolean("false");
 $global:CsiProxyUrl = "";
 
 # Hosts Config Agent settings
-$global:EnableHostsConfigAgent = [System.Convert]::ToBoolean("true");
+$global:EnableHostsConfigAgent = [System.Convert]::ToBoolean("false");
 
 # These scripts are used by cse
 $global:CSEScriptsPackageUrl = "";
