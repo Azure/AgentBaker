@@ -56,7 +56,7 @@ if [[ "${DISABLE_SSH}" == "true" ]]; then
     disableSSH || exit $ERR_DISABLE_SSH
 fi
 
-# This involes using proxy, log the config before fetching packages
+# This involves using proxy, log the config before fetching packages
 echo "private egress proxy address is '${PRIVATE_EGRESS_PROXY_ADDRESS}'"
 # TODO update to use proxy
 
