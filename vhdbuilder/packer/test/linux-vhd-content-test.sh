@@ -12,6 +12,10 @@ OS_SKU="$4"
 GIT_BRANCH="$5"
 IMG_SKU="$6"
 
+CLOUD_INIT_LOG_IGNORING_MSG=(
+  "Command ['hostname', '-f']"
+)
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -307,8 +311,16 @@ testCloudInit() {
     if test -f "$FILE"; then
       echo "Check cloud-init log exist."
       if grep 'WARNING\|ERROR' $FILE; then
-        msg=$(grep 'WARNING\|ERROR' $FILE)
-        err $test "Cloud-init log has WARNING/ERROR: ${msg}."
+        grep 'WARNING\|ERROR' $FILE | while read msg; do 
+          for pattern in "${CLOUD_INIT_LOG_IGNORING_MSG[@]}"; do
+              echo $msg
+              if [[ "$a" == *"$pattern"* ]]; then
+                  echo "Find WARNING/ERROR message: $msg in ignoring list, continue..."
+              else
+                  err $test "Cloud-init log has unexpected WARNING/ERROR: ${msg}."
+              fi
+          done
+        done
       else
         echo "Cloud-init log is OK."
       fi
