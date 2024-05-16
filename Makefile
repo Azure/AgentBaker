@@ -38,7 +38,6 @@ else
 LDFLAGS := -s -X main.version=$(VERSION)
 endif
 BINARY_DEST_DIR ?= bin
-PARSER_DIR := $(CURDIR)/pkg/parser
 
 ifeq ($(OS),Windows_NT)
 	EXTENSION = .exe
@@ -86,16 +85,9 @@ validate-image-version:
 generate-kubelet-flags:
 	@./e2e/kubelet/generate-kubelet-flags.sh
 
-.PHONY: update-contract
-update-contract: compile-proto-files build-parser-binary
-
 .PHONY: compile-proto-files
 compile-proto-files:
 	@./hack/tools/bin/buf generate -o . --path ./pkg/proto/ --template ./pkg/proto/buf.gen.yaml
-
-.PHONY: build-parser-binary
-build-parser-binary:
-	@go build $(GOFLAGS) -v -ldflags "$(LDFLAGS)" -o $(PARSER_DIR)/bin/parser $(PARSER_DIR)/cmd/main.go
 
 .PHONY: generate
 generate: bootstrap

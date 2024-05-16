@@ -89,8 +89,8 @@
     },
     {
       "type": "file",
-      "source": "pkg/parser/bin/parser",
-      "destination": "/home/packer/parser"
+      "source": "pkg/nbcparser/bin/nbcparser",
+      "destination": "/home/packer/nbcparser"
     },
     {
       "type": "file",
