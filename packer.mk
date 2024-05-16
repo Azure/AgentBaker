@@ -100,4 +100,4 @@ test-building-vhd: az-login
 
 build-nbcparser-binary:
 	@echo "Building nbcparser binary"
-	@bash -c "pushd pkg/nbcparser; go build main.go -o bin/nbcparser"
+	@bash -c "pushd pkg/nbcparser; go build -o bin/nbcparser main.go"
