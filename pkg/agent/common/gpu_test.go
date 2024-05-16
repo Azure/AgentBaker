@@ -198,9 +198,9 @@ func TestGetGPUDriverVersion(t *testing.T) {
 		{"CUDA Driver - NC Series v2", "standard_nc6s_v2", nvidia550CudaDriverVersion},
 		{"Unknown SKU", "unknown_sku", nvidia550CudaDriverVersion},
 		{"CUDA Driver - NC Series v3", "standard_nc6s_v3", nvidia550CudaDriverVersion},
-		{"GRID Driver - A10", "standard_nc8ads_a10_v4", nvidia550CudaDriverVersion},
-		{"GRID Driver - NV Series v5", "standard_nv6ads_a10_v5", nvidia550CudaDriverVersion},
-		{"GRID Driver - A10", "standard_nv36adms_a10_V5", nvidia550CudaDriverVersion},
+		{"GRID Driver - A10", "standard_nc8ads_a10_v4", nvidia535GridDriverVersion},
+		{"GRID Driver - NV Series v5", "standard_nv6ads_a10_v5", nvidia535GridDriverVersion},
+		{"GRID Driver - A10", "standard_nv36adms_a10_V5", nvidia535GridDriverVersion},
 		// NV V1 SKUs were retired in September 2023, leaving this test just for safety
 		{"CUDA Driver - NV Series v1", "standard_nv6", nvidia550CudaDriverVersion},
 	}

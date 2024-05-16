@@ -245,12 +245,12 @@ func GetCommaSeparatedMarinerGPUSizes() string {
 // NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?).
 func GetGPUDriverVersion(size string) string {
 	if useGridDrivers(size) {
-		return nvidia550GridDriverVersion
+		return nvidia535GridDriverVersion
 	}
 	if isStandardNCv1(size) {
 		return nvidia470CudaDriverVersion
 	}
-	return nvidia550GridDriverVersion
+	return nvidia550CudaDriverVersion
 }
 
 func isStandardNCv1(size string) bool {
