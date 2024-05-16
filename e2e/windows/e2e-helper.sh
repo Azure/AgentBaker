@@ -23,7 +23,7 @@ backfill_clean_storage_container() {
     k8s_versions=${versions//./}
 
     # Get container names e.g. akswinstore2022-1256 (for this $container_version would be "1256")
-    container_names=$(az storage container list --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --query "[?starts_with(name, 'akswinstore')].name" -o tsv)
+    container_names=$(az storage container list --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --auth-mode "login" --query "[?starts_with(name, 'akswinstore')].name" -o tsv)
     # Check if the container version is still supported and delete the container if not
     for container_name in $container_names; do
         container_version=$(echo $container_name | cut -d '-' -f 2- | awk '{print tolower($0)}')
@@ -33,7 +33,7 @@ backfill_clean_storage_container() {
         else
             echo "The version $container_version is not available in the $AZURE_BUILD_LOCATION region."
             echo "Deleting the container."
-            az storage container delete --name $container_name --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY
+            az storage container delete --name $container_name --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --auth-mode "login"
             echo "Deletion completed."
         fi
     done
@@ -45,16 +45,16 @@ create_storage_container() {
     set +x
 
     # check if the storage container exists and create one if not
-    exists=$(az storage container exists --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY --name $WINDOWS_E2E_STORAGE_CONTAINER)
+    exists=$(az storage container exists --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --auth-mode "login" --name $WINDOWS_E2E_STORAGE_CONTAINER)
     if [[ $exists == *false* ]]; then
-        az storage container create -n $WINDOWS_E2E_STORAGE_CONTAINER --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY
+        az storage container create -n $WINDOWS_E2E_STORAGE_CONTAINER --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --auth-mode "login"
         echo "Created storage container $WINDOWS_E2E_STORAGE_CONTAINER in $AZURE_E2E_STORAGE_ACCOUNT_NAME"
     else
         # check if the storage container is empty and delete the blobs within one by one if not
-        blob_list=$(az storage blob list --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --container-name $WINDOWS_E2E_STORAGE_CONTAINER --account-key $MAPPED_ACCOUNT_KEY -o json | jq -r '.[] | .name')
+        blob_list=$(az storage blob list --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --container-name $WINDOWS_E2E_STORAGE_CONTAINER --auth-mode "login" -o json | jq -r '.[] | .name')
         if [[ -n $blob_list ]]; then
             for blob in $blob_list; do
-                az storage blob delete --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --container-name $WINDOWS_E2E_STORAGE_CONTAINER --account-key $MAPPED_ACCOUNT_KEY --name $blob
+                az storage blob delete --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --container-name $WINDOWS_E2E_STORAGE_CONTAINER --auth-mode "login" --name $blob
                 echo "Deleted blob $blob from storage container $WINDOWS_E2E_STORAGE_CONTAINER in the storage account $AZURE_E2E_STORAGE_ACCOUNT_NAME"
             done
         fi
@@ -158,13 +158,13 @@ cleanupOutdatedFiles() {
 
     for CONTAINER_NAME in "${CONTAINER_LIST[@]}"
     do 
-        result=$(az storage blob list -c $CONTAINER_NAME --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY -o json \
+        result=$(az storage blob list -c $CONTAINER_NAME --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --auth-mode "login" -o json \
         | jq -r --arg time "$dateOfdeadline" '.[] | select(.properties.creationTime < $time)' \
         | jq -r '.name')
 
         for item in $result
         do
-            az storage blob delete -c $CONTAINER_NAME --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --account-key $MAPPED_ACCOUNT_KEY -n $item
+            az storage blob delete -c $CONTAINER_NAME --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --auth-mode "login" -n $item
             echo "Deleted $item in $CONTAINER_NAME"
         done
     done
