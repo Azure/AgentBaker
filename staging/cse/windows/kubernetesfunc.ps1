@@ -132,9 +132,9 @@ function Write-KubeClusterConfig {
             NodeLabels = $global:KubeletNodeLabels;
             ConfigArgs = $global:KubeletConfigArgs
             SecureTLSBootstrapArgs = @{
-                Enabled =                             $EnableSecureTLSBootstrapping
-                MasterFQDNPrefix =                    $MasterFQDNPrefix
-                CustomSecureTLSBootstrapAADResource = $CustomSecureTLSBootstrapAADResource
+                Enabled =          $EnableSecureTLSBootstrapping
+                MasterFQDNPrefix = $MasterFQDNPrefix
+                AADResource =      $CustomSecureTLSBootstrapAADResource
             }
         };
         Kubeproxy    = @{

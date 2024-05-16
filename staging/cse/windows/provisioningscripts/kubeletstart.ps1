@@ -27,6 +27,7 @@ $global:KubeconfigPath = [Io.path]::Combine("$global:KubeDir", "config")
 $global:BootstrapKubeconfigPath = [io.path]::Combine("$global:KubeDir", "bootstrap-config")
 $global:EnableSecureTLSBootstrapping = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.Enabled
 $global:SecureTLSBootstrapScriptPath = [Io.path]::Combine("$global:KubeDir", "securetlsbootstrap.ps1")
+$global:CustomSecureTLSBootstrapAADResource = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.CustomSecureTLSBootstrapAADResource
 $global:DefaultSecureTLSBootstrapAADResource = "6dae42f8-4368-4678-94ff-3960e28e3630"
 
 $global:HNSModule = "c:\k\hns.v2.psm1"
