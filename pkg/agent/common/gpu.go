@@ -33,7 +33,7 @@ const (
 // So for now these will be kept here like this.
 const (
 	aksGPUGridSHA = "sha-20ffa2"
-	aksGPUCudaSHA = "sha-ff213d"
+	aksGPUCudaSHA = "sha-2d4c96"
 )
 
 /*
