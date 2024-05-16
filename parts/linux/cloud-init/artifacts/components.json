@@ -189,13 +189,6 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/calico/typha:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "v3.24.6"
-      ]
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
@@ -211,35 +204,12 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/calico/kube-controllers:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "v3.24.6"
-      ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/cilium/operator-generic:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "1.13.10",
-        "1.14.4"
-      ]
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.13.10-2",
-        "1.13.10-3",
+        "1.13.13-3",
         "1.14.4-1",
         "1.14.4-3"
-      ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/tigera/operator:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "v1.28.13"
       ]
     },
     {
