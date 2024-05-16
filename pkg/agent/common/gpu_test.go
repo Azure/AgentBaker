@@ -195,14 +195,14 @@ func TestGetGPUDriverVersion(t *testing.T) {
 	}{
 		{"CUDA Driver - NC Series v1", "standard_nc6", nvidia470CudaDriverVersion},
 		{"CUDA Driver - NCs Series v1", "standard_nc6s", nvidia470CudaDriverVersion},
-		{"CUDA Driver - NC Series v2", "standard_nc6s_v2", nvidia535CudaDriverVersion},
-		{"Unknown SKU", "unknown_sku", nvidia535CudaDriverVersion},
-		{"CUDA Driver - NC Series v3", "standard_nc6s_v3", nvidia535CudaDriverVersion},
-		{"GRID Driver - A10", "standard_nc8ads_a10_v4", nvidia535GridDriverVersion},
-		{"GRID Driver - NV Series v5", "standard_nv6ads_a10_v5", nvidia535GridDriverVersion},
-		{"GRID Driver - A10", "standard_nv36adms_a10_V5", nvidia535GridDriverVersion},
+		{"CUDA Driver - NC Series v2", "standard_nc6s_v2", nvidia550GridDriverVersion},
+		{"Unknown SKU", "unknown_sku", nvidia550GridDriverVersion},
+		{"CUDA Driver - NC Series v3", "standard_nc6s_v3", nvidia550GridDriverVersion},
+		{"GRID Driver - A10", "standard_nc8ads_a10_v4", nvidia550GridDriverVersion},
+		{"GRID Driver - NV Series v5", "standard_nv6ads_a10_v5", nvidia550GridDriverVersion},
+		{"GRID Driver - A10", "standard_nv36adms_a10_V5", nvidia550GridDriverVersion},
 		// NV V1 SKUs were retired in September 2023, leaving this test just for safety
-		{"CUDA Driver - NV Series v1", "standard_nv6", nvidia535CudaDriverVersion},
+		{"CUDA Driver - NV Series v1", "standard_nv6", nvidia550GridDriverVersion},
 	}
 
 	for _, test := range tests {
