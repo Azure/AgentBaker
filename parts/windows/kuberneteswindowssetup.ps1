@@ -187,7 +187,6 @@ $global:WindowsCalicoPackageURL = "{{GetVariable "windowsCalicoPackageURL" }}";
 $global:ConfigGPUDriverIfNeeded = [System.Convert]::ToBoolean("{{GetVariable "configGPUDriverIfNeeded" }}");
 
 # Windows next-gen networking (Windows eBPF)
-$global:EnableNextGenNetworking = [System.Convert]::ToBoolean("{{GetVariable "windowsEnableNextGenNetworking" }}");
 $global:NextGenNetworkingURL = "{{GetVariable "windowsNextGenNetworkingURL"}}"
 
 # GMSA
@@ -457,8 +456,8 @@ try
 
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
 
-    if (Get-Command -Name "Start-InstallWindowsNextGenNetworkingIfNeeded" -ErrorAction SilentlyContinue) {
-        Start-InstallWindowsNextGenNetworkingIfNeeded -EnableInstall $global:EnableNextGenNetworking -URL $global:NextGenNetworkingURL
+    if ($global:NextGenNetworkingURL) {
+        Start-InstallWindowsNextGenNetworking -NextGenNetworkingURL $global:NextGenNetworkingURL
     }
 
     if (Test-Path $CacheDir)
