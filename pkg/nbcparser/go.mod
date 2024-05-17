@@ -1,6 +1,6 @@
 module github.com/Azure/agentbaker/pkg/nbcparser
 
-go 1.21.3
+go 1.21
 
 require (
 	github.com/Azure/agentbaker v0.20240503.0
