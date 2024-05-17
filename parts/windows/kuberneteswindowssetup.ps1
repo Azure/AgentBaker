@@ -170,7 +170,7 @@ $global:CredentialProviderURL = "{{GetParameter "windowsCredentialProviderURL"}}
 # Kubelet secure TLS bootstrapping settings and related vars
 $global:MasterFQDN = "{{GetKubernetesEndpoint}}"
 $global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("{{EnableSecureTLSBootstrapping}}")
-$global:CustomSecureTLSBootstrapAADResource = "{{GetCustomSecureTLSBootstrapAADServerAppID}}"
+$global:CustomSecureTLSBootstrapAADResource = "{{GetCustomSecureTLSBootstrapAADResource}}"
 
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("{{GetVariable "windowsEnableCSIProxy" }}");
