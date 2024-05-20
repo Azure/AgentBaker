@@ -317,7 +317,7 @@ testCloudInit() {
               if [[ "$a" == *"$pattern"* ]]; then
                   echo "Find WARNING/ERROR message: $msg in ignoring list, continue..."
               else
-                  err $test "Cloud-init log has unexpected WARNING/ERROR: ${msg}."
+                  err $test "Cloud-init log has unexpected WARNING/ERROR: ${msg}.  != $pattern"
               fi
           done
         done
