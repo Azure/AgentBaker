@@ -72,12 +72,14 @@ if ($global:EnableSecureTLSBootstrapping) {
 # a) secure TLS bootstrapping has succeeded
 # b) we don't have a bootstrap token with which to create a bootstrap-
 if (Test-Path $global:KubeconfigPath) {
+    # TODO(cameissner): should we keep setting bootstrap-kubeconfig in baker
+    # and just remove it here if we can?
     Remove-Item $global:BootstrapKubeconfigPath
 }
 
 # If we don't have a kubeconfig but we do have a bootstrap kubeconfig we can fall back to,
 # specify it as a valid bootstrap-kubeconfig in the kubelet arg list
-if (!Test-Path $global:KubeconfigPath -and Test-Path $global:BootstrapKubeconfigPath) {
+if (!(Test-Path $global:KubeconfigPath) -and Test-Path $global:BootstrapKubeconfigPath) {
     $KubeletArgList += " --bootstrap-kubeconfig=$global:BootstrapKubeconfigPath"
 }
 
