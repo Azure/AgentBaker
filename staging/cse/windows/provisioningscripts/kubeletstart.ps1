@@ -79,7 +79,7 @@ if (Test-Path $global:KubeconfigPath) {
 
 # If we don't have a kubeconfig but we do have a bootstrap kubeconfig we can fall back to,
 # specify it as a valid bootstrap-kubeconfig in the kubelet arg list
-if (!(Test-Path $global:KubeconfigPath) -and Test-Path $global:BootstrapKubeconfigPath) {
+if (!(Test-Path $global:KubeconfigPath) -and (Test-Path $global:BootstrapKubeconfigPath)) {
     $KubeletArgList += " --bootstrap-kubeconfig=$global:BootstrapKubeconfigPath"
 }
 
