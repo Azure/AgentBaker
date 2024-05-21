@@ -113,6 +113,12 @@ var AvailableUbuntu2204Distros = []Distro{
 }
 
 //nolint:gochecknoglobals
+var AvailableUbuntu2404Distros = []Distro{
+	AKSUbuntuContainerd2404,
+	AKSUbuntuContainerd2404Gen2,
+}
+
+//nolint:gochecknoglobals
 var AvailableContainerdDistros = []Distro{
 	AKSUbuntuContainerd1804,
 	AKSUbuntuContainerd1804Gen2,
@@ -151,6 +157,8 @@ var AvailableContainerdDistros = []Distro{
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
 	AKSUbuntuMinimalContainerd2204,
 	AKSUbuntuMinimalContainerd2204Gen2,
+	AKSUbuntuContainerd2404,
+	AKSUbuntuContainerd2404Gen2,
 }
 
 //nolint:gochecknoglobals
@@ -177,6 +185,7 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
 	AKSUbuntuMinimalContainerd2204Gen2,
+	AKSUbuntuContainerd2404Gen2,
 	AKSCBLMarinerV2Gen2,
 	AKSAzureLinuxV2Gen2,
 	AKSCBLMarinerV2Gen2FIPS,
@@ -343,6 +352,10 @@ const (
 	// CBLMarinerV1 pinned to the last image build as Mariner 1.0 is out
 	//  of support and image builds have stopped.
 	FrozenCBLMarinerV1SIGImageVersionForDeprecation string = "202308.28.0"
+
+	// This is currently for testing only, we do not build 2404 images regularly
+	// Once 2404 is preview in AKS, we will refer to the images using regular LinuxSIGImageVersion and remove this.
+	Ubuntu2404SIGImageVersionForTest string = "202405.20.0"
 
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
 	Windows2019SIGImageVersion string = "17763.2019.221114"
@@ -550,6 +563,20 @@ var (
 		Version:       FrozenLinuxSIGImageVersionForEgressTest,
 	}
 
+	SIGUbuntuContainerd2404ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2404containerd",
+		Version:       Ubuntu2404SIGImageVersionForTest,
+	}
+
+	SIGUbuntuContainerd2404Gen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2404gen2containerd",
+		Version:       Ubuntu2404SIGImageVersionForTest,
+	}
+
 	SIGCBLMarinerV1ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
@@ -730,6 +757,8 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuMinimalContainerd2204:     SIGUbuntuMinimalContainerd2204ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuMinimalContainerd2204Gen2: SIGUbuntuMinimalContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuEgressContainerd2204Gen2:  SIGUbuntuEgressContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2404:            SIGUbuntuContainerd2404ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2404Gen2:        SIGUbuntuContainerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 

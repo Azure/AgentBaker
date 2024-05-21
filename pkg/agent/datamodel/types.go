@@ -188,6 +188,8 @@ const (
 	AKSUbuntuMinimalContainerd2204      Distro = "aks-ubuntu-minimal-containerd-22.04"
 	AKSUbuntuMinimalContainerd2204Gen2  Distro = "aks-ubuntu-minimal-containerd-22.04-gen2"
 	AKSUbuntuEgressContainerd2204Gen2   Distro = "aks-ubuntu-egress-containerd-22.04-gen2"
+	AKSUbuntuContainerd2404             Distro = "aks-ubuntu-containerd-24.04"
+	AKSUbuntuContainerd2404Gen2         Distro = "aks-ubuntu-containerd-24.04-gen2"
 
 	RHEL              Distro = "rhel"
 	CoreOS            Distro = "coreos"
@@ -263,6 +265,8 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuMinimalContainerd2204,
 	AKSUbuntuMinimalContainerd2204Gen2,
+	AKSUbuntuContainerd2404,
+	AKSUbuntuContainerd2404Gen2,
 }
 
 type CustomConfigurationComponent string
@@ -283,6 +287,16 @@ func (d Distro) IsVHDDistro() bool {
 
 func (d Distro) Is2204VHDDistro() bool {
 	for _, distro := range AvailableUbuntu2204Distros {
+		if d == distro {
+			return true
+		}
+	}
+	return false
+}
+
+// This function will later be consumed by CSE to determine cgroupv2 usage.
+func (d Distro) Is2404VHDDistro() bool {
+	for _, distro := range AvailableUbuntu2404Distros {
 		if d == distro {
 			return true
 		}
