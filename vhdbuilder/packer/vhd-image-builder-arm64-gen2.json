@@ -79,7 +79,7 @@
     },
     {
       "type": "file",
-      "source": "pkg/nbcparser/bin/nbcparser",
+      "source": "nbcparser/bin/nbcparser",
       "destination": "/home/packer/nbcparser"
     },
     {
