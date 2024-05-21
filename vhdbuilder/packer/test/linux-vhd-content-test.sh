@@ -314,7 +314,7 @@ testCloudInit() {
         grep 'WARNING\|ERROR' $FILE | while read -r msg; do 
           for pattern in "${CLOUD_INIT_LOG_IGNORING_MSG[@]}"; do
               echo $msg
-              if [[ "$a" == *"$pattern"* ]]; then
+              if [[ "$msg" == *"$pattern"* ]]; then
                   echo "Find WARNING/ERROR message: $msg in ignoring list, continue..."
               else
                   err $test "Cloud-init log has unexpected WARNING/ERROR: ${msg}.  != $pattern"
