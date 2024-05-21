@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/Azure/agentbaker/pkg/nbcparser/pkg/parser"
+	"github.com/Azure/agentbaker/nbcparser/pkg/parser"
 )
 
 // input to this function will be the serialized JSON from userdata + custom data.

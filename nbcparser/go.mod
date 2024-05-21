@@ -1,4 +1,4 @@
-module github.com/Azure/agentbaker/pkg/nbcparser
+module github.com/Azure/agentbaker/nbcparser
 
 go 1.21
 
