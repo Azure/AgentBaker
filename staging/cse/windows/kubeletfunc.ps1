@@ -203,7 +203,7 @@ function Get-SecureTLSBootstrapClient {
         [Parameter(Mandatory = $true)][string]
         $BootstrapClientPath,
         [Parameter(Mandatory = $true)][string]
-        $BootstrapClientDownloadUrl,
+        $BootstrapClientDownloadUrl
     )
     Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadSecureTLSBootstrapClient" -TaskMessage "Start to download the secure TLS bootstrap client binary and unzip. BootstrapClientDownloadUrl: $BootstrapClientDownloadUrl"
     DownloadFileOverHttp -Url $BootstrapClientDownloadUrl -DestinationPath $BootstrapClientPath -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT
