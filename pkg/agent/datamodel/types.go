@@ -294,7 +294,7 @@ func (d Distro) Is2204VHDDistro() bool {
 	return false
 }
 
-// This function will later be consumed by CSE to determine cgroupv2 usage
+// This function will later be consumed by CSE to determine cgroupv2 usage.
 func (d Distro) Is2404VHDDistro() bool {
 	for _, distro := range AvailableUbuntu2404Distros {
 		if d == distro {
