@@ -116,6 +116,7 @@ var AvailableUbuntu2204Distros = []Distro{
 var AvailableUbuntu2404Distros = []Distro{
 	AKSUbuntuContainerd2404,
 	AKSUbuntuContainerd2404Gen2,
+	AKSUbuntuArm64Containerd2404Gen2,
 }
 
 //nolint:gochecknoglobals
@@ -147,6 +148,7 @@ var AvailableContainerdDistros = []Distro{
 	AKSAzureLinuxV2Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
 	AKSUbuntuArm64Containerd2204Gen2,
+	AKSUbuntuArm64Containerd2404Gen2,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
 	AKSUbuntuContainerd2204,
@@ -180,6 +182,7 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuFipsContainerd2204Gen2,
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
+	AKSUbuntuArm64Containerd2404Gen2,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuContainerd2204TLGen2,
@@ -514,6 +517,13 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGUbuntuArm64Containerd2404Gen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2404gen2arm64containerd",
+		Version:       Ubuntu2404SIGImageVersionForTest, // TODO(artunduman): Update version to LinuxSIGImageVersion when the image is ready
+	}
+
 	SIGUbuntuContainerd2204ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
@@ -753,6 +763,7 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuContainerd2204Gen2:        SIGUbuntuContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2004CVMGen2:     SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuArm64Containerd2204Gen2:   SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuArm64Containerd2404Gen2:   SIGUbuntuArm64Containerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2204TLGen2:      SIGUbuntuContainerd2204TLGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuMinimalContainerd2204:     SIGUbuntuMinimalContainerd2204ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuMinimalContainerd2204Gen2: SIGUbuntuMinimalContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
