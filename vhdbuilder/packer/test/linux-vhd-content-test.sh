@@ -13,7 +13,7 @@ GIT_BRANCH="$5"
 IMG_SKU="$6"
 
 CLOUD_INIT_LOG_IGNORING_MSG=(
-  "Command ['hostname', '-f']"
+  
 )
 
 err() {
