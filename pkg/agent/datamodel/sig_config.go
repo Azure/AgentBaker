@@ -353,8 +353,8 @@ const (
 	//  of support and image builds have stopped.
 	FrozenCBLMarinerV1SIGImageVersionForDeprecation string = "202308.28.0"
 
-	// This is currently for testing only, we do not build 2404 images regularly.
-	// Once 2404 is preview in AKS, we will refer to the images using regular LinuxSIGImageVersion and remove this
+	// This is currently for testing only, we do not build 2404 images regularly
+	// Once 2404 is preview in AKS, we will refer to the images using regular LinuxSIGImageVersion and remove this.
 	Ubuntu2404SIGImageVersionForTest string = "202405.20.0"
 
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
