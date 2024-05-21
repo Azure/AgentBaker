@@ -198,19 +198,12 @@ function Get-KubePackage {
     Remove-Item $zipfile
 }
 
-function EnsureSecureTLSBootstrapClient {
+function Get-SecureTLSBootstrapClient {
     Param(
         [Parameter(Mandatory = $true)][string]
         $BootstrapClientPath
     )
-
-    if (Test-Path $BootstrapClientPath) {
-        Write-Log "Secure TLS bootstrap client already exists at $BootstrapClientPath"
-        return
-    }
-    
-    Write-Log "Secure TLS bootstrap client does not exist, downloading via HTTP..."
-    BootstrapClientDownloadUrl = "something"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadSecureTLSBootstrapClient" -TaskMessage "Start to download the secure TLS bootstrap client binary and unzip. BootstrapClientDownloadUrl: $global:BootstrapClientDownloadUrl"
     DownloadFileOverHttp -Url $global:BootstrapClientDownloadUrl -DestinationPath $BootstrapClientPath -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT
 }
 
