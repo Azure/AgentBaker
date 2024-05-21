@@ -1,0 +1,80 @@
+# This Yaml Document has been converted by ESAI Yaml Pipeline Conversion Tool.
+# Please make sure to check all the converted content, it is your team's responsibility to make sure that the pipeline is still valid and functions as expected.
+# This pipeline will be extended to the OneBranch template
+parameters:
+- name: ImageBump
+  displayName: Image Bump + Branch Cutting
+  type: boolean
+  default: true
+- name: ReleaseNotes
+  displayName: Release Notes
+  type: boolean
+  default: true
+- name: ArtifactTrigger
+  displayName: SIG Artifact Trigger
+  type: boolean
+  default: true
+resources:
+  repositories:
+  - repository: onebranchTemplates
+    type: git
+    name: OneBranch.Pipelines/GovernedTemplates
+    ref: refs/heads/main
+variables:
+- name: LinuxContainerImage
+  value: onebranch.azurecr.io/linux/ubuntu-2004:latest
+extends:
+  template: v2/OneBranch.Official.CrossPlat.yml@onebranchTemplates
+  parameters:
+    customTags: 'ES365AIMigrationTooling-BulkMigrated'
+    stages:
+    - stage: stage
+      jobs:
+      - job: job
+        pool:
+          type: linux
+        variables:
+        - name: ob_outputDirectory
+          value: '$(Build.ArtifactStagingDirectory)/ONEBRANCH_ARTIFACT'
+        steps:
+        - bash: |
+            set -x
+            echo "Removing existing go environment"
+            sudo rm -r /usr/local/go
+            #GOLANG_VERSION=$(curl -s 'https://go.dev/VERSION?m=text' | head -n 1)
+            GOLANG_VERSION="1.20.6"
+            echo "Downloading ${GOLANG_VERSION}"
+            curl -O "https://dl.google.com/go/${GOLANG_VERSION}.linux-amd64.tar.gz"
+            echo "unpacking go"
+            sudo mkdir -p /usr/local/go
+            sudo chown -R "$(whoami):$(whoami)" /usr/local/go 
+            sudo tar -xvf "${GOLANG_VERSION}.linux-amd64.tar.gz" -C /usr/local
+            rm "${GOLANG_VERSION}.linux-amd64.tar.gz"
+          displayName: 'Clean up go environment'
+        - bash: |
+            az extension add -n azure-devops
+            echo $MAPPED_ADO_PAT | az devops login --organization=https://dev.azure.com/msazure
+            az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
+          env:
+            MAPPED_ADO_PAT: $(ADO_PAT)
+          displayName: 'az devops login'
+        - bash: |
+            echo "PR for Image Bumping, Official Branch Cutting"
+            /bin/bash vhdbuilder/scripts/automate_version_bump.sh $(IMAGE_VERSION) $MAPPED_GITHUB_PAT "${BUILD_ID[@]}"
+          env:
+            MAPPED_GITHUB_PAT: $(GITHUB_PAT)
+          displayName: 'Image Version Bumping'
+          condition: eq('${{ parameters.ImageBump }}', true)
+        - bash: |
+            echo "PR for Release Notes"
+            /bin/bash vhdbuilder/scripts/automate_release_notes.sh $(IMAGE_VERSION) "${BUILD_ID[@]}" $MAPPED_GITHUB_PAT
+          env:
+            MAPPED_GITHUB_PAT: $(GITHUB_PAT)
+            SKIP_LATEST: $(SKIP_LATEST_RELEASE_NOTES_UPDATE)
+          displayName: 'Release Notes'
+          condition: eq('${{ parameters.ReleaseNotes }}', true)
+        - bash: |
+            echo "Triggering ev2 artifacts pipeline"
+            /bin/bash vhdbuilder/scripts/automate_ev2pipeline_trigger.sh "${BUILD_ID[@]}"
+          displayName: 'ev2 Artifact Pipeline Trigger'
+          condition: eq('${{ parameters.ArtifactTrigger }}', true)
