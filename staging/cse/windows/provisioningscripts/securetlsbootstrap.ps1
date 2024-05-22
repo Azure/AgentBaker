@@ -95,7 +95,7 @@ function Bootstrap {
     Write-Log "Secure TLS bootstrapping deadline is: $deadline"
     
     while([DateTime]$now -lt [DateTime]$deadline) {
-        & $BootstrapClientPath `
+        & $BootstrapClientPath bootstrap `
             --aad-resource=$AADResource `
             --apiserver-fqdn=$APIServerFQDN `
             --cluster-ca-file=$ClusterCAFilePath `

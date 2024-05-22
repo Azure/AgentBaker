@@ -61,7 +61,7 @@ if ($global:EnableSecureTLSBootstrapping) {
     if ($global:CustomSecureTLSBootstrapAADResource) {
         $aadResource = $global:CustomSecureTLSBootstrapAADResource
     }
-    & "c:\k\securetlsbootstrap.ps1 -KubeDir $global:KubeDir -APIServerFQDN $global:MasterIP -AADResource $aadResource"
+    & "c:\k\securetlsbootstrap.ps1" -KubeDir $global:KubeDir -APIServerFQDN $global:MasterIP -AADResource $aadResource
     if (!$?) {
         Write-Host "Secure TLS bootstrapping failed, will still try to start kubelet..."
     }
