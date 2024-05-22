@@ -79,14 +79,13 @@ $global:imagesToPull += @(
     # This is for test purpose only to reduce the test duration.
     "mcr.microsoft.com/windows/servercore/iis:latest",
     # CSI. Owner: andyzhangx (Andy Zhang)
-    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.10.0", # for k8s 1.25.x, 1.26.x, 1.27.x
-    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.11.0", # for k8s 1.28.x
-    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.12.0", # for k8s 1.29.x
-    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.8.0", # for k8s 1.25.x, 1.26.x, 1.27.x
-    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.9.0", # for k8s 1.28.x
-    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.0", # for k8s 1.29.x
+    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.12.0", # for k8s 1.27+
+    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.0", # for k8s 1.27+
+    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.1", # for k8s 1.27+
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.7-windows-hp", # for k8s 1.27.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.8-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.4-windows-hp", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.6-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.10-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.5-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.2-windows-hp", # for k8s 1.29.x
