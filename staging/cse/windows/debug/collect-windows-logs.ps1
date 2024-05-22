@@ -1,6 +1,7 @@
 param (
   [switch]$enableAll,
-  [switch]$enableSnapshotSize
+  [switch]$enableSnapshotSize,
+  [switch]$enableContainerdInfo
 )
 # param must be at the beginning of the script, add more param if needed
 
@@ -47,7 +48,9 @@ $lockedFiles = @(
   "containerd.log",
   "containerd.err.log",
   "hosts-config-agent.err.log",
-  "hosts-config-agent.log"
+  "hosts-config-agent.log",
+  "windows-exporter.err.log",
+  "windows-exporter.log"
 )
 
 $timeStamp = get-date -format 'yyyyMMdd-hhmmss'
@@ -176,6 +179,14 @@ else {
   Write-Host "Get-PSDrive command not available"
 }
 
+Write-Host "Collecting available memory"
+Get-Counter '\Memory\Available MBytes' > "$ENV:TEMP\available-memory.txt"
+$paths += "$ENV:TEMP\available-memory.txt"
+
+Write-Host "Collecting process info"
+Get-Process -ErrorAction SilentlyContinue > "$ENV:TEMP\processes.txt"
+$paths += "$ENV:TEMP\processes.txt"
+
 Write-Host "Collecting networking related logs"
 & 'c:\k\debug\collectlogs.ps1' | write-Host
 $netLogs = Get-ChildItem (Get-ChildItem -Path c:\k\debug -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName | Select-Object -ExpandProperty FullName
@@ -183,46 +194,50 @@ $paths += $netLogs
 $paths += "c:\AzureData\CustomDataSetupScript.log"
 
 # log containerd containers (this is done for docker via networking collectlogs.ps1)
-Write-Host "Collecting Containerd info from ctr"
-$ctrLogsDirectory = "$ENV:TEMP\$timeStamp-ctr-logs"
-$res = Get-Command ctr.exe -ErrorAction SilentlyContinue
-if ($res) {
-  New-Item -Type Directory $ctrLogsDirectory
+if ($enableAll -or $enableContainerdInfo) {
+  Write-Host "Collecting Containerd info from ctr"
+  $ctrLogsDirectory = "$ENV:TEMP\$timeStamp-ctr-logs"
+  $res = Get-Command ctr.exe -ErrorAction SilentlyContinue
+  if ($res) {
+    New-Item -Type Directory $ctrLogsDirectory
 
-  Write-Host "Collecting ctr plugin ls"
-  & ctr.exe -n k8s.io plugin ls > "$ctrLogsDirectory\containerd-plugin.txt"
+    Write-Host "Collecting ctr plugin ls"
+    & ctr.exe -n k8s.io plugin ls > "$ctrLogsDirectory\containerd-plugin.txt"
 
-  Write-Host "Collecting ctr containers"
-  & ctr.exe -n k8s.io c ls > "$ctrLogsDirectory\containerd-containers.txt"
+    Write-Host "Collecting ctr containers"
+    & ctr.exe -n k8s.io c ls > "$ctrLogsDirectory\containerd-containers.txt"
 
-  Write-Host "Collecting ctr tasks"
-  & ctr.exe -n k8s.io t ls > "$ctrLogsDirectory\containerd-tasks.txt"
+    Write-Host "Collecting ctr tasks"
+    & ctr.exe -n k8s.io t ls > "$ctrLogsDirectory\containerd-tasks.txt"
 
-  Write-Host "Collecting ctr content ls"
-  & ctr.exe -n k8s.io content ls > "$ctrLogsDirectory\containerd-content.txt"
+    Write-Host "Collecting ctr content ls"
+    & ctr.exe -n k8s.io content ls > "$ctrLogsDirectory\containerd-content.txt"
 
-  Write-Host "Collecting ctr image ls"
-  & ctr.exe -n k8s.io image ls > "$ctrLogsDirectory\containerd-image.txt"
+    Write-Host "Collecting ctr image ls"
+    & ctr.exe -n k8s.io image ls > "$ctrLogsDirectory\containerd-image.txt"
 
-  Write-Host "Collecting ctr snapshot ls"
-  & ctr.exe -n k8s.io snapshot ls > "$ctrLogsDirectory\containerd-snapshot.txt"
+    Write-Host "Collecting ctr snapshot ls"
+    & ctr.exe -n k8s.io snapshot ls > "$ctrLogsDirectory\containerd-snapshot.txt"
 
-  Write-Host "Collecting ctr snapshot tree"
-  & ctr.exe -n k8s.io snapshot tree > "$ctrLogsDirectory\containerd-snapshot-tree.txt"
+    Write-Host "Collecting ctr snapshot tree"
+    & ctr.exe -n k8s.io snapshot tree > "$ctrLogsDirectory\containerd-snapshot-tree.txt"
 
-  Write-Host "Collecting ctr snapshot info for each snapshot"
-  $snapshotsList = (& ctr.exe -n k8s.io snapshot ls)
-  foreach ($snapshot in $snapshotsList) {
-    $snapshotId = ($snapshot.Split(" ")[0])
-    $fileName = ($snapshotId.Split(":")[1])
-    if ($fileName.length -gt 0) {
-      & ctr.exe -n k8s.io snapshot info $snapshotId > "$ctrLogsDirectory\containerd-snapshot-info-$fileName.txt"
+    Write-Host "Collecting ctr snapshot info for each snapshot"
+    $snapshotsList = (& ctr.exe -n k8s.io snapshot ls)
+    foreach ($snapshot in $snapshotsList) {
+      $snapshotId = ($snapshot.Split(" ")[0])
+      $fileName = ($snapshotId.Split(":")[1])
+      if ($fileName.length -gt 0) {
+        & ctr.exe -n k8s.io snapshot info $snapshotId > "$ctrLogsDirectory\containerd-snapshot-info-$fileName.txt"
+      }
     }
+    $paths += $ctrLogsDirectory
   }
-  $paths += $ctrLogsDirectory
-}
-else {
-  Write-Host "ctr.exe command not available"
+  else {
+    Write-Host "ctr.exe command not available"
+  }
+} else {
+  Write-Host "Skipping collecting Containerd info from ctr. To enable, use -enableContainerdInfo or -enableAll. E.g. .\collect-windows-logs.ps1 -enableContainerdInfo"
 }
 
 if ($enableAll -or $enableSnapshotSize) {
