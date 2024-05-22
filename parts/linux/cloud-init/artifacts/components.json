@@ -25,7 +25,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/coredns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.9.4-hotfix.20240327"
+        "v1.9.4-hotfix.20240327",
+        "v1.9.4-hotfix.20240520"
       ]
     },
     {
