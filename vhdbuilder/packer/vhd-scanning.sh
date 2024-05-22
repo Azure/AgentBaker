@@ -1,10 +1,20 @@
 #!/bin/bash
 set -eux
 
-RESOURCE_GROUP_NAME="$AZURE_RESOURCE_GROUP_NAME"
-VM_NAME_SCANNING="${VM_NAME}-scanning"
-VHD_IMAGE="$IMG_DEF"
+TRIVY_SCRIPT_PATH="trivy-scan.sh"
+TEST_RESOURCE_PREFIX="vhd-scanning"
+VM_NAME="$TEST_RESOURCE_PREFIX-$TEST_RESOURCE_PREFIX"
+VHD_IMAGE="$MANAGED_SIG_ID"
 SIG_CONTAINER_NAME="vhd-scans"
+TEST_VM_ADMIN_USERNAME="azureuser"
+
+set +x
+TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
+set -x
+
+
+RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
+az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
 
 if [ "$OS_VERSION" == "18.04" ]; then
     echo "Skipping scanning for 18.04"
@@ -12,37 +22,40 @@ if [ "$OS_VERSION" == "18.04" ]; then
 fi
 
 function cleanup() {
-  az vm delete --name $VM_NAME_SCANNING --resource-group $RESOURCE_GROUP_NAME --yes
+    echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
+    az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
 }
 trap cleanup EXIT
 
 #fix identity string
 az vm create --resource-group $RESOURCE_GROUP_NAME \
-    --name $VM_NAME_SCANNING \
+    --name $VM_NAME \
     --image $VHD_IMAGE \
     --admin-username $TEST_VM_ADMIN_USERNAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
     --assign-identity "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/vhd-scanning-UAMI"
 
-TRIVY_PATH="$(dirname "$FULL_PATH")/trivy-scan.sh"
+FULL_PATH=$(realpath $0)
+CDIR=$(dirname $FULL_PATH)
+SCRIPT_PATH="$CDIR/$TRIVY_SCRIPT_PATH"
 az vm run-command invoke \
     --command-id RunShellScript \
-    --name $VM_NAME_SCANNING \
+    --name $VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
-    --scripts @$TRIVY_PATH
+    --scripts @$SCRIPT_PATH
 
 if [ "$OS_SKU" = "ubuntu" ]; then
     az vm run-command invoke \
         --command-id RunShellScript \
-        --name $VM_NAME_SCANNING \
+        --name $VM_NAME \
         --resource-group $RESOURCE_GROUP_NAME \
         --scripts "sudo apt-get install -y azure-cli"
 
 elif [ "$OS_SKU" = "azure linux" ]; then
     az vm run-command invoke \
         --command-id RunShellScript \
-        --name $VM_NAME_SCANNING \
+        --name $VM_NAME \
         --resource-group $RESOURCE_GROUP_NAME \
         --scripts "sudo apt-get install -y ca-certificates curl apt-transport-https lsb-release gnupg &&
             curl -sL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add - &&
@@ -50,20 +63,20 @@ elif [ "$OS_SKU" = "azure linux" ]; then
     
     az vm run-command invoke \
         --command-id RunShellScript \
-        --name $VM_NAME_SCANNING \
+        --name $VM_NAME \
         --resource-group $RESOURCE_GROUP_NAME \
         --scripts "sudo apt-get update -y && sudo apt-get upgrade -y"
 
     az vm run-command invoke \
         --command-id RunShellScript \
-        --name $VM_NAME_SCANNING \
+        --name $VM_NAME \
         --resource-group $RESOURCE_GROUP_NAME \
         --scripts "sudo apt-get install -y azure-cli"
 
 elif [ "$OS_SKU" = "CBL mariner" ]; then
     az vm run-command invoke \
         --command-id RunShellScript \
-        --name $VM_NAME_SCANNING \
+        --name $VM_NAME \
         --resource-group $RESOURCE_GROUP_NAME \
         --scripts "sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc &&
             sudo sh -c 'echo -e \"[azure-cli]\nname=Azure CLI\nbaseurl=https://packages.microsoft.com/yumrepos/azure-cli\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc\" > /etc/yum.repos.d/azure-cli.repo' &&
@@ -75,7 +88,7 @@ fi
 
 az vm run-command invoke \
     --command-id RunShellScript \
-    --name $VM_NAME_SCANNING \
+    --name $VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts "az login --identity"
 
@@ -83,7 +96,7 @@ TIMESTAMP=$(date +%s%3N)
 TRIVY_REPORT_NAME="trivy-report-${BUILD_ID}-${TIMESTAMP}.json"
 az vm run-command invoke \
     --command-id RunShellScript \
-    --name $VM_NAME_SCANNING \
+    --name $VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts "az storage blob upload --file /opt/azure/containers/trivy-report.json \
     --container-name ${SIG_CONTAINER_NAME} \
@@ -94,7 +107,7 @@ az vm run-command invoke \
 TRIVY_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
 az vm run-command invoke \
     --command-id RunShellScript \
-    --name $VM_NAME_SCANNING \
+    --name $VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts "az storage blob upload --file /opt/azure/containers/trivy-images-table.txt \
     --container-name ${SIG_CONTAINER_NAME} \
