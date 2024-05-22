@@ -78,8 +78,8 @@ az vm run-command invoke \
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts "az login --identity"
 
-
-TRIVY_REPORT_NAME="trivy-report-${BUILD_ID}.json"
+TIMESTAMP=$(date +%s%3N)
+TRIVY_REPORT_NAME="trivy-report-${BUILD_ID}-${TIMESTAMP}.json"
 az vm run-command invoke \
     --command-id RunShellScript \
     --name $VM_NAME_SCANNING \
@@ -90,7 +90,7 @@ az vm run-command invoke \
     --account-name ${SIG_GALLERY_NAME} \
     --auth-mode login"
 
-TRIVY_TABLE_NAME="trivy-table-${BUILD_ID}.txt"
+TRIVY_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
 az vm run-command invoke \
     --command-id RunShellScript \
     --name $VM_NAME_SCANNING \
