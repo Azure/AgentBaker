@@ -110,7 +110,7 @@ fi
 
 # Since we do not build Ubuntu 16.04 images anymore, always override network config and disable NTP + Timesyncd and install Chrony
 # Mariner does this differently, so only do it for Ubuntu
-if [[ $OS != $MARINER_OS_NAME && $OS != $AZURELINUX_OS_NAME]]; then
+if [[ $OS != $MARINER_OS_NAME ]]  && [[ $OS != $AZURELINUX_OS_NAME ]]; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
