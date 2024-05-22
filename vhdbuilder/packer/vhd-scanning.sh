@@ -34,6 +34,7 @@ if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
 fi
 
 #fix identity string
+--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true
 az vm create --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME \
     --image $VHD_IMAGE \
@@ -41,7 +42,10 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
     --size $VMSIZE \
-    --assign-identity "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/vhd-scanning-UAMI"
+    --assign-identity "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/vhd-scanning-UAMI" \
+    --security-type TrustedLaunch \
+    --enable-secure-boot true \
+    --enable-vtpm true
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
@@ -127,4 +131,4 @@ az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_
 az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_TABLE_NAME} --file  trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
-az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
+az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_TABLE_NAME} --auth-mode login
