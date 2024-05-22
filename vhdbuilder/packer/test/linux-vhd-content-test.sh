@@ -879,7 +879,7 @@ testNBCParserBinary () {
     return 1
   fi
   echo "$test: nbcparser go binary exists at $go_binary_path"
-  errs=$(/bin/bash $go_binary_path 2>&1 >/dev/null)
+  errs=$($go_binary_path version 2>/dev/null)
   code=$?
   if [ $code -ne 0 ]; then
     err "$test: nbcparser go binary exited with code $code, stderr:\n$errs"
