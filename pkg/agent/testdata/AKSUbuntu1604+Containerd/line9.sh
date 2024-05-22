@@ -101,6 +101,7 @@ ERR_SYSTEMCTL_MASK_FAIL=2
 
 ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205 
 
+API_SERVER_NAME="${API_SERVER_NAME:-""}"
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"
@@ -338,13 +339,19 @@ logs_to_events() {
     ret=$?
     local endTime=$(date +"%F %T.%3N")
 
+    msg=$(jq -n \
+        --arg Hostname "$(uname -n)" \
+        --arg ClusterFQDN "$API_SERVER_NAME" \
+        --arg Message "Completed: $*" \
+        '{Hostname: $Hostname, ClusterFQDN: $ClusterFQDN, Message: $Message}')
+
     json_string=$( jq -n \
         --arg Timestamp   "${startTime}" \
         --arg OperationId "${endTime}" \
         --arg Version     "1.23" \
         --arg TaskName    "${task}" \
         --arg EventLevel  "Informational" \
-        --arg Message     "Completed: $*" \
+        --arg Message     "${msg}" \
         --arg EventPid    "0" \
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
