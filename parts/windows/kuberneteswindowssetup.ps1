@@ -169,7 +169,7 @@ $global:CredentialProviderURL = "{{GetParameter "windowsCredentialProviderURL"}}
 
 # Kubelet secure TLS bootstrapping settings and related vars
 $global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("{{EnableSecureTLSBootstrapping}}")
-$global:CustomSecureTLSBootstrapAADResource = "{{GetCustomSecureTLSBootstrapAADServerAppID}}"
+$global:CustomSecureTLSBootstrapAADResource = "{{GetCustomSecureTLSBootstrapAADResource}}"
 $global:SecureTLSBootstrapClientDownloadURL = "https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/client-v0.1.0-alpha.4/windows/amd64/tls-bootstrap-client.exe"
 
 # CSI Proxy settings
