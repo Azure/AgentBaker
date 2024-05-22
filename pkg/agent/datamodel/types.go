@@ -182,12 +182,15 @@ const (
 	AKSUbuntuContainerd2204Gen2         Distro = "aks-ubuntu-containerd-22.04-gen2"
 	AKSUbuntuContainerd2004CVMGen2      Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
 	AKSUbuntuArm64Containerd2204Gen2    Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
+	AKSUbuntuArm64Containerd2404Gen2    Distro = "aks-ubuntu-arm64-containerd-24.04-gen2"
 	AKSCBLMarinerV2Arm64Gen2            Distro = "aks-cblmariner-v2-arm64-gen2"
 	AKSAzureLinuxV2Arm64Gen2            Distro = "aks-azurelinux-v2-arm64-gen2"
 	AKSUbuntuContainerd2204TLGen2       Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
 	AKSUbuntuMinimalContainerd2204      Distro = "aks-ubuntu-minimal-containerd-22.04"
 	AKSUbuntuMinimalContainerd2204Gen2  Distro = "aks-ubuntu-minimal-containerd-22.04-gen2"
 	AKSUbuntuEgressContainerd2204Gen2   Distro = "aks-ubuntu-egress-containerd-22.04-gen2"
+	AKSUbuntuContainerd2404             Distro = "aks-ubuntu-containerd-24.04"
+	AKSUbuntuContainerd2404Gen2         Distro = "aks-ubuntu-containerd-24.04-gen2"
 
 	RHEL              Distro = "rhel"
 	CoreOS            Distro = "coreos"
@@ -258,11 +261,14 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuArm64Containerd2204Gen2,
+	AKSUbuntuArm64Containerd2404Gen2,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuMinimalContainerd2204,
 	AKSUbuntuMinimalContainerd2204Gen2,
+	AKSUbuntuContainerd2404,
+	AKSUbuntuContainerd2404Gen2,
 }
 
 type CustomConfigurationComponent string
@@ -283,6 +289,16 @@ func (d Distro) IsVHDDistro() bool {
 
 func (d Distro) Is2204VHDDistro() bool {
 	for _, distro := range AvailableUbuntu2204Distros {
+		if d == distro {
+			return true
+		}
+	}
+	return false
+}
+
+// This function will later be consumed by CSE to determine cgroupv2 usage.
+func (d Distro) Is2404VHDDistro() bool {
+	for _, distro := range AvailableUbuntu2404Distros {
 		if d == distro {
 			return true
 		}
@@ -782,6 +798,13 @@ func (a *AgentPoolProfile) GetCustomLinuxOSConfig() *CustomLinuxOSConfig {
 		return nil
 	}
 	return a.CustomLinuxOSConfig
+}
+
+func (a *AgentPoolProfile) GetAgentPoolWindowsProfile() *AgentPoolWindowsProfile {
+	if a == nil {
+		return nil
+	}
+	return a.AgentPoolWindowsProfile
 }
 
 // Properties represents the AKS cluster definition.
@@ -2173,6 +2196,9 @@ func (err *CSEStatusParsingError) Error() string {
 
 type AgentPoolWindowsProfile struct {
 	DisableOutboundNat *bool `json:"disableOutboundNat,omitempty"`
+
+	// Windows next-gen networking uses Windows eBPF for the networking dataplane.
+	NextGenNetworkingURL *string `json:"nextGenNetworkingURL,omitempty"`
 }
 
 // IsDisableWindowsOutboundNat returns true if the Windows agent pool disable OutboundNAT.
@@ -2180,6 +2206,17 @@ func (a *AgentPoolProfile) IsDisableWindowsOutboundNat() bool {
 	return a.AgentPoolWindowsProfile != nil &&
 		a.AgentPoolWindowsProfile.DisableOutboundNat != nil &&
 		*a.AgentPoolWindowsProfile.DisableOutboundNat
+}
+
+func (a *AgentPoolWindowsProfile) IsNextGenNetworkingEnabled() bool {
+	return a != nil && a.NextGenNetworkingURL != nil
+}
+
+func (a *AgentPoolWindowsProfile) GetNextGenNetworkingURL() string {
+	if a == nil || a.NextGenNetworkingURL == nil {
+		return ""
+	}
+	return *a.NextGenNetworkingURL
 }
 
 // SecurityProfile begin.
