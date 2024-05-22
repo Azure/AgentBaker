@@ -4,6 +4,8 @@ set -euxo pipefail
 github_user_name=$2
 source vhdbuilder/scripts/windows/automate_helpers.sh
 
+az login --identity
+
 pr_purpose="VHDVersion Bumping"
 
 branch_name=""
