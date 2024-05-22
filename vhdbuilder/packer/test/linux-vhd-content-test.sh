@@ -879,6 +879,14 @@ testNBCParserBinary () {
     return 1
   fi
   echo "$test: nbcparser go binary exists at $go_binary_path"
+  errs=$(/bin/bash $go_binary_path 2>&1 >/dev/null)
+  code=$?
+  if [ $code -ne 0 ]; then
+    err "$test: nbcparser go binary exited with code $code, stderr:\n$errs"
+    return 1
+  fi
+  echo "$test: nbcparser go binary ran successfully"
+
 }
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
