@@ -175,15 +175,31 @@ steps:
         -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
         ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD Tests
+  
+  - task: Bash@3
+  displayName: 'Check if OS version is not 18.04'
+  inputs:
+    targetType: 'inline'
+    script: |
+      if [[ "$OS_VERSION" != "18.04" ]]; then
+        echo "##vso[task.setvariable variable=IS_NOT_1804;isOutput=true]true"
+      else
+        echo "##vso[task.setvariable variable=IS_NOT_1804;isOutput=true]false"
+      fi
+
   - task: PublishPipelineArtifact@0
+    condition: eq(variables['IS_NOT_1804'], 'true')
     inputs:
         artifactName: 'trivy-report-${{ parameters.artifactName }}'
         targetPath: 'trivy-report.json'
+    displayName: publish trivy report
   - task: PublishPipelineArtifact@0
+    condition: eq(variables['IS_NOT_1804'], 'true')
     inputs:
         artifactName: 'trivy-images-table-${{ parameters.artifactName }}'
         targetPath: 'trivy-images-table.txt'
-    displayName: publish trivy report
+    displayName: publish trivy table
+
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
