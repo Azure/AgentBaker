@@ -31,6 +31,8 @@ trap cleanup EXIT
 VM_OPTIONS="--size Standard_DS1_v2"
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     VM_OPTIONS="--size Standard_D2pds_v5"
+elif [[ "${FEATURE_FLAGS,,}" == "kata" ]]; then
+    VM_OPTIONS="--size Standard_D4ds_v5"
 fi
 
 if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
@@ -62,7 +64,7 @@ if [ "$OS_SKU" = "Ubuntu" ] && [ "$SIG_IMAGE_NAME" = *2004* ]; then
         --name $VM_NAME \
         --resource-group $RESOURCE_GROUP_NAME \
         --scripts "sudo apt-get install -y azure-cli"
-        
+
 elif [ "$OS_SKU" = "Ubuntu" ] && [ "$SIG_IMAGE_NAME" = *2204* ]; then
     az vm run-command invoke \
         --command-id RunShellScript \
