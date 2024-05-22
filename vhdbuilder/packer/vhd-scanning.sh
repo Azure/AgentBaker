@@ -58,7 +58,7 @@ az vm run-command invoke \
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts @$SCRIPT_PATH
 
-if [ "$OS_SKU" == "Ubuntu" ] || [ "$SIG_IMAGE_NAME" == *2004* ]; then
+if [[ "$OS_SKU" == "Ubuntu" ]] || [[ "$SIG_IMAGE_NAME" == *2004* ]]; then
     az vm run-command invoke \
         --command-id RunShellScript \
         --name $VM_NAME \
