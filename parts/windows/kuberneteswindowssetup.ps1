@@ -168,9 +168,9 @@ $global:IsAzureCNIOverlayEnabled = {{if IsAzureCNIOverlayFeatureEnabled}}$true{{
 $global:CredentialProviderURL = "{{GetParameter "windowsCredentialProviderURL"}}"
 
 # Kubelet secure TLS bootstrapping settings and related vars
-$global:MasterFQDN = "{{GetKubernetesEndpoint}}"
 $global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("{{EnableSecureTLSBootstrapping}}")
-$global:CustomSecureTLSBootstrapAADResource = "{{GetCustomSecureTLSBootstrapAADResource}}"
+$global:CustomSecureTLSBootstrapAADResource = "{{GetCustomSecureTLSBootstrapAADServerAppID}}"
+$global:SecureTLSBootstrapClientDownloadURL = "https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/client-v0.1.0-alpha.4/windows/amd64/tls-bootstrap-client.exe"
 
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("{{GetVariable "windowsEnableCSIProxy" }}");
@@ -303,7 +303,6 @@ try
     
     Write-KubeClusterConfig `
         -MasterIP $MasterIP `
-        -MasterFQDN $global:MasterFQDN `
         -KubeDnsServiceIp $KubeDnsServiceIp `
         -EnableSecureTLSBootstrapping $global:EnableSecureTLSBootstrapping `
         -CustomSecureTLSBootstrapAADResource $global:CustomSecureTLSBootstrapAADResource
@@ -364,11 +363,9 @@ try
     }
 
     if ($global:EnableSecureTLSBootstrapping) {
-        Write-Log "Secure TLS Bootstrapping is enabled, ensuring bootstrap client..."
-
-        # ensure that the bootstrap client exists, downloading it over HTTP if it doesn't
-        $bootstrapClientPath = [Io.path]::Combine("$global:KubeDir", "tls-bootstrap-client.exe")
-        EnsureSecureTLSBootstrapClient -BootstrapClientPath $bootstrapClientPath
+        $clientPath = [Io.path]::Combine("$global:KubeDir", "tls-bootstrap-client.exe")
+        Write-Log "Secure TLS Bootstrapping is enabled, downloading bootstrap client to $clientPath if needed..."
+        Get-SecureTLSBootstrapClient -BootstrapClientPath $clientPath -BootstrapClientDownloadUrl $global:SecureTLSBootstrapClientDownloadURL
     }
 
     if ($global:TLSBootstrapToken) {
