@@ -16,6 +16,7 @@ function cleanup() {
 }
 trap cleanup EXIT
 
+#fix identity string
 az vm create --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME_SCANNING \
     --image $VHD_IMAGE \
@@ -24,12 +25,12 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --os-disk-size-gb 50 \
     --assign-identity "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/vhd-scanning-UAMI"
 
-SCRIPT_PATH="/Users/alisonburgess/Documents/development/agentBaker/AgentBaker/vhdbuilder/packer/trivy-scan.sh"
+TRIVY_PATH="$(dirname "$FULL_PATH")/trivy-scan.sh"
 az vm run-command invoke \
     --command-id RunShellScript \
     --name $VM_NAME_SCANNING \
     --resource-group $RESOURCE_GROUP_NAME \
-    --scripts @$SCRIPT_PATH
+    --scripts @$TRIVY_PATH
 
 if [ "$OS_SKU" = "ubuntu" ]; then
     az vm run-command invoke \
