@@ -6,7 +6,7 @@ VM_NAME_SCANNING="${VM_NAME}-scanning"
 VHD_IMAGE="$IMG_DEF"
 SIG_CONTAINER_NAME="vhd-scans"
 
-if ["$OS_VERSION" == "18.04"]; then
+if [ "$OS_VERSION" == "18.04" ]; then
     echo "Skipping scanning for 18.04"
     exit 0
 fi
