@@ -175,17 +175,16 @@ steps:
         -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
         ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD Tests
-  
   - task: Bash@3
-  displayName: 'Check if OS version is not 18.04'
-  inputs:
-    targetType: 'inline'
-    script: |
-      if [[ "$OS_VERSION" != "18.04" ]]; then
-        echo "##vso[task.setvariable variable=IS_NOT_1804;isOutput=true]true"
-      else
-        echo "##vso[task.setvariable variable=IS_NOT_1804;isOutput=true]false"
-      fi
+    inputs:
+      targetType: 'inline'
+      script: |
+        if [[ "$OS_VERSION" != "18.04" ]]; then
+          echo "##vso[task.setvariable variable=IS_NOT_1804;isOutput=true]true"
+        else
+          echo "##vso[task.setvariable variable=IS_NOT_1804;isOutput=true]false"
+        fi
+    displayName: 'Check if OS version is not 18.04'
 
   - task: PublishPipelineArtifact@0
     condition: eq(variables['IS_NOT_1804'], 'true')
