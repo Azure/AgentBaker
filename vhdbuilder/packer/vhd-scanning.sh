@@ -34,7 +34,6 @@ if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
 fi
 
 #fix identity string
---security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true
 az vm create --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME \
     --image $VHD_IMAGE \
