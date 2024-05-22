@@ -324,8 +324,7 @@ testCloudInit() {
     if [ ${cloud_init_status} -eq 0 ]; then
       echo "Cloud-init status is OK."
     else
-      status=$(cloud-init status --wait)
-      err $test "Cloud-init status error with ${cloud_init_status}."
+      err $test "Cloud-init exit status with code ${cloud_init_status}, ${cloud_init_output}."
     fi
   fi
 
