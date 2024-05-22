@@ -117,7 +117,7 @@ steps:
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
         -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
         -e BUILD_ID=$(Build.BuildId) \
--       -e BUILD_NUMBER=$(Build.BuildNumber) \
+        -e BUILD_NUMBER=$(Build.BuildNumber) \
         -e OS_DISK_URI=${OS_DISK_URI} \
         -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
         -e AZURE_LOCATION=${AZURE_LOCATION} \
