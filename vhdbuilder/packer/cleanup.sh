@@ -107,18 +107,18 @@ fi
 
 #clean up the temporary storage account
 if [[ -n "${SA_NAME}" ]]; then
-  id=$(az storage account show -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
+  id=$(az storage account show -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --auth-mode "login" | jq .id)
   if [ -n "$id" ]; then
-    az storage account delete -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --yes
+    az storage account delete -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --auth-mode "login" --yes
   fi
 fi
 
 #delete the SIG version that was created during a dry-run of linuxVhdMode
 if [[ "${MODE}" == "linuxVhdMode" && "${DRY_RUN,,}" == "true" ]]; then
   echo "running dry-run in mode ${MODE}, attempting to delete output SIG version: ${AZURE_RESOURCE_GROUP_NAME}/${SIG_GALLERY_NAME}/${SIG_IMAGE_NAME}/${CAPTURED_SIG_VERSION}"
-  id=$(az sig image-definition show -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${SIG_IMAGE_NAME} | jq '.id')
+  id=$(az sig image-definition show -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${SIG_IMAGE_NAME} --auth-mode "login" | jq '.id')
   if [ -n "$id" ]; then
-    az sig image-version delete -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${SIG_IMAGE_NAME} -e ${CAPTURED_SIG_VERSION}
+    az sig image-version delete -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${SIG_IMAGE_NAME} -e ${CAPTURED_SIG_VERSION} --auth-mode "login"
   else
     echo "specified image-definition ${AZURE_RESOURCE_GROUP_NAME}/${SIG_GALLERY_NAME}/${SIG_IMAGE_NAME} does not exist, will not delete SIG image version"
   fi
@@ -191,8 +191,8 @@ STORAGE_ACCOUNT_EXPIRATION_IN_HOURS=4
 old_storage_accounts=""
 echo "Looking for storage accounts in ${AZURE_RESOURCE_GROUP_NAME} created over ${STORAGE_ACCOUNT_EXPIRATION_IN_HOURS} hours ago..."
 echo "That is, those created before $(date -d@$storageAccountDeadline) As shown below"
-az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $storageAccountDeadline '.[] | select(.tags.now < $dl).name' | tr -d '\"' || ""
-for storage_account_id in $(az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} | jq --arg dl $storageAccountDeadline '.[] | select(.tags.now < $dl).id' | tr -d '\"' || ""); do
+az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} --auth-mode "login" | jq --arg dl $storageAccountDeadline '.[] | select(.tags.now < $dl).name' | tr -d '\"' || ""
+for storage_account_id in $(az storage account list -g ${AZURE_RESOURCE_GROUP_NAME} --auth-mode "login" | jq --arg dl $storageAccountDeadline '.[] | select(.tags.now < $dl).id' | tr -d '\"' || ""); do
     if [[ $storage_account_id = *aksimages* ]]; then
         echo "Will delete storage account ${storage_account_id}# from resource group ${AZURE_RESOURCE_GROUP_NAME}..."
         old_storage_accounts="${old_storage_accounts} ${storage_account_id}"
@@ -200,7 +200,7 @@ for storage_account_id in $(az storage account list -g ${AZURE_RESOURCE_GROUP_NA
 done
 if [ -n "$old_storage_accounts" ]; then
   echo "attempting to delete old storage accounts..."
-  az storage account delete --yes --ids $old_storage_accounts || echo "old storage account deletion was not successful, continuing..."
+  az storage account delete --yes --ids $old_storage_accounts --auth-mode "login" || echo "old storage account deletion was not successful, continuing..."
 else
   echo "did not find any old storage accounts eligible for deletion"
 fi
