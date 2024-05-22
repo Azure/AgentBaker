@@ -17,6 +17,9 @@ parameters:
   type: boolean
   default: true
 
+variables:
+  - group: "AKS Dev Assistant (KV)"
+
 steps:
 - bash: |
         set -x
@@ -38,7 +41,7 @@ steps:
         echo $MAPPED_ADO_PAT | az devops login --organization=https://dev.azure.com/msazure
         az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
   env:
-        MAPPED_ADO_PAT: $(ADO_PAT)
+        MAPPED_ADO_PAT: $(PAT-aksdevassistant)
   displayName: 'az devops login'
 - bash: |
         echo "PR for Image Bumping, Official Branch Cutting"
