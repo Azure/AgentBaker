@@ -3,10 +3,11 @@ set -eux
 
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
 TEST_RESOURCE_PREFIX="vhd-scanning"
-VM_NAME="$TEST_RESOURCE_PREFIX-$TEST_RESOURCE_PREFIX"
+VM_NAME="$TEST_RESOURCE_PREFIX-vm"
 VHD_IMAGE="$MANAGED_SIG_ID"
 SIG_CONTAINER_NAME="vhd-scans"
 TEST_VM_ADMIN_USERNAME="azureuser"
+STORAGE_ACCOUNT_NAME="vhdbuildereastustest"
 
 set +x
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
@@ -101,7 +102,7 @@ az vm run-command invoke \
     --scripts "az storage blob upload --file /opt/azure/containers/trivy-report.json \
     --container-name ${SIG_CONTAINER_NAME} \
     --name ${TRIVY_REPORT_NAME} \
-    --account-name ${SIG_GALLERY_NAME} \
+    --account-name ${STORAGE_ACCOUNT_NAME} \
     --auth-mode login"
 
 TRIVY_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
@@ -112,12 +113,12 @@ az vm run-command invoke \
     --scripts "az storage blob upload --file /opt/azure/containers/trivy-images-table.txt \
     --container-name ${SIG_CONTAINER_NAME} \
     --name ${TRIVY_TABLE_NAME} \
-    --account-name ${SIG_GALLERY_NAME} \
+    --account-name ${STORAGE_ACCOUNT_NAME} \
     --auth-mode login"
 
 
-az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_REPORT_NAME} --file trivy-report.json --account-name ${SIG_GALLERY_NAME} --auth-mode login
-az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_TABLE_NAME} --file  trivy-images-table.txt --account-name ${SIG_GALLERY_NAME} --auth-mode login
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_REPORT_NAME} --file trivy-report.json --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_TABLE_NAME} --file  trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 
-az storage blob delete --account-name ${SIG_GALLERY_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
-az storage blob delete --account-name ${SIG_GALLERY_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
+az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
+az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
