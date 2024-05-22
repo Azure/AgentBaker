@@ -82,8 +82,8 @@ cd ../staging/cse/windows
 zip -r ../../../$WINDOWS_E2E_IMAGE/$WINDOWS_E2E_IMAGE-aks-windows-cse-scripts.zip ./* -x ./*.tests.ps1 -x "*azurecnifunc.tests.suites*" -x README -x provisioningscripts/*.md -x debug/update-scripts.ps1
 log "Zip cse packages done"
 
-csePackageURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip"
-export csePackageURL
+csePackageName="${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip"
+cseBlobUrlForUploading="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/\$web/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${csePackageName}"
 
 cd ../../../$WINDOWS_E2E_IMAGE
 
@@ -92,25 +92,30 @@ export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
 
 array=(azcopy_*)
 noExistStr="File count: 0"
-listResult=$(${array[0]}/azcopy list $csePackageURL --running-tally)
+listResult=$(${array[0]}/azcopy list $cseBlobUrlForUploading --running-tally)
 
 for i in $(seq 1 10); do
     if [[ "$listResult" != *"$noExistStr"* ]]; then
         log "Cse package with the same exists, retry $i to use new name..."
         timeStamp=$(date +%s)
-        csePackageURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip"
-        listResult=$(${array[0]}/azcopy list $csePackageURL --running-tally)
+        csePackageName="${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip"
+        cseBlobUrlForUploading="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/\$web/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${csePackageName}"
+        listResult=$(${array[0]}/azcopy list $cseBlobUrlForUploading --running-tally)
         continue
     fi
-    ${array[0]}/azcopy copy $WINDOWS_E2E_IMAGE-aks-windows-cse-scripts.zip $csePackageURL
+    ${array[0]}/azcopy copy $WINDOWS_E2E_IMAGE-aks-windows-cse-scripts.zip $cseBlobUrlForUploading
     break;
 done
 
-listResult=$(${array[0]}/azcopy list $csePackageURL --running-tally)
+listResult=$(${array[0]}/azcopy list $cseBlobUrlForUploading --running-tally)
 if [[ "$listResult" == *"$noExistStr"* ]]; then
     err "Failed to upload cse package"
     exit 1
 fi
+
+# Use website url to allow anonymous download
+csePackageURL="${AZURE_E2E_STORAGE_CSE_PACKAGE_ENDPOINT}/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${csePackageName}"
+export csePackageURL
 
 log "Upload cse packages done"
 
@@ -191,14 +196,13 @@ az deployment group create --resource-group $E2E_MC_RESOURCE_GROUP_NAME \
 set -e
 log "Deployment of windows vmss succeeded."
 
+# delete cse package in storage account
+${array[0]}/azcopy rm $cseBlobUrlForUploading || retval=$?
+
 if [ "$retval" -ne 0 ]; then
     err "Failed to deploy windows vmss. Error code is $retval."
     exit 1
 fi
-
-# delete cse package in storage account
-csePackageURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip"
-${array[0]}/azcopy rm $csePackageURL || retval=$?
 
 if [ "$retval" -ne 0 ]; then
     err "Failed to delete cse package in storage account. Error code is $retval."
