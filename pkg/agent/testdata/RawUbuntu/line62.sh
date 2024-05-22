@@ -43,6 +43,7 @@ installDeps() {
         BLOBFUSE2_VERSION="2.3.0"
     fi
 
+    pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
     if [[ $(isARM64) != 1 ]]; then
         if [[ "${OSVERSION}" == "22.04" || "${OSVERSION}" == "24.04" ]]; then
             pkg_list+=(fuse3)

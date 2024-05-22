@@ -46,6 +46,7 @@ installDeps() {
         BLOBFUSE2_VERSION="2.3.0"
     fi
 
+    pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
     if [[ $(isARM64) != 1 ]]; then
         # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
         # for 22.04, fuse3 is installed. for all others, fuse is installed
