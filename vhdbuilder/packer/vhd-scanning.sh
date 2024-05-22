@@ -45,14 +45,14 @@ az vm run-command invoke \
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts @$SCRIPT_PATH
 
-if [ "$OS_SKU" = "ubuntu" ]; then
+if [ "$OS_SKU" = "Ubuntu" ]; then
     az vm run-command invoke \
         --command-id RunShellScript \
         --name $VM_NAME \
         --resource-group $RESOURCE_GROUP_NAME \
         --scripts "sudo apt-get install -y azure-cli"
 
-elif [ "$OS_SKU" = "azure linux" ]; then
+elif [ "$OS_SKU" = "AzureLinux" ]; then
     az vm run-command invoke \
         --command-id RunShellScript \
         --name $VM_NAME \
@@ -73,7 +73,7 @@ elif [ "$OS_SKU" = "azure linux" ]; then
         --resource-group $RESOURCE_GROUP_NAME \
         --scripts "sudo apt-get install -y azure-cli"
 
-elif [ "$OS_SKU" = "CBL mariner" ]; then
+elif [ "$OS_SKU" = "CBLMariner" ]; then
     az vm run-command invoke \
         --command-id RunShellScript \
         --name $VM_NAME \
