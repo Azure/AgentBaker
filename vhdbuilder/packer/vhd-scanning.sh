@@ -65,7 +65,7 @@ if [[ "$OS_SKU" == "Ubuntu" ]] && [[ "$SIG_IMAGE_NAME" == *2004* ]]; then
         --resource-group $RESOURCE_GROUP_NAME \
         --scripts "sudo apt-get install -y azure-cli"
 
-elif [[ "$OS_SKU" == "Ubuntu"]] && [["$SIG_IMAGE_NAME" == *2204* ]]; then
+elif [[ "$OS_SKU" == "Ubuntu" ]] && [[ "$SIG_IMAGE_NAME" == *2204* ]]; then
     az vm run-command invoke \
         --command-id RunShellScript \
         --name $VM_NAME \
