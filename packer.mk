@@ -99,4 +99,4 @@ test-building-vhd: az-login
 	@./vhdbuilder/packer/test/run-test.sh
 
 scanning-vhd: az-login
-	@./vhdbuilder/packer/scanning-vhd.sh
+	@./vhdbuilder/packer/vhd-scanning.sh
