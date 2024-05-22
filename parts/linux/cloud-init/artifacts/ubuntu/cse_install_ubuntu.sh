@@ -41,16 +41,16 @@ installDeps() {
         BLOBFUSE2_VERSION="2.2.0"
     fi
 
-    # Currently skipping blobfuse install on 24.04 since packages are not available upstream, remove this once they are
-    if [[ "${OSVERSION}" != "24.04" ]]; then
-      pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
+    # Sync with Andy Zhang on if blofuse2 for 22.04 can be bumped to 2.3.0 to maintain parity, right now its 2.2.1
+    if [ "${OSVERSION}" == "24.04" ]; then
+        BLOBFUSE2_VERSION="2.3.0"
     fi
 
-    if [[ $(isARM64) != 1 && "${OSVERSION}" != "24.04" ]]; then
+    if [[ $(isARM64) != 1 ]]; then
         # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
         # for 22.04, fuse3 is installed. for all others, fuse is installed
         # for 16.04, installed blobfuse1.3.7, for all others except 22.04, installed blobfuse1.4.5
-        if [[ "${OSVERSION}" == "22.04" ]]; then
+        if [[ "${OSVERSION}" == "22.04" || "${OSVERSION}" == "24.04" ]]; then
             pkg_list+=(fuse3)
         else
             pkg_list+=(blobfuse=${BLOBFUSE_VERSION} fuse)

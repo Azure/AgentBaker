@@ -39,12 +39,12 @@ installDeps() {
         BLOBFUSE2_VERSION="2.2.0"
     fi
 
-    if [[ "${OSVERSION}" != "24.04" ]]; then
-      pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
+    if [ "${OSVERSION}" == "24.04" ]; then
+        BLOBFUSE2_VERSION="2.3.0"
     fi
 
-    if [[ $(isARM64) != 1 && "${OSVERSION}" != "24.04" ]]; then
-        if [[ "${OSVERSION}" == "22.04" ]]; then
+    if [[ $(isARM64) != 1 ]]; then
+        if [[ "${OSVERSION}" == "22.04" || "${OSVERSION}" == "24.04" ]]; then
             pkg_list+=(fuse3)
         else
             pkg_list+=(blobfuse=${BLOBFUSE_VERSION} fuse)
