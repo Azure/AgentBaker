@@ -28,9 +28,13 @@ function cleanup() {
 }
 trap cleanup EXIT
 
-VMSIZE="Standard_DS1_v2"
+VM_OPTIONS="--size Standard_DS1_v2"
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-    VMSIZE="Standard_D2pds_v5"
+    VM_OPTIONS="--size Standard_D2pds_v5"
+fi
+
+if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
+    VM_OPTIONS+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
 #fix identity string
@@ -40,11 +44,8 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-username $TEST_VM_ADMIN_USERNAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
-    --size $VMSIZE \
     --assign-identity "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/vhd-scanning-UAMI" \
-    --security-type TrustedLaunch \
-    --enable-secure-boot true \
-    --enable-vtpm true
+    ${VM_OPTIONS}
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
