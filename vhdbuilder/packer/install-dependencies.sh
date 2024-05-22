@@ -264,7 +264,7 @@ echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
 PRESENT_DIR=$(pwd)
 # run installBcc in a subshell and continue on with container image pull in order to decrease total build time
-( 
+(
   cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
 
   installBcc
@@ -322,7 +322,7 @@ for imageToBePulled in ${ContainerImages[*]}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
       wait -n
-    done    
+    done
   done
 done
 wait ${image_pids[@]}
@@ -388,7 +388,7 @@ done
 
 # After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
 MULTI_ARCH_CNI_PLUGIN_VERSIONS="
-1.1.1
+1.4.1
 "
 CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
 
@@ -484,7 +484,7 @@ wait ${kube_proxy_pids[@]} # Wait for all parallel pulls to finish
 
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
-  ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables" 
+  ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
 
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
