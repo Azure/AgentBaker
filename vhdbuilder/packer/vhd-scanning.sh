@@ -28,6 +28,11 @@ function cleanup() {
 }
 trap cleanup EXIT
 
+VMSIZE="Standard_DS1_v2"
+if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
+    VMSIZE="Standard_D2pds_v5"
+fi
+
 #fix identity string
 az vm create --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME \
@@ -35,6 +40,7 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-username $TEST_VM_ADMIN_USERNAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
+    --size $VMSIZE \
     --assign-identity "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/vhd-scanning-UAMI"
 
 FULL_PATH=$(realpath $0)
@@ -46,14 +52,14 @@ az vm run-command invoke \
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts @$SCRIPT_PATH
 
-if [ "$OS_SKU" = "Ubuntu" ]; then
+if [[ "$OS_SKU" = "Ubuntu" && "$SIG_IMAGE_NAME" == *2004* ]]; then
     az vm run-command invoke \
         --command-id RunShellScript \
         --name $VM_NAME \
         --resource-group $RESOURCE_GROUP_NAME \
         --scripts "sudo apt-get install -y azure-cli"
 
-elif [ "$OS_SKU" = "AzureLinux" ]; then
+elif [[ "$OS_SKU" = "Ubuntu" && "$SIG_IMAGE_NAME" == *2204* ]]; then
     az vm run-command invoke \
         --command-id RunShellScript \
         --name $VM_NAME \
@@ -74,7 +80,7 @@ elif [ "$OS_SKU" = "AzureLinux" ]; then
         --resource-group $RESOURCE_GROUP_NAME \
         --scripts "sudo apt-get install -y azure-cli"
 
-elif [ "$OS_SKU" = "CBLMariner" ]; then
+elif [ "$OS_SKU" = "CBLMariner" ] || [ "$OS_SKU" = "AzureLinux" ]; then
     az vm run-command invoke \
         --command-id RunShellScript \
         --name $VM_NAME \
