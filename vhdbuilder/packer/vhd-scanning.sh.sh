@@ -1,11 +1,8 @@
 #!/bin/bash
 set -eux
+
 RESOURCE_GROUP_NAME="$AZURE_RESOURCE_GROUP_NAME"
 VM_NAME_SCANNING="${VM_NAME}-scanning"
-#TEST_VM_ADMIN_USERNAME="azureuser"
-#TEST_VM_ADMIN_PASSWORD="TestVM@1715622512"
-#VHD_IMAGE_MARINER="/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2/versions/1.1716314854.9962"
-#VHD_IMAGE="/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2004/versions/1.1716314897.11266"
 VHD_IMAGE="$IMG_DEF"
 SIG_CONTAINER_NAME="vhd-scans"
 
@@ -19,9 +16,6 @@ function cleanup() {
 }
 trap cleanup EXIT
 
-# use os version to exit if 18.04
-
-# create the VM
 az vm create --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME_SCANNING \
     --image $VHD_IMAGE \
@@ -84,7 +78,7 @@ az vm run-command invoke \
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts "az login --identity"
 
-# make the name unique
+
 TRIVY_REPORT_NAME="trivy-report-${BUILD_ID}.json"
 az vm run-command invoke \
     --command-id RunShellScript \
