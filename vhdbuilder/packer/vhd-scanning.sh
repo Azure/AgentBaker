@@ -95,7 +95,7 @@ elif [ "$OS_SKU" = "CBLMariner" ] || [ "$OS_SKU" = "AzureLinux" ]; then
             sudo sh -c 'echo -e \"[azure-cli]\nname=Azure CLI\nbaseurl=https://packages.microsoft.com/yumrepos/azure-cli\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc\" > /etc/yum.repos.d/azure-cli.repo' &&
             sudo dnf install -y azure-cli"
 else
-    echo "I don't know what you are, exiting shell script."
+    echo "I don't know what you are, exiting shell script: $OS_SKU $SIG_IMAGE_NAME"
     exit 1
 fi
 
