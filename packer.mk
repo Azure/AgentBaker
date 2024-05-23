@@ -89,7 +89,7 @@ backfill-cleanup: az-login
 	@chmod +x ./vhdbuilder/packer/backfill-cleanup.sh
 	@./vhdbuilder/packer/backfill-cleanup.sh
 
-generate-sas: az-login
+generate-publishing-info: az-login
 	@./vhdbuilder/packer/generate-vhd-publishing-info.sh
 
 convert-sig-to-classic-storage-account-blob: az-login

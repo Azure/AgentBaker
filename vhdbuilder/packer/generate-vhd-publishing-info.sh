@@ -1,7 +1,6 @@
 #!/bin/bash -e
 
 required_env_vars=(
-    "CLASSIC_SA_CONNECTION_STRING"
     "STORAGE_ACCT_BLOB_URL"
     "VHD_NAME"
     "OS_NAME"
