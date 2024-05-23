@@ -64,15 +64,17 @@ if ($global:EnableSecureTLSBootstrapping) {
     & "c:\k\securetlsbootstrap.ps1" -KubeDir $global:KubeDir -APIServerFQDN $global:MasterIP -AADResource $aadResource
     if (!$?) {
         Write-Host "Secure TLS bootstrapping failed, will still try to start kubelet..."
-    }
-    if ((Test-Path $global:KubeconfigPath) -and (Test-Path $global:BootstrapKubeconfigPath)) {
-        # Remove the bootstrap-kubeconfig flag from kubelet args, if present.
-        # This is needed for the secure TLS bootstrapping case since if --bootstrap-kubeconfig is specified
-        # alongside --rotate-certificates, kubelet will always treat what we give it as bootstrap credentials rather
-        # than valid kubelet client credentials at startup, and thus will try to bootstrap its own credentials.
-        Write-Host "Removing bootstrap-kubeconfig references for secure TLS bootstrapping"
-        $KubeletArgList = $KubeletArgList | Where-Object -FilterScript {$_ -NotMatch "*bootstrap-kubeconfig*"}
-        Remove-Item $global:BootstrapKubeconfigPath
+    } else {
+        Write-Host "Secure TLS bootstrapping succeeded"
+        if ((Test-Path $global:KubeconfigPath) -and (Test-Path $global:BootstrapKubeconfigPath)) {
+            # Remove the bootstrap-kubeconfig flag from kubelet args, if present.
+            # This is needed for the secure TLS bootstrapping case since if --bootstrap-kubeconfig is specified
+            # alongside --rotate-certificates, kubelet will always treat what we give it as bootstrap credentials rather
+            # than valid kubelet client credentials at startup, and thus will try to bootstrap its own credentials.
+            Write-Host "No need for bootstrap-kubeconfig: removing bootstrap-kubeconfig arg from kubelet arg list and bootstrap-kubeconfig file from disk"
+            $KubeletArgList = @($KubeletArgList) -NotMatch "bootstrap-kubeconig"
+            Remove-Item $global:BootstrapKubeconfigPath
+        }
     }
 }
 

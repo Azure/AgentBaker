@@ -21,9 +21,13 @@ Param(
     $LogFilePath = [Io.path]::Combine("$KubeDir", "securetlsbootstrap.log")
 )
 
-# next-proto value sent by the client to the bootstrap server
+# Number of seconds to wait between bootstrap client retries
+$global:RetryDelaySeconds = 3
+
+# Value of the ALPN header to send within requests to the bootstrap server
 $global:NextProtoValue = "aks-tls-bootstrap"
 
+# Directory where we log guest-agent event telemetry for reporting/signals
 $global:EventsLoggingDir = "C:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScriptExtension\Events\"
 
 function CurrentUnixTimeSeconds {
@@ -55,7 +59,6 @@ function As-Event {
     $messageJson = @"
     {
         "Status": "Succeeded"
-        "Hostname": "$env:computername",
     }
 "@
     if ($exitCode -ne 0) {
@@ -63,8 +66,7 @@ function As-Event {
         $bootstrapLogContent = Get-Content $LogFilePath
         $messageJson=@"
     {
-        "Status": "Failed"
-        "Hostname": "$env:computername",
+        "Status": "Failed",
         "LogTail": "$bootstrapLogContent"
     }
 "@
@@ -110,6 +112,7 @@ function Bootstrap {
             exit 0
         }
         $now = CurrentUnixTimeSeconds
+        Start-Sleep -Seconds $global:RetryDelaySeconds
     }
     
     Write-Log "Secure TLS Bootstrapping failed to complete within the alotted time"
