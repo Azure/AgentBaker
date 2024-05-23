@@ -37,7 +37,7 @@ elif [[ "${FEATURE_FLAGS,,}" == "kata" ]]; then
 fi
 
 if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
-    VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true --allow-no-subscriptions"
+    VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
 #fix identity string
@@ -76,7 +76,8 @@ az vm run-command invoke \
         "TRIVY_REPORT_NAME=${TRIVY_REPORT_NAME}" \
         "TRIVY_TABLE_NAME=${TRIVY_TABLE_NAME}" \
         "SIG_CONTAINER_NAME"=${SIG_CONTAINER_NAME} \
-        "STORAGE_ACCOUNT_NAME"=${STORAGE_ACCOUNT_NAME}
+        "STORAGE_ACCOUNT_NAME"=${STORAGE_ACCOUNT_NAME} \
+        ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH}
 
 
 az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_REPORT_NAME} --file trivy-report.json --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login

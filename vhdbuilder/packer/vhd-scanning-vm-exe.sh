@@ -9,6 +9,7 @@ TRIVY_REPORT_NAME=$5
 TRIVY_TABLE_NAME=$6
 SIG_CONTAINER_NAME=$7
 STORAGE_ACCOUNT_NAME=$8
+ENABLE_TRUSTED_LAUNCH=$9
 
 if [[ "$OS_SKU" == "Ubuntu" ]] && [[ "$OS_VERSION" == "20.04" ]]; then
     sudo apt-get install -y azure-cli
@@ -38,7 +39,11 @@ else
     exit 1
 fi
 
-az login --identity
+if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
+    az login --identity --allow-no-subscriptions
+else
+    az login --identity
+fi
 
 # trivy scan must have run before this
 az storage blob upload --file /opt/azure/containers/trivy-report.json \
