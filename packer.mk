@@ -1,6 +1,6 @@
 SHELL=/bin/bash -o pipefail
 
-build-packer:
+build-packer: build-nbcparser-binary
 ifeq (${MODE},linuxVhdMode)
 	@echo "${MODE}: Generating prefetch scripts"
 	@bash -c "pushd vhdbuilder/prefetch; go run main.go --components=../packer/components.json --container-image-prefetch-script=../packer/prefetch.sh; popd"
@@ -97,3 +97,7 @@ convert-sig-to-classic-storage-account-blob: az-login
 
 test-building-vhd: az-login
 	@./vhdbuilder/packer/test/run-test.sh
+
+build-nbcparser-binary:
+	@echo "Building nbcparser binary"
+	@bash -c "pushd nbcparser; go build -o bin/nbcparser main.go"
