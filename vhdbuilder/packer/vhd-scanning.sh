@@ -37,7 +37,7 @@ elif [[ "${FEATURE_FLAGS,,}" == "kata" ]]; then
 fi
 
 if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
-    VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
+    VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true --allow-no-subscriptions"
 fi
 
 #fix identity string
