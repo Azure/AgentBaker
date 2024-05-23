@@ -73,7 +73,7 @@ echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
 
 upload_logs() {
     if test -x /opt/azure/containers/aks-log-collector.sh; then
-        /opt/azure/containers/aks-log-collector.sh >/dev/null 2>&1
+        /opt/azure/containers/aks-log-collector.sh >/var/log/azure/aks/cse-aks-log-collector.log 2>&1
     else
         PYTHONPATH=$(find /var/lib/waagent -name WALinuxAgent\*.egg | sort -rV | head -n1)
         python3 $PYTHONPATH -collect-logs -full >/dev/null 2>&1

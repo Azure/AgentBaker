@@ -85,7 +85,7 @@ upload_logs() {
     # fall back to WALA collector
     if test -x /opt/azure/containers/aks-log-collector.sh; then
         # Call AKS Log Collector
-        /opt/azure/containers/aks-log-collector.sh >/dev/null 2>&1
+        /opt/azure/containers/aks-log-collector.sh >/var/log/azure/aks/cse-aks-log-collector.log 2>&1
     else
         # find the most recent version of WALinuxAgent and use it to collect logs per
         # https://supportability.visualstudio.com/AzureIaaSVM/_wiki/wikis/AzureIaaSVM/495009/Log-Collection_AGEX?anchor=manually-collect-logs
