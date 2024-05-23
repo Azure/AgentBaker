@@ -2,7 +2,7 @@
 set -eux
 
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
-EXE_SCRIPT_PATH="vhd-scanning-vm-exe-on-vm.sh"
+EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
 TEST_RESOURCE_PREFIX="vhd-scanning"
 VM_NAME="$TEST_RESOURCE_PREFIX-vm"
 VHD_IMAGE="$MANAGED_SIG_ID"
