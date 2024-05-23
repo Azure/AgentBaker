@@ -5,7 +5,10 @@ OS_SKU=$1
 OS_VERSION=$2
 TEST_VM_ADMIN_USERNAME=$3
 ARCHITECTURE=$4
-
+TRIVY_REPORT_NAME=$5
+TRIVY_TABLE_NAME=$6
+SIG_CONTAINER_NAME=$7
+STORAGE_ACCOUNT_NAME=$8
 
 if [[ "$OS_SKU" == "Ubuntu" ]] && [[ "$OS_VERSION" == "20.04" ]]; then
     sudo apt-get install -y azure-cli
@@ -39,13 +42,13 @@ az login --identity
 
 # trivy scan must have run before this
 az storage blob upload --file /opt/azure/containers/trivy-report.json \
-    --container-name "vhd-scans" \
-    --name "trivy-report-addtimestamp.json" \
-    --account-name "vhdbuildereastustest" \
+    --container-name ${SIG_CONTAINER_NAME} \
+    --name ${TRIVY_REPORT_NAME} \
+    --account-name ${STORAGE_ACCOUNT_NAME} \
     --auth-mode login
 
 az storage blob upload --file /opt/azure/containers/trivy-images-table.txt \
-    --container-name "vhd-scans" \
-    --name "trivy-table-addtimestamp.txt" \
-    --account-name "vhdbuildereastustest" \
+    --container-name$ ${SIG_CONTAINER_NAME} \
+    --name ${TRIVY_TABLE_NAME} \
+    --account-name ${STORAGE_ACCOUNT_NAME} \
     --auth-mode login
