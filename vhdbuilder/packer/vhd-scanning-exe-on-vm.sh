@@ -14,7 +14,6 @@ ENABLE_TRUSTED_LAUNCH=$9
 if [[ "$OS_SKU" == "Ubuntu" ]] && [[ "$OS_VERSION" == "20.04" ]]; then
     sudo apt-get install -y azure-cli
 elif [[ "$OS_SKU" == "Ubuntu" ]] && [[ "$OS_VERSION" == "22.04" ]] && [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-    echo "az is not installed. Attempting install with pip..."
     sudo apt update
     sudo apt install -y python3-pip
     pip install azure-cli

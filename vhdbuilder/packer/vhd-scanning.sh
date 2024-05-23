@@ -2,7 +2,7 @@
 set -eux
 
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
-EXE_SCRIPT_PATH="vhd-scanning-vm-exe.sh"
+EXE_SCRIPT_PATH="vhd-scanning-vm-exe-on-vm.sh"
 TEST_RESOURCE_PREFIX="vhd-scanning"
 VM_NAME="$TEST_RESOURCE_PREFIX-vm"
 VHD_IMAGE="$MANAGED_SIG_ID"
@@ -39,6 +39,7 @@ fi
 
 if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
+    VM_OPTIONS+=" --scope /subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/virtualMachines/${VM_NAME}"
 fi
 
 #FIXME (alburgess) make assigned-identity a var 
