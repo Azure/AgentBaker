@@ -82,6 +82,11 @@
     },
     {
       "type": "file",
+      "source": "nbcparser/bin/nbcparser",
+      "destination": "/home/packer/nbcparser"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/prefetch.sh",
       "destination": "/home/packer/prefetch.sh"
     },
