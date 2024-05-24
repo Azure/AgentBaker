@@ -14,12 +14,14 @@ setKubeletTLSBootstrapFlags() {
   KUBELET_TLS_BOOTSTRAP_FLAGS="--kubeconfig /var/lib/kubelet/kubeconfig"
 
   if [ -f "${KUBECONFIG_FILE}" ]; then
+    echo "kubeconfig is present before starting kubelet, removing bootstrap kubeconfig file at ${BOOTSTRAP_KUBECONFIG_FILE}"
     rm -f "${BOOTSTRAP_KUBECONFIG_FILE}"
     return 0
   fi
 
   if [ -f "${BOOTSTRAP_KUBECONFIG_FILE}" ]; then
-    KUBELET_TLS_BOOTSTRAP_FLAGS="--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+    echo "kubeconfig is not present before starting kubelet, setting --bootstrap-kubeconfig to ${BOOTSTRAP_KUBECONFIG_FILE} for fallback"
+    KUBELET_TLS_BOOTSTRAP_FLAGS="--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig ${BOOTSTRAP_KUBECONFIG_FILE}"
   fi
 }
 

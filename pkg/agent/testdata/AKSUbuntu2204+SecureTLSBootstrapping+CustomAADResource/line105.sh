@@ -28,9 +28,9 @@ logs_to_events() {
     ret=$?
     local endTime=$(date +"%F %T.%3N")
 
-    msg_string=$(jq -n --arg Status "Succeeded" --arg Hostname "$(uname -n)" '{Status: $Status, Hostname: $Hostname}')
+    msg_string=$(jq -n --arg Status "Succeeded" '{Status: $Status}')
     if [ "$ret" != "0" ]; then
-        msg_string=$(jq -n --arg Status "Failed" --arg Hostname "$(uname -n)" --arg LogTail "$(tail -n 10 $LOG_FILE_PATH)" '{Status: $Status, Hostname: $Hostname, LogTail: $LogTail}')
+        msg_string=$(jq -n --arg Status "Failed" --arg LogTail "$(tail -n 10 $LOG_FILE_PATH)" '{Status: $Status, LogTail: $LogTail}')
     fi
 
     json_string=$( jq -n \
@@ -82,7 +82,7 @@ bootstrap() {
          --kubeconfig="$KUBECONFIG_PATH" \
          --log-file="$LOG_FILE_PATH"
 
-        [ $? -eq 0 ] && break
+        [ $? -eq 0 ] && echo "secure TLS bootstrapping succeeded, generated kubeconfig is at ${KUBECONFIG_PATH}" && break
 
         sleep $RETRY_WAIT_SECONDS
     done

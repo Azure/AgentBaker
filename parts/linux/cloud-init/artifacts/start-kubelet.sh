@@ -16,6 +16,7 @@ setKubeletTLSBootstrapFlags() {
   if [ -f "${KUBECONFIG_FILE}" ]; then
     # if we have a kubeconfig at this point, we can remove the bootstrap-kubeconfig if present
     # to ensure that no bootstrap tokens are left on disk when not needed
+    echo "kubeconfig is present before starting kubelet, removing bootstrap kubeconfig file at ${BOOTSTRAP_KUBECONFIG_FILE}"
     rm -f "${BOOTSTRAP_KUBECONFIG_FILE}"
     return 0
   fi
@@ -23,7 +24,8 @@ setKubeletTLSBootstrapFlags() {
   if [ -f "${BOOTSTRAP_KUBECONFIG_FILE}" ]; then
     # if we don't have a kubeconfig but we do have a bootstrap-kubeconfig, have kubelet
     # use it to request its own certificate at runtime
-    KUBELET_TLS_BOOTSTRAP_FLAGS="--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
+    echo "kubeconfig is not present before starting kubelet, setting --bootstrap-kubeconfig to ${BOOTSTRAP_KUBECONFIG_FILE} for fallback"
+    KUBELET_TLS_BOOTSTRAP_FLAGS="--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig ${BOOTSTRAP_KUBECONFIG_FILE}"
   fi
 }
 
