@@ -51,10 +51,6 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --assign-identity "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/vhd-scanning-identity" \
     ${VM_OPTIONS}
 
-if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
-    az role assignment create  --assignee 9873dc56-5368-475f-af9e-8c81efc36958 --role "Storage Blob Data Contributor" -g $RESOURCE_GROUP_NAME --scope "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Storage/storageAccounts/vhdbuildereastustest/blobServices/default/containers/vhd-scans"
-fi
-
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
 TRIVY_SCRIPT_PATH="$CDIR/$TRIVY_SCRIPT_PATH"
