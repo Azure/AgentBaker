@@ -98,10 +98,9 @@ convert-sig-to-classic-storage-account-blob: az-login
 test-building-vhd: az-login
 	@./vhdbuilder/packer/test/run-test.sh
 
-.PHONY: build-nbcparser-all
 build-nbcparser-all:
-	@$(MAKE) build-nbcparser-binary ARCH=amd64
-	@$(MAKE) build-nbcparser-binary ARCH=arm64
+	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=amd64
+	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=arm64
 
 build-nbcparser-binary:
 	@echo "Building nbcparser binary"
