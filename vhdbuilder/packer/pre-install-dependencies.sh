@@ -81,6 +81,7 @@ start_watch
 if [[ ${OS} == ${MARINER_OS_NAME} ]] || [[ ${OS} == ${AZURELINUX_OS_NAME} ]]; then
   # dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
   # dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
+  dnf update -y cloud-init || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # This is FIPS install for Mariner and has nothing to do with Ubuntu Advantage
     echo "Install FIPS for Mariner SKU"
