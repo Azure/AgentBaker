@@ -39,8 +39,6 @@ fi
 
 if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
-    principalID=$(az vm show -g ${RESOURCE_GROUP_NAME} -n ${VM_NAME} --query "identity.principalId" -o tsv)
-    az role assignment create --assignee ${principalID} --role contributor -g ${RESOURCE_GROUP_NAME}
 fi
 
 #FIXME (alburgess) make assigned-identity a var 
@@ -52,6 +50,11 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --os-disk-size-gb 50 \
     --assign-identity "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/vhd-scanning-identity" \
     ${VM_OPTIONS}
+
+if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
+    principalID=$(az vm show -g ${RESOURCE_GROUP_NAME} -n ${VM_NAME} --query "identity.principalId" -o tsv)
+    az role assignment create --assignee ${principalID} --role contributor -g ${RESOURCE_GROUP_NAME}
+fi
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
