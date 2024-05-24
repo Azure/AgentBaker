@@ -39,9 +39,9 @@ import (
 )
 
 var (
-	//go:embed kubenet-cni.json.gtpl
+	//go:embed templates/kubenet-cni.json.gtpl
 	kubenetTemplateContent []byte
-	//go:embed  containerd.toml.gtpl
+	//go:embed  templates/containerd.toml.gtpl
 	containerdConfigTemplateText string
 	//nolint:gochecknoglobals
 	containerdConfigTemplate = template.Must(
