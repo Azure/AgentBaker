@@ -62,19 +62,21 @@ if ($global:EnableSecureTLSBootstrapping) {
         $aadResource = $global:CustomSecureTLSBootstrapAADResource
     }
     & "c:\k\securetlsbootstrap.ps1" -KubeDir $global:KubeDir -APIServerFQDN $global:MasterIP -AADResource $aadResource
-    if (!$?) {
-        Write-Host "Secure TLS bootstrapping failed, will still try to start kubelet..."
-    } else {
-        Write-Host "Secure TLS bootstrapping succeeded"
+    if ($?) {
         if ((Test-Path $global:KubeconfigPath) -and (Test-Path $global:BootstrapKubeconfigPath)) {
             # Remove the bootstrap-kubeconfig flag from kubelet args, if present.
             # This is needed for the secure TLS bootstrapping case since if --bootstrap-kubeconfig is specified
             # alongside --rotate-certificates, kubelet will always treat what we give it as bootstrap credentials rather
             # than valid kubelet client credentials at startup, and thus will try to bootstrap its own credentials.
+            # https://kubernetes.io/docs/tasks/tls/certificate-rotation/#understanding-the-certificate-rotation-configuration
             Write-Host "No need for bootstrap-kubeconfig: removing bootstrap-kubeconfig arg from kubelet arg list and bootstrap-kubeconfig file from disk"
             $KubeletArgList = @($KubeletArgList) -NotMatch "bootstrap-kubeconig"
-            Remove-Item $global:BootstrapKubeconfigPath
+            if (Test-Path $global:BootstrapKubeconfigPath) {
+                Remove-Item $global:BootstrapKubeconfigPath
+            }
         }
+    } else {
+        Write-Host "Secure TLS bootstrapping failed, will still try to start kubelet..."
     }
 }
 
