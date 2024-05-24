@@ -39,6 +39,8 @@ fi
 
 if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
+    principalID=$(az vm show -g ${RESOURCE_GROUP_NAME} -n ${VM_NAME} --query "identity.principalId" -o tsv)
+    az role assignment create --assignee ${principalID} --role contributor -g ${RESOURCE_GROUP_NAME}
 fi
 
 #FIXME (alburgess) make assigned-identity a var 
