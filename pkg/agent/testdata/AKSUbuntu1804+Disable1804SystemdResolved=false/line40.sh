@@ -63,6 +63,9 @@ installContainerRuntime() {
 }
 
 installNetworkPlugin() {
+    logs_to_events "AKS.CSE.installNetworkPlugin.installCNI" "skip network plugin/CNI install"
+    return
+
     if [[ "${NETWORK_PLUGIN}" = "azure" ]]; then
         installAzureCNI
     fi
@@ -72,6 +75,9 @@ installNetworkPlugin() {
 
 downloadCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
+    logs_to_events "AKS.CSE.installNetworkPlugin.downloadCNI" "skip network plugin/CNI download"
+    return
+
     CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin #
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
