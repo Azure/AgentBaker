@@ -53,7 +53,7 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
 
 if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
     principalID=$(az vm show -g ${RESOURCE_GROUP_NAME} -n ${VM_NAME} --query "identity.principalId" -o tsv)
-    az role assignment create --assignee ${principalID} --role contributor -g ${RESOURCE_GROUP_NAME}
+    az role assignment create --assignee ${principalID} --role contributor -g ${RESOURCE_GROUP_NAME} --scope "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Storage/storageAccounts/vhdbuildereastustest/blobServices/default/containers/vhd-scans"
 fi
 
 FULL_PATH=$(realpath $0)
