@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/Azure/agentbaker/nbcparser/pkg/parser"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/agentbaker/pkg/parser"
 
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/Azure/go-autorest/autorest/to"
