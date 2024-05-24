@@ -320,6 +320,9 @@ if [[ ${ID} != "mariner" ]]; then
     /usr/bin/mandb && echo "man-db finished updates at $(date)" &
 fi
 
+echo "I am sad..."
+exit 124
+
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
