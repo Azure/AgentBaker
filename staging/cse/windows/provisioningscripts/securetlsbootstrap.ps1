@@ -67,10 +67,11 @@ function As-Event {
         $messageJson=@"
     {
         "Status": "Failed",
-        "LogTail": "$bootstrapLogContent"
     }
 "@
     }
+
+    $messageJson = (echo $messageJson | ConvertTo-Json)
 
     $jsonString = @"
     {
