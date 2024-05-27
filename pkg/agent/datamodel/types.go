@@ -157,8 +157,10 @@ const (
 	AKSCBLMarinerV1                     Distro = "aks-cblmariner-v1"
 	AKSCBLMarinerV2                     Distro = "aks-cblmariner-v2"
 	AKSAzureLinuxV2                     Distro = "aks-azurelinux-v2"
+	AKSAzureLinuxV3                     Distro = "aks-azurelinux-v3"
 	AKSCBLMarinerV2Gen2                 Distro = "aks-cblmariner-v2-gen2"
 	AKSAzureLinuxV2Gen2                 Distro = "aks-azurelinux-v2-gen2"
+	AKSAzureLinuxV3Gen2                 Distro = "aks-azurelinux-v3-gen2"
 	AKSCBLMarinerV2FIPS                 Distro = "aks-cblmariner-v2-fips"
 	AKSAzureLinuxV2FIPS                 Distro = "aks-azurelinux-v2-fips"
 	AKSCBLMarinerV2Gen2FIPS             Distro = "aks-cblmariner-v2-gen2-fips"
@@ -184,6 +186,7 @@ const (
 	AKSUbuntuArm64Containerd2204Gen2    Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 	AKSCBLMarinerV2Arm64Gen2            Distro = "aks-cblmariner-v2-arm64-gen2"
 	AKSAzureLinuxV2Arm64Gen2            Distro = "aks-azurelinux-v2-arm64-gen2"
+	AKSAzureLinuxV3Arm64Gen2            Distro = "aks-azurelinux-v3-arm64-gen2"
 	AKSUbuntuContainerd2204TLGen2       Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
 	AKSUbuntuMinimalContainerd2204      Distro = "aks-ubuntu-minimal-containerd-22.04"
 	AKSUbuntuMinimalContainerd2204Gen2  Distro = "aks-ubuntu-minimal-containerd-22.04-gen2"
@@ -233,8 +236,10 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSAzureLinuxV2,
+	AKSAzureLinuxV3,
 	AKSCBLMarinerV2Gen2,
 	AKSAzureLinuxV2Gen2,
+	AKSAzureLinuxV3Gen2,
 	AKSCBLMarinerV2FIPS,
 	AKSAzureLinuxV2FIPS,
 	AKSCBLMarinerV2Gen2FIPS,
@@ -260,6 +265,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
+	AKSAzureLinuxV3Arm64Gen2,
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuMinimalContainerd2204,
 	AKSUbuntuMinimalContainerd2204Gen2,
