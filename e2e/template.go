@@ -4,7 +4,128 @@ import (
 	"fmt"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 )
+
+func baseNodeBootstrappingContract() *nbcontractv1.Configuration {
+	cs := &datamodel.ContainerService{
+		Location: "southcentralus",
+		Type:     "Microsoft.ContainerService/ManagedClusters",
+		Properties: &datamodel.Properties{
+			OrchestratorProfile: &datamodel.OrchestratorProfile{
+				OrchestratorType:    datamodel.Kubernetes,
+				OrchestratorVersion: "1.19.13",
+				KubernetesConfig:    &datamodel.KubernetesConfig{},
+			},
+			HostedMasterProfile: &datamodel.HostedMasterProfile{
+				DNSPrefix: "uttestdom",
+			},
+			AgentPoolProfiles: []*datamodel.AgentPoolProfile{
+				{
+					Name:                "agent2",
+					VMSize:              "Standard_DS1_v2",
+					StorageProfile:      "ManagedDisks",
+					OSType:              datamodel.Linux,
+					VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
+					AvailabilityProfile: datamodel.VirtualMachineScaleSets,
+					Distro:              datamodel.AKSUbuntu1604,
+				},
+			},
+			LinuxProfile: &datamodel.LinuxProfile{
+				AdminUsername: "azureuser",
+			},
+			ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
+				ClientID: "ClientID",
+				Secret:   "Secret",
+			},
+		},
+	}
+	cs.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{{
+		KeyData: string("testsshkey"),
+	}}
+
+	agentPool := cs.Properties.AgentPoolProfiles[0]
+
+	kubeletConfig := map[string]string{
+		"--address":                           "0.0.0.0",
+		"--pod-manifest-path":                 "/etc/kubernetes/manifests",
+		"--cloud-provider":                    "azure",
+		"--cloud-config":                      "/etc/kubernetes/azure.json",
+		"--azure-container-registry-config":   "/etc/kubernetes/azure.json",
+		"--cluster-domain":                    "cluster.local",
+		"--cluster-dns":                       "10.0.0.10",
+		"--cgroups-per-qos":                   "true",
+		"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
+		"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
+		"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+		"--max-pods":                          "110",
+		"--node-status-update-frequency":      "10s",
+		"--image-gc-high-threshold":           "85",
+		"--image-gc-low-threshold":            "80",
+		"--event-qps":                         "0",
+		"--pod-max-pids":                      "-1",
+		"--enforce-node-allocatable":          "pods",
+		"--streaming-connection-idle-timeout": "4h0m0s",
+		"--rotate-certificates":               "true",
+		"--read-only-port":                    "10255",
+		"--protect-kernel-defaults":           "true",
+		"--resolv-conf":                       "/etc/resolv.conf",
+		"--anonymous-auth":                    "false",
+		"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
+		"--authentication-token-webhook":      "true",
+		"--authorization-mode":                "Webhook",
+		"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+		"--feature-gates":                     "RotateKubeletServerCertificate=true,a=b,PodPriority=true,x=y",
+		"--system-reserved":                   "cpu=2,memory=1Gi",
+		"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+		"--container-log-max-size":            "50M",
+	}
+
+	nbc := &nbcontractv1.Configuration{
+		LinuxAdminUsername: "azureuser",
+		VmSize:             "Standard_DS1_v2",
+		ClusterConfig: &nbcontractv1.ClusterConfig{
+			Location:      "southcentralus",
+			ResourceGroup: "resourceGroupName",
+			VmType:        nbcontractv1.ClusterConfig_VMSS,
+			ClusterNetworkConfig: &nbcontractv1.ClusterNetworkConfig{
+				SecurityGroupName: "aks-agentpool-36873793-nsg",
+				VnetName:          "aks-vnet-07752737",
+				VnetResourceGroup: "MC_rg",
+				Subnet:            "subnet1",
+				RouteTable:        "aks-agentpool-36873793-routetable",
+			},
+			PrimaryScaleSet: "aks-agent2-36873793-vmss",
+		},
+		AuthConfig: &nbcontractv1.AuthConfig{
+			ServicePrincipalId:     "ClientID",
+			ServicePrincipalSecret: "Secret",
+			TenantId:               "tenantID",
+			SubscriptionId:         "subID",
+			AssignedIdentityId:     "userAssignedID",
+		},
+		NetworkConfig: &nbcontractv1.NetworkConfig{
+			CniPluginsUrl:     "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",
+			VnetCniPluginsUrl: "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
+		},
+		GpuConfig: &nbcontractv1.GPUConfig{
+			ConfigGpuDriver: true,
+			GpuDevicePlugin: false,
+		},
+		EnableUnattendedUpgrade: true,
+		KubernetesVersion:       "1.19.13",
+		ContainerdConfig: &nbcontractv1.ContainerdConfig{
+			ContainerdDownloadUrlBase: "https://storage.googleapis.com/cri-containerd-release/",
+		},
+		OutboundCommand: nbcontractv1.GetDefaultOutboundCommand(),
+		KubeletConfig: &nbcontractv1.KubeletConfig{
+			EnableKubeletConfigFile: false,
+			KubeletFlags:            nbcontractv1.GetKubeletConfigFlag(kubeletConfig, cs, agentPool, false),
+			KubeletNodeLabels:       nbcontractv1.GetKubeletNodeLabels(agentPool),
+		},
+	}
+	return nbc
+}
 
 // this is huge, but accurate, so leave it here.
 // TODO(ace): minimize the actual required defaults.
@@ -442,7 +563,7 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 		CustomCATrustConfig:       nil,
 		DisableUnattendedUpgrades: true,
 		SSHStatus:                 0,
-		DisableCustomData:         false,
+		DisableCustomData:         true,
 	}
 }
 

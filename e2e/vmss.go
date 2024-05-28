@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
@@ -218,6 +219,11 @@ func getVmssName(r *mrand.Rand) string {
 }
 
 func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
+	encodedCseCmd := base64.StdEncoding.EncodeToString([]byte(cseCmd))
+	fmt.Println("csecmd is : ", cseCmd)
+	fmt.Println("encoded csecmd is : ", encodedCseCmd)
+	fmt.Println("len of encoded csecmd is : ", len(encodedCseCmd))
+
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(opts.suiteConfig.Location),
 		SKU: &armcompute.SKU{
@@ -230,23 +236,23 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 				Mode: to.Ptr(armcompute.UpgradeModeManual),
 			},
 			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
-				ExtensionProfile: &armcompute.VirtualMachineScaleSetExtensionProfile{
-					Extensions: []*armcompute.VirtualMachineScaleSetExtension{
-						{
-							Name: to.Ptr("vmssCSE"),
-							Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
-								Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
-								Type:                    to.Ptr("CustomScript"),
-								TypeHandlerVersion:      to.Ptr("2.0"),
-								AutoUpgradeMinorVersion: to.Ptr(true),
-								Settings:                map[string]interface{}{},
-								ProtectedSettings: map[string]interface{}{
-									"commandToExecute": cseCmd,
-								},
-							},
-						},
-					},
-				},
+				// ExtensionProfile: &armcompute.VirtualMachineScaleSetExtensionProfile{
+				// 	Extensions: []*armcompute.VirtualMachineScaleSetExtension{
+				// 		{
+				// 			Name: to.Ptr("vmssCSE"),
+				// 			Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
+				// 				Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
+				// 				Type:                    to.Ptr("CustomScript"),
+				// 				TypeHandlerVersion:      to.Ptr("2.0"),
+				// 				AutoUpgradeMinorVersion: to.Ptr(true),
+				// 				Settings:                map[string]interface{}{},
+				// 				ProtectedSettings: map[string]interface{}{
+				// 					"commandToExecute": cseCmd,
+				// 				},
+				// 			},
+				// 		},
+				// 	},
+				// },
 				OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{
 					ComputerNamePrefix: to.Ptr(name),
 					AdminUsername:      to.Ptr("azureuser"),
@@ -261,6 +267,7 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 							},
 						},
 					},
+					// UserData:
 				},
 				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
 					ImageReference: &armcompute.ImageReference{
