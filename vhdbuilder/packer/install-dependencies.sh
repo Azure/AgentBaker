@@ -356,9 +356,7 @@ unpackAzureCNI() {
 
 #must be both amd64/arm64 images
 VNET_CNI_VERSIONS="
-1.4.52
 1.4.54
-1.5.23
 1.5.28
 "
 
@@ -368,22 +366,6 @@ for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     downloadAzureCNI
     unpackAzureCNI $VNET_CNI_PLUGINS_URL
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-
-#UNITE swift and overlay versions?
-#Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
-SWIFT_CNI_VERSIONS="
-1.4.52
-1.4.54
-1.5.23
-1.5.28
-"
-
-for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
-    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${SWIFT_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-${CPU_ARCH}-v${SWIFT_CNI_VERSION}.tgz"
-    downloadAzureCNI
-    unpackAzureCNI $VNET_CNI_PLUGINS_URL
-    echo "  - Azure Swift CNI version ${SWIFT_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
 # After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
