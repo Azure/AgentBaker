@@ -155,12 +155,15 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.7-hotfix.20231103/windowszip/v1.27.7-hotfix.20231103-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.9/windowszip/v1.27.9-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.13/windowszip/v1.27.13-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.27.14/windowszip/v1.27.14-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.3-hotfix.20231103/windowszip/v1.28.3-hotfix.20231103-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.5/windowszip/v1.28.5-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.9/windowszip/v1.28.9-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.28.10/windowszip/v1.28.10-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.0/windowszip/v1.29.0-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.4/windowszip/v1.29.4-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.29.5/windowszip/v1.29.5-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.30.0/windowszip/v1.30.0-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
