@@ -82,26 +82,16 @@ else
     IMAGE_ARCH="x64"
 fi
 
-echo "generating traditional SAS token..."
-expiry_date=$(date +"%Y-%m-%dT00:00Z" -d "+7 day")
-sas_token=$(az storage container generate-sas --auth-mode login --as-user --account-name ${OUTPUT_STORAGE_ACCOUNT_NAME} --name ${OUTPUT_STORAGE_CONTAINER_NAME} --permissions r --expiry ${expiry_date} | tr -d '"')
+# It will automatically generate the user delegation sas token in publishing the image so it does not need to store sas token in vhd-publishing-info.json
+vhd_url="${STORAGE_ACCT_BLOB_URL}/${VHD_NAME}"
 
-if [ "$sas_token" == "" ]; then
-    echo "sas_token is empty"
+echo "Validating whether ${vhd_url} works"
+result=$(az storage blob exists --auth-mode login --blob-url ${vhd_url} | jq -r '.exists')
+if [[ "${result}" != "true" ]]; then
+    echo "The vhd url ${vhd_url} does not work"
     exit 1
 fi
-vhd_url="${STORAGE_ACCT_BLOB_URL}/${VHD_NAME}?$sas_token"
-
-echo "Testing whether the generated sas token works"
-vhd_size=$(curl -sI $vhd_url | grep -i Content-Length | awk '{print $2}')
-if [ "$vhd_size" == "" ]; then
-    echo "The genrated sas token does not work"
-    exit 1
-fi
-echo "The generated sas token works"
-
-# Do not log sas token
-echo "COPY ME ---> ${STORAGE_ACCT_BLOB_URL}/${VHD_NAME}?***"
+echo "The vhd url ${vhd_url} works"
 
 # Note: The offer_name is the value from OS_SKU (eg. Ubuntu)
 if [ "${OS_NAME,,}" == "linux" ]; then
