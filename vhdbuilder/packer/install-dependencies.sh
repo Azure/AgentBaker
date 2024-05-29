@@ -542,10 +542,14 @@ fi
 # Please do not use the .1 suffix, because that's only for the base image patches
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
 KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
+KUBE_URL="$(jq -r .kubernetes.downloadURL manifest.json)"
 
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
-  KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false
+  KUBERNETES_VERSION=$(echo "${PATCHED_KUBE_BINARY_VERSION}" | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
+
+  KUBE_VERSION_URL=$(echo "$KUBE_URL" | PATCHED_KUBE_BINARY_VERSION="${PATCHED_KUBE_BINARY_VERSION}" CPU_ARCH="${CPU_ARCH}" envsubst)
+
+  extractKubeBinaries "$KUBERNETES_VERSION" "${KUBE_VERSION_URL}" false
 done
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
