@@ -353,20 +353,7 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
       "versions": [
-        "1.4.52",
         "1.4.54",
-        "1.5.23",
-        "1.5.28"
-      ]
-    },
-    {
-      "fileName": "azure-vnet-cni-swift-linux-amd64-v*",
-      "downloadLocation": "/opt/cni/downloads",
-      "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
-      "versions": [
-        "1.4.52",
-        "1.4.54",
-        "1.5.23",
         "1.5.28"
       ]
     },
