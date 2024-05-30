@@ -14,6 +14,7 @@ set +x
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
 
+az ad signed-in-user show
 
 RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
 az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
