@@ -115,7 +115,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.4.2-1",
-        "v1.4.3"
+        "v1.4.3",
+        "v1.4.3-2"
       ]
     },
     {
@@ -209,7 +210,9 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "1.13.13-3",
-        "1.14.10-1"
+        "1.14.10-1",
+        "1.14.4-3",
+        "1.14.4-4"
       ]
     },
     {
@@ -227,7 +230,10 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:*",
-      "amd64OnlyVersions": [],
+      "amd64OnlyVersions": [
+        "1.7.1-hotfix.20200403-1",
+        "1.7.1-hotfix.20200403.1"
+      ],
       "multiArchVersions": [
         "v1.8.9"
       ]
@@ -244,8 +250,10 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.28.7",
+        "v1.28.7-2",
         "v1.28.8",
-        "v1.29.4",
+        "v1.29.4-1",
+        "v1.29.4-3",
         "v1.29.6"
       ]
     },
@@ -254,8 +262,11 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.28.10",
+        "v1.28.10-2",
         "v1.29.5",
-        "v1.30.2"
+        "v1.29.5-2",
+        "v1.30.2",
+        "v1.30.2-2"
       ]
     },
     {
@@ -263,8 +274,9 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.22.6",
+        "v1.22.6-3",
         "v1.23.4",
-        "v1.23.4-2"
+        "v1.23.4-3"
       ]
     },
     {
