@@ -18,8 +18,6 @@ set -x
 RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
 az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
 
-az identity show --resource-group $RESOURCE_GROUP_NAME --name "Azure Container Service - Test (AKS Standalone)"
-
 # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
 if [ "$OS_VERSION" == "18.04" ]; then
     echo "Skipping scanning for 18.04"
