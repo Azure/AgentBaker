@@ -1,6 +1,7 @@
 #!/bin/bash -e
 
 required_env_vars=(
+    "POOL_IDENTITY_RESOURCE_ID"
     "SUBSCRIPTION_ID"
     "RESOURCE_GROUP_NAME"
     "CAPTURED_SIG_VERSION"
@@ -67,7 +68,9 @@ echo "Converted $sig_resource_id to $disk_resource_id"
 # shellcheck disable=SC2102
 sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSas] -o tsv)
 
-echo "Logging into azcopy with MSI"
+echo "Logging into azcopy with pool identity, client ID: $POOL_IDENTITY_CLIENT_ID"
+export AZCOPY_AUTO_LOGIN_TYPE="MSI"
+export AZCOPY_MSI_RESOURCE_STRING="$POOL_IDENTITY_RESOURCE_ID"
 azcopy-preview login --identity
 
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"

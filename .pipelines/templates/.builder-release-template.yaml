@@ -196,6 +196,7 @@ steps:
         -e LOCATION="${AZURE_LOCATION}" \
         -e OS_TYPE="Linux" \
         -e CLASSIC_BLOB=${CLASSIC_BLOB} \
+        -e POOL_IDENTITY_RESOURCE_ID=$(POOL_IDENTITY_RESOURCE_ID) \
         -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
         -e CAPTURED_SIG_VERSION=${captured_sig_version} \
