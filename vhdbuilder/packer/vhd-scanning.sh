@@ -70,6 +70,17 @@ TIMESTAMP=$(date +%s%3N)
 TRIVY_REPORT_NAME="trivy-report-${BUILD_ID}-${TIMESTAMP}.json"
 TRIVY_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
 EXE_SCRIPT_PATH="$CDIR/$EXE_SCRIPT_PATH"
+
+echo $OS_SKU
+echo $OS_VERSION
+echo $TEST_VM_ADMIN_USERNAME
+echo $ARCHITECTURE
+echo $TRIVY_REPORT_NAME
+echo $TRIVY_TABLE_NAME
+echo $SIG_CONTAINER_NAME
+echo $STORAGE_ACCOUNT_NAME
+echo $ENABLE_TRUSTED_LAUNCH
+
 az vm run-command invoke \
     --command-id RunShellScript \
     --name $VM_NAME \
