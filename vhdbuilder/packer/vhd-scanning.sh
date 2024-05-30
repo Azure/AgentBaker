@@ -42,7 +42,6 @@ if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
 fi
 
 #FIXME (alburgess) make assigned-identity a var 
-VHD_IMAGE="/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2TLGen2/versions/1.1716575690.29480"
 az vm create --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME \
     --image $VHD_IMAGE \
@@ -52,7 +51,6 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     ${VM_OPTIONS} \
     --assign-identity [system] 
 
-# az vm identity assign --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME
 OBJ_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
 az role assignment create --assignee $OBJ_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Storage/storageAccounts/vhdbuildereastustest/blobServices/default/containers/vhd-scans"
 az role assignment create --assignee $OBJ_ID --role "Storage Blob Data Owner" --scope "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Storage/storageAccounts/vhdbuildereastustest/blobServices/default/containers/vhd-scans"
