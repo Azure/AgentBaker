@@ -65,7 +65,7 @@ az-login:
 	@echo "Logging into Azure with agent VM MSI..."
 ifeq ($(origin MANAGED_IDENTITY_ID), undefined)
 	@echo "Logging in with Hosted Pool's Default Managed Identity"
-	@az login --identity --username ${MANAGED_IDENTITY_ID}
+	@az login --identity
 else
 	@echo "Logging in with Hosted Pool's Managed Identity: ${MANAGED_IDENTITY_ID}"
 	@az login --identity --username ${MANAGED_IDENTITY_ID}
