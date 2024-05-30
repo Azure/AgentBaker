@@ -49,8 +49,8 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-username $TEST_VM_ADMIN_USERNAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
+    ${VM_OPTIONS} \
     --assign-identity [system] 
-    ${VM_OPTIONS}
 
 # az vm identity assign --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME
 OBJ_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
