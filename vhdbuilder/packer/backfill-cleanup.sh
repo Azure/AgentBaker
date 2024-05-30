@@ -49,6 +49,10 @@ if [[ -n "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
       create_date=${gallery:24:6}
     elif [[ "${gallery}" =~ WS2022_containerd_gen2Gallery* ]]; then
       create_date=${gallery:29:6}
+    elif [[ "${gallery}" =~ WS23H2Gallery* ]]; then
+      create_date=${gallery:13:6}
+    elif [[ "${gallery}" =~ WS23H2_gen2Gallery* ]]; then
+      create_date=${gallery:18:6}
     elif [[ "${gallery}" =~ WSGallery* ]]; then
       create_date=${gallery:9:6}
     else
