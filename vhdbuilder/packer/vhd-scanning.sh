@@ -6,9 +6,10 @@ EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
 TEST_RESOURCE_PREFIX="vhd-scanning"
 VM_NAME="$TEST_RESOURCE_PREFIX-vm"
 VHD_IMAGE="$MANAGED_SIG_ID"
+
 SIG_CONTAINER_NAME="vhd-scans"
 TEST_VM_ADMIN_USERNAME="azureuser"
-STORAGE_ACCOUNT_NAME="vhdbuildereastustest"
+STORAGE_ACCOUNT_NAME=$(echo $CLASSIC_BLOB | cut -d '/' -f 3 | cut -d '.' -f 1)
 
 set +x
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
@@ -41,19 +42,16 @@ if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
-#FIXME (alburgess) make assigned-identity a var 
 az vm create --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME \
     --image $VHD_IMAGE \
     --admin-username $TEST_VM_ADMIN_USERNAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
-    ${VM_OPTIONS} \
-    --assign-identity [system] 
-
-OBJ_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
-az role assignment create --assignee $OBJ_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Storage/storageAccounts/vhdbuildereastustest/blobServices/default/containers/vhd-scans"
-az role assignment create --assignee $OBJ_ID --role "Storage Blob Data Owner" --scope "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Storage/storageAccounts/vhdbuildereastustest/blobServices/default/containers/vhd-scans"
+    --assign-identity "[system]" \
+    --scope "/subscriptions/${SUBSCRIPTION_ID}resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME}/blobServices/default/containers/${SIG_CONTAINER_NAME}" \
+    --role "Storage Blob Data Contributor" \
+    ${VM_OPTIONS}
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
