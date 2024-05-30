@@ -102,7 +102,7 @@ steps:
         -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
         ${CONTAINER_IMAGE} make -f packer.mk scanning-vhd
     displayName: Scanning VHD
-    - bash: |
+  - bash: |
         echo MODE=$(MODE) && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
