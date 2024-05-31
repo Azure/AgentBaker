@@ -98,10 +98,9 @@ convert-sig-to-classic-storage-account-blob: az-login
 test-building-vhd: az-login
 	@./vhdbuilder/packer/test/run-test.sh
 
-<<<<<<< alburgess/get-trivy-back3
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
-=======
+
 build-nbcparser-all:
 	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=amd64
 	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=arm64
@@ -109,4 +108,3 @@ build-nbcparser-all:
 build-nbcparser-binary:
 	@echo "Building nbcparser binary"
 	@bash -c "pushd nbcparser && CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -o bin/nbcparser-$(ARCH) main.go && popd"
->>>>>>> master
