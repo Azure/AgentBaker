@@ -115,6 +115,7 @@ steps:
         -w /go/src/github.com/Azure/AgentBaker \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
         -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
+        -e BLOB_STORAGE_NAME=${BLOB_STORAGE_NAME} \
         -e BUILD_ID=$(Build.BuildId) \
         -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
         -e AZURE_LOCATION=${AZURE_LOCATION} \
@@ -159,7 +160,6 @@ steps:
         -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
         ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD Tests
-
   - task: Bash@3
     inputs:
       targetType: 'inline'
