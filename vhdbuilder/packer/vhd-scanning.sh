@@ -33,8 +33,8 @@ TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
 
 
-RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
-az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
+RESOURCE_GROUP_NAME="aksvhdtestbuildrg"
+# az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
 
 # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
 if [ "$OS_VERSION" == "18.04" ]; then
@@ -42,11 +42,11 @@ if [ "$OS_VERSION" == "18.04" ]; then
     exit 0
 fi
 
-function cleanup() {
-    echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
-    az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
-}
-trap cleanup EXIT
+#function cleanup() {
+#    echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
+#    az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
+#}
+#trap cleanup EXIT
 
 VM_OPTIONS="--size Standard_DS1_v2"
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
@@ -65,6 +65,9 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-username $TEST_VM_ADMIN_USERNAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
+    --assign-identity "[system]" \
+    --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME}/blobServices/default/containers/${SIG_CONTAINER_NAME}" \
+    --role "Storage Blob Data Contributor" \
     ${VM_OPTIONS}
 
 OBJ_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
