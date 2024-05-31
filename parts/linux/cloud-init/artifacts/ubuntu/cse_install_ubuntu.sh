@@ -92,7 +92,7 @@ installStandaloneContainerd() {
     CONTAINERD_VERSION=$1    
     # we always default to the .1 patch versons
     CONTAINERD_PATCH_VERSION="${2:-1}"
-    CONTAINERD_PACKAGE_URL="${3:-}"
+    eval CONTAINERD_PACKAGE_URL="${3:-}"
 
     # runc needs to be installed first or else existing vhd version causes conflict with containerd.
     logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}" # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api

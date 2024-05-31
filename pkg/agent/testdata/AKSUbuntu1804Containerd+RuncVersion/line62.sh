@@ -84,7 +84,7 @@ installStandaloneContainerd() {
     UBUNTU_CODENAME=$(lsb_release -c -s)
     CONTAINERD_VERSION=$1    
     CONTAINERD_PATCH_VERSION="${2:-1}"
-    CONTAINERD_PACKAGE_URL="${3:-}"
+    eval CONTAINERD_PACKAGE_URL="${3:-}"
 
     logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}" 
 
