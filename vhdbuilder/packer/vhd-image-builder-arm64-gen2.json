@@ -79,7 +79,7 @@
     },
     {
       "type": "file",
-      "source": "nbcparser/bin/nbcparser",
+      "source": "nbcparser/bin/nbcparser-arm64",
       "destination": "/home/packer/nbcparser"
     },
     {
