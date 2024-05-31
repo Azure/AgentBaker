@@ -75,7 +75,7 @@ fi
 
 source /etc/os-release
 
-if [[ ${ID} != "mariner" ]]; then
+if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
     echo "Removing man-db auto-update flag file..."
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
 fi
@@ -153,7 +153,7 @@ EOF
     fi
 
     if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
-        if [[ $OS == $MARINER_OS_NAME ]]; then
+        if [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
             logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
         fi
         logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
@@ -272,7 +272,7 @@ if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME ]] || [[ $OS == $MARINER_OS_NAME ]]; then
+if [[ $OS == $UBUNTU_OS_NAME ]] || [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
     logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
 fi
 
@@ -314,7 +314,7 @@ else
     logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
-if [[ ${ID} != "mariner" ]]; then
+if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
     echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
     createManDbAutoUpdateFlagFile
     /usr/bin/mandb && echo "man-db finished updates at $(date)" &
@@ -343,7 +343,7 @@ else
             
         fi
         aptmarkWALinuxAgent unhold &
-    elif [[ $OS == $MARINER_OS_NAME ]]; then
+    elif [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
         if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
             if [ "${IS_KATA}" == "true" ]; then
                 echo 'EnableUnattendedUpgrade is not supported by kata images, will not be enabled'
