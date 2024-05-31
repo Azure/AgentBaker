@@ -65,7 +65,8 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-username $TEST_VM_ADMIN_USERNAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
-    ${VM_OPTIONS}
+    ${VM_OPTIONS} \
+    --assign-identity [system]
 
 OBJ_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
 az role assignment create --assignee $OBJ_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Storage/storageAccounts/vhdbuildereastustest/blobServices/default/containers/vhd-scans"
