@@ -10,6 +10,10 @@ VHD_IMAGE="$MANAGED_SIG_ID"
 SIG_CONTAINER_NAME="vhd-scans"
 TEST_VM_ADMIN_USERNAME="azureuser"
 
+if [ -z "${CLASSIC_BLOB}" ]; then
+  CLASSIC_BLOB=""
+fi
+
 # Use the domain name from the classic blob URL to get the storage account name.
 # If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
 BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/vhd$"
