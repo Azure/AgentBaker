@@ -92,6 +92,7 @@ installStandaloneContainerd() {
     CONTAINERD_VERSION=$1    
     # we always default to the .1 patch versons
     CONTAINERD_PATCH_VERSION="${2:-1}"
+    CONTAINERD_PACKAGE_URL="${3:-}"
 
     # runc needs to be installed first or else existing vhd version causes conflict with containerd.
     logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}" # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
@@ -106,7 +107,6 @@ installStandaloneContainerd() {
     fi
 
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
-    CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
     if [[ ! -z ${CONTAINERD_PACKAGE_URL} ]]; then
         echo "Installing containerd from user input: ${CONTAINERD_PACKAGE_URL}"
         # we'll use a user-defined containerd package to install containerd even though it's the same version as

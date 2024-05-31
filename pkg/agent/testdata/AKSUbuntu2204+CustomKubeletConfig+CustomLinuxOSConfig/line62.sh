@@ -84,6 +84,7 @@ installStandaloneContainerd() {
     UBUNTU_CODENAME=$(lsb_release -c -s)
     CONTAINERD_VERSION=$1    
     CONTAINERD_PATCH_VERSION="${2:-1}"
+    CONTAINERD_PACKAGE_URL="${3:-}"
 
     logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}" 
 
@@ -94,7 +95,6 @@ installStandaloneContainerd() {
         CURRENT_VERSION="0.0.0"
     fi
 
-    CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
     if [[ ! -z ${CONTAINERD_PACKAGE_URL} ]]; then
         echo "Installing containerd from user input: ${CONTAINERD_PACKAGE_URL}"
         logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
