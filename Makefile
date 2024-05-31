@@ -208,4 +208,3 @@ unit-tests:
 	$(GO) test `go list ./... | grep -v e2e` -coverprofile coverage_raw.out -covermode count
 
 include versioning.mk
-include test.mk
