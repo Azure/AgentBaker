@@ -17,6 +17,76 @@ function Write-Log($Message) {
     Write-Output $msg
 }
 
+# AZURE_VM_SIZE is Standard_D4s_v3 (vCPU: 4, Memory: 16GiB)
+# https://learn.microsoft.com/en-us/azure/virtual-machines/dv3-dsv3-series#dsv3-series
+$global:maxProcesses = 4
+$global:runningProcesses = 0
+$global:jobIndex = 0
+$global:jobs = @{}
+
+function Run-CommandInParallel {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position=0, Mandatory=$true)]
+        [String]$Prefix,
+        [Parameter(Position=1, Mandatory=$true)]
+        [scriptblock]$Command
+    )
+
+    # Wait for a running process to complete if the maximum limit has been reached
+    while ($global:runningProcesses -ge $global:maxProcesses) {
+        Write-Log "Waiting for a job to complete..."
+        Get-Job | Where-Object { $_.Name -like "$Prefix-*" } | Wait-Job -Any | Out-Null
+        $global:runningProcesses = (Get-Job -State Running | Where-Object { $_.Name -like "$Prefix-*" }).Count
+    }
+
+    $enumerator = $global:jobs.GetEnumerator()
+    $toBeRemoved = @()
+    while ($enumerator.MoveNext()) {
+        $job = $enumerator.Current.Value
+        if ($job.State -eq "Completed" -or $job.State -eq "Failed" -or $job.State -eq "Stopped") {
+            $job | Receive-Job
+            $toBeRemoved += $enumerator.Current.Key
+        }
+    }
+    foreach ($key in $toBeRemoved) {
+        $global:jobs.Remove($key)
+    }
+
+    Write-Log "Starting a new job"
+    # Start a new process for the command
+    $jobName = "$Prefix-$global:jobIndex"
+    $global:jobIndex++
+    $job = Start-Job -Name $jobName -ScriptBlock { param($command) Invoke-Expression $command } -ArgumentList $command
+    $global:jobs.Add($jobName, $job)
+    $global:runningProcesses++
+}
+
+function Wait-AllJobs {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position=0, Mandatory=$true)]
+        [String]$Prefix
+    )
+
+    Write-Log "Waiting for all processes to complete..."
+    # Wait for all named jobs to complete
+    Get-Job | Where-Object { $_.Name -like "$Prefix-*" } | Wait-Job | Out-Null
+
+    $enumerator = $global:jobs.GetEnumerator()
+    $toBeRemoved = @()
+    while ($enumerator.MoveNext()) {
+        $job = $enumerator.Current.Value
+        if ($job.State -eq "Completed" -or $job.State -eq "Failed" -or $job.State -eq "Stopped") {
+            $job | Receive-Job
+            $toBeRemoved += $enumerator.Current.Key
+        }
+    }
+    foreach ($key in $toBeRemoved) {
+        $global:jobs.Remove($key)
+    }
+}
+
 function Download-File {
     param (
         $URL,
@@ -40,7 +110,6 @@ function Download-FileWithAzCopy {
         $URL,
         $Dest
     )
-
 
     if (!(Test-Path -Path $global:aksTempDir)) {
         Write-Log "Creating temp dir for tools of building vhd"
@@ -202,22 +271,27 @@ function Get-ContainerImages {
             $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
             $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
             Write-Log "Downloading image $image to $tmpDest"
-            Download-FileWithAzCopy -URL $url -Dest $tmpDest
+            Run-CommandInParallel -Prefix "PullImage" -Command { Download-FileWithAzCopy -URL $url -Dest $tmpDest }
 
             Write-Log "Loading image $image from $tmpDest"
-            Retry-Command -ScriptBlock {
-                & ctr -n k8s.io images import $tmpDest
-            } -ErrorMessage "Failed to load image $image from $tmpDest"
+            Run-CommandInParallel -Prefix "PullImage" -Command {
+                Retry-Command -ScriptBlock {
+                    & ctr -n k8s.io images import $tmpDest
+                } -ErrorMessage "Failed to load image $image from $tmpDest"
+            }
 
             Write-Log "Removing tmp tar file $tmpDest"
             Remove-Item -Path $tmpDest
         } else {
             Write-Log "Pulling image $image"
-            Retry-Command -ScriptBlock {
-                & crictl.exe pull $image
-            } -ErrorMessage "Failed to pull image $image"
+            Run-CommandInParallel -Prefix "PullImage" -Command {
+                    Retry-Command -ScriptBlock {
+                    & crictl.exe pull $image
+                } -ErrorMessage "Failed to pull image $image"
+            }
         }
     }
+    Wait-AllJobs
     Stop-Job  -Name containerd
     Remove-Job -Name containerd
 }
@@ -233,9 +307,10 @@ function Get-FilesToCacheOnVHD {
             $dest = [IO.Path]::Combine($dir, $fileName)
 
             Write-Log "Downloading $URL to $dest"
-            Download-File -URL $URL -Dest $dest
+            Run-CommandInParallel -Prefix "DownloadFile" -Command { Download-File -URL $URL -Dest $dest }
         }
     }
+    Wait-AllJobs
 }
 
 function Get-ToolsToVHD {
