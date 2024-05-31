@@ -107,3 +107,4 @@ build-nbcparser-all:
 
 build-nbcparser-binary:
 	@echo "Building nbcparser binary"
+	@bash -c "pushd nbcparser && CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -o bin/nbcparser-$(ARCH) main.go && popd"
