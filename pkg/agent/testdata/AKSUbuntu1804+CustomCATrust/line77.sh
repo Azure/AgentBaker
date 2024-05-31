@@ -2,7 +2,7 @@
     "containerd": {
         "fileName": "moby-containerd_${CONTAINERD_VERSION}+azure-${CONTAINERD_PATCH_VERSION}.deb",
         "downloadLocation": "/opt/containerd/downloads",
-        "downloadURL": "",
+        "downloadURL": "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb",
         "versions": [],
         "pinned": {
             "1804": "1.7.1-1"
