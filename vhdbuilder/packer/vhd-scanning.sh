@@ -16,6 +16,7 @@ BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/vhd$"
 if [[ $CLASSIC_BLOB =~ $BLOB_URL_REGEX ]]; then
     STORAGE_ACCOUNT_NAME=$(echo $CLASSIC_BLOB | sed -E 's|https://(.*)\.blob\.core\.windows\.net(:443)?/(.*)?|\1|')
 else
+    # Used in the 'AKS Linux VHD Build - PR check-in gate' pipeline.
     if [ -z "$BLOB_STORAGE_NAME" ]; then
         echo "BLOB_STORAGE_NAME is not set, please either set the CLASSIC_BLOB var or create a new var BLOB_STORAGE_NAME in the pipeline."
         exit 1
