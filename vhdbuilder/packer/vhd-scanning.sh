@@ -10,9 +10,17 @@ VHD_IMAGE="$MANAGED_SIG_ID"
 SIG_CONTAINER_NAME="vhd-scans"
 TEST_VM_ADMIN_USERNAME="azureuser"
 
-if [ -z "$BLOB_STORAGE_NAME" ]; then
-  echo "BLOB_STORAGE_NAME is not set, please add it to the pipeline variables."
-  exit 1
+# Use the domain name from the classic blob URL to get the storage account name.
+# If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
+BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/vhd$"
+if [[ $CLASSIC_BLOB =~ $BLOB_URL_REGEX ]]; then
+    STORAGE_ACCOUNT_NAME=$(echo $CLASSIC_BLOB | sed -E 's|https://(.*)\.blob\.core\.windows\.net(:443)?/(.*)?|\1|')
+else
+    if [ -z "$BLOB_STORAGE_NAME" ]; then
+        echo "BLOB_STORAGE_NAME is not set, please either set the CLASSIC_BLOB var or create a new var BLOB_STORAGE_NAME in the pipeline."
+        exit 1
+    fi
+    STORAGE_ACCOUNT_NAME=${BLOB_STORAGE_NAME}
 fi
 
 set +x
@@ -53,7 +61,7 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
     --assign-identity "[system]" \
-    --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${BLOB_STORAGE_NAME}/blobServices/default/containers/${SIG_CONTAINER_NAME}" \
+    --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME}/blobServices/default/containers/${SIG_CONTAINER_NAME}" \
     --role "Storage Blob Data Contributor" \
     ${VM_OPTIONS}
 
@@ -83,12 +91,12 @@ az vm run-command invoke \
         "TRIVY_REPORT_NAME=${TRIVY_REPORT_NAME}" \
         "TRIVY_TABLE_NAME=${TRIVY_TABLE_NAME}" \
         "SIG_CONTAINER_NAME"=${SIG_CONTAINER_NAME} \
-        "BLOB_STORAGE_NAME"=${BLOB_STORAGE_NAME} \
-        ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH}
+        "STORAGE_ACCOUNT_NAME"=${STORAGE_ACCOUNT_NAME} \
+        "ENABLE_TRUSTED_LAUNCH"=${ENABLE_TRUSTED_LAUNCH}
 
 
-az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_REPORT_NAME} --file trivy-report.json --account-name ${BLOB_STORAGE_NAME} --auth-mode login
-az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_TABLE_NAME} --file  trivy-images-table.txt --account-name ${BLOB_STORAGE_NAME} --auth-mode login
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_REPORT_NAME} --file trivy-report.json --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_TABLE_NAME} --file  trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 
-az storage blob delete --account-name ${BLOB_STORAGE_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
-az storage blob delete --account-name ${BLOB_STORAGE_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_TABLE_NAME} --auth-mode login
+az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
+az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_TABLE_NAME} --auth-mode login
