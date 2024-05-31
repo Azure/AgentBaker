@@ -9,7 +9,7 @@ VHD_IMAGE="$MANAGED_SIG_ID"
 
 SIG_CONTAINER_NAME="vhd-scans"
 TEST_VM_ADMIN_USERNAME="azureuser"
-STORAGE_ACCOUNT_NAME=$(echo $CLASSIC_BLOB | cut -d '/' -f 3 | cut -d '.' -f 1)
+STORAGE_ACCOUNT_NAME=$(echo ${CLASSIC_BLOB#*://} | cut -d'.' -f1)
 
 set +x
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
