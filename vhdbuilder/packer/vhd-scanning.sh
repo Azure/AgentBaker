@@ -49,7 +49,7 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
     --assign-identity "[system]" \
-    --scope "/subscriptions/${SUBSCRIPTION_ID}resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME}/blobServices/default/containers/${SIG_CONTAINER_NAME}" \
+    --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME}/blobServices/default/containers/${SIG_CONTAINER_NAME}" \
     --role "Storage Blob Data Contributor" \
     ${VM_OPTIONS}
 
