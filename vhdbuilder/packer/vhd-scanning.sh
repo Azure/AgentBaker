@@ -42,12 +42,6 @@ if [ "$OS_VERSION" == "18.04" ]; then
     exit 0
 fi
 
-#function cleanup() {
-#    echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
-#    az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
-#}
-#trap cleanup EXIT
-
 VM_OPTIONS="--size Standard_DS1_v2"
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     VM_OPTIONS="--size Standard_D2pds_v5"
