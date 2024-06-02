@@ -12,8 +12,8 @@ parameters:
   displayName: Release Notes
   type: boolean
   default: true
-- name: ArtifactTrigger
-  displayName: SIG Artifact Trigger
+- name: CreateRelease
+  displayName: Create SIG Release
   type: boolean
   default: true
 
@@ -59,7 +59,7 @@ steps:
   displayName: 'Release Notes'
   condition: eq('${{ parameters.ReleaseNotes }}', true)
 - bash: |
-        echo "Triggering ev2 artifacts pipeline"
-        /bin/bash vhdbuilder/scripts/automate_ev2pipeline_trigger.sh "${BUILD_ID[@]}"
-  displayName: 'ev2 Artifact Pipeline Trigger'
-  condition: eq('${{ parameters.ArtifactTrigger }}', true)
+        echo "Creating EV2 artifacts and corresponding SIG release"
+        VHD_BUILD_ID=${BUILD_ID} /bin/bash vhdbuilder/scripts/automate_release.sh
+  displayName: 'Create SIG Release'
+  condition: eq('${{ parameters.CreateRelease }}', true)
