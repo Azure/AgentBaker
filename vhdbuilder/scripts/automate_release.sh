@@ -16,13 +16,15 @@ trigger_ev2_artifacts() {
         echo "failed to trigger EV2 artifact build"
         return 1
     fi
-    while [ "$(az pipelines runs show --id $EV2_BUILD_ID | jq -r '.status')" == "inProgress" ]; do
+
+    STATUS="$(az pipelines runs show --id $EV2_BUILD_ID | jq -r '.status')"
+    while [ "${STATUS,,}" == "notstarted" ] || [ "${STATUS,,}" == "inprogress" ]; do
         echo "EV2 artifact build $EV2_BUILD_ID is still in-progress..."
         sleep 60
+        STATUS="$(az pipelines runs show --id $EV2_BUILD_ID | jq -r '.status')"
     done
 
-    FINAL_STATUS="$(az pipelines runs show --id $EV2_BUILD_ID | jq -r '.status')"
-    if [ "${FINAL_STATUS,,}" != "completed" ]; then
+    if [ "${STATUS,,}" != "completed" ]; then
         echo "EV2 artifact build failed for VHD build with ID: $VHD_BUILD_ID, failed build ID: $EV2_BUILD_ID"
         return 1
     fi
