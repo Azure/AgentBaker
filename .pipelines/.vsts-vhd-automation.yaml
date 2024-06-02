@@ -88,8 +88,8 @@ stages:
           echo $ADO_PAT | az devops login --organization=https://dev.azure.com/msazure --verbose
           az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
         env:
-          ADO_PAT: $(MY_PAT)
-          AZURE_DEVOPS_EXT_PAT: $(MY_PAT)
+          ADO_PAT: $(PAT-aksdevassistant)
+          AZURE_DEVOPS_EXT_PAT: $(PAT-aksdevassistant)
         displayName: 'az devops login'
       - bash: |
           set +x
@@ -99,8 +99,8 @@ stages:
           echo "Creating EV2 artifacts and corresponding SIG release"
           /bin/bash vhdbuilder/scripts/automate_release.sh
         env:
-          ADO_PAT: $(MY_PAT)
-          AZURE_DEVOPS_EXT_PAT: $(MY_PAT)
+          ADO_PAT: $(PAT-aksdevassistant)
+          AZURE_DEVOPS_EXT_PAT: $(PAT-aksdevassistant)
           VHD_BUILD_ID: $(BUILD_ID)
         displayName: 'create SIG release'
 
