@@ -5,11 +5,11 @@ pool:
 
 parameters:
 - name: ImageBump
-  displayName: Image Bump + Branch Cutting
+  displayName: Image Bump + Create Official Branch
   type: boolean
   default: true
 - name: ReleaseNotes
-  displayName: Release Notes
+  displayName: Generate Release Notes
   type: boolean
   default: true
 - name: CreateRelease
@@ -52,8 +52,7 @@ stages:
           set -x
           echo "Removing existing go environment"
           sudo rm -r /usr/local/go
-          #GOLANG_VERSION=$(curl -s 'https://go.dev/VERSION?m=text' | head -n 1)
-          GOLANG_VERSION="1.20.6"
+          GOLANG_VERSION="1.22.2"
           echo "Downloading ${GOLANG_VERSION}"
           curl -O "https://dl.google.com/go/${GOLANG_VERSION}.linux-amd64.tar.gz"
 
@@ -86,15 +85,17 @@ stages:
       steps:
       - bash: |
           az extension add -n azure-devops
-          echo $MAPPED_ADO_PAT | az devops login --organization=https://dev.azure.com/msazure
+          echo $ADO_PAT | az devops login --organization=https://dev.azure.com/msazure
           az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
         env:
-          MAPPED_ADO_PAT: $(PAT-aksdevassistant)
+          ADO_PAT: $(PAT-aksdevassistant)
         displayName: 'az devops login'
       - bash: |
           echo "Creating EV2 artifacts and corresponding SIG release"
           /bin/bash vhdbuilder/scripts/automate_release.sh
         env:
+          ADO_PAT: $(PAT-aksdevassistant)
+          AZURE_DEVOPS_EXT_PAT: $(PAT-aksdevassistant)
           VHD_BUILD_ID: $(BUILD_ID)
         displayName: 'create SIG release'
 
