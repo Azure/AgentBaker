@@ -93,7 +93,6 @@ stages:
         displayName: 'az devops login'
       - bash: |
           echo "Creating EV2 artifacts and corresponding SIG release"
-          ls -la vhdbuilder/scripts
           /bin/bash vhdbuilder/scripts/automate_release.sh
         env:
           VHD_BUILD_ID: $(BUILD_ID)
