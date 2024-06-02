@@ -17,7 +17,7 @@ trigger_ev2_artifacts() {
         return 1
     fi
     while [ "$(az pipelines runs show --id $EV2_BUILD_ID | jq -r '.status')" == "inProgress" ]; do
-        echo "EV2 artifact build $EV2_BUILD_ID is still running..."
+        echo "EV2 artifact build $EV2_BUILD_ID is still in-progress..."
         sleep 60
     done
 
@@ -44,7 +44,7 @@ create_release() {
 }
 
 if [ -z "$VHD_BUILD_ID" ]; then
-    echo "VHD_BUILD_ID must be set to run automated release trigger"
+    echo "VHD_BUILD_ID must be set to run automated EV2 artifact + release trigger"
     exit 1
 fi
 
