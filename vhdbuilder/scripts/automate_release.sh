@@ -34,6 +34,8 @@ trigger_ev2_artifacts() {
 create_release() {
     echo "creating SIG release for VHD with build ID: $VHD_BUILD_ID"
 
+    EV2_BUILD_ID="94988139"
+
     RELEASE_URL=$(az pipelines release create --detect true \
         --project CloudNativeCompute \
         --definition-id $SIG_RELEASE_PIPELINE_ID \
@@ -50,5 +52,5 @@ if [ -z "$VHD_BUILD_ID" ]; then
     exit 1
 fi
 
-retrycmd_if_failure 3 60 trigger_ev2_artifacts || exit $?
+# retrycmd_if_failure 3 60 trigger_ev2_artifacts || exit $?
 retrycmd_if_failure 3 60 create_release || exit $?
