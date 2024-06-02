@@ -36,15 +36,16 @@ create_release() {
 
     EV2_BUILD_ID="94988139"
 
-    RELEASE_URL=$(az pipelines release create --detect true \
+    RELEASE_ID=$(az pipelines release create --detect true \
         --project CloudNativeCompute \
         --definition-id $SIG_RELEASE_PIPELINE_ID \
-        --artifact-metadata-list "ev2_artifacts=$EV2_BUILD_ID" | jq -r '.url')
+        --artifact-metadata-list "ev2_artifacts=$EV2_BUILD_ID" | jq -r '.releaseId')
     if [ $? -ne 0 ]; then
         echo "failed to create release for VHD with build ID: $VHD_BUILD_ID using artifacts from build: $EV2_BUILD_ID"
         return 1
     fi
-    echo "SIG release successfully created for VHD build with ID: $VHD_BUILD_ID, release URL: $RELEASE_URL"
+    echo "SIG release successfully created for VHD build with ID: $VHD_BUILD_ID"
+    echo "release URL: https://msazure.visualstudio.com/CloudNativeCompute/_releaseProgress?_a=release-pipeline-progress&releaseId=$RELEASE_ID"
 }
 
 if [ -z "$VHD_BUILD_ID" ]; then
