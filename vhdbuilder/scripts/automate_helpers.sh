@@ -1,6 +1,20 @@
 #!/bin/bash
 set -x
 
+retrycmd_if_failure() {
+    retries=$1; wait_sleep=$2; shift && shift
+    for i in $(seq 1 $retries); do
+        "${@}" && break || \
+        if [ $i -eq $retries ]; then
+            echo Executed \"$@\" $i times;
+            return 1
+        else
+            sleep $wait_sleep
+        fi
+    done
+    echo Executed \"$@\" $i times;
+}
+
 set_git_config() {
     # git config needs to be set in the agent
     git config --global user.email "amaheshwari@microsoft.com"
