@@ -33,6 +33,10 @@ generate_release_notes() {
         else
             go run vhdbuilder/release-notes/autonotes/main.go --build $build_id --date $image_version --include ${included_skus%?}
         fi
+        if [ $? -ne 0 ]; then
+            git clean -df
+            return 1
+        fi
     done
 }
 
@@ -45,7 +49,7 @@ else
     create_branch $branch_name
 fi
 
-generate_release_notes
+retrycmd_if_failure 3 60 generate_release_notes || exit $?
 git status
 set +x
 create_pull_request $image_version $github_access_token $branch_name $pr_title
