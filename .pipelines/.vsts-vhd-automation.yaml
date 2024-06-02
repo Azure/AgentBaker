@@ -60,6 +60,7 @@ steps:
   condition: eq('${{ parameters.ReleaseNotes }}', true)
 - bash: |
         echo "Creating EV2 artifacts and corresponding SIG release"
+        ls -la vhdbuilder/scripts
         VHD_BUILD_ID=${BUILD_ID} /bin/bash vhdbuilder/scripts/automate_release.sh
   displayName: 'Create SIG Release'
   condition: eq('${{ parameters.CreateRelease }}', true)

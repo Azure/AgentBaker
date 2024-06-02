@@ -8,7 +8,7 @@ SIG_RELEASE_PIPELINE_ID="494"
 VHD_BUILD_ID="${VHD_BUILD_ID:-""}"
 
 trigger_ev2_artifacts() {
-    echo "creating EV2 artifacts VHD build with ID: $VHD_BUILD_ID"
+    echo "creating EV2 artifacts for VHD build with ID: $VHD_BUILD_ID"
 
     # Run the pipeline and fetch the run ID to poll for success later
     EV2_BUILD_ID=$(az pipelines run --id $EV2_ARTIFACT_PIPELINE_ID --variables "VHD_PIPELINE_RUN_ID=$VHD_BUILD_ID" | jq -r '.id')

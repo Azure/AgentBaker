@@ -49,7 +49,7 @@ else
     create_branch $branch_name
 fi
 
-retrycmd_if_failure 3 60 generate_release_notes || exit $?
+retrycmd_if_failure 5 10 generate_release_notes || exit $?
 git status
 set +x
 create_pull_request $image_version $github_access_token $branch_name $pr_title
