@@ -93,9 +93,18 @@ installStandaloneContainerd() {
     # we always default to the .1 patch versons
     CONTAINERD_PATCH_VERSION="${2:-1}"
     eval CONTAINERD_PACKAGE_URL="${3:-}"
+    # RUNC_VERSION could be provided by 2 ways.
+    # The first way is from cse_cmd.sh which is actually from AKS-RP NodeBootstrappingConfig api, at provisioning time.
+    # The second way is from the argument {4} of this function, at VHD build time.
+    # The following condition implies that: only if RUNC_VERSION is nil or empty and argument {4} is provided, we will take it as our actual RUNC_VERSION.
+    if [ ! -z "$RUNC_VERSION" && -z "${4}" ]; then
+      RUNC_VERSION="${4}"
+    fi
+    eval RUNC_PACKAGE_URL="${5:-}"
+    
 
     # runc needs to be installed first or else existing vhd version causes conflict with containerd.
-    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}" # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
+    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}"
 
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
@@ -201,7 +210,7 @@ installMoby() {
 }
 
 ensureRunc() {
-    RUNC_PACKAGE_URL="${RUNC_PACKAGE_URL:=}"
+    RUNC_PACKAGE_URL="${2:=}"
     # the user-defined runc package URL is always picked first, and the other options won't be tried when this one fails
     if [[ ! -z ${RUNC_PACKAGE_URL} ]]; then
         echo "Installing runc from user input: ${RUNC_PACKAGE_URL}"

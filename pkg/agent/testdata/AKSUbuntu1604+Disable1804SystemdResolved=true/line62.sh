@@ -85,8 +85,13 @@ installStandaloneContainerd() {
     CONTAINERD_VERSION=$1    
     CONTAINERD_PATCH_VERSION="${2:-1}"
     eval CONTAINERD_PACKAGE_URL="${3:-}"
+    if [ ! -z "$RUNC_VERSION" && -z "${4}" ]; then
+      RUNC_VERSION="${4}"
+    fi
+    eval RUNC_PACKAGE_URL="${5:-}"
+    
 
-    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}" 
+    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}"
 
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     CURRENT_COMMIT=$(containerd -version | cut -d " " -f 4)
@@ -180,7 +185,7 @@ installMoby() {
 }
 
 ensureRunc() {
-    RUNC_PACKAGE_URL="${RUNC_PACKAGE_URL:=}"
+    RUNC_PACKAGE_URL="${2:=}"
     if [[ ! -z ${RUNC_PACKAGE_URL} ]]; then
         echo "Installing runc from user input: ${RUNC_PACKAGE_URL}"
         mkdir -p $RUNC_DOWNLOADS_DIR

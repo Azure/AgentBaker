@@ -161,15 +161,24 @@ echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
 containerd_manifest="$(jq .containerd manifest.json)" || exit $?
 
-installed_version="$(echo ${containerd_manifest} | jq -r '.edge')"
+containerd_installed_version="$(echo ${containerd_manifest} | jq -r '.edge')"
 if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-  installed_version="$(echo ${containerd_manifest} | jq -r '.pinned."1804"')"
+  containerd_installed_version="$(echo ${containerd_manifest} | jq -r '.pinned."1804"')"
 fi
 
-containerd_version="$(echo "$installed_version" | cut -d- -f1)"
-containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
+containerd_version="$(echo "$containerd_installed_version" | cut -d- -f1)"
+containerd_patch_version="$(echo "$containerd_installed_version" | cut -d- -f2)"
 containerd_override_download_url="$(echo ${containerd_manifest} | jq -r '.downloadURL')"
-installStandaloneContainerd ${containerd_version} ${containerd_patch_version} ${containerd_override_download_url}
+
+runc_manifest="$(jq .runc manifest.json)" || exit $?
+runc_installed_version="$(echo ${runc_manifest} | jq -r '.installed."default"')"
+if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+  runc_installed_version="$(echo ${runc_manifest} | jq -r '.pinned."1840"')"
+fi
+
+runc_override_download_url="$(echo ${runc_manifest} | jq -r '.downloadURL')"
+
+installStandaloneContainerd ${containerd_version} ${containerd_patch_version} ${containerd_override_download_url} ${runc_installed_version} ${runc_override_download_url}
 echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
 stop_watch $capture_time "Create Containerd Service Directory, Download Shims, Configure Runtime and Network" false
 start_watch
