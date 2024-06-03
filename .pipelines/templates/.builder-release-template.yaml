@@ -180,30 +180,30 @@ steps:
         cp image-bom.json ${VHD_STAGE_NAME}/
     displayName: 'Copy trivy report to sub staging directory'
 
-- task: PublishPipelineArtifact@1
-  condition: eq(variables['IS_NOT_1804'], 'true')
-  inputs:
-    artifactName: 'trivy-report-${{ parameters.artifactName }}'
-    targetPath: '${VHD_STAGE_NAME}/trivy-report.json'
-    pathToPublish: '${{ variables.VHD_STAGE_NAME }}/'
-  displayName: 'Publish trivy report'
-  - task: PublishPipelineArtifact@0
+  - task: PublishPipelineArtifact@1
     condition: eq(variables['IS_NOT_1804'], 'true')
     inputs:
-        artifactName: 'trivy-images-table-${{ parameters.artifactName }}'
-        targetPath: '${VHD_STAGE_NAME}/trivy-images-table.txt'
-    displayName: publish trivy table
-  - task: PublishPipelineArtifact@0
-    inputs:
-        artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
-        targetPath: '${VHD_STAGE_NAME}/release-notes.txt'
-    displayName: publish release notes
-  - task: PublishPipelineArtifact@0
-    inputs:
-        artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
-        targetPath: '${VHD_STAGE_NAME}/image-bom.json'
-    displayName: publish container image list
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+      artifactName: 'trivy-report-${{ parameters.artifactName }}'
+      targetPath: '${VHD_STAGE_NAME}/trivy-report.json'
+      pathToPublish: '${{ variables.VHD_STAGE_NAME }}/'
+    displayName: 'Publish trivy report'
+    - task: PublishPipelineArtifact@0
+      condition: eq(variables['IS_NOT_1804'], 'true')
+      inputs:
+          artifactName: 'trivy-images-table-${{ parameters.artifactName }}'
+          targetPath: '${VHD_STAGE_NAME}/trivy-images-table.txt'
+      displayName: publish trivy table
+    - task: PublishPipelineArtifact@0
+      inputs:
+          artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
+          targetPath: '${VHD_STAGE_NAME}/release-notes.txt'
+      displayName: publish release notes
+    - task: PublishPipelineArtifact@0
+      inputs:
+          artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
+          targetPath: '${VHD_STAGE_NAME}/image-bom.json'
+      displayName: publish container image list
+      condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
 
   - bash: |
       echo MODE=$(MODE) && \
