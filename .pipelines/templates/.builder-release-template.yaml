@@ -297,6 +297,6 @@ steps:
       versionOption: minor
   - task: PublishPipelineArtifact@0
     inputs:
-      artifactName: '${{ parameters.artifactName }}-files'
+      artifactName: '${{ parameters.artifactName }}'
       targetPath: '$(Build.ArtifactStagingDirectory)'
     displayName: Publish artifacts
