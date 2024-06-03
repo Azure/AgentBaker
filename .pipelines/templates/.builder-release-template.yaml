@@ -169,29 +169,33 @@ steps:
         IS_NOT_1804=$( [[ "${OS_VERSION}" != "18.04" ]] && echo true || echo false ) && \
         echo "##vso[task.setvariable variable=IS_NOT_1804]${IS_NOT_1804}"
     displayName: 'Check if OS version is not 18.04'
-  - task: PublishPipelineArtifact@0
+  - task: CopyFiles@2
     condition: eq(variables['IS_NOT_1804'], 'true')
     inputs:
-        artifactName: 'trivy-report-${{ parameters.artifactName }}'
-        targetPath: 'trivy-report.json'
-    displayName: publish trivy report
-  - task: PublishPipelineArtifact@0
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'trivy-report.json'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy trivy report
+  - task: CopyFiles@2
     condition: eq(variables['IS_NOT_1804'], 'true')
     inputs:
-        artifactName: 'trivy-images-table-${{ parameters.artifactName }}'
-        targetPath: 'trivy-images-table.txt'
-    displayName: publish trivy table
-  - task: PublishPipelineArtifact@0
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'trivy-images-table.txt'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy trivy table
+  - task: CopyFiles@2
     inputs:
-        artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
-        targetPath: 'release-notes.txt'
-    displayName: publish release notes
-  - task: PublishPipelineArtifact@0
-    inputs:
-        artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
-        targetPath: 'image-bom.json'
-    displayName: publish container image list
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'release-notes.txt'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy release notes
+  - task: CopyFiles@2
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'image-bom.json'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy image bom
   - bash: |
       echo MODE=$(MODE) && \
       PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
@@ -275,11 +279,13 @@ steps:
         ${CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
-  - task: PublishPipelineArtifact@1
-    inputs:
-        artifactName: 'publishing-info-${{ parameters.artifactName }}'
-        targetPath: 'vhd-publishing-info.json'
+  - task: CopyFiles@2
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'vhd-publishing-info.json'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy vhd publishing info 
   - task: UniversalPackages@0
     displayName: Universal Publish
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
@@ -290,3 +296,8 @@ steps:
       vstsFeedPackagePublish: 'publishing-info-${{ parameters.artifactName }}'
       packagePublishDescription: 'VHD publishing info ${{ parameters.artifactName }}'
       versionOption: minor
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: '${{ parameters.artifactName }}'
+      targetPath: '$(Build.ArtifactStagingDirectory)'
+    displayName: Publish artifacts
