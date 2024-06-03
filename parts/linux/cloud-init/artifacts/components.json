@@ -130,7 +130,7 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "3.1.20"
+        "3.1.21"
       ]
     },
     {
@@ -144,12 +144,12 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "6.8.7-main-04-09-2024-82adbf97",
-        "6.8.7-main-04-09-2024-82adbf97-targetallocator",
-        "6.8.7-main-04-09-2024-82adbf97-cfg",
         "6.8.10-main-05-06-2024-079dabbc",
         "6.8.10-main-05-06-2024-079dabbc-targetallocator",
-        "6.8.10-main-05-06-2024-079dabbc-cfg"
+        "6.8.10-main-05-06-2024-079dabbc-cfg",
+        "6.8.13-main-05-29-2024-3e72c0e4",
+        "6.8.13-main-05-29-2024-3e72c0e4-targetallocator",
+        "6.8.13-main-05-29-2024-3e72c0e4-cfg"
       ]
     },
     {
@@ -286,7 +286,7 @@
       "downloadURL": "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.16.0",
+        "v3.16.3",
         "v3.14.2",
         "v3.14.1"
       ]
@@ -328,7 +328,7 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-node-ca-watcher:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "master.221011.1"
+        "master.240530.2"
       ]
     },
     {
