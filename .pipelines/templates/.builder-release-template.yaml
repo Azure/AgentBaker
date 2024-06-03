@@ -169,42 +169,43 @@ steps:
         echo "##vso[task.setvariable variable=IS_NOT_1804]${IS_NOT_1804}"
     displayName: 'Check if OS version is not 18.04'
 
-  - task: Bash@3
-    inputs:
-      targetType: 'inline'
-      script: |
-        mkdir -p "$(Build.ArtifactStagingDirectory)/${{ parameters.artifactName }}" 
-    displayName: 'Make Pipeline Subdirectory for VHD artifacts'
-
-  - task: Bash@3
+  - task: CopyFiles@2
     condition: eq(variables['IS_NOT_1804'], 'true')
     inputs:
-      targetType: 'inline'
-      script: |
-        cp -r trivy-report.json "$(Build.ArtifactStagingDirectory)/${{ parameters.artifactName }}/trivy-report.json" && \
-        cp -r trivy-images-table.txt "$(Build.ArtifactStagingDirectory)/${{ parameters.artifactName }}/trivy-images-table.txt" && \
-    displayName: 'Move Trivy Files'
-  
-  - task: Bash@3
-    inputs:
-      targetType: 'inline'
-      script: |
-        cp -r release-notes.txt "$(Build.ArtifactStagingDirectory)/${{ parameters.artifactName }}/release-notes.txt" && \
-    displayName: 'Move release notes'
-  
-  - task: Bash@3
-    inputs:
-      targetType: 'inline'
-      script: |
-        cp -r image-bom.json "$(Build.ArtifactStagingDirectory)/${{ parameters.artifactName }}/release-notes.txt" && \
-    displayName: 'Move image bom'
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'trivy-report.json'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy trivy report
 
-  - task: PublishPipelineArtifact@1
+  - task: CopyFiles@2
+    condition: eq(variables['IS_NOT_1804'], 'true')
     inputs:
-        artifactName: '${{ parameters.artifactName }}'
-        targetPath: '$(Build.ArtifactStagingDirectory)/${{ parameters.artifactName }}'
-    displayName: Publish Pipeline Artifacts
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'trivy-images-table.txt'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy trivy table
+  
+  - task: CopyFiles@2
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'release-notes.txt'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy release notes
+  
+  - task: CopyFiles@2
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'image-bom.json'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy image bom
+  
+  - task: PublishPipelineArtifact@0
+  inputs:
+    artifactName: '${{ parameters.artifactName }}-files'
+    targetPath: '$(Build.ArtifactStagingDirectory)'
+  displayName: Publish artifacts
+
 
   - bash: |
       echo MODE=$(MODE) && \
