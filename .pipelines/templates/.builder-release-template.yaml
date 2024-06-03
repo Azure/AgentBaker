@@ -201,11 +201,10 @@ steps:
     displayName: Copy image bom
   
   - task: PublishPipelineArtifact@0
-  inputs:
-    artifactName: '${{ parameters.artifactName }}-files'
-    targetPath: '$(Build.ArtifactStagingDirectory)'
-  displayName: Publish artifacts
-
+    inputs:
+      artifactName: '${{ parameters.artifactName }}-files'
+      targetPath: '$(Build.ArtifactStagingDirectory)'
+    displayName: Publish artifacts
 
   - bash: |
       echo MODE=$(MODE) && \
