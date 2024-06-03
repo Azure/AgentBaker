@@ -33,23 +33,17 @@ installDeps() {
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
-    BLOBFUSE2_VERSION="2.2.1"
+    BLOBFUSE2_VERSION="2.3.0"
 
     if [ "${OSVERSION}" == "18.04" ]; then
         BLOBFUSE2_VERSION="2.2.0"
     fi
 
-    if [ "${OSVERSION}" == "24.04" ]; then
-        BLOBFUSE2_VERSION="2.3.0"
-    fi
-
     pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
-    if [[ $(isARM64) != 1 ]]; then
-        if [[ "${OSVERSION}" == "22.04" || "${OSVERSION}" == "24.04" ]]; then
-            pkg_list+=(fuse3)
-        else
-            pkg_list+=(blobfuse=${BLOBFUSE_VERSION} fuse)
-        fi
+    if [[ "${OSVERSION}" == "22.04" || "${OSVERSION}" == "24.04" ]]; then
+        pkg_list+=(fuse3)
+    else
+        pkg_list+=(blobfuse=${BLOBFUSE_VERSION} fuse)
     fi
 
     for apt_package in ${pkg_list[*]}; do

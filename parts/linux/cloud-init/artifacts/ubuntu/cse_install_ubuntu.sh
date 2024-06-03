@@ -34,28 +34,22 @@ installDeps() {
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
-    BLOBFUSE2_VERSION="2.2.1"
+    # Blobfuse2 has been upgraded to 2.3.0 in upstream, using this version for parity between 22.04 and 24.04
+    BLOBFUSE2_VERSION="2.3.0"
 
     # keep legacy version on ubuntu 16.04 and 18.04
     if [ "${OSVERSION}" == "18.04" ]; then
         BLOBFUSE2_VERSION="2.2.0"
     fi
 
-    # Sync with Andy Zhang on if blofuse2 for 22.04 can be bumped to 2.3.0 to maintain parity, right now its 2.2.1
-    if [ "${OSVERSION}" == "24.04" ]; then
-        BLOBFUSE2_VERSION="2.3.0"
-    fi
-
+    # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
+    # for 22.04, fuse3 is installed. for all others, fuse is installed
+    # for 16.04, installed blobfuse1.3.7, for all others except 22.04, installed blobfuse1.4.5
     pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
-    if [[ $(isARM64) != 1 ]]; then
-        # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
-        # for 22.04, fuse3 is installed. for all others, fuse is installed
-        # for 16.04, installed blobfuse1.3.7, for all others except 22.04, installed blobfuse1.4.5
-        if [[ "${OSVERSION}" == "22.04" || "${OSVERSION}" == "24.04" ]]; then
-            pkg_list+=(fuse3)
-        else
-            pkg_list+=(blobfuse=${BLOBFUSE_VERSION} fuse)
-        fi
+    if [[ "${OSVERSION}" == "22.04" || "${OSVERSION}" == "24.04" ]]; then
+        pkg_list+=(fuse3)
+    else
+        pkg_list+=(blobfuse=${BLOBFUSE_VERSION} fuse)
     fi
 
     for apt_package in ${pkg_list[*]}; do
