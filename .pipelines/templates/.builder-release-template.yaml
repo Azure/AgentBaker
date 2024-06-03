@@ -168,16 +168,17 @@ steps:
         IS_NOT_1804=$( [[ "${OS_VERSION}" != "18.04" ]] && echo true || echo false ) && \
         echo "##vso[task.setvariable variable=IS_NOT_1804]${IS_NOT_1804}"
     displayName: 'Check if OS version is not 18.04'
+
   - task: Bash@3
-  inputs:
-    targetType: 'inline'
-    script: |
-      mkdir -p ${VHD_STAGE_NAME} && \
-      cp trivy-report.json ${VHD_STAGE_NAME}/ && \
-      cp trivy-images-table.txt ${VHD_STAGE_NAME}/ && \
-      cp release-notes.txt ${VHD_STAGE_NAME}/ && \
-      cp image-bom.json ${VHD_STAGE_NAME}/
-  displayName: 'Copy trivy report to sub staging directory'
+    inputs:
+      targetType: 'inline'
+      script: |
+        mkdir -p ${VHD_STAGE_NAME} && \
+        cp trivy-report.json ${VHD_STAGE_NAME}/ && \
+        cp trivy-images-table.txt ${VHD_STAGE_NAME}/ && \
+        cp release-notes.txt ${VHD_STAGE_NAME}/ && \
+        cp image-bom.json ${VHD_STAGE_NAME}/
+    displayName: 'Copy trivy report to sub staging directory'
 
 - task: PublishPipelineArtifact@1
   condition: eq(variables['IS_NOT_1804'], 'true')
