@@ -128,6 +128,7 @@ steps:
         -e ARCHITECTURE=${ARCHITECTURE} \
         -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
         ${CONTAINER_IMAGE} make -f packer.mk scanning-vhd
+    retryCountOnTaskFailure: 2
     displayName: Scanning VHD
   - script: |
         OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
