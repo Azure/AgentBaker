@@ -168,29 +168,42 @@ steps:
         IS_NOT_1804=$( [[ "${OS_VERSION}" != "18.04" ]] && echo true || echo false ) && \
         echo "##vso[task.setvariable variable=IS_NOT_1804]${IS_NOT_1804}"
     displayName: 'Check if OS version is not 18.04'
-  - task: PublishPipelineArtifact@0
-    condition: eq(variables['IS_NOT_1804'], 'true')
-    inputs:
-        artifactName: 'trivy-report-${{ parameters.artifactName }}'
-        targetPath: 'trivy-report.json'
-    displayName: publish trivy report
+  - task: Bash@3
+  inputs:
+    targetType: 'inline'
+    script: |
+      mkdir -p ${VHD_STAGE_NAME} && \
+      cp trivy-report.json ${VHD_STAGE_NAME}/ && \
+      cp trivy-images-table.txt ${VHD_STAGE_NAME}/ && \
+      cp release-notes.txt ${VHD_STAGE_NAME}/ && \
+      cp image-bom.json ${VHD_STAGE_NAME}/
+  displayName: 'Copy trivy report to sub staging directory'
+
+- task: PublishPipelineArtifact@1
+  condition: eq(variables['IS_NOT_1804'], 'true')
+  inputs:
+    artifactName: 'trivy-report-${{ parameters.artifactName }}'
+    targetPath: '${VHD_STAGE_NAME}/trivy-report.json'
+    pathToPublish: '${{ variables.VHD_STAGE_NAME }}/'
+  displayName: 'Publish trivy report'
   - task: PublishPipelineArtifact@0
     condition: eq(variables['IS_NOT_1804'], 'true')
     inputs:
         artifactName: 'trivy-images-table-${{ parameters.artifactName }}'
-        targetPath: 'trivy-images-table.txt'
+        targetPath: '${VHD_STAGE_NAME}/trivy-images-table.txt'
     displayName: publish trivy table
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
-        targetPath: 'release-notes.txt'
+        targetPath: '${VHD_STAGE_NAME}/release-notes.txt'
     displayName: publish release notes
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
-        targetPath: 'image-bom.json'
+        targetPath: '${VHD_STAGE_NAME}/image-bom.json'
     displayName: publish container image list
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+
   - bash: |
       echo MODE=$(MODE) && \
       PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
