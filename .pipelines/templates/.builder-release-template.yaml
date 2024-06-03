@@ -301,3 +301,4 @@ steps:
       artifactName: '${{ parameters.artifactName }}'
       targetPath: '$(Build.ArtifactStagingDirectory)'
     displayName: Publish artifacts
+    condition: always()
