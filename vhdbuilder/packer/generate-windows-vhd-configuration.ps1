@@ -21,7 +21,7 @@ $global:lowestFreeSpace = 2*1024*1024*1024 # 2GB
 # Add cache for another containerd version which is not installed by default
 $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.6.21-azure.1/binaries/containerd-v1.6.21-azure.1-windows-amd64.tar.gz"
 if ($windowsSKU -Like "23H2*") {
-    $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.7.14-azure.1/binaries/containerd-v1.7.14-azure.1-windows-amd64.tar.gz"
+    $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
 }
 
 # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
@@ -126,8 +126,8 @@ $global:map = @{
     # versions synced.
     "c:\akse-cache\containerd\"   = @(
         $defaultContainerdPackageUrl,
-        "https://acs-mirror.azureedge.net/containerd/windows/v1.7.9-azure.1/binaries/containerd-v1.7.9-azure.1-windows-amd64.tar.gz",
-        "https://acs-mirror.azureedge.net/containerd/windows/v1.7.14-azure.1/binaries/containerd-v1.7.14-azure.1-windows-amd64.tar.gz"
+        "https://acs-mirror.azureedge.net/containerd/windows/v1.7.14-azure.1/binaries/containerd-v1.7.14-azure.1-windows-amd64.tar.gz",
+        "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
     );
     "c:\akse-cache\csi-proxy\"    = @(
         "https://acs-mirror.azureedge.net/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz"
