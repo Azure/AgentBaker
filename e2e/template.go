@@ -82,6 +82,7 @@ func baseNodeBootstrappingContract() *nbcontractv1.Configuration {
 	}
 
 	nbc := &nbcontractv1.Configuration{
+		DisableCustomData:  true,
 		LinuxAdminUsername: "azureuser",
 		VmSize:             "Standard_DS1_v2",
 		ClusterConfig: &nbcontractv1.ClusterConfig{

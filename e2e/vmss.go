@@ -55,7 +55,12 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName st
 }
 
 func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
-	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)
+	var model armcompute.VirtualMachineScaleSet
+	if opts.suiteConfig.IsSelfContainedVHD {
+		model = getBaseVMSSModelSelfContained(vmssName, string(publicKeyBytes), opts)
+	} else {
+		model = getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)
+	}
 
 	if opts.suiteConfig.BuildID != "" {
 		if model.Tags == nil {
@@ -218,6 +223,87 @@ func getVmssName(r *mrand.Rand) string {
 	return fmt.Sprintf(vmssNameTemplate, randomLowercaseString(r, 4))
 }
 
+func getBaseVMSSModelSelfContained(name, sshPublicKey string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
+	nbc, err := json.Marshal(baseNodeBootstrappingContract())
+	if err != nil {
+		return armcompute.VirtualMachineScaleSet{}
+	}
+	encodedNbc := base64.StdEncoding.EncodeToString(nbc)
+	return armcompute.VirtualMachineScaleSet{
+		Location: to.Ptr(opts.suiteConfig.Location),
+		SKU: &armcompute.SKU{
+			Name:     to.Ptr("Standard_DS2_v2"),
+			Capacity: to.Ptr[int64](1),
+		},
+		Properties: &armcompute.VirtualMachineScaleSetProperties{
+			Overprovision: to.Ptr(false),
+			UpgradePolicy: &armcompute.UpgradePolicy{
+				Mode: to.Ptr(armcompute.UpgradeModeManual),
+			},
+			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
+				OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{
+					ComputerNamePrefix: to.Ptr(name),
+					AdminUsername:      to.Ptr("azureuser"),
+					LinuxConfiguration: &armcompute.LinuxConfiguration{
+						SSH: &armcompute.SSHConfiguration{
+							PublicKeys: []*armcompute.SSHPublicKey{
+								{
+									KeyData: to.Ptr(sshPublicKey),
+									Path:    to.Ptr("/home/azureuser/.ssh/authorized_keys"),
+								},
+							},
+						},
+					},
+				},
+				UserData: &encodedNbc,
+				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
+					ImageReference: &armcompute.ImageReference{
+						ID: to.Ptr(string(scenario.BaseVHDCatalog.Ubuntu1804.Gen2Containerd.ResourceID)),
+					},
+					OSDisk: &armcompute.VirtualMachineScaleSetOSDisk{
+						CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
+						DiskSizeGB:   to.Ptr(int32(512)),
+						OSType:       to.Ptr(armcompute.OperatingSystemTypesLinux),
+					},
+				},
+				NetworkProfile: &armcompute.VirtualMachineScaleSetNetworkProfile{
+					NetworkInterfaceConfigurations: []*armcompute.VirtualMachineScaleSetNetworkConfiguration{
+						{
+							Name: to.Ptr(name),
+							Properties: &armcompute.VirtualMachineScaleSetNetworkConfigurationProperties{
+								Primary:            to.Ptr(true),
+								EnableIPForwarding: to.Ptr(true),
+								IPConfigurations: []*armcompute.VirtualMachineScaleSetIPConfiguration{
+									{
+										Name: to.Ptr(fmt.Sprintf("%s0", name)),
+										Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
+											Primary: to.Ptr(true),
+											LoadBalancerBackendAddressPools: []*armcompute.SubResource{
+												{
+													ID: to.Ptr(
+														fmt.Sprintf(
+															loadBalancerBackendAddressPoolIDTemplate,
+															opts.suiteConfig.Subscription,
+															*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
+														),
+													),
+												},
+											},
+											Subnet: &armcompute.APIEntityReference{
+												ID: to.Ptr(opts.clusterConfig.subnetId),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
 	encodedCseCmd := base64.StdEncoding.EncodeToString([]byte(cseCmd))
 	fmt.Println("csecmd is : ", cseCmd)
@@ -236,23 +322,23 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 				Mode: to.Ptr(armcompute.UpgradeModeManual),
 			},
 			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
-				// ExtensionProfile: &armcompute.VirtualMachineScaleSetExtensionProfile{
-				// 	Extensions: []*armcompute.VirtualMachineScaleSetExtension{
-				// 		{
-				// 			Name: to.Ptr("vmssCSE"),
-				// 			Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
-				// 				Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
-				// 				Type:                    to.Ptr("CustomScript"),
-				// 				TypeHandlerVersion:      to.Ptr("2.0"),
-				// 				AutoUpgradeMinorVersion: to.Ptr(true),
-				// 				Settings:                map[string]interface{}{},
-				// 				ProtectedSettings: map[string]interface{}{
-				// 					"commandToExecute": cseCmd,
-				// 				},
-				// 			},
-				// 		},
-				// 	},
-				// },
+				ExtensionProfile: &armcompute.VirtualMachineScaleSetExtensionProfile{
+					Extensions: []*armcompute.VirtualMachineScaleSetExtension{
+						{
+							Name: to.Ptr("vmssCSE"),
+							Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
+								Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
+								Type:                    to.Ptr("CustomScript"),
+								TypeHandlerVersion:      to.Ptr("2.0"),
+								AutoUpgradeMinorVersion: to.Ptr(true),
+								Settings:                map[string]interface{}{},
+								ProtectedSettings: map[string]interface{}{
+									"commandToExecute": cseCmd,
+								},
+							},
+						},
+					},
+				},
 				OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{
 					ComputerNamePrefix: to.Ptr(name),
 					AdminUsername:      to.Ptr("azureuser"),
@@ -267,7 +353,6 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 							},
 						},
 					},
-					// UserData:
 				},
 				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
 					ImageReference: &armcompute.ImageReference{

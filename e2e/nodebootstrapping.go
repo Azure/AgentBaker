@@ -66,6 +66,7 @@ func getBaseNodeBootstrappingConfiguration(
 	cloud *azureClient,
 	suiteConfig *suite.Config,
 	clusterParams clusterParameters) (*datamodel.NodeBootstrappingConfiguration, error) {
+	
 	nbc := baseTemplate(suiteConfig.Location)
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = clusterParams["/etc/kubernetes/certs/ca.crt"]
 
