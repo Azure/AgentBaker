@@ -62,6 +62,12 @@ dnf_update() {
     fi
   done
   echo Executed dnf update -y --refresh $i times
-  dnf downgrade SymCrypt-OpenSSL-1.4.0 -y
+
+  # latest version of symcrypt-openssl does not work, and is only present on azlx 3.0
+  OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+  if [[ $OS == $AZURELINUX_OS_NAME ]]; then
+    dnf downgrade SymCrypt-OpenSSL-1.4.0 -y
+  fi
+  # dnf downgrade SymCrypt-OpenSSL-1.4.0 -y
 }
 #EOF
