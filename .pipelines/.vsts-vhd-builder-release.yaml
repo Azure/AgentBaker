@@ -181,7 +181,6 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]1804_containerd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -208,7 +207,6 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]1804_gen2_containerd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -235,7 +233,6 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]1804_gpu_containerd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -262,7 +259,6 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]1804_gen2_gpu_containerd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -291,7 +287,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]marinerv2_gen1'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -320,7 +315,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]azurelinuxv2_gen1'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -349,7 +343,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]marinerv2_gen2'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -378,7 +371,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]azurelinuxv2_gen2'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -407,7 +399,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]marinerv2_gen1_fips'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -436,7 +427,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]azurelinuxv2_gen1_fips'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -465,7 +455,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]marinerv2_gen2_fips'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -494,7 +483,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]azurelinuxv2_gen2_fips'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -523,7 +511,6 @@ stages:
           echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
           echo '##vso[task.setvariable variable=SGX_INSTALL]False'
           echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
-          echo '##vso[task.setvariable variable=VHD_STAGE_NAME]mariner2_arm64'
         displayName: Setup Build Variables
       - template: ./templates/.builder-release-template.yaml
         parameters:
@@ -552,7 +539,6 @@ stages:
           echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
           echo '##vso[task.setvariable variable=SGX_INSTALL]False'
           echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-          echo '##vso[task.setvariable variable=VHD_STAGE_NAME]azurelinuxv2_arm64'
         displayName: Setup Build Variables
       - template: ./templates/.builder-release-template.yaml
         parameters:
@@ -581,7 +567,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]marinerv2_gen2_kata'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -610,7 +595,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]azurelinuxv2_gen2_kata'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -639,7 +623,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]marinerv2_gen2_trustedlaunch'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -668,7 +651,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]azurelinuxv2_gen2_trustedlaunch'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -697,7 +679,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]marinerv2_gen2_kata_trustedlaunch'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -726,7 +707,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]azurelinuxv2_gen2_kata_trustedlaunch'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -754,7 +734,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]1804_fips_containerd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -782,7 +761,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]1804_fips_gen2_containerd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -810,7 +788,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]2004_fips_containerd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -838,7 +815,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]2004_fips_gen2_containerd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -867,7 +843,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
             echo '##vso[task.setvariable variable=IMG_VERSION]latest'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]2204_fips_containerd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -896,7 +871,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
             echo '##vso[task.setvariable variable=IMG_VERSION]latest'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]2204_fips_gen2_containerd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -924,7 +898,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]2204_arm64_gen2_containerd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -953,7 +926,6 @@ stages:
             echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]2404_arm64_gen2_containerd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -980,7 +952,6 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]2204_containerd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -1007,7 +978,6 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]2204_gen2_containerd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -1034,7 +1004,6 @@ stages:
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=SGX_INSTALL]False'
-              echo '##vso[task.setvariable variable=VHD_STAGE_NAME]2404_containerd'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
@@ -1061,7 +1030,6 @@ stages:
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=SGX_INSTALL]True'
-              echo '##vso[task.setvariable variable=VHD_STAGE_NAME]2404_gen2_containerd'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
@@ -1088,7 +1056,6 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]2004_cvm_gen2_containerd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -1115,7 +1082,6 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]2204_tl_gen2_containerd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -1142,7 +1108,6 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]2204_minimal_gen1_containerd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
@@ -1169,7 +1134,6 @@ stages:
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]False'
-            echo '##vso[task.setvariable variable=VHD_STAGE_NAME]2204_minimal_gen2_containerd'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:

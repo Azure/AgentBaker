@@ -173,37 +173,38 @@ steps:
     inputs:
       targetType: 'inline'
       script: |
-        mkdir -p ${VHD_STAGE_NAME} && \
-        cp trivy-report.json ${VHD_STAGE_NAME}/ && \
-        cp trivy-images-table.txt ${VHD_STAGE_NAME}/ && \
-        cp release-notes.txt ${VHD_STAGE_NAME}/ && \
-        cp image-bom.json ${VHD_STAGE_NAME}/
-    displayName: 'Copy trivy report to sub staging directory'
+        mkdir -p "$(Build.ArtifactStagingDirectory)/${{ parameters.artifactName }}" 
+    displayName: 'Make Pipeline Subdirectory for VHD artifacts'
+
+  - task: Bash@3
+    condition: eq(variables['IS_NOT_1804'], 'true')
+    inputs:
+      targetType: 'inline'
+      script: |
+        cp -r trivy-report.json "$(Build.ArtifactStagingDirectory)/${{ parameters.artifactName }}/trivy-report.json" && \
+        cp -r trivy-images-table.txt "$(Build.ArtifactStagingDirectory)/${{ parameters.artifactName }}/trivy-images-table.txt" && \
+    displayName: 'Move Trivy Files'
+  
+  - task: Bash@3
+    inputs:
+      targetType: 'inline'
+      script: |
+        cp -r release-notes.txt "$(Build.ArtifactStagingDirectory)/${{ parameters.artifactName }}/release-notes.txt" && \
+    displayName: 'Move release notes'
+  
+  - task: Bash@3
+    inputs:
+      targetType: 'inline'
+      script: |
+        cp -r image-bom.json "$(Build.ArtifactStagingDirectory)/${{ parameters.artifactName }}/release-notes.txt" && \
+    displayName: 'Move image bom'
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
 
   - task: PublishPipelineArtifact@1
-    condition: eq(variables['IS_NOT_1804'], 'true')
     inputs:
-      artifactName: 'trivy-report-${{ parameters.artifactName }}'
-      targetPath: '${VHD_STAGE_NAME}/trivy-report.json'
-      pathToPublish: '${{ variables.VHD_STAGE_NAME }}/'
-    displayName: 'Publish trivy report'
-  - task: PublishPipelineArtifact@0
-    condition: eq(variables['IS_NOT_1804'], 'true')
-    inputs:
-        artifactName: 'trivy-images-table-${{ parameters.artifactName }}'
-        targetPath: '${VHD_STAGE_NAME}/trivy-images-table.txt'
-    displayName: publish trivy table
-  - task: PublishPipelineArtifact@0
-    inputs:
-        artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
-        targetPath: '${VHD_STAGE_NAME}/release-notes.txt'
-    displayName: publish release notes
-  - task: PublishPipelineArtifact@0
-    inputs:
-        artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
-        targetPath: '${VHD_STAGE_NAME}/image-bom.json'
-    displayName: publish container image list
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+        artifactName: '${{ parameters.artifactName }}'
+        targetPath: '$(Build.ArtifactStagingDirectory)/${{ parameters.artifactName }}'
+    displayName: Publish Pipeline Artifacts
 
   - bash: |
       echo MODE=$(MODE) && \
