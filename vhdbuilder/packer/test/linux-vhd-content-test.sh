@@ -892,6 +892,10 @@ testNBCParserBinary () {
 
 }
 
+testPackageInstalled () {
+  echo "Checking if packages are installed. Actual tests are not implemented yet."
+}
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -905,6 +909,7 @@ testVHDBuildLogsExist
 testCriticalTools
 testFilesDownloaded $CONTAINER_RUNTIME
 testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
+testPackageInstalled
 testChrony $OS_SKU
 testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS

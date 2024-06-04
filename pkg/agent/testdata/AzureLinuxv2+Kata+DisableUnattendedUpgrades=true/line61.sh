@@ -96,9 +96,7 @@ EOF
 }
 
 installStandaloneContainerd() {
-    CONTAINERD_VERSION=$1
-    #overwrite the passed containerd_version since mariner uses only 1 version now which is different than ubuntu's
-    CONTAINERD_VERSION="1.3.4"
+    CONTAINERD_VERSION=$1    
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then

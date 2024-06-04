@@ -22,10 +22,32 @@ package components
 
 #Images: [...#ContainerImage]
 #Files: [...#DownloadFile]
+#Packages: [...#Package]
+#PackageUri: {
+		Version:     string
+		DownloadURL: string
+	}
+
+#OSDistro: {
+	"Current": #PackageUri,
+	"1804"?:   #PackageUri //1804 is optional
+}
+
+#DownloadUriEntries: {
+	"Ubuntu":  #OSDistro
+	"Mariner": #OSDistro
+}
+
+#Package: {
+	Name:               string
+	DownloadLocation:   string
+	DownloadUriEntries: #DownloadUriEntries
+}
 
 #Components: {
 	ContainerImages: #Images
 	DownloadFiles:   #Files
+	PackageList:     #Packages
 }
 
 #Components
