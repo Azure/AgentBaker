@@ -1,0 +1,11 @@
+{
+    "vhd_url": "https://vhdbuildersaceastus.blob.core.windows.net/vhds/1.1717429419.13871.vhd?se=2024-06-10T00%3A00Z&sp=r&sv=2022-11-02&sr=c&skoid=a22a5182-a5ff-456d-9650-129201838793&sktid=33e01921-4d64-4f8c-a055-5bdaffd5e33d&skt=2024-06-03T16%3A16%3A56Z&ske=2024-06-10T00%3A00%3A00Z&sks=b&skv=2022-11-02&sig=S0HgIVXce8iHk9gXBYuAtkVest9N1VM5BijUTewQJok%3D",
+    "captured_sig_resource_id": "/subscriptions/109a5e88-712a-48ae-9078-9ca8b3c81345/resourceGroups/aksvhdbuilderrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2004CVMGen2/versions/1.1717429419.13871",
+    "os_name": "Linux",
+    "sku_name": "2004gen2CVMcontainerd",
+    "offer_name": "Ubuntu",
+    "hyperv_generation": "V2",
+    "image_architecture": "x64",
+    "image_version": "202406.03.0",
+    "replication_inverse": "4"
+}
