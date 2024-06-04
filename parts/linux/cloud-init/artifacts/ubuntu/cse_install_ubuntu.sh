@@ -159,6 +159,7 @@ installContainerdWithAptGet() {
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
+    #this function to be reverted.
     UBUNTU_RELEASE=$(lsb_release -r -s)
     UBUNTU_CODENAME=$(lsb_release -c -s)
     containerdVersion=$1    
@@ -253,7 +254,7 @@ installMoby() {
 }
 
 ensureRunc() {
-    RUNC_PACKAGE_URL="${2:=}"
+    RUNC_PACKAGE_URL=${2:=}
     # the user-defined runc package URL is always picked first, and the other options won't be tried when this one fails
     if [[ ! -z ${RUNC_PACKAGE_URL} ]]; then
         echo "Installing runc from user input: ${RUNC_PACKAGE_URL}"
