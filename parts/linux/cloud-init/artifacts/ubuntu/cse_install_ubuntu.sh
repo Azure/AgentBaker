@@ -93,6 +93,7 @@ installStandaloneContainerd() {
     # we always default to the .1 patch versons
     CONTAINERD_PATCH_VERSION="${2:-1}"
     eval CONTAINERD_PACKAGE_URL="${3:-}"
+    RUNC_VERSION="${RUNC_VERSION:-}"
     # RUNC_VERSION could be provided by 2 ways.
     # The first way is from cse_cmd.sh which is actually from AKS-RP NodeBootstrappingConfig api, at provisioning time.
     # The second way is from the argument {4} of this function, at VHD build time.
