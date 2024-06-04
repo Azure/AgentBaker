@@ -105,7 +105,7 @@ installStandaloneContainerd() {
     
 
     # runc needs to be installed first or else existing vhd version causes conflict with containerd.
-    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}"
+    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""} "${RUNC_PACKAGE_URL}""
 
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)

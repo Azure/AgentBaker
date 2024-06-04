@@ -85,13 +85,14 @@ installStandaloneContainerd() {
     CONTAINERD_VERSION=$1    
     CONTAINERD_PATCH_VERSION="${2:-1}"
     eval CONTAINERD_PACKAGE_URL="${3:-}"
-    if [ ! -z "$RUNC_VERSION" && -z "${4}" ]; then
+    RUNC_VERSION="${RUNC_VERSION:-}"
+    if [ -z "$RUNC_VERSION" ] && [ ! -z "${4}" ]; then
       RUNC_VERSION="${4}"
     fi
     eval RUNC_PACKAGE_URL="${5:-}"
     
 
-    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}"
+    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""} "${RUNC_PACKAGE_URL}""
 
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     CURRENT_COMMIT=$(containerd -version | cut -d " " -f 4)

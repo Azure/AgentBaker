@@ -178,7 +178,7 @@ fi
 
 runc_override_download_url="$(echo ${runc_manifest} | jq -r '.downloadURL')"
 
-installStandaloneContainerd ${containerd_version} ${containerd_patch_version} ${containerd_override_download_url} ${runc_installed_version} ${runc_override_download_url}
+installStandaloneContainerd "${containerd_version}" "${containerd_patch_version}" "${containerd_override_download_url}" "${runc_installed_version}" "${runc_override_download_url}"
 echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
 stop_watch $capture_time "Create Containerd Service Directory, Download Shims, Configure Runtime and Network" false
 start_watch

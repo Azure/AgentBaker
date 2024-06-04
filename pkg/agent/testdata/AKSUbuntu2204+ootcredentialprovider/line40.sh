@@ -55,7 +55,7 @@ installContainerRuntime() {
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
 
-        logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
+        logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision} ${CONTAINERD_PACKAGE_URL} ${RUNC_VERSION} ${RUNC_PACKAGE_URL}"
         echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
     else
         installMoby 
