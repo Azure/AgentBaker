@@ -1,0 +1,11 @@
+{
+    "vhd_url": "https://vhdbuildersaceastus.blob.core.windows.net/vhds/1.1717434987.25435.vhd?st=2024-06-02T00%3A00Z&se=2025-06-03T00%3A00Z&sp=rl&sv=2022-11-02&sr=c&sig=DJpPU3g%2BEdlpraw1g8sOR2bVCJnRst3Z%2Bisj4ZgP75Q%3D",
+    "captured_sig_resource_id": "/subscriptions/109a5e88-712a-48ae-9078-9ca8b3c81345/resourceGroups/aksvhdbuilderrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2/versions/1.1717434987.25435",
+    "os_name": "Linux",
+    "sku_name": "V2",
+    "offer_name": "CBLMariner",
+    "hyperv_generation": "V1",
+    "image_architecture": "x64",
+    "image_version": "202406.03.0",
+    "replication_inverse": "4"
+}
