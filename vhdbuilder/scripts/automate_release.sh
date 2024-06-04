@@ -32,7 +32,7 @@ trigger_ev2_artifacts() {
 
 create_release() {
     echo "creating SIG release for VHD with build ID: $VHD_BUILD_ID"
-    API_ENDPOINT="https://${ADO_ORG}.vsrm.visualstudio.com/${ADO_PROJECT}/_apis/Release/releases?api-version=5.1"
+    API_ENDPOINT="https://msazure.vsrm.visualstudio.com/CloudNativeCompute/_apis/Release/releases?api-version=5.1"
     EV2_BUILD_ID="94988139"
     EV2_BUILD_NAME="20240602.7"
 
@@ -52,16 +52,6 @@ create_release() {
 
 if [ -z "$ADO_PAT" ]; then
     echo "ADO_PAT must be set to run automated EV2 artifact + release trigger"
-    exit 1
-fi
-
-if [ -z "$ADO_ORG" ]; then
-    echo "ADO_ORG must be set to run automated EV2 artifact + release trigger"
-    exit 1
-fi
-
-if [ -z "$ADO_PROJECT" ]; then
-    echo "ADO_PROJECT must be set to run automated EV2 artifact + release trigger"
     exit 1
 fi
 
