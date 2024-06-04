@@ -184,6 +184,13 @@ steps:
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
     displayName: Copy trivy table
   - task: CopyFiles@2
+    condition: eq(variables['IS_NOT_1804'], 'true')
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'storage-report.txt'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy scanning report
+  - task: CopyFiles@2
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'release-notes.txt'
