@@ -31,13 +31,15 @@ stages:
           ADO_PAT: $(PAT-aksdevassistant)
       - template: ./templates/.set-image-version-template.yaml
         parameters:
-          BUILD_ID: $(BUILD_ID)
-          IMAGE_VERSION: $(IMAGE_VERSION)
+          VHD_BUILD_ID: $(VHD_BUILD_ID)
+          IMAGE_VERSION: $(IMAGE_VERSION) # pass in the image version in case one was supplied
       - bash: |
           echo "PR for Image Bumping, Official Branch Cutting"
-          /bin/bash vhdbuilder/scripts/automate_version_bump.sh $(IMAGE_VERSION) $MAPPED_GITHUB_PAT "${BUILD_ID[@]}"
+          /bin/bash vhdbuilder/scripts/automate_version_bump.sh
         env:
-          MAPPED_GITHUB_PAT: $(GITHUB_PAT)
+          GITHUB_PAT: $(GITHUB_PAT)
+          IMAGE_VERSION: $(IMAGE_VERSION)
+          VHD_BUILD_ID: $(VHD_BUILD_ID)
         displayName: 'bump image version and create official branch'
   - stage: generate_release_notes
     dependsOn: []
@@ -51,13 +53,15 @@ stages:
           ADO_PAT: $(PAT-aksdevassistant)
       - template: ./templates/.set-image-version-template.yaml
         parameters:
-          BUILD_ID: $(BUILD_ID)
+          VHD_BUILD_ID: $(VHD_BUILD_ID)
           IMAGE_VERSION: $(IMAGE_VERSION)
       - bash: |
           echo "PR for Release Notes"
-          /bin/bash vhdbuilder/scripts/automate_release_notes.sh $(IMAGE_VERSION) "${BUILD_ID[@]}" $MAPPED_GITHUB_PAT
+          /bin/bash vhdbuilder/scripts/automate_release_notes.sh
         env:
-          MAPPED_GITHUB_PAT: $(GITHUB_PAT)
+          GITHUB_PAT: $(GITHUB_PAT)
+          IMAGE_VERSION: $(IMAGE_VERSION)
+          VHD_BUILD_ID: $(VHD_BUILD_ID)
           SKIP_LATEST: $(SKIP_LATEST_RELEASE_NOTES_UPDATE)
         displayName: 'generate release notes'
   - stage: create_release
@@ -75,5 +79,5 @@ stages:
           /bin/bash vhdbuilder/scripts/automate_release.sh
         env:
           ADO_PAT: $(PAT-aksdevassistant)
-          VHD_BUILD_ID: $(BUILD_ID)
+          VHD_BUILD_ID: $(VHD_BUILD_ID)
         displayName: 'create SIG release'

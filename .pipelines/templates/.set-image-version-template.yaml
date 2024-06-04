@@ -1,5 +1,5 @@
 parameters:
-- name: BUILD_ID
+- name: VHD_BUILD_ID
   type: string
 - name: IMAGE_VERSION
   type: string
@@ -10,6 +10,6 @@ steps:
     echo "setting image version to $IMAGE_VERSION"
     echo "##vso[task.setvariable variable=IMAGE_VERSION]$IMAGE_VERSION"
   env:
-    BUILD_ID: ${{ parameters.BUILD_ID }}
-    IMAGE_VERSION: ${{ parameters.IMAGE_VERSION_OVERRIDE }}
+    VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
+    IMAGE_VERSION: ${{ parameters.IMAGE_VERSION }}
   displayName: 'Set image version'
