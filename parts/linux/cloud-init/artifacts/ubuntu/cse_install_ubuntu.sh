@@ -97,7 +97,7 @@ installStandaloneContainerd() {
     # The first way is from cse_cmd.sh which is actually from AKS-RP NodeBootstrappingConfig api, at provisioning time.
     # The second way is from the argument {4} of this function, at VHD build time.
     # The following condition implies that: only if RUNC_VERSION is nil or empty and argument {4} is provided, we will take it as our actual RUNC_VERSION.
-    if [ ! -z "$RUNC_VERSION" ] [ && -z "${4}" ]; then
+    if [ ! -z "$RUNC_VERSION" ] && [ -z "${4}" ]; then
       RUNC_VERSION="${4}"
     fi
     eval RUNC_PACKAGE_URL="${5:-}"
