@@ -55,5 +55,5 @@ if [ -z "$VHD_BUILD_ID" ]; then
     exit 1
 fi
 
-# retrycmd_if_failure 3 60 trigger_ev2_artifacts || exit $?
+retrycmd_if_failure 3 60 trigger_ev2_artifacts || exit $?
 retrycmd_if_failure 3 60 create_release || exit $?

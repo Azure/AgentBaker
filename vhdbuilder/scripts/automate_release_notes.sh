@@ -20,9 +20,9 @@ generate_release_notes() {
     done
     echo "SKUs for release notes are $included_skus"
     if [ "${SKIP_LATEST,,}" == "true" ]; then
-        go run vhdbuilder/release-notes/autonotes/main.go --skip-latest --build $VHD_BUILD_ID --date $image_version --include ${included_skus%?}
+        go run vhdbuilder/release-notes/autonotes/main.go --skip-latest --build $VHD_BUILD_ID --date $IMAGE_VERSION --include ${included_skus%?}
     else
-        go run vhdbuilder/release-notes/autonotes/main.go --build $VHD_BUILD_ID --date $image_version --include ${included_skus%?}
+        go run vhdbuilder/release-notes/autonotes/main.go --build $VHD_BUILD_ID --date $IMAGE_VERSION --include ${included_skus%?}
     fi
     if [ $? -ne 0 ]; then
         echo "running 'git clean -df' before retrying..."
