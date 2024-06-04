@@ -50,17 +50,18 @@ stages:
       steps:
       - bash: |
           set -x
-          echo "Removing existing go environment"
-          sudo rm -r /usr/local/go
-          GOLANG_VERSION="1.22.2"
-          echo "Downloading ${GOLANG_VERSION}"
-          curl -O "https://dl.google.com/go/${GOLANG_VERSION}.linux-amd64.tar.gz"
+          go version
+          # echo "Removing existing go environment"
+          # sudo rm -r /usr/local/go
+          # GOLANG_VERSION="1.22.2"
+          # echo "Downloading ${GOLANG_VERSION}"
+          # curl -O "https://dl.google.com/go/${GOLANG_VERSION}.linux-amd64.tar.gz"
 
-          echo "unpacking go"
-          sudo mkdir -p /usr/local/go
-          sudo chown -R "$(whoami):$(whoami)" /usr/local/go 
-          sudo tar -xvf "${GOLANG_VERSION}.linux-amd64.tar.gz" -C /usr/local
-          rm "${GOLANG_VERSION}.linux-amd64.tar.gz"
+          # echo "unpacking go"
+          # sudo mkdir -p /usr/local/go
+          # sudo chown -R "$(whoami):$(whoami)" /usr/local/go 
+          # sudo tar -xvf "${GOLANG_VERSION}.linux-amd64.tar.gz" -C /usr/local
+          # rm "${GOLANG_VERSION}.linux-amd64.tar.gz"
         displayName: 'clean up go environment'
       - bash: |
           az extension add -n azure-devops
