@@ -1,6 +1,7 @@
 [Unit]
 Description=Kubelet
 ConditionPathExists=/usr/local/bin/kubelet
+ConditionPathExists=/opt/azure/containers/start-kubelet.sh
 Wants=network-online.target containerd.service
 After=network-online.target containerd.service
 
@@ -19,17 +20,7 @@ ExecStartPre=/bin/mount --make-shared /var/lib/kubelet
 ExecStartPre=-/sbin/ebtables -t nat --list
 ExecStartPre=-/sbin/iptables -t nat --numeric --list
 
-ExecStart=/usr/local/bin/kubelet \
-        --enable-server \
-        --node-labels="${KUBELET_NODE_LABELS}" \
-        --v=2 \
-        --volume-plugin-dir=/etc/kubernetes/volumeplugins \
-        $KUBELET_TLS_BOOTSTRAP_FLAGS \
-        $KUBELET_CONFIG_FILE_FLAGS \
-        $KUBELET_CONTAINERD_FLAGS \
-        $KUBELET_CONTAINER_RUNTIME_FLAG \
-        $KUBELET_CGROUP_FLAGS \
-        $KUBELET_FLAGS
+ExecStart=/opt/azure/containers/start-kubelet.sh
 
 [Install]
 WantedBy=multi-user.target

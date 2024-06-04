@@ -135,7 +135,7 @@ if [ "${IS_KRUSTLET}" == "true" ]; then
 fi
 
 if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
-    logs_to_events "AKS.CSE.downloadSecureTLSBootstrapKubeletExecPlugin" downloadSecureTLSBootstrapKubeletExecPlugin
+    logs_to_events "AKS.CSE.downloadSecureTLSBootstrapClient" downloadSecureTLSBootstrapClient
 fi
 
 # By default, never reboot new nodes.

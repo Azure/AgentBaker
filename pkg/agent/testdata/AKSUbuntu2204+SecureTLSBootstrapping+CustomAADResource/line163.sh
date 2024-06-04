@@ -1,11 +1,9 @@
 [Unit]
-Description=enabledhcpv6
-After=network-online.target
-
+Description=Bind mount kubelet data
 [Service]
-Type=oneshot
-ExecStart=/opt/azure/containers/enable-dhcpv6.sh
+Restart=on-failure
+RemainAfterExit=yes
+ExecStart=/bin/bash /opt/azure/containers/bind-mount.sh
 
 [Install]
 WantedBy=multi-user.target
-#EOF

@@ -284,6 +284,26 @@ configureCNIIPTables() {
     fi
 }
 
+configureKubeletSecureTLSBootstrap() {
+    AAD_RESOURCE="6dae42f8-4368-4678-94ff-3960e28e3630"
+    if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE" ]; then
+        AAD_RESOURCE="$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"
+    fi
+    TIMEOUT_START_SECONDS=270 
+
+    SECURE_TLS_BOOTSTRAP_KUBELET_DROP_IN=/etc/systemd/system/kubelet.service.d/10-securetlsbootstrap.conf
+    mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAP_KUBELET_DROP_IN}")"
+    touch "${SECURE_TLS_BOOTSTRAP_KUBELET_DROP_IN}"
+    chmod 0600 "${SECURE_TLS_BOOTSTRAP_KUBELET_DROP_IN}"
+    cat > "${SECURE_TLS_BOOTSTRAP_KUBELET_DROP_IN}" <<EOF
+[Service]
+TimeoutStartSec=${TIMEOUT_START_SECONDS}
+ExecStartPre=-/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh
+Environment="SECURE_TLS_BOOTSTRAP_AAD_RESOURCE=${AAD_RESOURCE}"
+Environment="API_SERVER_NAME=${API_SERVER_NAME}"
+EOF
+}
+
 disableSystemdResolved() {
     ls -ltr /etc/resolv.conf
     cat /etc/resolv.conf
@@ -393,60 +413,13 @@ ensureKubelet() {
     if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
     fi
-    
+
     KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
     mkdir -p "$(dirname "${KUBE_CA_FILE}")"
     echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
     chmod 0600 "${KUBE_CA_FILE}"
 
-    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ] || [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
-        KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
-        mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
-        touch "${KUBELET_TLS_DROP_IN}"
-        chmod 0600 "${KUBELET_TLS_DROP_IN}"
-        tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
-[Service]
-Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
-EOF
-    fi
-
-    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
-        AAD_RESOURCE="6dae42f8-4368-4678-94ff-3960e28e3630"
-        if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID" ]; then
-            AAD_RESOURCE=$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID
-        fi
-        SECURE_BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-        mkdir -p "$(dirname "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}")"
-        touch "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}"
-        chmod 0644 "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}"
-        tee "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
-apiVersion: v1
-kind: Config
-clusters:
-- name: localcluster
-  cluster:
-    certificate-authority: /etc/kubernetes/certs/ca.crt
-    server: https://${API_SERVER_NAME}:443
-users:
-- name: kubelet-bootstrap
-  user:
-    exec:
-        apiVersion: client.authentication.k8s.io/v1
-        command: /opt/azure/tlsbootstrap/tls-bootstrap-client
-        args:
-        - bootstrap
-        - --next-proto=aks-tls-bootstrap
-        - --aad-resource=${AAD_RESOURCE}
-        interactiveMode: Never
-        provideClusterInfo: true
-contexts:
-- context:
-    cluster: localcluster
-    user: kubelet-bootstrap
-  name: bootstrap-context
-current-context: bootstrap-context
-EOF
-    elif [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
+    if [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
         BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
         mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
         touch "${BOOTSTRAP_KUBECONFIG_FILE}"
@@ -470,7 +443,13 @@ contexts:
   name: bootstrap-context
 current-context: bootstrap-context
 EOF
-    else
+    fi
+
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+        configureKubeletSecureTLSBootstrap
+    fi
+
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "false" ] && [ "${ENABLE_TLS_BOOTSTRAPPING}" == "false" ]; then
         KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
         mkdir -p "$(dirname "${KUBECONFIG_FILE}")"
         touch "${KUBECONFIG_FILE}"
@@ -510,6 +489,11 @@ EOF
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
         logs_to_events "AKS.CSE.ensureKubelet.installCredentalProvider" installCredentalProvider
+    fi
+
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+        systemctlEnableAndStartNoBlock kubelet || exit $ERR_KUBELET_START_FAIL
+        return 0
     fi
 
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
