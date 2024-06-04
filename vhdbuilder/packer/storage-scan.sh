@@ -24,5 +24,4 @@ cd "$CUR_DIR"
 umount /mnt/sdb1
 rmdir /mnt/sdb1
 
-
 chmod a+r "${STORAGE_REPORT_PATH}"

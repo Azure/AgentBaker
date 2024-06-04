@@ -58,7 +58,7 @@ az storage blob upload --file /opt/azure/containers/trivy-images-table.txt \
     --account-name ${STORAGE_ACCOUNT_NAME} \
     --auth-mode login
 
-az storage blob upload --file /opt/azure/containers/storage-report.txt.txt \
+az storage blob upload --file /opt/azure/containers/storage-report.txt \
     --container-name ${SIG_CONTAINER_NAME} \
     --name ${STORAGE_REPORT_FILE_NAME} \
     --account-name ${STORAGE_ACCOUNT_NAME} \
