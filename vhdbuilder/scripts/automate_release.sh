@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+set +x
 source vhdbuilder/scripts/automate_helpers.sh
 
 EV2_ARTIFACT_PIPELINE_ID="319030" 
@@ -35,7 +36,7 @@ create_release() {
     EV2_BUILD_ID="94988139"
     EV2_BUILD_NAME="20240602.7"
 
-    echo "sending POST request to ${API_ENDPOINT}"
+    echo "sending POST request to $RELEASE_API_ENDPOINT"
     REQUEST_BODY="{'artifacts': [{'alias': '$RELEASE_EV2_ARTIFACTS_ALIAS_NAME', 'instanceReference': {'id': '$EV2_BUILD_ID', 'name': '$EV2_BUILD_NAME'}}], 'definitionId': $SIG_RELEASE_PIPELINE_ID}"
     RESPONSE=$(curl -X POST -H "Authorization: Basic $(echo -n ":$ADO_PAT" | base64)" -H "Content-Type: application/json" -d "$REQUEST_BODY" "$RELEASE_API_ENDPOINT")
     
