@@ -60,14 +60,9 @@ stages:
         parameters:
           ADO_PAT: $(PAT-aksdevassistant)
       - bash: |
-          set +x
-          [ -z "$ADO_PAT" ] && echo "ADO_PAT empty" && exit 1
-          [ -z "$AZURE_DEVOPS_EXT_PAT" ] && echo "AZURE_DEVOPS_EXT_PAT empty" && exit 1
-          
           echo "Creating EV2 artifacts and corresponding SIG release"
           /bin/bash vhdbuilder/scripts/automate_release.sh
         env:
           ADO_PAT: $(PAT-aksdevassistant)
-          AZURE_DEVOPS_EXT_PAT: $(PAT-aksdevassistant)
           VHD_BUILD_ID: $(BUILD_ID)
         displayName: 'create SIG release'
