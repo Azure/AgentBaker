@@ -16,7 +16,7 @@ IMG_SKU="$6"
 # 1. "Command ['hostname', '-f']":
 #   Running hostname -f will fail on current AzureLinux AKS image. We don't not have active plan to resolve 
 #   this for stable version and there is no customer issues collected. Ignore this failure now. 
-CLOUD_INIT_LOG_IGNORING_MSG=(
+CLOUD_INIT_LOG_MSG_IGNORE_LIST=(
   "Command ['hostname', '-f']"
 )
 
@@ -310,17 +310,17 @@ testCloudInit() {
   os_sku=$1
 
   # Limit this test only to Mariner or Azurelinux 
-  if [[ "$os_sku" == "CBLMariner" || "$os_sku" == "AzureLinux" ]]; then
+  if [[ "${os_sku}" == "CBLMariner" || "${os_sku}" == "AzureLinux" ]]; then
     echo "Checking if cloud-init.log exists..."
     FILE=/var/log/cloud-init.log
     if test -f "$FILE"; then
       echo "Cloud-init log exists. Checking its content..."
       grep 'WARNING\|ERROR' $FILE | while read -r msg; do 
-        for pattern in "${CLOUD_INIT_LOG_IGNORING_MSG[@]}"; do
+        for pattern in "${CLOUD_INIT_LOG_MSG_IGNORE_LIST[@]}"; do
             if [[ "$msg" == *"$pattern"* ]]; then
-                echo "Find WARNING/ERROR message: $msg in ignoring list, continue..."
+                echo "Ignoring WARNING/ERROR message from ignore list; '${msg}'"
             else
-                err $test "Cloud-init log has unexpected WARNING/ERROR: ${msg}."
+                err $test "Cloud-init log has unexpected WARNING/ERROR: '${msg}'"
             fi
         done
       done
