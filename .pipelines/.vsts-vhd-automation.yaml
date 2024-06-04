@@ -26,6 +26,13 @@ stages:
     - job: automation
       timeoutInMinutes: 30
       steps:
+      - template: ./templates/.configure-azdevops-template.yaml
+        parameters:
+          ADO_PAT: $(PAT-aksdevassistant)
+      - template: ./templates/.set-image-version-template.yaml
+        parameters:
+          BUILD_ID: $(BUILD_ID)
+          IMAGE_VERSION: $(IMAGE_VERSION)
       - bash: |
           echo "PR for Image Bumping, Official Branch Cutting"
           /bin/bash vhdbuilder/scripts/automate_version_bump.sh $(IMAGE_VERSION) $MAPPED_GITHUB_PAT "${BUILD_ID[@]}"
@@ -42,6 +49,10 @@ stages:
       - template: ./templates/.configure-azdevops-template.yaml
         parameters:
           ADO_PAT: $(PAT-aksdevassistant)
+      - template: ./templates/.set-image-version-template.yaml
+        parameters:
+          BUILD_ID: $(BUILD_ID)
+          IMAGE_VERSION: $(IMAGE_VERSION)
       - bash: |
           echo "PR for Release Notes"
           /bin/bash vhdbuilder/scripts/automate_release_notes.sh $(IMAGE_VERSION) "${BUILD_ID[@]}" $MAPPED_GITHUB_PAT

@@ -24,18 +24,6 @@ set_git_config() {
     git config --list
 }
 
-configure_az_devops() {
-    # Login to azure devops using PAT/System Access Token for artifacts and triggering ev2 builds
-    # TODO(amaheshwari): Use only PAT for both artifacts and builds
-    az extension add -n azure-devops
-
-    set +x
-    echo $1 | az devops login --organization=https://dev.azure.com/msazure
-    set -x
-    
-    az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
-}
-
 create_branch() {
     # Create PR branch
     echo "Create branch named $1"

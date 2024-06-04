@@ -1,29 +1,30 @@
 #!/bin/bash
 set -euxo pipefail
 
-build_ids=$1
-global_image_version="${IMAGE_VERSION:=}"
-for build_id in $build_ids; do
-    for artifact in $(az pipelines runs artifact list --run-id $build_id | jq -r '.[].name'); do    # Retrieve what artifacts were published
-        # This loop is because of how the Image Version is set for builds. 
-        # It uses the UTC time of when the build for a particular SKU ends. 
-        # So in the past, it has happened that you trigger a build at say 3/4pm PST, 
-        # some SKUs will have todays date some will have tomorrows based on when they are triggered because of UTC conversion
-        # TODO(amaheshwari): Change VHD script to use a common var for image version that is plumbed down to all SKUs
+BUILD_ID="${BUILD_ID:-""}"
+IMAGE_VERSION_OVERRIDE="${IMAGE_VERSION:-""}"
+
+get_image_version_from_publishing_info() {
+    for artifact in $(az pipelines runs artifact list --run-id $BUILD_ID | jq -r '.[].name'); do # Retrieve what artifacts were published
         if [[ $artifact == *"publishing-info"* ]]; then
-            az pipelines runs artifact download --artifact-name $artifact --path $(pwd) --run-id $build_id
-            current_image_version=$(jq -r .image_version < vhd-publishing-info.json)
-            if [[ $global_image_version != $current_image_version ]]; then
-                if [[ -z $global_image_version ]]; then
-                    global_image_version=$current_image_version
-                else 
-                    echo "mismatched image, exiting"
-                    exit 1
-                fi
-            fi
+            # just take the image version from the first publishing-info we find (since they should all be the same)
+            # TODO(cameissner): add image version validation to separate validation template
+            az pipelines runs artifact download --artifact-name $artifact --path $(pwd) --run-id $BUILD_ID
+            IMAGE_VERSION=$(jq -r .image_version < vhd-publishing-info.json)
+            return 0
         fi
     done
-done
+}
 
-echo $global_image_version
-rm -rf vhd-publishing-info.json
+if [ -n "$IMAGE_VERSION_OVERRIDE" ]; then
+    echo "IMAGE_VERSION already has value: $IMAGE_VERSION_OVERRIDE"
+    exit 0
+fi
+
+if [ -z "$BUILD_ID" ]; then
+    echo "BUILD_ID must be set in order to set the image version"
+    exit 1
+fi
+
+get_image_version_from_publishing_info
+export IMAGE_VERSION
