@@ -72,6 +72,9 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
 OBJ_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
 az role assignment create --assignee $OBJ_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME}/blobServices/default/containers/vhd-scans"
 
+FULL_PATH=$(realpath $0)
+CDIR=$(dirname $FULL_PATH)
+
 STORAGE_SCANNING_SCRIPT_PATH="$CDIR/$STORAGE_SCANNING_SCRIPT_PATH"
 az vm run-command invoke \
     --command-id RunShellScript \
@@ -80,8 +83,6 @@ az vm run-command invoke \
     --scripts @$STORAGE_SCANNING_SCRIPT_PATH
     --parameters "STORAGE_REPORT_FILE=${STORAGE_REPORT_FILE}"
 
-FULL_PATH=$(realpath $0)
-CDIR=$(dirname $FULL_PATH)
 TRIVY_SCRIPT_PATH="$CDIR/$TRIVY_SCRIPT_PATH"
 az vm run-command invoke \
     --command-id RunShellScript \
