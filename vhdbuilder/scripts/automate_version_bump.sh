@@ -6,7 +6,7 @@ set +x
 GITHUB_PAT="${GITHUB_PAT:-""}"
 set -x
 
-NEW_IMAGE_VERSION="${NEW_IMAGE_VERSION:-""}"
+NEW_IMAGE_VERSION="${IMAGE_VERSION:-""}"
 VHD_BUILD_ID="${VHD_BUILD_ID:-""}"
 
 # This function takes the build ID and reads the queue time.

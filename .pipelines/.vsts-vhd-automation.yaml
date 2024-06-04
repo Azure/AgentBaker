@@ -75,6 +75,7 @@ stages:
         parameters:
           ADO_PAT: $(PAT-aksdevassistant)
       - bash: |
+          set +x
           echo "Creating EV2 artifacts and corresponding SIG release"
           /bin/bash vhdbuilder/scripts/automate_release.sh
         env:
