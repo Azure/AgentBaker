@@ -10,6 +10,7 @@ get_image_version_from_publishing_info() {
             # TODO(cameissner): add image version validation to separate validation template
             az pipelines runs artifact download --artifact-name $artifact --path $(pwd) --run-id $VHD_BUILD_ID
             GENERATED_IMAGE_VERSION=$(jq -r .image_version < vhd-publishing-info.json)
+            rm -f vhd-publishing-info.json
             return 0
         fi
     done
