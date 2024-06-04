@@ -107,6 +107,29 @@ steps:
         ${CONTAINER_IMAGE} make -f packer.mk run-packer
     retryCountOnTaskFailure: 3
     displayName: Building VHD
+  - bash: |
+        OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
+        MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
+        docker run --rm \
+        -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+        -w /go/src/github.com/Azure/AgentBaker \
+        -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+        -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
+        -e BLOB_STORAGE_NAME=${BLOB_STORAGE_NAME} \
+        -e CLASSIC_BLOB=${CLASSIC_BLOB} \
+        -e BUILD_ID=$(Build.BuildId) \
+        -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
+        -e AZURE_LOCATION=${AZURE_LOCATION} \
+        -e OS_VERSION=${OS_VERSION} \
+        -e OS_SKU=${OS_SKU} \
+        -e OS_TYPE="Linux" \
+        -e VHD_DEBUG=${VHD_DEBUG} \
+        -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
+        -e ARCHITECTURE=${ARCHITECTURE} \
+        -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
+        ${CONTAINER_IMAGE} make -f packer.mk scanning-vhd
+    retryCountOnTaskFailure: 2
+    displayName: Scanning VHD
   - script: |
         OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
         MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
@@ -139,17 +162,40 @@ steps:
         -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
         ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD Tests
-  - task: PublishPipelineArtifact@0
+  - task: Bash@3
     inputs:
-        artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
-        targetPath: 'release-notes.txt'
-    displayName: publish release notes
-  - task: PublishPipelineArtifact@0
+      targetType: 'inline'
+      script: |
+        IS_NOT_1804=$( [[ "${OS_VERSION}" != "18.04" ]] && echo true || echo false ) && \
+        echo "##vso[task.setvariable variable=IS_NOT_1804]${IS_NOT_1804}"
+    displayName: 'Check if OS version is not 18.04'
+  - task: CopyFiles@2
+    condition: eq(variables['IS_NOT_1804'], 'true')
     inputs:
-        artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
-        targetPath: 'image-bom.json'
-    displayName: publish container image list
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'trivy-report.json'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy trivy report
+  - task: CopyFiles@2
+    condition: eq(variables['IS_NOT_1804'], 'true')
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'trivy-images-table.txt'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy trivy table
+  - task: CopyFiles@2
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'release-notes.txt'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy release notes
+  - task: CopyFiles@2
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'image-bom.json'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy image bom
   - bash: |
       echo MODE=$(MODE) && \
       PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
@@ -232,11 +278,13 @@ steps:
         ${CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
-  - task: PublishPipelineArtifact@1
-    inputs:
-        artifactName: 'publishing-info-${{ parameters.artifactName }}'
-        targetPath: 'vhd-publishing-info.json'
+  - task: CopyFiles@2
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'vhd-publishing-info.json'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy vhd publishing info 
   - task: UniversalPackages@0
     displayName: Universal Publish
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
@@ -247,3 +295,9 @@ steps:
       vstsFeedPackagePublish: 'publishing-info-${{ parameters.artifactName }}'
       packagePublishDescription: 'VHD publishing info ${{ parameters.artifactName }}'
       versionOption: minor
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: '${{ parameters.artifactName }}'
+      targetPath: '$(Build.ArtifactStagingDirectory)'
+    displayName: Publish artifacts
+    condition: always()
