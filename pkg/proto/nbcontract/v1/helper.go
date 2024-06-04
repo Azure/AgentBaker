@@ -5,10 +5,8 @@ import (
 	"encoding/gob"
 	"fmt"
 	"log"
-	"strconv"
-	"strings"
 
-	"golang.org/x/mod/semver"
+	"github.com/blang/semver"
 )
 
 // NBContractBuilder is a helper struct to build the NBContract (Node Bootstrap Contract).
@@ -107,46 +105,30 @@ func (nBCB *NBContractBuilder) ValidateNBContract() error {
 }
 
 func (nBCB *NBContractBuilder) validateSemVer() error {
-	major := semver.Major(nBCB.nodeBootstrapConfig.Version)
-	if major == "" {
-		return fmt.Errorf("invalid contract version from contract payload: %s. It should be a semantic version", nBCB.GetNodeBootstrapConfig().Version)
-	}
-
-	expectedMajor := semver.Major(contractVersion)
-	if expectedMajor == "" {
-		return fmt.Errorf("invalid contract version: %s. It should be a semantic version", contractVersion)
-	}
-
-	if major != expectedMajor {
-		return fmt.Errorf("contract major versions mismatch. Expecting %s, but got %s", expectedMajor, major)
-	}
-
-	minor, err := nBCB.parseMinor(nBCB.GetNodeBootstrapConfig().Version)
+	payloadContractVer, err := semver.Make(nBCB.nodeBootstrapConfig.Version)
 	if err != nil {
-		return err
+		return fmt.Errorf("invalid contract version from contract payload: %s. It should be a semantic version", nBCB.nodeBootstrapConfig.Version)
 	}
 
-	expectedMinor, err := nBCB.parseMinor(contractVersion)
+	expectedContractVer, err := semver.Make(contractVersion)
+
 	if err != nil {
-		return err
+		return fmt.Errorf("invalid contract version from contract payload: %s. It should be a semantic version", nBCB.nodeBootstrapConfig.Version)
 	}
 
-	if minor != expectedMinor {
+	if payloadContractVer.Major != expectedContractVer.Major {
+		return fmt.Errorf("contract major versions mismatch. Expecting %v, but got %v. Please update AgentBaker to the latest version",
+			expectedContractVer.Major,
+			payloadContractVer.Major)
+	}
+
+	if payloadContractVer.Minor != expectedContractVer.Minor {
 		// Minor version mismatch is not a breaking change. So just log a warning.
-		log.Printf("Warning: Contract minor versions mismatch. Expecting %v, but got %v", expectedMinor, minor)
+		log.Printf("Warning: Contract minor versions mismatch. Expecting %v, but got %v", expectedContractVer.String(), payloadContractVer.String())
+		log.Printf("Recommended to update the AgentBaker to the latest version to avoid any issues.")
 	}
 
 	return nil
-}
-
-func (nBCB *NBContractBuilder) parseMinor(version string) (int, error) {
-	// It's ensured that it's a valid semantic version, namely x.y.z.
-	parts := strings.Split(version, ".")
-	minor, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return -1, fmt.Errorf("failed to parse minor version from %s", version)
-	}
-	return minor, nil
 }
 
 func (nBCB *NBContractBuilder) validateRequiredFields() error {

@@ -583,14 +583,17 @@ testNfsServerService() {
   local service_name="nfs-server.service"
   echo "$test:Start"
 
-  # is-enabled returns 'masked' if the service is masked and an empty
-  # string if the service is not installed. Either is fine.
+  # is-enabled returns:
+  # 'masked' if the service is masked.
+  # empty string if the service is not installed.
+  # 'not-found' if the unit files are not present. Encountered with Ubuntu 24.04
   echo "$test: Checking that $service_name is masked"
   local is_enabled=
   is_enabled=$(systemctl is-enabled $service_name 2>/dev/null)
+  echo "$test: logging ${is_enabled} here"
   if [[ "${is_enabled}" == "masked" ]]; then
     echo "$test: $service_name is correctly masked"
-  elif [[ "${is_enabled}" == "" ]]; then
+  elif [[ "${is_enabled}" == "" || "${is_enabled}" == "not-found" ]]; then
     echo "$test: $service_name is not installed, which is fine"
   else
     err $test "$service_name is not masked"
@@ -869,6 +872,26 @@ testBccTools () {
   return 0
 }
 
+testNBCParserBinary () {
+  local test="testNBCParserBinary"
+  local go_binary_path="/opt/azure/containers/nbcparser"
+
+  echo "$test: checking existence of nbcparser go binary at $go_binary_path"
+  if [ ! -f "$go_binary_path" ]; then
+    err "$test: nbcparser go binary does not exist at $go_binary_path"
+    return 1
+  fi
+  echo "$test: nbcparser go binary exists at $go_binary_path"
+  errs=$($go_binary_path 2>/dev/null)
+  code=$?
+  if [ $code -ne 0 ]; then
+    err "$test: nbcparser go binary exited with code $code, stderr:\n$errs"
+    return 1
+  fi
+  echo "$test: nbcparser go binary ran successfully"
+
+}
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -904,3 +927,4 @@ testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
+testNBCParserBinary
