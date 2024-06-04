@@ -15,7 +15,7 @@ VHD_BUILD_ID="${VHD_BUILD_ID:-""}"
 trigger_ev2_artifacts() {
     echo "creating EV2 artifacts for VHD build with ID: $VHD_BUILD_ID"
 
-    RESPONSE=$(az pipelines run --id $EV2_ARTIFACT_PIPELINE_ID --variables "VHD_PIPELINE_RUN_ID=$VHD_BUILD_ID" | jq -r '.id')
+    RESPONSE=$(az pipelines run --id $EV2_ARTIFACT_PIPELINE_ID --variables "VHD_PIPELINE_RUN_ID=$VHD_BUILD_ID")
     EV2_BUILD_ID=$(echo "$RESPONSE" | jq -r '.id')
     EV2_BUILD_NUMBER=$(echo "$RESPONSE" | jq -r '.buildNumber')
     STATUS="$(az pipelines runs show --id $EV2_BUILD_ID | jq -r '.status')"
