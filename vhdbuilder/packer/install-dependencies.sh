@@ -160,7 +160,7 @@ echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEP
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
 packageList="$(jq .PackageList components.json)" || exit $?
-containerd_entry=$(echo "$packageList" | jq '.[] | select(.name == "containerd")')
+containerd_entry=$(echo "$packageList" | jq '.[] | select(.Name == "containerd")')
 
 if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
   if [ "${UBUNTU_RELEASE}" == "18.04" ]; then

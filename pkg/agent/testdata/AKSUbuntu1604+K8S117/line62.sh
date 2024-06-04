@@ -143,6 +143,7 @@ installContainerdWithAptGet() {
 }
 
 installStandaloneContainerd() {
+    #this function to be reverted.
     UBUNTU_RELEASE=$(lsb_release -r -s)
     UBUNTU_CODENAME=$(lsb_release -c -s)
     containerdVersion=$1    
@@ -224,7 +225,7 @@ installMoby() {
 }
 
 ensureRunc() {
-    RUNC_PACKAGE_URL="${2:=}"
+    RUNC_PACKAGE_URL=${2:=}
     if [[ ! -z ${RUNC_PACKAGE_URL} ]]; then
         echo "Installing runc from user input: ${RUNC_PACKAGE_URL}"
         mkdir -p $RUNC_DOWNLOADS_DIR
