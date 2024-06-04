@@ -244,7 +244,6 @@ steps:
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
       -e SUBSCRIPTION_ID="${AZURE_PROD_SUBSCRIPTION_ID}" \
-      -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
       -e STORAGE_ACCT_BLOB_URL=${STORAGE_ACCT_BLOB_URL} \
       -e VHD_NAME=${VHD_NAME} \
       -e OS_NAME="Windows" \
@@ -252,6 +251,8 @@ steps:
       -e OFFER_NAME="Windows" \
       -e IMAGE_VERSION=${AKS_WINDOWS_IMAGE_VERSION} \
       -e HYPERV_GENERATION=${HYPERV_GENERATION} \
+      -e OUTPUT_STORAGE_ACCOUNT_NAME=${OUTPUT_STORAGE_ACCOUNT_NAME} \
+      -e OUTPUT_STORAGE_CONTAINER_NAME=${OUTPUT_STORAGE_CONTAINER_NAME} \
       -e OS_TYPE="Windows" \
       ${AZURE_CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI

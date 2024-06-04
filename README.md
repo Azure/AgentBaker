@@ -5,6 +5,7 @@
 Agentbaker is a collection of components used to provision Kubernetes nodes in Azure.
 
 Agentbaker has a few pieces
+
 - Packer templates and scripts to build VM images.
 - A set of templates and a public API to render those templates given input config.
 - An API to retrieve the latest VM image version for new clusters.
@@ -16,6 +17,7 @@ AKS uses Agentbaker to provision Linux and Windows Kubernetes nodes.
 ## Contributing
 
 Developing agentbaker requires a few basic requisites:
+
 - Go (at least version 1.19)
 - Make
 
@@ -63,7 +65,7 @@ We also have snapshot data tests, which store the output of key APIs as files on
 
 We can manually verify the snapshot content looks correct.
 
-We now have unit tests which can directly validate the content without leaving generated files on disk. 
+We now have unit tests which can directly validate the content without leaving generated files on disk.
 
 See `./pkg/agent/baker_test.go` for examples (search for `dynamic-config-dir` to see a validation sample.).
 
@@ -73,7 +75,7 @@ Checkout the [e2e directory](e2e/).
 
 ## Contributor License Agreement (CLA)
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
+This project welcomes contributions and suggestions. Most contributions require you to agree to a
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
 the rights to use your contribution. For details, visit https://cla.opensource.microsoft.com.
 
@@ -86,12 +88,16 @@ For more information see the [Code of Conduct FAQ](https://opensource.microsoft.
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
 # CGManifest File
-A cgmanifest file is a json file used to register components manually when the component type is not supported by governance. The file name is "cgmanifest.json" and you can have as many as you need and can be anywhere in your repository.
+
+A cgmanifest file is a json file used to register components manually when the component type is not supported by
+governance. The file name is "cgmanifest.json" and you can have as many as you need and can be anywhere in your
+repository.
 
 File path: `./vhdbuilder/cgmanifest.json`
 
 Reference: https://docs.opensource.microsoft.com/tools/cg/cgmanifest.html
 
 Package:
+
 - Calico Windows: https://docs.projectcalico.org/release-notes/
 - 
