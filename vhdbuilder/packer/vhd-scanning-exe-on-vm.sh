@@ -10,6 +10,7 @@ TRIVY_TABLE_NAME=$6
 SIG_CONTAINER_NAME=$7
 STORAGE_ACCOUNT_NAME=$8
 ENABLE_TRUSTED_LAUNCH=$9
+STORAGE_REPORT_FILE_NAME=$10
 
 if [[ "$OS_SKU" == "Ubuntu" ]] && [[ "$OS_VERSION" == "20.04" ]]; then
     sudo apt-get install -y azure-cli
@@ -54,5 +55,11 @@ az storage blob upload --file /opt/azure/containers/trivy-report.json \
 az storage blob upload --file /opt/azure/containers/trivy-images-table.txt \
     --container-name ${SIG_CONTAINER_NAME} \
     --name ${TRIVY_TABLE_NAME} \
+    --account-name ${STORAGE_ACCOUNT_NAME} \
+    --auth-mode login
+
+az storage blob upload --file /opt/azure/containers/storage-report.txt.txt \
+    --container-name ${SIG_CONTAINER_NAME} \
+    --name ${STORAGE_REPORT_FILE_NAME} \
     --account-name ${STORAGE_ACCOUNT_NAME} \
     --auth-mode login

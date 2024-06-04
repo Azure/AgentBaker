@@ -2,6 +2,7 @@
 set -eux
 
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
+STORAGE_SCANNING_SCRIPT_PATH="storage-scan.sh"
 EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
 TEST_RESOURCE_PREFIX="vhd-scanning"
 VM_NAME="$TEST_RESOURCE_PREFIX-vm"
@@ -71,6 +72,14 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
 OBJ_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
 az role assignment create --assignee $OBJ_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME}/blobServices/default/containers/vhd-scans"
 
+STORAGE_SCANNING_SCRIPT_PATH="$CDIR/$STORAGE_SCANNING_SCRIPT_PATH"
+az vm run-command invoke \
+    --command-id RunShellScript \
+    --name $VM_NAME \
+    --resource-group $RESOURCE_GROUP_NAME \
+    --scripts @$STORAGE_SCANNING_SCRIPT_PATH
+    --parameters "STORAGE_REPORT_FILE=${STORAGE_REPORT_FILE}"
+
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
 TRIVY_SCRIPT_PATH="$CDIR/$TRIVY_SCRIPT_PATH"
@@ -80,10 +89,10 @@ az vm run-command invoke \
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts @$TRIVY_SCRIPT_PATH
 
-
 TIMESTAMP=$(date +%s%3N)
 TRIVY_REPORT_NAME="trivy-report-${BUILD_ID}-${TIMESTAMP}.json"
 TRIVY_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
+STORAGE_REPORT_FILE_NAME="storage-report-${BUILD_ID}-${TIMESTAMP}.txt"
 EXE_SCRIPT_PATH="$CDIR/$EXE_SCRIPT_PATH"
 az vm run-command invoke \
     --command-id RunShellScript \
@@ -98,11 +107,14 @@ az vm run-command invoke \
         "TRIVY_TABLE_NAME=${TRIVY_TABLE_NAME}" \
         "SIG_CONTAINER_NAME"=${SIG_CONTAINER_NAME} \
         "STORAGE_ACCOUNT_NAME"=${STORAGE_ACCOUNT_NAME} \
-        "ENABLE_TRUSTED_LAUNCH"=${ENABLE_TRUSTED_LAUNCH}
+        "ENABLE_TRUSTED_LAUNCH"=${ENABLE_TRUSTED_LAUNCH} \
+        "STORAGE_REPORT_FILE_NAME"=${STORAGE_REPORT_FILE_NAME}
 
 
 az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_REPORT_NAME} --file trivy-report.json --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
-az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_TABLE_NAME} --file  trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_TABLE_NAME} --file trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${STORAGE_REPORT_FILE_NAME} --file storage-report.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_TABLE_NAME} --auth-mode login
+az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${STORAGE_REPORT_FILE_NAME} --auth-mode login
