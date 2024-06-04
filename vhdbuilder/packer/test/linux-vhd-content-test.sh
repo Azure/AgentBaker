@@ -12,6 +12,10 @@ OS_SKU="$4"
 GIT_BRANCH="$5"
 IMG_SKU="$6"
 
+CLOUD_INIT_LOG_IGNORING_MSG=(
+  "Command ['hostname', '-f']"
+)
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -304,16 +308,18 @@ testCloudInit() {
   # Limit this test only to Mariner or Azurelinux 
   if [[ "$os_sku" == "CBLMariner" || "$os_sku" == "AzureLinux" ]]; then
     echo "Checking if cloud-init.log exists..."
-    FILE=/var/log/cloud-init.log
     if test -f "$FILE"; then
-      echo "Cloud-init log exist."
-      grep_output=$(grep 'WARNING\|ERROR' ${FILE})
-      grep_status=$?
-      if [ ${grep_status} -eq 0 ]; then
-        err $test "Cloud-init log has WARNING/ERROR: ${grep_output}."
-      else
-        echo "Cloud-init log is OK."
-      fi
+      echo "Cloud-init log exists. Checking its content..."
+      grep 'WARNING\|ERROR' $FILE | while read -r msg; do 
+        for pattern in "${CLOUD_INIT_LOG_IGNORING_MSG[@]}"; do
+            if [[ "$msg" == *"$pattern"* ]]; then
+                echo "Find WARNING/ERROR message: $msg in ignoring list, continue..."
+            else
+                err $test "Cloud-init log has unexpected WARNING/ERROR: ${msg}."
+            fi
+        done
+      done
+      echo "Cloud-init log is OK."
     else
       err $test "Check cloud-init log does not exist."
     fi
