@@ -27,4 +27,4 @@ if [ -z "$VHD_BUILD_ID" ]; then
 fi
 
 get_image_version_from_publishing_info
-export IMAGE_VERSION
+export IMAGE_VERSION="$IMAGE_VERSION"
