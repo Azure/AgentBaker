@@ -81,7 +81,6 @@ az vm run-command invoke \
     --name $VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts @$STORAGE_SCANNING_SCRIPT_PATH
-    --parameters "STORAGE_REPORT_FILE=${STORAGE_REPORT_FILE}"
 
 TRIVY_SCRIPT_PATH="$CDIR/$TRIVY_SCRIPT_PATH"
 az vm run-command invoke \
