@@ -312,6 +312,7 @@ testCloudInit() {
   # Limit this test only to Mariner or Azurelinux 
   if [[ "$os_sku" == "CBLMariner" || "$os_sku" == "AzureLinux" ]]; then
     echo "Checking if cloud-init.log exists..."
+    FILE=/var/log/cloud-init.log
     if test -f "$FILE"; then
       echo "Cloud-init log exists. Checking its content..."
       grep 'WARNING\|ERROR' $FILE | while read -r msg; do 
