@@ -1,10 +1,14 @@
 #!/bin/bash
-set -euxo pipefail
+set -euo pipefail
 source vhdbuilder/scripts/automate_helpers.sh
 
 EV2_ARTIFACT_PIPELINE_ID="319030" 
 SIG_RELEASE_PIPELINE_ID="494"
+RELEASE_EV2_ARTIFACTS_ALIAS_NAME="ev2_artifacts"
 
+ADO_PAT="${ADO_PAT:-""}"
+ADO_ORG="${ADO_ORG:-""}"
+ADO_PROJECT="${ADO_PROJECT:-""}"
 VHD_BUILD_ID="${VHD_BUILD_ID:-""}"
 
 trigger_ev2_artifacts() {
@@ -28,17 +32,38 @@ trigger_ev2_artifacts() {
 
 create_release() {
     echo "creating SIG release for VHD with build ID: $VHD_BUILD_ID"
-
+    API_ENDPOINT="https://${ADO_ORG}.vsrm.visualstudio.com/${ADO_PROJECT}/_apis/Release/releases?api-version=5.1"
     EV2_BUILD_ID="94988139"
+    EV2_BUILD_NAME="20240602.7"
 
-    RELEASE_ID=$(az pipelines release create --detect true \
-        --project CloudNativeCompute \
-        --definition-id $SIG_RELEASE_PIPELINE_ID \
-        --artifact-metadata-list "ev2_artifacts=$EV2_BUILD_ID" | jq -r '.id')
-        
+    # RELEASE_ID=$(az pipelines release create --detect true \
+    #     --project CloudNativeCompute \
+    #     --definition-id $SIG_RELEASE_PIPELINE_ID \
+    #     --artifact-metadata-list "ev2_artifacts=$EV2_BUILD_ID" | jq -r '.id')
+
+    echo "sending POST request to ${API_ENDPOINT}..."
+    REQUEST_BODY="{'artifacts': [{'alias': '$RELEASE_EV2_ARTIFACTS_ALIAS_NAME', 'instanceReference': {'id': '$EV2_BUILD_ID', 'name': '$EV2_BUILD_NAME'}}], 'definitionId': $SIG_RELEASE_PIPELINE_ID}"
+    RESPONSE=$(curl -X POST -H "Authorization: Basic $(echo -n ":$ADO_PAT" | base64)" -H "Content-Type: application/json" -d "$REQUEST_BODY" "$API_ENDPOINT")
+    
+    RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
     echo "SIG release successfully created for VHD build with ID: $VHD_BUILD_ID"
     echo "release URL: https://msazure.visualstudio.com/CloudNativeCompute/_releaseProgress?_a=release-pipeline-progress&releaseId=$RELEASE_ID"
 }
+
+if [ -z "$ADO_PAT" ]; then
+    echo "ADO_PAT must be set to run automated EV2 artifact + release trigger"
+    exit 1
+fi
+
+if [ -z "$ADO_ORG" ]; then
+    echo "ADO_ORG must be set to run automated EV2 artifact + release trigger"
+    exit 1
+fi
+
+if [ -z "$ADO_PROJECT" ]; then
+    echo "ADO_PROJECT must be set to run automated EV2 artifact + release trigger"
+    exit 1
+fi
 
 if [ -z "$VHD_BUILD_ID" ]; then
     echo "VHD_BUILD_ID must be set to run automated EV2 artifact + release trigger"
