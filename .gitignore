@@ -11,6 +11,7 @@ bin/
 .env
 .coverprofile
 coverage.txt
+**/vhd-publishing-info.json
 
 test/junit/
 test/e2e/kubernetes/junit.xml
