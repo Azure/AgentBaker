@@ -168,26 +168,10 @@ installStandaloneContainerd() {
     # runc needs to be installed first or else existing vhd version causes conflict with containerd.
     logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}" # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
 
-    # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
-    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
-    CURRENT_COMMIT=$(containerd -version | cut -d " " -f 4)
-    # v1.4.1 is our lowest supported version of containerd
-
-    if [ -z "$CURRENT_VERSION" ]; then
-        CURRENT_VERSION="0.0.0"
-    fi
-
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
     CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
     if [[ ! -z ${CONTAINERD_PACKAGE_URL} ]]; then
-        echo "Installing containerd from user input: ${CONTAINERD_PACKAGE_URL}"
-        # we'll use a user-defined containerd package to install containerd even though it's the same version as
-        # the one already installed on the node considering the source is built by the user for hotfix or test
-        logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
-        logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
-        logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromURL" downloadContainerdFromURL ${CONTAINERD_PACKAGE_URL}
-        logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        echo "Succeeded to install containerd from user input: ${CONTAINERD_PACKAGE_URL}"
+        installContainerdFromOverride ${CONTAINERD_PACKAGE_URL} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
 
@@ -204,33 +188,7 @@ installStandaloneContainerd() {
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     fi
 
-    CURRENT_MAJOR_MINOR="$(echo $CURRENT_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
-    DESIRED_MAJOR_MINOR="$(echo $CONTAINERD_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
-    semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION"
-    HAS_GREATER_VERSION="$?"
-
-    if [[ "$HAS_GREATER_VERSION" == "0" ]] && [[ "$CURRENT_MAJOR_MINOR" == "$DESIRED_MAJOR_MINOR" ]]; then
-        echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
-    else
-        echo "installing containerd version ${CONTAINERD_VERSION}"
-        logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
-        logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
-        # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
-        # if no files found then try fetching from packages.microsoft repo
-        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
-        if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
-            logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-            return 0
-        fi
-        logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}"
-        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
-        if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
-            echo "Failed to locate cached containerd deb"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi
-        logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        return 0
-    fi
+    installContainerdWithAptGet "${CONTAINERD_VERSION}" "${CONTAINERD_PATCH_VERSION}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
 
 downloadContainerdFromVersion() {
