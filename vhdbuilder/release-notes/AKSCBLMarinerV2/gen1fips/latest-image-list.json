@@ -1,6 +1,6 @@
 {
   "sku": "V2fips",
-  "imageVersion": "202405.27.0",
+  "imageVersion": "202405.23.0",
   "imageBom": [
     {
       "id": "sha256:00340387ee9d90fda9b6cfcaaf491b5815f04494f41142eb3b5ac3e86be63ef3",
@@ -198,6 +198,15 @@
       ],
       "repoDigests": [
         "sha256:e247e200bea2336ce0d20767d7d5cd038c3be43d93c9aacf9c6682b10bb85d93"
+      ]
+    },
+    {
+      "id": "sha256:3c899c4bd1e510cc5c6486345e73e6b4983850a154bf98d59e799cd7f420bda9",
+      "repoTags": [
+        "mcr.microsoft.com/oss/cilium/cilium:1.14.4-3"
+      ],
+      "repoDigests": [
+        "sha256:03c6b6a67407080768d9c14fa69f1c461636430ed70fa8f67338ad894ea5887c"
       ]
     },
     {
@@ -507,15 +516,6 @@
       ]
     },
     {
-      "id": "sha256:952ef95e220d6f5f1f924724406c2ba8632fe569181f293ee2bee19813198cd8",
-      "repoTags": [
-        "mcr.microsoft.com/oss/cilium/cilium:1.14.10-1"
-      ],
-      "repoDigests": [
-        "sha256:54cf5b778baf88059fd468468eb0235af4feec9beb68627d0c8282c53745ec76"
-      ]
-    },
-    {
       "id": "sha256:958d9c48d2ec8f477d9b8214f9e85fc28246d91e3f4324a4aaeb63fbeaf23e7e",
       "repoTags": [
         "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.7-hotfix.20240411"
@@ -531,6 +531,15 @@
       ],
       "repoDigests": [
         "sha256:66b9dcb966f97ecc314d9670067de0ea096b982e1c9ec459a74d0b70a50c91bb"
+      ]
+    },
+    {
+      "id": "sha256:a23d06c4974c1d3fc0788e6129a31982d28266f6f471376bb8f97f77ba058325",
+      "repoTags": [
+        "mcr.microsoft.com/oss/cilium/cilium:1.14.4-1"
+      ],
+      "repoDigests": [
+        "sha256:26b9510455e6f1ed32ae76d7aa07e426c5f28a923acbe7c93db0b9152cfd00c5"
       ]
     },
     {

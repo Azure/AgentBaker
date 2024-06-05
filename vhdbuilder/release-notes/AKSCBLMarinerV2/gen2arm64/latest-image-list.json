@@ -1,6 +1,6 @@
 {
   "sku": "V2gen2arm64",
-  "imageVersion": "202405.27.0",
+  "imageVersion": "202405.23.0",
   "imageBom": [
     {
       "id": "sha256:031b4172f2ea81bcd82f22fac43522b40fcbf006aaa5b3ec31bf202ebbf24a86",
@@ -139,15 +139,6 @@
       ]
     },
     {
-      "id": "sha256:3950a4feea1db558e35193f1b380b73c050d57c3e18a0cd65a407ccded3ad3e5",
-      "repoTags": [
-        "mcr.microsoft.com/oss/cilium/cilium:1.14.10-1"
-      ],
-      "repoDigests": [
-        "sha256:54cf5b778baf88059fd468468eb0235af4feec9beb68627d0c8282c53745ec76"
-      ]
-    },
-    {
       "id": "sha256:3afe8ff293834827f4fb261be8004577b82c06297ecff648b92703e5696a2d50",
       "repoTags": [
         "mcr.microsoft.com/oss/kubernetes/coredns:v1.9.4-hotfix.20240327"
@@ -220,12 +211,30 @@
       ]
     },
     {
+      "id": "sha256:5a6e972112e34450977abb2300bc47ebd61f66bbc5cc4b5daba0687ea097aa7a",
+      "repoTags": [
+        "mcr.microsoft.com/oss/cilium/cilium:1.14.4-3"
+      ],
+      "repoDigests": [
+        "sha256:03c6b6a67407080768d9c14fa69f1c461636430ed70fa8f67338ad894ea5887c"
+      ]
+    },
+    {
       "id": "sha256:5b8679532a476b605e8d6f1f711e654fcc1d418fe789bb0cb6a5fa135f76ba93",
       "repoTags": [
         "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.14.2"
       ],
       "repoDigests": [
         "sha256:4c9432b7a91635bb1580636f59716b0df73a3848490cec965c50554dfaa8c7bf"
+      ]
+    },
+    {
+      "id": "sha256:5ce279aff930e0762ea1ab8f3fd6a704f3feaae3e6e0f73005fa8c1c8e8d8a37",
+      "repoTags": [
+        "mcr.microsoft.com/oss/cilium/cilium:1.14.4-1"
+      ],
+      "repoDigests": [
+        "sha256:26b9510455e6f1ed32ae76d7aa07e426c5f28a923acbe7c93db0b9152cfd00c5"
       ]
     },
     {
