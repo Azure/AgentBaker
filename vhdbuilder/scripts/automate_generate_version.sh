@@ -1,5 +1,5 @@
 #!/bin/bash
-set -uxo pipefail
+set -uexo pipefail
 
 VHD_BUILD_ID="${VHD_BUILD_ID:-""}"
 
