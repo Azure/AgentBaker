@@ -165,7 +165,7 @@ containerdVersion=""
 containerdOverrideDownloadURL=""
 
 if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
-  if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+  if [[ "${UBUNTU_RELEASE}" == "18.04" ]]; then
     containerdVersion="$(echo ${containerdEntry} | jq -r '.DownloadUriEntries.Ubuntu."1804".Version')"
     containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.DownloadUriEntries.Ubuntu."1804".DownloadURL')"
   else
@@ -178,6 +178,12 @@ if [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
   containerdVersion="$(echo ${containerdEntry} | jq -r '.DownloadUriEntries.Mariner.Current.Version')"
   containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.DownloadUriEntries.Mariner.Current.DownloadURL')"
 fi
+
+if [[ -z "$containerdVersion" ]] && [[ -z "$containerdOverrideDownloadURL" ]]; then
+  echo "Either Runc's Version or DownloadURL should be defined in components.json"
+  exit 1
+fi
+
 containerdMajorMinorVersion="$(echo "$containerdVersion" | cut -d- -f1)"
 containerdPatchVersion="$(echo "$containerdVersion" | cut -d- -f2)"
 
@@ -185,18 +191,18 @@ runcVersion=""
 runcOverrideDownloadURL=""
 runcEntry=$(echo "$packageList" | jq '.[] | select(.Name == "runc")')
 if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
-  if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-    runcVersion="$(echo ${runcEntry} | jq -r '.DownloadUriEntries.Ubuntu."1804".Version')"
-    runcOverrideDownloadURL="$(echo ${runcEntry} | jq -r '.DownloadUriEntries.Ubuntu."1804".DownloadURL')"
-  else
     runcVersion="$(echo ${runcEntry} | jq -r '.DownloadUriEntries.Ubuntu.Current.Version')"
     runcOverrideDownloadURL="$(echo ${runcEntry} | jq -r '.DownloadUriEntries.Ubuntu.Current.DownloadURL')"
-  fi
 fi
 
 if [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
   runcVersion="$(echo ${runcEntry} | jq -r '.DownloadUriEntries.Mariner.Current.Version')"
   runcOverrideDownloadURL="$(echo ${runcEntry} | jq -r '.DownloadUriEntries.Mariner.Current.DownloadURL')"
+fi
+
+if [[ -z "$runcVersion" ]] && [[ -z "$runcOverrideDownloadURL" ]]; then
+  echo "Either Runc's Version or DownloadURL should be defined in components.json"
+  exit 1
 fi
 
 installContainerdAndRunc "${containerdMajorMinorVersion}" "${containerdPatchVersion}" "${containerdOverrideDownloadURL}" "${runcVersion}" "${runcOverrideDownloadURL}"

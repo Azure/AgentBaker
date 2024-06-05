@@ -393,7 +393,7 @@
     },
     {
       "Name": "runc",
-      "DownloadLocation": "/opt/runc/downloadss",
+      "DownloadLocation": "/opt/runc/downloads",
       "DownloadUriEntries": {
         "Ubuntu": {
           "Current": {
@@ -405,10 +405,6 @@
           "Current": {
             "Version": "1.4.54",
             "DownloadURL": "https://acs-mirror.azureedge.net/azure-cni/v1.4.54/azure-vnet-cni-linux-amd64-v1.4.54.tar.gz"
-          },
-          "1804": {
-            "Version":"1.4",
-            "DownloadURL": "https://acs-mirror.azureedge.net/azure-cni/v1.4/azure-vnet-cni-linux-amd64-v1.4.tar.gz"
           }
         }
       }
