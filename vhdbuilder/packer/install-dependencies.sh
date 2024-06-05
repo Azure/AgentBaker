@@ -184,8 +184,8 @@ if [[ -z "$containerdVersion" ]] && [[ -z "$containerdOverrideDownloadURL" ]]; t
   exit 1
 fi
 
-containerdMajorMinorVersion="$(echo "$containerdVersion" | cut -d- -f1)"
-containerdPatchVersion="$(echo "$containerdVersion" | cut -d- -f2)"
+containerdMajorMinorPatchVersion="$(echo "$containerdVersion" | cut -d- -f1)"
+containerdHotFixVersion="$(echo "$containerdVersion" | cut -d- -f2)"
 
 runcVersion=""
 runcOverrideDownloadURL=""
@@ -205,9 +205,16 @@ if [[ -z "$runcVersion" ]] && [[ -z "$runcOverrideDownloadURL" ]]; then
   exit 1
 fi
 
-installContainerdAndRunc "${containerdMajorMinorVersion}" "${containerdPatchVersion}" "${containerdOverrideDownloadURL}" "${runcVersion}" "${runcOverrideDownloadURL}"
+if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
+  # call function installContainerdAndRunc in cse_install_ubuntu.sh
+  installContainerdAndRunc "${containerdMajorMinorPatchVersion}" "${containerdHotFixVersion}" "${containerdOverrideDownloadURL}" "${runcVersion}" "${runcOverrideDownloadURL}"
+fi
+if [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
+  # call function installStandaloneContainerd in cse_install_mariner.sh
+  installStandaloneContainerd "${containerdMajorMinorPatchVersion}"
+fi
 
-echo "  - [installed] containerd v${containerdMajorMinorVersion}-${containerdPatchVersion}" >> ${VHD_LOGS_FILEPATH}
+echo "  - [installed] containerd v${containerdMajorMinorPatchVersion}-${containerdHotFixVersion}" >> ${VHD_LOGS_FILEPATH}
 stop_watch $capture_time "Create Containerd Service Directory, Download Shims, Configure Runtime and Network" false
 start_watch
 
