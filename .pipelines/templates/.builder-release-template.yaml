@@ -181,12 +181,22 @@ steps:
       Contents: 'trivy-images-table.txt'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
     displayName: Copy trivy table
+  - task: PublishPipelineArtifact@0
+    inputs:
+        artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
+        targetPath: 'release-notes.txt'
+    displayName: publish release notes
   - task: CopyFiles@2
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'release-notes.txt'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
     displayName: Copy release notes
+  - task: PublishPipelineArtifact@0
+    inputs:
+        artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
+        targetPath: 'image-bom.json'
+    displayName: publish container image list
   - task: CopyFiles@2
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
     inputs:
@@ -267,6 +277,12 @@ steps:
         -e IMAGE_VERSION=${IMAGE_VERSION} \
         ${CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+  - task: PublishPipelineArtifact@1
+    displayName: Publish publishing-info 
+    inputs:
+      artifactName: 'publishing-info-${{ parameters.artifactName }}'
+      targetPath: 'vhd-publishing-info.json'
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - task: CopyFiles@2
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
