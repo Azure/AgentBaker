@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
-set +x
 source vhdbuilder/scripts/automate_helpers.sh
+set +x
 
 EV2_ARTIFACT_PIPELINE_ID="319030" 
 SIG_RELEASE_PIPELINE_ID="494"
