@@ -90,7 +90,7 @@ installContainerdAndRunc() {
     # we always default to the .1 patch version
     desiredContainerdPatchVersion="${2:-1}"
     eval containerdOverrideDownloadURL="${3:-}"
-    runcVersion="${4}"
+    runcVersion="${4:-}"
     eval runcPackageURL="${5:-}"
 
     # runc needs to be installed first or else existing vhd version causes conflict with containerd.

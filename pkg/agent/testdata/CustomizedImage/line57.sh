@@ -83,7 +83,7 @@ installContainerdAndRunc() {
     desiredContainerdMajorMinorVersion=$1    
     desiredContainerdPatchVersion="${2:-1}"
     eval containerdOverrideDownloadURL="${3:-}"
-    runcVersion="${4}"
+    runcVersion="${4:-}"
     eval runcPackageURL="${5:-}"
 
     logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${runcVersion:-""} ${runcPackageURL:-""}"
