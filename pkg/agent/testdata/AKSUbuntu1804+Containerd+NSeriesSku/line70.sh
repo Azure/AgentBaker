@@ -42,6 +42,8 @@ configureSystemdUseDomains() {
     fi
 
     systemctl restart systemd-networkd
+
+    systemctl restart rsyslog
 }
 
 configureSwapFile() {
