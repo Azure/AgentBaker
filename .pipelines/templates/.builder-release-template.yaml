@@ -291,3 +291,9 @@ steps:
       targetPath: '$(Build.ArtifactStagingDirectory)'
     displayName: Publish artifacts
     condition: always()
+  - task: PublishPipelineArtifact@1
+    displayName: Publish publishing-info so e2e tests can be run locally
+    inputs:
+      artifactName: 'publishing-info-${{ parameters.artifactName }}'
+      targetPath: 'vhd-publishing-info.json'
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
