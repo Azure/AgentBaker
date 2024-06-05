@@ -40,7 +40,7 @@ stages:
           GITHUB_PAT: $(GITHUB_PAT)
           IMAGE_VERSION: $(IMAGE_VERSION)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
-        displayName: 'bump image version and create official branch'
+        displayName: 'Bump image version and create official branch'
   - stage: generate_release_notes
     dependsOn: []
     condition: eq('${{ parameters.ReleaseNotes }}', true)
@@ -63,7 +63,7 @@ stages:
           IMAGE_VERSION: $(IMAGE_VERSION)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           SKIP_LATEST: $(SKIP_LATEST_RELEASE_NOTES_UPDATE)
-        displayName: 'generate release notes'
+        displayName: 'Generate release notes'
   - stage: create_release
     dependsOn: []
     condition: eq('${{ parameters.CreateRelease }}', true)
@@ -81,4 +81,4 @@ stages:
         env:
           ADO_PAT: $(PAT-aksdevassistant)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
-        displayName: 'create SIG release'
+        displayName: 'Create SIG release'

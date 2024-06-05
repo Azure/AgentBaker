@@ -10,4 +10,4 @@ steps:
   env:
     ADO_PAT: ${{ parameters.ADO_PAT }}
     AZURE_DEVOPS_EXT_PAT: ${{ parameters.ADO_PAT }}
-  displayName: 'az devops login'
+  displayName: 'Azure devops login'
