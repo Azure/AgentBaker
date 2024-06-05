@@ -178,17 +178,11 @@ windows_servercore_image_url=""
 windows_nanoserver_image_url=""
 windows_private_packages_url=""
 
-# windows_msi_resource_strings is an array that will be used to build windows vm
-# set the default value os this array as empty to unblock the case where WINDOWS_MSI_RESOURCE_STRING is not set
-windows_msi_resource_strings=()
-if [ -n "${WINDOWS_MSI_RESOURCE_STRING}" ]; then
-	windows_msi_resource_strings+=(${WINDOWS_MSI_RESOURCE_STRING})
-fi
-
-linux_msi_resource_ids=()
-if [ -n "${LINUX_MSI_RESOURCE_ID}" ]; then
-	echo "LINUX_MSI_RESOURCE_ID is set in pipeline variables: ${LINUX_MSI_RESOURCE_ID}"
-	linux_msi_resource_ids+=(${LINUX_MSI_RESOURCE_ID})
+# msi_resource_strings is an array that will be used to build VHD build vm
+# test pipelines may not set it
+msi_resource_strings=()
+if [ -n "${AZURE_MSI_RESOURCE_STRING}" ]; then
+	msi_resource_strings+=(${AZURE_MSI_RESOURCE_STRING})
 fi
 
 # shellcheck disable=SC2236
@@ -390,8 +384,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vnet_name": "${VNET_NAME}",
   "subnet_name": "${SUBNET_NAME}",
   "vnet_resource_group_name": "${VNET_RG_NAME}",
-  "windows_msi_resource_strings": "${windows_msi_resource_strings}",
-  "linux_msi_resource_ids": "${linux_msi_resource_ids}",
+  "msi_resource_strings": "${msi_resource_strings}",
   "private_packages_url": "${private_packages_url}",
   "aks_windows_image_version": "${AKS_WINDOWS_IMAGE_VERSION}"
 }
