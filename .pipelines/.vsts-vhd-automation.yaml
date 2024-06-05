@@ -23,7 +23,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.ImageBump }}', true)
     jobs:
-    - job: automation
+    - job: Automation
       timeoutInMinutes: 30
       steps:
       - template: ./templates/.configure-azdevops-template.yaml
@@ -45,7 +45,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.ReleaseNotes }}', true)
     jobs:
-    - job: automation
+    - job: Automation
       timeoutInMinutes: 30
       steps:
       - template: ./templates/.configure-azdevops-template.yaml
@@ -68,7 +68,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.CreateRelease }}', true)
     jobs:
-    - job: automation
+    - job: Automation
       timeoutInMinutes: 60
       steps:
       - template: ./templates/.configure-azdevops-template.yaml
