@@ -180,7 +180,7 @@ if [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
 fi
 
 if [[ -z "$containerdVersion" ]] && [[ -z "$containerdOverrideDownloadURL" ]]; then
-  echo "Either Runc's version or downloadURL should be defined in components.json"
+  echo "Either Containerd's version or downloadURL should be defined in components.json"
   exit 1
 fi
 
@@ -189,7 +189,7 @@ containerdHotFixVersion="$(echo "$containerdVersion" | cut -d- -f2)"
 
 runcVersion=""
 runcOverrideDownloadURL=""
-runcEntry=$(echo "$Binaries" | jq '.[] | select(.Name == "runc")')
+runcEntry=$(echo "$Binaries" | jq '.[] | select(.name == "runc")')
 if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
     runcVersion="$(echo ${runcEntry} | jq -r '.downloadUriEntries.ubuntu.current.version')"
     runcOverrideDownloadURL="$(echo ${runcEntry} | jq -r '.downloadUriEntries.ubuntu.current.downloadURL')"
