@@ -24,7 +24,7 @@ package components
 #Files: [...#DownloadFile]
 #Packages: [...#Package]
 #PackageUri: {
-	version:     string
+	versions:     [...string]
 	downloadURL: string
 }
 
@@ -39,15 +39,16 @@ package components
 }
 
 #Package: {
-	name:               string
-	downloadLocation:   string
-	downloadUriEntries: #DownloadUriEntries
+	name:                    string
+	downloadLocation:        string
+	downloadUriEntries:      #DownloadUriEntries
+	targetContainerRuntime?: "containerd" | _|_ //this line defines an optional field named targetContainerRuntime that can either be the string "containerd" or any other value, including the absence of a value.
 }
 
 #Components: {
-	containerImages: #Images
-	downloadFiles:   #Files
-	binaries:        #Packages
+	ContainerImages: #Images
+	DownloadFiles:   #Files
+	Packages:        #Packages    
 }
 
 #Components

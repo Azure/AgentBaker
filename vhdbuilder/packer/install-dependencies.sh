@@ -159,55 +159,56 @@ echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEP
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
-Binaries="$(jq .Binaries $COMPONENTS_FILEPATH)" || exit $?
-containerdEntry=$(echo "$Binaries" | jq '.[] | select(.name == "containerd")')
-containerdVersion=""
+Packages="$(jq .Packages $COMPONENTS_FILEPATH) --monochrome-output --compact-output" || exit $?
+containerdEntry=$(echo "$Packages" | jq '.[] | select(.name == "containerd") ')
+containerdLastVersion=""
 containerdOverrideDownloadURL=""
 
 if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
   if [[ "${UBUNTU_RELEASE}" == "18.04" ]]; then
-    containerdVersion="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.ubuntu."1804".version')"
+    # get the last entry from the array '.downloadUriEntries.ubuntu."1804".version'
+    containerdLastVersion=$(echo ${containerdEntry} | jq -r '.downloadUriEntries.ubuntu."1804".version | last')
     containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.ubuntu."1804".downloadURL')"
   else
-    containerdVersion="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.ubuntu.current.version')"
+    containerdLastVersion="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.ubuntu.current.version | last')"
     containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.ubuntu.current.downloadURL')"
   fi
 fi
 
 if [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
-  containerdVersion="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.mariner.current.version')"
+  containerdLastVersion="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.mariner.current.version | last')"
   containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.mariner.current.downloadURL')"
 fi
 
-if [[ -z "$containerdVersion" ]] && [[ -z "$containerdOverrideDownloadURL" ]]; then
+if [[ -z "$containerdLastVersion" ]] && [[ -z "$containerdOverrideDownloadURL" ]]; then
   echo "Either Containerd's version or downloadURL should be defined in components.json"
   exit 1
 fi
 
-containerdMajorMinorPatchVersion="$(echo "$containerdVersion" | cut -d- -f1)"
-containerdHotFixVersion="$(echo "$containerdVersion" | cut -d- -f2)"
+containerdMajorMinorPatchVersion="$(echo "$containerdLastVersion" | cut -d- -f1)"
+containerdHotFixVersion="$(echo "$containerdLastVersion" | cut -d- -f2)"
 
-runcVersion=""
+runcLastVersion=""
 runcOverrideDownloadURL=""
-runcEntry=$(echo "$Binaries" | jq '.[] | select(.name == "runc")')
+runcEntry=$(echo "$Packages" | jq '.[] | select(.name == "runc")')
 if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
-    runcVersion="$(echo ${runcEntry} | jq -r '.downloadUriEntries.ubuntu.current.version')"
+    runcLastVersion="$(echo ${runcEntry} | jq -r '.downloadUriEntries.ubuntu.current.version | last')"
     runcOverrideDownloadURL="$(echo ${runcEntry} | jq -r '.downloadUriEntries.ubuntu.current.downloadURL')"
 fi
 
 if [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
-  runcVersion="$(echo ${runcEntry} | jq -r '.downloadUriEntries.mariner.current.version')"
+  runcLastVersion="$(echo ${runcEntry} | jq -r '.downloadUriEntries.mariner.current.version | last')"
   runcOverrideDownloadURL="$(echo ${runcEntry} | jq -r '.downloadUriEntries.mariner.current.downloadURL')"
 fi
 
-if [[ -z "$runcVersion" ]] && [[ -z "$runcOverrideDownloadURL" ]]; then
+if [[ -z "$runcLastVersion" ]] && [[ -z "$runcOverrideDownloadURL" ]]; then
   echo "Either Runc's version or downloadURL should be defined in components.json"
   exit 1
 fi
 
 if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
   # call function installContainerdAndRunc in cse_install_ubuntu.sh
-  installContainerdAndRunc "${containerdMajorMinorPatchVersion}" "${containerdHotFixVersion}" "${containerdOverrideDownloadURL}" "${runcVersion}" "${runcOverrideDownloadURL}"
+  installContainerdAndRunc "${containerdMajorMinorPatchVersion}" "${containerdHotFixVersion}" "${containerdOverrideDownloadURL}" "${runcLastVersion}" "${runcOverrideDownloadURL}"
 fi
 if [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
   # call function installStandaloneContainerd in cse_install_mariner.sh
