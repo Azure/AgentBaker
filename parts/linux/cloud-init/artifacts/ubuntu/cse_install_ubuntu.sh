@@ -86,7 +86,7 @@ cleanUpGPUDrivers() {
 }
 
 installContainerdAndRunc() {
-    desiredContainerdVersion=$1    
+    desiredContainerdMajorMinorVersion=$1    
     # we always default to the .1 patch version
     desiredContainerdPatchVersion="${2:-1}"
     eval containerdOverrideDownloadURL="${3:-}"
@@ -101,7 +101,7 @@ installContainerdAndRunc() {
         installContainerdFromOverride ${containerdOverrideDownloadURL} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
-    installContainerdWithAptGet "${desiredContainerdVersion}" "${desiredContainerdPatchVersion}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    installContainerdWithAptGet "${desiredContainerdMajorMinorVersion}" "${desiredContainerdPatchVersion}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
 
 installContainerdFromOverride() {
@@ -254,7 +254,7 @@ installMoby() {
 }
 
 ensureRunc() {
-    RUNC_PACKAGE_URL=${2:=}
+    RUNC_PACKAGE_URL=${2:-""}
     # the user-defined runc package URL is always picked first, and the other options won't be tried when this one fails
     if [[ ! -z ${RUNC_PACKAGE_URL} ]]; then
         echo "Installing runc from user input: ${RUNC_PACKAGE_URL}"

@@ -160,39 +160,43 @@ echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEP
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
 packageList="$(jq .PackageList components.json)" || exit $?
-containerd_entry=$(echo "$packageList" | jq '.[] | select(.Name == "containerd")')
+containerdEntry=$(echo "$packageList" | jq '.[] | select(.Name == "containerd")')
+containerdVersion=""
+containerdOverrideDownloadURL=""
 
 if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
   if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-    containerdVersion="$(echo ${containerd_entry} | jq -r '.DownloadUriEntries.Ubuntu."1804".Version')"
-    containerdOverrideDownloadURL="$(echo ${containerd_entry} | jq -r '.DownloadUriEntries.Ubuntu."1804".DownloadURL')"
+    containerdVersion="$(echo ${containerdEntry} | jq -r '.DownloadUriEntries.Ubuntu."1804".Version')"
+    containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.DownloadUriEntries.Ubuntu."1804".DownloadURL')"
   else
-    containerdVersion="$(echo ${containerd_entry} | jq -r '.DownloadUriEntries.Ubuntu.Current.Version')"
-    containerdOverrideDownloadURL="$(echo ${containerd_entry} | jq -r '.DownloadUriEntries.Ubuntu.Current.DownloadURL')"
+    containerdVersion="$(echo ${containerdEntry} | jq -r '.DownloadUriEntries.Ubuntu.Current.Version')"
+    containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.DownloadUriEntries.Ubuntu.Current.DownloadURL')"
   fi
 fi
 
 if [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
-  containerdVersion="$(echo ${containerd_entry} | jq -r '.DownloadUriEntries.Mariner.Current.Version')"
-  containerdOverrideDownloadURL="$(echo ${containerd_entry} | jq -r '.DownloadUriEntries.Mariner.Current.DownloadURL')"
+  containerdVersion="$(echo ${containerdEntry} | jq -r '.DownloadUriEntries.Mariner.Current.Version')"
+  containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.DownloadUriEntries.Mariner.Current.DownloadURL')"
 fi
-containerdMajorMinorVersion="$(echo "$containerd_version" | cut -d- -f1)"
-containerdPatchVersion="$(echo "$containerd_version" | cut -d- -f2)"
+containerdMajorMinorVersion="$(echo "$containerdVersion" | cut -d- -f1)"
+containerdPatchVersion="$(echo "$containerdVersion" | cut -d- -f2)"
 
-runc_entry=$(echo "$packageList" | jq '.[] | select(.name == "runc")')
+runcVersion=""
+runcOverrideDownloadURL=""
+runcEntry=$(echo "$packageList" | jq '.[] | select(.Name == "runc")')
 if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
   if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-    runcVersion="$(echo ${runc_entry} | jq -r '.DownloadUriEntries.Ubuntu."1804".Version')"
-    runcOverrideDownloadURL="$(echo ${runc_entry} | jq -r '.DownloadUriEntries.Ubuntu."1804".DownloadURL')"
+    runcVersion="$(echo ${runcEntry} | jq -r '.DownloadUriEntries.Ubuntu."1804".Version')"
+    runcOverrideDownloadURL="$(echo ${runcEntry} | jq -r '.DownloadUriEntries.Ubuntu."1804".DownloadURL')"
   else
-    runcVersion="$(echo ${runc_entry} | jq -r '.DownloadUriEntries.Ubuntu.Current.Version')"
-    runcOverrideDownloadURL="$(echo ${runc_entry} | jq -r '.DownloadUriEntries.Ubuntu.Current.DownloadURL')"
+    runcVersion="$(echo ${runcEntry} | jq -r '.DownloadUriEntries.Ubuntu.Current.Version')"
+    runcOverrideDownloadURL="$(echo ${runcEntry} | jq -r '.DownloadUriEntries.Ubuntu.Current.DownloadURL')"
   fi
 fi
 
 if [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
-  runcVersion="$(echo ${runc_entry} | jq -r '.DownloadUriEntries.Mariner.Current.Version')"
-  runcOverrideDownloadURL="$(echo ${runc_entry} | jq -r '.DownloadUriEntries.Mariner.Current.DownloadURL')"
+  runcVersion="$(echo ${runcEntry} | jq -r '.DownloadUriEntries.Mariner.Current.Version')"
+  runcOverrideDownloadURL="$(echo ${runcEntry} | jq -r '.DownloadUriEntries.Mariner.Current.DownloadURL')"
 fi
 
 installContainerdAndRunc "${containerdMajorMinorVersion}" "${containerdPatchVersion}" "${containerdOverrideDownloadURL}" "${runcVersion}" "${runcOverrideDownloadURL}"
