@@ -49,7 +49,6 @@ jobs:
     displayName: Run AgentBaker E2E
     env:
       VHD_BUILD_ID: $(VHD_BUILD_ID)
-      ADO_PAT: $(PAT-aksdevassistant)
   - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
     artifact: scenario-logs
     condition: always()

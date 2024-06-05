@@ -4,11 +4,12 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
-	"path"
-	"path/filepath"
+	"regexp"
+	"strconv"
 	"strconv"
 	"strings"
 
@@ -48,54 +49,113 @@ func getVHDsFromBuild(ctx context.Context, tmpl *Template, scenarios []*Scenario
 		return fmt.Errorf("unable to convert build ID %s to int: %w", config.VHDBuildID, err)
 	}
 
-	log.Printf("will use VHDs from specified build: %d", config.VHDBuildID)
-
-	downloader, err := artifact.NewDownloader(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to construct new ADO artifact downloader: %w", err)
-	}
-
-	artifactNames := make(map[string]bool)
-	for _, scenario := range scenarios {
-		if scenario.VHDSelector == nil {
-			return fmt.Errorf("unable to download VHDs from build: scenario %q has an undefined VHDSelector", scenario.Name)
+	for _, vhd := range []*VHD{
+		&tmpl.Ubuntu1804.Gen2Containerd,
+		&tmpl.Ubuntu2204.Gen2Arm64Containerd,
+		&tmpl.Ubuntu2204.Gen2Containerd,
+		&tmpl.Ubuntu2204.Gen2ContainerdPrivateKubePkg,
+		&tmpl.AzureLinuxV2.Gen2Arm64,
+		&tmpl.AzureLinuxV2.Gen2,
+		&tmpl.CBLMarinerV2.Gen2Arm64,
+		&tmpl.CBLMarinerV2.Gen2,
+	} {
+		if vhd.ResourceID != "" { // resource ID is already set, don't modify it
+			continue
 		}
-		artifactName := scenario.VHDSelector().ArtifactName
-		if artifactName != "" && !artifactNames[artifactName] {
-			artifactNames[artifactName] = true
-			log.Printf("will download publishing info artifact for: %q", artifactName)
+		var err error
+
+		// if build ID is specified, find the latest image with the build ID tag
+		// if it's not found, fall back to the default version tag
+		// TODO: should we instead skip scenarios without a VHD?
+		if buildID != 0 {
+			var err error
+			vhd.ResourceID, err = findLatestImageWithTag(ctx, vhd.ImageID, "buildId", strconv.Itoa(suiteConfig.VHDBuildID))
+			if !errors.Is(err, ErrNotFound) {
+				return fmt.Errorf("failed to find latest image with build ID %d: %v", suiteConfig.VHDBuildID, err)
+			}
+			if err == nil {
+				log.Printf("Found VHD %q for image %q with build ID %d", vhd.ResourceID.Short(), vhd.ImageID, suiteConfig.VHDBuildID)
+				continue
+			}
 		}
+		vhd.ResourceID, err = findLatestImageWithTag(ctx, vhd.ImageID, vhd.VersionTagName, vhd.VersionTagValue)
+		if err != nil {
+			return fmt.Errorf("failed to find latest image with tag %q=%q: %v", vhd.VersionTagName, vhd.VersionTagValue, err)
+		}
+		log.Printf("Found VHD %q for image %q with build ID %d", vhd.ResourceID.Short(), vhd.ImageID, suiteConfig.VHDBuildID)
 	}
-
-	log.Printf("using artifact from build %d with name: %s", config.VHDBuildID, fmt.Sprint(artifactNames))
-
-	err = downloader.DownloadVHDBuildPublishingInfo(ctx, artifact.PublishingInfoDownloadOpts{
-		BuildID:       buildID,
-		TargetDir:     artifact.DefaultPublishingInfoDir,
-		ArtifactNames: artifactNames,
-	})
-	defer os.RemoveAll(artifact.DefaultPublishingInfoDir)
-	if err != nil {
-		return fmt.Errorf("unable to download VHD publishing info: %w", err)
-	}
-
-	if err = tmpl.VHDCatalog.addEntriesFromPublishingInfoDir(artifact.DefaultPublishingInfoDir); err != nil {
-		return fmt.Errorf("unable to load VHD selections from publishing info dir %s: %w", artifact.DefaultPublishingInfoDir, err)
-	}
-
 	return nil
 }
 
-// getVHDNameFromPublishingInfo will resolve the name of the VHD from the specified publishing info.
-// Resolved names will take the form of: 2204gen2containerd, v2gen2, azurelinuxv2gen2arm64, etc.
-func getVHDNameFromPublishingInfo(info artifact.VHDPublishingInfo) string {
-	vhdName := strings.ToLower(info.SKUName)
-	if info.OfferName == offerNameAzureLinux {
-		// explicitly prepend 'azurelinux' to azurelinux VHD names since their SKU
-		// names use the same naming convention as CBLMariner-based SKUs.
-		vhdName = fmt.Sprintf("azurelinux%s", vhdName)
+var ErrNotFound = fmt.Errorf("not found")
+
+func findLatestImageWithTag(ctx context.Context, imageID, tagName, tagValue string) (VHDResourceID, error) {
+	image, err := parseImageID(imageID)
+	if err != nil {
+		return "", err
 	}
-	return vhdName
+
+	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to obtain a credential: %v", err)
+	}
+
+	client, err := armcompute.NewGalleryImageVersionsClient(image.subscriptionID, cred, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create a new images client: %v", err)
+	}
+
+	pager := client.NewListByGalleryImagePager(image.resourceGroup, image.galleryName, image.galleryName, nil)
+	var latestVersion *armcompute.GalleryImageVersion
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return "", fmt.Errorf("failed to get next page: %v", err)
+		}
+		versions := page.Value
+		for _, version := range versions {
+			tag, ok := version.Tags[tagName]
+			if !ok || tag == nil || *tag != tagValue {
+				continue
+			}
+			if latestVersion == nil || version.Properties.PublishingProfile.PublishedDate.After(*latestVersion.Properties.PublishingProfile.PublishedDate) {
+				latestVersion = version
+			}
+		}
+	}
+	if latestVersion == nil {
+		return "", ErrNotFound
+	}
+	return VHDResourceID(*latestVersion.ID), nil
+}
+
+type imageID struct {
+	subscriptionID string
+	resourceGroup  string
+	galleryName    string
+	imageName      string
+}
+
+func parseImageID(resourceID string) (imageID, error) {
+	var result imageID
+
+	// Define the regex pattern to match the desired parts of the resource ID
+	pattern := `(?i)^/subscriptions/([^/]+)/resourceGroups/([^/]+)/providers/Microsoft\.Compute/galleries/([^/]+)/images/([^/]+)$`
+	re := regexp.MustCompile(pattern)
+
+	// Find the submatches in the resourceID
+	matches := re.FindStringSubmatch(resourceID)
+	if matches == nil || len(matches) != 5 {
+		return result, fmt.Errorf("failed to parse image ID %q", resourceID)
+	}
+
+	// Assign the captured groups to the struct
+	result.subscriptionID = matches[1]
+	result.resourceGroup = matches[2]
+	result.galleryName = matches[3]
+	result.imageName = matches[4]
+
+	return result, nil
 }
 
 func mustGetVHDCatalogFromEmbeddedJSON(rawJSON string) VHDCatalog {
@@ -148,9 +208,9 @@ func (id VHDResourceID) Short() string {
 
 // VHD represents a VHD used to run AgentBaker E2E scenarios.
 type VHD struct {
-	// ArtifactName is the name of the VHD's assocaited artifact as found in the published build aritfacts from VHD builds.
-	// This is used to template the name of the publishing info artifacts when downloading from ADO - e.g. "publishing-info-<ArtifactName>".
-	ArtifactName string `json:"artifactName,omitempty"`
+	ImageID         string `json:"imageId,omitempty"`
+	VersionTagName  string `json:"versionTagName,omitempty"`
+	VersionTagValue string `json:"versionTagValue,omitempty"`
 	// ResourceID is the resource ID pointing to the underlying VHD in Azure. Based on the current setup, this will always be the resource ID
 	// of an image version in a shared image gallery.
 	ResourceID VHDResourceID `json:"resourceId,omitempty"`
@@ -227,64 +287,4 @@ func (c *VHDCatalog) CBLMarinerV2Gen2ARM64() VHD {
 // Returns the CBLMarinerV2/gen2 catalog entry.
 func (c *VHDCatalog) CBLMarinerV2Gen2() VHD {
 	return c.CBLMarinerV2.Gen2
-}
-
-// addEntryFromPublishingInfo will add an entry to the catalog based on the specified publishing info.
-// Specifically, it will select and overwrite the resource ID of the given VHD object based on the name of the VHD
-// inferred from the specified publishing info.
-func (c *VHDCatalog) addEntryFromPublishingInfo(info artifact.VHDPublishingInfo) {
-	if resourceID := info.CapturedImageVersionResourceID; resourceID != "" {
-		id := VHDResourceID(resourceID)
-		name := getVHDNameFromPublishingInfo(info)
-		log.Printf("Assigning name %s to use id %s ", name, id)
-		switch name {
-		case vhdName1804Gen2:
-			c.Ubuntu1804.Gen2Containerd.ResourceID = id
-		case vhdName2204Gen2ARM64Containerd:
-			c.Ubuntu2204.Gen2Arm64Containerd.ResourceID = id
-		case vhdName2204Gen2Containerd:
-			c.Ubuntu2204.Gen2Containerd.ResourceID = id
-		case vhdNameAzureLinuxV2Gen2ARM64:
-			c.AzureLinuxV2.Gen2Arm64.ResourceID = id
-		case vhdNameAzureLinuxV2Gen2:
-			c.AzureLinuxV2.Gen2.ResourceID = id
-		case vhdNameCBLMarinerV2Gen2ARM64:
-			c.CBLMarinerV2.Gen2Arm64.ResourceID = id
-		case vhdNameCBLMarinerV2Gen2:
-			c.CBLMarinerV2.Gen2.ResourceID = id
-		default:
-			panic(fmt.Sprintf("cannot assign VHD resource ID to VHD name \"%s\" as name not known.", name))
-		}
-	}
-}
-
-// addEntriesFromPublishingInfoDir will read all the publishing-info-*.json files from the specified directory,
-// unmarshal them, and call addEntryFromPublishingInfo on each one respectively.
-func (c *VHDCatalog) addEntriesFromPublishingInfoDir(dirName string) error {
-	absPath, err := filepath.Abs(dirName)
-	if err != nil {
-		return fmt.Errorf("unable to resolve absolute path of %s: %w", dirName, err)
-	}
-	files, err := os.ReadDir(absPath)
-	if err != nil {
-		return fmt.Errorf("unable to read publishing infos from directory %s: %w", absPath, err)
-	}
-
-	for _, file := range files {
-		filePath := path.Join(absPath, file.Name())
-
-		data, err := os.ReadFile(filePath)
-		if err != nil {
-			return fmt.Errorf("unable to read publishing info file %s: %w", filePath, err)
-		}
-
-		info := artifact.VHDPublishingInfo{}
-		if err := json.Unmarshal(data, &info); err != nil {
-			return fmt.Errorf("unable to unmarshal publishing info file %s: %w", filePath, err)
-		}
-
-		c.addEntryFromPublishingInfo(info)
-	}
-
-	return nil
 }

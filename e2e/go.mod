@@ -12,9 +12,8 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
 	github.com/Azure/go-armbalancer v0.0.2
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
-	github.com/microsoft/azure-devops-go-api/azuredevops/v7 v7.1.0
 	github.com/sanity-io/litter v1.5.5
-	go.uber.org/multierr v1.6.0
+	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.24.0
 	k8s.io/api v0.28.5
 	k8s.io/apimachinery v0.28.5
@@ -61,7 +60,6 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	go.uber.org/atomic v1.7.0 // indirect
 	golang.org/x/net v0.26.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect
