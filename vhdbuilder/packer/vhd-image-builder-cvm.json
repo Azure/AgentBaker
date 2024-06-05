@@ -17,7 +17,6 @@
     "sig_image_version": "{{env `SIG_IMAGE_VERSION`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
-    "os_disk_snapshot_name": "{{env `${OS_DISK_SNAPSHOT_NAME`}}",
     "captured_sig_version": "{{env `${CAPTURED_SIG_VERSION`}}",
     "enable_fips": "{{env `ENABLE_FIPS`}}",
     "img_publisher": "{{env `IMG_PUBLISHER`}}",
@@ -33,10 +32,13 @@
   "builders": [
     {
       "type": "azure-arm",
-      "subscription_id": "{{user `subscription_id`}}",
       "virtual_network_name": "{{user `vnet_name`}}",
       "virtual_network_subnet_name": "{{user `subnet_name`}}",
       "ssh_read_write_timeout": "5m",
+      "client_id": "{{user `client_id`}}",
+      "client_secret": "{{user `client_secret`}}",
+      "tenant_id": "{{user `tenant_id`}}",
+      "subscription_id": "{{user `subscription_id`}}",
       "os_type": "Linux",
       "os_disk_size_gb": 30,
       "image_publisher": "{{user `img_publisher`}}",
@@ -56,10 +58,18 @@
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
       "managed_image_storage_account_type": "Premium_LRS",
-      "managed_image_os_disk_snapshot_name": "{{user `os_disk_snapshot_name`}}",
-      "skip_create_image": "true",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
+      "polling_duration_timeout": "1h",
+      "shared_image_gallery_destination": {
+        "resource_group": "{{user `resource_group_name`}}",
+        "gallery_name": "{{user `sig_gallery_name`}}",
+        "image_name": "{{user `sig_image_name`}}",
+        "image_version": "{{user `captured_sig_version`}}",
+        "replication_regions": [
+          "{{user `location`}}"
+        ]
+      },
       "user_assigned_managed_identities": "{{user `linux_msi_resource_ids`}}"
     }
   ],
@@ -79,11 +89,6 @@
         "sudo mkdir -p /opt/certs",
         "sudo chown -R $USER /opt/certs"
       ]
-    },
-    {
-      "type": "file",
-      "source": "nbcparser/bin/nbcparser-amd64",
-      "destination": "/home/packer/nbcparser"
     },
     {
       "type": "file",
@@ -319,11 +324,6 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sshd_config_1804_fips",
       "destination": "/home/packer/sshd_config_1804_fips"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/sshd_config_2204_fips",
-      "destination": "/home/packer/sshd_config_2204_fips"
     },
     {
       "type": "file",
@@ -606,6 +606,11 @@
       "type": "file",
       "source": "vhdbuilder/packer/list-images.sh",
       "destination": "/home/packer/list-images.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/packer/trivy-scan.sh",
+      "destination": "/home/packer/trivy-scan.sh"
     },
     {
       "type": "shell",
