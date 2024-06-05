@@ -159,52 +159,71 @@ installContainerdWithAptGet() {
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
-    #this function to be reverted.
     UBUNTU_RELEASE=$(lsb_release -r -s)
     UBUNTU_CODENAME=$(lsb_release -c -s)
-    containerdVersion=$1    
+    CONTAINERD_VERSION=$1    
     # we always default to the .1 patch versons
-    containerdPatchVersion="${2:-1}"
-    eval containerdOverrideDownloadURL="${3:-}"
-
-    RUNC_VERSION="${RUNC_VERSION:-}"
-    # RUNC_VERSION could be provided by 2 ways.
-    # The first way is from cse_cmd.sh which is actually from AKS-RP NodeBootstrappingConfig api, at provisioning time.
-    # The second way is from the argument {4} of this function, at VHD build time.
-    # The following condition implies that: only if RUNC_VERSION is nil or empty and argument {4} is provided, we will take it as our actual RUNC_VERSION.
-    if [ -z "$RUNC_VERSION" ] && [ ! -z "${4}" ]; then
-      RUNC_VERSION="${4}"
-    fi
-    eval RUNC_PACKAGE_URL="${5:-}"
+    CONTAINERD_PATCH_VERSION="${2:-1}"
 
     # runc needs to be installed first or else existing vhd version causes conflict with containerd.
-    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""} "${RUNC_PACKAGE_URL}""
+    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}" # RUNC_VERSION is an optional override supplied via NodeBootstrappingConfig api
+
+    # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
+    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    CURRENT_COMMIT=$(containerd -version | cut -d " " -f 4)
+    # v1.4.1 is our lowest supported version of containerd
+
+    if [ -z "$CURRENT_VERSION" ]; then
+        CURRENT_VERSION="0.0.0"
+    fi
 
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
-    if [[ ! -z ${containerdOverrideDownloadURL} ]]; then
-        installContainerdFromOverride ${containerdOverrideDownloadURL}
+    CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
+    if [[ ! -z ${CONTAINERD_PACKAGE_URL} ]]; then
+        echo "Installing containerd from user input: ${CONTAINERD_PACKAGE_URL}"
+        # we'll use a user-defined containerd package to install containerd even though it's the same version as
+        # the one already installed on the node considering the source is built by the user for hotfix or test
+        logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
+        logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
+        logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromURL" downloadContainerdFromURL ${CONTAINERD_PACKAGE_URL}
+        logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        echo "Succeeded to install containerd from user input: ${CONTAINERD_PACKAGE_URL}"
+        return 0
+    fi
+
+    #if there is no containerd_version input from RP, use hardcoded version
+    if [[ -z ${CONTAINERD_VERSION} ]]; then
+        # pin 18.04 to 1.7.1
+        CONTAINERD_VERSION="1.7.15"
+        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+            CONTAINERD_VERSION="1.7.1"
+        fi
+        CONTAINERD_PATCH_VERSION="1"
+        echo "Containerd Version not specified, using default version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
+    else
+        echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     fi
 
     CURRENT_MAJOR_MINOR="$(echo $CURRENT_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
-    DESIRED_MAJOR_MINOR="$(echo $containerdVersion | tr '.' '\n' | head -n 2 | paste -sd.)"
-    semverCompare "$CURRENT_VERSION" "$containerdVersion"
+    DESIRED_MAJOR_MINOR="$(echo $CONTAINERD_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
+    semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION"
     HAS_GREATER_VERSION="$?"
 
     if [[ "$HAS_GREATER_VERSION" == "0" ]] && [[ "$CURRENT_MAJOR_MINOR" == "$DESIRED_MAJOR_MINOR" ]]; then
         echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
     else
-        echo "installing containerd version ${containerdVersion}"
+        echo "installing containerd version ${CONTAINERD_VERSION}"
         logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
         logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
-        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${containerdVersion}*)"
+        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
         if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
             logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
             return 0
         fi
         logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}"
-        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${containerdVersion}*)"
+        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
         if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
             echo "Failed to locate cached containerd deb"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
