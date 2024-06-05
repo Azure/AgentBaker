@@ -80,8 +80,10 @@ func (d *Downloader) downloadPublishingInfo(ctx context.Context, tempDir, artifa
 		ArtifactName: to.Ptr(artifactName),
 	})
 	if err != nil {
+		log.Printf(err.Error())
 		if isMissingArtifactError(err) {
 			log.Printf("unable to download publishing info %q, not found for build ID: %d", artifactName, opts.BuildID)
+			panic(err)
 		} else {
 			d.errChan <- fmt.Errorf("unable get artifact info for %q: %w", artifactName, err)
 		}
@@ -94,14 +96,14 @@ func (d *Downloader) downloadPublishingInfo(ctx context.Context, tempDir, artifa
 	zipOut, err := os.Create(zipName)
 	if err != nil {
 		d.errChan <- fmt.Errorf("unable to create zip archive %s: %w", zipName, err)
-		return
+		panic(err)
 	}
 
 	client := &http.Client{}
 	req, err := http.NewRequest(http.MethodGet, downloadURL, nil)
 	if err != nil {
 		d.errChan <- fmt.Errorf("unable to create new HTTP request: %w", err)
-		return
+		panic(err)
 	}
 
 	req.Header.Add("Authorization", fmt.Sprintf("Basic %s", d.basicAuth))
@@ -109,22 +111,22 @@ func (d *Downloader) downloadPublishingInfo(ctx context.Context, tempDir, artifa
 	resp, err := client.Do(req)
 	if err != nil {
 		d.errChan <- fmt.Errorf("unable to perform HTTP request to download artifact: %w", err)
-		return
+		panic(err)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		d.errChan <- fmt.Errorf("unable to download artifact from %s, received HTTP status code: %d", downloadURL, resp.StatusCode)
-		return
+		panic(err)
 	}
 
 	if _, err = io.Copy(zipOut, resp.Body); err != nil {
 		d.errChan <- fmt.Errorf("unable to copy artifact data to zip archive: %w", err)
-		return
+		panic(err)
 	}
 
 	if err = extractPublishingInfoFromZip(artifactName, zipName, opts.TargetDir); err != nil {
 		d.errChan <- fmt.Errorf("unable to extract publishing info from zip archive %s: %w", zipName, err)
-		return
+		panic(err)
 	}
 }
 
@@ -151,6 +153,7 @@ func (d *Downloader) getVHDPublishingInfoArtifactNames(ctx context.Context, opts
 
 	for _, artifact := range *artifacts {
 		if strings.HasPrefix(*artifact.Name, "publishing-info") {
+			log.Printf("Got publishing info artifact: %s", *artifact.Name)
 			artifactNames = append(artifactNames, *artifact.Name)
 		}
 	}
@@ -194,6 +197,6 @@ func extractPublishingInfoFromZip(artifactName, zipName, targetDir string) error
 
 func isMissingArtifactError(err error) bool {
 	// there doesn't seem to be a proper error type for this,
-	// thus we need to assert on thecontents of the error msg itself
+	// thus we need to assert on the contents of the error msg itself
 	return err != nil && (strings.Contains(err.Error(), "404 Not Found") || strings.Contains(err.Error(), "was not found for build"))
 }

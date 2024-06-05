@@ -11,6 +11,7 @@ bin/
 .env
 .coverprofile
 coverage.txt
+e2e/scenario-logs
 **/vhd-publishing-info.json
 
 test/junit/

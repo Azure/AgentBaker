@@ -55,6 +55,8 @@ func getVHDsFromBuild(ctx context.Context, suiteConfig *suite.Config, tmpl *Temp
 		}
 	}
 
+	log.Printf("using artifact from build %d with name: %s", suiteConfig.VHDBuildID, fmt.Sprint(artifactNames))
+
 	err = downloader.DownloadVHDBuildPublishingInfo(ctx, artifact.PublishingInfoDownloadOpts{
 		BuildID:       suiteConfig.VHDBuildID,
 		TargetDir:     artifact.DefaultPublishingInfoDir,
@@ -221,7 +223,9 @@ func (c *VHDCatalog) CBLMarinerV2Gen2() VHD {
 func (c *VHDCatalog) addEntryFromPublishingInfo(info artifact.VHDPublishingInfo) {
 	if resourceID := info.CapturedImageVersionResourceID; resourceID != "" {
 		id := VHDResourceID(resourceID)
-		switch getVHDNameFromPublishingInfo(info) {
+		name := getVHDNameFromPublishingInfo(info)
+		log.Printf("Assigning name %s to use id %s ", name, id)
+		switch name {
 		case vhdName1804Gen2:
 			c.Ubuntu1804.Gen2Containerd.ResourceID = id
 		case vhdName2204Gen2ARM64Containerd:
@@ -236,6 +240,8 @@ func (c *VHDCatalog) addEntryFromPublishingInfo(info artifact.VHDPublishingInfo)
 			c.CBLMarinerV2.Gen2Arm64.ResourceID = id
 		case vhdNameCBLMarinerV2Gen2:
 			c.CBLMarinerV2.Gen2.ResourceID = id
+		default:
+			panic(fmt.Sprintf("cannot assign VHD resource IDto VHD name \"%s\" as name not known.", name))
 		}
 	}
 }

@@ -92,11 +92,77 @@ func NvidiaSMIInstalledValidator() *LiveVMValidator {
 
 func NonEmptyDirectoryValidator(dirName string) *LiveVMValidator {
 	return &LiveVMValidator{
-		Description: "assert that there are files in directory",
+		Description: fmt.Sprintf("assert that there are files in %s", dirName),
 		Command:     fmt.Sprintf("ls -1q %s | grep -q '^.*$' && true || false", dirName),
 		Asserter: func(code, stdout, stderr string) error {
 			if code != "0" {
 				return fmt.Errorf("expected to find a file in directory %s, but did not", dirName)
+			}
+			return nil
+		},
+	}
+}
+
+func FileHasContentsValidator(fileName string, contents string) *LiveVMValidator {
+	return &LiveVMValidator{
+		Description: fmt.Sprintf("Assert that %s has defined contents", fileName),
+		Command:     fmt.Sprintf("ls -la %[1]s && cat %[1]s | grep -q '%[2]s'", fileName, contents),
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf("expected to find a file '%s' with contents '%s' but did not", fileName, contents)
+			}
+			return nil
+		},
+	}
+}
+
+// this function is just used to remove some bash specific tokens so we can echo the command to stdout.
+func cleanse(str string) string {
+	str = strings.Replace(str, "'", "", -1)
+	str = strings.Replace(str, "\"", "", -1)
+	str = strings.Replace(str, "(", "OB", -1)
+	str = strings.Replace(str, ")", "CB", -1)
+	str = strings.Replace(str, "||", "OR", -1)
+	str = strings.Replace(str, "&&", "AND", -1)
+
+	return str
+}
+
+func serviceCanRestartValidator(serviceName string, restartTimeoutInSeconds int) *LiveVMValidator {
+	steps := []string{
+		fmt.Sprintf("systemctl start %s", serviceName),
+		fmt.Sprintf("sleep %d", restartTimeoutInSeconds),
+
+		// Verify the service is active - print the state then verify so we have logs
+		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
+		fmt.Sprintf("systemctl is-active %s", serviceName),
+
+		// we use systemctl kill rather than kill -9 because container restrictions stop us sending a kill sig to a process
+		fmt.Sprintf("echo Killing %s", serviceName),
+		fmt.Sprintf("systemctl kill %s", serviceName),
+
+		// sleep for restartTimeoutInSeconds seconds to give the service time tor restart
+		fmt.Sprintf("sleep %d", restartTimeoutInSeconds),
+
+		// print the status of the service and then verify it is active.
+		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
+		fmt.Sprintf("systemctl is-active %s", serviceName),
+	}
+	stepsWithEchos := make([]string, len(steps)*2)
+
+	for i, s := range steps {
+		stepsWithEchos[i*2] = fmt.Sprintf("echo '%s'", cleanse(s))
+		stepsWithEchos[i*2+1] = s
+	}
+
+	command := strings.Join(stepsWithEchos, " && ")
+
+	return &LiveVMValidator{
+		Description: fmt.Sprintf("asserts that %s restarts after it is killed", serviceName),
+		Command:     command,
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf("service kill and check terminated with exit code %q (expected 0).\nCommand: %s\n\nStdout:\n%s\n\n Stderr:\n%s\n", code, command, stdout, stderr)
 			}
 			return nil
 		},
