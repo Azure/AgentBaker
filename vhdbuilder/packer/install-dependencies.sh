@@ -490,8 +490,7 @@ cacheKubePackageFromPrivateUrl() {
   # use azcopy with MSI instead of curl to download packages
   getAzCopyCurrentPath
 
-  export AZCOPY_AUTO_LOGIN_TYPE="MSI"
-  export AZCOPY_MSI_RESOURCE_STRING="$LINUX_MSI_RESOURCE_IDS"
+  ./azcopy login --login-type=MSI
 
   cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
   echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"

@@ -103,7 +103,7 @@ steps:
         -e ENABLE_CGROUPV2=${ENABLE_CGROUPV2} \
         -e IMAGE_VERSION=${IMAGE_VERSION} \
         -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
-        -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
+        -e AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING} \
         ${CONTAINER_IMAGE} make -f packer.mk run-packer
     retryCountOnTaskFailure: 3
     displayName: Building VHD
@@ -158,8 +158,6 @@ steps:
         -e SGX_INSTALL=${SGX_INSTALL} \
         -e ENABLE_CGROUPV2=${ENABLE_CGROUPV2} \
         -e GIT_BRANCH=$(Build.SourceBranch) \
-        -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
-        -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
         ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD Tests
   - task: Bash@3
@@ -211,8 +209,6 @@ steps:
       ARM64_OS_DISK_SNAPSHOT_NAME="$(cat vhdbuilder/packer/settings.json | grep "arm64_os_disk_snapshot_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       IMAGE_NAME="${SIG_IMAGE_NAME}-${captured_sig_version}" && \
-      PRIVATE_PACKAGES_URL="$(cat vhdbuilder/packer/settings.json | grep "private_packages_url" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      LINUX_MSI_RESOURCE_ID="$(cat vhdbuilder/packer/settings.json | grep "linux_msi_resource_ids" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
@@ -229,8 +225,6 @@ steps:
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
       -e ARCHITECTURE=${ARCHITECTURE} \
       -e ARM64_OS_DISK_SNAPSHOT_NAME=${ARM64_OS_DISK_SNAPSHOT_NAME} \
-      -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
-      -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
       ${CONTAINER_IMAGE} make -f packer.mk cleanup
     displayName: Clean Up Packer Generated Resources
     condition: always()
@@ -239,8 +233,6 @@ steps:
         captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         SIG_GALLERY_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-        PRIVATE_PACKAGES_URL="$(cat vhdbuilder/packer/settings.json | grep "private_packages_url" | awk -F\" '{print $4}')" && \
-        LINUX_MSI_RESOURCE_ID="$(cat vhdbuilder/packer/settings.json | grep "linux_msi_resource_id" | awk -F\" '{print $4}')" && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
@@ -249,13 +241,11 @@ steps:
         -e LOCATION="${AZURE_LOCATION}" \
         -e OS_TYPE="Linux" \
         -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-        -e POOL_IDENTITY_RESOURCE_ID=$(POOL_IDENTITY_RESOURCE_ID) \
         -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
         -e CAPTURED_SIG_VERSION=${captured_sig_version} \
         -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
-        -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
-        -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
+        -e AZURE_MSI_RESOURCE_STRING=$(AZURE_MSI_RESOURCE_STRING) \
         ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     condition: eq(variables.DRY_RUN, 'False')
