@@ -47,7 +47,7 @@ package components
 #Components: {
 	ContainerImages: #Images
 	DownloadFiles:   #Files
-	PackageList:     #Packages
+	Binaries:        #Packages
 }
 
 #Components

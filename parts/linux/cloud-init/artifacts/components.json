@@ -367,8 +367,7 @@
       "targetContainerRuntime": "containerd"
     }
   ],
-  
-  "PackageList": [
+  "Binaries": [
     {
       "Name": "containerd",
       "DownloadLocation": "/opt/containerd/downloads",
@@ -410,5 +409,4 @@
       }
     }
   ]
-  
 }

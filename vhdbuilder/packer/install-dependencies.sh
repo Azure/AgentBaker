@@ -159,8 +159,8 @@ echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEP
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
-packageList="$(jq .PackageList components.json)" || exit $?
-containerdEntry=$(echo "$packageList" | jq '.[] | select(.Name == "containerd")')
+Binaries="$(jq .Binaries components.json)" || exit $?
+containerdEntry=$(echo "$Binaries" | jq '.[] | select(.Name == "containerd")')
 containerdVersion=""
 containerdOverrideDownloadURL=""
 
@@ -189,7 +189,7 @@ containerdHotFixVersion="$(echo "$containerdVersion" | cut -d- -f2)"
 
 runcVersion=""
 runcOverrideDownloadURL=""
-runcEntry=$(echo "$packageList" | jq '.[] | select(.Name == "runc")')
+runcEntry=$(echo "$Binaries" | jq '.[] | select(.Name == "runc")')
 if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
     runcVersion="$(echo ${runcEntry} | jq -r '.DownloadUriEntries.Ubuntu.Current.Version')"
     runcOverrideDownloadURL="$(echo ${runcEntry} | jq -r '.DownloadUriEntries.Ubuntu.Current.DownloadURL')"
