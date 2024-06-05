@@ -235,7 +235,10 @@ EOF
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
     fi
 
-    configureKubeletServerCert
+    if [ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" == "false" ]; then
+        configureKubeletServerCert
+    fi
+
     if [ "${IS_CUSTOM_CLOUD}" == "true" ]; then
         set +x
         AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"

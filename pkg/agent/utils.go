@@ -423,6 +423,15 @@ func GetTLSBootstrapTokenForKubeConfig(tlsBootstrapToken *string) string {
 	return *tlsBootstrapToken
 }
 
+func IsKubeletServingCertificateRotationEnabled(config *datamodel.NodeBootstrappingConfiguration) bool {
+	const (
+		kubeletRotateServerCertificatesFlagName = "--rotate-server-certificates"
+		kubeletFlagLiteralValueTrue             = "true"
+	)
+
+	return strings.EqualFold(config.KubeletConfig[kubeletRotateServerCertificatesFlagName], kubeletFlagLiteralValueTrue)
+}
+
 func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfiguration {
 	kubeletConfig := &datamodel.AKSKubeletConfiguration{
 		APIVersion:    "kubelet.config.k8s.io/v1beta1",
