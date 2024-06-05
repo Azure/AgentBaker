@@ -17,4 +17,4 @@ steps:
 - bash: |
     echo "removing dangling publishing-info.json artifacts..."
     rm -f *vhd-publishing-info.json
-  displayName: cleanup publishing-info artifacts
+  displayName: Cleanup publishing-info.json artifacts
