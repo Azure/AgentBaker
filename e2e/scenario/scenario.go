@@ -49,7 +49,6 @@ func (t *Template) scenarios() []*Scenario {
 		t.ubuntu1804gpu(),
 		t.ubuntu1804_azurecni(),
 		t.ubuntu1804gpu_azurecni(),
-		t.ubuntu1804SystemdChronyDropin(),
 		t.ubuntu1804ChronyRestarts(),
 
 		// block for ubuntu 2204
@@ -64,7 +63,6 @@ func (t *Template) scenarios() []*Scenario {
 		t.ubuntu2204AirGap(),
 		t.ubuntu2204ContainerdURL(),
 		t.ubuntu2204ContainerdVersion(),
-		t.ubuntu2204SystemdChronyDropin(),
 		t.ubuntu2204ChronyRestarts(),
 
 		// block for mariner v2
@@ -77,7 +75,6 @@ func (t *Template) scenarios() []*Scenario {
 		t.marinerv2gpu_azurecni(),
 		t.marinerv2AirGap(),
 		t.marinerv2ARM64AirGap(),
-		t.marinerv2SystemdChronyDropin(),
 		t.marinerv2ChronyRestarts(),
 
 		// block for azurelinux v2
@@ -90,7 +87,6 @@ func (t *Template) scenarios() []*Scenario {
 		t.azurelinuxv2gpu_azurecni(),
 		t.azurelinuxv2ARM64AirGap(),
 		t.azurelinuxv2AirGap(),
-		t.azurelinuxv2SystemdChronyDropin(),
 		t.azurelinuxv2ChronyRestarts(),
 	}
 }
