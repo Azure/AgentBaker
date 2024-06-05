@@ -369,41 +369,41 @@
   ],
   "Binaries": [
     {
-      "Name": "containerd",
-      "DownloadLocation": "/opt/containerd/downloads",
-      "DownloadUriEntries": {
-        "Ubuntu": {
-          "Current": {
-            "Version": "1.7.15-1",
-            "DownloadURL": ""
+      "name": "containerd",
+      "downloadLocation": "/opt/containerd/downloads",
+      "downloadUriEntries": {
+        "ubuntu": {
+          "current": {
+            "version": "1.7.15-1",
+            "downloadURL": ""
           },
           "1804": {
-            "Version": "1.7.1-1",
-            "DownloadURL": ""
+            "version": "1.7.1-1",
+            "downloadURL": ""
           }
         },
-        "Mariner": {
-          "Current": {
-            "Version": "1.3.4",
-            "DownloadURL": ""
+        "mariner": {
+          "current": {
+            "version": "1.3.4",
+            "downloadURL": ""
           }
         }
       }
     },
     {
-      "Name": "runc",
-      "DownloadLocation": "/opt/runc/downloads",
-      "DownloadUriEntries": {
-        "Ubuntu": {
-          "Current": {
-            "Version": "1.1.12",
-            "DownloadURL": ""
+      "name": "runc",
+      "downloadLocation": "/opt/runc/downloads",
+      "downloadUriEntries": {
+        "ubuntu": {
+          "current": {
+            "version": "1.1.12",
+            "downloadURL": ""
           }
         },
-        "Mariner": {
-          "Current": {
-            "Version": "1.4.54",
-            "DownloadURL": ""
+        "mariner": {
+          "current": {
+            "version": "1.4.54",
+            "downloadURL": ""
           }
         }
       }

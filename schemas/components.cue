@@ -24,30 +24,30 @@ package components
 #Files: [...#DownloadFile]
 #Packages: [...#Package]
 #PackageUri: {
-		Version:     string
-		DownloadURL: string
-	}
+	version:     string
+	downloadURL: string
+}
 
 #OSDistro: {
-	"Current": #PackageUri,
-	"1804"?:   #PackageUri //1804 is optional
+	current: #PackageUri,
+	1804?:   #PackageUri //1804 is optional
 }
 
 #DownloadUriEntries: {
-	"Ubuntu":  #OSDistro
-	"Mariner": #OSDistro
+	ubuntu:  #OSDistro
+	mariner: #OSDistro
 }
 
 #Package: {
-	Name:               string
-	DownloadLocation:   string
-	DownloadUriEntries: #DownloadUriEntries
+	name:               string
+	downloadLocation:   string
+	downloadUriEntries: #DownloadUriEntries
 }
 
 #Components: {
-	ContainerImages: #Images
-	DownloadFiles:   #Files
-	Binaries:        #Packages
+	containerImages: #Images
+	downloadFiles:   #Files
+	binaries:        #Packages
 }
 
 #Components

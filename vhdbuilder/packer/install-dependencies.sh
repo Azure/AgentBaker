@@ -159,28 +159,28 @@ echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEP
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
-Binaries="$(jq .Binaries components.json)" || exit $?
-containerdEntry=$(echo "$Binaries" | jq '.[] | select(.Name == "containerd")')
+Binaries="$(jq .Binaries $COMPONENTS_FILEPATH)" || exit $?
+containerdEntry=$(echo "$Binaries" | jq '.[] | select(.name == "containerd")')
 containerdVersion=""
 containerdOverrideDownloadURL=""
 
 if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
   if [[ "${UBUNTU_RELEASE}" == "18.04" ]]; then
-    containerdVersion="$(echo ${containerdEntry} | jq -r '.DownloadUriEntries.Ubuntu."1804".Version')"
-    containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.DownloadUriEntries.Ubuntu."1804".DownloadURL')"
+    containerdVersion="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.ubuntu."1804".version')"
+    containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.ubuntu."1804".downloadURL')"
   else
-    containerdVersion="$(echo ${containerdEntry} | jq -r '.DownloadUriEntries.Ubuntu.Current.Version')"
-    containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.DownloadUriEntries.Ubuntu.Current.DownloadURL')"
+    containerdVersion="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.ubuntu.current.version')"
+    containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.ubuntu.current.downloadURL')"
   fi
 fi
 
 if [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
-  containerdVersion="$(echo ${containerdEntry} | jq -r '.DownloadUriEntries.Mariner.Current.Version')"
-  containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.DownloadUriEntries.Mariner.Current.DownloadURL')"
+  containerdVersion="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.mariner.current.version')"
+  containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.mariner.current.downloadURL')"
 fi
 
 if [[ -z "$containerdVersion" ]] && [[ -z "$containerdOverrideDownloadURL" ]]; then
-  echo "Either Runc's Version or DownloadURL should be defined in components.json"
+  echo "Either Runc's version or downloadURL should be defined in components.json"
   exit 1
 fi
 
@@ -191,17 +191,17 @@ runcVersion=""
 runcOverrideDownloadURL=""
 runcEntry=$(echo "$Binaries" | jq '.[] | select(.Name == "runc")')
 if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
-    runcVersion="$(echo ${runcEntry} | jq -r '.DownloadUriEntries.Ubuntu.Current.Version')"
-    runcOverrideDownloadURL="$(echo ${runcEntry} | jq -r '.DownloadUriEntries.Ubuntu.Current.DownloadURL')"
+    runcVersion="$(echo ${runcEntry} | jq -r '.downloadUriEntries.ubuntu.current.version')"
+    runcOverrideDownloadURL="$(echo ${runcEntry} | jq -r '.downloadUriEntries.ubuntu.current.downloadURL')"
 fi
 
 if [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
-  runcVersion="$(echo ${runcEntry} | jq -r '.DownloadUriEntries.Mariner.Current.Version')"
-  runcOverrideDownloadURL="$(echo ${runcEntry} | jq -r '.DownloadUriEntries.Mariner.Current.DownloadURL')"
+  runcVersion="$(echo ${runcEntry} | jq -r '.downloadUriEntries.mariner.current.version')"
+  runcOverrideDownloadURL="$(echo ${runcEntry} | jq -r '.downloadUriEntries.mariner.current.downloadURL')"
 fi
 
 if [[ -z "$runcVersion" ]] && [[ -z "$runcOverrideDownloadURL" ]]; then
-  echo "Either Runc's Version or DownloadURL should be defined in components.json"
+  echo "Either Runc's version or downloadURL should be defined in components.json"
   exit 1
 fi
 
