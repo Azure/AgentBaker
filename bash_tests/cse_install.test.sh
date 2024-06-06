@@ -17,3 +17,7 @@ teardown() {
   assert_called rm -f /var/lib/man-db/auto-update
 }
 
+@test "failing test" {
+  assert_called rm -f /var/lib/man-db/auto-update
+}
+
