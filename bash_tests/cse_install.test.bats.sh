@@ -1,6 +1,6 @@
 #!/usr/local/lib/node_modules/bats/bin/bats
 
-load ./test_helpers.sh
+load ./test_helpers.bats.sh
 
 setup() {
   load ../parts/linux/cloud-init/artifacts/cse_install.sh
