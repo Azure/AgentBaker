@@ -1,9 +1,9 @@
 #!/bin/bash
 set -uo pipefail
 
-sudo npm install -g bats
+sudo sudo apt-get install -y bats
 
-filesToCheck=$(find bash_tests -type f -name "*.test.sh" )
+filesToCheck=$(find bash_tests -type f -name "*.test.bats" )
 
 echo $filesToCheck
 

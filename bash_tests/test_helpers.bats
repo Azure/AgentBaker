@@ -1,4 +1,3 @@
-#!/usr/local/lib/node_modules/bats/bin/bats
 
 mock() {
   local name=$1
