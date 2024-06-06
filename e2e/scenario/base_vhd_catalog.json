@@ -31,7 +31,7 @@
     "cblmarinerv2": {
         "gen2arm64": {
             "artifactName": "marinerv2-gen2-arm64",
-            "resourceId": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64/versions/1.1717454213.4440"
+            "resourceId": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64/versions/1.1717624762.21825"
         },
         "gen2": {
             "artifactName": "marinerv2-gen2",
