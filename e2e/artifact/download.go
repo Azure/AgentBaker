@@ -82,8 +82,7 @@ func (d *Downloader) downloadPublishingInfo(ctx context.Context, tempDir, artifa
 	if err != nil {
 		log.Printf(err.Error())
 		if isMissingArtifactError(err) {
-			log.Printf("unable to download publishing info %q, not found for build ID: %d", artifactName, opts.BuildID)
-			panic(err)
+			log.Fatalf("unable to download publishing info %q, not found for build ID: %d", artifactName, opts.BuildID)
 		} else {
 			d.errChan <- fmt.Errorf("unable get artifact info for %q: %w", artifactName, err)
 		}
@@ -96,14 +95,14 @@ func (d *Downloader) downloadPublishingInfo(ctx context.Context, tempDir, artifa
 	zipOut, err := os.Create(zipName)
 	if err != nil {
 		d.errChan <- fmt.Errorf("unable to create zip archive %s: %w", zipName, err)
-		panic(err)
+		log.Fatalf("unable to create zip archive %s: %w", zipName, err)
 	}
 
 	client := &http.Client{}
 	req, err := http.NewRequest(http.MethodGet, downloadURL, nil)
 	if err != nil {
 		d.errChan <- fmt.Errorf("unable to create new HTTP request: %w", err)
-		panic(err)
+		log.Fatalf("unable to create new HTTP request: %w", err)
 	}
 
 	req.Header.Add("Authorization", fmt.Sprintf("Basic %s", d.basicAuth))
@@ -111,22 +110,22 @@ func (d *Downloader) downloadPublishingInfo(ctx context.Context, tempDir, artifa
 	resp, err := client.Do(req)
 	if err != nil {
 		d.errChan <- fmt.Errorf("unable to perform HTTP request to download artifact: %w", err)
-		panic(err)
+		log.Fatalf("unable to perform HTTP request to download artifact: %w", err)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		d.errChan <- fmt.Errorf("unable to download artifact from %s, received HTTP status code: %d", downloadURL, resp.StatusCode)
-		panic(err)
+		log.Fatalf("unable to download artifact from %s, received HTTP status code: %d", downloadURL, resp.StatusCode)
 	}
 
 	if _, err = io.Copy(zipOut, resp.Body); err != nil {
 		d.errChan <- fmt.Errorf("unable to copy artifact data to zip archive: %w", err)
-		panic(err)
+		log.Fatalf("unable to copy artifact data to zip archive: %w", err)
 	}
 
 	if err = extractPublishingInfoFromZip(artifactName, zipName, opts.TargetDir); err != nil {
 		d.errChan <- fmt.Errorf("unable to extract publishing info from zip archive %s: %w", zipName, err)
-		panic(err)
+		log.Fatalf("unable to extract publishing info from zip archive %s: %w", zipName, err)
 	}
 }
 
