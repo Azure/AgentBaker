@@ -174,7 +174,7 @@ func serviceCanRestartValidator(serviceName string, restartTimeoutInSeconds int)
 		"echo POST_PID: $POST_PID",
 
 		// verify the PID has changed.
-		"if [[ \"$INITIAL_PID\" == \"$POST_PID\" ]]; then exit 1; fi",
+		"if [[ \"$INITIAL_PID\" == \"$POST_PID\" ]]; then echo 'PID didn't change after restart, failing validator.'; exit 1; fi",
 	}
 
 	command := makeExecutableCommand(steps)
