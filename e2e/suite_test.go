@@ -146,6 +146,8 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		}
 	}
 
+	log.Println("Waiting for vmss creation...")
+
 	vmPrivateIP, err := pollGetVMPrivateIP(ctx, vmssName, opts)
 	if err != nil {
 		t.Fatalf("failed to get VM private IP: %s", err)
@@ -161,7 +163,7 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 
 	// Only perform node readiness/pod-related checks when VMSS creation succeeded
 	if vmssSucceeded {
-		log.Println("vmss creation succeded, proceeding with node readiness and pod checks...")
+		log.Println("vmss creation succeeded, proceeding with node readiness and pod checks...")
 		nodeName, err := validateNodeHealth(ctx, opts.clusterConfig.kube, vmssName)
 		if err != nil {
 			t.Fatal(err)

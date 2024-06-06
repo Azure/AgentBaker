@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -128,11 +129,6 @@ func FileHasContentsValidator(fileName string, contents string) *LiveVMValidator
 // this function is just used to remove some bash specific tokens so we can echo the command to stdout.
 func cleanse(str string) string {
 	str = strings.Replace(str, "'", "", -1)
-	str = strings.Replace(str, "\"", "", -1)
-	str = strings.Replace(str, "(", "OB", -1)
-	str = strings.Replace(str, ")", "CB", -1)
-	str = strings.Replace(str, "||", "OR", -1)
-	str = strings.Replace(str, "&&", "AND", -1)
 
 	return str
 }
@@ -145,15 +141,25 @@ func makeExecutableCommand(steps []string) string {
 		stepsWithEchos[i*2+1] = s
 	}
 
-	command := fmt.Sprintf("bash -c \"%s\"", strings.Join(stepsWithEchos, " && "))
+	// quote " quotes and $ vars
+	joinedCommand := strings.Join(stepsWithEchos, " && ")
+	quotedCommand := strings.Replace(joinedCommand, "'", "'\"'\"'", -1)
+
+	command := fmt.Sprintf("bash -c '%s'", quotedCommand)
+
+	log.Printf("command: %s", command)
 	return command
 }
 
 func serviceCanRestartValidator(serviceName string, restartTimeoutInSeconds int) *LiveVMValidator {
 	steps := []string{
-		// Verify the service is active - print the state then verify so we have logs
+		// Verify the service is active - print the state then verify, so we have logs
 		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
 		fmt.Sprintf("systemctl is-active %s", serviceName),
+
+		// get the PID of the service, so we can check it's changed
+		fmt.Sprintf("INITIAL_PID=`sudo pgrep %s`", serviceName),
+		"echo INITIAL_PID: $INITIAL_PID",
 
 		// we use systemctl kill rather than kill -9 because container restrictions stop us sending a kill sig to a process
 		fmt.Sprintf("sudo systemctl kill %s", serviceName),
@@ -164,6 +170,13 @@ func serviceCanRestartValidator(serviceName string, restartTimeoutInSeconds int)
 		// print the status of the service and then verify it is active.
 		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
 		fmt.Sprintf("systemctl is-active %s", serviceName),
+
+		// get the PID of the service after restart, so we can check it's changed
+		fmt.Sprintf("POST_PID=`sudo pgrep %s`", serviceName),
+		"echo POST_PID: $POST_PID",
+
+		// verify the PID has changed.
+		"if [[ \"$INITIAL_PID\" == \"$POST_PID\" ]]; then exit 1; fi",
 	}
 
 	command := makeExecutableCommand(steps)
