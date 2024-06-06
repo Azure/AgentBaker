@@ -159,29 +159,29 @@ echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEP
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
-Packages="$(jq .Packages $COMPONENTS_FILEPATH) --monochrome-output --compact-output" || exit $?
+Packages="$(jq .Packages components.json --monochrome-output --compact-output)" || exit $?
 containerdEntry=$(echo "$Packages" | jq '.[] | select(.name == "containerd") ')
 containerdLastVersion=""
 containerdOverrideDownloadURL=""
 
 if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
   if [[ "${UBUNTU_RELEASE}" == "18.04" ]]; then
-    # get the last entry from the array '.downloadUriEntries.ubuntu."1804".version'
-    containerdLastVersion=$(echo ${containerdEntry} | jq -r '.downloadUriEntries.ubuntu."1804".version | last')
+    # get the last entry from the array '.downloadUriEntries.ubuntu."1804".versions'
+    containerdLastVersion=$(echo ${containerdEntry} | jq -r '.downloadUriEntries.ubuntu."1804".versions | last')
     containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.ubuntu."1804".downloadURL')"
   else
-    containerdLastVersion="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.ubuntu.current.version | last')"
+    containerdLastVersion="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.ubuntu.current.versions | last')"
     containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.ubuntu.current.downloadURL')"
   fi
 fi
 
 if [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
-  containerdLastVersion="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.mariner.current.version | last')"
+  containerdLastVersion="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.mariner.current.versions | last')"
   containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.downloadUriEntries.mariner.current.downloadURL')"
 fi
 
 if [[ -z "$containerdLastVersion" ]] && [[ -z "$containerdOverrideDownloadURL" ]]; then
-  echo "Either Containerd's version or downloadURL should be defined in components.json"
+  echo "Either Containerd's versions or downloadURL should be defined in components.json"
   exit 1
 fi
 
@@ -192,17 +192,17 @@ runcLastVersion=""
 runcOverrideDownloadURL=""
 runcEntry=$(echo "$Packages" | jq '.[] | select(.name == "runc")')
 if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
-    runcLastVersion="$(echo ${runcEntry} | jq -r '.downloadUriEntries.ubuntu.current.version | last')"
+    runcLastVersion="$(echo ${runcEntry} | jq -r '.downloadUriEntries.ubuntu.current.versions | last')"
     runcOverrideDownloadURL="$(echo ${runcEntry} | jq -r '.downloadUriEntries.ubuntu.current.downloadURL')"
 fi
 
 if [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
-  runcLastVersion="$(echo ${runcEntry} | jq -r '.downloadUriEntries.mariner.current.version | last')"
+  runcLastVersion="$(echo ${runcEntry} | jq -r '.downloadUriEntries.mariner.current.versions | last')"
   runcOverrideDownloadURL="$(echo ${runcEntry} | jq -r '.downloadUriEntries.mariner.current.downloadURL')"
 fi
 
 if [[ -z "$runcLastVersion" ]] && [[ -z "$runcOverrideDownloadURL" ]]; then
-  echo "Either Runc's version or downloadURL should be defined in components.json"
+  echo "Either Runc's versions or downloadURL should be defined in components.json"
   exit 1
 fi
 
