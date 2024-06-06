@@ -7,4 +7,4 @@ filesToCheck=$(find bash_tests -type f -name "*.test.bats.sh" )
 
 echo $filesToCheck
 
-bats -F tap13 ${filesToCheck}
+bats -F tap ${filesToCheck}
