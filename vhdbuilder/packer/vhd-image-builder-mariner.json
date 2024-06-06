@@ -40,10 +40,10 @@
       "os_disk_size_gb": "60",
       "shared_image_gallery": {
         "subscription": "b8f169b2-5b23-444a-ae4b-19a31b5e3652",
-        "resource_group": "cameronbaird_home",
-        "gallery_name": "testSIGxeast",
-        "image_name": "linuxtestx",
-        "image_version": "1.1717707598.0"
+        "resource_group": "cameronbaird_home_east",
+        "gallery_name": "testSIGcbeast",
+        "image_name": "katatest",
+        "image_version": "1.1717713295.0"
       },
       "azure_tags": {
         "buildDefinitionName": "{{user `build_definition_name`}}",
