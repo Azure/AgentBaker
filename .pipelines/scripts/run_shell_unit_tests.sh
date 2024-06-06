@@ -1,7 +1,7 @@
 #!/bin/bash
 set -uo pipefail
 
-npm install -g bats
+sudo npm install -g bats
 
 filesToCheck=$(find bash_tests -type f -name "*.test.sh" )
 
