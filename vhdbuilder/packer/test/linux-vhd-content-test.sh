@@ -12,6 +12,14 @@ OS_SKU="$4"
 GIT_BRANCH="$5"
 IMG_SKU="$6"
 
+# List of "ERROR/WARNING" message we want to ignore in the cloud-init.log
+# 1. "Command ['hostname', '-f']":
+#   Running hostname -f will fail on current AzureLinux AKS image. We don't not have active plan to resolve 
+#   this for stable version and there is no customer issues collected. Ignore this failure now. 
+CLOUD_INIT_LOG_MSG_IGNORE_LIST=(
+  "Command ['hostname', '-f']"
+)
+
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -290,6 +298,44 @@ testFips() {
       else
         err $test "fips header files don't exist."
       fi
+    fi
+  fi
+
+  echo "$test:Finish"
+}
+
+testCloudInit() {
+  test="testCloudInit"
+  echo "$test:Start"
+  os_sku=$1
+
+  # Limit this test only to Mariner or Azurelinux 
+  if [[ "${os_sku}" == "CBLMariner" || "${os_sku}" == "AzureLinux" ]]; then
+    echo "Checking if cloud-init.log exists..."
+    FILE=/var/log/cloud-init.log
+    if test -f "$FILE"; then
+      echo "Cloud-init log exists. Checking its content..."
+      grep 'WARNING\|ERROR' $FILE | while read -r msg; do 
+        for pattern in "${CLOUD_INIT_LOG_MSG_IGNORE_LIST[@]}"; do
+            if [[ "$msg" == *"$pattern"* ]]; then
+                echo "Ignoring WARNING/ERROR message from ignore list; '${msg}'"
+            else
+                err $test "Cloud-init log has unexpected WARNING/ERROR: '${msg}'"
+            fi
+        done
+      done
+      echo "Cloud-init log is OK."
+    else
+      err $test "Check cloud-init log does not exist."
+    fi
+
+    echo "Checking cloud-init status..."
+    cloud_init_output=$(cloud-init status --wait)
+    cloud_init_status=$?
+    if [ ${cloud_init_status} -eq 0 ]; then
+      echo "Cloud-init status is OK."
+    else
+      err $test "Cloud-init exit status with code ${cloud_init_status}, ${cloud_init_output}."
     fi
   fi
 
@@ -908,6 +954,7 @@ testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
 testChrony $OS_SKU
 testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS
+testCloudInit $OS_SKU
 testKubeBinariesPresent $CONTAINER_RUNTIME
 testKubeProxyImagesPulled $CONTAINER_RUNTIME
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout

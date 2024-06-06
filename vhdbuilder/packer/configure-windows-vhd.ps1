@@ -47,19 +47,20 @@ function Download-FileWithAzCopy {
         New-Item -ItemType Directory $global:aksTempDir -Force
     }
 
-    if (!(Test-Path -Path "$global:aksTempDir\azcopy")) {
+    if (!(Test-Path -Path "$global:aksTempDir\azcopy.exe")) {
         Write-Log "Downloading azcopy"
         Invoke-WebRequest -UseBasicParsing "https://aka.ms/downloadazcopy-v10-windows" -OutFile "$global:aksTempDir\azcopy.zip"
-        Expand-Archive -Path "$global:aksTempDir\azcopy.zip" -DestinationPath "$global:aksTempDir\azcopy" -Force
+        Expand-Archive -Path "$global:aksTempDir\azcopy.zip" -DestinationPath "$global:aksTempDir\tmp" -Force
+        Move-Item "$global:aksTempDir\tmp\*\azcopy.exe" "$global:aksTempDir\azcopy.exe"
     }
 
-    $env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
-    $env:AZCOPY_MSI_RESOURCE_STRING=$env:WindowsMSIResourceString
-    $env:AZCOPY_JOB_PLAN_LOCATION="$global:aksTempDir\azcopy"
-    $env:AZCOPY_LOG_LOCATION="$global:aksTempDir\azcopy"
-
-    Invoke-Expression -Command "$global:aksTempDir\azcopy\*\azcopy.exe copy $URL $dest"
-
+    pushd "$global:aksTempDir"
+        $env:AZCOPY_JOB_PLAN_LOCATION="$global:aksTempDir\azcopy"
+        $env:AZCOPY_LOG_LOCATION="$global:aksTempDir\azcopy"
+        # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows-vhd-builder-sig.json
+        .\azcopy.exe login --login-type=MSI
+        .\azcopy.exe copy $URL $Dest
+    popd
 }
 
 function Cleanup-TemporaryFiles {

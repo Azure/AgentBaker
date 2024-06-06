@@ -43,6 +43,9 @@ configureSystemdUseDomains() {
 
     # Restart systemd networkd service
     systemctl restart systemd-networkd
+
+    # Restart rsyslog service to display the correct hostname in log
+    systemctl restart rsyslog
 }
 
 configureSwapFile() {
