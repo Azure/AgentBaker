@@ -2,7 +2,6 @@ package scenario
 
 import (
 	"fmt"
-	"log"
 	"strings"
 )
 
@@ -147,7 +146,6 @@ func makeExecutableCommand(steps []string) string {
 
 	command := fmt.Sprintf("bash -c '%s'", quotedCommand)
 
-	log.Printf("command: %s", command)
 	return command
 }
 
