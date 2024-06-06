@@ -135,16 +135,11 @@ func cleanse(str string) string {
 func makeExecutableCommand(steps []string) string {
 	stepsWithEchos := make([]string, len(steps)*2)
 
-	for i, s := range steps {
-		stepsWithEchos[i*2] = fmt.Sprintf("echo '%s'", cleanse(s))
-		stepsWithEchos[i*2+1] = s
-	}
-
 	// quote " quotes and $ vars
 	joinedCommand := strings.Join(stepsWithEchos, " && ")
 	quotedCommand := strings.Replace(joinedCommand, "'", "'\"'\"'", -1)
 
-	command := fmt.Sprintf("bash -c '%s'", quotedCommand)
+	command := fmt.Sprintf("bash -x -c '%s'", quotedCommand)
 
 	return command
 }
