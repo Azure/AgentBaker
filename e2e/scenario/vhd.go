@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/Azure/agentbakere2e/artifact"
 	"github.com/Azure/agentbakere2e/config"
@@ -49,7 +50,7 @@ func getVHDsFromBuild(ctx context.Context, tmpl *Template, scenarios []*Scenario
 		return fmt.Errorf("unable to convert build ID %s to int: %w", config.VHDBuildID, err)
 	}
 
-	for _, vhd := range []*VHD{
+	vhds := []*VHD{
 		&tmpl.Ubuntu1804.Gen2Containerd,
 		&tmpl.Ubuntu2204.Gen2Arm64Containerd,
 		&tmpl.Ubuntu2204.Gen2Containerd,
@@ -58,31 +59,46 @@ func getVHDsFromBuild(ctx context.Context, tmpl *Template, scenarios []*Scenario
 		&tmpl.AzureLinuxV2.Gen2,
 		&tmpl.CBLMarinerV2.Gen2Arm64,
 		&tmpl.CBLMarinerV2.Gen2,
-	} {
-		if vhd.ResourceID != "" { // resource ID is already set, don't modify it
-			continue
-		}
-		var err error
+	}
+	wg := sync.WaitGroup{}
+	wg.Add(len(vhds))
+	// resourceID fetching can be slow, some concurrency to speed things up
+	for _, vhd := range vhds {
+		go func(vhd *VHD) {
+			defer wg.Done()
+			err := setResourceID(ctx, vhd, suiteConfig.VHDBuildID)
+			if err != nil {
+				log.Printf("Failed to set resource ID for VHD %q: %v", vhd.ImageID, err)
+			} else {
+				log.Printf("Successfully set resource ID for VHD %q: %s", vhd.ImageID, vhd.ResourceID)
+			}
+		}(vhd)
+	}
+	wg.Wait()
+	return nil
+}
 
-		// if build ID is specified, find the latest image with the build ID tag
-		// if it's not found, fall back to the default version tag
-		// TODO: should we instead skip scenarios without a VHD?
-		if buildID != 0 {
-			var err error
-			vhd.ResourceID, err = findLatestImageWithTag(ctx, vhd.ImageID, "buildId", strconv.Itoa(suiteConfig.VHDBuildID))
-			if !errors.Is(err, ErrNotFound) {
-				return fmt.Errorf("failed to find latest image with build ID %d: %v", suiteConfig.VHDBuildID, err)
-			}
-			if err == nil {
-				log.Printf("Found VHD %q for image %q with build ID %d", vhd.ResourceID.Short(), vhd.ImageID, suiteConfig.VHDBuildID)
-				continue
-			}
+func setResourceID(ctx context.Context, vhd *VHD, buildID int) error {
+	if vhd.ResourceID != "" { // resource ID is already set, don't modify it
+		return nil
+	}
+	var err error
+
+	// TODO: should we instead skip scenarios without a VHD?
+	if buildID != 0 {
+		var err error
+		vhd.ResourceID, err = findLatestImageWithTag(ctx, vhd.ImageID, "buildId", strconv.Itoa(buildID))
+		if err == nil {
+			return nil
 		}
-		vhd.ResourceID, err = findLatestImageWithTag(ctx, vhd.ImageID, vhd.VersionTagName, vhd.VersionTagValue)
-		if err != nil {
-			return fmt.Errorf("failed to find latest image with tag %q=%q: %v", vhd.VersionTagName, vhd.VersionTagValue, err)
+		if !errors.Is(err, ErrNotFound) {
+			return fmt.Errorf("failed to find latest VHD for %q with build ID %d: %v", vhd.ImageID, buildID, err)
 		}
-		log.Printf("Found VHD %q for image %q with build ID %d", vhd.ResourceID.Short(), vhd.ImageID, suiteConfig.VHDBuildID)
+		log.Printf("No image found for %q with build ID %d, falling back to default VHD", vhd.ImageID, buildID)
+	}
+	vhd.ResourceID, err = findLatestImageWithTag(ctx, vhd.ImageID, vhd.VersionTagName, vhd.VersionTagValue)
+	if err != nil {
+		return fmt.Errorf("failed to find latest image with tag %q=%q: %v", vhd.VersionTagName, vhd.VersionTagValue, err)
 	}
 	return nil
 }
@@ -105,7 +121,7 @@ func findLatestImageWithTag(ctx context.Context, imageID, tagName, tagValue stri
 		return "", fmt.Errorf("failed to create a new images client: %v", err)
 	}
 
-	pager := client.NewListByGalleryImagePager(image.resourceGroup, image.galleryName, image.galleryName, nil)
+	pager := client.NewListByGalleryImagePager(image.resourceGroup, image.galleryName, image.imageName, nil)
 	var latestVersion *armcompute.GalleryImageVersion
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
