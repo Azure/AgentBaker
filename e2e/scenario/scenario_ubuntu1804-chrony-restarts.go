@@ -17,9 +17,9 @@ func (t *Template) ubuntu1804ChronyRestarts() *Scenario {
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-18.04-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
+				serviceCanRestartValidator("chronyd", 10),
 				FileHasContentsValidator("/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "Restart=always"),
 				FileHasContentsValidator("/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "RestartSec=5"),
-				serviceCanRestartValidator("chronyd", 10),
 			},
 		},
 	}

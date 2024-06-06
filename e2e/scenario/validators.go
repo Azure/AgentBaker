@@ -106,7 +106,8 @@ func NonEmptyDirectoryValidator(dirName string) *LiveVMValidator {
 func FileHasContentsValidator(fileName string, contents string) *LiveVMValidator {
 	return &LiveVMValidator{
 		Description: fmt.Sprintf("Assert that %s has defined contents", fileName),
-		Command:     fmt.Sprintf("bash -s \"ls -la %[1]s && cat %[1]s | grep -q '%[2]s'\"", fileName, contents),
+		// on mariner and ubuntu, the chronyd drop-in file is not readable by the default user, so we run as root.
+		Command: fmt.Sprintf("sudo bash -s \"ls -la %[1]s && cat %[1]s | grep -q '%[2]s'\"", fileName, contents),
 		Asserter: func(code, stdout, stderr string) error {
 			if code != "0" {
 				return fmt.Errorf("expected to find a file '%s' with contents '%s' but did not", fileName, contents)
