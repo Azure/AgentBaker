@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -133,18 +134,26 @@ func cleanse(str string) string {
 }
 
 func makeExecutableCommand(steps []string) string {
+	stepsWithEchos := make([]string, len(steps)*2)
+
+	for i, s := range steps {
+		stepsWithEchos[i*2] = fmt.Sprintf("echo '%s'", cleanse(s))
+		stepsWithEchos[i*2+1] = s
+	}
+
 	// quote " quotes and $ vars
-	joinedCommand := strings.Join(steps, " && ")
+	joinedCommand := strings.Join(stepsWithEchos, " && ")
 	quotedCommand := strings.Replace(joinedCommand, "'", "'\"'\"'", -1)
 
-	command := fmt.Sprintf("bash -x -c '%s'", quotedCommand)
+	command := fmt.Sprintf("bash -c '%s'", quotedCommand)
 
+	log.Printf("command: %s", command)
 	return command
 }
 
 func serviceCanRestartValidator(serviceName string, restartTimeoutInSeconds int) *LiveVMValidator {
 	steps := []string{
-		// Verify the service is active - print the state then verify, so we have logs
+		// Verify the service is active - print the state then verify so we have logs
 		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
 		fmt.Sprintf("systemctl is-active %s", serviceName),
 
