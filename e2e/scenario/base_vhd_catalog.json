@@ -2,7 +2,7 @@
     "ubuntu1804": {
         "gen2containerd": {
             "artifactName": "1804-gen2-containerd",
-            "resourceId": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1717624749.32253"
+            "resourceId": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1717624756.7706"
         }
     },
     "ubuntu2204": {
