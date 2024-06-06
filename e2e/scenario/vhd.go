@@ -241,7 +241,7 @@ func (c *VHDCatalog) addEntryFromPublishingInfo(info artifact.VHDPublishingInfo)
 		case vhdNameCBLMarinerV2Gen2:
 			c.CBLMarinerV2.Gen2.ResourceID = id
 		default:
-			panic(fmt.Sprintf("cannot assign VHD resource IDto VHD name \"%s\" as name not known.", name))
+			panic(fmt.Sprintf("cannot assign VHD resource ID to VHD name \"%s\" as name not known.", name))
 		}
 	}
 }
