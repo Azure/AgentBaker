@@ -133,10 +133,8 @@ func cleanse(str string) string {
 }
 
 func makeExecutableCommand(steps []string) string {
-	stepsWithEchos := make([]string, len(steps)*2)
-
 	// quote " quotes and $ vars
-	joinedCommand := strings.Join(stepsWithEchos, " && ")
+	joinedCommand := strings.Join(steps, " && ")
 	quotedCommand := strings.Replace(joinedCommand, "'", "'\"'\"'", -1)
 
 	command := fmt.Sprintf("bash -x -c '%s'", quotedCommand)
