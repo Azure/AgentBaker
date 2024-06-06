@@ -12,9 +12,11 @@ import (
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/barkimedes/go-deepcopy"
+	"github.com/joho/godotenv"
 )
 
 func Test_All(t *testing.T) {
+	_ = godotenv.Load()
 	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 	ctx := context.Background()
 	t.Parallel()

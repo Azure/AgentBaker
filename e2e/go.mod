@@ -12,6 +12,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
 	github.com/Azure/go-armbalancer v0.0.2
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
+	github.com/joho/godotenv v1.5.1
 	github.com/sanity-io/litter v1.5.5
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.24.0
