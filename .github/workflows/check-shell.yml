@@ -11,5 +11,7 @@ jobs:
         go-version: '^1.16'
     - run: |
         make validate-shell
-        make unit-test-shell
       name: Verify Shell scripts
+    - run: |
+        make unit-test-shell
+      name: Unit test Shell scripts
