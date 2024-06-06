@@ -1,23 +1,27 @@
 #!/bin/bash
 set -x
 
+retrycmd_if_failure() {
+    retries=$1; wait_sleep=$2; shift && shift
+    for i in $(seq 1 $retries); do
+        "${@}" && break || \
+        echo "Failed to execute command \"$@\""
+        if [ $i -eq $retries ]; then
+            echo "ERROR: Exhausted all retries (${i}/{$retries}), forcing a failure..."
+            return 1
+        else
+            echo "$(($retries - $i)) retries remaining"
+            sleep $wait_sleep
+        fi
+    done
+    echo Executed \"$@\" $i times;
+}
+
 set_git_config() {
     # git config needs to be set in the agent
     git config --global user.email "amaheshwari@microsoft.com"
     git config --global user.name "anujmaheshwari1"
     git config --list
-}
-
-configure_az_devops() {
-    # Login to azure devops using PAT/System Access Token for artifacts and triggering ev2 builds
-    # TODO(amaheshwari): Use only PAT for both artifacts and builds
-    az extension add -n azure-devops
-
-    set +x
-    echo $1 | az devops login --organization=https://dev.azure.com/msazure
-    set -x
-    
-    az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
 }
 
 create_branch() {
