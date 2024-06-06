@@ -60,6 +60,10 @@ fi
 echo "private egress proxy address is '${PRIVATE_EGRESS_PROXY_ADDRESS}'"
 # TODO update to use proxy
 
+# This involves using cache acr, log the config before fetching packages
+echo "cache acr address is '${ARTIFACT_CACHE_CONTAINER_REGISTRY_SEVER}'"
+# TODO update containerd config to use cache acr
+
 if [[ "${SHOULD_CONFIGURE_HTTP_PROXY}" == "true" ]]; then
     if [[ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" == "true" ]]; then
         configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS

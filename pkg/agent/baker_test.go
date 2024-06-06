@@ -1328,6 +1328,12 @@ oom_score = 0
 					},
 				}
 			}, nil),
+		Entry("AKSUbuntu2204 ArtifactCacheContainerRegistryServer", "AKSUbuntu2204+ArtifactCacheContainerRegistryServer", "1.24.2",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ArtifactCacheContainerRegistryServer = "test.azurecr.io"
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ARTIFACT_CACHE_CONTAINER_REGISTRY_SEVER"]).To(Equal("test.azurecr.io"))
+			}),
 		Entry("AKSUbuntu2204 IMDSRestriction with enable restriction and insert to mangle table", "AKSUbuntu2204+IMDSRestrictionOnWithMangleTable", "1.24.2",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableIMDSRestriction = true

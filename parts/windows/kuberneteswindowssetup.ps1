@@ -139,6 +139,7 @@ $global:LoadBalancerSku = "{{GetVariable "loadBalancerSku"}}"
 $global:ExcludeMasterFromStandardLB = "{{GetVariable "excludeMasterFromStandardLB"}}"
 
 $global:PrivateEgressProxyAddress = "{{GetPrivateEgressProxyAddress}}"
+$global:ArtifactCacheContainerRegistryServer = "{{GetArtifactCacheContainerRegistryServer}}"
 
 # Windows defaults, not changed by aks-engine
 $global:CacheDir = "c:\akse-cache"
@@ -240,6 +241,10 @@ try
     # This involes using proxy, log the config before fetching packages
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
+
+    # This involves using cache acr, log the config before fetching packages
+    Write-Log "private egress proxy address is '$global:ArtifactCacheContainerRegistryServer'"
+    # TODO update containerd config to use cache acr
 
     $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.42.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"

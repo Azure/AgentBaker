@@ -1726,6 +1726,7 @@ type NodeBootstrappingConfiguration struct {
 	SSHStatus                              SSHStatus
 	DisableCustomData                      bool
 	OutboundType                           string
+	ArtifactCacheContainerRegistryServer   string
 	EnableIMDSRestriction                  bool
 	// InsertIMDSRestrictionRuleToMangleTable is only checked when EnableIMDSRestriction is true.
 	// When this is true, iptables rule will be inserted to `mangle` table. This is for Linux Cilium
