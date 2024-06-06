@@ -104,10 +104,18 @@ func NonEmptyDirectoryValidator(dirName string) *LiveVMValidator {
 }
 
 func FileHasContentsValidator(fileName string, contents string) *LiveVMValidator {
+	steps := []string{
+		// Verify the service is active - print the state then verify so we have logs
+		fmt.Sprintf("ls -la %[1]s", fileName),
+		fmt.Sprintf("(sudo cat %[1]s | grep -q '%[2]s')", fileName, contents),
+	}
+
+	command := makeExecutableCommand(steps)
+
 	return &LiveVMValidator{
 		Description: fmt.Sprintf("Assert that %s has defined contents", fileName),
 		// on mariner and ubuntu, the chronyd drop-in file is not readable by the default user, so we run as root.
-		Command: fmt.Sprintf("sudo bash -s \"ls -la %[1]s && cat %[1]s | grep -q '%[2]s'\"", fileName, contents),
+		Command: command,
 		Asserter: func(code, stdout, stderr string) error {
 			if code != "0" {
 				return fmt.Errorf("expected to find a file '%s' with contents '%s' but did not", fileName, contents)
@@ -129,6 +137,18 @@ func cleanse(str string) string {
 	return str
 }
 
+func makeExecutableCommand(steps []string) string {
+	stepsWithEchos := make([]string, len(steps)*2)
+
+	for i, s := range steps {
+		stepsWithEchos[i*2] = fmt.Sprintf("echo '%s'", cleanse(s))
+		stepsWithEchos[i*2+1] = s
+	}
+
+	command := fmt.Sprintf("bash -c \"%s\"", strings.Join(stepsWithEchos, " && "))
+	return command
+}
+
 func serviceCanRestartValidator(serviceName string, restartTimeoutInSeconds int) *LiveVMValidator {
 	steps := []string{
 		// Verify the service is active - print the state then verify so we have logs
@@ -145,14 +165,8 @@ func serviceCanRestartValidator(serviceName string, restartTimeoutInSeconds int)
 		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
 		fmt.Sprintf("systemctl is-active %s", serviceName),
 	}
-	stepsWithEchos := make([]string, len(steps)*2)
 
-	for i, s := range steps {
-		stepsWithEchos[i*2] = fmt.Sprintf("echo '%s'", cleanse(s))
-		stepsWithEchos[i*2+1] = s
-	}
-
-	command := fmt.Sprintf("bash -c \"%s\"", strings.Join(stepsWithEchos, " && "))
+	command := makeExecutableCommand(steps)
 
 	return &LiveVMValidator{
 		Description: fmt.Sprintf("asserts that %s restarts after it is killed", serviceName),
