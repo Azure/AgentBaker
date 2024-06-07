@@ -121,20 +121,20 @@ func pollExtractClusterParameters(ctx context.Context, kube *kubeclient) (map[st
 	return clusterParams, nil
 }
 
-// Wraps exctracLogsFromVM and dumpFileMapToDir in a poller with a 15-second wait interval and 5-minute timeout
+// Wraps extractLogsFromVM and dumpFileMapToDir in a poller with a 15-second wait interval and 5-minute timeout
 func pollExtractVMLogs(ctx context.Context, vmssName, privateIP string, privateKeyBytes []byte, opts *scenarioRunOpts) error {
 	err := wait.PollImmediateWithContext(ctx, extractVMLogsPollInterval, extractVMLogsPollingTimeout, func(ctx context.Context) (bool, error) {
-		log.Println("attempting to extract VM logs")
+		log.Printf("on %s attempting to extract VM logs", vmssName)
 
 		logFiles, err := extractLogsFromVM(ctx, vmssName, privateIP, string(privateKeyBytes), opts)
 		if err != nil {
-			log.Printf("error extracting VM logs: %q", err)
+			log.Printf("on %s error extracting VM logs: %q", vmssName, err)
 			return false, nil
 		}
 
-		log.Printf("dumping VM logs to local directory: %s", opts.loggingDir)
+		log.Printf("on %s dumping VM logs to local directory: %s", vmssName, opts.loggingDir)
 		if err = dumpFileMapToDir(opts.loggingDir, logFiles); err != nil {
-			log.Printf("error extracting VM logs: %q", err)
+			log.Printf("on %s error extracting VM logs: %q", vmssName, err)
 			return false, nil
 		}
 

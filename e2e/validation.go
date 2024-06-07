@@ -12,17 +12,17 @@ import (
 func validateNodeHealth(ctx context.Context, kube *kubeclient, vmssName string) (string, error) {
 	nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
 	if err != nil {
-		return "", fmt.Errorf("error waiting for node ready: %w", err)
+		return "", fmt.Errorf("error waiting for vmss %s ready: %w", vmssName, err)
 	}
 
 	nginxPodName, err := ensureTestNginxPod(ctx, kube, nodeName)
 	if err != nil {
-		return "", fmt.Errorf("error waiting for pod ready: %w", err)
+		return "", fmt.Errorf("error waiting for vmss %s pod ready: %w", vmssName, err)
 	}
 
 	err = waitUntilPodDeleted(ctx, kube, nginxPodName)
 	if err != nil {
-		return "", fmt.Errorf("error waiting pod deleted: %w", err)
+		return "", fmt.Errorf("error waiting vmss %s pod deleted: %w", vmssName, err)
 	}
 
 	return nodeName, nil
@@ -36,17 +36,17 @@ func validateWasm(ctx context.Context, kube *kubeclient, nodeName, privateKey st
 
 	spinPodIP, err := getPodIP(ctx, kube, defaultNamespace, spinPodName)
 	if err != nil {
-		return fmt.Errorf("unable to get IP of wasm spin pod %q: %w", spinPodName, err)
+		return fmt.Errorf("on node %s unable to get IP of wasm spin pod %q: %w", nodeName, spinPodName, err)
 	}
 
 	debugPodName, err := getDebugPodName(kube)
 	if err != nil {
-		return fmt.Errorf("unable to get debug pod name to validate wasm: %w", err)
+		return fmt.Errorf("on node %s unable to get debug pod name to validate wasm: %w", nodeName, err)
 	}
 
 	execResult, err := pollExecOnPod(ctx, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
 	if err != nil {
-		return fmt.Errorf("unable to execute wasm validation command: %w", err)
+		return fmt.Errorf("on node %sunable to execute wasm validation command: %w", nodeName, err)
 	}
 
 	if execResult.exitCode != "0" {
@@ -55,26 +55,26 @@ func validateWasm(ctx context.Context, kube *kubeclient, nodeName, privateKey st
 		if execResult.exitCode == "7" || execResult.exitCode == "28" {
 			spinPodIP, err = getPodIP(ctx, kube, defaultNamespace, spinPodName)
 			if err != nil {
-				return fmt.Errorf("unable to get IP of wasm spin pod %q: %w", spinPodName, err)
+				return fmt.Errorf(" on node %s unable to get IP of wasm spin pod %q: %w", nodeName, spinPodName, err)
 			}
 
 			execResult, err = pollExecOnPod(ctx, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
 			if err != nil {
-				return fmt.Errorf("unable to execute wasm validation command on wasm pod %q at %s: %w", spinPodName, spinPodIP, err)
+				return fmt.Errorf("unable to execute on node %s wasm validation command on wasm pod %q at %s: %w", nodeName, spinPodName, spinPodIP, err)
 			}
 
 			if execResult.exitCode != "0" {
 				execResult.dumpAll()
-				return fmt.Errorf("curl wasm endpoint on pod %q at %s terminated with exit code %s", spinPodName, spinPodIP, execResult.exitCode)
+				return fmt.Errorf("curl  on node %swasm endpoint on pod %q at %s terminated with exit code %s", nodeName, spinPodName, spinPodIP, execResult.exitCode)
 			}
 		} else {
 			execResult.dumpAll()
-			return fmt.Errorf("curl wasm endpoint on pod %q at %s terminated with exit code %s", spinPodName, spinPodIP, execResult.exitCode)
+			return fmt.Errorf("curl  on node %swasm endpoint on pod %q at %s terminated with exit code %s", nodeName, spinPodName, spinPodIP, execResult.exitCode)
 		}
 	}
 
 	if err := waitUntilPodDeleted(ctx, kube, spinPodName); err != nil {
-		return fmt.Errorf("error waiting for wasm pod deletion: %w", err)
+		return fmt.Errorf("error waiting for wasm pod deletion on %s: %w", nodeName, err)
 	}
 
 	return nil
@@ -83,7 +83,7 @@ func validateWasm(ctx context.Context, kube *kubeclient, nodeName, privateKey st
 func runLiveVMValidators(ctx context.Context, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
 	podName, err := getDebugPodName(opts.clusterConfig.kube)
 	if err != nil {
-		return fmt.Errorf("unable to get debug pod name: %w", err)
+		return fmt.Errorf("While running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
 	}
 
 	validators := commonLiveVMValidators()
@@ -95,18 +95,18 @@ func runLiveVMValidators(ctx context.Context, vmssName, privateIP, sshPrivateKey
 		desc := validator.Description
 		command := validator.Command
 		isShellBuiltIn := validator.IsShellBuiltIn
-		log.Printf("running live VM validator: %q", desc)
+		log.Printf("running live VM validator on %s: %q", vmssName, desc)
 
 		execResult, err := pollExecOnVM(ctx, opts.clusterConfig.kube, privateIP, podName, sshPrivateKey, command, isShellBuiltIn)
 		if err != nil {
-			return fmt.Errorf("unable to execute validator command %q: %w", command, err)
+			return fmt.Errorf("unable to execute validator on node %s command %q: %w", vmssName, command, err)
 		}
 
 		if validator.Asserter != nil {
 			err := validator.Asserter(execResult.exitCode, execResult.stdout.String(), execResult.stderr.String())
 			if err != nil {
 				execResult.dumpAll()
-				return fmt.Errorf("failed validator assertion: %w", err)
+				return fmt.Errorf("failed validator on node %s assertion: %w", vmssName, err)
 			}
 		}
 	}
