@@ -1,16 +1,14 @@
 package cache
 
-// CachedOnVHD represents the cached components on the VHD.
+// OnVHD represents the cached components on the VHD.
 type OnVHD struct {
 	FromManifest                 *Manifest                 `json:"cachedFromManifest"`
 	FromComponentContainerImages map[string]ContainerImage `json:"cachedFromComponentContainerImages"`
-	FromComponentDownloadedFiles map[string]DownloadFile   `json:"cachedFromComponentDownloadedFiles"`
+	FromComponentPackages        map[string]Package        `json:"cachedFromComponentPackages"`
 }
 
 // Manifest represents the manifest.json file.
 type Manifest struct {
-	Containerd             Dependency `json:"containerd"`
-	Runc                   Dependency `json:"runc"`
 	NvidiaContainerRuntime Dependency `json:"nvidia-container-runtime"`
 	NvidiaDrivers          Dependency `json:"nvidia-drivers"`
 	Kubernetes             Dependency `json:"kubernetes"`
@@ -24,15 +22,10 @@ type Dependency struct {
 	Edge      string            `json:"edge"`
 }
 
-// Versions of components on manifest.json.
-type Versions struct {
-	Versions []string `json:"versions"`
-}
-
 // Components represents the components.json file.
 type Components struct {
 	ContainerImages []ContainerImage `json:"containerImages"`
-	DownloadFiles   []DownloadFile   `json:"downloadFiles"`
+	Packages        []Package        `json:"Packages"`
 }
 
 // ContainerImage represents fields that occur on components.json.
@@ -49,10 +42,22 @@ type PrefetchOptimization struct {
 	Binaries []string `json:"binaries"`
 }
 
-// DownloadFile represents DownloadFile fields that occur on components.json.
-type DownloadFile struct {
-	FileName         string   `json:"fileName"`
-	DownloadLocation string   `json:"downloadLocation"`
-	DownloadURL      string   `json:"downloadURL"`
-	Versions         []string `json:"versions"`
+// Release represents Release struct that occur on components.json.
+type Release struct {
+	Versions    []string `json:"versions"`
+	DownloadURL string   `json:"downloadURL"`
+}
+
+// DownloadURI represents DownloadURI struct that occur on components.json.
+type DownloadURI struct {
+	Current Release `json:"current"`
+	R1804   Release `json:"1804,omitempty"`
+}
+
+// Package represents Package struct that occur on components.json.
+type Package struct {
+	Name                   string                 `json:"name"`
+	DownloadLocation       string                 `json:"downloadLocation"`
+	DownloadURIs           map[string]DownloadURI `json:"downloadURIs"`
+	TargetContainerRuntime string                 `json:"targetContainerRuntime,omitempty"`
 }

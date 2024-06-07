@@ -22,6 +22,8 @@ CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1 v0.8.0"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 CURL_OUTPUT=/tmp/curl_verbose.out
+UBUNTU_OS_NAME="UBUNTU"
+MARINER_OS_NAME="MARINER"
 
 removeManDbAutoUpdateFlagFile() {
     rm -f $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
@@ -71,9 +73,11 @@ installNetworkPlugin() {
 }
 
 downloadCNI() {
-    mkdir -p $CNI_DOWNLOADS_DIR
-    CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin #
-    retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+    downloadDir=${1:-${CRICTL_DOWNLOAD_DIR}}
+    mkdir -p $downloadDir
+    url=${2}
+    crictlTgzTmp=${url##*/}
+    retrycmd_get_tarball 120 5 "$downloadDir/${crictlTgzTmp}" ${url} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
 downloadCredentalProvider() {
@@ -147,12 +151,12 @@ downloadAzureCNI() {
 }
 
 downloadCrictl() {
-    CRICTL_VERSION=$1
-    CPU_ARCH=$(getCPUArch)
-    mkdir -p $CRICTL_DOWNLOAD_DIR
-    CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
-    CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
-    retrycmd_curl_file 10 5 60 "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ${CRICTL_DOWNLOAD_URL}
+    #if $1 is empty, take ${CRICTL_DOWNLOAD_DIR} as default value. Otherwise take $1 as the value
+    downloadDir=${1:-${CRICTL_DOWNLOAD_DIR}}
+    mkdir -p $downloadDir
+    url=${2}
+    crictlTgzTmp=${url##*/}
+    retrycmd_curl_file 10 5 60 "$downloadDir/${crictlTgzTmp}" ${url} || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
 }
 
 installCrictl() {
@@ -463,4 +467,30 @@ datasource:
         apply_network_config: false
 EOF
 }
+
+returnPackageVersions() {
+  local p=$1
+  local os=$2
+  local os_version=$3
+  local release="current"
+  #if os_version is 18.04, then get the versions from .downloadURIs.ubuntu."1804"
+  #otherwise get the versions from .downloadURIs.ubuntu.current
+  if [[ $os_version == "18.04" ]]; then
+    release="\"1804\""
+  fi
+  if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
+    #if .downloadURIs.ubuntu exist, then get the versions from there.
+    #otherwise get the versions from .downloadURIs.default 
+    if [[ $(echo "${p}" | jq '.downloadURIs.ubuntu') != "null" ]]; then
+      versions=$(echo "${p}" | jq '.downloadURIs.ubuntu.$release.versions' -r)
+      echo ${versions[@]}
+      return
+    fi
+    
+    versions=$(echo "${p}" | jq '.downloadURIs.default.$release.versions' -r)
+    echo ${versions[@]}
+    return  
+  fi
+}
+
 #EOF

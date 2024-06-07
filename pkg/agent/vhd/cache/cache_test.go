@@ -19,20 +19,44 @@ var _ = Describe("cache suite", func() {
 			// Add new components to the bottom of components.json, or update the indices.
 			pauseIndx := 2
 			azureCNSIndx := 6
-			cniPluginIndx := 0
-			azureCNIIndx := 1
 
-			Expect(onVHD.FromManifest.Runc.Installed["default"]).To(Equal(manifest.Runc.Installed["default"]))
-			Expect(onVHD.FromManifest.Runc.Pinned["1804"]).To(Equal(manifest.Runc.Pinned["1804"]))
-			Expect(onVHD.FromManifest.Containerd.Pinned["1804"]).To(Equal(manifest.Containerd.Pinned["1804"]))
-			Expect(onVHD.FromManifest.Containerd.Edge).To(Equal(manifest.Containerd.Edge))
+			// find from components.Packages where Name is "runc"
+			for _, p := range components.Packages {
+				switch p.Name {
+				case "containerd":
+					Expect(onVHD.FromComponentPackages["containerd"].DownloadURIs["default"].Current.Versions).To(Equal(
+						p.DownloadURIs["default"].Current.Versions))
+					Expect(onVHD.FromComponentPackages["containerd"].DownloadURIs["mariner"].Current.Versions).To(Equal(
+						p.DownloadURIs["mariner"].Current.Versions))
+					Expect(onVHD.FromComponentPackages["containerd"].DownloadURIs["ubuntu"].Current.Versions).To(Equal(
+						p.DownloadURIs["ubuntu"].Current.Versions))
+					Expect(onVHD.FromComponentPackages["containerd"].DownloadURIs["default"].R1804.Versions).To(Equal(
+						p.DownloadURIs["default"].R1804.Versions))
+					Expect(onVHD.FromComponentPackages["containerd"].DownloadURIs["mariner"].R1804.Versions).To(Equal(
+						p.DownloadURIs["mariner"].R1804.Versions))
+					Expect(onVHD.FromComponentPackages["containerd"].DownloadURIs["ubuntu"].R1804.Versions).To(Equal(
+						p.DownloadURIs["ubuntu"].R1804.Versions))
+				case "runc":
+					Expect(onVHD.FromComponentPackages["runc"].DownloadURIs["default"].Current.Versions).To(Equal(
+						p.DownloadURIs["default"].Current.Versions))
+					Expect(onVHD.FromComponentPackages["runc"].DownloadURIs["mariner"].Current.Versions).To(Equal(
+						p.DownloadURIs["mariner"].Current.Versions))
+					Expect(onVHD.FromComponentPackages["runc"].DownloadURIs["ubuntu"].Current.Versions).To(Equal(
+						p.DownloadURIs["ubuntu"].Current.Versions))
+				case "cni-plugins-linux-amd64-v*":
+					Expect(onVHD.FromComponentPackages["cni-plugins"].DownloadURIs["default"].Current.Versions).To(Equal(
+						p.DownloadURIs["default"].Current.Versions))
+				case "azure-vnet-cni-linux-amd64-v*":
+					Expect(onVHD.FromComponentPackages["azure-cni"].DownloadURIs["default"].Current.Versions).To(Equal(
+						p.DownloadURIs["default"].Current.Versions))
+				}
+
+			}
 			Expect(onVHD.FromManifest.Kubernetes.Versions[0]).To(Equal(manifest.Kubernetes.Versions[0]))
 			Expect(onVHD.FromComponentContainerImages["pause"].MultiArchVersions[0]).To(Equal(components.ContainerImages[pauseIndx].MultiArchVersions[0]))
 			Expect(onVHD.FromComponentContainerImages["azure-cns"].PrefetchOptimizations[0].Version).To(
 				Equal(components.ContainerImages[azureCNSIndx].PrefetchOptimizations[0].Version))
 			Expect(onVHD.FromComponentContainerImages["azure-cns"].PrefetchOptimizations[0].Binaries[0]).To(Equal("usr/local/bin/azure-cns"))
-			Expect(onVHD.FromComponentDownloadedFiles["cni-plugins"].Versions[0]).To(Equal(components.DownloadFiles[cniPluginIndx].Versions[0]))
-			Expect(onVHD.FromComponentDownloadedFiles["azure-cni"].Versions[1]).To(Equal(components.DownloadFiles[azureCNIIndx].Versions[1]))
 		})
 	})
 

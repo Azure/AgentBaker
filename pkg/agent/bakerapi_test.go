@@ -535,7 +535,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(cachedOnVHD).ToNot(BeNil())
 			Expect(cachedOnVHD.FromManifest).ToNot(BeNil())
 			Expect(cachedOnVHD.FromComponentContainerImages).ToNot(BeEmpty())
-			Expect(cachedOnVHD.FromComponentDownloadedFiles).ToNot(BeEmpty())
+			Expect(cachedOnVHD.FromComponentPackages).ToNot(BeEmpty())
 		})
 	})
 })
