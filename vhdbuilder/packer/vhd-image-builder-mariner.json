@@ -43,7 +43,7 @@
         "resource_group": "cameronbaird_home_east",
         "gallery_name": "testSIGcbeast",
         "image_name": "katatest",
-        "image_version": "1.1717713295.0"
+        "image_version": "1.1717796127.0"
       },
       "azure_tags": {
         "buildDefinitionName": "{{user `build_definition_name`}}",
