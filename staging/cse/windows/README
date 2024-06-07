@@ -49,7 +49,10 @@ pushd aks-windows-cse
 	zip -r "../aks-windows-cse-scripts-$testCseVersion.zip" *
 popd
 ```
-1. Upload the test package to an Azure storage container
+1. Upload the test package to your Azure storage container `$web`
+  - You need to enable `Static website` in your storage account on Azure portal
+  - You need to note down your `Primary endpoint` of `Static website` of your storage account
+  - The test package download URL should be `[Primary endpoint]/aks-windows-cse-scripts-[$testCseVersion].zip`
 1. Test it with AKS RP in the toggle `windows-cse-package-url.yaml`
 
 # AKS Windows CSE Scripts Package

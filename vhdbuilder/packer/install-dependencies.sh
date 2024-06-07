@@ -265,7 +265,7 @@ echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
 PRESENT_DIR=$(pwd)
 # run installBcc in a subshell and continue on with container image pull in order to decrease total build time
-( 
+(
   cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
 
   installBcc
@@ -323,7 +323,7 @@ for imageToBePulled in ${ContainerImages[*]}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
       wait -n
-    done    
+    done
   done
 done
 wait ${image_pids[@]}
@@ -357,9 +357,7 @@ unpackAzureCNI() {
 
 #must be both amd64/arm64 images
 VNET_CNI_VERSIONS="
-1.4.52
 1.4.54
-1.5.23
 1.5.28
 "
 
@@ -371,25 +369,9 @@ for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
-#UNITE swift and overlay versions?
-#Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
-SWIFT_CNI_VERSIONS="
-1.4.52
-1.4.54
-1.5.23
-1.5.28
-"
-
-for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
-    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${SWIFT_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-${CPU_ARCH}-v${SWIFT_CNI_VERSION}.tgz"
-    downloadAzureCNI
-    unpackAzureCNI $VNET_CNI_PLUGINS_URL
-    echo "  - Azure Swift CNI version ${SWIFT_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-
 # After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
 MULTI_ARCH_CNI_PLUGIN_VERSIONS="
-1.1.1
+1.4.1
 "
 CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
 
@@ -486,7 +468,7 @@ wait ${kube_proxy_pids[@]} # Wait for all parallel pulls to finish
 
 for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
-  ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables" 
+  ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
 
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}

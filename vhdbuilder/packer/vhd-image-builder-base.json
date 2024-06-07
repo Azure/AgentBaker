@@ -89,6 +89,11 @@
     },
     {
       "type": "file",
+      "source": "nbcparser/bin/nbcparser-amd64",
+      "destination": "/home/packer/nbcparser"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/prefetch.sh",
       "destination": "/home/packer/prefetch.sh"
     },
@@ -608,11 +613,6 @@
       "type": "file",
       "source": "vhdbuilder/packer/list-images.sh",
       "destination": "/home/packer/list-images.sh"
-    },
-    {
-      "type": "file",
-      "source": "vhdbuilder/packer/trivy-scan.sh",
-      "destination": "/home/packer/trivy-scan.sh"
     },
     {
       "type": "shell",
