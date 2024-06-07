@@ -618,7 +618,7 @@
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
-        "sudo {{user `azurelinux_waagent_bindir`}} -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
+        "sudo /usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
     }
   ]
