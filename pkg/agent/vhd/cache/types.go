@@ -52,6 +52,8 @@ type Release struct {
 type DownloadURI struct {
 	Current Release `json:"current"`
 	R1804   Release `json:"1804,omitempty"`
+	R2004   Release `json:"2004,omitempty"`
+	R2204   Release `json:"2204,omitempty"`
 }
 
 // Package represents Package struct that occur on components.json.

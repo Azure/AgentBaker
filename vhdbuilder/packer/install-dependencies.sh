@@ -187,110 +187,61 @@ echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEP
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
-Packages="$(jq .Packages components.json --monochrome-output --compact-output)" || exit $?
-
-#Getting Containerd metadata from components.json
-containerdEntry=$(echo "$Packages" | jq '.[] | select(.name == "containerd") ')
-# For Containerd, we are only getting the last version from the versions array
-containerdLastVersion=""
-containerdOverrideDownloadURL=""
-
-if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
-  if [[ "${UBUNTU_RELEASE}" == "18.04" ]]; then
-    # get the last entry from the array '.downloadURIs.ubuntu."1804".versions'
-    containerdLastVersion=$(echo ${containerdEntry} | jq -r '.downloadURIs.ubuntu."1804".versions | last')
-    containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.downloadURIs.ubuntu."1804".downloadURL')"
-  else
-    containerdLastVersion="$(echo ${containerdEntry} | jq -r '.downloadURIs.ubuntu.current.versions | last')"
-    containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.downloadURIs.ubuntu.current.downloadURL')"
-  fi
-fi
-
-if [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
-  containerdLastVersion="$(echo ${containerdEntry} | jq -r '.downloadURIs.mariner.current.versions | last')"
-  containerdOverrideDownloadURL="$(echo ${containerdEntry} | jq -r '.downloadURIs.mariner.current.downloadURL')"
-fi
-
-if [[ -z "$containerdLastVersion" ]] && [[ -z "$containerdOverrideDownloadURL" ]]; then
-  echo "Either Containerd's versions or downloadURL should be defined in components.json"
-  exit 1
-fi
-
-containerdMajorMinorPatchVersion="$(echo "$containerdLastVersion" | cut -d- -f1)"
-containerdHotFixVersion="$(echo "$containerdLastVersion" | cut -d- -f2)"
-
-#Getting Runc metadata from components.json
-#For Runc, we are only getting the last version from the versions array
-runcLastVersion=""
-runcOverrideDownloadURL=""
-runcEntry=$(echo "$Packages" | jq '.[] | select(.name == "runc")')
-if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
-    runcLastVersion="$(echo ${runcEntry} | jq -r '.downloadURIs.ubuntu.current.versions | last')"
-    runcOverrideDownloadURL="$(echo ${runcEntry} | jq -r '.downloadURIs.ubuntu.current.downloadURL')"
-fi
-
-if [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
-  runcLastVersion="$(echo ${runcEntry} | jq -r '.downloadURIs.mariner.current.versions | last')"
-  runcOverrideDownloadURL="$(echo ${runcEntry} | jq -r '.downloadURIs.mariner.current.downloadURL')"
-fi
-
-if [[ -z "$runcLastVersion" ]] && [[ -z "$runcOverrideDownloadURL" ]]; then
-  echo "Either Runc's versions or downloadURL should be defined in components.json"
-  exit 1
-fi
-
-if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
-  # call function installContainerdAndRunc in cse_install_ubuntu.sh
-  installContainerdAndRunc "${containerdMajorMinorPatchVersion}" "${containerdHotFixVersion}" "${containerdOverrideDownloadURL}" "${runcLastVersion}" "${runcOverrideDownloadURL}"
-fi
-if [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
-  # call function installStandaloneContainerd in cse_install_mariner.sh
-  installStandaloneContainerd "${containerdMajorMinorPatchVersion}"
-fi
-
-echo "  - [installed] containerd v${containerdMajorMinorPatchVersion}-${containerdHotFixVersion}" >> ${VHD_LOGS_FILEPATH}
-stop_watch $capture_time "Create Containerd Service Directory, Download Shims, Configure Runtime and Network" false
-start_watch
-
-
 
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for p in ${packages[*]}; do
+  start_watch
   #getting metadata for each package
   name=$(echo "${p}" | jq .name -r)
   read -ra packageVersions <<< "$(returnPackageVersions ${p} ${OS} ${OS_VERSION})"
-  
+  read -ra packageDownloadURL <<< "$(returnPackageDownloadURL ${p} ${OS} ${OS_VERSION})"
   downloadDir=$(echo ${p} | jq .downloadLocation -r)
-  url=$(echo ${p} | jq .downloadURL -r)
+  #download the package
   case $name in
     "cri-tools")
       for version in $packageVersions; do
-        eval url
-        downloadCrictl ${downloadDir} ${url}
+        eval packageDownloadURL
+        downloadCrictl "${downloadDir}" "${packageDownloadURL}"
         echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "azure-cni")
       for version in $packageVersions; do
-        eval url
-        downloadAzureCNI ${downloadDir} ${url}
-        unpackAzureCNI ${url}
+        eval packageDownloadURL
+        downloadAzureCNI "${downloadDir}" "${packageDownloadURL}"
+        unpackAzureCNI "${packageDownloadURL}"
         echo "  - Azure CNI version ${v}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "cni-plugins")
       for version in $packageVersions; do
-        eval url
-        downloadCNI ${downloadDir} ${url}
-        unpackAzureCNI ${url}
+        eval packageDownloadURL
+        downloadCNI "${downloadDir}" "${packageDownloadURL}"
+        unpackAzureCNI "${packageDownloadURL}"
         echo "  - CNI plugin version ${v}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
-    
+    "runc")
+      for version in $packageVersions; do
+        eval packageDownloadURL
+        ensureRunc "${downloadDir}" "${packageDownloadURL}" "${version}"
+        echo "  - runc version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "containerd")
+      for version in $packageVersions; do
+        eval packageDownloadURL
+        if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
+          installContainerd "${downloadDir}" "${packageDownloadURL}" "${version}"
+        elif [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
+          installStandaloneContainerd "${version}"
+        fi
+        echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
   esac
+  stop_watch $capture_time "Download Components, Determine / Download \"$name\" \"$version\"" false
 done
-    
-stop_watch $capture_time "Download Components, Determine / Download crictl Version" false
 start_watch
 
 installAndConfigureArtifactStreaming() {
@@ -328,9 +279,6 @@ cliTool="ctr"
 
 # also pre-download Teleportd plugin for containerd
 downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
-
-INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 stop_watch $capture_time "Artifact Streaming, Download Containerd Plugins" false
 start_watch
 

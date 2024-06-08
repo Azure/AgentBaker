@@ -20,7 +20,7 @@ var _ = Describe("cache suite", func() {
 			pauseIndx := 2
 			azureCNSIndx := 6
 
-			// find from components.Packages where Name is "runc"
+			// find from components.Packages where Name is a specific value
 			for _, p := range components.Packages {
 				switch p.Name {
 				case "containerd":
@@ -43,6 +43,12 @@ var _ = Describe("cache suite", func() {
 						p.DownloadURIs["mariner"].Current.Versions))
 					Expect(onVHD.FromComponentPackages["runc"].DownloadURIs["ubuntu"].Current.Versions).To(Equal(
 						p.DownloadURIs["ubuntu"].Current.Versions))
+					Expect(onVHD.FromComponentPackages["runc"].DownloadURIs["ubuntu"].R1804.Versions).To(Equal(
+						p.DownloadURIs["ubuntu"].R1804.Versions))
+					Expect(onVHD.FromComponentPackages["runc"].DownloadURIs["ubuntu"].R2004.Versions).To(Equal(
+						p.DownloadURIs["ubuntu"].R2004.Versions))
+					Expect(onVHD.FromComponentPackages["runc"].DownloadURIs["ubuntu"].R2204.Versions).To(Equal(
+						p.DownloadURIs["ubuntu"].R2204.Versions))
 				case "cni-plugins-linux-amd64-v*":
 					Expect(onVHD.FromComponentPackages["cni-plugins"].DownloadURIs["default"].Current.Versions).To(Equal(
 						p.DownloadURIs["default"].Current.Versions))
@@ -50,7 +56,6 @@ var _ = Describe("cache suite", func() {
 					Expect(onVHD.FromComponentPackages["azure-cni"].DownloadURIs["default"].Current.Versions).To(Equal(
 						p.DownloadURIs["default"].Current.Versions))
 				}
-
 			}
 			Expect(onVHD.FromManifest.Kubernetes.Versions[0]).To(Equal(manifest.Kubernetes.Versions[0]))
 			Expect(onVHD.FromComponentContainerImages["pause"].MultiArchVersions[0]).To(Equal(components.ContainerImages[pauseIndx].MultiArchVersions[0]))

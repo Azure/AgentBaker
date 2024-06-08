@@ -357,6 +357,40 @@
   ],
   "Packages": [
     {
+      "name": "runc",
+      "downloadLocation": "/opt/runc/downloads",
+      "downloadURIs": {
+        "ubuntu": {
+          "1804": {
+            "versions": [
+              "1.1.12-ubuntu18.04u1"
+            ],
+            "downloadURL": ""
+          },
+          "2004": {
+            "versions": [
+              "1.1.12-ubuntu20.04u1"
+            ],
+            "downloadURL": ""
+          },
+          "2204": {
+            "versions": [
+              "1.1.12-ubuntu22.04u1"
+            ],
+            "downloadURL": ""
+          }
+        },
+        "mariner": {
+          "current": {
+            "versions": [
+              "1.4.54"
+            ],
+            "downloadURL": ""
+          }
+        }
+      }
+    },
+    {
       "name": "containerd",
       "downloadLocation": "/opt/containerd/downloads",
       "downloadURIs": {
@@ -386,42 +420,6 @@
           "current": {
             "versions": [
               "1.7.15-1"
-            ],
-            "downloadURL": ""
-          },
-          "1804": {
-            "versions": [
-              "1.7.1-1"
-            ],
-            "downloadURL": ""
-          }
-        }
-      }
-    },
-    {
-      "name": "runc",
-      "downloadLocation": "/opt/runc/downloads",
-      "downloadURIs": {
-        "ubuntu": {
-          "current": {
-            "versions": [
-              "1.1.12"
-            ],
-            "downloadURL": ""
-          }
-        },
-        "mariner": {
-          "current": {
-            "versions": [
-              "1.4.54"
-            ],
-            "downloadURL": ""
-          }
-        },
-        "default": {
-          "current": {
-            "versions": [
-              "1.1.12"
             ],
             "downloadURL": ""
           }

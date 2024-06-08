@@ -491,27 +491,86 @@ datasource:
 EOF
 }
 
-returnPackageVersions() {
-  local p=$1
-  local os=$2
-  local os_version=$3
+#return proper release metadata for the package based on the os and osVersion
+#e.g., For os UBUNTU 18.04, if there is a release "1804" defined in components.json, then return "1804"
+#Otherwise return "current"
+returnRelease() {
+  local p="$1"
+  local os="$2"
+  local osVersion="$3"
   local release="current"
-  #if os_version is 18.04, then get the versions from .downloadURIs.ubuntu."1804"
-  #otherwise get the versions from .downloadURIs.ubuntu.current
-  if [[ $os_version == "18.04" ]]; then
-    release="\"1804\""
+  #For UBUNTU, if $osVersion is 18.04 and "1804" is also defined in components.json, then $release is set to ."1804"
+  #Otherwise $release is set to .current.
+  if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
+    if [[ "${osVersion}" == "18.04" ]] && [[ $(echo "${p}" | jq '.downloadURIs.ubuntu."1804"') != "null" ]]; then
+      release="\"1804\""
+    elif [[ "${osVersion}" == "20.04" ]] && [[ $(echo "${p}" | jq '.downloadURIs.ubuntu."2004"') != "null" ]]; then
+      release="\"2004\""
+    elif [[ "${osVersion}" == "22.04" ]] && [[ $(echo "${p}" | jq '.downloadURIs.ubuntu."2204"') != "null" ]]; then
+      release="\"2204\""
+    fi
   fi
+  echo "${release}"
+}
+
+returnPackageVersions() {
+  local p="$1"
+  local os="$2"
+  local osVersion="$3"
+  local release="$(returnRelease "${p}" "${os}" "${osVersion}")"
   if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
     #if .downloadURIs.ubuntu exist, then get the versions from there.
     #otherwise get the versions from .downloadURIs.default 
-    if [[ $(echo "${p}" | jq '.downloadURIs.ubuntu') != "null" ]]; then
-      versions=$(echo "${p}" | jq '.downloadURIs.ubuntu.$release.versions' -r)
+    if [[ $(echo "${p}" | jq ".downloadURIs.ubuntu") != "null" ]]; then
+      versions=$(echo "${p}" | jq ".downloadURIs.ubuntu.${release}.versions" -r)
       echo ${versions[@]}
       return
     fi
-    
-    versions=$(echo "${p}" | jq '.downloadURIs.default.$release.versions' -r)
+    versions=$(echo "${p}" | jq ".downloadURIs.default.${release}.versions" -r)
     echo ${versions[@]}
+    return  
+  fi
+  if [[ "${os}" == "${MARINER_OS_NAME}" ]]; then
+    #if .downloadURIs.ubuntu exist, then get the versions from there.
+    #otherwise get the versions from .downloadURIs.default 
+    if [[ $(echo "${p}" | jq ".downloadURIs.mariner") != "null" ]]; then
+      versions=$(echo "${p}" | jq ".downloadURIs.mariner.${release}.versions" -r)
+      echo ${versions[@]}
+      return
+    fi
+    versions=$(echo "${p}" | jq ".downloadURIs.default.${release}.versions" -r)
+    echo ${versions[@]}
+    return  
+  fi
+}
+
+returnPackageDownloadURL() {
+  local p=$1
+  local os=$2
+  local osVersion=$3
+  local release="$(returnRelease "${p}" "${os}" "${osVersion}")"
+  if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
+    #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
+    #otherwise get the downloadURL from .downloadURIs.default 
+    if [[ $(echo "${p}" | jq '.downloadURIs.ubuntu') != "null" ]]; then
+      downloadURL=$(echo "${p}" | jq ".downloadURIs.ubuntu.${release}.downloadURL" -r)
+      echo ${downloadURL}
+      return
+    fi
+    downloadURL=$(echo "${p}" | jq ".downloadURIs.default.${release}.downloadURL" -r)
+    echo ${downloadURL}
+    return  
+  fi
+  if [[ "${os}" == "${MARINER_OS_NAME}" ]]; then
+    #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
+    #otherwise get the downloadURL from .downloadURIs.default 
+    if [[ $(echo "${p}" | jq '.downloadURIs.mariner') != "null" ]]; then
+      downloadURL=$(echo "${p}" | jq ".downloadURIs.mariner.${release}.downloadURL" -r)
+      echo ${downloadURL}
+      return
+    fi
+    downloadURL=$(echo "${p}" | jq ".downloadURIs.default.${release}.downloadURL" -r)
+    echo ${downloadURL}
     return  
   fi
 }

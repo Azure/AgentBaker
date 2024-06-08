@@ -80,23 +80,19 @@ cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
 }
 
-installContainerdAndRunc() {
-    desiredContainerdMajorMinorVersion=$1    
-    # we always default to the .1 patch version
-    desiredContainerdPatchVersion="${2:-1}"
-    eval containerdOverrideDownloadURL="${3:-}"
-    runcVersion="${4:-}"
-    eval runcPackageURL="${5:-}"
-
-    # runc needs to be installed first or else existing vhd version causes conflict with containerd.
-    logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${runcVersion:-""} ${runcPackageURL:-""}"
+installContainerd() {
+    packageVersion="${3:-}"
+    containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
+    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
+    CONTAINERD_DOWNLOADS_DIR="${1:-$CONTAINERD_DOWNLOADS_DIR}"
+    eval containerdOverrideDownloadURL="${2:-}"
 
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
     if [[ ! -z ${containerdOverrideDownloadURL} ]]; then
         installContainerdFromOverride ${containerdOverrideDownloadURL} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
-    installContainerdWithAptGet "${desiredContainerdMajorMinorVersion}" "${desiredContainerdPatchVersion}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    installContainerdWithAptGet "${containerdMajorMinorPatchVersion}" "${containerdHotFixVersion}" "${CONTAINERD_DOWNLOADS_DIR}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
 
 installContainerdFromOverride() {
@@ -113,8 +109,9 @@ installContainerdFromOverride() {
 }
 
 installContainerdWithAptGet() {
-    desiredContainerdVersion=$1
-    desiredContainerdPatchVersion=$2
+    local containerdMajorMinorPatchVersion="{$1}"
+    local containerdHotFixVersion="{$2}"
+    CONTAINERD_DOWNLOADS_DIR="{$3:-$CONTAINERD_DOWNLOADS_DIR}"
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     currentVersion=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     # v1.4.1 is our lowest supported version of containerd
@@ -124,25 +121,25 @@ installContainerdWithAptGet() {
     fi
 
     currentMajorMinor="$(echo $currentVersion | tr '.' '\n' | head -n 2 | paste -sd.)"
-    desiredMajorMinor="$(echo $desiredContainerdVersion | tr '.' '\n' | head -n 2 | paste -sd.)"
-    semverCompare "$currentVersion" "$desiredContainerdVersion"
+    desiredMajorMinor="$(echo $containerdMajorMinorPatchVersion | tr '.' '\n' | head -n 2 | paste -sd.)"
+    semverCompare "$currentVersion" "$containerdMajorMinorPatchVersion"
     hasGreaterVersion="$?"
 
     if [[ "$hasGreaterVersion" == "0" ]] && [[ "$currentMajorMinor" == "$desiredMajorMinor" ]]; then
-        echo "currently installed containerd version ${currentVersion} matches major.minor with higher patch ${desiredContainerdVersion}. skipping installStandaloneContainerd."
+        echo "currently installed containerd version ${currentVersion} matches major.minor with higher patch ${containerdMajorMinorPatchVersion}. skipping installStandaloneContainerd."
     else
-        echo "installing containerd version ${desiredContainerdVersion}"
+        echo "installing containerd version ${containerdMajorMinorPatchVersion}"
         logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
         logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
-        containerdDebFile="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${desiredContainerdVersion}*)"
+        containerdDebFile="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${containerdMajorMinorPatchVersion}*)"
         if [[ -f "${containerdDebFile}" ]]; then
             logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${containerdDebFile}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
             return 0
         fi
-        logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${desiredContainerdVersion} ${desiredContainerdPatchVersion}"
-        containerdDebFile="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${desiredContainerdVersion}*)"
+        logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
+        containerdDebFile="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${containerdMajorMinorPatchVersion}*)"
         if [[ -z "${containerdDebFile}" ]]; then
             echo "Failed to locate cached containerd deb"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
@@ -227,6 +224,7 @@ installMoby() {
 
 ensureRunc() {
     RUNC_PACKAGE_URL=${2:-""}
+    RUNC_DOWNLOADS_DIR=${1:-$RUNC_DOWNLOADS_DIR}
     # the user-defined runc package URL is always picked first, and the other options won't be tried when this one fails
     if [[ ! -z ${RUNC_PACKAGE_URL} ]]; then
         echo "Installing runc from user input: ${RUNC_PACKAGE_URL}"
@@ -241,14 +239,7 @@ ensureRunc() {
         return 0
     fi
 
-    TARGET_VERSION=${1:-""}
-    if [[ -z ${TARGET_VERSION} ]]; then
-        # pin 1804 to 1.1.12
-        TARGET_VERSION="1.1.12-ubuntu${UBUNTU_RELEASE}"
-        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-            TARGET_VERSION="1.1.12-ubuntu${UBUNTU_RELEASE}"
-        fi
-    fi
+    TARGET_VERSION=${3:-""}
 
     if [[ $(isARM64) == 1 ]]; then
         if [[ ${TARGET_VERSION} == "1.0.0-rc92" || ${TARGET_VERSION} == "1.0.0-rc95" ]]; then
