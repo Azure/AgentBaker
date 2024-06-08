@@ -200,14 +200,18 @@ for p in ${packages[*]}; do
   case $name in
     "cri-tools")
       for version in $packageVersions; do
-        eval "packageDownloadURL=$packageDownloadURL"
+        if [[ -n "$packageDownloadURL" ]]; then
+          eval "packageDownloadURL=${packageDownloadURL}"
+        fi
         downloadCrictl "${downloadDir}" "${packageDownloadURL}"
         echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "azure-cni")
       for version in $packageVersions; do
-        eval "packageDownloadURL=$packageDownloadURL"
+        if [[ -n "$packageDownloadURL" ]]; then
+          eval "packageDownloadURL=${packageDownloadURL}"
+        fi
         downloadAzureCNI "${downloadDir}" "${packageDownloadURL}"
         unpackAzureCNI "${packageDownloadURL}"
         echo "  - Azure CNI version ${v}" >> ${VHD_LOGS_FILEPATH}
@@ -215,7 +219,9 @@ for p in ${packages[*]}; do
       ;;
     "cni-plugins")
       for version in $packageVersions; do
-        eval "packageDownloadURL=$packageDownloadURL"
+        if [[ -n "$packageDownloadURL" ]]; then
+          eval "packageDownloadURL=${packageDownloadURL}"
+        fi
         downloadCNI "${downloadDir}" "${packageDownloadURL}"
         unpackAzureCNI "${packageDownloadURL}"
         echo "  - CNI plugin version ${v}" >> ${VHD_LOGS_FILEPATH}
@@ -223,14 +229,18 @@ for p in ${packages[*]}; do
       ;;
     "runc")
       for version in $packageVersions; do
-        eval "packageDownloadURL=$packageDownloadURL"
+        if [[ -n "$packageDownloadURL" ]]; then
+          eval "packageDownloadURL=${packageDownloadURL}"
+        fi
         ensureRunc "${downloadDir}" "${packageDownloadURL}" "${version}"
         echo "  - runc version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "containerd")
       for version in $packageVersions; do
-        eval "packageDownloadURL=$packageDownloadURL"
+        if [[ -n "$packageDownloadURL" ]]; then
+          eval "packageDownloadURL=${packageDownloadURL}"
+        fi
         if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
           installContainerd "${downloadDir}" "${packageDownloadURL}" "${version}"
         elif [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then

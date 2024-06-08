@@ -89,13 +89,13 @@ Describe 'cse_install.sh'
     It 'returns downloadURIs.default.current.downloadURL of package cni-plugins for UBUNTU 20.04'
         package=$(readPackage "cni-plugins")
         When call returnPackageDownloadURL "$package" "UBUNTU" "20.04"
-        The line 1 of output should equal 'https://acs-mirror.azureedge.net/cni-plugins/v${versions}/binaries/cni-plugins-linux-${CPU_ARCH}-v${versions}.tgz'
+        The line 1 of output should equal 'https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz'
     End
 
     It 'returns downloadURIs.default.current.downloadURL of package azure-cni for UBUNTU 20.04'
         package=$(readPackage "azure-cni")
         When call returnPackageDownloadURL "$package" "UBUNTU" "20.04"
-        The line 1 of output should equal 'https://acs-mirror.azureedge.net/azure-cni/v${versions}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${versions}.tgz'
+        The line 1 of output should equal 'https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz'
     End
 
     It 'returns downloadURIs.mariner.current.downloadURL of package runc for MARINER'
@@ -113,13 +113,13 @@ Describe 'cse_install.sh'
     It 'returns downloadURIs.default.current.downloadURL of package cni-plugins for MARINER'
         package=$(readPackage "cni-plugins")
         When call returnPackageDownloadURL "$package" "MARINER" "some_mariner_version"
-        The line 1 of output should equal 'https://acs-mirror.azureedge.net/cni-plugins/v${versions}/binaries/cni-plugins-linux-${CPU_ARCH}-v${versions}.tgz'
+        The line 1 of output should equal 'https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz'
     End
 
     It 'returns downloadURIs.default.current.downloadURL of package azure-cni for MARINER'
         package=$(readPackage "azure-cni")
         When call returnPackageDownloadURL "$package" "MARINER" "some_mariner_version"
-        The line 1 of output should equal 'https://acs-mirror.azureedge.net/azure-cni/v${versions}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${versions}.tgz'
+        The line 1 of output should equal 'https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz'
     End
   End
 End

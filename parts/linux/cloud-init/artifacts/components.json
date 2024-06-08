@@ -435,7 +435,7 @@
             "versions": [
               "1.4.1"
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v${versions}/binaries/cni-plugins-linux-${CPU_ARCH}-v${versions}.tgz"
+            "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
           }
         }
       }
@@ -450,7 +450,7 @@
               "1.4.54",
               "1.5.28"
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${versions}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${versions}.tgz"
+            "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
           }
         }
       }
@@ -464,7 +464,7 @@
             "versions": [
               "1.29.0"
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v${versions}/binaries/crictl-v${versions}-linux-${CPU_ARCH}.tar.gz"
+            "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v${version}/binaries/crictl-v${version}-linux-${CPU_ARCH}.tar.gz"
           }
         }
       },
