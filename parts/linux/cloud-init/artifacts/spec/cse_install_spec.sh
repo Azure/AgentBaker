@@ -122,4 +122,16 @@ Describe 'cse_install.sh'
         The line 1 of output should equal 'https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz'
     End
   End
+  Describe 'evalPackageDownloadURL'
+    It 'returns returns empty string for empty downloadURL'
+        When call evalPackageDownloadURL ""
+        The output should equal ""
+    End
+    It 'returns evaluated downloadURL of package azure-cni'
+        version="0.0.1"
+        CPU_ARCH="amd64"
+        When call evalPackageDownloadURL 'https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz'
+        The output should equal 'https://acs-mirror.azureedge.net/azure-cni/v0.0.1/binaries/azure-vnet-cni-linux-amd64-v0.0.1.tgz'
+    End
+  End
 End
