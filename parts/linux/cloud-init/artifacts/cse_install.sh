@@ -75,9 +75,9 @@ installNetworkPlugin() {
 downloadCNI() {
     downloadDir=${1:-${CRICTL_DOWNLOAD_DIR}}
     mkdir -p $downloadDir
-    url=${2}
-    crictlTgzTmp=${url##*/}
-    retrycmd_get_tarball 120 5 "$downloadDir/${crictlTgzTmp}" ${url} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+    CNI_PLUGINS_URL=${2:-$CNI_PLUGINS_URL}
+    crictlTgzTmp=${CNI_PLUGINS_URL##*/}
+    retrycmd_get_tarball 120 5 "$downloadDir/${crictlTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
 downloadCredentalProvider() {
@@ -156,6 +156,7 @@ evalPackageDownloadURL() {
 
 downloadAzureCNI() {
     mkdir -p $CNI_DOWNLOADS_DIR
+    VNET_CNI_PLUGINS_URL=${2:-$VNET_CNI_PLUGINS_URL}
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
