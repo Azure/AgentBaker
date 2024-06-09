@@ -100,9 +100,9 @@ installContainerdFromOverride() {
 }
 
 installContainerdWithAptGet() {
-    local containerdMajorMinorPatchVersion="{$1}"
-    local containerdHotFixVersion="{$2}"
-    CONTAINERD_DOWNLOADS_DIR="{$3:-$CONTAINERD_DOWNLOADS_DIR}"
+    local containerdMajorMinorPatchVersion="${1}"
+    local containerdHotFixVersion="${2}"
+    CONTAINERD_DOWNLOADS_DIR="${3:-$CONTAINERD_DOWNLOADS_DIR}"
     currentVersion=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
 
     if [ -z "$currentVersion" ]; then

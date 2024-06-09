@@ -109,9 +109,9 @@ installContainerdFromOverride() {
 }
 
 installContainerdWithAptGet() {
-    local containerdMajorMinorPatchVersion="{$1}"
-    local containerdHotFixVersion="{$2}"
-    CONTAINERD_DOWNLOADS_DIR="{$3:-$CONTAINERD_DOWNLOADS_DIR}"
+    local containerdMajorMinorPatchVersion="${1}"
+    local containerdHotFixVersion="${2}"
+    CONTAINERD_DOWNLOADS_DIR="${3:-$CONTAINERD_DOWNLOADS_DIR}"
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     currentVersion=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     # v1.4.1 is our lowest supported version of containerd
