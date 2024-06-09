@@ -205,7 +205,10 @@ for p in ${packages[*]}; do
         evaluatedURL=$(evalPackageDownloadURL ${packageDownloadURL})
         downloadCrictl "${downloadDir}" "${evaluatedURL}"
         echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
-        CRICTL_VERSION=${version} # other steps are dependent on CRICTL_VERSIONS
+        # other steps are dependent on CRICTL_VERSION and CRICTL_VERSIONS
+        # since we only have 1 entry in CRICTL_VERSIONS, we simply set both to the same value
+        CRICTL_VERSION=${version} 
+        CRICTL_VERSIONS=${version}
       done
       ;;
     "azure-cni")
