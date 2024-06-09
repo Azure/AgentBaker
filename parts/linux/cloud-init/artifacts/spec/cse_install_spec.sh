@@ -58,7 +58,7 @@ Describe 'cse_install.sh'
     It 'returns downloadURIs.default.current.versions of package azure-cni for MARINER'
         package=$(readPackage "azure-cni")
         When call returnPackageVersions "$package" "MARINER" "some_mariner_version"
-        The line 1 of output should equal '[ "1.4.54", "1.5.28" ]'
+        The variable PackageVersions[@] should equal "1.4.54 1.5.28"
     End
   End
   Describe 'returnPackageDownloadURL'

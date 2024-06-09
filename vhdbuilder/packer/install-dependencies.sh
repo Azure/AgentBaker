@@ -193,6 +193,7 @@ for p in ${packages[*]}; do
   start_watch
   #getting metadata for each package
   name=$(echo "${p}" | jq .name -r)
+  PackageVersions=()
   read -ra packageVersions <<< "$(returnPackageVersions ${p} ${OS} ${OS_VERSION})"
   packageDownloadURL=$(returnPackageDownloadURL ${p} ${OS} ${OS_VERSION})
   echo "In components.json, processing components.packages \"${name}\" \"${packageVersions}\" \"${packageDownloadURL}\""
@@ -211,7 +212,7 @@ for p in ${packages[*]}; do
         evaluatedURL=$(evalPackageDownloadURL ${packageDownloadURL})
         downloadAzureCNI "${downloadDir}" "${packageDownloadURL}"
         unpackAzureCNI "${packageDownloadURL}"
-        echo "  - Azure CNI version ${v}" >> ${VHD_LOGS_FILEPATH}
+        echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "cni-plugins")
@@ -219,7 +220,7 @@ for p in ${packages[*]}; do
         evaluatedURL=$(evalPackageDownloadURL ${packageDownloadURL})
         downloadCNI "${downloadDir}" "${packageDownloadURL}"
         unpackAzureCNI "${packageDownloadURL}"
-        echo "  - CNI plugin version ${v}" >> ${VHD_LOGS_FILEPATH}
+        echo "  - CNI plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "runc")
