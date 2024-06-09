@@ -203,14 +203,14 @@ for p in ${packages[*]}; do
     "cri-tools")
       for version in $PackageVersions; do
         evaluatedURL=$(evalPackageDownloadURL ${packageDownloadURL})
-        downloadCrictl "${downloadDir}" "${packageDownloadURL}"
+        downloadCrictl "${downloadDir}" "${evaluatedURL}"
         echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "azure-cni")
       for version in $PackageVersions; do
         evaluatedURL=$(evalPackageDownloadURL ${packageDownloadURL})
-        downloadAzureCNI "${downloadDir}" "${packageDownloadURL}"
+        downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
         unpackAzureCNI "${packageDownloadURL}"
         echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
@@ -218,7 +218,7 @@ for p in ${packages[*]}; do
     "cni-plugins")
       for version in $PackageVersions; do
         evaluatedURL=$(evalPackageDownloadURL ${packageDownloadURL})
-        downloadCNI "${downloadDir}" "${packageDownloadURL}"
+        downloadCNI "${downloadDir}" "${evaluatedURL}"
         unpackAzureCNI "${packageDownloadURL}"
         echo "  - CNI plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
@@ -234,7 +234,7 @@ for p in ${packages[*]}; do
       for version in $PackageVersions; do
         evaluatedURL=$(evalPackageDownloadURL ${packageDownloadURL})
         if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
-          installContainerd "${downloadDir}" "${packageDownloadURL}" "${version}"
+          installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
         elif [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
           installStandaloneContainerd "${version}"
         fi
