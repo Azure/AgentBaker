@@ -532,13 +532,13 @@ returnPackageVersions() {
     #if .downloadURIs.ubuntu exist, then get the versions from there.
     #otherwise get the versions from .downloadURIs.default 
     if [[ $(echo "${p}" | jq ".downloadURIs.ubuntu") != "null" ]]; then
-      versions=$(echo "${p}" | jq ".downloadURIs.ubuntu.${release}.versions" -r)
+      versions=$(echo "${p}" | jq ".downloadURIs.ubuntu.${release}.versions[]" -r)
       for version in ${versions[@]}; do
        PackageVersions+=("${version}")
       done
       return
     fi
-    versions=$(echo "${p}" | jq ".downloadURIs.default.${release}.versions" -r)
+    versions=$(echo "${p}" | jq ".downloadURIs.default.${release}.versions[]" -r)
     for version in ${versions[@]}; do
       PackageVersions+=("${version}")
     done
@@ -548,7 +548,7 @@ returnPackageVersions() {
     #if .downloadURIs.ubuntu exist, then get the versions from there.
     #otherwise get the versions from .downloadURIs.default 
     if [[ $(echo "${p}" | jq ".downloadURIs.mariner") != "null" ]]; then
-      versions=$(echo "${p}" | jq ".downloadURIs.mariner.${release}.versions" -r)
+      versions=$(echo "${p}" | jq ".downloadURIs.mariner.${release}.versions[]" -r)
       for version in ${versions[@]}; do
         PackageVersions+=("${version}")
       done
