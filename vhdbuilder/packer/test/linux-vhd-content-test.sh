@@ -171,7 +171,7 @@ testPackagesInstalled() {
     fi
 
     for version in ${PackageVersions}; do
-      if [[ -z $downloadURL]]; then
+      if [[ -z $downloadURL ]]; then
         echo "$test: skipping package ${name} verification as downloadURL is empty"
         # we can further think of adding a check to see if the package is installed through apt-get
         break
