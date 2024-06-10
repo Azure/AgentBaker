@@ -67,23 +67,31 @@ fi
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 
-testFilesDownloaded() {
-  test="testFilesDownloaded"
+testPackagesInstalled() {
+  test="testPackagesInstalled"
   containerRuntime=$1
   if [[ $(isARM64) == 1 ]]; then
     return
   fi
+  CPU_ARCH="amd64"
   echo "$test:Start"
-  filesToDownload=$(jq .DownloadFiles[] --monochrome-output --compact-output <$COMPONENTS_FILEPATH)
+  packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 
-  for fileToDownload in ${filesToDownload[*]}; do
-    fileName=$(echo "${fileToDownload}" | jq .fileName -r)
-    downloadLocation=$(echo "${fileToDownload}" | jq .downloadLocation -r)
-    versions=$(echo "${fileToDownload}" | jq .versions -r | jq -r ".[]")
-    download_URL=$(echo "${fileToDownload}" | jq .downloadURL -r)
-    targetContainerRuntime=$(echo "${fileToDownload}" | jq .targetContainerRuntime -r)
+  for p in ${packages[*]}; do
+    name=$(echo "${p}" | jq .name -r)
+    downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
+    PackageVersions=()
+    if [[ "$OS_SKU" == "CBLMariner" || "$OS_SKU" == "AzureLinux" ]]; then
+      OS="MARINER"
+    else
+      OS="UBUNTU"
+    fi
+
+    returnPackageVersions ${p} ${OS} ${OS_VERSION}
+    downloadURL=$(returnPackageDownloadURL ${p} ${OS} ${OS_VERSION})
+    targetContainerRuntime=$(echo "${p}" | jq .targetContainerRuntime -r)
     if [ "${targetContainerRuntime}" != "null" ] && [ "${containerRuntime}" != "${targetContainerRuntime}" ]; then
-      echo "$test: skipping ${fileName} verification as VHD container runtime is ${containerRuntime}, not ${targetContainerRuntime}"
+      echo "$test: skipping ${name} verification as VHD container runtime is ${containerRuntime}, not ${targetContainerRuntime}"
       continue
     fi
     if [ ! -d $downloadLocation ]; then
@@ -91,10 +99,10 @@ testFilesDownloaded() {
       continue
     fi
 
-    for version in ${versions}; do
-      file_Name=$(string_replace $fileName $version)
-      dest="$downloadLocation/${file_Name}"
-      downloadURL=$(string_replace $download_URL $version)/$file_Name
+    for version in ${PackageVersions}; do
+      eval "downloadURL=${downloadURL}"
+      fileName=$(basename $downloadURL)
+      dest="$downloadLocation/${downloadURL}"
       if [ ! -s $dest ]; then
         err $test "File ${dest} does not exist"
         continue
@@ -471,7 +479,7 @@ testLoginDefs() {
   testSetting $test $settings_file PASS_MAX_DAYS '^[[:space:]]*PASS_MAX_DAYS[[:space:]]' ' ' 90
   testSetting $test $settings_file PASS_MIN_DAYS '^[[:space:]]*PASS_MIN_DAYS[[:space:]]+' ' ' 7
   testSetting $test $settings_file UMASK '^[[:space:]]*UMASK[[:space:]]+' ' ' 027
-
+750624
   echo "$test:Finish"
 }
 
@@ -949,7 +957,7 @@ testNBCParserBinary () {
 testBccTools
 testVHDBuildLogsExist
 testCriticalTools
-testFilesDownloaded $CONTAINER_RUNTIME
+testPackagesInstalled $CONTAINER_RUNTIME
 testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
 testChrony $OS_SKU
 testAuditDNotPresent
