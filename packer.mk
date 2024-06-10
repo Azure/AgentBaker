@@ -19,8 +19,6 @@ else ifeq (${OS_SKU},AzureLinux)
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
-	@echo "${MODE}: Convert os disk snapshot to SIG"
-	@./vhdbuilder/packer/convert-osdisk-snapshot-to-sig.sh
 else ifeq (${ARCHITECTURE},X86_64)
 ifeq (${HYPERV_GENERATION},V2)
 	@echo "${MODE}: Building with Hyper-v generation 2 x86_64 VM"
@@ -41,6 +39,7 @@ else ifeq (${OS_SKU},AzureLinux)
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
+$(error ARCHITECTURE was invalid ${ARCHITECTURE})
 endif
 
 build-packer-windows:
