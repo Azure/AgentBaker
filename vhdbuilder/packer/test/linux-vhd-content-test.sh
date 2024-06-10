@@ -3,6 +3,8 @@ COMPONENTS_FILEPATH=/opt/azure/components.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
+UBUNTU_OS_NAME="UBUNTU"
+MARINER_OS_NAME="MARINER"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 CONTAINER_RUNTIME="$1"
@@ -67,6 +69,76 @@ fi
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 
+returnPackageVersions() {
+  local p="$1"
+  local os="$2"
+  local osVersion="$3"
+  local release="$(returnRelease "${p}" "${os}" "${osVersion}")"
+  if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
+    #if .downloadURIs.ubuntu exist, then get the versions from there.
+    #otherwise get the versions from .downloadURIs.default 
+    if [[ $(echo "${p}" | jq ".downloadURIs.ubuntu") != "null" ]]; then
+      versions=$(echo "${p}" | jq ".downloadURIs.ubuntu.${release}.versions[]" -r)
+      for version in ${versions[@]}; do
+       PackageVersions+=("${version}")
+      done
+      return
+    fi
+    versions=$(echo "${p}" | jq ".downloadURIs.default.${release}.versions[]" -r)
+    for version in ${versions[@]}; do
+      PackageVersions+=("${version}")
+    done
+    return  
+  fi
+  if [[ "${os}" == "${MARINER_OS_NAME}" ]]; then
+    #if .downloadURIs.ubuntu exist, then get the versions from there.
+    #otherwise get the versions from .downloadURIs.default 
+    if [[ $(echo "${p}" | jq ".downloadURIs.mariner") != "null" ]]; then
+      versions=$(echo "${p}" | jq ".downloadURIs.mariner.${release}.versions[]" -r)
+      for version in ${versions[@]}; do
+        PackageVersions+=("${version}")
+      done
+      return
+    fi
+    versions=$(echo "${p}" | jq ".downloadURIs.default.${release}.versions[]" -r)
+    for version in ${versions[@]}; do
+      PackageVersions+=("${version}")
+    done
+    return  
+  fi
+}
+
+returnPackageDownloadURL() {
+  local p=$1
+  local os=$2
+  local osVersion=$3
+  local release="$(returnRelease "${p}" "${os}" "${osVersion}")"
+  if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
+    #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
+    #otherwise get the downloadURL from .downloadURIs.default 
+    if [[ $(echo "${p}" | jq '.downloadURIs.ubuntu') != "null" ]]; then
+      downloadURL=$(echo "${p}" | jq ".downloadURIs.ubuntu.${release}.downloadURL" -r)
+      echo ${downloadURL}
+      return
+    fi
+    downloadURL=$(echo "${p}" | jq ".downloadURIs.default.${release}.downloadURL" -r)
+    echo ${downloadURL}
+    return  
+  fi
+  if [[ "${os}" == "${MARINER_OS_NAME}" ]]; then
+    #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
+    #otherwise get the downloadURL from .downloadURIs.default 
+    if [[ $(echo "${p}" | jq '.downloadURIs.mariner') != "null" ]]; then
+      downloadURL=$(echo "${p}" | jq ".downloadURIs.mariner.${release}.downloadURL" -r)
+      echo ${downloadURL}
+      return
+    fi
+    downloadURL=$(echo "${p}" | jq ".downloadURIs.default.${release}.downloadURL" -r)
+    echo ${downloadURL}
+    return  
+  fi
+}
+
 testPackagesInstalled() {
   test="testPackagesInstalled"
   containerRuntime=$1
@@ -80,13 +152,12 @@ testPackagesInstalled() {
   for p in ${packages[*]}; do
     name=$(echo "${p}" | jq .name -r)
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
-    PackageVersions=()
     if [[ "$OS_SKU" == "CBLMariner" || "$OS_SKU" == "AzureLinux" ]]; then
-      OS="MARINER"
+      OS=$UBUNTU_OS_NAME
     else
-      OS="UBUNTU"
+      OS=$UBUNTU_OS_NAME
     fi
-
+    PackageVersions=()
     returnPackageVersions ${p} ${OS} ${OS_VERSION}
     downloadURL=$(returnPackageDownloadURL ${p} ${OS} ${OS_VERSION})
     targetContainerRuntime=$(echo "${p}" | jq .targetContainerRuntime -r)
