@@ -1,8 +1,6 @@
 parameters:
 - name: VHD_BUILD_ID
   type: string
-- name: IMAGE_VERSION
-  type: string
 
 steps:
 - bash: |
