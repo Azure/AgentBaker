@@ -426,6 +426,14 @@ CREDENTIAL_PROVIDER_VERSIONS="
 1.29.0
 "
 
+# download oras for testing - would need to be cached to use for NIC
+ORAS_VERSION="1.2.0"
+curl -LO "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz"
+mkdir -p oras-install/
+tar -zxf oras_${ORAS_VERSION}_*.tar.gz -C oras-install/
+sudo mv oras-install/oras /usr/local/bin/
+rm -rf oras_${ORAS_VERSION}_*.tar.gz oras-install/
+
 for CREDENTIAL_PROVIDER_VERSION in $CREDENTIAL_PROVIDER_VERSIONS; do
     # mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v1.29.0-linux-amd64
     # mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v1.29.0-linux-arm64
