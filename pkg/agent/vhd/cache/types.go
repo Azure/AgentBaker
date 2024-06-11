@@ -48,18 +48,37 @@ type Release struct {
 	DownloadURL string   `json:"downloadURL"`
 }
 
-// DownloadURI represents DownloadURI struct that occur on components.json.
-type DownloadURI struct {
-	Current Release `json:"current"`
-	R1804   Release `json:"1804,omitempty"`
-	R2004   Release `json:"2004,omitempty"`
-	R2204   Release `json:"2204,omitempty"`
+// Package represents Package metadata struct that occur on components.json.
+type Package struct {
+	Name             string       `json:"name"`
+	DownloadLocation string       `json:"downloadLocation"`
+	DownloadURIs     DownloadURIs `json:"downloadURIs"`
 }
 
-// Package represents Package struct that occur on components.json.
-type Package struct {
-	Name                   string                 `json:"name"`
-	DownloadLocation       string                 `json:"downloadLocation"`
-	DownloadURIs           map[string]DownloadURI `json:"downloadURIs"`
-	TargetContainerRuntime string                 `json:"targetContainerRuntime,omitempty"`
+// DownloadURIs represents DownloadURIs struct that occur on components.json.
+type DownloadURIs struct {
+	Ubuntu  *Ubuntu    `json:"ubuntu,omitempty"`
+	Mariner *Mariner   `json:"mariner,omitempty"`
+	Default *DefaultOS `json:"default,omitempty"`
+}
+
+// DefaultOS represents DefaultOS struct that occur on components.json.
+type DefaultOS struct {
+	Current *Release `json:"current"`
+	// unspecified OS (defaultOS) is not expected to have specific release versions.
+	// so we only have `Current`` now.
+}
+
+// Mariner represents Mariner struct that occur on components.json.
+type Mariner struct {
+	Current *Release `json:"current"`
+	// additional release versions can be added here, if any
+}
+
+// Ubuntu represents Ubuntu struct that occur on components.json.
+type Ubuntu struct {
+	R1804   *Release `json:"r1804,omitempty"`
+	R2004   *Release `json:"r2004,omitempty"`
+	R2204   *Release `json:"r2204,omitempty"`
+	Current *Release `json:"current,omitempty"`
 }

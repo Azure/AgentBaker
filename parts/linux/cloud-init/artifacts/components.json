@@ -361,19 +361,19 @@
       "downloadLocation": "/opt/runc/downloads",
       "downloadURIs": {
         "ubuntu": {
-          "1804": {
+          "r1804": {
             "versions": [
               "1.1.12-ubuntu18.04u1"
             ],
             "downloadURL": ""
           },
-          "2004": {
+          "r2004": {
             "versions": [
               "1.1.12-ubuntu20.04u1"
             ],
             "downloadURL": ""
           },
-          "2204": {
+          "r2204": {
             "versions": [
               "1.1.12-ubuntu22.04u1"
             ],
@@ -401,7 +401,7 @@
             ],
             "downloadURL": ""
           },
-          "1804": {
+          "r1804": {
             "versions": [
               "1.7.1-1"
             ],
@@ -467,8 +467,7 @@
             "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v${version}/binaries/crictl-v${version}-linux-${CPU_ARCH}.tar.gz"
           }
         }
-      },
-      "targetContainerRuntime": "containerd"
+      }
     }
   ]
 }

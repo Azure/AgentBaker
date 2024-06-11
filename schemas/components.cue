@@ -13,29 +13,29 @@ package components
 }
 
 #Images: [...#ContainerImage]
-#Files: [...#DownloadFile]
 #Packages: [...#Package]
-#PackageUri: {
+#ReleaseDownloadURI: {
 	versions:     [...string]
-	downloadURL: string
+	downloadURL:  string
 }
 
 #OSDistro: {
-	current: #PackageUri,
-	1804?:   #PackageUri //1804 is optional
+	current?: #ReleaseDownloadURI
+	r1804?:   #ReleaseDownloadURI
+	r2004?:   #ReleaseDownloadURI
+	r2204?:   #ReleaseDownloadURI
 }
 
-#DownloadUriEntries: {
-	default: #OSDistro
+#DownloadURIs: {
+	default?: #OSDistro
 	ubuntu?:  #OSDistro
 	mariner?: #OSDistro
 }
 
 #Package: {
-	name:                    string
-	downloadLocation:        string
+	name:              string
+	downloadLocation:  string
 	downloadURIs:      #DownloadURIs
-	targetContainerRuntime?: "containerd" | _|_ //this line defines an optional field named targetContainerRuntime that can either be the string "containerd" or any other value, including the absence of a value.
 }
 
 #Components: {

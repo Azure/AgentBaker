@@ -7,7 +7,7 @@ Describe 'cse_install.sh'
         echo "$packages"
     }
 
-    It 'returns downloadURIs.ubuntu."2004".versions of package runc for UBUNTU 20.04'
+    It 'returns downloadURIs.ubuntu."r2004".versions of package runc for UBUNTU 20.04'
         package=$(readPackage "runc")
         When call returnPackageVersions "$package" "UBUNTU" "20.04"
         The variable PackageVersions[@] should equal "1.1.12-ubuntu20.04u1"
@@ -19,7 +19,7 @@ Describe 'cse_install.sh'
         The variable PackageVersions[@] should equal "1.7.15-1"
     End
 
-    It 'returns downloadURIs.ubuntu."1804".versions of package containerd for UBUNTU 18.04'
+    It 'returns downloadURIs.ubuntu."r1804".versions of package containerd for UBUNTU 18.04'
         package=$(readPackage "containerd")
         When call returnPackageVersions "$package" "UBUNTU" "18.04"
         The variable PackageVersions[@] should equal "1.7.1-1"
@@ -68,19 +68,19 @@ Describe 'cse_install.sh'
         echo "$packages"
     }
 
-    It 'returns downloadURIs.ubuntu."2004".downloadURL of package runc for UBUNTU 20.04'
+    It 'returns downloadURIs.ubuntu."r2004".downloadURL of package runc for UBUNTU 20.04'
         package=$(readPackage "runc")
         When call returnPackageDownloadURL "$package" "UBUNTU" "20.04"
         The line 1 of output should equal 'ubuntu_2004_runc_download_url'
     End
 
-    It 'returns downloadURIs.ubuntu."2204".downloadURL of package containerd for UBUNTU 22.04'
+    It 'returns downloadURIs.ubuntu."r2204".downloadURL of package containerd for UBUNTU 22.04'
         package=$(readPackage "containerd")
         When call returnPackageDownloadURL "$package" "UBUNTU" "22.04"
         The line 1 of output should equal 'ubuntu_current_containerd_download_url'
     End
 
-    It 'returns downloadURIs.ubuntu."1804".downloadURL of package containerd for UBUNTU 18.04'
+    It 'returns downloadURIs.ubuntu."r1804".downloadURL of package containerd for UBUNTU 18.04'
         package=$(readPackage "containerd")
         When call returnPackageDownloadURL "$package" "UBUNTU" "18.04"
         The line 1 of output should equal 'ubuntu_1804_containerd_download_url'

@@ -24,37 +24,33 @@ var _ = Describe("cache suite", func() {
 			for _, p := range components.Packages {
 				switch p.Name {
 				case "containerd":
-					Expect(onVHD.FromComponentPackages["containerd"].DownloadURIs["default"].Current.Versions).To(Equal(
-						p.DownloadURIs["default"].Current.Versions))
-					Expect(onVHD.FromComponentPackages["containerd"].DownloadURIs["mariner"].Current.Versions).To(Equal(
-						p.DownloadURIs["mariner"].Current.Versions))
-					Expect(onVHD.FromComponentPackages["containerd"].DownloadURIs["ubuntu"].Current.Versions).To(Equal(
-						p.DownloadURIs["ubuntu"].Current.Versions))
-					Expect(onVHD.FromComponentPackages["containerd"].DownloadURIs["default"].R1804.Versions).To(Equal(
-						p.DownloadURIs["default"].R1804.Versions))
-					Expect(onVHD.FromComponentPackages["containerd"].DownloadURIs["mariner"].R1804.Versions).To(Equal(
-						p.DownloadURIs["mariner"].R1804.Versions))
-					Expect(onVHD.FromComponentPackages["containerd"].DownloadURIs["ubuntu"].R1804.Versions).To(Equal(
-						p.DownloadURIs["ubuntu"].R1804.Versions))
+					Expect(onVHD.FromComponentPackages["containerd"].DownloadURIs.Default.Current.Versions).To(Equal(
+						p.DownloadURIs.Default.Current.Versions))
+					Expect(onVHD.FromComponentPackages["containerd"].DownloadURIs.Mariner.Current.Versions).To(Equal(
+						p.DownloadURIs.Mariner.Current.Versions))
+					Expect(onVHD.FromComponentPackages["containerd"].DownloadURIs.Ubuntu.Current.Versions).To(Equal(
+						p.DownloadURIs.Ubuntu.Current.Versions))
+					Expect(onVHD.FromComponentPackages["containerd"].DownloadURIs.Default.Current.Versions).To(Equal(
+						p.DownloadURIs.Default.Current.Versions))
+					Expect(onVHD.FromComponentPackages["containerd"].DownloadURIs.Mariner.Current.Versions).To(Equal(
+						p.DownloadURIs.Mariner.Current.Versions))
+					Expect(onVHD.FromComponentPackages["containerd"].DownloadURIs.Ubuntu.R1804.Versions).To(Equal(
+						p.DownloadURIs.Ubuntu.R1804.Versions))
 				case "runc":
-					Expect(onVHD.FromComponentPackages["runc"].DownloadURIs["default"].Current.Versions).To(Equal(
-						p.DownloadURIs["default"].Current.Versions))
-					Expect(onVHD.FromComponentPackages["runc"].DownloadURIs["mariner"].Current.Versions).To(Equal(
-						p.DownloadURIs["mariner"].Current.Versions))
-					Expect(onVHD.FromComponentPackages["runc"].DownloadURIs["ubuntu"].Current.Versions).To(Equal(
-						p.DownloadURIs["ubuntu"].Current.Versions))
-					Expect(onVHD.FromComponentPackages["runc"].DownloadURIs["ubuntu"].R1804.Versions).To(Equal(
-						p.DownloadURIs["ubuntu"].R1804.Versions))
-					Expect(onVHD.FromComponentPackages["runc"].DownloadURIs["ubuntu"].R2004.Versions).To(Equal(
-						p.DownloadURIs["ubuntu"].R2004.Versions))
-					Expect(onVHD.FromComponentPackages["runc"].DownloadURIs["ubuntu"].R2204.Versions).To(Equal(
-						p.DownloadURIs["ubuntu"].R2204.Versions))
+					Expect(onVHD.FromComponentPackages["runc"].DownloadURIs.Mariner.Current.Versions).To(Equal(
+						p.DownloadURIs.Mariner.Current.Versions))
+					Expect(onVHD.FromComponentPackages["runc"].DownloadURIs.Ubuntu.R1804.Versions).To(Equal(
+						p.DownloadURIs.Ubuntu.R1804.Versions))
+					Expect(onVHD.FromComponentPackages["runc"].DownloadURIs.Ubuntu.R2004.Versions).To(Equal(
+						p.DownloadURIs.Ubuntu.R2004.Versions))
+					Expect(onVHD.FromComponentPackages["runc"].DownloadURIs.Ubuntu.R2204.Versions).To(Equal(
+						p.DownloadURIs.Ubuntu.R2204.Versions))
 				case "cni-plugins-linux-amd64-v*":
-					Expect(onVHD.FromComponentPackages["cni-plugins"].DownloadURIs["default"].Current.Versions).To(Equal(
-						p.DownloadURIs["default"].Current.Versions))
+					Expect(onVHD.FromComponentPackages["cni-plugins"].DownloadURIs.Default.Current.Versions).To(Equal(
+						p.DownloadURIs.Default.Current.Versions))
 				case "azure-vnet-cni-linux-amd64-v*":
-					Expect(onVHD.FromComponentPackages["azure-cni"].DownloadURIs["default"].Current.Versions).To(Equal(
-						p.DownloadURIs["default"].Current.Versions))
+					Expect(onVHD.FromComponentPackages["azure-cni"].DownloadURIs.Default.Current.Versions).To(Equal(
+						p.DownloadURIs.Default.Current.Versions))
 				}
 			}
 			Expect(onVHD.FromManifest.Kubernetes.Versions[0]).To(Equal(manifest.Kubernetes.Versions[0]))

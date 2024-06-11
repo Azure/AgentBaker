@@ -69,11 +69,36 @@ fi
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 
+#return proper release metadata for the package based on the os and osVersion
+#e.g., For os UBUNTU 18.04, if there is a release "r1804" defined in components.json, then return "r1804"
+#Otherwise return "current"
+returnRelease() {
+  local p="$1"
+  local os="$2"
+  local osVersion="$3"
+  local release="current"
+  #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
+  #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
+  #For MARINER, the release is always set to "current" now.
+  #To add a new release, add a new entry in components.json and add the corresponding release in the below if condition.
+  if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
+    if [[ "${osVersion}" == "18.04" ]] && [[ $(echo "${p}" | jq '.downloadURIs.ubuntu."r1804"') != "null" ]]; then
+      release="\"r1804\""
+    elif [[ "${osVersion}" == "20.04" ]] && [[ $(echo "${p}" | jq '.downloadURIs.ubuntu."r2004"') != "null" ]]; then
+      release="\"r2004\""
+    elif [[ "${osVersion}" == "22.04" ]] && [[ $(echo "${p}" | jq '.downloadURIs.ubuntu."r2204"') != "null" ]]; then
+      release="\"r2204\""
+    fi
+  fi
+  echo "${release}"
+}
+
 returnPackageVersions() {
   local p="$1"
   local os="$2"
   local osVersion="$3"
-  local release="$(returnRelease "${p}" "${os}" "${osVersion}")"
+  local release=""
+  release="$(returnRelease "${p}" "${os}" "${osVersion}")"
   if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
     #if .downloadURIs.ubuntu exist, then get the versions from there.
     #otherwise get the versions from .downloadURIs.default 
@@ -112,7 +137,8 @@ returnPackageDownloadURL() {
   local p=$1
   local os=$2
   local osVersion=$3
-  local release="$(returnRelease "${p}" "${os}" "${osVersion}")"
+  local release=""
+  release="$(returnRelease "${p}" "${os}" "${osVersion}")"
   if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
     #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
     #otherwise get the downloadURL from .downloadURIs.default 
@@ -160,11 +186,6 @@ testPackagesInstalled() {
     PackageVersions=()
     returnPackageVersions ${p} ${OS} ${OS_VERSION}
     downloadURL=$(returnPackageDownloadURL ${p} ${OS} ${OS_VERSION})
-    targetContainerRuntime=$(echo "${p}" | jq .targetContainerRuntime -r)
-    if [ "${targetContainerRuntime}" != "null" ] && [ "${containerRuntime}" != "${targetContainerRuntime}" ]; then
-      echo "$test: skipping ${name} verification as VHD container runtime is ${containerRuntime}, not ${targetContainerRuntime}"
-      continue
-    fi
     if [ ! -d $downloadLocation ]; then
       err $test "Directory ${downloadLocation} does not exist"
       continue
