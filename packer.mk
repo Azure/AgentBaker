@@ -39,6 +39,7 @@ else ifeq (${OS_SKU},AzureLinux)
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
+else
 $(error ARCHITECTURE was invalid ${ARCHITECTURE})
 endif
 
