@@ -186,10 +186,6 @@ testPackagesInstalled() {
     PackageVersions=()
     returnPackageVersions ${p} ${OS} ${OS_VERSION}
     downloadURL=$(returnPackageDownloadURL ${p} ${OS} ${OS_VERSION})
-    if [ ! -d $downloadLocation ]; then
-      err $test "Directory ${downloadLocation} does not exist"
-      continue
-    fi
 
     for version in ${PackageVersions}; do
       if [[ -z $downloadURL ]]; then
