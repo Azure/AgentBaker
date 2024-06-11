@@ -576,7 +576,6 @@ testLoginDefs() {
   testSetting $test $settings_file PASS_MAX_DAYS '^[[:space:]]*PASS_MAX_DAYS[[:space:]]' ' ' 90
   testSetting $test $settings_file PASS_MIN_DAYS '^[[:space:]]*PASS_MIN_DAYS[[:space:]]+' ' ' 7
   testSetting $test $settings_file UMASK '^[[:space:]]*UMASK[[:space:]]+' ' ' 027
-750624
   echo "$test:Finish"
 }
 
@@ -1051,6 +1050,9 @@ testNBCParserBinary () {
 #
 # We should also avoid early exit from the test run -- like if a command fails with
 # an exit rather than a return -- because that prevents other tests from running.
+# To repro the test results on the exact VM, we can set VHD_DEBUG="True" in the azure pipeline env variables.
+# This will keep the VM alive after the tests are run and we can SSH/Bastion into the VM to run the test manually.
+# Therefore, for example, you can run "sudo bash /var/lib/waagent/run-command/download/0/script.sh" to run the tests manually.
 testBccTools
 testVHDBuildLogsExist
 testCriticalTools

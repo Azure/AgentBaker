@@ -19,17 +19,25 @@ package components
 	downloadURL:  string
 }
 
-#OSDistro: {
+#UbuntuOSDistro: {
 	current?: #ReleaseDownloadURI
 	r1804?:   #ReleaseDownloadURI
 	r2004?:   #ReleaseDownloadURI
 	r2204?:   #ReleaseDownloadURI
 }
 
+#DefaultOSDistro: {
+	current?: #ReleaseDownloadURI
+}
+
+#MarinerOSDistro: {
+	current?: #ReleaseDownloadURI
+}
+
 #DownloadURIs: {
-	default?: #OSDistro
-	ubuntu?:  #OSDistro
-	mariner?: #OSDistro
+	default?: #DefaultOSDistro
+	ubuntu?:  #UbuntuOSDistro
+	mariner?: #MarinerOSDistro
 }
 
 #Package: {
