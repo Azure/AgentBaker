@@ -433,12 +433,9 @@ stop_watch $capture_time "GPU Device plugin" false
 start_watch
 
 # Kubelet credential provider plugins
-#CREDENTIAL_PROVIDER_VERSIONS="
-#1.29.2
-#1.30.0
-#"
 CREDENTIAL_PROVIDER_VERSIONS="
-1.29.0
+1.29.2
+1.30.0
 "
 
 # download oras for testing - would need to be cached to use for NIC
@@ -454,7 +451,7 @@ for CREDENTIAL_PROVIDER_VERSION in $CREDENTIAL_PROVIDER_VERSIONS; do
     # mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v1.29.0-linux-amd64
     # mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v1.29.0-linux-arm64
     # mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v1.29.0-windows-amd64
-    # CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
+    # CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}"
     CREDENTIAL_PROVIDER_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}.tar.gz"
     downloadCredentalProvider $CREDENTIAL_PROVIDER_DOWNLOAD_URL
     echo "  - Kubelet credential provider version ${CREDENTIAL_PROVIDER_VERSION}" >> ${VHD_LOGS_FILEPATH}
