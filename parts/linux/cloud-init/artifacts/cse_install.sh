@@ -64,6 +64,8 @@ installContainerRuntime() {
 
 installNetworkPlugin() {
     logs_to_events "AKS.CSE.installNetworkPlugin.installCNI" "skip network plugin/CNI install"
+    installCNI
+    rm -rf $CNI_DOWNLOADS_DIR &
     return
 
     if [[ "${NETWORK_PLUGIN}" = "azure" ]]; then
