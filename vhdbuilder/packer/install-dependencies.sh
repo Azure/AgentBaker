@@ -232,6 +232,11 @@ for p in ${packages[*]}; do
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    *)
+      echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
+      # We can add a common function to download a generic package here.
+      # However, installation could be different for different packages.
+      ;;
   esac
   stop_watch $capture_time "Download Components, Determine / Download \"$name\" \"$version\"" false
 done
