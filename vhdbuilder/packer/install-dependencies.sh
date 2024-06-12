@@ -25,19 +25,6 @@ CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 
-returnDownloadURL() {
-  local p=$1
-  if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
-    #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
-    #otherwise get the downloadURL from .downloadURIs.default 
-    if [[ $(echo "${p}" | jq '.downloadURIs.ubuntu') != "null" ]]; then
-      url=$(echo "${p}" | jq '.downloadURIs.ubuntu.current.downloadURL' -r)
-    else 
-      url=$(echo "${p}" | jq '.downloadURIs.default.current.downloadURL' -r)
-    fi
-  fi
-}
-
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
 stop_watch $capture_time "Declare Variables / Configure Environment" false

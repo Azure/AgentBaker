@@ -62,11 +62,11 @@ installContainerRuntime() {
         if [[ ${#PackageVersions[@]} -gt 1 ]]; then
             echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
         fi
-        version="${packageVersion[-1]}"
+        packageVersion="${PackageVersions[-1]}"
         containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
         containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
         if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
-            echo "invalid containerd version: $PackageVersions"
+            echo "invalid containerd version: $packageVersion"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
         logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"

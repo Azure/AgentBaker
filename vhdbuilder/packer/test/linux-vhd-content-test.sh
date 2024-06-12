@@ -179,7 +179,7 @@ testPackagesInstalled() {
     name=$(echo "${p}" | jq .name -r)
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
     if [[ "$OS_SKU" == "CBLMariner" || "$OS_SKU" == "AzureLinux" ]]; then
-      OS=$UBUNTU_OS_NAME
+      OS=$MARINER_OS_NAME
     else
       OS=$UBUNTU_OS_NAME
     fi

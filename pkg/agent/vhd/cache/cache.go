@@ -94,7 +94,6 @@ func getManifest() (*Manifest, error) {
 
 func getComponents() (*Components, error) {
 	componentsContent, err := parts.Templates.ReadFile(componentsFilePartPath)
-	fmt.Printf("componentsContent: %s\n", componentsContent)
 	if err != nil {
 		return nil, fmt.Errorf("reading components.json file part: %w", err)
 	}
