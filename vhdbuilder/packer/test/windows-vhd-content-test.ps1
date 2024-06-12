@@ -347,6 +347,8 @@ function Test-RegistryAdded {
 
         Validate-WindowsFixInFeatureManagement -Name 2290715789
         Validate-WindowsFixInFeatureManagement -Name 3152880268
+
+        Validate-WindowsFixInFeatureManagement -Name 1605443213
     }
     if ($env:WindowsSKU -Like '2022*') {
         Validate-WindowsFixInFeatureManagement -Name 2629306509
@@ -397,6 +399,10 @@ function Test-RegistryAdded {
         Validate-WindowsFixInFeatureManagement -Name 4186914956
         Validate-WindowsFixInFeatureManagement -Name 3173070476
         Validate-WindowsFixInFeatureManagement -Name 3958450316
+
+        Validate-WindowsFixInFeatureManagement -Name 2540111500
+        Validate-WindowsFixInFeatureManagement -Name 50261647
+        Validate-WindowsFixInFeatureManagement -Name 1475968140
     }
     if ($env:WindowsSKU -Like '23H2*') {
         Validate-WindowsFixInHnsState -Name NamespaceExcludedUdpPorts -Value 65330
