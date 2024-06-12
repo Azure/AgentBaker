@@ -77,12 +77,27 @@ else
   done
 fi
 
+CHRONYD_DIR=/etc/systemd/system/chronyd.service.d
+if [[ "$OS" == "$UBUNTU_OS_NAME" ]]; then
+  if [ "${OS_VERSION}" == "18.04" ]; then
+    CHRONYD_DIR=/etc/systemd/system/chrony.service.d
+  fi
+fi
+
+mkdir -p "${CHRONYD_DIR}"
+cat >> "${CHRONYD_DIR}"/10-chrony-restarts.conf <<EOF
+[Service]
+Restart=always
+RestartSec=5
+EOF
+
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
 Storage=persistent
 SystemMaxUse=1G
 RuntimeMaxUse=1G
 ForwardToSyslog=yes
 EOF
+
 stop_watch $capture_time "Install Dependencies" false
 start_watch
 
