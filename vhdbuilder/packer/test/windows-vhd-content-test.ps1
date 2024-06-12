@@ -140,6 +140,7 @@ function Test-FilesToCacheOnVHD
                     $localFileSize = (Get-Item $dest).length
                     $remoteFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
                     if ($localFileSize -ne $remoteFileSize) {
+                        # Please also update excludeHashComparisionListInAzureChinaCloud in vhdbuilder/packer/test/windows-files-check.ps1
                         $excludeHashComparisionListInAzureChinaCloud = @(
                             "calico-windows",
                             "azure-vnet-cni-singletenancy-windows-amd64",
