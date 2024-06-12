@@ -17,6 +17,17 @@ $global:aksToolsDir = "c:\aks-tools"
 # We need to guarantee that the node provisioning will not fail because the vhd is full before resize-osdisk is called in AKS Windows CSE script.
 $global:lowestFreeSpace = 2*1024*1024*1024 # 2GB
 
+$global:excludeHashComparisionListInAzureChinaCloud = @(
+    "calico-windows",
+    "azure-vnet-cni-singletenancy-windows-amd64",
+    "azure-vnet-cni-singletenancy-swift-windows-amd64",
+    "azure-vnet-cni-singletenancy-overlay-windows-amd64",
+    # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
+    # so we can ignore the different hash values.
+    "v1.26.0-1int.zip",
+    "azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz"
+)
+
 # defaultContainerdPackageUrl refers to the stable containerd package used to pull and cache container images
 # Add cache for another containerd version which is not installed by default
 $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.6.21-azure.1/binaries/containerd-v1.6.21-azure.1-windows-amd64.tar.gz"

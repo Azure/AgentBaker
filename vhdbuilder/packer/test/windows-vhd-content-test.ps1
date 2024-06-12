@@ -140,20 +140,8 @@ function Test-FilesToCacheOnVHD
                     $localFileSize = (Get-Item $dest).length
                     $remoteFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
                     if ($localFileSize -ne $remoteFileSize) {
-                        # Please also update excludeHashComparisionListInAzureChinaCloud in vhdbuilder/packer/test/windows-files-check.ps1
-                        $excludeHashComparisionListInAzureChinaCloud = @(
-                            "calico-windows",
-                            "azure-vnet-cni-singletenancy-windows-amd64",
-                            "azure-vnet-cni-singletenancy-swift-windows-amd64",
-                            "azure-vnet-cni-singletenancy-overlay-windows-amd64",
-                            # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
-                            # so we can ignore the different hash values.
-                            "v1.26.0-1int.zip",
-                            "azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz"
-                        )
-
                         $isIgnore=$False
-                        foreach($excludePackage in $excludeHashComparisionListInAzureChinaCloud) {
+                        foreach($excludePackage in $global:excludeHashComparisionListInAzureChinaCloud) {
                             if ($mcURL.Contains($excludePackage)) {
                                 $isIgnore=$true
                                 break
