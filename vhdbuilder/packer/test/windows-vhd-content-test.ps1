@@ -147,7 +147,8 @@ function Test-FilesToCacheOnVHD
                             "azure-vnet-cni-singletenancy-overlay-windows-amd64",
                             # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
                             # so we can ignore the different hash values.
-                            "v1.26.0-1int.zip"
+                            "v1.26.0-1int.zip",
+                            "azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz"
                         )
 
                         $isIgnore=$False
@@ -178,6 +179,40 @@ function Test-FilesToCacheOnVHD
         exit 1
     }
 
+    $dir = "c:\akse-cache\private-packages"
+    if (Test-Path $dir) {
+        $mappingFile = "c:\akse-cache\private-packages\mapping.json"
+        if (Test-Path $mappingFile) {
+            $urls = @{}
+            (ConvertFrom-Json ((Get-Content $mappingFile -ErrorAction Stop) | Out-String)).psobject.properties | Foreach { $urls[$_.Value] = $False }
+            $privatePackages = Get-ChildItem -Path $dir -File -Filter "*.zip"
+            foreach($privatePackage in $privatePackages) {
+                $isFound = $False
+                foreach ($url in $urls.Keys) {
+                    if ($url.Contains($privatePackage.Name)) {
+                        $urls[$url] = $True
+                        $isFound = $True
+                        break
+                    }
+                }
+
+                if (-not $isFound) {
+                    Write-ErrorWithTimestamp "URL for $($privatePackage.Name) is not found in $mappingFile"
+                    exit 1
+                }
+            }
+
+            foreach ($url in $urls.Keys) {
+                if (-not $urls[$url]) {
+                    Write-ErrorWithTimestamp "URL for $url is not cached in $dir"
+                    exit 1
+                }
+            }
+        } else {
+            Write-ErrorWithTimestamp "File $mappingFile does not exist but $dir exists"
+            exit 1
+        }
+    }
 }
 
 function Test-PatchInstalled {
