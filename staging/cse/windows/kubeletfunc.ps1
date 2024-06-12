@@ -182,7 +182,18 @@ function Get-KubePackage {
         [Parameter(Mandatory = $true)][string]
         $KubeBinariesSASURL
     )
-    Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadKubletBinaries" -TaskMessage "Start to download kubelet binaries and unzip. KubeBinariesPackageSASURL: $global:KubeBinariesPackageSASURL"
+    $mappingFile = [Io.path]::Combine($global:CacheDir, "private-packages\mapping.json")
+    if (Test-Path $mappingFile) {
+        $urls = @{}
+        (ConvertFrom-Json ((Get-Content $mappingFile -ErrorAction Stop) | Out-String)).psobject.properties | Foreach { $urls[$_.Name] = $_.Value }
+        if ($urls.ContainsKey($global:KubeBinariesVersion)) {
+            Write-Log "Found $global:KubeBinariesVersion in $mappingFile"
+            $KubeBinariesSASURL = $urls[$global:KubeBinariesVersion]
+        } else {
+            Write-Log "Did not find $global:KubeBinariesVersion in $mappingFile"
+        }
+    }
+    Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadKubletBinaries" -TaskMessage "Start to download kubelet binaries and unzip. KubeBinariesPackageSASURL: $KubeBinariesSASURL"
 
     $zipfile = "c:\k.zip"
     for ($i = 0; $i -le 10; $i++) {
