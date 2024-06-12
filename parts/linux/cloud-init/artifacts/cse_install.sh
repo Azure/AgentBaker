@@ -85,11 +85,11 @@ installNetworkPlugin() {
 }
 
 downloadCNI() {
-    downloadDir=${1:-${CRICTL_DOWNLOAD_DIR}}
+    downloadDir=${1:-${CNI_DOWNLOADS_DIR}}
     mkdir -p $downloadDir
     CNI_PLUGINS_URL=${2:-$CNI_PLUGINS_URL}
-    crictlTgzTmp=${CNI_PLUGINS_URL##*/}
-    retrycmd_get_tarball 120 5 "$downloadDir/${crictlTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+    cniTgzTmp=${CNI_PLUGINS_URL##*/}
+    retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
 downloadCredentalProvider() {
