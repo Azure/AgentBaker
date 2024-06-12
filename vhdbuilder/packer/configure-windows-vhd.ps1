@@ -588,6 +588,9 @@ function Update-Registry {
         Write-Log "Enable 2 fixes in 2024-04B"
         Enable-WindowsFixInFeatureManagement -Name 2290715789
         Enable-WindowsFixInFeatureManagement -Name 3152880268
+
+        Write-Log "Enable 1 fix in 2024-06B"
+        Enable-WindowsFixInFeatureManagement -Name 1605443213
     }
 
     if ($env:WindowsSKU -Like '2022*') {
@@ -666,6 +669,11 @@ function Update-Registry {
         Enable-WindowsFixInFeatureManagement -Name 4186914956
         Enable-WindowsFixInFeatureManagement -Name 3173070476
         Enable-WindowsFixInFeatureManagement -Name 3958450316
+
+        Write-Log "Enable 3 fixes in 2024-06B"
+        Enable-WindowsFixInFeatureManagement -Name 2540111500
+        Enable-WindowsFixInFeatureManagement -Name 50261647
+        Enable-WindowsFixInFeatureManagement -Name 1475968140
     }
 
     if ($env:WindowsSKU -Like '23H2*') {
