@@ -286,6 +286,8 @@ function Get-PrivatePackagesToCacheOnVHD {
         $dir = "c:\akse-cache\private-packages"
         New-Item -ItemType Directory $dir -Force | Out-Null
 
+        $mappingFile = "c:\akse-cache\private-packages\mapping.json"
+        $content = @{}
         $urls = $env:WindowsPrivatePackagesURL.Split(",")
         foreach ($url in $urls) {
             $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
@@ -293,7 +295,15 @@ function Get-PrivatePackagesToCacheOnVHD {
 
             Write-Log "Downloading a private package to $dest"
             Download-FileWithAzCopy -URL $URL -Dest $dest
+
+            # Example: v1.29.2-hotfix.2024101-1int.zip
+            $version = $fileName.Split('-')[0].SubString(1)
+            Write-Log "Adding $version to $mappingFile"
+            $content[$version] = $url
         }
+
+        Write-Log "Writing mapping file to $mappingFile"
+        $content | ConvertTo-Json -Depth 10 | Out-File -FilePath $mappingFile
     }
 }
 
