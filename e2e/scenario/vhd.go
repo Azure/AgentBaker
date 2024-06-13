@@ -31,13 +31,58 @@ const (
 )
 
 var (
-	//go:embed base_vhd_catalog.json
-	embeddedBaseVHDCatalog string
 
 	// BaseVHDCatalog represents the base VHD catalog that every E2E suite will start off of.
 	// It contains the set of VHDs used by AgentBaker E2Es, along with the specific versions and artifact name for each.
 	// When a VHD build ID is specified, this catalog's entries will be overwritten respectively for each downloaded VHD publishing info.
-	BaseVHDCatalog = mustGetVHDCatalogFromEmbeddedJSON(embeddedBaseVHDCatalog)
+	BaseVHDCatalog = VHDCatalog{
+		Ubuntu1804: Ubuntu1804{
+			Gen2Containerd: VHD{
+				ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2",
+				VersionTagName:  "branch",
+				VersionTagValue: "refs/heads/r2k1/e2e-update",
+			},
+		},
+		Ubuntu2204: Ubuntu2204{
+			Gen2Arm64Containerd: VHD{
+				ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64",
+				VersionTagName:  "branch",
+				VersionTagValue: "refs/heads/r2k1/e2e-update",
+			},
+			Gen2Containerd: VHD{
+				ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2",
+				VersionTagName:  "branch",
+				VersionTagValue: "refs/heads/r2k1/e2e-update",
+			},
+			Gen2ContainerdPrivateKubePkg: VHD{
+				ResourceID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1704411049.2812",
+			},
+		},
+		AzureLinuxV2: AzureLinuxV2{
+			Gen2Arm64: VHD{
+				ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2Arm64",
+				VersionTagName:  "branch",
+				VersionTagValue: "refs/heads/r2k1/e2e-update",
+			},
+			Gen2: VHD{
+				ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2",
+				VersionTagName:  "branch",
+				VersionTagValue: "refs/heads/r2k1/e2e-update",
+			},
+		},
+		CBLMarinerV2: CBLMarinerV2{
+			Gen2Arm64: VHD{
+				ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64",
+				VersionTagName:  "branch",
+				VersionTagValue: "refs/heads/r2k1/e2e-update",
+			},
+			Gen2: VHD{
+				ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2",
+				VersionTagName:  "branch",
+				VersionTagValue: "refs/heads/r2k1/e2e-update",
+			},
+		},
+	}
 )
 
 func getVHDsFromBuild(ctx context.Context, tmpl *Template, scenarios []*Scenario) error {
@@ -174,19 +219,6 @@ func parseImageID(resourceID string) (imageID, error) {
 	return result, nil
 }
 
-func mustGetVHDCatalogFromEmbeddedJSON(rawJSON string) VHDCatalog {
-	if rawJSON == "" {
-		panic("default_vhd_catalog.json is empty")
-	}
-
-	catalog := VHDCatalog{}
-	if err := json.Unmarshal([]byte(rawJSON), &catalog); err != nil {
-		panic(err)
-	}
-
-	return catalog
-}
-
 type Manifest struct {
 	Containerd struct {
 		Edge string `json:"edge"`
@@ -224,45 +256,45 @@ func (id VHDResourceID) Short() string {
 
 // VHD represents a VHD used to run AgentBaker E2E scenarios.
 type VHD struct {
-	ImageID         string `json:"imageId,omitempty"`
-	VersionTagName  string `json:"versionTagName,omitempty"`
-	VersionTagValue string `json:"versionTagValue,omitempty"`
+	ImageID         string
+	VersionTagName  string
+	VersionTagValue string
 	// ResourceID is the resource ID pointing to the underlying VHD in Azure. Based on the current setup, this will always be the resource ID
 	// of an image version in a shared image gallery.
-	ResourceID VHDResourceID `json:"resourceId,omitempty"`
+	ResourceID VHDResourceID
 }
 
 // VHDCatalog is the "catalog" used by the scenario template to offer VHD selections to each individual E2E scenario.
 // Each scenario should be configured to choose a VHD from this catalog.
 type VHDCatalog struct {
-	Ubuntu1804   Ubuntu1804   `json:"ubuntu1804,omitempty"`
-	Ubuntu2204   Ubuntu2204   `json:"ubuntu2204,omitempty"`
-	AzureLinuxV2 AzureLinuxV2 `json:"azurelinuxv2,omitempty"`
-	CBLMarinerV2 CBLMarinerV2 `json:"cblmarinerv2,omitempty"`
+	Ubuntu1804   Ubuntu1804
+	Ubuntu2204   Ubuntu2204
+	AzureLinuxV2 AzureLinuxV2
+	CBLMarinerV2 CBLMarinerV2
 }
 
 // Ubuntu1804 contains all the Ubuntu1804-based VHD catalog entries.
 type Ubuntu1804 struct {
-	Gen2Containerd VHD `json:"gen2containerd,omitempty"`
+	Gen2Containerd VHD
 }
 
 // Ubuntu2204 contains all the Ubuntu2204-based VHD catalog entries.
 type Ubuntu2204 struct {
-	Gen2Arm64Containerd          VHD `json:"gen2arm64containerd,omitempty"`
-	Gen2Containerd               VHD `json:"gen2containerd,omitempty"`
-	Gen2ContainerdPrivateKubePkg VHD `json:"gen2containerdprivatekubepkg,omitempty"`
+	Gen2Arm64Containerd          VHD
+	Gen2Containerd               VHD
+	Gen2ContainerdPrivateKubePkg VHD
 }
 
 // AzureLinuxV2 contains all the AzureLinuxV2-based VHD catalog entries.
 type AzureLinuxV2 struct {
-	Gen2Arm64 VHD `json:"gen2arm64,omitempty"`
-	Gen2      VHD `json:"gen2,omitempty"`
+	Gen2Arm64 VHD
+	Gen2      VHD
 }
 
 // CBLMarinerv2 contains all the CBLMarinerV2-based VHD catalog entries.
 type CBLMarinerV2 struct {
-	Gen2Arm64 VHD `json:"gen2arm64,omitempty"`
-	Gen2      VHD `json:"gen2,omitempty"`
+	Gen2Arm64 VHD
+	Gen2      VHD
 }
 
 // Returns the Ubuntu1804/gen2 catalog entry.
