@@ -43,7 +43,7 @@ installContainerRuntime() {
         echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
         local containerd_version
         if [[ -f "$COMPONENTS_FILEPATH" ]]; then
-            echo "WARNING: containerd version not found in components.json. Skipping validation."
+            echo "WARNING: $COMPONENTS_FILEPATH not found. Skipping validation."
             return
         fi
         os=UBUNTU_OS_NAME
@@ -62,12 +62,14 @@ installContainerRuntime() {
         if [[ ${#PackageVersions[@]} -gt 1 ]]; then
             echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
         fi
-        packageVersion="${PackageVersions[-1]}"
+        IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PackageVersions[*]}"))
+        unset IFS
+        packageVersion="${sortedPackageVersions[-1]}"
         containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
         containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
         if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
             echo "invalid containerd version: $packageVersion"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+            exit $ERR_CONTAINERD_VERSION_INVALID
         fi
         logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
         echo "in installContainerRuntime - CONTAINERD_VERSION = ${containerdMajorMinorPatchVersion}"
@@ -85,11 +87,11 @@ installNetworkPlugin() {
 }
 
 downloadCNI() {
-    downloadDir=${1:-${CRICTL_DOWNLOAD_DIR}}
+    downloadDir=${1:-${CNI_DOWNLOADS_DIR}}
     mkdir -p $downloadDir
     CNI_PLUGINS_URL=${2:-$CNI_PLUGINS_URL}
-    crictlTgzTmp=${CNI_PLUGINS_URL##*/}
-    retrycmd_get_tarball 120 5 "$downloadDir/${crictlTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+    cniTgzTmp=${CNI_PLUGINS_URL##*/}
+    retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
 downloadCredentalProvider() {
