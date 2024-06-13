@@ -260,3 +260,16 @@ func (c *Client) CreateOrUpdateSubnet(ctx context.Context, resourceGroupName, vn
 	}
 	return poller.PollUntilDone(ctx, nil)
 }
+
+func (c *Client) GetKubeConfig(ctx context.Context, resourceGroupName, clusterName string) ([]byte, error) {
+	credentialList, err := c.AKS.ListClusterAdminCredentials(ctx, resourceGroupName, clusterName, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cluster admin credentials: %w", err)
+	}
+
+	if len(credentialList.Kubeconfigs) < 1 {
+		return nil, fmt.Errorf("no kubeconfigs available for the managed cluster cluster")
+	}
+
+	return credentialList.Kubeconfigs[0].Value, nil
+}

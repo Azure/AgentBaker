@@ -41,7 +41,7 @@ func newKubeclient(config *rest.Config) (*kubeclient, error) {
 }
 
 func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName string) (*kubeclient, error) {
-	data, err := getClusterKubeconfigBytes(ctx, resourceGroupName, clusterName)
+	data, err := config.Azure.GetKubeConfig(ctx, resourceGroupName, clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster kubeconfig bytes: %w", err)
 	}
@@ -57,17 +57,4 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 	}
 
 	return newKubeclient(restConfig)
-}
-
-func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterName string) ([]byte, error) {
-	credentialList, err := config.Azure.AKS.ListClusterAdminCredentials(ctx, resourceGroupName, clusterName, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list cluster admin credentials: %w", err)
-	}
-
-	if len(credentialList.Kubeconfigs) < 1 {
-		return nil, fmt.Errorf("no kubeconfigs available for the managed cluster cluster")
-	}
-
-	return credentialList.Kubeconfigs[0].Value, nil
 }
