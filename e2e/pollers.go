@@ -267,8 +267,6 @@ type pollVMSSOperationOpts struct {
 
 // TODO: refactor into a new struct which manages the operation independently
 func pollVMSSOperation[T any](ctx context.Context, vmssName string, opts pollVMSSOperationOpts, vmssOperation func() (Poller[T], error)) (*T, error) {
-	ctx, cancel := context.WithTimeout(ctx, *opts.pollingTimeout)
-	defer cancel()
 	var vmssResp T
 	var requestError azure.RequestError
 
@@ -278,6 +276,9 @@ func pollVMSSOperation[T any](ctx context.Context, vmssName string, opts pollVMS
 	if opts.pollingTimeout == nil {
 		opts.pollingTimeout = to.Ptr(defaultVMSSOperationPollingTimeout)
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, *opts.pollingTimeout)
+	defer cancel()
 
 	pollErr := wait.PollUntilContextCancel(ctx, *opts.pollingInterval, true, func(ctx context.Context) (bool, error) {
 		poller, err := vmssOperation()
