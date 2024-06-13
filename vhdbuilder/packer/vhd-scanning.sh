@@ -36,6 +36,18 @@ set -x
 RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
 az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
 
+GROUP_NAME="VHDScanningRBACGroup"
+MAIL_NICKNAME="VHDScanningRBACGroupNickname"
+GROUP_ID=$(az ad group show --group "$GROUP_NAME" --query objectId --output tsv 2>/dev/null)
+if [ -z "$GROUP_ID" ]; then
+    echo "${GROUP_NAME} does not exist. Creating group..."
+    az ad group create --display-name "$GROUP_NAME" --mail-nickname "$MAIL_NICKNAME"
+    GROUP_ID=$(az ad group show --group "$GROUP_NAME" --query objectId --output tsv)
+    az role assignment create --assignee "$GROUP_OBJECT_ID" --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME}/blobServices/default/containers/vhd-scans"
+else
+    echo "Group already exists. Group Name: $GROUP_NAME Group ID: $GROUP_ID"
+fi
+
 # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
 if [ "$OS_VERSION" == "18.04" ]; then
     echo "Skipping scanning for 18.04"
@@ -45,6 +57,11 @@ fi
 function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
     az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
+
+    if [ -n "$OBJ_ID" ]; then
+        echo "Deleting vm from ${GROUP_NAME}"
+        az ad group member remove --group "$GROUP_NAME" --member-id "$OBJ_ID"
+    fi
 }
 trap cleanup EXIT
 
@@ -69,7 +86,8 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --assign-identity "[system]"
 
 OBJ_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
-az role assignment create --assignee $OBJ_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME}/blobServices/default/containers/vhd-scans"
+az ad group member add --group "$GROUP_NAME" --member-id "$PRINCIPAL_ID"
+# az role assignment create --assignee $OBJ_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME}/blobServices/default/containers/vhd-scans"
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
