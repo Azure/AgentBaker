@@ -12,7 +12,7 @@ var (
 	VHDBuildID         = os.Getenv("VHD_BUILD_ID")
 	Subscription       = mustenv("SUBSCRIPTION_ID")
 	Location           = mustenv("LOCATION")
-	ResourceGroupName  = "abe2e-" + mustenv("LOCATION")
+	ResourceGroupName  = "abe2e-" + Location
 	PAT                = os.Getenv("ADO_PAT")
 	ScenariosToRun     = envmap("SCENARIOS_TO_RUN")
 	ScenariosToExclude = envmap("SCENARIOS_TO_EXCLUDE")
