@@ -65,6 +65,7 @@ function Download-FileWithAzCopy {
 
 function Cleanup-TemporaryFiles {
     if (Test-Path -Path $global:aksTempDir) {
+        Write-Log "Cleaning up temporary folder $global:aksTempDir"
         Remove-Item -Path $global:aksTempDir -Force -Recurse
     }
 }
@@ -798,6 +799,11 @@ function Log-ReofferUpdate {
     }
 }
 
+function Generate-CseStaticConfigFile {
+    Write-Log "Writing cse static config file to $global:CseStaticConfigFile"
+    $global:CseStaticConfig | ConvertTo-Json -Depth 10 | Out-File -FilePath $global:CseStaticConfigFile
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -828,6 +834,7 @@ try{
             Get-ToolsToVHD # Rely on the completion of Get-FilesToCacheOnVHD
             Get-PrivatePackagesToCacheOnVHD
             Log-ReofferUpdate
+            Generate-CseStaticConfigFile
         }
         "3" {
             Register-ExpandVolumeTask

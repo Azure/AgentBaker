@@ -14,6 +14,11 @@ $global:aksTempDir = "c:\akstemp"
 # We use the same dir for all tools that will be used in AKS Windows nodes
 $global:aksToolsDir = "c:\aks-tools"
 
+$global:CseStaticConfigFile = "C:\aks-cache\static.config"
+$global:CseStaticConfig = @{
+    "CSEScriptPackage" = "C:\aks-cache\aks-windows-cse-scripts-v0.0.43.zip"
+}
+
 # We need to guarantee that the node provisioning will not fail because the vhd is full before resize-osdisk is called in AKS Windows CSE script.
 $global:lowestFreeSpace = 2*1024*1024*1024 # 2GB
 
@@ -126,6 +131,7 @@ $global:imagesToPull += @(
 $global:map = @{
     "c:\akse-cache\"              = @(
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
+        # Must update CSEScriptPackage in $global:CseStaticConfig
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.42.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.43.zip"
     );

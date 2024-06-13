@@ -237,28 +237,44 @@ try
         return
     }
 
+    $global:CseStaticConfig = @{}
+    $cseStaticConfigFile = [Io.path]::Combine($global:CacheDir, "static.config")
+    Logs-To-Event -TaskName "AKS.WindowsCSE.ReadCseStaticConfig" -TaskMessage "Start to read cse static config. cseStaticConfigFile: $cseStaticConfigFile"
+    if (Test-Path $cseStaticConfigFile) {
+        Write-Log "Loading cse static config from $cseStaticConfigFile"
+        (ConvertFrom-Json ((Get-Content $cseStaticConfigFile -ErrorAction Stop) | Out-String)).psobject.properties | Foreach { $global:CseStaticConfig[$_.Name] = $_.Value }
+    }
+
     # This involes using proxy, log the config before fetching packages
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.43.zip"
+    $tempfile = 'c:\cse\csescripts.zip'
+    $isNeedDownload = $true
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
-    Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
-    # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
-    # but it is better to set the CSE package version in Windows CSE in AgentBaker
-    # since most changes in CSE package also need the change in Windows CSE in AgentBaker
-    # In future, AKS RP only sets the endpoint with the pacakge name, for example, https://acs-mirror.azureedge.net/aks/windows/cse/
     if ($global:CSEScriptsPackageUrl.EndsWith("/")) {
-        $global:CSEScriptsPackageUrl = $global:CSEScriptsPackageUrl + $WindowsCSEScriptsPackage
-        Write-Log "CSEScriptsPackageUrl is set to $global:CSEScriptsPackageUrl"
+        # Use the cached cse script package when it is provided in the static config
+        if ($global:CseStaticConfig["CSEScriptPackage"] -ne "" -and (Test-Path $global:CseStaticConfig["CSEScriptPackage"])) {
+            $isNeedDownload = $false
+            $tempfile = $global:CseStaticConfig["CSEScriptPackage"]
+            Write-Log "Using $tempfile in $cseStaticConfigFile"
+        } else {
+            # Back-compatibility with old VHDs without the static config file
+            $global:CSEScriptsPackageUrl = $global:CSEScriptsPackageUrl + "aks-windows-cse-scripts-v0.0.43.zip"
+            Write-Log "CSEScriptsPackageUrl is set to $global:CSEScriptsPackageUrl"
+        }
     }
 
-    # Download CSE function scripts
-    Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadAndExpandCSEScriptPackageUrl" -TaskMessage "Start to get CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
-    $tempfile = 'c:\csescripts.zip'
-    DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
+    if ($isNeedDownload) {
+        Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadCSEScriptPackage" -TaskMessage "Start to download CSE scripts. CSEScriptsPackageUrl: $global:CSEScriptsPackageUrl"
+        DownloadFileOverHttp -Url $global:CSEScriptsPackageUrl -DestinationPath $tempfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE
+    }
+
+    Logs-To-Event -TaskName "AKS.WindowsCSE.ExpandCSEScriptPackage" -TaskMessage "Start to expand CSE scripts. tempfile: $tempfile"
     Expand-Archive $tempfile -DestinationPath "C:\\AzureData\\windows" -Force
-    Remove-Item -Path $tempfile -Force
+    if ($isNeedDownload) {
+        Remove-Item -Path $tempfile -Force
+    }
     
     # Dot-source cse scripts with functions that are called in this script
     . c:\AzureData\windows\azurecnifunc.ps1
