@@ -78,14 +78,15 @@ Steps:
 },
 ```
 
-Note: SCENARIOS_TO_RUN specifies what scenarios you want to test. You can change it as desired.
+***Note: `SCENARIOS_TO_RUN` specifies what scenarios you want to test. You can change it as desired.***
 
-5. Now you can go to VS code > Test tab > github.com/Azure/agentbakere2e > suite_test.go > Test_All. On the right you
-   will see a Debug test button. You can also set breakpoints.
+5. Now you can go to VS code > Test tab > github.com/Azure/agentbakere2e > suite_test.go > Test_All. On the right you will see a Debug test button. You can also set breakpoints.
 
 ![alt text](images/e2edebug.png)
 
-Note: You can probably edit the /.vscode/settings.json for local project use but I haven't tried.
+***Note: You can probably edit the /.vscode/settings.json for local project use but I (devinwon) haven't tried.***
+
+6. If you want to use your VHD test build from the pipeline _[TEST All VHDs] AKS Linux VHD Build - Msft Tenant_, you can add `VHD_BUILD_ID` and `ADO_PAT` in the `go.testEnvVars` too. For more info about how to get the values of both, please see another section _Using Arbitrary VHD Builds_
 
 ## Package Structure
 
@@ -134,15 +135,16 @@ MSFT tenant, you can do so by specifying the ID of the build. This is an alterna
 default VHD catalog entries. If a given scenario is ran which selects a VHD that was not built as a part of the
 specified VHD build, the selector will select the corresponding default catalog entry instead.
 
-***NOTE: This feature can only be used with test VHD builds, using builds from official build pipeline is not supported.
-***
+***NOTE: This feature can only be used with test VHD builds, using builds from official build pipeline is not supported.***
 
 ```bash
 VHD_BUILD_ID=123456789 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64,ubuntu2204-gpu-ncv3 ./e2e-local.sh
 ```
 
-***NOTE: To utilize this feature, you'll also need to provide the suite with an ADO PAT (personal access token) with
+***NOTE1: To utilize this feature, you'll also need to provide the suite with an ADO PAT (personal access token) with
 which it can access the ADO resources to download the appropriate build artifacts.***
+
+***NOTE2: The VHD_BUILD_ID here isn't the VHD build(e.g. 1.1718260876.20103). It is the `buildid` of the build pipeline. For example, `95848280` in the pipeline URL `https://msazure.visualstudio.com/CloudNativeCompute/_build/results?buildId=95848280&view=results`***
 
 To specify your PAT, simply set the `ADO_PAT` environment variable accordingly:
 
