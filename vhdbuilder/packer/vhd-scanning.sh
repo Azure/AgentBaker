@@ -28,6 +28,10 @@ fi
 function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
     az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
+
+    if [ -n "${VM_PRINCIPLE_ID}" ]; then
+        az role assignment delete --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${SCANNING_STORAGE_ACCOUNT}/blobServices/default/containers/vhd-scans"
+    fi 
 }
 trap cleanup EXIT
 
@@ -52,7 +56,7 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --assign-identity "[system]"
 
 VM_PRINCIPLE_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
-az role assignment create --assignee $OBJ_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${SCANNING_STORAGE_ACCOUNT}/blobServices/default/containers/vhd-scans"
+az role assignment create --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${SCANNING_STORAGE_ACCOUNT}/blobServices/default/containers/vhd-scans"
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
