@@ -1,4 +1,4 @@
-package e2e_test
+package e2e
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/scenario"
-	"github.com/Azure/agentbakere2e/suite"
 	"github.com/barkimedes/go-deepcopy"
 )
 
@@ -19,18 +19,11 @@ func Test_All(t *testing.T) {
 	ctx := context.Background()
 	t.Parallel()
 
-	suiteConfig, err := suite.NewConfigForEnvironment()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	log.Printf("suite config:\n%s", suiteConfig.String())
-
 	if err := createE2ELoggingDir(); err != nil {
 		t.Fatal(err)
 	}
 
-	scenarios, err := scenario.GetScenariosForSuite(ctx, suiteConfig)
+	scenarios, err := scenario.GetScenariosForSuite(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,28 +31,28 @@ func Test_All(t *testing.T) {
 		t.Fatal("at least one scenario must be selected to run the e2e suite")
 	}
 
-	cloud, err := newAzureClient(suiteConfig.Subscription)
+	cloud, err := newAzureClient(config.Subscription)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := ensureResourceGroup(ctx, cloud, suiteConfig); err != nil {
+	if err := ensureResourceGroup(ctx, cloud); err != nil {
 		t.Fatal(err)
 	}
 
-	clusterConfigs, err := getInitialClusterConfigs(ctx, cloud, suiteConfig.ResourceGroupName)
+	clusterConfigs, err := getInitialClusterConfigs(ctx, cloud, config.ResourceGroupName)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := createMissingClusters(ctx, r, cloud, suiteConfig, scenarios, &clusterConfigs); err != nil {
+	if err := createMissingClusters(ctx, r, cloud, scenarios, &clusterConfigs); err != nil {
 		t.Fatal(err)
 	}
 
 	for _, e2eScenario := range scenarios {
 		e2eScenario := e2eScenario
 
-		clusterConfig, err := chooseCluster(ctx, r, cloud, suiteConfig, e2eScenario, clusterConfigs)
+		clusterConfig, err := chooseCluster(ctx, r, cloud, e2eScenario, clusterConfigs)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -67,7 +60,7 @@ func Test_All(t *testing.T) {
 		clusterName := *clusterConfig.cluster.Name
 		log.Printf("chose cluster: %q", clusterName)
 
-		baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(ctx, cloud, suiteConfig, clusterConfig.parameters)
+		baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(clusterConfig.parameters)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -92,7 +85,6 @@ func Test_All(t *testing.T) {
 			runScenario(ctx, t, r, &scenarioRunOpts{
 				clusterConfig: clusterConfig,
 				cloud:         cloud,
-				suiteConfig:   suiteConfig,
 				scenario:      e2eScenario,
 				nbc:           nbc,
 				loggingDir:    loggingDir,
@@ -113,7 +105,7 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 
 	vmssSucceeded := true
 	vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, vmssName, opts, publicKeyBytes)
-	if !opts.suiteConfig.KeepVMSS && cleanupVMSS != nil {
+	if !config.KeepVMSS && cleanupVMSS != nil {
 		defer cleanupVMSS()
 	}
 	if err != nil {
@@ -124,7 +116,7 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 		log.Printf("vm %s was unable to be provisioned due to a CSE error, will still attempt to extract provisioning logs...\n", vmssName)
 	}
 
-	if opts.suiteConfig.KeepVMSS {
+	if config.KeepVMSS {
 		defer func() {
 			log.Printf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
 			if vmssModel != nil {

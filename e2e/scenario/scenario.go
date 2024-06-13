@@ -4,28 +4,28 @@ import (
 	"context"
 	"log"
 
-	"github.com/Azure/agentbakere2e/suite"
+	"github.com/Azure/agentbakere2e/config"
 )
 
 // GetScenarios returns the set of scenarios comprising the AgentBaker E2E suite.
-func GetScenariosForSuite(ctx context.Context, suiteConfig *suite.Config) (Table, error) {
+func GetScenariosForSuite(ctx context.Context) (Table, error) {
 	var (
 		tmpl      = NewTemplate()
 		scenarios []*Scenario
 	)
 
 	for _, scenario := range tmpl.allScenarios() {
-		if suiteConfig.ScenariosToRun != nil && !suiteConfig.ScenariosToRun[scenario.Name] {
+		if config.ScenariosToRun != nil && !config.ScenariosToRun[scenario.Name] {
 			continue
-		} else if suiteConfig.ScenariosToExclude != nil && suiteConfig.ScenariosToExclude[scenario.Name] {
+		} else if config.ScenariosToExclude != nil && config.ScenariosToExclude[scenario.Name] {
 			continue
 		}
 		scenarios = append(scenarios, scenario)
 	}
 
-	if suiteConfig.UseVHDsFromBuild() {
-		log.Printf("will use VHDs from specified build: %d", suiteConfig.VHDBuildID)
-		if err := getVHDsFromBuild(ctx, suiteConfig, tmpl, scenarios); err != nil {
+	if config.BuildID != "" {
+		log.Printf("will use VHDs from specified build: %d", config.BuildID)
+		if err := getVHDsFromBuild(ctx, tmpl, scenarios); err != nil {
 			return nil, err
 		}
 	}

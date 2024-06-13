@@ -9,10 +9,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/Azure/agentbakere2e/artifact"
-	"github.com/Azure/agentbakere2e/suite"
+	"github.com/Azure/agentbakere2e/config"
 )
 
 const (
@@ -37,8 +38,8 @@ var (
 	BaseVHDCatalog = mustGetVHDCatalogFromEmbeddedJSON(embeddedBaseVHDCatalog)
 )
 
-func getVHDsFromBuild(ctx context.Context, suiteConfig *suite.Config, tmpl *Template, scenarios []*Scenario) error {
-	downloader, err := artifact.NewDownloader(ctx, suiteConfig)
+func getVHDsFromBuild(ctx context.Context, tmpl *Template, scenarios []*Scenario) error {
+	downloader, err := artifact.NewDownloader(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to construct new ADO artifact downloader: %w", err)
 	}
@@ -55,10 +56,15 @@ func getVHDsFromBuild(ctx context.Context, suiteConfig *suite.Config, tmpl *Temp
 		}
 	}
 
-	log.Printf("using artifact from build %d with name: %s", suiteConfig.VHDBuildID, fmt.Sprint(artifactNames))
+	log.Printf("using artifact from build %d with name: %s", config.BuildID, fmt.Sprint(artifactNames))
+
+	buildID, err := strconv.Atoi(config.BuildID)
+	if err != nil {
+		return fmt.Errorf("unable to convert build ID %s to int: %w", config.BuildID, err)
+	}
 
 	err = downloader.DownloadVHDBuildPublishingInfo(ctx, artifact.PublishingInfoDownloadOpts{
-		BuildID:       suiteConfig.VHDBuildID,
+		BuildID:       buildID,
 		TargetDir:     artifact.DefaultPublishingInfoDir,
 		ArtifactNames: artifactNames,
 	})

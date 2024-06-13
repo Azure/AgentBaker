@@ -1,4 +1,4 @@
-package e2e_test
+package e2e
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/Azure/agentbakere2e/suite"
+	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 )
@@ -77,7 +77,7 @@ func getSecurityRule(name, destinationAddressPrefix string, priority int32) *arm
 	}
 }
 
-func addAirgapNetworkSettings(ctx context.Context, cloud *azureClient, suiteConfig *suite.Config, clusterConfig clusterConfig) error {
+func addAirgapNetworkSettings(ctx context.Context, cloud *azureClient, clusterConfig clusterConfig) error {
 	log.Printf("Adding network settings for airgap cluster %s in rg %s\n", *clusterConfig.cluster.Name, *clusterConfig.cluster.Properties.NodeResourceGroup)
 
 	vnet, err := getClusterVNet(ctx, cloud, *clusterConfig.cluster.Properties.NodeResourceGroup)
@@ -90,7 +90,7 @@ func addAirgapNetworkSettings(ctx context.Context, cloud *azureClient, suiteConf
 	if err != nil {
 		return err
 	}
-	nsgParams := airGapSecurityGroup(suiteConfig.Location, ipAddresses[0].String())
+	nsgParams := airGapSecurityGroup(config.Location, ipAddresses[0].String())
 
 	nsg, err := createAirgapSecurityGroup(ctx, cloud, clusterConfig, nsgParams, nil)
 	if err != nil {

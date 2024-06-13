@@ -1,4 +1,4 @@
-package e2e_test
+package e2e
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	mrand "math/rand"
 	"testing"
 
+	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -56,11 +57,11 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName st
 func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
 	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)
 
-	if opts.suiteConfig.BuildID != "" {
+	if config.BuildID != "" {
 		if model.Tags == nil {
 			model.Tags = map[string]*string{}
 		}
-		model.Tags[buildIDTagKey] = &opts.suiteConfig.BuildID
+		model.Tags[buildIDTagKey] = &config.BuildID
 	}
 
 	isAzureCNI, err := opts.clusterConfig.isAzureCNI()
@@ -219,7 +220,7 @@ func getVmssName(r *mrand.Rand) string {
 
 func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
 	return armcompute.VirtualMachineScaleSet{
-		Location: to.Ptr(opts.suiteConfig.Location),
+		Location: to.Ptr(config.Location),
 		SKU: &armcompute.SKU{
 			Name:     to.Ptr("Standard_DS2_v2"),
 			Capacity: to.Ptr[int64](1),
@@ -289,7 +290,7 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 													ID: to.Ptr(
 														fmt.Sprintf(
 															loadBalancerBackendAddressPoolIDTemplate,
-															opts.suiteConfig.Subscription,
+															config.Subscription,
 															*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
 														),
 													),
