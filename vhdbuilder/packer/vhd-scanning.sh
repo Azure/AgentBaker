@@ -43,9 +43,14 @@ if [ -z "$GROUP_ID" ]; then
     echo "${GROUP_NAME} does not exist. Creating group..."
     az ad group create --display-name "$GROUP_NAME" --mail-nickname "$MAIL_NICKNAME"
     GROUP_ID=$(az ad group show --group "$GROUP_NAME" --query objectId --output tsv)
-    az role assignment create --assignee "$GROUP_OBJECT_ID" --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME}/blobServices/default/containers/vhd-scans"
+    if [ -z "$GROUP_ID" ]; then
+        echo "Failed to create group. Exiting..."
+        exit 1
+    fi
+    az role assignment create --assignee "$GROUP_ID" --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME}/blobServices/default/containers/vhd-scans"
+    echo "Created group. Name: $GROUP_NAME ID: $GROUP_ID"
 else
-    echo "Group already exists. Group Name: $GROUP_NAME Group ID: $GROUP_ID"
+    echo "Group exists. Name: $GROUP_NAME ID: $GROUP_ID"
 fi
 
 # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
