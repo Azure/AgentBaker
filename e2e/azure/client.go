@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -245,15 +244,19 @@ func (c *Client) IsExistingResourceGroup(ctx context.Context, resourceGroupName 
 	return rgExistence.Success, nil
 }
 
-func (c *Client) CreateSecurityGroup(ctx context.Context, resourceGroupName, securityGroupName string, securityGroup armnetwork.SecurityGroup) (*armnetwork.SecurityGroupsClientCreateOrUpdateResponse, error) {
-	poller, err := config.Azure.SecurityGroup.BeginCreateOrUpdate(ctx, resourceGroupName, securityGroupName, securityGroup, nil)
+func (c *Client) CreateOrUpdateSecurityGroup(ctx context.Context, resourceGroupName, securityGroupName string, securityGroup armnetwork.SecurityGroup) (armnetwork.SecurityGroupsClientCreateOrUpdateResponse, error) {
+	poller, err := c.SecurityGroup.BeginCreateOrUpdate(ctx, resourceGroupName, securityGroupName, securityGroup, nil)
 	if err != nil {
-		return nil, err
+		return armnetwork.SecurityGroupsClientCreateOrUpdateResponse{}, err
 	}
-	nsg, err := poller.PollUntilDone(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return &nsg, nil
+	return poller.PollUntilDone(ctx, nil)
 
+}
+
+func (c *Client) CreateOrUpdateSubnet(ctx context.Context, resourceGroupName, vnetName, subnetName string, subnetParameters armnetwork.Subnet) (armnetwork.SubnetsClientCreateOrUpdateResponse, error) {
+	poller, err := c.Subnet.BeginCreateOrUpdate(ctx, resourceGroupName, vnetName, subnetName, subnetParameters, nil)
+	if err != nil {
+		return armnetwork.SubnetsClientCreateOrUpdateResponse{}, err
+	}
+	return poller.PollUntilDone(ctx, nil)
 }

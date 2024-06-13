@@ -92,7 +92,7 @@ func addAirgapNetworkSettings(ctx context.Context, clusterConfig clusterConfig) 
 	}
 	nsgParams := airGapSecurityGroup(config.Location, ipAddresses[0].String())
 
-	nsg, err := config.Azure.CreateSecurityGroup(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, nsgName, nsgParams)
+	nsg, err := config.Azure.CreateOrUpdateSecurityGroup(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, nsgName, nsgParams)
 	if err != nil {
 		return err
 	}
@@ -106,24 +106,12 @@ func addAirgapNetworkSettings(ctx context.Context, clusterConfig clusterConfig) 
 			},
 		},
 	}
-	err = updateSubnet(ctx, clusterConfig, subnetParameters, vnet.name)
+	_, err = config.Azure.CreateOrUpdateSubnet(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, vnet.name, defaultSubnetName, subnetParameters)
 	if err != nil {
 		return err
 	}
 
 	fmt.Printf("Updated the subnet to airgap %s\n", *clusterConfig.cluster.Name)
-	return nil
-}
-
-func updateSubnet(ctx context.Context, clusterConfig clusterConfig, subnetParameters armnetwork.Subnet, vnetName string) error {
-	poller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, vnetName, defaultSubnetName, subnetParameters, nil)
-	if err != nil {
-		return err
-	}
-	_, err = poller.PollUntilDone(ctx, nil)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
