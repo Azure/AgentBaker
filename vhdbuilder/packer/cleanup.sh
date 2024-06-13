@@ -97,14 +97,6 @@ if [[ "${MODE}" == "windowsVhdMode" && "$SIG_FOR_PRODUCTION" == "True" ]]; then
   fi
 fi
 
-#clean up arm64 OS disk snapshot
-if [[ "${MODE}" == "linuxVhdMode" ]] && [[ ${ARCHITECTURE,,} == "arm64" ]] && [ -n "${ARM64_OS_DISK_SNAPSHOT_NAME}" ]; then
-  id=$(az snapshot show -n ${ARM64_OS_DISK_SNAPSHOT_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
-  if [ -n "$id" ]; then
-    az snapshot delete -n ${ARM64_OS_DISK_SNAPSHOT_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
-  fi
-fi
-
 #clean up the temporary storage account
 if [[ -n "${SA_NAME}" ]]; then
   id=$(az storage account show -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)

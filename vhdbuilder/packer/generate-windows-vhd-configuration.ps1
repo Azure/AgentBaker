@@ -17,6 +17,17 @@ $global:aksToolsDir = "c:\aks-tools"
 # We need to guarantee that the node provisioning will not fail because the vhd is full before resize-osdisk is called in AKS Windows CSE script.
 $global:lowestFreeSpace = 2*1024*1024*1024 # 2GB
 
+$global:excludeHashComparisionListInAzureChinaCloud = @(
+    "calico-windows",
+    "azure-vnet-cni-singletenancy-windows-amd64",
+    "azure-vnet-cni-singletenancy-swift-windows-amd64",
+    "azure-vnet-cni-singletenancy-overlay-windows-amd64",
+    # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
+    # so we can ignore the different hash values.
+    "v1.26.0-1int.zip",
+    "azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz"
+)
+
 # defaultContainerdPackageUrl refers to the stable containerd package used to pull and cache container images
 # Add cache for another containerd version which is not installed by default
 $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.6.21-azure.1/binaries/containerd-v1.6.21-azure.1-windows-amd64.tar.gz"
@@ -40,8 +51,8 @@ $global:defenderUpdateInfoUrl = "https://go.microsoft.com/fwlink/?linkid=870379&
 
 switch -Regex ($windowsSku) {
     "2019-containerd" {
-        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2024/05/windows10.0-kb5037765-x64_3ca0b737e301d4e398a38f1d67966f1c82507fa8.msu")
-        $global:patchIDs = @("KB5037765")
+        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/secu/2024/06/windows10.0-kb5039217-x64_bc72f4ed75c6dd7bf033b823f79533d5772769a3.msu")
+        $global:patchIDs = @("KB5039217")
 
         $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2019",
@@ -49,8 +60,8 @@ switch -Regex ($windowsSku) {
         )
     }
     "2022-containerd*" {
-        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/secu/2024/05/windows10.0-kb5037782-x64_a28aa2576fc6b120b127acfbb901d3546ba9db82.msu")
-        $global:patchIDs = @("KB5037782")
+        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2024/06/windows10.0-kb5039227-x64_136403ab41a524bb82063bc097e9cafbf0039630.msu")
+        $global:patchIDs = @("KB5039227")
 
         $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2022",
@@ -115,9 +126,8 @@ $global:imagesToPull += @(
 $global:map = @{
     "c:\akse-cache\"              = @(
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.40.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.41.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.42.zip"
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.42.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.43.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
