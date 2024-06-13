@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Azure/agentbakere2e/config"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
@@ -39,8 +40,8 @@ func newKubeclient(config *rest.Config) (*kubeclient, error) {
 	}, nil
 }
 
-func getClusterKubeClient(ctx context.Context, cloud *azureClient, resourceGroupName, clusterName string) (*kubeclient, error) {
-	data, err := getClusterKubeconfigBytes(ctx, cloud, resourceGroupName, clusterName)
+func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName string) (*kubeclient, error) {
+	data, err := getClusterKubeconfigBytes(ctx, resourceGroupName, clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster kubeconfig bytes: %w", err)
 	}
@@ -58,8 +59,8 @@ func getClusterKubeClient(ctx context.Context, cloud *azureClient, resourceGroup
 	return newKubeclient(restConfig)
 }
 
-func getClusterKubeconfigBytes(ctx context.Context, cloud *azureClient, resourceGroupName, clusterName string) ([]byte, error) {
-	credentialList, err := cloud.aksClient.ListClusterAdminCredentials(ctx, resourceGroupName, clusterName, nil)
+func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterName string) ([]byte, error) {
+	credentialList, err := config.Azure.AKS.ListClusterAdminCredentials(ctx, resourceGroupName, clusterName, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list cluster admin credentials: %w", err)
 	}

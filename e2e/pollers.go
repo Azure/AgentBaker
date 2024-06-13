@@ -152,7 +152,7 @@ func pollExtractVMLogs(ctx context.Context, vmssName, privateIP string, privateK
 func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *scenarioRunOpts) (string, error) {
 	var vmPrivateIP string
 	err := wait.PollImmediateWithContext(ctx, getVMPrivateIPAddressPollInterval, getVMPrivateIPAddressPollingTimeout, func(ctx context.Context) (bool, error) {
-		pip, err := getVMPrivateIPAddress(ctx, opts.cloud, config.Subscription, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName)
+		pip, err := getVMPrivateIPAddress(ctx, config.Subscription, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName)
 		if err != nil {
 			log.Printf("encountered an error while getting VM private IP address: %s", err)
 			return false, nil
@@ -168,10 +168,10 @@ func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *scenarioRunO
 	return vmPrivateIP, nil
 }
 
-func waitForClusterCreation(ctx context.Context, cloud *azureClient, resourceGroupName, clusterName string) (*armcontainerservice.ManagedCluster, error) {
+func waitForClusterCreation(ctx context.Context, resourceGroupName, clusterName string) (*armcontainerservice.ManagedCluster, error) {
 	var cluster *armcontainerservice.ManagedCluster
 	err := wait.PollInfiniteWithContext(ctx, waitUntilClusterNotCreatingPollInterval, func(ctx context.Context) (bool, error) {
-		clusterResp, err := cloud.aksClient.Get(ctx, resourceGroupName, clusterName, nil)
+		clusterResp, err := config.Azure.AKS.Get(ctx, resourceGroupName, clusterName, nil)
 		if err != nil {
 			return false, err
 		}

@@ -39,7 +39,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName st
 			pollingInterval: to.Ptr(deleteVMSSPollInterval),
 			pollingTimeout:  to.Ptr(deleteVMSSPollingTimeout),
 		}, func() (Poller[armcompute.VirtualMachineScaleSetsClientDeleteResponse], error) {
-			return opts.cloud.vmssClient.BeginDelete(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName, nil)
+			return config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName, nil)
 		}); err != nil {
 			t.Errorf("encountered an error while waiting for deletion of vmss %q: %s", vmssName, err)
 		}
@@ -92,7 +92,7 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 			},
 		},
 			func() (Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse], error) {
-				return opts.cloud.vmssClient.BeginCreateOrUpdate(
+				return config.Azure.VMSS.BeginCreateOrUpdate(
 					ctx,
 					*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
 					vmssName,
@@ -140,8 +140,8 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 	return nil
 }
 
-func getVMPrivateIPAddress(ctx context.Context, cloud *azureClient, subscription, mcResourceGroupName, vmssName string) (string, error) {
-	pl := cloud.coreClient.Pipeline()
+func getVMPrivateIPAddress(ctx context.Context, subscription, mcResourceGroupName, vmssName string) (string, error) {
+	pl := config.Azure.Core.Pipeline()
 	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
 		subscription,
 		mcResourceGroupName,

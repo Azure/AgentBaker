@@ -7,7 +7,6 @@ import (
 
 type scenarioRunOpts struct {
 	clusterConfig clusterConfig
-	cloud         *azureClient
 	scenario      *scenario.Scenario
 	nbc           *datamodel.NodeBootstrappingConfiguration
 	loggingDir    string
