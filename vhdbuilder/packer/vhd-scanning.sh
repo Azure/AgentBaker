@@ -58,9 +58,9 @@ function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
     az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
 
-    if [ -n "$OBJ_ID" ]; then
+    if [ -n "$VM_PRINCIPLE_ID" ]; then
         echo "Deleting vm from ${GROUP_NAME}"
-        az ad group member remove --group "$GROUP_NAME" --member-id "$OBJ_ID"
+        az ad group member remove --group "$GROUP_NAME" --member-id "$VM_PRINCIPLE_ID"
     fi
 }
 trap cleanup EXIT
@@ -85,8 +85,8 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     ${VM_OPTIONS} \
     --assign-identity "[system]"
 
-OBJ_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
-az ad group member add --group "$GROUP_NAME" --member-id "$PRINCIPAL_ID"
+VM_PRINCIPLE_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
+az ad group member add --group "$GROUP_NAME" --member-id "$VM_PRINCIPLE_ID"
 # az role assignment create --assignee $OBJ_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME}/blobServices/default/containers/vhd-scans"
 
 FULL_PATH=$(realpath $0)
