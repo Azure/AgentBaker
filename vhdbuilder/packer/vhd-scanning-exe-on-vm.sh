@@ -8,7 +8,7 @@ ARCHITECTURE=$4
 TRIVY_REPORT_NAME=$5
 TRIVY_TABLE_NAME=$6
 SIG_CONTAINER_NAME=$7
-STORAGE_ACCOUNT_NAME=$8
+SCANNING_STORAGE_ACCOUNT=$8
 ENABLE_TRUSTED_LAUNCH=$9
 
 if [[ "$OS_SKU" == "Ubuntu" ]] && [[ "$OS_VERSION" == "20.04" ]]; then
@@ -48,11 +48,11 @@ fi
 az storage blob upload --file /opt/azure/containers/trivy-report.json \
     --container-name ${SIG_CONTAINER_NAME} \
     --name ${TRIVY_REPORT_NAME} \
-    --account-name ${STORAGE_ACCOUNT_NAME} \
+    --account-name ${SCANNING_STORAGE_ACCOUNT} \
     --auth-mode login
 
 az storage blob upload --file /opt/azure/containers/trivy-images-table.txt \
     --container-name ${SIG_CONTAINER_NAME} \
     --name ${TRIVY_TABLE_NAME} \
-    --account-name ${STORAGE_ACCOUNT_NAME} \
+    --account-name ${SCANNING_STORAGE_ACCOUNT} \
     --auth-mode login

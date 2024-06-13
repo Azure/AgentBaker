@@ -10,24 +10,6 @@ VHD_IMAGE="$MANAGED_SIG_ID"
 SIG_CONTAINER_NAME="vhd-scans"
 TEST_VM_ADMIN_USERNAME="azureuser"
 
-if [ -z "${CLASSIC_BLOB}" ]; then
-  CLASSIC_BLOB=""
-fi
-
-# Use the domain name from the classic blob URL to get the storage account name.
-# If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
-BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/vhd(s)?$"
-if [[ $CLASSIC_BLOB =~ $BLOB_URL_REGEX ]]; then
-    STORAGE_ACCOUNT_NAME=$(echo $CLASSIC_BLOB | sed -E 's|https://(.*)\.blob\.core\.windows\.net(:443)?/(.*)?|\1|')
-else
-    # Used in the 'AKS Linux VHD Build - PR check-in gate' pipeline.
-    if [ -z "$BLOB_STORAGE_NAME" ]; then
-        echo "BLOB_STORAGE_NAME is not set, please either set the CLASSIC_BLOB var or create a new var BLOB_STORAGE_NAME in the pipeline."
-        exit 1
-    fi
-    STORAGE_ACCOUNT_NAME=${BLOB_STORAGE_NAME}
-fi
-
 set +x
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
@@ -36,22 +18,6 @@ set -x
 RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
 az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
 
-GROUP_NAME="VHDScanningRBACGroup"
-MAIL_NICKNAME="VHDScanningRBACGroupNickname"
-GROUP_ID=$(az ad group show --group "$GROUP_NAME" --query objectId --output tsv 2>/dev/null)
-if [ -z "$GROUP_ID" ]; then
-    echo "${GROUP_NAME} does not exist. Creating group..."
-    az ad group create --display-name "$GROUP_NAME" --mail-nickname "$MAIL_NICKNAME"
-    GROUP_ID=$(az ad group show --group "$GROUP_NAME" --query objectId --output tsv)
-    if [ -z "$GROUP_ID" ]; then
-        echo "Failed to create group. Exiting..."
-        exit 1
-    fi
-    az role assignment create --assignee "$GROUP_ID" --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME}/blobServices/default/containers/vhd-scans"
-    echo "Created group. Name: $GROUP_NAME ID: $GROUP_ID"
-else
-    echo "Group exists. Name: $GROUP_NAME ID: $GROUP_ID"
-fi
 
 # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
 if [ "$OS_VERSION" == "18.04" ]; then
@@ -62,11 +28,6 @@ fi
 function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
     az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
-
-    if [ -n "$VM_PRINCIPLE_ID" ]; then
-        echo "Deleting vm from ${GROUP_NAME}"
-        az ad group member remove --group "$GROUP_NAME" --member-id "$VM_PRINCIPLE_ID"
-    fi
 }
 trap cleanup EXIT
 
@@ -91,8 +52,7 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --assign-identity "[system]"
 
 VM_PRINCIPLE_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
-az ad group member add --group "$GROUP_NAME" --member-id "$VM_PRINCIPLE_ID"
-# az role assignment create --assignee $OBJ_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME}/blobServices/default/containers/vhd-scans"
+az role assignment create --assignee $OBJ_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${SCANNING_STORAGE_ACCOUNT}/blobServices/default/containers/vhd-scans"
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
@@ -120,12 +80,12 @@ az vm run-command invoke \
         "TRIVY_REPORT_NAME=${TRIVY_REPORT_NAME}" \
         "TRIVY_TABLE_NAME=${TRIVY_TABLE_NAME}" \
         "SIG_CONTAINER_NAME"=${SIG_CONTAINER_NAME} \
-        "STORAGE_ACCOUNT_NAME"=${STORAGE_ACCOUNT_NAME} \
+        "SCANNING_STORAGE_ACCOUNT"=${SCANNING_STORAGE_ACCOUNT} \
         "ENABLE_TRUSTED_LAUNCH"=${ENABLE_TRUSTED_LAUNCH}
 
 
-az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_REPORT_NAME} --file trivy-report.json --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
-az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_TABLE_NAME} --file  trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_REPORT_NAME} --file trivy-report.json --account-name ${SCANNING_STORAGE_ACCOUNT} --auth-mode login
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_TABLE_NAME} --file  trivy-images-table.txt --account-name ${SCANNING_STORAGE_ACCOUNT} --auth-mode login
 
-az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
-az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_TABLE_NAME} --auth-mode login
+az storage blob delete --account-name ${SCANNING_STORAGE_ACCOUNT} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
+az storage blob delete --account-name ${SCANNING_STORAGE_ACCOUNT} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_TABLE_NAME} --auth-mode login
