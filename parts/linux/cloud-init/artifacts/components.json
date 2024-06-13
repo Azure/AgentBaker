@@ -368,7 +368,7 @@
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
       "versions": [
-        "1.4.1"
+        "1.1.1"
       ]
     },
     {
