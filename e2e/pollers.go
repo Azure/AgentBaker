@@ -29,7 +29,6 @@ const (
 	extractVMLogsPollInterval               = 10 * time.Second
 	getVMPrivateIPAddressPollInterval       = 5 * time.Second
 	waitUntilPodRunningPollInterval         = 10 * time.Second
-	waitUntilPodDeletedPollInterval         = 10 * time.Second
 	waitUntilClusterNotCreatingPollInterval = 10 * time.Second
 	waitUntilNodeReadyPollingInterval       = 20 * time.Second
 
@@ -41,15 +40,14 @@ const (
 	execOnPodPollingTimeout                = 2 * time.Minute
 	extractClusterParametersPollingTimeout = 3 * time.Minute
 	extractVMLogsPollingTimeout            = 5 * time.Minute
-	getVMPrivateIPAddressPollingTimeout    = 1 * time.Minute
-	waitUntilPodRunningPollingTimeout      = 3 * time.Minute
-	waitUntilPodDeletedPollingTimeout      = 1 * time.Minute
 	waitUntilNodeReadyPollingTimeout       = 3 * time.Minute
 )
 
 func pollExecOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
 	var execResult *podExecResult
-	err := wait.PollImmediateWithContext(ctx, execOnVMPollInterval, execOnVMPollingTimeout, func(ctx context.Context) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, execOnVMPollingTimeout)
+	defer cancel()
+	err := wait.PollUntilContextCancel(ctx, execOnVMPollInterval, true, func(ctx context.Context) (bool, error) {
 		res, err := execOnVM(ctx, kube, vmPrivateIP, jumpboxPodName, sshPrivateKey, command, isShellBuiltIn)
 		if err != nil {
 			log.Printf("unable to execute command on VM: %s", err)
@@ -79,7 +77,9 @@ func pollExecOnVM(ctx context.Context, kube *kubeclient, vmPrivateIP, jumpboxPod
 
 func pollExecOnPod(ctx context.Context, kube *kubeclient, namespace, podName, command string) (*podExecResult, error) {
 	var execResult *podExecResult
-	err := wait.PollImmediateWithContext(ctx, execOnPodPollInterval, execOnPodPollingTimeout, func(ctx context.Context) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, execOnPodPollingTimeout)
+	defer cancel()
+	err := wait.PollUntilContextCancel(ctx, execOnPodPollInterval, true, func(ctx context.Context) (bool, error) {
 		res, err := execOnPod(ctx, kube, namespace, podName, append(bashCommandArray(), command))
 		if err != nil {
 			log.Printf("unable to execute command on pod: %s", err)
@@ -105,7 +105,9 @@ func pollExecOnPod(ctx context.Context, kube *kubeclient, namespace, podName, co
 // Wraps extractClusterParameters in a poller with a 15-second wait interval and 5-minute timeout
 func pollExtractClusterParameters(ctx context.Context, kube *kubeclient) (map[string]string, error) {
 	var clusterParams map[string]string
-	err := wait.PollImmediateWithContext(ctx, extractClusterParametersPollInterval, extractClusterParametersPollingTimeout, func(ctx context.Context) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, extractClusterParametersPollingTimeout)
+	defer cancel()
+	err := wait.PollUntilContextCancel(ctx, extractClusterParametersPollInterval, true, func(ctx context.Context) (bool, error) {
 		params, err := extractClusterParameters(ctx, kube)
 		if err != nil {
 			log.Printf("error extracting cluster parameters: %s", err)
@@ -124,7 +126,9 @@ func pollExtractClusterParameters(ctx context.Context, kube *kubeclient) (map[st
 
 // Wraps extractLogsFromVM and dumpFileMapToDir in a poller with a 15-second wait interval and 5-minute timeout
 func pollExtractVMLogs(ctx context.Context, vmssName, privateIP string, privateKeyBytes []byte, opts *scenarioRunOpts) error {
-	err := wait.PollImmediateWithContext(ctx, extractVMLogsPollInterval, extractVMLogsPollingTimeout, func(ctx context.Context) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, extractVMLogsPollingTimeout)
+	defer cancel()
+	err := wait.PollUntilContextCancel(ctx, extractVMLogsPollInterval, true, func(ctx context.Context) (bool, error) {
 		log.Printf("on %s attempting to extract VM logs", vmssName)
 
 		logFiles, err := extractLogsFromVM(ctx, vmssName, privateIP, string(privateKeyBytes), opts)
@@ -151,7 +155,9 @@ func pollExtractVMLogs(ctx context.Context, vmssName, privateIP string, privateK
 
 func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *scenarioRunOpts) (string, error) {
 	var vmPrivateIP string
-	err := wait.PollImmediateWithContext(ctx, getVMPrivateIPAddressPollInterval, getVMPrivateIPAddressPollingTimeout, func(ctx context.Context) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, waitUntilNodeReadyPollingTimeout)
+	defer cancel()
+	err := wait.PollUntilContextCancel(ctx, getVMPrivateIPAddressPollInterval, true, func(ctx context.Context) (bool, error) {
 		pip, err := getVMPrivateIPAddress(ctx, config.Subscription, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName)
 		if err != nil {
 			log.Printf("encountered an error while getting VM private IP address: %s", err)
@@ -170,7 +176,8 @@ func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *scenarioRunO
 
 func waitForClusterCreation(ctx context.Context, resourceGroupName, clusterName string) (*armcontainerservice.ManagedCluster, error) {
 	var cluster *armcontainerservice.ManagedCluster
-	err := wait.PollInfiniteWithContext(ctx, waitUntilClusterNotCreatingPollInterval, func(ctx context.Context) (bool, error) {
+
+	err := wait.PollUntilContextCancel(ctx, waitUntilClusterNotCreatingPollInterval, false, func(ctx context.Context) (bool, error) {
 		clusterResp, err := config.Azure.AKS.Get(ctx, resourceGroupName, clusterName, nil)
 		if err != nil {
 			return false, err
@@ -197,7 +204,9 @@ func waitForClusterCreation(ctx context.Context, resourceGroupName, clusterName 
 
 func waitUntilNodeReady(ctx context.Context, kube *kubeclient, vmssName string) (string, error) {
 	var nodeName string
-	err := wait.PollImmediateWithContext(ctx, waitUntilNodeReadyPollingInterval, waitUntilNodeReadyPollingTimeout, func(ctx context.Context) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, waitUntilNodeReadyPollingTimeout)
+	defer cancel()
+	err := wait.PollUntilContextCancel(ctx, waitUntilNodeReadyPollingInterval, true, func(ctx context.Context) (bool, error) {
 		nodes, err := kube.typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return false, err
@@ -225,7 +234,9 @@ func waitUntilNodeReady(ctx context.Context, kube *kubeclient, vmssName string) 
 }
 
 func waitUntilPodRunning(ctx context.Context, kube *kubeclient, podName string) error {
-	return wait.PollImmediateWithContext(ctx, waitUntilPodRunningPollInterval, waitUntilPodRunningPollingTimeout, func(ctx context.Context) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, waitUntilNodeReadyPollingTimeout)
+	defer cancel()
+	return wait.PollUntilContextCancel(ctx, waitUntilPodRunningPollInterval, true, func(ctx context.Context) (bool, error) {
 		pod, err := kube.typed.CoreV1().Pods(defaultNamespace).Get(ctx, podName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
@@ -236,7 +247,9 @@ func waitUntilPodRunning(ctx context.Context, kube *kubeclient, podName string) 
 }
 
 func waitUntilPodDeleted(ctx context.Context, kube *kubeclient, podName string) error {
-	return wait.PollImmediateWithContext(ctx, waitUntilPodDeletedPollInterval, waitUntilPodDeletedPollingTimeout, func(ctx context.Context) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, waitUntilNodeReadyPollingTimeout)
+	defer cancel()
+	return wait.PollUntilContextCancel(ctx, waitUntilPodRunningPollInterval, true, func(ctx context.Context) (bool, error) {
 		err := kube.typed.CoreV1().Pods(defaultNamespace).Delete(ctx, podName, metav1.DeleteOptions{})
 		return err == nil, err
 	})
@@ -254,6 +267,8 @@ type pollVMSSOperationOpts struct {
 
 // TODO: refactor into a new struct which manages the operation independently
 func pollVMSSOperation[T any](ctx context.Context, vmssName string, opts pollVMSSOperationOpts, vmssOperation func() (Poller[T], error)) (*T, error) {
+	ctx, cancel := context.WithTimeout(ctx, *opts.pollingTimeout)
+	defer cancel()
 	var vmssResp T
 	var requestError azure.RequestError
 
@@ -264,7 +279,7 @@ func pollVMSSOperation[T any](ctx context.Context, vmssName string, opts pollVMS
 		opts.pollingTimeout = to.Ptr(defaultVMSSOperationPollingTimeout)
 	}
 
-	pollErr := wait.PollImmediateWithContext(ctx, *opts.pollingInterval, *opts.pollingTimeout, func(ctx context.Context) (bool, error) {
+	pollErr := wait.PollUntilContextCancel(ctx, *opts.pollingInterval, true, func(ctx context.Context) (bool, error) {
 		poller, err := vmssOperation()
 		if err != nil {
 			log.Printf("error when creating the vmssOperation for VMSS %q: %v", vmssName, err)
