@@ -31,6 +31,7 @@ function cleanup() {
 
     if [ -n "${VM_PRINCIPLE_ID}" ]; then
         az role assignment delete --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${SCANNING_STORAGE_ACCOUNT}/blobServices/default/containers/vhd-scans"
+        echo "Role assignment deleted"
     fi 
 }
 trap cleanup EXIT
