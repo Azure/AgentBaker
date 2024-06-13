@@ -140,20 +140,8 @@ function Test-FilesToCacheOnVHD
                     $localFileSize = (Get-Item $dest).length
                     $remoteFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
                     if ($localFileSize -ne $remoteFileSize) {
-                        # Please also update excludeHashComparisionListInAzureChinaCloud in vhdbuilder/packer/test/windows-files-check.ps1
-                        $excludeHashComparisionListInAzureChinaCloud = @(
-                            "calico-windows",
-                            "azure-vnet-cni-singletenancy-windows-amd64",
-                            "azure-vnet-cni-singletenancy-swift-windows-amd64",
-                            "azure-vnet-cni-singletenancy-overlay-windows-amd64",
-                            # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
-                            # so we can ignore the different hash values.
-                            "v1.26.0-1int.zip",
-                            "azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz"
-                        )
-
                         $isIgnore=$False
-                        foreach($excludePackage in $excludeHashComparisionListInAzureChinaCloud) {
+                        foreach($excludePackage in $global:excludeHashComparisionListInAzureChinaCloud) {
                             if ($mcURL.Contains($excludePackage)) {
                                 $isIgnore=$true
                                 break
@@ -348,6 +336,8 @@ function Test-RegistryAdded {
 
         Validate-WindowsFixInFeatureManagement -Name 2290715789
         Validate-WindowsFixInFeatureManagement -Name 3152880268
+
+        Validate-WindowsFixInFeatureManagement -Name 1605443213
     }
     if ($env:WindowsSKU -Like '2022*') {
         Validate-WindowsFixInFeatureManagement -Name 2629306509
@@ -398,6 +388,10 @@ function Test-RegistryAdded {
         Validate-WindowsFixInFeatureManagement -Name 4186914956
         Validate-WindowsFixInFeatureManagement -Name 3173070476
         Validate-WindowsFixInFeatureManagement -Name 3958450316
+
+        Validate-WindowsFixInFeatureManagement -Name 2540111500
+        Validate-WindowsFixInFeatureManagement -Name 50261647
+        Validate-WindowsFixInFeatureManagement -Name 1475968140
     }
     if ($env:WindowsSKU -Like '23H2*') {
         Validate-WindowsFixInHnsState -Name NamespaceExcludedUdpPorts -Value 65330
