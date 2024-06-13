@@ -26,7 +26,8 @@
     "sgx_install": "{{env `SGX_INSTALL`}}",
     "vnet_name": "{{env `VNET_NAME`}}",
     "subnet_name": "{{env `SUBNET_NAME`}}",
-    "private_packages_url": "{{env `PRIVATE_PACKAGES_URL`}}"
+    "private_packages_url": "{{env `PRIVATE_PACKAGES_URL`}}",
+    "branch": "{{env `BRANCH`}}"
   },
   "builders": [
     {
@@ -49,7 +50,8 @@
         "os": "Linux",
         "now": "{{user `create_time`}}",
         "createdBy": "aks-vhd-pipeline",
-        "image_sku": "{{user `img_sku`}}"
+        "image_sku": "{{user `img_sku`}}",
+        "branch": "{{user `branch`}}"
       },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
