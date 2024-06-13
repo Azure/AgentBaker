@@ -36,54 +36,80 @@ var (
 	// It contains the set of VHDs used by AgentBaker E2Es, along with the specific versions and artifact name for each.
 	// When a VHD build ID is specified, this catalog's entries will be overwritten respectively for each downloaded VHD publishing info.
 	BaseVHDCatalog = VHDCatalog{
-		Ubuntu1804: Ubuntu1804{
-			Gen2Containerd: VHD{
-				ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2",
-				VersionTagName:  "branch",
-				VersionTagValue: "refs/heads/r2k1/e2e-update",
-			},
+		Ubuntu1804Gen2Containerd: VHD{
+			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2",
+			VersionTagName:  "branch",
+			VersionTagValue: "refs/heads/r2k1/e2e-update",
 		},
-		Ubuntu2204: Ubuntu2204{
-			Gen2Arm64Containerd: VHD{
-				ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64",
-				VersionTagName:  "branch",
-				VersionTagValue: "refs/heads/r2k1/e2e-update",
-			},
-			Gen2Containerd: VHD{
-				ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2",
-				VersionTagName:  "branch",
-				VersionTagValue: "refs/heads/r2k1/e2e-update",
-			},
-			Gen2ContainerdPrivateKubePkg: VHD{
-				ResourceID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1704411049.2812",
-			},
+		Ubuntu2204Gen2Arm64Containerd: VHD{
+			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64",
+			VersionTagName:  "branch",
+			VersionTagValue: "refs/heads/r2k1/e2e-update",
 		},
-		AzureLinuxV2: AzureLinuxV2{
-			Gen2Arm64: VHD{
-				ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2Arm64",
-				VersionTagName:  "branch",
-				VersionTagValue: "refs/heads/r2k1/e2e-update",
-			},
-			Gen2: VHD{
-				ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2",
-				VersionTagName:  "branch",
-				VersionTagValue: "refs/heads/r2k1/e2e-update",
-			},
+		Ubuntu2204Gen2Containerd: VHD{
+			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2",
+			VersionTagName:  "branch",
+			VersionTagValue: "refs/heads/r2k1/e2e-update",
 		},
-		CBLMarinerV2: CBLMarinerV2{
-			Gen2Arm64: VHD{
-				ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64",
-				VersionTagName:  "branch",
-				VersionTagValue: "refs/heads/r2k1/e2e-update",
-			},
-			Gen2: VHD{
-				ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2",
-				VersionTagName:  "branch",
-				VersionTagValue: "refs/heads/r2k1/e2e-update",
-			},
+		Ubuntu2204Gen2ContainerdPrivateKubePkg: VHD{
+			ResourceID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1704411049.2812",
+		},
+		AzureLinuxV2Gen2Arm64: VHD{
+			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2Arm64",
+			VersionTagName:  "branch",
+			VersionTagValue: "refs/heads/r2k1/e2e-update",
+		},
+		AzureLinuxV2Gen2: VHD{
+			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2",
+			VersionTagName:  "branch",
+			VersionTagValue: "refs/heads/r2k1/e2e-update",
+		},
+		CBLMarinerV2Gen2Arm64: VHD{
+			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64",
+			VersionTagName:  "branch",
+			VersionTagValue: "refs/heads/r2k1/e2e-update",
+		},
+		CBLMarinerV2Gen2: VHD{
+			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2",
+			VersionTagName:  "branch",
+			VersionTagValue: "refs/heads/r2k1/e2e-update",
 		},
 	}
 )
+
+type VHDCatalog struct {
+	Ubuntu1804Gen2Containerd               VHD
+	Ubuntu2204Gen2Arm64Containerd          VHD
+	Ubuntu2204Gen2Containerd               VHD
+	Ubuntu2204Gen2ContainerdPrivateKubePkg VHD
+	AzureLinuxV2Gen2Arm64                  VHD
+	AzureLinuxV2Gen2                       VHD
+	CBLMarinerV2Gen2Arm64                  VHD
+	CBLMarinerV2Gen2                       VHD
+}
+
+// VHDResourceID represents a resource ID pointing to a VHD in Azure. This could be theoretically
+// be the resource ID of a managed image or SIG image version, though for now this will always be a SIG image version.
+type VHDResourceID string
+
+func (id VHDResourceID) Short() string {
+	sep := "Microsoft.Compute/galleries/"
+	str := string(id)
+	if strings.Contains(str, sep) && !strings.HasSuffix(str, sep) {
+		return strings.Split(str, sep)[1]
+	}
+	return str
+}
+
+// VHD represents a VHD used to run AgentBaker E2E scenarios.
+type VHD struct {
+	ImageID         string
+	VersionTagName  string
+	VersionTagValue string
+	// ResourceID is the resource ID pointing to the underlying VHD in Azure. Based on the current setup, this will always be the resource ID
+	// of an image version in a shared image gallery.
+	ResourceID VHDResourceID
+}
 
 func getVHDsFromBuild(ctx context.Context, tmpl *Template, scenarios []*Scenario) error {
 	if config.VHDBuildID == "" {
@@ -96,14 +122,14 @@ func getVHDsFromBuild(ctx context.Context, tmpl *Template, scenarios []*Scenario
 	}
 
 	vhds := []*VHD{
-		&tmpl.Ubuntu1804.Gen2Containerd,
-		&tmpl.Ubuntu2204.Gen2Arm64Containerd,
-		&tmpl.Ubuntu2204.Gen2Containerd,
-		&tmpl.Ubuntu2204.Gen2ContainerdPrivateKubePkg,
-		&tmpl.AzureLinuxV2.Gen2Arm64,
-		&tmpl.AzureLinuxV2.Gen2,
-		&tmpl.CBLMarinerV2.Gen2Arm64,
-		&tmpl.CBLMarinerV2.Gen2,
+		&tmpl.Ubuntu1804Gen2Containerd,
+		&tmpl.Ubuntu2204Gen2Arm64Containerd,
+		&tmpl.Ubuntu2204Gen2Containerd,
+		&tmpl.Ubuntu2204Gen2ContainerdPrivateKubePkg,
+		&tmpl.AzureLinuxV2Gen2Arm64,
+		&tmpl.AzureLinuxV2Gen2,
+		&tmpl.CBLMarinerV2Gen2Arm64,
+		&tmpl.CBLMarinerV2Gen2,
 	}
 	wg := sync.WaitGroup{}
 	wg.Add(len(vhds))
@@ -239,100 +265,4 @@ func getVHDManifest() (*Manifest, error) {
 		return nil, err
 	}
 	return &manifest, nil
-}
-
-// VHDResourceID represents a resource ID pointing to a VHD in Azure. This could be theoretically
-// be the resource ID of a managed image or SIG image version, though for now this will always be a SIG image version.
-type VHDResourceID string
-
-func (id VHDResourceID) Short() string {
-	sep := "Microsoft.Compute/galleries/"
-	str := string(id)
-	if strings.Contains(str, sep) && !strings.HasSuffix(str, sep) {
-		return strings.Split(str, sep)[1]
-	}
-	return str
-}
-
-// VHD represents a VHD used to run AgentBaker E2E scenarios.
-type VHD struct {
-	ImageID         string
-	VersionTagName  string
-	VersionTagValue string
-	// ResourceID is the resource ID pointing to the underlying VHD in Azure. Based on the current setup, this will always be the resource ID
-	// of an image version in a shared image gallery.
-	ResourceID VHDResourceID
-}
-
-// VHDCatalog is the "catalog" used by the scenario template to offer VHD selections to each individual E2E scenario.
-// Each scenario should be configured to choose a VHD from this catalog.
-type VHDCatalog struct {
-	Ubuntu1804   Ubuntu1804
-	Ubuntu2204   Ubuntu2204
-	AzureLinuxV2 AzureLinuxV2
-	CBLMarinerV2 CBLMarinerV2
-}
-
-// Ubuntu1804 contains all the Ubuntu1804-based VHD catalog entries.
-type Ubuntu1804 struct {
-	Gen2Containerd VHD
-}
-
-// Ubuntu2204 contains all the Ubuntu2204-based VHD catalog entries.
-type Ubuntu2204 struct {
-	Gen2Arm64Containerd          VHD
-	Gen2Containerd               VHD
-	Gen2ContainerdPrivateKubePkg VHD
-}
-
-// AzureLinuxV2 contains all the AzureLinuxV2-based VHD catalog entries.
-type AzureLinuxV2 struct {
-	Gen2Arm64 VHD
-	Gen2      VHD
-}
-
-// CBLMarinerv2 contains all the CBLMarinerV2-based VHD catalog entries.
-type CBLMarinerV2 struct {
-	Gen2Arm64 VHD
-	Gen2      VHD
-}
-
-// Returns the Ubuntu1804/gen2 catalog entry.
-func (c *VHDCatalog) Ubuntu1804Gen2Containerd() VHD {
-	return c.Ubuntu1804.Gen2Containerd
-}
-
-// Returns the Ubuntu2204/gen2arm64 catalog entry.
-func (c *VHDCatalog) Ubuntu2204Gen2ARM64Containerd() VHD {
-	return c.Ubuntu2204.Gen2Arm64Containerd
-}
-
-// Returns the Ubuntu2204/gen2 catalog entry.
-func (c *VHDCatalog) Ubuntu2204Gen2Containerd() VHD {
-	return c.Ubuntu2204.Gen2Containerd
-}
-
-// Returns the gen2containerdprivatekubepkg catalog entry.
-func (c *VHDCatalog) Ubuntu2204Gen2ContainerdPrivateKubePkg() VHD {
-	return c.Ubuntu2204.Gen2ContainerdPrivateKubePkg
-}
-
-// Returns the AzureLinuxV/gen2arm64 catalog entry.
-func (c *VHDCatalog) AzureLinuxV2Gen2ARM64() VHD {
-	return c.AzureLinuxV2.Gen2Arm64
-}
-
-// Returns the AzureLinuxV2/gen2 catalog entry.
-func (c *VHDCatalog) AzureLinuxV2Gen2() VHD {
-	return c.AzureLinuxV2.Gen2
-}
-
-// Returns the CBLMarinerV2/gen2arm64 catalog entry.
-func (c *VHDCatalog) CBLMarinerV2Gen2ARM64() VHD {
-	return c.CBLMarinerV2.Gen2Arm64
-}
-
-// Returns the CBLMarinerV2/gen2 catalog entry.
-func (c *VHDCatalog) CBLMarinerV2Gen2() VHD {
-	return c.CBLMarinerV2.Gen2
 }

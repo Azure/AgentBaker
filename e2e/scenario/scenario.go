@@ -30,7 +30,7 @@ func GetScenariosForSuite(ctx context.Context) (Table, error) {
 	table := make(Table, len(scenarios))
 	for _, scenario := range scenarios {
 		table[scenario.Name] = scenario
-		log.Printf("will run E2E scenario %q: %s; with VHD: %s", scenario.Name, scenario.Description, scenario.VHDSelector().ResourceID.Short())
+		log.Printf("will run E2E scenario %q: %s; with VHD: %s", scenario.Name, scenario.Description, scenario.VHD.ResourceID.Short())
 	}
 
 	return table, nil
