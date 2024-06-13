@@ -27,7 +27,7 @@ const (
 	maxRetries                               = 3
 )
 
-func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
+func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
 	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to get node bootstrapping: %w", err)

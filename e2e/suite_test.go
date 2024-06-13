@@ -98,7 +98,7 @@ func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenari
 	log.Printf("creating and bootstrapping vmss: %q", vmssName)
 
 	vmssSucceeded := true
-	vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, r, vmssName, opts, publicKeyBytes)
+	vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, vmssName, opts, publicKeyBytes)
 	if !config.KeepVMSS && cleanupVMSS != nil {
 		defer cleanupVMSS()
 	}
