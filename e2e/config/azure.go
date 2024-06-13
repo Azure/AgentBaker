@@ -1,4 +1,4 @@
-package azure
+package config
 
 import (
 	"crypto/tls"
@@ -19,7 +19,7 @@ import (
 	"github.com/Azure/go-armbalancer"
 )
 
-type Client struct {
+type AzureClient struct {
 	Core          *azcore.Client
 	VMSS          *armcompute.VirtualMachineScaleSetsClient
 	VMSSVM        *armcompute.VirtualMachineScaleSetVMsClient
@@ -31,7 +31,7 @@ type Client struct {
 	Subnet        *armnetwork.SubnetsClient
 }
 
-func MustNewAzureClient(subscription string) *Client {
+func MustNewAzureClient(subscription string) *AzureClient {
 	client, err := NewAzureClient(subscription)
 	if err != nil {
 		panic(err)
@@ -40,7 +40,7 @@ func MustNewAzureClient(subscription string) *Client {
 
 }
 
-func NewAzureClient(subscription string) (*Client, error) {
+func NewAzureClient(subscription string) (*AzureClient, error) {
 	httpClient := &http.Client{
 		// use a bunch of connections for load balancing
 		// ensure all timeouts are defined and reasonable
@@ -140,7 +140,7 @@ func NewAzureClient(subscription string) (*Client, error) {
 		return nil, fmt.Errorf("failed to create vnet client: %w", err)
 	}
 
-	var cloud = &Client{
+	var cloud = &AzureClient{
 		Core:          coreClient,
 		AKS:           aksClient,
 		Resource:      resourceClient,
