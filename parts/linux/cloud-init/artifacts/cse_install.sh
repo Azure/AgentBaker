@@ -43,7 +43,7 @@ installContainerRuntime() {
         echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
         local containerd_version
         if [[ -f "$COMPONENTS_FILEPATH" ]]; then
-            echo "WARNING: containerd version not found in components.json. Skipping validation."
+            echo "WARNING: $COMPONENTS_FILEPATH not found. Skipping validation."
             return
         fi
         os=UBUNTU_OS_NAME
@@ -62,12 +62,17 @@ installContainerRuntime() {
         if [[ ${#PackageVersions[@]} -gt 1 ]]; then
             echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
         fi
-        packageVersion="${PackageVersions[-1]}"
+        # sort the array from lowest to highest version before getting the last element
+        IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PackageVersions[*]}"))
+        unset IFS
+        packageVersion="${sortedPackageVersions[-1]}"
+        # containerd version is expected to be in the format major.minor.patch-hotfix
+        # e.g., 1.4.3-1. Then containerdMajorMinorPatchVersion=1.4.3 and containerdHotFixVersion=1
         containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
         containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
         if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
             echo "invalid containerd version: $packageVersion"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+            exit $ERR_CONTAINERD_VERSION_INVALID
         fi
         logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
         echo "in installContainerRuntime - CONTAINERD_VERSION = ${containerdMajorMinorPatchVersion}"

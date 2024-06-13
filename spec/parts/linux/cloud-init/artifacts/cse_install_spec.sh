@@ -1,12 +1,12 @@
-Describe 'cse_install.sh'
-  Include ./cse_install.sh
-  Describe 'returnPackageVersions'
-    readPackage() {
-        local packageName=$1
-        packages=$(jq ".Packages" "./spec/test_components.json" | jq ".[] | select(.name == \"$packageName\")")
-        echo "$packages"
-    }
+readPackage() {
+    local packageName=$1
+    packages=$(jq ".Packages" "./spec/parts/linux/cloud-init/artifacts/test_components.json" | jq ".[] | select(.name == \"$packageName\")")
+    echo "$packages"
+}
 
+Describe 'cse_install.sh'
+  Include "./parts/linux/cloud-init/artifacts/cse_install.sh"
+  Describe 'returnPackageVersions'
     It 'returns downloadURIs.ubuntu."r2004".versions of package runc for UBUNTU 20.04'
         package=$(readPackage "runc")
         When call returnPackageVersions "$package" "UBUNTU" "20.04"
@@ -62,12 +62,6 @@ Describe 'cse_install.sh'
     End
   End
   Describe 'returnPackageDownloadURL'
-    readPackage() {
-        local packageName=$1
-        packages=$(jq ".Packages" "./spec/test_components.json" | jq ".[] | select(.name == \"$packageName\")")
-        echo "$packages"
-    }
-
     It 'returns downloadURIs.ubuntu."r2004".downloadURL of package runc for UBUNTU 20.04'
         package=$(readPackage "runc")
         When call returnPackageDownloadURL "$package" "UBUNTU" "20.04"
