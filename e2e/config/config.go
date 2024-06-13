@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Azure/agentbakere2e/azure"
 	"github.com/Azure/agentbakere2e/toolkit"
 )
 
@@ -16,6 +17,7 @@ var (
 	ScenariosToRun     = envmap("SCENARIOS_TO_RUN")
 	ScenariosToExclude = envmap("SCENARIOS_TO_EXCLUDE")
 	KeepVMSS           = strings.EqualFold(os.Getenv("KEEP_VMSS"), "true")
+	Azure              = azure.MustNewAzureClient(mustenv("SUBSCRIPTION_ID"))
 )
 
 func mustenv(env string) string {

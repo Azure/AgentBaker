@@ -31,28 +31,23 @@ func Test_All(t *testing.T) {
 		t.Fatal("at least one scenario must be selected to run the e2e suite")
 	}
 
-	cloud, err := newAzureClient(config.Subscription)
+	if err := ensureResourceGroup(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	clusterConfigs, err := getInitialClusterConfigs(ctx, config.ResourceGroupName)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := ensureResourceGroup(ctx, cloud); err != nil {
-		t.Fatal(err)
-	}
-
-	clusterConfigs, err := getInitialClusterConfigs(ctx, cloud, config.ResourceGroupName)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := createMissingClusters(ctx, r, cloud, scenarios, &clusterConfigs); err != nil {
+	if err := createMissingClusters(ctx, r, scenarios, &clusterConfigs); err != nil {
 		t.Fatal(err)
 	}
 
 	for _, e2eScenario := range scenarios {
 		e2eScenario := e2eScenario
 
-		clusterConfig, err := chooseCluster(ctx, r, cloud, e2eScenario, clusterConfigs)
+		clusterConfig, err := chooseCluster(ctx, r, e2eScenario, clusterConfigs)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -84,7 +79,6 @@ func Test_All(t *testing.T) {
 
 			runScenario(ctx, t, r, &scenarioRunOpts{
 				clusterConfig: clusterConfig,
-				cloud:         cloud,
 				scenario:      e2eScenario,
 				nbc:           nbc,
 				loggingDir:    loggingDir,
