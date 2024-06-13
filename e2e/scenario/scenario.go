@@ -23,11 +23,8 @@ func GetScenariosForSuite(ctx context.Context) (Table, error) {
 		scenarios = append(scenarios, scenario)
 	}
 
-	if config.BuildID != "" {
-		log.Printf("will use VHDs from specified build: %d", config.BuildID)
-		if err := getVHDsFromBuild(ctx, tmpl, scenarios); err != nil {
-			return nil, err
-		}
+	if err := getVHDsFromBuild(ctx, tmpl, scenarios); err != nil {
+		return nil, err
 	}
 
 	table := make(Table, len(scenarios))

@@ -9,6 +9,7 @@ import (
 
 var (
 	BuildID            = os.Getenv("BUILD_ID")
+	VHDBuildID         = os.Getenv("VHD_BUILD_ID")
 	Subscription       = mustenv("SUBSCRIPTION_ID")
 	Location           = mustenv("LOCATION")
 	ResourceGroupName  = "abe2e-" + mustenv("LOCATION")

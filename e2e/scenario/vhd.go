@@ -39,6 +39,17 @@ var (
 )
 
 func getVHDsFromBuild(ctx context.Context, tmpl *Template, scenarios []*Scenario) error {
+	if config.VHDBuildID == "" {
+		return nil
+	}
+
+	buildID, err := strconv.Atoi(config.VHDBuildID)
+	if err != nil {
+		return fmt.Errorf("unable to convert build ID %s to int: %w", config.VHDBuildID, err)
+	}
+
+	log.Printf("will use VHDs from specified build: %d", config.VHDBuildID)
+
 	downloader, err := artifact.NewDownloader(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to construct new ADO artifact downloader: %w", err)
@@ -56,12 +67,7 @@ func getVHDsFromBuild(ctx context.Context, tmpl *Template, scenarios []*Scenario
 		}
 	}
 
-	log.Printf("using artifact from build %d with name: %s", config.BuildID, fmt.Sprint(artifactNames))
-
-	buildID, err := strconv.Atoi(config.BuildID)
-	if err != nil {
-		return fmt.Errorf("unable to convert build ID %s to int: %w", config.BuildID, err)
-	}
+	log.Printf("using artifact from build %d with name: %s", config.VHDBuildID, fmt.Sprint(artifactNames))
 
 	err = downloader.DownloadVHDBuildPublishingInfo(ctx, artifact.PublishingInfoDownloadOpts{
 		BuildID:       buildID,
