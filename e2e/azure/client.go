@@ -1,16 +1,20 @@
 package azure
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"time"
 
+	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
@@ -169,4 +173,87 @@ func DefaultRetryOpts() policy.RetryOptions {
 			http.StatusNotFound,            // 404
 		},
 	}
+}
+
+func (c *Client) CreateCluster(
+	ctx context.Context,
+	resourceGroupName string,
+	config *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
+	pollerResp, err := c.AKS.BeginCreateOrUpdate(
+		ctx,
+		resourceGroupName,
+		*config.Name,
+		*config,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin aks cluster creation: %w", err)
+	}
+
+	clusterResp, err := pollerResp.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wait for aks cluster creation %w", err)
+	}
+
+	return &clusterResp.ManagedCluster, nil
+}
+
+func (c *Client) DeleteCluster(ctx context.Context, resourceGroupName, clusterName string) error {
+	poller, err := c.AKS.BeginDelete(ctx, resourceGroupName, clusterName, nil)
+	if err != nil {
+		return fmt.Errorf("failed to start aks cluster %q deletion: %w", clusterName, err)
+	}
+
+	_, err = poller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to wait for aks cluster %q deletion: %w", clusterName, err)
+	}
+
+	return nil
+}
+
+func (c *Client) EnsureResourceGroup(ctx context.Context, resourceGroupName string, location string) error {
+	log.Printf("Ensuring resource group %q exists", resourceGroupName)
+
+	rgExists, err := c.IsExistingResourceGroup(ctx, resourceGroupName)
+	if err != nil {
+		return err
+	}
+
+	if !rgExists {
+		_, err = c.ResourceGroup.CreateOrUpdate(
+			ctx,
+			resourceGroupName,
+			armresources.ResourceGroup{
+				Location: to.Ptr(location),
+				Name:     to.Ptr(resourceGroupName),
+			},
+			nil)
+
+		if err != nil {
+			return fmt.Errorf("failed to create RG %q: %w", resourceGroupName, err)
+		}
+	}
+	return nil
+}
+
+func (c *Client) IsExistingResourceGroup(ctx context.Context, resourceGroupName string) (bool, error) {
+	rgExistence, err := c.ResourceGroup.CheckExistence(ctx, resourceGroupName, nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to get RG %q: %w", resourceGroupName, err)
+	}
+	return rgExistence.Success, nil
+}
+
+func (c *Client) CreateSecurityGroup(ctx context.Context, resourceGroupName, securityGroupName string, securityGroup armnetwork.SecurityGroup) (*armnetwork.SecurityGroupsClientCreateOrUpdateResponse, error) {
+	poller, err := config.Azure.SecurityGroup.BeginCreateOrUpdate(ctx, resourceGroupName, securityGroupName, securityGroup, nil)
+	if err != nil {
+		return nil, err
+	}
+	nsg, err := poller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &nsg, nil
+
 }

@@ -31,7 +31,7 @@ func Test_All(t *testing.T) {
 		t.Fatal("at least one scenario must be selected to run the e2e suite")
 	}
 
-	if err := ensureResourceGroup(ctx); err != nil {
+	if err := config.Azure.EnsureResourceGroup(ctx, config.ResourceGroupName, config.Location); err != nil {
 		t.Fatal(err)
 	}
 
