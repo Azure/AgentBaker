@@ -13,4 +13,4 @@ export LOCATION
 export AZURE_TENANT_ID
 
 go version
-go test -timeout $TIMEOUT -v -run Test_All ./
+go test -parallel 100 -timeout $TIMEOUT -v -run Test_All ./
