@@ -6,7 +6,6 @@ EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
 TEST_RESOURCE_PREFIX="vhd-scanning"
 VM_NAME="$TEST_RESOURCE_PREFIX-vm"
 VHD_IMAGE="$MANAGED_SIG_ID"
-
 SIG_CONTAINER_NAME="vhd-scans"
 TEST_VM_ADMIN_USERNAME="azureuser"
 
@@ -14,10 +13,8 @@ set +x
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
 
-
 RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
 az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
-
 
 # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
 if [ "$OS_VERSION" == "18.04" ]; then
@@ -30,7 +27,7 @@ function cleanup() {
     az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
 
     if [ -n "${VM_PRINCIPLE_ID}" ]; then
-        az role assignment delete --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${SCANNING_STORAGE_ACCOUNT}/blobServices/default/containers/vhd-scans"
+        az role assignment delete --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${SCANNING_STORAGE_ACCOUNT}/blobServices/default/containers/${SIG_CONTAINER_NAME}"
         echo "Role assignment deleted"
     fi 
 }
