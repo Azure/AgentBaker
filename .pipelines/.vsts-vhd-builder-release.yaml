@@ -1072,7 +1072,6 @@ stages:
     jobs:
       - template: ./templates/e2e-template.yaml
         parameters:
-          defaultTimeout: 90
           poolName: nodesigtest-pool
           azureSubscriptionId: $(AZURE_SUBSCRIPTION_ID)
           vhdBuildId: $(VHD_BUILD_ID)

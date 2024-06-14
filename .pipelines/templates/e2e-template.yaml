@@ -1,5 +1,5 @@
 parameters:
-  - name: defaultTimeout
+  - name: timeout
     default: 90
   - name: poolName
     default: nodesigtest-pool
@@ -12,7 +12,7 @@ parameters:
 
 jobs:
   - job: Run_AgentBaker_E2E
-    timeoutInMinutes: ${{ parameters.defaultTimeout }}
+    timeoutInMinutes: ${{ parameters.timeout }}
     pool:
       name: ${{ parameters.poolName }}
     steps:
@@ -29,7 +29,7 @@ jobs:
           export BUILD_ID=$(Build.BuildId)
           
           cd e2e
-          go test -timeout ${{ parameters.defaultTimeout }}m -v -run Test_All ./
+          go test -timeout ${{ parameters.timeout }}m -v -run Test_All ./
         displayName: Run AgentBaker E2E
         env:
           VHD_BUILD_ID: ${{ parameters.vhdBuildId }}
