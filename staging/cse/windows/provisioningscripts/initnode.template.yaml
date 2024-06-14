@@ -1,0 +1,18 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: init-<node-name>
+spec:
+  ttlSecondsAfterFinished: 1 # Automatically deleting the job <ttlSecondsAfterFinished> seconds after its completion prevents the job from occupying the customer's IP capacity.
+  activeDeadlineSeconds: 600 # Automatically deleting the job <activeDeadlineSeconds> seconds after it starts prevents the job from persisting in case the node is accidentally deleted.
+  template:
+    spec:
+      priorityClassName: system-node-critical # Highest priority like kube-system pods
+      restartPolicy: Never # Run once and exit
+      nodeSelector:
+        kubernetes.io/os: windows
+        kubernetes.io/hostname: <node-name>
+      containers:
+      - name: windows-nanoserver-job
+        image: mcr.microsoft.com/windows/nanoserver:<os-version>
+        command: ["cmd", "/c", "echo Initialized HNS network successfully!"]
