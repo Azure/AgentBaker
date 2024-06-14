@@ -322,7 +322,7 @@ func chooseCluster(
 		config := &clusterConfigs[i]
 		if (scenario.Airgap && !config.isAirgapCluster) || (config.isAirgapCluster && !scenario.Airgap) {
 			continue
-		} 
+		}
 
 		if scenario.Config.ClusterSelector(config.cluster) {
 			// only validate + prep the cluster for testing if we didn't just create it and it hasn't already been prepared

@@ -89,7 +89,7 @@ func Test_All(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			runScenario(ctx, t, r, &scenarioRunOpts{
+			runScenario(ctx, t, &scenarioRunOpts{
 				clusterConfig: clusterConfig,
 				cloud:         cloud,
 				suiteConfig:   suiteConfig,
@@ -101,7 +101,10 @@ func Test_All(t *testing.T) {
 	}
 }
 
-func runScenario(ctx context.Context, t *testing.T, r *mrand.Rand, opts *scenarioRunOpts) {
+func runScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
+	// need to create a new rand object for each goroutine since mrand.Rand is not thread-safe
+	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
+
 	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair(r)
 	if err != nil {
 		t.Error(err)
