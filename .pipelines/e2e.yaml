@@ -8,6 +8,7 @@ pr:
   paths:
     include:
       - .pipelines/e2e.yaml
+      - .pipelines/templates/e2e-template.yaml
       - e2e
       - parts/linux
       - pkg/agent
@@ -26,3 +27,5 @@ pool:
 
 jobs:
   - template: ./templates/e2e-template.yaml
+    parameters:
+      vhdBuildId: $(Build.BuildId)
