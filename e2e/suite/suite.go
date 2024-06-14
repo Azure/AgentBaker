@@ -10,8 +10,6 @@ import (
 )
 
 const (
-	publishingInfoDirName = "publishinginfo"
-
 	buildIDEnvironmentVarName            = "BUILD_ID"
 	adoPATEnvironmentVarName             = "ADO_PAT"
 	subscriptionIdEnvironmentVarName     = "SUBSCRIPTION_ID"
@@ -21,7 +19,8 @@ const (
 	scenariosToRunEnvironmentVarName     = "SCENARIOS_TO_RUN"
 	scenariosToExcludeEnvironmentVarName = "SCENARIOS_TO_EXCLUDE"
 
-	suiteConfigStringTemplate = `subscription: %[1]s,
+	abe2eResourceGroupNameTemplate = "abe2e-%s"
+	suiteConfigStringTemplate      = `subscription: %[1]s,
 location: %[2]s,
 resource group: %[3]s,
 keep vmss: %[4]t`
