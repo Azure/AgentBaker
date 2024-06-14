@@ -405,6 +405,7 @@ ensureKubelet() {
     if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
     fi
+    chmod 0600 "${KUBELET_DEFAULT_FILE}"
     
     KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
     mkdir -p "$(dirname "${KUBE_CA_FILE}")"
