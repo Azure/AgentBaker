@@ -3,12 +3,10 @@ parameters:
     default: 90
   - name: poolName
     default: nodesigtest-pool
-  - name: azureSubscriptionId
-    default: ''
   - name: vhdBuildId
     default: ''
   - name: adoPat
-    default: ''
+    default: $(PAT-aksdevassistant)
 
 jobs:
   - job: Run_AgentBaker_E2E
@@ -18,7 +16,7 @@ jobs:
     steps:
       - bash: |
           az login --identity
-          az account set -s ${{ parameters.azureSubscriptionId }}
+          az account set -s $(AZURE_SUBSCRIPTION_ID)
         displayName: az login
       - bash: bash .pipelines/scripts/setup_go.sh
         displayName: setup go

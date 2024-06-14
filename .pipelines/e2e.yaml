@@ -26,8 +26,3 @@ pool:
 
 jobs:
   - template: ./templates/e2e-template.yaml
-    parameters:
-      poolName: nodesigtest-pool
-      azureSubscriptionId: $(AZURE_SUBSCRIPTION_ID)
-      vhdBuildId: $(VHD_BUILD_ID)
-      adoPat: $(PAT-aksdevassistant)
