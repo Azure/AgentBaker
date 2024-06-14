@@ -391,7 +391,7 @@ installJq () {
   if [ -n "$output" ]; then
     echo "$output"
   else
-    if [[ "${OS}" == "MARINER" ]]; then
+    if [[ $OS == $MARINER_OS_NAME ]]; then
       sudo tdnf install -y jq
       echo "jq was installed: $(jq --version)"
     else
