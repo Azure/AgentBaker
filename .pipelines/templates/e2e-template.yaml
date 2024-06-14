@@ -1,0 +1,53 @@
+parameters:
+  - name: defaultTimeout
+    default: 90
+  - name: poolName
+    default: nodesigtest-pool
+  - name: azureSubscriptionId
+    default: ''
+  - name: vhdBuildId
+    default: ''
+  - name: adoPat
+    default: ''
+
+jobs:
+  - job: Run_AgentBaker_E2E
+    timeoutInMinutes: ${{ parameters.defaultTimeout }}
+    pool:
+      name: ${{ parameters.poolName }}
+    steps:
+      - bash: |
+          az login --identity
+          az account set -s ${{ parameters.azureSubscriptionId }}
+        displayName: az login
+      - bash: bash .pipelines/scripts/setup_go.sh
+        displayName: setup go
+      - bash: |
+          export PATH="/usr/local/go/bin:$PATH"
+          go version
+          
+          export BUILD_ID=$(Build.BuildId)
+          
+          cd e2e
+          go test -timeout ${{ parameters.defaultTimeout }}m -v -run Test_All ./
+        displayName: Run AgentBaker E2E
+        env:
+          VHD_BUILD_ID: ${{ parameters.vhdBuildId }}
+          ADO_PAT: ${{ parameters.adoPat }}
+      - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
+        artifact: scenario-logs
+        condition: always()
+      - bash: |
+          set -x
+          
+          vmssResourceIds=""
+          for vmssModel in e2e/scenario-logs/*/vmssId.txt; do
+            resourceId=$(cat ${vmssModel})
+            vmssResourceIds="${vmssResourceIds} ${resourceId}"
+          done
+          
+          if [ -n "${vmssResourceIds// }" ]; then
+            az resource delete --ids ${vmssResourceIds}
+          fi
+        displayName: ensure vmss deletion
+        condition: always()
