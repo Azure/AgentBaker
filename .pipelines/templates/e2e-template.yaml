@@ -25,6 +25,7 @@ jobs:
           go version
           
           export BUILD_ID=$(Build.BuildId)
+          echo "vhdBuildId=${{ parameters.vhdBuildId }}"
           
           cd e2e
           go test -timeout ${{ parameters.timeout }}m -v -run Test_All ./

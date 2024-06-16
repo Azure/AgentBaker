@@ -28,4 +28,4 @@ pool:
 jobs:
   - template: ./templates/e2e-template.yaml
     parameters:
-      vhdBuildId: $(Build.BuildId)
+      vhdBuildId: $(VHD_BUILD_ID)
