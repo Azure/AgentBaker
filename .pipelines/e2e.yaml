@@ -17,14 +17,6 @@ pr:
       - pkg/agent/datamodel/sig_config*.go # SIG config changes
       - pkg/agent/datamodel/*.json # SIG version changes
       - pkg/agent/testdata/AKSWindows* # Windows test data
-
-variables:
-  - group: "AKS Dev Assistant (KV)"
-  - group: ab-e2e
-
-pool:
-  name: nodesigtest-pool
-
 jobs:
   - template: ./templates/e2e-template.yaml
     parameters:

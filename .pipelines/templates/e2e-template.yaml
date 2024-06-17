@@ -1,18 +1,16 @@
 parameters:
   - name: timeout
     default: 90
-  - name: poolName
-    default: nodesigtest-pool
   - name: vhdBuildId
     default: ''
-  - name: adoPat
-    default: $(PAT-aksdevassistant)
 
 jobs:
   - job: Run_AgentBaker_E2E
+    pool: nodesigtest-pool
     timeoutInMinutes: ${{ parameters.timeout }}
-    pool:
-      name: ${{ parameters.poolName }}
+    variables:
+      - group: ab-e2e
+      - group: "AKS Dev Assistant (KV)"
     steps:
       - bash: |
           az login --identity
@@ -32,7 +30,7 @@ jobs:
         displayName: Run AgentBaker E2E
         env:
           VHD_BUILD_ID: ${{ parameters.vhdBuildId }}
-          ADO_PAT: ${{ parameters.adoPat }}
+          ADO_PAT: $(PAT-aksdevassistant)
       - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
         artifact: scenario-logs
         condition: always()
