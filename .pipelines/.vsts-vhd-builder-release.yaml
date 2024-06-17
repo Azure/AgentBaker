@@ -154,6 +154,7 @@ parameters:
 variables:
   - name: CONTAINER_IMAGE
     value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
+  - group: ab-e2e
 
 pool:
   name: $(POOL_NAME)
