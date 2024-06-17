@@ -215,6 +215,10 @@ for p in ${packages[*]}; do
       done
       ;;
     "runc")
+      if [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
+        echo "runc is installed with moby-containerd on Mariner and AzureLinux SKUs, will skip ensureRunc"
+        continue
+      fi
       for version in $PackageVersions; do
         evaluatedURL=$(evalPackageDownloadURL ${packageDownloadURL})
         ensureRunc "${downloadDir}" "${evaluatedURL}" "${version}"
@@ -224,12 +228,15 @@ for p in ${packages[*]}; do
     "containerd")
       for version in $PackageVersions; do
         evaluatedURL=$(evalPackageDownloadURL ${packageDownloadURL})
+        if [[ "${OS}" == "${MARINER_HOST_NAME}" ]]; then
+          # runc is bundled with the moby-containerd package on Mariner/AzureLinux
+          installStandaloneContainerd "${version}"
+          echo "  - runc version $(runc --version | grep "runc version" | sed 's/runc version//')" >> ${VHD_LOGS_FILEPATH}
+        fi
         if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
-        elif [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
-          installStandaloneContainerd "${version}"
         fi
-        echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
+        echo "  - containerd version $(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     *)
