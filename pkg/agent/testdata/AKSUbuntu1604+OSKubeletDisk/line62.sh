@@ -74,6 +74,68 @@ cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
 }
 
+installContainerd() {
+    packageVersion="${3:-}"
+    containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
+    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
+    CONTAINERD_DOWNLOADS_DIR="${1:-$CONTAINERD_DOWNLOADS_DIR}"
+    eval containerdOverrideDownloadURL="${2:-}"
+
+    if [[ ! -z ${containerdOverrideDownloadURL} ]]; then
+        installContainerdFromOverride ${containerdOverrideDownloadURL} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        return 0
+    fi
+    installContainerdWithAptGet "${containerdMajorMinorPatchVersion}" "${containerdHotFixVersion}" "${CONTAINERD_DOWNLOADS_DIR}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+}
+
+installContainerdFromOverride() {
+    containerdOverrideDownloadURL=$1
+    echo "Installing containerd from user input: ${containerdOverrideDownloadURL}"
+    logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
+    logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
+    logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromURL" downloadContainerdFromURL "${containerdOverrideDownloadURL}"
+    logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    echo "Succeeded to install containerd from user input: ${containerdOverrideDownloadURL}"
+    return 0
+}
+
+installContainerdWithAptGet() {
+    local containerdMajorMinorPatchVersion="${1}"
+    local containerdHotFixVersion="${2}"
+    CONTAINERD_DOWNLOADS_DIR="${3:-$CONTAINERD_DOWNLOADS_DIR}"
+    currentVersion=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+
+    if [ -z "$currentVersion" ]; then
+        currentVersion="0.0.0"
+    fi
+
+    currentMajorMinor="$(echo $currentVersion | tr '.' '\n' | head -n 2 | paste -sd.)"
+    desiredMajorMinor="$(echo $containerdMajorMinorPatchVersion | tr '.' '\n' | head -n 2 | paste -sd.)"
+    semverCompare "$currentVersion" "$containerdMajorMinorPatchVersion"
+    hasGreaterVersion="$?"
+
+    if [[ "$hasGreaterVersion" == "0" ]] && [[ "$currentMajorMinor" == "$desiredMajorMinor" ]]; then
+        echo "currently installed containerd version ${currentVersion} matches major.minor with higher patch ${containerdMajorMinorPatchVersion}. skipping installStandaloneContainerd."
+    else
+        echo "installing containerd version ${containerdMajorMinorPatchVersion}"
+        logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
+        logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
+        containerdDebFile="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${containerdMajorMinorPatchVersion}*)"
+        if [[ -f "${containerdDebFile}" ]]; then
+            logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${containerdDebFile}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+            return 0
+        fi
+        logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
+        containerdDebFile="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${containerdMajorMinorPatchVersion}*)"
+        if [[ -z "${containerdDebFile}" ]]; then
+            echo "Failed to locate cached containerd deb"
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        fi
+        logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${containerdDebFile}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        return 0
+    fi
+}
+
 installStandaloneContainerd() {
     UBUNTU_RELEASE=$(lsb_release -r -s)
     UBUNTU_CODENAME=$(lsb_release -c -s)
@@ -82,21 +144,9 @@ installStandaloneContainerd() {
 
     logs_to_events "AKS.CSE.installContainerRuntime.ensureRunc" "ensureRunc ${RUNC_VERSION:-""}" 
 
-    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
-    CURRENT_COMMIT=$(containerd -version | cut -d " " -f 4)
-
-    if [ -z "$CURRENT_VERSION" ]; then
-        CURRENT_VERSION="0.0.0"
-    fi
-
     CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
     if [[ ! -z ${CONTAINERD_PACKAGE_URL} ]]; then
-        echo "Installing containerd from user input: ${CONTAINERD_PACKAGE_URL}"
-        logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
-        logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
-        logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromURL" downloadContainerdFromURL ${CONTAINERD_PACKAGE_URL}
-        logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        echo "Succeeded to install containerd from user input: ${CONTAINERD_PACKAGE_URL}"
+        installContainerdFromOverride ${CONTAINERD_PACKAGE_URL} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
 
@@ -112,31 +162,7 @@ installStandaloneContainerd() {
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     fi
 
-    CURRENT_MAJOR_MINOR="$(echo $CURRENT_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
-    DESIRED_MAJOR_MINOR="$(echo $CONTAINERD_VERSION | tr '.' '\n' | head -n 2 | paste -sd.)"
-    semverCompare "$CURRENT_VERSION" "$CONTAINERD_VERSION"
-    HAS_GREATER_VERSION="$?"
-
-    if [[ "$HAS_GREATER_VERSION" == "0" ]] && [[ "$CURRENT_MAJOR_MINOR" == "$DESIRED_MAJOR_MINOR" ]]; then
-        echo "currently installed containerd version ${CURRENT_VERSION} matches major.minor with higher patch ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
-    else
-        echo "installing containerd version ${CONTAINERD_VERSION}"
-        logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
-        logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
-        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
-        if [[ -f "${CONTAINERD_DEB_FILE}" ]]; then
-            logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-            return 0
-        fi
-        logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${CONTAINERD_VERSION} ${CONTAINERD_PATCH_VERSION}"
-        CONTAINERD_DEB_FILE="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${CONTAINERD_VERSION}*)"
-        if [[ -z "${CONTAINERD_DEB_FILE}" ]]; then
-            echo "Failed to locate cached containerd deb"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        fi
-        logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-        return 0
-    fi
+    installContainerdWithAptGet "${CONTAINERD_VERSION}" "${CONTAINERD_PATCH_VERSION}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
 
 downloadContainerdFromVersion() {
@@ -175,7 +201,8 @@ installMoby() {
 }
 
 ensureRunc() {
-    RUNC_PACKAGE_URL="${RUNC_PACKAGE_URL:=}"
+    RUNC_PACKAGE_URL=${2:-""}
+    RUNC_DOWNLOADS_DIR=${1:-$RUNC_DOWNLOADS_DIR}
     if [[ ! -z ${RUNC_PACKAGE_URL} ]]; then
         echo "Installing runc from user input: ${RUNC_PACKAGE_URL}"
         mkdir -p $RUNC_DOWNLOADS_DIR
@@ -187,13 +214,7 @@ ensureRunc() {
         return 0
     fi
 
-    TARGET_VERSION=${1:-""}
-    if [[ -z ${TARGET_VERSION} ]]; then
-        TARGET_VERSION="1.1.12-ubuntu${UBUNTU_RELEASE}"
-        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-            TARGET_VERSION="1.1.12-ubuntu${UBUNTU_RELEASE}"
-        fi
-    fi
+    TARGET_VERSION=${3:-""}
 
     if [[ $(isARM64) == 1 ]]; then
         if [[ ${TARGET_VERSION} == "1.0.0-rc92" || ${TARGET_VERSION} == "1.0.0-rc95" ]]; then
