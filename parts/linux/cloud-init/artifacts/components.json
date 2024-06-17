@@ -179,11 +179,12 @@
       "downloadURL": "mcr.microsoft.com/oss/calico/cni:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.24.6"
+        "v3.24.6",
+        "v3.26.4-c06a60"
       ],
       "prefetchOptimizations": [
         {
-          "version": "v3.24.6",
+          "version": "v3.26.4-c06a60",
           "binaries": [
             "opt/cni/bin/bandwidth",
             "opt/cni/bin/calico",
@@ -202,18 +203,20 @@
       "downloadURL": "mcr.microsoft.com/oss/calico/node:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.24.6"
+        "v3.24.6",
+        "v3.26.4-c06a60"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.24.6"
+        "v3.24.6",
+        "v3.26.4-c06a60"
       ],
       "prefetchOptimizations": [
         {
-          "version": "v3.24.6",
+          "version": "v3.26.4-c06a60",
           "binaries": [
             "usr/local/bin/flexvol"
           ]
