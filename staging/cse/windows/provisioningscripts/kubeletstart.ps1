@@ -23,6 +23,13 @@ $global:CNIPath = [Io.path]::Combine("$global:KubeDir", "cni")
 $global:CNIConfig = [Io.path]::Combine($global:CNIPath, "config", "$global:NetworkMode.conf")
 $global:CNIConfigPath = [Io.path]::Combine("$global:CNIPath", "config")
 
+$global:KubeconfigPath = [Io.path]::Combine("$global:KubeDir", "config")
+$global:BootstrapKubeconfigPath = [io.path]::Combine("$global:KubeDir", "bootstrap-config")
+$global:EnableSecureTLSBootstrapping = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.Enabled
+$global:SecureTLSBootstrapScriptPath = [Io.path]::Combine("$global:KubeDir", "securetlsbootstrap.ps1")
+$global:CustomSecureTLSBootstrapAADResource = $Global:ClusterConfiguration.Kubernetes.Kubelet.SecureTLSBootstrapArgs.CustomSecureTLSBootstrapAADResource
+$global:DefaultSecureTLSBootstrapAADResource = "6dae42f8-4368-4678-94ff-3960e28e3630"
+
 $global:HNSModule = "c:\k\hns.v2.psm1"
 
 ipmo $global:HNSModule
@@ -46,6 +53,31 @@ $KubeletArgList += @("--container-runtime-endpoint=npipe://./pipe/containerd-con
 # Reference: https://github.com/kubernetes/kubernetes/blob/master/CHANGELOG/CHANGELOG-1.27.md#other-cleanup-or-flake
 if ($global:KubeBinariesVersion -lt "1.27.0") {
     $KubeletArgList += @("--container-runtime=remote")
+}
+
+# Run the secure TLS bootstrap script to generate a kubelet client certificate, if enabled
+if ($global:EnableSecureTLSBootstrapping) {
+    $aadResource = $global:DefaultSecureTLSBootstrapAADResource
+    if ($global:CustomSecureTLSBootstrapAADResource) {
+        $aadResource = $global:CustomSecureTLSBootstrapAADResource
+    }
+    & "c:\k\securetlsbootstrap.ps1" -KubeDir $global:KubeDir -APIServerFQDN $global:MasterIP -AADResource $aadResource
+    if ($?) {
+        if ((Test-Path $global:KubeconfigPath) -and (Test-Path $global:BootstrapKubeconfigPath)) {
+            # Remove the bootstrap-kubeconfig flag from kubelet args, if present.
+            # This is needed for the secure TLS bootstrapping case since if --bootstrap-kubeconfig is specified
+            # alongside --rotate-certificates, kubelet will always treat what we give it as bootstrap credentials rather
+            # than valid kubelet client credentials at startup, and thus will try to bootstrap its own credentials.
+            # https://kubernetes.io/docs/tasks/tls/certificate-rotation/#understanding-the-certificate-rotation-configuration
+            Write-Host "No need for bootstrap-kubeconfig: removing bootstrap-kubeconfig arg from kubelet arg list and bootstrap-kubeconfig file from disk"
+            $KubeletArgList = @($KubeletArgList) -NotMatch "bootstrap-kubeconig"
+            if (Test-Path $global:BootstrapKubeconfigPath) {
+                Remove-Item $global:BootstrapKubeconfigPath
+            }
+        }
+    } else {
+        Write-Host "Secure TLS bootstrapping failed, will still try to start kubelet..."
+    }
 }
 
 # Used in WinCNI version of kubeletstart.ps1

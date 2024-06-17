@@ -209,6 +209,17 @@ function Get-KubePackage {
     Remove-Item $zipfile
 }
 
+function Get-SecureTLSBootstrapClient {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $BootstrapClientPath,
+        [Parameter(Mandatory = $true)][string]
+        $BootstrapClientDownloadUrl
+    )
+    Logs-To-Event -TaskName "AKS.WindowsCSE.DownloadSecureTLSBootstrapClient" -TaskMessage "Start to download the secure TLS bootstrap client binary and unzip. BootstrapClientDownloadUrl: $BootstrapClientDownloadUrl"
+    DownloadFileOverHttp -Url $BootstrapClientDownloadUrl -DestinationPath $BootstrapClientPath -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT
+}
+
 # TODO: replace KubeletStartFile with a Kubelet config, remove NSSM, and use built-in service integration
 function New-NSSMService {
     Param(
