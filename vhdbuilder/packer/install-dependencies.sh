@@ -236,7 +236,8 @@ for p in ${packages[*]}; do
         if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
         fi
-        echo "  - containerd version $(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)" >> ${VHD_LOGS_FILEPATH}
+        installed_version=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1 | tr '.' '\n' | head -n 2 | paste -sd.)
+        echo "  - containerd version ${installed_version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     *)
