@@ -174,6 +174,7 @@ echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEP
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
+stop_watch $capture_time "Create Containerd Service Directory, Download Shims, Configure Runtime and Network" false
 
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for p in ${packages[*]}; do

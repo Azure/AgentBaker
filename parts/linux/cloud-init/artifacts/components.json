@@ -390,7 +390,7 @@
         "mariner": {
           "current": {
             "versions": [
-              "1.4.54"
+              "1.1.9-5.cm2"
             ],
             "downloadURL": ""
           }
@@ -418,7 +418,7 @@
         "mariner": {
           "current": {
             "versions": [
-              "1.3.4"
+              "1.6.26-5.cm2"
             ],
             "downloadURL": ""
           }

@@ -96,15 +96,19 @@ EOF
 }
 
 installStandaloneContainerd() {
-    CONTAINERD_VERSION=$1    
+    local desiredMajorMinorPatchVersion=$1 
+    local desiredHotFixVersion="${2:-}"
+    local desiredVersion=""
+    //e.g., desiredVersion will look like this 1.6.26-5.cm2
+    desiredVersion="${desiredMajorMinorPatchVersion}-${desiredHotFixVersion}"
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
-        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
+    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${desiredMajorMinorPatchVersion}; then
+        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${desiredMajorMinorPatchVersion}. skipping installStandaloneContainerd."
     else
-        echo "installing containerd version ${CONTAINERD_VERSION}"
+        echo "installing containerd version ${desiredVersion}"
         removeContainerd
-        if ! dnf_install 30 1 600 moby-containerd; then
+        if ! dnf_install 30 1 600 "moby-containerd-${desiredVersion}"; then
           exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
     fi
@@ -113,6 +117,10 @@ installStandaloneContainerd() {
         mv /etc/containerd/config.toml.rpmsave /etc/containerd/config.toml
     fi
 
+}
+
+ensureRunc() {
+  echo "Mariner Runc is included in the Mariner base image. Skipping downloading and installing Runc"
 }
 
 cleanUpGPUDrivers() {
