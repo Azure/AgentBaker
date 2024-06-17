@@ -103,17 +103,14 @@ EOF
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
-    local desiredMajorMinorPatchVersion=$1 
-    local desiredHotFixVersion="${2:-}"
-    local desiredVersion=""
+    local desiredVersion="${1:-}"
     //e.g., desiredVersion will look like this 1.6.26-5.cm2
-    desiredVersion="${desiredMajorMinorPatchVersion}-${desiredHotFixVersion}"
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     # v1.4.1 is our lowest supported version of containerd
     
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${desiredMajorMinorPatchVersion}; then
-        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${desiredMajorMinorPatchVersion}. skipping installStandaloneContainerd."
+        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${desiredVersion}. skipping installStandaloneContainerd."
     else
         echo "installing containerd version ${desiredVersion}"
         removeContainerd
