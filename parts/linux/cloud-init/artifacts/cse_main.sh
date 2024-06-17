@@ -131,8 +131,6 @@ setupCNIDirs
 # Network plugin should not install if outbound is not allowed.
 if [ "${BLOCK_OUTBOUND_NETWORK}" == "false" ]; then
     logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
-else
-    echo "For testing purposes"
 fi
 
 if [ "${IS_KRUSTLET}" == "true" ]; then
