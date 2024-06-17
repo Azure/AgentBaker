@@ -103,9 +103,7 @@ EOF
 
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
-    CONTAINERD_VERSION=$1
-    #overwrite the passed containerd_version since mariner uses only 1 version now which is different than ubuntu's
-    CONTAINERD_VERSION="1.3.4"
+    CONTAINERD_VERSION=$1    
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     # v1.4.1 is our lowest supported version of containerd
