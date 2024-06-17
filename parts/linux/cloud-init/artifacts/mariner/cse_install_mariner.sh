@@ -114,7 +114,7 @@ installStandaloneContainerd() {
         echo "installing containerd version ${CONTAINERD_VERSION}"
         removeContainerd
         # TODO: tie runc to r92 once that's possible on Mariner's pkg repo and if we're still using v1.linux shim
-        # right now we just takes the latest version from PMC without specifying anything specifically
+        # right now we just take the latest version from PMC without specifying anything specifically
         # TODO: factor out desired version to components.json
         if ! dnf_install 30 1 600 moby-containerd; then
           exit $ERR_CONTAINERD_INSTALL_TIMEOUT

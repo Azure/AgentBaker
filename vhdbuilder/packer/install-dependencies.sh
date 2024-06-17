@@ -228,7 +228,7 @@ for p in ${packages[*]}; do
     "containerd")
       for version in $PackageVersions; do
         evaluatedURL=$(evalPackageDownloadURL ${packageDownloadURL})
-        if [[ "${OS}" == "${MARINER_HOST_NAME}" ]]; then
+        if [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
           # runc is bundled with the moby-containerd package on Mariner/AzureLinux
           installStandaloneContainerd "${version}"
           echo "  - runc version $(runc --version | grep "runc version" | sed 's/runc version//')" >> ${VHD_LOGS_FILEPATH}
