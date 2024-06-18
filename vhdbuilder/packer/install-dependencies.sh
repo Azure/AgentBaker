@@ -175,6 +175,31 @@ echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEP
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
 
+# download kubernetes package from the given URL using MSI for auth for azcopy
+# if it is a kube-proxy package, extract image from the downloaded package
+cacheKubePackageFromPrivateUrl() {
+  local kube_private_binary_url="$1"
+
+  echo "process private package url: $kube_private_binary_url"
+
+  mkdir -p ${K8S_PRIVATE_PACKAGES_CACHE_DIR} # /opt/kubernetes/downloads/private-packages
+
+  # save kube pkg with version number from the url path, this convention is used to find the cached package at run-time
+  local k8s_tgz_name
+  k8s_tgz_name=$(echo "$kube_private_binary_url" | grep -o -P '(?<=\/kubernetes\/).*(?=\/binaries\/)').tar.gz
+
+  # use azcopy with MSI instead of curl to download packages
+  getAzCopyCurrentPath
+
+  ./azcopy login --login-type=MSI
+
+  cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
+  echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
+  if ! ./azcopy copy "${kube_private_binary_url}" "${cached_pkg}"; then
+    exit $ERR_PRIVATE_K8S_PKG_ERR
+  fi
+}
+
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for p in ${packages[*]}; do
   start_watch
@@ -194,7 +219,7 @@ for p in ${packages[*]}; do
         echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
         # other steps are dependent on CRICTL_VERSION and CRICTL_VERSIONS
         # since we only have 1 entry in CRICTL_VERSIONS, we simply set both to the same value
-        CRICTL_VERSION=${version} 
+        CRICTL_VERSION=${version}
         CRICTL_VERSIONS=${version}
       done
       ;;
@@ -230,6 +255,25 @@ for p in ${packages[*]}; do
           installStandaloneContainerd "${version}"
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "kubernetes")
+      # use the private_packages_url to download and cache packages
+      if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
+        IFS=',' read -ra PRIVATE_URLS <<< "${PRIVATE_PACKAGES_URL}"
+
+        for private_url in "${PRIVATE_URLS[@]}"; do
+          echo "download kube package from ${private_url}"
+          cacheKubePackageFromPrivateUrl "$private_url"
+        done
+      fi
+
+      rm -f ./azcopy # cleanup immediately after usage will return in two downloads
+
+      for version in $PackageVersions; do
+        KUBERNETES_VERSION=$(echo "${version}" | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
+        KUBE_VERSION_URL=$(echo "$KUBE_URL" | PATCHED_KUBE_BINARY_VERSION="${version}" CPU_ARCH="${CPU_ARCH}" envsubst)
+        extractKubeBinaries "$KUBERNETES_VERSION" "${KUBE_VERSION_URL}" false
       done
       ;;
     *)
@@ -464,60 +508,33 @@ fi
 cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
 rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
-# this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
-# So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
-# NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
-
-# kube-proxy regular versions >=v1.17.0  hotfixes versions >= 20211009 are 'multi-arch'. All versions in kube-proxy-images.json are 'multi-arch' version now.
-
-KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
-
-declare -a kube_proxy_pids=()
-
-for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
-  kube_proxy_pids+=($!)
-  while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
-      wait -n
-  done
-done
-wait ${kube_proxy_pids[@]} # Wait for all parallel pulls to finish
-
-for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
-  ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
-
-  # shellcheck disable=SC2181
-  echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
-done
-stop_watch $capture_time "Configure Telemetry, Create Logging Directory, Kube-proxy" false
-start_watch
+stop_watch $capture_time "Configure Telemetry, Create Logging Directory" false
+#start_watch
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
-cacheKubePackageFromPrivateUrl() {
-  local kube_private_binary_url="$1"
+# cacheKubePackageFromPrivateUrl() {
+#   local kube_private_binary_url="$1"
 
-  echo "process private package url: $kube_private_binary_url"
+#   echo "process private package url: $kube_private_binary_url"
 
-  mkdir -p ${K8S_PRIVATE_PACKAGES_CACHE_DIR} # /opt/kubernetes/downloads/private-packages
+#   mkdir -p ${K8S_PRIVATE_PACKAGES_CACHE_DIR} # /opt/kubernetes/downloads/private-packages
 
-  # save kube pkg with version number from the url path, this convention is used to find the cached package at run-time
-  local k8s_tgz_name
-  k8s_tgz_name=$(echo "$kube_private_binary_url" | grep -o -P '(?<=\/kubernetes\/).*(?=\/binaries\/)').tar.gz
+#   # save kube pkg with version number from the url path, this convention is used to find the cached package at run-time
+#   local k8s_tgz_name
+#   k8s_tgz_name=$(echo "$kube_private_binary_url" | grep -o -P '(?<=\/kubernetes\/).*(?=\/binaries\/)').tar.gz
 
-  # use azcopy with MSI instead of curl to download packages
-  getAzCopyCurrentPath
+#   # use azcopy with MSI instead of curl to download packages
+#   getAzCopyCurrentPath
 
-  ./azcopy login --login-type=MSI
+#   ./azcopy login --login-type=MSI
 
-  cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
-  echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
-  if ! ./azcopy copy "${kube_private_binary_url}" "${cached_pkg}"; then
-    exit $ERR_PRIVATE_K8S_PKG_ERR
-  fi
-}
+#   cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
+#   echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
+#   if ! ./azcopy copy "${kube_private_binary_url}" "${cached_pkg}"; then
+#     exit $ERR_PRIVATE_K8S_PKG_ERR
+#   fi
+# }
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # remove snapd, which is not used by container stack
@@ -545,15 +562,31 @@ else
   echo "Error: installBcc subshell failed with exit code $BCC_EXIT_CODE" >&2
 fi
 
-# use the private_packages_url to download and cache packages
-if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
-  IFS=',' read -ra PRIVATE_URLS <<< "${PRIVATE_PACKAGES_URL}"
+# # use the private_packages_url to download and cache packages
+# if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
+#   IFS=',' read -ra PRIVATE_URLS <<< "${PRIVATE_PACKAGES_URL}"
 
-  for private_url in "${PRIVATE_URLS[@]}"; do
-    echo "download kube package from ${private_url}"
-    cacheKubePackageFromPrivateUrl "$private_url"
-  done
-fi
+#   for private_url in "${PRIVATE_URLS[@]}"; do
+#     echo "download kube package from ${private_url}"
+#     cacheKubePackageFromPrivateUrl "$private_url"
+#   done
+# fi
+
+# # kubelet and kubectl
+# # need to cover previously supported version for VMAS scale up scenario
+# # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
+# # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
+# # Please do not use the .1 suffix, because that's only for the base image patches
+# # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
+# KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
+# KUBE_URL="$(jq -r .kubernetes.downloadURL manifest.json)"
+# for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
+#   KUBERNETES_VERSION=$(echo "${PATCHED_KUBE_BINARY_VERSION}" | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
+#   KUBE_VERSION_URL=$(echo "$KUBE_URL" | PATCHED_KUBE_BINARY_VERSION="${PATCHED_KUBE_BINARY_VERSION}" CPU_ARCH="${CPU_ARCH}" envsubst)
+#   extractKubeBinaries "$KUBERNETES_VERSION" "${KUBE_VERSION_URL}" false
+# done
+
+
 
 # kubelet and kubectl
 # need to cover previously supported version for VMAS scale up scenario
@@ -561,15 +594,15 @@ fi
 # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
 # Please do not use the .1 suffix, because that's only for the base image patches
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
-KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
+# KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
 
-for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
-  KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false
-done
+# for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
+#   KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
+#   extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false
+# done
 
-rm -f ./azcopy # cleanup immediately after usage will return in two downloads
-stop_watch $capture_time "Download and Process Kubernetes Packages / Extract Binaries" false
+#rm -f ./azcopy # cleanup immediately after usage will return in two downloads
+# stop_watch $capture_time "Download and Process Kubernetes Packages / Extract Binaries" false
 
 echo "install-dependencies step completed successfully"
 stop_watch $capture_script_start "install-dependencies.sh" true

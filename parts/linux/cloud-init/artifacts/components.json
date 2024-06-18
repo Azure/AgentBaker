@@ -381,6 +381,29 @@
       "multiArchVersions": [
         "v0.7.1"
       ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "v1.27.13",
+        "v1.27.13-2",
+        "v1.27.14-1",
+        "v1.27.9-hotfix.20240411",
+        "v1.27.9-hotfix.20240411-2",
+        "v1.28.10-1",
+        "v1.28.5-hotfix.20240411",
+        "v1.28.5-hotfix.20240411-2",
+        "v1.28.9",
+        "v1.28.9-1",
+        "v1.29.2-hotfix.20240411",
+        "v1.29.2-hotfix.20240411-1",
+        "v1.29.4",
+        "v1.29.4-1",
+        "v1.29.5-1",
+        "v1.30.0",
+        "v1.30.0-1"
+      ]
     }
   ],
   "Packages": [
@@ -493,6 +516,29 @@
               "1.29.0"
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v${version}/binaries/crictl-v${version}-linux-${CPU_ARCH}.tar.gz"
+          }
+        }
+      }
+    },
+    {
+      "name": "kubernetes",
+      "downloadLocation": "",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versions": [
+              "1.27.9",
+              "1.27.13",
+              "1.27.14",
+              "1.28.5",
+              "1.28.9",
+              "1.28.10",
+              "1.29.2",
+              "1.29.4",
+              "1.29.5",
+              "1.30.0"
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
           }
         }
       }
