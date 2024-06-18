@@ -359,7 +359,9 @@ if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
 fi 
 
 # TODO: add a comment here
-AZURELINUX_WAAGENT_BINDIR="/usr/bin/waagent"
+AZURELINUX_WAAGENT_BINDIR="/usr/sbin/waagent"
+echo "*** debug OS_SKU ${OS_SKU}"
+echo "*** debug OS_VERSION ${OS_VERSION//./}"
 if [[ "${OS_SKU}" == "AzureLinux" && "${OS_VERSION//./}" == "V3" ]]; then
 	AZURELINUX_WAAGENT_BINDIR="/usr/sbin/waagent"
 fi
