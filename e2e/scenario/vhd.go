@@ -9,25 +9,12 @@ import (
 	"log"
 	"os"
 	"regexp"
-	"strconv"
-	"strconv"
 	"strings"
 	"sync"
 
-	"github.com/Azure/agentbakere2e/artifact"
 	"github.com/Azure/agentbakere2e/config"
-)
-
-const (
-	offerNameAzureLinux = "AzureLinux"
-
-	vhdName1804Gen2                = "1804gen2containerd"
-	vhdName2204Gen2ARM64Containerd = "2204gen2arm64containerd"
-	vhdName2204Gen2Containerd      = "2204gen2containerd"
-	vhdNameAzureLinuxV2Gen2ARM64   = "azurelinuxv2gen2arm64"
-	vhdNameAzureLinuxV2Gen2        = "azurelinuxv2gen2"
-	vhdNameCBLMarinerV2Gen2ARM64   = "v2gen2arm64"
-	vhdNameCBLMarinerV2Gen2        = "v2gen2"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 )
 
 var (
@@ -116,11 +103,6 @@ func getVHDsFromBuild(ctx context.Context, tmpl *Template, scenarios []*Scenario
 		return nil
 	}
 
-	buildID, err := strconv.Atoi(config.VHDBuildID)
-	if err != nil {
-		return fmt.Errorf("unable to convert build ID %s to int: %w", config.VHDBuildID, err)
-	}
-
 	vhds := []*VHD{
 		&tmpl.Ubuntu1804Gen2Containerd,
 		&tmpl.Ubuntu2204Gen2Arm64Containerd,
@@ -137,7 +119,7 @@ func getVHDsFromBuild(ctx context.Context, tmpl *Template, scenarios []*Scenario
 	for _, vhd := range vhds {
 		go func(vhd *VHD) {
 			defer wg.Done()
-			err := setResourceID(ctx, vhd, suiteConfig.VHDBuildID)
+			err := setResourceID(ctx, vhd, config.VHDBuildID)
 			if err != nil {
 				log.Printf("Failed to set resource ID for VHD %q: %v", vhd.ImageID, err)
 			} else {
@@ -149,16 +131,16 @@ func getVHDsFromBuild(ctx context.Context, tmpl *Template, scenarios []*Scenario
 	return nil
 }
 
-func setResourceID(ctx context.Context, vhd *VHD, buildID int) error {
+func setResourceID(ctx context.Context, vhd *VHD, buildID string) error {
 	if vhd.ResourceID != "" { // resource ID is already set, don't modify it
 		return nil
 	}
 	var err error
 
 	// TODO: should we instead skip scenarios without a VHD?
-	if buildID != 0 {
+	if buildID != "" {
 		var err error
-		vhd.ResourceID, err = findLatestImageWithTag(ctx, vhd.ImageID, "buildId", strconv.Itoa(buildID))
+		vhd.ResourceID, err = findLatestImageWithTag(ctx, vhd.ImageID, "buildId", buildID)
 		if err == nil {
 			return nil
 		}
