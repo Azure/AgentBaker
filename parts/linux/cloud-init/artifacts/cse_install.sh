@@ -64,7 +64,9 @@ installContainerRuntime() {
         # sort the array from lowest to highest version before getting the last element
         IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PackageVersions[*]}"))
         unset IFS
-        packageVersion="${sortedPackageVersions[-1]}"
+        array_size=${#sortedPackageVersions[@]}
+        last_index=$((array_size-1))
+        packageVersion=${sortedPackageVersions[${last_index}]}
         # containerd version is expected to be in the format major.minor.patch-hotfix
         # e.g., 1.4.3-1. Then containerdMajorMinorPatchVersion=1.4.3 and containerdHotFixVersion=1
         containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
