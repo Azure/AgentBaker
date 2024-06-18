@@ -52,7 +52,7 @@ installContainerRuntime() {
         fi
 
         os_version="${UBUNTU_RELEASE}"
-        containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")")
+        containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
         PackageVersions=()
         returnPackageVersions "${containerdPackage}" "${os}" "${os_version}"
         
