@@ -64,7 +64,7 @@ installContainerRuntime() {
         IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PackageVersions[*]}"))
         unset IFS
         array_size=${#sortedPackageVersions[@]}
-        last_index=($((array_size-1)) < 0)?0:$((array_size-1))
+        [[ $((array_size-1)) -lt 0 ]] && last_index=0 || last_index=$((array_size-1))
         packageVersion=${sortedPackageVersions[${last_index}]}
         containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
         containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
