@@ -42,20 +42,20 @@ installContainerRuntime() {
     if [[ "${NEEDS_CONTAINERD}" == "true" ]]; then
         echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
         local containerd_version
-        if [[ -f "$COMPONENTS_FILEPATH" ]]; then
+        if [[ ! -f "$COMPONENTS_FILEPATH" ]]; then
             echo "WARNING: $COMPONENTS_FILEPATH not found. Skipping validation."
-            return
+            return 0
         fi
-        os=UBUNTU_OS_NAME
+        os=${UBUNTU_OS_NAME}
         if [[ -z "$UBUNTU_RELEASE" ]]; then
-            os=MARINER_OS_NAME
+            os=${MARINER_OS_NAME}
             os_version="current"
         fi
-        
+
         os_version="${UBUNTU_RELEASE}"
         containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")")
         PackageVersions=()
-        returnPackageVersions ${containerdPackage} ${os} ${os_version}
+        returnPackageVersions "${containerdPackage}" "${os}" "${os_version}"
         
         #Containerd's versions array is expected to have only one element.
         #If it has more than one element, we will install the last element in the array.

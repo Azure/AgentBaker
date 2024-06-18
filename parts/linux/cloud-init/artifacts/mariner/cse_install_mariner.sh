@@ -104,7 +104,7 @@ EOF
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     local desiredVersion="${1:-}"
-    //e.g., desiredVersion will look like this 1.6.26-5.cm2
+    #e.g., desiredVersion will look like this 1.6.26-5.cm2
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     # v1.4.1 is our lowest supported version of containerd

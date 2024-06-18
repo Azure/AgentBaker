@@ -129,4 +129,20 @@ Describe 'cse_install.sh'
         The output should equal 'https://acs-mirror.azureedge.net/azure-cni/v0.0.1/binaries/azure-vnet-cni-linux-amd64-v0.0.1.tgz'
     End
   End
+  Describe 'installContainerRuntime'
+    logs_to_events() {
+        echo "mock logs to events calling with $1"
+    }
+    NEEDS_CONTAINERD="true"
+    UBUNTU_RELEASE="20.04"
+    containerdPackage=$(readPackage "containerd")
+    COMPONENTS_FILEPATH="./spec/parts/linux/cloud-init/artifacts/test_components.json"
+    It 'returns expected output for successful installation of containerd'
+        When call installContainerRuntime 
+        The variable containerdMajorMinorPatchVersion should equal "1.7.15"
+        The variable containerdHotFixVersion should equal "1"
+        The output line 2 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
+        The output line 3 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.7.15"
+    End
+  End
 End
