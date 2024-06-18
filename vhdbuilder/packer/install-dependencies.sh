@@ -184,7 +184,7 @@ fi
 containerd_version="$(echo "$installed_version" | cut -d- -f1)"
 containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
 installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
-echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
+echo "  - [installed] containerd v$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)" >> ${VHD_LOGS_FILEPATH}
 stop_watch $capture_time "Create Containerd Service Directory, Download Shims, Configure Runtime and Network" false
 start_watch
 
