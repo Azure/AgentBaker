@@ -41,7 +41,6 @@ cleanupContainerdDlFiles() {
 installContainerRuntime() {
     if [[ "${NEEDS_CONTAINERD}" == "true" ]]; then
         echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
-        local containerd_version
         if [[ ! -f "$COMPONENTS_FILEPATH" ]]; then
             echo "WARNING: $COMPONENTS_FILEPATH not found. Skipping validation."
             return 0
@@ -75,7 +74,7 @@ installContainerRuntime() {
             exit $ERR_CONTAINERD_VERSION_INVALID
         fi
         logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
-        echo "in installContainerRuntime - CONTAINERD_VERSION = ${containerdMajorMinorPatchVersion}"
+        echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
     else
         installMoby # used in docker clusters. Not supported but still exist in production
     fi
