@@ -61,7 +61,7 @@ jobs:
       done
 
       if [ -n "${vmssResourceIds// }" ]; then
-        az resource delete --ids ${vmssResourceIds}
+        echo "skip deleting ${vmssResourceIds}"
       fi
     displayName: ensure vmss deletion
     condition: always()
