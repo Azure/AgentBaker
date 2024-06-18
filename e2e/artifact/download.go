@@ -12,7 +12,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/Azure/agentbakere2e/suite"
+	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	ado "github.com/microsoft/azure-devops-go-api/azuredevops/v7"
 	adobuild "github.com/microsoft/azure-devops-go-api/azuredevops/v7/build"
@@ -20,8 +20,8 @@ import (
 )
 
 // NewDownloader constructs a new ADO artifact downloader using the PAT within the specified suite config.
-func NewDownloader(ctx context.Context, suiteConfig *suite.Config) (*Downloader, error) {
-	conn := ado.NewPatConnection(azureADOOrganizationURL, suiteConfig.PAT)
+func NewDownloader(ctx context.Context) (*Downloader, error) {
+	conn := ado.NewPatConnection(azureADOOrganizationURL, config.PAT)
 
 	buildClient, err := adobuild.NewClient(ctx, conn)
 	if err != nil {
@@ -29,7 +29,7 @@ func NewDownloader(ctx context.Context, suiteConfig *suite.Config) (*Downloader,
 	}
 
 	return &Downloader{
-		basicAuth:   base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(":%s", suiteConfig.PAT))),
+		basicAuth:   base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(":%s", config.PAT))),
 		buildClient: buildClient,
 	}, nil
 }
