@@ -43,7 +43,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
   chmod 644 ${VHD_LOGS_FILEPATH}
 fi
 
-installJq
+installJq || echo "WARNING: jq installation failed, VHD Build benchmarks will not be available for this build."
 capture_benchmark "source_packer_files_declare_variables_and_set_mariner_permissions"
 
 copyPackerFiles
