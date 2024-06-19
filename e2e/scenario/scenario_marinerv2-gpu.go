@@ -7,14 +7,14 @@ import (
 )
 
 // Returns config for the 'gpu' E2E scenario
-func (t *Template) marinerv2gpu() *Scenario {
+func marinerv2gpu() *Scenario {
 	return &Scenario{
 		Name:        "marinerv2-gpu",
 		Description: "Tests that a GPU-enabled node using a MarinerV2 VHD can be properly bootstrapped",
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHD:             t.CBLMarinerV2Gen2,
+			VHD:             VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"

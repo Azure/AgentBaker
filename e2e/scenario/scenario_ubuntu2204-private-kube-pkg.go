@@ -4,14 +4,14 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
-func (t *Template) ubuntu2204privatekubepkg() *Scenario {
+func ubuntu2204privatekubepkg() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204privatekubepkg",
 		Description: "Tests that a node using the Ubuntu 2204 VHD that was built with private kube packages can be properly bootstrapped with the specified kube version",
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHD:             t.Ubuntu2204Gen2ContainerdPrivateKubePkg,
+			VHD:             VHDUbuntu2204Gen2ContainerdPrivateKubePkg,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.25.6"

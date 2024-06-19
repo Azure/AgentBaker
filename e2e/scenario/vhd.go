@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -19,62 +18,45 @@ import (
 )
 
 var (
-
-	// BaseVHDCatalog represents the base VHD catalog that every E2E suite will start off of.
-	// It contains the set of VHDs used by AgentBaker E2Es, along with the specific versions and artifact name for each.
-	// When a VHD build ID is specified, this catalog's entries will be overwritten respectively for each downloaded VHD publishing info.
-	BaseVHDCatalog = VHDCatalog{
-		Ubuntu1804Gen2Containerd: VHD{
-			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2",
-			VersionTagName:  "branch",
-			VersionTagValue: "refs/heads/master",
-		},
-		Ubuntu2204Gen2Arm64Containerd: VHD{
-			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64",
-			VersionTagName:  "branch",
-			VersionTagValue: "refs/heads/master",
-		},
-		Ubuntu2204Gen2Containerd: VHD{
-			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2",
-			VersionTagName:  "branch",
-			VersionTagValue: "refs/heads/master",
-		},
-		Ubuntu2204Gen2ContainerdPrivateKubePkg: VHD{
-			resourceID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1704411049.2812",
-		},
-		AzureLinuxV2Gen2Arm64: VHD{
-			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2Arm64",
-			VersionTagName:  "branch",
-			VersionTagValue: "refs/heads/master",
-		},
-		AzureLinuxV2Gen2: VHD{
-			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2",
-			VersionTagName:  "branch",
-			VersionTagValue: "refs/heads/master",
-		},
-		CBLMarinerV2Gen2Arm64: VHD{
-			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64",
-			VersionTagName:  "branch",
-			VersionTagValue: "refs/heads/master",
-		},
-		CBLMarinerV2Gen2: VHD{
-			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2",
-			VersionTagName:  "branch",
-			VersionTagValue: "refs/heads/master",
-		},
+	VHDUbuntu1804Gen2Containerd = &VHD{
+		ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2",
+		VersionTagName:  "branch",
+		VersionTagValue: "refs/heads/master",
+	}
+	VHDUbuntu2204Gen2Arm64Containerd = &VHD{
+		ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64",
+		VersionTagName:  "branch",
+		VersionTagValue: "refs/heads/master",
+	}
+	VHDUbuntu2204Gen2Containerd = &VHD{
+		ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2",
+		VersionTagName:  "branch",
+		VersionTagValue: "refs/heads/master",
+	}
+	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = &VHD{
+		resourceID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1704411049.2812",
+	}
+	VHDAzureLinuxV2Gen2Arm64 = &VHD{
+		ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2Arm64",
+		VersionTagName:  "branch",
+		VersionTagValue: "refs/heads/master",
+	}
+	VHDAzureLinuxV2Gen2 = &VHD{
+		ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2",
+		VersionTagName:  "branch",
+		VersionTagValue: "refs/heads/master",
+	}
+	VHDCBLMarinerV2Gen2Arm64 = &VHD{
+		ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64",
+		VersionTagName:  "branch",
+		VersionTagValue: "refs/heads/master",
+	}
+	VHDCBLMarinerV2Gen2 = &VHD{
+		ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2",
+		VersionTagName:  "branch",
+		VersionTagValue: "refs/heads/master",
 	}
 )
-
-type VHDCatalog struct {
-	Ubuntu1804Gen2Containerd               VHD
-	Ubuntu2204Gen2Arm64Containerd          VHD
-	Ubuntu2204Gen2Containerd               VHD
-	Ubuntu2204Gen2ContainerdPrivateKubePkg VHD
-	AzureLinuxV2Gen2Arm64                  VHD
-	AzureLinuxV2Gen2                       VHD
-	CBLMarinerV2Gen2Arm64                  VHD
-	CBLMarinerV2Gen2                       VHD
-}
 
 // VHDResourceID represents a resource ID pointing to a VHD in Azure. This could be theoretically
 // be the resource ID of a managed image or SIG image version, though for now this will always be a SIG image version.
@@ -97,13 +79,15 @@ type VHD struct {
 	// ResourceID is the resource ID pointing to the underlying VHD in Azure. Based on the current setup, this will always be the resource ID
 	// of an image version in a shared image gallery.
 	resourceID VHDResourceID
-	sync.Mutex
+	sync.Once
 }
 
 func (v *VHD) ResourceID() VHDResourceID {
-	v.Lock()
-	defer v.Unlock()
-	if v.resourceID == "" {
+
+	v.Do(func() {
+		if v.resourceID != "" {
+			return
+		}
 		var err error
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
@@ -111,28 +95,19 @@ func (v *VHD) ResourceID() VHDResourceID {
 		if err != nil {
 			panic(err)
 		}
-	}
+	})
 	return v.resourceID
 }
 
 func findLatestResourceID(ctx context.Context, vhd *VHD) (VHDResourceID, error) {
 	if config.VHDBuildID != "" {
 		resourceID, err := findLatestImageWithTag(ctx, vhd.ImageID, "buildId", config.VHDBuildID)
-		if err == nil {
-			log.Printf("Found image for %q with build ID %q", vhd.ImageID, config.VHDBuildID)
-			return resourceID, nil
+		if errors.Is(err, ErrNotFound) {
+			return "", nil
 		}
-		if !errors.Is(err, ErrNotFound) {
-			return "", fmt.Errorf("failed to find latest VHD for %q with build ID %d: %v", vhd.ImageID, config.VHDBuildID, err)
-		}
-		log.Printf("No image found for %q with build ID %d, falling back to default VHD", vhd.ImageID, config.VHDBuildID)
+		return resourceID, err
 	}
-	resourceID, err := findLatestImageWithTag(ctx, vhd.ImageID, vhd.VersionTagName, vhd.VersionTagValue)
-	if err != nil {
-		return "", fmt.Errorf("failed to find latest image with tag %q=%q: %v", vhd.VersionTagName, vhd.VersionTagValue, err)
-	}
-	log.Printf("Found image for %q with tag %q=%q", vhd.ImageID, vhd.VersionTagName, vhd.VersionTagValue)
-	return resourceID, nil
+	return findLatestImageWithTag(ctx, vhd.ImageID, vhd.VersionTagName, vhd.VersionTagValue)
 }
 
 var ErrNotFound = fmt.Errorf("not found")

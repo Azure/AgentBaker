@@ -1,90 +1,58 @@
 package scenario
 
-import (
-	"context"
-	"log"
-
-	"github.com/Azure/agentbakere2e/config"
-)
-
-// GetScenarios returns the set of scenarios comprising the AgentBaker E2E suite.
-func GetScenariosForSuite(ctx context.Context) (Table, error) {
-	var (
-		tmpl      = NewTemplate()
-		scenarios []*Scenario
-	)
-
-	for _, scenario := range tmpl.allScenarios() {
-		if config.ScenariosToRun != nil && !config.ScenariosToRun[scenario.Name] {
-			continue
-		} else if config.ScenariosToExclude != nil && config.ScenariosToExclude[scenario.Name] {
-			continue
-		}
-		scenarios = append(scenarios, scenario)
-	}
-
-	table := make(Table, len(scenarios))
-	for _, scenario := range scenarios {
-		table[scenario.Name] = scenario
-		log.Printf("will run E2E scenario %q: %s; with VHD: %s", scenario.Name, scenario.Description, scenario.VHD.ResourceID().Short())
-	}
-
-	return table, nil
-}
-
 // This function is called internally by the scenario package to get each e2e scenario's respective config as one long slice.
 // To add a sceneario, implement a new method on the Template type in a separate file that returns a *Scenario and add
 // its return value to the slice returned by this function.
-func (t *Template) allScenarios() []*Scenario {
+func AllScenarios() []*Scenario {
 	return []*Scenario{
 		// block for ubuntu 1804
-		t.ubuntu1804(),
-		t.ubuntu1804gpu(),
-		t.ubuntu1804_azurecni(),
-		t.ubuntu1804gpu_azurecni(),
-		t.ubuntu1804ChronyRestarts(),
+		ubuntu1804(),
+		ubuntu1804gpu(),
+		ubuntu1804_azurecni(),
+		ubuntu1804gpu_azurecni(),
+		ubuntu1804ChronyRestarts(),
 
 		// block for ubuntu 2204
-		t.ubuntu2204(),
-		t.ubuntu2204ARM64(),
-		t.ubuntu2204CustomSysctls(),
-		t.ubuntu2204Wasm(),
-		t.ubuntu2204gpuNoDriver(),
-		t.ubuntu2204CustomCATrust(),
-		t.ubuntu2204ArtifactStreaming(),
-		t.ubuntu2204privatekubepkg(),
-		t.ubuntu2204AirGap(),
-		t.ubuntu2204ContainerdURL(),
-		t.ubuntu2204ContainerdVersion(),
-		t.ubuntu2204ChronyRestarts(),
+		ubuntu2204(),
+		ubuntu2204ARM64(),
+		ubuntu2204CustomSysctls(),
+		ubuntu2204Wasm(),
+		ubuntu2204gpuNoDriver(),
+		ubuntu2204CustomCATrust(),
+		ubuntu2204ArtifactStreaming(),
+		ubuntu2204privatekubepkg(),
+		ubuntu2204AirGap(),
+		ubuntu2204ContainerdURL(),
+		ubuntu2204ContainerdVersion(),
+		ubuntu2204ChronyRestarts(),
 
 		// block for mariner v2
-		t.marinerv2(),
-		t.marinerv2ARM64(),
-		t.marinerv2gpu(),
-		t.marinerv2CustomSysctls(),
-		t.marinerv2Wasm(),
-		t.marinerv2_azurecni(),
-		t.marinerv2gpu_azurecni(),
-		t.marinerv2AirGap(),
-		t.marinerv2ARM64AirGap(),
-		t.marinerv2ChronyRestarts(),
+		marinerv2(),
+		marinerv2ARM64(),
+		marinerv2gpu(),
+		marinerv2CustomSysctls(),
+		marinerv2Wasm(),
+		marinerv2_azurecni(),
+		marinerv2gpu_azurecni(),
+		marinerv2AirGap(),
+		marinerv2ARM64AirGap(),
+		marinerv2ChronyRestarts(),
 
 		// block for azurelinux v2
-		t.azurelinuxv2(),
-		t.azurelinuxv2ARM64(),
-		t.azurelinuxv2gpu(),
-		t.azurelinuxv2CustomSysctls(),
-		t.azurelinuxv2Wasm(),
-		t.azurelinuxv2_azurecni(),
-		t.azurelinuxv2gpu_azurecni(),
-		t.azurelinuxv2ARM64AirGap(),
-		t.azurelinuxv2AirGap(),
-		t.azurelinuxv2ChronyRestarts(),
+		azurelinuxv2(),
+		azurelinuxv2ARM64(),
+		azurelinuxv2gpu(),
+		azurelinuxv2CustomSysctls(),
+		azurelinuxv2Wasm(),
+		azurelinuxv2_azurecni(),
+		azurelinuxv2gpu_azurecni(),
+		azurelinuxv2ARM64AirGap(),
+		azurelinuxv2AirGap(),
+		azurelinuxv2ChronyRestarts(),
 
 		// block for gpu scenarios
-		t.ubuntu2204gpu("ubuntu2204-gpu-ncv3", "Standard_NC6s_v3"),
-		t.ubuntu2204gpu("ubuntu2204-gpu-a100", "Standard_NC24ads_A100_v4"),
-		t.ubuntu2204gpu("ubuntu2204-gpu-a10", "Standard_NV6ads_A10_v5"),
+		ubuntu2204gpu("ubuntu2204-gpu-ncv3", "Standard_NC6s_v3"),
+		ubuntu2204gpu("ubuntu2204-gpu-a100", "Standard_NC24ads_A100_v4"),
+		ubuntu2204gpu("ubuntu2204-gpu-a10", "Standard_NV6ads_A10_v5"),
 	}
 }

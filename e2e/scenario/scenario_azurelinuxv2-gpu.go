@@ -7,14 +7,14 @@ import (
 )
 
 // Returns config for the 'gpu' E2E scenario
-func (t *Template) azurelinuxv2gpu() *Scenario {
+func azurelinuxv2gpu() *Scenario {
 	return &Scenario{
 		Name:        "azurelinuxv2-gpu",
 		Description: "Tests that a GPU-enabled node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHD:             t.AzureLinuxV2Gen2,
+			VHD:             VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"

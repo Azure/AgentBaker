@@ -23,13 +23,7 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	scenarios, err := scenario.GetScenariosForSuite(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(scenarios) < 1 {
-		t.Fatal("at least one scenario must be selected to run the e2e suite")
-	}
+	scenarios := scenario.AllScenarios()
 
 	if err := ensureResourceGroup(ctx); err != nil {
 		t.Fatal(err)
@@ -45,49 +39,53 @@ func Test_All(t *testing.T) {
 	}
 
 	for _, e2eScenario := range scenarios {
-		e2eScenario := e2eScenario
-
-		clusterConfig, err := chooseCluster(ctx, r, e2eScenario, clusterConfigs)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		clusterName := *clusterConfig.cluster.Name
-		log.Printf("chose cluster: %q", clusterName)
-
-		baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(clusterConfig.parameters)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		copied, err := deepcopy.Anything(baseNodeBootstrappingConfig)
-		if err != nil {
-			t.Error(err)
-			continue
-		}
-		nbc := copied.(*datamodel.NodeBootstrappingConfiguration)
-
-		e2eScenario.PrepareNodeBootstrappingConfiguration(nbc)
-
 		t.Run(e2eScenario.Name, func(t *testing.T) {
 			t.Parallel()
-
-			loggingDir, err := createVMLogsDir(e2eScenario.Name)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			runScenario(ctx, t, &scenarioRunOpts{
-				clusterConfig: clusterConfig,
-				scenario:      e2eScenario,
-				nbc:           nbc,
-				loggingDir:    loggingDir,
-			})
+			setupAndRunScenario(ctx, t, e2eScenario, r, clusterConfigs)
 		})
 	}
 }
 
-func runScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
+func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenario.Scenario, r *mrand.Rand, clusterConfigs []clusterConfig) {
+	clusterConfig, err := chooseCluster(ctx, r, e2eScenario, clusterConfigs)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	clusterName := *clusterConfig.cluster.Name
+	log.Printf("chose cluster: %q", clusterName)
+
+	baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(clusterConfig.parameters)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	copied, err := deepcopy.Anything(baseNodeBootstrappingConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nbc := copied.(*datamodel.NodeBootstrappingConfiguration)
+
+	e2eScenario.PrepareNodeBootstrappingConfiguration(nbc)
+
+	if e2eScenario.VHD.ResourceID() == "" {
+		t.Skipf("skipping scenario %q: VHD.ResourceID is empty", e2eScenario.Name)
+	}
+
+	loggingDir, err := createVMLogsDir(e2eScenario.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	executeScenario(ctx, t, &scenarioRunOpts{
+		clusterConfig: clusterConfig,
+		scenario:      e2eScenario,
+		nbc:           nbc,
+		loggingDir:    loggingDir,
+	})
+}
+
+func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	// need to create a new rand object for each goroutine since mrand.Rand is not thread-safe
 	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 

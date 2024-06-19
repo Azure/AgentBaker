@@ -258,7 +258,7 @@ func hasViableConfig(scenario *scenario.Scenario, clusterConfigs []clusterConfig
 }
 
 func createMissingClusters(ctx context.Context, r *mrand.Rand,
-	scenarios scenario.Table, clusterConfigs *[]clusterConfig) error {
+	scenarios []*scenario.Scenario, clusterConfigs *[]clusterConfig) error {
 	var newConfigs []clusterConfig
 	for _, scenario := range scenarios {
 		if !hasViableConfig(scenario, *clusterConfigs) && !hasViableConfig(scenario, newConfigs) {

@@ -9,23 +9,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 )
 
-// Template represents a 'scenario template' which contains common config used
-// across all scenarios, such as the VHD catalog for selecting VHDs.
-type Template struct {
-	VHDCatalog
-}
-
-// NewTemplate constructs a new template using the base VHD catalog.
-func NewTemplate() *Template {
-	return &Template{
-		VHDCatalog: BaseVHDCatalog,
-	}
-}
-
-// Table represents a set of mappings from scenario name -> Scenario to
-// be run as a part of the test suite
-type Table map[string]*Scenario
-
 // Scenario represents an AgentBaker E2E scenario
 type Scenario struct {
 	// Name is the name of the scenario
@@ -49,7 +32,7 @@ type Config struct {
 	ClusterMutator func(*armcontainerservice.ManagedCluster)
 
 	// VHD is the function called by the e2e suite on the given scenario to get its VHD selection
-	VHD VHD
+	VHD *VHD
 
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
