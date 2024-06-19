@@ -28,7 +28,7 @@ VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
-capture_benchmarks false "declare_variables_and_source_packer_files"
+capture_benchmark "declare_variables_and_source_packer_files"
 
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
@@ -53,7 +53,7 @@ APT::Periodic::AutocleanInterval "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
-capture_benchmarks false "purge_and_reinstall_ubuntu"
+capture_benchmark "purge_and_reinstall_ubuntu"
 
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
@@ -96,7 +96,7 @@ SystemMaxUse=1G
 RuntimeMaxUse=1G
 ForwardToSyslog=yes
 EOF
-capture_benchmarks false "install_dependencies"
+capture_benchmark "install_dependencies"
 
 if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then
   echo "Unsupported container runtime. Only containerd is supported for new VHD builds."
@@ -125,7 +125,7 @@ if [[ $OS != $MARINER_OS_NAME ]]; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
-capture_benchmarks false "check_container_runtime_and_network_configurations"
+capture_benchmark "check_container_runtime_and_network_configurations"
 
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
@@ -181,8 +181,7 @@ containerd_version="$(echo "$installed_version" | cut -d- -f1)"
 containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
 installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
 echo "  - [installed] containerd v$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)" >> ${VHD_LOGS_FILEPATH}
-stop_watch $capture_time "Create Containerd Service Directory, Download Shims, Configure Runtime and Network" false
-start_watch
+capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
 
 DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for componentToDownload in ${DOWNLOAD_FILES[*]}; do
@@ -203,7 +202,7 @@ for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
   downloadCrictl ${CRICTL_VERSION}
   echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
-capture_benchmarks false "download_crictl"
+capture_benchmark "download_crictl"
 
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
@@ -243,7 +242,7 @@ downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-capture_benchmarks false "artifact_streaming_and_download_teleportd"
+capture_benchmark "artifact_streaming_and_download_teleportd"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
@@ -284,7 +283,7 @@ PRESENT_DIR=$(pwd)
 BCC_PID=$!
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
-capture_benchmarks false "pull_nvidia_driver_image(mcr)_and_run_installBcc_in_subshell"
+capture_benchmark "pull_nvidia_driver_image(mcr)_and_run_installBcc_in_subshell"
 
 string_replace() {
   echo ${1//\*/$2}
@@ -348,7 +347,7 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 
 # can't use cliTool because crictl doesn't support retagging.
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
-capture_benchmarks false "pull_and_retag_container_images"
+capture_benchmark "pull_and_retag_container_images"
 
 # doing this at vhd allows CSE to be faster with just mv
 unpackAzureCNI() {
@@ -391,7 +390,7 @@ done
 if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) ]]; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
-capture_benchmarks false "configure_networking_and_interface"
+capture_benchmark "configure_networking_and_interface"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
@@ -419,7 +418,7 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   systemctlEnableAndStart nvidia-device-plugin || exit 1
 fi
 fi
-capture_benchmarks false "download_gpu_device_plugin"
+capture_benchmark "download_gpu_device_plugin"
 
 # Kubelet credential provider plugins
 CREDENTIAL_PROVIDER_VERSIONS="
@@ -475,7 +474,7 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
-capture_benchmarks false "configure_telemetry_create_logging_directory_and_download_kube-proxy_images"
+capture_benchmark "configure_telemetry_create_logging_directory_and_download_kube-proxy_images"
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
@@ -552,6 +551,7 @@ for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
 done
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
-capture_benchmarks false "download_kubernetes_binaries"
+capture_benchmark "download_kubernetes_binaries"
 echo "install-dependencies step completed successfully"
-capture_benchmarks true "install_dependencies.sh"
+capture_benchmark "$(basename $0)" true
+process_benchmarks
