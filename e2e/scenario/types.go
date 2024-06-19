@@ -2,7 +2,6 @@ package scenario
 
 import (
 	"fmt"
-	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/config"
@@ -106,18 +105,4 @@ func (s *Scenario) PrepareVMSSModel(vmss *armcompute.VirtualMachineScaleSet) err
 	}
 
 	return nil
-}
-
-func (s *Scenario) Skip(t *testing.T) {
-	if config.ScenariosToRun != nil && !config.ScenariosToRun[s.Name] {
-		t.Skipf("skipping scenario %q: not in scenarios to run", s.Name)
-	}
-	if config.ScenariosToExclude != nil && config.ScenariosToExclude[s.Name] {
-		t.Skipf("skipping scenario %q: in scenarios to exclude", s.Name)
-	}
-	if config.VHDBuildID != "" {
-		if s.VHD.BuildResourceID() == "" {
-			t.Skipf("skipping scenario %q: could not find build image for build ID %q", s.Name, config.VHDBuildID)
-		}
-	}
 }

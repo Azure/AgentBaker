@@ -79,6 +79,10 @@ func (id VHDResourceID) Short() string {
 	return str
 }
 
+// This is ugly, but I wanted to achieve multiple things:
+// 1. If buildID specified use the image from the build, skip scenario if not found
+// 2. Fetch resource id only once (multiple scenarios can share the VHD)
+// 3. Call fetch method only if tests is scheduled to run (it takes times)
 func (v *VHD) ResourceID() VHDResourceID {
 	if v.BuildResourceID() != "" {
 		return v.BuildResourceID()
@@ -155,23 +159,18 @@ type imageID struct {
 }
 
 func parseImageID(resourceID string) (imageID, error) {
-	var result imageID
-
-	// Define the regex pattern to match the desired parts of the resource ID
 	pattern := `(?i)^/subscriptions/([^/]+)/resourceGroups/([^/]+)/providers/Microsoft\.Compute/galleries/([^/]+)/images/([^/]+)$`
 	re := regexp.MustCompile(pattern)
-
-	// Find the submatches in the resourceID
 	matches := re.FindStringSubmatch(resourceID)
+
 	if matches == nil || len(matches) != 5 {
-		return result, fmt.Errorf("failed to parse image ID %q", resourceID)
+		return imageID{}, fmt.Errorf("failed to parse image ID %q", resourceID)
 	}
 
-	// Assign the captured groups to the struct
-	result.subscriptionID = matches[1]
-	result.resourceGroup = matches[2]
-	result.galleryName = matches[3]
-	result.imageName = matches[4]
-
-	return result, nil
+	return imageID{
+		subscriptionID: matches[1],
+		resourceGroup:  matches[2],
+		galleryName:    matches[3],
+		imageName:      matches[4],
+	}, nil
 }

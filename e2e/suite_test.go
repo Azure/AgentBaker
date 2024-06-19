@@ -40,9 +40,23 @@ func Test_All(t *testing.T) {
 	for _, e2eScenario := range scenarios {
 		t.Run(e2eScenario.Name, func(t *testing.T) {
 			t.Parallel()
-			e2eScenario.Skip(t)
+			maybeSkipScenario(t, e2eScenario)
 			setupAndRunScenario(ctx, t, e2eScenario, r, clusterConfigs)
 		})
+	}
+}
+
+func maybeSkipScenario(t *testing.T, s *scenario.Scenario) {
+	if config.ScenariosToRun != nil && !config.ScenariosToRun[s.Name] {
+		t.Skipf("skipping scenario %q: not in scenarios to run", s.Name)
+	}
+	if config.ScenariosToExclude != nil && config.ScenariosToExclude[s.Name] {
+		t.Skipf("skipping scenario %q: in scenarios to exclude", s.Name)
+	}
+	if config.VHDBuildID != "" {
+		if s.VHD.BuildResourceID() == "" {
+			t.Skipf("skipping scenario %q: could not find build image for build ID %q and image %q", s.Name, config.VHDBuildID, s.VHD.ImageID)
+		}
 	}
 }
 
