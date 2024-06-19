@@ -403,29 +403,35 @@ installJq () {
 
 capture_benchmark () {
 
+  # add current section title to the benchmarks array as a string
   benchmarks+=($1)
-  declare -n currentSection="${benchmarks[-1]}"
+  # use nameref variable to hold that section title to reference that specific section array later in the function
+  declare -n current_section="${benchmarks[-1]}"
   local is_final_section=${2:-false}
 
   local current_time=$(date +%s)
   local end_timestamp=$(date +%H:%M:%S)
-  if [ "$is_final_section" = true ]; then
+  if [[ "$is_final_section" == true ]]; then
     local start_timestamp=$script_start_timestamp
     local start_time=$script_start_stopwatch
   else
     local start_timestamp=$section_start_timestamp
     local start_time=$section_start_stopwatch
   fi
-  local difference_in_seconds=$((current_time - start_time))
 
+  # calculate total time elapsed for section
+  local difference_in_seconds=$((current_time - start_time))
   local elapsed_hours=$(($difference_in_seconds/3600))
   local elapsed_minutes=$((($difference_in_seconds%3600)/60))
   local elapsed_seconds=$(($difference_in_seconds%60))
   printf -v total_time_elapsed "%02d:%02d:%02d" $elapsed_hours $elapsed_minutes $elapsed_seconds
 
-  currentSection+=($start_timestamp)
-  currentSection+=($end_timestamp)
-  currentSection+=($total_time_elapsed)
+  # add current section benchmarks to relevant section array
+  current_section+=($start_timestamp)
+  current_section+=($end_timestamp)
+  current_section+=($total_time_elapsed)
+
+  unset -n current_section
 
   # reset timers for next section
   section_start_stopwatch=$(date +%s)
@@ -434,18 +440,24 @@ capture_benchmark () {
 
 process_benchmarks () {
   
+  # use nameref variable to reference section array for last section added to the benchmarks array (this section will be the overall script)
   declare -n script_stats="${benchmarks[-1]}"
   
+  # create script object from data held in the section array for the overall script
+  # each section object within the script will later be appended to this script object
   script_object=$(jq -n --arg script_name "${benchmarks[-1]}" --arg script_start_timestamp "${script_stats[0]}" --arg end_timestamp "${script_stats[1]}" --arg total_time_elapsed "${script_stats[2]}" '{($script_name): {"overall": {"start_time": $script_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}}')
 
   for ((i=0; i<${#benchmarks[@]} - 1; i+=1)); do
       
-      declare -n section_name="${benchmarks[i]}"
+    # iterate over the benchmarks array and assign a nameref variable to the current section array in order to operate on the data held within it
+    declare -n section_name="${benchmarks[i]}"
      
-      section_object=$(jq -n --arg section_name "${benchmarks[i]}" --arg section_start_timestamp "${section_name[0]}" --arg end_timestamp "${section_name[1]}" --arg total_time_elapsed "${section_name[2]}" '{($section_name): {"start_time": $section_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}')
+    # create section object and append to script object
+    section_object=$(jq -n --arg section_name "${benchmarks[i]}" --arg section_start_timestamp "${section_name[0]}" --arg end_timestamp "${section_name[1]}" --arg total_time_elapsed "${section_name[2]}" '{($section_name): {"start_time": $section_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}')
       
-      script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "${benchmarks[-1]}" '$script_object | .[$script_name] += $section_object')
-
+    script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "${benchmarks[-1]}" '$script_object | .[$script_name] += $section_object')
+    
+    unset section_name[@]
     unset -n section_name
 
   done
