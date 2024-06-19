@@ -403,6 +403,7 @@ installJq () {
 
 capture_benchmark () {
 
+  set +x
   # add current section title to the benchmarks array as a string
   benchmarks+=($1)
   # use nameref variable to hold that section title to reference that specific section array later in the function
@@ -436,10 +437,13 @@ capture_benchmark () {
   # reset timers for next section
   section_start_stopwatch=$(date +%s)
   section_start_timestamp=$(date +%H:%M:%S)
+
+  set -x
 }
 
 process_benchmarks () {
   
+  set +x
   # use nameref variable to reference section array for last section added to the benchmarks array (this section will be the overall script)
   declare -n script_stats="${benchmarks[-1]}"
   
@@ -467,6 +471,8 @@ process_benchmarks () {
  
   jq ". += [$script_object]" ${VHD_BUILD_PERF_DATA} > tmp.json && mv tmp.json ${VHD_BUILD_PERF_DATA}
   chmod 755 ${VHD_BUILD_PERF_DATA}
+
+  set -x
 }
 
 #HELPERSEOF
