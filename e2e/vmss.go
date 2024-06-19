@@ -290,7 +290,7 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 													ID: to.Ptr(
 														fmt.Sprintf(
 															loadBalancerBackendAddressPoolIDTemplate,
-															config.Subscription,
+															config.SubscriptionID,
 															*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
 														),
 													),

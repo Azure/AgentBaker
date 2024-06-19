@@ -5,13 +5,12 @@ import (
 	"strings"
 
 	"github.com/Azure/agentbakere2e/toolkit"
-	"github.com/joho/godotenv"
 )
 
 var (
 	BuildID            string
 	VHDBuildID         string
-	Subscription       string
+	SubscriptionID     string
 	Location           string
 	ResourceGroupName  string
 	ScenariosToRun     map[string]bool
@@ -21,24 +20,23 @@ var (
 )
 
 func init() {
-	_ = godotenv.Load()
-	BuildID = os.Getenv("BUILD_ID")
+	BuildID = envDefault(os.Getenv("BUILD_ID"), "local")
 	VHDBuildID = os.Getenv("VHD_BUILD_ID")
-	Subscription = mustenv("SUBSCRIPTION_ID")
-	Location = mustenv("LOCATION")
+	SubscriptionID = envDefault("SUBSCRIPTION_ID", "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8")
+	Location = envDefault("LOCATION", "eastus")
 	ResourceGroupName = "abe2e-" + Location
 	ScenariosToRun = envmap("SCENARIOS_TO_RUN")
 	ScenariosToExclude = envmap("SCENARIOS_TO_EXCLUDE")
 	KeepVMSS = strings.EqualFold(os.Getenv("KEEP_VMSS"), "true")
-	Azure = MustNewAzureClient(mustenv("SUBSCRIPTION_ID"))
+	Azure = MustNewAzureClient(SubscriptionID)
 }
 
-func mustenv(env string) string {
-	result := os.Getenv(env)
-	if result == "" {
-		panic("missing environment variable: " + env)
+func envDefault(env string, defaultValue string) string {
+	val := os.Getenv(env)
+	if val == "" {
+		return defaultValue
 	}
-	return result
+	return val
 }
 
 func envmap(env string) map[string]bool {

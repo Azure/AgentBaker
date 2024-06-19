@@ -158,7 +158,7 @@ func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *scenarioRunO
 	ctx, cancel := context.WithTimeout(ctx, waitUntilNodeReadyPollingTimeout)
 	defer cancel()
 	err := wait.PollUntilContextCancel(ctx, getVMPrivateIPAddressPollInterval, true, func(ctx context.Context) (bool, error) {
-		pip, err := getVMPrivateIPAddress(ctx, config.Subscription, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName)
+		pip, err := getVMPrivateIPAddress(ctx, config.SubscriptionID, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName)
 		if err != nil {
 			log.Printf("encountered an error while getting VM private IP address: %s", err)
 			return false, nil
