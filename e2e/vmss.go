@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbakere2e/config"
-	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
@@ -265,7 +264,7 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 				},
 				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
 					ImageReference: &armcompute.ImageReference{
-						ID: to.Ptr(string(scenario.VHDUbuntu1804Gen2Containerd.ResourceID())),
+						ID: to.Ptr(string(config.VHDUbuntu1804Gen2Containerd.ResourceID())),
 					},
 					OSDisk: &armcompute.VirtualMachineScaleSetOSDisk{
 						CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),

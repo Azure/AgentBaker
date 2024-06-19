@@ -34,7 +34,7 @@ type Config struct {
 	ClusterMutator func(*armcontainerservice.ManagedCluster)
 
 	// VHD is the function called by the e2e suite on the given scenario to get its VHD selection
-	VHD *VHD
+	VHD *config.VHD
 
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)

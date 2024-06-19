@@ -1,5 +1,7 @@
 package scenario
 
+import "github.com/Azure/agentbakere2e/config"
+
 // Returns config for the 'base' E2E scenario
 func ubuntu1804() *Scenario {
 	return &Scenario{
@@ -8,7 +10,7 @@ func ubuntu1804() *Scenario {
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHD:             VHDUbuntu1804Gen2Containerd,
+			VHD:             config.VHDUbuntu1804Gen2Containerd,
 		},
 	}
 }
