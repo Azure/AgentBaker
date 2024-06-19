@@ -250,7 +250,7 @@ steps:
         -e AZURE_MSI_RESOURCE_STRING=$(AZURE_MSI_RESOURCE_STRING) \
         ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-    condition: eq(variables.DRY_RUN, 'False')
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - bash: |
         echo MODE=$(MODE) && \
         captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
@@ -304,5 +304,5 @@ steps:
     inputs:
       artifactName: '${{ parameters.artifactName }}'
       targetPath: '$(Build.ArtifactStagingDirectory)'
-    displayName: Publish artifacts
-    condition: always()
+    displayName: Publish Bulk Artifacts # these "bulk" artifacts are the folders, per SKU, that contain all other artifacts (publishing-info, image-bom, trivy reports, etc.)
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
