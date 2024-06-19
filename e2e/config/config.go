@@ -8,28 +8,16 @@ import (
 )
 
 var (
-	BuildID            string
-	VHDBuildID         string
-	SubscriptionID     string
-	Location           string
-	ResourceGroupName  string
-	ScenariosToRun     map[string]bool
-	ScenariosToExclude map[string]bool
-	KeepVMSS           bool
-	Azure              *AzureClient
-)
-
-func init() {
-	BuildID = envDefault(os.Getenv("BUILD_ID"), "local")
-	VHDBuildID = os.Getenv("VHD_BUILD_ID")
-	SubscriptionID = envDefault("SUBSCRIPTION_ID", "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8")
-	Location = envDefault("LOCATION", "eastus")
-	ResourceGroupName = "abe2e-" + Location
-	ScenariosToRun = envmap("SCENARIOS_TO_RUN")
+	BuildID            = envDefault(os.Getenv("BUILD_ID"), "local")
+	VHDBuildID         = os.Getenv("VHD_BUILD_ID")
+	SubscriptionID     = envDefault("SUBSCRIPTION_ID", "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8")
+	Location           = envDefault("LOCATION", "eastus")
+	ResourceGroupName  = "abe2e-" + Location
+	ScenariosToRun     = envmap("SCENARIOS_TO_RUN")
 	ScenariosToExclude = envmap("SCENARIOS_TO_EXCLUDE")
-	KeepVMSS = strings.EqualFold(os.Getenv("KEEP_VMSS"), "true")
-	Azure = MustNewAzureClient(SubscriptionID)
-}
+	KeepVMSS           = strings.EqualFold(os.Getenv("KEEP_VMSS"), "true")
+	Azure              = MustNewAzureClient(SubscriptionID)
+)
 
 func envDefault(env string, defaultValue string) string {
 	val := os.Getenv(env)
