@@ -35,7 +35,7 @@ func GetScenariosForSuite(ctx context.Context) (Table, error) {
 // This function is called internally by the scenario package to get each e2e scenario's respective config as one long slice.
 // To add a sceneario, implement a new method on the Template type in a separate file that returns a *Scenario and add
 // its return value to the slice returned by this function.
-func (t *Template) scenarios() []*Scenario {
+func (t *Template) allScenarios() []*Scenario {
 	return []*Scenario{
 		// block for ubuntu 1804
 		t.ubuntu1804(),
@@ -81,17 +81,10 @@ func (t *Template) scenarios() []*Scenario {
 		t.azurelinuxv2ARM64AirGap(),
 		t.azurelinuxv2AirGap(),
 		t.azurelinuxv2ChronyRestarts(),
-	}
-}
 
-func (t *Template) gpuVMSizeScenarios() []*Scenario {
-	var scenarios []*Scenario
-	for gpuSeries := range DefaultGPUSeriesVMSizes {
-		scenarios = append(scenarios, t.ubuntu2204gpu(gpuSeries))
+		// block for gpu scenarios
+		t.ubuntu2204gpu("ubuntu2204-gpu-ncv3", "Standard_NC6s_v3"),
+		t.ubuntu2204gpu("ubuntu2204-gpu-a100", "Standard_NC24ads_A100_v4"),
+		t.ubuntu2204gpu("ubuntu2204-gpu-a10", "Standard_NV6ads_A10_v5"),
 	}
-	return scenarios
-}
-
-func (t *Template) allScenarios() []*Scenario {
-	return append(t.scenarios(), t.gpuVMSizeScenarios()...)
 }

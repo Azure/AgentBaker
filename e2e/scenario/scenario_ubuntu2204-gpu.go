@@ -9,10 +9,9 @@ import (
 )
 
 // Returns config for the 'gpu' E2E scenario
-func (t *Template) ubuntu2204gpu(vmSeries string) *Scenario {
-	vmSize := DefaultGPUSeriesVMSizes[vmSeries]
+func (t *Template) ubuntu2204gpu(name string, vmSize string) *Scenario {
 	return &Scenario{
-		Name:        fmt.Sprintf("ubuntu2204-gpu-%s", vmSeries),
+		Name:        name,
 		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2204 VHD can be properly bootstrapped", vmSize),
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
