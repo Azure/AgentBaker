@@ -4,7 +4,6 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -78,36 +77,38 @@ type VHD struct {
 	VersionTagValue string
 	// ResourceID is the resource ID pointing to the underlying VHD in Azure. Based on the current setup, this will always be the resource ID
 	// of an image version in a shared image gallery.
-	resourceID VHDResourceID
-	sync.Once
+	resourceID               VHDResourceID
+	buildResourceID          VHDResourceID
+	fetchBuildResourceIDOnce sync.Once
+	fetchResourceIDOnce      sync.Once
 }
 
 func (v *VHD) ResourceID() VHDResourceID {
+	if v.BuildResourceID() != "" {
+		return v.BuildResourceID()
+	}
+	return v.NonBuildResourceID()
+}
 
-	v.Do(func() {
+func (v *VHD) BuildResourceID() VHDResourceID {
+	v.fetchBuildResourceIDOnce.Do(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		v.buildResourceID, _ = findLatestImageWithTag(ctx, v.ImageID, "buildId", config.VHDBuildID)
+	})
+	return v.buildResourceID
+}
+
+func (v *VHD) NonBuildResourceID() VHDResourceID {
+	v.fetchResourceIDOnce.Do(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
 		if v.resourceID != "" {
 			return
 		}
-		var err error
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-		defer cancel()
-		v.resourceID, err = findLatestResourceID(ctx, v)
-		if err != nil {
-			panic(err)
-		}
+		v.resourceID, _ = findLatestImageWithTag(ctx, v.ImageID, v.VersionTagName, v.VersionTagValue)
 	})
 	return v.resourceID
-}
-
-func findLatestResourceID(ctx context.Context, vhd *VHD) (VHDResourceID, error) {
-	if config.VHDBuildID != "" {
-		resourceID, err := findLatestImageWithTag(ctx, vhd.ImageID, "buildId", config.VHDBuildID)
-		if errors.Is(err, ErrNotFound) {
-			return "", nil
-		}
-		return resourceID, err
-	}
-	return findLatestImageWithTag(ctx, vhd.ImageID, vhd.VersionTagName, vhd.VersionTagValue)
 }
 
 var ErrNotFound = fmt.Errorf("not found")

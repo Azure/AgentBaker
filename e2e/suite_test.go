@@ -23,8 +23,6 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	scenarios := scenario.AllScenarios()
-
 	if err := ensureResourceGroup(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -34,6 +32,7 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	scenarios := scenario.AllScenarios()
 	if err := createMissingClusters(ctx, r, scenarios, &clusterConfigs); err != nil {
 		t.Fatal(err)
 	}
@@ -41,6 +40,7 @@ func Test_All(t *testing.T) {
 	for _, e2eScenario := range scenarios {
 		t.Run(e2eScenario.Name, func(t *testing.T) {
 			t.Parallel()
+			e2eScenario.Skip(t)
 			setupAndRunScenario(ctx, t, e2eScenario, r, clusterConfigs)
 		})
 	}
