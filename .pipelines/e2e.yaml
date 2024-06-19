@@ -18,7 +18,6 @@ pr:
     - pkg/agent/testdata/AKSWindows* # Windows test data
     
 variables:
-- group: "AKS Dev Assistant (KV)"
 - group: ab-e2e
 - name: timeout
   value: 90
