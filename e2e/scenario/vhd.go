@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
@@ -26,40 +27,40 @@ var (
 		Ubuntu1804Gen2Containerd: VHD{
 			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2",
 			VersionTagName:  "branch",
-			VersionTagValue: "refs/heads/r2k1/e2e-update",
+			VersionTagValue: "refs/heads/master",
 		},
 		Ubuntu2204Gen2Arm64Containerd: VHD{
 			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64",
 			VersionTagName:  "branch",
-			VersionTagValue: "refs/heads/r2k1/e2e-update",
+			VersionTagValue: "refs/heads/master",
 		},
 		Ubuntu2204Gen2Containerd: VHD{
 			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2",
 			VersionTagName:  "branch",
-			VersionTagValue: "refs/heads/r2k1/e2e-update",
+			VersionTagValue: "refs/heads/master",
 		},
 		Ubuntu2204Gen2ContainerdPrivateKubePkg: VHD{
-			ResourceID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1704411049.2812",
+			resourceID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1704411049.2812",
 		},
 		AzureLinuxV2Gen2Arm64: VHD{
 			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2Arm64",
 			VersionTagName:  "branch",
-			VersionTagValue: "refs/heads/r2k1/e2e-update",
+			VersionTagValue: "refs/heads/master",
 		},
 		AzureLinuxV2Gen2: VHD{
 			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2",
 			VersionTagName:  "branch",
-			VersionTagValue: "refs/heads/r2k1/e2e-update",
+			VersionTagValue: "refs/heads/master",
 		},
 		CBLMarinerV2Gen2Arm64: VHD{
 			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64",
 			VersionTagName:  "branch",
-			VersionTagValue: "refs/heads/r2k1/e2e-update",
+			VersionTagValue: "refs/heads/master",
 		},
 		CBLMarinerV2Gen2: VHD{
 			ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2",
 			VersionTagName:  "branch",
-			VersionTagValue: "refs/heads/r2k1/e2e-update",
+			VersionTagValue: "refs/heads/master",
 		},
 	}
 )
@@ -95,65 +96,43 @@ type VHD struct {
 	VersionTagValue string
 	// ResourceID is the resource ID pointing to the underlying VHD in Azure. Based on the current setup, this will always be the resource ID
 	// of an image version in a shared image gallery.
-	ResourceID VHDResourceID
+	resourceID VHDResourceID
+	sync.Mutex
 }
 
-func getVHDsFromBuild(ctx context.Context, tmpl *Template, scenarios []*Scenario) error {
-	if config.VHDBuildID == "" {
-		return nil
-	}
-
-	vhds := []*VHD{
-		&tmpl.Ubuntu1804Gen2Containerd,
-		&tmpl.Ubuntu2204Gen2Arm64Containerd,
-		&tmpl.Ubuntu2204Gen2Containerd,
-		&tmpl.Ubuntu2204Gen2ContainerdPrivateKubePkg,
-		&tmpl.AzureLinuxV2Gen2Arm64,
-		&tmpl.AzureLinuxV2Gen2,
-		&tmpl.CBLMarinerV2Gen2Arm64,
-		&tmpl.CBLMarinerV2Gen2,
-	}
-	wg := sync.WaitGroup{}
-	wg.Add(len(vhds))
-	// resourceID fetching can be slow, some concurrency to speed things up
-	for _, vhd := range vhds {
-		go func(vhd *VHD) {
-			defer wg.Done()
-			err := setResourceID(ctx, vhd, config.VHDBuildID)
-			if err != nil {
-				log.Printf("Failed to set resource ID for VHD %q: %v", vhd.ImageID, err)
-			} else {
-				log.Printf("Successfully set resource ID for VHD %q: %s", vhd.ImageID, vhd.ResourceID)
-			}
-		}(vhd)
-	}
-	wg.Wait()
-	return nil
-}
-
-func setResourceID(ctx context.Context, vhd *VHD, buildID string) error {
-	if vhd.ResourceID != "" { // resource ID is already set, don't modify it
-		return nil
-	}
-	var err error
-
-	// TODO: should we instead skip scenarios without a VHD?
-	if buildID != "" {
+func (v *VHD) ResourceID() VHDResourceID {
+	v.Lock()
+	defer v.Unlock()
+	if v.resourceID == "" {
 		var err error
-		vhd.ResourceID, err = findLatestImageWithTag(ctx, vhd.ImageID, "buildId", buildID)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		v.resourceID, err = findLatestResourceID(ctx, v)
+		if err != nil {
+			panic(err)
+		}
+	}
+	return v.resourceID
+}
+
+func findLatestResourceID(ctx context.Context, vhd *VHD) (VHDResourceID, error) {
+	if config.VHDBuildID != "" {
+		resourceID, err := findLatestImageWithTag(ctx, vhd.ImageID, "buildId", config.VHDBuildID)
 		if err == nil {
-			return nil
+			log.Printf("Found image for %q with build ID %q", vhd.ImageID, config.VHDBuildID)
+			return resourceID, nil
 		}
 		if !errors.Is(err, ErrNotFound) {
-			return fmt.Errorf("failed to find latest VHD for %q with build ID %d: %v", vhd.ImageID, buildID, err)
+			return "", fmt.Errorf("failed to find latest VHD for %q with build ID %d: %v", vhd.ImageID, config.VHDBuildID, err)
 		}
-		log.Printf("No image found for %q with build ID %d, falling back to default VHD", vhd.ImageID, buildID)
+		log.Printf("No image found for %q with build ID %d, falling back to default VHD", vhd.ImageID, config.VHDBuildID)
 	}
-	vhd.ResourceID, err = findLatestImageWithTag(ctx, vhd.ImageID, vhd.VersionTagName, vhd.VersionTagValue)
+	resourceID, err := findLatestImageWithTag(ctx, vhd.ImageID, vhd.VersionTagName, vhd.VersionTagValue)
 	if err != nil {
-		return fmt.Errorf("failed to find latest image with tag %q=%q: %v", vhd.VersionTagName, vhd.VersionTagValue, err)
+		return "", fmt.Errorf("failed to find latest image with tag %q=%q: %v", vhd.VersionTagName, vhd.VersionTagValue, err)
 	}
-	return nil
+	log.Printf("Found image for %q with tag %q=%q", vhd.ImageID, vhd.VersionTagName, vhd.VersionTagValue)
+	return resourceID, nil
 }
 
 var ErrNotFound = fmt.Errorf("not found")

@@ -98,7 +98,7 @@ func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBoot
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(vmss *armcompute.VirtualMachineScaleSet) error {
-	if s.VHD.ResourceID == "" {
+	if s.VHD.ResourceID() == "" {
 		return fmt.Errorf("unable to prepare VMSS model for scenario %q: VHDSelector.ResourceID is empty", s.Name)
 	}
 
@@ -117,7 +117,7 @@ func (s *Scenario) PrepareVMSSModel(vmss *armcompute.VirtualMachineScaleSet) err
 		vmss.Properties.VirtualMachineProfile.StorageProfile = &armcompute.VirtualMachineScaleSetStorageProfile{}
 	}
 	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-		ID: to.Ptr(string(s.VHD.ResourceID)),
+		ID: to.Ptr(string(s.VHD.ResourceID())),
 	}
 
 	return nil

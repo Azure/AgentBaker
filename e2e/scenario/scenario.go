@@ -23,14 +23,10 @@ func GetScenariosForSuite(ctx context.Context) (Table, error) {
 		scenarios = append(scenarios, scenario)
 	}
 
-	if err := getVHDsFromBuild(ctx, tmpl, scenarios); err != nil {
-		return nil, err
-	}
-
 	table := make(Table, len(scenarios))
 	for _, scenario := range scenarios {
 		table[scenario.Name] = scenario
-		log.Printf("will run E2E scenario %q: %s; with VHD: %s", scenario.Name, scenario.Description, scenario.VHD.ResourceID.Short())
+		log.Printf("will run E2E scenario %q: %s; with VHD: %s", scenario.Name, scenario.Description, scenario.VHD.ResourceID().Short())
 	}
 
 	return table, nil
