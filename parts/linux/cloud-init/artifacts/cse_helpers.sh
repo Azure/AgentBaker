@@ -405,7 +405,7 @@ capture_benchmark () {
 
   benchmarks+=($1)
   declare -n currentSection="${benchmarks[-1]}"
-  is_final_section=$2
+  local is_final_section=${2:-false}
 
   local current_time=$(date +%s)
   local end_timestamp=$(date +%H:%M:%S)
