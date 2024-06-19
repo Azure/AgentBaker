@@ -160,6 +160,7 @@ EOF
 }
 
 enableMarinerKata() {
+    echo "Performing boot enablement for a 2.0 Mariner image..."
     echo "Contents of blkid output"
     my_blkid=$(blkid)
     export my_blkid

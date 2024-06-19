@@ -147,7 +147,9 @@ if [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
     overrideNetworkConfig || exit 1
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
       installKataDeps
-      enableMarinerKata
+      if [[ $OS == $MARINER_OS_NAME ]]; then
+        enableMarinerKata
+      fi
     fi
     disableTimesyncd
     disableDNFAutomatic
