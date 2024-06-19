@@ -283,7 +283,7 @@ PRESENT_DIR=$(pwd)
 BCC_PID=$!
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "pull_nvidia_driver_image(mcr)_and_run_installBcc_in_subshell"
+capture_benchmark "pull_nvidia_driver_image_and_run_installBcc_in_subshell"
 
 string_replace() {
   echo ${1//\*/$2}
@@ -474,7 +474,7 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
-capture_benchmark "configure_telemetry_create_logging_directory_and_download_kube-proxy_images"
+capture_benchmark "configure_telemetry_create_logging_directory_and_download_kubeproxy_images"
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
