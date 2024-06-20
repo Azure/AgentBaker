@@ -106,5 +106,5 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
 fi
 capture_benchmark "resolve_conf"
 echo "post-install-dependencies step completed successfully"
-capture_benchmark "post_install_dependencies" true
+capture_benchmark "overall_script" true
 process_benchmarks
