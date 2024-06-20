@@ -224,7 +224,7 @@ installMoby() {
 
 ensureRunc() {
     RUNC_PACKAGE_URL=${2:-""}
-    RUNC_DOWNLOADS_DIR=${1:-$RUNC_DOWNLOADS_DIR}
+    RUNC_DOWNLOADS_DIR=${3:-$RUNC_DOWNLOADS_DIR}
     # the user-defined runc package URL is always picked first, and the other options won't be tried when this one fails
     if [[ ! -z ${RUNC_PACKAGE_URL} ]]; then
         echo "Installing runc from user input: ${RUNC_PACKAGE_URL}"
@@ -239,7 +239,7 @@ ensureRunc() {
         return 0
     fi
 
-    TARGET_VERSION=${3:-""}
+    TARGET_VERSION=${1:-""}
 
     if [[ $(isARM64) == 1 ]]; then
         if [[ ${TARGET_VERSION} == "1.0.0-rc92" || ${TARGET_VERSION} == "1.0.0-rc95" ]]; then
