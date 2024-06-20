@@ -1,4 +1,4 @@
-package e2e_test
+package e2e
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	mrand "math/rand"
 	"testing"
 
+	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -26,7 +27,7 @@ const (
 	maxRetries                               = 3
 )
 
-func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
+func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
 	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to get node bootstrapping: %w", err)
@@ -38,7 +39,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName st
 			pollingInterval: to.Ptr(deleteVMSSPollInterval),
 			pollingTimeout:  to.Ptr(deleteVMSSPollingTimeout),
 		}, func() (Poller[armcompute.VirtualMachineScaleSetsClientDeleteResponse], error) {
-			return opts.cloud.vmssClient.BeginDelete(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName, nil)
+			return config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName, nil)
 		}); err != nil {
 			t.Errorf("encountered an error while waiting for deletion of vmss %q: %s", vmssName, err)
 		}
@@ -56,11 +57,11 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, r *mrand.Rand, vmssName st
 func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
 	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)
 
-	if opts.suiteConfig.BuildID != "" {
+	if config.BuildID != "" {
 		if model.Tags == nil {
 			model.Tags = map[string]*string{}
 		}
-		model.Tags[buildIDTagKey] = &opts.suiteConfig.BuildID
+		model.Tags[buildIDTagKey] = &config.BuildID
 	}
 
 	isAzureCNI, err := opts.clusterConfig.isAzureCNI()
@@ -91,7 +92,7 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 			},
 		},
 			func() (Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse], error) {
-				return opts.cloud.vmssClient.BeginCreateOrUpdate(
+				return config.Azure.VMSS.BeginCreateOrUpdate(
 					ctx,
 					*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
 					vmssName,
@@ -139,8 +140,8 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 	return nil
 }
 
-func getVMPrivateIPAddress(ctx context.Context, cloud *azureClient, subscription, mcResourceGroupName, vmssName string) (string, error) {
-	pl := cloud.coreClient.Pipeline()
+func getVMPrivateIPAddress(ctx context.Context, subscription, mcResourceGroupName, vmssName string) (string, error) {
+	pl := config.Azure.Core.Pipeline()
 	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
 		subscription,
 		mcResourceGroupName,
@@ -219,7 +220,7 @@ func getVmssName(r *mrand.Rand) string {
 
 func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
 	return armcompute.VirtualMachineScaleSet{
-		Location: to.Ptr(opts.suiteConfig.Location),
+		Location: to.Ptr(config.Location),
 		SKU: &armcompute.SKU{
 			Name:     to.Ptr("Standard_DS2_v2"),
 			Capacity: to.Ptr[int64](1),
@@ -289,7 +290,7 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 													ID: to.Ptr(
 														fmt.Sprintf(
 															loadBalancerBackendAddressPoolIDTemplate,
-															opts.suiteConfig.Subscription,
+															config.Subscription,
 															*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
 														),
 													),
