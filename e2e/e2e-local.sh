@@ -7,10 +7,11 @@ set -euxo pipefail
 : "${LOCATION:=eastus}"
 : "${AZURE_TENANT_ID:=72f988bf-86f1-41af-91ab-2d7cd011db47}"
 : "${TIMEOUT:=90m}"
+: "${PARALLEL:=100}"
 
 export SUBSCRIPTION_ID
 export LOCATION
 export AZURE_TENANT_ID
 
 go version
-go test -timeout $TIMEOUT -v -run Test_All ./
+go test -parallel $PARALLEL -timeout $TIMEOUT -v -run Test_All ./
