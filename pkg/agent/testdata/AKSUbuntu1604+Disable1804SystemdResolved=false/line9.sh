@@ -367,6 +367,14 @@ should_skip_nvidia_drivers() {
     echo "$should_skip"
 }
 
+check_perf_data () {
+  if test -f /opt/azure/vhd-build-performance-data.json; then
+    echo "File /opt/azure/vhd-build-performance-data.json exists"
+  else
+    echo "File /opt/azure/vhd-build-performance-data.json does not exist"
+  fi
+}
+
 installJq () {
   output=$(jq --version)
   if [ -n "$output" ]; then
@@ -381,7 +389,6 @@ installJq () {
 }
 
 capture_benchmark () {
-
   set +x
   benchmarks+=($1)
   declare -n current_section="${benchmarks[-1]}"
@@ -416,7 +423,6 @@ capture_benchmark () {
 }
 
 process_benchmarks () {
-  
   set +x
   declare -n script_stats="${benchmarks[-1]}"
   
