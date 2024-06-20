@@ -408,7 +408,6 @@ installJq () {
 }
 
 capture_benchmark () {
-
   set +x
   # add current section title to the benchmarks array as a string
   benchmarks+=($1)
@@ -448,7 +447,6 @@ capture_benchmark () {
 }
 
 process_benchmarks () {
-  
   set +x
   # use nameref variable to reference section array for last section added to the benchmarks array (this section will be the overall script)
   declare -n script_stats="${benchmarks[-1]}"
