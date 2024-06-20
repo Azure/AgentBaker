@@ -218,7 +218,7 @@ for p in ${packages[*]}; do
     "runc")
       for version in $PackageVersions; do
         evaluatedURL=$(evalPackageDownloadURL ${packageDownloadURL})
-        ensureRunc "${downloadDir}" "${evaluatedURL}" "${version}"
+        ensureRunc "${version}" "${evaluatedURL}" "${downloadDir}"
         echo "  - runc version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
