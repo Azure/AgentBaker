@@ -449,6 +449,9 @@ process_benchmarks () {
   # each section object within the script will later be appended to this script object
   script_object=$(jq -n --arg script_name "$(basename $0)" --arg script_start_timestamp "${script_stats[0]}" --arg end_timestamp "${script_stats[1]}" --arg total_time_elapsed "${script_stats[2]}" '{($script_name): {"overall": {"start_time": $script_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}}')
 
+  unset script_stats[@]
+  unset -n script_stats
+
   for ((i=0; i<${#benchmarks[@]} - 1; i+=1)); do
       
     # iterate over the benchmarks array and assign a nameref variable to the current section array in order to operate on the data held within it
