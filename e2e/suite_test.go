@@ -53,7 +53,7 @@ func maybeSkipScenario(t *testing.T, s *scenario.Scenario) {
 	if config.ScenariosToExclude != nil && config.ScenariosToExclude[s.Name] {
 		t.Skipf("skipping scenario %q: in scenarios to exclude", s.Name)
 	}
-	if config.VHDBuildID != "" && s.VHD.BuildResourceID() == "" {
+	if config.VHDBuildID != "" && s.VHD.ResourceIDForBuild() == "" {
 		t.Skipf("skipping scenario %q: could not find build image for build ID %q and image %q", s.Name, config.VHDBuildID, s.VHD.ImageID)
 	}
 }

@@ -2,7 +2,9 @@ package config
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 	"sync"
@@ -84,25 +86,41 @@ func (id VHDResourceID) Short() string {
 // 2. Fetch resource id only once (multiple scenarios can share the VHD)
 // 3. Call fetch method only if tests is scheduled to run (it takes times)
 func (v *VHD) ResourceID() VHDResourceID {
-	if v.BuildResourceID() != "" {
-		return v.BuildResourceID()
+	if VHDBuildID != "" {
+		return v.ResourceIDForBuild()
 	}
-	return v.NonBuildResourceID()
+	return v.ResourceIDForImageTag()
 }
 
-func (v *VHD) BuildResourceID() VHDResourceID {
+func (v *VHD) ResourceIDForBuild() VHDResourceID {
 	v.fetchBuildResourceIDOnce.Do(func() {
-		v.buildResourceID, _ = findLatestImageWithTag(v.ImageID, "buildId", VHDBuildID)
+		if v.buildResourceID != "" {
+			return
+		}
+		var err error
+		v.buildResourceID, err = findLatestImageWithTag(v.ImageID, "buildId", VHDBuildID)
+		if errors.Is(err, ErrNotFound) {
+			log.Printf("could not find build image for build ID %q and image %q", VHDBuildID, v.ImageID)
+			return
+		}
+		if err != nil {
+			panic(err)
+		}
+
 	})
 	return v.buildResourceID
 }
 
-func (v *VHD) NonBuildResourceID() VHDResourceID {
+func (v *VHD) ResourceIDForImageTag() VHDResourceID {
 	v.fetchResourceIDOnce.Do(func() {
 		if v.resourceID != "" {
 			return
 		}
-		v.resourceID, _ = findLatestImageWithTag(v.ImageID, v.VersionTagName, v.VersionTagValue)
+		var err error
+		v.resourceID, err = findLatestImageWithTag(v.ImageID, v.VersionTagName, v.VersionTagValue)
+		if err != nil {
+			panic(err)
+		}
 	})
 	return v.resourceID
 }
