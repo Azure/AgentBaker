@@ -422,6 +422,9 @@ process_benchmarks () {
   
   script_object=$(jq -n --arg script_name "$(basename $0)" --arg script_start_timestamp "${script_stats[0]}" --arg end_timestamp "${script_stats[1]}" --arg total_time_elapsed "${script_stats[2]}" '{($script_name): {"overall": {"start_time": $script_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}}')
 
+  unset script_stats[@]
+  unset -n script_stats
+
   for ((i=0; i<${#benchmarks[@]} - 1; i+=1)); do
       
     declare -n section_name="${benchmarks[i]}"
