@@ -373,17 +373,16 @@ installJq () {
     echo "$output"
   else
     if [[ $OS == $MARINER_OS_NAME ]]; then
-      sudo tdnf install -y jq
-      echo "jq was installed: $(jq --version)"
+      sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
     else
-      apt_get_install 5 1 60 jq
-      echo "jq was installed: $(jq --version)"
+      apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
     fi
   fi
 }
 
 capture_benchmark () {
 
+  set +x
   benchmarks+=($1)
   declare -n current_section="${benchmarks[-1]}"
   local is_final_section=${2:-false}
@@ -412,10 +411,13 @@ capture_benchmark () {
 
   section_start_stopwatch=$(date +%s)
   section_start_timestamp=$(date +%H:%M:%S)
+
+  set -x
 }
 
 process_benchmarks () {
   
+  set +x
   declare -n script_stats="${benchmarks[-1]}"
   
   script_object=$(jq -n --arg script_name "${benchmarks[-1]}" --arg script_start_timestamp "${script_stats[0]}" --arg end_timestamp "${script_stats[1]}" --arg total_time_elapsed "${script_stats[2]}" '{($script_name): {"overall": {"start_time": $script_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}}')
@@ -438,6 +440,8 @@ process_benchmarks () {
  
   jq ". += [$script_object]" ${VHD_BUILD_PERF_DATA} > tmp.json && mv tmp.json ${VHD_BUILD_PERF_DATA}
   chmod 755 ${VHD_BUILD_PERF_DATA}
+
+  set -x
 }
 
 #HELPERSEOF
