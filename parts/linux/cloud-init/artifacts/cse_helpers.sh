@@ -399,12 +399,27 @@ installJq () {
   fi
 }
 
+check_array_size () {
+  local array_name=$1
+  local array_size=${#array_name[@]}
+  if [[ $array_size -eq 0 ]]; then
+    return 1
+  else
+    return 0
+  fi
+}
+
 capture_benchmark () {
   set +x
-  # add current section title to the benchmarks array as a string
   benchmarks+=($1)
-  # use nameref variable to hold that section title to reference that specific section array later in the function
-  declare -n current_section="${benchmarks[-1]}"
+  check_array_size benchmarks
+  if [[ $? -eq 0 ]]; then
+    last_index=$(( ${#benchmarks[@]} - 1 ))
+  else
+    return
+  fi
+  # use nameref variable to hold the current section's array for later reference
+  declare -n current_section="${benchmarks[last_index]}"
   local is_final_section=${2:-false}
 
   local current_time=$(date +%s)
@@ -440,13 +455,13 @@ capture_benchmark () {
 
 process_benchmarks () {
   set +x
-  last_index=$(( ${#benchmarks[@]} - 1 ))
-  if [[ ${last_index} -lt 0 ]]; then
-  echo "Error: Benchmarks array is empty."
-  # Return from the function without terminating the script
-  return
+  check_array_size benchmarks
+  if [[ $? -eq 0 ]]; then
+    last_index=$(( ${#benchmarks[@]} - 1 ))
+  else
+    return
   fi
-  # use nameref variable to reference section array for last section added to the benchmarks array (this section will be the overall script)
+  # use nameref variable to reference overall_script section
   declare -n script_stats="${benchmarks[last_index]}"
   
   # create script object from data held in the section array for the overall script
