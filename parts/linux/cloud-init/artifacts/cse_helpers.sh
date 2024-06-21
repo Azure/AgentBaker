@@ -448,8 +448,14 @@ capture_benchmark () {
 
 process_benchmarks () {
   set +x
+  last_index=$(( ${#benchmarks[@]} - 1 ))
+  if [[ ${last_index} -lt 0 ]]; then
+  echo "Error: Benchmarks array is empty."
+  # Return from the function without terminating the script
+  return
+  fi
   # use nameref variable to reference section array for last section added to the benchmarks array (this section will be the overall script)
-  declare -n script_stats="${benchmarks[-1]}"
+  declare -n script_stats="${benchmarks[last_index]}"
   
   # create script object from data held in the section array for the overall script
   # each section object within the script will later be appended to this script object
