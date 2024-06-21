@@ -367,14 +367,6 @@ should_skip_nvidia_drivers() {
     echo "$should_skip"
 }
 
-check_perf_data () {
-  if test -f /opt/azure/vhd-build-performance-data.json; then
-    echo "File /opt/azure/vhd-build-performance-data.json exists"
-  else
-    echo "File /opt/azure/vhd-build-performance-data.json does not exist"
-  fi
-}
-
 installJq () {
   output=$(jq --version)
   if [ -n "$output" ]; then
@@ -388,10 +380,26 @@ installJq () {
   fi
 }
 
+check_array_size () {
+  local array_name=$1
+  local array_size=${#array_name[@]}
+  if [[ $array_size -eq 0 ]]; then
+    return 1
+  else
+    return 0
+  fi
+}
+
 capture_benchmark () {
   set +x
   benchmarks+=($1)
-  declare -n current_section="${benchmarks[-1]}"
+  check_array_size benchmarks
+  if [[ $? -eq 0 ]]; then
+    last_index=$(( ${#benchmarks[@]} - 1 ))
+  else
+    return
+  fi
+  declare -n current_section="${benchmarks[last_index]}"
   local is_final_section=${2:-false}
 
   local current_time=$(date +%s)
@@ -424,10 +432,11 @@ capture_benchmark () {
 
 process_benchmarks () {
   set +x
-  last_index=$(( ${#benchmarks[@]} - 1 ))
-  if [[ ${last_index} -lt 0 ]]; then
-  echo "Error: Benchmarks array is empty."
-  return
+  check_array_size benchmarks
+  if [[ $? -eq 0 ]]; then
+    last_index=$(( ${#benchmarks[@]} - 1 ))
+  else
+    return
   fi
   declare -n script_stats="${benchmarks[last_index]}"
   
