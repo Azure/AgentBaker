@@ -384,14 +384,6 @@ should_skip_nvidia_drivers() {
     echo "$should_skip"
 }
 
-check_perf_data () {
-  if test -f /opt/azure/vhd-build-performance-data.json; then
-    echo "File /opt/azure/vhd-build-performance-data.json exists"
-  else
-    echo "File /opt/azure/vhd-build-performance-data.json does not exist"
-  fi
-}
-
 installJq () {
   # jq is not available until downloaded in install-dependencies.sh with the installDeps function
   # but it is needed earlier to call the capture_benchmarks function in pre-install-dependencies.sh
