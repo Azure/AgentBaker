@@ -397,6 +397,7 @@ capture_benchmark () {
   if [[ $? -eq 0 ]]; then
     last_index=$(( ${#benchmarks[@]} - 1 ))
   else
+    echo "Benchmarks array is empty."
     return
   fi
   declare -n current_section="${benchmarks[last_index]}"
@@ -436,6 +437,7 @@ process_benchmarks () {
   if [[ $? -eq 0 ]]; then
     last_index=$(( ${#benchmarks[@]} - 1 ))
   else
+    echo "Benchmarks array is empty."
     return
   fi
   declare -n script_stats="${benchmarks[last_index]}"
