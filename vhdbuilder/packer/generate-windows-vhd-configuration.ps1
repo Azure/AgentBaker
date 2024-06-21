@@ -60,8 +60,8 @@ switch -Regex ($windowsSku) {
         )
     }
     "2022-containerd*" {
-        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2024/06/windows10.0-kb5039227-x64_136403ab41a524bb82063bc097e9cafbf0039630.msu")
-        $global:patchIDs = @("KB5039227")
+        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2024/06/windows10.0-kb5041054-x64_0a6d6b4af8a6f87cf01cab2e42fb07e326974f3b.msu")
+        $global:patchIDs = @("KB5041054")
 
         $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2022",
@@ -118,8 +118,10 @@ $global:imagesToPull += @(
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.52",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.26",
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.6.0",
     # CNI installer for azure-vnet. Owner: evanbaker
     "mcr.microsoft.com/containernetworking/cni-dropgz:v0.1.4"
+    "mcr.microsoft.com/containernetworking/cni-dropgz:v0.2.0"
     "mcr.microsoft.com/containernetworking/azure-cni:v1.5.26"
 )
 
