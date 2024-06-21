@@ -356,10 +356,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
 		},
 		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile) string {
-			return profile.GetKubernetesLabels()
+			return getAgentKubernetesLabels(profile, config)
 		},
 		"GetAgentKubernetesLabelsDeprecated": func(profile *datamodel.AgentPoolProfile) string {
-			return profile.GetKubernetesLabels()
+			return getAgentKubernetesLabels(profile, config)
 		},
 		"GetGPUInstanceProfile": func() string {
 			return config.GPUInstanceProfile
