@@ -9,10 +9,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/Azure/agentbakere2e/artifact"
-	"github.com/Azure/agentbakere2e/suite"
+	"github.com/Azure/agentbakere2e/config"
 )
 
 const (
@@ -37,8 +38,19 @@ var (
 	BaseVHDCatalog = mustGetVHDCatalogFromEmbeddedJSON(embeddedBaseVHDCatalog)
 )
 
-func getVHDsFromBuild(ctx context.Context, suiteConfig *suite.Config, tmpl *Template, scenarios []*Scenario) error {
-	downloader, err := artifact.NewDownloader(ctx, suiteConfig)
+func getVHDsFromBuild(ctx context.Context, tmpl *Template, scenarios []*Scenario) error {
+	if config.VHDBuildID == "" {
+		return nil
+	}
+
+	buildID, err := strconv.Atoi(config.VHDBuildID)
+	if err != nil {
+		return fmt.Errorf("unable to convert build ID %s to int: %w", config.VHDBuildID, err)
+	}
+
+	log.Printf("will use VHDs from specified build: %d", config.VHDBuildID)
+
+	downloader, err := artifact.NewDownloader(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to construct new ADO artifact downloader: %w", err)
 	}
@@ -55,8 +67,10 @@ func getVHDsFromBuild(ctx context.Context, suiteConfig *suite.Config, tmpl *Temp
 		}
 	}
 
+	log.Printf("using artifact from build %d with name: %s", config.VHDBuildID, fmt.Sprint(artifactNames))
+
 	err = downloader.DownloadVHDBuildPublishingInfo(ctx, artifact.PublishingInfoDownloadOpts{
-		BuildID:       suiteConfig.VHDBuildID,
+		BuildID:       buildID,
 		TargetDir:     artifact.DefaultPublishingInfoDir,
 		ArtifactNames: artifactNames,
 	})
@@ -221,7 +235,9 @@ func (c *VHDCatalog) CBLMarinerV2Gen2() VHD {
 func (c *VHDCatalog) addEntryFromPublishingInfo(info artifact.VHDPublishingInfo) {
 	if resourceID := info.CapturedImageVersionResourceID; resourceID != "" {
 		id := VHDResourceID(resourceID)
-		switch getVHDNameFromPublishingInfo(info) {
+		name := getVHDNameFromPublishingInfo(info)
+		log.Printf("Assigning name %s to use id %s ", name, id)
+		switch name {
 		case vhdName1804Gen2:
 			c.Ubuntu1804.Gen2Containerd.ResourceID = id
 		case vhdName2204Gen2ARM64Containerd:
@@ -236,6 +252,8 @@ func (c *VHDCatalog) addEntryFromPublishingInfo(info artifact.VHDPublishingInfo)
 			c.CBLMarinerV2.Gen2Arm64.ResourceID = id
 		case vhdNameCBLMarinerV2Gen2:
 			c.CBLMarinerV2.Gen2.ResourceID = id
+		default:
+			panic(fmt.Sprintf("cannot assign VHD resource ID to VHD name \"%s\" as name not known.", name))
 		}
 	}
 }

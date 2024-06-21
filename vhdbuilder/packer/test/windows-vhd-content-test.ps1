@@ -140,18 +140,8 @@ function Test-FilesToCacheOnVHD
                     $localFileSize = (Get-Item $dest).length
                     $remoteFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
                     if ($localFileSize -ne $remoteFileSize) {
-                        $excludeHashComparisionListInAzureChinaCloud = @(
-                            "calico-windows",
-                            "azure-vnet-cni-singletenancy-windows-amd64",
-                            "azure-vnet-cni-singletenancy-swift-windows-amd64",
-                            "azure-vnet-cni-singletenancy-overlay-windows-amd64",
-                            # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
-                            # so we can ignore the different hash values.
-                            "v1.26.0-1int.zip"
-                        )
-
                         $isIgnore=$False
-                        foreach($excludePackage in $excludeHashComparisionListInAzureChinaCloud) {
+                        foreach($excludePackage in $global:excludeHashComparisionListInAzureChinaCloud) {
                             if ($mcURL.Contains($excludePackage)) {
                                 $isIgnore=$true
                                 break
@@ -178,6 +168,40 @@ function Test-FilesToCacheOnVHD
         exit 1
     }
 
+    $dir = "c:\akse-cache\private-packages"
+    if (Test-Path $dir) {
+        $mappingFile = "c:\akse-cache\private-packages\mapping.json"
+        if (Test-Path $mappingFile) {
+            $urls = @{}
+            (ConvertFrom-Json ((Get-Content $mappingFile -ErrorAction Stop) | Out-String)).psobject.properties | Foreach { $urls[$_.Value] = $False }
+            $privatePackages = Get-ChildItem -Path $dir -File -Filter "*.zip"
+            foreach($privatePackage in $privatePackages) {
+                $isFound = $False
+                foreach ($url in $urls.Keys) {
+                    if ($url.Contains($privatePackage.Name)) {
+                        $urls[$url] = $True
+                        $isFound = $True
+                        break
+                    }
+                }
+
+                if (-not $isFound) {
+                    Write-ErrorWithTimestamp "URL for $($privatePackage.Name) is not found in $mappingFile"
+                    exit 1
+                }
+            }
+
+            foreach ($url in $urls.Keys) {
+                if (-not $urls[$url]) {
+                    Write-ErrorWithTimestamp "URL for $url is not cached in $dir"
+                    exit 1
+                }
+            }
+        } else {
+            Write-ErrorWithTimestamp "File $mappingFile does not exist but $dir exists"
+            exit 1
+        }
+    }
 }
 
 function Test-PatchInstalled {
@@ -312,6 +336,8 @@ function Test-RegistryAdded {
 
         Validate-WindowsFixInFeatureManagement -Name 2290715789
         Validate-WindowsFixInFeatureManagement -Name 3152880268
+
+        Validate-WindowsFixInFeatureManagement -Name 1605443213
     }
     if ($env:WindowsSKU -Like '2022*') {
         Validate-WindowsFixInFeatureManagement -Name 2629306509
@@ -362,6 +388,10 @@ function Test-RegistryAdded {
         Validate-WindowsFixInFeatureManagement -Name 4186914956
         Validate-WindowsFixInFeatureManagement -Name 3173070476
         Validate-WindowsFixInFeatureManagement -Name 3958450316
+
+        Validate-WindowsFixInFeatureManagement -Name 2540111500
+        Validate-WindowsFixInFeatureManagement -Name 50261647
+        Validate-WindowsFixInFeatureManagement -Name 1475968140
     }
     if ($env:WindowsSKU -Like '23H2*') {
         Validate-WindowsFixInHnsState -Name NamespaceExcludedUdpPorts -Value 65330

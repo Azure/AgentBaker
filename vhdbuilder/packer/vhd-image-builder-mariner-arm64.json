@@ -16,7 +16,6 @@
     "sig_image_name": "{{env `SIG_IMAGE_NAME`}}",
     "container_runtime": "{{env `CONTAINER_RUNTIME`}}",
     "teleportd_plugin_download_url": "{{env `TELEPORTD_PLUGIN_DOWNLOAD_URL`}}",
-    "arm64_os_disk_snapshot_name": "{{env `${ARM64_OS_DISK_SNAPSHOT_NAME`}}",
     "captured_sig_version": "{{env `${CAPTURED_SIG_VERSION`}}",
     "enable_fips": "{{env `ENABLE_FIPS`}}",
     "img_publisher": "{{env `IMG_PUBLISHER`}}",
@@ -28,7 +27,7 @@
     "subnet_name": "{{env `SUBNET_NAME`}}",
     "enable_cgroupv2": "{{env `ENABLE_CGROUPV2`}}",
     "private_packages_url": "{{env `PRIVATE_PACKAGES_URL`}}",
-    "linux_msi_resource_id": "{{env `LINUX_MSI_RESOURCE_ID`}}"
+    "branch": "{{env `BRANCH`}}"
   },
   "builders": [
     {
@@ -51,16 +50,22 @@
         "os": "Linux",
         "now": "{{user `create_time`}}",
         "createdBy": "aks-vhd-pipeline",
-        "image_sku": "{{user `img_sku`}}"
+        "image_sku": "{{user `img_sku`}}",
+        "branch": "{{user `branch`}}"
       },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
-      "managed_image_storage_account_type": "Premium_LRS",
-      "managed_image_os_disk_snapshot_name": "{{user `arm64_os_disk_snapshot_name`}}",
-      "managed_image_resource_group_name": "{{user `resource_group_name`}}",
-      "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
-      "skip_create_image": "true",
-      "user_assigned_managed_identities": "{{user `linux_msi_resource_ids`}}"
+      "polling_duration_timeout": "1h",
+      "shared_image_gallery_destination": {
+        "resource_group": "{{user `resource_group_name`}}",
+        "gallery_name": "{{user `sig_gallery_name`}}",
+        "image_name": "{{user `sig_image_name`}}",
+        "image_version": "{{user `captured_sig_version`}}",
+        "replication_regions": [
+          "{{user `location`}}"
+        ]
+      },
+      "user_assigned_managed_identities": "{{user `msi_resource_strings`}}"
     }
   ],
   "provisioners": [
@@ -546,7 +551,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} ENABLE_CGROUPV2={{user `enable_cgroupv2`}} IMG_SKU={{user `img_sku`}} PRIVATE_PACKAGES_URL={{user `private_packages_url`}} LINUX_MSI_RESOURCE_IDS={{user `linux_msi_resource_ids`}} /bin/bash -ux /home/packer/install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} ENABLE_CGROUPV2={{user `enable_cgroupv2`}} IMG_SKU={{user `img_sku`}} PRIVATE_PACKAGES_URL={{user `private_packages_url`}} /bin/bash -ux /home/packer/install-dependencies.sh"
       ]
     },
     {

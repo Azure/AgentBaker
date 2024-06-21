@@ -8,7 +8,7 @@ import (
 var _ = Describe("cache suite", func() {
 	Context("get cached data", func() {
 		It("should have the correct manifest and components data cached", func() {
-			//TODO: improve test logic
+			// TODO: improve test logic
 			manifest, err := getManifest()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -18,7 +18,7 @@ var _ = Describe("cache suite", func() {
 			// The indices are hardcoded based on the current components.json.
 			// Add new components to the bottom of components.json, or update the indices.
 			pauseIndx := 2
-			azureCNSIndx := 5
+			azureCNSIndx := 6
 			cniPluginIndx := 0
 			azureCNIIndx := 1
 

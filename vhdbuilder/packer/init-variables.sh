@@ -106,15 +106,7 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 fi
 
 if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-  ARM64_OS_DISK_SNAPSHOT_NAME="arm64_osdisk_snapshot_${CREATE_TIME}_$RANDOM"
   SIG_IMAGE_NAME=${SIG_IMAGE_NAME//./}Arm64
-  # Only az published after April 06 2022 supports --architecture for command 'az sig image-definition create...'
-  azversion=$(az version | jq '."azure-cli"' | tr -d '"')
-  if [[ "${azversion}" < "2.35.0" ]]; then
-    az upgrade -y
-    az login --identity
-    az account set -s ${SUBSCRIPTION_ID}
-  fi
 fi
 
 echo "Using finalized SIG_IMAGE_NAME: ${SIG_IMAGE_NAME}, SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
@@ -178,17 +170,11 @@ windows_servercore_image_url=""
 windows_nanoserver_image_url=""
 windows_private_packages_url=""
 
-# windows_msi_resource_strings is an array that will be used to build windows vm
-# set the default value os this array as empty to unblock the case where WINDOWS_MSI_RESOURCE_STRING is not set
-windows_msi_resource_strings=()
-if [ -n "${WINDOWS_MSI_RESOURCE_STRING}" ]; then
-	windows_msi_resource_strings+=(${WINDOWS_MSI_RESOURCE_STRING})
-fi
-
-linux_msi_resource_ids=()
-if [ -n "${LINUX_MSI_RESOURCE_ID}" ]; then
-	echo "LINUX_MSI_RESOURCE_ID is set in pipeline variables: ${LINUX_MSI_RESOURCE_ID}"
-	linux_msi_resource_ids+=(${LINUX_MSI_RESOURCE_ID})
+# msi_resource_strings is an array that will be used to build VHD build vm
+# test pipelines may not set it
+msi_resource_strings=()
+if [ -n "${AZURE_MSI_RESOURCE_STRING}" ]; then
+	msi_resource_strings+=(${AZURE_MSI_RESOURCE_STRING})
 fi
 
 # shellcheck disable=SC2236
@@ -376,7 +362,6 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "imported_image_name": "${IMPORTED_IMAGE_NAME}",
   "sig_image_name":  "${SIG_IMAGE_NAME}",
   "sig_gallery_name": "${SIG_GALLERY_NAME}",
-  "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}",
   "captured_sig_version": "${CAPTURED_SIG_VERSION}",
   "os_disk_size_gb": "${os_disk_size_gb}",
   "nano_image_url": "${windows_nanoserver_image_url}",
@@ -390,8 +375,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vnet_name": "${VNET_NAME}",
   "subnet_name": "${SUBNET_NAME}",
   "vnet_resource_group_name": "${VNET_RG_NAME}",
-  "windows_msi_resource_strings": "${windows_msi_resource_strings}",
-  "linux_msi_resource_ids": "${linux_msi_resource_ids}",
+  "msi_resource_strings": "${msi_resource_strings}",
   "private_packages_url": "${private_packages_url}",
   "aks_windows_image_version": "${AKS_WINDOWS_IMAGE_VERSION}"
 }
