@@ -9,7 +9,6 @@ import (
 
 var (
 	BuildID            = envDefault(os.Getenv("BUILD_ID"), "local")
-	VHDBuildID         = os.Getenv("VHD_BUILD_ID")
 	SubscriptionID     = envDefault("SUBSCRIPTION_ID", "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8")
 	Location           = envDefault("LOCATION", "eastus")
 	ResourceGroupName  = "abe2e-" + Location
@@ -17,6 +16,10 @@ var (
 	ScenariosToExclude = envmap("SCENARIOS_TO_EXCLUDE")
 	KeepVMSS           = strings.EqualFold(os.Getenv("KEEP_VMSS"), "true")
 	Azure              = MustNewAzureClient(SubscriptionID)
+	// ADO tags every SIG image version with `branch` tag. By specifying `branch=refs/heads/master` we load latest image version from the master branch.
+	SIGVersionTagName             = envDefault("SIG_VERSION_TAG_NAME", "branch")
+	SIGVersionTagValue            = envDefault("SIG_VERSION_TAG_VALUE", "refs/heads/master")
+	IgnoreScenariosWithMissingVHD = strings.EqualFold(os.Getenv("IGNORE_SCENARIOS_WITH_MISSING_VHD"), "true")
 )
 
 func envDefault(env string, defaultValue string) string {

@@ -41,7 +41,15 @@ jobs:
       export PATH="/usr/local/go/bin:$PATH"
       go version
 
-      export BUILD_ID=$(Build.BuildId)
+      if [ -z "${VHD_BUILD_ID}" ]; then
+        export SIG_VERSION_TAG_NAME=buildId
+        export SIG_VERSION_TAG_VALUE=$VHD_BUILD_ID
+        export IGNORE_SCENARIOS_WITH_MISSING_VHD=true
+    
+        # You can add other commands here that you want to execute
+      else
+        echo "Build.BuildId is not specified. Running default e2e tests."
+      fi
 
       cd e2e
       go test -parallel ${{ variables.parallel}} -timeout ${{ variables.timeout }}m -v -run Test_All ./

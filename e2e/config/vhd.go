@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 	"sync"
@@ -16,55 +15,37 @@ import (
 
 // VHD represents a VHD used to run AgentBaker E2E scenarios.
 type VHD struct {
-	ImageID         string
-	VersionTagName  string
-	VersionTagValue string
+	ImageID string
 	// ResourceID is the resource ID pointing to the underlying VHD in Azure. Based on the current setup, this will always be the resource ID
 	// of an image version in a shared image gallery.
-	resourceID               VHDResourceID
-	buildResourceID          VHDResourceID
-	fetchBuildResourceIDOnce sync.Once
-	fetchResourceIDOnce      sync.Once
+	resourceID          VHDResourceID
+	fetchResourceIDOnce sync.Once
 }
 
 var (
 	VHDUbuntu1804Gen2Containerd = &VHD{
-		ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2",
-		VersionTagName:  "branch",
-		VersionTagValue: "refs/heads/master",
+		ImageID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2",
 	}
 	VHDUbuntu2204Gen2Arm64Containerd = &VHD{
-		ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64",
-		VersionTagName:  "branch",
-		VersionTagValue: "refs/heads/master",
+		ImageID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64",
 	}
 	VHDUbuntu2204Gen2Containerd = &VHD{
-		ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2",
-		VersionTagName:  "branch",
-		VersionTagValue: "refs/heads/master",
+		ImageID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2",
 	}
 	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = &VHD{
 		resourceID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1704411049.2812",
 	}
 	VHDAzureLinuxV2Gen2Arm64 = &VHD{
-		ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2Arm64",
-		VersionTagName:  "branch",
-		VersionTagValue: "refs/heads/master",
+		ImageID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2Arm64",
 	}
 	VHDAzureLinuxV2Gen2 = &VHD{
-		ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2",
-		VersionTagName:  "branch",
-		VersionTagValue: "refs/heads/master",
+		ImageID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2",
 	}
 	VHDCBLMarinerV2Gen2Arm64 = &VHD{
-		ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64",
-		VersionTagName:  "branch",
-		VersionTagValue: "refs/heads/master",
+		ImageID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64",
 	}
 	VHDCBLMarinerV2Gen2 = &VHD{
-		ImageID:         "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2",
-		VersionTagName:  "branch",
-		VersionTagValue: "refs/heads/master",
+		ImageID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2",
 	}
 )
 
@@ -81,47 +62,22 @@ func (id VHDResourceID) Short() string {
 	return str
 }
 
-// This is ugly, but I wanted to achieve multiple things:
-// 1. If buildID specified use the image from the build, skip scenario if not found
-// 2. Fetch resource id only once (multiple scenarios can share the VHD)
-// 3. Call fetch method only if tests is scheduled to run (it takes times)
 func (v *VHD) ResourceID() VHDResourceID {
-	if VHDBuildID != "" {
-		return v.ResourceIDForBuild()
-	}
-	return v.ResourceIDForImageTag()
-}
-
-func (v *VHD) ResourceIDForBuild() VHDResourceID {
-	v.fetchBuildResourceIDOnce.Do(func() {
-		if v.buildResourceID != "" {
-			return
-		}
-		var err error
-		v.buildResourceID, err = findLatestImageWithTag(v.ImageID, "buildId", VHDBuildID)
-		if errors.Is(err, ErrNotFound) {
-			log.Printf("could not find build image for build ID %q and image %q", VHDBuildID, v.ImageID)
-			return
-		}
-		if err != nil {
-			panic(err)
-		}
-
-	})
-	return v.buildResourceID
-}
-
-func (v *VHD) ResourceIDForImageTag() VHDResourceID {
 	v.fetchResourceIDOnce.Do(func() {
 		if v.resourceID != "" {
 			return
 		}
 		var err error
-		v.resourceID, err = findLatestImageWithTag(v.ImageID, v.VersionTagName, v.VersionTagValue)
+		v.resourceID, err = findLatestImageWithTag(v.ImageID, SIGVersionTagName, SIGVersionTagValue)
+		// in some cases we ignore missing image, like when we run e2e for a build containing a single image
+		if errors.Is(err, ErrNotFound) {
+			return
+		}
 		if err != nil {
-			panic(err)
+			panic(fmt.Errorf("failed to find latest image with tag %q=%q for image %q: %v", SIGVersionTagName, SIGVersionTagValue, v.ImageID, err))
 		}
 	})
+
 	return v.resourceID
 }
 
