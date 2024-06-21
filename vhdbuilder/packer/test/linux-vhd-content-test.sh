@@ -956,6 +956,7 @@ check_perf_data () {
 #
 # We should also avoid early exit from the test run -- like if a command fails with
 # an exit rather than a return -- because that prevents other tests from running.
+check_perf_data
 testBccTools
 testVHDBuildLogsExist
 testCriticalTools
