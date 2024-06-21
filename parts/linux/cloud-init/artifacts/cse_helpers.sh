@@ -416,6 +416,7 @@ capture_benchmark () {
   if [[ $? -eq 0 ]]; then
     last_index=$(( ${#benchmarks[@]} - 1 ))
   else
+    echo "Benchmarks array is empty."
     return
   fi
   # use nameref variable to hold the current section's array for later reference
@@ -459,6 +460,7 @@ process_benchmarks () {
   if [[ $? -eq 0 ]]; then
     last_index=$(( ${#benchmarks[@]} - 1 ))
   else
+    echo "Benchmarks array is empty."
     return
   fi
   # use nameref variable to reference overall_script section
