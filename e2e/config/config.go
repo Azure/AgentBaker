@@ -23,8 +23,8 @@ var (
 )
 
 func envDefault(env string, defaultValue string) string {
-	val := os.Getenv(env)
-	if val == "" {
+	val, ok := os.LookupEnv(env)
+	if !ok {
 		return defaultValue
 	}
 	return val
