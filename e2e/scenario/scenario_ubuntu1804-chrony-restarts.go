@@ -12,7 +12,7 @@ func ubuntu1804ChronyRestarts() *Scenario {
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHD:             config.VHDUbuntu1804Gen2Containerd,
+			VHDSelector:     config.VHDUbuntu1804Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-18.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-18.04-gen2"

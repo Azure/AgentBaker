@@ -2,7 +2,6 @@ package config
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -13,45 +12,40 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 )
 
-// VHD represents a VHD used to run AgentBaker E2E scenarios.
-type VHD struct {
-	ImageID string
-	// ResourceID is the resource ID pointing to the underlying VHD in Azure. Based on the current setup, this will always be the resource ID
-	// of an image version in a shared image gallery.
-	resourceID          VHDResourceID
-	fetchResourceIDOnce sync.Once
-}
+const imageGallery = "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/"
 
 var (
-	VHDUbuntu1804Gen2Containerd = &VHD{
-		ImageID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2",
-	}
-	VHDUbuntu2204Gen2Arm64Containerd = &VHD{
-		ImageID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64",
-	}
-	VHDUbuntu2204Gen2Containerd = &VHD{
-		ImageID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2",
-	}
-	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = &VHD{
-		resourceID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1704411049.2812",
-	}
-	VHDAzureLinuxV2Gen2Arm64 = &VHD{
-		ImageID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2Arm64",
-	}
-	VHDAzureLinuxV2Gen2 = &VHD{
-		ImageID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2",
-	}
-	VHDCBLMarinerV2Gen2Arm64 = &VHD{
-		ImageID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64",
-	}
-	VHDCBLMarinerV2Gen2 = &VHD{
-		ImageID: "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2",
+	VHDUbuntu1804Gen2Containerd               = newVHDResourceIDFetcher(imageGallery + "1804Gen2")
+	VHDUbuntu2204Gen2Arm64Containerd          = newVHDResourceIDFetcher(imageGallery + "2204Gen2Arm64")
+	VHDUbuntu2204Gen2Containerd               = newVHDResourceIDFetcher(imageGallery + "2204Gen2")
+	VHDAzureLinuxV2Gen2Arm64                  = newVHDResourceIDFetcher(imageGallery + "AzureLinuxV2Gen2Arm64")
+	VHDAzureLinuxV2Gen2                       = newVHDResourceIDFetcher(imageGallery + "AzureLinuxV2Gen2")
+	VHDCBLMarinerV2Gen2Arm64                  = newVHDResourceIDFetcher(imageGallery + "CBLMarinerV2Gen2Arm64")
+	VHDCBLMarinerV2Gen2                       = newVHDResourceIDFetcher(imageGallery + "CBLMarinerV2Gen2")
+	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = func() (VHDResourceID, error) {
+		return imageGallery + "2204Gen2PrivateKubePkg", nil
 	}
 )
 
 // VHDResourceID represents a resource ID pointing to a VHD in Azure. This could be theoretically
 // be the resource ID of a managed image or SIG image version, though for now this will always be a SIG image version.
 type VHDResourceID string
+
+// newVHDResourceIDFetcher is a factory function
+// it returns a function that fetches the latest VHDResourceID for a given image
+// the function is memoized and will only evaluate once on the first call
+func newVHDResourceIDFetcher(image string) func() (VHDResourceID, error) {
+	resourceID := VHDResourceID("")
+	var err error
+	once := sync.Once{}
+	// evaluate the function once and cache the result
+	return func() (VHDResourceID, error) {
+		once.Do(func() {
+			resourceID, err = findLatestImageWithTag(image, SIGVersionTagName, SIGVersionTagValue)
+		})
+		return resourceID, err
+	}
+}
 
 func (id VHDResourceID) Short() string {
 	sep := "Microsoft.Compute/galleries/"
@@ -60,25 +54,6 @@ func (id VHDResourceID) Short() string {
 		return strings.Split(str, sep)[1]
 	}
 	return str
-}
-
-func (v *VHD) ResourceID() VHDResourceID {
-	v.fetchResourceIDOnce.Do(func() {
-		if v.resourceID != "" {
-			return
-		}
-		var err error
-		v.resourceID, err = findLatestImageWithTag(v.ImageID, SIGVersionTagName, SIGVersionTagValue)
-		// in some cases we ignore missing image, like when we run e2e for a build containing a single image
-		if errors.Is(err, ErrNotFound) {
-			return
-		}
-		if err != nil {
-			panic(fmt.Errorf("failed to find latest image with tag %q=%q for image %q: %v", SIGVersionTagName, SIGVersionTagValue, v.ImageID, err))
-		}
-	})
-
-	return v.resourceID
 }
 
 var ErrNotFound = fmt.Errorf("not found")

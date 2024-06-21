@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"log"
 	mrand "math/rand"
 	"path/filepath"
@@ -53,13 +54,15 @@ func maybeSkipScenario(t *testing.T, s *scenario.Scenario) {
 	if config.ScenariosToExclude != nil && config.ScenariosToExclude[s.Name] {
 		t.Skipf("skipping scenario %q: in scenarios to exclude", s.Name)
 	}
-	if s.VHD.ResourceID() == "" {
-		if config.IgnoreScenariosWithMissingVHD {
-			t.Skipf("skipping scenario %q: could not find image for %q", s.Name, s.VHD.ImageID)
+	rid, err := s.VHDSelector()
+	if err != nil {
+		if config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
+			t.Skipf("skipping scenario %q: could not find image", s.Name)
 		} else {
-			t.Fatalf("could not find image for %q", s.VHD.ImageID)
+			t.Fatalf("could not find image for %q: %s", s.Name, err)
 		}
 	}
+	t.Logf("running scenario %q with image %q", s.Name, rid)
 }
 
 func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenario.Scenario, r *mrand.Rand, clusterConfigs []clusterConfig) {
@@ -83,10 +86,6 @@ func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenari
 	nbc := copied.(*datamodel.NodeBootstrappingConfiguration)
 
 	e2eScenario.PrepareNodeBootstrappingConfiguration(nbc)
-
-	if e2eScenario.VHD.ResourceID() == "" {
-		t.Skipf("skipping scenario %q: VHD.ResourceID is empty", e2eScenario.Name)
-	}
 
 	loggingDir, err := createVMLogsDir(e2eScenario.Name)
 	if err != nil {

@@ -10,7 +10,7 @@ func ubuntu1804() *Scenario {
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHD:             config.VHDUbuntu1804Gen2Containerd,
+			VHDSelector:     config.VHDUbuntu1804Gen2Containerd,
 		},
 	}
 }

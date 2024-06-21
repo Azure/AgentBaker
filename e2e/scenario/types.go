@@ -33,7 +33,7 @@ type Config struct {
 	ClusterMutator func(*armcontainerservice.ManagedCluster)
 
 	// VHD is the function called by the e2e suite on the given scenario to get its VHD selection
-	VHD *config.VHD
+	VHDSelector func() (config.VHDResourceID, error)
 
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
@@ -82,7 +82,11 @@ func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBoot
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(vmss *armcompute.VirtualMachineScaleSet) error {
-	if s.VHD.ResourceID() == "" {
+	resourceID, err := s.VHDSelector()
+	if err != nil {
+		return fmt.Errorf("unable to prepare VMSS model for scenario %q: %w", s.Name, err)
+	}
+	if resourceID == "" {
 		return fmt.Errorf("unable to prepare VMSS model for scenario %q: VHDSelector.ResourceID is empty", s.Name)
 	}
 
@@ -101,7 +105,7 @@ func (s *Scenario) PrepareVMSSModel(vmss *armcompute.VirtualMachineScaleSet) err
 		vmss.Properties.VirtualMachineProfile.StorageProfile = &armcompute.VirtualMachineScaleSetStorageProfile{}
 	}
 	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-		ID: to.Ptr(string(s.VHD.ResourceID())),
+		ID: to.Ptr(string(resourceID)),
 	}
 
 	return nil
