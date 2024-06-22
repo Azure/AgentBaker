@@ -23,7 +23,7 @@ var (
 	VHDCBLMarinerV2Gen2Arm64                  = newVHDResourceIDFetcher(imageGallery + "CBLMarinerV2Gen2Arm64")
 	VHDCBLMarinerV2Gen2                       = newVHDResourceIDFetcher(imageGallery + "CBLMarinerV2Gen2")
 	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = func() (VHDResourceID, error) {
-		return imageGallery + "2204Gen2PrivateKubePkg", nil
+		return imageGallery + "2204Gen2/versions/1.1704411049.2812", nil
 	}
 )
 
