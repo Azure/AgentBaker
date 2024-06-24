@@ -32,6 +32,8 @@ installKataDeps() {
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
 
+      systemctl enable tardev-snapshotter.service || exit 1
+
       # echo "[temp] install kata-packages-host"
       # wget "https://mitchzhu.blob.core.windows.net/mariner3/cloud-hypervisor-37.0-1.azl3.x86_64.rpm"
       # wget "https://mitchzhu.blob.core.windows.net/mariner3/cloud-hypervisor-cvm-32.0.314-2000.geb595874.azl3.x86_64.rpm"
