@@ -426,6 +426,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "subscription_id":  "${SUBSCRIPTION_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "location": "${PACKER_BUILD_LOCATION}",
+  "build_resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",
