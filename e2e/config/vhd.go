@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 	"sync"
@@ -42,6 +43,12 @@ func newVHDResourceIDFetcher(image string) func() (VHDResourceID, error) {
 	return func() (VHDResourceID, error) {
 		once.Do(func() {
 			resourceID, err = findLatestImageWithTag(image, SIGVersionTagName, SIGVersionTagValue)
+			if err != nil {
+				err = fmt.Errorf("img: %s, tag %s=%s", image, SIGVersionTagName, SIGVersionTagValue)
+				log.Printf("failed to find the latest image %s", err)
+			} else {
+				log.Printf("Resource ID for %s: %s", image, resourceID)
+			}
 		})
 		return resourceID, err
 	}
