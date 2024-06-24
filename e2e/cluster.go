@@ -17,8 +17,7 @@ import (
 
 const (
 	managedClusterResourceType = "Microsoft.ContainerService/managedClusters"
-
-	vmSizeStandardDS2v2 = "Standard_DS2_v2"
+	defaultAgentPoolVMSize     = "standard_d2s_v4"
 )
 
 type clusterParameters map[string]string
@@ -66,11 +65,11 @@ var locationToDefaultClusterAgentPoolVMSize = map[string]string{
 }
 
 func getDefaultAgentPoolVMSize(location string) string {
-	defaultAgentPoolVMSize, hasDefaultAgentPoolVMSizeForLocation := locationToDefaultClusterAgentPoolVMSize[location]
-	if !hasDefaultAgentPoolVMSizeForLocation {
-		defaultAgentPoolVMSize = vmSizeStandardDS2v2
+	sku, ok := locationToDefaultClusterAgentPoolVMSize[location]
+	if !ok {
+		sku = defaultAgentPoolVMSize
 	}
-	return defaultAgentPoolVMSize
+	return sku
 }
 
 func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (bool, error) {
