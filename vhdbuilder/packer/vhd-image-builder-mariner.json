@@ -55,7 +55,7 @@
         "image_sku": "{{user `img_sku`}}",
         "branch": "{{user `branch`}}"
       },
-      "location": "{{user `location`}}",
+      "location": "{{user `vm_location`}}",
       "vm_size": "{{user `vm_size`}}",
       "polling_duration_timeout": "1h",
       "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
