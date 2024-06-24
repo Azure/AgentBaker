@@ -436,6 +436,9 @@ func getAgentKubernetesLabels(profile *datamodel.AgentPoolProfile, config *datam
 	labels := profile.GetKubernetesLabels()
 	kubeletServingSignerLabel := getKubeletServingSignerLabel(config)
 
+	if kubeletServingSignerLabel == "" {
+		return labels
+	}
 	if labels == "" {
 		return kubeletServingSignerLabel
 	}
@@ -446,7 +449,8 @@ func getAgentKubernetesLabels(profile *datamodel.AgentPoolProfile, config *datam
 // based on the specified NodeBootstrappingConfiguration. This label is used to denote, out-of-band from RP-set
 // agent pool custom labels, whether or not the given kubelet is bootstrapped with the --rotate-server-certificates flag.
 func getKubeletServingSignerLabel(config *datamodel.NodeBootstrappingConfiguration) string {
-	kubeletServingSignerLabelValue := "self"
+	// kubeletServingSignerLabelValue := "self"
+	var kubeletServingSignerLabelValue string
 	if IsKubeletServingCertificateRotationEnabled(config) {
 		kubeletServingSignerLabelValue = "cluster"
 	}
