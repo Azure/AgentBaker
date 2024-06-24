@@ -24,6 +24,8 @@ var (
 	VHDCBLMarinerV2Gen2Arm64                  = newVHDResourceIDFetcher(imageGallery + "CBLMarinerV2Gen2Arm64")
 	VHDCBLMarinerV2Gen2                       = newVHDResourceIDFetcher(imageGallery + "CBLMarinerV2Gen2")
 	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = func() (VHDResourceID, error) {
+		// this is a particular 2204Gen2 image originally built with private packages,
+		// if we ever want to update this then we'd need to run a new VHD build using private package overrides
 		return imageGallery + "2204Gen2/versions/1.1704411049.2812", nil
 	}
 )
