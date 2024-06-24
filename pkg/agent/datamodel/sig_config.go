@@ -16,15 +16,13 @@ const (
 /* TODO(tonyxu) merge this with AzureEnvironmentSpecConfig from aks-engine(pkg/api/azenvtypes.go) once
 it's moved into AKS RP. */
 type SIGAzureEnvironmentSpecConfig struct {
-	CloudName                    string                    `json:"cloudName,omitempty"`
-	SigTenantID                  string                    `json:"sigTenantID,omitempty"`
-	SubscriptionID               string                    `json:"subscriptionID,omitempty"`
-	SigUbuntuImageConfig         map[Distro]SigImageConfig `json:"sigUbuntuImageConfig,omitempty"`
-	SigCBLMarinerImageConfig     map[Distro]SigImageConfig `json:"sigCBLMarinerImageConfig,omitempty"`
-	SigAzureLinuxImageConfig     map[Distro]SigImageConfig `json:"sigAzureLinuxImageConfig,omitempty"`
-	SigWindowsImageConfig        map[Distro]SigImageConfig `json:"sigWindowsImageConfig,omitempty"`
-	SigUbuntuEdgeZoneImageConfig map[Distro]SigImageConfig `json:"sigUbuntuEdgeZoneImageConfig,omitempty"`
-	// TODO(adadilli) add PIR constants as well
+	CloudName                string                    `json:"cloudName,omitempty"`
+	SigTenantID              string                    `json:"sigTenantID,omitempty"`
+	SubscriptionID           string                    `json:"subscriptionID,omitempty"`
+	SigUbuntuImageConfig     map[Distro]SigImageConfig `json:"sigUbuntuImageConfig,omitempty"`
+	SigCBLMarinerImageConfig map[Distro]SigImageConfig `json:"sigCBLMarinerImageConfig,omitempty"`
+	SigAzureLinuxImageConfig map[Distro]SigImageConfig `json:"sigAzureLinuxImageConfig,omitempty"`
+	SigWindowsImageConfig    map[Distro]SigImageConfig `json:"sigWindowsImageConfig,omitempty"`
 }
 
 // EnvironmentInfo represents the set of required fields to determine specifics
@@ -87,8 +85,6 @@ var AvailableUbuntu1804Distros = []Distro{
 	AKSUbuntuGPUContainerd1804Gen2,
 	AKSUbuntuFipsContainerd1804,
 	AKSUbuntuFipsContainerd1804Gen2,
-	AKSUbuntuEdgeZoneContainerd1804,
-	AKSUbuntuEdgeZoneContainerd1804Gen2,
 }
 
 //nolint:gochecknoglobals
@@ -104,8 +100,6 @@ var AvailableUbuntu2204Distros = []Distro{
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuContainerd2204TLGen2,
-	AKSUbuntuEdgeZoneContainerd2204,
-	AKSUbuntuEdgeZoneContainerd2204Gen2,
 	AKSUbuntuMinimalContainerd2204,
 	AKSUbuntuMinimalContainerd2204Gen2,
 	AKSUbuntuFipsContainerd2204,
@@ -131,8 +125,6 @@ var AvailableContainerdDistros = []Distro{
 	AKSUbuntuFipsContainerd2004Gen2,
 	AKSUbuntuFipsContainerd2204,
 	AKSUbuntuFipsContainerd2204Gen2,
-	AKSUbuntuEdgeZoneContainerd1804,
-	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSAzureLinuxV2,
@@ -155,8 +147,6 @@ var AvailableContainerdDistros = []Distro{
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuContainerd2204TLGen2,
-	AKSUbuntuEdgeZoneContainerd2204,
-	AKSUbuntuEdgeZoneContainerd2204Gen2,
 	AKSUbuntuMinimalContainerd2204,
 	AKSUbuntuMinimalContainerd2204Gen2,
 	AKSUbuntuContainerd2404,
@@ -180,13 +170,11 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuFipsContainerd1804Gen2,
 	AKSUbuntuFipsContainerd2004Gen2,
 	AKSUbuntuFipsContainerd2204Gen2,
-	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuContainerd2204TLGen2,
-	AKSUbuntuEdgeZoneContainerd2204Gen2,
 	AKSUbuntuMinimalContainerd2204Gen2,
 	AKSUbuntuContainerd2404Gen2,
 	AKSCBLMarinerV2Gen2,
@@ -332,17 +320,15 @@ var AvailableWindowsPIRDistros = []Distro{
 
 // SIG const.
 const (
-	AKSSIGImagePublisher           string = "microsoft-aks"
-	AKSWindowsGalleryName          string = "AKSWindows"
-	AKSWindowsResourceGroup        string = "AKS-Windows"
-	AKSUbuntuGalleryName           string = "AKSUbuntu"
-	AKSUbuntuResourceGroup         string = "AKS-Ubuntu"
-	AKSCBLMarinerGalleryName       string = "AKSCBLMariner"
-	AKSCBLMarinerResourceGroup     string = "AKS-CBLMariner"
-	AKSAzureLinuxGalleryName       string = "AKSAzureLinux"
-	AKSAzureLinuxResourceGroup     string = "AKS-AzureLinux"
-	AKSUbuntuEdgeZoneGalleryName   string = "AKSUbuntuEdgeZone"
-	AKSUbuntuEdgeZoneResourceGroup string = "AKS-Ubuntu-EdgeZone"
+	AKSSIGImagePublisher       string = "microsoft-aks"
+	AKSWindowsGalleryName      string = "AKSWindows"
+	AKSWindowsResourceGroup    string = "AKS-Windows"
+	AKSUbuntuGalleryName       string = "AKSUbuntu"
+	AKSUbuntuResourceGroup     string = "AKS-Ubuntu"
+	AKSCBLMarinerGalleryName   string = "AKSCBLMariner"
+	AKSCBLMarinerResourceGroup string = "AKS-CBLMariner"
+	AKSAzureLinuxGalleryName   string = "AKSAzureLinux"
+	AKSAzureLinuxResourceGroup string = "AKS-AzureLinux"
 )
 
 const (
@@ -810,47 +796,6 @@ func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 	}
 }
 
-func getSigUbuntuEdgeZoneImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
-	// This image is using a specific resource group and gallery name for edge zone scenario.
-	sigUbuntuEdgeZoneContainerd1804ImageConfigTemplate := SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
-		Gallery:       AKSUbuntuEdgeZoneGalleryName,
-		Definition:    "1804containerd",
-		Version:       LinuxSIGImageVersion,
-	}
-
-	// This image is using a specific resource group and gallery name for edge zone scenario.
-	sigUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate := SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
-		Gallery:       AKSUbuntuEdgeZoneGalleryName,
-		Definition:    "1804gen2containerd",
-		Version:       LinuxSIGImageVersion,
-	}
-
-	// This image is using a specific resource group and gallery name for edge zone scenario.
-	sigUbuntuEdgeZoneContainerd2204ImageConfigTemplate := SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
-		Gallery:       AKSUbuntuEdgeZoneGalleryName,
-		Definition:    "2204containerd",
-		Version:       LinuxSIGImageVersion,
-	}
-
-	// This image is using a specific resource group and gallery name for edge zone scenario.
-	sigUbuntuEdgeZoneContainerd2204Gen2ImageConfigTemplate := SigImageConfigTemplate{
-		ResourceGroup: AKSUbuntuEdgeZoneResourceGroup,
-		Gallery:       AKSUbuntuEdgeZoneGalleryName,
-		Definition:    "2204gen2containerd",
-		Version:       LinuxSIGImageVersion,
-	}
-
-	return map[Distro]SigImageConfig{
-		AKSUbuntuEdgeZoneContainerd1804:     sigUbuntuEdgeZoneContainerd1804ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuEdgeZoneContainerd1804Gen2: sigUbuntuEdgeZoneContainerd1804Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuEdgeZoneContainerd2204:     sigUbuntuEdgeZoneContainerd2204ImageConfigTemplate.WithOptions(opts...),
-		AKSUbuntuEdgeZoneContainerd2204Gen2: sigUbuntuEdgeZoneContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
-	}
-}
-
 // GetSIGAzureCloudSpecConfig get cloud specific sig config.
 func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnvironmentSpecConfig, error) {
 	if sigConfig.Galleries == nil || strings.EqualFold(sigConfig.SubscriptionID, "") || strings.EqualFold(sigConfig.TenantID, "") {
@@ -886,8 +831,6 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 	}
 	c.SigWindowsImageConfig = getSigWindowsImageConfigMapWithOpts(fromACSWindows)
 
-	fromACSUbuntuEdgeZone := withEdgeZoneConfig(sigConfig)
-	c.SigUbuntuEdgeZoneImageConfig = getSigUbuntuEdgeZoneImageConfigMapWithOpts(fromACSUbuntuEdgeZone)
 	return *c, nil
 }
 
@@ -897,14 +840,13 @@ unit tests and e2es.
 */
 func GetAzurePublicSIGConfigForTest() SIGAzureEnvironmentSpecConfig {
 	return SIGAzureEnvironmentSpecConfig{
-		CloudName:                    AzurePublicCloud,
-		SigTenantID:                  AzurePublicCloudSigTenantID,
-		SubscriptionID:               AzurePublicCloudSigSubscription,
-		SigUbuntuImageConfig:         getSigUbuntuImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
-		SigCBLMarinerImageConfig:     getSigCBLMarinerImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
-		SigAzureLinuxImageConfig:     getSigAzureLinuxImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
-		SigWindowsImageConfig:        getSigWindowsImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
-		SigUbuntuEdgeZoneImageConfig: getSigUbuntuEdgeZoneImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
+		CloudName:                AzurePublicCloud,
+		SigTenantID:              AzurePublicCloudSigTenantID,
+		SubscriptionID:           AzurePublicCloudSigSubscription,
+		SigUbuntuImageConfig:     getSigUbuntuImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
+		SigCBLMarinerImageConfig: getSigCBLMarinerImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
+		SigAzureLinuxImageConfig: getSigAzureLinuxImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
+		SigWindowsImageConfig:    getSigWindowsImageConfigMapWithOpts(withSubscription(AzurePublicCloudSigSubscription)),
 	}
 }
 
@@ -918,14 +860,6 @@ func withACSSIGConfig(acsSigConfig SIGConfig, osSKU string) (SigImageConfigOpt, 
 		c.SubscriptionID = acsSigConfig.SubscriptionID
 		c.ResourceGroup = gallery.ResourceGroup
 	}, nil
-}
-
-func withEdgeZoneConfig(acsSigConfig SIGConfig) SigImageConfigOpt {
-	return func(c *SigImageConfig) {
-		c.Gallery = AKSUbuntuEdgeZoneGalleryName
-		c.SubscriptionID = acsSigConfig.SubscriptionID
-		c.ResourceGroup = AKSUbuntuEdgeZoneResourceGroup
-	}
 }
 
 //nolint:unparam //subscriptionID only receives AzurePublicCloudSigSubscription

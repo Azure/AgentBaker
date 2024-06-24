@@ -432,10 +432,6 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 					GalleryName:   "AKSWindows",
 					ResourceGroup: "AKS-Windows",
 				},
-				"AKSUbuntuEdgeZone": {
-					GalleryName:   "AKSUbuntuEdgeZone",
-					ResourceGroup: "AKS-Ubuntu-EdgeZone",
-				},
 			},
 		},
 		IsARM64:                   false,

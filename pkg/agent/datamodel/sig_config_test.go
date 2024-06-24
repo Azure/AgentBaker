@@ -28,10 +28,6 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 				GalleryName:   "AKSWindows",
 				ResourceGroup: "AKS-Windows",
 			},
-			"AKSUbuntuEdgeZone": SIGGalleryConfig{
-				GalleryName:   "AKSUbuntuEdgeZone",
-				ResourceGroup: "AKS-Ubuntu-EdgeZone",
-			},
 		}
 		config = SIGConfig{
 			TenantID:       "sometenantid",
@@ -156,32 +152,6 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntu2204TLGen2Containerd.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntu2204TLGen2Containerd.Definition).To(Equal("2204gen2TLcontainerd"))
 		Expect(aksUbuntu2204TLGen2Containerd.Version).To(Equal(LinuxSIGImageVersion))
-
-		Expect(len(sigConfig.SigUbuntuEdgeZoneImageConfig)).To(Equal(4))
-
-		aksUbuntuEdgeZoneContainerd1804 := sigConfig.SigUbuntuEdgeZoneImageConfig[AKSUbuntuEdgeZoneContainerd1804]
-		Expect(aksUbuntuEdgeZoneContainerd1804.ResourceGroup).To(Equal("AKS-Ubuntu-EdgeZone"))
-		Expect(aksUbuntuEdgeZoneContainerd1804.Gallery).To(Equal("AKSUbuntuEdgeZone"))
-		Expect(aksUbuntuEdgeZoneContainerd1804.Definition).To(Equal("1804containerd"))
-		Expect(aksUbuntuEdgeZoneContainerd1804.Version).To(Equal(LinuxSIGImageVersion))
-
-		aksUbuntuEdgeZoneContainerd1804Gen2 := sigConfig.SigUbuntuEdgeZoneImageConfig[AKSUbuntuEdgeZoneContainerd1804Gen2]
-		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.ResourceGroup).To(Equal("AKS-Ubuntu-EdgeZone"))
-		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.Gallery).To(Equal("AKSUbuntuEdgeZone"))
-		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.Definition).To(Equal("1804gen2containerd"))
-		Expect(aksUbuntuEdgeZoneContainerd1804Gen2.Version).To(Equal(LinuxSIGImageVersion))
-
-		aksUbuntuEdgeZoneContainerd2204 := sigConfig.SigUbuntuEdgeZoneImageConfig[AKSUbuntuEdgeZoneContainerd2204]
-		Expect(aksUbuntuEdgeZoneContainerd2204.ResourceGroup).To(Equal("AKS-Ubuntu-EdgeZone"))
-		Expect(aksUbuntuEdgeZoneContainerd2204.Gallery).To(Equal("AKSUbuntuEdgeZone"))
-		Expect(aksUbuntuEdgeZoneContainerd2204.Definition).To(Equal("2204containerd"))
-		Expect(aksUbuntuEdgeZoneContainerd2204.Version).To(Equal(LinuxSIGImageVersion))
-
-		aksUbuntuEdgeZoneContainerd2204Gen2 := sigConfig.SigUbuntuEdgeZoneImageConfig[AKSUbuntuEdgeZoneContainerd2204Gen2]
-		Expect(aksUbuntuEdgeZoneContainerd2204Gen2.ResourceGroup).To(Equal("AKS-Ubuntu-EdgeZone"))
-		Expect(aksUbuntuEdgeZoneContainerd2204Gen2.Gallery).To(Equal("AKSUbuntuEdgeZone"))
-		Expect(aksUbuntuEdgeZoneContainerd2204Gen2.Definition).To(Equal("2204gen2containerd"))
-		Expect(aksUbuntuEdgeZoneContainerd2204Gen2.Version).To(Equal(LinuxSIGImageVersion))
 
 		marinerV2Gen2TL := sigConfig.SigCBLMarinerImageConfig[AKSCBLMarinerV2Gen2TL]
 		Expect(marinerV2Gen2TL.ResourceGroup).To(Equal("resourcegroup"))
