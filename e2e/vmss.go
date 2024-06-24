@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -68,17 +69,17 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 
 	isAzureCNI, err := opts.clusterConfig.isAzureCNI()
 	if err != nil {
-		return nil, fmt.Errorf("failed to determine whether chosen cluster uses Azure CNI from cluster model: %w", err)
+		return nil, fmt.Errorf("determine whether chosen cluster uses Azure CNI from cluster model: %w", err)
 	}
 
 	if isAzureCNI {
 		if err := addPodIPConfigsForAzureCNI(&model, vmssName, opts); err != nil {
-			return nil, fmt.Errorf("failed to create pod IP configs for azure CNI scenario: %w", err)
+			return nil, fmt.Errorf("create pod IP configs for azure CNI scenario: %w", err)
 		}
 	}
 
 	if err := opts.scenario.PrepareVMSSModel(&model); err != nil {
-		return nil, fmt.Errorf("unable to prepare model for VMSS %q: %w", vmssName, err)
+		return nil, fmt.Errorf(" prepare model for VMSS %q: %w", vmssName, err)
 	}
 
 	var pollErr error
@@ -105,11 +106,13 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 
 		if pollErr == nil {
 			return &vmssResp.VirtualMachineScaleSet, nil
-		} else {
-			log.Printf("failed to create VMSS. Retry attempts left: %d", maxRetries-(i+1))
 		}
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			return nil, fmt.Errorf("create VMSS %q: %w", vmssName, pollErr)
+		}
+		log.Printf("failed to create VMSS. Retry attempts left: %d", maxRetries-(i+1))
 	}
-	return nil, fmt.Errorf("unable to create VMSS %q: %w", vmssName, pollErr)
+	return nil, fmt.Errorf("create VMSS %q: %w", vmssName, pollErr)
 }
 
 // Adds additional IP configs to the passed in vmss model based on the chosen cluster's setting of "maxPodsPerNode",
