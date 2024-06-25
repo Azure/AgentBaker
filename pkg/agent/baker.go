@@ -356,10 +356,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
 		},
 		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile) string {
-			return profile.GetKubernetesLabels()
+			return getAgentKubernetesLabels(profile, config)
 		},
 		"GetAgentKubernetesLabelsDeprecated": func(profile *datamodel.AgentPoolProfile) string {
-			return profile.GetKubernetesLabels()
+			return getAgentKubernetesLabels(profile, config)
 		},
 		"GetGPUInstanceProfile": func() string {
 			return config.GPUInstanceProfile
@@ -383,6 +383,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"EnableSecureTLSBootstrapping": func() bool {
 			// this will be true when we can perform TLS bootstrapping without the use of a hard-coded bootstrap token.
 			return config.EnableSecureTLSBootstrapping
+		},
+		"EnableKubeletServingCertificateRotation": func() bool {
+			return IsKubeletServingCertificateRotationEnabled(config)
 		},
 		"GetCustomSecureTLSBootstrapAADServerAppID": func() string {
 			return config.CustomSecureTLSBootstrapAADServerAppID
