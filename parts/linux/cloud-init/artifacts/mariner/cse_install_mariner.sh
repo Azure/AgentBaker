@@ -30,6 +30,8 @@ installKataDeps() {
       if ! dnf_install 30 1 600 kata-packages-host; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
+
+      systemctl enable tardev-snapshotter.service || exit 1
     fi
 }
 
