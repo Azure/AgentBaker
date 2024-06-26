@@ -241,7 +241,7 @@ windows_private_packages_url=""
 # test pipelines may not set it
 msi_resource_strings=()
 if [ -n "${AZURE_MSI_RESOURCE_STRING}" ]; then
-	msi_resource_strings+=(${AZURE_MSI_RESOURCE_STRING})
+	msi_resource_strings+=(${AZURE_MSI_RESOURCE_ID})
 fi
 
 # shellcheck disable=SC2236
