@@ -6,7 +6,6 @@ jobs:
     displayName: Run AgentBaker E2E
     variables:
       - group: ab-e2e
-      - group: "AKS Dev Assistant (KV)"
     steps:
       - bash: |
           az login --identity
