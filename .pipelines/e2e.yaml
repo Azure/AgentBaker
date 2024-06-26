@@ -1,7 +1,5 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
 trigger: none
-variables:
-  VHD_BUILD_ID: ''
 pr:
   branches:
     include:

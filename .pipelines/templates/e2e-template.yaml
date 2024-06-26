@@ -1,7 +1,9 @@
 jobs:
-  - job: Run_AgentBaker_E2E
-    pool: nodesigtest-pool
-    timeoutInMinutes: ${{ parameters.timeout }}
+  - job: E2E_Tests
+    pool:
+      name: nodesigtest-pool
+    timeoutInMinutes: 90
+    displayName: Run AgentBaker E2E
     variables:
       - group: ab-e2e
       - group: "AKS Dev Assistant (KV)"
@@ -17,7 +19,7 @@ jobs:
           go version
           
           echo "VHD_BUILD_ID=$VHD_BUILD_ID"
-    
+          
           if [ -n "${VHD_BUILD_ID}" ]; then
             export SIG_VERSION_TAG_NAME=buildId
             export SIG_VERSION_TAG_VALUE=$VHD_BUILD_ID
@@ -25,10 +27,12 @@ jobs:
           else
             echo "Build.BuildId is not specified. Running default e2e tests."
           fi
-    
+          
           cd e2e
-          go test -parallel ${{ variables.parallel}} -timeout 90m -v -run Test_All ./
+          go test -parallel 100 -timeout 90m -v -run Test_All ./
         displayName: Run AgentBaker E2E
+        env:
+          VHD_BUILD_ID: $(VHD_BUILD_ID)
       - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
         artifact: scenario-logs
         condition: always()

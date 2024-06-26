@@ -1069,7 +1069,7 @@ stages:
             parameters:
               artifactName: 2204-minimal-gen2-containerd
   - stage: Run_E2E_Tests
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
     jobs:
       - template: ./templates/e2e-template.yaml
-        env:
-          VHD_BUILD_ID: $(Build.BuildId)
