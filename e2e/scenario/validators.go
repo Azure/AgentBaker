@@ -224,7 +224,7 @@ func containerdVersionValidator(version string) *LiveVMValidator {
 			}
 
 			if !strings.Contains(stdout, version) {
-				return fmt.Errorf(fmt.Sprintf("expected to find containerd version %s, but was not", version))
+				return fmt.Errorf(fmt.Sprintf("expected to find containerd version %s, got: %s", version, stdout))
 			}
 			return nil
 		},
