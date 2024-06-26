@@ -11,7 +11,6 @@ pr:
     - vhdbuilder/scripts/linux
     - .pipelines/.vsts-vhd-builder.yaml
     - .pipelines/templates/.builder-release-template.yaml
-    - .pipelines/templates/e2e-template.yaml
     - parts/linux/cloud-init/artifacts/manifest.json
     - parts/linux/cloud-init/artifacts/components.json
     - parts/linux/cloud-init/artifacts/cse_install.sh
