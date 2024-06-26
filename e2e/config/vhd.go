@@ -46,7 +46,7 @@ func newVHDResourceIDFetcher(image string) func() (VHDResourceID, error) {
 		once.Do(func() {
 			resourceID, err = findLatestImageWithTag(image, SIGVersionTagName, SIGVersionTagValue)
 			if err != nil {
-				err = fmt.Errorf("img: %s, tag %s=%s", image, SIGVersionTagName, SIGVersionTagValue)
+				err = fmt.Errorf("img: %s, tag %s=%s: %w", image, SIGVersionTagName, SIGVersionTagValue, err)
 				log.Printf("failed to find the latest image %s", err)
 			} else {
 				log.Printf("Resource ID for %s: %s", image, resourceID)
