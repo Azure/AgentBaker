@@ -7,7 +7,7 @@ import (
 
 func marinerv2AirGap() *Scenario {
 	return &Scenario{
-		Name:        "marinerv2",
+		Name:        "marinerv2-airgap",
 		Description: "Tests that a node using a MarinerV2 VHD can be properly bootstrapped",
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
