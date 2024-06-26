@@ -56,7 +56,7 @@
         "image_sku": "{{user `img_sku`}}",
         "branch": "{{user `branch`}}"
       },
-      "location": "{{user `location`}}",
+      "build_resource_group_name": "{{user `build_resource_group_name`}}",
       "vm_size": "{{user `vm_size`}}",
       "polling_duration_timeout": "1h",
       "shared_image_gallery_destination": {
