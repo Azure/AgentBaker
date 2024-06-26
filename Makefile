@@ -28,7 +28,7 @@ endif
 
 DEV_ENV_WORK_DIR := /baker
 DEV_ENV_OPTS := --rm -v $(GOPATH)/pkg/mod:/go/pkg/mod -v $(CURDIR):$(DEV_ENV_WORK_DIR) -w $(DEV_ENV_WORK_DIR) $(DEV_ENV_VARS)
-DEV_ENV_CMD := docker run $(DEV_ENV_OPTS) $(DEV_ENV_IMAGE)
+DEV_ENV_CMD := docker run $(DEV_ENV_OPTS)
 DEV_ENV_CMD_IT := docker run -it $(DEV_ENV_OPTS)
 DEV_CMD_RUN := docker run $(DEV_ENV_OPTS)
 ifdef DEBUG
