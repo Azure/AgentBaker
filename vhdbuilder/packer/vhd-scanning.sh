@@ -34,7 +34,7 @@ set -x
 
 
 RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
-az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
+az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_LOCATION} --tags 'source=AgentBaker'
 
 # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
 if [ "$OS_VERSION" == "18.04" ]; then
