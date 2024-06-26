@@ -4,27 +4,11 @@ import (
 	"fmt"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 )
-
-// Template represents a 'scenario template' which contains common config used
-// across all scenarios, such as the VHD catalog for selecting VHDs.
-type Template struct {
-	VHDCatalog
-}
-
-// NewTemplate constructs a new template using the base VHD catalog.
-func NewTemplate() *Template {
-	return &Template{
-		VHDCatalog: BaseVHDCatalog,
-	}
-}
-
-// Table represents a set of mappings from scenario name -> Scenario to
-// be run as a part of the test suite
-type Table map[string]*Scenario
 
 // Scenario represents an AgentBaker E2E scenario
 type Scenario struct {
@@ -48,8 +32,8 @@ type Config struct {
 	// cluster which is capable of running the scenario
 	ClusterMutator func(*armcontainerservice.ManagedCluster)
 
-	// VHDSelector is the function called by the e2e suite on the given scenario to get its VHD selection
-	VHDSelector func() VHD
+	// VHD is the function called by the e2e suite on the given scenario to get its VHD selection
+	VHDSelector func() (config.VHDResourceID, error)
 
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
@@ -98,9 +82,14 @@ func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBoot
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(vmss *armcompute.VirtualMachineScaleSet) error {
-	if s.VHDSelector == nil {
-		return fmt.Errorf("VHD selector configured for scenario %q is nil", s.Name)
+	resourceID, err := s.VHDSelector()
+	if err != nil {
+		return fmt.Errorf("unable to prepare VMSS model for scenario %q: %w", s.Name, err)
 	}
+	if resourceID == "" {
+		return fmt.Errorf("unable to prepare VMSS model for scenario %q: VHDSelector.ResourceID is empty", s.Name)
+	}
+
 	if vmss == nil || vmss.Properties == nil {
 		return fmt.Errorf("unable to prepare VMSS model for scenario %q: input VirtualMachineScaleSet or properties are nil", s.Name)
 	}
@@ -116,7 +105,7 @@ func (s *Scenario) PrepareVMSSModel(vmss *armcompute.VirtualMachineScaleSet) err
 		vmss.Properties.VirtualMachineProfile.StorageProfile = &armcompute.VirtualMachineScaleSetStorageProfile{}
 	}
 	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-		ID: to.Ptr(string(s.VHDSelector().ResourceID)),
+		ID: to.Ptr(string(resourceID)),
 	}
 
 	return nil

@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-GOLANG_VERSION="go1.19.7"
+GOLANG_VERSION="go1.22.4"
 echo "Downloading ${GOLANG_VERSION}"
 curl -O "https://dl.google.com/go/${GOLANG_VERSION}.linux-amd64.tar.gz"
 
