@@ -1,5 +1,7 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
 trigger: none
+variables:
+  VHD_BUILD_ID: ''
 pr:
   branches:
     include:
@@ -19,5 +21,3 @@ pr:
       - pkg/agent/testdata/AKSWindows* # Windows test data
 jobs:
   - template: ./templates/e2e-template.yaml
-    parameters:
-      vhdBuildId: $(VHD_BUILD_ID)

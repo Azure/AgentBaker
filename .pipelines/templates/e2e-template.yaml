@@ -1,11 +1,3 @@
-parameters:
-  - name: timeout
-    default: 90
-  - name: vhdBuildId
-    default: ''
-  - name: parallel
-    default: 100
-
 jobs:
   - job: Run_AgentBaker_E2E
     pool: nodesigtest-pool
@@ -27,20 +19,16 @@ jobs:
           echo "VHD_BUILD_ID=$VHD_BUILD_ID"
     
           if [ -n "${VHD_BUILD_ID}" ]; then
-          export SIG_VERSION_TAG_NAME=buildId
-          export SIG_VERSION_TAG_VALUE=$VHD_BUILD_ID
-          export IGNORE_SCENARIOS_WITH_MISSING_VHD=true
-          
-          # You can add other commands here that you want to execute
+            export SIG_VERSION_TAG_NAME=buildId
+            export SIG_VERSION_TAG_VALUE=$VHD_BUILD_ID
+            export IGNORE_SCENARIOS_WITH_MISSING_VHD=true
           else
-          echo "Build.BuildId is not specified. Running default e2e tests."
+            echo "Build.BuildId is not specified. Running default e2e tests."
           fi
     
           cd e2e
-          go test -parallel ${{ variables.parallel}} -timeout ${{ variables.timeout }}m -v -run Test_All ./
+          go test -parallel ${{ variables.parallel}} -timeout 90m -v -run Test_All ./
         displayName: Run AgentBaker E2E
-        env:
-          VHD_BUILD_ID: ${{ parameters.vhdBuildId }}
       - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
         artifact: scenario-logs
         condition: always()

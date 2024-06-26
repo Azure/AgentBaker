@@ -1071,5 +1071,5 @@ stages:
   - stage: Run_E2E_Tests
     jobs:
       - template: ./templates/e2e-template.yaml
-        parameters:
-          vhdBuildId: $(Build.BuildId)
+        env:
+          VHD_BUILD_ID: $(Build.BuildId)
