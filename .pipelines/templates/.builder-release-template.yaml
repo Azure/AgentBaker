@@ -182,6 +182,13 @@ steps:
       Contents: 'trivy-images-table.txt'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
     displayName: Copy trivy table
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: agentbaker-vuln-to-kusto
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        az account show
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
