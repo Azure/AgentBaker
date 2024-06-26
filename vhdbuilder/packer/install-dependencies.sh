@@ -278,6 +278,9 @@ cliTool="ctr"
 
 # also pre-download Teleportd plugin for containerd
 downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
+
+INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
+echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 stop_watch $capture_time "Artifact Streaming, Download Containerd Plugins" false
 start_watch
 
@@ -399,8 +402,32 @@ unpackAzureCNI() {
   echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
 }
 
+#must be both amd64/arm64 images
+VNET_CNI_VERSIONS="
+1.4.54
+1.5.28
+"
 
 
+for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
+    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
+    downloadAzureCNI
+    unpackAzureCNI $VNET_CNI_PLUGINS_URL
+    echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
+
+# After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
+MULTI_ARCH_CNI_PLUGIN_VERSIONS="
+1.4.1
+"
+CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
+
+for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
+    CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-${CPU_ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
+    downloadCNI
+    unpackAzureCNI $CNI_PLUGINS_URL
+    echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner v2
 if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) ]]; then

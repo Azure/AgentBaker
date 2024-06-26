@@ -20,11 +20,8 @@ CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1 v0.8.0"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
-COMPONENTS_FILEPATH="/opt/azure/components.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 CURL_OUTPUT=/tmp/curl_verbose.out
-UBUNTU_OS_NAME="UBUNTU"
-MARINER_OS_NAME="MARINER"
 
 removeManDbAutoUpdateFlagFile() {
     rm -f $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
@@ -39,7 +36,7 @@ cleanupContainerdDlFiles() {
 }
 
 installContainerRuntime() {
-    if [[ "${NEEDS_CONTAINERD}" == "true" ]]; then
+    if [ "${NEEDS_CONTAINERD}" == "true" ]; then
         echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
         if [[ ! -f "$COMPONENTS_FILEPATH" ]]; then
             echo "WARNING: $COMPONENTS_FILEPATH not found. Skipping validation."
@@ -91,11 +88,9 @@ installNetworkPlugin() {
 }
 
 downloadCNI() {
-    downloadDir=${1:-${CNI_DOWNLOADS_DIR}}
-    mkdir -p $downloadDir
-    CNI_PLUGINS_URL=${2:-$CNI_PLUGINS_URL}
-    cniTgzTmp=${CNI_PLUGINS_URL##*/}
-    retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+    mkdir -p $CNI_DOWNLOADS_DIR
+    CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
 downloadCredentalProvider() {
@@ -162,16 +157,6 @@ downloadContainerdWasmShims() {
     done
 }
 
-evalPackageDownloadURL() {
-    local url=${1:-}
-    if [[ -n "$url" ]]; then
-         eval "result=${url}"
-         echo $result
-         return
-    fi
-    echo ""
-}
-
 downloadAzureCNI() {
     mkdir -p ${1-$:CNI_DOWNLOADS_DIR}
     VNET_CNI_PLUGINS_URL=${2:-$VNET_CNI_PLUGINS_URL}
@@ -180,12 +165,12 @@ downloadAzureCNI() {
 }
 
 downloadCrictl() {
-    #if $1 is empty, take ${CRICTL_DOWNLOAD_DIR} as default value. Otherwise take $1 as the value
-    downloadDir=${1:-${CRICTL_DOWNLOAD_DIR}}
-    mkdir -p $downloadDir
-    url=${2}
-    crictlTgzTmp=${url##*/}
-    retrycmd_curl_file 10 5 60 "$downloadDir/${crictlTgzTmp}" ${url} || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
+    CRICTL_VERSION=$1
+    CPU_ARCH=$(getCPUArch)
+    mkdir -p $CRICTL_DOWNLOAD_DIR
+    CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
+    CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
+    retrycmd_curl_file 10 5 60 "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ${CRICTL_DOWNLOAD_URL}
 }
 
 installCrictl() {
