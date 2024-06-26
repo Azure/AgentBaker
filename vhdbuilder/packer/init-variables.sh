@@ -19,17 +19,19 @@ if [ -z "${POOL_NAME}" ]; then
 	exit 1
 fi
 
+[ -z "$PACKER_LOCATION" ] && echo "PACKER_LOCATION must be set to properly initialize packer vars" && exit 1
+
+env="test"
+if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
+	env="prod"
+fi
+
 if [ -z "${VNET_RG_NAME}" ]; then
-	VNET_RG_NAME=""
-	if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
-		VNET_RG_NAME="nodesigprod-agent-pool"
-	else
-		VNET_RG_NAME="nodesigtest-agent-pool"
-	fi
+	VNET_RG_NAME="nodesig-${env}-${PACKER_LOCATION}-agent-pool"
 fi
 
 if [ -z "${VNET_NAME}" ]; then
-	VNET_NAME="nodesig-pool-vnet"
+	VNET_NAME="nodesig-${env}-pool-${PACKER_LOCATION}"
 fi
 
 if [ -z "${SUBNET_NAME}" ]; then
