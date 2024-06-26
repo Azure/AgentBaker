@@ -1,6 +1,5 @@
 #!/bin/bash
 COMPONENTS_FILEPATH=/opt/azure/components.json
-KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 
@@ -14,8 +13,8 @@ IMG_SKU="$6"
 
 # List of "ERROR/WARNING" message we want to ignore in the cloud-init.log
 # 1. "Command ['hostname', '-f']":
-#   Running hostname -f will fail on current AzureLinux AKS image. We don't not have active plan to resolve 
-#   this for stable version and there is no customer issues collected. Ignore this failure now. 
+#   Running hostname -f will fail on current AzureLinux AKS image. We don't not have active plan to resolve
+#   this for stable version and there is no customer issues collected. Ignore this failure now.
 CLOUD_INIT_LOG_MSG_IGNORE_LIST=(
   "Command ['hostname', '-f']"
 )
@@ -309,13 +308,13 @@ testCloudInit() {
   echo "$test:Start"
   os_sku=$1
 
-  # Limit this test only to Mariner or Azurelinux 
+  # Limit this test only to Mariner or Azurelinux
   if [[ "${os_sku}" == "CBLMariner" || "${os_sku}" == "AzureLinux" ]]; then
     echo "Checking if cloud-init.log exists..."
     FILE=/var/log/cloud-init.log
     if test -f "$FILE"; then
       echo "Cloud-init log exists. Checking its content..."
-      grep 'WARNING\|ERROR' $FILE | while read -r msg; do 
+      grep 'WARNING\|ERROR' $FILE | while read -r msg; do
         for pattern in "${CLOUD_INIT_LOG_MSG_IGNORE_LIST[@]}"; do
             if [[ "$msg" == *"$pattern"* ]]; then
                 echo "Ignoring WARNING/ERROR message from ignore list; '${msg}'"
@@ -387,21 +386,6 @@ testKubeBinariesPresent() {
       err $test "The kubelet version is not correct: expected kubelet version $k8sVersion existing: $kubeletLongVersion"
     fi
   done
-  echo "$test:Finish"
-}
-
-testKubeProxyImagesPulled() {
-  test="testKubeProxyImagesPulled"
-  echo "$test:Start"
-  containerRuntime=$1
-  containerdKubeProxyImages=$(jq .containerdKubeProxyImages <${KUBE_PROXY_IMAGES_FILEPATH})
-
-  if [ $containerRuntime == 'containerd' ]; then
-    testImagesPulled containerd "$containerdKubeProxyImages"
-  else
-    err $test "unsupported container runtime $containerRuntime"
-    return
-  fi
   echo "$test:Finish"
 }
 
@@ -869,7 +853,7 @@ testPam() {
     # deactivate the virtual environment
     deactivate
     popd || (err ${test} "Failed to cd out of test dir"; return 1)
-    
+
     if [ $retval -ne 0 ]; then
       err ${test} "$output"
       err ${test} "PAM configuration is not functional"
@@ -956,7 +940,6 @@ testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS
 testCloudInit $OS_SKU
 testKubeBinariesPresent $CONTAINER_RUNTIME
-testKubeProxyImagesPulled $CONTAINER_RUNTIME
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
 # which means the test failures haven't been caught. It also calles exit 1 on a failure,
 # which means the rest of the tests aren't being run.
