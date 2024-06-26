@@ -31,7 +31,7 @@ if [ -z "${VNET_RG_NAME}" ]; then
 fi
 
 if [ -z "${VNET_NAME}" ]; then
-	VNET_NAME="nodesig-${env}-pool-${PACKER_LOCATION}"
+	VNET_NAME="nodesig-pool-vnet-${PACKER_LOCATION}"
 fi
 
 if [ -z "${SUBNET_NAME}" ]; then
