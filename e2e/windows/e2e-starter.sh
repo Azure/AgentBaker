@@ -101,7 +101,7 @@ export KUBECONFIG
 # Store the contents of az aks show to a file to reduce API call overhead
 az aks show -n $AZURE_E2E_CLUSTER_NAME -g $E2E_RESOURCE_GROUP_NAME -ojson > cluster_info.json
 
-E2E_MC_RESOURCE_GROUP_NAME="MC_${E2E_RESOURCE_GROUP_NAME}_${AZURE_E2E_CLUSTER_NAME}_eastus"
+E2E_MC_RESOURCE_GROUP_NAME="MC_${E2E_RESOURCE_GROUP_NAME}_${AZURE_E2E_CLUSTER_NAME}_${AZURE_E2E_LOCATION}"
 az vmss list -g $E2E_MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -otable
 MC_VMSS_NAME=$(az vmss list -g $E2E_MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
 CLUSTER_ID=$(echo $MC_VMSS_NAME | cut -d '-' -f3)
