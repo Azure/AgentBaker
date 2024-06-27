@@ -34,7 +34,7 @@ fi
 # and subsequently the region in which the 1ES pool the build is running on is in.
 # Note that this variable is ONLY used for linux builds, windows builds simply use AZURE_LOCATION.
 if [ "$MODE" == "linuxVhdMode" ] && [ -z "${PACKER_BUILD_LOCATION}" ]; then
-	echo "PACKER_BUILD_LOCATION is not set, can't compute VNET_RG_NAME for packer templates"
+	echo "PACKER_BUILD_LOCATION is not set, cannot compute VNET_RG_NAME for packer templates"
 	exit 1
 fi
 
@@ -42,7 +42,7 @@ fi
 # Used to construct the name of the resource group in which the 1ES pool the build is running on lives in, which also happens.
 # to be the resource group in which the packer VNET lives in.
 if [ "$MODE" == "linuxVhdMode" ] && [ -z "${ENVIRONMENT}" ]; then
-	echo "ENVIRONMENT is not set, can't compute VNET_RG_NAME or VNET_NAME for packer templates"
+	echo "ENVIRONMENT is not set, cannot compute VNET_RG_NAME or VNET_NAME for packer templates"
 	exit 1
 fi
 
