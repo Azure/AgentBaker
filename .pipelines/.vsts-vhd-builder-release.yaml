@@ -162,7 +162,7 @@ variables:
 
 pool:
   name: $(POOL_NAME)
-  
+
 stages:
   - stage: build_vhd_1804_containerd
     dependsOn: []

@@ -30,6 +30,8 @@ if [ "$MODE" == "windowsVhdMode" ] && [ -z "${POOL_NAME}" ]; then
 	exit 1
 fi
 
+echo "POOL_NAME is set to $POOL_NAME"
+
 # This variable is used within linux builds to inform which region that packer build itself will be running,
 # and subsequently the region in which the 1ES pool the build is running on is in.
 # Note that this variable is ONLY used for linux builds, windows builds simply use AZURE_LOCATION.
