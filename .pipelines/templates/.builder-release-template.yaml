@@ -4,17 +4,6 @@ parameters:
       default: 1604
 
 steps:
-  - task: AzureCLI@2
-    inputs:
-      azureSubscription: agentbaker-vuln-to-kusto
-      scriptType: 'bash'
-      scriptLocation: 'inlineScript'
-      inlineScript: |
-        export AZCOPY_AUTO_LOGIN_TYPE=AZCLI
-        azcopy copy https://vulntokustobinary.blob.core.windows.net/vuln-to-kusto/v0.0.1-82bef783fe82359/vuln-to-kusto-vhd_Linux_x86_64 ./vuln-to-kusto
-        chmod +x vuln-to-kusto
-        ./vuln-to-kusto --version
-    displayName: 'vuln-to-kusto'
   - bash: |
         m="linuxVhdMode" && \
         echo "Set build mode to $m" && \
@@ -179,6 +168,19 @@ steps:
         IS_NOT_1804=$( [[ "${OS_VERSION}" != "18.04" ]] && echo true || echo false ) && \
         echo "##vso[task.setvariable variable=IS_NOT_1804]${IS_NOT_1804}"
     displayName: 'Check if OS version is not 18.04'
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: agentbaker-vuln-to-kusto
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        export AZCOPY_AUTO_LOGIN_TYPE=AZCLI
+        azcopy copy https://vulntokustobinary.blob.core.windows.net/vuln-to-kusto/v0.0.1-82bef783fe82359/vuln-to-kusto-vhd_Linux_x86_64 ./vuln-to-kusto
+        chmod +x vuln-to-kusto
+        ./vuln-to-kusto \
+          scan-report trivy-report.json \
+          --kusto-log-to-stdout
+    displayName: Publish vuln-to-kusto logs
   - task: CopyFiles@2
     condition: eq(variables['IS_NOT_1804'], 'true')
     inputs:
