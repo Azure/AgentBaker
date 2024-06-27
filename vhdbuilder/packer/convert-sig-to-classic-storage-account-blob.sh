@@ -5,7 +5,6 @@ required_env_vars=(
     "SUBSCRIPTION_ID"
     "RESOURCE_GROUP_NAME"
     "CAPTURED_SIG_VERSION"
-    "PACKER_LOCATION"
     "OS_TYPE"
     "SIG_IMAGE_NAME"
 )
@@ -17,6 +16,21 @@ do
         exit 1
     fi
 done
+
+if [ "${OS_TYPE,,}" == "windows" ]; then
+  if [ -z "$LOCATION" ]; then
+    echo "LOCATION must be set for windows builds"
+    exit 1
+  fi
+fi
+
+if [ "${OS_TYPE,,}" == "linux" ]; then
+  if [ -z "$PACKER_BUILD_LOCATION" ]; then
+    echo "PACKER_BUILD_LOCATION must be set for linux builds"
+    exit 1
+  fi
+  LOCATION=$PACKER_BUILD_LOCATION
+fi
 
 # Default to this hard-coded value for Linux does not pass this environment variable into here
 if [[ -z "$SIG_GALLERY_NAME" ]]; then
@@ -36,7 +50,7 @@ disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GR
 
 echo "Converting $sig_resource_id to $disk_resource_id"
 if [[ ${OS_TYPE} == "Linux" && ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
-  az resource create --id $disk_resource_id  --is-full-object --location $PACKER_LOCATION --properties "{\"location\": \"$PACKER_LOCATION\", \
+  az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
       \"securityProfile\": { \
@@ -51,7 +65,7 @@ if [[ ${OS_TYPE} == "Linux" && ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
     } \
   }"
 else
-  az resource create --id $disk_resource_id  --is-full-object --location $PACKER_LOCATION --properties "{\"location\": \"$PACKER_LOCATION\", \
+  az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
       \"creationData\": { \

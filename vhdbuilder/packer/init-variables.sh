@@ -7,6 +7,17 @@ SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr 
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 
+# Hard-code RG/gallery location to 'eastus' only for linux builds.
+if [ "$MODE" == "linuxVhdMode" ]; then
+	# In linux builds, this variable is only used for creating the resource group holding the
+	# staging "PackerSigGalleryEastUS" SIG, as well as the gallery itself. It's also used
+	# for creating any image definitions that might be missing from the gallery based on the particular
+	# SKU being built.
+	#
+	# For windows, this variable is also used for creating resources to import base images
+	AZURE_LOCATION="eastus"
+fi
+
 # We use the provided SIG_IMAGE_VERSION if it's instantiated and we're running linuxVhdMode, otherwise we randomly generate one
 if [[ "${MODE}" == "linuxVhdMode" ]] && [[ -n "${SIG_IMAGE_VERSION}" ]]; then
 	CAPTURED_SIG_VERSION=${SIG_IMAGE_VERSION}
@@ -19,19 +30,42 @@ if [ -z "${POOL_NAME}" ]; then
 	exit 1
 fi
 
-[ -z "$PACKER_LOCATION" ] && echo "PACKER_LOCATION must be set to properly initialize packer vars" && exit 1
+# This variable is used within linux builds to inform which region that packer build itself will be running,
+# and subsequently the region in which the 1ES pool the build is running on is in.
+# Note that this variable is ONLY used for linux builds, windows builds simply use AZURE_LOCATION.
+if [ -z "${PACKER_BUILD_LOCATION}" ]; then
+	echo "PACKER_BUILD_LOCATION is not set, can't compute VNET_RG_NAME for packer templates"
+	exit 1
+fi
 
-env="test"
-if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
-	env="prod"
+# Currently only used for linux builds. This determines the environment in which the build is running (either prod or test).
+# Used to construct the name of the resource group in which the 1ES pool the build is running on lives in, which also happens.
+# to be the resource group in which the packer VNET lives in.
+if [ -z "${ENVIRONMENT}" ]; then
+	echo "ENVIRONMENT is not set, can't compute VNET_RG_NAME or VNET_NAME for packer templates"
+	exit 1
 fi
 
 if [ -z "${VNET_RG_NAME}" ]; then
-	VNET_RG_NAME="nodesig-${env}-${PACKER_LOCATION}-agent-pool"
+	if [ "$MODE" == "linuxVhdMode" ]; then
+		VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-agent-pool"
+	fi
+	if [ "$MODE" == "windowsVhdMode" ]; then
+		if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
+			VNET_RG_NAME="nodesigprod-agent-pool"
+		else
+			VNET_RG_NAME="nodesigtest-agent-pool"
+		fi
+	fi
 fi
 
 if [ -z "${VNET_NAME}" ]; then
-	VNET_NAME="nodesig-pool-vnet-${PACKER_LOCATION}"
+	if [ "$MODE" == "linuxVhdMode" ]; then
+		VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
+	fi
+	if [ "$MODE" == "windowsVhdMode" ]; then
+		VNET_NAME="nodesig-pool-vnet"
+	fi
 fi
 
 if [ -z "${SUBNET_NAME}" ]; then
@@ -344,7 +378,13 @@ private_packages_url=""
 if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
 	echo "PRIVATE_PACKAGES_URL is set in pipeline variables: ${PRIVATE_PACKAGES_URL}"
 	private_packages_url="${PRIVATE_PACKAGES_URL}"
-fi 
+fi
+
+# set PACKER_BUILD_LOCATION to the value of AZURE_LOCATION for windows
+# since windows doesn't currently distinguish between the 2.
+if [ "$MODE" == "windowsVhdMode" ]; then
+	PACKER_BUILD_LOCATION=$AZURE_LOCATION
+fi
 
 # windows_image_version refers to the version from azure gallery
 # aks_windows_image_version refers to the version built by AKS Windows SIG
@@ -352,7 +392,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
 { 
   "subscription_id":  "${SUBSCRIPTION_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
-  "location": "${PACKER_LOCATION}",
+  "location": "${PACKER_BUILD_LOCATION}",
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",

@@ -15,8 +15,18 @@ if [ "$OS_TYPE" == "Linux" ] && [ "$IMG_SKU" == "20_04-lts-cvm" ]; then
     exit 0
 fi
 
+# For linux VHDs, override AZURE_LOCATION with PACKER_BUILD_LOCATION to make sure
+# we're in the correct region to access the image version from the staging gallery (PackerSigGalleryEastUS)
+if [ "${OS_TYPE,,}" == "linux" ]; then
+  if [ -z "$PACKER_BUILD_LOCATION" ]; then
+    echo "PACKER_BUILD_LOCATION must be set for linux builds"
+    exit 1
+  fi
+  AZURE_LOCATION=$PACKER_BUILD_LOCATION
+fi
+
 RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
-az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_LOCATION} --tags 'source=AgentBaker'
+az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
 
 # defer function to cleanup resource group when VHD debug is not enabled
 function cleanup() {
