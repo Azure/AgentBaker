@@ -243,7 +243,7 @@ steps:
         -w /go/src/github.com/Azure/AgentBaker \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
         -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
-        -e LOCATION="${AZURE_LOCATION}" \
+        -e PACKER_LOCATION="${PACKER_LOCATION}" \
         -e OS_TYPE="Linux" \
         -e CLASSIC_BLOB=${CLASSIC_BLOB} \
         -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \

@@ -5,7 +5,7 @@ required_env_vars=(
     "SUBSCRIPTION_ID"
     "RESOURCE_GROUP_NAME"
     "CAPTURED_SIG_VERSION"
-    "LOCATION"
+    "PACKER_LOCATION"
     "OS_TYPE"
     "SIG_IMAGE_NAME"
 )
