@@ -18,7 +18,6 @@ pr:
     - pkg/agent/testdata/AKSWindows* # Windows test data
     
 variables:
-- group: "AKS Dev Assistant (KV)"
 - group: ab-e2e
 - name: timeout
   value: 90
@@ -41,15 +40,24 @@ jobs:
   - bash: |
       export PATH="/usr/local/go/bin:$PATH"
       go version
+      
+      echo "VHD_BUILD_ID=$VHD_BUILD_ID"
 
-      export BUILD_ID=$(Build.BuildId)
+      if [ -n "${VHD_BUILD_ID}" ]; then
+        export SIG_VERSION_TAG_NAME=buildId
+        export SIG_VERSION_TAG_VALUE=$VHD_BUILD_ID
+        export IGNORE_SCENARIOS_WITH_MISSING_VHD=true
+    
+        # You can add other commands here that you want to execute
+      else
+        echo "Build.BuildId is not specified. Running default e2e tests."
+      fi
 
       cd e2e
       go test -parallel ${{ variables.parallel}} -timeout ${{ variables.timeout }}m -v -run Test_All ./
     displayName: Run AgentBaker E2E
     env:
       VHD_BUILD_ID: $(VHD_BUILD_ID)
-      ADO_PAT: $(PAT-aksdevassistant)
   - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
     artifact: scenario-logs
     condition: always()
