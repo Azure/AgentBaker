@@ -155,10 +155,10 @@ variables:
 - name: CONTAINER_IMAGE
   value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
 - name: POOL_NAME
-  ${{ if eq(variables['POOL_NAME'], '') }}:
+  ${{ if ne(variables['POOL_NAME_OVERRIDE'], '') }}:
+    value: $(POOL_NAME_OVERRIDE)
+  ${{ if eq(variables['POOL_NAME_OVERRIDE'], '') }}:
     value: nodesig-$(ENVIRONMENT)-pool-$(PACKER_BUILD_LOCATION)
-  ${{ if ne(variables['POOL_NAME'], '') }}:
-    value: $(POOL_NAME)
 
 pool:
   name: $(POOL_NAME)
