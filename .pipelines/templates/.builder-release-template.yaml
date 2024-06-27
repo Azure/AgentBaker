@@ -10,8 +10,11 @@ steps:
       scriptType: 'bash'
       scriptLocation: 'inlineScript'
       inlineScript: |
-        az account show
-        which azcopy
+        export AZCOPY_AUTO_LOGIN_TYPE=AZCLI
+        azcopy copy https://vulntokustobinary.blob.core.windows.net/vuln-to-kusto/v0.0.1-82bef783fe82359/vuln-to-kusto-vhd_Linux_x86_64 ./vuln-to-kusto
+        chmod +x vuln-to-kusto
+        vuln-to-kusto --version
+    displayName: 'vuln-to-kusto'
   - bash: |
         m="linuxVhdMode" && \
         echo "Set build mode to $m" && \
