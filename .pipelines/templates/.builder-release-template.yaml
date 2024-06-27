@@ -175,7 +175,7 @@ steps:
       scriptLocation: 'inlineScript'
       inlineScript: |
         export AZCOPY_AUTO_LOGIN_TYPE=AZCLI
-        azcopy copy https://vulntokustobinary.blob.core.windows.net/vuln-to-kusto/v0.0.1-82bef783fe82359/vuln-to-kusto-vhd_Linux_x86_64 ./vuln-to-kusto
+        azcopy copy https://vulntokustobinary.blob.core.windows.net/vuln-to-kusto/v0.0.1-ee36fabc1ec4f415a022042ea89f751bf05da6ef/vuln-to-kusto-vhd_Linux_x86_64 ./vuln-to-kusto
         chmod +x vuln-to-kusto
         ./vuln-to-kusto \
           scan-report trivy-report.json \
