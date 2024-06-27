@@ -20,15 +20,16 @@ import (
 )
 
 type AzureClient struct {
-	Core          *azcore.Client
-	VMSS          *armcompute.VirtualMachineScaleSetsClient
-	VMSSVM        *armcompute.VirtualMachineScaleSetVMsClient
-	VNet          *armnetwork.VirtualNetworksClient
-	Resource      *armresources.Client
-	ResourceGroup *armresources.ResourceGroupsClient
-	AKS           *armcontainerservice.ManagedClustersClient
-	SecurityGroup *armnetwork.SecurityGroupsClient
-	Subnet        *armnetwork.SubnetsClient
+	Core                      *azcore.Client
+	VMSS                      *armcompute.VirtualMachineScaleSetsClient
+	VMSSVM                    *armcompute.VirtualMachineScaleSetVMsClient
+	VNet                      *armnetwork.VirtualNetworksClient
+	Resource                  *armresources.Client
+	ResourceGroup             *armresources.ResourceGroupsClient
+	AKS                       *armcontainerservice.ManagedClustersClient
+	SecurityGroup             *armnetwork.SecurityGroupsClient
+	Subnet                    *armnetwork.SubnetsClient
+	GalleryImageVersionClient *armcompute.GalleryImageVersionsClient
 }
 
 func MustNewAzureClient(subscription string) *AzureClient {
@@ -94,62 +95,57 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 	}
 	clOpts.Retry = DefaultRetryOpts()
 
+	cloud := &AzureClient{}
+
 	// purely for telemetry, entirely unused today
-	coreClient, err := azcore.NewClient("agentbakere2e.e2e_test", "v0.0.0", plOpts, clOpts)
+	cloud.Core, err = azcore.NewClient("agentbakere2e.e2e_test", "v0.0.0", plOpts, clOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create core client: %w", err)
 	}
 
-	securityGroupClient, err := armnetwork.NewSecurityGroupsClient(subscription, credential, nil)
+	cloud.SecurityGroup, err = armnetwork.NewSecurityGroupsClient(subscription, credential, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create security group client: %w", err)
 	}
 
-	subnetClient, err := armnetwork.NewSubnetsClient(subscription, credential, nil)
+	cloud.Subnet, err = armnetwork.NewSubnetsClient(subscription, credential, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create subnet client: %w", err)
 	}
 
-	aksClient, err := armcontainerservice.NewManagedClustersClient(subscription, credential, opts)
+	cloud.AKS, err = armcontainerservice.NewManagedClustersClient(subscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create aks client: %w", err)
 	}
 
-	vmssClient, err := armcompute.NewVirtualMachineScaleSetsClient(subscription, credential, opts)
+	cloud.VMSS, err = armcompute.NewVirtualMachineScaleSetsClient(subscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create vmss client: %w", err)
 	}
 
-	vmssVMClient, err := armcompute.NewVirtualMachineScaleSetVMsClient(subscription, credential, opts)
+	cloud.VMSSVM, err = armcompute.NewVirtualMachineScaleSetVMsClient(subscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create vmss vm client: %w", err)
 	}
 
-	resourceClient, err := armresources.NewClient(subscription, credential, opts)
+	cloud.Resource, err = armresources.NewClient(subscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource client: %w", err)
 	}
 
-	resourceGroupClient, err := armresources.NewResourceGroupsClient(subscription, credential, opts)
+	cloud.ResourceGroup, err = armresources.NewResourceGroupsClient(subscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource group client: %w", err)
 	}
 
-	vnetClient, err := armnetwork.NewVirtualNetworksClient(subscription, credential, nil)
+	cloud.VNet, err = armnetwork.NewVirtualNetworksClient(subscription, credential, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create vnet client: %w", err)
 	}
 
-	var cloud = &AzureClient{
-		Core:          coreClient,
-		AKS:           aksClient,
-		Resource:      resourceClient,
-		ResourceGroup: resourceGroupClient,
-		VMSS:          vmssClient,
-		VMSSVM:        vmssVMClient,
-		VNet:          vnetClient,
-		SecurityGroup: securityGroupClient,
-		Subnet:        subnetClient,
+	cloud.GalleryImageVersionClient, err = armcompute.NewGalleryImageVersionsClient(subscription, credential, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a new images client: %v", err)
 	}
 
 	return cloud, nil
