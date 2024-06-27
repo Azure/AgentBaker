@@ -11,7 +11,7 @@ log "Creating resource group"
 E2E_RESOURCE_GROUP_NAME="$AZURE_E2E_RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-$K8S_VERSION"
 
 rgStartTime=$(date +%s)
-az group create -l $AZURE_BUILD_LOCATION -n $E2E_RESOURCE_GROUP_NAME --subscription $AZURE_E2E_SUBSCRIPTION_ID -ojson
+az group create -l $AZURE_E2E_LOCATION -n $E2E_RESOURCE_GROUP_NAME --subscription $AZURE_E2E_SUBSCRIPTION_ID -ojson
 rgEndTime=$(date +%s)
 log "Created resource group in $((rgEndTime-rgStartTime)) seconds"
 
@@ -21,7 +21,7 @@ out=$(az aks list -g $E2E_RESOURCE_GROUP_NAME -ojson | jq '.[].name')
 create_cluster="false"
 if [ -n "$out" ]; then
     provisioning_state=$(az aks show -n $AZURE_E2E_CLUSTER_NAME -g $E2E_RESOURCE_GROUP_NAME -ojson | jq '.provisioningState' | tr -d "\"")
-    MC_RG_NAME="MC_${E2E_RESOURCE_GROUP_NAME}_${AZURE_E2E_CLUSTER_NAME}_$AZURE_BUILD_LOCATION"
+    MC_RG_NAME="MC_${E2E_RESOURCE_GROUP_NAME}_${AZURE_E2E_CLUSTER_NAME}_$AZURE_E2E_LOCATION"
     exists=$(az group exists -n $MC_RG_NAME)
     if [ "$exists" == "false" ] || [ "$provisioning_state" == "Failed" ] || [ "$provisioning_state" == "Canceled" ]; then
         # The cluster is in a broken state

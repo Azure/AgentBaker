@@ -19,7 +19,7 @@ exec_on_host() {
 backfill_clean_storage_container() {
     set +x
     # Get supported kubernetes versions
-    versions=$(az aks get-versions --location $AZURE_BUILD_LOCATION -o table | tail -n +3 | awk '{print $1}')
+    versions=$(az aks get-versions --location $AZURE_E2E_LOCATION -o table | tail -n +3 | awk '{print $1}')
     k8s_versions=${versions//./}
 
     # Get container names e.g. akswinstore2022-1256 (for this $container_version would be "1256")
@@ -29,9 +29,9 @@ backfill_clean_storage_container() {
         container_version=$(echo $container_name | cut -d '-' -f 2- | awk '{print tolower($0)}')
         echo "container version is $container_version"
         if [[ $k8s_versions == *"$container_version"* ]]; then
-            echo "The version $container_version is available in the $AZURE_BUILD_LOCATION region."
+            echo "The version $container_version is available in the $AZURE_E2E_LOCATION region."
         else
-            echo "The version $container_version is not available in the $AZURE_BUILD_LOCATION region."
+            echo "The version $container_version is not available in the $AZURE_E2E_LOCATION region."
             echo "Deleting the container."
             az storage container delete --name $container_name --account-name $AZURE_E2E_STORAGE_ACCOUNT_NAME --auth-mode "login"
             echo "Deletion completed."
@@ -65,7 +65,7 @@ create_storage_container() {
 upload_linux_file_to_storage_account() {
     local retval=0
     E2E_RESOURCE_GROUP_NAME="$AZURE_E2E_RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-$K8S_VERSION"
-    E2E_MC_RESOURCE_GROUP_NAME="MC_${E2E_RESOURCE_GROUP_NAME}_${AZURE_E2E_CLUSTER_NAME}_$AZURE_BUILD_LOCATION"
+    E2E_MC_RESOURCE_GROUP_NAME="MC_${E2E_RESOURCE_GROUP_NAME}_${AZURE_E2E_CLUSTER_NAME}_$AZURE_E2E_LOCATION"
     MC_VMSS_NAME=$(az vmss list -g $E2E_MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
     VMSS_INSTANCE_ID="$(az vmss list-instances --name $MC_VMSS_NAME -g $E2E_MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
     
