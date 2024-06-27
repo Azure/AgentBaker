@@ -36,7 +36,7 @@ disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GR
 
 echo "Converting $sig_resource_id to $disk_resource_id"
 if [[ ${OS_TYPE} == "Linux" && ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
-  az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
+  az resource create --id $disk_resource_id  --is-full-object --location $PACKER_LOCATION --properties "{\"location\": \"$PACKER_LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
       \"securityProfile\": { \
@@ -51,7 +51,7 @@ if [[ ${OS_TYPE} == "Linux" && ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
     } \
   }"
 else
-  az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
+  az resource create --id $disk_resource_id  --is-full-object --location $PACKER_LOCATION --properties "{\"location\": \"$PACKER_LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
       \"creationData\": { \
