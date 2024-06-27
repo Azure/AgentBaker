@@ -156,9 +156,9 @@ variables:
   value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
 
 pool:
-${{ if eq(variables['POOL_NAME'], '') }}
+${{ if eq(variables['POOL_NAME'], '') }}:
   name: nodesig-$(ENVIRONMENT)-pool-$(PACKER_BUILD_LOCATION)
-${{ if ne(variables['POOL_NAME'], '') }}
+${{ if ne(variables['POOL_NAME'], '') }}:
   name: $(POOL_NAME)
 
 stages:
