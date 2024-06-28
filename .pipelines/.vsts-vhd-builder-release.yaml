@@ -162,9 +162,9 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.build1804containerd }}', true)
     pool:
-      ${{ if ne(variables.POOL_NAME_OVERRIDE, '') }}:
+      ${{ if ne(variables['POOL_NAME_OVERRIDE'], '') }}:
         name: $(POOL_NAME_OVERRIDE)
-      ${{ if eq(variables.POOL_NAME_OVERRIDE, '') }}:
+      ${{ if eq(variables['POOL_NAME_OVERRIDE'], '') }}:
         name: $(POOL_NAME)
     jobs:
     - job: build
