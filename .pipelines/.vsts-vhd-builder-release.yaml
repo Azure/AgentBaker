@@ -2,10 +2,6 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
 parameters:
-- name: environment
-  displayName: Environment
-  type: string
-  default: prod
 - name: build1804containerd
   displayName: Build 1804 containerd
   type: boolean
