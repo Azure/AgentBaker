@@ -20,7 +20,7 @@ variable "build_number" {
 
 variable "captured_sig_version" {
   type    = string
-  default = "${env("${CAPTURED_SIG_VERSION}")}"
+  default = "${env("CAPTURED_SIG_VERSION")}"
 }
 
 variable "commit" {
@@ -138,6 +138,11 @@ variable "vnet_name" {
   default = "${env("VNET_NAME")}"
 }
 
+variable "vnet_rg_name" {
+  type    = string
+  default = "${env("vnet_resource_group_name")}"
+}
+
 source "azure-arm" "vhd" { 
   azure_tags = {
     SkipLinuxAzSecPack  = "true"
@@ -168,12 +173,13 @@ source "azure-arm" "vhd" {
     resource_group          = "${var.resource_group_name}"
     use_shallow_replication = "true"
   }
-  ssh_read_write_timeout           = "5m"
-  subscription_id                  = "${var.subscription_id}"
-  user_assigned_managed_identities = "${var.msi_resource_strings}"
-  virtual_network_name             = "${var.vnet_name}"
-  virtual_network_subnet_name      = "${var.subnet_name}"
-  vm_size                          = "${var.vm_size}"
+  ssh_read_write_timeout              = "5m"
+  subscription_id                     = "${var.subscription_id}"
+  user_assigned_managed_identities    = "${var.msi_resource_strings}"
+  virtual_network_name                = "${var.vnet_name}"
+  virtual_network_subnet_name         = "${var.subnet_name}"
+  virtual_network_resource_group_name = "${var.vnet_rg_name}"
+  vm_size                             = "${var.vm_size}"
 }
 build {
   sources = ["source.azure-arm.vhd"]
