@@ -392,7 +392,9 @@ fi
 
 # set PACKER_BUILD_LOCATION to the value of AZURE_LOCATION for windows
 # since windows doesn't currently distinguish between the 2.
-if [ "$MODE" == "windowsVhdMode" ]; then
+# also do this in cases where we're running a linux build in AME (for now)
+# TODO(cameissner): remove conditionals for prod once new pool config has been deployed to AME.
+if [ "$MODE" == "windowsVhdMode" ] || [ "${ENVIRONMENT,,}" == "prod" ]; then
 	PACKER_BUILD_LOCATION=$AZURE_LOCATION
 fi
 
