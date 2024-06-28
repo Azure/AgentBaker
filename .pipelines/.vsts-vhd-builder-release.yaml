@@ -154,8 +154,9 @@ parameters:
 variables:
 - name: CONTAINER_IMAGE
   value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
-- name: POOL_NAME
-  value: nodesig-$(ENVIRONMENT)-pool-$(PACKER_BUILD_LOCATION)
+
+pool:
+  name: $(POOL_NAME)
 
 stages:
   - stage: build_vhd_1804_containerd
