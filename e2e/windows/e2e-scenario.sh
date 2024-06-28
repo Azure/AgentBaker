@@ -36,7 +36,7 @@ collect-logs() {
         fi
     fi
 
-    az storage blob download --auth-mode login --file "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-provision.complete" $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-provision.complete || retval=$?
+    az storage blob download --auth-mode login --blob-url "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-provision.complete" --file $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-provision.complete || retval=$?
     if [ "$retval" -ne 0 ]; then
         err "Failed in downloading provision.complete. Error code is $retval."
     else
@@ -47,7 +47,7 @@ collect-logs() {
         fi
     fi
 
-    az storage blob download --auth-mode login --file "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-collected-node-logs.zip" $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-collected-node-logs.zip || retval=$?
+    az storage blob download --auth-mode login --blob-url "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-collected-node-logs.zip" --file $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-collected-node-logs.zip || retval=$?
     if [ "$retval" -ne 0 ]; then
         err "Failed in downloading collected node logs. Error code is $retval."
     else
