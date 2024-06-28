@@ -154,18 +154,14 @@ parameters:
 variables:
 - name: CONTAINER_IMAGE
   value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
-- name: POOL_NAME
-  value: nodesig-$(ENVIRONMENT)-pool-$(PACKER_BUILD_LOCATION)
+
+pool:
+  name: $(POOL_NAME)
 
 stages:
   - stage: build_vhd_1804_containerd
     dependsOn: []
     condition: eq('${{ parameters.build1804containerd }}', true)
-    pool:
-      ${{ if ne(variables['POOL_NAME_OVERRIDE'], '') }}:
-        name: $(POOL_NAME_OVERRIDE)
-      ${{ if eq(variables['POOL_NAME_OVERRIDE'], '') }}:
-        name: $(POOL_NAME)
     jobs:
     - job: build
       timeoutInMinutes: 180
