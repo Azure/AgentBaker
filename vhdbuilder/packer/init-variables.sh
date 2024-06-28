@@ -25,7 +25,7 @@ else
 	CAPTURED_SIG_VERSION="1.${CREATE_TIME}.$RANDOM"
 fi
 
-if [ "$MODE" == "windowsVhdMode" ] && [ -z "${POOL_NAME}" ]; then
+if [ -z "${POOL_NAME}" ]; then
 	echo "POOL_NAME is not set, can't compute VNET_RG_NAME for packer templates"
 	exit 1
 fi
