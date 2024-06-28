@@ -2,6 +2,10 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
 parameters:
+- name: environment
+  displayName: Environment
+  type: string
+  default: prod
 - name: build1804containerd
   displayName: Build 1804 containerd
   type: boolean
@@ -154,11 +158,14 @@ parameters:
 variables:
 - name: CONTAINER_IMAGE
   value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
-# - name: POOL_NAME
-#   ${{ if ne(variables.POOL_NAME_OVERRIDE, '') }}:
-#     value: $(POOL_NAME_OVERRIDE)
-#   ${{ if eq(variables.POOL_NAME_OVERRIDE, '') }}:
-#     value: nodesig-$(ENVIRONMENT)-pool-$(PACKER_BUILD_LOCATION)
+- name: POOL_NAME_OVERRIDE
+  value: ''
+- name: POOL_NAME
+  value: $(POOL_NAME_OVERRIDE)
+  # ${{ if ne(variables.POOL_NAME_OVERRIDE, '') }}:
+  #   value: $(POOL_NAME_OVERRIDE)
+  # ${{ if eq(variables.POOL_NAME_OVERRIDE, '') }}:
+  #   value: nodesig-$(ENVIRONMENT)-pool-$(PACKER_BUILD_LOCATION)
 
 pool:
   name: $(POOL_NAME)
