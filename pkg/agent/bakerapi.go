@@ -145,13 +145,6 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 		allDistros[distro] = sigConfig
 	}
 
-	for distro, sigConfig := range allAzureSigConfig.SigUbuntuEdgeZoneImageConfig {
-		if version, ok := linuxImageVersionOverrides[string(distro)]; ok {
-			sigConfig.Version = version
-		}
-		allDistros[distro] = sigConfig
-	}
-
 	return allDistros, nil
 }
 
@@ -166,9 +159,6 @@ func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distr
 		return &imageConfig
 	}
 	if imageConfig, ok := sigConfig.SigWindowsImageConfig[distro]; ok {
-		return &imageConfig
-	}
-	if imageConfig, ok := sigConfig.SigUbuntuEdgeZoneImageConfig[distro]; ok {
 		return &imageConfig
 	}
 
