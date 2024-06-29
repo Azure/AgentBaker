@@ -62,6 +62,7 @@
       "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "shared_image_gallery_destination": {
+        "use_shallow_replication": true,
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
