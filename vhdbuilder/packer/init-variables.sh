@@ -434,6 +434,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "location": "${PACKER_BUILD_LOCATION}",
 	"shallow_replication_toggle": "${SHALLOW_REPLICATION_TOGGLE}",
+	"shallow_replication_toggle": "${SHALLOW_REPLICATION_TOGGLE}",
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",
