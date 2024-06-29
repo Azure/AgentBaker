@@ -430,6 +430,7 @@ fi
 # aks_windows_image_version refers to the version built by AKS Windows SIG
 cat <<EOF > vhdbuilder/packer/settings.json
 { 
+  "shallow_replication_toggle": "${SHALLOW_REPLICATION_TOGGLE}",
   "subscription_id":  "${SUBSCRIPTION_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "location": "${PACKER_BUILD_LOCATION}",
