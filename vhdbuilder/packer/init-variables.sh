@@ -433,6 +433,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "subscription_id":  "${SUBSCRIPTION_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "location": "${PACKER_BUILD_LOCATION}",
+	"shallow_replication_toggle": "${SHALLOW_REPLICATION_TOGGLE}",
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",
@@ -461,8 +462,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vnet_resource_group_name": "${VNET_RG_NAME}",
   "msi_resource_strings": "${msi_resource_strings}",
   "private_packages_url": "${private_packages_url}",
-  "aks_windows_image_version": "${AKS_WINDOWS_IMAGE_VERSION}",
-	"shallow_replication_toggle": "${SHALLOW_REPLICATION_TOGGLE}"
+  "aks_windows_image_version": "${AKS_WINDOWS_IMAGE_VERSION}"
 }
 EOF
 
