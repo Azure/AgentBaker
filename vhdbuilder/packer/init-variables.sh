@@ -113,6 +113,14 @@ if [ -z "${SUBNET_NAME}" ]; then
 	SUBNET_NAME="packer"
 fi
 
+SHALLOW_REPLICATION_TOGGLE="false"
+if [[ "${MODE}" == "linuxVhdMode" ]] && [[ "${ENVIRONMENT,,}" == "test" ]]; then
+  # continue using full replication for prod builds for now
+  SHALLOW_REPLICATION_TOGGLE="true"
+fi
+
+echo "SHALLOW_REPLICATION_TOGGLE set to: ${SHALLOW_REPLICATION_TOGGLE}"
+
 echo "VNET_RG_NAME set to: ${VNET_RG_NAME}"
 
 echo "CAPTURED_SIG_VERSION set to: ${CAPTURED_SIG_VERSION}"
@@ -453,7 +461,8 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vnet_resource_group_name": "${VNET_RG_NAME}",
   "msi_resource_strings": "${msi_resource_strings}",
   "private_packages_url": "${private_packages_url}",
-  "aks_windows_image_version": "${AKS_WINDOWS_IMAGE_VERSION}"
+  "aks_windows_image_version": "${AKS_WINDOWS_IMAGE_VERSION}",
+	"shallow_replication_toggle": "${SHALLOW_REPLICATION_TOGGLE}
 }
 EOF
 
