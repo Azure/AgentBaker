@@ -159,6 +159,13 @@ parameters:
     type: boolean
     default: False
 
+variables:
+- name: CONTAINER_IMAGE
+  value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.0'
+  
+pool:
+  name: $(POOL_NAME)
+
 stages:
   - stage: build
     jobs:
