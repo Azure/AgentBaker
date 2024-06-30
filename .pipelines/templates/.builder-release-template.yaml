@@ -69,6 +69,7 @@ steps:
     displayName: Set SKU Name
   - bash: |
         echo MODE=$(MODE) && \
+        az --version && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -v /usr/local/bin/packer:/usr/local/bin/packer \
