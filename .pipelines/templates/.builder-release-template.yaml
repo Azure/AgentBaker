@@ -44,7 +44,6 @@ steps:
     displayName: Apply Overrides
     condition: eq('${{ parameters.useOverrides }}', true)
   - bash: |
-        which go
         m="linuxVhdMode" && \
         echo "Set build mode to $m" && \
         echo "##vso[task.setvariable variable=MODE]$m"
@@ -109,8 +108,6 @@ steps:
     displayName: Set SKU Name
   - bash: |
         echo MODE=$(MODE) && \
-        az --version && \
-        which az && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -v /usr/local/bin/packer:/usr/local/bin/packer \
@@ -304,6 +301,7 @@ steps:
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -v /usr/local/bin/azcopy:/usr/local/bin/azcopy \
         -v /usr/bin/az:/usr/bin/az \
+        -v /usr/bin/go:/usr/bin/go \
         -w /go/src/github.com/Azure/AgentBaker \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
         -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
