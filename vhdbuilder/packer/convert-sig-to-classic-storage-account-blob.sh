@@ -83,7 +83,8 @@ echo "Granting access to $disk_resource_id for 1 hour"
 # shellcheck disable=SC2102
 sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSas] -o tsv)
 
-azcopy login --login-type=MSI
+export AZCOPY_AUTO_LOGIN_TYPE="MSI"
+export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
 
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
