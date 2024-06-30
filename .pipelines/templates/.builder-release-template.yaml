@@ -70,6 +70,7 @@ steps:
   - bash: |
         echo MODE=$(MODE) && \
         az --version && \
+        which az && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -v /usr/local/bin/packer:/usr/local/bin/packer \
