@@ -83,10 +83,7 @@ echo "Granting access to $disk_resource_id for 1 hour"
 # shellcheck disable=SC2102
 sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSas] -o tsv)
 
-# TBD: Need to investigate why `azcopy-preview login --login-type=MSI` does not work
-echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOURCE_STRING"
-export AZCOPY_AUTO_LOGIN_TYPE="MSI"
-export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
+azcopy login --identity
 
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
