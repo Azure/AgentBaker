@@ -15,7 +15,8 @@ required_env_vars=(
 # Higher the replication_inverse, lower is the usage and number of replicas
 set -x
 echo "checking what the base image sku ${IMG_SKU}, publisher ${IMG_PUBLISHER}, image version ${IMG_VERSION} and image offer ${IMG_OFFER} are"
-az vm image list -p ${IMG_PUBLISHER} -s ${IMG_SKU} --offer ${IMG_OFFER} --all -o tsv
+BASE_IMAGE_VERSION=$(az vm image list -p ${IMG_PUBLISHER} -s ${IMG_SKU} --query "[?offer=='${IMG_OFFER}'].version" -o tsv | sort -u | tail -n 1)
+echo "canonical base image version is $BASE_IMAGE_VERSION"
 
 REPLICATION_INVERSE=1
 feature_set=("fips" "gpu" "arm64" "cvm" "tl" "kata")
@@ -119,6 +120,7 @@ if [ "${OS_NAME,,}" == "linux" ]; then
     "image_architecture": "${IMAGE_ARCH}",
     "image_version": "${IMAGE_VERSION}",
     "replication_inverse": "${REPLICATION_INVERSE}"
+    "base_image_version": "${BASE_IMAGE_VERSION}"
 }
 EOF
 else
