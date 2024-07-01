@@ -119,9 +119,6 @@ steps:
         echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION]$captured_sig_version"
         echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]$SIG_IMAGE_NAME"
         echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$SIG_GALLERY_NAME"
-        echo "CAPTURED_SIG_VERSION is $CAPTURED_SIG_VERSION"
-        echo "SIG_IMAGE_NAME is $SIG_IMAGE_NAME"
-        echo "SIG_GALLERY_NAME is $SIG_GALLERY_NAME"
     retryCountOnTaskFailure: 1
     displayName: Set Stage Variables
   - bash: |
