@@ -87,7 +87,9 @@ sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --
 echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOURCE_STRING"
 
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
-azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true --login-type=MSI || exit $?
+
+azcopy login --login-type="MSI"
+azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
 
 echo "Uploaded $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
