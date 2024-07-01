@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log"
 	"os"
 	"strings"
 
@@ -25,8 +26,10 @@ var (
 func getEnvWithDefaultIfEmpty(env string, defaultValue string) string {
 	val, ok := os.LookupEnv(env)
 	if !ok {
+		log.Printf("could not find value for environment variable %q, will use default value: %s", env, defaultValue)
 		return defaultValue
 	}
+	log.Printf("resolved environment variable %q to %q", env, val)
 	return val
 }
 
