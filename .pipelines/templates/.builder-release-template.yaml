@@ -42,6 +42,7 @@ steps:
       ls -R
     displayName: show Directory
   - bash: |
+      lsb_release -a
       set -x
       GOPATH="$(go env GOPATH)"
       echo "GOPATH is currently set to $GOPATH"
