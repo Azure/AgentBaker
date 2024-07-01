@@ -176,6 +176,17 @@ echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
 stop_watch $capture_time "Create Containerd Service Directory, Download Shims, Configure Runtime and Network" false
 
+# doing this at vhd allows CSE to be faster with just mv
+unpackAzureCNI() {
+  local URL=$1
+  CNI_TGZ_TMP=${URL##*/}
+  CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
+  mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
+  tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR/$CNI_DIR_TMP
+  rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
+  echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
+}
+
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for p in ${packages[*]}; do
   start_watch
@@ -390,17 +401,6 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
 stop_watch $capture_time "Pull and Re-tag Container Images" false
 start_watch
-
-# doing this at vhd allows CSE to be faster with just mv
-unpackAzureCNI() {
-  local URL=$1
-  CNI_TGZ_TMP=${URL##*/}
-  CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
-  mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
-  tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR/$CNI_DIR_TMP
-  rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
-  echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
-}
 
 #must be both amd64/arm64 images
 VNET_CNI_VERSIONS="
