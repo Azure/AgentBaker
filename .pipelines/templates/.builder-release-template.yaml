@@ -122,8 +122,8 @@ steps:
         echo "CAPTURED_SIG_VERSION is $CAPTURED_SIG_VERSION"
         echo "SIG_IMAGE_NAME is $SIG_IMAGE_NAME"
         echo "SIG_GALLERY_NAME is $SIG_GALLERY_NAME"
-  retryCountOnTaskFailure: 1
-  displayName: Set Stage Variables
+    retryCountOnTaskFailure: 1
+    displayName: Set Stage Variables
   - bash: |
         OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
         MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
