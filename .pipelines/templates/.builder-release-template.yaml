@@ -76,7 +76,8 @@ steps:
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
         -e AZURE_VM_SIZE=$(AZURE_VM_SIZE) \
         -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-        -e AZURE_LOCATION=${AZURE_LOCATION} \
+        -e ENVIRONMENT=${ENVIRONMENT} \
+        -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
         -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
         -e GIT_VERSION=$(Build.SourceVersion) \
         -e BUILD_DEFINITION_NAME="$(Build.DefinitionName)" \
@@ -121,7 +122,7 @@ steps:
         -e CLASSIC_BLOB=${CLASSIC_BLOB} \
         -e BUILD_ID=$(Build.BuildId) \
         -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
-        -e AZURE_LOCATION=${AZURE_LOCATION} \
+        -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
         -e OS_VERSION=${OS_VERSION} \
         -e OS_SKU=${OS_SKU} \
         -e OS_TYPE="Linux" \
@@ -142,7 +143,7 @@ steps:
         -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
         -e OS_DISK_URI=${OS_DISK_URI} \
         -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
-        -e AZURE_LOCATION=${AZURE_LOCATION} \
+        -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
         -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"docker"} \
         -e OS_VERSION=${OS_VERSION} \
         -e OS_SKU=${OS_SKU} \
@@ -241,7 +242,7 @@ steps:
         -w /go/src/github.com/Azure/AgentBaker \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
         -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
-        -e LOCATION="${AZURE_LOCATION}" \
+        -e PACKER_BUILD_LOCATION="${PACKER_BUILD_LOCATION}" \
         -e OS_TYPE="Linux" \
         -e CLASSIC_BLOB=${CLASSIC_BLOB} \
         -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
