@@ -88,7 +88,7 @@ echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOUR
 
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
-azcopy login --login-type="MSI"
+azcopy login --login-type=MSI
 azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
 
 echo "Uploaded $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
