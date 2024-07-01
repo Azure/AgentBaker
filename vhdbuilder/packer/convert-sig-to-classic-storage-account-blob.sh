@@ -85,10 +85,9 @@ sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --
 
 # TBD: Need to investigate why `azcopy-preview login --login-type=MSI` does not work
 echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOURCE_STRING"
-azcopy login --identity
 
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
-azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
+azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true --login-type=MSI || exit $?
 
 echo "Uploaded $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
