@@ -38,11 +38,13 @@ jobs:
   - bash: bash .pipelines/scripts/setup_go.sh
     displayName: setup go
   - bash: |
+      set -x
       export PATH="/usr/local/go/bin:$PATH"
       go version
+
+      export LOCATION=$LOCATION
       
       echo "VHD_BUILD_ID=$VHD_BUILD_ID"
-
       if [ -n "${VHD_BUILD_ID}" ]; then
         export SIG_VERSION_TAG_NAME=buildId
         export SIG_VERSION_TAG_VALUE=$VHD_BUILD_ID

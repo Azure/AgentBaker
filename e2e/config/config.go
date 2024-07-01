@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	BuildID            = getEnvWithDefaultIfEmpty(os.Getenv("BUILD_ID"), "local")
+	BuildID            = getEnvWithDefaultIfEmpty("BUILD_ID", "local")
 	SubscriptionID     = getEnvWithDefaultIfEmpty("SUBSCRIPTION_ID", "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8")
 	Location           = getEnvWithDefaultIfEmpty("LOCATION", "eastus")
 	ResourceGroupName  = "abe2e-" + Location
@@ -26,7 +26,7 @@ var (
 func getEnvWithDefaultIfEmpty(env string, defaultValue string) string {
 	val, ok := os.LookupEnv(env)
 	if !ok {
-		log.Printf("could not find value for environment variable %q, will use default value: %s", env, defaultValue)
+		log.Printf("could not find value for environment variable %q, will use default value: %q", env, defaultValue)
 		return defaultValue
 	}
 	log.Printf("resolved environment variable %q to %q", env, val)
