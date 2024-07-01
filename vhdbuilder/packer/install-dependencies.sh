@@ -526,7 +526,7 @@ EOF
 else
   echo "Error: installBcc subshell failed with exit code $BCC_EXIT_CODE" >&2
 fi
-capture_benchmark "finish_installBcc"
+capture_benchmark "finish_installing_bcc_tools"
 
 # use the private_packages_url to download and cache packages
 if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
