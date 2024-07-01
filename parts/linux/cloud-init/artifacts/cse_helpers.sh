@@ -399,8 +399,9 @@ installJq () {
   fi
 }
 
+
 check_array_size () {
-  local array_name=$1
+  declare -n array_name=$1
   local array_size=${#array_name[@]}
   if [[ $array_size -eq 0 ]]; then
     return 1
