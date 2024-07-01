@@ -1,4 +1,7 @@
 #!/bin/bash
+
+source parts/linux/cloud-init/artifacts/cse_helpers.sh
+
 readPackage() {
     local packageName=$1
     packages=$(jq ".Packages" "./spec/parts/linux/cloud-init/artifacts/test_components.json" | jq ".[] | select(.name == \"$packageName\")")

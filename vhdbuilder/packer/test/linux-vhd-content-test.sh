@@ -3,6 +3,8 @@ COMPONENTS_FILEPATH=/opt/azure/components.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
+UBUNTU_OS_NAME="UBUNTU"
+MARINER_OS_NAME="MARINER"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 CONTAINER_RUNTIME="$1"
@@ -67,34 +69,133 @@ fi
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 
-testFilesDownloaded() {
-  test="testFilesDownloaded"
+#return proper release metadata for the package based on the os and osVersion
+#e.g., For os UBUNTU 18.04, if there is a release "r1804" defined in components.json, then return "r1804"
+#Otherwise return "current"
+returnRelease() {
+  local p="$1"
+  local os="$2"
+  local osVersion="$3"
+  local release="current"
+  #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
+  #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
+  #For MARINER, the release is always set to "current" now.
+  #To add a new release, add a new entry in components.json and add the corresponding release in the below if condition.
+  if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
+    if [[ "${osVersion}" == "18.04" ]] && [[ $(echo "${p}" | jq '.downloadURIs.ubuntu."r1804"') != "null" ]]; then
+      release="\"r1804\""
+    elif [[ "${osVersion}" == "20.04" ]] && [[ $(echo "${p}" | jq '.downloadURIs.ubuntu."r2004"') != "null" ]]; then
+      release="\"r2004\""
+    elif [[ "${osVersion}" == "22.04" ]] && [[ $(echo "${p}" | jq '.downloadURIs.ubuntu."r2204"') != "null" ]]; then
+      release="\"r2204\""
+    fi
+  fi
+  echo "${release}"
+}
+
+returnPackageVersions() {
+  local p="$1"
+  local os="$2"
+  local osVersion="$3"
+  local release=""
+  release="$(returnRelease "${p}" "${os}" "${osVersion}")"
+  if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
+    #if .downloadURIs.ubuntu exist, then get the versions from there.
+    #otherwise get the versions from .downloadURIs.default 
+    if [[ $(echo "${p}" | jq ".downloadURIs.ubuntu") != "null" ]]; then
+      versions=$(echo "${p}" | jq ".downloadURIs.ubuntu.${release}.versions[]" -r)
+      for version in ${versions[@]}; do
+       PackageVersions+=("${version}")
+      done
+      return
+    fi
+    versions=$(echo "${p}" | jq ".downloadURIs.default.${release}.versions[]" -r)
+    for version in ${versions[@]}; do
+      PackageVersions+=("${version}")
+    done
+    return  
+  fi
+  if [[ "${os}" == "${MARINER_OS_NAME}" ]]; then
+    #if .downloadURIs.ubuntu exist, then get the versions from there.
+    #otherwise get the versions from .downloadURIs.default 
+    if [[ $(echo "${p}" | jq ".downloadURIs.mariner") != "null" ]]; then
+      versions=$(echo "${p}" | jq ".downloadURIs.mariner.${release}.versions[]" -r)
+      for version in ${versions[@]}; do
+        PackageVersions+=("${version}")
+      done
+      return
+    fi
+    versions=$(echo "${p}" | jq ".downloadURIs.default.${release}.versions[]" -r)
+    for version in ${versions[@]}; do
+      PackageVersions+=("${version}")
+    done
+    return  
+  fi
+}
+
+returnPackageDownloadURL() {
+  local p=$1
+  local os=$2
+  local osVersion=$3
+  local release=""
+  release="$(returnRelease "${p}" "${os}" "${osVersion}")"
+  if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
+    #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
+    #otherwise get the downloadURL from .downloadURIs.default 
+    if [[ $(echo "${p}" | jq '.downloadURIs.ubuntu') != "null" ]]; then
+      downloadURL=$(echo "${p}" | jq ".downloadURIs.ubuntu.${release}.downloadURL" -r)
+      echo ${downloadURL}
+      return
+    fi
+    downloadURL=$(echo "${p}" | jq ".downloadURIs.default.${release}.downloadURL" -r)
+    echo ${downloadURL}
+    return  
+  fi
+  if [[ "${os}" == "${MARINER_OS_NAME}" ]]; then
+    #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
+    #otherwise get the downloadURL from .downloadURIs.default 
+    if [[ $(echo "${p}" | jq '.downloadURIs.mariner') != "null" ]]; then
+      downloadURL=$(echo "${p}" | jq ".downloadURIs.mariner.${release}.downloadURL" -r)
+      echo ${downloadURL}
+      return
+    fi
+    downloadURL=$(echo "${p}" | jq ".downloadURIs.default.${release}.downloadURL" -r)
+    echo ${downloadURL}
+    return  
+  fi
+}
+
+testPackagesInstalled() {
+  test="testPackagesInstalled"
   containerRuntime=$1
   if [[ $(isARM64) == 1 ]]; then
     return
   fi
+  CPU_ARCH="amd64"
   echo "$test:Start"
-  filesToDownload=$(jq .DownloadFiles[] --monochrome-output --compact-output <$COMPONENTS_FILEPATH)
+  packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 
-  for fileToDownload in ${filesToDownload[*]}; do
-    fileName=$(echo "${fileToDownload}" | jq .fileName -r)
-    downloadLocation=$(echo "${fileToDownload}" | jq .downloadLocation -r)
-    versions=$(echo "${fileToDownload}" | jq .versions -r | jq -r ".[]")
-    download_URL=$(echo "${fileToDownload}" | jq .downloadURL -r)
-    targetContainerRuntime=$(echo "${fileToDownload}" | jq .targetContainerRuntime -r)
-    if [ "${targetContainerRuntime}" != "null" ] && [ "${containerRuntime}" != "${targetContainerRuntime}" ]; then
-      echo "$test: skipping ${fileName} verification as VHD container runtime is ${containerRuntime}, not ${targetContainerRuntime}"
-      continue
+  for p in ${packages[*]}; do
+    name=$(echo "${p}" | jq .name -r)
+    downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
+    if [[ "$OS_SKU" == "CBLMariner" || "$OS_SKU" == "AzureLinux" ]]; then
+      OS=$MARINER_OS_NAME
+    else
+      OS=$UBUNTU_OS_NAME
     fi
-    if [ ! -d $downloadLocation ]; then
-      err $test "Directory ${downloadLocation} does not exist"
-      continue
-    fi
+    PackageVersions=()
+    returnPackageVersions ${p} ${OS} ${OS_VERSION}
+    downloadURL=$(returnPackageDownloadURL ${p} ${OS} ${OS_VERSION})
 
-    for version in ${versions}; do
-      file_Name=$(string_replace $fileName $version)
-      dest="$downloadLocation/${file_Name}"
-      downloadURL=$(string_replace $download_URL $version)/$file_Name
+    for version in ${PackageVersions}; do
+      if [[ -z $downloadURL ]]; then
+        echo "$test: skipping package ${name} verification as downloadURL is empty"
+        # we can further think of adding a check to see if the package is installed through apt-get
+        break
+      fi
+      eval "downloadURL=${downloadURL}"
+      fileName=$(basename $downloadURL)
+      dest="$downloadLocation/${fileName}"
       if [ ! -s $dest ]; then
         err $test "File ${dest} does not exist"
         continue
@@ -946,10 +1047,13 @@ testNBCParserBinary () {
 #
 # We should also avoid early exit from the test run -- like if a command fails with
 # an exit rather than a return -- because that prevents other tests from running.
+# To repro the test results on the exact VM, we can set VHD_DEBUG="True" in the azure pipeline env variables.
+# This will keep the VM alive after the tests are run and we can SSH/Bastion into the VM to run the test manually.
+# Therefore, for example, you can run "sudo bash /var/lib/waagent/run-command/download/0/script.sh" to run the tests manually.
 testBccTools
 testVHDBuildLogsExist
 testCriticalTools
-testFilesDownloaded $CONTAINER_RUNTIME
+testPackagesInstalled $CONTAINER_RUNTIME
 testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
 testChrony $OS_SKU
 testAuditDNotPresent
