@@ -42,7 +42,6 @@ steps:
       ls -R
     displayName: show Directory
   - bash: |
-      lsb_release -a
       set -x
       GOPATH="$(go env GOPATH)"
       echo "GOPATH is currently set to $GOPATH"
@@ -70,12 +69,6 @@ steps:
     displayName: Set SKU Name
   - bash: |
         echo MODE=$(MODE) && \
-        captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-        SIG_GALLERY_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-        SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-        echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION]$captured_sig_version"
-        echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]$SIG_IMAGE_NAME"
-        echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$SIG_GALLERY_NAME"
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -v /usr/local/bin/packer:/usr/local/bin/packer \
@@ -118,6 +111,19 @@ steps:
         ${CONTAINER_IMAGE} make -f packer.mk run-packer
     retryCountOnTaskFailure: 3
     displayName: Building VHD
+  - bash: |
+        echo MODE=$(MODE) && \
+        captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+        SIG_GALLERY_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+        SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+        echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION]$captured_sig_version"
+        echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]$SIG_IMAGE_NAME"
+        echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$SIG_GALLERY_NAME"
+        echo "CAPTURED_SIG_VERSION is $CAPTURED_SIG_VERSION"
+        echo "SIG_IMAGE_NAME is $SIG_IMAGE_NAME"
+        echo "SIG_GALLERY_NAME is $SIG_GALLERY_NAME"
+  retryCountOnTaskFailure: 1
+  displayName: Set Stage Variables
   - bash: |
         OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
         MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
@@ -248,6 +254,7 @@ steps:
     condition: always()
   - bash: |
         echo MODE=$(MODE) && \
+        thisVar="5" && \
         make -f packer.mk convert-sig-to-classic-storage-account-blob
     env:
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
