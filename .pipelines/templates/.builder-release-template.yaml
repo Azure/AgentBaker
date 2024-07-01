@@ -283,7 +283,6 @@ steps:
     displayName: Copy image bom
   - bash: |
         echo MODE=$(MODE) && \
-        thisVar="5" && \
         make -f packer.mk convert-sig-to-classic-storage-account-blob
     env:
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
