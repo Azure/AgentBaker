@@ -71,7 +71,9 @@ steps:
     inputs:
       targetType: 'inline'
       script: |
-        azcopy login --login-type=MSI
+        export AZCOPY_AUTO_LOGIN_TYPE="MSI" && \
+        export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING" && \
+        azcopy doc -h
     displayName: 'Check AZCopy login'
   - bash: |
         echo MODE=$(MODE) && \
