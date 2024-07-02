@@ -32,10 +32,9 @@ variables:
   value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
 
 stages:
-  - stage: build_vhd
-    dependsOn: []
+  - stage: build
     jobs:
-    - job: build
+    - job: build-2204-gen2-containerd
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -57,10 +56,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 2204-gen2-containerd
-  - stage: build_gpu_vhd
-    dependsOn: []
-    jobs:
-    - job: build
+    - job: build-1804-gen2-gpu-containerd
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -82,10 +78,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-gen2-gpu-containerd
-  - stage: build_mariner_vhd
-    dependsOn: []
-    jobs:
-    - job: build
+    - job: build-marinerv2-gen2
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -108,3 +101,9 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen2
+  - stage: Run_E2E_Tests
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
+      LOCATION: $(PACKER_BUILD_LOCATION)
+    jobs:
+      - template: ./templates/e2e-template.yaml
