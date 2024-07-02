@@ -91,7 +91,6 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/windows/servercore/iis:latest",
     # CSI. Owner: andyzhangx (Andy Zhang)
     "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.12.0", # for k8s 1.27+
-    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.0", # for k8s 1.27+
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.1", # for k8s 1.27+
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.7-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.8-windows-hp", # for k8s 1.27.x
@@ -101,9 +100,7 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.5-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.2-windows-hp", # for k8s 1.29.x
     # Addon of Azure secrets store. Owner: jiashun0011 (Jiashun Liu)
-    "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.2",
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.3",
-    "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.1",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.2",
     # Azure cloud node manager. Owner: nilo19 (Qi Ni), lzhecheng (Zhecheng Li)
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.22", # for k8s 1.26.x
@@ -177,16 +174,10 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.4/windowszip/v1.29.4-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.5/windowszip/v1.29.5-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.30.0/windowszip/v1.30.0-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.30.1/windowszip/v1.30.1-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.30.2/windowszip/v1.30.2-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
-        # Azure CNI v1 (legacy)
-        "https://acs-mirror.azureedge.net/azure-cni/v1.5.6.1/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.5.6.1.zip",
-        # Azure CNI v2 (pod subnet) upgrading from v1.4.39.1 (unsigned) to v1.4.39.2 (signed)
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.39.2/binaries/azure-vnet-cni-singletenancy-swift-windows-amd64-v1.4.39.2.zip",
-        # Azure CNI for Overlay upgrading from v1.4.39.1 (unsigned) to v1.4.39.2 (signed)
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.39.2/binaries/azure-vnet-cni-singletenancy-overlay-windows-amd64-v1.4.39.2.zip"
-
         # Azure CNI v1 (legacy)
         "https://acs-mirror.azureedge.net/azure-cni/v1.5.28/binaries/azure-vnet-cni-windows-amd64-v1.5.28.zip",
         # Azure CNI v2 (pod subnet)

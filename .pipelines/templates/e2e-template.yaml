@@ -32,6 +32,7 @@ jobs:
         displayName: Run AgentBaker E2E
         env:
           VHD_BUILD_ID: $(VHD_BUILD_ID)
+          LOCATION: $(LOCATION)
       - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
         artifact: scenario-logs
         condition: always()
