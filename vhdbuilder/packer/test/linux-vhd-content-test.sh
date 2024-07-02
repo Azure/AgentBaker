@@ -938,6 +938,16 @@ testNBCParserBinary () {
 
 }
 
+check_perf_data () {
+  if test -f /opt/azure/vhd-build-performance-data.json; then
+    echo "File /opt/azure/vhd-build-performance-data.json exists"
+    return 1
+  else
+    echo "File /opt/azure/vhd-build-performance-data.json does not exist"
+    return 0
+  fi
+}
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -946,6 +956,7 @@ testNBCParserBinary () {
 #
 # We should also avoid early exit from the test run -- like if a command fails with
 # an exit rather than a return -- because that prevents other tests from running.
+check_perf_data
 testBccTools
 testVHDBuildLogsExist
 testCriticalTools
