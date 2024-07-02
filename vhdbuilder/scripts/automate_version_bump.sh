@@ -21,6 +21,29 @@ find_and_write_build_timestamp() {
     echo "$json_string" > vhdbuilder/${NEW_IMAGE_VERSION}_build_timestamp.json
 }
 
+parse_and_write_base_image_version() {
+  # Use the VHD_BUILD_ID to go through publishing-info.json
+  # If 20.04 or higher, parse the base_image_version and append it to a json file
+  # Skip for others
+  base_image_version_json_file="vhdbuilder/${NEW_IMAGE_VERSION}_base_image_version.json"
+  if [ ! -f "$base_image_version_json_file" ]; then
+    echo "{}" > "$base_image_version_json_file"
+  fi
+
+  artifact_names=$(az pipelines runs artifact list --run-id ${VHD_BUILD_ID} | jq -r '.[].name' | grep "publishing-info" | awk '/2004|2204/')
+  artifacts=()
+  while IFS= read -r line; do
+    artifacts+=("$line")
+  done <<< "$artifact_names"
+  for artifact in "${artifacts[@]}"; do
+    az pipelines runs artifact download --artifact-name $artifact --path $(pwd) --run-id ${VHD_BUILD_ID}
+    BASE_IMAGE_VERSION=$(jq -r .base_image_version < vhd-publishing-info.json)
+    SKU_NAME=$(jq -r .sku_name < vhd-publishing-info.json)
+    jq --arg base_image_version "${BASE_IMAGE_VERSION}" --arg sku_name "${SKU_NAME}" '.[$sku_name] = $base_image_version' "$base_image_version_json_file" > tmp.json && mv tmp.json "$base_image_version_json_file"
+    rm -f vhd-publishing-info.json
+  done
+}
+
 # This function finds the current SIG Image version from the input JSON file
 find_current_image_version() {
     filepath=$1
@@ -72,8 +95,10 @@ cut_official_branch() {
     
     # Compute and store the VHD build timestamp for hotfixes
     find_and_write_build_timestamp
+    # Parse and store the publisher base image versions for hotfixes
+    parse_and_write_base_image_version
     git add .
-    git commit -m "chore: compute and store VHD build timestamp in official branch"
+    git commit -m "chore: store VHD build timestamp and publisher base image version in official branch"
 
     git push -u origin $official_branch_name
 
