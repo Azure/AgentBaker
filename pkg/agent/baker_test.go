@@ -859,6 +859,12 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			},
 		),
 
+		Entry("AKSUbuntu2204 with outbound type blocked", "AKSUbuntu2204+OutboundTypeBlocked", "1.25.6", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OutboundType = datamodel.OutboundTypeBlock
+		}, func(o *nodeBootstrappingOutput) {
+			Expect(o.vars["BLOCK_OUTBOUND_NETWORK"]).To(Equal("true"))
+		}),
+
 		Entry("AKSUbuntu1804 with custom ca trust", "AKSUbuntu1804+CustomCATrust", "1.18.14", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
 				CustomCATrustCerts: []string{encodedTestCert, encodedTestCert, encodedTestCert},

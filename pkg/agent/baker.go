@@ -904,6 +904,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetOutboundCommand": func() string {
 			return getOutBoundCmd(config, config.CloudSpecConfig)
 		},
+		"BlockOutboundNetwork": func() bool {
+			if config.OutboundType == datamodel.OutboundTypeBlock || config.OutboundType == datamodel.OutboundTypeNone {
+				return true
+			}
+			return false
+		},
 		"GPUNeedsFabricManager": func() bool {
 			return common.GPUNeedsFabricManager(profile.VMSize)
 		},

@@ -122,7 +122,9 @@ fi
 
 setupCNIDirs
 
-logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
+if [ "${BLOCK_OUTBOUND_NETWORK}" == "false" ]; then
+    logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
+fi
 
 if [ "${IS_KRUSTLET}" == "true" ]; then
     logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
