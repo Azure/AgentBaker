@@ -214,7 +214,7 @@ for p in ${packages[*]}; do
       for version in $PackageVersions; do
         evaluatedURL=$(evalPackageDownloadURL ${packageDownloadURL})
         downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
-        unpackAzureCNI "${packageDownloadURL}"
+        unpackAzureCNI "${evaluatedURL}"
         echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
@@ -222,7 +222,7 @@ for p in ${packages[*]}; do
       for version in $PackageVersions; do
         evaluatedURL=$(evalPackageDownloadURL ${packageDownloadURL})
         downloadCNI "${downloadDir}" "${evaluatedURL}"
-        unpackAzureCNI "${packageDownloadURL}"
+        unpackAzureCNI "${evaluatedURL}"
         echo "  - CNI plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
