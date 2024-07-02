@@ -141,19 +141,9 @@ specified VHD build, the selector will select the corresponding default catalog 
 VHD_BUILD_ID=123456789 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64,ubuntu2204-gpu-ncv3 ./e2e-local.sh
 ```
 
-***NOTE: To utilize this feature, you'll also need to provide the suite with an ADO PAT (personal access token) with
-which it can access the ADO resources to download the appropriate build artifacts.***
-
-To specify your PAT, simply set the `ADO_PAT` environment variable accordingly:
-
-```bash
-ADO_PAT=<secret> VHD_BUILD_ID=123456789 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64,ubuntu2204-gpu-ncv3 ./e2e-local.sh
-```
-
 or:
 
 ```bash
-export ADO_PAT=<secret>
 VHD_BUILD_ID=123456789 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64,ubuntu2204-gpu-ncv3 ./e2e-local.sh
 VHD_BUILD_ID=234567891 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64,ubuntu2204-gpu-ncv3 ./e2e-local.sh
 ...
