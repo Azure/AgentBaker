@@ -31,7 +31,10 @@ parse_and_write_base_image_version() {
   fi
 
   artifact_name=$(az pipelines runs artifact list --run-id ${VHD_BUILD_ID} | jq -r '.[].name' | grep "publishing-info" | awk '/2004|2204/')
-  IFS=$'\n' read -rd '' -a artifacts <<< "$artifact_name"
+  artifacts=()
+  while IFS= read -r line; do
+    artifacts+=("$line")
+  done <<< "$artifact_name"
   for artifact in "${artifacts[@]}"; do
     az pipelines runs artifact download --artifact-name $artifact --path $(pwd) --run-id ${VHD_BUILD_ID}
     BASE_IMAGE_VERSION=$(jq -r .base_image_version < vhd-publishing-info.json)
