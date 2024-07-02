@@ -1,0 +1,9 @@
+{
+  "2004gen2CVMcontainerd": "20.04.202402050",
+  "2204gen2containerd": "22.04.202406140",
+  "2204gen2arm64containerd": "22.04.202406140",
+  "2204containerd": "22.04.202406140",
+  "2004gen2fipscontainerd": "20.04.202406140",
+  "2004fipscontainerd": "20.04.202406140",
+  "2204gen2TLcontainerd": "22.04.202406140"
+}
