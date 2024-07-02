@@ -14,7 +14,7 @@ required_env_vars=(
 
 # Higher the replication_inverse, lower is the usage and number of replicas
 set -x
-BASE_IMAGE_VERSION=$(az vm image list -p ${IMG_PUBLISHER} -s ${IMG_SKU} --query "[?offer=='${IMG_OFFER}'].version" -o tsv --all | sort -u | tail -n 1)
+PUBLISHER_BASE_IMAGE_VERSION=$(az vm image list -p ${IMG_PUBLISHER} -s ${IMG_SKU} --query "[?offer=='${IMG_OFFER}'].version" -o tsv --all | sort -u | tail -n 1)
 echo "Latest ${IMG_PUBLISHER} base image version for offer ${IMG_OFFER} and sku ${IMG_SKU} is ${BASE_IMAGE_VERSION}"
 
 REPLICATION_INVERSE=1
@@ -119,7 +119,8 @@ if [ "${OS_NAME,,}" == "linux" ]; then
     "image_architecture": "${IMAGE_ARCH}",
     "image_version": "${IMAGE_VERSION}",
     "replication_inverse": "${REPLICATION_INVERSE}",
-    "base_image_version": "${BASE_IMAGE_VERSION}"
+    "publisher_base_image_version": "${PUBLISHER_BASE_IMAGE_VERSION}",
+    "publisher_base_image_sku" : "${IMG_SKU}
 }
 EOF
 else
