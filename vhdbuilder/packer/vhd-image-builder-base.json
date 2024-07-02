@@ -24,6 +24,7 @@
     "img_sku": "{{env `IMG_SKU`}}",
     "img_version": "{{env `IMG_VERSION`}}",
     "sgx_install": "{{env `SGX_INSTALL`}}",
+    "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}",
     "vnet_name": "{{env `VNET_NAME`}}",
     "subnet_name": "{{env `SUBNET_NAME`}}",
     "private_packages_url": "{{env `PRIVATE_PACKAGES_URL`}}",
@@ -33,6 +34,7 @@
     {
       "type": "azure-arm",
       "subscription_id": "{{user `subscription_id`}}",
+      "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
       "virtual_network_name": "{{user `vnet_name`}}",
       "virtual_network_subnet_name": "{{user `subnet_name`}}",
       "ssh_read_write_timeout": "5m",
