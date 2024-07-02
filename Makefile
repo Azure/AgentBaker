@@ -77,6 +77,10 @@ validate-go:
 validate-shell:
 	@./.pipelines/scripts/verify_shell.sh
 
+.PHONY: unit-test-shell
+unit-test-shell:
+	@./.pipelines/scripts/run_shell_unit_tests.sh
+
 .PHONY: validate-image-version
 validate-image-version:
 	@./vhdbuilder/packer/test/run-pretest.sh
@@ -97,6 +101,8 @@ generate: bootstrap
 	GENERATE_TEST_DATA="true" go test ./pkg/agent...
 	@echo "running validate-shell to make sure generated cse scripts are correct"
 	@$(MAKE) validate-shell
+	@echo "running unit-test-shell to make sure generated cse scripts are correct"
+	@$(MAKE) unit-test-shell
 
 .PHONY: generate-azure-constants
 generate-azure-constants:
@@ -162,7 +168,6 @@ ginkgoBuild: generate
 
 test: generate
 	go test ./...
-
 
 .PHONY: test-style
 test-style: validate-go validate-shell validate-copyright-headers
