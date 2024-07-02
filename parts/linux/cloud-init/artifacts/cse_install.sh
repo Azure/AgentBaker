@@ -91,7 +91,8 @@ downloadCredentalProviderWithOras() {
 installOras() {
     # install oras here
     ORAS_VERSION="1.2.0"
-    curl -LO "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz"
+    CPU_ARCH=$(getCPUArch)
+    curl -LO "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_${CPU_ARCH}.tar.gz"
     mkdir -p oras-install/
     tar -zxf oras_${ORAS_VERSION}_*.tar.gz -C oras-install/
     sudo mv oras-install/oras /usr/local/bin/
