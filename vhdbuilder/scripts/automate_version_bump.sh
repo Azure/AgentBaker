@@ -26,8 +26,8 @@ parse_and_write_base_image_version() {
   # If 20.04 or higher, parse the base_image_version and append it to a json file
   # Skip for others
   publisher_base_image_version_json_file="vhdbuilder/publisher_base_image_version.json"
-  if [ ! -f "$base_image_version_json_file" ]; then
-    echo "{}" > "$base_image_version_json_file"
+  if [ ! -f "$publisher_base_image_version_json_file" ]; then
+    echo "{}" > "$publisher_base_image_version_json_file"
   fi
 
   artifact_names=$(az pipelines runs artifact list --run-id ${VHD_BUILD_ID} | jq -r '.[].name' | grep "publishing-info" | awk '/2004|2204/')
