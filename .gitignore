@@ -39,3 +39,7 @@ hack/tools/bin
 # to make sure we don't accidently add this back after the recent
 # migration off of go-bindata
 pkg/templates/templates_generated.go
+
+vhdbuilder/packer/alison-testing-don't-add.sh
+vhdbuilder/trivy-vuln/*
+.gitignore
