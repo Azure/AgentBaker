@@ -432,13 +432,8 @@ fi
 stop_watch $capture_time "GPU Device plugin" false
 start_watch
 
-# install oras here
-ORAS_VERSION="1.2.0"
-curl -LO "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz"
-mkdir -p oras-install/
-tar -zxf oras_${ORAS_VERSION}_*.tar.gz -C oras-install/
-sudo mv oras-install/oras /usr/local/bin/
-rm -rf oras_${ORAS_VERSION}_*.tar.gz oras-install/
+# install oras
+installOras
 
 # Kubelet credential provider plugins
 CREDENTIAL_PROVIDER_VERSIONS="
@@ -446,8 +441,10 @@ CREDENTIAL_PROVIDER_VERSIONS="
 1.30.0
 "
 for CREDENTIAL_PROVIDER_VERSION in $CREDENTIAL_PROVIDER_VERSIONS; do
-    CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
-    downloadCredentalProvider $CREDENTIAL_PROVIDER_DOWNLOAD_URL
+    # CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
+    # downloadCredentalProvider $CREDENTIAL_PROVIDER_DOWNLOAD_URL
+    CREDENTIAL_PROVIDER_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
+    downloadCredentalProviderWithOras $CREDENTIAL_PROVIDER_DOWNLOAD_URL
     echo "  - Kubelet credential provider version ${CREDENTIAL_PROVIDER_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
