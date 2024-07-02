@@ -18,14 +18,14 @@ find_and_write_build_timestamp() {
     canonical_sanitized_timestamp=$(date -u -d "$build_time" "+%Y%m%dT%H%M%SZ")
     # shellcheck disable=SC2089
     json_string="{\"build_timestamp\": \"$canonical_sanitized_timestamp\"}"
-    echo "$json_string" > vhdbuilder/build_timestamp.json
+    echo "$json_string" > vhdbuilder/vhd_build_timestamp.json
 }
 
 parse_and_write_base_image_version() {
   # Use the VHD_BUILD_ID to go through publishing-info.json
   # If 20.04 or higher, parse the base_image_version and append it to a json file
   # Skip for others
-  base_image_version_json_file="vhdbuilder/base_image_version.json"
+  publisher_base_image_version_json_file="vhdbuilder/publisher_base_image_version.json"
   if [ ! -f "$base_image_version_json_file" ]; then
     echo "{}" > "$base_image_version_json_file"
   fi
@@ -39,7 +39,7 @@ parse_and_write_base_image_version() {
     az pipelines runs artifact download --artifact-name $artifact --path $(pwd) --run-id ${VHD_BUILD_ID}
     PUBLISHER_BASE_IMAGE_VERSION=$(jq -r .publisher_base_image_version < vhd-publishing-info.json)
     PUBLISHER_BASE_IMAGE_SKU=$(jq -r .publisher_base_image_sku < vhd-publishing-info.json)
-    jq --arg publisher_base_image_version "${PUBLISHER_BASE_IMAGE_VERSION}" --arg publisher_base_image_sku "${PUBLISHER_BASE_IMAGE_SKU}" '.[$publisher_base_image_sku] = $publisher_base_image_version' "$base_image_version_json_file" > tmp.json && mv tmp.json "$base_image_version_json_file"
+    jq --arg publisher_base_image_version "${PUBLISHER_BASE_IMAGE_VERSION}" --arg publisher_base_image_sku "${PUBLISHER_BASE_IMAGE_SKU}" '.[$publisher_base_image_sku] = $publisher_base_image_version' "$publisher_base_image_version_json_file" > tmp.json && mv tmp.json "$publisher_base_image_version_json_file"
     rm -f vhd-publishing-info.json
   done
 }
