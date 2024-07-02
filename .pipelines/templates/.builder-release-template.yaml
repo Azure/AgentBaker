@@ -70,7 +70,6 @@ steps:
   - bash: |
         echo MODE=$(MODE) && \
         pwd && \
-        printenv && \
         make -f packer.mk run-packer
     env:
       # Azure Variables
@@ -78,10 +77,11 @@ steps:
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
       POOL_NAME: $(POOL_NAME)
       AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+      AZURE_MSI_RESOURCE_STRINGS: $(AZURE_MSI_RESOURCE_STRINGS)
       PACKER_BUILD_LOCATION: $(PACKER_BUILD_LOCATION)
       MODE: $(MODE)
       # Git and Build Variables
-      BRANCH: $(Build.SourceBranc)
+      BRANCH: $(Build.SourceBranch)
       GIT_VERSION: $(Build.SourceVersion)
       BUILD_DEFINITION_NAME: $(Build.DefinitionName)
       BUILD_ID: $(Build.BuildId)
@@ -92,9 +92,9 @@ steps:
       IMAGE_VERSION: $(IMAGE_VERSION:)
       # SIG Variables
       SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
-      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
-      SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
       # URLs
+      PRIVATE_PACKAGES_URL: $(PRIVATE_PACKAGES_URL)
+      TELEPORTD_PLUGIN_DOWNLOAD_URL: $(TELEPORTD_PLUGIN_DOWNLOAD_URL)
       # Stage Variables Set in Parent YAML
       OS_SKU: $(OS_SKU)
       OS_VERSION: $(OS_VERSION)
