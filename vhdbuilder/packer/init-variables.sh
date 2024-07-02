@@ -7,6 +7,9 @@ SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr 
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 
+if [[ "${IMG_SKU}" == "22_04-lts-gen2" ]]; then
+  IMG_VERSION="22.04.202405140"
+fi
 # Hard-code RG/gallery location to 'eastus' only for linux builds.
 if [ "$MODE" == "linuxVhdMode" ]; then
 	# In linux builds, this variable is only used for creating the resource group holding the
