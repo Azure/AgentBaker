@@ -176,14 +176,14 @@ steps:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'trivy-report.json'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
-    displayName: Copy trivy report
+    displayName: Copy trivy rootfs report
   - task: CopyFiles@2
     condition: eq(variables['IS_NOT_1804'], 'true')
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'trivy-images-table.txt'
+      Contents: 'trivy-report-image-*.json'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
-    displayName: Copy trivy table
+    displayName: Copy trivy image report
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
