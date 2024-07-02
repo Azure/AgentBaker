@@ -20,8 +20,11 @@ CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1 v0.8.0"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
+COMPONENTS_FILEPATH="/opt/azure/components.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 CURL_OUTPUT=/tmp/curl_verbose.out
+UBUNTU_OS_NAME="UBUNTU"
+MARINER_OS_NAME="MARINER"
 
 removeManDbAutoUpdateFlagFile() {
     rm -f $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
@@ -36,27 +39,41 @@ cleanupContainerdDlFiles() {
 }
 
 installContainerRuntime() {
-    if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+    if [[ "${NEEDS_CONTAINERD}" == "true" ]]; then
         echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
-        local containerd_version
-        if [ -f "$MANIFEST_FILEPATH" ]; then
-            containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
-            if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-                containerd_version="$(jq -r '.containerd.pinned."1804"' "$MANIFEST_FILEPATH")"
-            fi
-        else
-            echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+        if [[ ! -f "$COMPONENTS_FILEPATH" ]]; then
+            echo "WARNING: $COMPONENTS_FILEPATH not found. Skipping validation."
+            return 0
+        fi
+        os=${UBUNTU_OS_NAME}
+        if [[ -z "$UBUNTU_RELEASE" ]]; then
+            os=${MARINER_OS_NAME}
+            os_version="current"
         fi
 
-        containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
-        containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
-        if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ] || [ "$containerd_revision" == "null" ]; then
-            echo "invalid container version: $containerd_version"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        os_version="${UBUNTU_RELEASE}"
+        containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
+        PackageVersions=()
+        returnPackageVersions "${containerdPackage}" "${os}" "${os_version}"
+        
+        #Containerd's versions array is expected to have only one element.
+        #If it has more than one element, we will install the last element in the array.
+        if [[ ${#PackageVersions[@]} -gt 1 ]]; then
+            echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
         fi
-
-        logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
-        echo "in installContainerRuntime - CONTAINERD_VERION = ${containerd_patch_version}"
+        IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PackageVersions[*]}"))
+        unset IFS
+        array_size=${#sortedPackageVersions[@]}
+        [[ $((array_size-1)) -lt 0 ]] && last_index=0 || last_index=$((array_size-1))
+        packageVersion=${sortedPackageVersions[${last_index}]}
+        containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
+        containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
+        if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
+            echo "invalid containerd version: $packageVersion"
+            exit $ERR_CONTAINERD_VERSION_INVALID
+        fi
+        logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
+        echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
     else
         installMoby 
     fi
@@ -71,9 +88,11 @@ installNetworkPlugin() {
 }
 
 downloadCNI() {
-    mkdir -p $CNI_DOWNLOADS_DIR
-    CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin #
-    retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+    downloadDir=${1:-${CNI_DOWNLOADS_DIR}}
+    mkdir -p $downloadDir
+    CNI_PLUGINS_URL=${2:-$CNI_PLUGINS_URL}
+    cniTgzTmp=${CNI_PLUGINS_URL##*/}
+    retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
 downloadCredentalProvider() {
@@ -140,19 +159,30 @@ downloadContainerdWasmShims() {
     done
 }
 
+evalPackageDownloadURL() {
+    local url=${1:-}
+    if [[ -n "$url" ]]; then
+         eval "result=${url}"
+         echo $result
+         return
+    fi
+    echo ""
+}
+
 downloadAzureCNI() {
-    mkdir -p $CNI_DOWNLOADS_DIR
+    mkdir -p ${1-$:CNI_DOWNLOADS_DIR}
+    VNET_CNI_PLUGINS_URL=${2:-$VNET_CNI_PLUGINS_URL}
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin #
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
 downloadCrictl() {
-    CRICTL_VERSION=$1
-    CPU_ARCH=$(getCPUArch)
-    mkdir -p $CRICTL_DOWNLOAD_DIR
-    CRICTL_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cri-tools/v${CRICTL_VERSION}/binaries/crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
-    CRICTL_TGZ_TEMP=${CRICTL_DOWNLOAD_URL##*/}
-    retrycmd_curl_file 10 5 60 "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ${CRICTL_DOWNLOAD_URL}
+    #if $1 is empty, take ${CRICTL_DOWNLOAD_DIR} as default value. Otherwise take $1 as the value
+    downloadDir=${1:-${CRICTL_DOWNLOAD_DIR}}
+    mkdir -p $downloadDir
+    url=${2}
+    crictlTgzTmp=${url##*/}
+    retrycmd_curl_file 10 5 60 "$downloadDir/${crictlTgzTmp}" ${url} || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
 }
 
 installCrictl() {
@@ -463,4 +493,75 @@ datasource:
         apply_network_config: false
 EOF
 }
+
+returnPackageVersions() {
+  local package="$1"
+  local os="$2"
+  local osVersion="$3"
+  local release="$(returnRelease "${package}" "${os}" "${osVersion}")"
+  if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
+    #if .downloadURIs.ubuntu exist, then get the versions from there.
+    #otherwise get the versions from .downloadURIs.default 
+    if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu") != "null" ]]; then
+      versions=$(echo "${package}" | jq ".downloadURIs.ubuntu.${release}.versions[]" -r)
+      for version in ${versions[@]}; do
+       PackageVersions+=("${version}")
+      done
+      return
+    fi
+    versions=$(echo "${package}" | jq ".downloadURIs.default.${release}.versions[]" -r)
+    for version in ${versions[@]}; do
+      PackageVersions+=("${version}")
+    done
+    return  
+  fi
+  if [[ "${os}" == "${MARINER_OS_NAME}" ]]; then
+    #if .downloadURIs.ubuntu exist, then get the versions from there.
+    #otherwise get the versions from .downloadURIs.default 
+    if [[ $(echo "${package}" | jq ".downloadURIs.mariner") != "null" ]]; then
+      versions=$(echo "${package}" | jq ".downloadURIs.mariner.${release}.versions[]" -r)
+      for version in ${versions[@]}; do
+        PackageVersions+=("${version}")
+      done
+      return
+    fi
+    versions=$(echo "${package}" | jq ".downloadURIs.default.${release}.versions[]" -r)
+    for version in ${versions[@]}; do
+      PackageVersions+=("${version}")
+    done
+    return  
+  fi
+}
+
+returnPackageDownloadURL() {
+  local package=$1
+  local os=$2
+  local osVersion=$3
+  local release="$(returnRelease "${package}" "${os}" "${osVersion}")"
+  if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
+    #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
+    #otherwise get the downloadURL from .downloadURIs.default 
+    if [[ $(echo "${package}" | jq '.downloadURIs.ubuntu') != "null" ]]; then
+      downloadURL=$(echo "${package}" | jq ".downloadURIs.ubuntu.${release}.downloadURL" -r)
+      echo ${downloadURL}
+      return
+    fi
+    downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${release}.downloadURL" -r)
+    echo ${downloadURL}
+    return  
+  fi
+  if [[ "${os}" == "${MARINER_OS_NAME}" ]]; then
+    #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
+    #otherwise get the downloadURL from .downloadURIs.default 
+    if [[ $(echo "${package}" | jq '.downloadURIs.mariner') != "null" ]]; then
+      downloadURL=$(echo "${package}" | jq ".downloadURIs.mariner.${release}.downloadURL" -r)
+      echo ${downloadURL}
+      return
+    fi
+    downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${release}.downloadURL" -r)
+    echo ${downloadURL}
+    return  
+  fi
+}
+
 #EOF

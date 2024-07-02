@@ -59,6 +59,36 @@ See the [git documentation](https://git-scm.com/book/en/v2/Git-Tools-Rewriting-H
 
 Most code may be tested with vanilla Go unit tests.
 
+## shell scripts unit tests
+
+Please visit the official [GitHub link](https://github.com/shellspec/shellspec) for more details. Below is a brief use case.
+
+### Installation 
+
+`Shellspec` is used as a framework for unit test.
+
+To run it, please install it by using `curl -fsSL https://git.io/shellspec | sh`.
+
+By default, it should be installed in `~/.local/lib/shellspec`. Please append it to the $PATH for your convenience. Example command `export PATH=$PATH:~/.local/lib/shellspec`.
+
+### Authoring tests
+
+You will need to write `xxx_spec.sh` file for the test.
+
+For example, `AgentBaker/spec/parts/linux/cloud-init/artifacts/cse_install_spec.sh` is a test file for `AgentBaker/parts/linux/cloud-init/artifacts/cse_install.sh`
+
+### Running tests locally
+
+To run all tests, in AgentBaker folder, simply run `bash shellspec`. (Assuming you set the $PATH correctly, otherwise you will need to provide the full path for shellspec binary)
+
+#### Useful commands for debugging
+
+- `bash shellspec -x` => with `-x`, it will show verbose trace for debugging.
+- `bash shellspec -E "<test name>"` => you can run a single test case by using `-E` and the test name. For example, `bash shellspec -E "returns downloadURIs.ubuntu.\"r2004\".downloadURL of package runc for UBUNTU 20.04"`. You can also do `-xE` for verbose trace for a single test case.
+- `bash shellspec "path to xxx_spec.sh"` => by providing a full path a particular spec file, you can run only that spec file instead of all spec files in AgentBaker project. 
+For example, `bash shellspec "spec/parts/linux/cloud-init/artifacts/cse_install_spec.sh"`
+
+
 ## Snapshot
 
 We also have snapshot data tests, which store the output of key APIs as files on disk.
