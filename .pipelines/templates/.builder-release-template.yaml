@@ -70,6 +70,7 @@ steps:
   - bash: |
         echo MODE=$(MODE) && \
         pwd && \
+        printenv && \
         make -f packer.mk run-packer
     env:
       # Azure Variables
@@ -79,15 +80,14 @@ steps:
       AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       PACKER_BUILD_LOCATION: $(PACKER_BUILD_LOCATION)
       MODE: $(MODE)
-      AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
       # Git and Build Variables
-      BRANCH: $(BRANCH)
-      GIT_VERSION: $(GIT_VERSION)
-      BUILD_DEFINITION_NAME: $(BUILD_DEFINITION_NAME)
-      BUILD_ID: $(BUILD_ID)
-      BUILD_NUMBER: $(BUILD_NUMBER)
+      BRANCH: $(Build.SourceBranc)
+      GIT_VERSION: $(Build.SourceVersion)
+      BUILD_DEFINITION_NAME: $(Build.DefinitionName)
+      BUILD_ID: $(Build.BuildId)
+      BUILD_NUMBER: $(Build.BuildNumber)
       # VHD Information
-      OS_TYPE: $(OS_TYPE)
+      OS_TYPE: Linux
       SKU_NAME: $(SKU_NAME)
       IMAGE_VERSION: $(IMAGE_VERSION:)
       # SIG Variables
