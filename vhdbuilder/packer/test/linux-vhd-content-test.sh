@@ -194,12 +194,17 @@ testPackagesInstalled() {
         break
       fi
       eval "downloadURL=${downloadURL}"
-      fileName=$(basename $downloadURL)
-      dest="$downloadLocation/${fileName}"
+      local fileNameWithExt
+      fileNameWithExt=$(basename $downloadURL)
+      local fileNameWithoutExt
+      fileNameWithoutExt="${fileNameWithExt%.*}"
+      local dest
+      dest="$downloadLocation/${fileNameWithExt}"
       if [ ! -s $dest ]; then
         err $test "File ${dest} does not exist"
         continue
       fi
+      dest="$downloadLocation/${fileNameWithoutExt}"
       # no wc -c on a dir. This is for downloads we've un tar'd and deleted from the vhd
       if [ ! -d $dest ]; then
         # -L since some urls are redirects (i.e github)
