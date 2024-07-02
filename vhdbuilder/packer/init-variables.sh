@@ -411,6 +411,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",
+  "img_version": "${IMG_VERSION}",
   "windows_image_publisher": "${WINDOWS_IMAGE_PUBLISHER}",
   "windows_image_offer": "${WINDOWS_IMAGE_OFFER}",
   "windows_image_sku": "${WINDOWS_IMAGE_SKU}",
