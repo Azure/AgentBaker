@@ -96,6 +96,18 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/vhd_build_timestamp.json",
+      "destination": "/home/packer/vhd_build_timestamp.json",
+      "generated": "true"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/publisher_base_image_version.json",
+      "destination": "/home/packer/publisher_base_image_version.json",
+      "generated": "true"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/prefetch.sh",
       "destination": "/home/packer/prefetch.sh"
     },
