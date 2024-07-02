@@ -3,9 +3,19 @@ set -x
 CDIR=$(dirname "${BASH_SOURCE}")
 
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
+PUBLISHER_BASE_IMAGE_VERSION_JSON="${PUBLISHER_BASE_IMAGE_VERSION_JSON:-../vhdbuilder/publisher_base_image_version.json}"
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
+
+if [ -s "${PUBLISHER_BASE_IMAGE_VERSION_JSON}" ]; then
+  echo "The publisher_base_image_version.json is not empty, therefore, use the publisher base images specified there, if they exist"
+  PUBLISHER_BASE_IMAGE_VERSION=$(jq -r --arg key "${IMG_SKU}" 'if has($key) then .[$key] else empty end' "${PUBLISHER_BASE_IMAGE_VERSION_JSON}")
+  if [ -n "${PUBLISHER_BASE_IMAGE_VERSION}" ]; then
+    echo "Change publisher base image version to ${PUBLISHER_BASE_IMAGE_VERSION} for ${IMG_SKU}"
+    IMG_VERSION=${PUBLISHER_BASE_IMAGE_VERSION}
+  fi
+fi
 
 # Hard-code RG/gallery location to 'eastus' only for linux builds.
 if [ "$MODE" == "linuxVhdMode" ]; then
@@ -408,6 +418,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",
+  "img_version": "${IMG_VERSION}",
   "windows_image_publisher": "${WINDOWS_IMAGE_PUBLISHER}",
   "windows_image_offer": "${WINDOWS_IMAGE_OFFER}",
   "windows_image_sku": "${WINDOWS_IMAGE_SKU}",
