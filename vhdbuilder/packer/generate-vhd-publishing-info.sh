@@ -120,7 +120,7 @@ if [ "${OS_NAME,,}" == "linux" ]; then
     "image_version": "${IMAGE_VERSION}",
     "replication_inverse": "${REPLICATION_INVERSE}",
     "publisher_base_image_version": "${PUBLISHER_BASE_IMAGE_VERSION}",
-    "publisher_base_image_sku" : "${IMG_SKU}
+    "publisher_base_image_sku" : "${IMG_SKU}"
 }
 EOF
 else
