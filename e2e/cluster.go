@@ -17,7 +17,7 @@ import (
 
 const (
 	managedClusterResourceType = "Microsoft.ContainerService/managedClusters"
-	defaultAgentPoolVMSize     = "standard_d2s_v4"
+	defaultAgentPoolVMSize     = "standard_d2s_v2"
 )
 
 type clusterParameters map[string]string
