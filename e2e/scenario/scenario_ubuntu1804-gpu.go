@@ -13,9 +13,8 @@ func ubuntu1804gpu() *Scenario {
 		Name:        "ubuntu1804-gpu",
 		Description: "Tests that a GPU-enabled node using an Ubuntu 1804 VHD can be properly bootstrapped",
 		Config: Config{
-			ClusterSelector: NetworkPluginKubenetSelector,
-			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHDSelector:     config.VHDUbuntu1804Gen2Containerd,
+			Cluster:     ClusterNetworkKubenet,
+			VHDSelector: config.VHDUbuntu1804Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-18.04-gen2"

@@ -249,7 +249,7 @@ func hasViableConfig(scenario *scenario.Scenario, clusterConfigs []clusterConfig
 		if scenario.Airgap && !config.isAirgapCluster {
 			continue
 		}
-		if scenario.Config.ClusterSelector(config.cluster) {
+		if scenario.Config.Cluster.Selector(config.cluster) {
 			return true
 		}
 	}
@@ -320,7 +320,7 @@ func chooseCluster(
 			continue
 		}
 
-		if scenario.Config.ClusterSelector(config.cluster) {
+		if scenario.Config.Cluster.Selector(config.cluster) {
 			// only validate + prep the cluster for testing if we didn't just create it and it hasn't already been prepared
 			if !config.isNewCluster && config.needsPreparation() {
 				if err := validateAndPrepareCluster(ctx, r, config); err != nil {
@@ -438,8 +438,8 @@ func prepareClusterModelForRecreate(r *mrand.Rand, clusterModel *armcontainerser
 
 func getNewClusterModelForScenario(clusterName, location string, scenario *scenario.Scenario) armcontainerservice.ManagedCluster {
 	baseModel := getBaseClusterModel(clusterName, location)
-	if scenario.ClusterMutator != nil {
-		scenario.ClusterMutator(&baseModel)
+	if scenario.Cluster.Mutator != nil {
+		scenario.Cluster.Mutator(&baseModel)
 	}
 	return baseModel
 }

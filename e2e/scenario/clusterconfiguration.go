@@ -10,7 +10,20 @@ const (
 	azureCNIDefaultMaxPodsPerNode = 30
 )
 
-// Selectors
+type Cluster struct {
+	Selector func(cluster *armcontainerservice.ManagedCluster) bool
+	Mutator  func(cluster *armcontainerservice.ManagedCluster)
+}
+
+var ClusterNetworkKubenet = &Cluster{
+	Selector: NetworkPluginKubenetSelector,
+	Mutator:  NetworkPluginKubenetMutator,
+}
+
+var ClusterNetworkAzure = &Cluster{
+	Selector: NetworkPluginAzureSelector,
+	Mutator:  NetworkPluginAzureMutator,
+}
 
 func NetworkPluginKubenetSelector(cluster *armcontainerservice.ManagedCluster) bool {
 	if cluster != nil && cluster.Properties != nil && cluster.Properties.NetworkProfile != nil {

@@ -10,9 +10,8 @@ func ubuntu1804ChronyRestarts() *Scenario {
 		Name:        "ubuntu1804-chrony-restarts",
 		Description: "Tests that the chrony service restarts if it is killed",
 		Config: Config{
-			ClusterSelector: NetworkPluginKubenetSelector,
-			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHDSelector:     config.VHDUbuntu1804Gen2Containerd,
+			Cluster:     ClusterNetworkKubenet,
+			VHDSelector: config.VHDUbuntu1804Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-18.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-18.04-gen2"

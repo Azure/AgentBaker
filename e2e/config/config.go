@@ -10,7 +10,7 @@ import (
 var (
 	BuildID            = getEnvWithDefaultIfEmpty(os.Getenv("BUILD_ID"), "local")
 	SubscriptionID     = getEnvWithDefaultIfEmpty("SUBSCRIPTION_ID", "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8")
-	Location           = getEnvWithDefaultIfEmpty("LOCATION", "eastus")
+	Location           = getEnvWithDefaultIfEmpty("LOCATION", "australiaeast")
 	ResourceGroupName  = "abe2e-" + Location
 	ScenariosToRun     = envmap("SCENARIOS_TO_RUN")
 	ScenariosToExclude = envmap("SCENARIOS_TO_EXCLUDE")

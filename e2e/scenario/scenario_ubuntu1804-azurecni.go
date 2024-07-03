@@ -11,9 +11,8 @@ func ubuntu1804_azurecni() *Scenario {
 		Name:        "ubuntu1804-azurecni",
 		Description: "ubuntu1804 scenario on cluster configured with Azure CNI",
 		Config: Config{
-			ClusterSelector: NetworkPluginAzureSelector,
-			ClusterMutator:  NetworkPluginAzureMutator,
-			VHDSelector:     config.VHDUbuntu1804Gen2Containerd,
+			Cluster:     ClusterNetworkAzure,
+			VHDSelector: config.VHDUbuntu1804Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)

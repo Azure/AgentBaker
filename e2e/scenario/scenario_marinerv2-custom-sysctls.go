@@ -23,9 +23,8 @@ func marinerv2CustomSysctls() *Scenario {
 		Name:        "marinerv2-custom-sysctls",
 		Description: "tests that a MarinerV2 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
 		Config: Config{
-			ClusterSelector: NetworkPluginKubenetSelector,
-			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHDSelector:     config.VHDCBLMarinerV2Gen2,
+			Cluster:     ClusterNetworkKubenet,
+			VHDSelector: config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{

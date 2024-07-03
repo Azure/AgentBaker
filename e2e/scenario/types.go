@@ -7,7 +7,6 @@ import (
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 )
 
 // Scenario represents an AgentBaker E2E scenario
@@ -24,13 +23,7 @@ type Scenario struct {
 
 // Config represents the configuration of an AgentBaker E2E scenario
 type Config struct {
-	// ClusterSelector is a function which determines whether or not (by returning true/false) the
-	// supplied cluster model represents a cluster which is capable of running the scenario
-	ClusterSelector func(*armcontainerservice.ManagedCluster) bool
-
-	// ClusterMutator is a function which mutates a supplied cluster model such that it represents a
-	// cluster which is capable of running the scenario
-	ClusterMutator func(*armcontainerservice.ManagedCluster)
+	Cluster *Cluster
 
 	// VHD is the function called by the e2e suite on the given scenario to get its VHD selection
 	VHDSelector func() (config.VHDResourceID, error)

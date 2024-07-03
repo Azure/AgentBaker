@@ -10,9 +10,8 @@ func marinerv2Wasm() *Scenario {
 		Name:        "marinerv2-wasm",
 		Description: "tests that a new marinerv2 node using krustlet can be properly bootstrapped",
 		Config: Config{
-			ClusterSelector: NetworkPluginKubenetSelector,
-			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHDSelector:     config.VHDCBLMarinerV2Gen2,
+			Cluster:     ClusterNetworkKubenet,
+			VHDSelector: config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
