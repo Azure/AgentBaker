@@ -566,7 +566,9 @@ done
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 stop_watch $capture_time "Download and Process Kubernetes Packages / Extract Binaries" false
 
-if [[ -n "${VHD_BUILD_TIMESTAMP}" && "${OS_VERSION}" == "22.04" ]]; then
+# We dont call out to apt after this in our build process, therefore restoring sources.list back to its original state if we used canonical snapshot earlier
+# This will also always happen when cloud-init is applied, therefore, all AKS nodes will always have a fresh sources.list regardless
+if [[ "${OS_VERSION}" == "22.04" && -n "${VHD_BUILD_TIMESTAMP}" ]]; then
   sed -i "s#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#http://azure.archive.ubuntu.com/ubuntu/#g" /etc/apt/sources.list
 fi
 
