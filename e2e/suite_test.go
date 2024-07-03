@@ -16,7 +16,6 @@ import (
 )
 
 func Test_All(t *testing.T) {
-	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 	ctx := context.Background()
 	t.Parallel()
 
@@ -34,7 +33,7 @@ func Test_All(t *testing.T) {
 	}
 
 	scenarios := scenario.AllScenarios()
-	if err := createMissingClusters(ctx, r, scenarios, &clusterConfigs); err != nil {
+	if err := createMissingClusters(ctx, scenarios, &clusterConfigs); err != nil {
 		t.Fatal(err)
 	}
 
@@ -42,7 +41,7 @@ func Test_All(t *testing.T) {
 		t.Run(e2eScenario.Name, func(t *testing.T) {
 			t.Parallel()
 			maybeSkipScenario(t, e2eScenario)
-			setupAndRunScenario(ctx, t, e2eScenario, r, clusterConfigs)
+			setupAndRunScenario(ctx, t, e2eScenario, clusterConfigs)
 		})
 	}
 }
@@ -65,8 +64,8 @@ func maybeSkipScenario(t *testing.T, s *scenario.Scenario) {
 	t.Logf("running scenario %q with image %q", s.Name, rid)
 }
 
-func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenario.Scenario, r *mrand.Rand, clusterConfigs []clusterConfig) {
-	clusterConfig, err := chooseCluster(ctx, r, e2eScenario, clusterConfigs)
+func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenario.Scenario, clusterConfigs []clusterConfig) {
+	clusterConfig, err := chooseCluster(ctx, e2eScenario, clusterConfigs)
 	if err != nil {
 		t.Fatal(err)
 	}

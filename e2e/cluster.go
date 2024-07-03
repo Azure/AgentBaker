@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	mrand "math/rand"
 
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/scenario"
@@ -15,8 +14,7 @@ import (
 )
 
 const (
-	managedClusterResourceType = "Microsoft.ContainerService/managedClusters"
-	defaultAgentPoolVMSize     = "standard_d2s_v4"
+	defaultAgentPoolVMSize = "standard_d2s_v4"
 )
 
 type clusterParameters map[string]string
@@ -244,12 +242,12 @@ func hasViableConfig(scenario *scenario.Scenario, clusterConfigs []clusterConfig
 	return false
 }
 
-func createMissingClusters(ctx context.Context, r *mrand.Rand,
+func createMissingClusters(ctx context.Context,
 	scenarios []*scenario.Scenario, clusterConfigs *[]clusterConfig) error {
 	var newConfigs []clusterConfig
 	for _, scenario := range scenarios {
 		if !hasViableConfig(scenario, *clusterConfigs) && !hasViableConfig(scenario, newConfigs) {
-			newClusterModel := getNewClusterModelForScenario(generateClusterName(r), config.Location, scenario)
+			newClusterModel := getNewClusterModelForScenario(generateClusterName(), config.Location, scenario)
 			newConfigs = append(newConfigs, clusterConfig{cluster: &newClusterModel, isNewCluster: true, isAirgapCluster: scenario.Airgap})
 		}
 	}
@@ -297,7 +295,6 @@ func createMissingClusters(ctx context.Context, r *mrand.Rand,
 
 func chooseCluster(
 	ctx context.Context,
-	r *mrand.Rand,
 	scenario *scenario.Scenario,
 	clusterConfigs []clusterConfig) (clusterConfig, error) {
 
@@ -311,7 +308,7 @@ func chooseCluster(
 		if scenario.Config.Cluster.Selector(config.cluster) {
 			// only validate + prep the cluster for testing if we didn't just create it and it hasn't already been prepared
 			if !config.isNewCluster && config.needsPreparation() {
-				if err := validateAndPrepareCluster(ctx, r, config); err != nil {
+				if err := validateAndPrepareCluster(ctx, config); err != nil {
 					log.Printf("unable to validate and preprare cluster %q: %s", *config.cluster.Name, err)
 					continue
 				}
@@ -347,7 +344,7 @@ func chooseCluster(
 	return chosenConfig, nil
 }
 
-func validateAndPrepareCluster(ctx context.Context, r *mrand.Rand, clusterConfig *clusterConfig) error {
+func validateAndPrepareCluster(ctx context.Context, clusterConfig *clusterConfig) error {
 	needRecreate, err := validateExistingClusterState(ctx, config.ResourceGroupName, *clusterConfig.cluster.Name)
 	if err != nil {
 		return err
@@ -355,7 +352,7 @@ func validateAndPrepareCluster(ctx context.Context, r *mrand.Rand, clusterConfig
 
 	if needRecreate {
 		log.Printf("cluster %q is in a bad state, creating a replacement...", *clusterConfig.cluster.Name)
-		newModel, err := prepareClusterModelForRecreate(r, clusterConfig.cluster)
+		newModel, err := prepareClusterModelForRecreate(clusterConfig.cluster)
 		if err != nil {
 			return err
 		}
@@ -406,7 +403,7 @@ func prepareClusterForTests(
 
 // TODO(cameissner): figure out a better way to reconcile server-side and client-side properties,
 // for now we simply regenerate a new base model and manually patch its properties according to the original model
-func prepareClusterModelForRecreate(r *mrand.Rand, clusterModel *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
+func prepareClusterModelForRecreate(clusterModel *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
 	if clusterModel == nil || clusterModel.Properties == nil {
 		return nil, fmt.Errorf("unable to prepare cluster model for recreate, got nil cluster model/properties")
 	}
@@ -414,7 +411,7 @@ func prepareClusterModelForRecreate(r *mrand.Rand, clusterModel *armcontainerser
 		return nil, fmt.Errorf("unable to prepare cluster model for recreate, got nil network profile/plugin")
 	}
 
-	newModel := getBaseClusterModel(generateClusterName(r), *clusterModel.Location)
+	newModel := getBaseClusterModel(generateClusterName(), *clusterModel.Location)
 
 	// patch new model according to original model properties
 	newModel.Properties.NetworkProfile = &armcontainerservice.NetworkProfile{
@@ -432,8 +429,8 @@ func getNewClusterModelForScenario(clusterName, location string, scenario *scena
 	return baseModel
 }
 
-func generateClusterName(r *mrand.Rand) string {
-	return fmt.Sprintf(testClusterNameTemplate, randomLowercaseString(r, 5))
+func generateClusterName() string {
+	return fmt.Sprintf(testClusterNameTemplate, randomLowercaseString(5))
 }
 
 func getBaseClusterModel(clusterName, location string) armcontainerservice.ManagedCluster {

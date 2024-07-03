@@ -220,7 +220,7 @@ func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []b
 }
 
 func getVmssName(r *mrand.Rand) string {
-	return fmt.Sprintf(vmssNameTemplate, randomLowercaseString(r, 4))
+	return fmt.Sprintf(vmssNameTemplate, randomLowercaseString(4))
 }
 
 func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) (armcompute.VirtualMachineScaleSet, error) {
