@@ -3,8 +3,8 @@ set -x
 CDIR=$(dirname "${BASH_SOURCE}")
 
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
-PUBLISHER_BASE_IMAGE_VERSION_JSON="${PUBLISHER_BASE_IMAGE_VERSION_JSON:-../vhdbuilder/publisher_base_image_version.json}"
-VHD_BUILD_TIMESTAMP_JSON="${VHD_BUILD_TIMESTAMP_JSON:-../vhdbuilder/vhd_build_timestamp.json}"
+PUBLISHER_BASE_IMAGE_VERSION_JSON="${PUBLISHER_BASE_IMAGE_VERSION_JSON:-./publisher_base_image_version.json}"
+VHD_BUILD_TIMESTAMP_JSON="${VHD_BUILD_TIMESTAMP_JSON:-./vhd_build_timestamp.json}"
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
@@ -436,7 +436,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",
   "img_version": "${IMG_VERSION}",
-  "vhd_build_timestamp": "${VHD_BUILD_TIMESTAMP},
+  "vhd_build_timestamp": "${VHD_BUILD_TIMESTAMP}",
   "windows_image_publisher": "${WINDOWS_IMAGE_PUBLISHER}",
   "windows_image_offer": "${WINDOWS_IMAGE_OFFER}",
   "windows_image_sku": "${WINDOWS_IMAGE_SKU}",
