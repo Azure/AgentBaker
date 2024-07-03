@@ -938,7 +938,8 @@ testNBCParserBinary () {
 
 }
 
-check_perf_data () {
+checkPerfData() {
+  local test="checkPerfData"
   if test -f /opt/azure/vhd-build-performance-data.json; then
     echo "File /opt/azure/vhd-build-performance-data.json exists"
     return 1
@@ -946,6 +947,7 @@ check_perf_data () {
     echo "File /opt/azure/vhd-build-performance-data.json does not exist"
     return 0
   fi
+  echo "$checkPerfData: Test finished successfully."
 }
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
@@ -956,7 +958,7 @@ check_perf_data () {
 #
 # We should also avoid early exit from the test run -- like if a command fails with
 # an exit rather than a return -- because that prevents other tests from running.
-check_perf_data
+checkPerfData
 testBccTools
 testVHDBuildLogsExist
 testCriticalTools
