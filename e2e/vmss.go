@@ -145,10 +145,10 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 	return nil
 }
 
-func getVMPrivateIPAddress(ctx context.Context, subscription, mcResourceGroupName, vmssName string) (string, error) {
+func getVMPrivateIPAddress(ctx context.Context, mcResourceGroupName, vmssName string) (string, error) {
 	pl := config.Azure.Core.Pipeline()
 	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
-		subscription,
+		config.SubscriptionID,
 		mcResourceGroupName,
 		vmssName,
 		0,
