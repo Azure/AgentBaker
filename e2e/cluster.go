@@ -247,7 +247,7 @@ func createMissingClusters(ctx context.Context,
 	var newConfigs []clusterConfig
 	for _, scenario := range scenarios {
 		if !hasViableConfig(scenario, *clusterConfigs) && !hasViableConfig(scenario, newConfigs) {
-			newClusterModel := getNewClusterModelForScenario(generateClusterName(), config.Location, scenario)
+			newClusterModel := getNewClusterModelForScenario(generateClusterName(), scenario)
 			newConfigs = append(newConfigs, clusterConfig{cluster: &newClusterModel, isNewCluster: true, isAirgapCluster: scenario.Airgap})
 		}
 	}
@@ -411,7 +411,7 @@ func prepareClusterModelForRecreate(clusterModel *armcontainerservice.ManagedClu
 		return nil, fmt.Errorf("unable to prepare cluster model for recreate, got nil network profile/plugin")
 	}
 
-	newModel := getBaseClusterModel(generateClusterName(), *clusterModel.Location)
+	newModel := getBaseClusterModel(generateClusterName())
 
 	// patch new model according to original model properties
 	newModel.Properties.NetworkProfile = &armcontainerservice.NetworkProfile{
@@ -421,8 +421,8 @@ func prepareClusterModelForRecreate(clusterModel *armcontainerservice.ManagedClu
 	return &newModel, nil
 }
 
-func getNewClusterModelForScenario(clusterName, location string, scenario *scenario.Scenario) armcontainerservice.ManagedCluster {
-	baseModel := getBaseClusterModel(clusterName, location)
+func getNewClusterModelForScenario(clusterName string, scenario *scenario.Scenario) armcontainerservice.ManagedCluster {
+	baseModel := getBaseClusterModel(clusterName)
 	if scenario.Cluster.Mutator != nil {
 		scenario.Cluster.Mutator(&baseModel)
 	}
@@ -433,13 +433,13 @@ func generateClusterName() string {
 	return fmt.Sprintf(testClusterNameTemplate, randomLowercaseString(5))
 }
 
-func getBaseClusterModel(clusterName, location string) armcontainerservice.ManagedCluster {
-	defaultAgentPoolVMSize := getDefaultAgentPoolVMSize(location)
+func getBaseClusterModel(clusterName string) armcontainerservice.ManagedCluster {
+	defaultAgentPoolVMSize := getDefaultAgentPoolVMSize(config.Location)
 	log.Printf("will attempt to use VM size %q for default agentpool of cluster %q", defaultAgentPoolVMSize, clusterName)
 
 	return armcontainerservice.ManagedCluster{
 		Name:     to.Ptr(clusterName),
-		Location: to.Ptr(location),
+		Location: to.Ptr(config.Location),
 		Properties: &armcontainerservice.ManagedClusterProperties{
 			DNSPrefix: to.Ptr(clusterName),
 			AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
