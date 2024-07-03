@@ -6,12 +6,12 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"io"
 	"log"
 	mrand "math/rand"
 	"testing"
+	"time"
 
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
@@ -24,7 +24,6 @@ const (
 	vmssNameTemplate                         = "abtest%s"
 	listVMSSNetworkInterfaceURLTemplate      = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
-	maxRetries                               = 3
 )
 
 func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
@@ -34,16 +33,11 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *sce
 	}
 
 	cleanupVMSS := func() {
-		log.Printf("deleting vmss %q", vmssName)
-		if _, err := pollVMSSOperation(ctx, vmssName, pollVMSSOperationOpts{
-			pollingInterval: to.Ptr(deleteVMSSPollInterval),
-			pollingTimeout:  to.Ptr(deleteVMSSPollingTimeout),
-		}, func() (Poller[armcompute.VirtualMachineScaleSetsClientDeleteResponse], error) {
-			return config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName, nil)
-		}); err != nil {
-			t.Errorf("encountered an error while waiting for deletion of vmss %q: %s", vmssName, err)
+		// don't wait for the operation to complete
+		_, err := config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName, nil)
+		if err != nil {
+			t.Logf("failed to delete vmss %q: %s", vmssName, err)
 		}
-		log.Printf("finished deleting vmss %q", vmssName)
 	}
 
 	vmssModel, err := createVMSSWithPayload(ctx, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
@@ -55,6 +49,9 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *sce
 }
 
 func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
+	log.Printf("creating VMSS %q", vmssName)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
 	model, err := getBaseVMSSModel(ctx, vmssName, string(publicKeyBytes), customData, cseCmd, opts)
 	if err != nil {
 		return nil, fmt.Errorf("get base VMSS model: %w", err)
@@ -82,37 +79,23 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 		return nil, fmt.Errorf(" prepare model for VMSS %q: %w", vmssName, err)
 	}
 
-	var pollErr error
-	var vmssResp *armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse
-
-	for i := 0; i < maxRetries; i++ {
-		createVMSSCtx, cancel := context.WithTimeout(ctx, vmssClientCreateVMSSPollingTimeout)
-		defer cancel()
-
-		vmssResp, pollErr = pollVMSSOperation(createVMSSCtx, vmssName, pollVMSSOperationOpts{
-			pollUntilDone: &runtime.PollUntilDoneOptions{
-				Frequency: vmssClientCreateVMSSPollInterval,
-			},
-		},
-			func() (Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse], error) {
-				return config.Azure.VMSS.BeginCreateOrUpdate(
-					ctx,
-					*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
-					vmssName,
-					model,
-					nil,
-				)
-			})
-
-		if pollErr == nil {
-			return &vmssResp.VirtualMachineScaleSet, nil
-		}
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			return nil, fmt.Errorf("create VMSS %q: %w", vmssName, pollErr)
-		}
-		log.Printf("failed to create VMSS. Retry attempts left: %d", maxRetries-(i+1))
+	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
+		ctx,
+		*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
+		vmssName,
+		model,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("begin create VMSS %q: %w", vmssName, err)
 	}
-	return nil, fmt.Errorf("create VMSS %q: %w", vmssName, pollErr)
+	vmssResp, err := operation.PollUntilDone(ctx, &runtime.PollUntilDoneOptions{
+		Frequency: 10 * time.Second,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("poll until done for VMSS %q: %w", vmssName, err)
+	}
+	return &vmssResp.VirtualMachineScaleSet, nil
 }
 
 // Adds additional IP configs to the passed in vmss model based on the chosen cluster's setting of "maxPodsPerNode",

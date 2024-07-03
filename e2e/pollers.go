@@ -2,17 +2,13 @@ package e2e
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"strings"
 	"time"
 
 	"github.com/Azure/agentbakere2e/config"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
-	"github.com/Azure/go-autorest/autorest/azure"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -20,9 +16,6 @@ import (
 
 const (
 	// Polling intervals
-	vmssClientCreateVMSSPollInterval        = 15 * time.Second
-	deleteVMSSPollInterval                  = 10 * time.Second
-	defaultVMSSOperationPollInterval        = 10 * time.Second
 	execOnVMPollInterval                    = 10 * time.Second
 	execOnPodPollInterval                   = 10 * time.Second
 	extractClusterParametersPollInterval    = 10 * time.Second
@@ -33,9 +26,6 @@ const (
 	waitUntilNodeReadyPollingInterval       = 20 * time.Second
 
 	// Polling timeouts
-	vmssClientCreateVMSSPollingTimeout     = 10 * time.Minute
-	deleteVMSSPollingTimeout               = 5 * time.Minute
-	defaultVMSSOperationPollingTimeout     = 5 * time.Minute
 	execOnVMPollingTimeout                 = 3 * time.Minute
 	execOnPodPollingTimeout                = 2 * time.Minute
 	extractClusterParametersPollingTimeout = 3 * time.Minute
@@ -253,61 +243,4 @@ func waitUntilPodDeleted(ctx context.Context, kube *kubeclient, podName string) 
 		err := kube.typed.CoreV1().Pods(defaultNamespace).Delete(ctx, podName, metav1.DeleteOptions{})
 		return err == nil, err
 	})
-}
-
-type Poller[T any] interface {
-	PollUntilDone(ctx context.Context, options *runtime.PollUntilDoneOptions) (T, error)
-}
-
-type pollVMSSOperationOpts struct {
-	pollUntilDone   *runtime.PollUntilDoneOptions
-	pollingInterval *time.Duration
-	pollingTimeout  *time.Duration
-}
-
-// TODO: refactor into a new struct which manages the operation independently
-func pollVMSSOperation[T any](ctx context.Context, vmssName string, opts pollVMSSOperationOpts, vmssOperation func() (Poller[T], error)) (*T, error) {
-	var vmssResp T
-	var requestError azure.RequestError
-
-	if opts.pollingInterval == nil {
-		opts.pollingInterval = to.Ptr(defaultVMSSOperationPollInterval)
-	}
-	if opts.pollingTimeout == nil {
-		opts.pollingTimeout = to.Ptr(defaultVMSSOperationPollingTimeout)
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, *opts.pollingTimeout)
-	defer cancel()
-
-	pollErr := wait.PollUntilContextCancel(ctx, *opts.pollingInterval, true, func(ctx context.Context) (bool, error) {
-		poller, err := vmssOperation()
-		if err != nil {
-			log.Printf("error when creating the vmssOperation for VMSS %q: %v", vmssName, err)
-			return false, err
-		}
-		vmssResp, err = poller.PollUntilDone(ctx, opts.pollUntilDone)
-		if err != nil {
-			if errors.As(err, &requestError) && requestError.ServiceError != nil {
-				/*
-					pollUntilDone will return 200 if the VMSS operation failed since the poll operation itself succeeded. But an error should still be returned.
-					Noteable error codes:
-						AllocationFailed
-						InternalExecutionError
-						StorageFailure/SocketException
-				*/
-				log.Printf("error when polling on VMSS operation. Polling will continue until timeout for VMSS %q: %v", vmssName, err)
-				return false, nil // keep polling
-			}
-			log.Printf("error when polling on VMSS operation. Polling will not continue for VMSS %q: %v", vmssName, err)
-			return false, err // end polling
-		}
-		return true, nil
-	})
-	if pollErr != nil {
-		log.Printf("polling attempts failed. VMSS operation for %q failed due to: %v", vmssName, pollErr)
-		return nil, fmt.Errorf("polling attempts failed. VMSS operation for %q failed due to: %w", vmssName, pollErr)
-	}
-
-	return &vmssResp, nil
 }

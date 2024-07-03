@@ -65,8 +65,7 @@ func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenari
 		require.NoError(t, err)
 	}
 	require.False(t, clusterConfig.needsPreparation())
-	clusterName := *clusterConfig.cluster.Name
-	log.Printf("chose cluster: %q", clusterName)
+	log.Printf("chose cluster: %q", *clusterConfig.cluster.ID)
 
 	baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(clusterConfig.parameters)
 	require.NoError(t, err)
