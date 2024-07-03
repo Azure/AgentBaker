@@ -566,6 +566,10 @@ done
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 stop_watch $capture_time "Download and Process Kubernetes Packages / Extract Binaries" false
 
+if [[ -n "${VHD_BUILD_TIMESTAMP}" && "${OS_VERSION}" == "22.04" ]]; then
+  sed -i "s#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#http://azure.archive.ubuntu.com/ubuntu/#g" /etc/apt/sources.list
+fi
+
 echo "install-dependencies step completed successfully"
 stop_watch $capture_script_start "install-dependencies.sh" true
 show_benchmarks
