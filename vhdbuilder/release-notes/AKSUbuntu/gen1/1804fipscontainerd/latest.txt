@@ -1,4 +1,4 @@
-Starting build on  Mon Jul 1 16:55:52 UTC 2024
+Starting build on  Tue Jun 25 17:51:43 UTC 2024
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - containerd-wasm-shims v0.3.0 v0.5.1 v0.8.0
   - [installed] containerd v1.7.1
@@ -8,11 +8,10 @@ Components downloaded in this VHD build (some of the below components might get 
   - bpftrace v0.9.4
 containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:1.8.20
-  - mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:1.8.22
   - mcr.microsoft.com/oss/kubernetes/metrics-server:v0.7.1
   - mcr.microsoft.com/oss/kubernetes/pause:3.6
+  - mcr.microsoft.com/oss/kubernetes/coredns:v1.9.4-hotfix.20240327
   - mcr.microsoft.com/oss/kubernetes/coredns:v1.9.4-hotfix.20240520
-  - mcr.microsoft.com/oss/kubernetes/coredns:v1.9.4-hotfix.20240627
   - mcr.microsoft.com/mirror/docker/library/busybox:1.35
   - mcr.microsoft.com/containernetworking/azure-cni:v1.5.28
   - mcr.microsoft.com/containernetworking/azure-cni:v1.6.0
@@ -106,8 +105,8 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.4
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.4-1
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.5-1
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.1-1
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.2-hotfix.20240613
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.0
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.0-1
   - bcc-tools
   - libbcc-examples
 kubelet/kubectl downloaded:
@@ -122,6 +121,8 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  48652288 Apr 17 01:01 /usr/local/bin/kubectl-1.27.13
 -rwxr-xr-x 1 root root 110014464 Apr 17 01:03 /usr/local/bin/kubelet-1.28.9
 -rwxr-xr-x 1 root root  49209344 Apr 17 01:03 /usr/local/bin/kubectl-1.28.9
+-rwxr-xr-x 1 root root 100100024 Apr 18 00:42 /usr/local/bin/kubelet-1.30.0
+-rwxr-xr-x 1 root root  51454104 Apr 18 00:42 /usr/local/bin/kubectl-1.30.0
 -rwxr-xr-x 1 root root 111939584 Apr 18 17:03 /usr/local/bin/kubelet-1.29.4
 -rwxr-xr-x 1 root root  49819648 Apr 18 17:03 /usr/local/bin/kubectl-1.29.4
 -rwxr-xr-x 1 root root 108036096 May 22 15:51 /usr/local/bin/kubelet-1.27.14
@@ -130,20 +131,16 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  49209344 May 22 15:53 /usr/local/bin/kubectl-1.28.10
 -rwxr-xr-x 1 root root 111939584 May 22 15:53 /usr/local/bin/kubelet-1.29.5
 -rwxr-xr-x 1 root root  49819648 May 22 15:53 /usr/local/bin/kubectl-1.29.5
--rwxr-xr-x 1 root root 100100024 May 24 08:44 /usr/local/bin/kubelet-1.30.1
--rwxr-xr-x 1 root root  51454104 May 24 08:44 /usr/local/bin/kubectl-1.30.1
--rwxr-xr-x 1 root root 100124920 Jun 12 16:43 /usr/local/bin/kubelet-1.30.2
--rwxr-xr-x 1 root root  51454104 Jun 12 16:43 /usr/local/bin/kubectl-1.30.2
--r-xr--r-- 1 root root       593 Jul  1 16:55 /usr/local/bin/logrotate.sh
--rwxr-xr-x 1 root root       705 Jul  1 16:55 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root  36014944 Jul  1 17:05 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root  39369104 Jul  1 17:05 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
--rwxr-xr-x 1 root root  47622592 Jul  1 17:05 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root  52232184 Jul  1 17:05 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root root  45334640 Jul  1 17:05 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root  60175432 Jul  1 17:05 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root root  53775024 Jul  1 17:05 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
--rwxr-xr-x 1 root root  35384960 Jul  1 17:06 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root       593 Jun 25 17:51 /usr/local/bin/logrotate.sh
+-rwxr-xr-x 1 root root       705 Jun 25 17:51 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  36014944 Jun 25 18:03 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root  39369104 Jun 25 18:03 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
+-rwxr-xr-x 1 root root  45334640 Jun 25 18:03 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root  53775024 Jun 25 18:03 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root  52232184 Jun 25 18:03 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root  60175432 Jun 25 18:03 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root  47622592 Jun 25 18:03 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root  35384960 Jun 25 18:04 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 accountsservice/now 0.6.45-1ubuntu1.3+esm1 amd64 [installed,local]
@@ -210,7 +207,7 @@ debianutils/bionic,now 4.8.4 amd64 [installed,automatic]
 diffutils/bionic,now 1:3.6-1 amd64 [installed]
 dirmngr/bionic-updates,bionic-security,now 2.2.4-1ubuntu1.6 amd64 [installed]
 distro-info/bionic-updates,bionic-security,now 0.18ubuntu0.18.04.1 amd64 [installed,automatic]
-distro-info-data/bionic-updates,bionic-security,now 0.37ubuntu0.18 all [installed,automatic]
+distro-info-data/now 0.37ubuntu0.17+esm1 all [installed,upgradable to: 0.37ubuntu0.18]
 dkms/bionic-updates,now 2.3-3ubuntu9.7 all [installed]
 dmeventd/bionic-updates,now 2:1.02.145-4.1ubuntu3.18.04.3 amd64 [installed,automatic]
 dmidecode/bionic-updates,now 3.1-1ubuntu0.1 amd64 [installed,automatic]
@@ -343,7 +340,7 @@ libcilkrts5/bionic-updates,bionic-security,now 7.5.0-3ubuntu1~18.04 amd64 [insta
 libcom-err2/bionic-updates,bionic-security,now 1.44.1-1ubuntu1.4 amd64 [installed,automatic]
 libcrack2/bionic,now 2.9.2-5build1 amd64 [installed,automatic]
 libcryptsetup12/bionic-updates,now 2:2.0.2-1ubuntu1.2 amd64 [installed,automatic]
-libcups2/now 2.2.7-1ubuntu2.10+esm5 amd64 [installed,local]
+libcups2/now 2.2.7-1ubuntu2.10+esm4 amd64 [installed,local]
 libcurl3-gnutls/now 7.58.0-2ubuntu3.24+esm4 amd64 [installed,local]
 libcurl4/now 7.58.0-2ubuntu3.24+esm4 amd64 [installed,local]
 libdb5.3/bionic-updates,bionic-security,now 5.3.28-13.1ubuntu1.1 amd64 [installed,automatic]
@@ -523,7 +520,7 @@ libsigsegv2/bionic,now 2.12-1 amd64 [installed,automatic]
 libslang2/bionic,now 2.3.1a-3ubuntu1 amd64 [installed,automatic]
 libsmartcols1/bionic-updates,bionic-security,now 2.31.1-0.4ubuntu3.7 amd64 [installed,automatic]
 libsnappy1v5/bionic,now 1.1.7-1 amd64 [installed,automatic]
-libsqlite3-0/now 3.22.0-1ubuntu0.7+esm1 amd64 [installed,local]
+libsqlite3-0/bionic-updates,bionic-security,now 3.22.0-1ubuntu0.7 amd64 [installed,automatic]
 libss2/bionic-updates,bionic-security,now 1.44.1-1ubuntu1.4 amd64 [installed,automatic]
 libssl1.1/now 1.1.1-1ubuntu2.fips.2.1~18.04.23.5 amd64 [installed,local]
 libssl1.1-hmac/now 1.1.1-1ubuntu2.fips.2.1~18.04.23.5 amd64 [installed,local]
@@ -573,18 +570,18 @@ linux-base/bionic-updates,now 4.5ubuntu1.7 all [installed]
 linux-base-sgx/bionic-updates,now 4.5ubuntu1.7 all [installed,automatic]
 linux-cloud-tools-4.15.0-2086-azure-fips/now 4.15.0-2086.92 amd64 [installed,local]
 linux-cloud-tools-azure-fips/now 4.15.0.2086.82 amd64 [installed,local]
-linux-cloud-tools-common/now 4.15.0-226.238 all [installed,local]
+linux-cloud-tools-common/now 4.15.0-225.237 all [installed,local]
 linux-headers-4.15.0-2086-azure-fips/now 4.15.0-2086.92 amd64 [installed,local]
 linux-headers-azure-fips/now 4.15.0.2086.82 amd64 [installed,local]
 linux-image-4.15.0-2086-azure-fips/now 4.15.0-2086.92 amd64 [installed,local]
 linux-image-azure-fips/now 4.15.0.2086.82 amd64 [installed,local]
 linux-image-hmac-4.15.0-2086-azure-fips/now 4.15.0-2086.92 amd64 [installed,local]
-linux-libc-dev/now 4.15.0-226.238 amd64 [installed,local]
+linux-libc-dev/now 4.15.0-225.237 amd64 [installed,local]
 linux-modules-4.15.0-2086-azure-fips/now 4.15.0-2086.92 amd64 [installed,local]
 linux-modules-extra-4.15.0-2086-azure-fips/now 4.15.0-2086.92 amd64 [installed,local]
 linux-tools-4.15.0-2086-azure-fips/now 4.15.0-2086.92 amd64 [installed,local]
 linux-tools-azure-fips/now 4.15.0.2086.82 amd64 [installed,local]
-linux-tools-common/now 4.15.0-226.238 all [installed,local]
+linux-tools-common/now 4.15.0-225.237 all [installed,local]
 locales/now 2.27-3ubuntu1.6+esm3 all [installed,local]
 login/now 1:4.5-1ubuntu2.5+esm1 amd64 [installed,local]
 logrotate/bionic,now 3.11.0-0.1ubuntu1 amd64 [installed,automatic]
@@ -797,7 +794,7 @@ vim-common/now 2:8.0.1453-1ubuntu1.13+esm8 all [installed,local]
 vim-runtime/now 2:8.0.1453-1ubuntu1.13+esm8 all [installed,local]
 vim-tiny/now 2:8.0.1453-1ubuntu1.13+esm8 amd64 [installed,local]
 walinuxagent/bionic-updates,now 2.2.45-0ubuntu1~18.04.3 amd64 [installed]
-wget/now 1.19.4-1ubuntu2.2+esm1 amd64 [installed,local]
+wget/bionic-updates,bionic-security,now 1.19.4-1ubuntu2.2 amd64 [installed,automatic]
 whiptail/bionic,now 0.52.20-1ubuntu1 amd64 [installed,automatic]
 wireless-regdb/bionic-updates,bionic-security,now 2022.06.06-0ubuntu1~18.04.1 all [installed,automatic]
 xauth/bionic,now 1:1.0.10-1 amd64 [installed,automatic]
@@ -814,7 +811,7 @@ Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
 udev             32G     0   32G   0% /dev
 tmpfs           6.3G  796K  6.3G   1% /run
-/dev/sda1        29G   23G  6.1G  80% /
+/dev/sda1        29G   23G  6.5G  78% /
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs           5.0M     0  5.0M   0% /run/lock
 tmpfs            32G     0   32G   0% /sys/fs/cgroup
@@ -837,10 +834,10 @@ UBUNTU_CODENAME=bionic
 === os-release End
 Using kernel:
 Linux version 4.15.0-2086-azure-fips (buildd@lcy02-amd64-091) (gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04)) #92-Ubuntu SMP Fri May 10 08:30:48 UTC 2024
-Install completed successfully on  Mon Jul 1 17:19:29 UTC 2024
-VSTS Build NUMBER: 20240701.3_master_97213973
-VSTS Build ID: 97213973
-Commit: 142983478c26192cc7520cdb9017d074e43ec49e
+Install completed successfully on  Tue Jun 25 18:17:34 UTC 2024
+VSTS Build NUMBER: 20240625.1_master_96781240
+VSTS Build ID: 96781240
+Commit: acf4d16e08734ae0db3c512981d6e0307ee1e0a8
 Ubuntu version: 18.04
 Hyperv generation: V1
 Feature flags: None

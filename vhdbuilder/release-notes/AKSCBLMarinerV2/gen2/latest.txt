@@ -1,4 +1,4 @@
-Starting build on  Mon Jul 1 16:51:35 UTC 2024
+Starting build on  Tue Jun 25 17:48:05 UTC 2024
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - containerd-wasm-shims v0.3.0 v0.5.1 v0.8.0
   - [installed] containerd v1.6.26
@@ -7,11 +7,10 @@ Components downloaded in this VHD build (some of the below components might get 
   - bpftrace v0.16.0
 containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:1.8.20
-  - mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:1.8.22
   - mcr.microsoft.com/oss/kubernetes/metrics-server:v0.7.1
   - mcr.microsoft.com/oss/kubernetes/pause:3.6
+  - mcr.microsoft.com/oss/kubernetes/coredns:v1.9.4-hotfix.20240327
   - mcr.microsoft.com/oss/kubernetes/coredns:v1.9.4-hotfix.20240520
-  - mcr.microsoft.com/oss/kubernetes/coredns:v1.9.4-hotfix.20240627
   - mcr.microsoft.com/mirror/docker/library/busybox:1.35
   - mcr.microsoft.com/containernetworking/azure-cni:v1.5.28
   - mcr.microsoft.com/containernetworking/azure-cni:v1.6.0
@@ -104,8 +103,8 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.4
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.4-1
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.5-1
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.1-1
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.2-hotfix.20240613
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.0
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.0-1
   - bcc-tools
   - libbcc-examples
 kubelet/kubectl downloaded:
@@ -120,6 +119,8 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  48652288 Apr 17 01:01 /usr/local/bin/kubectl-1.27.13
 -rwxr-xr-x 1 root root 110014464 Apr 17 01:03 /usr/local/bin/kubelet-1.28.9
 -rwxr-xr-x 1 root root  49209344 Apr 17 01:03 /usr/local/bin/kubectl-1.28.9
+-rwxr-xr-x 1 root root 100100024 Apr 18 00:42 /usr/local/bin/kubelet-1.30.0
+-rwxr-xr-x 1 root root  51454104 Apr 18 00:42 /usr/local/bin/kubectl-1.30.0
 -rwxr-xr-x 1 root root 111939584 Apr 18 17:03 /usr/local/bin/kubelet-1.29.4
 -rwxr-xr-x 1 root root  49819648 Apr 18 17:03 /usr/local/bin/kubectl-1.29.4
 -rwxr-xr-x 1 root root 108036096 May 22 15:51 /usr/local/bin/kubelet-1.27.14
@@ -128,18 +129,14 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  49209344 May 22 15:53 /usr/local/bin/kubectl-1.28.10
 -rwxr-xr-x 1 root root 111939584 May 22 15:53 /usr/local/bin/kubelet-1.29.5
 -rwxr-xr-x 1 root root  49819648 May 22 15:53 /usr/local/bin/kubectl-1.29.5
--rwxr-xr-x 1 root root 100100024 May 24 08:44 /usr/local/bin/kubelet-1.30.1
--rwxr-xr-x 1 root root  51454104 May 24 08:44 /usr/local/bin/kubectl-1.30.1
--rwxr-xr-x 1 root root 100124920 Jun 12 16:43 /usr/local/bin/kubelet-1.30.2
--rwxr-xr-x 1 root root  51454104 Jun 12 16:43 /usr/local/bin/kubectl-1.30.2
--rwxr-xr-x 1 root root       705 Jul  1 16:51 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root  39369104 Jul  1 16:53 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
--rwxr-xr-x 1 root root  36014944 Jul  1 16:53 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root  45334640 Jul  1 16:53 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root  47622592 Jul  1 16:53 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root  60175432 Jul  1 16:53 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root root  52232184 Jul  1 16:53 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root root  53775024 Jul  1 16:53 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root       705 Jun 25 17:48 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  36014944 Jun 25 17:50 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root  39369104 Jun 25 17:50 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
+-rwxr-xr-x 1 root root  52232184 Jun 25 17:50 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root  53775024 Jun 25 17:50 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root  45334640 Jun 25 17:50 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root  47622592 Jun 25 17:50 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root  60175432 Jun 25 17:50 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
 === Installed Packages Begin
 filesystem-1.1-20.cm2.x86_64
 glibc-2.35-7.cm2.x86_64
@@ -670,9 +667,9 @@ Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
 devtmpfs        4.0M     0  4.0M   0% /dev
 tmpfs            32G     0   32G   0% /dev/shm
-tmpfs            13G   13M   13G   1% /run
+tmpfs            13G  8.7M   13G   1% /run
 tmpfs           4.0M     0  4.0M   0% /sys/fs/cgroup
-/dev/sda3        29G   21G  6.9G  76% /
+/dev/sda3        29G   21G  7.3G  74% /
 tmpfs            32G  4.0K   32G   1% /tmp
 /dev/sda2       452M   31M  387M   8% /boot
 /dev/sda1        64M  2.3M   62M   4% /boot/efi
@@ -691,10 +688,10 @@ SUPPORT_URL="https://aka.ms/cbl-mariner"
 === os-release End
 Using kernel:
 Linux version 5.15.158.2-1.cm2 (root@CBL-Mariner) (gcc (GCC) 11.2.0, GNU ld (GNU Binutils) 2.37) #1 SMP Sun Jun 9 18:33:38 UTC 2024
-Install completed successfully on  Mon Jul 1 17:05:06 UTC 2024
-VSTS Build NUMBER: 20240701.3_master_97213973
-VSTS Build ID: 97213973
-Commit: 142983478c26192cc7520cdb9017d074e43ec49e
+Install completed successfully on  Tue Jun 25 18:01:10 UTC 2024
+VSTS Build NUMBER: 20240625.1_master_96781240
+VSTS Build ID: 96781240
+Commit: acf4d16e08734ae0db3c512981d6e0307ee1e0a8
 Ubuntu version: 
 Hyperv generation: V2
 Feature flags: None
