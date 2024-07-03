@@ -15,7 +15,7 @@ import (
 
 const (
 	imageGallery       = "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/"
-	noSelectionTagName = "abe2e-no-tag-selection"
+	noSelectionTagName = "abe2e-ignore"
 )
 
 var (
