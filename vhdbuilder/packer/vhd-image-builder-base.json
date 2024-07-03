@@ -70,8 +70,7 @@
           "{{user `location`}}"
         ]
       },
-      "user_assigned_managed_identities": "{{user `msi_resource_strings`}}",
-      "vhd_build_timestamp": "{{user `vhd_build_timestamp`}}"
+      "user_assigned_managed_identities": "{{user `msi_resource_strings`}}"
     }
   ],
   "provisioners": [
