@@ -13,7 +13,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 )
 
-const imageGallery = "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/"
+const (
+	imageGallery       = "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/"
+	noSelectionTagName = "abe2e-ignore"
+)
 
 var (
 	VHDUbuntu1804Gen2Containerd               = newVHDResourceIDFetcher(imageGallery + "1804Gen2")
@@ -94,6 +97,11 @@ func findLatestImageWithTag(imageID, tagName, tagValue string) (VHDResourceID, e
 		}
 		versions := page.Value
 		for _, version := range versions {
+			// skip images tagged with the no-selection tag, indicating they
+			// shouldn't be selected dynmically for running abe2e scenarios
+			if _, ok := version.Tags[noSelectionTagName]; ok {
+				continue
+			}
 			tag, ok := version.Tags[tagName]
 			if !ok || tag == nil || *tag != tagValue {
 				continue
