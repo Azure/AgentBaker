@@ -17,7 +17,6 @@ type clusterConfig struct {
 	cluster    *armcontainerservice.ManagedCluster
 	kube       *kubeclient
 	parameters clusterParameters
-	subnetId   string
 }
 
 type VNet struct {
@@ -42,7 +41,7 @@ func (c clusterConfig) maxPodsPerNode() (int, error) {
 }
 
 func (c clusterConfig) needsPreparation() bool {
-	return c.kube == nil || c.parameters == nil || c.subnetId == ""
+	return c.kube == nil || c.parameters == nil
 }
 
 // This map is used during cluster creation to check what VM size should
@@ -106,38 +105,32 @@ func getClusterVNet(ctx context.Context, mcResourceGroupName string) (VNet, erro
 }
 
 func validateAndPrepareCluster(ctx context.Context, clusterConfig *clusterConfig) error {
-	kube, subnetId, clusterParams, err := prepareClusterForTests(ctx, clusterConfig.cluster)
+	kube, clusterParams, err := prepareClusterForTests(ctx, clusterConfig.cluster)
 	if err != nil {
 		return err
 	}
 	clusterConfig.kube = kube
 	clusterConfig.parameters = clusterParams
-	clusterConfig.subnetId = subnetId
 	return nil
 }
 
 func prepareClusterForTests(
 	ctx context.Context,
-	cluster *armcontainerservice.ManagedCluster) (*kubeclient, string, clusterParameters, error) {
+	cluster *armcontainerservice.ManagedCluster) (*kubeclient, clusterParameters, error) {
 	clusterName := *cluster.Name
-
-	vnet, err := getClusterVNet(ctx, *cluster.Properties.NodeResourceGroup)
-	if err != nil {
-		return nil, "", nil, fmt.Errorf("unable get subnet ID of cluster %q: %w", clusterName, err)
-	}
 
 	kube, err := getClusterKubeClient(ctx, config.ResourceGroupName, clusterName)
 	if err != nil {
-		return nil, "", nil, fmt.Errorf("unable get kube client using cluster %q: %w", clusterName, err)
+		return nil, nil, fmt.Errorf("unable get kube client using cluster %q: %w", clusterName, err)
 	}
 
 	if err := ensureDebugDaemonset(ctx, kube); err != nil {
-		return nil, "", nil, fmt.Errorf("unable to ensure debug damonset of viable cluster %q: %w", clusterName, err)
+		return nil, nil, fmt.Errorf("unable to ensure debug damonset of viable cluster %q: %w", clusterName, err)
 	}
 
 	clusterParams, err := pollExtractClusterParameters(ctx, kube)
 	if err != nil {
-		return nil, "", nil, fmt.Errorf("unable to extract cluster parameters from %q: %w", clusterName, err)
+		return nil, nil, fmt.Errorf("unable to extract cluster parameters from %q: %w", clusterName, err)
 	}
-	return kube, vnet.subnetId, clusterParams, nil
+	return kube, clusterParams, nil
 }
