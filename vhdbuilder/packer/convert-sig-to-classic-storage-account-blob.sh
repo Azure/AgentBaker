@@ -73,7 +73,8 @@ else
         \"galleryImageReference\": { \
           \"id\": \"${sig_resource_id}\" \
         } \
-      } \
+      }, \
+      \"dataAccessAuthMode\": \"AzureActiveDirectory\"
     } \
   }"
 fi
