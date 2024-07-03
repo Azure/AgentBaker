@@ -37,10 +37,10 @@ steps:
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
     displayName: Copy trivy table
   - task: PublishPipelineArtifact@0
-  inputs:
-    artifactName: '${{ parameters.artifactName }}'
-    targetPath: '$(Build.ArtifactStagingDirectory)'
-  displayName: Publish bulk artifacts
-  condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    inputs:
+      artifactName: '${{ parameters.artifactName }}'
+      targetPath: '$(Build.ArtifactStagingDirectory)'
+    displayName: Publish bulk artifacts
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
 
 
