@@ -1,58 +1,26 @@
 package main
 
 import (
-	"bufio"
-	"encoding/csv"
 	"fmt"
 	"os"
-	"strings"
 )
 
-type VHDImages struct {
-	Version string
-	Images  []ImageType
-}
-
-type ImageType struct {
-	OS_SKU     string // AKSUbuntu
-	Image_Name string // V2gen2arm64
-}
-
 func main() {
-
-	vhdmap := map[ImageType]string{
-		{OS_SKU: "AKSCBLMariner", Image_Name: "V2"}:                  "CBLMarinerV2",
-		{OS_SKU: "AKSAzureLinux", Image_Name: "V2"}:                  "AzureLinuxV2",
-		{OS_SKU: "AKSCBLMariner", Image_Name: "V2gen2"}:              "CBLMarinerV2Gen2",
-		{OS_SKU: "AKSAzureLinux", Image_Name: "V2gen2"}:              "AzureLinuxV2Gen2",
-		{OS_SKU: "AKSCBLMariner", Image_Name: "V2gen2arm64"}:         "CBLMarinerV2Gen2Arm64",
-		{OS_SKU: "AKSAzureLinux", Image_Name: "V2gen2arm64"}:         "AzureLinuxV2Gen2Arm64",
-		{OS_SKU: "AKSCBLMariner", Image_Name: "V2katagen2"}:          "CBLMarinerV2kataGen2",
-		{OS_SKU: "AKSAzureLinux", Image_Name: "V2katagen2"}:          "AzureLinuxV2kataGen2",
-		{OS_SKU: "AKSCBLMariner", Image_Name: "V2gen2TL"}:            "CBLMarinerV2TLGen2",
-		{OS_SKU: "AKSAzureLinux", Image_Name: "V2gen2TL"}:            "AzureLinuxV2TLGen2",
-		{OS_SKU: "AKSUbuntu", Image_Name: "2004fipscontainerd"}:      "2004",
-		{OS_SKU: "AKSUbuntu", Image_Name: "2204gen2arm64containerd"}: "2204Gen2Arm64",
-		{OS_SKU: "AKSUbuntu", Image_Name: "2204containerd"}:          "2204",
-		{OS_SKU: "AKSUbuntu", Image_Name: "2204gen2containerd"}:      "2204Gen2",
-		{OS_SKU: "AKSUbuntu", Image_Name: "2004gen2CVMcontainerd"}:   "2004CVMGen2",
-		{OS_SKU: "AKSUbuntu", Image_Name: "2204gen2TLcontainerd"}:    "2204TLGen2",
-		// {OS_SKU: "AKSCBLMariner", Image_Name: "V2fips"}: "CBLMarinerV2", // fips can ignore ??
-		// {OS_SKU: "AKSAzureLinux", Image_Name: "V2gen2fips"}: "AzureLinuxV2", // fips can ignore?
-		// {OS_SKU: "AKSCBLMariner", Image_Name: "V2gen2fips"}: "CBLMarinerV2Gen2",// fips can ignore?
-		// {OS_SKU: "AKSAzureLinux", Image_Name: "??"}: "AzureLinuxV2",
-		// {OS_SKU: "", Image_Name: ""}: "",mariner gen2 fips
-		// {OS_SKU: "AKSUbuntu", Image_type: "2004gen2fipscontainerd"}: "2004Gen2",
+	args := os.Args
+	if len(args) > 1 {
+		fmt.Println("Argument passed to main.go:", args[1])
+		// Use args[1] as needed in your Go program
+	} else {
+		fmt.Println("No argument passed to main.go")
 	}
-	linterannoy(vhdmap)
+	vhdImageUrlName := args[0]
+	fmt.Println("vhd_name_for_download_url:", vhdImageUrlName)
 
-	generate_csv()
-	process_csv()
+	// need to call the database to get the n-2 (3) latest vhd versions
+	// need to run scanning on 
 }
 
-func linterannoy(x map[ImageType]string) {
-}
-
+/*
 func generate_csv() {
 	file, err := os.Create("vhd_versions_in_prod-generated-in-go.csv")
 	if err != nil {
@@ -149,6 +117,7 @@ func process_csv() {
 		return
 	}
 }
+*/
 
 /*
 query for csv -
@@ -161,4 +130,16 @@ AgentPoolSnapshot
 | extend version = extract(@"versions/([^/]+)", 1, id)
 | sort by version asc
 | distinct unique_id, version
+
+get the last 3 version values
+AgentPoolSnapshot
+| where PreciseTimeStamp > ago(4h)
+| extend nodeImageReference = parse_json(agentPoolVersionProfile).nodeImageReference
+| extend id = tostring(nodeImageReference.id)
+| where not(id contains "AKSWindows") and not(id contains "1804") and not(id contains "MarinerAKSSig") and not(id contains "MyTestGalleryEastUS")
+| extend unique_id = extract(@"galleries/([^/]+/[^/]+/[^/]+/versions/[^/]+)", 1, id)
+| extend version = extract(@"versions/([^/]+)", 1, id)
+| distinct version
+| sort by version desc
+| take 3
 */
