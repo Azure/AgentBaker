@@ -21,7 +21,7 @@ stages:
     jobs:
     - job: scan
       steps:
-        - task: UseGoTool@0
+        - task: GoTool@0
           inputs:
             version: '1.21'
         - script: |
