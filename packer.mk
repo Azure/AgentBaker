@@ -99,7 +99,7 @@ test-building-vhd: az-login
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
 
-scanning-vhd-pipeline: build-packer az-login
+scanning-vhd-pipeline: init-packer az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
 
 build-nbcparser-all:
