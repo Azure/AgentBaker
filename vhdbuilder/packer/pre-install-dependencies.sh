@@ -39,8 +39,6 @@ echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 stop_watch $capture_time "Create Post-build Test" false
 start_watch
 
-echo "VHD build timestamp is $VHD_BUILD_TIMESTAMP"
-
 if [[ $OS == $MARINER_OS_NAME ]]; then
   chmod 755 /opt
   chmod 755 /opt/azure
@@ -104,6 +102,9 @@ else
   # so we just hold the kernel image packages for now on CVM.
   # this still allows us base image and package updates on a weekly cadence.
   if [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
+    # Canonical snapshot is only implemented for 20.04 LTS, 22.04 LTS and 23.10 and above
+    # For 20.04, the only SKUs we support are FIPS, and it reaches out to ESM to get the packages, ESM does not have canonical snapshot support
+    # Therefore keeping this to 22.04 only for now
     if [[ -n "${VHD_BUILD_TIMESTAMP}" && "${OS_VERSION}" == "22.04" ]]; then
       sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
     fi
