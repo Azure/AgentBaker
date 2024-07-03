@@ -41,6 +41,20 @@ else
 endif
 endif
 
+packer-scanning: init-packer
+ifeq (${OS_SKU},Ubuntu)
+	@echo "Using packer template file: vhd-image-builder-base.json"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
+else ifeq (${OS_SKU},CBLMariner)
+	@echo "Using packer template file vhd-image-builder-mariner.json"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
+else ifeq (${OS_SKU},AzureLinux)
+	@echo "Using packer template file vhd-image-builder-mariner.json"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
+else
+	$(error OS_SKU was invalid ${OS_SKU})
+endif
+
 build-packer-windows:
 ifeq (${MODE},windowsVhdMode)
 ifeq (${SIG_FOR_PRODUCTION},True)
@@ -99,7 +113,7 @@ test-building-vhd: az-login
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
 
-scanning-vhd-pipeline: init-packer az-login
+scanning-vhd-pipeline: packer-scanning az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
 
 build-nbcparser-all:
