@@ -28,7 +28,8 @@
     "vnet_name": "{{env `VNET_NAME`}}",
     "subnet_name": "{{env `SUBNET_NAME`}}",
     "private_packages_url": "{{env `PRIVATE_PACKAGES_URL`}}",
-    "branch": "{{env `BRANCH`}}"
+    "branch": "{{env `BRANCH`}}",
+    "vhd_build_timestamp": "{{user `vhd_build_timestamp`}}"
   },
   "builders": [
     {
