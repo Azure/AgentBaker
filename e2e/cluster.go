@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	mrand "math/rand"
-	"strings"
 
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/scenario"
@@ -201,44 +200,33 @@ func getClusterVNet(ctx context.Context, mcResourceGroupName string) (VNet, erro
 	return VNet{}, fmt.Errorf("failed to find aks vnet")
 }
 
-func getInitialClusterConfigs(ctx context.Context, resourceGroupName string) ([]clusterConfig, error) {
+func getInitialClusterConfigs(ctx context.Context) ([]clusterConfig, error) {
 	var configs []clusterConfig
-	pager := config.Azure.Resource.NewListByResourceGroupPager(resourceGroupName, nil)
+	pager := config.Azure.AKS.NewListByResourceGroupPager(config.ResourceGroupName, nil)
 
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to advance page: %w", err)
 		}
-		for _, resource := range page.Value {
-			if strings.EqualFold(*resource.Type, managedClusterResourceType) {
-				cluster, err := config.Azure.AKS.Get(ctx, resourceGroupName, *resource.Name, nil)
-				if err != nil {
-					if isNotFoundError(err) {
-						log.Printf("get aks cluster %q returned 404 Not Found, continuing to list clusters...", *resource.Name)
-						continue
-					} else {
-						return nil, fmt.Errorf("failed to get aks cluster: %w", err)
-					}
-				}
-				if cluster.Properties == nil || cluster.Properties.ProvisioningState == nil {
-					return nil, fmt.Errorf("aks cluster %q properties/provisioning state were nil", *resource.Name)
-				}
-
-				if *cluster.Properties.ProvisioningState == "Deleting" {
-					continue
-				}
-
-				clusterConfig := clusterConfig{cluster: &cluster.ManagedCluster}
-				isAirgap, err := isNetworkSecurityGroupAirgap(*clusterConfig.cluster.Properties.NodeResourceGroup)
-				if err != nil {
-					return nil, fmt.Errorf("failed to verify if aks subnet is for an airgap cluster: %w", err)
-				}
-
-				clusterConfig.isAirgapCluster = isAirgap
-				log.Printf("found agentbaker e2e cluster %q in provisioning state %q is Airgap %v", *resource.Name, *cluster.Properties.ProvisioningState, clusterConfig.isAirgapCluster)
-				configs = append(configs, clusterConfig)
+		for _, cluster := range page.Value {
+			if cluster.Properties == nil || cluster.Properties.ProvisioningState == nil {
+				return nil, fmt.Errorf("aks cluster %q properties/provisioning state were nil", *cluster.Name)
 			}
+
+			if *cluster.Properties.ProvisioningState == "Deleting" {
+				continue
+			}
+
+			clusterConfig := clusterConfig{cluster: cluster}
+			isAirgap, err := isNetworkSecurityGroupAirgap(*clusterConfig.cluster.Properties.NodeResourceGroup)
+			if err != nil {
+				return nil, fmt.Errorf("failed to verify if aks subnet is for an airgap cluster: %w", err)
+			}
+
+			clusterConfig.isAirgapCluster = isAirgap
+			log.Printf("found agentbaker e2e cluster %q in provisioning state %q is Airgap %v", *cluster.Name, *cluster.Properties.ProvisioningState, clusterConfig.isAirgapCluster)
+			configs = append(configs, clusterConfig)
 		}
 	}
 	return configs, nil

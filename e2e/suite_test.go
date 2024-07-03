@@ -28,7 +28,7 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	clusterConfigs, err := getInitialClusterConfigs(ctx, config.ResourceGroupName)
+	clusterConfigs, err := getInitialClusterConfigs(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
