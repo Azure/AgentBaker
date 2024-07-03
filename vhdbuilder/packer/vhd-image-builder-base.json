@@ -69,7 +69,8 @@
           "{{user `location`}}"
         ]
       },
-      "user_assigned_managed_identities": "{{user `msi_resource_strings`}}"
+      "user_assigned_managed_identities": "{{user `msi_resource_strings`}}",
+      "vhd_build_timestamp": "{{user `vhd_build_timestamp`}}"
     }
   ],
   "provisioners": [
@@ -93,18 +94,6 @@
       "type": "file",
       "source": "nbcparser/bin/nbcparser-amd64",
       "destination": "/home/packer/nbcparser"
-    },
-    {
-      "type": "file",
-      "source": "vhdbuilder/vhd_build_timestamp.json",
-      "destination": "/home/packer/vhd_build_timestamp.json",
-      "generated": "true"
-    },
-    {
-      "type": "file",
-      "source": "vhdbuilder/publisher_base_image_version.json",
-      "destination": "/home/packer/publisher_base_image_version.json",
-      "generated": "true"
     },
     {
       "type": "file",
@@ -594,7 +583,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} IMG_SKU={{user `img_sku`}} /bin/bash -ux /home/packer/pre-install-dependencies.sh"
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} IMG_SKU={{user `img_sku`}} VHD_BUILD_TIMESTAMP={{user `vhd_build_timestamp`}} /bin/bash -ux /home/packer/pre-install-dependencies.sh"
       ]
     },
     {

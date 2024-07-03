@@ -39,6 +39,8 @@ echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 stop_watch $capture_time "Create Post-build Test" false
 start_watch
 
+echo "VHD build timestamp is $VHD_BUILD_TIMESTAMP"
+
 if [[ $OS == $MARINER_OS_NAME ]]; then
   chmod 755 /opt
   chmod 755 /opt/azure

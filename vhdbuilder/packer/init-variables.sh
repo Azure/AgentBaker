@@ -4,16 +4,33 @@ CDIR=$(dirname "${BASH_SOURCE}")
 
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
 PUBLISHER_BASE_IMAGE_VERSION_JSON="${PUBLISHER_BASE_IMAGE_VERSION_JSON:-../vhdbuilder/publisher_base_image_version.json}"
+VHD_BUILD_TIMESTAMP_JSON="${VHD_BUILD_TIMESTAMP_JSON:-../vhdbuilder/vhd_build_timestamp.json}"
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 
-if [ -s "${PUBLISHER_BASE_IMAGE_VERSION_JSON}" ]; then
-  echo "The publisher_base_image_version.json is not empty, therefore, use the publisher base images specified there, if they exist"
-  PUBLISHER_BASE_IMAGE_VERSION=$(jq -r --arg key "${IMG_SKU}" 'if has($key) then .[$key] else empty end' "${PUBLISHER_BASE_IMAGE_VERSION_JSON}")
-  if [ -n "${PUBLISHER_BASE_IMAGE_VERSION}" ]; then
-    echo "Change publisher base image version to ${PUBLISHER_BASE_IMAGE_VERSION} for ${IMG_SKU}"
-    IMG_VERSION=${PUBLISHER_BASE_IMAGE_VERSION}
+# This variable will only be set if a VHD build is triggered from an official branch
+VHD_BUILD_TIMESTAMP=""
+
+# Check if the file exists, if it does, the build is triggered from an official branch
+if [ -f "${PUBLISHER_BASE_IMAGE_VERSION_JSON}" ]; then
+  # Ensure that the file is not empty, this will never happen since automation generates the file after each build but still have this check in place
+  if [ -s "${PUBLISHER_BASE_IMAGE_VERSION_JSON}" ]; then
+    # For IMG_SKUs that dont exist in the file, this is a no-op, therefore Windows/Mariner wont be affected and their IMG_VERSION will always be 'latest'
+    echo "The publisher_base_image_version.json is not empty, therefore, use the publisher base images specified there, if they exist"
+    PUBLISHER_BASE_IMAGE_VERSION=$(jq -r --arg key "${IMG_SKU}" 'if has($key) then .[$key] else empty end' "${PUBLISHER_BASE_IMAGE_VERSION_JSON}")
+    if [ -n "${PUBLISHER_BASE_IMAGE_VERSION}" ]; then
+      echo "Change publisher base image version to ${PUBLISHER_BASE_IMAGE_VERSION} for ${IMG_SKU}"
+      IMG_VERSION=${PUBLISHER_BASE_IMAGE_VERSION}
+    fi
+  fi
+fi
+
+# Check if the file exists, if it does, the build is triggered from an official branch
+if [ -f "${VHD_BUILD_TIMESTAMP_JSON}" ]; then
+  # Ensure that the file is not empty, this will never happen since automation generates the file after each build but still have this check in place
+  if [ -s "${VHD_BUILD_TIMESTAMP_JSON}" ]; then
+    VHD_BUILD_TIMESTAMP=$(jq -r .build_timestamp < ${VHD_BUILD_TIMESTAMP_JSON})
   fi
 fi
 
@@ -419,6 +436,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",
   "img_version": "${IMG_VERSION}",
+  "vhd_build_timestamp": "${VHD_BUILD_TIMESTAMP},
   "windows_image_publisher": "${WINDOWS_IMAGE_PUBLISHER}",
   "windows_image_offer": "${WINDOWS_IMAGE_OFFER}",
   "windows_image_sku": "${WINDOWS_IMAGE_SKU}",
