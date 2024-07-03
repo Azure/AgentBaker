@@ -6,7 +6,7 @@ parameters:
 steps:
   - bash: |
         OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
-        MANAGED_SIG_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${IMAGE_URL_NAME}/versions/" && \
+        MANAGED_SIG_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${IMAGE_URL_NAME}/versions/1.1719954418.2657" && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
