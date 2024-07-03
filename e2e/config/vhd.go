@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 )
@@ -30,9 +31,28 @@ var (
 	}
 )
 
+var ErrNotFound = fmt.Errorf("not found")
+
 // VHDResourceID represents a resource ID pointing to a VHD in Azure. This could be theoretically
 // be the resource ID of a managed image or SIG image version, though for now this will always be a SIG image version.
 type VHDResourceID string
+
+func (id VHDResourceID) Short() string {
+	sep := "Microsoft.Compute/galleries/"
+	str := string(id)
+	if strings.Contains(str, sep) && !strings.HasSuffix(str, sep) {
+		return strings.Split(str, sep)[1]
+	}
+	return str
+}
+
+type imageID struct {
+	subscriptionID string
+	resourceGroup  string
+	galleryName    string
+	imageName      string
+	imageVersion   string
+}
 
 // newVHDResourceIDFetcher is a factory function
 // it returns a function that fetches the latest VHDResourceID for a given image
@@ -56,17 +76,6 @@ func newVHDResourceIDFetcher(image string) func() (VHDResourceID, error) {
 	}
 }
 
-func (id VHDResourceID) Short() string {
-	sep := "Microsoft.Compute/galleries/"
-	str := string(id)
-	if strings.Contains(str, sep) && !strings.HasSuffix(str, sep) {
-		return strings.Split(str, sep)[1]
-	}
-	return str
-}
-
-var ErrNotFound = fmt.Errorf("not found")
-
 func findLatestImageWithTag(imageID, tagName, tagValue string) (VHDResourceID, error) {
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
 	defer cancel()
@@ -77,12 +86,12 @@ func findLatestImageWithTag(imageID, tagName, tagValue string) (VHDResourceID, e
 
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to obtain a credential: %v", err)
+		return "", fmt.Errorf("failed to obtain a credential: %w", err)
 	}
 
 	client, err := armcompute.NewGalleryImageVersionsClient(image.subscriptionID, cred, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create a new images client: %v", err)
+		return "", fmt.Errorf("failed to create a new images client: %w", err)
 	}
 
 	pager := client.NewListByGalleryImagePager(image.resourceGroup, image.galleryName, image.imageName, nil)
@@ -90,7 +99,7 @@ func findLatestImageWithTag(imageID, tagName, tagValue string) (VHDResourceID, e
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
-			return "", fmt.Errorf("failed to get next page: %v", err)
+			return "", fmt.Errorf("failed to get next page: %w", err)
 		}
 		versions := page.Value
 		for _, version := range versions {
@@ -106,14 +115,27 @@ func findLatestImageWithTag(imageID, tagName, tagValue string) (VHDResourceID, e
 	if latestVersion == nil {
 		return "", ErrNotFound
 	}
-	return VHDResourceID(*latestVersion.ID), nil
-}
 
-type imageID struct {
-	subscriptionID string
-	resourceGroup  string
-	galleryName    string
-	imageName      string
+	version := latestVersion
+	if !replicatedToRegion(version, Location) {
+		log.Printf("will replicate image version %s to region %s...", imageID, Location)
+
+		version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
+			Name:                 &Location,
+			RegionalReplicaCount: to.Ptr[int32](1),
+			StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
+		})
+
+		resp, err := client.BeginCreateOrUpdate(ctx, image.resourceGroup, image.galleryName, image.imageName, *version.Name, *version, nil)
+		if err != nil {
+			return "", fmt.Errorf("begin updating image version target regions: %w", err)
+		}
+		if _, err := resp.PollUntilDone(ctx, nil); err != nil {
+			return "", fmt.Errorf("updating image version target regions: %w", err)
+		}
+	}
+
+	return VHDResourceID(*version.ID), nil
 }
 
 func parseImageID(resourceID string) (imageID, error) {
@@ -131,4 +153,13 @@ func parseImageID(resourceID string) (imageID, error) {
 		galleryName:    matches[3],
 		imageName:      matches[4],
 	}, nil
+}
+
+func replicatedToRegion(imageVersion *armcompute.GalleryImageVersion, region string) bool {
+	for _, targetRegion := range imageVersion.Properties.PublishingProfile.TargetRegions {
+		if *targetRegion.Name == region {
+			return true
+		}
+	}
+	return false
 }
