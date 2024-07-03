@@ -30,18 +30,6 @@ echo "Components downloaded in this VHD build (some of the below components migh
 stop_watch $capture_time "Declare Variables / Configure Environment" false
 start_watch
 
-if [ -f "/home/packer/vhd_build_timestamp.json" ]; then
-  echo "build timestamp is present"
-else
-  echo "build timestamp is not present"
-fi
-
-if [ -f "/home/packer/publisher_base_image_version.json" ]; then
-  echo "publisher base image version is present"
-else
-  echo "publisher base image version is not present"
-fi
-
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
 # other VHDs use grub-pc, not grub-efi
