@@ -12,11 +12,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 )
 
-var (
-	airgapNSGName     string = "abe2e-airgap-securityGroup"
-	defaultSubnetName string = "aks-subnet"
-)
-
 func getRequiredSecurityRules(clusterFQDN string) ([]*armnetwork.SecurityRule, error) {
 	// https://learn.microsoft.com/en-us/azure/aks/outbound-rules-control-egress#azure-global-required-fqdn--application-rules
 	// note that we explicitly exclude packages.microsoft.com
@@ -83,7 +78,7 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 
 	return armnetwork.SecurityGroup{
 		Location:   &location,
-		Name:       &airgapNSGName,
+		Name:       &config.AirgapNSGName,
 		Properties: &armnetwork.SecurityGroupPropertiesFormat{SecurityRules: rules},
 	}, nil
 }
@@ -141,7 +136,7 @@ func addAirgapNetworkSettings(ctx context.Context, clusterConfig clusterConfig) 
 }
 
 func createAirgapSecurityGroup(ctx context.Context, clusterConfig clusterConfig, nsgParams armnetwork.SecurityGroup, options *armnetwork.SecurityGroupsClientBeginCreateOrUpdateOptions) (*armnetwork.SecurityGroupsClientCreateOrUpdateResponse, error) {
-	poller, err := config.Azure.SecurityGroup.BeginCreateOrUpdate(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, airgapNSGName, nsgParams, options)
+	poller, err := config.Azure.SecurityGroup.BeginCreateOrUpdate(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, config.AirgapNSGName, nsgParams, options)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +148,7 @@ func createAirgapSecurityGroup(ctx context.Context, clusterConfig clusterConfig,
 }
 
 func updateSubnet(ctx context.Context, clusterConfig clusterConfig, subnetParameters armnetwork.Subnet, vnetName string) error {
-	poller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, vnetName, defaultSubnetName, subnetParameters, nil)
+	poller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, *clusterConfig.cluster.Properties.NodeResourceGroup, vnetName, config.DefaultSubnetName, subnetParameters, nil)
 	if err != nil {
 		return err
 	}
@@ -165,7 +160,7 @@ func updateSubnet(ctx context.Context, clusterConfig clusterConfig, subnetParame
 }
 
 func isNetworkSecurityGroupAirgap(resourceGroupName string) (bool, error) {
-	_, err := config.Azure.SecurityGroup.Get(context.Background(), resourceGroupName, airgapNSGName, nil)
+	_, err := config.Azure.SecurityGroup.Get(context.Background(), resourceGroupName, config.AirgapNSGName, nil)
 	if err != nil {
 		if isNotFoundError(err) {
 			return false, nil

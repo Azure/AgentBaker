@@ -20,6 +20,8 @@ var (
 	SIGVersionTagName             = getEnvWithDefaultIfEmpty("SIG_VERSION_TAG_NAME", "branch")
 	SIGVersionTagValue            = getEnvWithDefaultIfEmpty("SIG_VERSION_TAG_VALUE", "refs/heads/master")
 	IgnoreScenariosWithMissingVHD = strings.EqualFold(os.Getenv("IGNORE_SCENARIOS_WITH_MISSING_VHD"), "true")
+	AirgapNSGName                 = "abe2e-airgap-securityGroup"
+	DefaultSubnetName             = "aks-subnet"
 )
 
 func getEnvWithDefaultIfEmpty(env string, defaultValue string) string {
