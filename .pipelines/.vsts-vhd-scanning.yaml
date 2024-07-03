@@ -6,7 +6,11 @@ parameters:
   displayName: Scan AzureLinuxV2 Gen1
   type: boolean
   default: true
-
+- name: dryrun
+  displayName: Dry run
+  type: boolean
+  default: False
+  
 variables:
 - name: CONTAINER_IMAGE
   value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
