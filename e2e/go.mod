@@ -13,6 +13,7 @@ require (
 	github.com/Azure/go-armbalancer v0.0.2
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
 	github.com/sanity-io/litter v1.5.5
+	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.24.0
 	k8s.io/api v0.28.5
 	k8s.io/apimachinery v0.28.5
@@ -20,6 +21,8 @@ require (
 	sigs.k8s.io/controller-runtime v0.14.5
 	sigs.k8s.io/yaml v1.3.0
 )
+
+require github.com/pmezard/go-difflib v1.0.0 // indirect
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.9.0 // indirect

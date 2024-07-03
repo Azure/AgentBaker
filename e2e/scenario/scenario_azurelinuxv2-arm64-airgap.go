@@ -12,7 +12,7 @@ func azurelinuxv2ARM64AirGap() *Scenario {
 		Name:        "azurelinuxv2-arm64-airgap",
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
 		Config: Config{
-			Cluster:     ClusterNetworkKubenet,
+			Cluster:     ClusterNetworkKubenetAirgap,
 			VHDSelector: config.VHDAzureLinuxV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"

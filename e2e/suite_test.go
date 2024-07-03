@@ -13,35 +13,29 @@ import (
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/barkimedes/go-deepcopy"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_All(t *testing.T) {
 	ctx := context.Background()
 	t.Parallel()
 
-	if err := createE2ELoggingDir(); err != nil {
-		t.Fatal(err)
-	}
+	err := createE2ELoggingDir()
+	require.NoError(t, err)
 
-	if err := ensureResourceGroup(ctx); err != nil {
-		t.Fatal(err)
-	}
-
-	clusterConfigs, err := getInitialClusterConfigs(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	err = ensureResourceGroup(ctx)
+	require.NoError(t, err)
 
 	scenarios := scenario.AllScenarios()
-	if err := createMissingClusters(ctx, scenarios, &clusterConfigs); err != nil {
-		t.Fatal(err)
-	}
 
 	for _, e2eScenario := range scenarios {
 		t.Run(e2eScenario.Name, func(t *testing.T) {
+			model, err := e2eScenario.Cluster.Creator(ctx)
+			require.NoError(t, err)
 			t.Parallel()
 			maybeSkipScenario(t, e2eScenario)
-			setupAndRunScenario(ctx, t, e2eScenario, clusterConfigs)
+			setupAndRunScenario(ctx, t, e2eScenario, &clusterConfig{cluster: model})
 		})
 	}
 }
@@ -64,32 +58,27 @@ func maybeSkipScenario(t *testing.T, s *scenario.Scenario) {
 	t.Logf("running scenario %q with image %q", s.Name, rid)
 }
 
-func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenario.Scenario, clusterConfigs []clusterConfig) {
-	clusterConfig, err := chooseCluster(ctx, e2eScenario, clusterConfigs)
-	if err != nil {
-		t.Fatal(err)
+func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenario.Scenario, clusterConfig *clusterConfig) {
+	// TODO: move to cluster creation
+	if clusterConfig.needsPreparation() {
+		err := validateAndPrepareCluster(ctx, clusterConfig)
+		require.NoError(t, err)
 	}
-
+	require.False(t, clusterConfig.needsPreparation())
 	clusterName := *clusterConfig.cluster.Name
 	log.Printf("chose cluster: %q", clusterName)
 
 	baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(clusterConfig.parameters)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	copied, err := deepcopy.Anything(baseNodeBootstrappingConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	nbc := copied.(*datamodel.NodeBootstrappingConfiguration)
 
 	e2eScenario.PrepareNodeBootstrappingConfiguration(nbc)
 
 	loggingDir, err := createVMLogsDir(e2eScenario.Name)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	executeScenario(ctx, t, &scenarioRunOpts{
 		clusterConfig: clusterConfig,
@@ -104,10 +93,7 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 
 	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair(r)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	assert.NoError(t, err)
 
 	vmssName := getVmssName(r)
 	log.Printf("creating and bootstrapping vmss: %q", vmssName)
@@ -155,9 +141,7 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
 	defer func() {
 		err := pollExtractVMLogs(ctx, vmssName, vmPrivateIP, privateKeyBytes, opts)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 	}()
 
 	// Only perform node readiness/pod-related checks when VMSS creation succeeded

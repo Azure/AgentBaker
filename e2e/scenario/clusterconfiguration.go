@@ -1,7 +1,9 @@
 package scenario
 
 import (
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"context"
+
+	"github.com/Azure/agentbakere2e/cluster"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 )
 
@@ -11,52 +13,17 @@ const (
 )
 
 type Cluster struct {
-	Selector func(cluster *armcontainerservice.ManagedCluster) bool
-	Mutator  func(cluster *armcontainerservice.ManagedCluster)
+	Creator func(ctx context.Context) (*armcontainerservice.ManagedCluster, error)
 }
 
 var ClusterNetworkKubenet = &Cluster{
-	Selector: NetworkPluginKubenetSelector,
-	Mutator:  NetworkPluginKubenetMutator,
+	Creator: cluster.CreateKubenetCluster,
 }
 
 var ClusterNetworkAzure = &Cluster{
-	Selector: NetworkPluginAzureSelector,
-	Mutator:  NetworkPluginAzureMutator,
+	Creator: cluster.CreateAzureNetworkCluster,
 }
 
-func NetworkPluginKubenetSelector(cluster *armcontainerservice.ManagedCluster) bool {
-	if cluster != nil && cluster.Properties != nil && cluster.Properties.NetworkProfile != nil {
-		return *cluster.Properties.NetworkProfile.NetworkPlugin == armcontainerservice.NetworkPluginKubenet
-	}
-	return false
-}
-
-func NetworkPluginAzureSelector(cluster *armcontainerservice.ManagedCluster) bool {
-	if cluster != nil && cluster.Properties != nil && cluster.Properties.NetworkProfile != nil {
-		return *cluster.Properties.NetworkProfile.NetworkPlugin == armcontainerservice.NetworkPluginAzure
-	}
-	return false
-}
-
-// Mutators
-
-func NetworkPluginKubenetMutator(cluster *armcontainerservice.ManagedCluster) {
-	if cluster != nil && cluster.Properties != nil && cluster.Properties.NetworkProfile != nil {
-		cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginKubenet)
-	}
-}
-
-func NetworkPluginAzureMutator(cluster *armcontainerservice.ManagedCluster) {
-	if cluster != nil && cluster.Properties != nil {
-		if cluster.Properties.NetworkProfile != nil {
-			cluster.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginAzure)
-		}
-		// We also update each agentpool's maxPods setting to the default for Azure CNI
-		if cluster.Properties.AgentPoolProfiles != nil {
-			for _, app := range cluster.Properties.AgentPoolProfiles {
-				app.MaxPods = to.Ptr[int32](azureCNIDefaultMaxPodsPerNode)
-			}
-		}
-	}
+var ClusterNetworkKubenetAirgap = &Cluster{
+	Creator: cluster.CreateKubenetAirgapCluster,
 }

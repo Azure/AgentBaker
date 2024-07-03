@@ -6,7 +6,7 @@ import (
 )
 
 type scenarioRunOpts struct {
-	clusterConfig clusterConfig
+	clusterConfig *clusterConfig
 	scenario      *scenario.Scenario
 	nbc           *datamodel.NodeBootstrappingConfiguration
 	loggingDir    string
