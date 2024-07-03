@@ -169,6 +169,17 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     activateNfConntrack
 fi
 
+# Update rsyslog configuration
+RSYSLOG_CONFIG_FILEPATH="/etc/rsyslog.d/60-CIS.conf"
+if [[ $OS == $MARINER_OS_NAME ]]; then
+    echo "news.none                          -/var/log/messages" >> ${RSYSLOG_CONFIG_FILEPATH}
+else
+    echo "*.*;mail.none;news.none            -/var/log/messages" >> ${RSYSLOG_CONFIG_FILEPATH}
+fi
+systemctl daemon-reload
+systemctl restart systemd-journald
+systemctl restart rsyslog
+
 downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
 
