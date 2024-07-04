@@ -2,19 +2,26 @@ package cluster
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Azure/agentbakere2e/config"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 )
 
-const testClusterNamePrefix = "abe2e-"
+// WARNING: if you modify cluster configuration, please change the version below
+// this will avoid potential conflicts with tests running on other branches
+// there is no strict rules or a hidden meaning for the version
+// testClusterNamePrefix is also used for versioning cluster configurations
+const testClusterNamePrefix = "abe2e-v20240704-"
 
 var (
 	clusterKubenet       *armcontainerservice.ManagedCluster
@@ -30,16 +37,18 @@ var (
 	clusterAzureNetworkOnce  sync.Once
 )
 
+// Same cluster can be attempted to be created concurrently by different tests
+// sync.Once is used to ensure that only one cluster for the set of tests is created
 func ClusterKubenet(ctx context.Context) (*armcontainerservice.ManagedCluster, error) {
 	clusterKubenetOnce.Do(func() {
-		clusterKubenet, clusterKubenetError = createNewCluster(ctx, getKubenetClusterModel(testClusterNamePrefix+"kubenet-v1"))
+		clusterKubenet, clusterKubenetError = createNewClusterWithRetry(ctx, getKubenetClusterModel(testClusterNamePrefix+"kubenet-v1"))
 	})
 	return clusterKubenet, clusterKubenetError
 }
 
 func ClusterKubenetAirgap(ctx context.Context) (*armcontainerservice.ManagedCluster, error) {
 	clusterKubenetAirgapOnce.Do(func() {
-		cluster, err := createNewCluster(ctx, getKubenetClusterModel(testClusterNamePrefix+"kubenet-airgap"))
+		cluster, err := createNewClusterWithRetry(ctx, getKubenetClusterModel(testClusterNamePrefix+"kubenet-airgap"))
 		if err == nil {
 			err = addAirgapNetworkSettings(ctx, cluster)
 		}
@@ -50,7 +59,7 @@ func ClusterKubenetAirgap(ctx context.Context) (*armcontainerservice.ManagedClus
 
 func ClusterAzureNetwork(ctx context.Context) (*armcontainerservice.ManagedCluster, error) {
 	clusterAzureNetworkOnce.Do(func() {
-		clusterAzureNetwork, clusterAzureNetworkError = createNewCluster(ctx, getAzureNetworkClusterModel(testClusterNamePrefix+"azure-network"))
+		clusterAzureNetwork, clusterAzureNetworkError = createNewClusterWithRetry(ctx, getAzureNetworkClusterModel(testClusterNamePrefix+"azure-network"))
 	})
 	return clusterAzureNetwork, clusterAzureNetworkError
 }
@@ -74,6 +83,43 @@ func createNewCluster(ctx context.Context, cluster *armcontainerservice.ManagedC
 	}
 
 	return &clusterResp.ManagedCluster, nil
+}
+
+// createNewClusterWithRetry is a wrapper around createNewCluster
+// that retries creating a cluster if it fails with a 409 Conflict error
+// clusters are reused, and sometimes a cluster can be in UPDATING or DELETING state
+// simple retry should be sufficient to avoid such conflicts
+func createNewClusterWithRetry(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
+	maxRetries := 10
+	retryInterval := 30 * time.Second
+	var lastErr error
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		log.Printf("Attempt %d: Creating new cluster %s in rg %s\n", attempt+1, *cluster.Name, *cluster.Location)
+
+		createdCluster, err := createNewCluster(ctx, cluster)
+		if err == nil {
+			return createdCluster, nil
+		}
+
+		// Check if the error is a 409 Conflict
+		var respErr *azcore.ResponseError
+		if errors.As(err, &respErr) && respErr.StatusCode == 409 {
+			lastErr = err
+			log.Printf("Attempt %d failed with 409 Conflict: %v. Retrying in %v...\n", attempt+1, err, retryInterval)
+
+			select {
+			case <-time.After(retryInterval):
+				// Continue to next iteration
+			case <-ctx.Done():
+				return nil, fmt.Errorf("context canceled while retrying cluster creation: %w", ctx.Err())
+			}
+		} else {
+			// If it's not a 409 error, return immediately
+			return nil, fmt.Errorf("failed to create cluster: %w", err)
+		}
+	}
+
+	return nil, fmt.Errorf("failed to create cluster after %d attempts due to persistent 409 Conflict: %w", maxRetries, lastErr)
 }
 
 func getKubenetClusterModel(name string) *armcontainerservice.ManagedCluster {
@@ -119,20 +165,6 @@ func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster
 			Type: to.Ptr(armcontainerservice.ResourceIdentityTypeSystemAssigned),
 		},
 	}
-}
-
-func generateClusterName() string {
-	return fmt.Sprintf(testClusterNamePrefix + randomLowercaseString(5))
-}
-
-const safeLowerBytes = "abcdefghijklmnopqrstuvwxyz0123456789"
-
-func randomLowercaseString(n int) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = safeLowerBytes[config.Rand.Intn(len(safeLowerBytes))]
-	}
-	return string(b)
 }
 
 func addAirgapNetworkSettings(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
