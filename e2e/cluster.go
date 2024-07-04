@@ -11,12 +11,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 )
 
-type clusterParameters map[string]string
-
 type clusterConfig struct {
-	cluster    *armcontainerservice.ManagedCluster
-	kube       *kubeclient
-	parameters clusterParameters
+	cluster *armcontainerservice.ManagedCluster
+	kube    *kubeclient
 }
 
 type VNet struct {
@@ -38,10 +35,6 @@ func (c clusterConfig) maxPodsPerNode() (int, error) {
 		return int(*c.cluster.Properties.AgentPoolProfiles[0].MaxPods), nil
 	}
 	return 0, fmt.Errorf("cluster agentpool profiles were nil or empty: %+v", c.cluster)
-}
-
-func (c clusterConfig) needsPreparation() bool {
-	return c.kube == nil || c.parameters == nil
 }
 
 // This map is used during cluster creation to check what VM size should
@@ -105,32 +98,26 @@ func getClusterVNet(ctx context.Context, mcResourceGroupName string) (VNet, erro
 }
 
 func validateAndPrepareCluster(ctx context.Context, clusterConfig *clusterConfig) error {
-	kube, clusterParams, err := prepareClusterForTests(ctx, clusterConfig.cluster)
+	kube, err := prepareClusterForTests(ctx, clusterConfig.cluster)
 	if err != nil {
 		return err
 	}
 	clusterConfig.kube = kube
-	clusterConfig.parameters = clusterParams
 	return nil
 }
 
 func prepareClusterForTests(
 	ctx context.Context,
-	cluster *armcontainerservice.ManagedCluster) (*kubeclient, clusterParameters, error) {
+	cluster *armcontainerservice.ManagedCluster) (*kubeclient, error) {
 	clusterName := *cluster.Name
 
 	kube, err := getClusterKubeClient(ctx, config.ResourceGroupName, clusterName)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable get kube client using cluster %q: %w", clusterName, err)
+		return nil, fmt.Errorf("unable get kube client using cluster %q: %w", clusterName, err)
 	}
 
 	if err := ensureDebugDaemonset(ctx, kube); err != nil {
-		return nil, nil, fmt.Errorf("unable to ensure debug damonset of viable cluster %q: %w", clusterName, err)
+		return nil, fmt.Errorf("unable to ensure debug damonset of viable cluster %q: %w", clusterName, err)
 	}
-
-	clusterParams, err := pollExtractClusterParameters(ctx, kube)
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to extract cluster parameters from %q: %w", clusterName, err)
-	}
-	return kube, clusterParams, nil
+	return kube, nil
 }

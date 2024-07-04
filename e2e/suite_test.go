@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/scenario"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,7 +34,7 @@ func Test_All(t *testing.T) {
 			model, err := e2eScenario.Cluster.Creator(ctx)
 			require.NoError(t, err)
 			maybeSkipScenario(t, e2eScenario)
-			setupAndRunScenario(ctx, t, e2eScenario, &clusterConfig{cluster: model})
+			setupAndRunScenario(ctx, t, e2eScenario, model)
 		})
 	}
 }
@@ -56,16 +57,16 @@ func maybeSkipScenario(t *testing.T, s *scenario.Scenario) {
 	t.Logf("running scenario %q with image %q", s.Name, rid)
 }
 
-func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenario.Scenario, clusterConfig *clusterConfig) {
-	// TODO: move to cluster creation
-	if clusterConfig.needsPreparation() {
-		err := validateAndPrepareCluster(ctx, clusterConfig)
-		require.NoError(t, err)
-	}
-	require.False(t, clusterConfig.needsPreparation())
+func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenario.Scenario, cluster *armcontainerservice.ManagedCluster) {
+	clusterConfig := &clusterConfig{cluster: cluster}
+	err := validateAndPrepareCluster(ctx, clusterConfig)
+	require.NoError(t, err)
 	log.Printf("chose cluster: %q", *clusterConfig.cluster.ID)
 
-	baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(clusterConfig.parameters)
+	clusterParams, err := pollExtractClusterParameters(ctx, clusterConfig.kube)
+	require.NoError(t, err)
+
+	baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(clusterParams)
 	require.NoError(t, err)
 
 	copied, err := deepcopy.Anything(baseNodeBootstrappingConfig)
