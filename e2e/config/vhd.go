@@ -202,8 +202,7 @@ func ensureReplication(ctx context.Context, client *armcompute.GalleryImageVersi
 
 func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion) bool {
 	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
-		fmt.Printf("version %s, targetRegion %s, Location: %s\n", *version.Name, *targetRegion.Name, Location)
-		if *targetRegion.Name == Location {
+		if strings.ToLower(strings.TrimSpace(*targetRegion.Name)) == Location {
 			return true
 		}
 	}
