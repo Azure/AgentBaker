@@ -39,7 +39,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *sce
 
 	if !config.KeepVMSS {
 		t.Cleanup(func() {
-			_, err := config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName, nil)
+			_, err := config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, nil)
 			if err != nil {
 				t.Logf("failed to delete vmss %q: %s", vmssName, err)
 			}
@@ -50,7 +50,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *sce
 }
 
 func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
-	log.Printf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.cluster.Properties.NodeResourceGroup)
+	log.Printf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 	model, err := getBaseVMSSModel(ctx, vmssName, string(publicKeyBytes), customData, cseCmd, opts)
@@ -65,7 +65,7 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 		model.Tags[buildIDTagKey] = &config.BuildID
 	}
 
-	isAzureCNI, err := opts.clusterConfig.isAzureCNI()
+	isAzureCNI, err := opts.clusterConfig.IsAzureCNI()
 	if err != nil {
 		return nil, fmt.Errorf("determine whether chosen cluster uses Azure CNI from cluster model: %w", err)
 	}
@@ -82,7 +82,7 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
-		*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
+		*opts.clusterConfig.Model.Properties.NodeResourceGroup,
 		vmssName,
 		model,
 		nil,
@@ -103,12 +103,12 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 // as we need be able to allow AKS to allocate an additional IP config for each pod running on the given node.
 // Additional info: https://learn.microsoft.com/en-us/azure/aks/configure-azure-cni
 func addPodIPConfigsForAzureCNI(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet, vmssName string, opts *scenarioRunOpts) error {
-	maxPodsPerNode, err := opts.clusterConfig.maxPodsPerNode()
+	maxPodsPerNode, err := opts.clusterConfig.MaxPodsPerNode()
 	if err != nil {
 		return fmt.Errorf("failed to read agentpool MaxPods value from chosen cluster model: %w", err)
 	}
 
-	vnet, err := getClusterVNet(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup)
+	vnet, err := getClusterVNet(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
 	if err != nil {
 		return fmt.Errorf("get cluster VNet: %w", err)
 	}
@@ -217,7 +217,7 @@ func getBaseVMSSModel(ctx context.Context, name, sshPublicKey, customData, cseCm
 	if err != nil {
 		return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("get resource ID for VHD: %w", err)
 	}
-	vnet, err := getClusterVNet(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup)
+	vnet, err := getClusterVNet(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
 	if err != nil {
 		return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("get cluster VNet: %w", err)
 	}
@@ -294,7 +294,7 @@ func getBaseVMSSModel(ctx context.Context, name, sshPublicKey, customData, cseCm
 														fmt.Sprintf(
 															loadBalancerBackendAddressPoolIDTemplate,
 															config.SubscriptionID,
-															*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
+															*opts.clusterConfig.Model.Properties.NodeResourceGroup,
 														),
 													),
 												},

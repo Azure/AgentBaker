@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/cluster"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
@@ -13,7 +14,7 @@ func ubuntu1804gpu_azurecni() *Scenario {
 		Name:        "ubuntu1804-gpu-azurecni",
 		Description: "Ubuntu1804 gpu scenario on cluster configured with Azure CNI",
 		Config: Config{
-			Cluster:     ClusterNetworkAzure,
+			Cluster:     cluster.ClusterAzureNetwork,
 			VHDSelector: config.VHDUbuntu1804Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)

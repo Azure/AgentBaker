@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/cluster"
 	"github.com/Azure/agentbakere2e/config"
 )
 
@@ -10,7 +11,7 @@ func marinerv2ChronyRestarts() *Scenario {
 		Name:        "marinerv2-chrony-restarts",
 		Description: "Tests that the chrony service restarts if it is killed",
 		Config: Config{
-			Cluster:     ClusterNetworkKubenet,
+			Cluster:     cluster.ClusterKubenet,
 			VHDSelector: config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"

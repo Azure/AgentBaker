@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/cluster"
 	"github.com/Azure/agentbakere2e/config"
 )
 
@@ -10,7 +11,7 @@ func ubuntu1804ChronyRestarts() *Scenario {
 		Name:        "ubuntu1804-chrony-restarts",
 		Description: "Tests that the chrony service restarts if it is killed",
 		Config: Config{
-			Cluster:     ClusterNetworkKubenet,
+			Cluster:     cluster.ClusterKubenet,
 			VHDSelector: config.VHDUbuntu1804Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-18.04-gen2"

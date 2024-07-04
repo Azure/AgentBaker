@@ -1,6 +1,9 @@
 package scenario
 
-import "github.com/Azure/agentbakere2e/config"
+import (
+	"github.com/Azure/agentbakere2e/cluster"
+	"github.com/Azure/agentbakere2e/config"
+)
 
 // Returns config for the 'base' E2E scenario
 func ubuntu1804() *Scenario {
@@ -8,7 +11,7 @@ func ubuntu1804() *Scenario {
 		Name:        "ubuntu1804",
 		Description: "Tests that a node using an Ubuntu 1804 VHD can be properly bootstrapped",
 		Config: Config{
-			Cluster:     ClusterNetworkKubenet,
+			Cluster:     cluster.ClusterKubenet,
 			VHDSelector: config.VHDUbuntu1804Gen2Containerd,
 		},
 	}

@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/cluster"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
@@ -13,7 +14,7 @@ func marinerv2gpu_azurecni() *Scenario {
 		Name:        "marinerv2-gpu-azurecni",
 		Description: "MarinerV2 gpu scenario on cluster configured with Azure CNI",
 		Config: Config{
-			Cluster:     ClusterNetworkAzure,
+			Cluster:     cluster.ClusterAzureNetwork,
 			VHDSelector: config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)

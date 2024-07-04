@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/cluster"
 	"github.com/Azure/agentbakere2e/config"
 )
 
@@ -10,7 +11,7 @@ func marinerv2Wasm() *Scenario {
 		Name:        "marinerv2-wasm",
 		Description: "tests that a new marinerv2 node using krustlet can be properly bootstrapped",
 		Config: Config{
-			Cluster:     ClusterNetworkKubenet,
+			Cluster:     cluster.ClusterKubenet,
 			VHDSelector: config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi

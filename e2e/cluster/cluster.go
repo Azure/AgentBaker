@@ -15,6 +15,16 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/yaml"
 )
 
 // WARNING: if you modify cluster configuration, please change the version below
@@ -24,9 +34,9 @@ import (
 const testClusterNamePrefix = "abe2e-v20240704-"
 
 var (
-	clusterKubenet       *armcontainerservice.ManagedCluster
-	clusterKubenetAirgap *armcontainerservice.ManagedCluster
-	clusterAzureNetwork  *armcontainerservice.ManagedCluster
+	clusterKubenet       *Cluster
+	clusterKubenetAirgap *Cluster
+	clusterAzureNetwork  *Cluster
 
 	clusterKubenetError       error
 	clusterKubenetAirgapError error
@@ -37,18 +47,45 @@ var (
 	clusterAzureNetworkOnce  sync.Once
 )
 
+type Cluster struct {
+	Model *armcontainerservice.ManagedCluster
+	Kube  *Kubeclient
+}
+
+type Kubeclient struct {
+	Dynamic client.Client
+	Typed   kubernetes.Interface
+	Rest    *rest.Config
+}
+
+// Returns true if the cluster is configured with Azure CNI
+func (c *Cluster) IsAzureCNI() (bool, error) {
+	if c.Model.Properties.NetworkProfile != nil {
+		return *c.Model.Properties.NetworkProfile.NetworkPlugin == armcontainerservice.NetworkPluginAzure, nil
+	}
+	return false, fmt.Errorf("cluster network profile was nil: %+v", c.Model)
+}
+
+// Returns the maximum number of pods per node of the cluster's agentpool
+func (c *Cluster) MaxPodsPerNode() (int, error) {
+	if len(c.Model.Properties.AgentPoolProfiles) > 0 {
+		return int(*c.Model.Properties.AgentPoolProfiles[0].MaxPods), nil
+	}
+	return 0, fmt.Errorf("cluster agentpool profiles were nil or empty: %+v", c.Model)
+}
+
 // Same cluster can be attempted to be created concurrently by different tests
 // sync.Once is used to ensure that only one cluster for the set of tests is created
-func ClusterKubenet(ctx context.Context) (*armcontainerservice.ManagedCluster, error) {
+func ClusterKubenet(ctx context.Context) (*Cluster, error) {
 	clusterKubenetOnce.Do(func() {
-		clusterKubenet, clusterKubenetError = createNewClusterWithRetry(ctx, getKubenetClusterModel(testClusterNamePrefix+"kubenet-v1"))
+		clusterKubenet, clusterKubenetError = createNewClusterWithClient(ctx, getKubenetClusterModel(testClusterNamePrefix+"kubenet-v1"))
 	})
 	return clusterKubenet, clusterKubenetError
 }
 
-func ClusterKubenetAirgap(ctx context.Context) (*armcontainerservice.ManagedCluster, error) {
+func ClusterKubenetAirgap(ctx context.Context) (*Cluster, error) {
 	clusterKubenetAirgapOnce.Do(func() {
-		cluster, err := createNewClusterWithRetry(ctx, getKubenetClusterModel(testClusterNamePrefix+"kubenet-airgap"))
+		cluster, err := createNewClusterWithClient(ctx, getKubenetClusterModel(testClusterNamePrefix+"kubenet-airgap"))
 		if err == nil {
 			err = addAirgapNetworkSettings(ctx, cluster)
 		}
@@ -57,11 +94,30 @@ func ClusterKubenetAirgap(ctx context.Context) (*armcontainerservice.ManagedClus
 	return clusterKubenetAirgap, clusterKubenetAirgapError
 }
 
-func ClusterAzureNetwork(ctx context.Context) (*armcontainerservice.ManagedCluster, error) {
+func ClusterAzureNetwork(ctx context.Context) (*Cluster, error) {
 	clusterAzureNetworkOnce.Do(func() {
-		clusterAzureNetwork, clusterAzureNetworkError = createNewClusterWithRetry(ctx, getAzureNetworkClusterModel(testClusterNamePrefix+"azure-network"))
+		clusterAzureNetwork, clusterAzureNetworkError = createNewClusterWithClient(ctx, getAzureNetworkClusterModel(testClusterNamePrefix+"azure-network"))
 	})
 	return clusterAzureNetwork, clusterAzureNetworkError
+}
+
+func createNewClusterWithClient(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*Cluster, error) {
+	createdCluster, err := createNewClusterWithRetry(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	kube, err := getClusterKubeClient(ctx, config.ResourceGroupName, *cluster.Name)
+	if err != nil {
+		return nil, fmt.Errorf("get kube client using cluster %q: %w", *cluster.Name, err)
+	}
+
+	if err := ensureDebugDaemonset(ctx, kube); err != nil {
+		return nil, fmt.Errorf("unable to ensure debug damonset of viable cluster %q: %w", *cluster.Name, err)
+	}
+
+	return &Cluster{Model: createdCluster, Kube: kube}, nil
+
 }
 
 func createNewCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
@@ -167,21 +223,21 @@ func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster
 	}
 }
 
-func addAirgapNetworkSettings(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
-	log.Printf("Adding network settings for airgap cluster %s in rg %s\n", *cluster.Name, *cluster.Properties.NodeResourceGroup)
+func addAirgapNetworkSettings(ctx context.Context, cluster *Cluster) error {
+	log.Printf("Adding network settings for airgap cluster %s in rg %s\n", *cluster.Model.Name, *cluster.Model.Properties.NodeResourceGroup)
 
-	vnet, err := getClusterVNet(ctx, *cluster.Properties.NodeResourceGroup)
+	vnet, err := getClusterVNet(ctx, *cluster.Model.Properties.NodeResourceGroup)
 	if err != nil {
 		return err
 	}
 	subnetId := vnet.subnetId
 
-	nsgParams, err := airGapSecurityGroup(config.Location, *cluster.Properties.Fqdn)
+	nsgParams, err := airGapSecurityGroup(config.Location, *cluster.Model.Properties.Fqdn)
 	if err != nil {
 		return err
 	}
 
-	nsg, err := createAirgapSecurityGroup(ctx, cluster, nsgParams, nil)
+	nsg, err := createAirgapSecurityGroup(ctx, cluster.Model, nsgParams, nil)
 	if err != nil {
 		return err
 	}
@@ -195,11 +251,11 @@ func addAirgapNetworkSettings(ctx context.Context, cluster *armcontainerservice.
 			},
 		},
 	}
-	if err = updateSubnet(ctx, cluster, subnetParameters, vnet.name); err != nil {
+	if err = updateSubnet(ctx, cluster.Model, subnetParameters, vnet.name); err != nil {
 		return err
 	}
 
-	log.Printf("updated cluster %s subnet with airggap settings", *cluster.Name)
+	log.Printf("updated cluster %s subnet with airggap settings", *cluster.Model.Name)
 	return nil
 }
 
@@ -334,4 +390,114 @@ func updateSubnet(ctx context.Context, cluster *armcontainerservice.ManagedClust
 		return err
 	}
 	return nil
+}
+
+func newKubeclient(config *rest.Config) (*Kubeclient, error) {
+	dynamic, err := client.New(config, client.Options{})
+	if err != nil {
+		return nil, fmt.Errorf("create dynamic Kubeclient: %w", err)
+	}
+
+	restClient, err := rest.RESTClientFor(config)
+	if err != nil {
+		return nil, fmt.Errorf("create rest kube client: %w", err)
+	}
+
+	typed := kubernetes.New(restClient)
+
+	return &Kubeclient{
+		Dynamic: dynamic,
+		Typed:   typed,
+		Rest:    config,
+	}, nil
+}
+
+func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName string) (*Kubeclient, error) {
+	data, err := getClusterKubeconfigBytes(ctx, resourceGroupName, clusterName)
+	if err != nil {
+		return nil, fmt.Errorf("get cluster kubeconfig bytes: %w", err)
+	}
+
+	restConfig, err := clientcmd.RESTConfigFromKubeConfig(data)
+	if err != nil {
+		return nil, fmt.Errorf("convert kubeconfig bytes to rest config: %w", err)
+	}
+	restConfig.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
+	restConfig.APIPath = "/api"
+	restConfig.GroupVersion = &schema.GroupVersion{
+		Version: "v1",
+	}
+
+	return newKubeclient(restConfig)
+}
+
+func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterName string) ([]byte, error) {
+	credentialList, err := config.Azure.AKS.ListClusterAdminCredentials(ctx, resourceGroupName, clusterName, nil)
+	if err != nil {
+		return nil, fmt.Errorf("list cluster admin credentials: %w", err)
+	}
+
+	if len(credentialList.Kubeconfigs) < 1 {
+		return nil, fmt.Errorf("no kubeconfigs available for the managed cluster cluster")
+	}
+
+	return credentialList.Kubeconfigs[0].Value, nil
+}
+
+// this is a bit ugly, but we don't want to execute this piece concurrently with other tests
+func ensureDebugDaemonset(ctx context.Context, kube *Kubeclient) error {
+	manifest := getDebugDaemonset()
+	var ds appsv1.DaemonSet
+
+	if err := yaml.Unmarshal([]byte(manifest), &ds); err != nil {
+		return fmt.Errorf("failed to unmarshal debug daemonset manifest: %w", err)
+	}
+
+	desired := ds.DeepCopy()
+	_, err := controllerutil.CreateOrUpdate(ctx, kube.Dynamic, &ds, func() error {
+		ds = *desired
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to apply debug daemonset: %w", err)
+	}
+
+	return nil
+}
+
+func getDebugDaemonset() string {
+	return `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: &name debug
+  namespace: default
+  labels:
+    app: *name
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: *name
+  template:
+    metadata:
+      labels:
+        app: *name
+    spec:
+      hostNetwork: true
+      nodeSelector:
+        kubernetes.azure.com/agentpool: nodepool1
+      hostPID: true
+      containers:
+      - image: mcr.microsoft.com/oss/nginx/nginx:1.21.6
+        name: ubuntu
+        command: ["sleep", "infinity"]
+        resources:
+          requests: {}
+          limits: {}
+        securityContext:
+          privileged: true
+          capabilities:
+            add: ["SYS_PTRACE", "SYS_RAWIO"]
+`
 }

@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/cluster"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/scenario"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,7 +31,7 @@ func Test_All(t *testing.T) {
 	for _, e2eScenario := range scenarios {
 		t.Run(e2eScenario.Name, func(t *testing.T) {
 			t.Parallel()
-			model, err := e2eScenario.Cluster.Creator(ctx)
+			model, err := e2eScenario.Cluster(ctx)
 			require.NoError(t, err)
 			maybeSkipScenario(t, e2eScenario)
 			setupAndRunScenario(ctx, t, e2eScenario, model)
@@ -57,13 +57,10 @@ func maybeSkipScenario(t *testing.T, s *scenario.Scenario) {
 	t.Logf("running scenario %q with image %q", s.Name, rid)
 }
 
-func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenario.Scenario, cluster *armcontainerservice.ManagedCluster) {
-	clusterConfig := &clusterConfig{cluster: cluster}
-	err := validateAndPrepareCluster(ctx, clusterConfig)
-	require.NoError(t, err)
-	log.Printf("chose cluster: %q", *clusterConfig.cluster.ID)
+func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenario.Scenario, clusterConfig *cluster.Cluster) {
+	log.Printf("chose cluster: %q", *clusterConfig.Model.ID)
 
-	clusterParams, err := pollExtractClusterParameters(ctx, clusterConfig.kube)
+	clusterParams, err := pollExtractClusterParameters(ctx, clusterConfig.Kube)
 	require.NoError(t, err)
 
 	baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(clusterParams)
@@ -139,17 +136,17 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	// Only perform node readiness/pod-related checks when VMSS creation succeeded
 	if vmssSucceeded {
 		log.Printf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", vmssName)
-		nodeName, err := validateNodeHealth(ctx, opts.clusterConfig.kube, vmssName)
+		nodeName, err := validateNodeHealth(ctx, opts.clusterConfig.Kube, vmssName)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		if opts.nbc.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi {
 			log.Printf("wasm scenario: running wasm validation on %s...", vmssName)
-			if err := ensureWasmRuntimeClasses(ctx, opts.clusterConfig.kube); err != nil {
+			if err := ensureWasmRuntimeClasses(ctx, opts.clusterConfig.Kube); err != nil {
 				t.Fatalf("unable to ensure wasm RuntimeClasses on %s: %s", vmssName, err)
 			}
-			if err := validateWasm(ctx, opts.clusterConfig.kube, nodeName, string(privateKeyBytes)); err != nil {
+			if err := validateWasm(ctx, opts.clusterConfig.Kube, nodeName, string(privateKeyBytes)); err != nil {
 				t.Fatalf("unable to validate wasm on %s: %s", vmssName, err)
 			}
 		}
