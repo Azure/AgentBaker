@@ -26,30 +26,31 @@ const (
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
 )
 
-func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
+func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, error) {
 	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to get node bootstrapping: %w", err)
-	}
-
-	cleanupVMSS := func() {
-		// don't wait for the operation to complete
-		_, err := config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName, nil)
-		if err != nil {
-			t.Logf("failed to delete vmss %q: %s", vmssName, err)
-		}
+		return nil, fmt.Errorf("unable to get node bootstrapping: %w", err)
 	}
 
 	vmssModel, err := createVMSSWithPayload(ctx, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
 	if err != nil {
-		return nil, cleanupVMSS, fmt.Errorf("unable to create VMSS with payload: %w", err)
+		return nil, fmt.Errorf("unable to create VMSS with payload: %w", err)
 	}
 
-	return vmssModel, cleanupVMSS, nil
+	if !config.KeepVMSS {
+		t.Cleanup(func() {
+			_, err := config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName, nil)
+			if err != nil {
+				t.Logf("failed to delete vmss %q: %s", vmssName, err)
+			}
+		})
+	}
+
+	return vmssModel, nil
 }
 
 func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
-	log.Printf("creating VMSS %q", vmssName)
+	log.Printf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.cluster.Properties.NodeResourceGroup)
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 	model, err := getBaseVMSSModel(ctx, vmssName, string(publicKeyBytes), customData, cseCmd, opts)
