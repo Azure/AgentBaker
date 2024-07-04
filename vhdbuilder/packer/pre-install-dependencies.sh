@@ -48,6 +48,18 @@ stop_watch $capture_time "Set Permissions if Mariner" false
 start_watch
 
 copyPackerFiles
+
+# Update rsyslog configuration
+RSYSLOG_CONFIG_FILEPATH="/etc/rsyslog.d/60-CIS.conf"
+if [[ $OS == $MARINER_OS_NAME ]]; then
+    echo -e "\nnews.none                          -/var/log/messages" >> ${RSYSLOG_CONFIG_FILEPATH}
+else
+    echo -e "\n*.*;mail.none;news.none            -/var/log/messages" >> ${RSYSLOG_CONFIG_FILEPATH}
+fi
+systemctl daemon-reload
+systemctlEnableAndStart systemd-journald || exit 1
+systemctlEnableAndStart rsyslog || exit 1
+
 systemctlEnableAndStart disk_queue || exit 1
 stop_watch $capture_time "Copy Packer Files" false
 start_watch
