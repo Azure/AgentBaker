@@ -7,8 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/agentbakere2e/config"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -16,14 +14,13 @@ import (
 
 const (
 	// Polling intervals
-	execOnVMPollInterval                    = 10 * time.Second
-	execOnPodPollInterval                   = 10 * time.Second
-	extractClusterParametersPollInterval    = 10 * time.Second
-	extractVMLogsPollInterval               = 10 * time.Second
-	getVMPrivateIPAddressPollInterval       = 5 * time.Second
-	waitUntilPodRunningPollInterval         = 10 * time.Second
-	waitUntilClusterNotCreatingPollInterval = 10 * time.Second
-	waitUntilNodeReadyPollingInterval       = 20 * time.Second
+	execOnVMPollInterval                 = 10 * time.Second
+	execOnPodPollInterval                = 10 * time.Second
+	extractClusterParametersPollInterval = 10 * time.Second
+	extractVMLogsPollInterval            = 10 * time.Second
+	getVMPrivateIPAddressPollInterval    = 5 * time.Second
+	waitUntilPodRunningPollInterval      = 10 * time.Second
+	waitUntilNodeReadyPollingInterval    = 20 * time.Second
 
 	// Polling timeouts
 	execOnVMPollingTimeout                 = 3 * time.Minute
@@ -162,34 +159,6 @@ func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *scenarioRunO
 	}
 
 	return vmPrivateIP, nil
-}
-
-func waitForClusterCreation(ctx context.Context, resourceGroupName, clusterName string) (*armcontainerservice.ManagedCluster, error) {
-	var cluster *armcontainerservice.ManagedCluster
-
-	err := wait.PollUntilContextCancel(ctx, waitUntilClusterNotCreatingPollInterval, false, func(ctx context.Context) (bool, error) {
-		clusterResp, err := config.Azure.AKS.Get(ctx, resourceGroupName, clusterName, nil)
-		if err != nil {
-			return false, err
-		}
-
-		if clusterResp.Properties == nil || clusterResp.Properties.ProvisioningState == nil {
-			return false, fmt.Errorf("%q: nil cluster properties/provisioning state when waiting for non-\"Creating\" provisioning state", *cluster.Name)
-		}
-
-		if *clusterResp.Properties.ProvisioningState == "Creating" {
-			return false, nil
-		}
-
-		cluster = &clusterResp.ManagedCluster
-		return true, nil
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("error waiting for cluster %q to be non-\"Creating\" provisioning state: %w", clusterName, err)
-	}
-
-	return cluster, nil
 }
 
 func waitUntilNodeReady(ctx context.Context, kube *kubeclient, vmssName string) (string, error) {
