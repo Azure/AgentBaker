@@ -167,6 +167,11 @@ $global:IsAzureCNIOverlayEnabled = {{if IsAzureCNIOverlayFeatureEnabled}}$true{{
 # Kubelet credential provider
 $global:CredentialProviderURL = "{{GetParameter "windowsCredentialProviderURL"}}"
 
+# Kubelet secure TLS bootstrapping settings and related vars
+$global:EnableSecureTLSBootstrapping = [System.Convert]::ToBoolean("{{EnableSecureTLSBootstrapping}}")
+$global:CustomSecureTLSBootstrapAADResource = "{{GetCustomSecureTLSBootstrapAADServerAppID}}"
+$global:SecureTLSBootstrapClientDownloadURL = "https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/client-v0.1.0-alpha.4/windows/amd64/tls-bootstrap-client.exe"
+
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("{{GetVariable "windowsEnableCSIProxy" }}");
 $global:CsiProxyUrl = "{{GetVariable "windowsCSIProxyURL" }}";
@@ -296,7 +301,11 @@ try
     Get-ProvisioningScripts
     Get-LogCollectionScripts
     
-    Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
+    Write-KubeClusterConfig `
+        -MasterIP $MasterIP `
+        -KubeDnsServiceIp $KubeDnsServiceIp `
+        -EnableSecureTLSBootstrapping $global:EnableSecureTLSBootstrapping `
+        -CustomSecureTLSBootstrapAADResource $global:CustomSecureTLSBootstrapAADResource
 
     Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix {{if IsAKSCustomCloud}}"{{ AKSCustomCloudContainerRegistryDNSSuffix }}"{{else}}""{{end}} 
 
@@ -353,6 +362,12 @@ try
         New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
     }
 
+    if ($global:EnableSecureTLSBootstrapping) {
+        $clientPath = [Io.path]::Combine("$global:KubeDir", "tls-bootstrap-client.exe")
+        Write-Log "Secure TLS Bootstrapping is enabled, downloading bootstrap client to $clientPath if needed..."
+        Get-SecureTLSBootstrapClient -BootstrapClientPath $clientPath -BootstrapClientDownloadUrl $global:SecureTLSBootstrapClientDownloadURL
+    }
+
     if ($global:TLSBootstrapToken) {
         Write-BootstrapKubeConfig -CACertificate $global:CACertificate `
             -KubeDir $global:KubeDir `
@@ -362,7 +377,6 @@ try
         
         # NOTE: we need kubeconfig to setup calico even if TLS bootstrapping is enabled
         #       This kubeconfig will deleted after calico installation.
-        # TODO(hbc): once TLS bootstrap is fully enabled, remove this if block
         Write-Log "Write temporary kube config"
     } else {
         Write-Log "Write kube config"
@@ -411,7 +425,22 @@ try
     }
 
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
+
+    # Install calico using the kubeconfig at KubeDir/config, if enabled
+    if ($global:WindowsCalicoPackageURL) {
+        Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
+    }
+
+    # If we are capable of bootstrapping kubelet client credentials at runtime,
+    # remove the existing kubeconfig at KubeDir/config
+    if ($global:TLSBootstrapToken -or $global:EnableSecureTLSBootstrapping) {
+        $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
+        Write-Log "Removing temporary kube config at $kubeConfigFile"
+        Remove-Item $kubeConfigFile
+    }
     
+    # Install and start the kubelet NSSM service, 
+    # which will create a new kubeconfig at KubeDir/config if needed
     Install-KubernetesServices `
         -KubeDir $global:KubeDir
 
@@ -446,22 +475,12 @@ try
 
     Check-APIServerConnectivity -MasterIP $MasterIP
 
-    if ($global:WindowsCalicoPackageURL) {
-        Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
-    }
-
     Start-InstallGPUDriver -EnableInstall $global:ConfigGPUDriverIfNeeded -GpuDriverURL $global:GpuDriverURL
     
     if (Test-Path $CacheDir)
     {
         Write-Log "Removing aks cache directory"
         Remove-Item $CacheDir -Recurse -Force
-    }
-
-    if ($global:TLSBootstrapToken) {
-        Write-Log "Removing temporary kube config"
-        $kubeConfigFile = [io.path]::Combine($KubeDir, "config")
-        Remove-Item $kubeConfigFile
     }
 
     Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes
