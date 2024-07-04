@@ -17,13 +17,13 @@ type Cluster struct {
 }
 
 var ClusterNetworkKubenet = &Cluster{
-	Creator: cluster.CreateKubenetCluster,
+	Creator: cluster.ClusterKubenet,
 }
 
 var ClusterNetworkAzure = &Cluster{
-	Creator: cluster.CreateAzureNetworkCluster,
+	Creator: cluster.ClusterAzureNetwork,
 }
 
 var ClusterNetworkKubenetAirgap = &Cluster{
-	Creator: cluster.CreateKubenetAirgapCluster,
+	Creator: cluster.ClusterKubenetAirgap,
 }

@@ -1,13 +1,8 @@
 package e2e
 
-import (
-	mrand "math/rand"
-	"time"
-)
+import "math/rand"
 
 const safeLowerBytes = "abcdefghijklmnopqrstuvwxyz0123456789"
-
-var rand = mrand.New(mrand.NewSource(time.Now().UnixNano()))
 
 func randomLowercaseString(n int) string {
 	b := make([]byte, n)

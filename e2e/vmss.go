@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	crand "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/json"
@@ -9,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	mrand "math/rand"
 	"testing"
 	"time"
 
@@ -174,8 +174,8 @@ func getVMPrivateIPAddress(ctx context.Context, mcResourceGroupName, vmssName st
 }
 
 // Returns a newly generated RSA public/private key pair with the private key in PEM format.
-func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []byte, e error) {
-	privateKey, err := rsa.GenerateKey(r, 4096)
+func getNewRSAKeyPair() (privatePEMBytes []byte, publicKeyBytes []byte, e error) {
+	privateKey, err := rsa.GenerateKey(crand.Reader, 4096)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create rsa private key: %w", err)
 	}
@@ -208,7 +208,7 @@ func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []b
 	return
 }
 
-func getVmssName(r *mrand.Rand) string {
+func getVmssName() string {
 	return fmt.Sprintf(vmssNameTemplate, randomLowercaseString(4))
 }
 

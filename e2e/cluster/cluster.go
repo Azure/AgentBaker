@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
-	mrand "math/rand"
 	"net"
 	"strings"
-	"time"
+	"sync"
 
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -17,29 +16,47 @@ import (
 
 const testClusterNamePrefix = "abe2e-"
 
-// TODO: return existing cluster if it exists
-func CreateKubenetCluster(ctx context.Context) (*armcontainerservice.ManagedCluster, error) {
-	return createNewCluster(ctx, getKubenetClusterModel(testClusterNamePrefix+"kubenet-v1"))
+var (
+	clusterKubenet       *armcontainerservice.ManagedCluster
+	clusterKubenetAirgap *armcontainerservice.ManagedCluster
+	clusterAzureNetwork  *armcontainerservice.ManagedCluster
+
+	clusterKubenetError       error
+	clusterKubenetAirgapError error
+	clusterAzureNetworkError  error
+
+	clusterKubenetOnce       sync.Once
+	clusterKubenetAirgapOnce sync.Once
+	clusterAzureNetworkOnce  sync.Once
+)
+
+func ClusterKubenet(ctx context.Context) (*armcontainerservice.ManagedCluster, error) {
+	clusterKubenetOnce.Do(func() {
+		clusterKubenet, clusterKubenetError = createNewCluster(ctx, getKubenetClusterModel(testClusterNamePrefix+"kubenet-v1"))
+	})
+	return clusterKubenet, clusterKubenetError
 }
 
-func CreateKubenetAirgapCluster(ctx context.Context) (*armcontainerservice.ManagedCluster, error) {
-	cluster, err := createNewCluster(ctx, getKubenetClusterModel(testClusterNamePrefix+"kubenet-v1"))
-	if err != nil {
-		return nil, err
-	}
-	err = addAirgapNetworkSettings(ctx, cluster)
-	if err != nil {
-		return nil, fmt.Errorf("add airgap network: %w", err)
-	}
-
-	return cluster, nil
+func ClusterKubenetAirgap(ctx context.Context) (*armcontainerservice.ManagedCluster, error) {
+	clusterKubenetAirgapOnce.Do(func() {
+		cluster, err := createNewCluster(ctx, getKubenetClusterModel(testClusterNamePrefix+"kubenet-airgap"))
+		if err == nil {
+			err = addAirgapNetworkSettings(ctx, cluster)
+		}
+		clusterKubenetAirgap, clusterKubenetAirgapError = cluster, err
+	})
+	return clusterKubenetAirgap, clusterKubenetAirgapError
 }
 
-func CreateAzureNetworkCluster(ctx context.Context) (*armcontainerservice.ManagedCluster, error) {
-	return createNewCluster(ctx, getAzureNetworkClusterModel(testClusterNamePrefix+"azure-netrwork-v1"))
+func ClusterAzureNetwork(ctx context.Context) (*armcontainerservice.ManagedCluster, error) {
+	clusterAzureNetworkOnce.Do(func() {
+		clusterAzureNetwork, clusterAzureNetworkError = createNewCluster(ctx, getAzureNetworkClusterModel(testClusterNamePrefix+"azure-network"))
+	})
+	return clusterAzureNetwork, clusterAzureNetworkError
 }
 
 func createNewCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
+	log.Printf("Creating new cluster %s in rg %s\n", *cluster.Name, *cluster.Location)
 	pollerResp, err := config.Azure.AKS.BeginCreateOrUpdate(
 		ctx,
 		config.ResourceGroupName,
@@ -110,12 +127,10 @@ func generateClusterName() string {
 
 const safeLowerBytes = "abcdefghijklmnopqrstuvwxyz0123456789"
 
-var rand = mrand.New(mrand.NewSource(time.Now().UnixNano()))
-
 func randomLowercaseString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = safeLowerBytes[rand.Intn(len(safeLowerBytes))]
+		b[i] = safeLowerBytes[config.Rand.Intn(len(safeLowerBytes))]
 	}
 	return string(b)
 }

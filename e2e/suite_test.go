@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 	"log"
-	mrand "math/rand"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/config"
@@ -31,9 +29,9 @@ func Test_All(t *testing.T) {
 
 	for _, e2eScenario := range scenarios {
 		t.Run(e2eScenario.Name, func(t *testing.T) {
+			t.Parallel()
 			model, err := e2eScenario.Cluster.Creator(ctx)
 			require.NoError(t, err)
-			t.Parallel()
 			maybeSkipScenario(t, e2eScenario)
 			setupAndRunScenario(ctx, t, e2eScenario, &clusterConfig{cluster: model})
 		})
@@ -88,13 +86,10 @@ func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenari
 }
 
 func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
-	// need to create a new rand object for each goroutine since mrand.Rand is not thread-safe
-	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
-
-	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair(r)
+	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair()
 	assert.NoError(t, err)
 
-	vmssName := getVmssName(r)
+	vmssName := getVmssName()
 	log.Printf("creating and bootstrapping vmss: %q", vmssName)
 
 	vmssSucceeded := true
