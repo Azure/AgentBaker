@@ -10,13 +10,14 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 )
 
 const (
 	imageGallery       = "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/"
 	noSelectionTagName = "abe2e-ignore"
+
+	fetchResourceIDTimeout = 3 * time.Minute
 )
 
 var (
@@ -76,25 +77,6 @@ func (id VHDResourceID) Short() string {
 	return str
 }
 
-func newStaticSIGImageVersionResourceIDFetcher(imageVersionResourceID string) func() (VHDResourceID, error) {
-	resourceID := VHDResourceID("")
-	var err error
-	once := sync.Once{}
-
-	return func() (VHDResourceID, error) {
-		once.Do(func() {
-			resourceID, err = ensureStaticSIGImageVersion(imageVersionResourceID)
-			if err != nil {
-				err = fmt.Errorf("img: %s, err: %w", imageVersionResourceID, err)
-				log.Printf("failed to find static image %s", err)
-			} else {
-				log.Printf("Resource ID for %s: %s", imageVersionResourceID, resourceID)
-			}
-		})
-		return resourceID, err
-	}
-}
-
 // newSIGImageVersionResourceIDFetcher is a factory function
 // it returns a function that fetches the latest VHDResourceID for a given image
 // the function is memoized and will only evaluate once on the first call
@@ -117,8 +99,27 @@ func newSIGImageVersionResourceIDFetcher(imageDefinitionResourceID string) func(
 	}
 }
 
+func newStaticSIGImageVersionResourceIDFetcher(imageVersionResourceID string) func() (VHDResourceID, error) {
+	resourceID := VHDResourceID("")
+	var err error
+	once := sync.Once{}
+
+	return func() (VHDResourceID, error) {
+		once.Do(func() {
+			resourceID, err = ensureStaticSIGImageVersion(imageVersionResourceID)
+			if err != nil {
+				err = fmt.Errorf("img: %s, err: %w", imageVersionResourceID, err)
+				log.Printf("failed to find static image %s", err)
+			} else {
+				log.Printf("Resource ID for %s: %s", imageVersionResourceID, resourceID)
+			}
+		})
+		return resourceID, err
+	}
+}
+
 func ensureStaticSIGImageVersion(imageVersionResourceID string) (VHDResourceID, error) {
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
+	ctx, cancel := context.WithTimeout(context.TODO(), fetchResourceIDTimeout)
 	defer cancel()
 
 	rid, err := arm.ParseResourceID(imageVersionResourceID)
@@ -127,17 +128,12 @@ func ensureStaticSIGImageVersion(imageVersionResourceID string) (VHDResourceID, 
 	}
 	version := newSIGImageVersionFromResourceID(rid)
 
-	client, err := newGalleryImageVersionsClient(version.subscriptionID)
-	if err != nil {
-		return "", err
-	}
-
-	resp, err := client.Get(ctx, version.resourceGroup, version.gallery, version.definition, version.version, nil)
+	resp, err := Azure.GalleryImageVersionClient.Get(ctx, version.resourceGroup, version.gallery, version.definition, version.version, nil)
 	if err != nil {
 		return "", fmt.Errorf("getting live image version info: %w", err)
 	}
 
-	if err := ensureReplication(ctx, client, version.sigImageDefinition, &resp.GalleryImageVersion); err != nil {
+	if err := ensureReplication(ctx, version.sigImageDefinition, &resp.GalleryImageVersion); err != nil {
 		return "", fmt.Errorf("ensuring image replication: %w", err)
 	}
 
@@ -145,7 +141,7 @@ func ensureStaticSIGImageVersion(imageVersionResourceID string) (VHDResourceID, 
 }
 
 func findLatestSIGImageVersionWithTag(imageDefinitionResourceID, tagName, tagValue string) (VHDResourceID, error) {
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
+	ctx, cancel := context.WithTimeout(context.TODO(), fetchResourceIDTimeout)
 	defer cancel()
 
 	rid, err := arm.ParseResourceID(imageDefinitionResourceID)
@@ -154,12 +150,7 @@ func findLatestSIGImageVersionWithTag(imageDefinitionResourceID, tagName, tagVal
 	}
 	definition := newSIGImageDefinitionFromResourceID(rid)
 
-	client, err := newGalleryImageVersionsClient(definition.subscriptionID)
-	if err != nil {
-		return "", err
-	}
-
-	pager := client.NewListByGalleryImagePager(definition.resourceGroup, definition.gallery, definition.definition, nil)
+	pager := Azure.GalleryImageVersionClient.NewListByGalleryImagePager(definition.resourceGroup, definition.gallery, definition.definition, nil)
 	var latestVersion *armcompute.GalleryImageVersion
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -186,18 +177,18 @@ func findLatestSIGImageVersionWithTag(imageDefinitionResourceID, tagName, tagVal
 		return "", ErrNotFound
 	}
 
-	if err := ensureReplication(ctx, client, definition, latestVersion); err != nil {
+	if err := ensureReplication(ctx, definition, latestVersion); err != nil {
 		return "", fmt.Errorf("ensuring image replication: %w", err)
 	}
 
 	return VHDResourceID(*latestVersion.ID), nil
 }
 
-func ensureReplication(ctx context.Context, client *armcompute.GalleryImageVersionsClient, definition sigImageDefinition, version *armcompute.GalleryImageVersion) error {
+func ensureReplication(ctx context.Context, definition sigImageDefinition, version *armcompute.GalleryImageVersion) error {
 	if replicatedToCurrentRegion(version) {
 		return nil
 	}
-	return replicateToCurrentRegion(ctx, client, definition, version)
+	return replicateToCurrentRegion(ctx, definition, version)
 }
 
 func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion) bool {
@@ -209,7 +200,7 @@ func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion) bool {
 	return false
 }
 
-func replicateToCurrentRegion(ctx context.Context, client *armcompute.GalleryImageVersionsClient, definition sigImageDefinition, version *armcompute.GalleryImageVersion) error {
+func replicateToCurrentRegion(ctx context.Context, definition sigImageDefinition, version *armcompute.GalleryImageVersion) error {
 	log.Printf("will replicate image version %s to region %s...", *version.ID, Location)
 
 	version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
@@ -218,7 +209,7 @@ func replicateToCurrentRegion(ctx context.Context, client *armcompute.GalleryIma
 		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
 	})
 
-	resp, err := client.BeginCreateOrUpdate(ctx, definition.resourceGroup, definition.gallery, definition.definition, *version.Name, *version, nil)
+	resp, err := Azure.GalleryImageVersionClient.BeginCreateOrUpdate(ctx, definition.resourceGroup, definition.gallery, definition.definition, *version.Name, *version, nil)
 	if err != nil {
 		return fmt.Errorf("begin updating image version target regions: %w", err)
 	}
@@ -227,16 +218,4 @@ func replicateToCurrentRegion(ctx context.Context, client *armcompute.GalleryIma
 	}
 
 	return nil
-}
-
-func newGalleryImageVersionsClient(subscriptionID string) (*armcompute.GalleryImageVersionsClient, error) {
-	cred, err := azidentity.NewDefaultAzureCredential(nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to obtain default azure credential: %w", err)
-	}
-	client, err := armcompute.NewGalleryImageVersionsClient(subscriptionID, cred, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a new gallery image versions client: %w", err)
-	}
-	return client, nil
 }
