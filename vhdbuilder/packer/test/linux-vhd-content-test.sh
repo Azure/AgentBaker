@@ -193,6 +193,9 @@ testPackagesInstalled() {
         # we can further think of adding a check to see if the package is installed through apt-get
         break
       fi
+      # A downloadURL from a package in components.json will look like this: 
+      # "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
+      # After eval(resolved), downloadURL will look like "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz"
       eval "downloadURL=${downloadURL}"
       local fileNameWithExt
       fileNameWithExt=$(basename $downloadURL)
