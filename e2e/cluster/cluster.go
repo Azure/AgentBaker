@@ -48,8 +48,9 @@ var (
 )
 
 type Cluster struct {
-	Model *armcontainerservice.ManagedCluster
-	Kube  *Kubeclient
+	Model    *armcontainerservice.ManagedCluster
+	Kube     *Kubeclient
+	SubnetID string
 }
 
 type Kubeclient struct {
@@ -113,10 +114,15 @@ func createNewClusterWithClient(ctx context.Context, cluster *armcontainerservic
 	}
 
 	if err := ensureDebugDaemonset(ctx, kube); err != nil {
-		return nil, fmt.Errorf("unable to ensure debug damonset of viable cluster %q: %w", *cluster.Name, err)
+		return nil, fmt.Errorf("ensure debug damonset for %q: %w", *cluster.Name, err)
 	}
 
-	return &Cluster{Model: createdCluster, Kube: kube}, nil
+	subnetID, err := getClusterSubnetID(ctx, *createdCluster.Properties.NodeResourceGroup)
+	if err != nil {
+		return nil, fmt.Errorf("get cluster subnet: %w", err)
+	}
+
+	return &Cluster{Model: createdCluster, Kube: kube, SubnetID: subnetID}, nil
 
 }
 
@@ -500,4 +506,21 @@ spec:
           capabilities:
             add: ["SYS_PTRACE", "SYS_RAWIO"]
 `
+}
+
+func getClusterSubnetID(ctx context.Context, mcResourceGroupName string) (string, error) {
+	pager := config.Azure.VNet.NewListPager(mcResourceGroupName, nil)
+	for pager.More() {
+		nextResult, err := pager.NextPage(ctx)
+		if err != nil {
+			return "", fmt.Errorf("advance page: %w", err)
+		}
+		for _, v := range nextResult.Value {
+			if v == nil {
+				return "", fmt.Errorf("aks vnet was empty")
+			}
+			return fmt.Sprintf("%s/subnets/%s", *v.ID, "aks-subnet"), nil
+		}
+	}
+	return "", fmt.Errorf("failed to find aks vnet")
 }

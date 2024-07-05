@@ -108,18 +108,13 @@ func addPodIPConfigsForAzureCNI(ctx context.Context, vmss *armcompute.VirtualMac
 		return fmt.Errorf("failed to read agentpool MaxPods value from chosen cluster model: %w", err)
 	}
 
-	vnet, err := getClusterVNet(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
-	if err != nil {
-		return fmt.Errorf("get cluster VNet: %w", err)
-	}
-
 	var podIPConfigs []*armcompute.VirtualMachineScaleSetIPConfiguration
 	for i := 1; i <= maxPodsPerNode; i++ {
 		ipConfig := &armcompute.VirtualMachineScaleSetIPConfiguration{
 			Name: to.Ptr(fmt.Sprintf("%s%d", vmssName, i)),
 			Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
 				Subnet: &armcompute.APIEntityReference{
-					ID: to.Ptr(vnet.subnetId),
+					ID: to.Ptr(opts.clusterConfig.SubnetID),
 				},
 			},
 		}
@@ -217,10 +212,6 @@ func getBaseVMSSModel(ctx context.Context, name, sshPublicKey, customData, cseCm
 	if err != nil {
 		return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("get resource ID for VHD: %w", err)
 	}
-	vnet, err := getClusterVNet(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
-	if err != nil {
-		return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("get cluster VNet: %w", err)
-	}
 
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Location),
@@ -300,7 +291,7 @@ func getBaseVMSSModel(ctx context.Context, name, sshPublicKey, customData, cseCm
 												},
 											},
 											Subnet: &armcompute.APIEntityReference{
-												ID: to.Ptr(vnet.subnetId),
+												ID: to.Ptr(opts.clusterConfig.SubnetID),
 											},
 										},
 									},
