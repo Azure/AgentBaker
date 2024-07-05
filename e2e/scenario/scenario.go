@@ -54,5 +54,6 @@ func AllScenarios() []*Scenario {
 		ubuntu2204gpu("ubuntu2204-gpu-ncv3", "Standard_NC6s_v3"),
 		ubuntu2204gpu("ubuntu2204-gpu-a100", "Standard_NC24ads_A100_v4"),
 		ubuntu2204gpu("ubuntu2204-gpu-a10", "Standard_NV6ads_A10_v5"),
+		ubuntu2204GPUGridDriver(),
 	}
 }

@@ -11,6 +11,11 @@ func azurelinuxv2ARM64() *Scenario {
 	return &Scenario{
 		Name:        "azurelinuxv2-arm64",
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
+		Tags: Tags{
+			Name:     "azurelinuxv2-arm64",
+			OS:       "azurelinuxv2",
+			Platform: "arm64",
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,

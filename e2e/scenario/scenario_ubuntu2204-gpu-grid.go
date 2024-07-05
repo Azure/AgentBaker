@@ -11,6 +11,12 @@ func ubuntu2204GPUGridDriver() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204-gpu-grid",
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD with grid driver can be properly bootstrapped",
+		Tags: Tags{
+			Name:     "ubuntu2204-gpu-grid",
+			OS:       "ubuntu2204",
+			Platform: "x64",
+			GPU:      true,
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,

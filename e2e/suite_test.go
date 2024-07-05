@@ -48,12 +48,26 @@ func Test_All(t *testing.T) {
 }
 
 func maybeSkipScenario(t *testing.T, s *scenario.Scenario) {
-	if config.ScenariosToRun != nil && !config.ScenariosToRun[s.Name] {
-		t.Skipf("skipping scenario %q: not in scenarios to run", s.Name)
+	if config.TagsToRun != "" {
+		matches, err := s.Tags.MatchesFilters(config.TagsToRun)
+		if err != nil {
+			t.Fatalf("could not match tags for %q: %s", s.Name, err)
+		}
+		if !matches {
+			t.Skipf("skipping scenario %q: scenario tags %+v does not match filter %q", s.Name, s.Tags, config.TagsToRun)
+		}
 	}
-	if config.ScenariosToExclude != nil && config.ScenariosToExclude[s.Name] {
-		t.Skipf("skipping scenario %q: in scenarios to exclude", s.Name)
+
+	if config.TagsToSkip != "" {
+		matches, err := s.Tags.MatchesAnyFilter(config.TagsToSkip)
+		if err != nil {
+			t.Fatalf("could not match tags for %q: %s", s.Name, err)
+		}
+		if matches {
+			t.Skipf("skipping scenario %q: scenario tags %+v matches filter %q", s.Name, s.Tags, config.TagsToSkip)
+		}
 	}
+
 	rid, err := s.VHDSelector()
 	if err != nil {
 		if config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
