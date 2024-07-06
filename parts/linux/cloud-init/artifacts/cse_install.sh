@@ -79,6 +79,7 @@ installContainerdWithComponentsJson() {
 installContainerdWithManifestJson() {
     local containerd_version
     if [ -f "$MANIFEST_FILEPATH" ]; then
+        local containerd_version
         containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
         if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
             containerd_version="$(jq -r '.containerd.pinned."1804"' "$MANIFEST_FILEPATH")"
@@ -86,42 +87,30 @@ installContainerdWithManifestJson() {
     else
         echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
     fi
-
     containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
     containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
     if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ] || [ "$containerd_revision" == "null" ]; then
         echo "invalid container version: $containerd_version"
         exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     fi
-
     logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
     echo "in installContainerRuntime - CONTAINERD_VERSION = ${containerd_patch_version}"
 }
 
 installContainerRuntime() {
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
-
     if [[ "${NEEDS_CONTAINERD}" != "true" ]]; then
         installMoby # used in docker clusters. Not supported but still exist in production
     fi
-    
-    if [[ ! -f "$COMPONENTS_FILEPATH" ]]; then
-        echo "WARNING: $COMPONENTS_FILEPATH not found. Skipping validation."
-        return 0
-    fi
-    
-
-    if [[ -f "$COMPONENTS_FILEPATH"] && [ jq '.packages[] | select(.name == "containerd")' < $COMPONENTS_FILEPATH > /dev/null ]]; then
-        echo "Package 'containerd' exists in $COMPONENTS_FILEPATH."
+    if [ -f "$COMPONENTS_FILEPATH" ] && jq '.Packages[] | select(.name == "containerd")' < $COMPONENTS_FILEPATH > /dev/null; then
+        echo "Package \"containerd\" exists in $COMPONENTS_FILEPATH."
         # if the containerd package is available in the components.json, use the components.json to install containerd
-        installContainerdWithComponentsJson()
-    else
-        echo "Package 'containerd' does not exist in $COMPONENTS_FILEPATH."
-        # if the containerd package is not available in the components.json, use the manifest.json to install containerd
-        installContainerdWithManifestJson()
+        installContainerdWithComponentsJson
+		return
     fi
-    
-    
+    echo "Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
+    # if the containerd package is not available in the components.json, use the manifest.json to install containerd
+    installContainerdWithManifestJson
 }
 
 installNetworkPlugin() {
@@ -563,73 +552,73 @@ EOF
 }
 
 returnPackageVersions() {
-  local package="$1"
-  local os="$2"
-  local osVersion="$3"
-  local release="$(returnRelease "${package}" "${os}" "${osVersion}")"
-  if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
-    #if .downloadURIs.ubuntu exist, then get the versions from there.
-    #otherwise get the versions from .downloadURIs.default 
-    if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu") != "null" ]]; then
-      versions=$(echo "${package}" | jq ".downloadURIs.ubuntu.${release}.versions[]" -r)
-      for version in ${versions[@]}; do
-       PackageVersions+=("${version}")
-      done
-      return
+    local package="$1"
+    local os="$2"
+    local osVersion="$3"
+    local release="$(returnRelease "${package}" "${os}" "${osVersion}")"
+    if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
+        #if .downloadURIs.ubuntu exist, then get the versions from there.
+        #otherwise get the versions from .downloadURIs.default 
+        if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu") != "null" ]]; then
+            versions=$(echo "${package}" | jq ".downloadURIs.ubuntu.${release}.versions[]" -r)
+            for version in ${versions[@]}; do
+             PackageVersions+=("${version}")
+            done
+            return
+        fi
+        versions=$(echo "${package}" | jq ".downloadURIs.default.${release}.versions[]" -r)
+        for version in ${versions[@]}; do
+            PackageVersions+=("${version}")
+        done
+        return
     fi
-    versions=$(echo "${package}" | jq ".downloadURIs.default.${release}.versions[]" -r)
-    for version in ${versions[@]}; do
-      PackageVersions+=("${version}")
-    done
-    return  
-  fi
-  if [[ "${os}" == "${MARINER_OS_NAME}" ]]; then
-    #if .downloadURIs.ubuntu exist, then get the versions from there.
-    #otherwise get the versions from .downloadURIs.default 
-    if [[ $(echo "${package}" | jq ".downloadURIs.mariner") != "null" ]]; then
-      versions=$(echo "${package}" | jq ".downloadURIs.mariner.${release}.versions[]" -r)
-      for version in ${versions[@]}; do
-        PackageVersions+=("${version}")
-      done
-      return
+    if [[ "${os}" == "${MARINER_OS_NAME}" ]]; then
+        #if .downloadURIs.ubuntu exist, then get the versions from there.
+        #otherwise get the versions from .downloadURIs.default 
+        if [[ $(echo "${package}" | jq ".downloadURIs.mariner") != "null" ]]; then
+            versions=$(echo "${package}" | jq ".downloadURIs.mariner.${release}.versions[]" -r)
+            for version in ${versions[@]}; do
+                PackageVersions+=("${version}")
+            done
+            return
+        fi
+        versions=$(echo "${package}" | jq ".downloadURIs.default.${release}.versions[]" -r)
+        for version in ${versions[@]}; do
+            PackageVersions+=("${version}")
+        done
+        return    
     fi
-    versions=$(echo "${package}" | jq ".downloadURIs.default.${release}.versions[]" -r)
-    for version in ${versions[@]}; do
-      PackageVersions+=("${version}")
-    done
-    return  
-  fi
 }
 
 returnPackageDownloadURL() {
-  local package=$1
-  local os=$2
-  local osVersion=$3
-  local release="$(returnRelease "${package}" "${os}" "${osVersion}")"
-  if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
-    #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
-    #otherwise get the downloadURL from .downloadURIs.default 
-    if [[ $(echo "${package}" | jq '.downloadURIs.ubuntu') != "null" ]]; then
-      downloadURL=$(echo "${package}" | jq ".downloadURIs.ubuntu.${release}.downloadURL" -r)
-      echo ${downloadURL}
-      return
+    local package=$1
+    local os=$2
+    local osVersion=$3
+    local release="$(returnRelease "${package}" "${os}" "${osVersion}")"
+    if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
+        #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
+        #otherwise get the downloadURL from .downloadURIs.default 
+        if [[ $(echo "${package}" | jq '.downloadURIs.ubuntu') != "null" ]]; then
+            downloadURL=$(echo "${package}" | jq ".downloadURIs.ubuntu.${release}.downloadURL" -r)
+            echo ${downloadURL}
+            return
+        fi
+        downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${release}.downloadURL" -r)
+        echo ${downloadURL}
+        return    
     fi
-    downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${release}.downloadURL" -r)
-    echo ${downloadURL}
-    return  
-  fi
-  if [[ "${os}" == "${MARINER_OS_NAME}" ]]; then
-    #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
-    #otherwise get the downloadURL from .downloadURIs.default 
-    if [[ $(echo "${package}" | jq '.downloadURIs.mariner') != "null" ]]; then
-      downloadURL=$(echo "${package}" | jq ".downloadURIs.mariner.${release}.downloadURL" -r)
-      echo ${downloadURL}
-      return
+    if [[ "${os}" == "${MARINER_OS_NAME}" ]]; then
+        #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
+        #otherwise get the downloadURL from .downloadURIs.default 
+        if [[ $(echo "${package}" | jq '.downloadURIs.mariner') != "null" ]]; then
+            downloadURL=$(echo "${package}" | jq ".downloadURIs.mariner.${release}.downloadURL" -r)
+            echo ${downloadURL}
+            return
+        fi
+        downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${release}.downloadURL" -r)
+        echo ${downloadURL}
+        return    
     fi
-    downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${release}.downloadURL" -r)
-    echo ${downloadURL}
-    return  
-  fi
 }
 
 #EOF

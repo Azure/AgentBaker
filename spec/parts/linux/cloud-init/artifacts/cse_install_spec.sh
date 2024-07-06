@@ -144,8 +144,8 @@ Describe 'cse_install.sh'
         When call installContainerRuntime 
         The variable containerdMajorMinorPatchVersion should equal "1.7.15"
         The variable containerdHotFixVersion should equal "1"
-        The output line 2 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
-        The output line 3 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.7.15-1"
+        The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
+        The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.7.15-1"
     End
     It 'returns expected output for successful installation of containerd in Mariner'
         UBUNTU_RELEASE="" # mocking Mariner doesn't have command `lsb_release -cs`
@@ -153,13 +153,17 @@ Describe 'cse_install.sh'
         When call installContainerRuntime 
         The variable containerdMajorMinorPatchVersion should equal "1.6.26"
         The variable containerdHotFixVersion should equal "5.cm2"
-        The output line 2 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
-        The output line 3 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.6.26-5.cm2"
+        The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
+        The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.6.26-5.cm2"
     End
     It 'skips validation if components.json file is not found'
         COMPONENTS_FILEPATH="./spec/parts/linux/cloud-init/artifacts/non_existent_file.json"
+        installContainerdWithManifestJson() {
+            echo "mock installContainerdWithManifestJson calling"
+        }
         When call installContainerRuntime 
-        The output line 2 should equal "WARNING: $COMPONENTS_FILEPATH not found. Skipping validation."
+        The output line 2 should equal "Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
+        The output line 3 should equal "mock installContainerdWithManifestJson calling"
     End
   End
 End
