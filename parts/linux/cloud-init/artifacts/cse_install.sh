@@ -38,48 +38,90 @@ cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
 }
 
-installContainerRuntime() {
-    if [[ "${NEEDS_CONTAINERD}" == "true" ]]; then
-        echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
-        if [[ ! -f "$COMPONENTS_FILEPATH" ]]; then
-            echo "WARNING: $COMPONENTS_FILEPATH not found. Skipping validation."
-            return 0
-        fi
-        os=${UBUNTU_OS_NAME}
-        if [[ -z "$UBUNTU_RELEASE" ]]; then
-            os=${MARINER_OS_NAME}
-            os_version="current"
-        fi
+# After the centralized packages changes, the containerd versions are only available in the components.json.
+installContainerdWithComponentsJson() {
+    os=${UBUNTU_OS_NAME}
+    if [[ -z "$UBUNTU_RELEASE" ]]; then
+        os=${MARINER_OS_NAME}
+        os_version="current"
+    fi
+    os_version="${UBUNTU_RELEASE}"
+    containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
+    PackageVersions=()
+    returnPackageVersions "${containerdPackage}" "${os}" "${os_version}"
+    
+    #Containerd's versions array is expected to have only one element.
+    #If it has more than one element, we will install the last element in the array.
+    if [[ ${#PackageVersions[@]} -gt 1 ]]; then
+        echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
+    fi
+    # sort the array from lowest to highest version before getting the last element
+    IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PackageVersions[*]}"))
+    unset IFS
+    array_size=${#sortedPackageVersions[@]}
+    [[ $((array_size-1)) -lt 0 ]] && last_index=0 || last_index=$((array_size-1))
+    packageVersion=${sortedPackageVersions[${last_index}]}
+    # containerd version is expected to be in the format major.minor.patch-hotfix
+    # e.g., 1.4.3-1. Then containerdMajorMinorPatchVersion=1.4.3 and containerdHotFixVersion=1
+    containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
+    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
+    if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
+        echo "invalid containerd version: $packageVersion"
+        exit $ERR_CONTAINERD_VERSION_INVALID
+    fi
+    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
+    echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
 
-        os_version="${UBUNTU_RELEASE}"
-        containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
-        PackageVersions=()
-        returnPackageVersions "${containerdPackage}" "${os}" "${os_version}"
-        
-        #Containerd's versions array is expected to have only one element.
-        #If it has more than one element, we will install the last element in the array.
-        if [[ ${#PackageVersions[@]} -gt 1 ]]; then
-            echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
+}
+
+# containerd versions definitions are only available in the manifest file before the centralized packages changes, before around early July 2024.
+# After the centralized packages changes, the containerd versions are only available in the components.json. 
+installContainerdWithManifestJson() {
+    local containerd_version
+    if [ -f "$MANIFEST_FILEPATH" ]; then
+        containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+            containerd_version="$(jq -r '.containerd.pinned."1804"' "$MANIFEST_FILEPATH")"
         fi
-        # sort the array from lowest to highest version before getting the last element
-        IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PackageVersions[*]}"))
-        unset IFS
-        array_size=${#sortedPackageVersions[@]}
-        [[ $((array_size-1)) -lt 0 ]] && last_index=0 || last_index=$((array_size-1))
-        packageVersion=${sortedPackageVersions[${last_index}]}
-        # containerd version is expected to be in the format major.minor.patch-hotfix
-        # e.g., 1.4.3-1. Then containerdMajorMinorPatchVersion=1.4.3 and containerdHotFixVersion=1
-        containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
-        containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
-        if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
-            echo "invalid containerd version: $packageVersion"
-            exit $ERR_CONTAINERD_VERSION_INVALID
-        fi
-        logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
-        echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
     else
+        echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+    fi
+
+    containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
+    containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
+    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ] || [ "$containerd_revision" == "null" ]; then
+        echo "invalid container version: $containerd_version"
+        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    fi
+
+    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
+    echo "in installContainerRuntime - CONTAINERD_VERSION = ${containerd_patch_version}"
+}
+
+installContainerRuntime() {
+    echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
+
+    if [[ "${NEEDS_CONTAINERD}" != "true" ]]; then
         installMoby # used in docker clusters. Not supported but still exist in production
     fi
+    
+    if [[ ! -f "$COMPONENTS_FILEPATH" ]]; then
+        echo "WARNING: $COMPONENTS_FILEPATH not found. Skipping validation."
+        return 0
+    fi
+    
+
+    if [[ -f "$COMPONENTS_FILEPATH"] && [ jq '.packages[] | select(.name == "containerd")' < $COMPONENTS_FILEPATH > /dev/null ]]; then
+        echo "Package 'containerd' exists in $COMPONENTS_FILEPATH."
+        # if the containerd package is available in the components.json, use the components.json to install containerd
+        installContainerdWithComponentsJson()
+    else
+        echo "Package 'containerd' does not exist in $COMPONENTS_FILEPATH."
+        # if the containerd package is not available in the components.json, use the manifest.json to install containerd
+        installContainerdWithManifestJson()
+    fi
+    
+    
 }
 
 installNetworkPlugin() {
