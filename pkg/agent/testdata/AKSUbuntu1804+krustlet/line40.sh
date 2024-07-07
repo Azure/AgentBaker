@@ -38,45 +38,71 @@ cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
 }
 
-installContainerRuntime() {
-    if [[ "${NEEDS_CONTAINERD}" == "true" ]]; then
-        echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
-        if [[ ! -f "$COMPONENTS_FILEPATH" ]]; then
-            echo "WARNING: $COMPONENTS_FILEPATH not found. Skipping validation."
-            return 0
-        fi
-        os=${UBUNTU_OS_NAME}
-        if [[ -z "$UBUNTU_RELEASE" ]]; then
-            os=${MARINER_OS_NAME}
-            os_version="current"
-        fi
+installContainerdWithComponentsJson() {
+    os=${UBUNTU_OS_NAME}
+    if [[ -z "$UBUNTU_RELEASE" ]]; then
+        os=${MARINER_OS_NAME}
+        os_version="current"
+    fi
+    os_version="${UBUNTU_RELEASE}"
+    containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
+    PackageVersions=()
+    returnPackageVersions "${containerdPackage}" "${os}" "${os_version}"
+    
+    #Containerd's versions array is expected to have only one element.
+    #If it has more than one element, we will install the last element in the array.
+    if [[ ${#PackageVersions[@]} -gt 1 ]]; then
+        echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
+    fi
+    IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PackageVersions[*]}"))
+    unset IFS
+    array_size=${#sortedPackageVersions[@]}
+    [[ $((array_size-1)) -lt 0 ]] && last_index=0 || last_index=$((array_size-1))
+    packageVersion=${sortedPackageVersions[${last_index}]}
+    containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
+    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
+    if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
+        echo "invalid containerd version: $packageVersion"
+        exit $ERR_CONTAINERD_VERSION_INVALID
+    fi
+    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
+    echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
 
-        os_version="${UBUNTU_RELEASE}"
-        containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
-        PackageVersions=()
-        returnPackageVersions "${containerdPackage}" "${os}" "${os_version}"
-        
-        #Containerd's versions array is expected to have only one element.
-        #If it has more than one element, we will install the last element in the array.
-        if [[ ${#PackageVersions[@]} -gt 1 ]]; then
-            echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
+}
+
+installContainerdWithManifestJson() {
+    local containerd_version
+    if [ -f "$MANIFEST_FILEPATH" ]; then
+        local containerd_version
+        containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+            containerd_version="$(jq -r '.containerd.pinned."1804"' "$MANIFEST_FILEPATH")"
         fi
-        IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PackageVersions[*]}"))
-        unset IFS
-        array_size=${#sortedPackageVersions[@]}
-        [[ $((array_size-1)) -lt 0 ]] && last_index=0 || last_index=$((array_size-1))
-        packageVersion=${sortedPackageVersions[${last_index}]}
-        containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
-        containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
-        if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
-            echo "invalid containerd version: $packageVersion"
-            exit $ERR_CONTAINERD_VERSION_INVALID
-        fi
-        logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
-        echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
     else
+        echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+    fi
+    containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
+    containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
+    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ] || [ "$containerd_revision" == "null" ]; then
+        echo "invalid container version: $containerd_version"
+        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    fi
+    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
+    echo "in installContainerRuntime - CONTAINERD_VERSION = ${containerd_patch_version}"
+}
+
+installContainerRuntime() {
+    echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
+    if [[ "${NEEDS_CONTAINERD}" != "true" ]]; then
         installMoby 
     fi
+    if [ -f "$COMPONENTS_FILEPATH" ] && jq '.Packages[] | select(.name == "containerd")' < $COMPONENTS_FILEPATH > /dev/null; then
+        echo "Package \"containerd\" exists in $COMPONENTS_FILEPATH."
+        installContainerdWithComponentsJson
+		return
+    fi
+    echo "Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
+    installContainerdWithManifestJson
 }
 
 installNetworkPlugin() {
@@ -495,73 +521,73 @@ EOF
 }
 
 returnPackageVersions() {
-  local package="$1"
-  local os="$2"
-  local osVersion="$3"
-  local release="$(returnRelease "${package}" "${os}" "${osVersion}")"
-  if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
-    #if .downloadURIs.ubuntu exist, then get the versions from there.
-    #otherwise get the versions from .downloadURIs.default 
-    if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu") != "null" ]]; then
-      versions=$(echo "${package}" | jq ".downloadURIs.ubuntu.${release}.versions[]" -r)
-      for version in ${versions[@]}; do
-       PackageVersions+=("${version}")
-      done
-      return
+    local package="$1"
+    local os="$2"
+    local osVersion="$3"
+    local release="$(returnRelease "${package}" "${os}" "${osVersion}")"
+    if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
+        #if .downloadURIs.ubuntu exist, then get the versions from there.
+        #otherwise get the versions from .downloadURIs.default 
+        if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu") != "null" ]]; then
+            versions=$(echo "${package}" | jq ".downloadURIs.ubuntu.${release}.versions[]" -r)
+            for version in ${versions[@]}; do
+             PackageVersions+=("${version}")
+            done
+            return
+        fi
+        versions=$(echo "${package}" | jq ".downloadURIs.default.${release}.versions[]" -r)
+        for version in ${versions[@]}; do
+            PackageVersions+=("${version}")
+        done
+        return
     fi
-    versions=$(echo "${package}" | jq ".downloadURIs.default.${release}.versions[]" -r)
-    for version in ${versions[@]}; do
-      PackageVersions+=("${version}")
-    done
-    return  
-  fi
-  if [[ "${os}" == "${MARINER_OS_NAME}" ]]; then
-    #if .downloadURIs.ubuntu exist, then get the versions from there.
-    #otherwise get the versions from .downloadURIs.default 
-    if [[ $(echo "${package}" | jq ".downloadURIs.mariner") != "null" ]]; then
-      versions=$(echo "${package}" | jq ".downloadURIs.mariner.${release}.versions[]" -r)
-      for version in ${versions[@]}; do
-        PackageVersions+=("${version}")
-      done
-      return
+    if [[ "${os}" == "${MARINER_OS_NAME}" ]]; then
+        #if .downloadURIs.ubuntu exist, then get the versions from there.
+        #otherwise get the versions from .downloadURIs.default 
+        if [[ $(echo "${package}" | jq ".downloadURIs.mariner") != "null" ]]; then
+            versions=$(echo "${package}" | jq ".downloadURIs.mariner.${release}.versions[]" -r)
+            for version in ${versions[@]}; do
+                PackageVersions+=("${version}")
+            done
+            return
+        fi
+        versions=$(echo "${package}" | jq ".downloadURIs.default.${release}.versions[]" -r)
+        for version in ${versions[@]}; do
+            PackageVersions+=("${version}")
+        done
+        return    
     fi
-    versions=$(echo "${package}" | jq ".downloadURIs.default.${release}.versions[]" -r)
-    for version in ${versions[@]}; do
-      PackageVersions+=("${version}")
-    done
-    return  
-  fi
 }
 
 returnPackageDownloadURL() {
-  local package=$1
-  local os=$2
-  local osVersion=$3
-  local release="$(returnRelease "${package}" "${os}" "${osVersion}")"
-  if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
-    #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
-    #otherwise get the downloadURL from .downloadURIs.default 
-    if [[ $(echo "${package}" | jq '.downloadURIs.ubuntu') != "null" ]]; then
-      downloadURL=$(echo "${package}" | jq ".downloadURIs.ubuntu.${release}.downloadURL" -r)
-      echo ${downloadURL}
-      return
+    local package=$1
+    local os=$2
+    local osVersion=$3
+    local release="$(returnRelease "${package}" "${os}" "${osVersion}")"
+    if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
+        #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
+        #otherwise get the downloadURL from .downloadURIs.default 
+        if [[ $(echo "${package}" | jq '.downloadURIs.ubuntu') != "null" ]]; then
+            downloadURL=$(echo "${package}" | jq ".downloadURIs.ubuntu.${release}.downloadURL" -r)
+            echo ${downloadURL}
+            return
+        fi
+        downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${release}.downloadURL" -r)
+        echo ${downloadURL}
+        return    
     fi
-    downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${release}.downloadURL" -r)
-    echo ${downloadURL}
-    return  
-  fi
-  if [[ "${os}" == "${MARINER_OS_NAME}" ]]; then
-    #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
-    #otherwise get the downloadURL from .downloadURIs.default 
-    if [[ $(echo "${package}" | jq '.downloadURIs.mariner') != "null" ]]; then
-      downloadURL=$(echo "${package}" | jq ".downloadURIs.mariner.${release}.downloadURL" -r)
-      echo ${downloadURL}
-      return
+    if [[ "${os}" == "${MARINER_OS_NAME}" ]]; then
+        #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
+        #otherwise get the downloadURL from .downloadURIs.default 
+        if [[ $(echo "${package}" | jq '.downloadURIs.mariner') != "null" ]]; then
+            downloadURL=$(echo "${package}" | jq ".downloadURIs.mariner.${release}.downloadURL" -r)
+            echo ${downloadURL}
+            return
+        fi
+        downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${release}.downloadURL" -r)
+        echo ${downloadURL}
+        return    
     fi
-    downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${release}.downloadURL" -r)
-    echo ${downloadURL}
-    return  
-  fi
 }
 
 #EOF
