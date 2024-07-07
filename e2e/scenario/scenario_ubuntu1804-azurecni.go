@@ -10,6 +10,11 @@ func ubuntu1804_azurecni() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu1804-azurecni",
 		Description: "ubuntu1804 scenario on cluster configured with Azure CNI",
+		Tags: Tags{
+			Name:     "ubuntu1804-azurecni",
+			OS:       "ubuntu1804",
+			Platform: "x64",
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginAzureSelector,
 			ClusterMutator:  NetworkPluginAzureMutator,
