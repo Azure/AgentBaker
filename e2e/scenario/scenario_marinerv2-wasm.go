@@ -9,6 +9,12 @@ func marinerv2Wasm() *Scenario {
 	return &Scenario{
 		Name:        "marinerv2-wasm",
 		Description: "tests that a new marinerv2 node using krustlet can be properly bootstrapped",
+		Tags: Tags{
+			Name:     "marinerv2-wasm",
+			OS:       "marinerv2",
+			Platform: "x64",
+			WASM:     true,
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,

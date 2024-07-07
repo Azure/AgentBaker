@@ -276,7 +276,6 @@
       "downloadURL": "mcr.microsoft.com/aks/ip-masq-agent-v2:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.1.10",
         "v0.1.11"
       ]
     },
@@ -316,15 +315,16 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.12.0"
+        "v2.12.0",
+        "v2.13.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.10.0",
-        "v2.10.1"
+        "v2.10.1",
+        "v2.11.0"
       ]
     },
     {

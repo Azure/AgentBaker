@@ -9,6 +9,11 @@ func ubuntu1804ChronyRestarts() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu1804-chrony-restarts",
 		Description: "Tests that the chrony service restarts if it is killed",
+		Tags: Tags{
+			Name:     "ubuntu1804-chrony-restarts",
+			OS:       "ubuntu1804",
+			Platform: "x64",
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
