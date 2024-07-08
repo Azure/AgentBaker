@@ -34,7 +34,7 @@ variables:
 stages:
   - stage: build
     jobs:
-    - job: build-2204-gen2-containerd
+    - job: build2204gen2containerd
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -56,7 +56,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 2204-gen2-containerd
-    - job: build-1804-gen2-gpu-containerd
+    - job: build1804gen2gpucontainerd
       timeoutInMinutes: 180
       steps:
         - bash: |
@@ -78,7 +78,7 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 1804-gen2-gpu-containerd
-    - job: build-marinerv2-gen2
+    - job: buildmarinerv2gen2
       timeoutInMinutes: 180
       steps:
         - bash: |
