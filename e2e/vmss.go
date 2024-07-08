@@ -39,7 +39,9 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *sce
 
 	if !config.KeepVMSS {
 		t.Cleanup(func() {
-			_, err := config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, nil)
+			_, err := config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+				ForceDeletion: to.Ptr(true),
+			})
 			if err != nil {
 				t.Logf("failed to delete vmss %q: %s", vmssName, err)
 			}
