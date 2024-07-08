@@ -135,10 +135,11 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	}
 	if err != nil {
 		vmssSucceeded = false
-
-		var respErr *azcore.ResponseError
-		if errors.As(err, &respErr) && respErr.StatusCode == 409 && respErr.ErrorCode == "SkuNotAvailable" {
-			t.Skip("skipping scenario SKU not available", opts.scenario.Name, err)
+		if config.SkipTestsWithSKUCapacityIssue {
+			var respErr *azcore.ResponseError
+			if errors.As(err, &respErr) && respErr.StatusCode == 409 && respErr.ErrorCode == "SkuNotAvailable" {
+				t.Skip("skipping scenario SKU not available", opts.scenario.Name, err)
+			}
 		}
 
 		if !isVMExtensionProvisioningError(err) {
