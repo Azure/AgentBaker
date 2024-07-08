@@ -241,12 +241,25 @@ if ($enableAll -or $enableContainerdInfo) {
 }
 
 if ($enableAll -or $enableSnapshotSize) {
-  Write-Host "Collecting container snapshot size using DU tool"
-  if (Test-Path "C:\aks-tools\DU\du.exe") {
-    C:\aks-tools\DU\du.exe /accepteula
-    C:\aks-tools\DU\du.exe -l 1 C:\ProgramData\containerd\root\io.containerd.snapshotter.v1.windows\snapshots\ > "$ENV:TEMP\$timeStamp-du-snapshot-folder-size.txt"
-    $paths += "$ENV:TEMP\$timeStamp-du-snapshot-folder-size.txt"
+  Write-Host "Collecting actual size of snapshot (without sparse file sizes included)"
+
+  $snapshotPath = "C:\ProgramData\containerd\root\io.containerd.snapshotter.v1.windows\snapshots\"
+  $snapshotSizesResultFilePath = "$ENV:TEMP\$timeStamp-all-snapshot-folder-size.txt"
+  $listOfSnapshotFolders = Get-ChildItem $snapshotPath | Where-Object {$_.PSIsContainer -eq $true} | Sort-Object
+  $totalSize = 0
+  foreach ($i in $listOfSnapshotFolders) {
+  	$folderSize = 0   
+  	Get-ChildItem -Path $i.FullName -recurse -Attributes !SparseFile | Where-Object {$_.PSIsContainer -eq $false} | ForEach-Object {
+  		$folderSize = $folderSize + $_.Length
+  	}
+  	$output = "Sum of " + $i.FullName + " is " + ($folderSize/1MB) + "MB"
+	$totalSize = $totalSize + $folderSize
+    	Add-Content -Path $snapshotSizesResultFilePath -Value $output
   }
+  $outputTotalSize = "Total size of all snapshots: " + ($totalSize/1MB) + "MB"
+  Add-Content -Path $snapshotSizesResultFilePath -Value $outputTotalSize
+  $paths += $snapshotSizesResultFilePath
+
   Copy-Item 'C:\ProgramData\containerd\root\io.containerd.snapshotter.v1.windows\metadata.db' "$ENV:TEMP\$timeStamp-snpashot-metadata.db"
   $paths += "$ENV:TEMP\$timeStamp-snpashot-metadata.db"
 } else {
@@ -280,6 +293,9 @@ else {
 $res = Get-Command shimdiag.exe -ErrorAction SilentlyContinue
 if ($res) {
   Write-Host "Collecting logs of runhcs shim diagnostic tool"
+  shimdiag.exe list --pids > "$ENV:TEMP\$timeStamp-shimdiag-list-with-pids.txt"
+  $paths += "$ENV:TEMP\$timeStamp-shimdiag-list-with-pids.txt"
+  
   $tempShimdiagFile = Join-Path ([System.IO.Path]::GetTempPath()) ("shimdiag.txt")
   $shimdiagList = shimdiag.exe list
   Set-Content -Path $tempShimdiagFile -Value $shimdiagList
@@ -293,6 +309,17 @@ if ($res) {
 }
 else {
   Write-Host "shimdiag.exe command not available"
+}
+
+# run hcsdiag list
+$res = Get-Command hcsdiag.exe -ErrorAction SilentlyContinue
+if ($res) {
+  Write-Host "Collecting logs from hcsdiag tool"
+  hcsdiag.exe list > "$ENV:TEMP\$timeStamp-hcsdiag-list.txt"
+  $paths += "$ENV:TEMP\$timeStamp-hcsdiag-list.txt"
+}
+else {
+  Write-Host "hcsdiag.exe command not available"
 }
 
 # log containerd info
