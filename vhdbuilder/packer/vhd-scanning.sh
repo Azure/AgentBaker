@@ -10,6 +10,10 @@ VHD_IMAGE="$MANAGED_SIG_ID"
 SIG_CONTAINER_NAME="vhd-scans"
 TEST_VM_ADMIN_USERNAME="azureuser"
 
+# we must create VMs in a vnet which has access to the storage account, otherwise they will not be able to access the VHD blobs
+VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
+SUBNET_NAME="packer"
+
 # This variable is used to determine where we need to deploy the VM on which we'll run trivy.
 # We must be sure this location matches the location used by packer when delivering the output image
 # version to the staging gallery, as the particular image version will only have a single replica in this region.
@@ -71,8 +75,8 @@ fi
 az vm create --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME \
     --image $VHD_IMAGE \
-    -- vnet-name "nodesig-pool-vnet-swedencentral" \
-    --subnet "packer" \
+    --vnet-name $VNET_NAME \
+    --subnet $SUBNET_NAME \
     --admin-username $TEST_VM_ADMIN_USERNAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
