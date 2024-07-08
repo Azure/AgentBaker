@@ -9,6 +9,11 @@ func ubuntu2204Wasm() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204-wasm",
 		Description: "tests that a new ubuntu 2204 node using krustlet can be properly bootstrapepd",
+		Tags: Tags{
+			Name:     "ubuntu2204-wasm",
+			OS:       "ubuntu2204",
+			Platform: "x64",
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,

@@ -25,25 +25,31 @@ existsnce, sysctl settings, etc.) is as expected.
 should first run `make generate` from the root of the AgentBaker repository.**
 
 To run the Go implementation of the E2E test suite locally, simply use `e2e-local.sh`. This script will setup
-the `go test` command for you while also implementing defaulting logic for a set of required environment variables used
-to interact with Azure. These environment variables include:
+the `go test` command for you.
 
-- `SUBSCRIPTION_ID` - default `8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8` (ACS Test Subscription)
-- `LOCATION` - default: `eastus`
-- `AZURE_TENANT_ID` - default: `72f988bf-86f1-41af-91ab-2d7cd011db47`
+Check [config.go](config/config.go) for the default configuration parameters. You can override these parameters by
+setting ENV variables or by temporary changing the code.
+
+```bash
+
 
 <br>
 
-`SCENARIOS_TO_RUN` may also optionally be set to specify a subset of the E2E scenarios to run during the testing session
-as a comma-separated list, for example:
+`TAGS_TO_RUN=` may also optionally be set to specify a subset of the E2E scenarios to run based on the tags assigned to
+each scenario. If `TAGS_TO_RUN` is not specified, all scenarios will be ran. Multiple tags can be specified as a
+comma-separated list. In the case where multiple tags are specified, only scenarios which have all of the specified tags
+will be ran. Check scenario files for available tags. Tag names are case-insensitive.
 
+Example:
 ```bash
-SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64,ubuntu2204-gpu-ncv3 ./e2e-local.sh
+TAGS_TO_RUN="os=ubuntu2204,platform=arm64" ./e2e-local.sh
 ```
 
-Furthermore, `SCENARIOS_TO_EXCLUDE` may also optionally be set to specify the set of scenarios which will be excluded
-from the testing session as a commma-separated list. If both `SCENARIOS_TO_RUN` and `SCENARIOS_TO_EXCLUDE` are
-specified, `SCENARIOS_TO_RUN` will take precedence.
+Furthermore, `TAGS_TO_SKIP` may also optionally be set to specify the set of scenarios which will be excluded
+from the testing session as a commma-separated list. In the case where multiple tags are specified, only scenarios which
+have none of the specified tags will be ran (this logic is different to TAGS_TO_RUN).
+
+If both `TAGS_TO_RUN` and `TAGS_TO_SKIP` are  specified, `TAGS_TO_SKIP` will take precedence.
 
 `KEEP_VMSS` can also be optionally specified to have the test suite retain the bootstrapped VM(s) for further debugging.
 When this option is specified, the private SSH key used to connect to each VM will be included within each scenario's
@@ -57,35 +63,6 @@ environment variables) from within the `e2e/` directory like so:
 ```bash
 go test -timeout 90m -v -run Test_All ./
 ```
-
-## Running locally in VS code debug mode
-
-You can also run the test locally in VS code debug mode by adding the required test env variables to settings.json.
-
-Steps:
-
-1. Go to Settings (click gear button at the bottom left corner or press `Ctrl` + `,` (windows))
-2. Type `testenv` in search bar and you should see one of the results is `Go: Test Env Vars`.
-3. Click on `Edit in settings.json` link and then a global settings.json will pop up.
-4. Add the following default settings in the first level. See the screenshot below for reference.
-
-```
-"go.testEnvVars": {
-    "SUBSCRIPTION_ID": "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8",
-    "LOCATION": "eastus",
-    "AZURE_TENANT_ID": "72f988bf-86f1-41af-91ab-2d7cd011db47",
-    "SCENARIOS_TO_RUN": "ubuntu2204,ubuntu2204-arm64,ubuntu2204-gpu-ncv3",
-},
-```
-
-Note: SCENARIOS_TO_RUN specifies what scenarios you want to test. You can change it as desired.
-
-5. Now you can go to VS code > Test tab > github.com/Azure/agentbakere2e > suite_test.go > Test_All. On the right you
-   will see a Debug test button. You can also set breakpoints.
-
-![alt text](images/e2edebug.png)
-
-Note: You can probably edit the /.vscode/settings.json for local project use but I haven't tried.
 
 ## Package Structure
 
@@ -102,102 +79,38 @@ implementations if needed.
 
 The primary testing function is located in [suite_test.go](suite_test.go), which is run by `go test ...`.
 
-## E2E VHDs
+## E2E VHDs.
 
-When configuring E2E scenarios, a `VHDSelector` must be specified in order to tell the suite which particular VHD it
-should use to bootstrap the VM.
-
-`VHDSelector`s select from a "base" VHD catalog, initialized
-from [scenario/base_vhd_catalog.json](scenario/base_vhd_catalog.json) as an embedding. Each entry in the catalog is
-represented as a `VHD`, which contains a resource ID that gets injected into the VMSS model when the given scenario is
-ran. The aforementioned JSON file contains configurations for the current set of default catalog entries. At any given
-time, those default entries will point to VHDs stored within our testing subscription, guarded by resouce deletion
-locks.
-
-For example, [scenario_ubuntu2204.go](scenario/scenario_ubuntu2204.go) defines the Ubuntu 2204 scenario, which specifies
-the `Ubuntu2204Gen2Containerd` VHD selector. This selector will always select the Ubuntu2204/gen2 VHD catalog entry from
-the base catalog. If running the suite using some arbitrary VHD build for testing, then the selector will take the
-corresponding Ubuntu2204/gen2 VHD from the given build instead of the default entry.
-
-### Updating Default Catalog Entries
-
-To update the set of default VHD catalog entries to point towards new VHDs, simply update the `resourceId` field of the
-respective VHD within [scenario/base_vhd_catalog.json](scenario/base_vhd_catalog.json). If you're making this change as
-a part of a PR, you need to make sure to lock the new VHDs with resource deletion locks to ensure they're always
-available going forward. Note that if you run the suite in a region other than eastus, you'll need to make sure the VHDs
-you point the suite towards are appropriately replicated in the given region as well.
+Node images are pushed to Shared Image Gallery (SIG). Each image is tagged with branch name and build id.
+By default E2E tests use latest version of images from SIG with `branch=refs/heads/master` tag.
 
 ### Using Arbitrary VHD Builds
 
 If you'd like to run the E2E suite using a set of VHDs built from some arbitrary run of the VHD build pipeline in the
-MSFT tenant, you can do so by specifying the ID of the build. This is an alternative to manually updating the set of
-default VHD catalog entries. If a given scenario is ran which selects a VHD that was not built as a part of the
-specified VHD build, the selector will select the corresponding default catalog entry instead.
+MSFT tenant, you can do so by specifying the SIG_VERSION_TAG_NAME and SIG_VERSION_TAG_VALUE environment variables.
 
 ***NOTE: This feature can only be used with test VHD builds, using builds from official build pipeline is not supported.
 ***
 
 ```bash
-VHD_BUILD_ID=123456789 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64,ubuntu2204-gpu-ncv3 ./e2e-local.sh
-```
-
-or:
-
-```bash
-VHD_BUILD_ID=123456789 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64,ubuntu2204-gpu-ncv3 ./e2e-local.sh
-VHD_BUILD_ID=234567891 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64,ubuntu2204-gpu-ncv3 ./e2e-local.sh
-...
-VHD_BUILD_ID=345678912 SCENARIOS_TO_RUN=ubuntu2204,ubuntu2204-arm64,ubuntu2204-gpu-ncv3 ./e2e-local.sh
+SIG_VERSION_TAG_NAME=buildId SIG_VERSION_TAG_VALUE=123456789 TAGS_TO_RUN="os=ubuntu2204" ./e2e-local.sh
 ```
 
 ### Registering New VHD SKUs for E2E Testing
 
 When adding a new scenario which uses a VHD that doesn't currently have an associated entry in the base catalog, please
-make sure to follow these steps to register it with the suite:
-
-1. Build and delete-lock the underlying image version to be referenced in the base catalog
-2. Update [base_vhd_catalog](scenario/base_vhd_catalog.json).json with a new entry, referencing the resource ID of the
-   new VHD built in the previous step, as well as the VHD's artifact name. The artifact name is used when downloading
-   publishing info artifacts from VHD builds in ADO. To determine this value:
-    1. Navigate to the latest run of the `[TEST All VHDs] AKS Linux VHD Build - Msft Tenant` build which has built the
-       SKU you'd like to register (or queue a new build which includes the particular SKU).
-    2. Navigate to the particular run's published artifacts and identitfy the `publishing-info-<artifactName>` artifact
-       for your SKU. The suffix of this string after `publishing-info-` is the name of the artifact.
-    3. Alternatively, you can get this value from navigating
-       to [.vsts-vhd-builder-release.yaml](../.pipelines/.vsts-vhd-builder-release.yaml), identifying the corresponding
-       build stage for your SKU, and looking at the value of `artifactName` specified when calling
-       the `.builder-release-template.yaml` template.
-3. Within [scenario/vhd.go](scenario/vhd.go), update the corresponding subcatalog struct (
-   e.g. `Ubuntu2204`, `AzureLinuxV2`) with the new entry, and correctly add its corresponding JSON tag used to unmarshal
-   from base_vhd_catalog.json
-4. Also within scenario/vhd.go, add a corresponding case block to the switch statement
-   within `addEntryFromPublishingInfo()` to make sure the VHD's name (parsed from the publishing info file) is
-   associated with the new subcatalog entry added in the previous step - this is to ensure that catalog entries are
-   properly overwritten when using VHDs from arbitrary testing builds
-5. Add a new `VHDSelector` within scenario/vhd.go in the form of a method on the `*VHDCatalog` type, which returns the
-   new entry of the given subcatalog added in step 3
-6. Reference the new `VHDSelector` added in the previous step when defining the new E2E scenario(s).
-
-Example PR: TODO(cameissner)
+Build and add delete-lock to the underlying image version. If it's not done, the image version will be deleted after a few days
+by the garbage collector.
 
 ## Scenarios
 
-Minimally, each E2E scenario is parameterized with a set of "mutators" that change/set various properties of a base
-NodeBootstrappingConfiguration struct. This struct is then fed into GetLatestNodeBootstrapping to generate CSE and
-custom data. The most commonly mutated property of this struct across all scenarios is the OS distro. This is primarily
-because each scenario currently uses a separate VHD corresponding to the respective distro.
-
-E2E scenarios can also be configured with VMSS configuration mutators that change/set properties on the VMSS model used
+E2E scenarios can be configured with VMSS configuration mutators that change/set properties on the VMSS model used
 to deploy the new VM to be bootstrapped. This is primarily useful when testing out different VM SKUs, especially for
 GPU-enabled scenarios which affect which code paths AgentBaker will use to generate CSE and custom data
 
 Further, in order to support E2E scenarios which test different underlying AKS cluster configurations, such as the
-cluster's network plugin, each E2E scenario has its own "cluster selector" and "cluster mutator". Cluster selectors
-determine whether or not the given live AKS cluster is viable for running the given scenario, while cluster mutators
-will mutate a base AKS cluster model such that the model represents a cluster which is viable for running the given
-scenario. For example, a scenario meant to run on an AKS cluster configured with the kubenet network plugin would have a
-cluster selector which selects on the `NetworkProfile.NetworkPlugin` property specifically for kubenet, while its
-cluster mutator would set this property to kubenet so a new cluster can be created for it to run on.
+cluster's network plugin, each E2E scenario uses one of the predefined clusters. Same cluster can be reused in different 
+test runs. If cluster doesn't exist a new one will be created automatically.
 
 Lastly, E2E scenarios also consist of a list of live VM validators. Each live VM validator consists of a description, a
 bash command which will actually be run on the newly bootstrapped VM, and an "asserter" function that will perform

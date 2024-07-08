@@ -12,6 +12,12 @@ func marinerv2gpu() *Scenario {
 	return &Scenario{
 		Name:        "marinerv2-gpu",
 		Description: "Tests that a GPU-enabled node using a MarinerV2 VHD can be properly bootstrapped",
+		Tags: Tags{
+			Name:     "marinerv2-gpu",
+			OS:       "marinerv2",
+			Platform: "x64",
+			GPU:      true,
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
