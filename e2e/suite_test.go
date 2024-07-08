@@ -12,6 +12,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/scenario"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/barkimedes/go-deepcopy"
 )
 
@@ -134,6 +135,12 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	}
 	if err != nil {
 		vmssSucceeded = false
+
+		var respErr *azcore.ResponseError
+		if errors.As(err, &respErr) && respErr.StatusCode == 409 && respErr.ErrorCode == "SkuNotAvailable" {
+			t.Skip("skipping scenario SKU not available", opts.scenario.Name, err)
+		}
+
 		if !isVMExtensionProvisioningError(err) {
 			t.Fatalf("encountered an unknown error while creating VM %s: %v", vmssName, err)
 		}
