@@ -386,7 +386,7 @@
   ],
   "DownloadFiles": [
     {
-      "fileName": "cni-plugins-linux-amd64-v*",
+      "fileName": "cni-plugins-linux-${CPU_ARCH}-v*",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
       "versions": [
