@@ -224,6 +224,7 @@ function Get-ContainerImages {
 }
 
 function Get-FilesToCacheOnVHD {
+    Get-SystemDriveDiskInfo
     Write-Log "Caching misc files on VHD"
 
     foreach ($dir in $map.Keys) {
