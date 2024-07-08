@@ -66,15 +66,10 @@ installNetworkPlugin() {
     if [[ "${NETWORK_PLUGIN}" = "azure" ]]; then
         installAzureCNI
     fi
-    installCNI
-    rm -rf $CNI_DOWNLOADS_DIR &
+    installCNI #reference plugins. Mostly for kubenet but loop back used by contaierd until containerd 2
+    rm -rf $CNI_DOWNLOADS_DIR & 
 }
 
-downloadCNI() {
-    mkdir -p $CNI_DOWNLOADS_DIR
-    CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
-}
 
 downloadCredentalProvider() {
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
@@ -222,18 +217,29 @@ setupCNIDirs() {
     chmod 755 $CNI_CONFIG_DIR
 }
 
-# For CNI/AzureCNI, we want to use the untar azurecni reference first. And if that doesn't exist on the vhd does the tgz?
-# And if tgz is already on the vhd then just untar into CNI_BIN_DIR
-# Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
+
+# Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
+# The version used to be deteremined by RP/toggle but are now just hadcoded in vhd as they rarely change and require a node image upgrade anyways
+# Latest VHD should have the untar, older should have the tgz. And who knows will have neither. 
 installCNI() {
-    CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    #how do we keep this in sync with whats in AgentBaker/parts/linux/cloud-init/artifacts/components.json
+    #Also was arm binary for this never cached?
+    if [[ $(isARM64) == 1 ]]; then
+        CNI_TGZ_TMP="cni-plugins-linux-arm64-v1.4.1.tgz"
+    else 
+        #how 
+        CNI_TGZ_TMP="cni-plugins-linux-amd64-v1.4.1.tgz"
+    fi
+    
     CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}    # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
 
     if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
-        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
+        #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz. 
+        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR 
     else
         if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
-            logs_to_events "AKS.CSE.installCNI.downloadCNI" downloadCNI
+            #how do I install a new error here? 
+            exit $ERR_K8S_INSTALL_ERR  
         fi
 
         tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
