@@ -223,11 +223,11 @@ setupCNIDirs() {
 # Latest VHD should have the untar, older should have the tgz. And who knows will have neither. 
 installCNI() {
     #how do we keep this in sync with whats in AgentBaker/parts/linux/cloud-init/artifacts/components.json
-    #Also was arm binary for this never cached?
+    # and how is that different from AgentBaker/vhdbuilder/packer/components.json 
+    #Only the seconde one caches arm? 
     if [[ $(isARM64) == 1 ]]; then
         CNI_TGZ_TMP="cni-plugins-linux-arm64-v1.4.1.tgz"
     else 
-        #how 
         CNI_TGZ_TMP="cni-plugins-linux-amd64-v1.4.1.tgz"
     fi
     
