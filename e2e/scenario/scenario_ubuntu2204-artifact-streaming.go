@@ -9,6 +9,11 @@ func ubuntu2204ArtifactStreaming() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204-artifact-streaming",
 		Description: "tests that a new ubuntu 2204 node using artifact streaming can be properly bootstrapepd",
+		Tags: Tags{
+			Name:     "ubuntu2204-artifact-streaming",
+			OS:       "ubuntu2204",
+			Platform: "x64",
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,

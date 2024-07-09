@@ -22,6 +22,11 @@ func azurelinuxv2CustomSysctls() *Scenario {
 	return &Scenario{
 		Name:        "azurelinuxv2-custom-sysctls",
 		Description: "tests that a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
+		Tags: Tags{
+			Name:     "azurelinuxv2-custom-sysctls",
+			OS:       "azurelinuxv2",
+			Platform: "x64",
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,

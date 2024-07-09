@@ -9,6 +9,11 @@ func marinerv2() *Scenario {
 	return &Scenario{
 		Name:        "marinerv2",
 		Description: "Tests that a node using a MarinerV2 VHD can be properly bootstrapped",
+		Tags: Tags{
+			Name:     "marinerv2",
+			OS:       "marinerv2",
+			Platform: "x64",
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,

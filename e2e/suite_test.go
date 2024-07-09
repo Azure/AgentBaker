@@ -12,6 +12,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/scenario"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/barkimedes/go-deepcopy"
 )
 
@@ -48,12 +49,26 @@ func Test_All(t *testing.T) {
 }
 
 func maybeSkipScenario(t *testing.T, s *scenario.Scenario) {
-	if config.ScenariosToRun != nil && !config.ScenariosToRun[s.Name] {
-		t.Skipf("skipping scenario %q: not in scenarios to run", s.Name)
+	if config.TagsToRun != "" {
+		matches, err := s.Tags.MatchesFilters(config.TagsToRun)
+		if err != nil {
+			t.Fatalf("could not match tags for %q: %s", s.Name, err)
+		}
+		if !matches {
+			t.Skipf("skipping scenario %q: scenario tags %+v does not match filter %q", s.Name, s.Tags, config.TagsToRun)
+		}
 	}
-	if config.ScenariosToExclude != nil && config.ScenariosToExclude[s.Name] {
-		t.Skipf("skipping scenario %q: in scenarios to exclude", s.Name)
+
+	if config.TagsToSkip != "" {
+		matches, err := s.Tags.MatchesAnyFilter(config.TagsToSkip)
+		if err != nil {
+			t.Fatalf("could not match tags for %q: %s", s.Name, err)
+		}
+		if matches {
+			t.Skipf("skipping scenario %q: scenario tags %+v matches filter %q", s.Name, s.Tags, config.TagsToSkip)
+		}
 	}
+
 	rid, err := s.VHDSelector()
 	if err != nil {
 		if config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
@@ -120,6 +135,13 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	}
 	if err != nil {
 		vmssSucceeded = false
+		if config.SkipTestsWithSKUCapacityIssue {
+			var respErr *azcore.ResponseError
+			if errors.As(err, &respErr) && respErr.StatusCode == 409 && respErr.ErrorCode == "SkuNotAvailable" {
+				t.Skip("skipping scenario SKU not available", opts.scenario.Name, err)
+			}
+		}
+
 		if !isVMExtensionProvisioningError(err) {
 			t.Fatalf("encountered an unknown error while creating VM %s: %v", vmssName, err)
 		}
