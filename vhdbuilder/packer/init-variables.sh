@@ -419,14 +419,16 @@ if [ "$MODE" == "windowsVhdMode" ] || [ "${ENVIRONMENT,,}" == "prod" ]; then
 	PACKER_BUILD_LOCATION=$AZURE_LOCATION
 fi
 
+# Hard-code this as a hack to work around capacity issues for now
+build_resource_group_name="aksvhdtestbuildrg-xtian"
+
 # windows_image_version refers to the version from azure gallery
 # aks_windows_image_version refers to the version built by AKS Windows SIG
 cat <<EOF > vhdbuilder/packer/settings.json
 { 
   "subscription_id":  "${SUBSCRIPTION_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
-  "location": "${PACKER_BUILD_LOCATION}",
-  "build_resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
+  "build_resource_group_name": "${build_resource_group_name}",
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",
