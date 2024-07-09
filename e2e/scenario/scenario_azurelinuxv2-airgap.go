@@ -9,6 +9,12 @@ func azurelinuxv2AirGap() *Scenario {
 	return &Scenario{
 		Name:        "azurelinuxv2-airgap",
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
+		Tags: Tags{
+			Name:     "azurelinuxv2-airgap",
+			OS:       "azurelinuxv2",
+			Platform: "x64",
+			Airgap:   true,
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
