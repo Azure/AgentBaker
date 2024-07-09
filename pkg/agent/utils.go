@@ -423,6 +423,39 @@ func GetTLSBootstrapTokenForKubeConfig(tlsBootstrapToken *string) string {
 	return *tlsBootstrapToken
 }
 
+func IsKubeletServingCertificateRotationEnabled(config *datamodel.NodeBootstrappingConfiguration) bool {
+	const (
+		kubeletRotateServerCertificatesFlagName = "--rotate-server-certificates"
+		kubeletFlagLiteralValueTrue             = "true"
+	)
+
+	return strings.EqualFold(config.KubeletConfig[kubeletRotateServerCertificatesFlagName], kubeletFlagLiteralValueTrue)
+}
+
+func getAgentKubernetesLabels(profile *datamodel.AgentPoolProfile, config *datamodel.NodeBootstrappingConfiguration) string {
+	labels := profile.GetKubernetesLabels()
+	kubeletServingSignerLabel := getKubeletServingSignerLabel(config)
+
+	if kubeletServingSignerLabel == "" {
+		return labels
+	}
+	if labels == "" {
+		return kubeletServingSignerLabel
+	}
+	return fmt.Sprintf("%s,%s", labels, kubeletServingSignerLabel)
+}
+
+// getKubeletServingSignerLabel determines the value of the "kubernetes.azure.com/kubelet-serving-signer" label
+// based on the specified NodeBootstrappingConfiguration. This label is used to denote, out-of-band from RP-set
+// agent pool custom labels, whether or not the given kubelet is bootstrapped with the --rotate-server-certificates flag.
+func getKubeletServingSignerLabel(config *datamodel.NodeBootstrappingConfiguration) string {
+	// kubeletServingSignerLabelValue := "self"
+	if !IsKubeletServingCertificateRotationEnabled(config) {
+		return ""
+	}
+	return fmt.Sprintf("kubernetes.azure.com/kubelet-serving-signer=%s", "cluster")
+}
+
 func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfiguration {
 	kubeletConfig := &datamodel.AKSKubeletConfiguration{
 		APIVersion:    "kubelet.config.k8s.io/v1beta1",
