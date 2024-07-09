@@ -159,9 +159,9 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 			# for both azlinux and cblmariner in prod galleries, though we only have one gallery which Packer
 			# is configured to deliver images to...
 			if [ "${ENABLE_CGROUPV2,,}" == "true" ]; then
-				SIG_IMAGE_NAME="azurelinux${SIG_IMAGE_NAME}"
+				SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
 			else
-				SIG_IMAGE_NAME="cblmariner${SIG_IMAGE_NAME}"
+				SIG_IMAGE_NAME="CBLMariner${SIG_IMAGE_NAME}"
 			fi
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
