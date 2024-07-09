@@ -12,6 +12,12 @@ func azurelinuxv2gpu() *Scenario {
 	return &Scenario{
 		Name:        "azurelinuxv2-gpu",
 		Description: "Tests that a GPU-enabled node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
+		Tags: Tags{
+			Name:     "azurelinuxv2-gpu",
+			OS:       "azurelinuxv2",
+			Platform: "x64",
+			GPU:      true,
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
