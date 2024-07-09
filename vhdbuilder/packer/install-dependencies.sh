@@ -169,6 +169,7 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     activateNfConntrack
 fi
 
+# TODO (alburgess) orsa for WASM shims
 downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
 
@@ -375,7 +376,7 @@ VNET_CNI_VERSIONS="
 1.5.28
 "
 
-
+# TODO (alburgess) oras for AzureCNI -> might need to be cached (?)
 for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
     VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
     downloadAzureCNI
@@ -389,6 +390,7 @@ MULTI_ARCH_CNI_PLUGIN_VERSIONS="
 "
 CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
 
+# TODO (alburgess) oras for CNI
 for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
     CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-${CPU_ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
     downloadCNI
@@ -432,7 +434,7 @@ fi
 stop_watch $capture_time "GPU Device plugin" false
 start_watch
 
-# install oras
+# TODO (alburgess) move above first oras download to be
 installOras
 
 # Kubelet credential provider plugins
@@ -440,6 +442,7 @@ CREDENTIAL_PROVIDER_VERSIONS="
 1.29.2
 1.30.0
 "
+# TODO (alburgess) oras for credential provider
 for CREDENTIAL_PROVIDER_VERSION in $CREDENTIAL_PROVIDER_VERSIONS; do
     # CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
     # downloadCredentalProvider $CREDENTIAL_PROVIDER_DOWNLOAD_URL
@@ -563,6 +566,7 @@ fi
 # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
 KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
 
+# TODO (alburgess) oras for kublet and kubectl 
 for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
   KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
   extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false
