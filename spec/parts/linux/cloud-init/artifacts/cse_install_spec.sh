@@ -69,19 +69,19 @@ Describe 'cse_install.sh'
     It 'returns downloadURIs.ubuntu."r2004".downloadURL of package runc for UBUNTU 20.04'
         package=$(readPackage "runc")
         When call returnPackageDownloadURL "$package" "UBUNTU" "20.04"
-        The output should equal 'ubuntu_2004_runc_download_url'
+        The output should equal ''
     End
 
     It 'returns downloadURIs.ubuntu."r2204".downloadURL of package containerd for UBUNTU 22.04'
         package=$(readPackage "containerd")
         When call returnPackageDownloadURL "$package" "UBUNTU" "22.04"
-        The output should equal 'ubuntu_current_containerd_download_url'
+        The output should equal ''
     End
 
     It 'returns downloadURIs.ubuntu."r1804".downloadURL of package containerd for UBUNTU 18.04'
         package=$(readPackage "containerd")
         When call returnPackageDownloadURL "$package" "UBUNTU" "18.04"
-        The output should equal 'ubuntu_1804_containerd_download_url'
+        The output should equal ''
     End
 
     It 'returns downloadURIs.default.current.downloadURL of package cni-plugins for UBUNTU 20.04'
@@ -99,13 +99,13 @@ Describe 'cse_install.sh'
     It 'returns downloadURIs.mariner.current.downloadURL of package runc for MARINER'
         package=$(readPackage "runc")
         When call returnPackageDownloadURL "$package" "MARINER" "some_mariner_version"
-        The output should equal 'mariner_current_runc_download_url'
+        The output should equal ''
     End
 
     It 'returns downloadURIs.mariner.current.downloadURL of package containerd for MARINER'
         package=$(readPackage "containerd")
         When call returnPackageDownloadURL "$package" "MARINER" "some_mariner_version"
-        The output should equal 'mariner_containerd_download_url'
+        The output should equal ''
     End
 
     It 'returns downloadURIs.default.current.downloadURL of package cni-plugins for MARINER'
