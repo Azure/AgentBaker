@@ -12,6 +12,12 @@ func marinerv2gpu_azurecni() *Scenario {
 	return &Scenario{
 		Name:        "marinerv2-gpu-azurecni",
 		Description: "MarinerV2 gpu scenario on cluster configured with Azure CNI",
+		Tags: Tags{
+			Name:     "marinerv2-gpu-azurecni",
+			OS:       "marinerv2",
+			Platform: "x64",
+			GPU:      true,
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginAzureSelector,
 			ClusterMutator:  NetworkPluginAzureMutator,

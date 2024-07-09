@@ -11,6 +11,12 @@ func marinerv2ARM64AirGap() *Scenario {
 	return &Scenario{
 		Name:        "marinerv2-arm64-airgap",
 		Description: "Tests that a node using a MarinerV2 VHD on ARM64 architecture can be properly bootstrapped",
+		Tags: Tags{
+			Name:     "marinerv2-arm64-airgap",
+			OS:       "marinerv2",
+			Platform: "arm64",
+			Airgap:   true,
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
