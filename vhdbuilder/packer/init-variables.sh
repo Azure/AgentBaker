@@ -58,6 +58,11 @@ fi
 
 echo "POOL_NAME is set to $POOL_NAME"
 
+if [ "$MODE" == "linuxVhdMode" ] && [ -z "${SKU_NAME}" ]; then
+	echo "SKU_NAME must be set for linux VHD builds"
+	exit 1
+fi
+
 # This variable is used within linux builds to inform which region that packer build itself will be running,
 # and subsequently the region in which the 1ES pool the build is running on is in.
 # Note that this variable is ONLY used for linux builds, windows builds simply use AZURE_LOCATION.
