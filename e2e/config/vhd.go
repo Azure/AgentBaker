@@ -22,7 +22,6 @@ const (
 
 var (
 	VHDUbuntu1804Gen2Containerd      = newSIGImageVersionResourceIDFetcher(imageGallery + "1804gen2containerd")
-	VHDUbuntu1804Gen2GPUContainerd   = newSIGImageVersionResourceIDFetcher(imageGallery + "1804gen2gpucontainerd")
 	VHDUbuntu2204Gen2Arm64Containerd = newSIGImageVersionResourceIDFetcher(imageGallery + "2204gen2arm64containerd")
 	VHDUbuntu2204Gen2Containerd      = newSIGImageVersionResourceIDFetcher(imageGallery + "2204gen2containerd")
 	VHDAzureLinuxV2Gen2Arm64         = newSIGImageVersionResourceIDFetcher(imageGallery + "AzureLinuxV2gen2arm64")
@@ -175,7 +174,7 @@ func findLatestSIGImageVersionWithTag(imageDefinitionResourceID, tagName, tagVal
 				continue
 			}
 			if err := ensureProvisioningState(version); err != nil {
-				log.Printf("ensuring image version provisioning state: %s, will not consider for selection", err)
+				log.Printf("ensuring image version %s provisioning state: %s, will not consider for selection", *version.ID, err)
 				continue
 			}
 			if latestVersion == nil || version.Properties.PublishingProfile.PublishedDate.After(*latestVersion.Properties.PublishingProfile.PublishedDate) {
