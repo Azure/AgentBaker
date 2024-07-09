@@ -358,10 +358,12 @@ function Install-OpenSSH {
     Write-Log "Updating $ConfigPath for CVE-2023-48795"
     $ModifiedConfigContents = Get-Content $OriginalConfigPath `
         | %{$_ -replace "#RekeyLimit default none", "$&`r`n# Disable cipher to mitigate CVE-2023-48795`r`nCiphers -chacha20-poly1305@openssh.com`r`nMacs -*-etm@openssh.com`r`n"}
+    Write-Log "Updating $ConfigPath for CVE-2006-5051"
+    $ModifiedConfigContents = $ModifiedConfigContents.Replace("#LoginGraceTime 2m", "LoginGraceTime 0")
     Stop-Service sshd
     Out-File -FilePath $ConfigPath -InputObject $ModifiedConfigContents -Encoding UTF8
     Start-Service sshd
-    Write-Log "Updated $ConfigPath for CVE-2023-48795"
+    Write-Log "Updated $ConfigPath for CVEs"
 }
 
 function Install-WindowsPatches {
