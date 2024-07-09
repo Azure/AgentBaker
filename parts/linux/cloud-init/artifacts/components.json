@@ -27,7 +27,8 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.9.4-hotfix.20240520",
-        "v1.9.4-hotfix.20240627"
+        "v1.9.4-hotfix.20240627",
+        "v1.9.4-hotfix.20240704"
       ]
     },
     {
