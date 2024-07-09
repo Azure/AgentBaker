@@ -21,7 +21,7 @@ func ubuntu1804gpu() *Scenario {
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHDSelector:     config.VHDUbuntu1804Gen2Containerd,
+			VHDSelector:     config.VHDUbuntu1804Gen2GPUContainerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-18.04-gen2"

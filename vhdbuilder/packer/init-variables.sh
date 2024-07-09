@@ -136,6 +136,8 @@ fi
 echo "storage name: ${STORAGE_ACCOUNT_NAME}"
 
 # If SIG_GALLERY_NAME/SIG_IMAGE_NAME hasnt been provided in linuxVhdMode, use defaults
+# NOTE: SIG_IMAGE_NAME is the name of the image definition that Packer will use when delivering the
+# output image version to the staging gallery. This is NOT the name of the image definitions used in prod.
 if [[ "${MODE}" == "linuxVhdMode" ]]; then
 	# Ensure the SIG name
 	if [[ -z "${SIG_GALLERY_NAME}" ]]; then
@@ -145,39 +147,27 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 		echo "Using provided SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
 	fi
 
-	# Ensure the image-definition name
 	if [[ -z "${SIG_IMAGE_NAME}" ]]; then
-		SIG_IMAGE_NAME=${OS_VERSION//./}
-		if [[ "${OS_SKU}" == "Ubuntu" && "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
-			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}CVM
+		SIG_IMAGE_NAME=$SKU_NAME
+		if [[ "${IMG_OFFER,,}" == "cbl-mariner" ]]; then
+			# we need to add a distinction here since we currently use the same image definition names
+			# for both azlinux and cblmariner in prod galleries, though we only have one gallery which Packer
+			# is configured to deliver images to...
+			if [ "${ENABLE_CGROUPV2,,}" == "true" ]; then
+				SIG_IMAGE_NAME="azurelinux${SIG_IMAGE_NAME}"
+			else
+				SIG_IMAGE_NAME="cblmariner${SIG_IMAGE_NAME}"
+			fi
 		fi
-
-		if [[ "${IMG_SKU}" == *"minimal"* ]]; then
-			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Minimal
-		fi
-
-		if [[ "${OS_SKU}" == "CBLMariner" ]]; then
-			SIG_IMAGE_NAME=CBLMariner${SIG_IMAGE_NAME}
-		fi
-
-		if [[ "${OS_SKU}" == "AzureLinux" ]]; then
-			SIG_IMAGE_NAME=AzureLinux${SIG_IMAGE_NAME}
-		fi
-
-		if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
-			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}TL
-		fi
-
-		if [[ "${HYPERV_GENERATION,,}" == "v2" && ("${OS_SKU}" == "CBLMariner" || "${OS_SKU}" == "AzureLinux" || "${OS_SKU}" == "Ubuntu") ]]; then
-			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Gen2
-		fi
-		echo "No input for SIG_IMAGE_NAME was provided, using auto-generated value: ${SIG_IMAGE_NAME}"
+		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
 	else
 		echo "Using provided SIG_IMAGE_NAME: ${SIG_IMAGE_NAME}"
 	fi
 fi
 
-if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+if [[ "${MODE}" == "windowsVhdMode" ]] && [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+	# only append 'Arm64' in windows builds, for linux we either take what was provided
+	# or base the name off the the value of SKU_NAME (see above)
   SIG_IMAGE_NAME=${SIG_IMAGE_NAME//./}Arm64
 fi
 

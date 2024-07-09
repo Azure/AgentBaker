@@ -21,17 +21,18 @@ const (
 )
 
 var (
-	VHDUbuntu1804Gen2Containerd      = newSIGImageVersionResourceIDFetcher(imageGallery + "1804Gen2")
-	VHDUbuntu2204Gen2Arm64Containerd = newSIGImageVersionResourceIDFetcher(imageGallery + "2204Gen2Arm64")
-	VHDUbuntu2204Gen2Containerd      = newSIGImageVersionResourceIDFetcher(imageGallery + "2204Gen2")
-	VHDAzureLinuxV2Gen2Arm64         = newSIGImageVersionResourceIDFetcher(imageGallery + "AzureLinuxV2Gen2Arm64")
-	VHDAzureLinuxV2Gen2              = newSIGImageVersionResourceIDFetcher(imageGallery + "AzureLinuxV2Gen2")
-	VHDCBLMarinerV2Gen2Arm64         = newSIGImageVersionResourceIDFetcher(imageGallery + "CBLMarinerV2Gen2Arm64")
-	VHDCBLMarinerV2Gen2              = newSIGImageVersionResourceIDFetcher(imageGallery + "CBLMarinerV2Gen2")
+	VHDUbuntu1804Gen2Containerd      = newSIGImageVersionResourceIDFetcher(imageGallery + "1804gen2containerd")
+	VHDUbuntu1804Gen2GPUContainerd   = newSIGImageVersionResourceIDFetcher(imageGallery + "1804gen2gpucontainerd")
+	VHDUbuntu2204Gen2Arm64Containerd = newSIGImageVersionResourceIDFetcher(imageGallery + "2204gen2arm64containerd")
+	VHDUbuntu2204Gen2Containerd      = newSIGImageVersionResourceIDFetcher(imageGallery + "2204gen2containerd")
+	VHDAzureLinuxV2Gen2Arm64         = newSIGImageVersionResourceIDFetcher(imageGallery + "azurelinuxV2gen2arm64")
+	VHDAzureLinuxV2Gen2              = newSIGImageVersionResourceIDFetcher(imageGallery + "azurelinuxV2gen2")
+	VHDCBLMarinerV2Gen2Arm64         = newSIGImageVersionResourceIDFetcher(imageGallery + "cblmarinerV2gen2arm64")
+	VHDCBLMarinerV2Gen2              = newSIGImageVersionResourceIDFetcher(imageGallery + "cblmarinerV2gen2")
 
-	// this is a particular 2204Gen2 image originally built with private packages,
+	// this is a particular 2204gen2containerd image originally built with private packages,
 	// if we ever want to update this then we'd need to run a new VHD build using private package overrides
-	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = newStaticSIGImageVersionResourceIDFetcher(imageGallery + "2204Gen2/versions/1.1704411049.2812")
+	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = newStaticSIGImageVersionResourceIDFetcher(imageGallery + "2204gen2containerd/versions/1.1704411049.2812")
 )
 
 var ErrNotFound = fmt.Errorf("not found")
