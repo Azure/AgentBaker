@@ -2,11 +2,12 @@ package scenario
 
 import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 )
 
-func (t *Template) ubuntu2204CustomSysctls() *Scenario {
+func ubuntu2204CustomSysctls() *Scenario {
 	customSysctls := map[string]string{
 		"net.ipv4.ip_local_port_range":       "32768 65535",
 		"net.netfilter.nf_conntrack_max":     "2097152",
@@ -21,10 +22,15 @@ func (t *Template) ubuntu2204CustomSysctls() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204-custom-sysctls",
 		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
+		Tags: Tags{
+			Name:     "ubuntu2204-custom-sysctls",
+			OS:       "ubuntu2204",
+			Platform: "x64",
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHDSelector:     t.Ubuntu2204Gen2Containerd,
+			VHDSelector:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{

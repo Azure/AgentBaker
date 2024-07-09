@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -13,7 +14,6 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbakere2e/config"
-	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
@@ -55,7 +55,10 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *sce
 }
 
 func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
-	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)
+	model, err := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)
+	if err != nil {
+		return nil, fmt.Errorf("get base VMSS model: %w", err)
+	}
 
 	if config.BuildID != "" {
 		if model.Tags == nil {
@@ -66,17 +69,17 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 
 	isAzureCNI, err := opts.clusterConfig.isAzureCNI()
 	if err != nil {
-		return nil, fmt.Errorf("failed to determine whether chosen cluster uses Azure CNI from cluster model: %w", err)
+		return nil, fmt.Errorf("determine whether chosen cluster uses Azure CNI from cluster model: %w", err)
 	}
 
 	if isAzureCNI {
 		if err := addPodIPConfigsForAzureCNI(&model, vmssName, opts); err != nil {
-			return nil, fmt.Errorf("failed to create pod IP configs for azure CNI scenario: %w", err)
+			return nil, fmt.Errorf("create pod IP configs for azure CNI scenario: %w", err)
 		}
 	}
 
 	if err := opts.scenario.PrepareVMSSModel(&model); err != nil {
-		return nil, fmt.Errorf("unable to prepare model for VMSS %q: %w", vmssName, err)
+		return nil, fmt.Errorf(" prepare model for VMSS %q: %w", vmssName, err)
 	}
 
 	var pollErr error
@@ -103,11 +106,13 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 
 		if pollErr == nil {
 			return &vmssResp.VirtualMachineScaleSet, nil
-		} else {
-			log.Printf("failed to create VMSS. Retry attempts left: %d", maxRetries-(i+1))
 		}
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			return nil, fmt.Errorf("create VMSS %q: %w", vmssName, pollErr)
+		}
+		log.Printf("failed to create VMSS. Retry attempts left: %d", maxRetries-(i+1))
 	}
-	return nil, fmt.Errorf("unable to create VMSS %q: %w", vmssName, pollErr)
+	return nil, fmt.Errorf("create VMSS %q: %w", vmssName, pollErr)
 }
 
 // Adds additional IP configs to the passed in vmss model based on the chosen cluster's setting of "maxPodsPerNode",
@@ -218,7 +223,11 @@ func getVmssName(r *mrand.Rand) string {
 	return fmt.Sprintf(vmssNameTemplate, randomLowercaseString(r, 4))
 }
 
-func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
+func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) (armcompute.VirtualMachineScaleSet, error) {
+	resourceID, err := config.VHDUbuntu1804Gen2Containerd()
+	if err != nil {
+		return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("get resource ID for VHD: %w", err)
+	}
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Location),
 		SKU: &armcompute.SKU{
@@ -265,7 +274,7 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 				},
 				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
 					ImageReference: &armcompute.ImageReference{
-						ID: to.Ptr(string(scenario.BaseVHDCatalog.Ubuntu1804.Gen2Containerd.ResourceID)),
+						ID: to.Ptr(string(resourceID)),
 					},
 					OSDisk: &armcompute.VirtualMachineScaleSetOSDisk{
 						CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
@@ -290,7 +299,7 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 													ID: to.Ptr(
 														fmt.Sprintf(
 															loadBalancerBackendAddressPoolIDTemplate,
-															config.Subscription,
+															config.SubscriptionID,
 															*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
 														),
 													),
@@ -308,7 +317,7 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 				},
 			},
 		},
-	}
+	}, nil
 }
 
 func getPrivateIP(res listVMSSVMNetworkInterfaceResult) (string, error) {

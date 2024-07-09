@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"log"
 	mrand "math/rand"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/scenario"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/barkimedes/go-deepcopy"
 )
 
@@ -23,14 +25,6 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	scenarios, err := scenario.GetScenariosForSuite(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(scenarios) < 1 {
-		t.Fatal("at least one scenario must be selected to run the e2e suite")
-	}
-
 	if err := ensureResourceGroup(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -40,54 +34,88 @@ func Test_All(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	scenarios := scenario.AllScenarios()
 	if err := createMissingClusters(ctx, r, scenarios, &clusterConfigs); err != nil {
 		t.Fatal(err)
 	}
 
 	for _, e2eScenario := range scenarios {
-		e2eScenario := e2eScenario
-
-		clusterConfig, err := chooseCluster(ctx, r, e2eScenario, clusterConfigs)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		clusterName := *clusterConfig.cluster.Name
-		log.Printf("chose cluster: %q", clusterName)
-
-		baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(clusterConfig.parameters)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		copied, err := deepcopy.Anything(baseNodeBootstrappingConfig)
-		if err != nil {
-			t.Error(err)
-			continue
-		}
-		nbc := copied.(*datamodel.NodeBootstrappingConfiguration)
-
-		e2eScenario.PrepareNodeBootstrappingConfiguration(nbc)
-
 		t.Run(e2eScenario.Name, func(t *testing.T) {
 			t.Parallel()
-
-			loggingDir, err := createVMLogsDir(e2eScenario.Name)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			runScenario(ctx, t, &scenarioRunOpts{
-				clusterConfig: clusterConfig,
-				scenario:      e2eScenario,
-				nbc:           nbc,
-				loggingDir:    loggingDir,
-			})
+			maybeSkipScenario(t, e2eScenario)
+			setupAndRunScenario(ctx, t, e2eScenario, r, clusterConfigs)
 		})
 	}
 }
 
-func runScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
+func maybeSkipScenario(t *testing.T, s *scenario.Scenario) {
+	if config.TagsToRun != "" {
+		matches, err := s.Tags.MatchesFilters(config.TagsToRun)
+		if err != nil {
+			t.Fatalf("could not match tags for %q: %s", s.Name, err)
+		}
+		if !matches {
+			t.Skipf("skipping scenario %q: scenario tags %+v does not match filter %q", s.Name, s.Tags, config.TagsToRun)
+		}
+	}
+
+	if config.TagsToSkip != "" {
+		matches, err := s.Tags.MatchesAnyFilter(config.TagsToSkip)
+		if err != nil {
+			t.Fatalf("could not match tags for %q: %s", s.Name, err)
+		}
+		if matches {
+			t.Skipf("skipping scenario %q: scenario tags %+v matches filter %q", s.Name, s.Tags, config.TagsToSkip)
+		}
+	}
+
+	rid, err := s.VHDSelector()
+	if err != nil {
+		if config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
+			t.Skipf("skipping scenario %q: could not find image", s.Name)
+		} else {
+			t.Fatalf("could not find image for %q: %s", s.Name, err)
+		}
+	}
+	t.Logf("running scenario %q with image %q", s.Name, rid)
+}
+
+func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenario.Scenario, r *mrand.Rand, clusterConfigs []clusterConfig) {
+	clusterConfig, err := chooseCluster(ctx, r, e2eScenario, clusterConfigs)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	clusterName := *clusterConfig.cluster.Name
+	log.Printf("chose cluster: %q", clusterName)
+
+	baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(clusterConfig.parameters)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	copied, err := deepcopy.Anything(baseNodeBootstrappingConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nbc := copied.(*datamodel.NodeBootstrappingConfiguration)
+
+	e2eScenario.PrepareNodeBootstrappingConfiguration(nbc)
+
+	loggingDir, err := createVMLogsDir(e2eScenario.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	executeScenario(ctx, t, &scenarioRunOpts{
+		clusterConfig: clusterConfig,
+		scenario:      e2eScenario,
+		nbc:           nbc,
+		loggingDir:    loggingDir,
+	})
+}
+
+func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	// need to create a new rand object for each goroutine since mrand.Rand is not thread-safe
 	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 
@@ -107,6 +135,13 @@ func runScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	}
 	if err != nil {
 		vmssSucceeded = false
+		if config.SkipTestsWithSKUCapacityIssue {
+			var respErr *azcore.ResponseError
+			if errors.As(err, &respErr) && respErr.StatusCode == 409 && respErr.ErrorCode == "SkuNotAvailable" {
+				t.Skip("skipping scenario SKU not available", opts.scenario.Name, err)
+			}
+		}
+
 		if !isVMExtensionProvisioningError(err) {
 			t.Fatalf("encountered an unknown error while creating VM %s: %v", vmssName, err)
 		}
