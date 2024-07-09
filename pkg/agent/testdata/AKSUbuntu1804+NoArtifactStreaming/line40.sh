@@ -198,6 +198,10 @@ evalPackageDownloadURL() {
 downloadAzureCNI() {
     mkdir -p ${1-$:CNI_DOWNLOADS_DIR}
     VNET_CNI_PLUGINS_URL=${2:-$VNET_CNI_PLUGINS_URL}
+    if [[ -z "$VNET_CNI_PLUGINS_URL" ]]; then
+        echo "VNET_CNI_PLUGINS_URL is not set. Exiting..."
+        return
+    fi
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin #
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
