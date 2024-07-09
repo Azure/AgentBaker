@@ -384,23 +384,17 @@ installJq () {
 check_array_size () {
   declare -n array_name=$1
   local array_size=${#array_name[@]}
-  if [[ ${array_size} -eq 0 ]]; then
-    return 1
+  if [[ ${array_size} -gt 0 ]]; then
+    last_index=$(( ${#array_name[@]} - 1 ))
   else
-    return 0
+    return 1
   fi
 }
 
 capture_benchmark () {
   set +x
   benchmarks+=($1)
-  check_array_size benchmarks
-  if [[ $? -eq 0 ]]; then
-    last_index=$(( ${#benchmarks[@]} - 1 ))
-  else
-    echo "Benchmarks array is empty."
-    return
-  fi
+  check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
   declare -n current_section="${benchmarks[last_index]}"
   local is_final_section=${2:-false}
 
@@ -434,13 +428,7 @@ capture_benchmark () {
 
 process_benchmarks () {
   set +x
-  check_array_size benchmarks
-  if [[ $? -eq 0 ]]; then
-    last_index=$(( ${#benchmarks[@]} - 1 ))
-  else
-    echo "Benchmarks array is empty."
-    return
-  fi
+  check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
   declare -n script_stats="${benchmarks[last_index]}"
   
   script_object=$(jq -n --arg script_name "$(basename $0)" --arg script_start_timestamp "${script_stats[0]}" --arg end_timestamp "${script_stats[1]}" --arg total_time_elapsed "${script_stats[2]}" '{($script_name): {"overall": {"start_time": $script_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}}')
@@ -466,7 +454,6 @@ process_benchmarks () {
  
   jq ". += [$script_object]" ${VHD_BUILD_PERF_DATA} > tmp.json && mv tmp.json ${VHD_BUILD_PERF_DATA}
   chmod 755 ${VHD_BUILD_PERF_DATA}
-
   set -x
 }
 
