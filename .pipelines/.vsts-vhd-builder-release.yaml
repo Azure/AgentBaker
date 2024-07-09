@@ -1,79 +1,103 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
+pr:
+  branches:
+    include:
+      - master
+  paths:
+    include:
+      - .pipelines/.vsts-vhd-build-release.yaml
+      - .pipelines/templates/.builder-release-template.yaml
+      - packer.mk
+      - parts/linux/*
+      - schemas
+      - templates/e2e-template.yaml
+      - vhdbuilder/packer
+      - vhdbuilder/scripts/linux
+    exclude:
+      - vhdbuilder/packer/*.ps1
+      - vhdbuilder/packer/**/*.ps1
+      - vhdbuilder/packer/*windows*
+      - vhdbuilder/packer/**/*windows*
+variables:
+  - name: CONTAINER_IMAGE
+    value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
+pool:
+  name: $(POOL_NAME)
 parameters:
   - name: build1804containerd
     displayName: Build 1804 containerd
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: build1804gen2containerd
     displayName: Build 1804 Gen2 containerd
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: build1804gpucontainerd
     displayName: Build 1804 GPU+containerd
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: build1804gen2gpucontainerd
     displayName: Build 1804 Gen2 GPU+containerd
     type: boolean
-    default: true
+    default: true # Run build and e2e test on PR
   - name: buildMarinerV2gen1
     displayName: Build MarinerV2 Gen1
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: buildAzureLinuxV2gen1
     displayName: Build AzureLinuxV2 Gen1
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: buildMarinerV2gen2
     displayName: Build MarinerV2 Gen2
     type: boolean
-    default: true
+    default: true # Run build and e2e test on PR
   - name: buildAzureLinuxV2gen2
     displayName: Build AzureLinuxV2 Gen2
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: buildMarinerV2gen1fips
     displayName: Build MarinerV2 Gen1 FIPS
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: buildAzureLinuxV2gen1fips
     displayName: Build AzureLinuxV2 Gen1 FIPS
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: buildMarinerV2gen2fips
     displayName: Build MarinerV2 Gen2 FIPS
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: buildAzureLinuxV2gen2fips
     displayName: Build AzureLinuxV2 Gen2 FIPS
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: buildMarinerV2gen2kata
     displayName: Build MarinerV2 Gen2 Kata
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: buildAzureLinuxV2gen2kata
     displayName: Build AzureLinuxV2 Gen2 Kata
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: buildMarinerV2ARM64
     displayName: Build MarinerV2 Gen2 - ARM64
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: buildAzureLinuxV2ARM64
     displayName: Build AzureLinuxV2 Gen2 - ARM64
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: buildMarinerV2gen2TrustedLaunch
     displayName: Build MarinerV2 Gen2 - Trusted Launch
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: buildAzureLinuxV2gen2TrustedLaunch
     displayName: Build AzureLinuxV2 Gen2 - Trusted Launch
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: buildMarinerV2gen2kataTrustedLaunch
     displayName: Build MarinerV2 Gen2 Kata - Trusted Launch
     type: boolean
@@ -85,19 +109,19 @@ parameters:
   - name: build1804fipscontainerd
     displayName: Build 1804 FIPS containerd
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: build1804fipsgen2containerd
     displayName: Build 1804 FIPS Gen2 containerd
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: build2004fipscontainerd
     displayName: Build 2004 FIPS containerd
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: build2004fipsgen2containerd
     displayName: Build 2004 FIPS Gen2 containerd
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: build2204fipscontainerd
     displayName: Build 2204 FIPS containerd
     type: boolean
@@ -109,7 +133,7 @@ parameters:
   - name: build2204arm64gen2containerd
     displayName: Build 2204 ARM64 Gen2 containerd
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: build2404arm64gen2containerd
     displayName: Build 2404 ARM64 Gen2 containerd
     type: boolean
@@ -117,11 +141,11 @@ parameters:
   - name: build2204containerd
     displayName: Build 2204 Gen1 Containerd
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: build2204gen2containerd
     displayName: Build 2204 Gen2 Containerd
     type: boolean
-    default: true
+    default: true # Run build and e2e test on PR
   - name: build2404containerd
     displayName: Build 2404 Gen1 Containerd
     type: boolean
@@ -133,11 +157,11 @@ parameters:
   - name: build2004cvmgen2containerd
     displayName: Build 2004 CVM Gen2 Containerd
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: build2204tlgen2containerd
     displayName: Build 2204 TL Gen2 Containerd
     type: boolean
-    default: true
+    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
   - name: build2204minimalgen1containerd
     displayName: Build 2204 Minimal Gen1 Containerd
     type: boolean
@@ -150,14 +174,6 @@ parameters:
     displayName: Dry run
     type: boolean
     default: False
-
-variables:
-  - name: CONTAINER_IMAGE
-    value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
-
-pool:
-  name: $(POOL_NAME)
-
 stages:
   - stage: build
     jobs:
