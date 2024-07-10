@@ -77,8 +77,7 @@ windows 23H2 gen1 and windows 23H2 gen2.
 
 ## Generate and Update current windows test images
 
-Currently, we use the latest test images ""
-/subscriptions/$AZURE_BUILD_SUBSCRIPTION_ID/resourceGroups/$AZURE_BUILD_RESOURCE_GROUP_NAME/providers/Microsoft.Compute/galleries/$AZURE_BUILD_GALLERY_NAME/images/windows-e2e-test-$WINDOWS_E2E_IMAGE/versions/latest" (
+Currently, we use the latest test images "/subscriptions/$AZURE_E2E_IMAGE_SUBSCRIPTION_ID/resourceGroups/$AZURE_E2E_IMAGE_RESOURCE_GROUP_NAME/providers/Microsoft.Compute/galleries/$AZURE_E2E_IMAGE_GALLERY_NAME/images/windows-$WINDOWS_E2E_IMAGE/versions/latest" (
 $WINDOWS_E2E_IMAGE could be 2019-containerd, 2022-containerd, 2022-containerd-gen2, 23H2, 23H2-gen2) as is referred
 by `IMAGE_REFERENCE` in `e2e-scenario.sh`.
 
