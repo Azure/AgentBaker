@@ -314,7 +314,7 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 				},
 			},
 		},
-	}, nil
+	}
 }
 
 func getPrivateIP(res listVMSSVMNetworkInterfaceResult) (string, error) {
