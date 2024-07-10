@@ -944,7 +944,7 @@ checkPerformanceData() {
 
   echo "$test: Checking for existence of $performanceDataPath"
   if test -f "$performanceDataPath"; then
-    echo "File $performanceDataPath exists"
+    err "$test: $performanceDataPath deletion was not successful."
     return 1
   else
     echo "File $performanceDataPath does not exist"

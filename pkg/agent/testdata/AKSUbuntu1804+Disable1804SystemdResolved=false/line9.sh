@@ -367,7 +367,7 @@ should_skip_nvidia_drivers() {
     echo "$should_skip"
 }
 
-installJq () {
+installJq() {
   output=$(jq --version)
   if [ -n "$output" ]; then
     echo "$output"
@@ -381,7 +381,7 @@ installJq () {
 }
 
 
-check_array_size () {
+check_array_size() {
   declare -n array_name=$1
   local array_size=${#array_name[@]}
   if [[ ${array_size} -gt 0 ]]; then
@@ -391,7 +391,7 @@ check_array_size () {
   fi
 }
 
-capture_benchmark () {
+capture_benchmark() {
   set +x
   benchmarks+=($1)
   check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
@@ -426,7 +426,7 @@ capture_benchmark () {
   set -x
 }
 
-process_benchmarks () {
+process_benchmarks() {
   set +x
   check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
   declare -n script_stats="${benchmarks[last_index]}"
