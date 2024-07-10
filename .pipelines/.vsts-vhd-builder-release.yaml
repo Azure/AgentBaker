@@ -1,6 +1,13 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
+variables:
+  - name: CONTAINER_IMAGE
+    value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
+
+pool:
+  name: $(POOL_NAME)
+
 parameters:
   - name: build1804containerd
     displayName: Build 1804 containerd
@@ -150,13 +157,6 @@ parameters:
     displayName: Dry run
     type: boolean
     default: False
-
-variables:
-  - name: CONTAINER_IMAGE
-    value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
-
-pool:
-  name: $(POOL_NAME)
 
 stages:
   - stage: build
