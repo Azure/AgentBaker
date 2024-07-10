@@ -15,7 +15,7 @@ $global:aksTempDir = "c:\akstemp"
 $global:aksToolsDir = "c:\aks-tools"
 
 # We need to guarantee that the node provisioning will not fail because the vhd is full before resize-osdisk is called in AKS Windows CSE script.
-$global:lowestFreeSpace = 2*1024*1024*1024 # 2GB
+$global:lowestFreeSpace = 1.5*1024*1024*1024 # 1.5GB
 
 $global:excludeHashComparisionListInAzureChinaCloud = @(
     "calico-windows",
