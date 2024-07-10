@@ -77,7 +77,9 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     ${VM_OPTIONS} \
     --assign-identity "[system]"
 
+set +x
 VM_PRINCIPLE_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
+set -x
 az role assignment create --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}"
 
 FULL_PATH=$(realpath $0)
