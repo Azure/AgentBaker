@@ -1,10 +1,10 @@
 #!/bin/bash
 
 script_start_timestamp=$(date +%H:%M:%S)
-start_timestamp=$(date +%H:%M:%S)
+section_start_timestamp=$(date +%H:%M:%S)
 
-capture_script_start=$(date +%s)
-capture_time=$(date +%s)
+script_start_stopwatch=$(date +%s)
+section_start_stopwatch=$(date +%s)
 
 declare -a benchmarks=()
 
@@ -24,11 +24,11 @@ source /home/packer/tool_installs_distro.sh
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
+VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
-stop_watch $capture_time "Declare Variables / Configure Environment" false
-start_watch
+capture_benchmark "declare_variables_and_source_packer_files"
 
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
@@ -53,8 +53,7 @@ APT::Periodic::AutocleanInterval "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
-stop_watch $capture_time "Purge and Re-install Ubuntu" false
-start_watch
+capture_benchmark "purge_and_reinstall_ubuntu"
 
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
@@ -97,9 +96,7 @@ SystemMaxUse=1G
 RuntimeMaxUse=1G
 ForwardToSyslog=yes
 EOF
-
-stop_watch $capture_time "Install Dependencies" false
-start_watch
+capture_benchmark "install_dependencies"
 
 if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then
   echo "Unsupported container runtime. Only containerd is supported for new VHD builds."
@@ -128,8 +125,7 @@ if [[ $OS != $MARINER_OS_NAME ]]; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
-stop_watch $capture_time "Check Container Runtime / Network Configurations" false
-start_watch
+capture_benchmark "check_container_runtime_and_network_configurations"
 
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
@@ -174,7 +170,7 @@ echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEP
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
-stop_watch $capture_time "Create Containerd Service Directory, Download Shims, Configure Runtime and Network" false
+capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
 
 # doing this at vhd allows CSE to be faster with just mv
 unpackAzureCNI() {
@@ -290,8 +286,9 @@ cliTool="ctr"
 # also pre-download Teleportd plugin for containerd
 downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
 
-stop_watch $capture_time "Artifact Streaming, Download Containerd Plugins" false
-start_watch
+INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
+echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
+capture_benchmark "artifact_streaming_and_download_teleportd"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
@@ -332,8 +329,7 @@ PRESENT_DIR=$(pwd)
 BCC_PID=$!
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
-stop_watch $capture_time "Pull NVIDIA driver image (mcr), Start installBcc subshell" false
-start_watch
+capture_benchmark "pull_nvidia_driver_image_and_run_installBcc_in_subshell"
 
 string_replace() {
   echo ${1//\*/$2}
@@ -397,15 +393,13 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 
 # can't use cliTool because crictl doesn't support retagging.
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
-stop_watch $capture_time "Pull and Re-tag Container Images" false
-start_watch
+capture_benchmark "pull_and_retag_container_images"
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner v2
 if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) ]]; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
-stop_watch $capture_time "Configure Networking and Interface" false
-start_watch
+capture_benchmark "configure_networking_and_interface"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
@@ -433,8 +427,7 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   systemctlEnableAndStart nvidia-device-plugin || exit 1
 fi
 fi
-stop_watch $capture_time "GPU Device plugin" false
-start_watch
+capture_benchmark "download_gpu_device_plugin"
 
 # Kubelet credential provider plugins
 CREDENTIAL_PROVIDER_VERSIONS="
@@ -490,8 +483,7 @@ for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
   # shellcheck disable=SC2181
   echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
 done
-stop_watch $capture_time "Configure Telemetry, Create Logging Directory, Kube-proxy" false
-start_watch
+capture_benchmark "configure_telemetry_create_logging_directory_and_download_kubeproxy_images"
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
@@ -543,6 +535,7 @@ EOF
 else
   echo "Error: installBcc subshell failed with exit code $BCC_EXIT_CODE" >&2
 fi
+capture_benchmark "finish_installing_bcc_tools"
 
 # use the private_packages_url to download and cache packages
 if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
@@ -568,14 +561,7 @@ for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
 done
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
-stop_watch $capture_time "Download and Process Kubernetes Packages / Extract Binaries" false
-
-# We dont call out to apt after this in our build process, therefore restoring sources.list back to its original state if we used canonical snapshot earlier
-# This will also always happen when cloud-init is applied, therefore, all AKS nodes will always have a fresh sources.list regardless
-if [[ "${OS_VERSION}" == "22.04" && -n "${VHD_BUILD_TIMESTAMP}" ]]; then
-  sed -i "s#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#http://azure.archive.ubuntu.com/ubuntu/#g" /etc/apt/sources.list
-fi
-
+capture_benchmark "download_kubernetes_binaries"
 echo "install-dependencies step completed successfully"
-stop_watch $capture_script_start "install-dependencies.sh" true
-show_benchmarks
+capture_benchmark "overall_script" true
+process_benchmarks

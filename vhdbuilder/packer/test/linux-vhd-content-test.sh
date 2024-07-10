@@ -955,6 +955,21 @@ testNBCParserBinary () {
 
 }
 
+checkPerformanceData() {
+  local test="checkPerformanceData"
+  local performanceDataPath="/opt/azure/vhd-build-performance-data.json"
+
+  echo "$test: Checking for existence of $performanceDataPath"
+  if test -f "$performanceDataPath"; then
+    err "$test: $performanceDataPath deletion was not successful."
+    return 1
+  else
+    echo "File $performanceDataPath does not exist"
+  fi
+  echo "$test: Test finished successfully."
+  return 0
+}
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -966,6 +981,7 @@ testNBCParserBinary () {
 # To repro the test results on the exact VM, we can set VHD_DEBUG="True" in the azure pipeline env variables.
 # This will keep the VM alive after the tests are run and we can SSH/Bastion into the VM to run the test manually.
 # Therefore, for example, you can run "sudo bash /var/lib/waagent/run-command/download/0/script.sh" to run the tests manually.
+checkPerformanceData
 testBccTools
 testVHDBuildLogsExist
 testCriticalTools
