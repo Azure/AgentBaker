@@ -109,10 +109,10 @@ if [ -z "${SUBNET_NAME}" ]; then
 fi
 
 SHALLOW_REPLICATION_TOGGLE="false"
-if [[ "${MODE}" == "linuxVhdMode" ]] && [[ "${ENVIRONMENT,,}" == "test" ]]; then
+#if [[ "${MODE}" == "linuxVhdMode" ]] && [[ "${ENVIRONMENT,,}" == "test" ]]; then
   # continue using full replication for prod builds for now
-  SHALLOW_REPLICATION_TOGGLE="true"
-fi
+  #SHALLOW_REPLICATION_TOGGLE="true"
+#fi
 
 echo "SHALLOW_REPLICATION_TOGGLE set to: ${SHALLOW_REPLICATION_TOGGLE}"
 
