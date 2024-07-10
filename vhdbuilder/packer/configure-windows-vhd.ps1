@@ -59,7 +59,7 @@ function Download-FileWithAzCopy {
         $env:AZCOPY_LOG_LOCATION="$global:aksTempDir\azcopy"
         # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows-vhd-builder-sig.json
         .\azcopy.exe login --login-type=MSI
-        .\azcopy.exe copy $URL $Dest --from-to BlobLocal
+        .\azcopy.exe copy $URL $Dest
     popd
 }
 
