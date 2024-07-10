@@ -25,7 +25,7 @@ import (
 const (
 	nvidia470CudaDriverVersion = "cuda-470.82.01"
 	nvidia535CudaDriverVersion = "cuda-535.54.03"
-	nvidia550CudaDriverVersion = "cuda-550.54.15"
+	nvidia550CudaDriverVersion = "cuda-550.90.07"
 	nvidia535GridDriverVersion = "grid-535.161.08"
 )
 
@@ -33,7 +33,7 @@ const (
 // So for now these will be kept here like this.
 const (
 	aksGPUGridSHA = "sha-d1f0ca"
-	aksGPUCudaSHA = "sha-2d4c96"
+	aksGPUCudaSHA = "sha-7b2b12"
 )
 
 /*
