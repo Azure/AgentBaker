@@ -55,10 +55,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *sce
 }
 
 func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
-	model, err := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)
-	if err != nil {
-		return nil, fmt.Errorf("get base VMSS model: %w", err)
-	}
+	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)
 
 	if config.BuildID != "" {
 		if model.Tags == nil {
@@ -79,7 +76,7 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 	}
 
 	if err := opts.scenario.PrepareVMSSModel(&model); err != nil {
-		return nil, fmt.Errorf(" prepare model for VMSS %q: %w", vmssName, err)
+		return nil, fmt.Errorf("prepare VMSS model %q: %w", vmssName, err)
 	}
 
 	var pollErr error
@@ -107,7 +104,7 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 		if pollErr == nil {
 			return &vmssResp.VirtualMachineScaleSet, nil
 		}
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		if errors.Is(pollErr, context.DeadlineExceeded) || errors.Is(pollErr, context.Canceled) {
 			return nil, fmt.Errorf("create VMSS %q: %w", vmssName, pollErr)
 		}
 		log.Printf("failed to create VMSS. Retry attempts left: %d", maxRetries-(i+1))
@@ -223,10 +220,10 @@ func getVmssName(r *mrand.Rand) string {
 	return fmt.Sprintf(vmssNameTemplate, randomLowercaseString(r, 4))
 }
 
-func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) (armcompute.VirtualMachineScaleSet, error) {
+func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
 	resourceID, err := config.VHDUbuntu1804Gen2Containerd()
 	if err != nil {
-		return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("get resource ID for VHD: %w", err)
+		log.Printf("get resource ID for VHD, will not set default VHD within base VMSS model: %w", err)
 	}
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Location),
