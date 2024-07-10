@@ -205,20 +205,29 @@ EOF
 
 installFIPS() {
     echo "Installing FIPS..."
+    timestamp=$(date +%H:%M:%S)
+    echo "Wait for apt locks start: $timestamp"
     wait_for_apt_locks
+    timestamp=$(date +%H:%M:%S)
+    echo "Wait for apt locks end: $timestamp"
 
     # installing fips kernel doesn't remove non-fips kernel now, purge current linux-image-azure
     echo "purging linux-image-azure..."
     linuxImages=$(apt list --installed | grep linux-image- | grep azure | cut -d '/' -f 1)
     for image in $linuxImages; do
+        echo "Next image"
         echo "Removing non-fips kernel ${image}..."
         if [[ ${image} != "linux-image-$(uname -r)" ]]; then
             apt_get_purge 5 10 120 ${image} || exit 1
         fi
     done
+    timestamp=$(date +%H:%M:%S)
+    echo "Image Purge End: $timestamp"
 
     echo "enabling ua fips-updates..."
     retrycmd_if_failure 5 10 1200 yes | ua enable fips-updates || exit $ERR_UA_ENABLE_FIPS
+    timestamp=$(date +%H:%M:%S)
+    echo "Enable FIPS updates End: $timestamp"
 }
 
 relinkResolvConf() {
