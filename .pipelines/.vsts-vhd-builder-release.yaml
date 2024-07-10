@@ -8,6 +8,7 @@ variables:
 pool:
   name: $(POOL_NAME)
 
+
 parameters:
   - name: build1804containerd
     displayName: Build 1804 containerd
