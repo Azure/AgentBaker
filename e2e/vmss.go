@@ -223,7 +223,7 @@ func getVmssName(r *mrand.Rand) string {
 func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
 	resourceID, err := config.VHDUbuntu1804Gen2Containerd()
 	if err != nil {
-		log.Printf("get resource ID for VHD, will not set default VHD within base VMSS model: %w", err)
+		log.Printf("get resource ID for VHD, will not set default VHD within base VMSS model: %s", err)
 	}
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Location),
