@@ -213,6 +213,8 @@ installFIPS() {
 
     # installing fips kernel doesn't remove non-fips kernel now, purge current linux-image-azure
     echo "purging linux-image-azure..."
+    timestamp=$(date +%H:%M:%S)
+    echo "image purge start: $timestamp"
     linuxImages=$(apt list --installed | grep linux-image- | grep azure | cut -d '/' -f 1)
     for image in $linuxImages; do
         echo "Next image"
