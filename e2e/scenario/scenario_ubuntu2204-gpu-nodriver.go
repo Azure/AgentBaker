@@ -11,6 +11,12 @@ func ubuntu2204gpuNoDriver() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204-gpu-nodriver",
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
+		Tags: Tags{
+			Name:     "ubuntu2204-gpu-nodriver",
+			OS:       "ubuntu2204",
+			Platform: "x64",
+			GPU:      true,
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,

@@ -9,6 +9,11 @@ func marinerv2ChronyRestarts() *Scenario {
 	return &Scenario{
 		Name:        "marinerv2-chrony-restarts",
 		Description: "Tests that the chrony service restarts if it is killed",
+		Tags: Tags{
+			Name:     "marinerv2-chrony-restarts",
+			OS:       "marinerv2",
+			Platform: "x64",
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,

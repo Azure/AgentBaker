@@ -9,6 +9,11 @@ func ubuntu2204() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204",
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
+		Tags: Tags{
+			Name:     "ubuntu2204",
+			OS:       "ubuntu2204",
+			Platform: "x64",
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
