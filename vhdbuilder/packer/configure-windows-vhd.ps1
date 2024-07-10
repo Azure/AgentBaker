@@ -733,10 +733,20 @@ function Get-SystemDriveDiskInfo {
     foreach($disk in $disksInfo) {
         if ($disk.DeviceID -eq "C:") {
             Write-Log "Disk C: Free space: $($disk.FreeSpace), Total size: $($disk.Size)"
+        }
+    }
+}
 
+function Validate-VHDFreeSize {
+    Clear-TempFolder
+    Write-Log "Get Disk info"
+    $disksInfo=Get-CimInstance -ClassName Win32_LogicalDisk
+    foreach($disk in $disksInfo) {
+        if ($disk.DeviceID -eq "C:") {
             if ($disk.FreeSpace -lt $global:lowestFreeSpace) {
-                throw "Disk C: Free space is less than $($global:lowestFreeSpace)"
+                throw "Disk C: Free space $($disk.FreeSpace) is less than $($global:lowestFreeSpace)"
             }
+            break
         }
     }
 }
@@ -836,6 +846,7 @@ try{
             Remove-Item -Path c:\windows-vhd-configuration.ps1
             Cleanup-TemporaryFiles
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
+            Validate-VHDFreeSize
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"
