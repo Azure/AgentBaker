@@ -58,7 +58,8 @@ function Download-FileWithAzCopy {
         $env:AZCOPY_JOB_PLAN_LOCATION="$global:aksTempDir\azcopy"
         $env:AZCOPY_LOG_LOCATION="$global:aksTempDir\azcopy"
         # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows-vhd-builder-sig.json
-        .\azcopy.exe login --login-type=MSI
+        # .\azcopy.exe login --login-type=MSI
+        .\azcopy.exe login --identity
         .\azcopy.exe copy $URL $Dest --from-to BlobLocal --trusted-microsoft-suffixes "azureedge.net"
     popd
 }
@@ -821,6 +822,7 @@ try{
         "1" {
             Write-Log "Performing actions for provisioning phase 1"
             Expand-OS-Partition
+            Get-PrivatePackagesToCacheOnVHD
             Exclude-ReservedUDPSourcePort
             Get-LatestWindowsDefenderPlatformUpdate
             Disable-WindowsUpdates
