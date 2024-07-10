@@ -822,7 +822,6 @@ try{
         "1" {
             Write-Log "Performing actions for provisioning phase 1"
             Expand-OS-Partition
-            Get-PrivatePackagesToCacheOnVHD
             Exclude-ReservedUDPSourcePort
             Get-LatestWindowsDefenderPlatformUpdate
             Disable-WindowsUpdates
@@ -836,6 +835,7 @@ try{
         }
         "2" {
             Write-Log "Performing actions for provisioning phase 2"
+            Get-PrivatePackagesToCacheOnVHD
             Log-ReofferUpdate
             Set-WinRmServiceAutoStart
             Install-ContainerD
@@ -843,7 +843,6 @@ try{
             Get-ContainerImages
             Get-FilesToCacheOnVHD
             Get-ToolsToVHD # Rely on the completion of Get-FilesToCacheOnVHD
-            Get-PrivatePackagesToCacheOnVHD
             Log-ReofferUpdate
         }
         "3" {
