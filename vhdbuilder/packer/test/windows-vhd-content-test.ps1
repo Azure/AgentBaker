@@ -392,6 +392,8 @@ function Test-RegistryAdded {
         Validate-WindowsFixInFeatureManagement -Name 2540111500
         Validate-WindowsFixInFeatureManagement -Name 50261647
         Validate-WindowsFixInFeatureManagement -Name 1475968140
+
+        Validate-WindowsFixInFeatureManagement -Name 747051149
     }
     if ($env:WindowsSKU -Like '23H2*') {
         Validate-WindowsFixInHnsState -Name NamespaceExcludedUdpPorts -Value 65330
@@ -474,6 +476,13 @@ function Test-SSHDConfig {
     }
     if ($result -Match '.*-etm@openssh.com') {
         Write-ErrorWithTimestamp "C:\programdata\ssh\sshd_config is not updated for CVE-2023-48795"
+        exit 1
+    }
+
+    $ConfigPath = "C:\programdata\ssh\sshd_config"
+    $sshdConfig = Get-Content $ConfigPath
+    if ($sshdConfig.Contains("#LoginGraceTime") -or (-not $sshdConfig.Contains("LoginGraceTime 0"))) {
+        Write-ErrorWithTimestamp "C:\programdata\ssh\sshd_config is not updated for CVE-2006-5051"
         exit 1
     }
 }
