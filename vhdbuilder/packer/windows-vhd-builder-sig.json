@@ -74,7 +74,8 @@
             "environment_vars": [
                 "ProvisioningPhase=1",
                 "WindowsSKU={{user `windows_sku`}}",
-                "CustomizedDiskSize={{user `os_disk_size_gb`}}"
+                "CustomizedDiskSize={{user `os_disk_size_gb`}}",
+                "WindowsPrivatePackagesURL={{user `windows_private_packages_url`}}"
             ],
             "type": "powershell",
             "scripts": [
