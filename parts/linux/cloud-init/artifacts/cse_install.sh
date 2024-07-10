@@ -89,7 +89,6 @@ downloadCredentalProviderWithOras() {
 }
 
 installOras() {
-    # install oras here
     ORAS_VERSION="1.2.0"
     CPU_ARCH=$(getCPUArch)
     curl -LO "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_${CPU_ARCH}.tar.gz"

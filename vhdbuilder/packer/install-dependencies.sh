@@ -165,6 +165,9 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     activateNfConntrack
 fi
 
+# installs oras for installing packages for network isolated clusters 
+installOras
+
 # TODO (alburgess) orsa for WASM shims
 downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
@@ -421,9 +424,6 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
 fi
 fi
 capture_benchmark "download_gpu_device_plugin"
-
-# TODO (alburgess) move above first oras download to be
-installOras
 
 # Kubelet credential provider plugins
 CREDENTIAL_PROVIDER_VERSIONS="
