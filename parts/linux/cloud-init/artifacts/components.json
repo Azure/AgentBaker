@@ -4,7 +4,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.8.20"
+        "1.8.20",
+        "1.8.22"
       ]
     },
     {
@@ -25,8 +26,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/coredns:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.9.4-hotfix.20240327",
-        "v1.9.4-hotfix.20240520"
+        "v1.9.4-hotfix.20240520",
+        "v1.9.4-hotfix.20240627"
       ]
     },
     {
@@ -40,11 +41,18 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cni:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.5.28"
+        "v1.5.28",
+        "v1.6.0"
       ],
       "prefetchOptimizations": [
         {
           "version": "v1.5.28",
+          "binaries": [
+            "dropgz"
+          ]
+        },
+        {
+          "version": "v1.6.0",
           "binaries": [
             "dropgz"
           ]
@@ -56,11 +64,18 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.4.52",
-        "v1.5.26"
+        "v1.5.26",
+        "v1.6.0"
       ],
       "prefetchOptimizations": [
         {
           "version": "v1.5.26",
+          "binaries": [
+            "usr/local/bin/azure-cns"
+          ]
+        },
+        {
+          "version": "v1.6.0",
           "binaries": [
             "usr/local/bin/azure-cns"
           ]
@@ -88,7 +103,8 @@
       "multiArchVersions": [
         "v0.0.13",
         "v0.0.20",
-        "v0.1.4"
+        "v0.1.4",
+        "v0.2.0"
       ],
       "prefetchOptimizations": [
         {
@@ -108,6 +124,12 @@
           "binaries": [
             "dropgz"
           ]
+        },
+        {
+          "version": "v0.2.0",
+          "binaries": [
+            "dropgz"
+          ]
         }
       ]
     },
@@ -115,7 +137,7 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.5.23"
+        "v1.5.29"
       ]
     },
     {
@@ -254,7 +276,6 @@
       "downloadURL": "mcr.microsoft.com/aks/ip-masq-agent-v2:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.1.10",
         "v0.1.11"
       ]
     },
@@ -262,10 +283,10 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.28.7",
         "v1.28.8",
-        "v1.29.4",
-        "v1.29.6"
+        "v1.28.9",
+        "v1.29.6",
+        "v1.29.7"
       ]
     },
     {
@@ -273,11 +294,11 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.28.10",
-        "v1.28.10-2",
+        "v1.28.11",
         "v1.29.5",
-        "v1.29.5-2",
+        "v1.29.6",
         "v1.30.2",
-        "v1.30.2-2"
+        "v1.30.3"
       ]
     },
     {
@@ -285,7 +306,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.22.6",
-        "v1.22.6-3",
+        "v1.22.7",
         "v1.23.4",
         "v1.23.5"
       ]
@@ -294,15 +315,16 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.12.0"
+        "v2.12.0",
+        "v2.13.0"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.10.0",
-        "v2.10.1"
+        "v2.10.1",
+        "v2.11.0"
       ]
     },
     {
@@ -362,119 +384,32 @@
       ]
     }
   ],
-  "Packages": [
+  "DownloadFiles": [
     {
-      "name": "runc",
-      "downloadLocation": "/opt/runc/downloads",
-      "downloadURIs": {
-        "ubuntu": {
-          "r1804": {
-            "versions": [
-              "1.1.12-ubuntu18.04u1"
-            ],
-            "downloadURL": ""
-          },
-          "r2004": {
-            "versions": [
-              "1.1.12-ubuntu20.04u1"
-            ],
-            "downloadURL": ""
-          },
-          "r2204": {
-            "versions": [
-              "1.1.12-ubuntu22.04u1"
-            ],
-            "downloadURL": ""
-          }
-        },
-        "mariner": {
-          "current": {
-            "versions": [
-              "1.4.54"
-            ],
-            "downloadURL": ""
-          }
-        }
-      }
-    },
-    {
-      "name": "containerd",
-      "downloadLocation": "/opt/containerd/downloads",
-      "downloadURIs": {
-        "ubuntu": {
-          "current": {
-            "versions": [
-              "1.7.15-1"
-            ],
-            "downloadURL": ""
-          },
-          "r1804": {
-            "versions": [
-              "1.7.1-1"
-            ],
-            "downloadURL": ""
-          }
-        },
-        "mariner": {
-          "current": {
-            "versions": [
-              "1.3.4"
-            ],
-            "downloadURL": ""
-          }
-        },
-        "default": {
-          "current": {
-            "versions": [
-              "1.7.15-1"
-            ],
-            "downloadURL": ""
-          }
-        }
-      }
-    },
-    {
-      "name": "cni-plugins",
+      "fileName": "cni-plugins-linux-amd64-v*",
       "downloadLocation": "/opt/cni/downloads",
-      "downloadURIs": {
-        "default": {
-          "current": {
-            "versions": [
-              "1.4.1"
-            ],
-            "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
-          }
-        }
-      }
+      "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
+      "versions": [
+        "1.4.1"
+      ]
     },
     {
-      "name": "azure-cni",
+      "fileName": "azure-vnet-cni-linux-amd64-v*",
       "downloadLocation": "/opt/cni/downloads",
-      "downloadURIs": {
-        "default": {
-          "current": {
-            "versions": [
-              "1.4.54",
-              "1.5.28"
-            ],
-            "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
-          }
-        }
-      }
+      "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
+      "versions": [
+        "1.4.54",
+        "1.5.28"
+      ]
     },
     {
-      "name": "cri-tools",
+      "fileName": "crictl-v*-linux-amd64.tar.gz",
       "downloadLocation": "/opt/crictl/downloads",
-      "downloadURIs": {
-        "default": {
-          "current": {
-            "versions": [
-              "1.29.0"
-            ],
-            "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v${version}/binaries/crictl-v${version}-linux-${CPU_ARCH}.tar.gz"
-          }
-        }
-      }
+      "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v*/binaries",
+      "versions": [
+        "1.29.0"
+      ],
+      "targetContainerRuntime": "containerd"
     }
   ]
 }

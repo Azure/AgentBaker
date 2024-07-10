@@ -36,8 +36,8 @@ func init() {
 	if onVHD.FromComponentContainerImages == nil {
 		panic("onVHD.FromComponentContainerImages is nil after initialization")
 	}
-	if onVHD.FromComponentPackages == nil {
-		panic("onVHD.FromComponentPackages is nil after initialization")
+	if onVHD.FromComponentDownloadedFiles == nil {
+		panic("onVHD.FromComponentDownloadedFiles is nil after initialization")
 	}
 }
 
@@ -67,15 +67,19 @@ func loadOnVHD() (*OnVHD, error) {
 		}
 		componentContainerImages[imageName] = image
 	}
-	componentPackages := make(map[string]Package)
-	for _, p := range components.Packages {
-		componentPackages[p.Name] = p
+	componentDownloadFiles := make(map[string]DownloadFile)
+	for _, file := range components.DownloadFiles {
+		fileName, nameErr := getFileNameFromURL(file.DownloadURL)
+		if nameErr != nil {
+			return nil, fmt.Errorf("error getting component name from URL: %w", nameErr)
+		}
+		componentDownloadFiles[fileName] = file
 	}
 
 	return &OnVHD{
 		FromManifest:                 manifest,
 		FromComponentContainerImages: componentContainerImages,
-		FromComponentPackages:        componentPackages,
+		FromComponentDownloadedFiles: componentDownloadFiles,
 	}, nil
 }
 

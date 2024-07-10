@@ -2,18 +2,24 @@ package scenario
 
 import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 )
 
-func (t *Template) ubuntu2204ARM64() *Scenario {
+func ubuntu2204ARM64() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204-arm64",
 		Description: "Tests that an Ubuntu 2204 Node using ARM64 architecture can be properly bootstrapped",
+		Tags: Tags{
+			Name:     "ubuntu2204-arm64",
+			OS:       "ubuntu2204",
+			Platform: "arm64",
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHDSelector:     t.Ubuntu2204Gen2ARM64Containerd,
+			VHDSelector:     config.VHDUbuntu2204Gen2Arm64Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
@@ -22,7 +28,6 @@ func (t *Template) ubuntu2204ARM64() *Scenario {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 				nbc.IsARM64 = true
-
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")

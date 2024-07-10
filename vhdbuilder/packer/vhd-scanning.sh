@@ -10,9 +10,13 @@ VHD_IMAGE="$MANAGED_SIG_ID"
 SIG_CONTAINER_NAME="vhd-scans"
 TEST_VM_ADMIN_USERNAME="azureuser"
 
-if [ -z "${CLASSIC_BLOB}" ]; then
-  CLASSIC_BLOB=""
-fi
+# This variable is used to determine where we need to deploy the VM on which we'll run trivy.
+# We must be sure this location matches the location used by packer when delivering the output image
+# version to the staging gallery, as the particular image version will only have a single replica in this region.
+if [ -z "$PACKER_BUILD_LOCATION" ]; then
+    echo "PACKER_BUILD_LOCATION must be set to run VHD scanning"
+    exit 1
+fi 
 
 # Use the domain name from the classic blob URL to get the storage account name.
 # If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
@@ -34,7 +38,7 @@ set -x
 
 
 RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
-az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
+az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags 'source=AgentBaker'
 
 # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
 if [ "$OS_VERSION" == "18.04" ]; then
@@ -45,6 +49,11 @@ fi
 function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
     az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
+
+    if [ -n "${VM_PRINCIPLE_ID}" ]; then
+        az role assignment delete --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}"
+        echo "Role assignment deleted."
+    fi 
 }
 trap cleanup EXIT
 
@@ -68,8 +77,8 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     ${VM_OPTIONS} \
     --assign-identity "[system]"
 
-OBJ_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
-az role assignment create --assignee $OBJ_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT_NAME}/blobServices/default/containers/vhd-scans"
+VM_PRINCIPLE_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
+az role assignment create --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}"
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)

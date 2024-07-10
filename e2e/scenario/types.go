@@ -2,29 +2,96 @@ package scenario
 
 import (
 	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 )
 
-// Template represents a 'scenario template' which contains common config used
-// across all scenarios, such as the VHD catalog for selecting VHDs.
-type Template struct {
-	VHDCatalog
+type Tags struct {
+	Name     string
+	OS       string
+	Platform string
+	Airgap   bool
+	GPU      bool
+	WASM     bool
 }
 
-// NewTemplate constructs a new template using the base VHD catalog.
-func NewTemplate() *Template {
-	return &Template{
-		VHDCatalog: BaseVHDCatalog,
+// MatchesFilters checks if the Tags struct matches all given filters.
+// Filters are comma-separated "key=value" pairs (e.g., "gpu=true,os=x64").
+// Returns true if all filters match, false otherwise. Errors on invalid input.
+func (t Tags) MatchesFilters(filters string) (bool, error) {
+	return t.matchFilters(filters, true)
+}
+
+// MatchesAnyFilter checks if the Tags struct matches at least one of the given filters.
+// Filters are comma-separated "key=value" pairs (e.g., "gpu=true,os=x64").
+// Returns true if any filter matches, false if none match. Errors on invalid input.
+func (t Tags) MatchesAnyFilter(filters string) (bool, error) {
+	return t.matchFilters(filters, false)
+}
+
+// matchFilters is a helper function used by both MatchesFilters and MatchesAnyFilter.
+// The 'all' parameter determines whether all filters must match (true) or just any filter (false).
+func (t Tags) matchFilters(filters string, all bool) (bool, error) {
+	if filters == "" {
+		return true, nil
 	}
-}
 
-// Table represents a set of mappings from scenario name -> Scenario to
-// be run as a part of the test suite
-type Table map[string]*Scenario
+	v := reflect.ValueOf(t)
+	filterPairs := strings.Split(filters, ",")
+
+	for _, pair := range filterPairs {
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) != 2 {
+			return false, fmt.Errorf("invalid filter format: %s", pair)
+		}
+
+		key := strings.TrimSpace(kv[0])
+		value := strings.TrimSpace(kv[1])
+
+		// Case-insensitive field lookup
+		field := reflect.Value{}
+		for i := 0; i < v.NumField(); i++ {
+			if strings.EqualFold(v.Type().Field(i).Name, key) {
+				field = v.Field(i)
+				break
+			}
+		}
+
+		if !field.IsValid() {
+			return false, fmt.Errorf("unknown filter key: %s", key)
+		}
+
+		match := false
+		switch field.Kind() {
+		case reflect.String:
+			match = strings.EqualFold(field.String(), value)
+		case reflect.Bool:
+			boolValue, err := strconv.ParseBool(value)
+			if err != nil {
+				return false, fmt.Errorf("invalid boolean value for %s: %s", key, value)
+			}
+			match = field.Bool() == boolValue
+		default:
+			return false, fmt.Errorf("unsupported field type for %s", key)
+		}
+
+		if all && !match {
+			return false, nil
+		}
+		if !all && match {
+			return true, nil
+		}
+	}
+
+	return all, nil
+}
 
 // Scenario represents an AgentBaker E2E scenario
 type Scenario struct {
@@ -33,6 +100,9 @@ type Scenario struct {
 
 	// Description is a short description of what the scenario does and tests for
 	Description string
+
+	// Tags are used for filtering scenarios to run based on the tags provided
+	Tags Tags
 
 	// Config contains the configuration of the scenario
 	Config
@@ -48,8 +118,8 @@ type Config struct {
 	// cluster which is capable of running the scenario
 	ClusterMutator func(*armcontainerservice.ManagedCluster)
 
-	// VHDSelector is the function called by the e2e suite on the given scenario to get its VHD selection
-	VHDSelector func() VHD
+	// VHD is the function called by the e2e suite on the given scenario to get its VHD selection
+	VHDSelector func() (config.VHDResourceID, error)
 
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
@@ -98,9 +168,14 @@ func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBoot
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(vmss *armcompute.VirtualMachineScaleSet) error {
-	if s.VHDSelector == nil {
-		return fmt.Errorf("VHD selector configured for scenario %q is nil", s.Name)
+	resourceID, err := s.VHDSelector()
+	if err != nil {
+		return fmt.Errorf("unable to prepare VMSS model for scenario %q: %w", s.Name, err)
 	}
+	if resourceID == "" {
+		return fmt.Errorf("unable to prepare VMSS model for scenario %q: VHDSelector.ResourceID is empty", s.Name)
+	}
+
 	if vmss == nil || vmss.Properties == nil {
 		return fmt.Errorf("unable to prepare VMSS model for scenario %q: input VirtualMachineScaleSet or properties are nil", s.Name)
 	}
@@ -116,7 +191,7 @@ func (s *Scenario) PrepareVMSSModel(vmss *armcompute.VirtualMachineScaleSet) err
 		vmss.Properties.VirtualMachineProfile.StorageProfile = &armcompute.VirtualMachineScaleSetStorageProfile{}
 	}
 	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-		ID: to.Ptr(string(s.VHDSelector().ResourceID)),
+		ID: to.Ptr(string(resourceID)),
 	}
 
 	return nil
