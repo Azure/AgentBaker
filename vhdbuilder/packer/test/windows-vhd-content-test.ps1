@@ -476,6 +476,13 @@ function Test-SSHDConfig {
         Write-ErrorWithTimestamp "C:\programdata\ssh\sshd_config is not updated for CVE-2023-48795"
         exit 1
     }
+
+    $ConfigPath = "C:\programdata\ssh\sshd_config"
+    $sshdConfig = Get-Content $ConfigPath
+    if ($sshdConfig.Contains("#LoginGraceTime") -or (-not $sshdConfig.Contains("LoginGraceTime 0"))) {
+        Write-ErrorWithTimestamp "C:\programdata\ssh\sshd_config is not updated for CVE-2006-5051"
+        exit 1
+    }
 }
 
 Test-FilesToCacheOnVHD
