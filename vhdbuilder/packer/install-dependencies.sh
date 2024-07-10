@@ -185,7 +185,6 @@ unpackAzureCNI() {
 
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for p in ${packages[*]}; do
-  start_watch
   #getting metadata for each package
   name=$(echo "${p}" | jq .name -r)
   PackageVersions=()
@@ -246,9 +245,8 @@ for p in ${packages[*]}; do
       # However, installation could be different for different packages.
       ;;
   esac
-  stop_watch $capture_time "Download Components, Determine / Download \"$name\" \"$version\"" false
+  capture_benchmark $capture_time "download_\"$name\""
 done
-start_watch
 
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
