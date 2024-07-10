@@ -9,6 +9,12 @@ func ubuntu2204AirGap() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204-airgap",
 		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
+		Tags: Tags{
+			Name:     "ubuntu2204-airgap",
+			OS:       "ubuntu2204",
+			Platform: "x64",
+			Airgap:   true,
+		},
 		Config: Config{
 			ClusterSelector: NetworkPluginKubenetSelector,
 			ClusterMutator:  NetworkPluginKubenetMutator,

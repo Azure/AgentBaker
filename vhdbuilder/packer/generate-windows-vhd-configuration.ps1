@@ -15,7 +15,7 @@ $global:aksTempDir = "c:\akstemp"
 $global:aksToolsDir = "c:\aks-tools"
 
 # We need to guarantee that the node provisioning will not fail because the vhd is full before resize-osdisk is called in AKS Windows CSE script.
-$global:lowestFreeSpace = 2*1024*1024*1024 # 2GB
+$global:lowestFreeSpace = 1.5*1024*1024*1024 # 1.5GB
 
 $global:excludeHashComparisionListInAzureChinaCloud = @(
     "calico-windows",
@@ -91,14 +91,19 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/windows/servercore/iis:latest",
     # CSI. Owner: andyzhangx (Andy Zhang)
     "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.12.0", # for k8s 1.27+
+    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.13.0", # for k8s 1.27+
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.1", # for k8s 1.27+
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.7-windows-hp", # for k8s 1.27.x
+    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.11.0", # for k8s 1.27+
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.8-windows-hp", # for k8s 1.27.x
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.4-windows-hp", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.9-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.6-windows-hp", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.7-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.10-windows-hp", # for k8s 1.27.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.11-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.5-windows-hp", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.6-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.2-windows-hp", # for k8s 1.29.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.3-windows-hp", # for k8s 1.29.x
     # Addon of Azure secrets store. Owner: jiashun0011 (Jiashun Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.3",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.2",
@@ -111,7 +116,7 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.0", # for k8s 1.30.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.1", # for k8s 1.30.x
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.21",
+    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.22",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.52",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.26",
@@ -125,9 +130,9 @@ $global:imagesToPull += @(
 $global:map = @{
     "c:\akse-cache\"              = @(
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.42.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.43.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.44.zip"
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.44.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.45.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
@@ -162,18 +167,18 @@ $global:map = @{
     #    2. Keep 1.18.10, 1.18.14, 1.18.17, 1.18.18
     #    3. Keep v1.18.17-hotfix.20210322 when adding v1.18.17-hotfix.20210505
     "c:\akse-cache\win-k8s\"      = @(
-        "https://acs-mirror.azureedge.net/kubernetes/v1.27.7-hotfix.20231103/windowszip/v1.27.7-hotfix.20231103-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.9/windowszip/v1.27.9-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.13/windowszip/v1.27.13-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.14/windowszip/v1.27.14-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.28.3-hotfix.20231103/windowszip/v1.28.3-hotfix.20231103-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.27.15/windowszip/v1.27.15-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.5/windowszip/v1.28.5-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.9/windowszip/v1.28.9-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.10/windowszip/v1.28.10-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.29.0/windowszip/v1.29.0-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.28.11/windowszip/v1.28.11-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.4/windowszip/v1.29.4-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.5/windowszip/v1.29.5-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.29.6/windowszip/v1.29.6-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.30.1/windowszip/v1.30.1-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.30.2/windowszip/v1.30.2-1int.zip"
     );
