@@ -384,7 +384,7 @@ should_skip_nvidia_drivers() {
     echo "$should_skip"
 }
 
-installJq () {
+installJq() {
   # jq is not available until downloaded in install-dependencies.sh with the installDeps function
   # but it is needed earlier to call the capture_benchmarks function in pre-install-dependencies.sh
   output=$(jq --version)
@@ -400,7 +400,7 @@ installJq () {
 }
 
 
-check_array_size () {
+check_array_size() {
   declare -n array_name=$1
   local array_size=${#array_name[@]}
   if [[ ${array_size} -gt 0 ]]; then
@@ -410,7 +410,7 @@ check_array_size () {
   fi
 }
 
-capture_benchmark () {
+capture_benchmark() {
   set +x
   benchmarks+=($1)
   check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
@@ -449,7 +449,7 @@ capture_benchmark () {
   set -x
 }
 
-process_benchmarks () {
+process_benchmarks() {
   set +x
   check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
   # use nameref variable to reference overall_script section
