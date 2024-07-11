@@ -394,28 +394,24 @@
           "r1804": {
             "versions": [
               "1.1.12-ubuntu18.04u1"
-            ],
-            "downloadURL":""
+            ]
           },
           "r2004": {
             "versions": [
               "1.1.12-ubuntu20.04u1"
-            ],
-            "downloadURL":""
+            ]
           },
           "r2204": {
             "versions": [
               "1.1.12-ubuntu22.04u1"
-            ],
-            "downloadURL":""
+            ]
           }
         },
         "mariner": {
           "current": {
             "versions": [
               "1.1.9-5.cm2"
-            ],
-            "downloadURL":""
+            ]
           }
         }
       }
@@ -428,30 +424,26 @@
           "current": {
             "versions": [
               "1.7.15-1"
-            ],
-            "downloadURL":""
+            ]
           },
           "r1804": {
             "versions": [
               "1.7.1-1"
-            ],
-            "downloadURL":""
+            ]
           }
         },
         "mariner": {
           "current": {
             "versions": [
               "1.6.26-5.cm2"
-            ],
-            "downloadURL":""
+            ]
           }
         },
         "default": {
           "current": {
             "versions": [
               "1.7.15-1"
-            ],
-            "downloadURL":""
+            ]
           }
         }
       }

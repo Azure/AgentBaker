@@ -16,7 +16,7 @@ package components
 #Packages: [...#Package]
 #ReleaseDownloadURI: {
 	versions:     [...string]
-	downloadURL:  string
+	downloadURL?:  string
 }
 
 #UbuntuOSDistro: {

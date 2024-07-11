@@ -101,10 +101,10 @@ generate: bootstrap
 	GENERATE_TEST_DATA="true" go test ./pkg/agent...
 	@echo "running validate-shell to make sure generated cse scripts are correct"
 	@$(MAKE) validate-shell
-	@echo "running shellspec tests to validate shell/bash scripts"
+	@echo "Running shellspec tests to validate shell/bash scripts"
 	@$(MAKE) shellspec
-	@echo "validating if components.json conforms to the schema components.cue."
-	@echo "error will be shown if any."
+	@echo "Validating if components.json conforms to the schema components.cue."
+	@echo "Error will be shown if any."
 	@$(MAKE) validate-components-json
 
 .PHONY: generate-azure-constants
