@@ -32,7 +32,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *sce
 		return nil, fmt.Errorf("unable to get node bootstrapping: %w", err)
 	}
 
-	vmssModel, err := createVMSSWithPayload(ctx, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
+	vmssModel, err := createVMSSWithPayload(ctx, t, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create VMSS with payload: %w", err)
 	}
@@ -51,7 +51,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *sce
 	return vmssModel, nil
 }
 
-func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
+func createVMSSWithPayload(ctx context.Context, t *testing.T, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
 	log.Printf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
@@ -78,7 +78,7 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 		}
 	}
 
-	if err := opts.scenario.PrepareVMSSModel(&model); err != nil {
+	if err := opts.scenario.PrepareVMSSModel(t, &model); err != nil {
 		return nil, fmt.Errorf(" prepare model for VMSS %q: %w", vmssName, err)
 	}
 

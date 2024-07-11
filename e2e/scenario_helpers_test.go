@@ -41,32 +41,32 @@ func maybeSkipScenario(t *testing.T, s *Scenario) {
 	if config.TagsToRun != "" {
 		matches, err := s.Tags.MatchesFilters(config.TagsToRun)
 		if err != nil {
-			t.Fatalf("could not match tags for %q: %s", s.Name, err)
+			t.Fatalf("could not match tags for %q: %s", t.Name(), err)
 		}
 		if !matches {
-			t.Skipf("skipping scenario %q: scenario tags %+v does not match filter %q", s.Name, s.Tags, config.TagsToRun)
+			t.Skipf("skipping scenario %q: scenario tags %+v does not match filter %q", t.Name(), s.Tags, config.TagsToRun)
 		}
 	}
 
 	if config.TagsToSkip != "" {
 		matches, err := s.Tags.MatchesAnyFilter(config.TagsToSkip)
 		if err != nil {
-			t.Fatalf("could not match tags for %q: %s", s.Name, err)
+			t.Fatalf("could not match tags for %q: %s", t.Name(), err)
 		}
 		if matches {
-			t.Skipf("skipping scenario %q: scenario tags %+v matches filter %q", s.Name, s.Tags, config.TagsToSkip)
+			t.Skipf("skipping scenario %q: scenario tags %+v matches filter %q", t.Name(), s.Tags, config.TagsToSkip)
 		}
 	}
 
 	rid, err := s.VHDSelector()
 	if err != nil {
 		if config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
-			t.Skipf("skipping scenario %q: could not find image", s.Name)
+			t.Skipf("skipping scenario %q: could not find image", t.Name())
 		} else {
-			t.Fatalf("could not find image for %q: %s", s.Name, err)
+			t.Fatalf("could not find image for %q: %s", t.Name(), err)
 		}
 	}
-	t.Logf("running scenario %q with image %q", s.Name, rid)
+	t.Logf("running scenario %q with image %q", t.Name(), rid)
 }
 
 func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *Scenario, clusterConfig *cluster.Cluster) {
@@ -84,7 +84,7 @@ func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *Scenari
 
 	e2eScenario.PrepareNodeBootstrappingConfiguration(nbc)
 
-	loggingDir, err := createVMLogsDir(e2eScenario.Name)
+	loggingDir, err := createVMLogsDir(t.Name())
 	require.NoError(t, err)
 
 	executeScenario(ctx, t, &scenarioRunOpts{
@@ -109,7 +109,7 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 		if config.SkipTestsWithSKUCapacityIssue {
 			var respErr *azcore.ResponseError
 			if errors.As(err, &respErr) && respErr.StatusCode == 409 && respErr.ErrorCode == "SkuNotAvailable" {
-				t.Skip("skipping scenario SKU not available", opts.scenario.Name, err)
+				t.Skip("skipping scenario SKU not available", t.Name(), err)
 			}
 		}
 

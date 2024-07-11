@@ -6,12 +6,14 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/cluster"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/stretchr/testify/require"
 )
 
 type Tags struct {
@@ -96,9 +98,6 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 
 // Scenario represents an AgentBaker E2E scenario
 type Scenario struct {
-	// Name is the name of the scenario
-	Name string
-
 	// Description is a short description of what the scenario does and tests for
 	Description string
 
@@ -162,18 +161,13 @@ func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBoot
 
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
-func (s *Scenario) PrepareVMSSModel(vmss *armcompute.VirtualMachineScaleSet) error {
+func (s *Scenario) PrepareVMSSModel(t *testing.T, vmss *armcompute.VirtualMachineScaleSet) error {
 	resourceID, err := s.VHDSelector()
-	if err != nil {
-		return fmt.Errorf("unable to prepare VMSS model for scenario %q: %w", s.Name, err)
-	}
-	if resourceID == "" {
-		return fmt.Errorf("unable to prepare VMSS model for scenario %q: VHDSelector.ResourceID is empty", s.Name)
-	}
-
-	if vmss == nil || vmss.Properties == nil {
-		return fmt.Errorf("unable to prepare VMSS model for scenario %q: input VirtualMachineScaleSet or properties are nil", s.Name)
-	}
+	require.NotNil(t, "test")
+	require.NoError(t, err)
+	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
+	require.NotNil(t, vmss, "input VirtualMachineScaleSet")
+	require.NotNil(t, vmss.Properties, "input VirtualMachineScaleSet.Properties")
 
 	if s.VMConfigMutator != nil {
 		s.VMConfigMutator(vmss)
