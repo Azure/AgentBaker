@@ -487,79 +487,67 @@ process_benchmarks() {
 }
 
 #return proper release metadata for the package based on the os and osVersion
-#e.g., For os UBUNTU 18.04, if there is a release "r1804" defined in components.json, then return "r1804"
-#Otherwise return "current"
+#e.g., For os UBUNTU 18.04, if there is a release "r1804" defined in components.json, then set RELEASE to "r1804"
+#Otherwise set RELEASE to "current"
 returnRelease() {
     local package="$1"
     local os="$2"
     local osVersion="$3"
-    local release="current"
+    RELEASE="current"
     local osVersionWithoutDot=$(echo "${osVersion}" | sed 's/\.//g')
     #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
     #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
     #For MARINER, the release is always set to "current" now.
     if [[ "${os}" != "${UBUNTU_OS_NAME}" ]]; then
-        echo "${release}"
-        return
+        return 0
     fi
     if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu.\"r${osVersionWithoutDot}\"") != "null" ]]; then
-        release="\"r${osVersionWithoutDot}\""
+        RELEASE="\"r${osVersionWithoutDot}\""
     fi
-    echo "${release}"
 }
 
 returnPackageVersions() {
     local package="$1"
     local os="$2"
     local osVersion="$3"
-    local release="$(returnRelease "${package}" "${os}" "${osVersion}")"
+    RELEASE="current"
+    returnRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
 
-    #if .downloadURIs.${os} exist, then get the versions from there.
+    #if .downloadURIs.${osLowerCase} exist, then get the versions from there.
     #otherwise get the versions from .downloadURIs.default 
     if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
-        versions=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${release}.versions[]" -r)
+        versions=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]" -r)
         for version in ${versions[@]}; do
-            PackageVersions+=("${version}")
+            PACKAGE_VERSIONS+=("${version}")
         done
         return
     fi
-    versions=$(echo "${package}" | jq ".downloadURIs.default.${release}.versions[]" -r)
+    versions=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.versions[]" -r)
     for version in ${versions[@]}; do
-        PackageVersions+=("${version}")
+        PACKAGE_VERSIONS+=("${version}")
     done
-    return
+    return 0
 }
 
 returnPackageDownloadURL() {
     local package=$1
     local os=$2
     local osVersion=$3
-    local release="$(returnRelease "${package}" "${os}" "${osVersion}")"
-    if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
-        #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
-        #otherwise get the downloadURL from .downloadURIs.default 
-        if [[ $(echo "${package}" | jq '.downloadURIs.ubuntu') != "null" ]]; then
-            downloadURL=$(echo "${package}" | jq ".downloadURIs.ubuntu.${release}.downloadURL" -r)
-            echo ${downloadURL}
-            return
-        fi
-        downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${release}.downloadURL" -r)
-        echo ${downloadURL}
-        return    
+    RELEASE="current"
+    returnRelease "${package}" "${os}" "${osVersion}"
+    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
+    
+    #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
+    #otherwise get the downloadURL from .downloadURIs.default 
+    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
+        downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
+        [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
+        return
     fi
-    if [[ "${os}" == "${MARINER_OS_NAME}" ]]; then
-        #if .downloadURIs.ubuntu exist, then get the downloadURL from there.
-        #otherwise get the downloadURL from .downloadURIs.default 
-        if [[ $(echo "${package}" | jq '.downloadURIs.mariner') != "null" ]]; then
-            downloadURL=$(echo "${package}" | jq ".downloadURIs.mariner.${release}.downloadURL" -r)
-            echo ${downloadURL}
-            return
-        fi
-        downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${release}.downloadURL" -r)
-        echo ${downloadURL}
-        return    
-    fi
+    downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
+    [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
+    return    
 }
 
 #HELPERSEOF

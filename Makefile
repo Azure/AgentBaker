@@ -77,6 +77,10 @@ validate-go:
 validate-shell:
 	@./.pipelines/scripts/verify_shell.sh
 
+.PHONY: shellspec
+shellspec:
+	@bash ./hack/tools/bin/shellspec
+
 .PHONY: validate-image-version
 validate-image-version:
 	@./vhdbuilder/packer/test/run-pretest.sh
@@ -97,6 +101,8 @@ generate: bootstrap
 	GENERATE_TEST_DATA="true" go test ./pkg/agent...
 	@echo "running validate-shell to make sure generated cse scripts are correct"
 	@$(MAKE) validate-shell
+	@echo "running shellspec tests to validate shell/bash scripts"
+	@$(MAKE) shellspec
 
 .PHONY: generate-azure-constants
 generate-azure-constants:

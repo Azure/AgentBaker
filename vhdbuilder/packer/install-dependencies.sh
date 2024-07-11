@@ -189,7 +189,8 @@ for p in ${packages[*]}; do
   name=$(echo "${p}" | jq .name -r)
   PackageVersions=()
   returnPackageVersions ${p} ${OS} ${OS_VERSION}
-  packageDownloadURL=$(returnPackageDownloadURL ${p} ${OS} ${OS_VERSION})
+  PACKAGE_DOWNLOAD_URL=""
+  returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
   echo "In components.json, processing components.packages \"${name}\" \"${PackageVersions}\" \"${packageDownloadURL}\""
   downloadDir=$(echo ${p} | jq .downloadLocation -r)
   #download the package

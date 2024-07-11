@@ -46,15 +46,15 @@ installContainerdWithComponentsJson() {
     fi
     os_version="${UBUNTU_RELEASE}"
     containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
-    PackageVersions=()
+    PACKAGE_VERSIONS=()
     returnPackageVersions "${containerdPackage}" "${os}" "${os_version}"
     
     #Containerd's versions array is expected to have only one element.
     #If it has more than one element, we will install the last element in the array.
-    if [[ ${#PackageVersions[@]} -gt 1 ]]; then
+    if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
         echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
     fi
-    IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PackageVersions[*]}"))
+    IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PACKAGE_VERSIONS[*]}"))
     unset IFS
     array_size=${#sortedPackageVersions[@]}
     [[ $((array_size-1)) -lt 0 ]] && last_index=0 || last_index=$((array_size-1))
