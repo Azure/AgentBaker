@@ -938,6 +938,21 @@ testNBCParserBinary () {
 
 }
 
+checkPerformanceData() {
+  local test="checkPerformanceData"
+  local performanceDataPath="/opt/azure/vhd-build-performance-data.json"
+
+  echo "$test: Checking for existence of $performanceDataPath"
+  if test -f "$performanceDataPath"; then
+    err "$test: $performanceDataPath deletion was not successful."
+    return 1
+  else
+    echo "File $performanceDataPath does not exist"
+  fi
+  echo "$test: Test finished successfully."
+  return 0
+}
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -946,6 +961,7 @@ testNBCParserBinary () {
 #
 # We should also avoid early exit from the test run -- like if a command fails with
 # an exit rather than a return -- because that prevents other tests from running.
+checkPerformanceData
 testBccTools
 testVHDBuildLogsExist
 testCriticalTools
