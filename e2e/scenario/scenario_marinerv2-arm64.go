@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/cluster"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
@@ -17,9 +18,8 @@ func marinerv2ARM64() *Scenario {
 			Platform: "arm64",
 		},
 		Config: Config{
-			ClusterSelector: NetworkPluginKubenetSelector,
-			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHDSelector:     config.VHDCBLMarinerV2Gen2Arm64,
+			Cluster:     cluster.ClusterKubenet,
+			VHDSelector: config.VHDCBLMarinerV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-arm64-gen2"

@@ -76,9 +76,9 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 			PerCallPolicies: []policy.Policy{
 				logger,
 			},
+			Retry: DefaultRetryOpts(),
 		},
 	}
-	opts.Retry = DefaultRetryOpts()
 
 	credential, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
@@ -92,8 +92,8 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 			runtime.NewBearerTokenPolicy(credential, []string{"https://management.azure.com/.default"}, nil),
 			logger,
 		},
+		Retry: DefaultRetryOpts(),
 	}
-	clOpts.Retry = DefaultRetryOpts()
 
 	cloud := &AzureClient{}
 
@@ -103,12 +103,12 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 		return nil, fmt.Errorf("failed to create core client: %w", err)
 	}
 
-	cloud.SecurityGroup, err = armnetwork.NewSecurityGroupsClient(subscription, credential, nil)
+	cloud.SecurityGroup, err = armnetwork.NewSecurityGroupsClient(subscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create security group client: %w", err)
 	}
 
-	cloud.Subnet, err = armnetwork.NewSubnetsClient(subscription, credential, nil)
+	cloud.Subnet, err = armnetwork.NewSubnetsClient(subscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create subnet client: %w", err)
 	}
@@ -138,12 +138,12 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 		return nil, fmt.Errorf("failed to create resource group client: %w", err)
 	}
 
-	cloud.VNet, err = armnetwork.NewVirtualNetworksClient(subscription, credential, nil)
+	cloud.VNet, err = armnetwork.NewVirtualNetworksClient(subscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create vnet client: %w", err)
 	}
 
-	cloud.GalleryImageVersionClient, err = armcompute.NewGalleryImageVersionsClient(subscription, credential, nil)
+	cloud.GalleryImageVersionClient, err = armcompute.NewGalleryImageVersionsClient(subscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new images client: %v", err)
 	}
