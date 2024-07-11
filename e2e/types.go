@@ -163,7 +163,6 @@ func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBoot
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(t *testing.T, vmss *armcompute.VirtualMachineScaleSet) error {
 	resourceID, err := s.VHDSelector()
-	require.NotNil(t, "test")
 	require.NoError(t, err)
 	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
 	require.NotNil(t, vmss, "input VirtualMachineScaleSet")
@@ -181,6 +180,11 @@ func (s *Scenario) PrepareVMSSModel(t *testing.T, vmss *armcompute.VirtualMachin
 	}
 	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
 		ID: to.Ptr(string(resourceID)),
+	}
+
+	// don't clean up VMSS in other tests
+	if config.KeepVMSS {
+		vmss.Tags["KEEP_VMSS"] = to.Ptr("true")
 	}
 
 	return nil

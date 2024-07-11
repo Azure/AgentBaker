@@ -10,6 +10,8 @@ import (
 
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 )
 
@@ -17,7 +19,7 @@ import (
 // this will avoid potential conflicts with tests running on other branches
 // there is no strict rules or a hidden meaning for the version
 // testClusterNamePrefix is also used for versioning cluster configurations
-const testClusterNamePrefix = "abe2e-v20240704-"
+const testClusterNamePrefix = "abe2e-artur"
 
 var (
 	clusterKubenet       *Cluster
@@ -88,6 +90,12 @@ func createCluster(ctx context.Context, cluster *armcontainerservice.ManagedClus
 		return nil, err
 	}
 
+	// sometimes tests can be interrupted and vmms are left behind
+	// don't waste resource and delete them
+	if err := collectGarbageVMSS(ctx, createdCluster); err != nil {
+		return nil, fmt.Errorf("collect garbage vmss: %w", err)
+	}
+
 	kube, err := getClusterKubeClient(ctx, config.ResourceGroupName, *cluster.Name)
 	if err != nil {
 		return nil, fmt.Errorf("get kube client using cluster %q: %w", *cluster.Name, err)
@@ -107,7 +115,7 @@ func createCluster(ctx context.Context, cluster *armcontainerservice.ManagedClus
 }
 
 func createNewAKSCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
-	log.Printf("Creating new cluster %s in rg %s\n", *cluster.Name, *cluster.Location)
+	log.Printf("Creating or updating cluster %s in rg %s\n", *cluster.Name, *cluster.Location)
 	pollerResp, err := config.Azure.AKS.BeginCreateOrUpdate(
 		ctx,
 		config.ResourceGroupName,
@@ -184,4 +192,40 @@ func getClusterVNet(ctx context.Context, mcResourceGroupName string) (VNet, erro
 		}
 	}
 	return VNet{}, fmt.Errorf("failed to find aks vnet")
+}
+
+func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
+	rg := *cluster.Properties.NodeResourceGroup
+	pager := config.Azure.VMSS.NewListPager(rg, nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get next page of VMSS: %w", err)
+		}
+		for _, vmss := range page.Value {
+			if _, ok := vmss.Tags["KEEP_VMSS"]; ok {
+				continue
+			}
+			// don't delete managed pools
+			if _, ok := vmss.Tags["aks-managed-poolName"]; ok {
+				continue
+			}
+
+			// don't delete VMSS created in the last hour. They might be currently used in tests
+			// extra 10 minutes is to avoid clock drift issues between the test machine and the Azure API
+			if config.Timeout == 0 || time.Since(*vmss.Properties.TimeCreated) < config.Timeout+10*time.Minute {
+				continue
+			}
+
+			_, err := config.Azure.VMSS.BeginDelete(ctx, rg, *vmss.Name, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+				ForceDeletion: to.Ptr(true),
+			})
+			if err != nil {
+				log.Printf("failed to delete vmss %q: %s", *vmss.Name, err)
+			}
+			log.Printf("deleted garbage vmss %q", *vmss.ID)
+		}
+	}
+
+	return nil
 }

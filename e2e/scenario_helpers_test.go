@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -16,7 +17,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMain(m *testing.M) {
+var beforeAllScenariosOnce sync.Once
+
+func beforeAllScenarios() {
 	if err := createE2ELoggingDir(); err != nil {
 		panic(err)
 	}
@@ -24,11 +27,10 @@ func TestMain(m *testing.M) {
 	if err := ensureResourceGroup(context.Background()); err != nil {
 		panic(err)
 	}
-	m.Run()
-
 }
 
 func RunScenario(t *testing.T, s *Scenario) {
+	beforeAllScenariosOnce.Do(beforeAllScenarios)
 	t.Parallel()
 	ctx := context.Background()
 	model, err := s.Cluster(ctx)
@@ -70,8 +72,7 @@ func maybeSkipScenario(t *testing.T, s *Scenario) {
 }
 
 func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *Scenario, clusterConfig *cluster.Cluster) {
-	log.Printf("chose cluster: %q", *clusterConfig.Model.ID)
-
+	log.Printf("%q: using cluster %q", t.Name(), *clusterConfig.Model.ID)
 	clusterParams, err := pollExtractClusterParameters(ctx, clusterConfig.Kube)
 	require.NoError(t, err)
 
@@ -99,7 +100,7 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair()
 	assert.NoError(t, err)
 
-	vmssName := getVmssName()
+	vmssName := getVmssName(t)
 	log.Printf("creating and bootstrapping vmss: %q", vmssName)
 
 	vmssSucceeded := true
