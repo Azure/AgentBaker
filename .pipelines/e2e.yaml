@@ -6,78 +6,19 @@ trigger:
 pr:
   branches:
     include:
-    - master
-    - official/*
+      - master
+      - official/*
   paths:
     include:
-    - .pipelines/e2e.yaml
-    - e2e
-    - parts/linux
-    - pkg/agent
+      - .pipelines/e2e.yaml
+      - .pipelines/templates/e2e-template.yaml
+      - e2e
+      - parts/linux
+      - pkg/agent
     exclude:
-    - e2e/windows
-    - pkg/agent/datamodel/sig_config*.go # SIG config changes
-    - pkg/agent/datamodel/*.json # SIG version changes
-    - pkg/agent/testdata/AKSWindows* # Windows test data
-    
-variables:
-- group: ab-e2e
-- name: timeout
-  value: 90
-- name: parallel
-  value: 100
-
-pool:
-  name: nodesigtest-pool
-
+      - e2e/windows
+      - pkg/agent/datamodel/sig_config*.go # SIG config changes
+      - pkg/agent/datamodel/*.json # SIG version changes
+      - pkg/agent/testdata/AKSWindows* # Windows test data
 jobs:
-- job: Run_AgentBaker_E2E
-  timeoutInMinutes: ${{ variables.timeout }}
-  steps:
-  - bash: |
-      az login --identity
-      az account set -s $(AZURE_SUBSCRIPTION_ID)
-    displayName: az login
-  - bash: bash .pipelines/scripts/setup_go.sh
-    displayName: setup go
-  - bash: |
-      export PATH="/usr/local/go/bin:$PATH"
-      go version
-      
-      echo "VHD_BUILD_ID=$VHD_BUILD_ID"
-
-      if [ -n "${VHD_BUILD_ID}" ]; then
-        export SIG_VERSION_TAG_NAME=buildId
-        export SIG_VERSION_TAG_VALUE=$VHD_BUILD_ID
-        export IGNORE_SCENARIOS_WITH_MISSING_VHD=true
-    
-        # You can add other commands here that you want to execute
-      else
-        echo "Build.BuildId is not specified. Running default e2e tests."
-      fi
-
-      cd e2e
-      go test -parallel ${{ variables.parallel}} -timeout ${{ variables.timeout }}m -v -run Test_All ./
-    displayName: Run AgentBaker E2E
-    env:
-      VHD_BUILD_ID: $(VHD_BUILD_ID)
-      LOCATION: $(LOCATION)
-  - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
-    artifact: scenario-logs
-    condition: always()
-  - bash: |
-      set -x
-
-      vmssResourceIds=""
-      for vmssModel in e2e/scenario-logs/*/vmssId.txt; do
-        resourceId=$(cat ${vmssModel})
-        vmssResourceIds="${vmssResourceIds} ${resourceId}"
-      done
-
-      if [ -n "${vmssResourceIds// }" ]; then
-        az resource delete --ids ${vmssResourceIds}
-      fi
-    displayName: ensure vmss deletion
-    condition: always()
- 
- 
+  - template: ./templates/e2e-template.yaml
