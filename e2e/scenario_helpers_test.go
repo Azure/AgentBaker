@@ -28,16 +28,6 @@ func TestMain(m *testing.M) {
 
 }
 
-func Test_All(t *testing.T) {
-	t.Parallel()
-	scenarios := AllScenarios()
-	for _, e2eScenario := range scenarios {
-		t.Run(e2eScenario.Name, func(t *testing.T) {
-			RunScenario(t, e2eScenario)
-		})
-	}
-}
-
 func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
 	ctx := context.Background()
