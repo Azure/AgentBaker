@@ -820,17 +820,29 @@ try{
     switch ($env:ProvisioningPhase) {
         "1" {
             Write-Log "Performing actions for provisioning phase 1"
+            Get-SystemDriveDiskInfo
             Expand-OS-Partition
+            Get-SystemDriveDiskInfo
             Exclude-ReservedUDPSourcePort
+            Get-SystemDriveDiskInfo
             Get-LatestWindowsDefenderPlatformUpdate
+            Get-SystemDriveDiskInfo
             Disable-WindowsUpdates
+            Get-SystemDriveDiskInfo
             Set-WinRmServiceDelayedStart
+            Get-SystemDriveDiskInfo
             Update-DefenderSignatures
+            Get-SystemDriveDiskInfo
             Log-ReofferUpdate
+            Get-SystemDriveDiskInfo
             Install-OpenSSH
+            Get-SystemDriveDiskInfo
             Log-ReofferUpdate
+            Get-SystemDriveDiskInfo
             Install-WindowsPatches
+            Get-SystemDriveDiskInfo
             Update-WindowsFeatures
+            Get-SystemDriveDiskInfo
         }
         "2" {
             Write-Log "Performing actions for provisioning phase 2"
