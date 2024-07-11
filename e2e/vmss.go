@@ -2,16 +2,16 @@ package e2e
 
 import (
 	"context"
+	crand "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"io"
 	"log"
-	mrand "math/rand"
 	"testing"
+	"time"
 
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
@@ -24,38 +24,38 @@ const (
 	vmssNameTemplate                         = "abtest%s"
 	listVMSSNetworkInterfaceURLTemplate      = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
-	maxRetries                               = 3
 )
 
-func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, func(), error) {
+func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, error) {
 	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to get node bootstrapping: %w", err)
-	}
-
-	cleanupVMSS := func() {
-		log.Printf("deleting vmss %q", vmssName)
-		if _, err := pollVMSSOperation(ctx, vmssName, pollVMSSOperationOpts{
-			pollingInterval: to.Ptr(deleteVMSSPollInterval),
-			pollingTimeout:  to.Ptr(deleteVMSSPollingTimeout),
-		}, func() (Poller[armcompute.VirtualMachineScaleSetsClientDeleteResponse], error) {
-			return config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.cluster.Properties.NodeResourceGroup, vmssName, nil)
-		}); err != nil {
-			t.Errorf("encountered an error while waiting for deletion of vmss %q: %s", vmssName, err)
-		}
-		log.Printf("finished deleting vmss %q", vmssName)
+		return nil, fmt.Errorf("unable to get node bootstrapping: %w", err)
 	}
 
 	vmssModel, err := createVMSSWithPayload(ctx, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
 	if err != nil {
-		return nil, cleanupVMSS, fmt.Errorf("unable to create VMSS with payload: %w", err)
+		return nil, fmt.Errorf("unable to create VMSS with payload: %w", err)
 	}
 
-	return vmssModel, cleanupVMSS, nil
+	if !config.KeepVMSS {
+		t.Cleanup(func() {
+			_, err := config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+				ForceDeletion: to.Ptr(true),
+			})
+			if err != nil {
+				t.Logf("failed to delete vmss %q: %s", vmssName, err)
+			}
+		})
+	}
+
+	return vmssModel, nil
 }
 
 func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
-	model, err := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)
+	log.Printf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+	model, err := getBaseVMSSModel(ctx, vmssName, string(publicKeyBytes), customData, cseCmd, opts)
 	if err != nil {
 		return nil, fmt.Errorf("get base VMSS model: %w", err)
 	}
@@ -67,13 +67,13 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 		model.Tags[buildIDTagKey] = &config.BuildID
 	}
 
-	isAzureCNI, err := opts.clusterConfig.isAzureCNI()
+	isAzureCNI, err := opts.clusterConfig.IsAzureCNI()
 	if err != nil {
 		return nil, fmt.Errorf("determine whether chosen cluster uses Azure CNI from cluster model: %w", err)
 	}
 
 	if isAzureCNI {
-		if err := addPodIPConfigsForAzureCNI(&model, vmssName, opts); err != nil {
+		if err := addPodIPConfigsForAzureCNI(ctx, &model, vmssName, opts); err != nil {
 			return nil, fmt.Errorf("create pod IP configs for azure CNI scenario: %w", err)
 		}
 	}
@@ -82,44 +82,30 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 		return nil, fmt.Errorf(" prepare model for VMSS %q: %w", vmssName, err)
 	}
 
-	var pollErr error
-	var vmssResp *armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse
-
-	for i := 0; i < maxRetries; i++ {
-		createVMSSCtx, cancel := context.WithTimeout(ctx, vmssClientCreateVMSSPollingTimeout)
-		defer cancel()
-
-		vmssResp, pollErr = pollVMSSOperation(createVMSSCtx, vmssName, pollVMSSOperationOpts{
-			pollUntilDone: &runtime.PollUntilDoneOptions{
-				Frequency: vmssClientCreateVMSSPollInterval,
-			},
-		},
-			func() (Poller[armcompute.VirtualMachineScaleSetsClientCreateOrUpdateResponse], error) {
-				return config.Azure.VMSS.BeginCreateOrUpdate(
-					ctx,
-					*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
-					vmssName,
-					model,
-					nil,
-				)
-			})
-
-		if pollErr == nil {
-			return &vmssResp.VirtualMachineScaleSet, nil
-		}
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			return nil, fmt.Errorf("create VMSS %q: %w", vmssName, pollErr)
-		}
-		log.Printf("failed to create VMSS. Retry attempts left: %d", maxRetries-(i+1))
+	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
+		ctx,
+		*opts.clusterConfig.Model.Properties.NodeResourceGroup,
+		vmssName,
+		model,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("begin create VMSS %q: %w", vmssName, err)
 	}
-	return nil, fmt.Errorf("create VMSS %q: %w", vmssName, pollErr)
+	vmssResp, err := operation.PollUntilDone(ctx, &runtime.PollUntilDoneOptions{
+		Frequency: 10 * time.Second,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("poll until done for VMSS %q: %w", vmssName, err)
+	}
+	return &vmssResp.VirtualMachineScaleSet, nil
 }
 
 // Adds additional IP configs to the passed in vmss model based on the chosen cluster's setting of "maxPodsPerNode",
 // as we need be able to allow AKS to allocate an additional IP config for each pod running on the given node.
 // Additional info: https://learn.microsoft.com/en-us/azure/aks/configure-azure-cni
-func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssName string, opts *scenarioRunOpts) error {
-	maxPodsPerNode, err := opts.clusterConfig.maxPodsPerNode()
+func addPodIPConfigsForAzureCNI(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet, vmssName string, opts *scenarioRunOpts) error {
+	maxPodsPerNode, err := opts.clusterConfig.MaxPodsPerNode()
 	if err != nil {
 		return fmt.Errorf("failed to read agentpool MaxPods value from chosen cluster model: %w", err)
 	}
@@ -130,7 +116,7 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 			Name: to.Ptr(fmt.Sprintf("%s%d", vmssName, i)),
 			Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
 				Subnet: &armcompute.APIEntityReference{
-					ID: to.Ptr(opts.clusterConfig.subnetId),
+					ID: to.Ptr(opts.clusterConfig.SubnetID),
 				},
 			},
 		}
@@ -145,10 +131,10 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 	return nil
 }
 
-func getVMPrivateIPAddress(ctx context.Context, subscription, mcResourceGroupName, vmssName string) (string, error) {
+func getVMPrivateIPAddress(ctx context.Context, mcResourceGroupName, vmssName string) (string, error) {
 	pl := config.Azure.Core.Pipeline()
 	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
-		subscription,
+		config.SubscriptionID,
 		mcResourceGroupName,
 		vmssName,
 		0,
@@ -185,8 +171,8 @@ func getVMPrivateIPAddress(ctx context.Context, subscription, mcResourceGroupNam
 }
 
 // Returns a newly generated RSA public/private key pair with the private key in PEM format.
-func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []byte, e error) {
-	privateKey, err := rsa.GenerateKey(r, 4096)
+func getNewRSAKeyPair() (privatePEMBytes []byte, publicKeyBytes []byte, e error) {
+	privateKey, err := rsa.GenerateKey(crand.Reader, 4096)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create rsa private key: %w", err)
 	}
@@ -219,15 +205,16 @@ func getNewRSAKeyPair(r *mrand.Rand) (privatePEMBytes []byte, publicKeyBytes []b
 	return
 }
 
-func getVmssName(r *mrand.Rand) string {
-	return fmt.Sprintf(vmssNameTemplate, randomLowercaseString(r, 4))
+func getVmssName() string {
+	return fmt.Sprintf(vmssNameTemplate, randomLowercaseString(4))
 }
 
-func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) (armcompute.VirtualMachineScaleSet, error) {
+func getBaseVMSSModel(ctx context.Context, name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) (armcompute.VirtualMachineScaleSet, error) {
 	resourceID, err := config.VHDUbuntu1804Gen2Containerd()
 	if err != nil {
 		return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("get resource ID for VHD: %w", err)
 	}
+
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Location),
 		SKU: &armcompute.SKU{
@@ -300,13 +287,13 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 														fmt.Sprintf(
 															loadBalancerBackendAddressPoolIDTemplate,
 															config.SubscriptionID,
-															*opts.clusterConfig.cluster.Properties.NodeResourceGroup,
+															*opts.clusterConfig.Model.Properties.NodeResourceGroup,
 														),
 													),
 												},
 											},
 											Subnet: &armcompute.APIEntityReference{
-												ID: to.Ptr(opts.clusterConfig.subnetId),
+												ID: to.Ptr(opts.clusterConfig.SubnetID),
 											},
 										},
 									},

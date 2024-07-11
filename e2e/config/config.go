@@ -6,11 +6,13 @@ import (
 )
 
 var (
+	AirgapNSGName                 = "abe2e-airgap-securityGroup"
 	Azure                         = MustNewAzureClient(SubscriptionID)
 	BuildID                       = lookupEnvWithDefaultString(os.Getenv("BUILD_ID"), "local")
+	DefaultSubnetName             = "aks-subnet"
 	IgnoreScenariosWithMissingVHD = lookupEnvWithDefaultBool("IGNORE_SCENARIOS_WITH_MISSING_VHD", false)
 	KeepVMSS                      = lookupEnvWithDefaultBool("KEEP_VMSS", false)
-	Location                      = lookupEnvWithDefaultString("LOCATION", "eastus")
+	Location                      = lookupEnvWithDefaultString("LOCATION", "westus3")
 	ResourceGroupName             = "abe2e-" + Location
 	SIGVersionTagName             = lookupEnvWithDefaultString("SIG_VERSION_TAG_NAME", "branch") // ADO tags every SIG image version with `branch` tag. By specifying `branch=refs/heads/master` we load latest image version from the master branch.
 	SIGVersionTagValue            = lookupEnvWithDefaultString("SIG_VERSION_TAG_VALUE", "refs/heads/master")
