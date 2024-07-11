@@ -42,11 +42,18 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cni:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.5.28"
+        "v1.5.28",
+        "v1.6.0"
       ],
       "prefetchOptimizations": [
         {
           "version": "v1.5.28",
+          "binaries": [
+            "dropgz"
+          ]
+        },
+        {
+          "version": "v1.6.0",
           "binaries": [
             "dropgz"
           ]
@@ -58,11 +65,18 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.4.52",
-        "v1.5.26"
+        "v1.5.26",
+        "v1.6.0"
       ],
       "prefetchOptimizations": [
         {
           "version": "v1.5.26",
+          "binaries": [
+            "usr/local/bin/azure-cns"
+          ]
+        },
+        {
+          "version": "v1.6.0",
           "binaries": [
             "usr/local/bin/azure-cns"
           ]
@@ -90,7 +104,8 @@
       "multiArchVersions": [
         "v0.0.13",
         "v0.0.20",
-        "v0.1.4"
+        "v0.1.4",
+        "v0.2.0"
       ],
       "prefetchOptimizations": [
         {
@@ -110,6 +125,12 @@
           "binaries": [
             "dropgz"
           ]
+        },
+        {
+          "version": "v0.2.0",
+          "binaries": [
+            "dropgz"
+          ]
         }
       ]
     },
@@ -117,7 +138,7 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.5.23"
+        "v1.5.29"
       ]
     },
     {
