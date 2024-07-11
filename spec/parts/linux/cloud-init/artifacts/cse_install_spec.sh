@@ -166,4 +166,34 @@ Describe 'cse_install.sh'
         The output line 3 should equal "mock installContainerdWithManifestJson calling"
     End
   End
+  Describe 'returnRelease'
+    It 'returns release version r2004 for package runc in UBUNTU 20.04'
+        package=$(readPackage "runc")
+        os="UBUNTU"
+        osVersion="20.04"
+        When call returnRelease "$package" "$os" "$osVersion"
+        The output should equal "\"r2004\""
+    End
+    It 'returns release version current for package runc in Mariner'
+        package=$(readPackage "runc")
+        os="MARINER"
+        osVersion=""
+        When call returnRelease "$package" "$os" "$osVersion"
+        The output should equal "current"
+    End
+    It 'returns release version current for package containerd in UBUNTU 20.04'
+        package=$(readPackage "containerd")
+        os="UBUNTU"
+        osVersion="20.04"
+        When call returnRelease "$package" "$os" "$osVersion"
+        The output should equal "current"
+    End
+    It 'returns release version r1804 for package containerd in UBUNTU 18.04'
+        package=$(readPackage "containerd")
+        os="UBUNTU"
+        osVersion="18.04"
+        When call returnRelease "$package" "$os" "$osVersion"
+        The output should equal "\"r1804\""
+    End
+  End
 End

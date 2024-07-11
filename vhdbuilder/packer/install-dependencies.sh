@@ -245,7 +245,7 @@ for p in ${packages[*]}; do
       # However, installation could be different for different packages.
       ;;
   esac
-  capture_benchmark "download_\"$name\""
+  capture_benchmark "download_${name}"
 done
 
 installAndConfigureArtifactStreaming() {

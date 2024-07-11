@@ -462,24 +462,22 @@ process_benchmarks() {
 #e.g., For os UBUNTU 18.04, if there is a release "r1804" defined in components.json, then return "r1804"
 #Otherwise return "current"
 returnRelease() {
-  local package="$1"
-  local os="$2"
-  local osVersion="$3"
-  local release="current"
-  #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
-  #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
-  #For MARINER, the release is always set to "current" now.
-  #To add a new release, add a new entry in components.json and add the corresponding release in the below if condition.
-  if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
-    if [[ "${osVersion}" == "18.04" ]] && [[ $(echo "${package}" | jq '.downloadURIs.ubuntu."r1804"') != "null" ]]; then
-      release="\"r1804\""
-    elif [[ "${osVersion}" == "20.04" ]] && [[ $(echo "${package}" | jq '.downloadURIs.ubuntu."r2004"') != "null" ]]; then
-      release="\"r2004\""
-    elif [[ "${osVersion}" == "22.04" ]] && [[ $(echo "${package}" | jq '.downloadURIs.ubuntu."r2204"') != "null" ]]; then
-      release="\"r2204\""
+    local package="$1"
+    local os="$2"
+    local osVersion="$3"
+    local release="current"
+    local osVersionWithoutDot=$(echo "${osVersion}" | sed 's/\.//g')
+    #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
+    #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
+    #For MARINER, the release is always set to "current" now.
+    if [[ "${os}" != "${UBUNTU_OS_NAME}" ]]; then
+        echo "${release}"
+        return
     fi
-  fi
-  echo "${release}"
+    if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu.\"r${osVersionWithoutDot}\"") != "null" ]]; then
+        release="\"r${osVersionWithoutDot}\""
+    fi
+    echo "${release}"
 }
 
 returnPackageVersions() {
@@ -487,38 +485,22 @@ returnPackageVersions() {
     local os="$2"
     local osVersion="$3"
     local release="$(returnRelease "${package}" "${os}" "${osVersion}")"
-    if [[ "${os}" == "${UBUNTU_OS_NAME}" ]]; then
-        #if .downloadURIs.ubuntu exist, then get the versions from there.
-        #otherwise get the versions from .downloadURIs.default 
-        if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu") != "null" ]]; then
-            versions=$(echo "${package}" | jq ".downloadURIs.ubuntu.${release}.versions[]" -r)
-            for version in ${versions[@]}; do
-             PackageVersions+=("${version}")
-            done
-            return
-        fi
-        versions=$(echo "${package}" | jq ".downloadURIs.default.${release}.versions[]" -r)
+    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
+
+    #if .downloadURIs.${os} exist, then get the versions from there.
+    #otherwise get the versions from .downloadURIs.default 
+    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
+        versions=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${release}.versions[]" -r)
         for version in ${versions[@]}; do
             PackageVersions+=("${version}")
         done
         return
     fi
-    if [[ "${os}" == "${MARINER_OS_NAME}" ]]; then
-        #if .downloadURIs.ubuntu exist, then get the versions from there.
-        #otherwise get the versions from .downloadURIs.default 
-        if [[ $(echo "${package}" | jq ".downloadURIs.mariner") != "null" ]]; then
-            versions=$(echo "${package}" | jq ".downloadURIs.mariner.${release}.versions[]" -r)
-            for version in ${versions[@]}; do
-                PackageVersions+=("${version}")
-            done
-            return
-        fi
-        versions=$(echo "${package}" | jq ".downloadURIs.default.${release}.versions[]" -r)
-        for version in ${versions[@]}; do
-            PackageVersions+=("${version}")
-        done
-        return    
-    fi
+    versions=$(echo "${package}" | jq ".downloadURIs.default.${release}.versions[]" -r)
+    for version in ${versions[@]}; do
+        PackageVersions+=("${version}")
+    done
+    return
 }
 
 returnPackageDownloadURL() {
