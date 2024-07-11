@@ -23,6 +23,11 @@ func ubuntu2204CustomSysctls() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204-custom-sysctls",
 		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
+		Tags: Tags{
+			Name:     "ubuntu2204-custom-sysctls",
+			OS:       "ubuntu2204",
+			Platform: "x64",
+		},
 		Config: Config{
 			Cluster:     cluster.ClusterKubenet,
 			VHDSelector: config.VHDUbuntu2204Gen2Containerd,

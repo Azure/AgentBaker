@@ -12,6 +12,11 @@ func ubuntu2204CustomCATrust() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204-custom-ca-trust",
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped and custom CA was correctly added",
+		Tags: Tags{
+			Name:     "ubuntu2204-custom-ca-trust",
+			OS:       "ubuntu2204",
+			Platform: "x64",
+		},
 		Config: Config{
 			Cluster:     cluster.ClusterKubenet,
 			VHDSelector: config.VHDUbuntu2204Gen2Containerd,

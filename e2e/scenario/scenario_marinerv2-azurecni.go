@@ -11,6 +11,11 @@ func marinerv2_azurecni() *Scenario {
 	return &Scenario{
 		Name:        "marinerv2-azurecni",
 		Description: "marinerv2 scenario on a cluster configured with Azure CNI",
+		Tags: Tags{
+			Name:     "marinerv2-azurecni",
+			OS:       "marinerv2",
+			Platform: "x64",
+		},
 		Config: Config{
 			Cluster:     cluster.ClusterAzureNetwork,
 			VHDSelector: config.VHDCBLMarinerV2Gen2,

@@ -11,6 +11,11 @@ func azurelinuxv2_azurecni() *Scenario {
 	return &Scenario{
 		Name:        "azurelinuxv2-azurecni",
 		Description: "azurelinuxv2 scenario on a cluster configured with Azure CNI",
+		Tags: Tags{
+			Name:     "azurelinuxv2-azurecni",
+			OS:       "azurelinuxv2",
+			Platform: "x64",
+		},
 		Config: Config{
 			Cluster:     cluster.ClusterAzureNetwork,
 			VHDSelector: config.VHDAzureLinuxV2Gen2,

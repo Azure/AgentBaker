@@ -224,7 +224,7 @@ func getBaseVMSSModel(ctx context.Context, name, sshPublicKey, customData, cseCm
 		Properties: &armcompute.VirtualMachineScaleSetProperties{
 			Overprovision: to.Ptr(false),
 			UpgradePolicy: &armcompute.UpgradePolicy{
-				Mode: to.Ptr(armcompute.UpgradeModeManual),
+				Mode: to.Ptr(armcompute.UpgradeModeAutomatic),
 			},
 			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
 				ExtensionProfile: &armcompute.VirtualMachineScaleSetExtensionProfile{

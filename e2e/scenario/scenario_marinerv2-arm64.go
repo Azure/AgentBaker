@@ -12,6 +12,11 @@ func marinerv2ARM64() *Scenario {
 	return &Scenario{
 		Name:        "marinerv2-arm64",
 		Description: "Tests that a node using a MarinerV2 VHD on ARM64 architecture can be properly bootstrapped",
+		Tags: Tags{
+			Name:     "marinerv2-arm64",
+			OS:       "marinerv2",
+			Platform: "arm64",
+		},
 		Config: Config{
 			Cluster:     cluster.ClusterKubenet,
 			VHDSelector: config.VHDCBLMarinerV2Gen2Arm64,

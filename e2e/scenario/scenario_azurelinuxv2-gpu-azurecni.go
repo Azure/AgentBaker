@@ -13,6 +13,7 @@ func azurelinuxv2gpu_azurecni() *Scenario {
 	return &Scenario{
 		Name:        "azurelinuxv2-gpu-azurecni",
 		Description: "AzureLinux V2 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
+		Tags:        Tags{Name: "azurelinuxv2-gpu-azurecni", OS: "azurelinuxv2", Platform: "x64", GPU: true},
 		Config: Config{
 			Cluster:     cluster.ClusterAzureNetwork,
 			VHDSelector: config.VHDAzureLinuxV2Gen2,

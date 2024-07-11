@@ -13,6 +13,12 @@ func ubuntu1804gpu() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu1804-gpu",
 		Description: "Tests that a GPU-enabled node using an Ubuntu 1804 VHD can be properly bootstrapped",
+		Tags: Tags{
+			Name:     "ubuntu1804-gpu",
+			OS:       "ubuntu1804",
+			Platform: "x64",
+			GPU:      true,
+		},
 		Config: Config{
 			Cluster:     cluster.ClusterKubenet,
 			VHDSelector: config.VHDUbuntu1804Gen2Containerd,

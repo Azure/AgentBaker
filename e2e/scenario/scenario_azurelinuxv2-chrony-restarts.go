@@ -10,6 +10,11 @@ func azurelinuxv2ChronyRestarts() *Scenario {
 	return &Scenario{
 		Name:        "azurelinuxv2-chrony-restarts",
 		Description: "Tests that the chrony service restarts if it is killed",
+		Tags: Tags{
+			Name:     "azurelinuxv2-chrony-restarts",
+			OS:       "azurelinuxv2",
+			Platform: "x64",
+		},
 		Config: Config{
 			Cluster:     cluster.ClusterKubenet,
 			VHDSelector: config.VHDAzureLinuxV2Gen2,

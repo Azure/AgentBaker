@@ -10,6 +10,11 @@ func ubuntu2204ChronyRestarts() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204-chrony-restarts",
 		Description: "Tests that the chrony service restarts if it is killed",
+		Tags: Tags{
+			Name:     "ubuntu2204-chrony-restarts",
+			OS:       "ubuntu2204",
+			Platform: "x64",
+		},
 		Config: Config{
 			Cluster:     cluster.ClusterKubenet,
 			VHDSelector: config.VHDUbuntu2204Gen2Containerd,

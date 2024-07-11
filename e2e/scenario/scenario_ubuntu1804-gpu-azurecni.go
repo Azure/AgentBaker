@@ -13,6 +13,12 @@ func ubuntu1804gpu_azurecni() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu1804-gpu-azurecni",
 		Description: "Ubuntu1804 gpu scenario on cluster configured with Azure CNI",
+		Tags: Tags{
+			Name:     "ubuntu1804-gpu-azurecni",
+			OS:       "ubuntu1804",
+			Platform: "x64",
+			GPU:      true,
+		},
 		Config: Config{
 			Cluster:     cluster.ClusterAzureNetwork,
 			VHDSelector: config.VHDUbuntu1804Gen2Containerd,

@@ -14,6 +14,11 @@ func ubuntu2204ContainerdURL() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204ContainerdURL",
 		Description: "tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override bootstraps with the provided URL and not the maifest contianerd version",
+		Tags: Tags{
+			Name:     "ubuntu2204ContainerdURL",
+			OS:       "ubuntu2204",
+			Platform: "x64",
+		},
 		Config: Config{
 			Cluster:     cluster.ClusterKubenet,
 			VHDSelector: config.VHDUbuntu2204Gen2Containerd,

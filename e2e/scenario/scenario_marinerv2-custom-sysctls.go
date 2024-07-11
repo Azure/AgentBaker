@@ -23,6 +23,11 @@ func marinerv2CustomSysctls() *Scenario {
 	return &Scenario{
 		Name:        "marinerv2-custom-sysctls",
 		Description: "tests that a MarinerV2 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
+		Tags: Tags{
+			Name:     "marinerv2-custom-sysctls",
+			OS:       "marinerv2",
+			Platform: "x64",
+		},
 		Config: Config{
 			Cluster:     cluster.ClusterKubenet,
 			VHDSelector: config.VHDCBLMarinerV2Gen2,

@@ -15,6 +15,7 @@ func ubuntu2204gpu(name string, vmSize string) *Scenario {
 	return &Scenario{
 		Name:        name,
 		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2204 VHD can be properly bootstrapped", vmSize),
+		Tags:        Tags{Name: name, OS: "ubuntu2204", Platform: "x64", GPU: true},
 		Config: Config{
 			Cluster:     cluster.ClusterKubenet,
 			VHDSelector: config.VHDUbuntu2204Gen2Containerd,

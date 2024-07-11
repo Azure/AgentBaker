@@ -10,6 +10,12 @@ func marinerv2AirGap() *Scenario {
 	return &Scenario{
 		Name:        "marinerv2-airgap",
 		Description: "Tests that a node using a MarinerV2 VHD can be properly bootstrapped",
+		Tags: Tags{
+			Name:     "marinerv2-airgap",
+			OS:       "marinerv2",
+			Platform: "x64",
+			Airgap:   true,
+		},
 		Config: Config{
 			Cluster:     cluster.ClusterKubenetAirgap,
 			VHDSelector: config.VHDCBLMarinerV2Gen2,

@@ -12,6 +12,11 @@ func ubuntu2204ARM64() *Scenario {
 	return &Scenario{
 		Name:        "ubuntu2204-arm64",
 		Description: "Tests that an Ubuntu 2204 Node using ARM64 architecture can be properly bootstrapped",
+		Tags: Tags{
+			Name:     "ubuntu2204-arm64",
+			OS:       "ubuntu2204",
+			Platform: "arm64",
+		},
 		Config: Config{
 			Cluster:     cluster.ClusterKubenet,
 			VHDSelector: config.VHDUbuntu2204Gen2Arm64Containerd,
