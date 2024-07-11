@@ -113,13 +113,9 @@ if [ -z "${SUBNET_NAME}" ]; then
 	SUBNET_NAME="packer"
 fi
 
-SHALLOW_REPLICATION_TOGGLE="false"
-if [[ "${MODE}" == "linuxVhdMode" ]] && [[ "${ENVIRONMENT,,}" == "test" ]]; then
-  # continue using full replication for prod builds for now
-  SHALLOW_REPLICATION_TOGGLE="true"
-fi
+SHALLOW_REPLICATION="true"
 
-echo "SHALLOW_REPLICATION_TOGGLE set to: ${SHALLOW_REPLICATION_TOGGLE}"
+echo "SHALLOW_REPLICATION set to: ${SHALLOW_REPLICATION}"
 
 echo "VNET_RG_NAME set to: ${VNET_RG_NAME}"
 
@@ -430,7 +426,7 @@ fi
 # aks_windows_image_version refers to the version built by AKS Windows SIG
 cat <<EOF > vhdbuilder/packer/settings.json
 { 
-  "shallow_replication_toggle": "${SHALLOW_REPLICATION_TOGGLE}",
+  "shallow_replication": "${SHALLOW_REPLICATION}",
   "subscription_id":  "${SUBSCRIPTION_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "location": "${PACKER_BUILD_LOCATION}",
