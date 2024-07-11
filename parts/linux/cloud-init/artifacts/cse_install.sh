@@ -76,13 +76,13 @@ downloadCNI() {
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
-downloadCredentalProvider() {
+downloadCredentialProvider() {
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
     CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
 }
 
-downloadCredentalProviderWithOras() {
+downloadCredentialWithOras() {
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
     CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}
     oras pull $CREDENTIAL_PROVIDER_DOWNLOAD_URL -o $CREDENTIAL_PROVIDER_TGZ_TMP || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
@@ -99,7 +99,7 @@ installOras() {
 }
 
 installCredentalProvider() {
-    logs_to_events "AKS.CSE.installCredentalProvider.downloadCredentalProvider" downloadCredentalProvider
+    logs_to_events "AKS.CSE.installCredentalProvider.downloadCredentialProvider" downloadCredentialProvider
     tar -xzf "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/${CREDENTIAL_PROVIDER_TGZ_TMP}" -C $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
