@@ -355,6 +355,8 @@ testSourcesList() {
       echo "${sourcesListPath} is as expected"
     fi
   fi
+
+  echo "$test:Finish"
 }
 
 testKubeBinariesPresent() {
