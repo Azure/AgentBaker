@@ -865,6 +865,12 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			Expect(o.vars["BLOCK_OUTBOUND_NETWORK"]).To(Equal("true"))
 		}),
 
+		Entry("AKSUbuntu2204 with outbound type none", "AKSUbuntu2204+OutboundTypeNone", "1.25.6", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.OutboundType = datamodel.OutboundTypeNone
+		}, func(o *nodeBootstrappingOutput) {
+			Expect(o.vars["BLOCK_OUTBOUND_NETWORK"]).To(Equal("true"))
+		}),
+
 		Entry("AKSUbuntu2204 with no outbound type", "AKSUbuntu2204+OutboundTypeNil", "1.25.6", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.OutboundType = ""
 		}, func(o *nodeBootstrappingOutput) {
