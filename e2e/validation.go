@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/Azure/agentbakere2e/cluster"
-	"github.com/Azure/agentbakere2e/scenario"
 )
 
 func validateNodeHealth(ctx context.Context, kube *cluster.Kubeclient, vmssName string) (string, error) {
@@ -115,8 +114,8 @@ func runLiveVMValidators(ctx context.Context, vmssName, privateIP, sshPrivateKey
 	return nil
 }
 
-func commonLiveVMValidators() []*scenario.LiveVMValidator {
-	return []*scenario.LiveVMValidator{
+func commonLiveVMValidators() []*LiveVMValidator {
+	return []*LiveVMValidator{
 		{
 			Description: "assert /etc/default/kubelet should not contain dynamic config dir flag",
 			Command:     "cat /etc/default/kubelet",
@@ -130,7 +129,7 @@ func commonLiveVMValidators() []*scenario.LiveVMValidator {
 				return nil
 			},
 		},
-		scenario.SysctlConfigValidator(
+		SysctlConfigValidator(
 			map[string]string{
 				"net.ipv4.tcp_retries2":             "8",
 				"net.core.message_burst":            "80",
@@ -142,7 +141,7 @@ func commonLiveVMValidators() []*scenario.LiveVMValidator {
 				"net.ipv4.neigh.default.gc_thresh3": "16384",
 			},
 		),
-		scenario.DirectoryValidator(
+		DirectoryValidator(
 			"/var/log/azure/aks",
 			[]string{
 				"cluster-provision.log",

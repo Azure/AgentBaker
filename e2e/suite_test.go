@@ -10,37 +10,44 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/cluster"
 	"github.com/Azure/agentbakere2e/config"
-	"github.com/Azure/agentbakere2e/scenario"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+func TestMain(m *testing.M) {
+	if err := createE2ELoggingDir(); err != nil {
+		panic(err)
+	}
+
+	if err := ensureResourceGroup(context.Background()); err != nil {
+		panic(err)
+	}
+	m.Run()
+
+}
+
 func Test_All(t *testing.T) {
-	ctx := context.Background()
 	t.Parallel()
-
-	err := createE2ELoggingDir()
-	require.NoError(t, err)
-
-	err = ensureResourceGroup(ctx)
-	require.NoError(t, err)
-
-	scenarios := scenario.AllScenarios()
-
+	scenarios := AllScenarios()
 	for _, e2eScenario := range scenarios {
 		t.Run(e2eScenario.Name, func(t *testing.T) {
-			t.Parallel()
-			model, err := e2eScenario.Cluster(ctx)
-			require.NoError(t, err)
-			maybeSkipScenario(t, e2eScenario)
-			setupAndRunScenario(ctx, t, e2eScenario, model)
+			RunScenario(t, e2eScenario)
 		})
 	}
 }
 
-func maybeSkipScenario(t *testing.T, s *scenario.Scenario) {
+func RunScenario(t *testing.T, s *Scenario) {
+	t.Parallel()
+	ctx := context.Background()
+	model, err := s.Cluster(ctx)
+	require.NoError(t, err)
+	maybeSkipScenario(t, s)
+	setupAndRunScenario(ctx, t, s, model)
+}
+
+func maybeSkipScenario(t *testing.T, s *Scenario) {
 	if config.TagsToRun != "" {
 		matches, err := s.Tags.MatchesFilters(config.TagsToRun)
 		if err != nil {
@@ -72,7 +79,7 @@ func maybeSkipScenario(t *testing.T, s *scenario.Scenario) {
 	t.Logf("running scenario %q with image %q", s.Name, rid)
 }
 
-func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenario.Scenario, clusterConfig *cluster.Cluster) {
+func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *Scenario, clusterConfig *cluster.Cluster) {
 	log.Printf("chose cluster: %q", *clusterConfig.Model.ID)
 
 	clusterParams, err := pollExtractClusterParameters(ctx, clusterConfig.Kube)
