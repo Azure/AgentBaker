@@ -19,7 +19,6 @@ pr:
     - vhdbuilder/packer/*windows*
     - vhdbuilder/packer/**/*windows*
 
-
 pool:
   name: $(POOL_NAME)
 
