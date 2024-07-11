@@ -6,10 +6,11 @@ import (
 	"log"
 	"strings"
 
+	"github.com/Azure/agentbakere2e/cluster"
 	"github.com/Azure/agentbakere2e/scenario"
 )
 
-func validateNodeHealth(ctx context.Context, kube *kubeclient, vmssName string) (string, error) {
+func validateNodeHealth(ctx context.Context, kube *cluster.Kubeclient, vmssName string) (string, error) {
 	nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
 	if err != nil {
 		return "", fmt.Errorf("error waiting for vmss %s ready: %w", vmssName, err)
@@ -28,7 +29,7 @@ func validateNodeHealth(ctx context.Context, kube *kubeclient, vmssName string) 
 	return nodeName, nil
 }
 
-func validateWasm(ctx context.Context, kube *kubeclient, nodeName, privateKey string) error {
+func validateWasm(ctx context.Context, kube *cluster.Kubeclient, nodeName, privateKey string) error {
 	spinPodName, err := ensureWasmPods(ctx, kube, nodeName)
 	if err != nil {
 		return fmt.Errorf("failed to valiate wasm, unable to ensure wasm pods on node %q: %w", nodeName, err)
@@ -81,7 +82,7 @@ func validateWasm(ctx context.Context, kube *kubeclient, nodeName, privateKey st
 }
 
 func runLiveVMValidators(ctx context.Context, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
-	podName, err := getDebugPodName(opts.clusterConfig.kube)
+	podName, err := getDebugPodName(opts.clusterConfig.Kube)
 	if err != nil {
 		return fmt.Errorf("While running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
 	}
@@ -97,7 +98,7 @@ func runLiveVMValidators(ctx context.Context, vmssName, privateIP, sshPrivateKey
 		isShellBuiltIn := validator.IsShellBuiltIn
 		log.Printf("running live VM validator on %s: %q", vmssName, desc)
 
-		execResult, err := pollExecOnVM(ctx, opts.clusterConfig.kube, privateIP, podName, sshPrivateKey, command, isShellBuiltIn)
+		execResult, err := pollExecOnVM(ctx, opts.clusterConfig.Kube, privateIP, podName, sshPrivateKey, command, isShellBuiltIn)
 		if err != nil {
 			return fmt.Errorf("unable to execute validator on node %s command %q: %w", vmssName, command, err)
 		}
