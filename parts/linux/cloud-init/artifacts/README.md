@@ -12,7 +12,7 @@ Now there are 2 types of component in components.json, namely `ContainerImages` 
 Please refer to examples of ContainerImages in components.json.
 
 ### Packages
-`Packages` is a list of `Package` where a `package` has the following scehma.
+`Packages` is a list of `Package` where a `package` has the following scehma:
 ``` 
 #Package: {
 	name:              string
