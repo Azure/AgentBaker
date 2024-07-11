@@ -87,12 +87,12 @@ testPackagesInstalled() {
     else
       OS=$UBUNTU_OS_NAME
     fi
-    PackageVersions=()
+    PACKAGE_VERSIONS=()
     returnPackageVersions ${p} ${OS} ${OS_VERSION}
     PACKAGE_DOWNLOAD_URL=""
     returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
 
-    for version in ${PackageVersions}; do
+    for version in ${PACKAGE_VERSIONS}; do
       if [[ -z $PACKAGE_DOWNLOAD_URL ]]; then
         echo "$test: skipping package ${name} verification as PACKAGE_DOWNLOAD_URL is empty"
         # we can further think of adding a check to see if the package is installed through apt-get
