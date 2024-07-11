@@ -1070,7 +1070,7 @@ stages:
             parameters:
               artifactName: 2204-minimal-gen2-containerd
   - stage: Run_E2E_Tests
-    condition: and(ne(variables.SKIP_E2E_TESTS, 'true'), eq(parameters.dryrun, false))
+    condition: and(ne(variables.SKIP_E2E_TESTS, 'true'), eq(${{parameters.dryrun}}, false))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       LOCATION: $(PACKER_BUILD_LOCATION)
