@@ -8,7 +8,7 @@ require (
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/google/go-cmp v0.6.0
-	github.com/gorilla/handlers v1.5.1
+	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.0
 	github.com/onsi/ginkgo v1.12.2
 	github.com/onsi/gomega v1.29.0
@@ -23,7 +23,7 @@ require (
 require (
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/felixge/httpsnoop v1.0.1 // indirect
+	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/nxadm/tail v1.4.4 // indirect
