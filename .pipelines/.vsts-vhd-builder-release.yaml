@@ -29,15 +29,15 @@ parameters:
   - name: build1804containerd
     displayName: Build 1804 containerd
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: build1804gen2containerd
     displayName: Build 1804 Gen2 containerd
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: build1804gpucontainerd
     displayName: Build 1804 GPU+containerd
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: build1804gen2gpucontainerd
     displayName: Build 1804 Gen2 GPU+containerd
     type: boolean
@@ -45,11 +45,11 @@ parameters:
   - name: buildMarinerV2gen1
     displayName: Build MarinerV2 Gen1
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: buildAzureLinuxV2gen1
     displayName: Build AzureLinuxV2 Gen1
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: buildMarinerV2gen2
     displayName: Build MarinerV2 Gen2
     type: boolean
@@ -57,47 +57,47 @@ parameters:
   - name: buildAzureLinuxV2gen2
     displayName: Build AzureLinuxV2 Gen2
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: buildMarinerV2gen1fips
     displayName: Build MarinerV2 Gen1 FIPS
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: buildAzureLinuxV2gen1fips
     displayName: Build AzureLinuxV2 Gen1 FIPS
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: buildMarinerV2gen2fips
     displayName: Build MarinerV2 Gen2 FIPS
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: buildAzureLinuxV2gen2fips
     displayName: Build AzureLinuxV2 Gen2 FIPS
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: buildMarinerV2gen2kata
     displayName: Build MarinerV2 Gen2 Kata
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: buildAzureLinuxV2gen2kata
     displayName: Build AzureLinuxV2 Gen2 Kata
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: buildMarinerV2ARM64
     displayName: Build MarinerV2 Gen2 - ARM64
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: buildAzureLinuxV2ARM64
     displayName: Build AzureLinuxV2 Gen2 - ARM64
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: buildMarinerV2gen2TrustedLaunch
     displayName: Build MarinerV2 Gen2 - Trusted Launch
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: buildAzureLinuxV2gen2TrustedLaunch
     displayName: Build AzureLinuxV2 Gen2 - Trusted Launch
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: buildMarinerV2gen2kataTrustedLaunch
     displayName: Build MarinerV2 Gen2 Kata - Trusted Launch
     type: boolean
@@ -109,19 +109,19 @@ parameters:
   - name: build1804fipscontainerd
     displayName: Build 1804 FIPS containerd
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: build1804fipsgen2containerd
     displayName: Build 1804 FIPS Gen2 containerd
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: build2004fipscontainerd
     displayName: Build 2004 FIPS containerd
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: build2004fipsgen2containerd
     displayName: Build 2004 FIPS Gen2 containerd
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: build2204fipscontainerd
     displayName: Build 2204 FIPS containerd
     type: boolean
@@ -133,7 +133,7 @@ parameters:
   - name: build2204arm64gen2containerd
     displayName: Build 2204 ARM64 Gen2 containerd
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: build2404arm64gen2containerd
     displayName: Build 2404 ARM64 Gen2 containerd
     type: boolean
@@ -141,7 +141,7 @@ parameters:
   - name: build2204containerd
     displayName: Build 2204 Gen1 Containerd
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: build2204gen2containerd
     displayName: Build 2204 Gen2 Containerd
     type: boolean
@@ -157,11 +157,11 @@ parameters:
   - name: build2004cvmgen2containerd
     displayName: Build 2004 CVM Gen2 Containerd
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: build2204tlgen2containerd
     displayName: Build 2204 TL Gen2 Containerd
     type: boolean
-    default: ${{ ne(variables['Build.Reason'], 'PullRequest') }}
+    default: true
   - name: build2204minimalgen1containerd
     displayName: Build 2204 Minimal Gen1 Containerd
     type: boolean
@@ -250,7 +250,7 @@ stages:
             parameters:
               artifactName: 1804-gpu-containerd
       - job: build1804gen2gpucontainerd
-        condition: eq('${{ parameters.build1804gen2gpucontainerd }}', true)
+        condition: or(eq('${{ parameters.build1804gen2gpucontainerd }}', true), eq(variables['Build.Reason'], 'PullRequest'))
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
@@ -326,7 +326,7 @@ stages:
             parameters:
               artifactName: azurelinuxv2-gen1
       - job: buildMarinerV2gen2
-        condition: eq('${{ parameters.buildMarinerV2gen2 }}', true)
+        condition: or(eq('${{ parameters.buildMarinerV2gen2 }}', true), eq(variables['Build.Reason'], 'PullRequest'))
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
@@ -917,7 +917,7 @@ stages:
             parameters:
               artifactName: 2204-containerd
       - job: build2204gen2containerd
-        condition: eq('${{ parameters.build2204gen2containerd }}', true)
+        condition: or(eq('${{ parameters.build2204gen2containerd }}', true), eq(variables['Build.Reason'], 'PullRequest'))
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
