@@ -23,6 +23,8 @@ installDeps() {
         fi
       done
     fi
+
+    installOras
 }
 
 installKataDeps() {

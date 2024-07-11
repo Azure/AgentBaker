@@ -88,6 +88,7 @@ downloadCredentialWithOras() {
     oras pull $CREDENTIAL_PROVIDER_DOWNLOAD_URL -o $CREDENTIAL_PROVIDER_TGZ_TMP || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
 }
 
+# TODO (alburgess) have oras version managed by dependant or Renovate
 installOras() {
     ORAS_VERSION="1.2.0"
     CPU_ARCH=$(getCPUArch)
