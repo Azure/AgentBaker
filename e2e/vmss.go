@@ -55,10 +55,8 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 	log.Printf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
-	model, err := getBaseVMSSModel(ctx, vmssName, string(publicKeyBytes), customData, cseCmd, opts)
-	if err != nil {
-		return nil, fmt.Errorf("get base VMSS model: %w", err)
-	}
+
+	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)
 
 	if config.BuildID != "" {
 		if model.Tags == nil {
@@ -79,7 +77,7 @@ func createVMSSWithPayload(ctx context.Context, customData, cseCmd, vmssName str
 	}
 
 	if err := opts.scenario.PrepareVMSSModel(&model); err != nil {
-		return nil, fmt.Errorf(" prepare model for VMSS %q: %w", vmssName, err)
+		return nil, fmt.Errorf("prepare VMSS model %q: %w", vmssName, err)
 	}
 
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
@@ -209,10 +207,10 @@ func getVmssName() string {
 	return fmt.Sprintf(vmssNameTemplate, randomLowercaseString(4))
 }
 
-func getBaseVMSSModel(ctx context.Context, name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) (armcompute.VirtualMachineScaleSet, error) {
+func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
 	resourceID, err := config.VHDUbuntu1804Gen2Containerd()
 	if err != nil {
-		return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("get resource ID for VHD: %w", err)
+		log.Printf("get resource ID for VHD, will not set default VHD within base VMSS model: %s", err)
 	}
 
 	return armcompute.VirtualMachineScaleSet{
@@ -304,7 +302,7 @@ func getBaseVMSSModel(ctx context.Context, name, sshPublicKey, customData, cseCm
 				},
 			},
 		},
-	}, nil
+	}
 }
 
 func getPrivateIP(res listVMSSVMNetworkInterfaceResult) (string, error) {

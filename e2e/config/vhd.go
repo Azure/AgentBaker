@@ -17,19 +17,19 @@ const (
 	imageGallery       = "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/"
 	noSelectionTagName = "abe2e-ignore"
 
-	fetchResourceIDTimeout = 3 * time.Minute
+	fetchResourceIDTimeout = 5 * time.Minute
 )
 
 var (
-	VHDUbuntu1804Gen2Containerd      = newSIGImageVersionResourceIDFetcher(imageGallery + "1804Gen2")
-	VHDUbuntu2204Gen2Arm64Containerd = newSIGImageVersionResourceIDFetcher(imageGallery + "2204Gen2Arm64")
-	VHDUbuntu2204Gen2Containerd      = newSIGImageVersionResourceIDFetcher(imageGallery + "2204Gen2")
-	VHDAzureLinuxV2Gen2Arm64         = newSIGImageVersionResourceIDFetcher(imageGallery + "AzureLinuxV2Gen2Arm64")
-	VHDAzureLinuxV2Gen2              = newSIGImageVersionResourceIDFetcher(imageGallery + "AzureLinuxV2Gen2")
-	VHDCBLMarinerV2Gen2Arm64         = newSIGImageVersionResourceIDFetcher(imageGallery + "CBLMarinerV2Gen2Arm64")
-	VHDCBLMarinerV2Gen2              = newSIGImageVersionResourceIDFetcher(imageGallery + "CBLMarinerV2Gen2")
+	VHDUbuntu1804Gen2Containerd      = newSIGImageVersionResourceIDFetcher(imageGallery + "1804gen2containerd")
+	VHDUbuntu2204Gen2Arm64Containerd = newSIGImageVersionResourceIDFetcher(imageGallery + "2204gen2arm64containerd")
+	VHDUbuntu2204Gen2Containerd      = newSIGImageVersionResourceIDFetcher(imageGallery + "2204gen2containerd")
+	VHDAzureLinuxV2Gen2Arm64         = newSIGImageVersionResourceIDFetcher(imageGallery + "AzureLinuxV2gen2arm64")
+	VHDAzureLinuxV2Gen2              = newSIGImageVersionResourceIDFetcher(imageGallery + "AzureLinuxV2gen2")
+	VHDCBLMarinerV2Gen2Arm64         = newSIGImageVersionResourceIDFetcher(imageGallery + "CBLMarinerV2gen2arm64")
+	VHDCBLMarinerV2Gen2              = newSIGImageVersionResourceIDFetcher(imageGallery + "CBLMarinerV2gen2")
 
-	// this is a particular 2204Gen2 image originally built with private packages,
+	// this is a particular 2204gen2containerd image originally built with private packages,
 	// if we ever want to update this then we'd need to run a new VHD build using private package overrides
 	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = newStaticSIGImageVersionResourceIDFetcher(imageGallery + "2204Gen2/versions/1.1704411049.2812")
 )
@@ -133,7 +133,12 @@ func ensureStaticSIGImageVersion(imageVersionResourceID string) (VHDResourceID, 
 		return "", fmt.Errorf("getting live image version info: %w", err)
 	}
 
-	if err := ensureReplication(ctx, version.sigImageDefinition, &resp.GalleryImageVersion); err != nil {
+	liveVersion := &resp.GalleryImageVersion
+	if err := ensureProvisioningState(liveVersion); err != nil {
+		return "", fmt.Errorf("ensuring image version provisioning state: %w", err)
+	}
+
+	if err := ensureReplication(ctx, version.sigImageDefinition, liveVersion); err != nil {
 		return "", fmt.Errorf("ensuring image replication: %w", err)
 	}
 
@@ -168,6 +173,10 @@ func findLatestSIGImageVersionWithTag(imageDefinitionResourceID, tagName, tagVal
 			if !ok || tag == nil || *tag != tagValue {
 				continue
 			}
+			if err := ensureProvisioningState(version); err != nil {
+				log.Printf("ensuring image version %s provisioning state: %s, will not consider for selection", *version.ID, err)
+				continue
+			}
 			if latestVersion == nil || version.Properties.PublishingProfile.PublishedDate.After(*latestVersion.Properties.PublishingProfile.PublishedDate) {
 				latestVersion = version
 			}
@@ -186,6 +195,7 @@ func findLatestSIGImageVersionWithTag(imageDefinitionResourceID, tagName, tagVal
 
 func ensureReplication(ctx context.Context, definition sigImageDefinition, version *armcompute.GalleryImageVersion) error {
 	if replicatedToCurrentRegion(version) {
+		log.Printf("image version %s is already replicated to region %s", *version.ID, Location)
 		return nil
 	}
 	return replicateToCurrentRegion(ctx, definition, version)
@@ -217,5 +227,12 @@ func replicateToCurrentRegion(ctx context.Context, definition sigImageDefinition
 		return fmt.Errorf("updating image version target regions: %w", err)
 	}
 
+	return nil
+}
+
+func ensureProvisioningState(version *armcompute.GalleryImageVersion) error {
+	if *version.Properties.ProvisioningState != armcompute.GalleryImageVersionPropertiesProvisioningStateSucceeded {
+		return fmt.Errorf("unexpected provisioning state: %q", *version.Properties.ProvisioningState)
+	}
 	return nil
 }
