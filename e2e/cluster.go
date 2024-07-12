@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -37,9 +38,10 @@ var (
 )
 
 type Cluster struct {
-	Model    *armcontainerservice.ManagedCluster
-	Kube     *Kubeclient
-	SubnetID string
+	Model                          *armcontainerservice.ManagedCluster
+	Kube                           *Kubeclient
+	SubnetID                       string
+	NodeBootstrappingConfiguration *datamodel.NodeBootstrappingConfiguration
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -85,6 +87,20 @@ func ClusterAzureNetwork(ctx context.Context) (*Cluster, error) {
 	return clusterAzureNetwork, clusterAzureNetworkError
 }
 
+func nodeBootsrappingConfig(ctx context.Context, kube *Kubeclient) (*datamodel.NodeBootstrappingConfiguration, error) {
+	clusterParams, err := pollExtractClusterParameters(ctx, kube)
+	if err != nil {
+		return nil, fmt.Errorf("extract cluster parameters: %w", err)
+	}
+
+	baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(clusterParams)
+	if err != nil {
+		return nil, fmt.Errorf("get base node bootstrapping configuration: %w", err)
+	}
+
+	return baseNodeBootstrappingConfig, nil
+}
+
 func createCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*Cluster, error) {
 	createdCluster, err := createNewAKSClusterWithRetry(ctx, cluster)
 	if err != nil {
@@ -111,7 +127,12 @@ func createCluster(ctx context.Context, cluster *armcontainerservice.ManagedClus
 		return nil, fmt.Errorf("get cluster subnet: %w", err)
 	}
 
-	return &Cluster{Model: createdCluster, Kube: kube, SubnetID: subnetID}, nil
+	nbc, err := nodeBootsrappingConfig(ctx, kube)
+	if err != nil {
+		return nil, fmt.Errorf("get node bootstrapping configuration: %w", err)
+	}
+
+	return &Cluster{Model: createdCluster, Kube: kube, SubnetID: subnetID, NodeBootstrappingConfiguration: nbc}, nil
 
 }
 

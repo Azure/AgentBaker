@@ -12,6 +12,7 @@ import (
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/require"
 )
 
@@ -153,10 +154,17 @@ type LiveVMValidator struct {
 
 // PrepareNodeBootstrappingConfiguration mutates the input NodeBootstrappingConfiguration by calling the
 // scenario's BootstrapConfigMutator on it, if configured.
-func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappingConfiguration) {
+func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrappingConfiguration, error) {
+	// avoid mutating cluster config
+	nbcAny, err := deepcopy.Anything(nbc)
+	if err != nil {
+		return nil, fmt.Errorf("deep copy NodeBootstrappingConfiguration: %w", err)
+	}
+	nbc = nbcAny.(*datamodel.NodeBootstrappingConfiguration)
 	if s.BootstrapConfigMutator != nil {
 		s.BootstrapConfigMutator(nbc)
 	}
+	return nbc, nil
 }
 
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.

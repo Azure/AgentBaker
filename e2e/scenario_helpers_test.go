@@ -9,10 +9,8 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/agentbakere2e/cluster"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,7 +34,18 @@ func RunScenario(t *testing.T, s *Scenario) {
 	model, err := s.Cluster(ctx)
 	require.NoError(t, err)
 	maybeSkipScenario(t, s)
-	setupAndRunScenario(ctx, t, s, model)
+	log.Printf("%q: using cluster %q", t.Name(), *model.Model.ID)
+	loggingDir, err := createVMLogsDir(t.Name())
+	require.NoError(t, err)
+	nbc, err := s.PrepareNodeBootstrappingConfiguration(model.NodeBootstrappingConfiguration)
+	require.NoError(t, err)
+
+	executeScenario(ctx, t, &scenarioRunOpts{
+		clusterConfig: model,
+		scenario:      s,
+		nbc:           nbc,
+		loggingDir:    loggingDir,
+	})
 }
 
 func maybeSkipScenario(t *testing.T, s *Scenario) {
@@ -73,31 +82,6 @@ func maybeSkipScenario(t *testing.T, s *Scenario) {
 		}
 	}
 	t.Logf("running scenario %q with image %q", t.Name(), rid)
-}
-
-func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *Scenario, clusterConfig *cluster.Cluster) {
-	log.Printf("%q: using cluster %q", t.Name(), *clusterConfig.Model.ID)
-	clusterParams, err := pollExtractClusterParameters(ctx, clusterConfig.Kube)
-	require.NoError(t, err)
-
-	baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(clusterParams)
-	require.NoError(t, err)
-
-	copied, err := deepcopy.Anything(baseNodeBootstrappingConfig)
-	require.NoError(t, err)
-	nbc := copied.(*datamodel.NodeBootstrappingConfiguration)
-
-	e2eScenario.PrepareNodeBootstrappingConfiguration(nbc)
-
-	loggingDir, err := createVMLogsDir(t.Name())
-	require.NoError(t, err)
-
-	executeScenario(ctx, t, &scenarioRunOpts{
-		clusterConfig: clusterConfig,
-		scenario:      e2eScenario,
-		nbc:           nbc,
-		loggingDir:    loggingDir,
-	})
 }
 
 func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
