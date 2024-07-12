@@ -1,0 +1,37 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "postUpgradeTasks": {
+    "commands": [
+      "cp parts/linux/cloud-init/artifacts/components.json parts/linux/cloud-init/artifacts/components-N-1.json"
+    ],
+    "fileFilters": [
+      "parts/linux/cloud-init/artifacts/components.json"
+    ],
+    "executionMode": "branch"
+  },
+  "packageRules": [
+    {
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
+      "automerge": false
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "parts/linux/cloud-init/artifacts/components.json"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        ".*?\"downloadURL\":\\s*\"(?<registryUrl>[^/]+)/(?<packageName>[^:]+)[\\s\\S]*?\"multiArchVersions\": \\[\\s*\"(?<currentValue>[^\\\"]+)\".*"
+      ],
+      "datasourceTemplate": "docker",
+      "registryUrlTemplate": "https://mcr.microsoft.com"
+    }
+  ]
+}

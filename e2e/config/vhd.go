@@ -17,45 +17,47 @@ const (
 	imageGallery       = "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/"
 	noSelectionTagName = "abe2e-ignore"
 
-	fetchResourceIDTimeout = 3 * time.Minute
+	fetchResourceIDTimeout = 5 * time.Minute
 )
 
 var (
 	VHDUbuntu1804Gen2Containerd = &Image{
-		Name: "1804Gen2",
+		Name: "1804gen2containerd",
 		OS:   "ubuntu",
 		Arch: "amd64",
 	}
 	VHDUbuntu2204Gen2Arm64Containerd = &Image{
-		Name: "2204Gen2Arm64",
+		Name: "2204gen2arm64containerd",
 		OS:   "ubuntu",
 		Arch: "arm64",
 	}
 	VHDUbuntu2204Gen2Containerd = &Image{
-		Name: "2204Gen2",
+		Name: "2204gen2containerd",
 		OS:   "ubuntu",
 		Arch: "amd64",
 	}
 	VHDAzureLinuxV2Gen2Arm64 = &Image{
-		Name: "AzureLinuxV2Gen2Arm64",
+		Name: "AzureLinuxV2gen2arm64",
 		OS:   "azurelinux",
 		Arch: "arm64",
 	}
 	VHDAzureLinuxV2Gen2 = &Image{
-		Name: "AzureLinuxV2Gen2",
+		Name: "AzureLinuxV2gen2",
 		OS:   "azurelinux",
 		Arch: "amd64",
 	}
 	VHDCBLMarinerV2Gen2Arm64 = &Image{
-		Name: "CBLMarinerV2Gen2Arm64",
+		Name: "CBLMarinerV2gen2arm64",
 		OS:   "mariner",
 		Arch: "arm64",
 	}
 	VHDCBLMarinerV2Gen2 = &Image{
-		Name: "CBLMarinerV2Gen2",
+		Name: "CBLMarinerV2gen2",
 		OS:   "mariner",
 		Arch: "amd64",
 	}
+	// this is a particular 2204gen2containerd image originally built with private packages,
+	// if we ever want to update this then we'd need to run a new VHD build using private package overrides
 	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = &Image{
 		Name:    "2204Gen2",
 		OS:      "ubuntu",
@@ -151,7 +153,12 @@ func ensureStaticSIGImageVersion(imageVersionResourceID string) (VHDResourceID, 
 		return "", fmt.Errorf("getting live image version info: %w", err)
 	}
 
-	if err := ensureReplication(ctx, version.sigImageDefinition, &resp.GalleryImageVersion); err != nil {
+	liveVersion := &resp.GalleryImageVersion
+	if err := ensureProvisioningState(liveVersion); err != nil {
+		return "", fmt.Errorf("ensuring image version provisioning state: %w", err)
+	}
+
+	if err := ensureReplication(ctx, version.sigImageDefinition, liveVersion); err != nil {
 		return "", fmt.Errorf("ensuring image replication: %w", err)
 	}
 
@@ -186,6 +193,10 @@ func findLatestSIGImageVersionWithTag(imageDefinitionResourceID, tagName, tagVal
 			if !ok || tag == nil || *tag != tagValue {
 				continue
 			}
+			if err := ensureProvisioningState(version); err != nil {
+				log.Printf("ensuring image version %s provisioning state: %s, will not consider for selection", *version.ID, err)
+				continue
+			}
 			if latestVersion == nil || version.Properties.PublishingProfile.PublishedDate.After(*latestVersion.Properties.PublishingProfile.PublishedDate) {
 				latestVersion = version
 			}
@@ -204,6 +215,7 @@ func findLatestSIGImageVersionWithTag(imageDefinitionResourceID, tagName, tagVal
 
 func ensureReplication(ctx context.Context, definition sigImageDefinition, version *armcompute.GalleryImageVersion) error {
 	if replicatedToCurrentRegion(version) {
+		log.Printf("image version %s is already replicated to region %s", *version.ID, Location)
 		return nil
 	}
 	return replicateToCurrentRegion(ctx, definition, version)
@@ -235,5 +247,12 @@ func replicateToCurrentRegion(ctx context.Context, definition sigImageDefinition
 		return fmt.Errorf("updating image version target regions: %w", err)
 	}
 
+	return nil
+}
+
+func ensureProvisioningState(version *armcompute.GalleryImageVersion) error {
+	if *version.Properties.ProvisioningState != armcompute.GalleryImageVersionPropertiesProvisioningStateSucceeded {
+		return fmt.Errorf("unexpected provisioning state: %q", *version.Properties.ProvisioningState)
+	}
 	return nil
 }

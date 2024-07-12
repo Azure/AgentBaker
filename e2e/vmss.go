@@ -77,7 +77,7 @@ func createVMSSWithPayload(ctx context.Context, t *testing.T, customData, cseCmd
 	}
 
 	if err := opts.scenario.PrepareVMSSModel(t, &model); err != nil {
-		return nil, fmt.Errorf(" prepare model for VMSS %q: %w", vmssName, err)
+		return nil, fmt.Errorf("prepare VMSS model %q: %w", vmssName, err)
 	}
 
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
