@@ -21,7 +21,7 @@ import (
 // this will avoid potential conflicts with tests running on other branches
 // there is no strict rules or a hidden meaning for the version
 // testClusterNamePrefix is also used for versioning cluster configurations
-const testClusterNamePrefix = "abe2e-artur"
+const testClusterNamePrefix = "abe2e-"
 
 var (
 	clusterKubenet       *Cluster
@@ -107,7 +107,7 @@ func createCluster(ctx context.Context, cluster *armcontainerservice.ManagedClus
 		return nil, err
 	}
 
-	// sometimes tests can be interrupted and vmms are left behind
+	// sometimes tests can be interrupted and vmss are left behind
 	// don't waste resource and delete them
 	if err := collectGarbageVMSS(ctx, createdCluster); err != nil {
 		return nil, fmt.Errorf("collect garbage vmss: %w", err)
