@@ -191,13 +191,13 @@ for p in ${packages[*]}; do
   returnPackageVersions ${p} ${OS} ${OS_VERSION}
   PACKAGE_DOWNLOAD_URL=""
   returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
-  echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS}\" \"${packageDownloadURL}\""
+  echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS}\" \"${PACKAGE_DOWNLOAD_URL}\""
   downloadDir=$(echo ${p} | jq .downloadLocation -r)
   #download the package
   case $name in
     "cri-tools")
       for version in $PACKAGE_VERSIONS; do
-        evaluatedURL=$(evalPackageDownloadURL ${packageDownloadURL})
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadCrictl "${downloadDir}" "${evaluatedURL}"
         echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
         # other steps are dependent on CRICTL_VERSION and CRICTL_VERSIONS
@@ -208,7 +208,7 @@ for p in ${packages[*]}; do
       ;;
     "azure-cni")
       for version in $PACKAGE_VERSIONS; do
-        evaluatedURL=$(evalPackageDownloadURL ${packageDownloadURL})
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
         unpackAzureCNI "${evaluatedURL}"
         echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
@@ -216,7 +216,7 @@ for p in ${packages[*]}; do
       ;;
     "cni-plugins")
       for version in $PACKAGE_VERSIONS; do
-        evaluatedURL=$(evalPackageDownloadURL ${packageDownloadURL})
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadCNI "${downloadDir}" "${evaluatedURL}"
         unpackAzureCNI "${evaluatedURL}"
         echo "  - CNI plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
@@ -224,14 +224,14 @@ for p in ${packages[*]}; do
       ;;
     "runc")
       for version in $PACKAGE_VERSIONS; do
-        evaluatedURL=$(evalPackageDownloadURL ${packageDownloadURL})
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         ensureRunc "${version}" "${evaluatedURL}" "${downloadDir}"
         echo "  - runc version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "containerd")
       for version in $PACKAGE_VERSIONS; do
-        evaluatedURL=$(evalPackageDownloadURL ${packageDownloadURL})
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
         elif [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
