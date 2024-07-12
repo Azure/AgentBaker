@@ -74,13 +74,13 @@ type Image struct {
 	Arch    string
 	Version string
 
-	vhd      VHDResourceID
-	vhdOnced sync.Once
-	vhdErr   error
+	vhd     VHDResourceID
+	vhdOnce sync.Once
+	vhdErr  error
 }
 
 func (i *Image) VHDResourceID() (VHDResourceID, error) {
-	i.vhdOnced.Do(func() {
+	i.vhdOnce.Do(func() {
 		imageDefinitionResourceID := imageGallery + i.Name
 		if i.Version != "" {
 			i.vhd, i.vhdErr = ensureStaticSIGImageVersion(imageDefinitionResourceID + "/versions/" + i.Version)
