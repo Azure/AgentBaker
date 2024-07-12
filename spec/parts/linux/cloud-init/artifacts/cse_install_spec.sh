@@ -4,7 +4,7 @@ source parts/linux/cloud-init/artifacts/cse_helpers.sh
 
 readPackage() {
     local packageName=$1
-    packages=$(jq ".Packages" "./spec/parts/linux/cloud-init/artifacts/test_components.json" | jq ".[] | select(.name == \"$packageName\")")
+    packages=$(jq ".Packages" "./parts/linux/cloud-init/artifacts/components.json" | jq ".[] | select(.name == \"$packageName\")")
     echo "$packages"
 }
 
@@ -137,7 +137,7 @@ Describe 'cse_install.sh'
         echo "mock logs to events calling with $1"
     }
     NEEDS_CONTAINERD="true"
-    COMPONENTS_FILEPATH="./spec/parts/linux/cloud-init/artifacts/test_components.json"
+    COMPONENTS_FILEPATH="./parts/linux/cloud-init/artifacts/components.json"
     It 'returns expected output for successful installation of containerd in UBUNTU 20.04'
         UBUNTU_RELEASE="20.04"
         containerdPackage=$(readPackage "containerd")
@@ -157,7 +157,7 @@ Describe 'cse_install.sh'
         The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.6.26-5.cm2"
     End
     It 'skips validation if components.json file is not found'
-        COMPONENTS_FILEPATH="./spec/parts/linux/cloud-init/artifacts/non_existent_file.json"
+        COMPONENTS_FILEPATH="non_existent_file.json"
         installContainerdWithManifestJson() {
             echo "mock installContainerdWithManifestJson calling"
         }
