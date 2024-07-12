@@ -16,6 +16,19 @@ retrycmd_if_failure() {
     done
     echo Executed \"$@\" $i times;
 }
+retrycmd_if_failure_nostdout() {
+    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+    for i in $(seq 1 $retries); do
+        timeout $timeout "${@}" > /dev/null && break || \
+        if [ $i -eq $retries ]; then
+            echo Executed \"$@\" $i times;
+            return 1
+        else
+            sleep $wait_sleep
+        fi
+    done
+    echo Executed \"$@\" $i times;
+}
 
 set_git_config() {
     # git config needs to be set in the agent
