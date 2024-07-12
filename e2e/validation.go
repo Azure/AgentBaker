@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"log"
 	"strings"
-
-	"github.com/Azure/agentbakere2e/cluster"
 )
 
-func validateNodeHealth(ctx context.Context, kube *cluster.Kubeclient, vmssName string) (string, error) {
+func validateNodeHealth(ctx context.Context, kube *Kubeclient, vmssName string) (string, error) {
 	nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
 	if err != nil {
 		return "", fmt.Errorf("error waiting for vmss %s ready: %w", vmssName, err)
@@ -28,7 +26,7 @@ func validateNodeHealth(ctx context.Context, kube *cluster.Kubeclient, vmssName 
 	return nodeName, nil
 }
 
-func validateWasm(ctx context.Context, kube *cluster.Kubeclient, nodeName, privateKey string) error {
+func validateWasm(ctx context.Context, kube *Kubeclient, nodeName, privateKey string) error {
 	spinPodName, err := ensureWasmPods(ctx, kube, nodeName)
 	if err != nil {
 		return fmt.Errorf("failed to valiate wasm, unable to ensure wasm pods on node %q: %w", nodeName, err)

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/agentbakere2e/cluster"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -20,7 +19,7 @@ func Test_azurelinuxv2(t *testing.T) {
 			Name: "azurelinuxv2",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
@@ -38,7 +37,7 @@ func Test_azurelinuxv2AirGap(t *testing.T) {
 			Airgap: true,
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenetAirgap,
+			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
@@ -56,7 +55,7 @@ func Test_azurelinuxv2ARM64(t *testing.T) {
 			Name: "azurelinuxv2-arm64",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
@@ -81,7 +80,7 @@ func Test_azurelinuxv2ARM64AirGap(t *testing.T) {
 			Airgap: true,
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenetAirgap,
+			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
@@ -106,7 +105,7 @@ func Test_azurelinuxv2_azurecni(t *testing.T) {
 			Name: "azurelinuxv2-azurecni",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterAzureNetwork,
+			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
@@ -125,7 +124,7 @@ func Test_azurelinuxv2ChronyRestarts(t *testing.T) {
 			Name: "azurelinuxv2-chrony-restarts",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
@@ -158,7 +157,7 @@ func Test_azurelinuxv2CustomSysctls(t *testing.T) {
 			Name: "azurelinuxv2-custom-sysctls",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
@@ -195,7 +194,7 @@ func Test_azurelinuxv2gpu(t *testing.T) {
 			GPU:  true,
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
@@ -221,7 +220,7 @@ func Test_azurelinuxv2gpu_azurecni(t *testing.T) {
 			GPU:  true,
 		},
 		Config: Config{
-			Cluster: cluster.ClusterAzureNetwork,
+			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
@@ -249,7 +248,7 @@ func Test_azurelinuxv2Wasm(t *testing.T) {
 			WASM: true,
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
@@ -268,7 +267,7 @@ func Test_marinerv2(t *testing.T) {
 			Name: "marinerv2",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
@@ -286,7 +285,7 @@ func Test_marinerv2AirGap(t *testing.T) {
 			Airgap: true,
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenetAirgap,
+			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
@@ -304,7 +303,7 @@ func Test_marinerv2ARM64(t *testing.T) {
 			Name: "marinerv2-arm64",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
@@ -329,7 +328,7 @@ func Test_marinerv2ARM64AirGap(t *testing.T) {
 			Airgap: true,
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenetAirgap,
+			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
@@ -354,7 +353,7 @@ func Test_marinerv2_azurecni(t *testing.T) {
 			Name: "marinerv2-azurecni",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterAzureNetwork,
+			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
@@ -373,7 +372,7 @@ func Test_marinerv2ChronyRestarts(t *testing.T) {
 			Name: "marinerv2-chrony-restarts",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
@@ -406,7 +405,7 @@ func Test_marinerv2CustomSysctls(t *testing.T) {
 			Name: "marinerv2-custom-sysctls",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
@@ -443,7 +442,7 @@ func Test_marinerv2gpu(t *testing.T) {
 			GPU:  true,
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
@@ -469,7 +468,7 @@ func Test_marinerv2gpu_azurecni(t *testing.T) {
 			GPU:  true,
 		},
 		Config: Config{
-			Cluster: cluster.ClusterAzureNetwork,
+			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
@@ -497,7 +496,7 @@ func Test_marinerv2Wasm(t *testing.T) {
 			WASM: true,
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
@@ -517,7 +516,7 @@ func Test_ubuntu1804(t *testing.T) {
 			Name: "ubuntu1804",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu1804Gen2Containerd,
 		},
 	})
@@ -530,7 +529,7 @@ func Test_ubuntu1804_azurecni(t *testing.T) {
 			Name: "ubuntu1804-azurecni",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterAzureNetwork,
+			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDUbuntu1804Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
@@ -547,7 +546,7 @@ func Test_ubuntu1804ChronyRestarts(t *testing.T) {
 			Name: "ubuntu1804-chrony-restarts",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu1804Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-18.04-gen2"
@@ -571,7 +570,7 @@ func Test_ubuntu1804gpu(t *testing.T) {
 			GPU:  true,
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu1804Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
@@ -597,7 +596,7 @@ func Test_ubuntu1804gpu_azurecni(t *testing.T) {
 			GPU:  true,
 		},
 		Config: Config{
-			Cluster: cluster.ClusterAzureNetwork,
+			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDUbuntu1804Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
@@ -624,7 +623,7 @@ func Test_ubuntu2204(t *testing.T) {
 			Name: "ubuntu2204",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -642,7 +641,7 @@ func Test_ubuntu2204AirGap(t *testing.T) {
 			Airgap: true,
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenetAirgap,
+			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -660,7 +659,7 @@ func Test_ubuntu2204ARM64(t *testing.T) {
 			Name: "ubuntu2204-arm64",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
@@ -685,7 +684,7 @@ func Test_ubuntu2204ArtifactStreaming(t *testing.T) {
 			Name: "ubuntu2204-artifact-streaming",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableArtifactStreaming = true
@@ -706,7 +705,7 @@ func Test_ubuntu2204ChronyRestarts(t *testing.T) {
 			Name: "ubuntu2204-chrony-restarts",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -729,7 +728,7 @@ func Test_ubuntu2204CustomCATrust(t *testing.T) {
 			Name: "ubuntu2204-custom-ca-trust",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -765,7 +764,7 @@ func Test_ubuntu2204CustomSysctls(t *testing.T) {
 			Name: "ubuntu2204-custom-sysctls",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
@@ -815,7 +814,7 @@ func ubuntu2204gpu(name string, vmSize string) *Scenario {
 			GPU:  true,
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = vmSize
@@ -841,7 +840,7 @@ func Test_ubuntu2204GPUGridDriver(t *testing.T) {
 			GPU:  true,
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -869,7 +868,7 @@ func Test_ubuntu2204gpuNoDriver(t *testing.T) {
 			GPU:  true,
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -900,7 +899,7 @@ func Test_ubuntu2204privatekubepkg(t *testing.T) {
 			Name: "ubuntu2204privatekubepkg",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -923,7 +922,7 @@ func Test_ubuntu2204ContainerdURL(t *testing.T) {
 			Name: "ubuntu2204ContainerdURL",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -941,7 +940,7 @@ func Test_ubuntu2204ContainerdVersion(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a node using an Ubuntu2204 VHD and the ContainerdVersion override bootstraps with the correct manifest containerd version and ignores the override",
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -971,7 +970,7 @@ func Test_ubuntu2204Wasm(t *testing.T) {
 			Name: "ubuntu2204-wasm",
 		},
 		Config: Config{
-			Cluster: cluster.ClusterKubenet,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi

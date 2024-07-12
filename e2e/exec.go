@@ -7,7 +7,6 @@ import (
 	"log"
 	"strings"
 
-	"github.com/Azure/agentbakere2e/cluster"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
@@ -84,7 +83,7 @@ func extractLogsFromVM(ctx context.Context, vmssName, privateIP, sshPrivateKey s
 	return result, nil
 }
 
-func extractClusterParameters(ctx context.Context, kube *cluster.Kubeclient) (map[string]string, error) {
+func extractClusterParameters(ctx context.Context, kube *Kubeclient) (map[string]string, error) {
 	commandList := map[string]string{
 		"/etc/kubernetes/azure.json":            "cat /etc/kubernetes/azure.json",
 		"/etc/kubernetes/certs/ca.crt":          "cat /etc/kubernetes/certs/ca.crt",
@@ -114,7 +113,7 @@ func extractClusterParameters(ctx context.Context, kube *cluster.Kubeclient) (ma
 	return result, nil
 }
 
-func execOnVM(ctx context.Context, kube *cluster.Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
+func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
 	sshCommand := fmt.Sprintf(sshCommandTemplate, sshPrivateKey, strings.ReplaceAll(vmPrivateIP, ".", ""), vmPrivateIP)
 	if !isShellBuiltIn {
 		sshCommand = sshCommand + " sudo"
@@ -129,12 +128,12 @@ func execOnVM(ctx context.Context, kube *cluster.Kubeclient, vmPrivateIP, jumpbo
 	return execResult, nil
 }
 
-func execOnPrivilegedPod(ctx context.Context, kube *cluster.Kubeclient, namespace, podName string, command string) (*podExecResult, error) {
+func execOnPrivilegedPod(ctx context.Context, kube *Kubeclient, namespace, podName string, command string) (*podExecResult, error) {
 	privilegedCommand := append(nsenterCommandArray(), command)
 	return execOnPod(ctx, kube, namespace, podName, privilegedCommand)
 }
 
-func execOnPod(ctx context.Context, kube *cluster.Kubeclient, namespace, podName string, command []string) (*podExecResult, error) {
+func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string, command []string) (*podExecResult, error) {
 	req := kube.Typed.CoreV1().RESTClient().Post().Resource("pods").Name(podName).Namespace(namespace).SubResource("exec")
 
 	option := &corev1.PodExecOptions{

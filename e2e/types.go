@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/agentbakere2e/cluster"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
@@ -111,7 +110,7 @@ type Scenario struct {
 
 // Config represents the configuration of an AgentBaker E2E scenario
 type Config struct {
-	Cluster func(ctx context.Context) (*cluster.Cluster, error)
+	Cluster func(ctx context.Context) (*Cluster, error)
 
 	// VHD is the function called by the e2e suite on the given scenario to get its VHD selection
 	VHD *config.Image
