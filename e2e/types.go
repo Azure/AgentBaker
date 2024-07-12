@@ -169,7 +169,7 @@ func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBoot
 
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
-func (s *Scenario) PrepareVMSSModel(t *testing.T, vmss *armcompute.VirtualMachineScaleSet) error {
+func (s *Scenario) PrepareVMSSModel(t *testing.T, vmss *armcompute.VirtualMachineScaleSet) {
 	resourceID, err := s.VHD.VHDResourceID()
 	require.NoError(t, err)
 	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
@@ -194,6 +194,4 @@ func (s *Scenario) PrepareVMSSModel(t *testing.T, vmss *armcompute.VirtualMachin
 	if config.KeepVMSS {
 		vmss.Tags["KEEP_VMSS"] = to.Ptr("true")
 	}
-
-	return nil
 }

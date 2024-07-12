@@ -18,6 +18,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -33,10 +34,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *sce
 		return nil, fmt.Errorf("unable to get node bootstrapping: %w", err)
 	}
 
-	vmssModel, err := createVMSSWithPayload(ctx, t, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create VMSS with payload: %w", err)
-	}
+	vmssModel := createVMSSWithPayload(ctx, t, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
 
 	if !config.KeepVMSS {
 		t.Cleanup(func() {
@@ -52,7 +50,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *sce
 	return vmssModel, nil
 }
 
-func createVMSSWithPayload(ctx context.Context, t *testing.T, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) (*armcompute.VirtualMachineScaleSet, error) {
+func createVMSSWithPayload(ctx context.Context, t *testing.T, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) *armcompute.VirtualMachineScaleSet {
 	log.Printf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
@@ -66,19 +64,14 @@ func createVMSSWithPayload(ctx context.Context, t *testing.T, customData, cseCmd
 	}
 
 	isAzureCNI, err := opts.clusterConfig.IsAzureCNI()
-	if err != nil {
-		return nil, fmt.Errorf("determine whether chosen cluster uses Azure CNI from cluster model: %w", err)
-	}
+	require.NoError(t, err)
 
 	if isAzureCNI {
-		if err := addPodIPConfigsForAzureCNI(ctx, &model, vmssName, opts); err != nil {
-			return nil, fmt.Errorf("create pod IP configs for azure CNI scenario: %w", err)
-		}
+		err = addPodIPConfigsForAzureCNI(ctx, &model, vmssName, opts)
+		require.NoError(t, err)
 	}
 
-	if err := opts.scenario.PrepareVMSSModel(t, &model); err != nil {
-		return nil, fmt.Errorf("prepare VMSS model %q: %w", vmssName, err)
-	}
+	opts.scenario.PrepareVMSSModel(t, &model)
 
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
@@ -87,16 +80,12 @@ func createVMSSWithPayload(ctx context.Context, t *testing.T, customData, cseCmd
 		model,
 		nil,
 	)
-	if err != nil {
-		return nil, fmt.Errorf("begin create VMSS %q: %w", vmssName, err)
-	}
+	require.NoError(t, err)
 	vmssResp, err := operation.PollUntilDone(ctx, &runtime.PollUntilDoneOptions{
 		Frequency: 10 * time.Second,
 	})
-	if err != nil {
-		return nil, fmt.Errorf("poll until done for VMSS %q: %w", vmssName, err)
-	}
-	return &vmssResp.VirtualMachineScaleSet, nil
+	require.NoError(t, err)
+	return &vmssResp.VirtualMachineScaleSet
 }
 
 // Adds additional IP configs to the passed in vmss model based on the chosen cluster's setting of "maxPodsPerNode",
