@@ -505,5 +505,11 @@ finally
     else {
         Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
     }
-    Upload-GuestVMLogs -ExitCode $global:ExitCode
+
+    if ($global:ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE) {
+        Write-Log "Do not call Upload-GuestVMLogs because there is no cse script package downloaded"
+    }
+    else {
+        Upload-GuestVMLogs -ExitCode $global:ExitCode
+    }
 }
