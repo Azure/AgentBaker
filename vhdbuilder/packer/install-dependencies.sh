@@ -567,3 +567,4 @@ capture_benchmark "download_kubernetes_binaries"
 echo "install-dependencies step completed successfully"
 capture_benchmark "overall_script" true
 process_benchmarks
+
