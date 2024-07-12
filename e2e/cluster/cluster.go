@@ -144,7 +144,7 @@ func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerserv
 	retryInterval := 30 * time.Second
 	var lastErr error
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		log.Printf("Attempt %d: Creating new cluster %s in rg %s\n", attempt+1, *cluster.Name, *cluster.Location)
+		log.Printf("Attempt %d: creating or updating cluster %s in rg %s\n", attempt+1, *cluster.Name, *cluster.Location)
 
 		createdCluster, err := createNewAKSCluster(ctx, cluster)
 		if err == nil {

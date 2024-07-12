@@ -56,10 +56,7 @@ func createVMSSWithPayload(ctx context.Context, t *testing.T, customData, cseCmd
 	log.Printf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
-	model, err := getBaseVMSSModel(ctx, vmssName, string(publicKeyBytes), customData, cseCmd, opts)
-	if err != nil {
-		return nil, fmt.Errorf("get base VMSS model: %w", err)
-	}
+	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)
 
 	if config.BuildID != "" {
 		if model.Tags == nil {
@@ -219,12 +216,7 @@ func getVmssName(t *testing.T) string {
 	return name
 }
 
-func getBaseVMSSModel(ctx context.Context, name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) (armcompute.VirtualMachineScaleSet, error) {
-	resourceID, err := config.VHDUbuntu1804Gen2Containerd()
-	if err != nil {
-		return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("get resource ID for VHD: %w", err)
-	}
-
+func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Location),
 		SKU: &armcompute.SKU{
@@ -270,9 +262,6 @@ func getBaseVMSSModel(ctx context.Context, name, sshPublicKey, customData, cseCm
 					},
 				},
 				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
-					ImageReference: &armcompute.ImageReference{
-						ID: to.Ptr(string(resourceID)),
-					},
 					OSDisk: &armcompute.VirtualMachineScaleSetOSDisk{
 						CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
 						DiskSizeGB:   to.Ptr(int32(512)),
@@ -314,7 +303,7 @@ func getBaseVMSSModel(ctx context.Context, name, sshPublicKey, customData, cseCm
 				},
 			},
 		},
-	}, nil
+	}
 }
 
 func getPrivateIP(res listVMSSVMNetworkInterfaceResult) (string, error) {

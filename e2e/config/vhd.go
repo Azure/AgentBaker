@@ -21,20 +21,79 @@ const (
 )
 
 var (
-	VHDUbuntu1804Gen2Containerd      = newSIGImageVersionResourceIDFetcher(imageGallery + "1804Gen2")
-	VHDUbuntu2204Gen2Arm64Containerd = newSIGImageVersionResourceIDFetcher(imageGallery + "2204Gen2Arm64")
-	VHDUbuntu2204Gen2Containerd      = newSIGImageVersionResourceIDFetcher(imageGallery + "2204Gen2")
-	VHDAzureLinuxV2Gen2Arm64         = newSIGImageVersionResourceIDFetcher(imageGallery + "AzureLinuxV2Gen2Arm64")
-	VHDAzureLinuxV2Gen2              = newSIGImageVersionResourceIDFetcher(imageGallery + "AzureLinuxV2Gen2")
-	VHDCBLMarinerV2Gen2Arm64         = newSIGImageVersionResourceIDFetcher(imageGallery + "CBLMarinerV2Gen2Arm64")
-	VHDCBLMarinerV2Gen2              = newSIGImageVersionResourceIDFetcher(imageGallery + "CBLMarinerV2Gen2")
-
-	// this is a particular 2204Gen2 image originally built with private packages,
-	// if we ever want to update this then we'd need to run a new VHD build using private package overrides
-	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = newStaticSIGImageVersionResourceIDFetcher(imageGallery + "2204Gen2/versions/1.1704411049.2812")
+	VHDUbuntu1804Gen2Containerd = &Image{
+		Name: "1804Gen2",
+		OS:   "ubuntu",
+		Arch: "amd64",
+	}
+	VHDUbuntu2204Gen2Arm64Containerd = &Image{
+		Name: "2204Gen2Arm64",
+		OS:   "ubuntu",
+		Arch: "arm64",
+	}
+	VHDUbuntu2204Gen2Containerd = &Image{
+		Name: "2204Gen2",
+		OS:   "ubuntu",
+		Arch: "amd64",
+	}
+	VHDAzureLinuxV2Gen2Arm64 = &Image{
+		Name: "AzureLinuxV2Gen2Arm64",
+		OS:   "azurelinux",
+		Arch: "arm64",
+	}
+	VHDAzureLinuxV2Gen2 = &Image{
+		Name: "AzureLinuxV2Gen2",
+		OS:   "azurelinux",
+		Arch: "amd64",
+	}
+	VHDCBLMarinerV2Gen2Arm64 = &Image{
+		Name: "CBLMarinerV2Gen2Arm64",
+		OS:   "mariner",
+		Arch: "arm64",
+	}
+	VHDCBLMarinerV2Gen2 = &Image{
+		Name: "CBLMarinerV2Gen2",
+		OS:   "mariner",
+		Arch: "amd64",
+	}
+	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = &Image{
+		Name:    "2204Gen2",
+		OS:      "ubuntu",
+		Arch:    "amd64",
+		Version: "1.1704411049.2812",
+	}
 )
 
 var ErrNotFound = fmt.Errorf("not found")
+
+type Image struct {
+	Name    string
+	OS      string
+	Arch    string
+	Version string
+
+	vhd      VHDResourceID
+	vhdOnced sync.Once
+	vhdErr   error
+}
+
+func (i *Image) VHDResourceID() (VHDResourceID, error) {
+	i.vhdOnced.Do(func() {
+		imageDefinitionResourceID := imageGallery + i.Name
+		if i.Version != "" {
+			i.vhd, i.vhdErr = ensureStaticSIGImageVersion(imageDefinitionResourceID + "/versions/" + i.Version)
+		} else {
+			i.vhd, i.vhdErr = findLatestSIGImageVersionWithTag(imageDefinitionResourceID, SIGVersionTagName, SIGVersionTagValue)
+		}
+		if i.vhdErr != nil {
+			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", imageDefinitionResourceID, SIGVersionTagName, SIGVersionTagValue, i.vhdErr)
+			log.Printf("failed to find the latest image %s", i.vhdErr)
+		} else {
+			log.Printf("Resource ID for %s: %s", imageDefinitionResourceID, i.vhd)
+		}
+	})
+	return i.vhd, i.vhdErr
+}
 
 type sigImageDefinition struct {
 	subscriptionID string
@@ -75,47 +134,6 @@ func (id VHDResourceID) Short() string {
 		return strings.Split(str, sep)[1]
 	}
 	return str
-}
-
-// newSIGImageVersionResourceIDFetcher is a factory function
-// it returns a function that fetches the latest VHDResourceID for a given image
-// the function is memoized and will only evaluate once on the first call
-func newSIGImageVersionResourceIDFetcher(imageDefinitionResourceID string) func() (VHDResourceID, error) {
-	resourceID := VHDResourceID("")
-	var err error
-	once := sync.Once{}
-	// evaluate the function once and cache the result
-	return func() (VHDResourceID, error) {
-		once.Do(func() {
-			resourceID, err = findLatestSIGImageVersionWithTag(imageDefinitionResourceID, SIGVersionTagName, SIGVersionTagValue)
-			if err != nil {
-				err = fmt.Errorf("img: %s, tag %s=%s, err %w", imageDefinitionResourceID, SIGVersionTagName, SIGVersionTagValue, err)
-				log.Printf("failed to find the latest image %s", err)
-			} else {
-				log.Printf("Resource ID for %s: %s", imageDefinitionResourceID, resourceID)
-			}
-		})
-		return resourceID, err
-	}
-}
-
-func newStaticSIGImageVersionResourceIDFetcher(imageVersionResourceID string) func() (VHDResourceID, error) {
-	resourceID := VHDResourceID("")
-	var err error
-	once := sync.Once{}
-
-	return func() (VHDResourceID, error) {
-		once.Do(func() {
-			resourceID, err = ensureStaticSIGImageVersion(imageVersionResourceID)
-			if err != nil {
-				err = fmt.Errorf("img: %s, err: %w", imageVersionResourceID, err)
-				log.Printf("failed to find static image %s", err)
-			} else {
-				log.Printf("Resource ID for %s: %s", imageVersionResourceID, resourceID)
-			}
-		})
-		return resourceID, err
-	}
 }
 
 func ensureStaticSIGImageVersion(imageVersionResourceID string) (VHDResourceID, error) {

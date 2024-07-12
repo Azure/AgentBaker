@@ -17,13 +17,11 @@ func Test_azurelinuxv2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "azurelinuxv2",
-			OS:       "azurelinuxv2",
-			Platform: "x64",
+			Name: "azurelinuxv2",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDAzureLinuxV2Gen2,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
@@ -36,14 +34,12 @@ func Test_azurelinuxv2AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "azurelinuxv2-airgap",
-			OS:       "azurelinuxv2",
-			Platform: "x64",
-			Airgap:   true,
+			Name:   "azurelinuxv2-airgap",
+			Airgap: true,
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenetAirgap,
-			VHDSelector: config.VHDAzureLinuxV2Gen2,
+			Cluster: cluster.ClusterKubenetAirgap,
+			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
@@ -57,13 +53,11 @@ func Test_azurelinuxv2ARM64(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "azurelinuxv2-arm64",
-			OS:       "azurelinuxv2",
-			Platform: "arm64",
+			Name: "azurelinuxv2-arm64",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDAzureLinuxV2Gen2Arm64,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-arm64-gen2"
@@ -83,14 +77,12 @@ func Test_azurelinuxv2ARM64AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "azurelinuxv2-arm64-airgap",
-			OS:       "azurelinuxv2",
-			Platform: "arm64",
-			Airgap:   true,
+			Name:   "azurelinuxv2-arm64-airgap",
+			Airgap: true,
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenetAirgap,
-			VHDSelector: config.VHDAzureLinuxV2Gen2Arm64,
+			Cluster: cluster.ClusterKubenetAirgap,
+			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-arm64-gen2"
@@ -111,13 +103,11 @@ func Test_azurelinuxv2_azurecni(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "azurelinuxv2 scenario on a cluster configured with Azure CNI",
 		Tags: Tags{
-			Name:     "azurelinuxv2-azurecni",
-			OS:       "azurelinuxv2",
-			Platform: "x64",
+			Name: "azurelinuxv2-azurecni",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterAzureNetwork,
-			VHDSelector: config.VHDAzureLinuxV2Gen2,
+			Cluster: cluster.ClusterAzureNetwork,
+			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
@@ -132,13 +122,11 @@ func Test_azurelinuxv2ChronyRestarts(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed",
 		Tags: Tags{
-			Name:     "azurelinuxv2-chrony-restarts",
-			OS:       "azurelinuxv2",
-			Platform: "x64",
+			Name: "azurelinuxv2-chrony-restarts",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDAzureLinuxV2Gen2,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
@@ -167,13 +155,11 @@ func Test_azurelinuxv2CustomSysctls(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
 		Tags: Tags{
-			Name:     "azurelinuxv2-custom-sysctls",
-			OS:       "azurelinuxv2",
-			Platform: "x64",
+			Name: "azurelinuxv2-custom-sysctls",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDAzureLinuxV2Gen2,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
@@ -205,14 +191,12 @@ func Test_azurelinuxv2gpu(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "azurelinuxv2-gpu",
-			OS:       "azurelinuxv2",
-			Platform: "x64",
-			GPU:      true,
+			Name: "azurelinuxv2-gpu",
+			GPU:  true,
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDAzureLinuxV2Gen2,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
@@ -232,10 +216,13 @@ func Test_azurelinuxv2gpu(t *testing.T) {
 func Test_azurelinuxv2gpu_azurecni(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "AzureLinux V2 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
-		Tags:        Tags{Name: "azurelinuxv2-gpu-azurecni", OS: "azurelinuxv2", Platform: "x64", GPU: true},
+		Tags: Tags{
+			Name: "azurelinuxv2-gpu-azurecni",
+			GPU:  true,
+		},
 		Config: Config{
-			Cluster:     cluster.ClusterAzureNetwork,
-			VHDSelector: config.VHDAzureLinuxV2Gen2,
+			Cluster: cluster.ClusterAzureNetwork,
+			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
@@ -258,14 +245,12 @@ func Test_azurelinuxv2Wasm(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new AzureLinuxV2 (CgroupV2) node using krustlet can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "azurelinuxv2-wasm",
-			OS:       "azurelinuxv2",
-			Platform: "x64",
-			WASM:     true,
+			Name: "azurelinuxv2-wasm",
+			WASM: true,
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDAzureLinuxV2Gen2,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
@@ -280,13 +265,11 @@ func Test_marinerv2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a MarinerV2 VHD can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "marinerv2",
-			OS:       "marinerv2",
-			Platform: "x64",
+			Name: "marinerv2",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDCBLMarinerV2Gen2,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
@@ -299,14 +282,12 @@ func Test_marinerv2AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a MarinerV2 VHD can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "marinerv2-airgap",
-			OS:       "marinerv2",
-			Platform: "x64",
-			Airgap:   true,
+			Name:   "marinerv2-airgap",
+			Airgap: true,
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenetAirgap,
-			VHDSelector: config.VHDCBLMarinerV2Gen2,
+			Cluster: cluster.ClusterKubenetAirgap,
+			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
@@ -320,13 +301,11 @@ func Test_marinerv2ARM64(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a MarinerV2 VHD on ARM64 architecture can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "marinerv2-arm64",
-			OS:       "marinerv2",
-			Platform: "arm64",
+			Name: "marinerv2-arm64",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDCBLMarinerV2Gen2Arm64,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-arm64-gen2"
@@ -346,14 +325,12 @@ func Test_marinerv2ARM64AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a MarinerV2 VHD on ARM64 architecture can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "marinerv2-arm64-airgap",
-			OS:       "marinerv2",
-			Platform: "arm64",
-			Airgap:   true,
+			Name:   "marinerv2-arm64-airgap",
+			Airgap: true,
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenetAirgap,
-			VHDSelector: config.VHDCBLMarinerV2Gen2Arm64,
+			Cluster: cluster.ClusterKubenetAirgap,
+			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-arm64-gen2"
@@ -374,13 +351,11 @@ func Test_marinerv2_azurecni(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "marinerv2 scenario on a cluster configured with Azure CNI",
 		Tags: Tags{
-			Name:     "marinerv2-azurecni",
-			OS:       "marinerv2",
-			Platform: "x64",
+			Name: "marinerv2-azurecni",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterAzureNetwork,
-			VHDSelector: config.VHDCBLMarinerV2Gen2,
+			Cluster: cluster.ClusterAzureNetwork,
+			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
@@ -395,13 +370,11 @@ func Test_marinerv2ChronyRestarts(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed",
 		Tags: Tags{
-			Name:     "marinerv2-chrony-restarts",
-			OS:       "marinerv2",
-			Platform: "x64",
+			Name: "marinerv2-chrony-restarts",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDCBLMarinerV2Gen2,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
@@ -430,13 +403,11 @@ func Test_marinerv2CustomSysctls(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a MarinerV2 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
 		Tags: Tags{
-			Name:     "marinerv2-custom-sysctls",
-			OS:       "marinerv2",
-			Platform: "x64",
+			Name: "marinerv2-custom-sysctls",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDCBLMarinerV2Gen2,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
@@ -468,14 +439,12 @@ func Test_marinerv2gpu(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using a MarinerV2 VHD can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "marinerv2-gpu",
-			OS:       "marinerv2",
-			Platform: "x64",
-			GPU:      true,
+			Name: "marinerv2-gpu",
+			GPU:  true,
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDCBLMarinerV2Gen2,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
@@ -496,14 +465,12 @@ func Test_marinerv2gpu_azurecni(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "MarinerV2 gpu scenario on cluster configured with Azure CNI",
 		Tags: Tags{
-			Name:     "marinerv2-gpu-azurecni",
-			OS:       "marinerv2",
-			Platform: "x64",
-			GPU:      true,
+			Name: "marinerv2-gpu-azurecni",
+			GPU:  true,
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterAzureNetwork,
-			VHDSelector: config.VHDCBLMarinerV2Gen2,
+			Cluster: cluster.ClusterAzureNetwork,
+			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
@@ -526,14 +493,12 @@ func Test_marinerv2Wasm(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new marinerv2 node using krustlet can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "marinerv2-wasm",
-			OS:       "marinerv2",
-			Platform: "x64",
-			WASM:     true,
+			Name: "marinerv2-wasm",
+			WASM: true,
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDCBLMarinerV2Gen2,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
@@ -549,13 +514,11 @@ func Test_ubuntu1804(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an Ubuntu 1804 VHD can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "ubuntu1804",
-			OS:       "ubuntu1804",
-			Platform: "x64",
+			Name: "ubuntu1804",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDUbuntu1804Gen2Containerd,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDUbuntu1804Gen2Containerd,
 		},
 	})
 }
@@ -564,13 +527,11 @@ func Test_ubuntu1804_azurecni(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "ubuntu1804 scenario on cluster configured with Azure CNI",
 		Tags: Tags{
-			Name:     "ubuntu1804-azurecni",
-			OS:       "ubuntu1804",
-			Platform: "x64",
+			Name: "ubuntu1804-azurecni",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterAzureNetwork,
-			VHDSelector: config.VHDUbuntu1804Gen2Containerd,
+			Cluster: cluster.ClusterAzureNetwork,
+			VHD:     config.VHDUbuntu1804Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
@@ -583,13 +544,11 @@ func Test_ubuntu1804ChronyRestarts(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed",
 		Tags: Tags{
-			Name:     "ubuntu1804-chrony-restarts",
-			OS:       "ubuntu1804",
-			Platform: "x64",
+			Name: "ubuntu1804-chrony-restarts",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDUbuntu1804Gen2Containerd,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDUbuntu1804Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-18.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-18.04-gen2"
@@ -608,14 +567,12 @@ func Test_ubuntu1804gpu(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using an Ubuntu 1804 VHD can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "ubuntu1804-gpu",
-			OS:       "ubuntu1804",
-			Platform: "x64",
-			GPU:      true,
+			Name: "ubuntu1804-gpu",
+			GPU:  true,
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDUbuntu1804Gen2Containerd,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDUbuntu1804Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-18.04-gen2"
@@ -636,14 +593,12 @@ func Test_ubuntu1804gpu_azurecni(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Ubuntu1804 gpu scenario on cluster configured with Azure CNI",
 		Tags: Tags{
-			Name:     "ubuntu1804-gpu-azurecni",
-			OS:       "ubuntu1804",
-			Platform: "x64",
-			GPU:      true,
+			Name: "ubuntu1804-gpu-azurecni",
+			GPU:  true,
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterAzureNetwork,
-			VHDSelector: config.VHDUbuntu1804Gen2Containerd,
+			Cluster: cluster.ClusterAzureNetwork,
+			VHD:     config.VHDUbuntu1804Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
@@ -666,13 +621,11 @@ func Test_ubuntu2204(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "ubuntu2204",
-			OS:       "ubuntu2204",
-			Platform: "x64",
+			Name: "ubuntu2204",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDUbuntu2204Gen2Containerd,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -685,14 +638,12 @@ func Test_ubuntu2204AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "ubuntu2204-airgap",
-			OS:       "ubuntu2204",
-			Platform: "x64",
-			Airgap:   true,
+			Name:   "ubuntu2204-airgap",
+			Airgap: true,
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenetAirgap,
-			VHDSelector: config.VHDUbuntu2204Gen2Containerd,
+			Cluster: cluster.ClusterKubenetAirgap,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -706,13 +657,11 @@ func Test_ubuntu2204ARM64(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that an Ubuntu 2204 Node using ARM64 architecture can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "ubuntu2204-arm64",
-			OS:       "ubuntu2204",
-			Platform: "arm64",
+			Name: "ubuntu2204-arm64",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDUbuntu2204Gen2Arm64Containerd,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
@@ -733,13 +682,11 @@ func Test_ubuntu2204ArtifactStreaming(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using artifact streaming can be properly bootstrapepd",
 		Tags: Tags{
-			Name:     "ubuntu2204-artifact-streaming",
-			OS:       "ubuntu2204",
-			Platform: "x64",
+			Name: "ubuntu2204-artifact-streaming",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDUbuntu2204Gen2Containerd,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableArtifactStreaming = true
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -756,13 +703,11 @@ func Test_ubuntu2204ChronyRestarts(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed",
 		Tags: Tags{
-			Name:     "ubuntu2204-chrony-restarts",
-			OS:       "ubuntu2204",
-			Platform: "x64",
+			Name: "ubuntu2204-chrony-restarts",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDUbuntu2204Gen2Containerd,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -781,13 +726,11 @@ func Test_ubuntu2204CustomCATrust(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped and custom CA was correctly added",
 		Tags: Tags{
-			Name:     "ubuntu2204-custom-ca-trust",
-			OS:       "ubuntu2204",
-			Platform: "x64",
+			Name: "ubuntu2204-custom-ca-trust",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDUbuntu2204Gen2Containerd,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -819,13 +762,11 @@ func Test_ubuntu2204CustomSysctls(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
 		Tags: Tags{
-			Name:     "ubuntu2204-custom-sysctls",
-			OS:       "ubuntu2204",
-			Platform: "x64",
+			Name: "ubuntu2204-custom-sysctls",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDUbuntu2204Gen2Containerd,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
@@ -869,10 +810,13 @@ func Test_ubuntu2204gpua10(t *testing.T) {
 func ubuntu2204gpu(name string, vmSize string) *Scenario {
 	return &Scenario{
 		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2204 VHD can be properly bootstrapped", vmSize),
-		Tags:        Tags{Name: name, OS: "ubuntu2204", Platform: "x64", GPU: true},
+		Tags: Tags{
+			Name: name,
+			GPU:  true,
+		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDUbuntu2204Gen2Containerd,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = vmSize
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -893,14 +837,12 @@ func Test_ubuntu2204GPUGridDriver(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD with grid driver can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "ubuntu2204-gpu-grid",
-			OS:       "ubuntu2204",
-			Platform: "x64",
-			GPU:      true,
+			Name: "ubuntu2204-gpu-grid",
+			GPU:  true,
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDUbuntu2204Gen2Containerd,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -923,14 +865,12 @@ func Test_ubuntu2204gpuNoDriver(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
 		Tags: Tags{
-			Name:     "ubuntu2204-gpu-nodriver",
-			OS:       "ubuntu2204",
-			Platform: "x64",
-			GPU:      true,
+			Name: "ubuntu2204-gpu-nodriver",
+			GPU:  true,
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDUbuntu2204Gen2Containerd,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -957,13 +897,11 @@ func Test_ubuntu2204privatekubepkg(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD that was built with private kube packages can be properly bootstrapped with the specified kube version",
 		Tags: Tags{
-			Name:     "ubuntu2204privatekubepkg",
-			OS:       "ubuntu2204",
-			Platform: "x64",
+			Name: "ubuntu2204privatekubepkg",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.25.6"
@@ -982,13 +920,11 @@ func Test_ubuntu2204ContainerdURL(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override bootstraps with the provided URL and not the maifest contianerd version",
 		Tags: Tags{
-			Name:     "ubuntu2204ContainerdURL",
-			OS:       "ubuntu2204",
-			Platform: "x64",
+			Name: "ubuntu2204ContainerdURL",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDUbuntu2204Gen2Containerd,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -1005,8 +941,8 @@ func Test_ubuntu2204ContainerdVersion(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a node using an Ubuntu2204 VHD and the ContainerdVersion override bootstraps with the correct manifest containerd version and ignores the override",
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDUbuntu2204Gen2Containerd,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -1032,13 +968,11 @@ func Test_ubuntu2204Wasm(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using krustlet can be properly bootstrapepd",
 		Tags: Tags{
-			Name:     "ubuntu2204-wasm",
-			OS:       "ubuntu2204",
-			Platform: "x64",
+			Name: "ubuntu2204-wasm",
 		},
 		Config: Config{
-			Cluster:     cluster.ClusterKubenet,
-			VHDSelector: config.VHDUbuntu2204Gen2Containerd,
+			Cluster: cluster.ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"

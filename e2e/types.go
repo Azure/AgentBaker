@@ -17,12 +17,13 @@ import (
 )
 
 type Tags struct {
-	Name     string
-	OS       string
-	Platform string
-	Airgap   bool
-	GPU      bool
-	WASM     bool
+	Name      string
+	ImageName string
+	OS        string
+	Arch      string
+	Airgap    bool
+	GPU       bool
+	WASM      bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
@@ -113,7 +114,7 @@ type Config struct {
 	Cluster func(ctx context.Context) (*cluster.Cluster, error)
 
 	// VHD is the function called by the e2e suite on the given scenario to get its VHD selection
-	VHDSelector func() (config.VHDResourceID, error)
+	VHD *config.Image
 
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
@@ -162,7 +163,7 @@ func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBoot
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(t *testing.T, vmss *armcompute.VirtualMachineScaleSet) error {
-	resourceID, err := s.VHDSelector()
+	resourceID, err := s.VHD.VHDResourceID()
 	require.NoError(t, err)
 	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
 	require.NotNil(t, vmss, "input VirtualMachineScaleSet")

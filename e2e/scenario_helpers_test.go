@@ -40,6 +40,10 @@ func RunScenario(t *testing.T, s *Scenario) {
 }
 
 func maybeSkipScenario(t *testing.T, s *Scenario) {
+	s.Tags.OS = s.VHD.OS
+	s.Tags.Arch = s.VHD.Arch
+	s.Tags.ImageName = s.VHD.Name
+	log.Printf("running scenario %q with tags %+v", t.Name(), s.Tags)
 	if config.TagsToRun != "" {
 		matches, err := s.Tags.MatchesFilters(config.TagsToRun)
 		if err != nil {
@@ -60,7 +64,7 @@ func maybeSkipScenario(t *testing.T, s *Scenario) {
 		}
 	}
 
-	rid, err := s.VHDSelector()
+	rid, err := s.VHD.VHDResourceID()
 	if err != nil {
 		if config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
 			t.Skipf("skipping scenario %q: could not find image", t.Name())
@@ -115,9 +119,10 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 		}
 
 		if !isVMExtensionProvisioningError(err) {
-			t.Fatalf("encountered an unknown error while creating VM %s: %v", vmssName, err)
+			t.Fatalf("creating VMSS %s: %v", vmssName, err)
 		}
 		log.Printf("vm %s was unable to be provisioned due to a CSE error, will still attempt to extract provisioning logs...\n", vmssName)
+		t.Fail()
 	}
 
 	if config.KeepVMSS {
@@ -179,7 +184,5 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 		}
 
 		log.Printf("node %s bootstrapping succeeded!", vmssName)
-	} else {
-		t.Fatalf("vmss %s was unable to be properly created and bootstrapped", vmssName)
 	}
 }
