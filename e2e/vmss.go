@@ -9,7 +9,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"log"
 	"strings"
 	"testing"
 	"time"
@@ -38,6 +37,9 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *sce
 
 	if !config.KeepVMSS {
 		t.Cleanup(func() {
+			// original context can be cancelled, so create a new one
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
 			_, err := config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
 				ForceDeletion: to.Ptr(true),
 			})
@@ -51,7 +53,7 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *sce
 }
 
 func createVMSSWithPayload(ctx context.Context, t *testing.T, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) *armcompute.VirtualMachineScaleSet {
-	log.Printf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
+	t.Logf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)

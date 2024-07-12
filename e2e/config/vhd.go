@@ -3,9 +3,9 @@ package config
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
@@ -79,19 +79,19 @@ type Image struct {
 	vhdErr  error
 }
 
-func (i *Image) VHDResourceID() (VHDResourceID, error) {
+func (i *Image) VHDResourceID(t *testing.T) (VHDResourceID, error) {
 	i.vhdOnce.Do(func() {
 		imageDefinitionResourceID := imageGallery + i.Name
 		if i.Version != "" {
-			i.vhd, i.vhdErr = ensureStaticSIGImageVersion(imageDefinitionResourceID + "/versions/" + i.Version)
+			i.vhd, i.vhdErr = ensureStaticSIGImageVersion(t, imageDefinitionResourceID+"/versions/"+i.Version)
 		} else {
-			i.vhd, i.vhdErr = findLatestSIGImageVersionWithTag(imageDefinitionResourceID, SIGVersionTagName, SIGVersionTagValue)
+			i.vhd, i.vhdErr = findLatestSIGImageVersionWithTag(t, imageDefinitionResourceID, SIGVersionTagName, SIGVersionTagValue)
 		}
 		if i.vhdErr != nil {
 			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", imageDefinitionResourceID, SIGVersionTagName, SIGVersionTagValue, i.vhdErr)
-			log.Printf("failed to find the latest image %s", i.vhdErr)
+			t.Logf("failed to find the latest image %s", i.vhdErr)
 		} else {
-			log.Printf("Resource ID for %s: %s", imageDefinitionResourceID, i.vhd)
+			t.Logf("Resource ID for %s: %s", imageDefinitionResourceID, i.vhd)
 		}
 	})
 	return i.vhd, i.vhdErr
@@ -138,7 +138,7 @@ func (id VHDResourceID) Short() string {
 	return str
 }
 
-func ensureStaticSIGImageVersion(imageVersionResourceID string) (VHDResourceID, error) {
+func ensureStaticSIGImageVersion(t *testing.T, imageVersionResourceID string) (VHDResourceID, error) {
 	ctx, cancel := context.WithTimeout(context.TODO(), fetchResourceIDTimeout)
 	defer cancel()
 
@@ -158,14 +158,14 @@ func ensureStaticSIGImageVersion(imageVersionResourceID string) (VHDResourceID, 
 		return "", fmt.Errorf("ensuring image version provisioning state: %w", err)
 	}
 
-	if err := ensureReplication(ctx, version.sigImageDefinition, liveVersion); err != nil {
+	if err := ensureReplication(ctx, t, version.sigImageDefinition, liveVersion); err != nil {
 		return "", fmt.Errorf("ensuring image replication: %w", err)
 	}
 
 	return VHDResourceID(imageVersionResourceID), nil
 }
 
-func findLatestSIGImageVersionWithTag(imageDefinitionResourceID, tagName, tagValue string) (VHDResourceID, error) {
+func findLatestSIGImageVersionWithTag(t *testing.T, imageDefinitionResourceID, tagName, tagValue string) (VHDResourceID, error) {
 	ctx, cancel := context.WithTimeout(context.TODO(), fetchResourceIDTimeout)
 	defer cancel()
 
@@ -194,7 +194,7 @@ func findLatestSIGImageVersionWithTag(imageDefinitionResourceID, tagName, tagVal
 				continue
 			}
 			if err := ensureProvisioningState(version); err != nil {
-				log.Printf("ensuring image version %s provisioning state: %s, will not consider for selection", *version.ID, err)
+				t.Logf("ensuring image version %s provisioning state: %s, will not consider for selection", *version.ID, err)
 				continue
 			}
 			if latestVersion == nil || version.Properties.PublishingProfile.PublishedDate.After(*latestVersion.Properties.PublishingProfile.PublishedDate) {
@@ -206,19 +206,19 @@ func findLatestSIGImageVersionWithTag(imageDefinitionResourceID, tagName, tagVal
 		return "", ErrNotFound
 	}
 
-	if err := ensureReplication(ctx, definition, latestVersion); err != nil {
+	if err := ensureReplication(ctx, t, definition, latestVersion); err != nil {
 		return "", fmt.Errorf("ensuring image replication: %w", err)
 	}
 
 	return VHDResourceID(*latestVersion.ID), nil
 }
 
-func ensureReplication(ctx context.Context, definition sigImageDefinition, version *armcompute.GalleryImageVersion) error {
+func ensureReplication(ctx context.Context, t *testing.T, definition sigImageDefinition, version *armcompute.GalleryImageVersion) error {
 	if replicatedToCurrentRegion(version) {
-		log.Printf("image version %s is already replicated to region %s", *version.ID, Location)
+		t.Logf("image version %s is already replicated to region %s", *version.ID, Location)
 		return nil
 	}
-	return replicateToCurrentRegion(ctx, definition, version)
+	return replicateToCurrentRegion(ctx, t, definition, version)
 }
 
 func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion) bool {
@@ -230,8 +230,8 @@ func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion) bool {
 	return false
 }
 
-func replicateToCurrentRegion(ctx context.Context, definition sigImageDefinition, version *armcompute.GalleryImageVersion) error {
-	log.Printf("will replicate image version %s to region %s...", *version.ID, Location)
+func replicateToCurrentRegion(ctx context.Context, t *testing.T, definition sigImageDefinition, version *armcompute.GalleryImageVersion) error {
+	t.Logf("will replicate image version %s to region %s...", *version.ID, Location)
 
 	version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
 		Name:                 &Location,

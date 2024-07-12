@@ -3,8 +3,8 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
+	"testing"
 )
 
 func validateNodeHealth(ctx context.Context, kube *Kubeclient, vmssName string) (string, error) {
@@ -26,7 +26,7 @@ func validateNodeHealth(ctx context.Context, kube *Kubeclient, vmssName string) 
 	return nodeName, nil
 }
 
-func validateWasm(ctx context.Context, kube *Kubeclient, nodeName, privateKey string) error {
+func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName, privateKey string) error {
 	spinPodName, err := ensureWasmPods(ctx, kube, nodeName)
 	if err != nil {
 		return fmt.Errorf("failed to valiate wasm, unable to ensure wasm pods on node %q: %w", nodeName, err)
@@ -42,7 +42,7 @@ func validateWasm(ctx context.Context, kube *Kubeclient, nodeName, privateKey st
 		return fmt.Errorf("on node %s unable to get debug pod name to validate wasm: %w", nodeName, err)
 	}
 
-	execResult, err := pollExecOnPod(ctx, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
+	execResult, err := pollExecOnPod(ctx, t, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
 	if err != nil {
 		return fmt.Errorf("on node %sunable to execute wasm validation command: %w", nodeName, err)
 	}
@@ -56,17 +56,17 @@ func validateWasm(ctx context.Context, kube *Kubeclient, nodeName, privateKey st
 				return fmt.Errorf(" on node %s unable to get IP of wasm spin pod %q: %w", nodeName, spinPodName, err)
 			}
 
-			execResult, err = pollExecOnPod(ctx, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
+			execResult, err = pollExecOnPod(ctx, t, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
 			if err != nil {
 				return fmt.Errorf("unable to execute on node %s wasm validation command on wasm pod %q at %s: %w", nodeName, spinPodName, spinPodIP, err)
 			}
 
 			if execResult.exitCode != "0" {
-				execResult.dumpAll()
+				execResult.dumpAll(t)
 				return fmt.Errorf("curl  on node %swasm endpoint on pod %q at %s terminated with exit code %s", nodeName, spinPodName, spinPodIP, execResult.exitCode)
 			}
 		} else {
-			execResult.dumpAll()
+			execResult.dumpAll(t)
 			return fmt.Errorf("curl  on node %swasm endpoint on pod %q at %s terminated with exit code %s", nodeName, spinPodName, spinPodIP, execResult.exitCode)
 		}
 	}
@@ -78,7 +78,7 @@ func validateWasm(ctx context.Context, kube *Kubeclient, nodeName, privateKey st
 	return nil
 }
 
-func runLiveVMValidators(ctx context.Context, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
+func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
 	podName, err := getDebugPodName(opts.clusterConfig.Kube)
 	if err != nil {
 		return fmt.Errorf("While running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
@@ -93,9 +93,9 @@ func runLiveVMValidators(ctx context.Context, vmssName, privateIP, sshPrivateKey
 		desc := validator.Description
 		command := validator.Command
 		isShellBuiltIn := validator.IsShellBuiltIn
-		log.Printf("running live VM validator on %s: %q", vmssName, desc)
+		t.Logf("running live VM validator on %s: %q", vmssName, desc)
 
-		execResult, err := pollExecOnVM(ctx, opts.clusterConfig.Kube, privateIP, podName, sshPrivateKey, command, isShellBuiltIn)
+		execResult, err := pollExecOnVM(ctx, t, opts.clusterConfig.Kube, privateIP, podName, sshPrivateKey, command, isShellBuiltIn)
 		if err != nil {
 			return fmt.Errorf("unable to execute validator on node %s command %q: %w", vmssName, command, err)
 		}
@@ -103,7 +103,7 @@ func runLiveVMValidators(ctx context.Context, vmssName, privateIP, sshPrivateKey
 		if validator.Asserter != nil {
 			err := validator.Asserter(execResult.exitCode, execResult.stdout.String(), execResult.stderr.String())
 			if err != nil {
-				execResult.dumpAll()
+				execResult.dumpAll(t)
 				return fmt.Errorf("failed validator on node %s assertion: %w", vmssName, err)
 			}
 		}

@@ -3,7 +3,6 @@ package e2e
 import (
 	"context"
 	"errors"
-	"log"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -15,26 +14,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var beforeAllScenariosOnce sync.Once
-
-func beforeAllScenarios() {
-	if err := createE2ELoggingDir(); err != nil {
-		panic(err)
-	}
-
-	if err := ensureResourceGroup(context.Background()); err != nil {
-		panic(err)
-	}
-}
+var once sync.Once
 
 func RunScenario(t *testing.T, s *Scenario) {
-	beforeAllScenariosOnce.Do(beforeAllScenarios)
+	once.Do(func() {
+		if err := createE2ELoggingDir(); err != nil {
+			panic(err)
+		}
+
+		if err := ensureResourceGroup(context.Background(), t); err != nil {
+			panic(err)
+		}
+	})
 	t.Parallel()
 	ctx := context.Background()
-	model, err := s.Cluster(ctx)
+	model, err := s.Cluster(ctx, t)
 	require.NoError(t, err)
 	maybeSkipScenario(t, s)
-	log.Printf("%q: using cluster %q", t.Name(), *model.Model.ID)
 	loggingDir, err := createVMLogsDir(t.Name())
 	require.NoError(t, err)
 	nbc, err := s.PrepareNodeBootstrappingConfiguration(model.NodeBootstrappingConfiguration)
@@ -52,7 +48,7 @@ func maybeSkipScenario(t *testing.T, s *Scenario) {
 	s.Tags.OS = s.VHD.OS
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
-	log.Printf("running scenario %q with tags %+v", t.Name(), s.Tags)
+	t.Logf("running scenario %q with tags %+v", t.Name(), s.Tags)
 	if config.TagsToRun != "" {
 		matches, err := s.Tags.MatchesFilters(config.TagsToRun)
 		if err != nil {
@@ -73,7 +69,7 @@ func maybeSkipScenario(t *testing.T, s *Scenario) {
 		}
 	}
 
-	rid, err := s.VHD.VHDResourceID()
+	_, err := s.VHD.VHDResourceID(t)
 	if err != nil {
 		if config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
 			t.Skipf("skipping scenario %q: could not find image", t.Name())
@@ -81,15 +77,16 @@ func maybeSkipScenario(t *testing.T, s *Scenario) {
 			t.Fatalf("could not find image for %q: %s", t.Name(), err)
 		}
 	}
-	t.Logf("running scenario %q with image %q", t.Name(), rid)
 }
 
 func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
+	rid, _ := opts.scenario.VHD.VHDResourceID(t)
+	t.Logf("running scenario %q with image %q in aks cluster %q", t.Name(), rid, *opts.clusterConfig.Model.ID)
+
 	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair()
 	assert.NoError(t, err)
 
 	vmssName := getVmssName(t)
-	log.Printf("creating and bootstrapping vmss: %q", vmssName)
 
 	vmssSucceeded := true
 	vmssModel, err := bootstrapVMSS(ctx, t, vmssName, opts, publicKeyBytes)
@@ -105,17 +102,17 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 		if !isVMExtensionProvisioningError(err) {
 			t.Fatalf("creating VMSS %s: %v", vmssName, err)
 		}
-		log.Printf("vm %s was unable to be provisioned due to a CSE error, will still attempt to extract provisioning logs...\n", vmssName)
+		t.Logf("vm %s was unable to be provisioned due to a CSE error, will still attempt to extract provisioning logs...\n", vmssName)
 		t.Fail()
 	}
 
 	if config.KeepVMSS {
 		defer func() {
-			log.Printf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
+			t.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
 			if vmssModel != nil {
-				log.Printf("retained vmss %s resource ID: %q", vmssName, *vmssModel.ID)
+				t.Logf("retained vmss %s resource ID: %q", vmssName, *vmssModel.ID)
 			} else {
-				log.Printf("WARNING: model of retained vmss %q is nil", vmssName)
+				t.Logf("WARNING: model of retained vmss %q is nil", vmssName)
 			}
 			if err := writeToFile(filepath.Join(opts.loggingDir, "sshkey"), string(privateKeyBytes)); err != nil {
 				t.Fatalf("failed to write retained vmss %s private ssh key to disk: %s", vmssName, err)
@@ -127,46 +124,38 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 				t.Fatalf("failed to write vmss %s resource ID to disk: %s", vmssName, err)
 			}
 		} else {
-			log.Printf("WARNING: bootstrapped vmss model was nil for %s", vmssName)
+			t.Logf("WARNING: bootstrapped vmss model was nil for %s", vmssName)
 		}
 	}
 
-	vmPrivateIP, err := pollGetVMPrivateIP(ctx, vmssName, opts)
-	if err != nil {
-		t.Fatalf("failed to get VM %s private IP: %s", vmssName, err)
-	}
+	vmPrivateIP, err := pollGetVMPrivateIP(ctx, t, vmssName, opts)
+	require.NoError(t, err)
 
 	// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
 	defer func() {
-		err := pollExtractVMLogs(ctx, vmssName, vmPrivateIP, privateKeyBytes, opts)
+		err := pollExtractVMLogs(ctx, t, vmssName, vmPrivateIP, privateKeyBytes, opts)
 		require.NoError(t, err)
 	}()
 
 	// Only perform node readiness/pod-related checks when VMSS creation succeeded
 	if vmssSucceeded {
-		log.Printf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", vmssName)
+		t.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", vmssName)
 		nodeName, err := validateNodeHealth(ctx, opts.clusterConfig.Kube, vmssName)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		if opts.nbc.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi {
-			log.Printf("wasm scenario: running wasm validation on %s...", vmssName)
-			if err := ensureWasmRuntimeClasses(ctx, opts.clusterConfig.Kube); err != nil {
-				t.Fatalf("unable to ensure wasm RuntimeClasses on %s: %s", vmssName, err)
-			}
-			if err := validateWasm(ctx, opts.clusterConfig.Kube, nodeName, string(privateKeyBytes)); err != nil {
-				t.Fatalf("unable to validate wasm on %s: %s", vmssName, err)
-			}
+			t.Logf("wasm scenario: running wasm validation on %s...", vmssName)
+			err = ensureWasmRuntimeClasses(ctx, opts.clusterConfig.Kube)
+			require.NoError(t, err)
+			err = validateWasm(ctx, t, opts.clusterConfig.Kube, nodeName, string(privateKeyBytes))
+			require.NoError(t, err)
 		}
 
-		log.Printf("node %s is ready, proceeding with validation commands...", vmssName)
+		t.Logf("node %s is ready, proceeding with validation commands...", vmssName)
 
-		err = runLiveVMValidators(ctx, vmssName, vmPrivateIP, string(privateKeyBytes), opts)
-		if err != nil {
-			t.Fatalf("vm %s validation failed: %s", vmssName, err)
-		}
+		err = runLiveVMValidators(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), opts)
+		require.NoError(t, err)
 
-		log.Printf("node %s bootstrapping succeeded!", vmssName)
+		t.Logf("node %s bootstrapping succeeded!", vmssName)
 	}
 }

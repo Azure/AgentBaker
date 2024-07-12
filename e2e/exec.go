@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
 	"strings"
+	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -21,16 +21,16 @@ type podExecResult struct {
 	stderr, stdout *bytes.Buffer
 }
 
-func (r podExecResult) dumpAll() {
-	r.dumpStdout()
-	r.dumpStderr()
+func (r podExecResult) dumpAll(t *testing.T) {
+	r.dumpStdout(t)
+	r.dumpStderr(t)
 }
 
-func (r podExecResult) dumpStdout() {
+func (r podExecResult) dumpStdout(t *testing.T) {
 	if r.stdout != nil {
 		stdoutContent := r.stdout.String()
 		if stdoutContent != "" && stdoutContent != "<nil>" {
-			log.Printf("%s\n%s\n%s\n%s",
+			t.Logf("%s\n%s\n%s\n%s",
 				"dumping stdout:",
 				"----------------------------------- begin stdout -----------------------------------",
 				stdoutContent,
@@ -39,11 +39,11 @@ func (r podExecResult) dumpStdout() {
 	}
 }
 
-func (r podExecResult) dumpStderr() {
+func (r podExecResult) dumpStderr(t *testing.T) {
 	if r.stderr != nil {
 		stderrContent := r.stderr.String()
 		if stderrContent != "" && stderrContent != "<nil>" {
-			log.Printf("%s\n%s\n%s\n%s",
+			t.Logf("%s\n%s\n%s\n%s",
 				"dumping stderr:",
 				"----------------------------------- begin stderr -----------------------------------",
 				stderrContent,
@@ -53,7 +53,7 @@ func (r podExecResult) dumpStderr() {
 	}
 }
 
-func extractLogsFromVM(ctx context.Context, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) (map[string]string, error) {
+func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) (map[string]string, error) {
 	commandList := map[string]string{
 		"/var/log/azure/cluster-provision.log":            "cat /var/log/azure/cluster-provision.log",
 		"kubelet.log":                                     "journalctl -u kubelet",
@@ -68,11 +68,11 @@ func extractLogsFromVM(ctx context.Context, vmssName, privateIP, sshPrivateKey s
 
 	var result = map[string]string{}
 	for file, sourceCmd := range commandList {
-		log.Printf("executing command on remote VM at %s of VMSS %s: %q", privateIP, vmssName, sourceCmd)
+		t.Logf("executing command on remote VM at %s of VMSS %s: %q", privateIP, vmssName, sourceCmd)
 
 		execResult, err := execOnVM(ctx, opts.clusterConfig.Kube, privateIP, podName, sshPrivateKey, sourceCmd, false)
 		if execResult != nil {
-			execResult.dumpStderr()
+			execResult.dumpStderr(t)
 		}
 		if err != nil {
 			return nil, err
@@ -83,7 +83,7 @@ func extractLogsFromVM(ctx context.Context, vmssName, privateIP, sshPrivateKey s
 	return result, nil
 }
 
-func extractClusterParameters(ctx context.Context, kube *Kubeclient) (map[string]string, error) {
+func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) (map[string]string, error) {
 	commandList := map[string]string{
 		"/etc/kubernetes/azure.json":            "cat /etc/kubernetes/azure.json",
 		"/etc/kubernetes/certs/ca.crt":          "cat /etc/kubernetes/certs/ca.crt",
@@ -97,11 +97,11 @@ func extractClusterParameters(ctx context.Context, kube *Kubeclient) (map[string
 
 	var result = map[string]string{}
 	for file, sourceCmd := range commandList {
-		log.Printf("executing privileged command on pod %s/%s: %q", defaultNamespace, podName, sourceCmd)
+		t.Logf("executing privileged command on pod %s/%s: %q", defaultNamespace, podName, sourceCmd)
 
 		execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, sourceCmd)
 		if execResult != nil {
-			execResult.dumpStderr()
+			execResult.dumpStderr(t)
 		}
 		if err != nil {
 			return nil, err

@@ -111,7 +111,7 @@ type Scenario struct {
 
 // Config represents the configuration of an AgentBaker E2E scenario
 type Config struct {
-	Cluster func(ctx context.Context) (*Cluster, error)
+	Cluster func(ctx context.Context, t *testing.T) (*Cluster, error)
 
 	// VHD is the function called by the e2e suite on the given scenario to get its VHD selection
 	VHD *config.Image
@@ -170,7 +170,7 @@ func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBoot
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(t *testing.T, vmss *armcompute.VirtualMachineScaleSet) {
-	resourceID, err := s.VHD.VHDResourceID()
+	resourceID, err := s.VHD.VHDResourceID(t)
 	require.NoError(t, err)
 	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
 	require.NotNil(t, vmss, "input VirtualMachineScaleSet")

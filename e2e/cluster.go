@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -62,33 +62,33 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 
 // Same cluster can be attempted to be created concurrently by different tests
 // sync.Once is used to ensure that only one cluster for the set of tests is created
-func ClusterKubenet(ctx context.Context) (*Cluster, error) {
+func ClusterKubenet(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetOnce.Do(func() {
-		clusterKubenet, clusterKubenetError = createCluster(ctx, getKubenetClusterModel(testClusterNamePrefix+"kubenet-v1"))
+		clusterKubenet, clusterKubenetError = createCluster(ctx, t, getKubenetClusterModel(testClusterNamePrefix+"kubenet-v1"))
 	})
 	return clusterKubenet, clusterKubenetError
 }
 
-func ClusterKubenetAirgap(ctx context.Context) (*Cluster, error) {
+func ClusterKubenetAirgap(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetAirgapOnce.Do(func() {
-		cluster, err := createCluster(ctx, getKubenetClusterModel(testClusterNamePrefix+"kubenet-airgap"))
+		cluster, err := createCluster(ctx, t, getKubenetClusterModel(testClusterNamePrefix+"kubenet-airgap"))
 		if err == nil {
-			err = addAirgapNetworkSettings(ctx, cluster)
+			err = addAirgapNetworkSettings(ctx, t, cluster)
 		}
 		clusterKubenetAirgap, clusterKubenetAirgapError = cluster, err
 	})
 	return clusterKubenetAirgap, clusterKubenetAirgapError
 }
 
-func ClusterAzureNetwork(ctx context.Context) (*Cluster, error) {
+func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterAzureNetworkOnce.Do(func() {
-		clusterAzureNetwork, clusterAzureNetworkError = createCluster(ctx, getAzureNetworkClusterModel(testClusterNamePrefix+"azure-network"))
+		clusterAzureNetwork, clusterAzureNetworkError = createCluster(ctx, t, getAzureNetworkClusterModel(testClusterNamePrefix+"azure-network"))
 	})
 	return clusterAzureNetwork, clusterAzureNetworkError
 }
 
-func nodeBootsrappingConfig(ctx context.Context, kube *Kubeclient) (*datamodel.NodeBootstrappingConfiguration, error) {
-	clusterParams, err := pollExtractClusterParameters(ctx, kube)
+func nodeBootsrappingConfig(ctx context.Context, t *testing.T, kube *Kubeclient) (*datamodel.NodeBootstrappingConfiguration, error) {
+	clusterParams, err := pollExtractClusterParameters(ctx, t, kube)
 	if err != nil {
 		return nil, fmt.Errorf("extract cluster parameters: %w", err)
 	}
@@ -101,15 +101,15 @@ func nodeBootsrappingConfig(ctx context.Context, kube *Kubeclient) (*datamodel.N
 	return baseNodeBootstrappingConfig, nil
 }
 
-func createCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*Cluster, error) {
-	createdCluster, err := createNewAKSClusterWithRetry(ctx, cluster)
+func createCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*Cluster, error) {
+	createdCluster, err := createNewAKSClusterWithRetry(ctx, t, cluster)
 	if err != nil {
 		return nil, err
 	}
 
 	// sometimes tests can be interrupted and vmss are left behind
 	// don't waste resource and delete them
-	if err := collectGarbageVMSS(ctx, createdCluster); err != nil {
+	if err := collectGarbageVMSS(ctx, t, createdCluster); err != nil {
 		return nil, fmt.Errorf("collect garbage vmss: %w", err)
 	}
 
@@ -127,7 +127,7 @@ func createCluster(ctx context.Context, cluster *armcontainerservice.ManagedClus
 		return nil, fmt.Errorf("get cluster subnet: %w", err)
 	}
 
-	nbc, err := nodeBootsrappingConfig(ctx, kube)
+	nbc, err := nodeBootsrappingConfig(ctx, t, kube)
 	if err != nil {
 		return nil, fmt.Errorf("get node bootstrapping configuration: %w", err)
 	}
@@ -136,8 +136,8 @@ func createCluster(ctx context.Context, cluster *armcontainerservice.ManagedClus
 
 }
 
-func createNewAKSCluster(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
-	log.Printf("Creating or updating cluster %s in rg %s\n", *cluster.Name, *cluster.Location)
+func createNewAKSCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
+	t.Logf("Creating or updating cluster %s in rg %s\n", *cluster.Name, *cluster.Location)
 	pollerResp, err := config.Azure.AKS.BeginCreateOrUpdate(
 		ctx,
 		config.ResourceGroupName,
@@ -161,14 +161,14 @@ func createNewAKSCluster(ctx context.Context, cluster *armcontainerservice.Manag
 // that retries creating a cluster if it fails with a 409 Conflict error
 // clusters are reused, and sometimes a cluster can be in UPDATING or DELETING state
 // simple retry should be sufficient to avoid such conflicts
-func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
+func createNewAKSClusterWithRetry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
 	maxRetries := 10
 	retryInterval := 30 * time.Second
 	var lastErr error
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		log.Printf("Attempt %d: creating or updating cluster %s in rg %s\n", attempt+1, *cluster.Name, *cluster.Location)
+		t.Logf("Attempt %d: creating or updating cluster %s in rg %s\n", attempt+1, *cluster.Name, *cluster.Location)
 
-		createdCluster, err := createNewAKSCluster(ctx, cluster)
+		createdCluster, err := createNewAKSCluster(ctx, t, cluster)
 		if err == nil {
 			return createdCluster, nil
 		}
@@ -177,7 +177,7 @@ func createNewAKSClusterWithRetry(ctx context.Context, cluster *armcontainerserv
 		var respErr *azcore.ResponseError
 		if errors.As(err, &respErr) && respErr.StatusCode == 409 {
 			lastErr = err
-			log.Printf("Attempt %d failed with 409 Conflict: %v. Retrying in %v...\n", attempt+1, err, retryInterval)
+			t.Logf("Attempt %d failed with 409 Conflict: %v. Retrying in %v...\n", attempt+1, err, retryInterval)
 
 			select {
 			case <-time.After(retryInterval):
@@ -216,7 +216,7 @@ func getClusterVNet(ctx context.Context, mcResourceGroupName string) (VNet, erro
 	return VNet{}, fmt.Errorf("failed to find aks vnet")
 }
 
-func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.ManagedCluster) error {
+func collectGarbageVMSS(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) error {
 	rg := *cluster.Properties.NodeResourceGroup
 	pager := config.Azure.VMSS.NewListPager(rg, nil)
 	for pager.More() {
@@ -243,9 +243,9 @@ func collectGarbageVMSS(ctx context.Context, cluster *armcontainerservice.Manage
 				ForceDeletion: to.Ptr(true),
 			})
 			if err != nil {
-				log.Printf("failed to delete vmss %q: %s", *vmss.Name, err)
+				t.Logf("failed to delete vmss %q: %s", *vmss.Name, err)
 			}
-			log.Printf("deleted garbage vmss %q", *vmss.ID)
+			t.Logf("deleted garbage vmss %q", *vmss.ID)
 		}
 	}
 
@@ -261,8 +261,8 @@ func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (boo
 	return rgExistence.Success, nil
 }
 
-func ensureResourceGroup(ctx context.Context) error {
-	log.Printf("ensuring resource group %q...", config.ResourceGroupName)
+func ensureResourceGroup(ctx context.Context, t *testing.T) error {
+	t.Logf("ensuring resource group %q...", config.ResourceGroupName)
 
 	rgExists, err := isExistingResourceGroup(ctx, config.ResourceGroupName)
 	if err != nil {

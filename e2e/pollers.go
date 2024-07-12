@@ -3,8 +3,8 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
+	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,17 +27,17 @@ const (
 	execOnPodPollingTimeout                = 2 * time.Minute
 	extractClusterParametersPollingTimeout = 3 * time.Minute
 	extractVMLogsPollingTimeout            = 5 * time.Minute
-	waitUntilNodeReadyPollingTimeout       = 3 * time.Minute
+	waitUntilNodeReadyPollingTimeout       = 6 * time.Minute
 )
 
-func pollExecOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
+func pollExecOnVM(ctx context.Context, t *testing.T, kube *Kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
 	var execResult *podExecResult
 	ctx, cancel := context.WithTimeout(ctx, execOnVMPollingTimeout)
 	defer cancel()
 	err := wait.PollUntilContextCancel(ctx, execOnVMPollInterval, true, func(ctx context.Context) (bool, error) {
 		res, err := execOnVM(ctx, kube, vmPrivateIP, jumpboxPodName, sshPrivateKey, command, isShellBuiltIn)
 		if err != nil {
-			log.Printf("unable to execute command on VM: %s", err)
+			t.Logf("unable to execute command on VM: %s", err)
 
 			// fail hard on non-retriable error
 			if strings.Contains(err.Error(), "error extracting exit code") {
@@ -62,14 +62,14 @@ func pollExecOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPod
 	return execResult, nil
 }
 
-func pollExecOnPod(ctx context.Context, kube *Kubeclient, namespace, podName, command string) (*podExecResult, error) {
+func pollExecOnPod(ctx context.Context, t *testing.T, kube *Kubeclient, namespace, podName, command string) (*podExecResult, error) {
 	var execResult *podExecResult
 	ctx, cancel := context.WithTimeout(ctx, execOnPodPollingTimeout)
 	defer cancel()
 	err := wait.PollUntilContextCancel(ctx, execOnPodPollInterval, true, func(ctx context.Context) (bool, error) {
 		res, err := execOnPod(ctx, kube, namespace, podName, append(bashCommandArray(), command))
 		if err != nil {
-			log.Printf("unable to execute command on pod: %s", err)
+			t.Logf("unable to execute command on pod: %s", err)
 
 			// fail hard on non-retriable error
 			if strings.Contains(err.Error(), "error extracting exit code") {
@@ -90,14 +90,14 @@ func pollExecOnPod(ctx context.Context, kube *Kubeclient, namespace, podName, co
 }
 
 // Wraps extractClusterParameters in a poller with a 15-second wait interval and 5-minute timeout
-func pollExtractClusterParameters(ctx context.Context, kube *Kubeclient) (map[string]string, error) {
+func pollExtractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) (map[string]string, error) {
 	var clusterParams map[string]string
 	ctx, cancel := context.WithTimeout(ctx, extractClusterParametersPollingTimeout)
 	defer cancel()
 	err := wait.PollUntilContextCancel(ctx, extractClusterParametersPollInterval, true, func(ctx context.Context) (bool, error) {
-		params, err := extractClusterParameters(ctx, kube)
+		params, err := extractClusterParameters(ctx, t, kube)
 		if err != nil {
-			log.Printf("error extracting cluster parameters: %s", err)
+			t.Logf("error extracting cluster parameters: %s", err)
 			return false, nil
 		}
 		clusterParams = params
@@ -112,21 +112,21 @@ func pollExtractClusterParameters(ctx context.Context, kube *Kubeclient) (map[st
 }
 
 // Wraps extractLogsFromVM and dumpFileMapToDir in a poller with a 15-second wait interval and 5-minute timeout
-func pollExtractVMLogs(ctx context.Context, vmssName, privateIP string, privateKeyBytes []byte, opts *scenarioRunOpts) error {
+func pollExtractVMLogs(ctx context.Context, t *testing.T, vmssName, privateIP string, privateKeyBytes []byte, opts *scenarioRunOpts) error {
 	ctx, cancel := context.WithTimeout(ctx, extractVMLogsPollingTimeout)
 	defer cancel()
 	err := wait.PollUntilContextCancel(ctx, extractVMLogsPollInterval, true, func(ctx context.Context) (bool, error) {
-		log.Printf("on %s attempting to extract VM logs", vmssName)
+		t.Logf("on %s attempting to extract VM logs", vmssName)
 
-		logFiles, err := extractLogsFromVM(ctx, vmssName, privateIP, string(privateKeyBytes), opts)
+		logFiles, err := extractLogsFromVM(ctx, t, vmssName, privateIP, string(privateKeyBytes), opts)
 		if err != nil {
-			log.Printf("on %s error extracting VM logs: %q", vmssName, err)
+			t.Logf("on %s error extracting VM logs: %q", vmssName, err)
 			return false, nil
 		}
 
-		log.Printf("on %s dumping VM logs to local directory: %s", vmssName, opts.loggingDir)
+		t.Logf("on %s dumping VM logs to local directory: %s", vmssName, opts.loggingDir)
 		if err = dumpFileMapToDir(opts.loggingDir, logFiles); err != nil {
-			log.Printf("on %s error extracting VM logs: %q", vmssName, err)
+			t.Logf("on %s error extracting VM logs: %q", vmssName, err)
 			return false, nil
 		}
 
@@ -140,14 +140,14 @@ func pollExtractVMLogs(ctx context.Context, vmssName, privateIP string, privateK
 	return nil
 }
 
-func pollGetVMPrivateIP(ctx context.Context, vmssName string, opts *scenarioRunOpts) (string, error) {
+func pollGetVMPrivateIP(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts) (string, error) {
 	var vmPrivateIP string
 	ctx, cancel := context.WithTimeout(ctx, waitUntilNodeReadyPollingTimeout)
 	defer cancel()
 	err := wait.PollUntilContextCancel(ctx, getVMPrivateIPAddressPollInterval, true, func(ctx context.Context) (bool, error) {
 		pip, err := getVMPrivateIPAddress(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName)
 		if err != nil {
-			log.Printf("encountered an error while getting VM private IP address: %s", err)
+			t.Logf("encountered an error while getting VM private IP address: %s", err)
 			return false, nil
 		}
 		vmPrivateIP = pip

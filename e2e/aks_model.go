@@ -3,9 +3,9 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"strings"
+	"testing"
 
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -58,8 +58,8 @@ func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster
 	}
 }
 
-func addAirgapNetworkSettings(ctx context.Context, cluster *Cluster) error {
-	log.Printf("Adding network settings for airgap cluster %s in rg %s\n", *cluster.Model.Name, *cluster.Model.Properties.NodeResourceGroup)
+func addAirgapNetworkSettings(ctx context.Context, t *testing.T, cluster *Cluster) error {
+	t.Logf("Adding network settings for airgap cluster %s in rg %s\n", *cluster.Model.Name, *cluster.Model.Properties.NodeResourceGroup)
 
 	vnet, err := getClusterVNet(ctx, *cluster.Model.Properties.NodeResourceGroup)
 	if err != nil {
@@ -90,7 +90,7 @@ func addAirgapNetworkSettings(ctx context.Context, cluster *Cluster) error {
 		return err
 	}
 
-	log.Printf("updated cluster %s subnet with airggap settings", *cluster.Model.Name)
+	t.Logf("updated cluster %s subnet with airggap settings", *cluster.Model.Name)
 	return nil
 }
 
