@@ -105,7 +105,7 @@ generate: bootstrap
 	@$(MAKE) shellspec
 	@echo "Validating if components.json conforms to the schema components.cue."
 	@echo "Error will be shown if any."
-	@$(MAKE) validate-components-json
+	@$(MAKE) validate-components
 
 .PHONY: generate-azure-constants
 generate-azure-constants:
@@ -216,8 +216,8 @@ coverage:
 unit-tests:
 	$(GO) test `go list ./... | grep -v e2e` -coverprofile coverage_raw.out -covermode count
 
-.PHONY: validate-components-json
-validate-components-json:
+.PHONY: validate-components
+validate-components:
 	@./hack/tools/bin/cue vet -c ./schemas/components.cue ./vhdbuilder/packer/components.json
 
 include versioning.mk
