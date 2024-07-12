@@ -29,7 +29,7 @@ else
 endif
 ifeq (${OS_SKU},Ubuntu)
 	@echo "Using packer template file: vhd-image-builder-base.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
+	@packer build -on-error=abort -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
 else ifeq (${OS_SKU},CBLMariner)
 	@echo "Using packer template file vhd-image-builder-mariner.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json

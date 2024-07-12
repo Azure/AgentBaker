@@ -237,7 +237,7 @@ steps:
       -e ARCHITECTURE=${ARCHITECTURE} \
       ${CONTAINER_IMAGE} make -f packer.mk cleanup
     displayName: Clean Up Packer Generated Resources
-    condition: always()
+    condition: false
   - bash: |
         echo MODE=$(MODE) && \
         captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
