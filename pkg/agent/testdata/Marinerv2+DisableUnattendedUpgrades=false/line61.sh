@@ -117,7 +117,7 @@ installStandaloneContainerd() {
 }
 
 ensureRunc() {
-  echo "Mariner Runc is included in the Mariner base image. Skipping downloading and installing Runc"
+  echo "Mariner Runc is included in the Mariner base image or containerd installation. Skipping downloading and installing Runc"
 }
 
 cleanUpGPUDrivers() {
