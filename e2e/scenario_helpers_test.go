@@ -10,7 +10,6 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/config"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -98,13 +97,6 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	_, err = bootstrapVMSS(ctx, t, vmssName, opts, privateKeyBytes, publicKeyBytes)
 	if err != nil {
 		vmssSucceeded = false
-		if config.SkipTestsWithSKUCapacityIssue {
-			var respErr *azcore.ResponseError
-			if errors.As(err, &respErr) && respErr.StatusCode == 409 && respErr.ErrorCode == "SkuNotAvailable" {
-				t.Skip("skipping scenario SKU not available", t.Name(), err)
-			}
-		}
-
 		if !isVMExtensionProvisioningError(err) {
 			t.Fatalf("creating VMSS %s: %v", vmssName, err)
 		}

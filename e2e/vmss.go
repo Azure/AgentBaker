@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbakere2e/config"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
@@ -69,7 +71,13 @@ func createVMSSWithPayload(ctx context.Context, t *testing.T, customData, cseCmd
 		model,
 		nil,
 	)
-	require.NoError(t, err)
+	if err != nil {
+		var respErr *azcore.ResponseError
+		if config.SkipTestsWithSKUCapacityIssue && errors.As(err, &respErr) && respErr.StatusCode == 409 && respErr.ErrorCode == "SkuNotAvailable" {
+			t.Skip("skipping scenario SKU not available", t.Name(), err)
+		}
+		require.NoError(t, err)
+	}
 	t.Cleanup(func() {
 		if config.KeepVMSS {
 			return
