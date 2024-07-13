@@ -61,7 +61,7 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, s
 		"sysctl-out.log":                                  "sysctl -a",
 	}
 
-	podName, err := getDebugPodName(opts.clusterConfig.Kube)
+	podName, err := getDebugPodName(ctx, opts.clusterConfig.Kube)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get debug pod name: %w", err)
 	}
@@ -90,7 +90,7 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 		"/var/lib/kubelet/bootstrap-kubeconfig": "cat /var/lib/kubelet/bootstrap-kubeconfig",
 	}
 
-	podName, err := getDebugPodName(kube)
+	podName, err := getDebugPodName(ctx, kube)
 	if err != nil {
 		return nil, err
 	}

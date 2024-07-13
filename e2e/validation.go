@@ -37,7 +37,7 @@ func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName,
 		return fmt.Errorf("on node %s unable to get IP of wasm spin pod %q: %w", nodeName, spinPodName, err)
 	}
 
-	debugPodName, err := getDebugPodName(kube)
+	debugPodName, err := getDebugPodName(ctx, kube)
 	if err != nil {
 		return fmt.Errorf("on node %s unable to get debug pod name to validate wasm: %w", nodeName, err)
 	}
@@ -79,7 +79,7 @@ func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName,
 }
 
 func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
-	podName, err := getDebugPodName(opts.clusterConfig.Kube)
+	podName, err := getDebugPodName(ctx, opts.clusterConfig.Kube)
 	if err != nil {
 		return fmt.Errorf("While running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
 	}

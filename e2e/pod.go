@@ -12,9 +12,9 @@ import (
 )
 
 // Returns the name of a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node.
-func getDebugPodName(kube *Kubeclient) (string, error) {
+func getDebugPodName(ctx context.Context, kube *Kubeclient) (string, error) {
 	podList := corev1.PodList{}
-	if err := kube.Dynamic.List(context.Background(), &podList, client.MatchingLabels{"app": "debug"}); err != nil {
+	if err := kube.Dynamic.List(ctx, &podList, client.MatchingLabels{"app": "debug"}); err != nil {
 		return "", fmt.Errorf("failed to list debug pod: %w", err)
 	}
 

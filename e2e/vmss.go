@@ -60,7 +60,7 @@ func createVMSSWithPayload(ctx context.Context, t *testing.T, customData, cseCmd
 		require.NoError(t, err)
 	}
 
-	opts.scenario.PrepareVMSSModel(t, &model)
+	opts.scenario.PrepareVMSSModel(ctx, t, &model)
 
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
@@ -75,10 +75,10 @@ func createVMSSWithPayload(ctx context.Context, t *testing.T, customData, cseCmd
 			return
 		}
 		// original context can be cancelled, so create a new one
-		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+		cleanCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
 		defer cancel()
 		// submit the request, but don't wait for completion
-		_, err := config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+		_, err := config.Azure.VMSS.BeginDelete(cleanCtx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
 			ForceDeletion: to.Ptr(true),
 		})
 		if err != nil {

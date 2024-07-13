@@ -79,13 +79,13 @@ type Image struct {
 	vhdErr  error
 }
 
-func (i *Image) VHDResourceID(t *testing.T) (VHDResourceID, error) {
+func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID, error) {
 	i.vhdOnce.Do(func() {
 		imageDefinitionResourceID := imageGallery + i.Name
 		if i.Version != "" {
-			i.vhd, i.vhdErr = ensureStaticSIGImageVersion(t, imageDefinitionResourceID+"/versions/"+i.Version)
+			i.vhd, i.vhdErr = ensureStaticSIGImageVersion(ctx, t, imageDefinitionResourceID+"/versions/"+i.Version)
 		} else {
-			i.vhd, i.vhdErr = findLatestSIGImageVersionWithTag(t, imageDefinitionResourceID, SIGVersionTagName, SIGVersionTagValue)
+			i.vhd, i.vhdErr = findLatestSIGImageVersionWithTag(ctx, t, imageDefinitionResourceID, SIGVersionTagName, SIGVersionTagValue)
 		}
 		if i.vhdErr != nil {
 			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", imageDefinitionResourceID, SIGVersionTagName, SIGVersionTagValue, i.vhdErr)
@@ -138,8 +138,8 @@ func (id VHDResourceID) Short() string {
 	return str
 }
 
-func ensureStaticSIGImageVersion(t *testing.T, imageVersionResourceID string) (VHDResourceID, error) {
-	ctx, cancel := context.WithTimeout(context.TODO(), fetchResourceIDTimeout)
+func ensureStaticSIGImageVersion(ctx context.Context, t *testing.T, imageVersionResourceID string) (VHDResourceID, error) {
+	ctx, cancel := context.WithTimeout(ctx, fetchResourceIDTimeout)
 	defer cancel()
 
 	rid, err := arm.ParseResourceID(imageVersionResourceID)
@@ -165,8 +165,8 @@ func ensureStaticSIGImageVersion(t *testing.T, imageVersionResourceID string) (V
 	return VHDResourceID(imageVersionResourceID), nil
 }
 
-func findLatestSIGImageVersionWithTag(t *testing.T, imageDefinitionResourceID, tagName, tagValue string) (VHDResourceID, error) {
-	ctx, cancel := context.WithTimeout(context.TODO(), fetchResourceIDTimeout)
+func findLatestSIGImageVersionWithTag(ctx context.Context, t *testing.T, imageDefinitionResourceID, tagName, tagValue string) (VHDResourceID, error) {
+	ctx, cancel := context.WithTimeout(ctx, fetchResourceIDTimeout)
 	defer cancel()
 
 	rid, err := arm.ParseResourceID(imageDefinitionResourceID)

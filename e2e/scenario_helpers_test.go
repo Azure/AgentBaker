@@ -36,7 +36,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
 	model, err := s.Cluster(ctx, t)
 	require.NoError(t, err)
-	maybeSkipScenario(t, s)
+	maybeSkipScenario(ctx, t, s)
 	loggingDir, err := createVMLogsDir(t.Name())
 	require.NoError(t, err)
 	nbc, err := s.PrepareNodeBootstrappingConfiguration(model.NodeBootstrappingConfiguration)
@@ -50,7 +50,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	})
 }
 
-func maybeSkipScenario(t *testing.T, s *Scenario) {
+func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	s.Tags.OS = s.VHD.OS
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
@@ -75,7 +75,7 @@ func maybeSkipScenario(t *testing.T, s *Scenario) {
 		}
 	}
 
-	_, err := s.VHD.VHDResourceID(t)
+	_, err := s.VHD.VHDResourceID(ctx, t)
 	if err != nil {
 		if config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
 			t.Skipf("skipping scenario %q: could not find image", t.Name())
@@ -86,7 +86,7 @@ func maybeSkipScenario(t *testing.T, s *Scenario) {
 }
 
 func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
-	rid, _ := opts.scenario.VHD.VHDResourceID(t)
+	rid, _ := opts.scenario.VHD.VHDResourceID(ctx, t)
 	t.Logf("running scenario %q with image %q in aks cluster %q", t.Name(), rid, *opts.clusterConfig.Model.ID)
 
 	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair()
@@ -117,7 +117,8 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 
 	// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
 	t.Cleanup(func() {
-		err := pollExtractVMLogs(ctx, t, vmssName, vmPrivateIP, privateKeyBytes, opts)
+		// original context can be cancelled, so create a new one
+		err := pollExtractVMLogs(context.WithoutCancel(ctx), t, vmssName, vmPrivateIP, privateKeyBytes, opts)
 		require.NoError(t, err)
 	})
 
