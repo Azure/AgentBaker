@@ -35,20 +35,6 @@ func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *sce
 
 	vmssModel := createVMSSWithPayload(ctx, t, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
 
-	if !config.KeepVMSS {
-		t.Cleanup(func() {
-			// original context can be cancelled, so create a new one
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
-			_, err := config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
-				ForceDeletion: to.Ptr(true),
-			})
-			if err != nil {
-				t.Logf("failed to delete vmss %q: %s", vmssName, err)
-			}
-		})
-	}
-
 	return vmssModel, nil
 }
 
@@ -83,6 +69,20 @@ func createVMSSWithPayload(ctx context.Context, t *testing.T, customData, cseCmd
 		nil,
 	)
 	require.NoError(t, err)
+	if !config.KeepVMSS {
+		t.Cleanup(func() {
+			// original context can be cancelled, so create a new one
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Minute)
+			defer cancel()
+			// submit the request, but don't wait for completion
+			_, err := config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+				ForceDeletion: to.Ptr(true),
+			})
+			if err != nil {
+				t.Logf("failed to delete vmss %q: %s", vmssName, err)
+			}
+		})
+	}
 	vmssResp, err := operation.PollUntilDone(ctx, &runtime.PollUntilDoneOptions{
 		Frequency: 10 * time.Second,
 	})

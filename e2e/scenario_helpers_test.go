@@ -3,6 +3,8 @@ package e2e
 import (
 	"context"
 	"errors"
+	"os"
+	"os/signal"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -17,17 +19,22 @@ import (
 var once sync.Once
 
 func RunScenario(t *testing.T, s *Scenario) {
+	// without this, the test will not be able to catch the interrupt signal
+	// and will not be able to clean up the resources or flush the logs
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
+	defer cancel()
+	ctx, cancel = context.WithTimeout(ctx, config.Timeout)
+	defer cancel()
 	once.Do(func() {
 		if err := createE2ELoggingDir(); err != nil {
 			panic(err)
 		}
 
-		if err := ensureResourceGroup(context.Background(), t); err != nil {
+		if err := ensureResourceGroup(ctx); err != nil {
 			panic(err)
 		}
 	})
 	t.Parallel()
-	ctx := context.Background()
 	model, err := s.Cluster(ctx, t)
 	require.NoError(t, err)
 	maybeSkipScenario(t, s)

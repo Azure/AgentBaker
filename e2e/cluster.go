@@ -261,9 +261,7 @@ func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (boo
 	return rgExistence.Success, nil
 }
 
-func ensureResourceGroup(ctx context.Context, t *testing.T) error {
-	t.Logf("ensuring resource group %q...", config.ResourceGroupName)
-
+func ensureResourceGroup(ctx context.Context) error {
 	rgExists, err := isExistingResourceGroup(ctx, config.ResourceGroupName)
 	if err != nil {
 		return err
