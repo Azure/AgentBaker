@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/sethvargo/go-retry"
 )
 
@@ -17,10 +18,6 @@ const (
 	defaultCommandTimeout = 10 * time.Second
 	defaultCommandWait    = 3 * time.Second
 )
-
-func toPtr(d time.Duration) *time.Duration {
-	return &d
-}
 
 type Result struct {
 	Stdout   string
@@ -70,11 +67,11 @@ func (cc *CommandConfig) validate() {
 	if cc == nil {
 		return
 	}
-	if cc.Timeout != nil {
-		cc.Timeout = toPtr(defaultCommandTimeout)
+	if cc.Timeout == nil {
+		cc.Timeout = to.Ptr(defaultCommandTimeout)
 	}
 	if cc.Wait == nil {
-		cc.Wait = toPtr(defaultCommandWait)
+		cc.Wait = to.Ptr(defaultCommandWait)
 	}
 	if cc.MaxRetries < 0 {
 		cc.MaxRetries = 0
