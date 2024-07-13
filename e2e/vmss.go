@@ -53,7 +53,7 @@ func createVMSSWithPayload(ctx context.Context, t *testing.T, customData, cseCmd
 	}
 
 	isAzureCNI, err := opts.clusterConfig.IsAzureCNI()
-	require.NoError(t, err)
+	require.NoError(t, err, vmssName, opts)
 
 	if isAzureCNI {
 		err = addPodIPConfigsForAzureCNI(ctx, &model, vmssName, opts)
