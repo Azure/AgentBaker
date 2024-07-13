@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -27,18 +28,18 @@ const (
 	vmssNamePrefix                           = "abtest"
 )
 
-func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, error) {
+func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, error) {
 	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get node bootstrapping: %w", err)
 	}
 
-	vmssModel := createVMSSWithPayload(ctx, t, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, publicKeyBytes, opts)
+	vmssModel := createVMSSWithPayload(ctx, t, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, privateKeyBytes, publicKeyBytes, opts)
 
 	return vmssModel, nil
 }
 
-func createVMSSWithPayload(ctx context.Context, t *testing.T, customData, cseCmd, vmssName string, publicKeyBytes []byte, opts *scenarioRunOpts) *armcompute.VirtualMachineScaleSet {
+func createVMSSWithPayload(ctx context.Context, t *testing.T, customData, cseCmd, vmssName string, privateKeyBytes []byte, publicKeyBytes []byte, opts *scenarioRunOpts) *armcompute.VirtualMachineScaleSet {
 	t.Logf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
@@ -69,24 +70,38 @@ func createVMSSWithPayload(ctx context.Context, t *testing.T, customData, cseCmd
 		nil,
 	)
 	require.NoError(t, err)
-	if !config.KeepVMSS {
-		t.Cleanup(func() {
-			// original context can be cancelled, so create a new one
-			ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Minute)
-			defer cancel()
-			// submit the request, but don't wait for completion
-			_, err := config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
-				ForceDeletion: to.Ptr(true),
-			})
-			if err != nil {
-				t.Logf("failed to delete vmss %q: %s", vmssName, err)
-			}
+	t.Cleanup(func() {
+		if config.KeepVMSS {
+			return
+		}
+		// original context can be cancelled, so create a new one
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+		defer cancel()
+		// submit the request, but don't wait for completion
+		_, err := config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+			ForceDeletion: to.Ptr(true),
 		})
-	}
+		if err != nil {
+			t.Logf("failed to delete vmss %q: %s", vmssName, err)
+		}
+	})
 	vmssResp, err := operation.PollUntilDone(ctx, &runtime.PollUntilDoneOptions{
 		Frequency: 10 * time.Second,
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		if config.KeepVMSS {
+			t.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", *vmssResp.VirtualMachineScaleSet.ID)
+			if err := writeToFile(filepath.Join(opts.loggingDir, "sshkey"), string(privateKeyBytes)); err != nil {
+				t.Logf("failed to write retained vmss %s private ssh key to disk: %s", vmssName, err)
+			}
+
+		} else {
+			if err := writeToFile(filepath.Join(opts.loggingDir, "vmssId.txt"), *vmssResp.VirtualMachineScaleSet.ID); err != nil {
+				t.Fatalf("failed to write vmss %s resource ID to disk: %s", vmssName, err)
+			}
+		}
+	})
 	return &vmssResp.VirtualMachineScaleSet
 }
 

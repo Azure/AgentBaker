@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"sync"
 	"testing"
 
@@ -96,7 +95,7 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	vmssName := getVmssName(t)
 
 	vmssSucceeded := true
-	vmssModel, err := bootstrapVMSS(ctx, t, vmssName, opts, publicKeyBytes)
+	_, err = bootstrapVMSS(ctx, t, vmssName, opts, privateKeyBytes, publicKeyBytes)
 	if err != nil {
 		vmssSucceeded = false
 		if config.SkipTestsWithSKUCapacityIssue {
@@ -113,36 +112,14 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 		t.Fail()
 	}
 
-	if config.KeepVMSS {
-		defer func() {
-			t.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
-			if vmssModel != nil {
-				t.Logf("retained vmss %s resource ID: %q", vmssName, *vmssModel.ID)
-			} else {
-				t.Logf("WARNING: model of retained vmss %q is nil", vmssName)
-			}
-			if err := writeToFile(filepath.Join(opts.loggingDir, "sshkey"), string(privateKeyBytes)); err != nil {
-				t.Fatalf("failed to write retained vmss %s private ssh key to disk: %s", vmssName, err)
-			}
-		}()
-	} else {
-		if vmssModel != nil {
-			if err := writeToFile(filepath.Join(opts.loggingDir, "vmssId.txt"), *vmssModel.ID); err != nil {
-				t.Fatalf("failed to write vmss %s resource ID to disk: %s", vmssName, err)
-			}
-		} else {
-			t.Logf("WARNING: bootstrapped vmss model was nil for %s", vmssName)
-		}
-	}
-
 	vmPrivateIP, err := pollGetVMPrivateIP(ctx, t, vmssName, opts)
 	require.NoError(t, err)
 
 	// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
-	defer func() {
+	t.Cleanup(func() {
 		err := pollExtractVMLogs(ctx, t, vmssName, vmPrivateIP, privateKeyBytes, opts)
 		require.NoError(t, err)
-	}()
+	})
 
 	// Only perform node readiness/pod-related checks when VMSS creation succeeded
 	if vmssSucceeded {
