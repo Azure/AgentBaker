@@ -90,8 +90,6 @@ func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID,
 		if i.vhdErr != nil {
 			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", imageDefinitionResourceID, SIGVersionTagName, SIGVersionTagValue, i.vhdErr)
 			t.Logf("failed to find the latest image %s", i.vhdErr)
-		} else {
-			t.Logf("Resource ID for %s: %s", imageDefinitionResourceID, i.vhd)
 		}
 	})
 	return i.vhd, i.vhdErr

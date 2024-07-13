@@ -244,6 +244,7 @@ func collectGarbageVMSS(ctx context.Context, t *testing.T, cluster *armcontainer
 			})
 			if err != nil {
 				t.Logf("failed to delete vmss %q: %s", *vmss.Name, err)
+				continue
 			}
 			t.Logf("deleted garbage vmss %q", *vmss.ID)
 		}
