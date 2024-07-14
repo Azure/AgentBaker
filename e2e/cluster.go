@@ -64,7 +64,7 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 // sync.Once is used to ensure that only one cluster for the set of tests is created
 func ClusterKubenet(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetOnce.Do(func() {
-		clusterKubenet, clusterKubenetError = createCluster(ctx, t, getKubenetClusterModel(testClusterNamePrefix+"kubenet-v1"))
+		clusterKubenet, clusterKubenetError = createCluster(ctx, t, getKubenetClusterModel(testClusterNamePrefix+"kubenet"))
 	})
 	return clusterKubenet, clusterKubenetError
 }

@@ -2,11 +2,11 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -27,7 +27,7 @@ const (
 	execOnPodPollingTimeout                = 2 * time.Minute
 	extractClusterParametersPollingTimeout = 3 * time.Minute
 	extractVMLogsPollingTimeout            = 5 * time.Minute
-	waitUntilNodeReadyPollingTimeout       = 6 * time.Minute
+	waitUntilNodeReadyPollingTimeout       = 5 * time.Minute
 )
 
 func pollExecOnVM(ctx context.Context, t *testing.T, kube *Kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
@@ -161,10 +161,15 @@ func pollGetVMPrivateIP(ctx context.Context, t *testing.T, vmssName string, opts
 	return vmPrivateIP, nil
 }
 
-func waitUntilNodeReady(ctx context.Context, kube *Kubeclient, vmssName string) (string, error) {
+func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vmssName string) string {
 	var nodeName string
 	ctx, cancel := context.WithTimeout(ctx, waitUntilNodeReadyPollingTimeout)
 	defer cancel()
+
+	nodeStatus := corev1.NodeStatus{}
+
+	t.Logf("waiting for node %s to be ready", vmssName)
+
 	err := wait.PollUntilContextCancel(ctx, waitUntilNodeReadyPollingInterval, true, func(ctx context.Context) (bool, error) {
 		nodes, err := kube.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 		if err != nil {
@@ -173,6 +178,9 @@ func waitUntilNodeReady(ctx context.Context, kube *Kubeclient, vmssName string) 
 
 		for _, node := range nodes.Items {
 			if strings.HasPrefix(node.Name, vmssName) {
+
+				nodeStatus = node.Status
+
 				for _, cond := range node.Status.Conditions {
 					if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
 						nodeName = node.Name
@@ -184,12 +192,10 @@ func waitUntilNodeReady(ctx context.Context, kube *Kubeclient, vmssName string) 
 
 		return false, nil
 	})
+	require.NoError(t, err, "failed to find or wait for %q to be ready %v", vmssName, nodeStatus)
+	t.Logf("node %s is ready", nodeName)
 
-	if err != nil {
-		return "", fmt.Errorf("failed to find or wait for node to be ready: %w", err)
-	}
-
-	return nodeName, nil
+	return nodeName
 }
 
 func waitUntilPodRunning(ctx context.Context, kube *Kubeclient, podName string) error {

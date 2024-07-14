@@ -92,47 +92,23 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	assert.NoError(t, err)
 
 	vmssName := getVmssName(t)
+	_, vmPrivateIP := createVMSS(ctx, t, vmssName, opts, privateKeyBytes, publicKeyBytes)
 
-	vmssSucceeded := true
-	_, err = bootstrapVMSS(ctx, t, vmssName, opts, privateKeyBytes, publicKeyBytes)
-	if err != nil {
-		vmssSucceeded = false
-		if !isVMExtensionProvisioningError(err) {
-			t.Fatalf("creating VMSS %s: %v", vmssName, err)
-		}
-		t.Logf("vm %s was unable to be provisioned due to a CSE error, will still attempt to extract provisioning logs...\n", vmssName)
-		t.Fail()
+	t.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", vmssName)
+	nodeName := validateNodeHealth(ctx, t, opts.clusterConfig.Kube, vmssName)
+
+	if opts.nbc.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi {
+		t.Logf("wasm scenario: running wasm validation on %s...", vmssName)
+		err = ensureWasmRuntimeClasses(ctx, opts.clusterConfig.Kube)
+		require.NoError(t, err)
+		err = validateWasm(ctx, t, opts.clusterConfig.Kube, nodeName, string(privateKeyBytes))
+		require.NoError(t, err)
 	}
 
-	vmPrivateIP, err := pollGetVMPrivateIP(ctx, t, vmssName, opts)
+	t.Logf("node %s is ready, proceeding with validation commands...", vmssName)
+
+	err = runLiveVMValidators(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), opts)
 	require.NoError(t, err)
 
-	// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
-	t.Cleanup(func() {
-		// original context can be cancelled, so create a new one
-		err := pollExtractVMLogs(context.WithoutCancel(ctx), t, vmssName, vmPrivateIP, privateKeyBytes, opts)
-		require.NoError(t, err)
-	})
-
-	// Only perform node readiness/pod-related checks when VMSS creation succeeded
-	if vmssSucceeded {
-		t.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", vmssName)
-		nodeName, err := validateNodeHealth(ctx, opts.clusterConfig.Kube, vmssName)
-		require.NoError(t, err)
-
-		if opts.nbc.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi {
-			t.Logf("wasm scenario: running wasm validation on %s...", vmssName)
-			err = ensureWasmRuntimeClasses(ctx, opts.clusterConfig.Kube)
-			require.NoError(t, err)
-			err = validateWasm(ctx, t, opts.clusterConfig.Kube, nodeName, string(privateKeyBytes))
-			require.NoError(t, err)
-		}
-
-		t.Logf("node %s is ready, proceeding with validation commands...", vmssName)
-
-		err = runLiveVMValidators(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), opts)
-		require.NoError(t, err)
-
-		t.Logf("node %s bootstrapping succeeded!", vmssName)
-	}
+	t.Logf("node %s bootstrapping succeeded!", vmssName)
 }

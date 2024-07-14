@@ -5,25 +5,20 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
-func validateNodeHealth(ctx context.Context, kube *Kubeclient, vmssName string) (string, error) {
-	nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
-	if err != nil {
-		return "", fmt.Errorf("error waiting for vmss %s ready: %w", vmssName, err)
-	}
+func validateNodeHealth(ctx context.Context, t *testing.T, kube *Kubeclient, vmssName string) string {
+	nodeName := waitUntilNodeReady(ctx, t, kube, vmssName)
 
 	nginxPodName, err := ensureTestNginxPod(ctx, kube, nodeName)
-	if err != nil {
-		return "", fmt.Errorf("error waiting for vmss %s pod ready: %w", vmssName, err)
-	}
+	require.NoError(t, err, "failed to validate node health, unable to ensure nginx pod on node %q", nodeName)
 
 	err = waitUntilPodDeleted(ctx, kube, nginxPodName)
-	if err != nil {
-		return "", fmt.Errorf("error waiting vmss %s pod deleted: %w", vmssName, err)
-	}
+	require.NoError(t, err, "error waiting for nginx pod deletion on %s", nodeName)
 
-	return nodeName, nil
+	return nodeName
 }
 
 func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName, privateKey string) error {

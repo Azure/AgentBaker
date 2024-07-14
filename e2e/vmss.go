@@ -20,6 +20,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 )
@@ -30,29 +31,14 @@ const (
 	vmssNamePrefix                           = "abe2e"
 )
 
-func bootstrapVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, error) {
-	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get node bootstrapping: %w", err)
-	}
-
-	vmssModel := createVMSSWithPayload(ctx, t, nodeBootstrapping.CustomData, nodeBootstrapping.CSE, vmssName, privateKeyBytes, publicKeyBytes, opts)
-
-	return vmssModel, nil
-}
-
-func createVMSSWithPayload(ctx context.Context, t *testing.T, customData, cseCmd, vmssName string, privateKeyBytes []byte, publicKeyBytes []byte, opts *scenarioRunOpts) *armcompute.VirtualMachineScaleSet {
-	t.Logf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
+func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, string) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
-	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cseCmd, opts)
+	t.Logf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
+	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
+	require.NoError(t, err)
 
-	if config.BuildID != "" {
-		if model.Tags == nil {
-			model.Tags = map[string]*string{}
-		}
-		model.Tags[buildIDTagKey] = &config.BuildID
-	}
+	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, nodeBootstrapping.CSE, opts)
 
 	isAzureCNI, err := opts.clusterConfig.IsAzureCNI()
 	require.NoError(t, err, vmssName, opts)
@@ -71,46 +57,58 @@ func createVMSSWithPayload(ctx context.Context, t *testing.T, customData, cseCmd
 		model,
 		nil,
 	)
-	if err != nil {
-		var respErr *azcore.ResponseError
-		if config.SkipTestsWithSKUCapacityIssue && errors.As(err, &respErr) && respErr.StatusCode == 409 && respErr.ErrorCode == "SkuNotAvailable" {
-			t.Skip("skipping scenario SKU not available", t.Name(), err)
-		}
-		require.NoError(t, err)
+	var respErr *azcore.ResponseError
+	// sometimes the SKU is not available and we can't do anything. Skip the test in this case.
+	if config.SkipTestsWithSKUCapacityIssue && errors.As(err, &respErr) && respErr.StatusCode == 409 && respErr.ErrorCode == "SkuNotAvailable" {
+		t.Skip("skipping scenario SKU not available", t.Name(), err)
 	}
+	require.NoError(t, err)
 	t.Cleanup(func() {
-		if config.KeepVMSS {
-			return
-		}
-		// original context can be cancelled, so create a new one
-		cleanCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
-		defer cancel()
-		// submit the request, but don't wait for completion
-		_, err := config.Azure.VMSS.BeginDelete(cleanCtx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
-			ForceDeletion: to.Ptr(true),
-		})
-		if err != nil {
-			t.Logf("failed to delete vmss %q: %s", vmssName, err)
-		}
+		deleteVMSS(t, ctx, vmssName, opts, privateKeyBytes)
 	})
+
 	vmssResp, err := operation.PollUntilDone(ctx, &runtime.PollUntilDoneOptions{
 		Frequency: 10 * time.Second,
 	})
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		if config.KeepVMSS {
-			t.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", *vmssResp.VirtualMachineScaleSet.ID)
-			if err := writeToFile(filepath.Join(opts.loggingDir, "sshkey"), string(privateKeyBytes)); err != nil {
-				t.Logf("failed to write retained vmss %s private ssh key to disk: %s", vmssName, err)
-			}
+	// fail test, but continue to extract debug information
+	assert.NoError(t, err, "create vmss %q", vmssName)
 
-		} else {
-			if err := writeToFile(filepath.Join(opts.loggingDir, "vmssId.txt"), *vmssResp.VirtualMachineScaleSet.ID); err != nil {
-				t.Fatalf("failed to write vmss %s resource ID to disk: %s", vmssName, err)
-			}
-		}
+	vmPrivateIP, err := pollGetVMPrivateIP(ctx, t, vmssName, opts)
+	require.NoError(t, err, "get vm private IP %v", vmssName)
+
+	// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
+	t.Cleanup(func() {
+		// original context can be cancelled, so create a new one
+		err := pollExtractVMLogs(context.WithoutCancel(ctx), t, vmssName, vmPrivateIP, privateKeyBytes, opts)
+		require.NoError(t, err, "extract vm logs %v", vmssName)
 	})
-	return &vmssResp.VirtualMachineScaleSet
+
+	// VMSS creation failed, debug information has been extracted, don't need to continue test execution
+	if t.Failed() {
+		t.FailNow()
+	}
+
+	return &vmssResp.VirtualMachineScaleSet, vmPrivateIP
+}
+
+func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte) {
+	if config.KeepVMSS {
+		t.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
+		if err := writeToFile(filepath.Join(opts.loggingDir, "sshkey"), string(privateKeyBytes)); err != nil {
+			t.Logf("failed to write retained vmss %s private ssh key to disk: %s", vmssName, err)
+		}
+	}
+	// original context can be cancelled, but we still want to cleanup the resources
+	cleanCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+	defer cancel()
+	_, err := config.Azure.VMSS.BeginDelete(cleanCtx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+		ForceDeletion: to.Ptr(true),
+	})
+	if err != nil {
+		t.Logf("failed to delete vmss %q: %s", vmssName, err)
+		return
+	}
+	t.Logf("vmss %q deleted successfully", vmssName)
 }
 
 // Adds additional IP configs to the passed in vmss model based on the chosen cluster's setting of "maxPodsPerNode",
@@ -224,9 +222,10 @@ func getVmssName(t *testing.T) string {
 	name = strings.ReplaceAll(name, "/", "")
 	name = strings.ReplaceAll(name, "Test", "")
 	// truncate to 58 characters
-	if len(name) > 58 {
+	if len(name) > 58 { // a limit for VMSS name
 		name = name[:58]
 	}
+	name = strings.ToLower(name) // AKS converts VM names to lowercase at some stage, avoid potential matching issues
 	return name
 }
 
