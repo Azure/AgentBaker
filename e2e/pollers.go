@@ -167,6 +167,7 @@ func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 	defer cancel()
 
 	nodeStatus := corev1.NodeStatus{}
+	found := false
 
 	t.Logf("waiting for node %s to be ready", vmssName)
 
@@ -178,7 +179,7 @@ func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 
 		for _, node := range nodes.Items {
 			if strings.HasPrefix(node.Name, vmssName) {
-
+				found = true
 				nodeStatus = node.Status
 
 				for _, cond := range node.Status.Conditions {
@@ -192,6 +193,9 @@ func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 
 		return false, nil
 	})
+	if !found {
+		t.Logf("node %q isn't connected to the AKS cluster", vmssName)
+	}
 	require.NoError(t, err, "failed to find or wait for %q to be ready %v", vmssName, nodeStatus)
 	t.Logf("node %s is ready", nodeName)
 

@@ -225,7 +225,8 @@ func getVmssName(t *testing.T) string {
 	if len(name) > 58 { // a limit for VMSS name
 		name = name[:58]
 	}
-	name = strings.ToLower(name) // AKS converts VM names to lowercase at some stage, avoid potential matching issues
+	// AKS converts VM names to lowercase at some stage, avoid potential matching issues
+	name = strings.ToLower(name)
 	return name
 }
 
