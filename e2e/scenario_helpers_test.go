@@ -33,9 +33,9 @@ func RunScenario(t *testing.T, s *Scenario) {
 		}
 	})
 	t.Parallel()
+	maybeSkipScenario(ctx, t, s)
 	model, err := s.Cluster(ctx, t)
 	require.NoError(t, err)
-	maybeSkipScenario(ctx, t, s)
 	loggingDir, err := createVMLogsDir(t.Name())
 	require.NoError(t, err)
 	nbc, err := s.PrepareNodeBootstrappingConfiguration(model.NodeBootstrappingConfiguration)
