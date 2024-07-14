@@ -92,7 +92,7 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	assert.NoError(t, err)
 
 	vmssName := getVmssName(t)
-	_, vmPrivateIP := createVMSS(ctx, t, vmssName, opts, privateKeyBytes, publicKeyBytes)
+	createVMSS(ctx, t, vmssName, opts, privateKeyBytes, publicKeyBytes)
 
 	t.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", vmssName)
 	nodeName := validateNodeHealth(ctx, t, opts.clusterConfig.Kube, vmssName)
@@ -107,6 +107,8 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 
 	t.Logf("node %s is ready, proceeding with validation commands...", vmssName)
 
+	vmPrivateIP, err := pollGetVMPrivateIP(ctx, t, vmssName, opts)
+	require.NoError(t, err, "get vm private IP %v", vmssName)
 	err = runLiveVMValidators(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), opts)
 	require.NoError(t, err)
 

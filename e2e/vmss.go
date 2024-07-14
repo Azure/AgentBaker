@@ -20,7 +20,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 )
@@ -31,7 +30,7 @@ const (
 	vmssNamePrefix                           = "abe2e"
 )
 
-func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte, publicKeyBytes []byte) (*armcompute.VirtualMachineScaleSet, string) {
+func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte, publicKeyBytes []byte) *armcompute.VirtualMachineScaleSet {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 	t.Logf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
@@ -64,44 +63,43 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 	}
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		deleteVMSS(t, ctx, vmssName, opts, privateKeyBytes)
+		cleanupVMSS(ctx, t, vmssName, opts, privateKeyBytes)
 	})
 
 	vmssResp, err := operation.PollUntilDone(ctx, &runtime.PollUntilDoneOptions{
 		Frequency: 10 * time.Second,
 	})
 	// fail test, but continue to extract debug information
-	assert.NoError(t, err, "create vmss %q", vmssName)
+	require.NoError(t, err, "create vmss %q", vmssName)
+	return &vmssResp.VirtualMachineScaleSet
+}
 
-	vmPrivateIP, err := pollGetVMPrivateIP(ctx, t, vmssName, opts)
-	require.NoError(t, err, "get vm private IP %v", vmssName)
-
-	// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
-	t.Cleanup(func() {
-		// original context can be cancelled, so create a new one
-		err := pollExtractVMLogs(context.WithoutCancel(ctx), t, vmssName, vmPrivateIP, privateKeyBytes, opts)
-		require.NoError(t, err, "extract vm logs %v", vmssName)
-	})
-
-	// VMSS creation failed, debug information has been extracted, don't need to continue test execution
+func cleanupVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte) {
+	defer deleteVMSS(t, ctx, vmssName, opts, privateKeyBytes)
 	if t.Failed() {
-		t.FailNow()
+		// original context can be cancelled, but we still want to collect the logs
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+		defer cancel()
+		vmPrivateIP, err := pollGetVMPrivateIP(ctx, t, vmssName, opts)
+		require.NoError(t, err, "get vm private IP %v", vmssName)
+		err = pollExtractVMLogs(context.WithoutCancel(ctx), t, vmssName, vmPrivateIP, privateKeyBytes, opts)
+		require.NoError(t, err, "extract vm logs %v", vmssName)
 	}
 
-	return &vmssResp.VirtualMachineScaleSet, vmPrivateIP
 }
 
 func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte) {
+	// never fail the VMSS deletion due to cancelled context
+	// it's important to cleanup resources $$$
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+	defer cancel()
 	if config.KeepVMSS {
 		t.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
 		if err := writeToFile(filepath.Join(opts.loggingDir, "sshkey"), string(privateKeyBytes)); err != nil {
 			t.Logf("failed to write retained vmss %s private ssh key to disk: %s", vmssName, err)
 		}
 	}
-	// original context can be cancelled, but we still want to cleanup the resources
-	cleanCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
-	defer cancel()
-	_, err := config.Azure.VMSS.BeginDelete(cleanCtx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+	_, err := config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
 		ForceDeletion: to.Ptr(true),
 	})
 	if err != nil {
