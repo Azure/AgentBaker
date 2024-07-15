@@ -27,6 +27,7 @@ var (
 
 func parseFlags() {
 	flag.StringVar(&opts.componentsPath, "components-path", "", "Path to the components file.")
+	flag.Parse()
 }
 
 func handle(err error) {
