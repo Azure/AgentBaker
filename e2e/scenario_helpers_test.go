@@ -17,6 +17,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
 	// without this, the test will not be able to catch the interrupt signal
 	// and will not be able to clean up the resources or flush the logs
+	// TODO: this isn't ideal, as the test can be started after the signal is sent so it will not be caught
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	t.Cleanup(cancel)
 	ctx, cancel = context.WithTimeout(ctx, config.Timeout)
