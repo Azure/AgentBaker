@@ -57,7 +57,7 @@ function cleanup() {
 }
 trap cleanup EXIT
 
-VM_OPTIONS="--size Standard_DS1_v2"
+VM_OPTIONS="--size Standard_DS2_v2"
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     VM_OPTIONS="--size Standard_D2pds_v5"
 elif [[ "${FEATURE_FLAGS,,}" == "kata" ]]; then
@@ -74,7 +74,6 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-username $TEST_VM_ADMIN_USERNAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
-    --size Standard_DS2_v2
     --storage-sku Premium_LRS \
     ${VM_OPTIONS} \
     --assign-identity "[system]"
