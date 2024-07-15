@@ -106,6 +106,8 @@ ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
 
 ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205 # Timeout waiting for credential provider downloads
 
+ERR_CNI_VERSION_INVALID=206 # reference CNI (not azure cni) needs a valid version in components.json
+
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"

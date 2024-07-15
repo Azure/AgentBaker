@@ -4,6 +4,7 @@ CC_SERVICE_IN_TMP=/opt/azure/containers/cc-proxy.service.in
 CC_SOCKET_IN_TMP=/opt/azure/containers/cc-proxy.socket.in
 CNI_CONFIG_DIR="/etc/cni/net.d"
 CNI_BIN_DIR="/opt/cni/bin"
+#TODO pull this out of componetns.json too?
 CNI_DOWNLOADS_DIR="/opt/cni/downloads"
 CRICTL_DOWNLOAD_DIR="/opt/crictl/downloads"
 CRICTL_BIN_DIR="/usr/local/bin"
@@ -293,25 +294,37 @@ setupCNIDirs() {
 installCNI() {
     #how do we keep this in sync with whats in AgentBaker/parts/linux/cloud-init/artifacts/components.json
     # and how is that different from AgentBaker/vhdbuilder/packer/components.json 
-    #Only the seconde one caches arm? 
-    if [[ $(isARM64) == 1 ]]; then
-        CNI_TGZ_TMP="cni-plugins-linux-arm64-v1.4.1.tgz"
+
+    cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
+    os=${UBUNTU_OS_NAME}
+    if [[ -z "$UBUNTU_RELEASE" ]]; then
+        os=${MARINER_OS_NAME}
+        os_version="current"
+    fi
+    os_version="${UBUNTU_RELEASE}"
+    PACKAGE_VERSIONS=()
+    returnPackageVersions "${cniPackage}" "${os}" "${os_version}"
+    
+    #should change to ne
+    if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
+        echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
+        exit $ERR_CONTAINERD_VERSION_INVALID
+    fi
+    packageVersion=${sortedPackageVersions[0]}
+
+    # Is there a ${arch} variable I can use instead of the iff
+    if [[ $(isARM64) == 1 ]]; then 
+        CNI_DIR_TMP="cni-plugins-linux-arm64-${packageVersion}"
     else 
-        CNI_TGZ_TMP="cni-plugins-linux-amd64-v1.4.1.tgz"
+        CNI_DIR_TMP="cni-plugins-linux-amd64-${packageVersion}"
     fi
     
-    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}    # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
-
     if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
         #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz. 
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR 
     else
-        if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
-            #how do I install a new error here? 
-            exit $ERR_K8S_INSTALL_ERR  
-        fi
-
-        tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
+        echo "CNI tarball should already be unzipped by components.json"
+        exit $ERR_CNI_VERSION_INVALID
     fi
 
     chown -R root:root $CNI_BIN_DIR
