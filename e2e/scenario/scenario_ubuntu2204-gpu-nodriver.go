@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/cluster"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
@@ -18,9 +19,8 @@ func ubuntu2204gpuNoDriver() *Scenario {
 			GPU:      true,
 		},
 		Config: Config{
-			ClusterSelector: NetworkPluginKubenetSelector,
-			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHDSelector:     config.VHDUbuntu2204Gen2Containerd,
+			Cluster:     cluster.ClusterKubenet,
+			VHDSelector: config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"

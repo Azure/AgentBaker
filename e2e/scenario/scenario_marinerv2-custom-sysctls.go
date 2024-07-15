@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/cluster"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -28,9 +29,8 @@ func marinerv2CustomSysctls() *Scenario {
 			Platform: "x64",
 		},
 		Config: Config{
-			ClusterSelector: NetworkPluginKubenetSelector,
-			ClusterMutator:  NetworkPluginKubenetMutator,
-			VHDSelector:     config.VHDCBLMarinerV2Gen2,
+			Cluster:     cluster.ClusterKubenet,
+			VHDSelector: config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				customLinuxConfig := &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{

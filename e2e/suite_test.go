@@ -4,45 +4,38 @@ import (
 	"context"
 	"errors"
 	"log"
-	mrand "math/rand"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/cluster"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/scenario"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/barkimedes/go-deepcopy"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_All(t *testing.T) {
-	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 	ctx := context.Background()
 	t.Parallel()
 
-	if err := createE2ELoggingDir(); err != nil {
-		t.Fatal(err)
-	}
+	err := createE2ELoggingDir()
+	require.NoError(t, err)
 
-	if err := ensureResourceGroup(ctx); err != nil {
-		t.Fatal(err)
-	}
-
-	clusterConfigs, err := getInitialClusterConfigs(ctx, config.ResourceGroupName)
-	if err != nil {
-		t.Fatal(err)
-	}
+	err = ensureResourceGroup(ctx)
+	require.NoError(t, err)
 
 	scenarios := scenario.AllScenarios()
-	if err := createMissingClusters(ctx, r, scenarios, &clusterConfigs); err != nil {
-		t.Fatal(err)
-	}
 
 	for _, e2eScenario := range scenarios {
 		t.Run(e2eScenario.Name, func(t *testing.T) {
 			t.Parallel()
+			model, err := e2eScenario.Cluster(ctx)
+			require.NoError(t, err)
 			maybeSkipScenario(t, e2eScenario)
-			setupAndRunScenario(ctx, t, e2eScenario, r, clusterConfigs)
+			setupAndRunScenario(ctx, t, e2eScenario, model)
 		})
 	}
 }
@@ -79,32 +72,23 @@ func maybeSkipScenario(t *testing.T, s *scenario.Scenario) {
 	t.Logf("running scenario %q with image %q", s.Name, rid)
 }
 
-func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenario.Scenario, r *mrand.Rand, clusterConfigs []clusterConfig) {
-	clusterConfig, err := chooseCluster(ctx, r, e2eScenario, clusterConfigs)
-	if err != nil {
-		t.Fatal(err)
-	}
+func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenario.Scenario, clusterConfig *cluster.Cluster) {
+	log.Printf("chose cluster: %q", *clusterConfig.Model.ID)
 
-	clusterName := *clusterConfig.cluster.Name
-	log.Printf("chose cluster: %q", clusterName)
+	clusterParams, err := pollExtractClusterParameters(ctx, clusterConfig.Kube)
+	require.NoError(t, err)
 
-	baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(clusterConfig.parameters)
-	if err != nil {
-		t.Fatal(err)
-	}
+	baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(clusterParams)
+	require.NoError(t, err)
 
 	copied, err := deepcopy.Anything(baseNodeBootstrappingConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	nbc := copied.(*datamodel.NodeBootstrappingConfiguration)
 
 	e2eScenario.PrepareNodeBootstrappingConfiguration(nbc)
 
 	loggingDir, err := createVMLogsDir(e2eScenario.Name)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	executeScenario(ctx, t, &scenarioRunOpts{
 		clusterConfig: clusterConfig,
@@ -115,25 +99,23 @@ func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenari
 }
 
 func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
-	// need to create a new rand object for each goroutine since mrand.Rand is not thread-safe
-	r := mrand.New(mrand.NewSource(time.Now().UnixNano()))
+	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair()
+	assert.NoError(t, err)
 
-	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair(r)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	vmssName := getVmssName(r)
+	vmssName := getVmssName()
 	log.Printf("creating and bootstrapping vmss: %q", vmssName)
 
 	vmssSucceeded := true
-	vmssModel, cleanupVMSS, err := bootstrapVMSS(ctx, t, vmssName, opts, publicKeyBytes)
-	if !config.KeepVMSS && cleanupVMSS != nil {
-		defer cleanupVMSS()
-	}
+	vmssModel, err := bootstrapVMSS(ctx, t, vmssName, opts, publicKeyBytes)
 	if err != nil {
 		vmssSucceeded = false
+		if config.SkipTestsWithSKUCapacityIssue {
+			var respErr *azcore.ResponseError
+			if errors.As(err, &respErr) && respErr.StatusCode == 409 && respErr.ErrorCode == "SkuNotAvailable" {
+				t.Skip("skipping scenario SKU not available", opts.scenario.Name, err)
+			}
+		}
+
 		if !isVMExtensionProvisioningError(err) {
 			t.Fatalf("encountered an unknown error while creating VM %s: %v", vmssName, err)
 		}
@@ -170,25 +152,23 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	// Perform posthoc log extraction when the VMSS creation succeeded or failed due to a CSE error
 	defer func() {
 		err := pollExtractVMLogs(ctx, vmssName, vmPrivateIP, privateKeyBytes, opts)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 	}()
 
 	// Only perform node readiness/pod-related checks when VMSS creation succeeded
 	if vmssSucceeded {
 		log.Printf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", vmssName)
-		nodeName, err := validateNodeHealth(ctx, opts.clusterConfig.kube, vmssName)
+		nodeName, err := validateNodeHealth(ctx, opts.clusterConfig.Kube, vmssName)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		if opts.nbc.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi {
 			log.Printf("wasm scenario: running wasm validation on %s...", vmssName)
-			if err := ensureWasmRuntimeClasses(ctx, opts.clusterConfig.kube); err != nil {
+			if err := ensureWasmRuntimeClasses(ctx, opts.clusterConfig.Kube); err != nil {
 				t.Fatalf("unable to ensure wasm RuntimeClasses on %s: %s", vmssName, err)
 			}
-			if err := validateWasm(ctx, opts.clusterConfig.kube, nodeName, string(privateKeyBytes)); err != nil {
+			if err := validateWasm(ctx, opts.clusterConfig.Kube, nodeName, string(privateKeyBytes)); err != nil {
 				t.Fatalf("unable to validate wasm on %s: %s", vmssName, err)
 			}
 		}

@@ -59,7 +59,7 @@ func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeB
 	return nodeBootstrapping, nil
 }
 
-func getBaseNodeBootstrappingConfiguration(clusterParams clusterParameters) (*datamodel.NodeBootstrappingConfiguration, error) {
+func getBaseNodeBootstrappingConfiguration(clusterParams map[string]string) (*datamodel.NodeBootstrappingConfiguration, error) {
 	nbc := baseTemplate(config.Location)
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = clusterParams["/etc/kubernetes/certs/ca.crt"]
 

@@ -446,42 +446,6 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 	}
 }
 
-func getDebugDaemonset() string {
-	return `apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: &name debug
-  namespace: default
-  labels:
-    app: *name
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: *name
-  template:
-    metadata:
-      labels:
-        app: *name
-    spec:
-      hostNetwork: true
-      nodeSelector:
-        kubernetes.azure.com/agentpool: nodepool1
-      hostPID: true
-      containers:
-      - image: mcr.microsoft.com/oss/nginx/nginx:1.21.6
-        name: ubuntu
-        command: ["sleep", "infinity"]
-        resources:
-          requests: {}
-          limits: {}
-        securityContext:
-          privileged: true
-          capabilities:
-            add: ["SYS_PTRACE", "SYS_RAWIO"]
-`
-}
-
 func getNginxPodTemplate(nodeName string) string {
 	return fmt.Sprintf(`apiVersion: v1
 kind: Pod
