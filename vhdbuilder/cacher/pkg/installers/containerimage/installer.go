@@ -10,14 +10,18 @@ import (
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/exec"
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/model"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"k8s.io/apimachinery/pkg/util/errors"
 )
+
+type InstallerConfig struct {
+	Parallelism int
+}
 
 type Installer struct {
 	template string
+	cfg      *InstallerConfig
 }
 
-func NewInstaller(cliTool string) (*Installer, error) {
+func NewInstaller(cliTool string, cfg *InstallerConfig) (*Installer, error) {
 	var (
 		template    string
 		initCommand *exec.Command
@@ -52,29 +56,25 @@ func NewInstaller(cliTool string) (*Installer, error) {
 
 	return &Installer{
 		template: template,
+		cfg:      cfg,
 	}, nil
 }
 
-func (i *Installer) Install(image *model.ContainerImage) error {
-	tags := image.MultiArchTags
-	if !env.IsARM() {
-		tags = append(tags, image.AMD64OnlyTags...)
+func (i *Installer) Install(images []*model.ContainerImage) error {
+	var pullers []puller
+	for _, image := range images {
+		tags := image.MultiArchTags
+		if !env.IsARM() {
+			tags = append(tags, image.AMD64OnlyTags...)
+		}
+		for _, tag := range tags {
+			pullers = append(pullers, i.getPuller(image.Repo, tag))
+		}
 	}
-	return i.pullImagesInParallel(image.Repo, tags)
+	return pullInParallel(pullers, i.cfg.Parallelism)
 }
 
-func (i *Installer) pullImagesInParallel(repo string, tags []string) error {
-	var pullers []func() error
-	for _, tag := range tags {
-		pullers = append(pullers, i.getPuller(repo, tag))
-	}
-	if err := errors.AggregateGoroutines(pullers...); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (i *Installer) getPuller(repo, tag string) func() error {
+func (i *Installer) getPuller(repo, tag string) puller {
 	return func() error {
 		imageString := strings.ReplaceAll(repo, "*", tag)
 		commandString := fmt.Sprintf(i.template, imageString)
