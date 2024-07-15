@@ -170,39 +170,84 @@ echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEP
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
-containerd_manifest="$(jq .containerd manifest.json)" || exit $?
-
-installed_version="$(echo ${containerd_manifest} | jq -r '.edge')"
-if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-  installed_version="$(echo ${containerd_manifest} | jq -r '.pinned."1804"')"
-fi
-
-containerd_version="$(echo "$installed_version" | cut -d- -f1)"
-containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
-installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
-echo "  - [installed] containerd v$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)" >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
 
-DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-for componentToDownload in ${DOWNLOAD_FILES[*]}; do
-  fileName=$(echo "${componentToDownload}" | jq .fileName -r)
-  if [ $fileName == "crictl-v*-linux-amd64.tar.gz" ]; then
-    CRICTL_VERSIONS_STR=$(echo "${componentToDownload}" | jq .versions -r)
-    CRICTL_VERSIONS=""
-    if [[ ${CRICTL_VERSIONS_STR} != null ]]; then
-      CRICTL_VERSIONS=$(echo "${CRICTL_VERSIONS_STR}" | jq -r ".[]")
-      CRICTL_VERSIONS=$(echo -e "$CRICTL_VERSIONS" | tail -n 2 | head -n 1 | tr -d ' ')
-    fi
-    break
-  fi
-done
-echo $CRICTL_VERSIONS
+# doing this at vhd allows CSE to be faster with just mv
+unpackAzureCNI() {
+  local URL=$1
+  CNI_TGZ_TMP=${URL##*/}
+  CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
+  mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
+  tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR/$CNI_DIR_TMP
+  rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
+  echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
+}
 
-for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
-  downloadCrictl ${CRICTL_VERSION}
-  echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
+packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
+for p in ${packages[*]}; do
+  #getting metadata for each package
+  name=$(echo "${p}" | jq .name -r)
+  PACKAGE_VERSIONS=()
+  returnPackageVersions ${p} ${OS} ${OS_VERSION}
+  PACKAGE_DOWNLOAD_URL=""
+  returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
+  echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS}\" \"${PACKAGE_DOWNLOAD_URL}\""
+  downloadDir=$(echo ${p} | jq .downloadLocation -r)
+  #download the package
+  case $name in
+    "cri-tools")
+      for version in $PACKAGE_VERSIONS; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadCrictl "${downloadDir}" "${evaluatedURL}"
+        echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
+        # other steps are dependent on CRICTL_VERSION and CRICTL_VERSIONS
+        # since we only have 1 entry in CRICTL_VERSIONS, we simply set both to the same value
+        CRICTL_VERSION=${version} 
+        CRICTL_VERSIONS=${version}
+      done
+      ;;
+    "azure-cni")
+      for version in $PACKAGE_VERSIONS; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
+        unpackAzureCNI "${evaluatedURL}"
+        echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "cni-plugins")
+      for version in $PACKAGE_VERSIONS; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadCNI "${downloadDir}" "${evaluatedURL}"
+        unpackAzureCNI "${evaluatedURL}"
+        echo "  - CNI plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "runc")
+      for version in $PACKAGE_VERSIONS; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        ensureRunc "${version}" "${evaluatedURL}" "${downloadDir}"
+        echo "  - runc version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "containerd")
+      for version in $PACKAGE_VERSIONS; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
+          installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
+        elif [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
+          installStandaloneContainerd "${version}"
+        fi
+        echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    *)
+      echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
+      # We can add a common function to download a generic package here.
+      # However, installation could be different for different packages.
+      ;;
+  esac
+  capture_benchmark "download_${name}"
 done
-capture_benchmark "download_crictl"
 
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
@@ -348,43 +393,6 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 # can't use cliTool because crictl doesn't support retagging.
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
 capture_benchmark "pull_and_retag_container_images"
-
-# doing this at vhd allows CSE to be faster with just mv
-unpackAzureCNI() {
-  local URL=$1
-  CNI_TGZ_TMP=${URL##*/}
-  CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
-  mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
-  tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR/$CNI_DIR_TMP
-  rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
-  echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
-}
-
-#must be both amd64/arm64 images
-VNET_CNI_VERSIONS="
-1.4.54
-1.5.28
-"
-
-for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
-    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
-    downloadAzureCNI
-    unpackAzureCNI $VNET_CNI_PLUGINS_URL
-    echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-
-# After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
-MULTI_ARCH_CNI_PLUGIN_VERSIONS="
-1.4.1
-"
-CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
-
-for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
-    CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-${CPU_ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
-    downloadCNI
-    unpackAzureCNI $CNI_PLUGINS_URL
-    echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner v2
 if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) ]]; then
