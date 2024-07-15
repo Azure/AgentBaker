@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"os/signal"
-	"sync"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -14,25 +13,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var once sync.Once
-
 func RunScenario(t *testing.T, s *Scenario) {
+	t.Parallel()
 	// without this, the test will not be able to catch the interrupt signal
 	// and will not be able to clean up the resources or flush the logs
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
-	defer cancel()
+	t.Cleanup(cancel)
 	ctx, cancel = context.WithTimeout(ctx, config.Timeout)
-	defer cancel()
-	once.Do(func() {
-		if err := createE2ELoggingDir(); err != nil {
-			panic(err)
-		}
-
-		if err := ensureResourceGroup(ctx); err != nil {
-			panic(err)
-		}
-	})
-	t.Parallel()
+	t.Cleanup(cancel)
 	maybeSkipScenario(ctx, t, s)
 	model, err := s.Cluster(ctx, t)
 	require.NoError(t, err)
