@@ -18,7 +18,6 @@ const (
 	execOnPodPollInterval                = 10 * time.Second
 	extractClusterParametersPollInterval = 10 * time.Second
 	extractVMLogsPollInterval            = 10 * time.Second
-	getVMPrivateIPAddressPollInterval    = 5 * time.Second
 	waitUntilPodRunningPollInterval      = 10 * time.Second
 	waitUntilNodeReadyPollingInterval    = 20 * time.Second
 
@@ -27,7 +26,7 @@ const (
 	execOnPodPollingTimeout                = 2 * time.Minute
 	extractClusterParametersPollingTimeout = 3 * time.Minute
 	extractVMLogsPollingTimeout            = 5 * time.Minute
-	waitUntilNodeReadyPollingTimeout       = 5 * time.Minute
+	waitUntilNodeReadyPollingTimeout       = 3 * time.Minute
 )
 
 func pollExecOnVM(ctx context.Context, t *testing.T, kube *Kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
@@ -138,27 +137,6 @@ func pollExtractVMLogs(ctx context.Context, t *testing.T, vmssName, privateIP st
 	}
 
 	return nil
-}
-
-func pollGetVMPrivateIP(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts) (string, error) {
-	var vmPrivateIP string
-	ctx, cancel := context.WithTimeout(ctx, waitUntilNodeReadyPollingTimeout)
-	defer cancel()
-	err := wait.PollUntilContextCancel(ctx, getVMPrivateIPAddressPollInterval, true, func(ctx context.Context) (bool, error) {
-		pip, err := getVMPrivateIPAddress(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName)
-		if err != nil {
-			t.Logf("encountered an error while getting VM private IP address: %s", err)
-			return false, nil
-		}
-		vmPrivateIP = pip
-		return true, nil
-	})
-
-	if err != nil {
-		return "", err
-	}
-
-	return vmPrivateIP, nil
 }
 
 func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vmssName string) string {

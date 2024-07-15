@@ -95,7 +95,9 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 
 	t.Logf("node %s is ready, proceeding with validation commands...", vmssName)
 
-	vmPrivateIP, err := pollGetVMPrivateIP(ctx, t, vmssName, opts)
+	vmPrivateIP, err := getVMPrivateIPAddress(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName)
+	require.NoError(t, err)
+
 	require.NoError(t, err, "get vm private IP %v", vmssName)
 	err = runLiveVMValidators(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), opts)
 	require.NoError(t, err)

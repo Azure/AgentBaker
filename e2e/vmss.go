@@ -80,7 +80,9 @@ func cleanupVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scena
 		// original context can be cancelled, but we still want to collect the logs
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
 		defer cancel()
-		vmPrivateIP, err := pollGetVMPrivateIP(ctx, t, vmssName, opts)
+		vmPrivateIP, err := getVMPrivateIPAddress(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName)
+		require.NoError(t, err)
+
 		require.NoError(t, err, "get vm private IP %v", vmssName)
 		err = pollExtractVMLogs(context.WithoutCancel(ctx), t, vmssName, vmPrivateIP, privateKeyBytes, opts)
 		require.NoError(t, err, "extract vm logs %v", vmssName)
