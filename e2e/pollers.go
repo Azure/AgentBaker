@@ -123,8 +123,7 @@ func pollExtractVMLogs(ctx context.Context, t *testing.T, vmssName, privateIP st
 			return false, nil
 		}
 
-		t.Logf("on %s dumping VM logs to local directory: %s", vmssName, opts.loggingDir)
-		if err = dumpFileMapToDir(opts.loggingDir, logFiles); err != nil {
+		if err = dumpFileMapToDir(t, logFiles); err != nil {
 			t.Logf("on %s error extracting VM logs: %q", vmssName, err)
 			return false, nil
 		}

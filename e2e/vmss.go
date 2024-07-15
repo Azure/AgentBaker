@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -97,7 +96,7 @@ func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, opts *scenar
 	defer cancel()
 	if config.KeepVMSS {
 		t.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
-		if err := writeToFile(filepath.Join(opts.loggingDir, "sshkey"), string(privateKeyBytes)); err != nil {
+		if err := writeToFile(t, "sshkey", string(privateKeyBytes)); err != nil {
 			t.Logf("failed to write retained vmss %s private ssh key to disk: %s", vmssName, err)
 		}
 	}

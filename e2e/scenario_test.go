@@ -16,9 +16,7 @@ import (
 
 func TestAll(t *testing.T) {
 	t.Parallel()
-	err := createE2ELoggingDir()
-	require.NoError(t, err)
-	err = ensureResourceGroup(context.TODO())
+	err := ensureResourceGroup(context.TODO())
 	require.NoError(t, err)
 	// grouping all tests together helps with reporting on parallel tests
 	t.Run("azurelinuxv2", Scenario_azurelinuxv2)
@@ -51,16 +49,16 @@ func TestAll(t *testing.T) {
 	t.Run("ubuntu2204-arm64", Scenario_ubuntu2204ARM64)
 	t.Run("ubuntu2204-artifact-streaming", Scenario_ubuntu2204ArtifactStreaming)
 	t.Run("ubuntu2204-chrony-restarts", Scenario_ubuntu2204ChronyRestarts)
-	t.Run("ubuntu2204-custom-ca-trust", Scenario_ubuntu2204CustomCATrust)
-	t.Run("ubuntu2204-custom-sysctls", Scenario_ubuntu2204CustomSysctls)
-	t.Run("ubuntu2204-gpu-ncv", Scenario_ubuntu2204gpuncv)
-	t.Run("ubuntu2204-gpu-a100", Scenario_ubuntu2204gpua100)
-	t.Run("ubuntu2204-gpu-a10", Scenario_ubuntu2204gpua10)
-	t.Run("ubuntu2204-gpu-grid-driver", Scenario_ubuntu2204GPUGridDriver)
-	t.Run("ubuntu2204-gpu-no-driver", Scenario_ubuntu2204gpuNoDriver)
-	t.Run("ubuntu2204-private-kube-pkg", Scenario_ubuntu2204privatekubepkg)
 	t.Run("ubuntu2204-containerd-url", Scenario_ubuntu2204ContainerdURL)
 	t.Run("ubuntu2204-containerd-version", Scenario_ubuntu2204ContainerdVersion)
+	t.Run("ubuntu2204-custom-ca-trust", Scenario_ubuntu2204CustomCATrust)
+	t.Run("ubuntu2204-custom-sysctls", Scenario_ubuntu2204CustomSysctls)
+	t.Run("ubuntu2204-gpu-a10", Scenario_ubuntu2204gpua10)
+	t.Run("ubuntu2204-gpu-a100", Scenario_ubuntu2204gpua100)
+	t.Run("ubuntu2204-gpu-grid-driver", Scenario_ubuntu2204GPUGridDriver)
+	t.Run("ubuntu2204-gpu-ncv", Scenario_ubuntu2204gpuncv)
+	t.Run("ubuntu2204-gpu-no-driver", Scenario_ubuntu2204gpuNoDriver)
+	t.Run("ubuntu2204-private-kube-pkg", Scenario_ubuntu2204privatekubepkg)
 	t.Run("ubuntu2204-wasm", Scenario_ubuntu2204Wasm)
 }
 

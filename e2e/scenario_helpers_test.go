@@ -24,8 +24,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	maybeSkipScenario(ctx, t, s)
 	model, err := s.Cluster(ctx, t)
 	require.NoError(t, err)
-	loggingDir, err := createVMLogsDir(t.Name())
-	require.NoError(t, err)
+
 	nbc, err := s.PrepareNodeBootstrappingConfiguration(model.NodeBootstrappingConfiguration)
 	require.NoError(t, err)
 
@@ -33,7 +32,6 @@ func RunScenario(t *testing.T, s *Scenario) {
 		clusterConfig: model,
 		scenario:      s,
 		nbc:           nbc,
-		loggingDir:    loggingDir,
 	})
 }
 
@@ -41,7 +39,6 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	s.Tags.OS = s.VHD.OS
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
-	t.Logf("running scenario %q with tags %+v", t.Name(), s.Tags)
 	if config.TagsToRun != "" {
 		matches, err := s.Tags.MatchesFilters(config.TagsToRun)
 		if err != nil {
@@ -62,7 +59,7 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 		}
 	}
 
-	_, err := s.VHD.VHDResourceID(ctx, t)
+	vhd, err := s.VHD.VHDResourceID(ctx, t)
 	if err != nil {
 		if config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
 			t.Skipf("skipping scenario %q: could not find image", t.Name())
@@ -70,6 +67,7 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 			t.Fatalf("could not find image for %q: %s", t.Name(), err)
 		}
 	}
+	t.Logf("running scenario %q with vhd: %q, tags %+v", t.Name(), vhd, s.Tags)
 }
 
 func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
