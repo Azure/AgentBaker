@@ -5,7 +5,7 @@ ifeq (${MODE},linuxVhdMode)
 	@echo "${MODE}: Generating prefetch scripts"
 	@bash -c "pushd vhdbuilder/prefetch; go run main.go --components=../packer/components.json --container-image-prefetch-script=../packer/prefetch.sh; popd"
 	@echo "${MODE}: Building cacher"
-	$(MAKE) -f vhdbuilder/cacher/Makefile build ARCH=$(ARCH)
+	@bash -c "pushd vhdbuilder/cacher; make build; popd"
 endif
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
