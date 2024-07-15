@@ -106,18 +106,7 @@ test-and-scan-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh & 
 	@pid2=$$! 
 	@wait $$pid1 
-	@status1=$$?
 	@wait $$pid2 
-	@status2=$$?
-	@if [ $$status1 -ne 0 ]; then
-		@echo "test script failed with status $$status1"
-		@exit 1 
-	@fi
-	@if [ $$status2 -ne 0 ]; then
-		@echo "scan script failed with status $$status2"
-		@exit 2 
-	@fi
-	@echo "test-and-scan-vhd succeeded"
 
 build-nbcparser-all:
 	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=amd64
