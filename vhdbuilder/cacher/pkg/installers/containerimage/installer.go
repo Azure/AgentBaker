@@ -44,6 +44,9 @@ func NewInstaller(cliTool string) (*Installer, error) {
 		if err != nil {
 			return nil, fmt.Errorf("executing init command for %q container image installer: %w", cliTool, err)
 		}
+		if err := res.AsError(); err != nil {
+			return nil, fmt.Errorf("init command for container image installer failed: %w", err)
+		}
 		log.Printf("executed init command for container image installer: %s", res)
 	}
 

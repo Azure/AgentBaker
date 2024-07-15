@@ -39,13 +39,13 @@ func (r *Result) AsError() error {
 func (r *Result) String() string {
 	str := fmt.Sprintf("exit code: %d", r.ExitCode)
 	if r.Stdout != "" {
-		str = str + fmt.Sprintf("\n--------------stdout--------------%s", r.Stdout)
+		str = str + fmt.Sprintf("\n--------------stdout--------------\n%s", r.Stdout)
 	}
 	if r.Stderr != "" {
-		str = str + fmt.Sprintf("\n--------------stderr--------------%s", r.Stderr)
+		str = str + fmt.Sprintf("\n--------------stderr--------------\n%s", r.Stderr)
 	}
 	if r.Stdout != "" || r.Stderr != "" {
-		str = str + "----------------------------------"
+		str = str + "\n----------------------------------\n"
 	}
 	return str
 }
@@ -96,6 +96,11 @@ func NewCommand(commandString string, cfg *CommandConfig) (*Command, error) {
 		return nil, fmt.Errorf("specified command %q is malformed, expected to be in format \"app args...\"", commandString)
 	}
 
+	if cfg != nil {
+		timeout := fmt.Sprintf("timeout %.0f", cfg.Timeout.Seconds())
+		parts = append([]string{timeout}, parts...)
+	}
+
 	return &Command{
 		raw:  commandString,
 		app:  parts[0],
@@ -105,13 +110,10 @@ func NewCommand(commandString string, cfg *CommandConfig) (*Command, error) {
 }
 
 func (c *Command) Execute() (*Result, error) {
-	if c.cfg == nil {
-		return execute(c)
-	}
-	if c.cfg.MaxRetries > 0 {
+	if c.cfg != nil && c.cfg.MaxRetries > 0 {
 		return executeWithRetries(c)
 	}
-	return executeWithTimeout(c)
+	return execute(c)
 }
 
 func execute(c *Command) (*Result, error) {
@@ -131,39 +133,13 @@ func execute(c *Command) (*Result, error) {
 	}, nil
 }
 
-func executeWithTimeout(c *Command) (*Result, error) {
-	ch := make(chan struct {
-		err error
-		res *Result
-	})
-
-	ctx, cancel := context.WithTimeout(context.Background(), *c.cfg.Timeout)
-	defer cancel()
-
-	// TODO(cameissner): are these potentially leaky?
-	go func() {
-		res, err := execute(c)
-		ch <- struct {
-			err error
-			res *Result
-		}{err: err, res: res}
-	}()
-
-	select {
-	case r := <-ch:
-		return r.res, r.err
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-}
-
 // executeWithRetries attempts to emulate: https://github.com/Azure/AgentBaker/blob/master/parts/linux/cloud-init/artifacts/cse_helpers.sh#L133-L145
 func executeWithRetries(c *Command) (*Result, error) {
 	backoff := retry.WithMaxRetries(uint64(c.cfg.MaxRetries), retry.NewConstant(*c.cfg.Wait))
 	var res *Result
 	err := retry.Do(context.Background(), backoff, func(ctx context.Context) error {
 		var err error
-		res, err = executeWithTimeout(c)
+		res, err = execute(c)
 		if err != nil {
 			// retry if the command itself timed out
 			if errors.Is(err, context.DeadlineExceeded) {
