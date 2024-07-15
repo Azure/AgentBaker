@@ -141,10 +141,6 @@ func executeWithRetries(c *Command) (*Result, error) {
 		var err error
 		res, err = execute(c)
 		if err != nil {
-			// retry if the command itself timed out
-			if errors.Is(err, context.DeadlineExceeded) {
-				return retry.RetryableError(err)
-			}
 			// don't retry if we weren't able to execute the command at all
 			return err
 		}
