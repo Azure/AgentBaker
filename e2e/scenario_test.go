@@ -91,7 +91,6 @@ func Scenario_azurelinuxv2AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 			},
-			Airgap: true,
 		},
 	})
 }
@@ -137,7 +136,6 @@ func Scenario_azurelinuxv2ARM64AirGap(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
-			Airgap: true,
 		},
 	})
 }
@@ -319,7 +317,6 @@ func Scenario_marinerv2AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 			},
-			Airgap: true,
 		},
 	})
 }
@@ -365,7 +362,6 @@ func Scenario_marinerv2ARM64AirGap(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
-			Airgap: true,
 		},
 	})
 }
@@ -644,7 +640,6 @@ func Scenario_ubuntu2204AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 			},
-			Airgap: true,
 		},
 	})
 }
