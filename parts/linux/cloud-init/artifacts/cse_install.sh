@@ -292,11 +292,11 @@ setupCNIDirs() {
 # The version used to be deteremined by RP/toggle but are now just hadcoded in vhd as they rarely change and require a node image upgrade anyways
 # Latest VHD should have the untar, older should have the tgz. And who knows will have neither. 
 installCNI() {
-    #how do we keep this in sync with whats in AgentBaker/parts/linux/cloud-init/artifacts/components.json
-    # and how is that different from AgentBaker/vhdbuilder/packer/components.json 
-
+    #always just use what is listed in components.json so we don't have to sync.
     cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
-    os=${UBUNTU_OS_NAME}
+    
+    #CNI doesn't really care about this but wanted to reuse returnPackageVersions which requires it.
+    os=${UBUNTU_OS_NAME} 
     if [[ -z "$UBUNTU_RELEASE" ]]; then
         os=${MARINER_OS_NAME}
         os_version="current"
