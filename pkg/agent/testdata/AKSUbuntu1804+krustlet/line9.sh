@@ -399,7 +399,10 @@ check_array_size() {
 
 capture_benchmark() {
   set +x
-  benchmarks+=($1)
+  local title="$1"
+  title="${title//[[:space:]]/_}"
+  title="${title//-/_}"
+  benchmarks+=($title)
   check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
   declare -n current_section="${benchmarks[last_index]}"
   local is_final_section=${2:-false}
