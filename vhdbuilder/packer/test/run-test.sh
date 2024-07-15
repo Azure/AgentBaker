@@ -100,6 +100,7 @@ else
       --resource-group $RESOURCE_GROUP_NAME \
       --name $VM_NAME \
       --image $IMG_DEF \
+      --storage-sku PremiumV2_LRS \
       --admin-username $TEST_VM_ADMIN_USERNAME \
       --admin-password $TEST_VM_ADMIN_PASSWORD \
       --public-ip-address "" \
