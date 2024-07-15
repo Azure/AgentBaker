@@ -81,7 +81,7 @@ fi
 
 if [ -z "${VNET_RG_NAME}" ]; then
 	if [ "$MODE" == "linuxVhdMode" ]; then
-		VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-agent-pool"
+		VNET_RG_NAME="nodesig${ENVIRONMENT}-agent-pool-xtian"
 		if [ "${ENVIRONMENT,,}" == "prod" ]; then
 			# for now preserve original functionality for prod builds
 			VNET_RG_NAME="nodesigprod-agent-pool"
@@ -98,7 +98,7 @@ fi
 
 if [ -z "${VNET_NAME}" ]; then
 	if [ "$MODE" == "linuxVhdMode" ]; then
-		VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
+		VNET_NAME="nodesig-pool-vnet-xtian"
 		if [ "${ENVIRONMENT,,}" == "prod" ]; then
 			# for now preserve original functionality for prod builds
 			VNET_NAME="nodesig-pool-vnet"
