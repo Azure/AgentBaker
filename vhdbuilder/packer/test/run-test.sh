@@ -86,6 +86,8 @@ else
     TARGET_COMMAND_STRING+="--size Standard_D2pds_v5"
   elif [[ "${FEATURE_FLAGS,,}" == "kata" ]]; then
     TARGET_COMMAND_STRING="--size Standard_D4ds_v5"
+  else
+    TARGET_COMMAND_STRING="--size Standard_DS2_v2"
   fi
 
   if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then

@@ -74,6 +74,7 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-username $TEST_VM_ADMIN_USERNAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
+    --size Standard_DS2_v2
     --storage-sku Premium_LRS \
     ${VM_OPTIONS} \
     --assign-identity "[system]"
