@@ -55,10 +55,10 @@ func (r podExecResult) dumpStderr(t *testing.T) {
 
 func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) (map[string]string, error) {
 	commandList := map[string]string{
-		"/var/log/azure/cluster-provision.log":            "cat /var/log/azure/cluster-provision.log",
-		"kubelet.log":                                     "journalctl -u kubelet",
-		"/var/log/azure/cluster-provision-cse-output.log": "cat /var/log/azure/cluster-provision-cse-output.log",
-		"sysctl-out.log":                                  "sysctl -a",
+		"/var/log/azure/cluster-provision": "cat /var/log/azure/cluster-provision.log",
+		"kubelet":                          "journalctl -u kubelet",
+		"/var/log/azure/cluster-provision-cse-output": "cat /var/log/azure/cluster-provision-cse-output.log",
+		"sysctl-out": "sysctl -a",
 	}
 
 	podName, err := getDebugPodName(ctx, opts.clusterConfig.Kube)
@@ -71,14 +71,11 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, s
 		t.Logf("executing command on remote VM at %s of VMSS %s: %q", privateIP, vmssName, sourceCmd)
 
 		execResult, err := execOnVM(ctx, opts.clusterConfig.Kube, privateIP, podName, sshPrivateKey, sourceCmd, false)
-		if execResult != nil {
-			execResult.dumpStderr(t)
-		}
+		result[file+".stdout"] = execResult.stdout.String()
+		result[file+".stderr"] = execResult.stderr.String()
 		if err != nil {
 			return nil, err
 		}
-
-		result[file] = execResult.stdout.String()
 	}
 	return result, nil
 }
