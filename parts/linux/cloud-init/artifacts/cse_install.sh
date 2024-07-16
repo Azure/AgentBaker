@@ -310,7 +310,7 @@ installCNI() {
         echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
         exit $ERR_CONTAINERD_VERSION_INVALID
     fi
-    packageVersion=${sortedPackageVersions[0]}
+    packageVersion=${PACKAGE_VERSIONS[0]}
 
     # Is there a ${arch} variable I can use instead of the iff
     if [[ $(isARM64) == 1 ]]; then 
