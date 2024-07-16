@@ -4,14 +4,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-)
 
-const (
-	e2eLogsDir = "scenario-logs"
+	"github.com/Azure/agentbakere2e/config"
 )
 
 func testDir(t *testing.T) string {
-	return filepath.Join(e2eLogsDir, t.Name())
+	return filepath.Join(config.E2ELoggingDir, t.Name())
 }
 
 func writeToFile(t *testing.T, fileName, content string) error {

@@ -22,6 +22,7 @@ var (
 	TagsToRun                     = os.Getenv("TAGS_TO_RUN")
 	TagsToSkip                    = os.Getenv("TAGS_TO_SKIP")
 	TestTimeout                   = lookupEnvWithDefaultDuration("TEST_TIMEOUT", 12*time.Minute)
+	E2ELoggingDir                 = lookupEnvWithDefaultString("LOGGING_DIR", "scenario-logs")
 )
 
 func lookupEnvWithDefaultString(env string, defaultValue string) string {
