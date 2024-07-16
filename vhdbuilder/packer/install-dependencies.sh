@@ -465,34 +465,8 @@ fi
 cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
 rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
-# this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
-# So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
-# NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 
-# kube-proxy regular versions >=v1.17.0  hotfixes versions >= 20211009 are 'multi-arch'. All versions in kube-proxy-images.json are 'multi-arch' version now.
-
-KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
-
-declare -a kube_proxy_pids=()
-
-for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
-  kube_proxy_pids+=($!)
-  while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
-      wait -n
-  done
-done
-wait ${kube_proxy_pids[@]} # Wait for all parallel pulls to finish
-
-for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
-  ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
-
-  # shellcheck disable=SC2181
-  echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
-done
-capture_benchmark "configure_telemetry_create_logging_directory_and_download_kubeproxy_images"
+capture_benchmark "configure_telemetry_create_logging_directory"
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
