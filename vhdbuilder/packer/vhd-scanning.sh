@@ -102,7 +102,7 @@ az vm run-command invoke \
     --scripts @$EXE_SCRIPT_PATH \
     --parameters "OS_SKU=${OS_SKU}" \
         "OS_VERSION=${OS_VERSION}" \
-        "TEST_VM_ADMIN_USERNAME=${TEST_VM_ADMIN_USERNAME}" \
+        "SCAN_VM_ADMIN_USERNAME=${SCAN_VM_ADMIN_USERNAME}" \
         "ARCHITECTURE=${ARCHITECTURE}" \
         "TRIVY_REPORT_NAME=${TRIVY_REPORT_NAME}" \
         "TRIVY_TABLE_NAME=${TRIVY_TABLE_NAME}" \
