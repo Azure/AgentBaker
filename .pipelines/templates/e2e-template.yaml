@@ -33,6 +33,10 @@ jobs:
         env:
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           LOCATION: $(LOCATION)
+      # Without this step next step may fail on successful run
+      - bash: mkdir -p $(System.DefaultWorkingDirectory)/e2e/scenario-logs
+        condition: always()
+        displayName: Create folder for scenario logs
       - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
         artifact: scenario-logs
         condition: always()
