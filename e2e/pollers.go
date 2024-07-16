@@ -23,7 +23,7 @@ const (
 
 	// Polling timeouts
 	execOnVMPollingTimeout                 = 3 * time.Minute
-	execOnPodPollingTimeout                = 2 * time.Minute
+	execOnPodPollingTimeout                = 3 * time.Minute
 	extractClusterParametersPollingTimeout = 3 * time.Minute
 	extractVMLogsPollingTimeout            = 5 * time.Minute
 	waitUntilNodeReadyPollingTimeout       = 3 * time.Minute

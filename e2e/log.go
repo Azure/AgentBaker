@@ -10,9 +10,12 @@ const (
 	e2eLogsDir = "scenario-logs"
 )
 
-func writeToFile(t *testing.T, fileName, content string) error {
-	dirPath := filepath.Join(e2eLogsDir, t.Name())
+func testDir(t *testing.T) string {
+	return filepath.Join(e2eLogsDir, t.Name())
+}
 
+func writeToFile(t *testing.T, fileName, content string) error {
+	dirPath := testDir(t)
 	// Create the directory if it doesn't exist
 	if err := os.MkdirAll(dirPath, 0755); err != nil {
 		return err

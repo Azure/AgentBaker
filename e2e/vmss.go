@@ -65,7 +65,7 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 		Frequency: 10 * time.Second,
 	})
 	// fail test, but continue to extract debug information
-	require.NoError(t, err, "create vmss %q", vmssName)
+	require.NoError(t, err, "create vmss %q, check %s for vm logs", vmssName, testDir(t))
 	return &vmssResp.VirtualMachineScaleSet
 }
 
