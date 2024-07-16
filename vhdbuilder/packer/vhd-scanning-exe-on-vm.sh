@@ -3,7 +3,7 @@ set -eux
 
 OS_SKU=$1
 OS_VERSION=$2
-TEST_VM_ADMIN_USERNAME=$3
+SCAN_VM_ADMIN_USERNAME=$3
 ARCHITECTURE=$4
 TRIVY_REPORT_NAME=$5
 TRIVY_TABLE_NAME=$6
@@ -17,7 +17,7 @@ elif [[ "$OS_SKU" == "Ubuntu" ]] && [[ "$OS_VERSION" == "22.04" ]] && [[ "${ARCH
     sudo apt update
     sudo apt install -y python3-pip
     pip install azure-cli
-    export PATH="/home/$TEST_VM_ADMIN_USERNAME/.local/bin:$PATH"
+    export PATH="/home/$SCAN_VM_ADMIN_USERNAME/.local/bin:$PATH"
     CHECKAZ=$(pip freeze | grep "azure-cli==")
     if [[ -z $CHECKAZ ]]; then
         echo "Azure CLI is not installed properly."

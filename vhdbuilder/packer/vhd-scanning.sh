@@ -3,12 +3,12 @@ set -eux
 
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
 EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
-TEST_RESOURCE_PREFIX="vhd-scanning"
-VM_NAME="$TEST_RESOURCE_PREFIX-vm"
+SCAN_RESOURCE_PREFIX="vhd-scanning"
+SCAN_VM_NAME="$SCAN_RESOURCE_PREFIX-vm"
 VHD_IMAGE="$MANAGED_SIG_ID"
 
 SIG_CONTAINER_NAME="vhd-scans"
-TEST_VM_ADMIN_USERNAME="azureuser"
+SCAN_VM_ADMIN_USERNAME="azureuser1"
 
 # This variable is used to determine where we need to deploy the VM on which we'll run trivy.
 # We must be sure this location matches the location used by packer when delivering the output image
@@ -33,11 +33,11 @@ else
 fi
 
 set +x
-TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
+SCAN_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
 
 
-RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
+RESOURCE_GROUP_NAME="$SCAN_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
 az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags 'source=AgentBaker'
 
 # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
@@ -68,15 +68,15 @@ if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
 fi
 
 az vm create --resource-group $RESOURCE_GROUP_NAME \
-    --name $VM_NAME \
+    --name $SCAN_VM_NAME \
     --image $VHD_IMAGE \
-    --admin-username $TEST_VM_ADMIN_USERNAME \
-    --admin-password $TEST_VM_ADMIN_PASSWORD \
+    --admin-username $SCAN_VM_ADMIN_USERNAME \
+    --admin-password $SCAN_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
     --assign-identity "[system]"
 
-VM_PRINCIPLE_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
+VM_PRINCIPLE_ID=$(az vm identity show --name $SCAN_VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
 az role assignment create --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}"
 
 FULL_PATH=$(realpath $0)
@@ -84,7 +84,7 @@ CDIR=$(dirname $FULL_PATH)
 TRIVY_SCRIPT_PATH="$CDIR/$TRIVY_SCRIPT_PATH"
 az vm run-command invoke \
     --command-id RunShellScript \
-    --name $VM_NAME \
+    --name $SCAN_VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts @$TRIVY_SCRIPT_PATH
 
@@ -95,12 +95,12 @@ TRIVY_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
 EXE_SCRIPT_PATH="$CDIR/$EXE_SCRIPT_PATH"
 az vm run-command invoke \
     --command-id RunShellScript \
-    --name $VM_NAME \
+    --name $SCAN_VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts @$EXE_SCRIPT_PATH \
     --parameters "OS_SKU=${OS_SKU}" \
         "OS_VERSION=${OS_VERSION}" \
-        "TEST_VM_ADMIN_USERNAME=${TEST_VM_ADMIN_USERNAME}" \
+        "SCAN_VM_ADMIN_USERNAME=${SCAN_VM_ADMIN_USERNAME}" \
         "ARCHITECTURE=${ARCHITECTURE}" \
         "TRIVY_REPORT_NAME=${TRIVY_REPORT_NAME}" \
         "TRIVY_TABLE_NAME=${TRIVY_TABLE_NAME}" \
