@@ -100,7 +100,8 @@ test-building-vhd:
 scanning-vhd:
 	@./vhdbuilder/packer/vhd-scanning.sh
 
-test-and-scan: az-login .WAIT test-building-vhd scanning-vhd
+test-and-scan: az-login
+	@$(MAKE) -f packer.mk test-building-vhd scanning-vhd -j2 --output-sync=target
 
 build-nbcparser-all:
 	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=amd64

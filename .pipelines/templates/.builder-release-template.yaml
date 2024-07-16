@@ -141,8 +141,7 @@ steps:
         -e SGX_INSTALL=${SGX_INSTALL} \
         -e ENABLE_CGROUPV2=${ENABLE_CGROUPV2} \
         -e GIT_BRANCH=$(Build.SourceBranch) \
-        ${CONTAINER_IMAGE} make -f packer.mk test-and-scan -j2 --output-sync=target
-    retryCountOnTaskFailure: 2
+        ${CONTAINER_IMAGE} make -f packer.mk test-and-scan
     displayName: Test and Scan VHD
   - task: Bash@3
     inputs:
