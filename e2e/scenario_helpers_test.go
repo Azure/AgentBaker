@@ -20,7 +20,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	// TODO: this isn't ideal, as the test can be started after the signal is sent so it will not be caught
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	t.Cleanup(cancel)
-	ctx, cancel = context.WithTimeout(ctx, config.Timeout)
+	ctx, cancel = context.WithTimeout(ctx, config.TestTimeout)
 	t.Cleanup(cancel)
 	maybeSkipScenario(ctx, t, s)
 	model, err := s.Cluster(ctx, t)

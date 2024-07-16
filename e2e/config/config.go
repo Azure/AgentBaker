@@ -22,6 +22,7 @@ var (
 	TagsToRun                     = os.Getenv("TAGS_TO_RUN")
 	TagsToSkip                    = os.Getenv("TAGS_TO_SKIP")
 	Timeout                       = lookupEnvWithDefaultDuration("TIMEOUT", 90*time.Minute)
+	TestTimeout                   = lookupEnvWithDefaultDuration("TIMEOUT", 12*time.Minute)
 )
 
 func lookupEnvWithDefaultString(env string, defaultValue string) string {
