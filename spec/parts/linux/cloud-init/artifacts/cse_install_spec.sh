@@ -1,6 +1,7 @@
 #!/bin/bash
-
-source parts/linux/cloud-init/artifacts/cse_helpers.sh
+lsb_release() {
+    echo "mock lsb_release"
+}
 
 readPackage() {
     local packageName=$1
@@ -10,6 +11,7 @@ readPackage() {
 
 Describe 'cse_install.sh'
   Include "./parts/linux/cloud-init/artifacts/cse_install.sh"
+  Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
   Describe 'returnPackageVersions'
     It 'returns downloadURIs.ubuntu."r2004".versions of package runc for UBUNTU 20.04'
         package=$(readPackage "runc")
@@ -121,7 +123,7 @@ Describe 'cse_install.sh'
     End
   End
   Describe 'evalPackageDownloadURL'
-    It 'returns returns empty string for empty downloadURL'
+    It 'returns empty string for empty downloadURL'
         When call evalPackageDownloadURL ""
         The output should equal ""
     End
