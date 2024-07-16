@@ -103,3 +103,12 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 
 	t.Logf("node %s bootstrapping succeeded!", vmssName)
 }
+
+func getContainerdManifestVersion() string {
+	manifest, err := getVHDManifest()
+	if err != nil {
+		panic(err)
+	}
+
+	return manifest.Containerd.Edge
+}

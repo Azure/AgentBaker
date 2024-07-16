@@ -920,15 +920,6 @@ func Scenario_ubuntu2204ContainerdVersion(t *testing.T) {
 	})
 }
 
-func getContainerdManifestVersion() string {
-	manifest, err := getVHDManifest()
-	if err != nil {
-		panic(err)
-	}
-
-	return manifest.Containerd.Edge
-}
-
 func Scenario_ubuntu2204Wasm(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using krustlet can be properly bootstrapepd",
