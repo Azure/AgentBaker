@@ -94,10 +94,10 @@ generate-sas: az-login
 convert-sig-to-classic-storage-account-blob: az-login
 	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
 
-test-building-vhd: az-login
+test-building-vhd:
 	@./vhdbuilder/packer/test/run-test.sh
 
-scanning-vhd: az-login
+scanning-vhd:
 	@./vhdbuilder/packer/vhd-scanning.sh
 
 generate-prefetch-scripts:
