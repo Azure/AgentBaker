@@ -21,8 +21,7 @@ var (
 	SubscriptionID                = lookupEnvWithDefaultString("SUBSCRIPTION_ID", "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8")
 	TagsToRun                     = os.Getenv("TAGS_TO_RUN")
 	TagsToSkip                    = os.Getenv("TAGS_TO_SKIP")
-	Timeout                       = lookupEnvWithDefaultDuration("TIMEOUT", 90*time.Minute)
-	TestTimeout                   = lookupEnvWithDefaultDuration("TIMEOUT", 12*time.Minute)
+	TestTimeout                   = lookupEnvWithDefaultDuration("TEST_TIMEOUT", 12*time.Minute)
 )
 
 func lookupEnvWithDefaultString(env string, defaultValue string) string {

@@ -234,8 +234,8 @@ func collectGarbageVMSS(ctx context.Context, t *testing.T, cluster *armcontainer
 			}
 
 			// don't delete VMSS created in the last hour. They might be currently used in tests
-			// extra 10 minutes is to avoid clock drift issues between the test machine and the Azure API
-			if config.Timeout == 0 || time.Since(*vmss.Properties.TimeCreated) < config.Timeout+10*time.Minute {
+			// extra 10 minutes is a buffer for test cleanup, clock drift and timeout adjustments
+			if config.TestTimeout == 0 || time.Since(*vmss.Properties.TimeCreated) < config.TestTimeout+10*time.Minute {
 				continue
 			}
 

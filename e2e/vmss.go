@@ -81,26 +81,22 @@ func skipTestIfSKUNotAvailableErr(t *testing.T, err error) {
 }
 
 func cleanupVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte) {
+	// original context can be cancelled, but we still want to collect the logs
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+	defer cancel()
 	defer deleteVMSS(t, ctx, vmssName, opts, privateKeyBytes)
 	if t.Failed() {
-		// original context can be cancelled, but we still want to collect the logs
-		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
-		defer cancel()
 		vmPrivateIP, err := getVMPrivateIPAddress(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName)
 		require.NoError(t, err)
 
 		require.NoError(t, err, "get vm private IP %v", vmssName)
-		err = pollExtractVMLogs(context.WithoutCancel(ctx), t, vmssName, vmPrivateIP, privateKeyBytes, opts)
+		err = pollExtractVMLogs(ctx, t, vmssName, vmPrivateIP, privateKeyBytes, opts)
 		require.NoError(t, err, "extract vm logs %v", vmssName)
 	}
 
 }
 
 func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte) {
-	// never fail the VMSS deletion due to cancelled context
-	// it's important to cleanup resources $$$
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
-	defer cancel()
 	if config.KeepVMSS {
 		t.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
 		if err := writeToFile(t, "sshkey", string(privateKeyBytes)); err != nil {
