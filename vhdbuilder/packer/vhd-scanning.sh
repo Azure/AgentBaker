@@ -33,12 +33,12 @@ else
 fi
 
 set +x
-SCAN_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
+SCAN_VM_ADMIN_PASSWORD="ScanVM@$(date +%s)"
 set -x
 
 
 RESOURCE_GROUP_NAME="$SCAN_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
-az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags 'source=AgentBaker'
+az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags "source=AgentBaker" "branch=${GIT_BRANCH}"
 
 # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
 if [ "$OS_VERSION" == "18.04" ]; then
