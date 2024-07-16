@@ -13,6 +13,11 @@ jobs:
         displayName: az login
       - bash: bash .pipelines/scripts/setup_go.sh
         displayName: setup go
+      - bash:
+          LOGGING_DIR="scenario-logs-$(date +%s)"
+          echo "setting logging dir to $LOGGING_DIR"
+          echo "##vso[task.setvariable variable=LOGGING_DIR]$LOGGING_DIR"
+        displayName: Set logging directory
       - bash: |
           export PATH="/usr/local/go/bin:$PATH"
           go version
@@ -33,6 +38,7 @@ jobs:
         env:
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           LOCATION: $(LOCATION)
+          LOGGING_DIR: $(LOGGING_DIR)
       - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
         artifact: scenario-logs
         condition: always()

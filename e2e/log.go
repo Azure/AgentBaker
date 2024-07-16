@@ -2,14 +2,10 @@ package e2e
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 	"path/filepath"
-	"time"
-)
 
-var (
-	e2eLogsDir = fmt.Sprintf("scenario-logs-%d", time.Now().Unix())
+	"github.com/Azure/agentbakere2e/config"
 )
 
 func createDirIfNeeded(dir string) error {
@@ -22,11 +18,11 @@ func createDirIfNeeded(dir string) error {
 }
 
 func createE2ELoggingDir() error {
-	return createDirIfNeeded(e2eLogsDir)
+	return createDirIfNeeded(config.E2ELoggingDir)
 }
 
 func createScenarioLogsDir(name string) (string, error) {
-	logDir := filepath.Join(e2eLogsDir, name)
+	logDir := filepath.Join(config.E2ELoggingDir, name)
 	return logDir, createDirIfNeeded(logDir)
 }
 
