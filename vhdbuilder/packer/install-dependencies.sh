@@ -240,6 +240,19 @@ for p in ${packages[*]}; do
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
+    "kubernetes-binaries")
+      # kubelet and kubectl
+      # need to cover previously supported version for VMAS scale up scenario
+      # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
+      # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
+      # Please do not use the .1 suffix, because that's only for the base image patches
+      # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
+      for version in $PACKAGE_VERSIONS; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        extractKubeBinaries "${version}" "${evaluatedURL}" false "${downloadDir}"
+        echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
     *)
       echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
       # We can add a common function to download a generic package here.
@@ -545,19 +558,6 @@ if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
     cacheKubePackageFromPrivateUrl "$private_url"
   done
 fi
-
-# kubelet and kubectl
-# need to cover previously supported version for VMAS scale up scenario
-# So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
-# NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
-# Please do not use the .1 suffix, because that's only for the base image patches
-# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
-KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
-
-for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
-  KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false
-done
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 capture_benchmark "download_kubernetes_binaries"
