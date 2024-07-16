@@ -29,11 +29,9 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
-KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 #this is used by post build test to check whether the compoenents do indeed exist
 cat components.json > ${COMPONENTS_FILEPATH}
 cat manifest.json > ${MANIFEST_FILEPATH}
-cat ${THIS_DIR}/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 echo '[]' > ${VHD_BUILD_PERF_DATA}
 
@@ -115,7 +113,7 @@ else
       sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
     fi
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT    
+    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
   fi
 
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
@@ -142,7 +140,7 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
   # Install lts-22.04 kernel
   DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-azure-lts-22.04 linux-cloud-tools-azure-lts-22.04 linux-headers-azure-lts-22.04 linux-modules-extra-azure-lts-22.04 linux-tools-azure-lts-22.04
   echo "After installing new kernel, here is a list of kernels/headers installed"; dpkg -l 'linux-*azure*'
-  
+
   update-grub
 fi
 capture_benchmark "handle_azureLinux_and_cgroupV2"
