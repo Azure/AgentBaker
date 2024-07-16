@@ -5,7 +5,7 @@ lsb_release() {
 
 # Mocking sortEtcRelease function so that Mac OS won't complain /etc/*-release not found.
 # The contents here are actually not important for the test.
-sortEtcRelease() {
+Mock sortEtcRelease 
     SORTED_RELEASE="VERSION_ID=\"2.0\"\n
 VERSION=\"2.0.20240628\"\n
 SUPPORT_URL=\"https://aka.ms/cbl-mariner\"\n
@@ -21,7 +21,7 @@ DISTRIB_CODENAME=Mariner\n
 CBL-Mariner 2.0.20240628\n
 BUG_REPORT_URL=\"https://aka.ms/cbl-mariner\"\n
 ANSI_COLOR=\"1;34\""
-}
+End
 
 readPackage() {
     local packageName=$1
