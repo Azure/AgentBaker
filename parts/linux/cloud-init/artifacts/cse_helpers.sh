@@ -106,12 +106,17 @@ ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
 
 ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205 # Timeout waiting for credential provider downloads
 
-if ! sortedRelease=$(sort -r /etc/*-release); then
-    echo "No release file found and sorted"
-else
+# For both Ubuntu and Mariner, /etc/*-release should exist.
+# For unit tests, the OS and OS_VERSION will be set in the unit test script.
+# So whether it's if or else actually doesn't matter to our unit test.
+if find /etc -type f -name "*-release" -print -quit | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+else
+# This is only for unit test purpose. For example, a Mac OS dev box doesn't have /etc/*-release, then the unit test will continue.
+    echo "/etc/*-release not found"
 fi
+
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 KUBECTL=/usr/local/bin/kubectl
