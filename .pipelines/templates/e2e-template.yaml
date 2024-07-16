@@ -36,6 +36,7 @@ jobs:
       - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
         artifact: scenario-logs
         condition: always()
+        continueOnError: true
       - bash: |
           set -x
           
