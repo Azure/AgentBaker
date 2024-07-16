@@ -55,11 +55,7 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 		model,
 		nil,
 	)
-	var respErr *azcore.ResponseError
-	// sometimes the SKU is not available and we can't do anything. Skip the test in this case.
-	if config.SkipTestsWithSKUCapacityIssue && errors.As(err, &respErr) && respErr.StatusCode == 409 && respErr.ErrorCode == "SkuNotAvailable" {
-		t.Skip("skipping scenario SKU not available", t.Name(), err)
-	}
+	skipTestIfSKUNotAvailableErr(t, err)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		cleanupVMSS(ctx, t, vmssName, opts, privateKeyBytes)
@@ -71,6 +67,17 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 	// fail test, but continue to extract debug information
 	require.NoError(t, err, "create vmss %q", vmssName)
 	return &vmssResp.VirtualMachineScaleSet
+}
+
+func skipTestIfSKUNotAvailableErr(t *testing.T, err error) {
+	// sometimes the SKU is not available and we can't do anything. Skip the test in this case.
+	var respErr *azcore.ResponseError
+	if config.SkipTestsWithSKUCapacityIssue &&
+		errors.As(err, &respErr) &&
+		respErr.StatusCode == 409 &&
+		respErr.ErrorCode == "SkuNotAvailable" {
+		t.Skip("skipping scenario SKU not available", t.Name(), err)
+	}
 }
 
 func cleanupVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte) {
