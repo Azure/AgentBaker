@@ -102,8 +102,13 @@ ERR_SYSTEMCTL_MASK_FAIL=2
 
 ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205 
 
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
-OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+SORTED_RELEASE=""
+sortEtcRelease() {
+    SORTED_RELEASE=$(sort -r /etc/*-release)
+}
+
+OS=$($SORTED_RELEASE | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+OS_VERSION=$($SORTED_RELEASE | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 KUBECTL=/usr/local/bin/kubectl
