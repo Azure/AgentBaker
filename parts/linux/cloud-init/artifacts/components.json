@@ -385,32 +385,111 @@
       ]
     }
   ],
-  "DownloadFiles": [
+  "Packages": [
     {
-      "fileName": "cni-plugins-linux-amd64-v*",
-      "downloadLocation": "/opt/cni/downloads",
-      "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
-      "versions": [
-        "1.4.1"
-      ]
+      "name": "runc",
+      "downloadLocation": "/opt/runc/downloads",
+      "downloadURIs": {
+        "ubuntu": {
+          "r1804": {
+            "versions": [
+              "1.1.12-ubuntu18.04u1"
+            ]
+          },
+          "r2004": {
+            "versions": [
+              "1.1.12-ubuntu20.04u1"
+            ]
+          },
+          "r2204": {
+            "versions": [
+              "1.1.12-ubuntu22.04u1"
+            ]
+          }
+        },
+        "mariner": {
+          "current": {
+            "versions": [
+              "1.1.9-5.cm2"
+            ]
+          }
+        }
+      }
     },
     {
-      "fileName": "azure-vnet-cni-linux-amd64-v*",
-      "downloadLocation": "/opt/cni/downloads",
-      "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v*/binaries",
-      "versions": [
-        "1.4.54",
-        "1.5.28"
-      ]
+      "name": "containerd",
+      "downloadLocation": "/opt/containerd/downloads",
+      "downloadURIs": {
+        "ubuntu": {
+          "current": {
+            "versions": [
+              "1.7.15-1"
+            ]
+          },
+          "r1804": {
+            "versions": [
+              "1.7.1-1"
+            ]
+          }
+        },
+        "mariner": {
+          "current": {
+            "versions": [
+              "1.6.26-5.cm2"
+            ]
+          }
+        },
+        "default": {
+          "current": {
+            "versions": [
+              "1.7.15-1"
+            ]
+          }
+        }
+      }
     },
     {
-      "fileName": "crictl-v*-linux-amd64.tar.gz",
+      "name": "cni-plugins",
+      "downloadLocation": "/opt/cni/downloads",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versions": [
+              "1.4.1"
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
+          }
+        }
+      }
+    },
+    {
+      "name": "azure-cni",
+      "downloadLocation": "/opt/cni/downloads",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versions": [
+              "1.4.54",
+              "1.5.28"
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
+          }
+        }
+      }
+    },
+    {
+      "name": "cri-tools",
       "downloadLocation": "/opt/crictl/downloads",
-      "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v*/binaries",
-      "versions": [
-        "1.29.0"
-      ],
-      "targetContainerRuntime": "containerd"
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versions": [
+              "1.29.0"
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v${version}/binaries/crictl-v${version}-linux-${CPU_ARCH}.tar.gz"
+          }
+        }
+      }
     }
   ]
 }

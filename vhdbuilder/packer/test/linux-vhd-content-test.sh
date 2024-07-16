@@ -3,6 +3,8 @@ COMPONENTS_FILEPATH=/opt/azure/components.json
 KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
+UBUNTU_OS_NAME="UBUNTU"
+MARINER_OS_NAME="MARINER"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 CONTAINER_RUNTIME="$1"
@@ -67,62 +69,78 @@ fi
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 
-testFilesDownloaded() {
-  test="testFilesDownloaded"
+testPackagesInstalled() {
+  test="testPackagesInstalled"
   containerRuntime=$1
   if [[ $(isARM64) == 1 ]]; then
     return
   fi
+  CPU_ARCH="amd64"
   echo "$test:Start"
-  filesToDownload=$(jq .DownloadFiles[] --monochrome-output --compact-output <$COMPONENTS_FILEPATH)
+  packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 
-  for fileToDownload in ${filesToDownload[*]}; do
-    fileName=$(echo "${fileToDownload}" | jq .fileName -r)
-    downloadLocation=$(echo "${fileToDownload}" | jq .downloadLocation -r)
-    versions=$(echo "${fileToDownload}" | jq .versions -r | jq -r ".[]")
-    download_URL=$(echo "${fileToDownload}" | jq .downloadURL -r)
-    targetContainerRuntime=$(echo "${fileToDownload}" | jq .targetContainerRuntime -r)
-    if [ "${targetContainerRuntime}" != "null" ] && [ "${containerRuntime}" != "${targetContainerRuntime}" ]; then
-      echo "$test: skipping ${fileName} verification as VHD container runtime is ${containerRuntime}, not ${targetContainerRuntime}"
-      continue
+  for p in ${packages[*]}; do
+    name=$(echo "${p}" | jq .name -r)
+    downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
+    if [[ "$OS_SKU" == "CBLMariner" || "$OS_SKU" == "AzureLinux" ]]; then
+      OS=$MARINER_OS_NAME
+    else
+      OS=$UBUNTU_OS_NAME
     fi
-    if [ ! -d $downloadLocation ]; then
-      err $test "Directory ${downloadLocation} does not exist"
-      continue
-    fi
+    PACKAGE_VERSIONS=()
+    returnPackageVersions ${p} ${OS} ${OS_VERSION}
+    PACKAGE_DOWNLOAD_URL=""
+    returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
 
-    for version in ${versions}; do
-      file_Name=$(string_replace $fileName $version)
-      dest="$downloadLocation/${file_Name}"
-      downloadURL=$(string_replace $download_URL $version)/$file_Name
-      if [ ! -s $dest ]; then
-        err $test "File ${dest} does not exist"
+    for version in ${PACKAGE_VERSIONS}; do
+      if [[ -z $PACKAGE_DOWNLOAD_URL ]]; then
+        echo "$test: skipping package ${name} verification as PACKAGE_DOWNLOAD_URL is empty"
+        # we can further think of adding a check to see if the package is installed through apt-get
+        break
+      fi
+      # A downloadURL from a package in components.json will look like this: 
+      # "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
+      # After eval(resolved), downloadURL will look like "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz"
+      eval "downloadURL=${PACKAGE_DOWNLOAD_URL}"
+      local fileNameWithExt
+      fileNameWithExt=$(basename $downloadURL)
+      local fileNameWithoutExt
+      fileNameWithoutExt="${fileNameWithExt%.*}"
+      local downloadedPackage
+      downloadedPackage="$downloadLocation/${fileNameWithExt}"
+      local extractedPackageDir
+      extractedPackageDir="$downloadLocation/${fileNameWithoutExt}"
+
+      # if there is a directory with expected name, we assume it's been downloaded and extracted properly
+      # no wc (wordcount) -c on a dir. This is for downloads we've un tar'd and deleted from the vhd
+      if [ -d $extractedPackageDir ]; then
+        echo $test "[INFO] Directory ${extractedPackageDir} exists"
         continue
       fi
-      # no wc -c on a dir. This is for downloads we've un tar'd and deleted from the vhd
-      if [ ! -d $dest ]; then
-        # -L since some urls are redirects (i.e github)
-        fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
-        fileSizeDownloaded=$(wc -c $dest | awk '{print $1}' | tr -d '\r')
-        if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
-          err $test "File size of ${dest} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
+      
+      # if there isn't a directory, we check if the file exists and the size is correct
+      # -L since some urls are redirects (i.e github)
+      fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+      fileSizeDownloaded=$(wc -c $downloadedPackage | awk '{print $1}' | tr -d '\r')
+      if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
+        err $test "File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
+        continue
+      fi
+      echo $test "[INFO] File ${downloadedPackage} exists and has the correct size ${fileSizeDownloaded} bytes"
+      # Validate whether package exists in Azure China cloud
+      if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
+        mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
+        echo "Validating: $mcURL"
+        isExist=$(curl -sLI $mcURL | grep -i "404 The specified blob does not exist." | awk '{print $2}')
+        if [[ "$isExist" == "404" ]]; then
+          err "$mcURL is invalid"
           continue
         fi
-        # Validate whether package exists in Azure China cloud
-        if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
-          mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
-          echo "Validating: $mcURL"
-          isExist=$(curl -sLI $mcURL | grep -i "404 The specified blob does not exist." | awk '{print $2}')
-          if [[ "$isExist" == "404" ]]; then
-            err "$mcURL is invalid"
-            continue
-          fi
 
-          fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
-          if [[ "$fileSizeInMC" != "$fileSizeDownloaded" ]]; then
-            err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downlaoded file size: ${fileSizeInMC}"
-            continue
-          fi
+        fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+        if [[ "$fileSizeInMC" != "$fileSizeDownloaded" ]]; then
+          err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downlaoded file size: ${fileSizeInMC}"
+          continue
         fi
       fi
     done
@@ -978,11 +996,14 @@ checkPerformanceData() {
 #
 # We should also avoid early exit from the test run -- like if a command fails with
 # an exit rather than a return -- because that prevents other tests from running.
+# To repro the test results on the exact VM, we can set VHD_DEBUG="True" in the azure pipeline env variables.
+# This will keep the VM alive after the tests are run and we can SSH/Bastion into the VM to run the test manually.
+# Therefore, for example, you can run "sudo bash /var/lib/waagent/run-command/download/0/script.sh" to run the tests manually.
 checkPerformanceData
 testBccTools
 testVHDBuildLogsExist
 testCriticalTools
-testFilesDownloaded $CONTAINER_RUNTIME
+testPackagesInstalled $CONTAINER_RUNTIME
 testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
 testChrony $OS_SKU
 testAuditDNotPresent
