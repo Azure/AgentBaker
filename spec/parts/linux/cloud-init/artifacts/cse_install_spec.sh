@@ -3,6 +3,8 @@ lsb_release() {
     echo "mock lsb_release"
 }
 
+# Mocking sortEtcRelease function so that Mac OS won't complain /etc/*-release not found.
+# The contents here are actually not important for the test.
 sortEtcRelease() {
     SORTED_RELEASE="VERSION_ID=\"2.0\"\n
 VERSION=\"2.0.20240628\"\n
