@@ -2,12 +2,14 @@ package e2e
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
-const (
-	e2eLogsDir = "scenario-logs"
+var (
+	e2eLogsDir = fmt.Sprintf("scenario-logs-%d", time.Now().Unix())
 )
 
 func createDirIfNeeded(dir string) error {
@@ -23,8 +25,8 @@ func createE2ELoggingDir() error {
 	return createDirIfNeeded(e2eLogsDir)
 }
 
-func createVMLogsDir(caseName string) (string, error) {
-	logDir := filepath.Join(e2eLogsDir, caseName)
+func createScenarioLogsDir(name string) (string, error) {
+	logDir := filepath.Join(e2eLogsDir, name)
 	return logDir, createDirIfNeeded(logDir)
 }
 

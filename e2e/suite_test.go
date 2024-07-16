@@ -87,7 +87,7 @@ func setupAndRunScenario(ctx context.Context, t *testing.T, e2eScenario *scenari
 
 	e2eScenario.PrepareNodeBootstrappingConfiguration(nbc)
 
-	loggingDir, err := createVMLogsDir(e2eScenario.Name)
+	loggingDir, err := createScenarioLogsDir(e2eScenario.Name)
 	require.NoError(t, err)
 
 	executeScenario(ctx, t, &scenarioRunOpts{
