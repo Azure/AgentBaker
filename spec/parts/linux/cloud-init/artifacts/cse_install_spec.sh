@@ -3,6 +3,10 @@ lsb_release() {
     echo "mock lsb_release"
 }
 
+sort() {
+    echo "mock sort"
+}
+
 readPackage() {
     local packageName=$1
     packages=$(jq ".Packages" "./parts/linux/cloud-init/artifacts/components.json" | jq ".[] | select(.name == \"$packageName\")")
