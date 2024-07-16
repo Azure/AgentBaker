@@ -126,43 +126,24 @@ steps:
         -e OS_VERSION=${OS_VERSION} \
         -e OS_SKU=${OS_SKU} \
         -e OS_TYPE="Linux" \
-        -e VHD_DEBUG=${VHD_DEBUG} \
-        -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
-        -e ARCHITECTURE=${ARCHITECTURE} \
-        -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
-        ${CONTAINER_IMAGE} make -f packer.mk scanning-vhd
-    retryCountOnTaskFailure: 2
-    displayName: Scanning VHD
-  - script: |
-        OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
-        MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
-        docker run --rm \
-        -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-        -w /go/src/github.com/Azure/AgentBaker \
-        -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-        -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
         -e OS_DISK_URI=${OS_DISK_URI} \
-        -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
-        -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
-        -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"docker"} \
-        -e OS_VERSION=${OS_VERSION} \
-        -e OS_SKU=${OS_SKU} \
-        -e OS_TYPE="Linux" \
         -e IMG_SKU=${IMG_SKU} \
-        -e MODE=$(MODE) \
-        -e VHD_DEBUG=${VHD_DEBUG} \
-        -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
         -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
         -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-        -e ENABLE_FIPS=${ENABLE_FIPS} \
+        -e VHD_DEBUG=${VHD_DEBUG} \
+        -e MODE=$(MODE) \
+        -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
         -e ARCHITECTURE=${ARCHITECTURE} \
+        -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"docker"} \
         -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
         -e SGX_INSTALL=${SGX_INSTALL} \
+        -e ENABLE_FIPS=${ENABLE_FIPS} \
         -e ENABLE_CGROUPV2=${ENABLE_CGROUPV2} \
         -e GIT_BRANCH=$(Build.SourceBranch) \
-        ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
-    displayName: Run VHD Tests
+        ${CONTAINER_IMAGE} make -f packer.mk test-and-scan
+    retryCountOnTaskFailure: 2
+    displayName: Test and Scan VHD
   - task: Bash@3
     inputs:
       targetType: 'inline'
