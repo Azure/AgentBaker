@@ -20,6 +20,7 @@ var (
 	SubscriptionID                = lookupEnvWithDefaultString("SUBSCRIPTION_ID", "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8")
 	TagsToRun                     = os.Getenv("TAGS_TO_RUN")
 	TagsToSkip                    = os.Getenv("TAGS_TO_SKIP")
+	E2ELoggingDir                 = lookupEnvWithDefaultString("LOGGING_DIR", "scenario-logs")
 )
 
 func lookupEnvWithDefaultString(env string, defaultValue string) string {
