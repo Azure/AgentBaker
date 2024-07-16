@@ -87,6 +87,7 @@ else
       TARGET_COMMAND_STRING="--size Standard_D4pds_v5 --storage-sku Premium_LRS"
     else
       TARGET_COMMAND_STRING="--size Standard_D4ds_v5 --storage-sku Premium_LRS"
+    fi
   fi
 
   if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
