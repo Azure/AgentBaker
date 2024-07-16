@@ -93,11 +93,14 @@ generate-sas: az-login
 convert-sig-to-classic-storage-account-blob: az-login
 	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
 
-test-building-vhd: az-login
+test-building-vhd:
 	@./vhdbuilder/packer/test/run-test.sh
 
-scanning-vhd: az-login
+scanning-vhd:
 	@./vhdbuilder/packer/vhd-scanning.sh
+
+test-and-scan: az-login
+	@$(MAKE) -f packer.mk test-building-vhd scanning-vhd -j2 --output-sync=target
 
 build-nbcparser-all:
 	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=amd64
