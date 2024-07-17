@@ -24,7 +24,7 @@ tar -xvzf "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
 rm "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
 chmod a+x trivy 
 
-./trivy --scanners vuln rootfs -f json --skip-dirs /var/lib/containerd --ignore-unfixed --parallel 0 --severity HIGH,CRITICAL -o "${TRIVY_REPORT_JSON_PATH}" /
+./trivy --scanners vuln rootfs -f json --skip-dirs /var/lib/containerd --ignore-unfixed --parallel 13 --severity HIGH,CRITICAL -o "${TRIVY_REPORT_JSON_PATH}" /
 
 IMAGE_LIST=$(ctr -n k8s.io image list -q | grep -v sha256)
 
@@ -32,7 +32,7 @@ echo "This contains the list of images with high and critical level CVEs (if pre
 Note: images without CVEs are also listed" >> "${TRIVY_REPORT_TABLE_PATH}"
 
 for image in $IMAGE_LIST; do
-    ./trivy --scanners vuln image --ignore-unfixed --severity HIGH,CRITICAL --parallel 0 -f table $image >> ${TRIVY_REPORT_TABLE_PATH} || true
+    ./trivy --scanners vuln image --ignore-unfixed --severity HIGH,CRITICAL --parallel 13 -f table $image >> ${TRIVY_REPORT_TABLE_PATH} || true
 done
 
 rm ./trivy 
