@@ -93,7 +93,6 @@ testPackagesInstalled() {
     if [ ${name} == "kubernetes-binaries" ]; then
       # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
       testKubeBinariesPresent $PACKAGE_VERSIONS
-      echo "---"
       continue
     fi
 
