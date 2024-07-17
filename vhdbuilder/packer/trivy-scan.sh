@@ -31,8 +31,18 @@ IMAGE_LIST=$(ctr -n k8s.io image list -q | grep -v sha256)
 echo "This contains the list of images with high and critical level CVEs (if present), that are present in the node. 
 Note: images without CVEs are also listed" >> "${TRIVY_REPORT_TABLE_PATH}"
 
+pids=()
+
 for image in $IMAGE_LIST; do
-    ./trivy --scanners vuln image --ignore-unfixed --severity HIGH,CRITICAL -f table $image >> ${TRIVY_REPORT_TABLE_PATH} || true
+    while [ $(jobs -p | wc -l) -ge 14 ]; do
+        wait -n || true
+    done
+    ./trivy --scanners vuln image --ignore-unfixed --severity HIGH,CRITICAL -f table $image >> ${TRIVY_REPORT_TABLE_PATH} &
+    pids+=($!)
+done
+
+for pid in ${pids[@]}; do
+    wait -n $pid || true
 done
 
 rm ./trivy 
