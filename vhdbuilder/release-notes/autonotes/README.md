@@ -26,12 +26,13 @@ az devops configure --defaults organization=https://dev.azure.com/msazure projec
 ```
 
 It accepts:
+
 - `--build`: a run ID for a VHD build (usually a run from the weekly VHD
-release, but it can be any build). e.g. `40965293`.
+  release, but it can be any build). e.g. `40965293`.
 - `--path`: a relative or absolute path to the root folder for Ubuntu
   VHD release notes. The default value is
   `vhdbuilder/release-notes/AKSUbuntu`, which will work when executing
-  the binary from the root of the AgentBaker repo. 
+  the binary from the root of the AgentBaker repo.
 - `--date`: the VHD build date, in the format `YYYY.MM.DD`, e.g.
   `2021.03.31`. This will be used for file naming in the output.
 - `--include`: only download release notes for VHDs in this
@@ -40,6 +41,7 @@ release, but it can be any build). e.g. `40965293`.
   comma-separated list. e.g. `1804-gen2-gpu`.
 
 Example invocations:
+
 ```bash
 # download all release notes from this run ID.
 autonotes --build 40965293

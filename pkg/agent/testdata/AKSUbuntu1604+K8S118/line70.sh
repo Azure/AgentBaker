@@ -42,6 +42,8 @@ configureSystemdUseDomains() {
     fi
 
     systemctl restart systemd-networkd
+
+    systemctl restart rsyslog
 }
 
 configureSwapFile() {
@@ -288,8 +290,8 @@ disableSystemdResolved() {
     ls -ltr /etc/resolv.conf
     cat /etc/resolv.conf
     UBUNTU_RELEASE=$(lsb_release -r -s)
-    if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" ]]; then
-        echo "Ingorings systemd-resolved query service but using its resolv.conf file"
+    if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" || "${UBUNTU_RELEASE}" == "24.04" ]]; then
+        echo "Ingoring systemd-resolved query service but using its resolv.conf file"
         echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
         [ -f /run/systemd/resolve/resolv.conf ] && sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
         ls -ltr /etc/resolv.conf
@@ -393,6 +395,7 @@ ensureKubelet() {
     if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
     fi
+    chmod 0600 "${KUBELET_DEFAULT_FILE}"
     
     KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
     mkdir -p "$(dirname "${KUBE_CA_FILE}")"

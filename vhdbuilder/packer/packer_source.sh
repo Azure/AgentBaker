@@ -240,6 +240,10 @@ copyPackerFiles() {
   CSE_HELPERS_DISTRO_DEST=/opt/azure/containers/provision_source_distro.sh
   cpAndMode $CSE_HELPERS_DISTRO_SRC $CSE_HELPERS_DISTRO_DEST 0744
 
+  NBC_PARSER_SRC=/home/packer/nbcparser
+  NBC_PARSER_DEST=/opt/azure/containers/nbcparser
+  cpAndMode $NBC_PARSER_SRC $NBC_PARSER_DEST 0755
+
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
 

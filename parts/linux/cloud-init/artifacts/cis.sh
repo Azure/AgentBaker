@@ -9,7 +9,7 @@ assignRootPW() {
         SALT=$(openssl rand -base64 5)
         SECRET=$(openssl rand -base64 37)
         CMD="import crypt, getpass, pwd; print(crypt.crypt('$SECRET', '\$6\$$SALT\$'))"
-        if [[ "${VERSION}" == "22.04" ]]; then
+        if [[ "${VERSION}" == "22.04" || "${VERSION}" == "24.04" ]]; then
             HASH=$(python3 -c "$CMD")
         else
             HASH=$(python -c "$CMD")

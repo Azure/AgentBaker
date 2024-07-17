@@ -24,6 +24,7 @@ steps:
       project: CloudNativeCompute
       pipeline: 318279
       specificBuildWithTriggering: true
+      allowPartiallySucceededBuilds: true
       buildVersionToDownload: 'latest'
       downloadType: 'single'
       artifactName: 'drop_container_job_sign_uvm'
@@ -54,8 +55,7 @@ steps:
       SKU_NAME=${OS_VERSION} && \
       if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
       if [[ ${OS_VERSION} == "V2" && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
-      if [[ ${OS_VERSION} == "18.04" && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
-      if [[ ${OS_VERSION} == "22.04" && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
+      if [[ (${OS_VERSION} == "22.04" || ${OS_VERSION} == "24.04") && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
       if [[ (${OS_VERSION} == "18.04" || ${OS_VERSION} == "20.04" || ${OS_VERSION} == "22.04") && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
       if [[ ${OS_VERSION} == "V2" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
       if [[ "$(FEATURE_FLAGS)" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
@@ -76,7 +76,8 @@ steps:
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
         -e AZURE_VM_SIZE=$(AZURE_VM_SIZE) \
         -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-        -e AZURE_LOCATION=${AZURE_LOCATION} \
+        -e ENVIRONMENT=${ENVIRONMENT} \
+        -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
         -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
         -e GIT_VERSION=$(Build.SourceVersion) \
         -e BUILD_DEFINITION_NAME="$(Build.DefinitionName)" \
@@ -94,6 +95,7 @@ steps:
         -e MODE=$(MODE) \
         -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+        -e BRANCH=$(Build.SourceBranch) \
         -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
         -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME} \
         -e TELEPORTD_PLUGIN_DOWNLOAD_URL=${TELEPORTD_PLUGIN_DOWNLOAD_URL} \
@@ -104,10 +106,33 @@ steps:
         -e ENABLE_CGROUPV2=${ENABLE_CGROUPV2} \
         -e IMAGE_VERSION=${IMAGE_VERSION} \
         -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
-        -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
+        -e AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING} \
         ${CONTAINER_IMAGE} make -f packer.mk run-packer
     retryCountOnTaskFailure: 3
     displayName: Building VHD
+  - bash: |
+        OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
+        MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
+        docker run --rm \
+        -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+        -w /go/src/github.com/Azure/AgentBaker \
+        -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+        -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
+        -e BLOB_STORAGE_NAME=${BLOB_STORAGE_NAME} \
+        -e CLASSIC_BLOB=${CLASSIC_BLOB} \
+        -e BUILD_ID=$(Build.BuildId) \
+        -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
+        -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
+        -e OS_VERSION=${OS_VERSION} \
+        -e OS_SKU=${OS_SKU} \
+        -e OS_TYPE="Linux" \
+        -e VHD_DEBUG=${VHD_DEBUG} \
+        -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
+        -e ARCHITECTURE=${ARCHITECTURE} \
+        -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
+        ${CONTAINER_IMAGE} make -f packer.mk scanning-vhd
+    retryCountOnTaskFailure: 2
+    displayName: Scanning VHD
   - script: |
         OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
         MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
@@ -118,7 +143,7 @@ steps:
         -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
         -e OS_DISK_URI=${OS_DISK_URI} \
         -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
-        -e AZURE_LOCATION=${AZURE_LOCATION} \
+        -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
         -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"docker"} \
         -e OS_VERSION=${OS_VERSION} \
         -e OS_SKU=${OS_SKU} \
@@ -136,31 +161,65 @@ steps:
         -e SGX_INSTALL=${SGX_INSTALL} \
         -e ENABLE_CGROUPV2=${ENABLE_CGROUPV2} \
         -e GIT_BRANCH=$(Build.SourceBranch) \
-        -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
-        -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
         ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD Tests
+  - task: Bash@3
+    inputs:
+      targetType: 'inline'
+      script: |
+        IS_NOT_1804=$( [[ "${OS_VERSION}" != "18.04" ]] && echo true || echo false ) && \
+        echo "##vso[task.setvariable variable=IS_NOT_1804]${IS_NOT_1804}"
+    displayName: 'Check if OS version is not 18.04'
+  - task: CopyFiles@2
+    condition: eq(variables['IS_NOT_1804'], 'true')
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'trivy-report.json'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy trivy report
+  - task: CopyFiles@2
+    condition: eq(variables['IS_NOT_1804'], 'true')
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'trivy-images-table.txt'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy trivy table
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
         targetPath: 'release-notes.txt'
     displayName: publish release notes
+  - task: CopyFiles@2
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'release-notes.txt'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy release notes
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
         targetPath: 'image-bom.json'
     displayName: publish container image list
+  - task: PublishPipelineArtifact@1
+    inputs:
+        artifactName: 'build-performance-data-${{ parameters.artifactName }}'
+        targetPath: 'vhd-build-performance-data.json'
+    displayName: Publish Build Performance Data
+    condition: succeeded()
+  - task: CopyFiles@2
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'image-bom.json'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy image bom
   - bash: |
       echo MODE=$(MODE) && \
       PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
       captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      ARM64_OS_DISK_SNAPSHOT_NAME="$(cat vhdbuilder/packer/settings.json | grep "arm64_os_disk_snapshot_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       IMAGE_NAME="${SIG_IMAGE_NAME}-${captured_sig_version}" && \
-      PRIVATE_PACKAGES_URL="$(cat vhdbuilder/packer/settings.json | grep "private_packages_url" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      LINUX_MSI_RESOURCE_ID="$(cat vhdbuilder/packer/settings.json | grep "linux_msi_resource_ids" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
@@ -176,9 +235,6 @@ steps:
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
       -e ARCHITECTURE=${ARCHITECTURE} \
-      -e ARM64_OS_DISK_SNAPSHOT_NAME=${ARM64_OS_DISK_SNAPSHOT_NAME} \
-      -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
-      -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
       ${CONTAINER_IMAGE} make -f packer.mk cleanup
     displayName: Clean Up Packer Generated Resources
     condition: always()
@@ -187,28 +243,22 @@ steps:
         captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         SIG_GALLERY_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-        PRIVATE_PACKAGES_URL="$(cat vhdbuilder/packer/settings.json | grep "private_packages_url" | awk -F\" '{print $4}')" && \
-        LINUX_MSI_RESOURCE_ID="$(cat vhdbuilder/packer/settings.json | grep "linux_msi_resource_id" | awk -F\" '{print $4}')" && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
         -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
-        -e LOCATION="${AZURE_LOCATION}" \
+        -e PACKER_BUILD_LOCATION="${PACKER_BUILD_LOCATION}" \
         -e OS_TYPE="Linux" \
         -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-        -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
-        -e OUTPUT_STORAGE_ACCOUNT_NAME=${OUTPUT_STORAGE_ACCOUNT_NAME} \
-        -e OUTPUT_STORAGE_CONTAINER_NAME=${OUTPUT_STORAGE_CONTAINER_NAME} \
         -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
         -e CAPTURED_SIG_VERSION=${captured_sig_version} \
         -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
-        -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
-        -e LINUX_MSI_RESOURCE_ID=${AZURE_MSI_RESOURCE_ID} \
+        -e AZURE_MSI_RESOURCE_STRING=$(AZURE_MSI_RESOURCE_STRING) \
         ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-    condition: eq(variables.DRY_RUN, 'False')
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - bash: |
         echo MODE=$(MODE) && \
         captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
@@ -221,7 +271,6 @@ steps:
         -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
         -e CAPTURED_SIG_VERSION=${captured_sig_version} \
-        -e CLASSIC_SA_CONNECTION_STRING="$(CLASSIC_SA_CONNECTION_STRING)" \
         -e OUTPUT_STORAGE_ACCOUNT_NAME=${OUTPUT_STORAGE_ACCOUNT_NAME} \
         -e OUTPUT_STORAGE_CONTAINER_NAME=${OUTPUT_STORAGE_CONTAINER_NAME} \
         -e STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \
@@ -230,6 +279,10 @@ steps:
         -e OS_TYPE="Linux" \
         -e SKU_NAME=$(SKU_NAME) \
         -e OFFER_NAME=${OS_SKU} \
+        -e IMG_PUBLISHER=${IMG_PUBLISHER} \
+        -e IMG_OFFER=${IMG_OFFER} \
+        -e IMG_SKU=${IMG_SKU} \
+        -e IMG_VERSION=${IMG_VERSION} \
         -e HYPERV_GENERATION=${HYPERV_GENERATION} \
         -e ARCHITECTURE=${ARCHITECTURE} \
         -e IMAGE_VERSION=${IMAGE_VERSION} \
@@ -237,10 +290,18 @@ steps:
     displayName: Getting Shared Access Signature URI
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - task: PublishPipelineArtifact@1
+    displayName: Publish publishing-info 
     inputs:
-        artifactName: 'publishing-info-${{ parameters.artifactName }}'
-        targetPath: 'vhd-publishing-info.json'
+      artifactName: 'publishing-info-${{ parameters.artifactName }}'
+      targetPath: 'vhd-publishing-info.json'
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+  - task: CopyFiles@2
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'vhd-publishing-info.json'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Copy vhd publishing info 
   - task: UniversalPackages@0
     displayName: Universal Publish
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
@@ -251,3 +312,9 @@ steps:
       vstsFeedPackagePublish: 'publishing-info-${{ parameters.artifactName }}'
       packagePublishDescription: 'VHD publishing info ${{ parameters.artifactName }}'
       versionOption: minor
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: '${{ parameters.artifactName }}'
+      targetPath: '$(Build.ArtifactStagingDirectory)'
+    displayName: Publish bulk artifacts # these "bulk" artifacts are the folders, per SKU, that contain all other artifacts (publishing-info, image-bom, trivy reports, etc.)
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))

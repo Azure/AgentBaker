@@ -63,30 +63,31 @@ def gen_pw(length=24, use_lowercase=True, use_uppercase=True, use_numbers=True,
       The generated password
     """
     print("\n-----Generating password")
-    charset = ''
+    allowed_charsets = []
     pw = ''
 
     # Ensure at least one of each type of character requested character type
     # is used
     if use_lowercase:
-        charset += string.ascii_lowercase
+        allowed_charsets += [string.ascii_lowercase]
         pw += random.choice(string.ascii_lowercase)
     if use_uppercase:
-        charset += string.ascii_uppercase
+        allowed_charsets += [string.ascii_uppercase]
         pw += random.choice(string.ascii_uppercase)
     if use_numbers:
-        charset += string.digits
+        allowed_charsets += [string.digits]
         pw += random.choice(string.digits)
     if use_specials:
-        charset += "!@#"
+        allowed_charsets += ["!@#"]
         pw += random.choice("!@#")
     if len(pw) > length:
         raise Exception("Password length is greater than specified length")
 
-    # Add random characters from the character set until the password is the
-    # specified length
-    length -= len(pw)
-    pw += ''.join(random.choices(charset, k=length))
+    # Add random characters from the character sets until the password is the
+    # specified length, making sure we don't have enough repeated characters
+    # or character classes to violate the password policy.
+    for i in range(length - len(pw)):
+        pw += random.choice(allowed_charsets[i % len(allowed_charsets)])
 
     return pw
 
@@ -216,6 +217,13 @@ def create_user(request):
     yield user
     user.delete()
 
+@pytest.fixture
+def get_deny_count(request):
+    option = request.config.getoption("--fedramp")
+    if option:
+        return 3
+    else:
+        return 5
 
 def login(user, pw=None):
     """
@@ -392,11 +400,11 @@ def test_user_auth_fails_w_bad_password(create_user):
 
 
 @pytest.mark.user_data("testuser3")
-def test_user_auth_locks_after_5_failures(create_user):
+def test_user_auth_locks_after_deny_count_failures(create_user, get_deny_count):
     user = create_user
 
     # fail five times, which should trigger the faillock
-    for i in range(5):
+    for i in range(get_deny_count):
         assert not login(user, "invalid"), f"Login attempt {i} with \
             invalid password succeeded"
 
@@ -406,12 +414,12 @@ def test_user_auth_locks_after_5_failures(create_user):
 
 
 @pytest.mark.user_data("testuser4")
-def test_user_auth_faillock_resets_after_success(create_user):
+def test_user_auth_faillock_resets_after_success(create_user, get_deny_count):
     user = create_user
 
-    # use an invalid password so we fail four times in a row which should
-    # put the account into one try away from a faillock
-    for i in range(4):
+    # use an invalid password so we fail enough times to put the account
+    # into one try away from a faillock
+    for i in range(get_deny_count - 1):
         assert not login(user, "invalid"), f"Login attempt {i} with invalid \
             password succeeded"
 

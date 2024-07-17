@@ -947,6 +947,67 @@ func TestAgentPoolProfileIs2204VHDDistro(t *testing.T) {
 	}
 }
 
+func TestAgentPoolProfileIs2404VHDDistro(t *testing.T) {
+	cases := []struct {
+		name     string
+		ap       AgentPoolProfile
+		expected bool
+	}{
+		{
+			name: "24.04 Gen1 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2404,
+			},
+			expected: true,
+		},
+		{
+			name: "24.04 Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2404Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "24.04 ARM64 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuArm64Containerd2404Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "ubuntu 18.04 non-VHD distro",
+			ap: AgentPoolProfile{
+				Distro: Ubuntu1804,
+			},
+			expected: false,
+		},
+		{
+			name: "ubuntu 18.04 gen2 non-VHD distro",
+			ap: AgentPoolProfile{
+				Distro: Ubuntu1804Gen2,
+			},
+			expected: false,
+		},
+		{
+			name: "18.04 Ubuntu VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd1804,
+			},
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			if c.expected != c.ap.Is2404VHDDistro() {
+				t.Fatalf("Got unexpected AgentPoolProfile.Is2204VHDDistro() result. Expected: %t. Got: %t.", c.expected, c.ap.Is2204VHDDistro())
+			}
+		})
+	}
+}
+
 func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 	cases := []struct {
 		name     string

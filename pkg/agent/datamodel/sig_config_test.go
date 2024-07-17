@@ -47,7 +47,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(sigConfig.SigTenantID).To(Equal("sometenantid"))
 		Expect(sigConfig.SubscriptionID).To(Equal("somesubid"))
 
-		Expect(len(sigConfig.SigUbuntuImageConfig)).To(Equal(23))
+		Expect(len(sigConfig.SigUbuntuImageConfig)).To(Equal(26))
 
 		aksUbuntuGPU1804Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuGPU1804Gen2]
 		Expect(aksUbuntuGPU1804Gen2.ResourceGroup).To(Equal("resourcegroup"))
@@ -114,6 +114,12 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntuArm642204Gen2.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntuArm642204Gen2.Definition).To(Equal("2204gen2arm64containerd"))
 		Expect(aksUbuntuArm642204Gen2.Version).To(Equal(LinuxSIGImageVersion))
+
+		aksUbuntuArm642404Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuArm64Containerd2404Gen2]
+		Expect(aksUbuntuArm642404Gen2.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(aksUbuntuArm642404Gen2.Gallery).To(Equal("aksubuntu"))
+		Expect(aksUbuntuArm642404Gen2.Definition).To(Equal("2404gen2arm64containerd"))
+		Expect(aksUbuntuArm642404Gen2.Version).To(Equal("202405.20.0"))
 
 		aksUbuntu2204Containerd := sigConfig.SigUbuntuImageConfig[AKSUbuntuContainerd2204]
 		Expect(aksUbuntu2204Containerd.ResourceGroup).To(Equal("resourcegroup"))
@@ -236,5 +242,17 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntuEgressContainerd2204Gen2.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntuEgressContainerd2204Gen2.Definition).To(Equal("2204gen2containerd"))
 		Expect(aksUbuntuEgressContainerd2204Gen2.Version).To(Equal("2022.10.03"))
+
+		aksUbuntu2404Containerd := sigConfig.SigUbuntuImageConfig[AKSUbuntuContainerd2404]
+		Expect(aksUbuntu2404Containerd.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(aksUbuntu2404Containerd.Gallery).To(Equal("aksubuntu"))
+		Expect(aksUbuntu2404Containerd.Definition).To(Equal("2404containerd"))
+		Expect(aksUbuntu2404Containerd.Version).To(Equal("202405.20.0"))
+
+		aksUbuntu2404Gen2Containerd := sigConfig.SigUbuntuImageConfig[AKSUbuntuContainerd2404Gen2]
+		Expect(aksUbuntu2404Gen2Containerd.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(aksUbuntu2404Gen2Containerd.Gallery).To(Equal("aksubuntu"))
+		Expect(aksUbuntu2404Gen2Containerd.Definition).To(Equal("2404gen2containerd"))
+		Expect(aksUbuntu2404Gen2Containerd.Version).To(Equal("202405.20.0"))
 	})
 })

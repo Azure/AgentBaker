@@ -3,8 +3,6 @@ set -euxo pipefail
 
 source vhdbuilder/scripts/windows/automate_helpers.sh
 
-az login --identity
-
 echo "Build Id is $1"
  
 build_id=$1

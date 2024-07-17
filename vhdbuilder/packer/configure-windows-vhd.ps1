@@ -47,19 +47,20 @@ function Download-FileWithAzCopy {
         New-Item -ItemType Directory $global:aksTempDir -Force
     }
 
-    if (!(Test-Path -Path "$global:aksTempDir\azcopy")) {
+    if (!(Test-Path -Path "$global:aksTempDir\azcopy.exe")) {
         Write-Log "Downloading azcopy"
         Invoke-WebRequest -UseBasicParsing "https://aka.ms/downloadazcopy-v10-windows" -OutFile "$global:aksTempDir\azcopy.zip"
-        Expand-Archive -Path "$global:aksTempDir\azcopy.zip" -DestinationPath "$global:aksTempDir\azcopy" -Force
+        Expand-Archive -Path "$global:aksTempDir\azcopy.zip" -DestinationPath "$global:aksTempDir\tmp" -Force
+        Move-Item "$global:aksTempDir\tmp\*\azcopy.exe" "$global:aksTempDir\azcopy.exe"
     }
 
-    $env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
-    $env:AZCOPY_MSI_RESOURCE_STRING=$env:WindowsMSIResourceString
-    $env:AZCOPY_JOB_PLAN_LOCATION="$global:aksTempDir\azcopy"
-    $env:AZCOPY_LOG_LOCATION="$global:aksTempDir\azcopy"
-
-    Invoke-Expression -Command "$global:aksTempDir\azcopy\*\azcopy.exe copy $URL $dest"
-
+    pushd "$global:aksTempDir"
+        $env:AZCOPY_JOB_PLAN_LOCATION="$global:aksTempDir\azcopy"
+        $env:AZCOPY_LOG_LOCATION="$global:aksTempDir\azcopy"
+        # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows-vhd-builder-sig.json
+        .\azcopy.exe login --login-type=MSI
+        .\azcopy.exe copy $URL $Dest
+    popd
 }
 
 function Cleanup-TemporaryFiles {
@@ -285,6 +286,8 @@ function Get-PrivatePackagesToCacheOnVHD {
         $dir = "c:\akse-cache\private-packages"
         New-Item -ItemType Directory $dir -Force | Out-Null
 
+        $mappingFile = "c:\akse-cache\private-packages\mapping.json"
+        $content = @{}
         $urls = $env:WindowsPrivatePackagesURL.Split(",")
         foreach ($url in $urls) {
             $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
@@ -292,7 +295,15 @@ function Get-PrivatePackagesToCacheOnVHD {
 
             Write-Log "Downloading a private package to $dest"
             Download-FileWithAzCopy -URL $URL -Dest $dest
+
+            # Example: v1.29.2-hotfix.2024101-1int.zip
+            $version = $fileName.Split('-')[0].SubString(1)
+            Write-Log "Adding $version to $mappingFile"
+            $content[$version] = $url
         }
+
+        Write-Log "Writing mapping file to $mappingFile"
+        $content | ConvertTo-Json -Depth 10 | Out-File -FilePath $mappingFile
     }
 }
 
@@ -347,10 +358,12 @@ function Install-OpenSSH {
     Write-Log "Updating $ConfigPath for CVE-2023-48795"
     $ModifiedConfigContents = Get-Content $OriginalConfigPath `
         | %{$_ -replace "#RekeyLimit default none", "$&`r`n# Disable cipher to mitigate CVE-2023-48795`r`nCiphers -chacha20-poly1305@openssh.com`r`nMacs -*-etm@openssh.com`r`n"}
+    Write-Log "Updating $ConfigPath for CVE-2006-5051"
+    $ModifiedConfigContents = $ModifiedConfigContents.Replace("#LoginGraceTime 2m", "LoginGraceTime 0")
     Stop-Service sshd
     Out-File -FilePath $ConfigPath -InputObject $ModifiedConfigContents -Encoding UTF8
     Start-Service sshd
-    Write-Log "Updated $ConfigPath for CVE-2023-48795"
+    Write-Log "Updated $ConfigPath for CVEs"
 }
 
 function Install-WindowsPatches {
@@ -577,6 +590,9 @@ function Update-Registry {
         Write-Log "Enable 2 fixes in 2024-04B"
         Enable-WindowsFixInFeatureManagement -Name 2290715789
         Enable-WindowsFixInFeatureManagement -Name 3152880268
+
+        Write-Log "Enable 1 fix in 2024-06B"
+        Enable-WindowsFixInFeatureManagement -Name 1605443213
     }
 
     if ($env:WindowsSKU -Like '2022*') {
@@ -655,6 +671,14 @@ function Update-Registry {
         Enable-WindowsFixInFeatureManagement -Name 4186914956
         Enable-WindowsFixInFeatureManagement -Name 3173070476
         Enable-WindowsFixInFeatureManagement -Name 3958450316
+
+        Write-Log "Enable 3 fixes in 2024-06B"
+        Enable-WindowsFixInFeatureManagement -Name 2540111500
+        Enable-WindowsFixInFeatureManagement -Name 50261647
+        Enable-WindowsFixInFeatureManagement -Name 1475968140
+
+        Write-Log "Enable 1 fix in 2024-07B"
+        Enable-WindowsFixInFeatureManagement -Name 747051149
     }
 
     if ($env:WindowsSKU -Like '23H2*') {
@@ -712,10 +736,20 @@ function Get-SystemDriveDiskInfo {
     foreach($disk in $disksInfo) {
         if ($disk.DeviceID -eq "C:") {
             Write-Log "Disk C: Free space: $($disk.FreeSpace), Total size: $($disk.Size)"
+        }
+    }
+}
 
+function Validate-VHDFreeSize {
+    Clear-TempFolder
+    Write-Log "Get Disk info"
+    $disksInfo=Get-CimInstance -ClassName Win32_LogicalDisk
+    foreach($disk in $disksInfo) {
+        if ($disk.DeviceID -eq "C:") {
             if ($disk.FreeSpace -lt $global:lowestFreeSpace) {
-                throw "Disk C: Free space is less than $($global:lowestFreeSpace)"
+                throw "Disk C: Free space $($disk.FreeSpace) is less than $($global:lowestFreeSpace)"
             }
+            break
         }
     }
 }
@@ -815,6 +849,7 @@ try{
             Remove-Item -Path c:\windows-vhd-configuration.ps1
             Cleanup-TemporaryFiles
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
+            Validate-VHDFreeSize
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"

@@ -178,8 +178,6 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 }
 
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
-//
-//nolint:gocognit
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
 
@@ -400,7 +398,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
 		},
 		"IsCgroupV2": func() bool {
-			return profile.Is2204VHDDistro() || profile.IsAzureLinuxCgroupV2VHDDistro()
+			return profile.Is2204VHDDistro() || profile.IsAzureLinuxCgroupV2VHDDistro() || profile.Is2404VHDDistro()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
@@ -905,6 +903,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetOutboundCommand": func() string {
 			return getOutBoundCmd(config, config.CloudSpecConfig)
+		},
+		"BlockOutboundNetwork": func() bool {
+			if config.OutboundType == datamodel.OutboundTypeBlock || config.OutboundType == datamodel.OutboundTypeNone {
+				return true
+			}
+			return false
 		},
 		"GPUNeedsFabricManager": func() bool {
 			return common.GPUNeedsFabricManager(profile.VMSize)

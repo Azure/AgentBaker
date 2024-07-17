@@ -24,6 +24,7 @@ ERR_DOCKER_IMG_PULL_TIMEOUT=35
 ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT=36 
 ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT=37 
 ERR_CONTAINERD_INSTALL_FILE_NOT_FOUND=38 
+ERR_CONTAINERD_VERSION_INVALID=39 
 ERR_CNI_DOWNLOAD_TIMEOUT=41 
 ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT=42 
 ERR_MS_PROD_DEB_PKG_ADD_FAIL=43 
@@ -101,8 +102,13 @@ ERR_SYSTEMCTL_MASK_FAIL=2
 
 ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205 
 
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
-OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+if find /etc -type f -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
+    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+    OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+else
+    echo "/etc/*-release not found"
+fi
+
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 KUBECTL=/usr/local/bin/kubectl
@@ -367,40 +373,158 @@ should_skip_nvidia_drivers() {
     echo "$should_skip"
 }
 
-start_watch () {
-  capture_time=$(date +%s)
-  start_timestamp=$(date +%H:%M:%S)
+installJq() {
+  output=$(jq --version)
+  if [ -n "$output" ]; then
+    echo "$output"
+  else
+    if [[ $OS == $MARINER_OS_NAME ]]; then
+      sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
+    else
+      apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
+    fi
+  fi
 }
 
-stop_watch () {
+
+check_array_size() {
+  declare -n array_name=$1
+  local array_size=${#array_name[@]}
+  if [[ ${array_size} -gt 0 ]]; then
+    last_index=$(( ${#array_name[@]} - 1 ))
+  else
+    return 1
+  fi
+}
+
+capture_benchmark() {
+  set +x
+  benchmarks+=($1)
+  check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
+  declare -n current_section="${benchmarks[last_index]}"
+  local is_final_section=${2:-false}
 
   local current_time=$(date +%s)
   local end_timestamp=$(date +%H:%M:%S)
-  local difference_in_seconds=$((current_time - ${1}))
+  if [[ "$is_final_section" == true ]]; then
+    local start_timestamp=$script_start_timestamp
+    local start_time=$script_start_stopwatch
+  else
+    local start_timestamp=$section_start_timestamp
+    local start_time=$section_start_stopwatch
+  fi
 
+  local difference_in_seconds=$((current_time - start_time))
   local elapsed_hours=$(($difference_in_seconds/3600))
   local elapsed_minutes=$((($difference_in_seconds%3600)/60))
   local elapsed_seconds=$(($difference_in_seconds%60))
-  
-  printf -v benchmark "'${2}' - Total Time Elapsed: %02d:%02d:%02d" $elapsed_hours $elapsed_minutes $elapsed_seconds
-  if [ ${3} == true ]; then
-    printf -v start "     Start time: $script_start_timestamp"
-  else
-    printf -v start "     Start time: $start_timestamp"
-  fi
-  printf -v end "     End Time: $end_timestamp"
-  echo -e "\n$benchmark\n"
-  benchmarks+=("$benchmark")
-  benchmarks+=("$start")
-  benchmarks+=("$end")
+  printf -v total_time_elapsed "%02d:%02d:%02d" $elapsed_hours $elapsed_minutes $elapsed_seconds
+
+  current_section+=($start_timestamp)
+  current_section+=($end_timestamp)
+  current_section+=($total_time_elapsed)
+
+  unset -n current_section
+
+  section_start_stopwatch=$(date +%s)
+  section_start_timestamp=$(date +%H:%M:%S)
+
+  set -x
 }
 
-show_benchmarks () {
-  echo -e "\nBenchmarks:\n"
-  for i in "${benchmarks[@]}"; do
-    echo "   $i"
+process_benchmarks() {
+  set +x
+  check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
+  declare -n script_stats="${benchmarks[last_index]}"
+  
+  script_object=$(jq -n --arg script_name "$(basename $0)" --arg script_start_timestamp "${script_stats[0]}" --arg end_timestamp "${script_stats[1]}" --arg total_time_elapsed "${script_stats[2]}" '{($script_name): {"overall": {"start_time": $script_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}}')
+
+  unset script_stats[@]
+  unset -n script_stats
+
+  for ((i=0; i<${#benchmarks[@]} - 1; i+=1)); do
+      
+    declare -n section_name="${benchmarks[i]}"
+     
+    section_object=$(jq -n --arg section_name "${benchmarks[i]}" --arg section_start_timestamp "${section_name[0]}" --arg end_timestamp "${section_name[1]}" --arg total_time_elapsed "${section_name[2]}" '{($section_name): {"start_time": $section_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}')
+      
+    script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "$(basename $0)" '$script_object | .[$script_name] += $section_object')
+    
+    unset section_name[@]
+    unset -n section_name
+
   done
-  echo
+
+  echo "Benchmarks:"
+  echo "$script_object" | jq -C .
+ 
+  jq ". += [$script_object]" ${VHD_BUILD_PERF_DATA} > tmp.json && mv tmp.json ${VHD_BUILD_PERF_DATA}
+  chmod 755 ${VHD_BUILD_PERF_DATA}
+  set -x
+}
+
+#return proper release metadata for the package based on the os and osVersion
+#e.g., For os UBUNTU 18.04, if there is a release "r1804" defined in components.json, then set RELEASE to "r1804"
+#Otherwise set RELEASE to "current"
+returnRelease() {
+    local package="$1"
+    local os="$2"
+    local osVersion="$3"
+    RELEASE="current"
+    local osVersionWithoutDot=$(echo "${osVersion}" | sed 's/\.//g')
+    #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
+    #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
+    #For MARINER, the release is always set to "current" now.
+    if [[ "${os}" != "${UBUNTU_OS_NAME}" ]]; then
+        return 0
+    fi
+    if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu.\"r${osVersionWithoutDot}\"") != "null" ]]; then
+        RELEASE="\"r${osVersionWithoutDot}\""
+    fi
+}
+
+returnPackageVersions() {
+    local package="$1"
+    local os="$2"
+    local osVersion="$3"
+    RELEASE="current"
+    returnRelease "${package}" "${os}" "${osVersion}"
+    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
+
+    #if .downloadURIs.${osLowerCase} exist, then get the versions from there.
+    #otherwise get the versions from .downloadURIs.default 
+    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
+        versions=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]" -r)
+        for version in ${versions[@]}; do
+            PACKAGE_VERSIONS+=("${version}")
+        done
+        return
+    fi
+    versions=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.versions[]" -r)
+    for version in ${versions[@]}; do
+        PACKAGE_VERSIONS+=("${version}")
+    done
+    return 0
+}
+
+returnPackageDownloadURL() {
+    local package=$1
+    local os=$2
+    local osVersion=$3
+    RELEASE="current"
+    returnRelease "${package}" "${os}" "${osVersion}"
+    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
+    
+    #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
+    #otherwise get the downloadURL from .downloadURIs.default 
+    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
+        downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
+        [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
+        return
+    fi
+    downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
+    [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
+    return    
 }
 
 #HELPERSEOF

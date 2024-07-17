@@ -1,10 +1,10 @@
 #!/bin/bash
 
 script_start_timestamp=$(date +%H:%M:%S)
-start_timestamp=$(date +%H:%M:%S)
+section_start_timestamp=$(date +%H:%M:%S)
 
-capture_script_start=$(date +%s)
-capture_time=$(date +%s)
+script_start_stopwatch=$(date +%s)
+section_start_stopwatch=$(date +%s)
 
 declare -a benchmarks=()
 
@@ -24,11 +24,11 @@ source /home/packer/tool_installs_distro.sh
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
+VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
-stop_watch $capture_time "Declare Variables / Configure Environment" false
-start_watch
+capture_benchmark "declare_variables_and_source_packer_files"
 
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
@@ -53,8 +53,7 @@ APT::Periodic::AutocleanInterval "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
-stop_watch $capture_time "Purge and Re-install Ubuntu" false
-start_watch
+capture_benchmark "purge_and_reinstall_ubuntu"
 
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
@@ -77,14 +76,27 @@ else
   done
 fi
 
+CHRONYD_DIR=/etc/systemd/system/chronyd.service.d
+if [[ "$OS" == "$UBUNTU_OS_NAME" ]]; then
+  if [ "${OS_VERSION}" == "18.04" ]; then
+    CHRONYD_DIR=/etc/systemd/system/chrony.service.d
+  fi
+fi
+
+mkdir -p "${CHRONYD_DIR}"
+cat >> "${CHRONYD_DIR}"/10-chrony-restarts.conf <<EOF
+[Service]
+Restart=always
+RestartSec=5
+EOF
+
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
 Storage=persistent
 SystemMaxUse=1G
 RuntimeMaxUse=1G
 ForwardToSyslog=yes
 EOF
-stop_watch $capture_time "Install Dependencies" false
-start_watch
+capture_benchmark "install_dependencies"
 
 if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then
   echo "Unsupported container runtime. Only containerd is supported for new VHD builds."
@@ -107,12 +119,13 @@ if [[ $(isARM64) == 1 ]]; then
   fi
 fi
 
-if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" ]]; then
+# Since we do not build Ubuntu 16.04 images anymore, always override network config and disable NTP + Timesyncd and install Chrony
+# Mariner does this differently, so only do it for Ubuntu
+if [[ $OS != $MARINER_OS_NAME ]]; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
-stop_watch $capture_time "Check Container Runtime / Network Configurations" false
-start_watch
+capture_benchmark "check_container_runtime_and_network_configurations"
 
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
@@ -157,41 +170,84 @@ echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEP
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
-containerd_manifest="$(jq .containerd manifest.json)" || exit $?
+capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
 
-installed_version="$(echo ${containerd_manifest} | jq -r '.edge')"
-if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-  installed_version="$(echo ${containerd_manifest} | jq -r '.pinned."1804"')"
-fi
+# doing this at vhd allows CSE to be faster with just mv
+unpackAzureCNI() {
+  local URL=$1
+  CNI_TGZ_TMP=${URL##*/}
+  CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
+  mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
+  tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR/$CNI_DIR_TMP
+  rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
+  echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
+}
 
-containerd_version="$(echo "$installed_version" | cut -d- -f1)"
-containerd_patch_version="$(echo "$installed_version" | cut -d- -f2)"
-installStandaloneContainerd ${containerd_version} ${containerd_patch_version}
-echo "  - [installed] containerd v${containerd_version}-${containerd_patch_version}" >> ${VHD_LOGS_FILEPATH}
-stop_watch $capture_time "Create Containerd Service Directory, Download Shims, Configure Runtime and Network" false
-start_watch
-
-DOWNLOAD_FILES=$(jq ".DownloadFiles" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-for componentToDownload in ${DOWNLOAD_FILES[*]}; do
-  fileName=$(echo "${componentToDownload}" | jq .fileName -r)
-  if [ $fileName == "crictl-v*-linux-amd64.tar.gz" ]; then
-    CRICTL_VERSIONS_STR=$(echo "${componentToDownload}" | jq .versions -r)
-    CRICTL_VERSIONS=""
-    if [[ ${CRICTL_VERSIONS_STR} != null ]]; then
-      CRICTL_VERSIONS=$(echo "${CRICTL_VERSIONS_STR}" | jq -r ".[]")
-      CRICTL_VERSIONS=$(echo -e "$CRICTL_VERSIONS" | tail -n 2 | head -n 1 | tr -d ' ')
-    fi
-    break
-  fi
+packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
+for p in ${packages[*]}; do
+  #getting metadata for each package
+  name=$(echo "${p}" | jq .name -r)
+  PACKAGE_VERSIONS=()
+  returnPackageVersions ${p} ${OS} ${OS_VERSION}
+  PACKAGE_DOWNLOAD_URL=""
+  returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
+  echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS}\" \"${PACKAGE_DOWNLOAD_URL}\""
+  downloadDir=$(echo ${p} | jq .downloadLocation -r)
+  #download the package
+  case $name in
+    "cri-tools")
+      for version in $PACKAGE_VERSIONS; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadCrictl "${downloadDir}" "${evaluatedURL}"
+        echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
+        # other steps are dependent on CRICTL_VERSION and CRICTL_VERSIONS
+        # since we only have 1 entry in CRICTL_VERSIONS, we simply set both to the same value
+        CRICTL_VERSION=${version} 
+        CRICTL_VERSIONS=${version}
+      done
+      ;;
+    "azure-cni")
+      for version in $PACKAGE_VERSIONS; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
+        unpackAzureCNI "${evaluatedURL}"
+        echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "cni-plugins")
+      for version in $PACKAGE_VERSIONS; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadCNI "${downloadDir}" "${evaluatedURL}"
+        unpackAzureCNI "${evaluatedURL}"
+        echo "  - CNI plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "runc")
+      for version in $PACKAGE_VERSIONS; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        ensureRunc "${version}" "${evaluatedURL}" "${downloadDir}"
+        echo "  - runc version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "containerd")
+      for version in $PACKAGE_VERSIONS; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
+          installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
+        elif [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
+          installStandaloneContainerd "${version}"
+        fi
+        echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    *)
+      echo "Package name: ${name} not supported for download. Please implement the download logic in the script."
+      # We can add a common function to download a generic package here.
+      # However, installation could be different for different packages.
+      ;;
+  esac
+  capture_benchmark "download_${name}"
 done
-echo $CRICTL_VERSIONS
-
-for CRICTL_VERSION in ${CRICTL_VERSIONS}; do
-  downloadCrictl ${CRICTL_VERSION}
-  echo "  - crictl version ${CRICTL_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-stop_watch $capture_time "Download Components, Determine / Download crictl Version" false
-start_watch
 
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
@@ -210,7 +266,9 @@ installAndConfigureArtifactStreaming() {
 }
 
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
-if [ $OS == $UBUNTU_OS_NAME ] && [ $(isARM64)  != 1 ] && [ $UBUNTU_MAJOR_VERSION -ge 20 ]; then
+# Artifact Streaming currently not supported for 24.04, the deb file isnt present in acs-mirror
+# TODO(amaheshwari/aganeshkumar): Remove the conditional when Artifact Streaming is enabled for 24.04
+if [ $OS == $UBUNTU_OS_NAME ] && [ $(isARM64)  != 1 ] && [ $UBUNTU_MAJOR_VERSION -ge 20 ] && [ ${UBUNTU_RELEASE} != "24.04" ]; then
   installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
 fi
 
@@ -229,13 +287,12 @@ downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-stop_watch $capture_time "Artifact Streaming, Download Containerd Plugins" false
-start_watch
+capture_benchmark "artifact_streaming_and_download_teleportd"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
-  NVIDIA_DRIVER_IMAGE_SHA="sha-ff213d"
-  export NVIDIA_DRIVER_IMAGE_TAG="cuda-535.54.03-${NVIDIA_DRIVER_IMAGE_SHA}"
+  NVIDIA_DRIVER_IMAGE_SHA="sha-2d4c96"
+  export NVIDIA_DRIVER_IMAGE_TAG="cuda-550.54.15-${NVIDIA_DRIVER_IMAGE_SHA}"
 
   mkdir -p /opt/{actions,gpu}
   ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
@@ -260,7 +317,7 @@ echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
 PRESENT_DIR=$(pwd)
 # run installBcc in a subshell and continue on with container image pull in order to decrease total build time
-( 
+(
   cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
 
   installBcc
@@ -271,8 +328,7 @@ PRESENT_DIR=$(pwd)
 BCC_PID=$!
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
-stop_watch $capture_time "Pull NVIDIA driver image (mcr), Start installBcc subshell" false
-start_watch
+capture_benchmark "pull_nvidia_driver_image_and_run_installBcc_in_subshell"
 
 string_replace() {
   echo ${1//\*/$2}
@@ -318,7 +374,7 @@ for imageToBePulled in ${ContainerImages[*]}; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
       wait -n
-    done    
+    done
   done
 done
 wait ${image_pids[@]}
@@ -336,75 +392,13 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 
 # can't use cliTool because crictl doesn't support retagging.
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
-stop_watch $capture_time "Pull and Re-tag Container Images" false
-start_watch
-
-# doing this at vhd allows CSE to be faster with just mv
-unpackAzureCNI() {
-  local URL=$1
-  CNI_TGZ_TMP=${URL##*/}
-  CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
-  mkdir "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}"
-  tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_DOWNLOADS_DIR/$CNI_DIR_TMP
-  rm -rf ${CNI_DOWNLOADS_DIR:?}/${CNI_TGZ_TMP}
-  echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
-}
-
-#must be both amd64/arm64 images
-VNET_CNI_VERSIONS="
-1.4.43.1
-1.4.52
-1.4.54
-1.5.11
-1.5.23
-1.5.28
-"
-
-
-for VNET_CNI_VERSION in $VNET_CNI_VERSIONS; do
-    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${VNET_CNI_VERSION}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${VNET_CNI_VERSION}.tgz"
-    downloadAzureCNI
-    unpackAzureCNI $VNET_CNI_PLUGINS_URL
-    echo "  - Azure CNI version ${VNET_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-
-#UNITE swift and overlay versions?
-#Please add new version (>=1.4.13) in this section in order that it can be pulled by both AMD64/ARM64 vhd
-SWIFT_CNI_VERSIONS="
-1.4.43.1
-1.4.52
-1.4.54
-1.5.11
-1.5.23
-1.5.28
-"
-
-for SWIFT_CNI_VERSION in $SWIFT_CNI_VERSIONS; do
-    VNET_CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/azure-cni/v${SWIFT_CNI_VERSION}/binaries/azure-vnet-cni-swift-linux-${CPU_ARCH}-v${SWIFT_CNI_VERSION}.tgz"
-    downloadAzureCNI
-    unpackAzureCNI $VNET_CNI_PLUGINS_URL
-    echo "  - Azure Swift CNI version ${SWIFT_CNI_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-
-# After v0.7.6, URI was changed to renamed to https://acs-mirror.azureedge.net/cni-plugins/v*/binaries/cni-plugins-linux-arm64-v*.tgz
-MULTI_ARCH_CNI_PLUGIN_VERSIONS="
-1.1.1
-"
-CNI_PLUGIN_VERSIONS="${MULTI_ARCH_CNI_PLUGIN_VERSIONS}"
-
-for CNI_PLUGIN_VERSION in $CNI_PLUGIN_VERSIONS; do
-    CNI_PLUGINS_URL="https://acs-mirror.azureedge.net/cni-plugins/v${CNI_PLUGIN_VERSION}/binaries/cni-plugins-linux-${CPU_ARCH}-v${CNI_PLUGIN_VERSION}.tgz"
-    downloadCNI
-    unpackAzureCNI $CNI_PLUGINS_URL
-    echo "  - CNI plugin version ${CNI_PLUGIN_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
+capture_benchmark "pull_and_retag_container_images"
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner v2
 if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) ]]; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
-stop_watch $capture_time "Configure Networking and Interface" false
-start_watch
+capture_benchmark "configure_networking_and_interface"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
@@ -432,8 +426,7 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   systemctlEnableAndStart nvidia-device-plugin || exit 1
 fi
 fi
-stop_watch $capture_time "GPU Device plugin" false
-start_watch
+capture_benchmark "download_gpu_device_plugin"
 
 # Kubelet credential provider plugins
 CREDENTIAL_PROVIDER_VERSIONS="
@@ -462,35 +455,8 @@ fi
 cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
 rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
-# this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
-# So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
-# NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 
-# kube-proxy regular versions >=v1.17.0  hotfixes versions >= 20211009 are 'multi-arch'. All versions in kube-proxy-images.json are 'multi-arch' version now.
-
-KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
-
-declare -a kube_proxy_pids=()
-
-for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
-  kube_proxy_pids+=($!)
-  while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
-      wait -n
-  done
-done
-wait ${kube_proxy_pids[@]} # Wait for all parallel pulls to finish
-
-for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
-  ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables" 
-
-  # shellcheck disable=SC2181
-  echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
-done
-stop_watch $capture_time "Configure Telemetry, Create Logging Directory, Kube-proxy" false
-start_watch
+capture_benchmark "configure_telemetry_create_logging_directory"
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
@@ -508,8 +474,7 @@ cacheKubePackageFromPrivateUrl() {
   # use azcopy with MSI instead of curl to download packages
   getAzCopyCurrentPath
 
-  export AZCOPY_AUTO_LOGIN_TYPE="MSI"
-  export AZCOPY_MSI_RESOURCE_STRING="$LINUX_MSI_RESOURCE_IDS"
+  ./azcopy login --login-type=MSI
 
   cached_pkg="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_name}"
   echo "download private package ${kube_private_binary_url} and store as ${cached_pkg}"
@@ -543,6 +508,7 @@ EOF
 else
   echo "Error: installBcc subshell failed with exit code $BCC_EXIT_CODE" >&2
 fi
+capture_benchmark "finish_installing_bcc_tools"
 
 # use the private_packages_url to download and cache packages
 if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
@@ -568,8 +534,7 @@ for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
 done
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
-stop_watch $capture_time "Download and Process Kubernetes Packages / Extract Binaries" false
-
+capture_benchmark "download_kubernetes_binaries"
 echo "install-dependencies step completed successfully"
-stop_watch $capture_script_start "install-dependencies.sh" true
-show_benchmarks
+capture_benchmark "overall_script" true
+process_benchmarks

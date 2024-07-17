@@ -1,6 +1,6 @@
 SHELL=/bin/bash -o pipefail
 
-build-packer:
+build-packer: build-nbcparser-all
 ifeq (${MODE},linuxVhdMode)
 	@echo "${MODE}: Generating prefetch scripts"
 	@bash -c "pushd vhdbuilder/prefetch; go run main.go --components=../packer/components.json --container-image-prefetch-script=../packer/prefetch.sh; popd"
@@ -19,8 +19,6 @@ else ifeq (${OS_SKU},AzureLinux)
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
-	@echo "${MODE}: Convert os disk snapshot to SIG"
-	@./vhdbuilder/packer/convert-osdisk-snapshot-to-sig.sh
 else ifeq (${ARCHITECTURE},X86_64)
 ifeq (${HYPERV_GENERATION},V2)
 	@echo "${MODE}: Building with Hyper-v generation 2 x86_64 VM"
@@ -97,3 +95,14 @@ convert-sig-to-classic-storage-account-blob: az-login
 
 test-building-vhd: az-login
 	@./vhdbuilder/packer/test/run-test.sh
+
+scanning-vhd: az-login
+	@./vhdbuilder/packer/vhd-scanning.sh
+
+build-nbcparser-all:
+	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=amd64
+	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=arm64
+
+build-nbcparser-binary:
+	@echo "Building nbcparser binary"
+	@bash -c "pushd nbcparser && CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -o bin/nbcparser-$(ARCH) main.go && popd"
