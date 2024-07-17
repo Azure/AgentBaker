@@ -1,6 +1,6 @@
 {
   "sku": "V2gen2arm64",
-  "imageVersion": "202407.08.0",
+  "imageVersion": "202407.16.0",
   "imageBom": [
     {
       "id": "sha256:00758744ee3189f33e5a85a8a3cb1f5f6e5189fcda79732186019d75706c1ad3",
@@ -100,15 +100,6 @@
       ],
       "repoDigests": [
         "sha256:dbf38b8027757810b8c6195d71c7d5981cff4f88635f53cb39e266658c1c2e93"
-      ]
-    },
-    {
-      "id": "sha256:2aa56e6038e03d4d38fdae5712e71e0d4a1d3f97d0e68052230af58f6323c36b",
-      "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.22.6-3"
-      ],
-      "repoDigests": [
-        "sha256:4b5fd97d07667b83c591ab59f30e648d5e702b4a3d3b035daf7ef6e56778aae1"
       ]
     },
     {
@@ -364,6 +355,15 @@
       ]
     },
     {
+      "id": "sha256:87d6eb3b066e01bc597e3d89796f5d2cb3236128cb4cf929772686f1f3e69fba",
+      "repoTags": [
+        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.22"
+      ],
+      "repoDigests": [
+        "sha256:d2a333ab336fc486b78b97374f8a3136942e91cca800059cc3b5c6b8d3141956"
+      ]
+    },
+    {
       "id": "sha256:8ac06818950f9fe9d1349d674ca04c03c889c2cd0ee5f3cabd38992524c3f7cd",
       "repoTags": [
         "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.3.1"
@@ -532,6 +532,15 @@
       ],
       "repoDigests": [
         "sha256:e247e200bea2336ce0d20767d7d5cd038c3be43d93c9aacf9c6682b10bb85d93"
+      ]
+    },
+    {
+      "id": "sha256:b5c57514a3843f1add72f7eb45963e31f0c3d0596cc63ab48a8e6d349fbe34fb",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.22.7"
+      ],
+      "repoDigests": [
+        "sha256:081e55e8e217f7f42befaf349d73ceed4ac8f7c8b5e34f1f1094175a0b43c8a2"
       ]
     },
     {
@@ -724,15 +733,6 @@
       ]
     },
     {
-      "id": "sha256:def3bbbe88538cfd120e3a9292f4b763049ba9b0e4a4636204ef03f1ef719aae",
-      "repoTags": [
-        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.21"
-      ],
-      "repoDigests": [
-        "sha256:07e08dbc90c5906699cdc9d46b67c76790161ec2002de0f47c132d8f96706357"
-      ]
-    },
-    {
       "id": "sha256:e59ac5e889f0698587eeb0d18a4d1f362b0cf1d02b0147679a53f01096bdce82",
       "repoTags": [
         "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.5.0"
@@ -784,6 +784,15 @@
       ],
       "repoDigests": [
         "sha256:5be7104a4306abe768359a5379e6050ef69a29e9a5f99fcf7f46d5f7e9ba29a2"
+      ]
+    },
+    {
+      "id": "sha256:f0b46db4cf3a18910601a716fcf00c6cf5486c00a0ce8a91973c4c49483a6b7c",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/coredns:v1.9.4-hotfix.20240704"
+      ],
+      "repoDigests": [
+        "sha256:e39893e8d799a34bf3601d2151ed0920d7715e05ad2cb3bef297076bbd8dcda7"
       ]
     },
     {

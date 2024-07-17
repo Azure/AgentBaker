@@ -139,6 +139,7 @@ function Enable-FIPSMode
         $FipsEnabled
     )
 
+    Logs-To-Event -TaskName "AKS.WindowsCSE.EnableFIPSMode" -TaskMessage "Start to enable FIPS mode: $FipsEnabled."
     if ( $FipsEnabled ) {
         Write-Log "Set the registry to enable fips-mode"
         Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy" -Name "Enabled" -Value 1 -Type DWORD -Force

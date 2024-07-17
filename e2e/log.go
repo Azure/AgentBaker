@@ -1,55 +1,32 @@
 package e2e
 
 import (
-	"bufio"
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/Azure/agentbakere2e/config"
 )
 
-func createDirIfNeeded(dir string) error {
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err = os.MkdirAll(dir, os.ModePerm); err != nil {
-			return err
-		}
-	}
-	return nil
+func testDir(t *testing.T) string {
+	return filepath.Join(config.E2ELoggingDir, t.Name())
 }
 
-func createE2ELoggingDir() error {
-	return createDirIfNeeded(config.E2ELoggingDir)
-}
-
-func createScenarioLogsDir(name string) (string, error) {
-	logDir := filepath.Join(config.E2ELoggingDir, name)
-	return logDir, createDirIfNeeded(logDir)
-}
-
-func writeToFile(fileName, content string) error {
-	outputFile, err := os.Create(fileName)
-	if err != nil {
-		return err
-	}
-	defer outputFile.Close()
-
-	w := bufio.NewWriter(outputFile)
-	defer w.Flush()
-
-	contentBytes := []byte(content)
-
-	if _, err := w.Write(contentBytes); err != nil {
+func writeToFile(t *testing.T, fileName, content string) error {
+	dirPath := testDir(t)
+	// Create the directory if it doesn't exist
+	if err := os.MkdirAll(dirPath, 0755); err != nil {
 		return err
 	}
 
-	return nil
+	fullPath := filepath.Join(dirPath, fileName)
+	return os.WriteFile(fullPath, []byte(content), 0644)
 }
 
-func dumpFileMapToDir(baseDir string, files map[string]string) error {
-	for path, contents := range files {
-		path = filepath.Base(path)
-		fullPath := filepath.Join(baseDir, path)
-		if err := writeToFile(fullPath, contents); err != nil {
+func dumpFileMapToDir(t *testing.T, files map[string]string) error {
+	for fileName, contents := range files {
+		fileName = filepath.Base(fileName)
+		if err := writeToFile(t, fileName, contents); err != nil {
 			return err
 		}
 	}
