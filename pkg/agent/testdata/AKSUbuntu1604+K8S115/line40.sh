@@ -43,8 +43,10 @@ installContainerdWithComponentsJson() {
     if [[ -z "$UBUNTU_RELEASE" ]]; then
         os=${MARINER_OS_NAME}
         os_version="current"
+    else
+        os_version="${UBUNTU_RELEASE}"
     fi
-    os_version="${UBUNTU_RELEASE}"
+    
     containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
     PACKAGE_VERSIONS=()
     returnPackageVersions "${containerdPackage}" "${os}" "${os_version}"
