@@ -37,7 +37,7 @@
 
 // root object schema enforced against manifest.json
 #root: {
-    runc:                       #runc
+	runc:                       #runc
 	containerd:                 #containerd
 	[string]:                   #dep
 }
