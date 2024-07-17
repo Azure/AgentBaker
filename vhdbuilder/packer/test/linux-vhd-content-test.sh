@@ -91,6 +91,12 @@ testPackagesInstalled() {
     returnPackageVersions ${p} ${OS} ${OS_VERSION}
     PACKAGE_DOWNLOAD_URL=""
     returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
+    if [ ${name}=="kubernetes-binaries" ]; then
+      # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
+      testKubeBinariesPresent $PACKAGE_VERSIONS
+      echo "---"
+      continue
+    fi
 
     for version in ${PACKAGE_VERSIONS[@]}; do
       if [[ -z $PACKAGE_DOWNLOAD_URL ]]; then
@@ -363,10 +369,10 @@ testCloudInit() {
 testKubeBinariesPresent() {
   test="testKubeBinaries"
   echo "$test:Start"
-  containerRuntime=$1
+  local kubeBinariesVersion=$1
   binaryDir=/usr/local/bin
-  k8sVersions="$(jq -r .kubernetes.versions[] </opt/azure/manifest.json)"
-  for patchedK8sVersion in ${k8sVersions}; do
+  
+  for patchedK8sVersion in ${kubeBinariesVersion}; do
     # Only need to store k8s components >= 1.19 for containerd VHDs
     if (($(echo ${patchedK8sVersion} | cut -d"." -f2) < 19)) && [[ ${containerRuntime} == "containerd" ]]; then
       continue
@@ -992,7 +998,6 @@ testChrony $OS_SKU
 testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS
 testCloudInit $OS_SKU
-testKubeBinariesPresent $CONTAINER_RUNTIME
 testKubeProxyImagesPulled $CONTAINER_RUNTIME
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
 # which means the test failures haven't been caught. It also calles exit 1 on a failure,
