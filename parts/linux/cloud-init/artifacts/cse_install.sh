@@ -314,9 +314,9 @@ installCNI() {
 
     # Is there a ${arch} variable I can use instead of the iff
     if [[ $(isARM64) == 1 ]]; then 
-        CNI_DIR_TMP="cni-plugins-linux-arm64-${packageVersion}"
+        CNI_DIR_TMP="cni-plugins-linux-arm64-v${packageVersion}"
     else 
-        CNI_DIR_TMP="cni-plugins-linux-amd64-${packageVersion}"
+        CNI_DIR_TMP="cni-plugins-linux-amd64-v${packageVersion}"
     fi
     
     if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
