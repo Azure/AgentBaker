@@ -445,6 +445,8 @@ testCustomCATimerNotStarted() {
 
 testVHDBuildLogsExist() {
   test="testVHDBuildLogsExist"
+  testStartTime=$(date +%H:%M:%S)
+  echo "Test Start Time: $testStartTime"
   if [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected vhd logs file"
   else
@@ -921,6 +923,8 @@ testBccTools () {
 }
 
 testNBCParserBinary () {
+  testEndTime=$(date +%H:%M:%S)
+  echo "Test Start Time: $testEndTime"
   local test="testNBCParserBinary"
   local go_binary_path="/opt/azure/containers/nbcparser"
 
@@ -966,8 +970,6 @@ checkPerformanceData() {
 # To repro the test results on the exact VM, we can set VHD_DEBUG="True" in the azure pipeline env variables.
 # This will keep the VM alive after the tests are run and we can SSH/Bastion into the VM to run the test manually.
 # Therefore, for example, you can run "sudo bash /var/lib/waagent/run-command/download/0/script.sh" to run the tests manually.
-testStartTime=$(date +%H:%M:%S)
-echo "Test Start Time: $testStartTime"
 checkPerformanceData
 testBccTools
 testVHDBuildLogsExist
@@ -997,5 +999,3 @@ testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
 testNBCParserBinary
-testEndTime=$(date +%H:%M:%S)
-echo "Test Start Time: $testEndTime"
