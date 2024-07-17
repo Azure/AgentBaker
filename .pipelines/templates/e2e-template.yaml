@@ -10,9 +10,14 @@ jobs:
       - bash: |
           az login --identity
           az account set -s $(AZURE_SUBSCRIPTION_ID)
-        displayName: az login
+        displayName: Azure login
       - bash: bash .pipelines/scripts/setup_go.sh
-        displayName: setup go
+        displayName: Setup go
+      - bash: |
+          LOGGING_DIR="scenario-logs-$(date +%s)"
+          echo "setting logging dir to $LOGGING_DIR"
+          echo "##vso[task.setvariable variable=LOGGING_DIR]$LOGGING_DIR"
+        displayName: Set logging directory
       - bash: |
           export PATH="/usr/local/go/bin:$PATH"
           go version
@@ -28,14 +33,20 @@ jobs:
           fi
           
           cd e2e
-          go test -parallel 100 -timeout 90m -v -run Test_All ./
+          go test -parallel 100 -timeout 90m -v ./...
         displayName: Run AgentBaker E2E
         env:
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           LOCATION: $(LOCATION)
-      - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
-        artifact: scenario-logs
+          LOGGING_DIR: $(LOGGING_DIR)
+      # Without this step next step may fail on successful run
+      - bash: mkdir -p $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
         condition: always()
+        displayName: Create folder for scenario logs
+      - publish: $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
+        artifact: $(LOGGING_DIR)
+        condition: always()
+        continueOnError: true
       - bash: |
           set -x
           

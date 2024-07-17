@@ -1,16 +1,7 @@
 {
   "sku": "V2katagen2",
-  "imageVersion": "202407.08.0",
+  "imageVersion": "202407.16.0",
   "imageBom": [
-    {
-      "id": "sha256:0061c258e10c404ff200d8939ec02bc4227f6b9c853ecbeb460b74cfa6df58d8",
-      "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.22.6-3"
-      ],
-      "repoDigests": [
-        "sha256:4b5fd97d07667b83c591ab59f30e648d5e702b4a3d3b035daf7ef6e56778aae1"
-      ]
-    },
     {
       "id": "sha256:02314cbd3ef7a2121a66bc8e248ac0b4a3f15ba76fa9caf0795376a25ba9dbf0",
       "repoTags": [
@@ -156,15 +147,6 @@
       ]
     },
     {
-      "id": "sha256:23d7f85cb62d86e87932e1af382be27cd07d744c350cb825b591b9f00d71babe",
-      "repoTags": [
-        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.21"
-      ],
-      "repoDigests": [
-        "sha256:07e08dbc90c5906699cdc9d46b67c76790161ec2002de0f47c132d8f96706357"
-      ]
-    },
-    {
       "id": "sha256:25bdb56a2871f4473364a000eed57c8c5221e763648766b7b05314a58ab6461c",
       "repoTags": [
         "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.11"
@@ -198,6 +180,15 @@
       ],
       "repoDigests": [
         "sha256:ea0f2495a5f9b45fbf3f050d51c84ef69cde7a44352924c75417cb2614960f7c"
+      ]
+    },
+    {
+      "id": "sha256:33c3db42c6d5ed8cdda0c21e7501bdd866c1dcd017e5fe75acda5ff4ff71245c",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.22.7"
+      ],
+      "repoDigests": [
+        "sha256:081e55e8e217f7f42befaf349d73ceed4ac8f7c8b5e34f1f1094175a0b43c8a2"
       ]
     },
     {
@@ -378,6 +369,15 @@
       ],
       "repoDigests": [
         "sha256:5be7104a4306abe768359a5379e6050ef69a29e9a5f99fcf7f46d5f7e9ba29a2"
+      ]
+    },
+    {
+      "id": "sha256:6ec1858c8053a0f4daf62758066e3a2a333b870c5d81e8e362c2e39779decc93",
+      "repoTags": [
+        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.22"
+      ],
+      "repoDigests": [
+        "sha256:d2a333ab336fc486b78b97374f8a3136942e91cca800059cc3b5c6b8d3141956"
       ]
     },
     {
@@ -757,6 +757,15 @@
       ],
       "repoDigests": [
         "sha256:281afe61f26f29cb8016cb61a3109bc1659125f10fc1a7db50a346a8149b3392"
+      ]
+    },
+    {
+      "id": "sha256:e529f1bc3a83669d28ab8c8f725bbebc90d3d4b81396005bb94139d8c2281364",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/coredns:v1.9.4-hotfix.20240704"
+      ],
+      "repoDigests": [
+        "sha256:e39893e8d799a34bf3601d2151ed0920d7715e05ad2cb3bef297076bbd8dcda7"
       ]
     },
     {
