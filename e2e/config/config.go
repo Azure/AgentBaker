@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strings"
+	"time"
 )
 
 var (
@@ -20,6 +21,7 @@ var (
 	SubscriptionID                = lookupEnvWithDefaultString("SUBSCRIPTION_ID", "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8")
 	TagsToRun                     = os.Getenv("TAGS_TO_RUN")
 	TagsToSkip                    = os.Getenv("TAGS_TO_SKIP")
+	TestTimeout                   = lookupEnvWithDefaultDuration("TEST_TIMEOUT", 12*time.Minute)
 	E2ELoggingDir                 = lookupEnvWithDefaultString("LOGGING_DIR", "scenario-logs")
 )
 
@@ -34,6 +36,15 @@ func lookupEnvWithDefaultString(env string, defaultValue string) string {
 func lookupEnvWithDefaultBool(env string, defaultValue bool) bool {
 	if val, ok := os.LookupEnv(env); ok {
 		return strings.EqualFold(val, "true")
+	}
+	return defaultValue
+}
+
+func lookupEnvWithDefaultDuration(env string, defaultValue time.Duration) time.Duration {
+	if val, ok := os.LookupEnv(env); ok {
+		if d, err := time.ParseDuration(val); err == nil {
+			return d
+		}
 	}
 	return defaultValue
 }

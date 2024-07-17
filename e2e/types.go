@@ -1,4 +1,4 @@
-package scenario
+package e2e
 
 import (
 	"context"
@@ -6,21 +6,24 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/agentbakere2e/cluster"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/barkimedes/go-deepcopy"
+	"github.com/stretchr/testify/require"
 )
 
 type Tags struct {
-	Name     string
-	OS       string
-	Platform string
-	Airgap   bool
-	GPU      bool
-	WASM     bool
+	Name      string
+	ImageName string
+	OS        string
+	Arch      string
+	Airgap    bool
+	GPU       bool
+	WASM      bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
@@ -96,9 +99,6 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 
 // Scenario represents an AgentBaker E2E scenario
 type Scenario struct {
-	// Name is the name of the scenario
-	Name string
-
 	// Description is a short description of what the scenario does and tests for
 	Description string
 
@@ -111,10 +111,10 @@ type Scenario struct {
 
 // Config represents the configuration of an AgentBaker E2E scenario
 type Config struct {
-	Cluster func(ctx context.Context) (*cluster.Cluster, error)
+	Cluster func(ctx context.Context, t *testing.T) (*Cluster, error)
 
 	// VHD is the function called by the e2e suite on the given scenario to get its VHD selection
-	VHDSelector func() (config.VHDResourceID, error)
+	VHD *config.Image
 
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
@@ -125,9 +125,6 @@ type Config struct {
 	// LiveVMValidators is a slice of LiveVMValidator objects for performing any live VM validation
 	// specific to the scenario that isn't covered in the set of common validators run with all scenarios
 	LiveVMValidators []*LiveVMValidator
-
-	// Airgap is a boolean flag which indicates whether or not the scenario will have airgap network confiigurations
-	Airgap bool
 }
 
 // VMCommandOutputAsserterFn is a function which takes in stdout and stderr stream content
@@ -154,26 +151,27 @@ type LiveVMValidator struct {
 
 // PrepareNodeBootstrappingConfiguration mutates the input NodeBootstrappingConfiguration by calling the
 // scenario's BootstrapConfigMutator on it, if configured.
-func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappingConfiguration) {
+func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrappingConfiguration, error) {
+	// avoid mutating cluster config
+	nbcAny, err := deepcopy.Anything(nbc)
+	if err != nil {
+		return nil, fmt.Errorf("deep copy NodeBootstrappingConfiguration: %w", err)
+	}
+	nbc = nbcAny.(*datamodel.NodeBootstrappingConfiguration)
 	if s.BootstrapConfigMutator != nil {
 		s.BootstrapConfigMutator(nbc)
 	}
+	return nbc, nil
 }
 
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
-func (s *Scenario) PrepareVMSSModel(vmss *armcompute.VirtualMachineScaleSet) error {
-	resourceID, err := s.VHDSelector()
-	if err != nil {
-		return fmt.Errorf("unable to prepare VMSS model for scenario %q: %w", s.Name, err)
-	}
-	if resourceID == "" {
-		return fmt.Errorf("unable to prepare VMSS model for scenario %q: VHDSelector.ResourceID is empty", s.Name)
-	}
-
-	if vmss == nil || vmss.Properties == nil {
-		return fmt.Errorf("unable to prepare VMSS model for scenario %q: input VirtualMachineScaleSet or properties are nil", s.Name)
-	}
+func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *armcompute.VirtualMachineScaleSet) {
+	resourceID, err := s.VHD.VHDResourceID(ctx, t)
+	require.NoError(t, err)
+	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
+	require.NotNil(t, vmss, "input VirtualMachineScaleSet")
+	require.NotNil(t, vmss.Properties, "input VirtualMachineScaleSet.Properties")
 
 	if s.VMConfigMutator != nil {
 		s.VMConfigMutator(vmss)
@@ -189,5 +187,18 @@ func (s *Scenario) PrepareVMSSModel(vmss *armcompute.VirtualMachineScaleSet) err
 		ID: to.Ptr(string(resourceID)),
 	}
 
-	return nil
+	// don't clean up VMSS in other tests
+	if config.KeepVMSS {
+		if vmss.Tags == nil {
+			vmss.Tags = map[string]*string{}
+		}
+		vmss.Tags["KEEP_VMSS"] = to.Ptr("true")
+	}
+
+	if config.BuildID != "" {
+		if vmss.Tags == nil {
+			vmss.Tags = map[string]*string{}
+		}
+		vmss.Tags[buildIDTagKey] = &config.BuildID
+	}
 }

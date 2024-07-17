@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Azure/agentbakere2e/cluster"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -13,9 +12,9 @@ import (
 )
 
 // Returns the name of a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node.
-func getDebugPodName(kube *cluster.Kubeclient) (string, error) {
+func getDebugPodName(ctx context.Context, kube *Kubeclient) (string, error) {
 	podList := corev1.PodList{}
-	if err := kube.Dynamic.List(context.Background(), &podList, client.MatchingLabels{"app": "debug"}); err != nil {
+	if err := kube.Dynamic.List(ctx, &podList, client.MatchingLabels{"app": "debug"}); err != nil {
 		return "", fmt.Errorf("failed to list debug pod: %w", err)
 	}
 
@@ -27,7 +26,7 @@ func getDebugPodName(kube *cluster.Kubeclient) (string, error) {
 	return podName, nil
 }
 
-func getPodIP(ctx context.Context, kube *cluster.Kubeclient, namespaceName, podName string) (string, error) {
+func getPodIP(ctx context.Context, kube *Kubeclient, namespaceName, podName string) (string, error) {
 	pod, err := kube.Typed.CoreV1().Pods(namespaceName).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("unable to get pod %s/%s: %w", namespaceName, podName, err)
@@ -35,7 +34,7 @@ func getPodIP(ctx context.Context, kube *cluster.Kubeclient, namespaceName, podN
 	return pod.Status.PodIP, nil
 }
 
-func ensureTestNginxPod(ctx context.Context, kube *cluster.Kubeclient, nodeName string) (string, error) {
+func ensureTestNginxPod(ctx context.Context, kube *Kubeclient, nodeName string) (string, error) {
 	nginxPodName := fmt.Sprintf("%s-nginx", nodeName)
 	nginxPodManifest := getNginxPodTemplate(nodeName)
 	if err := ensurePod(ctx, kube, nginxPodName, nginxPodManifest); err != nil {
@@ -44,7 +43,7 @@ func ensureTestNginxPod(ctx context.Context, kube *cluster.Kubeclient, nodeName 
 	return nginxPodName, nil
 }
 
-func ensureWasmPods(ctx context.Context, kube *cluster.Kubeclient, nodeName string) (string, error) {
+func ensureWasmPods(ctx context.Context, kube *Kubeclient, nodeName string) (string, error) {
 	spinPodName := fmt.Sprintf("%s-wasm-spin", nodeName)
 	spinPodManifest := getWasmSpinPodTemplate(nodeName)
 	if err := ensurePod(ctx, kube, spinPodName, spinPodManifest); err != nil {
@@ -53,7 +52,7 @@ func ensureWasmPods(ctx context.Context, kube *cluster.Kubeclient, nodeName stri
 	return spinPodName, nil
 }
 
-func applyPodManifest(ctx context.Context, kube *cluster.Kubeclient, manifest string) error {
+func applyPodManifest(ctx context.Context, kube *Kubeclient, manifest string) error {
 	var podObj corev1.Pod
 	if err := yaml.Unmarshal([]byte(manifest), &podObj); err != nil {
 		return fmt.Errorf("failed to unmarshal Pod manifest: %w", err)
@@ -72,7 +71,7 @@ func applyPodManifest(ctx context.Context, kube *cluster.Kubeclient, manifest st
 	return nil
 }
 
-func ensurePod(ctx context.Context, kube *cluster.Kubeclient, podName, manifest string) error {
+func ensurePod(ctx context.Context, kube *Kubeclient, podName, manifest string) error {
 	if err := applyPodManifest(ctx, kube, manifest); err != nil {
 		return fmt.Errorf("failed to ensure pod: %w", err)
 	}

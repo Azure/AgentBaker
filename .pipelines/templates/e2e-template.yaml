@@ -33,15 +33,20 @@ jobs:
           fi
           
           cd e2e
-          go test -parallel 100 -timeout 90m -v -run Test_All ./
+          go test -parallel 100 -timeout 90m -v ./...
         displayName: Run AgentBaker E2E
         env:
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           LOCATION: $(LOCATION)
           LOGGING_DIR: $(LOGGING_DIR)
+      # Without this step next step may fail on successful run
+      - bash: mkdir -p $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
+        condition: always()
+        displayName: Create folder for scenario logs
       - publish: $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
         artifact: $(LOGGING_DIR)
         condition: always()
+        continueOnError: true
       - bash: |
           set -x
           
