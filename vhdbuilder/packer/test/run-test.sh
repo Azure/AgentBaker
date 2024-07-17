@@ -85,8 +85,10 @@ else
   if [[ "${OS_TYPE}" == "Linux" ]]; then
     if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
       TARGET_COMMAND_STRING="--size Standard_D4pds_v5 --storage-sku Premium_LRS"
-    else
+    elif [[ "${FEATURE_FLAGS,,}" == "kata" ]]; then
       TARGET_COMMAND_STRING="--size Standard_D4ds_v5 --storage-sku Premium_LRS"
+    else
+      TARGET_COMMAND_STRING="--size Standard_DS4_v2 --storage-sku Premium_LRS"
     fi
   fi
 
