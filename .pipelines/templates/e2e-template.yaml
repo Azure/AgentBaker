@@ -40,7 +40,7 @@ jobs:
           LOCATION: $(LOCATION)
           LOGGING_DIR: $(LOGGING_DIR)
       # Without this step next step may fail on successful run
-      - bash: mkdir -p $(System.DefaultWorkingDirectory)/e2e/scenario-logs
+      - bash: mkdir -p $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
         condition: always()
         displayName: Create folder for scenario logs
       - publish: $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
