@@ -34,15 +34,7 @@ Note: images without CVEs are also listed" >> "${TRIVY_REPORT_TABLE_PATH}"
 pids=()
 
 for image in $IMAGE_LIST; do
-    while [ $(jobs -p | wc -l) -ge 14 ]; do
-        wait -n || true
-    done
-    ./trivy --scanners vuln image --ignore-unfixed --severity HIGH,CRITICAL -f table $image >> ${TRIVY_REPORT_TABLE_PATH} &
-    pids+=($!)
-done
-
-for pid in ${pids[@]}; do
-    wait -n $pid || true
+    ./trivy --scanners vuln image --ignore-unfixed --severity HIGH,CRITICAL -f table $image >> ${TRIVY_REPORT_TABLE_PATH} || true
 done
 
 rm ./trivy 
