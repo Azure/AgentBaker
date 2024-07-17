@@ -108,7 +108,6 @@ steps:
         -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
         -e AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING} \
         ${CONTAINER_IMAGE} make -f packer.mk run-packer
-    retryCountOnTaskFailure: 3
     displayName: Building VHD
   - bash: |
         OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
@@ -132,7 +131,6 @@ steps:
         -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
         -e GIT_BRANCH=$(Build.SourceBranch) \
         ${CONTAINER_IMAGE} make -f packer.mk scanning-vhd
-    retryCountOnTaskFailure: 2
     displayName: Scanning VHD
   - script: |
         OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
