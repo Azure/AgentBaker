@@ -196,7 +196,7 @@ for p in ${packages[*]}; do
   #download the package
   case $name in
     "cri-tools")
-      for version in $PACKAGE_VERSIONS; do
+      for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadCrictl "${downloadDir}" "${evaluatedURL}"
         echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
@@ -207,7 +207,7 @@ for p in ${packages[*]}; do
       done
       ;;
     "azure-cni")
-      for version in $PACKAGE_VERSIONS; do
+      for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
         unpackAzureCNI "${evaluatedURL}"
@@ -215,7 +215,7 @@ for p in ${packages[*]}; do
       done
       ;;
     "cni-plugins")
-      for version in $PACKAGE_VERSIONS; do
+      for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadCNI "${downloadDir}" "${evaluatedURL}"
         unpackAzureCNI "${evaluatedURL}"
@@ -223,14 +223,14 @@ for p in ${packages[*]}; do
       done
       ;;
     "runc")
-      for version in $PACKAGE_VERSIONS; do
+      for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         ensureRunc "${version}" "${evaluatedURL}" "${downloadDir}"
         echo "  - runc version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "containerd")
-      for version in $PACKAGE_VERSIONS; do
+      for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
@@ -247,7 +247,7 @@ for p in ${packages[*]}; do
       # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
       # Please do not use the .1 suffix, because that's only for the base image patches
       # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
-      for version in $PACKAGE_VERSIONS; do
+      for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         extractKubeBinaries "${version}" "${evaluatedURL}" false "${downloadDir}"
         echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
