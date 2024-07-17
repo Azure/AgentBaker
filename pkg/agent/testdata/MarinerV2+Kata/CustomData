@@ -72,7 +72,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAA/6rmUlBQUFDKK8tMyUzUTc7PK0nMzEst0i0qzSvJzE1VslKAqACrSsvMSfVLBIsqKekgxFPyy/Ny8hNTfPKTE0sy8/NwyYcG+aBLlaUWFWfm5xUrWSlEx4KFa3VQnJRSlAlSM4AOiS9JzS3ISSwZkMDgquVSdvV34wIEAAD//1zq60eoAQAA
+    H4sIAAAAAAAA/8RSXa+TMBi+51eQujtdK0aj4Q45NeckE044wxtjSKGdNulaAu2mEv67KTrYFmDmZMlu3/d5P56PxnFd1wWFkppwySoKfPdvratvuGAR2TLgu2Cr8l/LAZgtmjCO1sFDhJO77AtOnh7iqH1JfpuKLU96j8E6vO8RkLIcvBpOULWXQhG6UgXRXEl7CqlSo+EUOmDqscE0WdmZH1qXtY+QfRPmQuWwUBWDey6p2tdQMt210BkNNEMDLZr0Yxqt0yyM73AUfMYtElyan5b7Y5oFSXjfni+c1cXkRmrTr03wCgdPuDUzeh3fOtdux6qaK1kD3/367ahecinZqZVd3fvw+q3VyoPvobf0QN9tj4YZ/c560LsD6h8CVEYWFzJiIdmiSdIonOLf9f6f52RG7Knrp6PbOkoA5VxJXkyl4PrMn++wB7034wZzWWsixNg4ZRtihB7dcBIDueOUkyH2lrrmXQgmonHJzxnzJgUZe4lW3GJu+Eim2bYURN9EDKd1XuD4k/MnAAD//39cbrrZBQAA
 
 - path: /opt/azure/containers/init-aks-custom-cloud.sh
   permissions: "0744"
