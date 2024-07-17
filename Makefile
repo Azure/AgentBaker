@@ -220,4 +220,8 @@ unit-tests:
 validate-components:
 	@./hack/tools/bin/cue vet -c ./schemas/components.cue ./vhdbuilder/packer/components.json
 
+.PHONY: auto-add-k8s-patch-versions
+auto-add-k8s-patch-versions:
+	python3 ./.pipelines/scripts/auto_add_k8s_patch_version.py
+
 include versioning.mk

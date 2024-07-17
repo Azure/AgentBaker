@@ -1,6 +1,7 @@
 import json
 import os
-from urllib.request import urlopen
+import urllib
+import urllib.request
 
 
 def main():
@@ -16,7 +17,7 @@ def get_all_supported_k8s_patch_versions():
 
 
 def get_kube_proxy_latest_image_tag(version):
-    with urlopen(f'https://azcu.azurewebsites.net/api/latest/oss/kubernetes/kube-proxy/v{version}', timeout=10) as resp:
+    with urllib.request.urlopen(f'https://azcu.azurewebsites.net/api/latest/oss/kubernetes/kube-proxy/v{version}', timeout=10) as resp:
         data = resp.read().decode('utf-8')
         return data
 
@@ -91,6 +92,8 @@ def update_manifest_cue(version_map):
     """
     print("updating manifest.cue file")
     versions = get_latest_n_patch_versions(version_map, 3)
+    for v in versions:
+        _make_sure_k8s_tar_exist(v)
     manifest_cue_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../schemas/manifest.cue')
     # open a temp file to write the updated content, then replace the original file
     tmp_file = manifest_cue_file + '.tmp'
@@ -119,6 +122,8 @@ def update_generate_windows_vhd_configuration_ps1(version_map):
     """
     print("updating generate-windows-vhd-configuration.ps1 file")
     versions = get_latest_n_patch_versions(version_map, 4)
+    for v in versions:
+        _make_sure_k8s_tar_exist(v)
     ps1_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../vhdbuilder/packer/generate-windows-vhd-configuration.ps1')
     # open a temp file to write the updated content, then replace the original file
     tmp_file = ps1_file + '.tmp'
@@ -180,6 +185,23 @@ def update_components_json(version_map):
 
 def _img_tag_to_version(img_tag):
     return img_tag.split('-')[0].lstrip('v')
+
+def _make_sure_k8s_tar_exist(version):
+    print(f'checking k8s tar file for version {version}')
+    url = f'https://acs-mirror.azureedge.net/kubernetes/v{version}/binaries/kubernetes-node-linux-amd64.tar.gz'
+    if _http_head_request_status_code(url) != 200:
+        raise ValueError(f'k8s tar file not found for version {version}')
+
+def _make_sure_windowszip_exist(version):
+    print(f'checking windows zip file for version {version}')
+    url = f'https://acs-mirror.azureedge.net/kubernetes/v{version}/windowszip/v{version}-1int.zip'
+    if _http_head_request_status_code(url) != 200:
+        raise ValueError(f'windows zip file not found for version {version}')
+
+def _http_head_request_status_code(url):
+    req = urllib.request.Request(url, method='HEAD')
+    resp = urllib.request.urlopen(req, timeout=10)
+    return resp.status
 
 
 if __name__ == '__main__':
