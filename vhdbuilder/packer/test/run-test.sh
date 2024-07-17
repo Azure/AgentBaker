@@ -82,10 +82,14 @@ else
   # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
   # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
   TARGET_COMMAND_STRING=""
-  if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-    TARGET_COMMAND_STRING+="--size Standard_D2pds_v5"
-  elif [[ "${FEATURE_FLAGS,,}" == "kata" ]]; then
-    TARGET_COMMAND_STRING="--size Standard_D4ds_v5"
+  if [[ "${OS_TYPE}" == "Linux" ]]; then
+    if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
+      TARGET_COMMAND_STRING="--size Standard_D4pds_v5 --storage-sku Premium_LRS"
+    elif [[ "${FEATURE_FLAGS,,}" == "kata" ]]; then
+      TARGET_COMMAND_STRING="--size Standard_D4ds_v5 --storage-sku Premium_LRS"
+    else
+      TARGET_COMMAND_STRING="--size Standard_DS3_v2 --storage-sku Premium_LRS"
+    fi
   fi
 
   if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
