@@ -966,36 +966,32 @@ checkPerformanceData() {
 # To repro the test results on the exact VM, we can set VHD_DEBUG="True" in the azure pipeline env variables.
 # This will keep the VM alive after the tests are run and we can SSH/Bastion into the VM to run the test manually.
 # Therefore, for example, you can run "sudo bash /var/lib/waagent/run-command/download/0/script.sh" to run the tests manually.
-checkPerformanceData &
-testBccTools &
-testVHDBuildLogsExist &
-testCriticalTools &
-testPackagesInstalled $CONTAINER_RUNTIME &
-testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)" &
-testChrony $OS_SKU &
-wait
-testAuditDNotPresent &
-testFips $OS_VERSION $ENABLE_FIPS &
-testCloudInit $OS_SKU &
-testKubeBinariesPresent $CONTAINER_RUNTIME &
+checkPerformanceData
+testBccTools
+testVHDBuildLogsExist
+testCriticalTools
+testPackagesInstalled $CONTAINER_RUNTIME
+testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
+testChrony $OS_SKU
+testAuditDNotPresent
+testFips $OS_VERSION $ENABLE_FIPS
+testCloudInit $OS_SKU
+testKubeBinariesPresent $CONTAINER_RUNTIME
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
 # which means the test failures haven't been caught. It also calles exit 1 on a failure,
 # which means the rest of the tests aren't being run.
 # See https://msazure.visualstudio.com/CloudNativeCompute/_backlogs/backlog/Node%20Lifecycle/Features/?workitem=24246232
 # testImagesRetagged $CONTAINER_RUNTIME
-testCustomCAScriptExecutable &
-testCustomCATimerNotStarted &
-testLoginDefs &
-wait
-testUserAdd &
-testNetworkSettings &
-testCronPermissions $IMG_SKU &
-testCoreDumpSettings &
-testNfsServerService &
-testPamDSettings $OS_SKU $OS_VERSION &
-wait
-testPam $OS_SKU $OS_VERSION &
-testUmaskSettings &
-testContainerImagePrefetchScript &
-testNBCParserBinary &
-wait
+testCustomCAScriptExecutable
+testCustomCATimerNotStarted
+testLoginDefs
+testUserAdd
+testNetworkSettings
+testCronPermissions $IMG_SKU
+testCoreDumpSettings
+testNfsServerService
+testPamDSettings $OS_SKU $OS_VERSION
+testPam $OS_SKU $OS_VERSION
+testUmaskSettings
+testContainerImagePrefetchScript
+testNBCParserBinary
