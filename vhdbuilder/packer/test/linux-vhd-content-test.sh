@@ -91,7 +91,7 @@ testPackagesInstalled() {
     returnPackageVersions ${p} ${OS} ${OS_VERSION}
     PACKAGE_DOWNLOAD_URL=""
     returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
-    if [ ${name}=="kubernetes-binaries" ]; then
+    if [ ${name} == "kubernetes-binaries" ]; then
       # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
       testKubeBinariesPresent $PACKAGE_VERSIONS
       echo "---"
@@ -369,14 +369,10 @@ testCloudInit() {
 testKubeBinariesPresent() {
   test="testKubeBinaries"
   echo "$test:Start"
-  local kubeBinariesVersion=$1
+  local kubeBinariesVersions=$1
   binaryDir=/usr/local/bin
   
-  for patchedK8sVersion in ${kubeBinariesVersion}; do
-    # Only need to store k8s components >= 1.19 for containerd VHDs
-    if (($(echo ${patchedK8sVersion} | cut -d"." -f2) < 19)) && [[ ${containerRuntime} == "containerd" ]]; then
-      continue
-    fi
+  for patchedK8sVersion in ${kubeBinariesVersions}; do
     # strip the last .1 as that is for base image patch for hyperkube
     if grep -iq hotfix <<<${patchedK8sVersion}; then
       # shellcheck disable=SC2006
