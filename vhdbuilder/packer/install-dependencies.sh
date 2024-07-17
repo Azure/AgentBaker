@@ -191,7 +191,7 @@ for p in ${packages[*]}; do
   returnPackageVersions ${p} ${OS} ${OS_VERSION}
   PACKAGE_DOWNLOAD_URL=""
   returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
-  echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS}\" \"${PACKAGE_DOWNLOAD_URL}\""
+  echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
   downloadDir=$(echo ${p} | jq .downloadLocation -r)
   #download the package
   case $name in
@@ -560,7 +560,6 @@ if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
 fi
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
-capture_benchmark "download_kubernetes_binaries"
 echo "install-dependencies step completed successfully"
 capture_benchmark "overall_script" true
 process_benchmarks
