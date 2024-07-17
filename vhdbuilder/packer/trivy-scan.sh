@@ -32,7 +32,7 @@ echo "This contains the list of images with high and critical level CVEs (if pre
 Note: images without CVEs are also listed" >> "${TRIVY_REPORT_TABLE_PATH}"
 
 for image in $IMAGE_LIST; do
-    ./trivy --scanners vuln image --ignore-unfixed --severity HIGH,CRITICAL -f table $image >> ${TRIVY_REPORT_TABLE_PATH} || true
+    ./trivy --scanners vuln image --ignore-unfixed --severity HIGH,CRITICAL --parallel 13 -f table $image >> ${TRIVY_REPORT_TABLE_PATH} || true
 done
 
 rm ./trivy 
