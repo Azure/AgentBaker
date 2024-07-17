@@ -26,7 +26,7 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
 fi
 
 RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
-az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
+az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags "source=AgentBaker" "branch=${GIT_BRANCH}"
 
 # defer function to cleanup resource group when VHD debug is not enabled
 function cleanup() {
@@ -88,7 +88,7 @@ else
     elif [[ "${FEATURE_FLAGS,,}" == "kata" ]]; then
       TARGET_COMMAND_STRING="--size Standard_D4ds_v5 --storage-sku Premium_LRS"
     else
-      TARGET_COMMAND_STRING="--size Standard_DS4_v2 --storage-sku Premium_LRS"
+      TARGET_COMMAND_STRING="--size Standard_D4ds_v5 --storage-sku Premium_LRS"
     fi
   fi
 
