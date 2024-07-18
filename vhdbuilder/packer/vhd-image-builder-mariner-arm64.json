@@ -59,6 +59,7 @@
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
       "polling_duration_timeout": "1h",
+      "managed_image_storage_account_type": "Premium_LRS",
       "shared_image_gallery_destination": {
         "use_shallow_replication": "{{user `shallow_replication`}}",
         "resource_group": "{{user `resource_group_name`}}",
