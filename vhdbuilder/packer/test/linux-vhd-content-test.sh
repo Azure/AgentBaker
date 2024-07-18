@@ -4,6 +4,7 @@ MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
+AZURELINUX_OS_NAME="AZURELINUX"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 CONTAINER_RUNTIME="$1"
@@ -81,8 +82,10 @@ testPackagesInstalled() {
   for p in ${packages[*]}; do
     name=$(echo "${p}" | jq .name -r)
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
-    if [[ "$OS_SKU" == "CBLMariner" || "$OS_SKU" == "AzureLinux" ]]; then
+    if [[ "$OS_SKU" == "CBLMariner" || ("$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "V2") ]]; then
       OS=$MARINER_OS_NAME
+    elif [[ "$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "V3" ]]; then
+      OS=$AZURELINUX_OS_NAME
     else
       OS=$UBUNTU_OS_NAME
     fi

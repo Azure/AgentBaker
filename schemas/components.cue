@@ -34,10 +34,15 @@ package components
 	current?: #ReleaseDownloadURI
 }
 
+#AzureLinuxOSDistro: {
+	current?: #ReleaseDownloadURI
+}
+
 #DownloadURIs: {
 	default?: #DefaultOSDistro
 	ubuntu?:  #UbuntuOSDistro
 	mariner?: #MarinerOSDistro
+	azurelinux?: #AzureLinuxOSDistro
 }
 
 #Package: {
