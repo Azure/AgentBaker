@@ -263,7 +263,7 @@ for p in ${packages[*]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
-        elif [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
+        elif [[ "${OS}" == "${MARINER_OS_NAME}" ]] || [[ "${OS}" == "${AZURELINUX_OS_NAME}" ]]; then
           installStandaloneContainerd "${version}"
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
