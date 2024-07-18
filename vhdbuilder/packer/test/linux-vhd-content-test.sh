@@ -359,6 +359,23 @@ testCloudInit() {
   echo "$test:Finish"
 }
 
+testSourcesList() {
+  test="testSourcesList"
+  sourcesListPath="/etc/apt/sources.list"
+  searchWord="snapshot"
+  # This file should always exist on any Ubuntu node, however, still check its existence for sanity
+  if test -f "${sourcesListPath}"; then
+    echo "sources.list exists, check its content for the keyword snapshot"
+    if grep -qi "${searchWord}" "${sourcesListPath}"; then
+      err $test "${sourcesListPath} contains snapshot keyword, file was not updates properly"
+    else
+      echo "${sourcesListPath} is as expected"
+    fi
+  fi
+
+  echo "$test:Finish"
+}
+
 testKubeBinariesPresent() {
   test="testKubeBinaries"
   echo "$test:Start"
@@ -976,6 +993,7 @@ testChrony $OS_SKU
 testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS
 testCloudInit $OS_SKU
+testSourcesList
 testKubeBinariesPresent $CONTAINER_RUNTIME
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
 # which means the test failures haven't been caught. It also calles exit 1 on a failure,
