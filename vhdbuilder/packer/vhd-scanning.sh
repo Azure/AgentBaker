@@ -57,9 +57,9 @@ function cleanup() {
 }
 trap cleanup EXIT
 
-VM_OPTIONS="--size Standard_D16ds_v5"
+VM_OPTIONS="--size Standard_D8ds_v5"
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-    VM_OPTIONS="--size Standard_D16pds_v5"
+    VM_OPTIONS="--size Standard_D8pds_v5"
 fi
 
 if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
