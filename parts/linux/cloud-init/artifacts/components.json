@@ -421,6 +421,13 @@
               "1.1.9-5.cm2"
             ]
           }
+        },
+        "azurelinux": {
+          "current": {
+            "versions": [
+              "1.1.12-1.azl3"
+            ]
+          }
         }
       }
     },
@@ -451,6 +458,13 @@
           "current": {
             "versions": [
               "<SKIP>"
+            ]
+          }
+        },
+        "azurelinux": {
+          "current": {
+            "versions": [
+              "1.7.13-2.azl3"
             ]
           }
         },
