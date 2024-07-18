@@ -13,6 +13,7 @@ RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 K8S_PRIVATE_PACKAGES_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
 UBUNTU_RELEASE=$(lsb_release -r -s)
+OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR="/opt/azure/tlsbootstrap"
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION="v0.1.0-alpha.2"
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
@@ -42,7 +43,7 @@ cleanupContainerdDlFiles() {
 installContainerdWithComponentsJson() {
     os=${UBUNTU_OS_NAME}
     if [[ -z "$UBUNTU_RELEASE" ]]; then
-        os=${MARINER_OS_NAME}
+        os=${OS}
         os_version="current"
     else
         os_version="${UBUNTU_RELEASE}"

@@ -78,6 +78,30 @@ Describe 'cse_install.sh'
             When call returnPackageVersions "$package" "MARINERKATA" "some_mariner_version"
             The variable PACKAGE_VERSIONS[@] should equal "<SKIP>"
         End
+
+        It 'returns downloadURIs.default.current.versions of package azure-cni for AZURELINUX'
+            package=$(readPackage "azure-cni")
+            When call returnPackageVersions "$package" "AZURELINUX" "some_azurelinux_version"
+            The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.28 1.5.32"
+        End
+
+        It 'returns downloadURIs.azurelinux.current.versions of package runc for AZURELINUX'
+            package=$(readPackage "runc")
+            When call returnPackageVersions "$package" "AZURELINUX" "some_azurelinux_version"
+            The variable PACKAGE_VERSIONS[@] should equal "1.1.12-1.azl3"
+        End
+
+        It 'returns downloadURIs.azurelinux.current.versions of package containerd for AZURELINUX'
+            package=$(readPackage "containerd")
+            When call returnPackageVersions "$package" "AZURELINUX" "some_azurelinux_version"
+            The variable PACKAGE_VERSIONS[@] should equal "1.7.13-2.azl3"
+        End
+
+        It 'returns downloadURIs.default.current.versions of package cni-plugins for AZURELINUX'
+            package=$(readPackage "cni-plugins")
+            When call returnPackageVersions "$package" "AZURELINUX" "some_azurelinux_version"
+            The variable PACKAGE_VERSIONS[@] should equal "1.4.1"
+        End
     End
     Describe 'returnPackageDownloadURL'
         It 'returns downloadURIs.ubuntu."r2004".downloadURL of package runc for UBUNTU 20.04'
@@ -133,6 +157,30 @@ Describe 'cse_install.sh'
             When call returnPackageDownloadURL "$package" "MARINER" "some_mariner_version"
             The variable PACKAGE_DOWNLOAD_URL should equal "https://acs-mirror.azureedge.net/azure-cni/v\${version}/binaries/azure-vnet-cni-linux-\${CPU_ARCH}-v\${version}.tgz"
         End
+
+        It 'returns downloadURIs.azurelinux.current.downloadURL of package runc for AZURELINUX'
+            package=$(readPackage "runc")
+            When call returnPackageDownloadURL "$package" "AZURELINUX" "some_azurelinux_version"
+            The variable PACKAGE_DOWNLOAD_URL should equal ''
+        End
+
+        It 'returns downloadURIs.azurelinux.current.downloadURL of package containerd for AZURELINUX'
+            package=$(readPackage "containerd")
+            When call returnPackageDownloadURL "$package" "AZURELINUX" "some_azurelinux_version"
+            The variable PACKAGE_DOWNLOAD_URL should equal ''
+        End
+
+        It 'returns downloadURIs.default.current.downloadURL of package cni-plugins for AZURELINUX'
+            package=$(readPackage "cni-plugins")
+            When call returnPackageDownloadURL "$package" "AZURELINUX" "some_azurelinux_version"
+            The variable PACKAGE_DOWNLOAD_URL should equal "https://acs-mirror.azureedge.net/cni-plugins/v\${version}/binaries/cni-plugins-linux-\${CPU_ARCH}-v\${version}.tgz"
+        End
+
+        It 'returns downloadURIs.default.current.downloadURL of package azure-cni for AZURELINUX'
+            package=$(readPackage "azure-cni")
+            When call returnPackageDownloadURL "$package" "AZURELINUX" "some_azurelinux_version"
+            The variable PACKAGE_DOWNLOAD_URL should equal "https://acs-mirror.azureedge.net/azure-cni/v\${version}/binaries/azure-vnet-cni-linux-\${CPU_ARCH}-v\${version}.tgz"
+        End
     End
     Describe 'evalPackageDownloadURL'
         It 'returns empty string for empty downloadURL'
@@ -163,6 +211,7 @@ Describe 'cse_install.sh'
         End
         It 'returns expected output for successful installation of containerd in Mariner'
             UBUNTU_RELEASE="" # mocking Mariner doesn't have command `lsb_release -cs`
+            OS="MARINER"
             containerdPackage=$(readPackage "containerd")
             When call installContainerRuntime 
             The variable containerdMajorMinorPatchVersion should equal "1.6.26"
@@ -172,10 +221,21 @@ Describe 'cse_install.sh'
         End
         It 'skips the containerd installation for Mariner with Kata'
             UBUNTU_RELEASE="" # mocking Mariner doesn't have command `lsb_release -cs`
+            OS="MARINER"
             containerdPackage=$(readPackage "containerd")
             IS_KATA="true"
             When call installContainerRuntime
-            The output line 3 should equal "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."            
+            The output line 3 should equal "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."   
+        End         
+        It 'returns expected output for successful installation of containerd in AzureLinux'
+            UBUNTU_RELEASE="" # mocking AzureLinux doesn't have command `lsb_release -cs`
+            OS="AZURELINUX"
+            containerdPackage=$(readPackage "containerd")
+            When call installContainerRuntime
+            The variable containerdMajorMinorPatchVersion should equal "1.7.13"
+            The variable containerdHotFixVersion should equal "2.azl3"
+            The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
+            The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.7.13-2.azl3"
         End
         It 'skips validation if components.json file is not found'
             COMPONENTS_FILEPATH="non_existent_file.json"
@@ -205,6 +265,13 @@ Describe 'cse_install.sh'
         It 'returns release version current for package runc in MarinerKata'
             package=$(readPackage "runc")
             os="MARINERKATA"
+            osVersion=""
+            When call returnRelease "$package" "$os" "$osVersion"
+            The variable RELEASE should equal "current"
+        End
+        It 'returns release version current for package runc in AzureLinux'
+            package=$(readPackage "runc")
+            os="AZURELINUX"
             osVersion=""
             When call returnRelease "$package" "$os" "$osVersion"
             The variable RELEASE should equal "current"
