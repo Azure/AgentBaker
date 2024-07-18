@@ -3,7 +3,11 @@
 echo "Sourcing cse_install_distro.sh for Mariner"
 
 removeContainerd() {
-    retrycmd_if_failure 10 5 60 dnf remove -y moby-containerd
+    containerdPackageName="containerd"
+    if [[ $OS_VERSION == "2.0" ]]; then
+        containerdPackageName="moby-containerd"
+    fi
+    retrycmd_if_failure 10 5 60 dnf remove -y $containerdPackageName
 }
 
 installDeps() {
@@ -126,9 +130,14 @@ installStandaloneContainerd() {
     else
         echo "installing containerd version ${desiredVersion}"
         removeContainerd
+        containerdPackageName="containerd-${desiredVersion}"
+        if [[ $OS_VERSION == "2.0" ]]; then
+            containerdPackageName="moby-containerd-${desiredVersion}"
+        fi
+
         # TODO: tie runc to r92 once that's possible on Mariner's pkg repo and if we're still using v1.linux shim
-        if ! dnf_install 30 1 600 "moby-containerd-${desiredVersion}"; then
-          exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        if ! dnf_install 30 1 600 $containerdPackageName; then
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
     fi
 
