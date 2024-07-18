@@ -57,7 +57,7 @@ function cleanup() {
 }
 trap cleanup EXIT
 
-VM_OPTIONS="--size Standard_DS1_v2"
+VM_OPTIONS="--size Standard_D4ds_v5"
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     VM_OPTIONS="--size Standard_D2pds_v5"
 elif [[ "${FEATURE_FLAGS,,}" == "kata" ]]; then
