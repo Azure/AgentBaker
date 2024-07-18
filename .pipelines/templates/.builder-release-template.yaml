@@ -178,20 +178,6 @@ steps:
       trivy -v
       rm -rf trivy trivy_0.51.2_Linux-64bit.tar.gz
     displayName: Install trivy
-  
-  - task: AzureCLI@2
-    inputs:
-      azureSubscription: agentbaker-vuln-to-kusto
-      scriptType: 'bash'
-      scriptLocation: 'inlineScript'
-      inlineScript: |
-        export AZCOPY_AUTO_LOGIN_TYPE=AZCLI
-        azcopy copy https://vulntokustobinary.blob.core.windows.net/vuln-to-kusto/v0.0.1-1c7c13e3a46/vuln-to-kusto-vhd_linux_amd64 ./vuln-to-kusto
-        chmod +x vuln-to-kusto
-        ./vuln-to-kusto \
-          scan-report trivy-report.json \
-          --kusto-log-to-stdout
-    displayName: Publish vulnerability to Kusto
   - task: CopyFiles@2
     condition: eq(variables['IS_NOT_1804'], 'true')
     inputs:
@@ -206,6 +192,20 @@ steps:
       Contents: 'trivy-images-table.txt'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
     displayName: Copy trivy table
+  - task: AzureCLI@2
+    condition: eq(variables['IS_NOT_1804'], 'true')
+    inputs:
+      azureSubscription: agentbaker-vuln-to-kusto
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        export AZCOPY_AUTO_LOGIN_TYPE=AZCLI
+        azcopy copy https://vulntokustobinary.blob.core.windows.net/vuln-to-kusto/v0.0.1-1c7c13e3a46/vuln-to-kusto-vhd_linux_amd64 ./vuln-to-kusto
+        chmod +x vuln-to-kusto
+        ./vuln-to-kusto \
+          scan-report trivy-report.json \
+          --kusto-log-to-stdout
+    displayName: Publish vulnerability to Kusto
   - task: PublishPipelineArtifact@0
     inputs:
         artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
