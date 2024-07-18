@@ -43,8 +43,10 @@ installContainerdWithComponentsJson() {
     if [[ -z "$UBUNTU_RELEASE" ]]; then
         os=${MARINER_OS_NAME}
         os_version="current"
+    else
+        os_version="${UBUNTU_RELEASE}"
     fi
-    os_version="${UBUNTU_RELEASE}"
+    
     containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
     PACKAGE_VERSIONS=()
     returnPackageVersions "${containerdPackage}" "${os}" "${os_version}"
@@ -318,6 +320,7 @@ extractKubeBinaries() {
     local k8s_version="$1"
     local kube_binary_url="$2"
     local is_private_url="$3"
+    local k8s_downloads_dir="$4"
 
     local k8s_tgz_tmp_filename=${kube_binary_url##*/}
 
@@ -332,8 +335,8 @@ extractKubeBinaries() {
         echo "cached package ${k8s_tgz_tmp} found, will extract that"
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
     else
-        k8s_tgz_tmp="${K8S_DOWNLOADS_DIR}/${k8s_tgz_tmp_filename}"
-        mkdir -p ${K8S_DOWNLOADS_DIR}
+        k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
+        mkdir -p ${k8s_downloads_dir}
 
         retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
         if [[ ! -f ${k8s_tgz_tmp} ]]; then
