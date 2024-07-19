@@ -146,7 +146,7 @@ func ensureStaticSIGImageVersion(ctx context.Context, t *testing.T, imageVersion
 	}
 	version := newSIGImageVersionFromResourceID(rid)
 
-	resp, err := Azure.GalleryImageVersionClient.Get(ctx, version.resourceGroup, version.gallery, version.definition, version.version, nil)
+	resp, err := E2EConfig.Azure.GalleryImageVersionClient.Get(ctx, version.resourceGroup, version.gallery, version.definition, version.version, nil)
 	if err != nil {
 		return "", fmt.Errorf("getting live image version info: %w", err)
 	}
@@ -173,7 +173,7 @@ func findLatestSIGImageVersionWithTag(ctx context.Context, t *testing.T, imageDe
 	}
 	definition := newSIGImageDefinitionFromResourceID(rid)
 
-	pager := Azure.GalleryImageVersionClient.NewListByGalleryImagePager(definition.resourceGroup, definition.gallery, definition.definition, nil)
+	pager := E2EConfig.Azure.GalleryImageVersionClient.NewListByGalleryImagePager(definition.resourceGroup, definition.gallery, definition.definition, nil)
 	var latestVersion *armcompute.GalleryImageVersion
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -213,7 +213,7 @@ func findLatestSIGImageVersionWithTag(ctx context.Context, t *testing.T, imageDe
 
 func ensureReplication(ctx context.Context, t *testing.T, definition sigImageDefinition, version *armcompute.GalleryImageVersion) error {
 	if replicatedToCurrentRegion(version) {
-		t.Logf("image version %s is already replicated to region %s", *version.ID, Location)
+		t.Logf("image version %s is already replicated to region %s", *version.ID, E2EConfig.Location)
 		return nil
 	}
 	return replicateToCurrentRegion(ctx, t, definition, version)
@@ -221,7 +221,7 @@ func ensureReplication(ctx context.Context, t *testing.T, definition sigImageDef
 
 func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion) bool {
 	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
-		if strings.EqualFold(strings.ReplaceAll(*targetRegion.Name, " ", ""), Location) {
+		if strings.EqualFold(strings.ReplaceAll(*targetRegion.Name, " ", ""), E2EConfig.Location) {
 			return true
 		}
 	}
@@ -229,15 +229,15 @@ func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion) bool {
 }
 
 func replicateToCurrentRegion(ctx context.Context, t *testing.T, definition sigImageDefinition, version *armcompute.GalleryImageVersion) error {
-	t.Logf("will replicate image version %s to region %s...", *version.ID, Location)
+	t.Logf("will replicate image version %s to region %s...", *version.ID, E2EConfig.Location)
 
 	version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
-		Name:                 &Location,
+		Name:                 &E2EConfig.Location,
 		RegionalReplicaCount: to.Ptr[int32](1),
 		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
 	})
 
-	resp, err := Azure.GalleryImageVersionClient.BeginCreateOrUpdate(ctx, definition.resourceGroup, definition.gallery, definition.definition, *version.Name, *version, nil)
+	resp, err := E2EConfig.Azure.GalleryImageVersionClient.BeginCreateOrUpdate(ctx, definition.resourceGroup, definition.gallery, definition.definition, *version.Name, *version, nil)
 	if err != nil {
 		return fmt.Errorf("begin updating image version target regions: %w", err)
 	}

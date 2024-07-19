@@ -125,6 +125,12 @@ type Config struct {
 	// LiveVMValidators is a slice of LiveVMValidator objects for performing any live VM validation
 	// specific to the scenario that isn't covered in the set of common validators run with all scenarios
 	LiveVMValidators []*LiveVMValidator
+
+	// Can be specified if test requires a subscription different from default subscription
+	SubscriptionID string
+
+	// Can be specified if test requires a region different from default location
+	Location string
 }
 
 // VMCommandOutputAsserterFn is a function which takes in stdout and stderr stream content

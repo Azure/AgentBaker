@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Azure/agentbakere2e/config"
-	"k8s.io/api/apps/v1"
+	v1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
@@ -63,7 +63,7 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 }
 
 func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterName string) ([]byte, error) {
-	credentialList, err := config.Azure.AKS.ListClusterAdminCredentials(ctx, resourceGroupName, clusterName, nil)
+	credentialList, err := config.E2EConfig.Azure.AKS.ListClusterAdminCredentials(ctx, resourceGroupName, clusterName, nil)
 	if err != nil {
 		return nil, fmt.Errorf("list cluster admin credentials: %w", err)
 	}
@@ -134,7 +134,7 @@ spec:
 }
 
 func getClusterSubnetID(ctx context.Context, mcResourceGroupName string) (string, error) {
-	pager := config.Azure.VNet.NewListPager(mcResourceGroupName, nil)
+	pager := config.E2EConfig.Azure.VNet.NewListPager(mcResourceGroupName, nil)
 	for pager.More() {
 		nextResult, err := pager.NextPage(ctx)
 		if err != nil {

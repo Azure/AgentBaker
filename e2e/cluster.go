@@ -113,7 +113,7 @@ func createCluster(ctx context.Context, t *testing.T, cluster *armcontainerservi
 		return nil, fmt.Errorf("collect garbage vmss: %w", err)
 	}
 
-	kube, err := getClusterKubeClient(ctx, config.ResourceGroupName, *cluster.Name)
+	kube, err := getClusterKubeClient(ctx, config.E2EConfig.ResourceGroupName, *cluster.Name)
 	if err != nil {
 		return nil, fmt.Errorf("get kube client using cluster %q: %w", *cluster.Name, err)
 	}
@@ -137,10 +137,10 @@ func createCluster(ctx context.Context, t *testing.T, cluster *armcontainerservi
 }
 
 func createNewAKSCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
-	t.Logf("Creating or updating cluster %s in rg %s\n", *cluster.Name, *cluster.Location)
-	pollerResp, err := config.Azure.AKS.BeginCreateOrUpdate(
+	t.Logf("Creating or updating cluster %s in reg %s\n", *cluster.Name, *cluster.Location)
+	pollerResp, err := config.E2EConfig.Azure.AKS.BeginCreateOrUpdate(
 		ctx,
-		config.ResourceGroupName,
+		config.E2EConfig.ResourceGroupName,
 		*cluster.Name,
 		*cluster,
 		nil,
@@ -166,7 +166,7 @@ func createNewAKSClusterWithRetry(ctx context.Context, t *testing.T, cluster *ar
 	retryInterval := 30 * time.Second
 	var lastErr error
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		t.Logf("Attempt %d: creating or updating cluster %s in rg %s\n", attempt+1, *cluster.Name, *cluster.Location)
+		t.Logf("Attempt %d: creating or updating cluster %s in region %s\n", attempt+1, *cluster.Name, *cluster.Location)
 
 		createdCluster, err := createNewAKSCluster(ctx, t, cluster)
 		if err == nil {
@@ -200,7 +200,7 @@ type VNet struct {
 }
 
 func getClusterVNet(ctx context.Context, mcResourceGroupName string) (VNet, error) {
-	pager := config.Azure.VNet.NewListPager(mcResourceGroupName, nil)
+	pager := config.E2EConfig.Azure.VNet.NewListPager(mcResourceGroupName, nil)
 	for pager.More() {
 		nextResult, err := pager.NextPage(ctx)
 		if err != nil {
@@ -218,7 +218,7 @@ func getClusterVNet(ctx context.Context, mcResourceGroupName string) (VNet, erro
 
 func collectGarbageVMSS(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) error {
 	rg := *cluster.Properties.NodeResourceGroup
-	pager := config.Azure.VMSS.NewListPager(rg, nil)
+	pager := config.E2EConfig.Azure.VMSS.NewListPager(rg, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
@@ -239,7 +239,7 @@ func collectGarbageVMSS(ctx context.Context, t *testing.T, cluster *armcontainer
 				continue
 			}
 
-			_, err := config.Azure.VMSS.BeginDelete(ctx, rg, *vmss.Name, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+			_, err := config.E2EConfig.Azure.VMSS.BeginDelete(ctx, rg, *vmss.Name, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
 				ForceDeletion: to.Ptr(true),
 			})
 			if err != nil {
@@ -254,7 +254,7 @@ func collectGarbageVMSS(ctx context.Context, t *testing.T, cluster *armcontainer
 }
 
 func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (bool, error) {
-	rgExistence, err := config.Azure.ResourceGroup.CheckExistence(ctx, resourceGroupName, nil)
+	rgExistence, err := config.E2EConfig.Azure.ResourceGroup.CheckExistence(ctx, resourceGroupName, nil)
 	if err != nil {
 		return false, fmt.Errorf("failed to get RG %q: %w", resourceGroupName, err)
 	}
@@ -263,23 +263,23 @@ func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (boo
 }
 
 func ensureResourceGroup(ctx context.Context) error {
-	rgExists, err := isExistingResourceGroup(ctx, config.ResourceGroupName)
+	rgExists, err := isExistingResourceGroup(ctx, config.E2EConfig.ResourceGroupName)
 	if err != nil {
 		return err
 	}
 
 	if !rgExists {
-		_, err = config.Azure.ResourceGroup.CreateOrUpdate(
+		_, err = config.E2EConfig.Azure.ResourceGroup.CreateOrUpdate(
 			ctx,
-			config.ResourceGroupName,
+			config.E2EConfig.ResourceGroupName,
 			armresources.ResourceGroup{
-				Location: to.Ptr(config.Location),
-				Name:     to.Ptr(config.ResourceGroupName),
+				Location: to.Ptr(config.E2EConfig.Location),
+				Name:     to.Ptr(config.E2EConfig.ResourceGroupName),
 			},
 			nil)
 
 		if err != nil {
-			return fmt.Errorf("failed to create RG %q: %w", config.ResourceGroupName, err)
+			return fmt.Errorf("failed to create RG %q: %w", config.E2EConfig.ResourceGroupName, err)
 		}
 	}
 

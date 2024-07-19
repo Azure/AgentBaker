@@ -48,7 +48,7 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 
 	opts.scenario.PrepareVMSSModel(ctx, t, &model)
 
-	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
+	operation, err := config.E2EConfig.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
 		*opts.clusterConfig.Model.Properties.NodeResourceGroup,
 		vmssName,
@@ -103,7 +103,7 @@ func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, opts *scenar
 			t.Logf("failed to write retained vmss %s private ssh key to disk: %s", vmssName, err)
 		}
 	}
-	_, err := config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+	_, err := config.E2EConfig.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
 		ForceDeletion: to.Ptr(true),
 	})
 	if err != nil {
@@ -144,9 +144,9 @@ func addPodIPConfigsForAzureCNI(ctx context.Context, vmss *armcompute.VirtualMac
 }
 
 func getVMPrivateIPAddress(ctx context.Context, mcResourceGroupName, vmssName string) (string, error) {
-	pl := config.Azure.Core.Pipeline()
+	pl := config.E2EConfig.Azure.Core.Pipeline()
 	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
-		config.SubscriptionID,
+		config.E2EConfig.SubscriptionID,
 		mcResourceGroupName,
 		vmssName,
 		0,
@@ -234,7 +234,7 @@ func getVmssName(t *testing.T) string {
 
 func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
 	return armcompute.VirtualMachineScaleSet{
-		Location: to.Ptr(config.Location),
+		Location: to.Ptr(config.E2EConfig.Location),
 		SKU: &armcompute.SKU{
 			Name:     to.Ptr("Standard_DS2_v2"),
 			Capacity: to.Ptr[int64](1),
@@ -301,7 +301,7 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 													ID: to.Ptr(
 														fmt.Sprintf(
 															loadBalancerBackendAddressPoolIDTemplate,
-															config.SubscriptionID,
+															config.E2EConfig.SubscriptionID,
 															*opts.clusterConfig.Model.Properties.NodeResourceGroup,
 														),
 													),
