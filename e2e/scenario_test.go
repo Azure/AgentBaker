@@ -773,7 +773,7 @@ func Scenario_ubuntu2204gpuNCA100(t *testing.T) {
 }
 
 func Scenario_ubuntu2204gpuNDA100(t *testing.T) {
-	RunScenario(t, ubuntu2204gpu("ubuntu2204-gpu-nda100", "Standard_ND96ams_A100_v4", "4f3dc0e4-0c77-40ff-bf9a-6ade1e3048ef", "westeurope"))
+	RunScenario(t, ubuntu2204gpu("ubuntu2204-gpu-nda100", "Standard_ND96amsr_A100_v4", "4f3dc0e4-0c77-40ff-bf9a-6ade1e3048ef", "westeurope"))
 }
 
 func Scenario_ubuntu2204gpua10(t *testing.T) {

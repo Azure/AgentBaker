@@ -22,9 +22,9 @@ func RunScenario(t *testing.T, s *Scenario) {
 	t.Cleanup(cancel)
 	ctx, cancel = context.WithTimeout(ctx, config.TestTimeout)
 	t.Cleanup(cancel)
-	maybeSkipScenario(ctx, t, s)
 
-	config.E2EConfig = config.NewE2EConfig(s.Config.SubscriptionID, s.Config.Location)
+	maybeSkipScenario(ctx, t, s)
+	config.E2EConfig = config.NewE2EConfig(s.Config.Location, s.Config.SubscriptionID)
 	err := ensureResourceGroup(context.TODO())
 	require.NoError(t, err)
 	model, err := s.Cluster(ctx, t)

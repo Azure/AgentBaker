@@ -7,6 +7,7 @@ import (
 )
 
 var (
+	E2EConfig                     = NewE2EConfig("", "")
 	AirgapNSGName                 = "abe2e-airgap-securityGroup"
 	BuildID                       = lookupEnvWithDefaultString(os.Getenv("BUILD_ID"), "local")
 	DefaultSubnetName             = "aks-subnet"
@@ -23,12 +24,10 @@ var (
 
 type Config struct {
 	Location          string
-	ResourceGroupName string
 	SubscriptionID    string
+	ResourceGroupName string
 	Azure             *AzureClient
 }
-
-var E2EConfig *Config
 
 func NewE2EConfig(location string, subscriptionID string) *Config {
 	config := &Config{
