@@ -93,6 +93,7 @@ testPackagesInstalled() {
     if [ ${name} == "kubernetes-binaries" ]; then
       # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
       testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
+      testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
       continue
     fi
 
@@ -368,7 +369,9 @@ testKubeBinariesPresent() {
   test="testKubeBinaries"
   echo "$test:Start"
   local kubeBinariesVersions=("$@")
+  local kubeBinariesVersions=("$@")
   binaryDir=/usr/local/bin
+  
   for patchedK8sVersion in "${kubeBinariesVersions[@]}"; do
     echo "checking kubeBinariesVersions: $patchedK8sVersion ..."
     # strip the last .1 as that is for base image patch for hyperkube
@@ -393,9 +396,12 @@ testKubeBinariesPresent() {
     #Test whether the installed binary version is indeed correct
     chmod a+x $kubeletDownloadLocation $kubectlDownloadLocation
     kubectlLongVersion=$(${kubectlDownloadLocation} version 2>/dev/null)
+    chmod a+x $kubeletDownloadLocation $kubectlDownloadLocation
+    kubectlLongVersion=$(${kubectlDownloadLocation} version 2>/dev/null)
     if [[ ! $kubectlLongVersion =~ $k8sVersion ]]; then
       err $test "The kubectl version is not correct: expected kubectl version $k8sVersion existing: $kubectlLongVersion"
     fi
+    kubeletLongVersion=$(${kubeletDownloadLocation} --version 2>/dev/null)
     kubeletLongVersion=$(${kubeletDownloadLocation} --version 2>/dev/null)
     if [[ ! $kubeletLongVersion =~ $k8sVersion ]]; then
       err $test "The kubelet version is not correct: expected kubelet version $k8sVersion existing: $kubeletLongVersion"
