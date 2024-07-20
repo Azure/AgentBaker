@@ -328,11 +328,15 @@ ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 installBpftrace
 echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
+bccTimestamp=$(date +%H:%M:%S)
+echo "BCC Tools Install Start Time: $bccTimestamp"
 installBcc
 cat << EOF >> ${VHD_LOGS_FILEPATH}
   - bcc-tools
   - libbcc-examples
 EOF
+bccTimestampEnd=$(date +%H:%M:%S)
+echo "BCC Tools Install End Time: $bccTimestampEnd"
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "pull_nvidia_driver_image_and_run_installBcc_in_subshell"
