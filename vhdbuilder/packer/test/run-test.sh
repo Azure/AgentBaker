@@ -106,6 +106,7 @@ else
       --image $IMG_DEF \
       --admin-username $TEST_VM_ADMIN_USERNAME \
       --admin-password $TEST_VM_ADMIN_PASSWORD \
+      --ephemeral-os-disk true \
       --public-ip-address "" \
       ${TARGET_COMMAND_STRING}
       
