@@ -88,7 +88,7 @@ else
     elif [[ "${FEATURE_FLAGS,,}" == "kata" ]]; then
       TARGET_COMMAND_STRING="--size Standard_D4ds_v5"
     else
-      TARGET_COMMAND_STRING="--size Standard_DS3_v2"
+      TARGET_COMMAND_STRING="--size Standard_D4s_v3"
     fi
   fi
 
