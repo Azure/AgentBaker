@@ -7,7 +7,9 @@ import (
 )
 
 var (
-	E2EConfig                     = NewE2EConfig("", "")
+	Location                      = lookupEnvWithDefaultString("LOCATION", "westus3")
+	SubscriptionID                = lookupEnvWithDefaultString("SUBSCRIPTION_ID", "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8")
+	CustomConfig                  = NewCustomConfig(Location, SubscriptionID)
 	AirgapNSGName                 = "abe2e-airgap-securityGroup"
 	BuildID                       = lookupEnvWithDefaultString(os.Getenv("BUILD_ID"), "local")
 	DefaultSubnetName             = "aks-subnet"
@@ -29,17 +31,10 @@ type Config struct {
 	Azure             *AzureClient
 }
 
-func NewE2EConfig(location string, subscriptionID string) *Config {
+func NewCustomConfig(location string, subscriptionID string) *Config {
 	config := &Config{
-		Location:       lookupEnvWithDefaultString("LOCATION", "westus3"),
-		SubscriptionID: lookupEnvWithDefaultString("SUBSCRIPTION_ID", "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"),
-	}
-	if location != "" {
-		config.Location = location
-	}
-	if subscriptionID != "" {
-		config.SubscriptionID = subscriptionID
-
+		Location:       location,
+		SubscriptionID: subscriptionID,
 	}
 	config.ResourceGroupName = "abe2e-" + config.Location
 	config.Azure = MustNewAzureClient(config.SubscriptionID)
