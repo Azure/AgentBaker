@@ -84,11 +84,11 @@ else
   TARGET_COMMAND_STRING=""
   if [[ "${OS_TYPE}" == "Linux" ]]; then
     if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-      TARGET_COMMAND_STRING+="--size Standard_D2pds_v5"
+      TARGET_COMMAND_STRING+="--size Standard_D8pds_v5"
     elif [[ "${FEATURE_FLAGS,,}" == "kata" ]]; then
-      TARGET_COMMAND_STRING="--size Standard_D4ds_v5"
+      TARGET_COMMAND_STRING="--size Standard_D8ds_v5"
     else
-      TARGET_COMMAND_STRING="--size Standard_D4s_v3"
+      TARGET_COMMAND_STRING="--size Standard_D8ds_v5"
     fi
   fi
 
@@ -107,6 +107,7 @@ else
       --admin-username $TEST_VM_ADMIN_USERNAME \
       --admin-password $TEST_VM_ADMIN_PASSWORD \
       --ephemeral-os-disk true \
+      --ephemeral-os-disk-placement CacheDisk \
       --public-ip-address "" \
       ${TARGET_COMMAND_STRING}
       
