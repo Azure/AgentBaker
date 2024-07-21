@@ -112,7 +112,7 @@ ERR_CNI_VERSION_INVALID=206 # reference CNI (not azure cni) needs a valid versio
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
-if find /etc -type f -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
+if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 else
