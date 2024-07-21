@@ -7,9 +7,10 @@ TEST_VM_ADMIN_USERNAME=$3
 ARCHITECTURE=$4
 TRIVY_REPORT_NAME=$5
 TRIVY_TABLE_NAME=$6
-SIG_CONTAINER_NAME=$7
-STORAGE_ACCOUNT_NAME=$8
-ENABLE_TRUSTED_LAUNCH=$9
+TRIVY_VERSION_NAME=$7
+SIG_CONTAINER_NAME=$8
+STORAGE_ACCOUNT_NAME=$9
+ENABLE_TRUSTED_LAUNCH=$10
 
 if [[ "$OS_SKU" == "Ubuntu" ]] && [[ "$OS_VERSION" == "20.04" ]]; then
     sudo apt-get install -y azure-cli
@@ -45,6 +46,12 @@ else
 fi
 
 # trivy scan must have run before this
+az storage blob upload --file /opt/azure/containers/trivy-version.json \
+    --container-name ${SIG_CONTAINER_NAME} \
+    --name ${TRIVY_VERSION_NAME} \
+    --account-name ${STORAGE_ACCOUNT_NAME} \
+    --auth-mode login
+
 az storage blob upload --file /opt/azure/containers/trivy-report.json \
     --container-name ${SIG_CONTAINER_NAME} \
     --name ${TRIVY_REPORT_NAME} \
