@@ -301,6 +301,9 @@ installCNI() {
         return 
     fi
 
+    echo "extracting plugin version from $COMPONENTS_FILEPATH"
+    cat "$COMPONENTS_FILEPATH"
+
     #always just use what is listed in components.json so we don't have to sync.
     cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
     
