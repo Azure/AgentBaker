@@ -195,12 +195,12 @@ for p in ${packages[*]}; do
   returnPackageVersions ${p} ${OS} ${OS_VERSION}
   PACKAGE_DOWNLOAD_URL=""
   returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
-  echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS}\" \"${PACKAGE_DOWNLOAD_URL}\""
+  echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
   downloadDir=$(echo ${p} | jq .downloadLocation -r)
   #download the package
   case $name in
     "cri-tools")
-      for version in $PACKAGE_VERSIONS; do
+      for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadCrictl "${downloadDir}" "${evaluatedURL}"
         echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
@@ -211,7 +211,7 @@ for p in ${packages[*]}; do
       done
       ;;
     "azure-cni")
-      for version in $PACKAGE_VERSIONS; do
+      for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
         unpackAzureCNI "${evaluatedURL}"
@@ -219,7 +219,7 @@ for p in ${packages[*]}; do
       done
       ;;
     "cni-plugins")
-      for version in $PACKAGE_VERSIONS; do
+      for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadCNI "${downloadDir}" "${evaluatedURL}"
         unpackAzureCNI "${evaluatedURL}"
@@ -227,14 +227,14 @@ for p in ${packages[*]}; do
       done
       ;;
     "runc")
-      for version in $PACKAGE_VERSIONS; do
+      for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         ensureRunc "${version}" "${evaluatedURL}" "${downloadDir}"
         echo "  - runc version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "containerd")
-      for version in $PACKAGE_VERSIONS; do
+      for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
@@ -242,6 +242,19 @@ for p in ${packages[*]}; do
           installStandaloneContainerd "${version}"
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "kubernetes-binaries")
+      # kubelet and kubectl
+      # need to cover previously supported version for VMAS scale up scenario
+      # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
+      # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
+      # Please do not use the .1 suffix, because that's only for the base image patches
+      # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        extractKubeBinaries "${version}" "${evaluatedURL}" false "${downloadDir}"
+        echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     *)
@@ -464,34 +477,8 @@ fi
 cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
 rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
-# this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
-# So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
-# NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 
-# kube-proxy regular versions >=v1.17.0  hotfixes versions >= 20211009 are 'multi-arch'. All versions in kube-proxy-images.json are 'multi-arch' version now.
-
-KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
-
-declare -a kube_proxy_pids=()
-
-for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
-  kube_proxy_pids+=($!)
-  while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
-      wait -n
-  done
-done
-wait ${kube_proxy_pids[@]} # Wait for all parallel pulls to finish
-
-for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
-  ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
-
-  # shellcheck disable=SC2181
-  echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
-done
-capture_benchmark "configure_telemetry_create_logging_directory_and_download_kubeproxy_images"
+capture_benchmark "configure_telemetry_create_logging_directory"
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
@@ -555,22 +542,7 @@ if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
   done
 fi
 
-# kubelet and kubectl
-# need to cover previously supported version for VMAS scale up scenario
-# So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
-# NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
-# Please do not use the .1 suffix, because that's only for the base image patches
-# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
-KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
-
-# TODO (alburgess) oras for kublet and kubectl 
-for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
-  KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false
-done
-
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
-capture_benchmark "download_kubernetes_binaries"
 echo "install-dependencies step completed successfully"
 capture_benchmark "overall_script" true
 process_benchmarks
