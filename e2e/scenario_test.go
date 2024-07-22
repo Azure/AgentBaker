@@ -76,6 +76,8 @@ func Scenario_azurelinuxv2(t *testing.T) {
 	})
 }
 
+// alburgess airgap test here
+// config *datamodel.NodeBootstrappingConfiguration
 func Scenario_azurelinuxv2AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
@@ -88,6 +90,7 @@ func Scenario_azurelinuxv2AirGap(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
+				nbc.OutboundType = datamodel.OutboundTypeBlock
 			},
 		},
 	})
@@ -130,6 +133,7 @@ func Scenario_azurelinuxv2ARM64AirGap(t *testing.T) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-arm64-gen2"
 				nbc.IsARM64 = true
+				nbc.OutboundType = datamodel.OutboundTypeBlock
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
@@ -314,6 +318,7 @@ func Scenario_marinerv2AirGap(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
+				nbc.OutboundType = datamodel.OutboundTypeBlock
 			},
 		},
 	})
@@ -356,6 +361,7 @@ func Scenario_marinerv2ARM64AirGap(t *testing.T) {
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-arm64-gen2"
 				nbc.IsARM64 = true
+				nbc.OutboundType = datamodel.OutboundTypeNone
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
@@ -637,6 +643,7 @@ func Scenario_ubuntu2204AirGap(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.OutboundType = datamodel.OutboundTypeNone
 			},
 		},
 	})

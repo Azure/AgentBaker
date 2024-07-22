@@ -167,7 +167,7 @@ fi
 
 # installs oras for installing packages for network isolated clusters 
 installOras
-# TODO (alburgess) need to do 'oras login' with credentials before oras can be pulled
+# TODO (alburgess) need to do 'oras login' with credentials before oras can be used
 
 # TODO (alburgess) orsa for WASM shims
 downloadContainerdWasmShims
@@ -457,6 +457,7 @@ for CREDENTIAL_PROVIDER_VERSION in $CREDENTIAL_PROVIDER_VERSIONS; do
       # TODO (alburgess) change mcr.microsoft.com to the passed in private endpoint url from RP
       CREDENTIAL_PROVIDER_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}" # URL will be passed from RP <URL>/oss/binaries/kubernetes/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}
       downloadCredentialProviderWithOras $CREDENTIAL_PROVIDER_DOWNLOAD_URL
+      echo "Installed credenital provider within blocked outbound if" >> ${VHD_LOGS_FILEPATH}
     else 
       CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
       downloadCredentialProvider $CREDENTIAL_PROVIDER_DOWNLOAD_URL
