@@ -2235,9 +2235,23 @@ type PrivateEgress struct {
 	ProxyAddress            string `json:"proxyAddress"`
 }
 
+func (s *SecurityProfile) EnableBootstrapProfileContainerRegistry() bool {
+	if s != nil && s.PrivateEgress != nil && s.PrivateEgress.Enabled {
+		return true
+	}
+	return false
+}
+
 func (s *SecurityProfile) GetProxyAddress() string {
 	if s != nil && s.PrivateEgress != nil && s.PrivateEgress.Enabled {
 		return s.PrivateEgress.ProxyAddress
+	}
+	return ""
+}
+
+func (s *SecurityProfile) GetContainerRegistryServer() string {
+	if s != nil && s.PrivateEgress != nil && s.PrivateEgress.Enabled {
+		return s.PrivateEgress.ContainerRegistryServer
 	}
 	return ""
 }
