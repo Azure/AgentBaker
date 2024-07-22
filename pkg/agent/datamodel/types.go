@@ -2242,4 +2242,11 @@ func (s *SecurityProfile) GetProxyAddress() string {
 	return ""
 }
 
+func (s *SecurityProfile) GetContainerRegistryServer() string {
+	if s != nil && s.PrivateEgress != nil && s.PrivateEgress.Enabled {
+		return s.PrivateEgress.ContainerRegistryServer
+	}
+	return ""
+}
+
 // SecurityProfile end.

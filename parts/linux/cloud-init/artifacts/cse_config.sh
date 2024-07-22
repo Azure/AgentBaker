@@ -332,6 +332,14 @@ EOF
     echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   fi
 
+  mkdir -p /etc/containerd/certs.d/mcr.microsoft.com
+  tee "/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml" > /dev/nul <<EOF
+server = "https://mcr.microsoft.com"
+
+[host."https://${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}"]
+  capabilities = ["pull", "resolve"]
+EOF
+
   tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
 net.ipv4.ip_forward = 1
 net.ipv4.conf.all.forwarding = 1
