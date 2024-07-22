@@ -167,6 +167,7 @@ fi
 
 # installs oras for installing packages for network isolated clusters 
 installOras
+# TODO (alburgess) need to do 'oras login' with credentials before oras can be pulled
 
 # TODO (alburgess) orsa for WASM shims
 downloadContainerdWasmShims
@@ -452,12 +453,14 @@ CREDENTIAL_PROVIDER_VERSIONS="
 "
 # TODO (alburgess) oras for credential provider
 for CREDENTIAL_PROVIDER_VERSION in $CREDENTIAL_PROVIDER_VERSIONS; do
-    # if BLOCK_OUTBOUND_NETWORK 
-    # CREDENTIAL_PROVIDER_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}" // URL will be passed from RP <URL>/oss/binaries/kubernetes/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}
-    # downloadCredentialProvider $CREDENTIAL_PROVIDER_DOWNLOAD_URL
-    # else 
-    CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
-    downloadCredentialProvider $CREDENTIAL_PROVIDER_DOWNLOAD_URL
+    if $BLOCK_OUTBOUND_NETWORK; then
+      # TODO (alburgess) change mcr.microsoft.com to the passed in private endpoint url from RP
+      CREDENTIAL_PROVIDER_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}" # URL will be passed from RP <URL>/oss/binaries/kubernetes/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}
+      downloadCredentialProviderWithOras $CREDENTIAL_PROVIDER_DOWNLOAD_URL
+    else 
+      CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
+      downloadCredentialProvider $CREDENTIAL_PROVIDER_DOWNLOAD_URL
+    fi
     echo "  - Kubelet credential provider version ${CREDENTIAL_PROVIDER_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
