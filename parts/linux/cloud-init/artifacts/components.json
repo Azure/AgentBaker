@@ -360,7 +360,7 @@
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.5.0",
+        "1.7.0",
         "1.4.0",
         "1.3.1"
       ]
