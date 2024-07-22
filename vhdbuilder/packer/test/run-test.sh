@@ -84,7 +84,7 @@ else
   TARGET_COMMAND_STRING=""
   if [[ "${OS_TYPE}" == "Linux" ]]; then
     if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-      TARGET_COMMAND_STRING+="--size Standard_D16pds_v5"
+      TARGET_COMMAND_STRING+="--size Standard_D8pds_v5"
     elif [[ "${FEATURE_FLAGS,,}" == "kata" ]]; then
       TARGET_COMMAND_STRING="--size Standard_D8ds_v5"
     else
