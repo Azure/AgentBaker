@@ -72,7 +72,7 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-username $TEST_VM_ADMIN_USERNAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --ephemeral-os-disk true \
-    --ephemeral-os-disk-placement CacheDisk \
+    --ephemeral-os-disk-placement ResourceDisk \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
     --assign-identity "[system]"
