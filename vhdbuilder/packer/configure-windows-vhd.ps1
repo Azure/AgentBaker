@@ -812,11 +812,14 @@ function Log-ReofferUpdate {
 
 function Test-AzureExtensions {
     # Expect the Windows VHD without any other extensions
-    $actualExtensions = (Get-ChildItem "C:\Packages\Plugins").Name
-    if ($actualExtensions.Length -gt 0) {
-        Write-Log "Azure extensions are not expected. Details: $($actualExtensions | Out-String)"
-        exit 1
+    if (Test-Path "C:\Packages\Plugins") {
+        $actualExtensions = (Get-ChildItem "C:\Packages\Plugins").Name
+        if ($actualExtensions.Length -gt 0) {
+            Write-Log "Azure extensions are not expected. Details: $($actualExtensions | Out-String)"
+            exit 1
+        }
     }
+    Write-Log "Azure extensions are not found"
 }
 
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
