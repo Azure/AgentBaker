@@ -812,6 +812,10 @@ function Log-ReofferUpdate {
 
 function Test-AzureExtensions {
     # Expect the Windows VHD without any other extensions
+    if (-not (Test-Path "C:\Packages\Plugins")) {
+        Write-Log "Azure extensions are not found"
+        return
+    }
     $actualExtensions = (Get-ChildItem "C:\Packages\Plugins").Name
     if ($actualExtensions.Length -gt 0) {
         Write-Log "Azure extensions are not expected. Details: $($actualExtensions | Out-String)"
