@@ -3,11 +3,14 @@ import os
 import urllib
 import urllib.request
 
+COMPONENTS_JSON_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../parts/linux/cloud-init/artifacts/components.json')
+
 
 def main():
     version_map = get_all_supported_k8s_patch_versions()
-    update_components_json(version_map)
-    update_manifest_cue(version_map)
+    current_kube_proxy_image_tags = load_curent_kube_proxy_image_tags()
+    update_components_json_file_kubernetes_binaries(version_map)
+    update_components_json_file_kube_proxy_image_tags(version_map, current_kube_proxy_image_tags)
     update_generate_windows_vhd_configuration_ps1(version_map)
 
 
@@ -35,21 +38,81 @@ def get_kube_proxy_latest_patch(major_minor_version):
 
 # Load the current k8s major_minor versions from manifest.json file
 def load_curent_k8s_major_minor_versions():
-    print("Loading current k8s major_minor versions from manifest.json file")
-    dir = os.path.dirname(os.path.abspath(__file__))
-    manifest_json_file = os.path.join(dir, '../../parts/linux/cloud-init/artifacts/manifest.json')
-    with open(manifest_json_file) as f:
-        # git rid of the ending line "#EOF"
-        content = f.read()
-        content = content.replace('#EOF', '')
-        manifest = json.loads(content)
-        versions = manifest['kubernetes']['versions']
+    print(f'Loading current k8s major_minor versions from {COMPONENTS_JSON_FILE}')
+    with open(COMPONENTS_JSON_FILE) as f:
+        components = json.load(f)
         major_minor_versions = set()
-        for version in versions:
-            major_minor_versions.add('.'.join(version.split('.')[:2]))
+        for package in components['Packages']:
+            if package['name'] == 'kubernetes-binaries':
+                for version in package['downloadURIs']['default']['current']['versions']:
+                    major_minor_versions.add('.'.join(version.split('.')[:2]))
+                break
         major_minor_versions = sorted(major_minor_versions)
         print(f"found {len(major_minor_versions)} major_minor versions: {', '.join(major_minor_versions)}")
         return major_minor_versions
+
+
+def load_curent_kube_proxy_image_tags():
+    with open(COMPONENTS_JSON_FILE) as f:
+        components = json.load(f)
+        current_kube_proxy_image_tags = []
+        for container_image in components['ContainerImages']:
+            if container_image['downloadURL'] == 'mcr.microsoft.com/oss/kubernetes/kube-proxy:*':
+                for img in container_image['multiArchVersions']:
+                    current_kube_proxy_image_tags.append(img)
+                break
+        return current_kube_proxy_image_tags
+
+
+# we keep 3 latest patch version so we always have the latest 2 cached in VHD
+# even RP didn't add the latest patch version yet
+def update_components_json_file_kubernetes_binaries(version_map):
+    print(f"updating kubernetes-binaries in {COMPONENTS_JSON_FILE}")
+    versions = get_latest_n_patch_versions(version_map, 3)
+    for v in versions:
+        _make_sure_k8s_tar_exist(v)
+    tmp_file = COMPONENTS_JSON_FILE + '.tmp'
+    with open(COMPONENTS_JSON_FILE) as f, open(tmp_file, 'w') as tmp:
+        components = json.load(f)
+        kubernetes_binaries_index = -1
+        for idx, package in enumerate(components['Packages']):
+            if package['name'] == 'kubernetes-binaries':
+                kubernetes_binaries_index = idx
+        components['Packages'][kubernetes_binaries_index]['downloadURIs']['default']['current']['versions'] = versions
+        json.dump(components, tmp, indent=2)
+        tmp.write('\n')
+        os.replace(tmp_file, COMPONENTS_JSON_FILE)
+
+
+def update_components_json_file_kube_proxy_image_tags(version_map, current_kube_proxy_image_tags):
+    print(f"updating kubernetes-proxy in {COMPONENTS_JSON_FILE}")
+    versions_need_cache = get_latest_n_patch_versions(version_map, 3)
+    current_kube_proxy_versions = set([_img_tag_to_version(img) for img in current_kube_proxy_image_tags])
+    tmp_file = COMPONENTS_JSON_FILE + '.tmp'
+    with open(COMPONENTS_JSON_FILE) as f, open(tmp_file, 'w') as tmp:
+        components = json.load(f)
+        kube_proxy_container_image_index = -1
+        for idx, container_image in enumerate(components['ContainerImages']):
+            if container_image['downloadURL'] == 'mcr.microsoft.com/oss/kubernetes/kube-proxy:*':
+                kube_proxy_container_image_index = idx 
+                break
+
+        goal_image_tags = []
+        # delete patches that are not latest 3 patches
+        for img in current_kube_proxy_image_tags:
+            if _img_tag_to_version(img) in versions_need_cache:
+                goal_image_tags.append(img)
+        # add new if not exist
+        for v in versions_need_cache:
+            if v not in current_kube_proxy_versions:
+                latest_img = get_kube_proxy_latest_image_tag(v)
+                goal_image_tags.append(latest_img)
+        goal_image_tags.sort(key=lambda x: tuple(map(int, _img_tag_to_version(x).split('.'))))
+
+        components['ContainerImages'][kube_proxy_container_image_index]['multiArchVersions'] = goal_image_tags
+        json.dump(components, tmp, indent=2)
+        tmp.write('\n')
+        os.replace(tmp_file, COMPONENTS_JSON_FILE)
 
 
 def calculate_supported_patches(major_minor_version):
@@ -85,34 +148,6 @@ def get_latest_n_patch_versions(version_map, n):
     return sorted(versions, key=lambda x: tuple(map(int, x.split('.'))))
 
 
-def update_manifest_cue(version_map):
-    """
-    update schemas/manifest.cue, replace content between '__AUTO_ADD_START_' and 'AUTO_ADD_END__' lines with versions
-    we keep 3 latest patch version so we always have the latest 2 cached in VHD even RP didn't add the latest patch version yet
-    """
-    print("updating manifest.cue file")
-    versions = get_latest_n_patch_versions(version_map, 3)
-    for v in versions:
-        _make_sure_k8s_tar_exist(v)
-    manifest_cue_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../schemas/manifest.cue')
-    # open a temp file to write the updated content, then replace the original file
-    tmp_file = manifest_cue_file + '.tmp'
-    with open(manifest_cue_file) as f, open(tmp_file, 'w') as tmp:
-        for line in f:
-            if '__AUTO_ADD_START__' in line:
-                tmp.write(line)
-                for version in versions:
-                    tmp.write(f'            "{version}",\n')
-                line = f.readline()
-                while '__AUTO_ADD_END__' not in line:
-                    line = f.readline()
-                    pass
-                tmp.write(line)
-            else:
-                tmp.write(line)
-        os.replace(tmp_file, manifest_cue_file)
-
-
 def update_generate_windows_vhd_configuration_ps1(version_map):
     """
     update ../../vhdbuilder/packer/generate-windows-vhd-configuration.ps1, replace content between '__AUTO_ADD_START_' and 'AUTO_ADD_END__' lines with:
@@ -123,7 +158,7 @@ def update_generate_windows_vhd_configuration_ps1(version_map):
     print("updating generate-windows-vhd-configuration.ps1 file")
     versions = get_latest_n_patch_versions(version_map, 4)
     for v in versions:
-        _make_sure_k8s_tar_exist(v)
+        _make_sure_windowszip_exist(v)
     ps1_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../vhdbuilder/packer/generate-windows-vhd-configuration.ps1')
     # open a temp file to write the updated content, then replace the original file
     tmp_file = ps1_file + '.tmp'
@@ -142,45 +177,6 @@ def update_generate_windows_vhd_configuration_ps1(version_map):
             else:
                 tmp.write(line)
         os.replace(tmp_file, ps1_file)
-
-
-def update_components_json(version_map):
-    """
-    update ../../parts/linux/cloud-init/artifacts/components.json
-    we don't update exist images, but only add new and remove old
-    keep the latest 3 patch versions for each major_minor version so we always have the latest 2 cached in VHD
-    """
-    components_json_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../parts/linux/cloud-init/artifacts/components.json')
-    tmp_file = components_json_file + '.tmp'
-    with open(components_json_file) as f, open(tmp_file, 'w') as tmp:
-        components = json.load(f)
-        kube_proxy_container_image_index = -1
-        current_kube_proxy_image_tags = []
-        for idx, container_image in enumerate(components['ContainerImages']):
-            if container_image['downloadURL'] == 'mcr.microsoft.com/oss/kubernetes/kube-proxy:*':
-                kube_proxy_container_image_index = idx 
-                for img in container_image['multiArchVersions']:
-                    current_kube_proxy_image_tags.append(img)
-                break
-        current_kube_proxy_versions = set([_img_tag_to_version(img) for img in current_kube_proxy_image_tags])
-
-        versions_need_cache = get_latest_n_patch_versions(version_map, 3)
-        goal_image_tags = []
-        # delete patches that are not latest 3 patches
-        for img in current_kube_proxy_image_tags:
-            if _img_tag_to_version(img) in versions_need_cache:
-                goal_image_tags.append(img)
-        # add new if not exist
-        for v in versions_need_cache:
-            if v not in current_kube_proxy_versions:
-                latest_img = get_kube_proxy_latest_image_tag(v)
-                goal_image_tags.append(latest_img)
-        goal_image_tags.sort(key=lambda x: tuple(map(int, _img_tag_to_version(x).split('.'))))
-
-        components['ContainerImages'][kube_proxy_container_image_index]['multiArchVersions'] = goal_image_tags
-        json.dump(components, tmp, indent=2)
-        tmp.write('\n')
-        os.replace(tmp_file, components_json_file)
 
 
 def _img_tag_to_version(img_tag):
