@@ -46,7 +46,7 @@ installBcc() {
     fi
 
     # Installing it separately here because python3-distutils is not present in the Ubuntu packages for 24.04
-    if [[ "${VERSION}" == "22.04" ]]; then
+    if [[ "${VERSION}" == "24.04" ]]; then
       apt_get_install 120 5 300 python3-distutils || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
 
