@@ -816,6 +816,8 @@ function Test-AzureExtensions {
     if ($actualExtensions.Length -gt 0) {
         Write-Log "Azure extensions are not expected. Details: $($actualExtensions | Out-String)"
         exit 1
+    } else {
+        Write-Log "Azure extensions are not found"
     }
 }
 
