@@ -59,7 +59,9 @@
                 "os": "Windows",
                 "now": "{{user `create_time`}}",
                 "createdBy": "aks-vhd-pipeline",
-                "SkipASMAzSecPack": "True"
+                "SkipASMAzSecPack": "True",
+                "SkipASMAV" : "True",
+                "SkipCIExtensionAudit": "True"
             },
             "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
             "virtual_network_name": "{{user `vnet_name`}}",
