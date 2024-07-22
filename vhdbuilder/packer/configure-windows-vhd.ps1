@@ -810,6 +810,15 @@ function Log-ReofferUpdate {
     }
 }
 
+function Test-AzureExtensions {
+    # Expect the Windows VHD without any other extensions
+    $actualExtensions = (Get-ChildItem "C:\Packages\Plugins").Name
+    if ($actualExtensions.Length -gt 0) {
+        Write-Log "Azure extensions are not expected. Details: $($actualExtensions | Out-String)"
+        exit 1
+    }
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -847,6 +856,7 @@ try{
             Cleanup-TemporaryFiles
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
             Validate-VHDFreeSize
+            Test-AzureExtensions
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"
