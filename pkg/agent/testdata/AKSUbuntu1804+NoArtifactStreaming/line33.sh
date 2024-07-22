@@ -111,6 +111,7 @@ fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
     logs_to_events "AKS.CSE.installDeps" installDeps
+    logs_to_events "AKS.CSE.installOras" installOras
 else
     echo "Golden image; skipping dependencies installation"
 fi

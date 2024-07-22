@@ -52,8 +52,6 @@ installDeps() {
             exit $ERR_APT_INSTALL_TIMEOUT
         fi
     done
-
-    installOras
 }
 
 updateAptWithMicrosoftPkg() {
