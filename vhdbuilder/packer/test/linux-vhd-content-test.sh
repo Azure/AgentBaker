@@ -369,10 +369,7 @@ testKubeBinariesPresent() {
   echo "$test:Start"
   local kubeBinariesVersions=("$@")
   binaryDir=/usr/local/bin
-  # randomly pick 3 versions to test to save testing time
-  pickedElements=$(printf "%s\n" "${kubeBinariesVersions[@]}" | shuf | head -n 3)
-  readarray -t pickedVersions <<< "$pickedElements"
-  for patchedK8sVersion in "${pickedVersions[@]}"; do
+  for patchedK8sVersion in "${kubeBinariesVersions[@]}"; do
     echo "checking kubeBinariesVersions: $patchedK8sVersion ..."
     # strip the last .1 as that is for base image patch for hyperkube
     if grep -iq hotfix <<<${patchedK8sVersion}; then
