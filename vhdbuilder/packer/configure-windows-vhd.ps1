@@ -844,6 +844,7 @@ try{
             Set-WinRmServiceAutoStart
             Install-ContainerD
             Update-Registry
+            Test-AzureExtensions
             Get-ContainerImages
             Get-FilesToCacheOnVHD
             Get-ToolsToVHD # Rely on the completion of Get-FilesToCacheOnVHD
