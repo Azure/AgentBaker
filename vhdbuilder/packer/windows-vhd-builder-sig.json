@@ -61,7 +61,6 @@
                 "createdBy": "aks-vhd-pipeline",
                 "SkipASMAzSecPack": "True",
                 "SkipASMAV": "True",
-                "SkipCIExtensionAudit": "True",
                 "SkipCIEmergency": "True"
             },
             "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
