@@ -55,6 +55,8 @@ EOF
 fi
 capture_benchmark "purge_and_reinstall_ubuntu"
 
+installOras
+
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
