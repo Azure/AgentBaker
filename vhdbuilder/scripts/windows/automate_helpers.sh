@@ -116,6 +116,7 @@ create_pull_request() {
         sed -i "/What type of PR is this?/a\/kind documentation" .github/PULL_REQUEST_TEMPLATE.md
         sed -i "/What this PR does/a\Add windows image release notes for new AKS Windows images with ${image_version}B. Reference: #[xxxxx]." .github/PULL_REQUEST_TEMPLATE.md
         sed -i 's/\[ \] uses/\[x\] uses/g' .github/PULL_REQUEST_TEMPLATE.md
+        sed -i 's/\[ \] includes/\[x\] includes/g' .github/PULL_REQUEST_TEMPLATE.md
         body_content=$(sed 's/$/\\n/' .github/PULL_REQUEST_TEMPLATE.md | tr -d '\n')
     else
         sed -i "/What type of PR is this?/a\/kind feature" .github/PULL_REQUEST_TEMPLATE.md
