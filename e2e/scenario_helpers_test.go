@@ -23,8 +23,8 @@ func RunScenario(t *testing.T, s *Scenario) {
 	ctx, cancel = context.WithTimeout(ctx, config.TestTimeout)
 	t.Cleanup(cancel)
 
-	maybeSkipScenario(ctx, t, s)
 	config.CustomConfig = config.NewCustomConfig(s.Config.Location, s.Config.SubscriptionID)
+	maybeSkipScenario(ctx, t, s)
 	err := ensureResourceGroup(context.TODO())
 	require.NoError(t, err)
 	model, err := s.Cluster(ctx, t)

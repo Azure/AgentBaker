@@ -34,15 +34,15 @@ type Config struct {
 
 func NewCustomConfig(location string, subscriptionID string) *Config {
 	customConfig := &Config{
-		Location:       location,
-		SubscriptionID: subscriptionID,
+		Location:       Location,
+		SubscriptionID: SubscriptionID,
 	}
-	//if location != "" {
-	//	customConfig.Location = location
-	//}
-	//if subscriptionID != "" {
-	//	customConfig.SubscriptionID = subscriptionID
-	//}
+	if location != "" {
+		customConfig.Location = location
+	}
+	if subscriptionID != "" {
+		customConfig.SubscriptionID = subscriptionID
+	}
 	customConfig.ResourceGroupName = "abe2e-" + customConfig.Location
 	customConfig.Azure = MustNewAzureClient(customConfig.SubscriptionID)
 	return customConfig
