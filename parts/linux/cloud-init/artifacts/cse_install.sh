@@ -18,7 +18,8 @@ TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 CREDENTIAL_PROVIDER_DOWNLOAD_DIR="/opt/credentialprovider/downloads"
 CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
-CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1 v0.8.0"
+CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1 v0.8.0 v0.11.1"
+CONTAINERD_WASM_VERSIONS_WWS=("v0.8.0" "v0.11.1")
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 COMPONENTS_FILEPATH="/opt/azure/components.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
@@ -155,7 +156,7 @@ downloadContainerdWasmShims() {
             wasmShimPids+=($!)
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
             wasmShimPids+=($!)
-            if [ "$shim_version" == "v0.8.0" ]; then
+            if [[ " ${shim_versions[@]} " =~ " ${shim_version} " ]]; then
                 retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
                 wasmShimPids+=($!)
             fi
@@ -166,7 +167,7 @@ downloadContainerdWasmShims() {
         binary_version="$(echo "${shim_version}" | tr . -)"
         chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
         chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
-        if [ "$shim_version" == "v0.8.0" ]; then
+        if [[ " ${shim_versions[@]} " =~ " ${shim_version} " ]]; then
             chmod 755 "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1"
         fi
     done
