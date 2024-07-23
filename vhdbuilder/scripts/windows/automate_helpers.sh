@@ -101,7 +101,7 @@ create_pull_request() {
     else
         post_purpose="bump windows image version"
         title="feat: $post_purpose for ${image_version}B"
-        labels="\"windows\""
+        labels="\"windows\", \"VHD\""
     fi
     
     echo "to add git commit feat: $post_purpose for $image_version"
