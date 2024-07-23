@@ -676,9 +676,6 @@ function Update-Registry {
         Enable-WindowsFixInFeatureManagement -Name 2540111500
         Enable-WindowsFixInFeatureManagement -Name 50261647
         Enable-WindowsFixInFeatureManagement -Name 1475968140
-
-        Write-Log "Enable 1 fix in 2024-07B"
-        Enable-WindowsFixInFeatureManagement -Name 747051149
     }
 
     if ($env:WindowsSKU -Like '23H2*') {
@@ -813,6 +810,18 @@ function Log-ReofferUpdate {
     }
 }
 
+function Test-AzureExtensions {
+    # Expect the Windows VHD without any other extensions
+    if (Test-Path "C:\Packages\Plugins") {
+        $actualExtensions = (Get-ChildItem "C:\Packages\Plugins").Name
+        if ($actualExtensions.Length -gt 0) {
+            Write-Log "Azure extensions are not expected. Details: $($actualExtensions | Out-String)"
+            exit 1
+        }
+    }
+    Write-Log "Azure extensions are not found"
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -850,6 +859,7 @@ try{
             Cleanup-TemporaryFiles
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
             Validate-VHDFreeSize
+            Test-AzureExtensions
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"
