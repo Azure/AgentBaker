@@ -159,7 +159,8 @@ installOras() {
             echo "Oras version $ORAS_VERSION is already installed."
             return
         else
-            echo "Oras is installed but has the wrong version $INSTALLED_ORAS_VERSION != $ORAS_VERSION. Keeping installed version."
+            echo "Oras is installed but has the wrong version $INSTALLED_ORAS_VERSION != $ORAS_VERSION. Keeping old version."
+            return
         fi
     fi
 
