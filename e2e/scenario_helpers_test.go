@@ -23,7 +23,6 @@ func RunScenario(t *testing.T, s *Scenario) {
 	ctx, cancel = context.WithTimeout(ctx, config.TestTimeout)
 	t.Cleanup(cancel)
 
-	config.CustomConfig = config.NewCustomConfig(config.Location, config.SubscriptionID)
 	maybeSkipScenario(ctx, t, s)
 	config.CustomConfig = config.NewCustomConfig(s.Config.Location, s.Config.SubscriptionID)
 	err := ensureResourceGroup(context.TODO())

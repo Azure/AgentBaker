@@ -22,7 +22,8 @@ func TestAll(t *testing.T) {
 	t.Run("azurelinuxv2-azurecni", Scenario_azurelinuxv2_azurecni)
 	t.Run("azurelinuxv2-chrony-restarts", Scenario_azurelinuxv2ChronyRestarts)
 	t.Run("azurelinuxv2-custom-sysctls", Scenario_azurelinuxv2CustomSysctls)
-	t.Run("azurelinuxv2-gpu", Scenario_azurelinuxv2gpu)
+	t.Run("azurelinuxv2-gpu-ncv", Scenario_azurelinuxv2gpuncv)
+	t.Run("azurelinuxv2-gpu-nd-a100", Scenario_azurelinuxv2gpuNDA100)
 	t.Run("azurelinuxv2-gpu-azurecni", Scenario_azurelinuxv2gpu_azurecni)
 	t.Run("azurelinuxv2-wasm", Scenario_azurelinuxv2Wasm)
 	t.Run("marinerv2", Scenario_marinerv2)
@@ -213,10 +214,18 @@ func Scenario_azurelinuxv2CustomSysctls(t *testing.T) {
 	})
 }
 
+func Scenario_azurelinuxv2gpuncv(t *testing.T) {
+	RunScenario(t, azurelinuxv2gpu("azurelinuxv2-gpu-ncv3", "Standard_NC6s_v3", "", ""))
+}
+
+func Scenario_azurelinuxv2gpuNDA100(t *testing.T) {
+	RunScenario(t, azurelinuxv2gpu("azurelinuxv2-gpu-nda100", "Standard_ND96amsr_A100_v4", "4f3dc0e4-0c77-40ff-bf9a-6ade1e3048ef", "westeurope"))
+}
+
 // Returns config for the 'gpu' E2E scenario
-func Scenario_azurelinuxv2gpu(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a GPU-enabled node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
+func azurelinuxv2gpu(name string, vmSize string, subscriptionID string, location string) *Scenario {
+	return &Scenario{
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an AzureLinuxV2 VHD can be properly bootstrapped", vmSize),
 		Tags: Tags{
 			GPU: true,
 		},
@@ -224,19 +233,21 @@ func Scenario_azurelinuxv2gpu(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = vmSize
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = to.Ptr(vmSize)
 			},
+			Location:       location,
+			SubscriptionID: subscriptionID,
 		},
-	})
+	}
 }
 
 func Scenario_azurelinuxv2gpu_azurecni(t *testing.T) {
