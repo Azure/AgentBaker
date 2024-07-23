@@ -178,7 +178,9 @@ function DownloadFileOverHttp {
         [Parameter(Mandatory = $true)][string]
         $DestinationPath,
         [Parameter(Mandatory = $true)][int]
-        $ExitCode
+        $ExitCode,
+        [Parameter(Mandatory = $false)][bool]
+        $UseManagedIdentityAuth
     )
 
     # First check to see if a file with the same name is already cached on the VHD
@@ -207,9 +209,18 @@ function DownloadFileOverHttp {
         $oldProgressPreference = $ProgressPreference
         $ProgressPreference = 'SilentlyContinue'
 
+        if ($UseManagedIdentityAuth) {
+            $oauthResp = Invoke-RestMethod -Uri 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fstorage.azure.com%2F' -Headers @{Metadata='true'}
+            $storageAccessToken = $oauthResp.access_token
+        }
+
         $downloadTimer = [System.Diagnostics.Stopwatch]::StartNew()
         try {
             $args = @{Uri=$Url; Method="Get"; OutFile=$DestinationPath}
+            if ($UseManagedIdentityAuth) {
+                $args["x-ms-version"] = "2017-11-09"
+                $args["Authorization"] = "Bearer $storageAccessToken"
+            }
             Retry-Command -Command "Invoke-RestMethod" -Args $args -Retries 5 -RetryDelaySeconds 10
         } catch {
             Set-ExitCode -ExitCode $ExitCode -ErrorMessage "Failed in downloading $Url. Error: $_"
