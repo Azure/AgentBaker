@@ -22,7 +22,7 @@ find_latest_image_version() {
     latest_image_version_2022=$(az vm image show --urn MicrosoftWindowsServer:WindowsServer:2022-Datacenter-Core-smalldisk:latest --query 'id' -o tsv | awk -F '/' '{print $NF}')
     latest_image_version_2022_g2=$(az vm image show --urn MicrosoftWindowsServer:WindowsServer:2022-Datacenter-Core-smalldisk-g2:latest --query 'id' -o tsv | awk -F '/' '{print $NF}')
     latest_image_version_23H2=$(az vm image show --urn MicrosoftWindowsServer:WindowsServer:23h2-datacenter-core:latest --query 'id' -o tsv | awk -F '/' '{print $NF}')
-    latest_image_version_23H2_g2=$$(az vm image show --urn MicrosoftWindowsServer:WindowsServer:23h2-datacenter-core-g2:latest --query 'id' -o tsv | awk -F '/' '{print $NF}')
+    latest_image_version_23H2_g2=$(az vm image show --urn MicrosoftWindowsServer:WindowsServer:23h2-datacenter-core-g2:latest --query 'id' -o tsv | awk -F '/' '{print $NF}')
     echo "Latest windows 2019 base image version is: ${latest_image_version_2019}"
     echo "Latest windows 2022 base image version is: ${latest_image_version_2022}"
     echo "Latest windows 2022 Gen 2 base image version is: ${latest_image_version_2022_g2}"
