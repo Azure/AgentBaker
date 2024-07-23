@@ -66,7 +66,7 @@ installContainerdWithComponentsJson() {
     # containerd version is expected to be in the format major.minor.patch-hotfix
     # e.g., 1.4.3-1. Then containerdMajorMinorPatchVersion=1.4.3 and containerdHotFixVersion=1
     containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
-    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
+    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
     if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
         echo "invalid containerd version: $packageVersion"
         exit $ERR_CONTAINERD_VERSION_INVALID
