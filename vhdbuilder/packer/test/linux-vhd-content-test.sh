@@ -92,7 +92,7 @@ testPackagesInstalled() {
     returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
     if [ ${name} == "kubernetes-binaries" ]; then
       # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
-      testKubeBinariesPresent $PACKAGE_VERSIONS
+      testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
       continue
     fi
 
@@ -367,10 +367,10 @@ testCloudInit() {
 testKubeBinariesPresent() {
   test="testKubeBinaries"
   echo "$test:Start"
-  local kubeBinariesVersions=$1
+  local kubeBinariesVersions=("$@")
   binaryDir=/usr/local/bin
-  
-  for patchedK8sVersion in ${kubeBinariesVersions}; do
+  for patchedK8sVersion in "${kubeBinariesVersions[@]}"; do
+    echo "checking kubeBinariesVersions: $patchedK8sVersion ..."
     # strip the last .1 as that is for base image patch for hyperkube
     if grep -iq hotfix <<<${patchedK8sVersion}; then
       # shellcheck disable=SC2006
@@ -391,16 +391,12 @@ testKubeBinariesPresent() {
       err $test "Binary ${kubectlDownloadLocation} does not exist"
     fi
     #Test whether the installed binary version is indeed correct
-    mv $kubeletDownloadLocation $kubeletInstallLocation
-    mv $kubectlDownloadLocation $kubectlInstallLocation
-    chmod a+x $kubeletInstallLocation $kubectlInstallLocation
-    echo "kubectl version"
-    kubectlLongVersion=$(kubectl version 2>/dev/null)
+    chmod a+x $kubeletDownloadLocation $kubectlDownloadLocation
+    kubectlLongVersion=$(${kubectlDownloadLocation} version 2>/dev/null)
     if [[ ! $kubectlLongVersion =~ $k8sVersion ]]; then
       err $test "The kubectl version is not correct: expected kubectl version $k8sVersion existing: $kubectlLongVersion"
     fi
-    echo "kubelet version"
-    kubeletLongVersion=$(kubelet --version 2>/dev/null)
+    kubeletLongVersion=$(${kubeletDownloadLocation} --version 2>/dev/null)
     if [[ ! $kubeletLongVersion =~ $k8sVersion ]]; then
       err $test "The kubelet version is not correct: expected kubelet version $k8sVersion existing: $kubeletLongVersion"
     fi

@@ -44,7 +44,7 @@ steps:
           echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$sigGalleryName"; \
           echo "##vso[task.setvariable variable=SIG_IMAGE_VERSION]1.0.0"; \
           echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]True"; \
-          echo "##vso[task.setvariable variable=SKIPVALIDATEREOFFERUPDATE]False"; \
+          echo "##vso[task.setvariable variable=SKIPVALIDATEREOFFERUPDATE]True"; \
       fi
       echo "Set build mode to $m" && \
       echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]$sigImageName" && \
