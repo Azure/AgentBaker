@@ -21,7 +21,7 @@ import (
 // this will avoid potential conflicts with tests running on other branches
 // there is no strict rules or a hidden meaning for the version
 // testClusterNamePrefix is also used for versioning cluster configurations
-const testClusterNamePrefix = "abe2e-v20240704-"
+const testClusterNamePrefix = "abe2e-v20240724-"
 
 var (
 	clusterKubenet       *Cluster
