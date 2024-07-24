@@ -810,12 +810,9 @@ func ubuntu2204gpu(name string, vmSize string, subscriptionID string, location s
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
-				//nbc.SubscriptionID = subscriptionID
-				//nbc.ContainerService.Location = location
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
-				vmss.Location = to.Ptr(location)
 			},
 			SubscriptionID: subscriptionID,
 			Location:       location,
