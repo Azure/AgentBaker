@@ -8,7 +8,7 @@ SCAN_VM_NAME="$SCAN_RESOURCE_PREFIX-vm"
 VHD_IMAGE="$MANAGED_SIG_ID"
 
 SIG_CONTAINER_NAME="vhd-scans"
-SCAN_VM_ADMIN_USERNAME="azureuser1"
+SCAN_VM_ADMIN_USERNAME="azureuser"
 
 # This variable is used to determine where we need to deploy the VM on which we'll run trivy.
 # We must be sure this location matches the location used by packer when delivering the output image
