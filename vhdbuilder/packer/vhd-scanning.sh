@@ -60,7 +60,7 @@ trap cleanup EXIT
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     VM_OPTIONS="--size Standard_D2pds_v5"
 else
-    VM_OPTIONS="--size Standard_D4ds_v5"
+    VM_OPTIONS="--size Standard_D2ds_v5"
 fi
 
 if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
