@@ -1,5 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [":rebaseStalePrs"],
   "enabledManagers": ["regex"],
   "packageRules": [
     {
@@ -10,6 +11,11 @@
         "digest"
       ],
       "automerge": false
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["oss/kubernetes/autoscaler/addon-resizer"],
+      "assignee": "djsly"
     }
   ],
   "customManagers": [
