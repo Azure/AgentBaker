@@ -94,17 +94,14 @@ generate-sas: az-login
 convert-sig-to-classic-storage-account-blob: az-login
 	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
 
-test-building-vhd:
+test-building-vhd: az-login
 	@./vhdbuilder/packer/test/run-test.sh
 
-scanning-vhd:
+scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
 
-generate-prefetch-scripts:
-ifeq (${MODE},linuxVhdMode)
-	@echo "${MODE}: Generating prefetch scripts"
-	@bash -c "pushd vhdbuilder/prefetch; go run main.go --components-path=../../parts/linux/cloud-init/artifacts/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
-endif
+test-and-scan:
+	@$(MAKE) -f packer.mk cleanup test-building-vhd scanning-vhd -j3 --output-sync=target
 
 build-nbcparser-all:
 	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=amd64
