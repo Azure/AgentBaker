@@ -27,6 +27,8 @@ if [[ -n "$AZURE_RESOURCE_GROUP_NAME" && -n "$IMAGE_NAME" ]]; then
       echo "deleting managed image ${IMAGE_NAME} under resource group ${AZURE_RESOURCE_GROUP_NAME}"
       az image delete -n ${IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
     fi
+  else
+    echo "Not attempting managed image deletion due to ARM64 architecture."
   fi
 fi
 
