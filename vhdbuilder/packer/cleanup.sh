@@ -21,7 +21,7 @@ fi
 
 #clean up managed image
 if [[ -n "$AZURE_RESOURCE_GROUP_NAME" && -n "$IMAGE_NAME" ]]; then
-  if [[ "$MODE" != "default" && ! ( ${arch,,} == "aarch64" || ${arch,,} == "arm64" ) ]]; then
+  if [[ "$MODE" != "default" && ! ( ${ARCHITECTURE,,} == "aarch64" || ${ARCHITECTURE,,} == "arm64" ) ]]; then
     id=$(az image show -n ${IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
     if [ -n "$id" ]; then
       echo "deleting managed image ${IMAGE_NAME} under resource group ${AZURE_RESOURCE_GROUP_NAME}"
