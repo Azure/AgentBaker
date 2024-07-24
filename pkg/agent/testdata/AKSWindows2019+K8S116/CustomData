@@ -456,6 +456,11 @@ try
 
     Enable-GuestVMLogs -IntervalInMinutes $global:LogGeneratorIntervalInMinutes
 
+    Write-Log "Enable full memory dump"
+    wmic recoveros set OverwriteExistingDebugFile = 1
+    wmic recoveros set DebugInfoType = 1
+
+    $global:RebootNeeded=$true
     if ($global:RebootNeeded) {
         Logs-To-Event -TaskName "AKS.WindowsCSE.RestartComputer" -TaskMessage "Setup Complete, calling Postpone-RestartComputer with reboot"
         Postpone-RestartComputer
