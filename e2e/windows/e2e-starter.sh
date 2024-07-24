@@ -113,6 +113,10 @@ if [ "$create_cluster" == "true" ]; then
     if [ "$WINDOWS_E2E_IMAGE" == "2019-containerd" ]; then
         cleanupOutdatedFiles
     fi
+else
+    if [[ "$(check_linux_file_exists_in_storage_account)" == *"Linux file does not exist in storage account."* ]]; then 
+        upload_linux_file_to_storage_account
+    fi
 fi
 download_linux_file_from_storage_account
 log "Download of linux file from storage account completed"

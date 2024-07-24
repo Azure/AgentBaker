@@ -58,8 +58,7 @@ jobs:
         cp -r e2e/windows/* $WINDOWS_E2E_IMAGE
         go version
         cd $WINDOWS_E2E_IMAGE
-        bash ./e2e-starter.sh
-        bash e2e-create-windows-nodepool.sh
+        bash ./e2e-starter.sh && bash e2e-create-windows-nodepool.sh
       displayName: Setup Test Cluster
     - publish: $(System.DefaultWorkingDirectory)/${{ parameters.windowsImage }}
       artifact: ${{ parameters.windowsImage }}${{ parameters.windowsGpuDriverSuffix }}-clusterConfig

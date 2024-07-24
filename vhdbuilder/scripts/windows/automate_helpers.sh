@@ -101,7 +101,7 @@ create_pull_request() {
     else
         post_purpose="bump windows image version"
         title="feat: $post_purpose for ${image_version}B"
-        labels="\"windows\""
+        labels="\"windows\", \"VHD\""
     fi
     
     echo "to add git commit feat: $post_purpose for $image_version"
@@ -114,12 +114,13 @@ create_pull_request() {
     # modify .github/PULL_REQUEST_TEMPLATE.md after pushing the pervious changes in created branch
     if [[ $pr_purpose == "ReleaseNotes" ]]; then
         sed -i "/What type of PR is this?/a\/kind documentation" .github/PULL_REQUEST_TEMPLATE.md
-        sed -i "/What this PR does/a\Add windows image release notes for new AKS Windows images with ${image_version}B" .github/PULL_REQUEST_TEMPLATE.md
+        sed -i "/What this PR does/a\Add windows image release notes for new AKS Windows images with ${image_version}B. Reference: #[xxxxx]." .github/PULL_REQUEST_TEMPLATE.md
         sed -i 's/\[ \] uses/\[x\] uses/g' .github/PULL_REQUEST_TEMPLATE.md
+        sed -i 's/\[ \] includes/\[x\] includes/g' .github/PULL_REQUEST_TEMPLATE.md
         body_content=$(sed 's/$/\\n/' .github/PULL_REQUEST_TEMPLATE.md | tr -d '\n')
     else
         sed -i "/What type of PR is this?/a\/kind feature" .github/PULL_REQUEST_TEMPLATE.md
-        sed -i "/What this PR does/a\Update Windows base images to ${image_version}B\\n- Windows 2019: [xxxxx]()\\n- Windows 2022: [xxxxx]()" .github/PULL_REQUEST_TEMPLATE.md
+        sed -i "/What this PR does/a\Update Windows base images to ${image_version}B\\n- Windows 2019: [xxxxx]()\\n- Windows 2022: [xxxxx]()\\n- Windows 23H2: [xxxxx]()" .github/PULL_REQUEST_TEMPLATE.md
         sed -i 's/\[ \] uses/\[x\] uses/g' .github/PULL_REQUEST_TEMPLATE.md
         body_content=$(sed 's/$/\\n/' .github/PULL_REQUEST_TEMPLATE.md | tr -d '\n')
     fi
