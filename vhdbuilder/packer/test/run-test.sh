@@ -83,9 +83,9 @@ else
   # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
   TARGET_COMMAND_STRING=""
   if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-    TARGET_COMMAND_STRING+="--size Standard_D2pds_v3"
+    TARGET_COMMAND_STRING+="--size Standard_D2pds_v4"
   else
-    TARGET_COMMAND_STRING="--size Standard_D2ds_v3"
+    TARGET_COMMAND_STRING="--size Standard_D2ds_v4"
   fi
 
   if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then

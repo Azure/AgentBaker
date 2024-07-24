@@ -89,7 +89,7 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 					{
 						Name:                "nodepool2",
-						VMSize:              "Standard_D2ds_v3",
+						VMSize:              "Standard_D2ds_v4",
 						KubeletDiskType:     "",
 						WorkloadRuntime:     "",
 						DNSPrefix:           "",
@@ -261,7 +261,7 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 		},
 		AgentPoolProfile: &datamodel.AgentPoolProfile{
 			Name:                "nodepool2",
-			VMSize:              "Standard_D2ds_v3",
+			VMSize:              "Standard_D2ds_v4",
 			KubeletDiskType:     "",
 			WorkloadRuntime:     "",
 			DNSPrefix:           "",
