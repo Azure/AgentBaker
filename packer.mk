@@ -100,7 +100,7 @@ test-building-vhd: az-login
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
 
-test-scan-and-cleanup:
+test-scan-and-cleanup: az-login
 	@$(MAKE) -f packer.mk cleanup test-building-vhd scanning-vhd -j3 --output-sync=target
 
 build-nbcparser-all:
