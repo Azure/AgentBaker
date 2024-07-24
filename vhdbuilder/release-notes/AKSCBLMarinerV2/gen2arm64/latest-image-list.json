@@ -1,6 +1,6 @@
 {
   "sku": "V2gen2arm64",
-  "imageVersion": "202407.16.0",
+  "imageVersion": "202407.22.0",
   "imageBom": [
     {
       "id": "sha256:00758744ee3189f33e5a85a8a3cb1f5f6e5189fcda79732186019d75706c1ad3",
