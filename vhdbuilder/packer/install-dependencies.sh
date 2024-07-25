@@ -508,6 +508,7 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # multi-user.target usually start at the end of the boot sequence
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
 fi
+capture_benchmark "remove_snapd_and_apache_utils"
 
 wait $BCC_PID
 BCC_EXIT_CODE=$?
