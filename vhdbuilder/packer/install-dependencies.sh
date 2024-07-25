@@ -172,6 +172,22 @@ echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
 capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
 
+installBpftrace
+echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
+
+PRESENT_DIR=$(pwd)
+# run installBcc in a subshell and continue on with container image pull in order to decrease total build time
+(
+  cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
+
+  installBcc
+
+  exit $?
+) > /var/log/bcc_installation.log 2>&1 &
+
+BCC_PID=$!
+capture_benchmark "run_installBcc_in_subshell"
+
 # doing this at vhd allows CSE to be faster with just mv
 unpackAzureCNI() {
   local URL=$1
@@ -325,23 +341,8 @@ fi
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
-installBpftrace
-echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
-
-PRESENT_DIR=$(pwd)
-# run installBcc in a subshell and continue on with container image pull in order to decrease total build time
-(
-  cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
-
-  installBcc
-
-  exit $?
-) > /var/log/bcc_installation.log 2>&1 &
-
-BCC_PID=$!
-
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "pull_nvidia_driver_image_and_run_installBcc_in_subshell"
+capture_benchmark "pull_nvidia_driver_image"
 
 string_replace() {
   echo ${1//\*/$2}
@@ -529,7 +530,7 @@ if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
   IFS=',' read -ra PRIVATE_URLS <<< "${PRIVATE_PACKAGES_URL}"
 
   for private_url in "${PRIVATE_URLS[@]}"; do
-    echo "download kube package from ${private_url}"
+    echo "download kube package from ${private_url}"https://msazure.visualstudio.com/CloudNativeCompute/_testPlans
     cacheKubePackageFromPrivateUrl "$private_url"
   done
 fi
