@@ -41,8 +41,7 @@ TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
 
 
-# RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
-RESOURCE_GROUP_NAME="nodesig-test-swedencentral-agent-pool"
+RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
 az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags 'source=AgentBaker'
 
 # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
@@ -52,8 +51,8 @@ if [ "$OS_VERSION" == "18.04" ]; then
 fi
 
 function cleanup() {
-#    echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
-#    az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
+    echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
+    az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
 
     if [ -n "${VM_PRINCIPLE_ID}" ]; then
         az role assignment delete --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}"
