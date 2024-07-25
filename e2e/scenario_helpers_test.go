@@ -26,7 +26,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	t.Cleanup(cancel)
 	maybeSkipScenario(ctx, t, s)
 	model, err := s.Cluster(ctx, t)
-	require.NoError(t, err)
+	require.NoError(t, err, "creating AKS cluster")
 
 	nbc, err := s.PrepareNodeBootstrappingConfiguration(model.NodeBootstrappingConfiguration)
 	require.NoError(t, err)
