@@ -1,6 +1,6 @@
 {
     "scenario_windows": {
         "SCENARIO_NAME": "windows",
-        "VM_SKU": "Standard_D2ds_v5"
+        "VM_SKU": "Standard_D2s_v3"
     }
 }
