@@ -17,7 +17,8 @@
     {
       "matchDatasources": ["docker"],
       "matchPackageNames": ["oss/azure/secrets-store/provider-azure"],
-      "assignee": "djsly"
+      "assignees": "djsly",
+      "reviewers": "djsly",
     }
   ],
   "customManagers": [
@@ -31,7 +32,7 @@
         ".*?\"downloadURL\":\\s*\"(?<registryUrl>[^/]+)/(?<packageName>[^:]+)[\\s\\S]*?\"multiArchVersions\": \\[\\s*\"(?<currentValue>[^\\\"]+)\".*"
       ],
       "datasourceTemplate": "docker",
-      "registryUrlTemplate": "https://mcr.microsoft.com"
+      "registryUrlTemplate": "https://cr.microsoft.com"
     }
   ]
 }
