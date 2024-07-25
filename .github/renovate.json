@@ -1,7 +1,9 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [":rebaseStalePrs"],
-  "enabledManagers": ["regex"],
+  "enabledManagers": ["custom.regex"],
+  "branchConcurrentLimit": 50,
+  "prConcurrentLimit": 50,
   "packageRules": [
     {
       "matchUpdateTypes": [
