@@ -152,7 +152,7 @@ installOras() {
     ORAS_DOWNLOAD_DIR=${1}
     ORAS_DOWNLOAD_URL=${2}
     ORAS_VERSION=${3}
-    
+
     mkdir -p $ORAS_DOWNLOAD_DIR
     
     # Check if oras is installed and if it is the expected version.
@@ -172,7 +172,7 @@ installOras() {
     retrycmd_get_tarball 120 5 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} || exit $ERR_ORAS_DOWNLOAD_TIMEOUT
     tar -zxf oras_${ORAS_VERSION}_*.tar.gz -C $ORAS_DOWNLOAD_DIR/${ORAS_TMP}
     sudo mv $ORAS_DOWNLOAD_URL/${ORAS_TMP}/oras /usr/local/bin/
-    rm -rf oras_${ORAS_VERSION}_*.tar.gz $ORAS_DOWNLOAD_DIR/${ORAS_TMP}
+    # rm -rf oras_${ORAS_VERSION}_*.tar.gz $ORAS_DOWNLOAD_DIR/${ORAS_TMP}
 
     # curl -LO "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_${CPU_ARCH}.tar.gz"
     # mkdir -p oras-install/
