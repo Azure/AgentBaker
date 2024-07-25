@@ -92,7 +92,7 @@ installNetworkPlugin() {
     if [[ "${NETWORK_PLUGIN}" = "azure" ]]; then
         installAzureCNI
     fi
-    installCNI #reference plugins. Mostly for kubenet but loop back used by contaierd until containerd 2
+    installCNI #reference plugins. Mostly for kubenet but loopback plugin is used by containerd until containerd 2
     rm -rf $CNI_DOWNLOADS_DIR & 
 }
 
