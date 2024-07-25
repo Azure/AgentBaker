@@ -17,8 +17,8 @@
     {
       "matchDatasources": ["docker"],
       "matchPackageNames": ["oss/azure/secrets-store/provider-azure"],
-      "assignees": "djsly",
-      "reviewers": "djsly"
+      "assignees": ["djsly"],
+      "reviewers": ["djsly"]
     }
   ],
   "customManagers": [
