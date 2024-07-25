@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/signal"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 func RunScenario(t *testing.T, s *Scenario) {
@@ -24,7 +26,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	t.Cleanup(cancel)
 	maybeSkipScenario(ctx, t, s)
 	model, err := s.Cluster(ctx, t)
-	require.NoError(t, err)
+	require.NoError(t, err, "creating AKS cluster")
 
 	nbc, err := s.PrepareNodeBootstrappingConfiguration(model.NodeBootstrappingConfiguration)
 	require.NoError(t, err)
@@ -104,11 +106,13 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	t.Logf("node %s bootstrapping succeeded!", vmssName)
 }
 
-func getContainerdManifestVersion() string {
-	manifest, err := getVHDManifest()
-	if err != nil {
-		panic(err)
+func getExpectedPackageVersions(packageName, distro, release string) []string {
+	var expectedVersions []string
+	// since we control this json, we assume its going to be properly formatted here
+	jsonBytes, _ := os.ReadFile("../vhdbuilder/packer/components.json")
+	versions := gjson.GetBytes(jsonBytes, fmt.Sprintf("Packages.#(name=%s).downloadURIs", packageName)).Get(fmt.Sprintf("%s.%s.versions", distro, release)).Array()
+	for _, version := range versions {
+		expectedVersions = append(expectedVersions, version.String())
 	}
-
-	return manifest.Containerd.Edge
+	return expectedVersions
 }

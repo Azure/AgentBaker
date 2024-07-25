@@ -1,6 +1,6 @@
 {
   "sku": "V2gen2TL",
-  "imageVersion": "202407.16.0",
+  "imageVersion": "202407.22.0",
   "imageBom": [
     {
       "id": "sha256:02314cbd3ef7a2121a66bc8e248ac0b4a3f15ba76fa9caf0795376a25ba9dbf0",

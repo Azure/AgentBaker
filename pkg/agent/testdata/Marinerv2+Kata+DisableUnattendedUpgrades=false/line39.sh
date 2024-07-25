@@ -62,7 +62,7 @@ installContainerdWithComponentsJson() {
     [[ $((array_size-1)) -lt 0 ]] && last_index=0 || last_index=$((array_size-1))
     packageVersion=${sortedPackageVersions[${last_index}]}
     containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
-    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
+    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
     if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
         echo "invalid containerd version: $packageVersion"
         exit $ERR_CONTAINERD_VERSION_INVALID
@@ -70,27 +70,6 @@ installContainerdWithComponentsJson() {
     logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
     echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
 
-}
-
-installContainerdWithManifestJson() {
-    local containerd_version
-    if [ -f "$MANIFEST_FILEPATH" ]; then
-        local containerd_version
-        containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
-        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-            containerd_version="$(jq -r '.containerd.pinned."1804"' "$MANIFEST_FILEPATH")"
-        fi
-    else
-        echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
-    fi
-    containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
-    containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
-    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ] || [ "$containerd_revision" == "null" ]; then
-        echo "invalid container version: $containerd_version"
-        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    fi
-    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
-    echo "in installContainerRuntime - CONTAINERD_VERSION = ${containerd_patch_version}"
 }
 
 installContainerRuntime() {
@@ -103,8 +82,9 @@ installContainerRuntime() {
         installContainerdWithComponentsJson
 		return
     fi
-    echo "Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
-    installContainerdWithManifestJson
+    echo "Unexpected. Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
+    exit $ERR_CONTAINERD_VERSION_INVALID
+    #return 1
 }
 
 installNetworkPlugin() {
