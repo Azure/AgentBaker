@@ -53,7 +53,7 @@ parameters:
   default: False
 - name: windowsGen2VMSize
   type: string
-  default: Standard_D2ds_v4
+  default: Standard_D2ds_v5
 - name: windowsGen1VMSize
   type: string
   default: Standard_D2_v2

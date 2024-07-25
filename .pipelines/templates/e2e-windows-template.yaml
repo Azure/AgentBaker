@@ -7,7 +7,7 @@ parameters:
     default: Windows2019
   - name: windowsVMSize
     type: string
-    default: Standard_D2ds_v4
+    default: Standard_D2ds_v5
   - name: windowsDistro
     type: string
     default: aks-windows-2019-containerd

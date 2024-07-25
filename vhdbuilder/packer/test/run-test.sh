@@ -85,7 +85,7 @@ else
   if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     TARGET_COMMAND_STRING+="--size Standard_D2pds_V5"
   else
-    TARGET_COMMAND_STRING="--size Standard_D2ds_v4"
+    TARGET_COMMAND_STRING="--size Standard_D2ds_v5"
   fi
 
   if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
