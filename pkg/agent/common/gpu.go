@@ -24,7 +24,6 @@ import (
 
 const (
 	nvidia470CudaDriverVersion = "cuda-470.82.01"
-	nvidia535CudaDriverVersion = "cuda-535.54.03"
 	nvidia550CudaDriverVersion = "cuda-550.90.07"
 	nvidia535GridDriverVersion = "grid-535.161.08"
 )
