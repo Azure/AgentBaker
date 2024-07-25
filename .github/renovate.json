@@ -16,7 +16,7 @@
     },
     {
       "matchDatasources": ["docker"],
-      "matchPackageNames": ["oss/kubernetes/autoscaler/addon-resizer"],
+      "matchPackageNames": ["oss/azure/secrets-store/provider-azure"],
       "assignee": "djsly"
     }
   ],
