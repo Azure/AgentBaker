@@ -172,6 +172,11 @@ echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
 capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
 
+#/opt/cni/downloads/cni-plugins-linux-amd64-v1.4.1
+
+#/opt/cni/downloads/cni-plugins-linux-amd64-1.4.1
+
+
 # doing this at vhd allows CSE to be faster with just mv 
 unpackTgzToCNIDownloadsDIR() {
   local URL=$1

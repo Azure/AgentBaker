@@ -292,8 +292,8 @@ setupCNIDirs() {
 # The version used to be deteremined by RP/toggle but are now just hadcoded in vhd as they rarely change and require a node image upgrade anyways
 # Latest VHD should have the untar, older should have the tgz. And who knows will have neither. 
 installCNI() {
-    if [ ! -f "$COMPONENTS_FILEPATH" ]; then
-        echo "WARNING: no components present falling back to hard coded download of 1.4.1. This should error eventually" 
+    if [ -f "$COMPONENTS_FILEPATH" ] && jq '.Packages[] | select(.name == \"cni-plugins\")' < $COMPONENTS_FILEPATH > /dev/null; then
+        echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually" 
         #could we fail if not Ubuntu2204Gen2ContainerdPrivateKubePkg vhd? Are there others?
         #definitely not handling arm here.
         retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://acs-mirror.azureedge.net/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || exit
