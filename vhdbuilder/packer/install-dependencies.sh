@@ -186,6 +186,12 @@ unpackAzureCNI() {
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for p in ${packages[*]}; do
   #getting metadata for each package
+  excludeFeatureFlags=$(echo "${p}" | jq .excludeFeatureFlags -r)
+  # skip package if it is excluded by feature flags
+  if [[ -n "${excludeFeatureFlags}" ]] && [[ "${FEATURE_FLAGS}" == *"${excludeFeatureFlags}"* ]]; then
+    echo "Skipping package ${p} as it is excluded by feature flags ${excludeFeatureFlags}"
+    continue
+  fi
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
   returnPackageVersions ${p} ${OS} ${OS_VERSION}
