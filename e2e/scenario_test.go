@@ -99,15 +99,15 @@ func Scenario_azurelinuxv2ARM64(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V4"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-arm64-gen2"
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V4"
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-arm64-gen2"
 				nbc.IsARM64 = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V4")
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 		},
 	})
@@ -123,15 +123,15 @@ func Scenario_azurelinuxv2ARM64AirGap(t *testing.T) {
 			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V4"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-arm64-gen2"
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V4"
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-arm64-gen2"
 				nbc.IsARM64 = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V4")
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 		},
 	})
@@ -325,15 +325,15 @@ func Scenario_marinerv2ARM64(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V4"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-arm64-gen2"
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V4"
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-arm64-gen2"
 				nbc.IsARM64 = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V4")
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 		},
 	})
@@ -349,15 +349,15 @@ func Scenario_marinerv2ARM64AirGap(t *testing.T) {
 			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V4"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-arm64-gen2"
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V4"
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-arm64-gen2"
 				nbc.IsARM64 = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V4")
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 		},
 	})
@@ -648,16 +648,16 @@ func Scenario_ubuntu2204ARM64(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V4"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 				// This needs to be set based on current CSE implementation...
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V4"
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 				nbc.IsARM64 = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_D2pds_V4")
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 		},
 	})

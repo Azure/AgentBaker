@@ -58,7 +58,7 @@ function cleanup() {
 trap cleanup EXIT
 
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-    VM_OPTIONS="--size Standard_D2pds_v4"
+    VM_OPTIONS="--size Standard_D2pds_V5"
 else
     VM_OPTIONS="--size Standard_D2ds_v4"
 fi
