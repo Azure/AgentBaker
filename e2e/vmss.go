@@ -102,6 +102,7 @@ func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, opts *scenar
 		if err := writeToFile(t, "sshkey", string(privateKeyBytes)); err != nil {
 			t.Logf("failed to write retained vmss %s private ssh key to disk: %s", vmssName, err)
 		}
+		return
 	}
 	_, err := config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
 		ForceDeletion: to.Ptr(true),

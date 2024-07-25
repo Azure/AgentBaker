@@ -17,12 +17,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 )
 
-// WARNING: if you modify cluster configuration, please change the version below
-// this will avoid potential conflicts with tests running on other branches
-// there is no strict rules or a hidden meaning for the version
-// testClusterNamePrefix is also used for versioning cluster configurations
-const testClusterNamePrefix = "abe2e-v20240704-"
-
 var (
 	clusterKubenet       *Cluster
 	clusterKubenetAirgap *Cluster
@@ -64,25 +58,30 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 // sync.Once is used to ensure that only one cluster for the set of tests is created
 func ClusterKubenet(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetOnce.Do(func() {
-		clusterKubenet, clusterKubenetError = createCluster(ctx, t, getKubenetClusterModel(testClusterNamePrefix+"kubenet"))
+		// WARNING: if you modify cluster configuration, please change the version below
+		// this will avoid potential conflicts with tests running on other branches
+		clusterKubenet, clusterKubenetError = createCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-v1-"+config.Location))
 	})
 	return clusterKubenet, clusterKubenetError
 }
 
 func ClusterKubenetAirgap(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetAirgapOnce.Do(func() {
-		cluster, err := createCluster(ctx, t, getKubenetClusterModel(testClusterNamePrefix+"kubenet-airgap"))
-		if err == nil {
-			err = addAirgapNetworkSettings(ctx, t, cluster)
+		// WARNING: if you modify cluster configuration, please change the version below
+		// this will avoid potential conflicts with tests running on other branches
+		clusterKubenetAirgap, clusterKubenetAirgapError = createCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap-v1"+config.Location))
+		if clusterKubenetAirgapError == nil {
+			clusterKubenetAirgapError = addAirgapNetworkSettings(ctx, t, clusterKubenetAirgap)
 		}
-		clusterKubenetAirgap, clusterKubenetAirgapError = cluster, err
 	})
 	return clusterKubenetAirgap, clusterKubenetAirgapError
 }
 
 func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterAzureNetworkOnce.Do(func() {
-		clusterAzureNetwork, clusterAzureNetworkError = createCluster(ctx, t, getAzureNetworkClusterModel(testClusterNamePrefix+"azure-network"))
+		// WARNING: if you modify cluster configuration, please change the version below
+		// this will avoid potential conflicts with tests running on other branches
+		clusterAzureNetwork, clusterAzureNetworkError = createCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azure-network-v1"+config.Location))
 	})
 	return clusterAzureNetwork, clusterAzureNetworkError
 }
