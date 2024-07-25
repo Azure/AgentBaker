@@ -534,6 +534,20 @@
           }
         }
       }
+    },
+    {
+      "name": "oras",
+      "downloadLocation": "/opt/oras/downloads",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versions": [
+              "1.2.0"
+            ],
+            "downloadURL": "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_${CPU_ARCH}.tar.gz"
+          }
+        }
+      }
     }
   ]
 }

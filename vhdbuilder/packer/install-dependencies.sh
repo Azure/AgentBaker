@@ -55,8 +55,6 @@ EOF
 fi
 capture_benchmark "purge_and_reinstall_ubuntu"
 
-installOras
-
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
@@ -167,13 +165,6 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     activateNfConntrack
 fi
 
-downloadContainerdWasmShims
-echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
-
-echo "VHD will be built with containerd as the container runtime"
-updateAptWithMicrosoftPkg
-capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
-
 # doing this at vhd allows CSE to be faster with just mv
 unpackAzureCNI() {
   local URL=$1
@@ -197,6 +188,14 @@ for p in ${packages[*]}; do
   downloadDir=$(echo ${p} | jq .downloadLocation -r)
   #download the package
   case $name in
+    "oras")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        installOras "${downloadDir}" "${evaluatedURL}"
+        echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
+        # ORAS will be used to install other packages for network isolate clusters, it must go first.
+      done
+      ;;
     "cri-tools")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
@@ -263,6 +262,13 @@ for p in ${packages[*]}; do
   esac
   capture_benchmark "download_${name}"
 done
+
+downloadContainerdWasmShims
+echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
+
+echo "VHD will be built with containerd as the container runtime"
+updateAptWithMicrosoftPkg
+capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
 
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
