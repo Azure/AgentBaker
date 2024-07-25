@@ -191,7 +191,7 @@ for p in ${packages[*]}; do
     "oras")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        installOras "${downloadDir}" "${evaluatedURL}"
+        installOras "${downloadDir}" "${evaluatedURL}" "${version}"
         echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
         # ORAS will be used to install other packages for network isolate clusters, it must go first.
       done
