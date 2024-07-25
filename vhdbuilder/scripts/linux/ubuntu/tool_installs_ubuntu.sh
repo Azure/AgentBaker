@@ -39,16 +39,20 @@ installBcc() {
     wait_for_apt_locks
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     VERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
+
+    echo "BCC TEST: Install Dependencies $(date +"%H:%M:%S)"
     if [[ "${VERSION}" == "22.04" || "${VERSION}" == "24.04" ]]; then
         apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev libllvm14 llvm-14-dev libclang-14-dev python3 zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     else
         apt_get_install 120 5 300 build-essential git bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev python3-distutils libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
+    echo "BCC TEST: Install Dependencies Complete $(date +"%H:%M:%S)"
 
     # Installing it separately here because python3-distutils is not present in the Ubuntu packages for 24.04
     if [[ "${VERSION}" == "22.04" ]]; then
       apt_get_install 120 5 300 python3-distutils || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
+    echo "BCC TEST: Finish install python3distutils $(date +"%H:%M:%S)"
 
     # libPolly.a is needed for the make target that runs later, which is not present in the default patch version of llvm-14 that is downloaded for 24.04
     if [[ "${VERSION}" == "24.04" ]]; then
@@ -67,6 +71,7 @@ installBcc() {
       # Hence this distinction
       git checkout v0.29.0
     fi
+    echo "BCC TEST: MkDir and checkout $(date +"%H:%M:%S)"
 
     cmake .. || exit 1
     make
@@ -80,12 +85,14 @@ installBcc() {
     # we explicitly do not remove build-essential or git
     # these are standard packages we want to keep, they should usually be in the final build anyway.
     # only ensuring they are installed above.
+    echo "BCC TEST: Compile and Install $(date +"%H:%M:%S)"
+
     if [[ "${VERSION}" == "22.04" || "${VERSION}" == "24.04" ]]; then
         apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm14 llvm-14-dev libclang-14-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     else
         apt_get_purge 120 5 300 bison cmake flex libedit-dev libllvm6.0 llvm-6.0-dev libclang-6.0-dev zlib1g-dev libelf-dev libfl-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
-
+    echo "BCC TEST: Remove Dependencies $(date +"%H:%M:%S)"
     # libPolly.a is needed for the make target that runs later, which is not present in the default patch version of llvm-14 that is downloaded for 24.04
     if [[ "${VERSION}" == "24.04" ]]; then
       apt_get_purge 120 5 300 libpolly-14-dev || exit $ERR_BCC_INSTALL_TIMEOUT
