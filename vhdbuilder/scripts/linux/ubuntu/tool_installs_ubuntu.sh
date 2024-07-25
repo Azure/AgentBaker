@@ -65,7 +65,7 @@ installBcc() {
     else
       # v0.24.0 is not supported for kernels 6.x and there are some python packages not available in 18.04 repository that are needed to build v0.24.0
       # Hence this distinction
-      git checkout v0.29.0
+      git checkout v0.30.0
     fi
 
     cmake .. || exit 1
