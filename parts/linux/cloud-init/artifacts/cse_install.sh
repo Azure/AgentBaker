@@ -149,8 +149,9 @@ installCredentalProvider() {
 
 # TODO (alburgess) have oras version managed by dependant or Renovate
 installOras() {
-    mkdir -p ${1-$:CNI_DOWNLOADS_DIR}
-    ORAS_DOWNLOAD_URL=${2:-$ORAS_DOWNLOAD_URL}
+    ORAS_DOWNLOAD_UR=${1}
+    ORAS_DOWNLOAD_URL=${2}
+    mkdir -p $ORAS_DOWNLOAD_URL
     
     # Check if oras is installed and if it is the expected version.
     if command -v oras &> /dev/null; then
