@@ -90,8 +90,13 @@ testPackagesInstalled() {
     returnPackageVersions ${p} ${OS} ${OS_VERSION}
     PACKAGE_DOWNLOAD_URL=""
     returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
+    if [ ${name} == "kubernetes-binaries" ]; then
+      # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
+      testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
+      continue
+    fi
 
-    for version in ${PACKAGE_VERSIONS}; do
+    for version in ${PACKAGE_VERSIONS[@]}; do
       if [[ -z $PACKAGE_DOWNLOAD_URL ]]; then
         echo "$test: skipping package ${name} verification as PACKAGE_DOWNLOAD_URL is empty"
         # we can further think of adding a check to see if the package is installed through apt-get
@@ -362,14 +367,10 @@ testCloudInit() {
 testKubeBinariesPresent() {
   test="testKubeBinaries"
   echo "$test:Start"
-  containerRuntime=$1
+  local kubeBinariesVersions=("$@")
   binaryDir=/usr/local/bin
-  k8sVersions="$(jq -r .kubernetes.versions[] </opt/azure/manifest.json)"
-  for patchedK8sVersion in ${k8sVersions}; do
-    # Only need to store k8s components >= 1.19 for containerd VHDs
-    if (($(echo ${patchedK8sVersion} | cut -d"." -f2) < 19)) && [[ ${containerRuntime} == "containerd" ]]; then
-      continue
-    fi
+  for patchedK8sVersion in "${kubeBinariesVersions[@]}"; do
+    echo "checking kubeBinariesVersions: $patchedK8sVersion ..."
     # strip the last .1 as that is for base image patch for hyperkube
     if grep -iq hotfix <<<${patchedK8sVersion}; then
       # shellcheck disable=SC2006
@@ -390,16 +391,12 @@ testKubeBinariesPresent() {
       err $test "Binary ${kubectlDownloadLocation} does not exist"
     fi
     #Test whether the installed binary version is indeed correct
-    mv $kubeletDownloadLocation $kubeletInstallLocation
-    mv $kubectlDownloadLocation $kubectlInstallLocation
-    chmod a+x $kubeletInstallLocation $kubectlInstallLocation
-    echo "kubectl version"
-    kubectlLongVersion=$(kubectl version 2>/dev/null)
+    chmod a+x $kubeletDownloadLocation $kubectlDownloadLocation
+    kubectlLongVersion=$(${kubectlDownloadLocation} version 2>/dev/null)
     if [[ ! $kubectlLongVersion =~ $k8sVersion ]]; then
       err $test "The kubectl version is not correct: expected kubectl version $k8sVersion existing: $kubectlLongVersion"
     fi
-    echo "kubelet version"
-    kubeletLongVersion=$(kubelet --version 2>/dev/null)
+    kubeletLongVersion=$(${kubeletDownloadLocation} --version 2>/dev/null)
     if [[ ! $kubeletLongVersion =~ $k8sVersion ]]; then
       err $test "The kubelet version is not correct: expected kubelet version $k8sVersion existing: $kubeletLongVersion"
     fi
@@ -976,7 +973,6 @@ testChrony $OS_SKU
 testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS
 testCloudInit $OS_SKU
-testKubeBinariesPresent $CONTAINER_RUNTIME
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
 # which means the test failures haven't been caught. It also calles exit 1 on a failure,
 # which means the rest of the tests aren't being run.

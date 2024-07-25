@@ -45,8 +45,10 @@ installContainerdWithComponentsJson() {
     if [[ -z "$UBUNTU_RELEASE" ]]; then
         os=${MARINER_OS_NAME}
         os_version="current"
+    else
+        os_version="${UBUNTU_RELEASE}"
     fi
-    os_version="${UBUNTU_RELEASE}"
+    
     containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
     PACKAGE_VERSIONS=()
     returnPackageVersions "${containerdPackage}" "${os}" "${os_version}"
@@ -65,7 +67,7 @@ installContainerdWithComponentsJson() {
     # containerd version is expected to be in the format major.minor.patch-hotfix
     # e.g., 1.4.3-1. Then containerdMajorMinorPatchVersion=1.4.3 and containerdHotFixVersion=1
     containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
-    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
+    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
     if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
         echo "invalid containerd version: $packageVersion"
         exit $ERR_CONTAINERD_VERSION_INVALID
@@ -73,29 +75,6 @@ installContainerdWithComponentsJson() {
     logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
     echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
 
-}
-
-# containerd versions definitions are only available in the manifest file before the centralized packages changes, before around early July 2024.
-# After the centralized packages changes, the containerd versions are only available in the components.json. 
-installContainerdWithManifestJson() {
-    local containerd_version
-    if [ -f "$MANIFEST_FILEPATH" ]; then
-        local containerd_version
-        containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
-        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-            containerd_version="$(jq -r '.containerd.pinned."1804"' "$MANIFEST_FILEPATH")"
-        fi
-    else
-        echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
-    fi
-    containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
-    containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
-    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ] || [ "$containerd_revision" == "null" ]; then
-        echo "invalid container version: $containerd_version"
-        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    fi
-    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
-    echo "in installContainerRuntime - CONTAINERD_VERSION = ${containerd_patch_version}"
 }
 
 installContainerRuntime() {
@@ -109,9 +88,9 @@ installContainerRuntime() {
         installContainerdWithComponentsJson
 		return
     fi
-    echo "Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
-    # if the containerd package is not available in the components.json, use the manifest.json to install containerd
-    installContainerdWithManifestJson
+    echo "Unexpected. Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
+    exit $ERR_CONTAINERD_VERSION_INVALID
+    #return 1
 }
 
 installNetworkPlugin() {
@@ -360,6 +339,7 @@ extractKubeBinaries() {
     local k8s_version="$1"
     local kube_binary_url="$2"
     local is_private_url="$3"
+    local k8s_downloads_dir="$4"
 
     local k8s_tgz_tmp_filename=${kube_binary_url##*/}
 
@@ -377,8 +357,8 @@ extractKubeBinaries() {
         # remove the current kubelet and kubectl binaries before extracting new binaries from the cached package
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
     else
-        k8s_tgz_tmp="${K8S_DOWNLOADS_DIR}/${k8s_tgz_tmp_filename}"
-        mkdir -p ${K8S_DOWNLOADS_DIR}
+        k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
+        mkdir -p ${k8s_downloads_dir}
 
         retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
         if [[ ! -f ${k8s_tgz_tmp} ]]; then

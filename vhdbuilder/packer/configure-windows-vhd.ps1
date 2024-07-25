@@ -269,9 +269,24 @@ function Register-ExpandVolumeTask {
 '@
 
     $taskScriptPath = Join-Path $global:aksToolsDir "expand-volume.ps1"
-    $taskScript| Set-Content -Path $taskScriptPath -Force
+    $taskScript | Set-Content -Path $taskScriptPath -Force
+
+    # It sometimes failed with below error
+    # New-ScheduledTask : Cannot validate argument on parameter 'Action'. The argument is null or empty. Provide an argument
+    # that is not null or empty, and then try the command again.
+    # Add below logs and retry logic to test it
+    $scriptContent = Get-Content -Path $taskScriptPath
+    Write-Log "Task script content: $scriptContent"
 
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"$taskScriptPath`""
+    if (-not $action) {
+        Write-Log "action is null or empty. taskScriptPath: $taskScriptPath. Recreating it"
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"$taskScriptPath`""
+        if (-not $action) {
+            Write-Log "action is still null"
+            exit 1
+        }
+    }
     $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
     $trigger = New-JobTrigger -AtStartup
     $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "aks-expand-volume"
@@ -676,9 +691,6 @@ function Update-Registry {
         Enable-WindowsFixInFeatureManagement -Name 2540111500
         Enable-WindowsFixInFeatureManagement -Name 50261647
         Enable-WindowsFixInFeatureManagement -Name 1475968140
-
-        Write-Log "Enable 1 fix in 2024-07B"
-        Enable-WindowsFixInFeatureManagement -Name 747051149
     }
 
     if ($env:WindowsSKU -Like '23H2*') {
@@ -813,6 +825,18 @@ function Log-ReofferUpdate {
     }
 }
 
+function Test-AzureExtensions {
+    # Expect the Windows VHD without any other extensions
+    if (Test-Path "C:\Packages\Plugins") {
+        $actualExtensions = (Get-ChildItem "C:\Packages\Plugins").Name
+        if ($actualExtensions.Length -gt 0) {
+            Write-Log "Azure extensions are not expected. Details: $($actualExtensions | Out-String)"
+            exit 1
+        }
+    }
+    Write-Log "Azure extensions are not found"
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -850,6 +874,7 @@ try{
             Cleanup-TemporaryFiles
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
             Validate-VHDFreeSize
+            Test-AzureExtensions
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"

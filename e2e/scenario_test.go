@@ -58,7 +58,6 @@ func TestAll(t *testing.T) {
 	t.Run("ubuntu2204-gpu-grid-driver", Scenario_ubuntu2204GPUGridDriver)
 	t.Run("ubuntu2204-gpu-ncv", Scenario_ubuntu2204gpuncv)
 	t.Run("ubuntu2204-gpu-no-driver", Scenario_ubuntu2204gpuNoDriver)
-	t.Run("ubuntu2204-private-kube-pkg", Scenario_ubuntu2204privatekubepkg)
 	t.Run("ubuntu2204-wasm", Scenario_ubuntu2204Wasm)
 }
 
@@ -864,22 +863,6 @@ func Scenario_ubuntu2204gpuNoDriver(t *testing.T) {
 	})
 }
 
-func Scenario_ubuntu2204privatekubepkg(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD that was built with private kube packages can be properly bootstrapped with the specified kube version",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.25.6"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.K8sComponents.LinuxPrivatePackageURL = "https://privatekube.blob.core.windows.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz"
-			},
-		},
-	})
-}
-
 // These tests were created to verify that the apt-get call in downloadContainerdFromVersion is not executed.
 // The code path is not hit in either of these tests. In the future, testing with some kind of firewall to ensure no egress
 // calls are made would be beneficial for airgap testing.
@@ -914,7 +897,8 @@ func Scenario_ubuntu2204ContainerdVersion(t *testing.T) {
 				nbc.ContainerdVersion = "1.6.9"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator(getContainerdManifestVersion()),
+				// for containerd we only support one version at a time for each distro/release
+				containerdVersionValidator(getExpectedPackageVersions("containerd", "default", "current")[0]),
 			},
 		},
 	})
