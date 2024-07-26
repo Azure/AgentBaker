@@ -71,6 +71,7 @@ steps:
         echo MODE=$(MODE) && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+        -v /usr/local/bin/packer:/usr/local/bin/packer \
         -w /go/src/github.com/Azure/AgentBaker \
         -e POOL_NAME=$(POOL_NAME) \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
