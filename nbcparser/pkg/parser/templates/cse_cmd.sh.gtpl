@@ -33,7 +33,6 @@ SERVICE_PRINCIPAL_CLIENT_ID={{.AuthConfig.GetServicePrincipalId}}
 NETWORK_PLUGIN={{getStringFromNetworkPluginType .GetNetworkConfig.GetNetworkPlugin}}
 NETWORK_POLICY="{{getStringFromNetworkPolicyType .GetNetworkConfig.GetNetworkPolicy}}"
 VNET_CNI_PLUGINS_URL={{.GetNetworkConfig.GetVnetCniPluginsUrl}}
-CNI_PLUGINS_URL={{.GetNetworkConfig.GetCniPluginsUrl}}
 CLOUDPROVIDER_BACKOFF=true
 CLOUDPROVIDER_BACKOFF_MODE=v2
 CLOUDPROVIDER_BACKOFF_RETRIES=6

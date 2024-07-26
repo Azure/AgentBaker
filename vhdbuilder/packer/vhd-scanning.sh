@@ -4,11 +4,15 @@ set -eux
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
 EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
 TEST_RESOURCE_PREFIX="vhd-scanning"
-VM_NAME="$TEST_RESOURCE_PREFIX-vm"
+VM_NAME="$TEST_RESOURCE_PREFIX-vm-$(date +%s)-$RANDOM"
 VHD_IMAGE="$MANAGED_SIG_ID"
 
 SIG_CONTAINER_NAME="vhd-scans"
 TEST_VM_ADMIN_USERNAME="azureuser"
+
+# we must create VMs in a vnet which has access to the storage account, otherwise they will not be able to access the VHD blobs
+VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
+SUBNET_NAME="scanning"
 
 # This variable is used to determine where we need to deploy the VM on which we'll run trivy.
 # We must be sure this location matches the location used by packer when delivering the output image
@@ -70,6 +74,8 @@ fi
 az vm create --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME \
     --image $VHD_IMAGE \
+    --vnet-name $VNET_NAME \
+    --subnet $SUBNET_NAME \
     --admin-username $TEST_VM_ADMIN_USERNAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
