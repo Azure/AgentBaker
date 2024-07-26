@@ -301,6 +301,7 @@ function Validate-WindowsFixInPath {
 }
 
 function Test-RegistryAdded {
+    $skipValidateReofferUpdate = $true; # Skip validating ReofferUpdate for RAW VHD
     if ($skipValidateReofferUpdate -eq $true) {
         Write-Output "Skip validating ReofferUpdate"
     } else {
