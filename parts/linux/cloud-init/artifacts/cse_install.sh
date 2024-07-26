@@ -158,9 +158,8 @@ installOras() {
     echo "Installing Oras version $ORAS_VERSION..."
     ORAS_TMP=${ORAS_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} || exit $ERR_ORAS_DOWNLOAD_TIMEOUT
-    tar -zxf oras_${ORAS_VERSION}_*.tar.gz -C $ORAS_DOWNLOAD_DIR/${ORAS_TMP}
-    sudo mv $ORAS_DOWNLOAD_URL/${ORAS_TMP}/oras /usr/local/bin/
-
+    tar -zxf oras_${ORAS_VERSION}_*.tar.gz -C /usr/local/bin/
+    rm -r "$ORAS_DOWNLOAD_DIR"
     echo "Oras version $ORAS_VERSION installed successfully."
 }
 
