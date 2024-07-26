@@ -4,6 +4,7 @@
   "enabledManagers": ["custom.regex"],
   "branchConcurrentLimit": 50,
   "prConcurrentLimit": 50,
+  "prHourlyLimit": 0,
   "packageRules": [
     {
       "matchUpdateTypes": [
@@ -17,8 +18,8 @@
     {
       "matchDatasources": ["docker"],
       "matchPackageNames": ["oss/azure/secrets-store/provider-azure"],
-      "assignees": ["djsly"],
-      "reviewers": ["djsly"]
+      "assignees": ["zachary-bailey"],
+      "reviewers": ["zachary-bailey"]
     }
   ],
   "customManagers": [
