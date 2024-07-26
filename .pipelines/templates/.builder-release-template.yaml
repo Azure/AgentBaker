@@ -111,8 +111,11 @@ steps:
     retryCountOnTaskFailure: 3
     displayName: Building VHD
   - bash: |
-      echo "Generating Build Performance data..." \ 
-      jq '.' build-performance-data.json \
+      echo "Generating VHD Build Performance data..." \ 
+      echo
+      jq '.' vhd-build-performance-data.json \
+      echo
+      echo "VHD Build Performance Data generated."
     displayName: Build Performance Data
     condition: succeeded()
   - bash: |
