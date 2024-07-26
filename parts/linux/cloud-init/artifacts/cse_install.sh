@@ -154,31 +154,12 @@ installOras() {
     ORAS_VERSION=${3}
 
     mkdir -p $ORAS_DOWNLOAD_DIR
-    
-    # Check if oras is installed and if it is the expected version.
-    if command -v oras &> /dev/null; then
-        INSTALLED_ORAS_VERSION=$(oras version 2>&1 | grep -oP '(?<=Version:\s)\d+\.\d+\.\d+')
-        if [[ "$INSTALLED_ORAS_VERSION" == "$ORAS_VERSION" ]]; then
-            echo "Oras version $ORAS_VERSION is already installed."
-            return
-        else
-            echo "Oras is installed but has the wrong version $INSTALLED_ORAS_VERSION != $ORAS_VERSION. Keeping old version."
-            return
-        fi
-    fi
 
     echo "Installing Oras version $ORAS_VERSION..."
     ORAS_TMP=${ORAS_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} || exit $ERR_ORAS_DOWNLOAD_TIMEOUT
     tar -zxf oras_${ORAS_VERSION}_*.tar.gz -C $ORAS_DOWNLOAD_DIR/${ORAS_TMP}
     sudo mv $ORAS_DOWNLOAD_URL/${ORAS_TMP}/oras /usr/local/bin/
-    # rm -rf oras_${ORAS_VERSION}_*.tar.gz $ORAS_DOWNLOAD_DIR/${ORAS_TMP}
-
-    # curl -LO "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_${CPU_ARCH}.tar.gz"
-    # mkdir -p oras-install/
-    # tar -zxf oras_${ORAS_VERSION}_*.tar.gz -C oras-install/
-    # sudo mv oras-install/oras /usr/local/bin/
-    # rm -rf oras_${ORAS_VERSION}_*.tar.gz oras-install/
 
     echo "Oras version $ORAS_VERSION installed successfully."
 }
