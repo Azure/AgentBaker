@@ -22,7 +22,7 @@ Describe 'cse_install.sh'
         It 'returns downloadURIs.ubuntu.current.versions of package containerd for UBUNTU 22.04'
             package=$(readPackage "containerd")
             When call returnPackageVersions "$package" "UBUNTU" "22.04"
-            The variable PACKAGE_VERSIONS[@] should equal "1.7.15-1"
+            The variable PACKAGE_VERSIONS[@] should equal "1.7.20"
         End
 
         It 'returns downloadURIs.ubuntu."r1804".versions of package containerd for UBUNTU 18.04'
@@ -144,10 +144,10 @@ Describe 'cse_install.sh'
             UBUNTU_RELEASE="20.04"
             containerdPackage=$(readPackage "containerd")
             When call installContainerRuntime 
-            The variable containerdMajorMinorPatchVersion should equal "1.7.15"
-            The variable containerdHotFixVersion should equal "1"
+            The variable containerdMajorMinorPatchVersion should equal "1.7.20"
+            The variable containerdHotFixVersion should equal ""
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
-            The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.7.15-1"
+            The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.7.20"
         End
         It 'returns expected output for successful installation of containerd in Mariner'
             UBUNTU_RELEASE="" # mocking Mariner doesn't have command `lsb_release -cs`

@@ -897,7 +897,8 @@ func Scenario_ubuntu2204ContainerdVersion(t *testing.T) {
 				nbc.ContainerdVersion = "1.6.9"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator(getContainerdManifestVersion()),
+				// for containerd we only support one version at a time for each distro/release
+				containerdVersionValidator(getExpectedPackageVersions("containerd", "default", "current")[0]),
 			},
 		},
 	})

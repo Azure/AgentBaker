@@ -137,7 +137,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				AssignedIdentityId:     "userAssignedID",
 			},
 			NetworkConfig: &nbcontractv1.NetworkConfig{
-				CniPluginsUrl:     "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",
 				VnetCniPluginsUrl: "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
 			},
 			GpuConfig: &nbcontractv1.GPUConfig{
@@ -371,7 +370,6 @@ var _ = Describe("Test NBContract compatibility from Json to CSE command", func(
 			Expect(o.vars["LOAD_BALANCER_SKU"]).To(Equal(""))
 			Expect(o.vars["NETWORK_POLICY"]).To(Equal(""))
 			Expect(o.vars["NETWORK_PLUGIN"]).To(Equal(""))
-			Expect(o.vars["CNI_PLUGINS_URL"]).To(Equal(""))
 			Expect(o.vars["VNET_CNI_PLUGINS_URL"]).To(Equal(""))
 			Expect(o.vars["GPU_NODE"]).To(Equal("false"))
 			Expect(o.vars["GPU_INSTANCE_PROFILE"]).To(Equal(""))
