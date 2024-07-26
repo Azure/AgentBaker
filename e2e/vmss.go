@@ -85,14 +85,12 @@ func cleanupVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scena
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
 	defer cancel()
 	defer deleteVMSS(t, ctx, vmssName, opts, privateKeyBytes)
-	if t.Failed() {
-		vmPrivateIP, err := getVMPrivateIPAddress(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName)
-		require.NoError(t, err)
+	vmPrivateIP, err := getVMPrivateIPAddress(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName)
+	require.NoError(t, err)
 
-		require.NoError(t, err, "get vm private IP %v", vmssName)
-		err = pollExtractVMLogs(ctx, t, vmssName, vmPrivateIP, privateKeyBytes, opts)
-		require.NoError(t, err, "extract vm logs %v", vmssName)
-	}
+	require.NoError(t, err, "get vm private IP %v", vmssName)
+	err = pollExtractVMLogs(ctx, t, vmssName, vmPrivateIP, privateKeyBytes, opts)
+	require.NoError(t, err, "extract vm logs %v", vmssName)
 
 }
 
