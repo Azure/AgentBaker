@@ -22,7 +22,7 @@ Describe 'cse_install.sh'
         It 'returns downloadURIs.ubuntu.current.versions of package containerd for UBUNTU 22.04'
             package=$(readPackage "containerd")
             When call returnPackageVersions "$package" "UBUNTU" "22.04"
-            The variable PACKAGE_VERSIONS[@] should equal "1.7.15-1"
+            The variable PACKAGE_VERSIONS[@] should equal "1.7.20"
         End
 
         It 'returns downloadURIs.ubuntu."r1804".versions of package containerd for UBUNTU 18.04'
@@ -150,10 +150,10 @@ Describe 'cse_install.sh'
             UBUNTU_RELEASE="20.04"
             containerdPackage=$(readPackage "containerd")
             When call installContainerRuntime 
-            The variable containerdMajorMinorPatchVersion should equal "1.7.15"
-            The variable containerdHotFixVersion should equal "1"
+            The variable containerdMajorMinorPatchVersion should equal "1.7.20"
+            The variable containerdHotFixVersion should equal ""
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
-            The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.7.15-1"
+            The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.7.20"
         End
         It 'returns expected output for successful installation of containerd in Mariner'
             UBUNTU_RELEASE="" # mocking Mariner doesn't have command `lsb_release -cs`
@@ -164,14 +164,11 @@ Describe 'cse_install.sh'
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
             The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.6.26-5.cm2"
         End
-        It 'skips validation if components.json file is not found'
+        It 'exits with error if components.json file is not found'
             COMPONENTS_FILEPATH="non_existent_file.json"
-            installContainerdWithManifestJson() {
-                echo "mock installContainerdWithManifestJson calling"
-            }
-            When call installContainerRuntime 
-            The output line 2 should equal "Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
-            The output line 3 should equal "mock installContainerdWithManifestJson calling"
+            When run installContainerRuntime 
+            The status should equal $ERR_CONTAINERD_VERSION_INVALID
+            The output line 2 should equal "Unexpected. Package \"containerd\" does not exist in non_existent_file.json."
         End
     End
     Describe 'returnRelease'

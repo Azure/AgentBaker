@@ -107,6 +107,8 @@ ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
 
 ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205 # Timeout waiting for credential provider downloads
 
+ERR_CNI_VERSION_INVALID=206 # reference CNI (not azure cni) needs a valid version in components.json
+
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
