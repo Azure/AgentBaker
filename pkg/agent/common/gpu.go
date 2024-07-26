@@ -17,6 +17,9 @@ limitations under the License.
 package common
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -28,12 +31,83 @@ const (
 	nvidia535GridDriverVersion = "grid-535.161.08"
 )
 
-// These SHAs will change once we update aks-gpu images in aks-gpu repository. We do that fairly rarely at this time.
-// So for now these will be kept here like this.
-const (
-	aksGPUGridSHA = "sha-d1f0ca"
-	aksGPUCudaSHA = "sha-7b2b12"
+var (
+	nvidiaCurrentCudaDriverVersion string
+	nvidiaCurrentGridDriverVersion string
+	aksGPUGridSHA                  string
+	aksGPUCudaSHA                  string
 )
+
+type DriverConfig struct {
+	Nvidia struct {
+		Cuda map[string]string `json:"cuda"`
+		Grid map[string]string `json:"grid"`
+	} `json:"nvidia"`
+}
+
+func InitializeDriverConfig(configPath string) error {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("error reading config file: %w", err)
+	}
+
+	var config DriverConfig
+	err = json.Unmarshal(data, &config)
+	if err != nil {
+		return fmt.Errorf("error parsing config file: %w", err)
+	}
+
+	// Populate variables from config
+	for _, image := range config.Nvidia.Cuda {
+		_, driverVersion, sha := ParseDriverImage(image)
+		nvidiaCurrentCudaDriverVersion = "cuda-" + driverVersion
+		aksGPUCudaSHA = sha
+	}
+
+	for _, image := range config.Nvidia.Grid {
+		_, driverVersion, sha := ParseDriverImage(image)
+		nvidiaCurrentGridDriverVersion = "grid-" + driverVersion
+		aksGPUGridSHA = sha
+	}
+
+	return nil
+}
+
+func GetDriverImage(driverType string) string {
+	var driverVersion string
+	var sha string
+
+	switch driverType {
+	case "cuda":
+		driverVersion = nvidiaCurrentCudaDriverVersion
+		sha = aksGPUCudaSHA
+	case "grid":
+		driverVersion = nvidiaCurrentGridDriverVersion
+		sha = aksGPUGridSHA
+	default:
+		return ""
+	}
+
+	return fmt.Sprintf("mcr.microsoft.com/aks/aks-gpu:%s-%s", driverVersion, sha)
+}
+
+func ParseDriverImage(image string) (driverType, version, sha string) {
+	parts := strings.Split(image, ":")
+	if len(parts) != 2 {
+		return
+	}
+
+	imageParts := strings.Split(parts[1], "-")
+	if len(imageParts) != 4 {
+		return
+	}
+
+	driverType = imageParts[0]
+	version = imageParts[1]
+	sha = imageParts[2] + imageParts[3]
+
+	return
+}
 
 /*
 	nvidiaEnabledSKUs :  If a new GPU sku becomes available, add a key to this map, but only if you have a confirmation
@@ -244,12 +318,12 @@ func GetCommaSeparatedMarinerGPUSizes() string {
 // NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?).
 func GetGPUDriverVersion(size string) string {
 	if useGridDrivers(size) {
-		return nvidia535GridDriverVersion
+		return nvidiaCurrentGridDriverVersion
 	}
 	if isStandardNCv1(size) {
 		return nvidia470CudaDriverVersion
 	}
-	return nvidia550CudaDriverVersion
+	return nvidiaCurrentCudaDriverVersion
 }
 
 func isStandardNCv1(size string) bool {
