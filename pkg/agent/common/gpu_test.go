@@ -30,13 +30,6 @@ func TestMain(m *testing.M) {
 		fmt.Printf("Failed to initialize driver config: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println("Cuda driver version:", nvidiaCurrentCudaDriverVersion)
-	fmt.Println("Grid driver version:", nvidiaCurrentGridDriverVersion)
-
-	fmt.Println("CUDA SHA:", aksGPUCudaSHA)
-	fmt.Println("Grid SHA:", aksGPUGridSHA)
-
-	// Run the tests
 	code := m.Run()
 	os.Exit(code)
 }

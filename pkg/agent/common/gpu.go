@@ -106,7 +106,7 @@ func ParseDriverImage(image string) (driverType, version, sha string) {
 	version = imageParts[1]
 	sha = imageParts[2] + imageParts[3]
 
-	return
+	return driverType, version, sha
 }
 
 /*
