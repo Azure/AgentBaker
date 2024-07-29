@@ -113,15 +113,17 @@ func getExpectedPackageVersions(packageName, distro, release string) []string {
 	packages := gjson.GetBytes(jsonBytes, fmt.Sprintf("Packages.#(name=%s).downloadURIs", packageName))
 
 	for _, packageItem := range packages.Array() {
-		version := packageItem.Get(fmt.Sprintf("%s.%s.versions", distro, release))
-		if !version.Exists() {
-			version = packageItem.Get(fmt.Sprintf("%s.current.versions", distro))
+		versions := packageItem.Get(fmt.Sprintf("%s.%s.versions", distro, release))
+		if !versions.Exists() {
+			versions = packageItem.Get(fmt.Sprintf("%s.current.versions", distro))
 		}
-		if !version.Exists() {
-			version = packageItem.Get("default.current.versions")
+		if !versions.Exists() {
+			versions = packageItem.Get("default.current.versions")
 		}
-		if version.Exists() {
-			expectedVersions = append(expectedVersions, version.String())
+		if versions.Exists() {
+			for _, version := range versions.Array() {
+				expectedVersions = append(expectedVersions, version.String())
+			}
 		}
 	}
 	return expectedVersions
