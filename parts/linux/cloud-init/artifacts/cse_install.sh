@@ -120,7 +120,7 @@ installCredentalProvider() {
 
 # TODO (alburgess) have oras version managed by dependant or Renovate
 installOras() {
-    ORAS_DOWNLOAD_DIR=${1}
+    ORAS_DOWNLOAD_DIR="/opt/oras/downloads"
     ORAS_DOWNLOAD_URL=${2}
     ORAS_VERSION=${3}
 

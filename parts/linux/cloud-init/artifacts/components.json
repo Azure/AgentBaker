@@ -535,7 +535,7 @@
     },
     {
       "name": "oras",
-      "downloadLocation": "/opt/oras/downloads",
+      "downloadLocation": "",
       "downloadURIs": {
         "default": {
           "current": {
