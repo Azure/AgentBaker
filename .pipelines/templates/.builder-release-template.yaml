@@ -199,6 +199,20 @@ steps:
       -e CLASSIC_BLOB=${CLASSIC_BLOB} \
       -e BUILD_ID=$(Build.BuildId) \
       -e SCANNING_MSI_RESOURCE_ID=${SCANNING_MSI_RESOURCE_ID} \
+      -e SKU_NAME=$(SKU_NAME) \
+      -e VHD_NAME=${{ parameters.artifactName }} \
+      -e VHD_DEBUG=${VHD_DEBUG} \
+      -e ARCHITECTURE=${ARCHITECTURE} \
+      -e KUSTO_ENDPOINT=${KUSTO_ENDPOINT} \
+      -e KUSTO_DATABASE=${KUSTO_DATABASE} \
+      -e KUSTO_TABLE=${KUSTO_TABLE} \
+      -e UMSI_RESOURCE_ID=${UMSI_RESOURCE_ID} \
+      -e UMSI_PRINCIPAL_ID=${UMSI_PRINCIPAL_ID} \
+      -e UMSI_CLIENT_ID=${UMSI_CLIENT_ID} \
+      -e ACCOUNT_NAME=${ACCOUNT_NAME} \
+      -e BLOB_URL=${BLOB_URL} \
+      -e SEVERITY=${SEVERITY} \
+      -e MODULE_VERSION=${MODULE_VERSION} \
       ${CONTAINER_IMAGE} make -f packer.mk test-scan-and-cleanup
     condition: always()
     displayName: Test, Scan, and Cleanup
