@@ -40,7 +40,6 @@ set +x
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
 
-
 RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
 az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags 'source=AgentBaker'
 
@@ -53,11 +52,6 @@ fi
 function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
     az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
-
-    if [ -n "${VM_PRINCIPLE_ID}" ]; then
-        az role assignment delete --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}"
-        echo "Role assignment deleted."
-    fi
 }
 trap cleanup EXIT
 
@@ -80,43 +74,42 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
-    --assign-identity "[system]"
+    --assign-identity $UMSI_ID
 
-VM_PRINCIPLE_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
-az role assignment create --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}"
+echo "KUSTO_ENDPOINT: ${KUSTO_ENDPOINT} KUSTO_DATABASE: ${KUSTO_DATABASE} KUSTO_TABLE: ${KUSTO_TABLE}"
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
 TRIVY_SCRIPT_PATH="$CDIR/$TRIVY_SCRIPT_PATH"
-az vm run-command invoke \
-    --command-id RunShellScript \
-    --name $VM_NAME \
-    --resource-group $RESOURCE_GROUP_NAME \
-    --scripts @$TRIVY_SCRIPT_PATH
-
-
 TIMESTAMP=$(date +%s%3N)
-TRIVY_REPORT_NAME="trivy-report-${BUILD_ID}-${TIMESTAMP}.json"
-TRIVY_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
-EXE_SCRIPT_PATH="$CDIR/$EXE_SCRIPT_PATH"
+TRIVY_UPLOAD_REPORT_NAME="trivy-report-${BUILD_ID}-${TIMESTAMP}.json"
+TRIVY_UPLOAD_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
 az vm run-command invoke \
     --command-id RunShellScript \
     --name $VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
-    --scripts @$EXE_SCRIPT_PATH \
+    --scripts @$TRIVY_SCRIPT_PATH \
     --parameters "OS_SKU=${OS_SKU}" \
         "OS_VERSION=${OS_VERSION}" \
         "TEST_VM_ADMIN_USERNAME=${TEST_VM_ADMIN_USERNAME}" \
         "ARCHITECTURE=${ARCHITECTURE}" \
-        "TRIVY_REPORT_NAME=${TRIVY_REPORT_NAME}" \
-        "TRIVY_TABLE_NAME=${TRIVY_TABLE_NAME}" \
         "SIG_CONTAINER_NAME"=${SIG_CONTAINER_NAME} \
         "STORAGE_ACCOUNT_NAME"=${STORAGE_ACCOUNT_NAME} \
-        "ENABLE_TRUSTED_LAUNCH"=${ENABLE_TRUSTED_LAUNCH}
+        "ENABLE_TRUSTED_LAUNCH"=${ENABLE_TRUSTED_LAUNCH} \
+        "VHD_NAME"=${VHD_NAME} \
+        "SKU_NAME"=${SKU_NAME} \
+        "KUSTO_ENDPOINT"=${KUSTO_ENDPOINT} \
+        "KUSTO_DATABASE"=${KUSTO_DATABASE} \
+        "KUSTO_TABLE"=${KUSTO_TABLE} \
+        "TRIVY_UPLOAD_REPORT_NAME"=${TRIVY_UPLOAD_REPORT_NAME} \
+        "TRIVY_UPLOAD_TABLE_NAME"=${TRIVY_UPLOAD_TABLE_NAME} \
+        "ACCOUNT_NAME"=${ACCOUNT_NAME} \
+        "BLOB_URL"=${BLOB_URL} \
+        "SEVERITY"=${SEVERITY} \
+        "MODULE_VERSION"=${MODULE_VERSION}
 
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_REPORT_NAME} --file trivy-report.json --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_TABLE_NAME} --file  trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 
-az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_REPORT_NAME} --file trivy-report.json --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
-az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_TABLE_NAME} --file  trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
-
-az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
-az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_TABLE_NAME} --auth-mode login
+az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_UPLOAD_REPORT_NAME} --auth-mode login
+az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_UPLOAD_TABLE_NAME} --auth-mode login

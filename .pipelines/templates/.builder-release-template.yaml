@@ -165,10 +165,20 @@ steps:
       -e OS_VERSION=${OS_VERSION} \
       -e OS_SKU=${OS_SKU} \
       -e OS_TYPE="Linux" \
+      -e SKU_NAME=$(SKU_NAME) \
+      -e VHD_NAME=${{ parameters.artifactName }} \
       -e VHD_DEBUG=${VHD_DEBUG} \
       -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
       -e ARCHITECTURE=${ARCHITECTURE} \
       -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
+      -e KUSTO_ENDPOINT=${KUSTO_ENDPOINT} \
+      -e KUSTO_DATABASE=${KUSTO_DATABASE} \
+      -e KUSTO_TABLE=${KUSTO_TABLE} \
+      -e UMSI_ID=${UMSI_ID} \
+      -e ACCOUNT_NAME=${ACCOUNT_NAME} \
+      -e BLOB_URL=${BLOB_URL} \
+      -e SEVERITY=${SEVERITY} \
+      -e MODULE_VERSION=${MODULE_VERSION} \
       ${CONTAINER_IMAGE} make -f packer.mk scanning-vhd
     retryCountOnTaskFailure: 2
     displayName: Scanning VHD
