@@ -172,16 +172,20 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.13/windowszip/v1.27.13-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.14/windowszip/v1.27.14-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.15/windowszip/v1.27.15-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.27.16/windowszip/v1.27.16-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.5/windowszip/v1.28.5-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.9/windowszip/v1.28.9-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.10/windowszip/v1.28.10-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.11/windowszip/v1.28.11-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.28.12/windowszip/v1.28.12-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.2/windowszip/v1.29.2-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.4/windowszip/v1.29.4-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.5/windowszip/v1.29.5-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.6/windowszip/v1.29.6-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.29.7/windowszip/v1.29.7-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.30.1/windowszip/v1.30.1-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.30.2/windowszip/v1.30.2-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.30.3/windowszip/v1.30.3-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         # Azure CNI v1 (legacy)
