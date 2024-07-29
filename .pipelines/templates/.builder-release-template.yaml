@@ -220,6 +220,8 @@ steps:
           -e ARCHITECTURE=${ARCHITECTURE} \
           ${CONTAINER_IMAGE} make -f packer.mk cleanup'
 
+        gnu_exit_code=$?
+
         for dir in results/*; do
           job_number=$(basename "$dir")
           new_name=$(awk -v job="$job_number" '$1 == job {print $11}' log.txt)
@@ -247,7 +249,7 @@ steps:
           echo "##vso[endgroup]"
         done
 
-        if [ $? -ne 0 ]; then
+        if [ ${gnu_exit_code} -ne 0 ]; then
           echo "The following targets failed:"
           awk -F'\t' '$7 != 0 {print $9}' log.txt
           exit 1
