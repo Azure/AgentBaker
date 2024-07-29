@@ -24,7 +24,8 @@ func TestAll(t *testing.T) {
 	t.Run("azurelinuxv2-arm64", Scenario_azurelinuxv2ARM64)
 	t.Run("azurelinuxv2-arm64-airgap", Scenario_azurelinuxv2ARM64AirGap)
 	t.Run("azurelinuxv2-azurecni", Scenario_azurelinuxv2_azurecni)
-	t.Run("azurelinuxv2-component-versions", Scenario_azurelinuxv2HasRightComponentVersions)
+	t.Run("azurelinuxv2-containerc-versions", Scenario_azurelinuxv2HasRightContainerdVersion)
+	t.Run("azurelinuxv2-rund-versions", Scenario_azurelinuxv2HasRightRuncVersion)
 	t.Run("azurelinuxv2-chrony-restarts", Scenario_azurelinuxv2ChronyRestarts)
 	t.Run("azurelinuxv2-custom-sysctls", Scenario_azurelinuxv2CustomSysctls)
 	t.Run("azurelinuxv2-gpu", Scenario_azurelinuxv2gpu)
@@ -35,7 +36,8 @@ func TestAll(t *testing.T) {
 	t.Run("marinerv2-arm64", Scenario_marinerv2ARM64)
 	t.Run("marinerv2-arm64-airgap", Scenario_marinerv2ARM64AirGap)
 	t.Run("marinerv2-azurecni", Scenario_marinerv2_azurecni)
-	t.Run("marinerv2-component-versions", Scenario_marinerv2HasRightComponentVersions)
+	t.Run("marinerv2-containerd-versions", Scenario_marinerv2HasRightContainerdVersion)
+	t.Run("marinerv2-runc-versions", Scenario_marinerv2HasRightRuncVersion)
 	t.Run("marinerv2-chrony-restarts", Scenario_marinerv2ChronyRestarts)
 	t.Run("marinerv2-custom-sysctls", Scenario_marinerv2CustomSysctls)
 	t.Run("marinerv2-gpu", Scenario_marinerv2gpu)
@@ -44,7 +46,8 @@ func TestAll(t *testing.T) {
 	t.Run("ubuntu1804", Scenario_ubuntu1804)
 	t.Run("ubuntu1804-azurecni", Scenario_ubuntu1804_azurecni)
 	t.Run("ubuntu1804-chrony-restarts", Scenario_ubuntu1804ChronyRestarts)
-	t.Run("ubuntu1804-component-versions", Scenario_ubuntu1804HasRightComponentVersions)
+	t.Run("ubuntu1804-containerd-versions", Scenario_ubuntu1804HasRightContainerdVersion)
+	t.Run("ubuntu1804-runc-versions", Scenario_ubuntu1804HasRightRuncVersion)
 	t.Run("ubuntu1804-gpu", Scenario_ubuntu1804gpu)
 	t.Run("ubuntu1804-gpu-azurecni", Scenario_ubuntu1804gpu_azurecni)
 	t.Run("ubuntu2204", Scenario_ubuntu2204)
@@ -52,7 +55,8 @@ func TestAll(t *testing.T) {
 	t.Run("ubuntu2204-arm64", Scenario_ubuntu2204ARM64)
 	t.Run("ubuntu2204-artifact-streaming", Scenario_ubuntu2204ArtifactStreaming)
 	t.Run("ubuntu2204-chrony-restarts", Scenario_ubuntu2204ChronyRestarts)
-	t.Run("ubuntu2204-component-versions", Scenario_ubuntu2204HasRightComponentVersions)
+	t.Run("ubuntu2204-containerd-versions", Scenario_ubuntu2204HasRightContainerdVersion)
+	t.Run("ubuntu2204-runc-versions", Scenario_ubuntu2204HasRightRuncVersion)
 	t.Run("ubuntu2204-containerd-override", Scenario_ubuntu2204ContainerdURL)
 	t.Run("ubuntu2204-containerd-cur-ver", Scenario_ubuntu2204ContainerDHasCurrentVersion)
 	t.Run("ubuntu2204-custom-ca-trust", Scenario_ubuntu2204CustomCATrust)
@@ -932,24 +936,39 @@ to resolve the right version based on the distro. It seems easier to have the ve
 * Re-using the parser from prod introduces risk that there's a bug in the parser that we don't pick up as it impacts both test and prod code.
 * It's not much effort for a dev to change the hard coded values here and in components.json
 */
-func Scenario_marinerv2HasRightComponentVersions(t *testing.T) {
-	Scenario_genericHasRightComponentVersions(t, "marinerv2", "aks-cblmariner-v2-gen2", "1.6.26-5.cm2", "1.1.9-5.cm2")
+func Scenario_marinerv2HasRightContainerdVersion(t *testing.T) {
+	Scenario_genericHasRightContainerdVersion(t, "marinerv2", "aks-cblmariner-v2-gen2", "1.6.26-5.cm2")
 }
 
-func Scenario_azurelinuxv2HasRightComponentVersions(t *testing.T) {
-	Scenario_genericHasRightComponentVersions(t, "azurelinuxv2", "aks-azurelinux-v2-gen2", "1.7.20-1", "1.1.12")
+func Scenario_azurelinuxv2HasRightContainerdVersion(t *testing.T) {
+	Scenario_genericHasRightContainerdVersion(t, "azurelinuxv2", "aks-azurelinux-v2-gen2", "1.7.20-1")
 }
 
-func Scenario_ubuntu2204HasRightComponentVersions(t *testing.T) {
-	Scenario_genericHasRightComponentVersions(t, "ubuntu2204", "aks-ubuntu-containerd-22.04-gen2", "1.7.20-1", "1.1.12-1")
+func Scenario_ubuntu2204HasRightContainerdVersion(t *testing.T) {
+	Scenario_genericHasRightContainerdVersion(t, "ubuntu2204", "aks-ubuntu-containerd-22.04-gen2", "1.7.20-1")
 }
 
-func Scenario_ubuntu1804HasRightComponentVersions(t *testing.T) {
-	Scenario_genericHasRightComponentVersions(t, "ubuntu1804", "aks-ubuntu-containerd-18.04-gen2", "1.7.20-1", "1.1.12-1")
+func Scenario_ubuntu1804HasRightContainerdVersion(t *testing.T) {
+	Scenario_genericHasRightContainerdVersion(t, "ubuntu1804", "aks-ubuntu-containerd-18.04-gen2", "1.7.20-1")
 }
 
-func Scenario_genericHasRightComponentVersions(t *testing.T, name string, distro datamodel.Distro, containerdVersion string, runcVersion string) {
-	// setup two scenarios so we get individual failures rather than having to run multiple times.
+func Scenario_marinerv2HasRightRuncVersion(t *testing.T) {
+	Scenario_genericHasRightRunCVersion(t, "marinerv2", "aks-cblmariner-v2-gen2", "1.1.9-5.cm2")
+}
+
+func Scenario_azurelinuxv2HasRightRuncVersion(t *testing.T) {
+	Scenario_genericHasRightRunCVersion(t, "azurelinuxv2", "aks-azurelinux-v2-gen2", "1.1.12")
+}
+
+func Scenario_ubuntu2204HasRightRuncVersion(t *testing.T) {
+	Scenario_genericHasRightRunCVersion(t, "ubuntu2204", "aks-ubuntu-containerd-22.04-gen2", "1.1.12-1")
+}
+
+func Scenario_ubuntu1804HasRightRuncVersion(t *testing.T) {
+	Scenario_genericHasRightRunCVersion(t, "ubuntu1804", "aks-ubuntu-containerd-18.04-gen2", "1.1.12-1")
+}
+
+func Scenario_genericHasRightContainerdVersion(t *testing.T, name string, distro datamodel.Distro, containerdVersion string) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that " + name + " has the right containerd version",
 		Config: Config{
@@ -964,7 +983,9 @@ func Scenario_genericHasRightComponentVersions(t *testing.T, name string, distro
 			},
 		},
 	})
+}
 
+func Scenario_genericHasRightRunCVersion(t *testing.T, name string, distro datamodel.Distro, runcVersion string) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that " + name + " has the right runc version",
 		Config: Config{
