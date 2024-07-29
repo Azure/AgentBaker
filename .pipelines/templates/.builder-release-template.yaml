@@ -190,24 +190,24 @@ steps:
         done
 
         for target in scanning-vhd test-building-vhd cleanup; do
-          echo "##vso[group]${target}"
-          echo "##vso[group]Output"
-          echo "##vso[group]stdout"
+          echo "##[group]${target}"
+          echo "##[group]Output"
+          echo "##[group]stdout"
           cat results/${target}/stdout
-          echo "##vso[endgroup]"
-          echo "##vso[group]stderr"
+          echo "##[endgroup]"
+          echo "##[group]stderr"
           cat results/${target}/stderr
-          echo "##vso[endgroup]"
-          echo "##vso[endgroup]"
-          echo "##vso[group]Results"
+          echo "##[endgroup]"
+          echo "##[endgroup]"
+          echo "##[group]Results"
           exit_status=$(awk -F'\t' -v target="$target" '$9 ~ target {print $7}' log.txt)
           if [ $exit_status -eq 0 ]; then
             echo "${target} succeeded with exit code $exit_status"
           else
             echo "${target} failed with exit code $exit_status"
           fi
-          echo "##vso[endgroup]"
-          echo "##vso[endgroup]"
+          echo "##[endgroup]"
+          echo "##[endgroup]"
         done
 
         if [ ${gnu_exit_code} -ne 0 ]; then
