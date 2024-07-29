@@ -24,8 +24,8 @@ func TestAll(t *testing.T) {
 	t.Run("azurelinuxv2-arm64", Scenario_azurelinuxv2ARM64)
 	t.Run("azurelinuxv2-arm64-airgap", Scenario_azurelinuxv2ARM64AirGap)
 	t.Run("azurelinuxv2-azurecni", Scenario_azurelinuxv2_azurecni)
-	t.Run("azurelinuxv2-containerc-version", Scenario_azurelinuxv2HasRightContainerdVersion)
-	t.Run("azurelinuxv2-rund-version", Scenario_azurelinuxv2HasRightRuncVersion)
+	t.Run("azurelinuxv2-containerd-version", Scenario_azurelinuxv2HasRightContainerdVersion)
+	t.Run("azurelinuxv2-runc-version", Scenario_azurelinuxv2HasRightRuncVersion)
 	t.Run("azurelinuxv2-chrony-restarts", Scenario_azurelinuxv2ChronyRestarts)
 	t.Run("azurelinuxv2-custom-sysctls", Scenario_azurelinuxv2CustomSysctls)
 	t.Run("azurelinuxv2-gpu", Scenario_azurelinuxv2gpu)
@@ -58,7 +58,7 @@ func TestAll(t *testing.T) {
 	t.Run("ubuntu2204-containerd-version", Scenario_ubuntu2204HasRightContainerdVersion)
 	t.Run("ubuntu2204-runc-version", Scenario_ubuntu2204HasRightRuncVersion)
 	t.Run("ubuntu2204-containerd-override", Scenario_ubuntu2204ContainerdURL)
-	t.Run("ubuntu2204-containerd-cur-ver", Scenario_ubuntu2204ContainerDHasCurrentVersion)
+	t.Run("ubuntu2204-containerd-cur-ver", Scenario_ubuntu2204ContainerdHasCurrentVersion)
 	t.Run("ubuntu2204-custom-ca-trust", Scenario_ubuntu2204CustomCATrust)
 	t.Run("ubuntu2204-custom-sysctls", Scenario_ubuntu2204CustomSysctls)
 	t.Run("ubuntu2204-gpu-a10", Scenario_ubuntu2204gpua10)
@@ -893,7 +893,7 @@ func Scenario_ubuntu2204ContainerdURL(t *testing.T) {
 	})
 }
 
-func Scenario_ubuntu2204ContainerDHasCurrentVersion(t *testing.T) {
+func Scenario_ubuntu2204ContainerdHasCurrentVersion(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a node using an Ubuntu2204 VHD and the ContainerdVersion override bootstraps with the correct manifest containerd version and ignores the override",
 		Config: Config{
@@ -939,7 +939,7 @@ to resolve the right version based on the distro. It seems easier to have the ve
 func Scenario_marinerv2HasRightContainerdVersion(t *testing.T) {
 	// This is the version that's in the manifest file - seems to be being ignored right now.
 	//Scenario_genericHasRightContainerdVersion(t, "marinerv2", "aks-cblmariner-v2-gen2", "1.6.26-5.cm2")
-	Scenario_genericHasRightContainerdVersion(t, "ubuntu2204", "aks-ubuntu-containerd-22.04-gen2", "1.7.20-1")
+	Scenario_genericHasRightContainerdVersion(t, "marinerv2", "aks-ubuntu-containerd-22.04-gen2", "1.7.20-1")
 }
 
 func Scenario_azurelinuxv2HasRightContainerdVersion(t *testing.T) {
@@ -953,13 +953,13 @@ func Scenario_ubuntu2204HasRightContainerdVersion(t *testing.T) {
 func Scenario_ubuntu1804HasRightContainerdVersion(t *testing.T) {
 	// This is the version that's in the manifest file - seems to be being ignored right now.
 	//Scenario_genericHasRightContainerdVersion(t, "ubuntu1804", "aks-ubuntu-containerd-18.04-gen2", "1.7.1-1")
-	Scenario_genericHasRightContainerdVersion(t, "ubuntu2204", "aks-ubuntu-containerd-22.04-gen2", "1.7.20-1")
+	Scenario_genericHasRightContainerdVersion(t, "ubuntu1804", "aks-ubuntu-containerd-22.04-gen2", "1.7.20-1")
 }
 
 func Scenario_marinerv2HasRightRuncVersion(t *testing.T) {
 	// This is the version that's in the manifest file - seems to be being ignored right now.
 	//Scenario_genericHasRightRunCVersion(t, "marinerv2", "aks-cblmariner-v2-gen2", "1.1.9-5.cm2")
-	Scenario_genericHasRightRunCVersion(t, "azurelinuxv2", "aks-azurelinux-v2-gen2", "1.1.12-1")
+	Scenario_genericHasRightRunCVersion(t, "marinerv2", "aks-azurelinux-v2-gen2", "1.1.12-1")
 }
 
 func Scenario_azurelinuxv2HasRightRuncVersion(t *testing.T) {
