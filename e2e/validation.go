@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
-func validateNodeHealth(ctx context.Context, t *testing.T, kube *Kubeclient, vmssName string) string {
-	nodeName := waitUntilNodeReady(ctx, t, kube, vmssName)
+func validateNodeHealth(ctx context.Context, t *testing.T, startTime time.Time, kube *Kubeclient, vmssName string) string {
+	nodeName := waitUntilNodeReady(ctx, t, startTime, kube, vmssName)
 
 	nginxPodName, err := ensureTestNginxPod(ctx, kube, nodeName)
 	require.NoError(t, err, "failed to validate node health, unable to ensure nginx pod on node %q", nodeName)

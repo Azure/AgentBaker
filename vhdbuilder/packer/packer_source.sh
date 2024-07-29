@@ -121,6 +121,7 @@ copyPackerFiles() {
   VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC=/home/packer/prefetch.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST=/opt/azure/containers/prefetch.sh
+  AKS_LAUNCHER=/opt/azure/container/aks-launcher # TODO: add x64 version
 
   CSE_REDACT_SRC=/home/packer/cse_redact_cloud_config.py
   CSE_REDACT_DEST=/opt/azure/containers/provision_redact_cloud_config.py
@@ -314,6 +315,7 @@ copyPackerFiles() {
   cpAndMode $CI_SYSLOG_WATCHER_SCRIPT_SRC $CI_SYSLOG_WATCHER_SCRIPT_DEST 755
   cpAndMode $SNAPSHOT_UPDATE_SERVICE_SRC $SNAPSHOT_UPDATE_SERVICE_DEST 644
   cpAndMode $SNAPSHOT_UPDATE_TIMER_SRC $SNAPSHOT_UPDATE_TIMER_DEST 644
+  cpAndMode $AKS_LAUNCHER 755
 
   if [[ $OS != $MARINER_OS_NAME ]]; then
     cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644

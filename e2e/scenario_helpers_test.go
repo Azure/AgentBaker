@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"testing"
+	"time"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/config"
@@ -81,10 +82,11 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	assert.NoError(t, err)
 
 	vmssName := getVmssName(t)
+	startTime := time.Now()
 	createVMSS(ctx, t, vmssName, opts, privateKeyBytes, publicKeyBytes)
 
 	t.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", vmssName)
-	nodeName := validateNodeHealth(ctx, t, opts.clusterConfig.Kube, vmssName)
+	nodeName := validateNodeHealth(ctx, t, startTime, opts.clusterConfig.Kube, vmssName)
 
 	if opts.nbc.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi {
 		t.Logf("wasm scenario: running wasm validation on %s...", vmssName)

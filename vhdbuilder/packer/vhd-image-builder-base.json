@@ -650,6 +650,11 @@
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
         "sudo /usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/aks-launcher/aks-launcher",
+      "destination": "/home/packer/aks-launcher"
     }
   ]
 }

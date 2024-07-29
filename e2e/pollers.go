@@ -14,12 +14,12 @@ import (
 
 const (
 	// Polling intervals
-	execOnVMPollInterval                 = 10 * time.Second
-	execOnPodPollInterval                = 10 * time.Second
-	extractClusterParametersPollInterval = 10 * time.Second
-	extractVMLogsPollInterval            = 10 * time.Second
-	waitUntilPodRunningPollInterval      = 10 * time.Second
-	waitUntilNodeReadyPollingInterval    = 20 * time.Second
+	execOnVMPollInterval                 = time.Second
+	execOnPodPollInterval                = time.Second
+	extractClusterParametersPollInterval = time.Second
+	extractVMLogsPollInterval            = time.Second
+	waitUntilPodRunningPollInterval      = time.Second
+	waitUntilNodeReadyPollingInterval    = time.Second
 )
 
 func pollExecOnVM(ctx context.Context, t *testing.T, kube *Kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
@@ -123,7 +123,7 @@ func pollExtractVMLogs(ctx context.Context, t *testing.T, vmssName, privateIP st
 	return nil
 }
 
-func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vmssName string) string {
+func waitUntilNodeReady(ctx context.Context, t *testing.T, startTime time.Time, kube *Kubeclient, vmssName string) string {
 	var nodeName string
 	nodeStatus := corev1.NodeStatus{}
 	found := false
@@ -156,7 +156,7 @@ func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 		t.Logf("node %q isn't connected to the AKS cluster", vmssName)
 	}
 	require.NoError(t, err, "failed to find or wait for %q to be ready %v", vmssName, nodeStatus)
-	t.Logf("node %s is ready", nodeName)
+	t.Logf("node %s is ready, duration %v", nodeName, time.Since(startTime))
 
 	return nodeName
 }

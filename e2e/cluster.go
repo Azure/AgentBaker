@@ -137,7 +137,7 @@ func createCluster(ctx context.Context, t *testing.T, cluster *armcontainerservi
 }
 
 func createNewAKSCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
-	t.Logf("Creating or updating cluster %s in rg %s\n", *cluster.Name, *cluster.Location)
+	t.Logf("Creating or updating cluster %s, rg %s, location %s", *cluster.Name, config.ResourceGroupName, *cluster.Location)
 	pollerResp, err := config.Azure.AKS.BeginCreateOrUpdate(
 		ctx,
 		config.ResourceGroupName,

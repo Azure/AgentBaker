@@ -1,4 +1,10 @@
 #!/bin/bash
+
+PS4='+ $(date "+%s.%N")\011'
+exec 3>&2 2>/var/log/azure/debuglog
+set -x
+
+
 ERR_FILE_WATCH_TIMEOUT=6 
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
@@ -366,3 +372,6 @@ exit $VALIDATION_ERR
 
 
 #EOF
+
+set +x
+exec 2>&3 3>&-
