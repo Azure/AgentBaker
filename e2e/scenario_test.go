@@ -924,6 +924,14 @@ func Scenario_ubuntu2204Wasm(t *testing.T) {
 	})
 }
 
+/*
+We could figure out the expected versions by parsing the components.json and manifest.json files, but then we'd need logic
+to resolve the right version based on the distro. It seems easier to have the versions of containerd and runc hard coded here because:
+
+* Having additional code for parsing the files and resolving the version introduces risk of bugs in the test code.
+* Re-using the parser from prod introduces risk that there's a bug in the parser that we don't pick up as it impacts both test and prod code.
+* It's not much effort for a dev to change the hard coded values here and in components.json
+*/
 func Scenario_marinerv2HasRightComponentVersions(t *testing.T) {
 	Scenario_genericHasRightComponentVersions(t, "marinerv2", "aks-cblmariner-v2-gen2", "1.6.26-5.cm2", "1.1.9-5.cm2")
 }
