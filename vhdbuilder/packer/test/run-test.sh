@@ -25,7 +25,7 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
   AZURE_LOCATION=$PACKER_BUILD_LOCATION
 fi
 
-if [ -n "$TEST_VM_RESOURCE_GROUP_NAME" ]; then
+if [ -z "$TEST_VM_RESOURCE_GROUP_NAME" ]; then
   echo "TEST_VM_RESOURCE_GROUP_NAME could not be passed successfully."
   exit 1
 fi
