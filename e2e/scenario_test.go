@@ -929,7 +929,7 @@ func Scenario_ubuntu2204Wasm(t *testing.T) {
 }
 
 /*
-We could figure out the expected versions by parsing the components.json and manifest.json files, but then we'd need logic
+We could figure out the expected versions by parsing the components.json file, but then we'd need logic
 to resolve the right version based on the distro. It seems easier to have the versions of containerd and runc hard coded here because:
 
 * Having additional code for parsing the files and resolving the version introduces risk of bugs in the test code.
@@ -937,7 +937,7 @@ to resolve the right version based on the distro. It seems easier to have the ve
 * It's not much effort for a dev to change the hard coded values here and in components.json
 */
 func Scenario_marinerv2HasRightContainerdVersion(t *testing.T) {
-	// This is the version that's in the manifest file - seems to be being ignored right now.
+	// This is the version that's in the components.json file - seems to be being ignored right now.
 	//Scenario_genericHasRightContainerdVersion(t, "marinerv2", "aks-cblmariner-v2-gen2", "1.6.26-5.cm2")
 	Scenario_genericHasRightContainerdVersion(t, "marinerv2", "aks-ubuntu-containerd-22.04-gen2", "1.7.20-1")
 }
@@ -951,13 +951,13 @@ func Scenario_ubuntu2204HasRightContainerdVersion(t *testing.T) {
 }
 
 func Scenario_ubuntu1804HasRightContainerdVersion(t *testing.T) {
-	// This is the version that's in the manifest file - seems to be being ignored right now.
+	// This is the version that's in the components.json file - seems to be being ignored right now.
 	//Scenario_genericHasRightContainerdVersion(t, "ubuntu1804", "aks-ubuntu-containerd-18.04-gen2", "1.7.1-1")
 	Scenario_genericHasRightContainerdVersion(t, "ubuntu1804", "aks-ubuntu-containerd-22.04-gen2", "1.7.20-1")
 }
 
 func Scenario_marinerv2HasRightRuncVersion(t *testing.T) {
-	// This is the version that's in the manifest file - seems to be being ignored right now.
+	// This is the version that's in the components.json file - seems to be being ignored right now.
 	//Scenario_genericHasRightRunCVersion(t, "marinerv2", "aks-cblmariner-v2-gen2", "1.1.9-5.cm2")
 	Scenario_genericHasRightRunCVersion(t, "marinerv2", "aks-azurelinux-v2-gen2", "1.1.12-1")
 }
