@@ -959,7 +959,7 @@ func Scenario_ubuntu1804HasRightContainerdVersion(t *testing.T) {
 func Scenario_marinerv2HasRightRuncVersion(t *testing.T) {
 	// This is the version that's in the components.json file - seems to be being ignored right now.
 	//Scenario_genericHasRightRunCVersion(t, "marinerv2", "aks-cblmariner-v2-gen2", "1.1.9-5.cm2")
-	Scenario_genericHasRightRunCVersion(t, "marinerv2", "aks-azurelinux-v2-gen2", "1.1.12-1")
+	Scenario_genericHasRightRunCVersion(t, "marinerv2", "aks-cblmariner-v2-gen2", "1.1.12-1")
 }
 
 func Scenario_azurelinuxv2HasRightRuncVersion(t *testing.T) {
