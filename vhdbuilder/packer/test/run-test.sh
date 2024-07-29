@@ -25,8 +25,10 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
   AZURE_LOCATION=$PACKER_BUILD_LOCATION
 fi
 
-TEST_VM_RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
-export TEST_VM_RESOURCE_GROUP_NAME
+if [ -n "$TEST_VM_RESOURCE_GROUP_NAME" ]; then
+  echo "TEST_VM_RESOURCE_GROUP_NAME could not be passed successfully."
+  exit 1
+fi
 az group create --name $TEST_VM_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
 
 # defer function to cleanup resource group when VHD debug is not enabled
