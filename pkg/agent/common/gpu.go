@@ -27,16 +27,21 @@ import (
 
 const (
 	nvidia470CudaDriverVersion = "cuda-470.82.01"
-	nvidia550CudaDriverVersion = "cuda-550.90.07"
-	nvidia535GridDriverVersion = "grid-535.161.08"
 )
 
-var (
-	nvidiaCurrentCudaDriverVersion string
-	nvidiaCurrentGridDriverVersion string
-	aksGPUGridSHA                  string
-	aksGPUCudaSHA                  string
-)
+type DriverConfigData struct {
+	NvidiaCurrentCudaDriverVersion string
+	NvidiaCurrentGridDriverVersion string
+	AksGPUCudaSHA                  string
+	AksGPUGridSHA                  string
+}
+
+// var (
+// 	nvidiaCurrentCudaDriverVersion string
+// 	nvidiaCurrentGridDriverVersion string
+// 	aksGPUGridSHA                  string
+// 	aksGPUCudaSHA                  string
+// )
 
 type DriverConfig struct {
 	Nvidia struct {
@@ -45,51 +50,63 @@ type DriverConfig struct {
 	} `json:"nvidia"`
 }
 
-func InitializeDriverConfig(configPath string) error {
+func InitializeDriverConfig(configPath string) (DriverConfigData, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return fmt.Errorf("error reading config file: %w", err)
+		return DriverConfigData{}, fmt.Errorf("error reading config file: %w", err)
 	}
 
 	var config DriverConfig
 	err = json.Unmarshal(data, &config)
 	if err != nil {
-		return fmt.Errorf("error parsing config file: %w", err)
+		return DriverConfigData{}, fmt.Errorf("error parsing config file: %w", err)
 	}
+
+	driverConfig := DriverConfigData{}
 
 	// Populate variables from config
 	for _, image := range config.Nvidia.Cuda {
 		_, driverVersion, sha := ParseDriverImage(image)
-		nvidiaCurrentCudaDriverVersion = "cuda-" + driverVersion
-		aksGPUCudaSHA = sha
+		driverConfig.NvidiaCurrentCudaDriverVersion = "cuda-" + driverVersion
+		driverConfig.AksGPUCudaSHA = sha
 	}
 
 	for _, image := range config.Nvidia.Grid {
 		_, driverVersion, sha := ParseDriverImage(image)
-		nvidiaCurrentGridDriverVersion = "grid-" + driverVersion
-		aksGPUGridSHA = sha
+		driverConfig.NvidiaCurrentGridDriverVersion = "grid-" + driverVersion
+		driverConfig.AksGPUGridSHA = sha
 	}
 
-	return nil
+	return driverConfig, nil
 }
 
-func GetDriverImage(driverType string) string {
-	var driverVersion string
-	var sha string
+// func InitializeDriverConfig(configPath string) error {
+// 	data, err := os.ReadFile(configPath)
+// 	if err != nil {
+// 		return fmt.Errorf("error reading config file: %w", err)
+// 	}
 
-	switch driverType {
-	case "cuda":
-		driverVersion = nvidiaCurrentCudaDriverVersion
-		sha = aksGPUCudaSHA
-	case "grid":
-		driverVersion = nvidiaCurrentGridDriverVersion
-		sha = aksGPUGridSHA
-	default:
-		return ""
-	}
+// 	var config DriverConfig
+// 	err = json.Unmarshal(data, &config)
+// 	if err != nil {
+// 		return fmt.Errorf("error parsing config file: %w", err)
+// 	}
 
-	return fmt.Sprintf("mcr.microsoft.com/aks/aks-gpu:%s-%s", driverVersion, sha)
-}
+// 	// Populate variables from config
+// 	for _, image := range config.Nvidia.Cuda {
+// 		_, driverVersion, sha := ParseDriverImage(image)
+// 		nvidiaCurrentCudaDriverVersion = "cuda-" + driverVersion
+// 		aksGPUCudaSHA = sha
+// 	}
+
+// 	for _, image := range config.Nvidia.Grid {
+// 		_, driverVersion, sha := ParseDriverImage(image)
+// 		nvidiaCurrentGridDriverVersion = "grid-" + driverVersion
+// 		aksGPUGridSHA = sha
+// 	}
+
+// 	return nil
+// }
 
 func ParseDriverImage(image string) (driverType, version, sha string) {
 	parts := strings.Split(image, ":")
@@ -294,10 +311,12 @@ func IsMIGNode(gpuInstanceProfile string) bool {
 }
 
 func GetAKSGPUImageSHA(size string) string {
+	var testDriverConfig DriverConfigData
+	testDriverConfig, _ = InitializeDriverConfig("gpudrivers.json")
 	if useGridDrivers(size) {
-		return aksGPUGridSHA
+		return testDriverConfig.AksGPUGridSHA
 	}
-	return aksGPUCudaSHA
+	return testDriverConfig.AksGPUCudaSHA
 }
 
 func GPUNeedsFabricManager(size string) bool {
@@ -312,18 +331,30 @@ func GetCommaSeparatedMarinerGPUSizes() string {
 	return strings.Join(nvidiaEnabledSKUs.List(), ",")
 }
 
+func GetCurrentCUDADriver() string {
+	driverConfig, _ := InitializeDriverConfig("gpudrivers.json")
+
+	return driverConfig.NvidiaCurrentCudaDriverVersion
+}
+
+func GetCurrentGRIDDriver() string {
+	driverConfig, _ := InitializeDriverConfig("gpudrivers.json")
+
+	return driverConfig.NvidiaCurrentGridDriverVersion
+}
+
 // NV series GPUs target graphics workloads vs NC which targets compute.
 // they typically use GRID, not CUDA drivers, and will fail to install CUDA drivers.
 // NVv1 seems to run with CUDA, NVv5 requires GRID.
 // NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?).
 func GetGPUDriverVersion(size string) string {
 	if useGridDrivers(size) {
-		return nvidiaCurrentGridDriverVersion
+		return GetCurrentCUDADriver()
 	}
 	if isStandardNCv1(size) {
 		return nvidia470CudaDriverVersion
 	}
-	return nvidiaCurrentCudaDriverVersion
+	return GetCurrentGRIDDriver()
 }
 
 func isStandardNCv1(size string) bool {

@@ -24,16 +24,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMain(m *testing.M) {
-	err := InitializeDriverConfig("gpudrivers.json")
-	if err != nil {
-		fmt.Printf("Failed to initialize driver config: %v\n", err)
-		os.Exit(1)
-	}
-	code := m.Run()
-	os.Exit(code)
-}
-
 func TestIsNvidiaEnabledSKU(t *testing.T) {
 	assert := assert.New(t)
 	tests := []struct {
@@ -175,30 +165,45 @@ func TestIsMarinerEnabledGPUSKU(t *testing.T) {
 }
 
 func TestGetAKSGPUImageSHA(t *testing.T) {
+	testDriverConfig, err := InitializeDriverConfig("gpudrivers.json")
+	if err != nil {
+		fmt.Printf("Failed to initialize driver config: %v\n", err)
+		os.Exit(1)
+	}
+
 	assert := assert.New(t)
 	tests := []struct {
 		name   string
 		size   string
 		output string
 	}{
-		{"GRID Driver - NC Series v4", "standard_nc8ads_a10_v4", aksGPUGridSHA},
-		{"Cuda Driver - NV Series", "standard_nv6", aksGPUCudaSHA},
-		{"CUDA Driver - NC Series", "standard_nc6s_v3", aksGPUCudaSHA},
-		{"GRID Driver - NV Series v5", "standard_nv6ads_a10_v5", aksGPUGridSHA},
-		{"Unknown SKU", "unknown_sku", aksGPUCudaSHA},
-		{"CUDA Driver - NC Series v2", "standard_nc6s_v2", aksGPUCudaSHA},
-		{"CUDA Driver - NV Series v3", "standard_nv12s_v3", aksGPUCudaSHA},
+		{"GRID Driver - NC Series v4", "standard_nc8ads_a10_v4", testDriverConfig.AksGPUGridSHA},
+		{"Cuda Driver - NV Series", "standard_nv6", testDriverConfig.AksGPUCudaSHA},
+		{"CUDA Driver - NC Series", "standard_nc6s_v3", testDriverConfig.AksGPUCudaSHA},
+		{"GRID Driver - NV Series v5", "standard_nv6ads_a10_v5", testDriverConfig.AksGPUGridSHA},
+		{"Unknown SKU", "unknown_sku", testDriverConfig.AksGPUCudaSHA},
+		{"CUDA Driver - NC Series v2", "standard_nc6s_v2", testDriverConfig.AksGPUCudaSHA},
+		{"CUDA Driver - NV Series v3", "standard_nv12s_v3", testDriverConfig.AksGPUCudaSHA},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			result := GetAKSGPUImageSHA(test.size)
+			fmt.Println("output: ", test.output)
+			fmt.Println("result: ", result)
 			assert.Equal(test.output, result, "Failed for size: %s", test.size)
 		})
 	}
 }
 
 func TestGetGPUDriverVersion(t *testing.T) {
+
+	testDriverConfig, err := InitializeDriverConfig("gpudrivers.json")
+	if err != nil {
+		fmt.Printf("Failed to initialize driver config: %v\n", err)
+		os.Exit(1)
+	}
+
 	assert := assert.New(t)
 	tests := []struct {
 		name   string
@@ -207,14 +212,14 @@ func TestGetGPUDriverVersion(t *testing.T) {
 	}{
 		{"CUDA Driver - NC Series v1", "standard_nc6", nvidia470CudaDriverVersion},
 		{"CUDA Driver - NCs Series v1", "standard_nc6s", nvidia470CudaDriverVersion},
-		{"CUDA Driver - NC Series v2", "standard_nc6s_v2", nvidiaCurrentCudaDriverVersion},
-		{"Unknown SKU", "unknown_sku", nvidiaCurrentCudaDriverVersion},
-		{"CUDA Driver - NC Series v3", "standard_nc6s_v3", nvidiaCurrentCudaDriverVersion},
-		{"GRID Driver - A10", "standard_nc8ads_a10_v4", nvidiaCurrentGridDriverVersion},
-		{"GRID Driver - NV Series v5", "standard_nv6ads_a10_v5", nvidiaCurrentGridDriverVersion},
-		{"GRID Driver - A10", "standard_nv36adms_a10_V5", nvidiaCurrentGridDriverVersion},
+		{"CUDA Driver - NC Series v2", "standard_nc6s_v2", testDriverConfig.NvidiaCurrentCudaDriverVersion},
+		{"Unknown SKU", "unknown_sku", testDriverConfig.NvidiaCurrentCudaDriverVersion},
+		{"CUDA Driver - NC Series v3", "standard_nc6s_v3", testDriverConfig.NvidiaCurrentCudaDriverVersion},
+		{"GRID Driver - A10", "standard_nc8ads_a10_v4", testDriverConfig.NvidiaCurrentGridDriverVersion},
+		{"GRID Driver - NV Series v5", "standard_nv6ads_a10_v5", testDriverConfig.NvidiaCurrentGridDriverVersion},
+		{"GRID Driver - A10", "standard_nv36adms_a10_V5", testDriverConfig.NvidiaCurrentGridDriverVersion},
 		// NV V1 SKUs were retired in September 2023, leaving this test just for safety
-		{"CUDA Driver - NV Series v1", "standard_nv6", nvidiaCurrentCudaDriverVersion},
+		{"CUDA Driver - NV Series v1", "standard_nv6", testDriverConfig.NvidiaCurrentCudaDriverVersion},
 	}
 
 	for _, test := range tests {
