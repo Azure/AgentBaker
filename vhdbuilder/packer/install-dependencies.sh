@@ -273,6 +273,13 @@ for p in ${packages[*]}; do
   capture_benchmark "download_${name}"
 done
 
+TENANTID="72f988bf-86f1-41af-91ab-2d7cd011db47"
+PRIVATE_ACR_NAME="aksvhdtestcr"
+TOKEN=$(curl -s -H "Metadata:true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/" | jq -r .access_token)
+REFRESH_TOKEN=$(curl -s -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "grant_type=access_token&service=aksvhdtestcr.azurecr.io&tenant=$TENANTID&access_token=$TOKEN" https://$PRIVATE_ACR_NAME.azurecr.io/oauth2/exchange | jq -r .refresh_token)
+echo "$REFRESH_TOKEN" | oras login $ACR_NAME --identity-token-stdin
+oras pull "$ACR_NAME"/aks/oss/binaries/kubernetes/azure-acr-credential-provider:v1.29.2-linux-arm64
+
 downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
 
