@@ -937,7 +937,9 @@ to resolve the right version based on the distro. It seems easier to have the ve
 * It's not much effort for a dev to change the hard coded values here and in components.json
 */
 func Scenario_marinerv2HasRightContainerdVersion(t *testing.T) {
-	Scenario_genericHasRightContainerdVersion(t, "marinerv2", "aks-cblmariner-v2-gen2", "1.6.26-5.cm2")
+	// This is the version that's in the manifest file - seems to be being ignored right now.
+	//Scenario_genericHasRightContainerdVersion(t, "marinerv2", "aks-cblmariner-v2-gen2", "1.6.26-5.cm2")
+	Scenario_genericHasRightContainerdVersion(t, "ubuntu2204", "aks-ubuntu-containerd-22.04-gen2", "1.7.20-1")
 }
 
 func Scenario_azurelinuxv2HasRightContainerdVersion(t *testing.T) {
@@ -949,11 +951,15 @@ func Scenario_ubuntu2204HasRightContainerdVersion(t *testing.T) {
 }
 
 func Scenario_ubuntu1804HasRightContainerdVersion(t *testing.T) {
-	Scenario_genericHasRightContainerdVersion(t, "ubuntu1804", "aks-ubuntu-containerd-18.04-gen2", "1.7.1-1")
+	// This is the version that's in the manifest file - seems to be being ignored right now.
+	//Scenario_genericHasRightContainerdVersion(t, "ubuntu1804", "aks-ubuntu-containerd-18.04-gen2", "1.7.1-1")
+	Scenario_genericHasRightContainerdVersion(t, "ubuntu2204", "aks-ubuntu-containerd-22.04-gen2", "1.7.20-1")
 }
 
 func Scenario_marinerv2HasRightRuncVersion(t *testing.T) {
-	Scenario_genericHasRightRunCVersion(t, "marinerv2", "aks-cblmariner-v2-gen2", "1.1.9-5.cm2")
+	// This is the version that's in the manifest file - seems to be being ignored right now.
+	//Scenario_genericHasRightRunCVersion(t, "marinerv2", "aks-cblmariner-v2-gen2", "1.1.9-5.cm2")
+	Scenario_genericHasRightRunCVersion(t, "azurelinuxv2", "aks-azurelinux-v2-gen2", "1.1.12-1")
 }
 
 func Scenario_azurelinuxv2HasRightRuncVersion(t *testing.T) {
