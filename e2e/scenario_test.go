@@ -164,7 +164,7 @@ func Scenario_azurelinuxv2ChronyRestarts(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				serviceCanRestartValidator("chronyd", 10),
+				ServiceCanRestartValidator("chronyd", 10),
 				FileHasContentsValidator("/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always"),
 				FileHasContentsValidator("/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5"),
 			},
@@ -390,7 +390,7 @@ func Scenario_marinerv2ChronyRestarts(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				serviceCanRestartValidator("chronyd", 10),
+				ServiceCanRestartValidator("chronyd", 10),
 				FileHasContentsValidator("/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always"),
 				FileHasContentsValidator("/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5"),
 			},
@@ -549,7 +549,7 @@ func Scenario_ubuntu1804ChronyRestarts(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-18.04-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				serviceCanRestartValidator("chronyd", 10),
+				ServiceCanRestartValidator("chronyd", 10),
 				FileHasContentsValidator("/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "Restart=always"),
 				FileHasContentsValidator("/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "RestartSec=5"),
 			},
@@ -692,7 +692,7 @@ func Scenario_ubuntu2204ChronyRestarts(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				serviceCanRestartValidator("chronyd", 10),
+				ServiceCanRestartValidator("chronyd", 10),
 				FileHasContentsValidator("/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always"),
 				FileHasContentsValidator("/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5"),
 			},

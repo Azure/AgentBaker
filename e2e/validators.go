@@ -149,7 +149,7 @@ func makeExecutableCommand(steps []string) string {
 	return command
 }
 
-func serviceCanRestartValidator(serviceName string, restartTimeoutInSeconds int) *LiveVMValidator {
+func ServiceCanRestartValidator(serviceName string, restartTimeoutInSeconds int) *LiveVMValidator {
 	steps := []string{
 		// Verify the service is active - print the state then verify so we have logs
 		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
