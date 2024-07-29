@@ -124,7 +124,7 @@ steps:
           'docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}"
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
           -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
           -e BLOB_STORAGE_NAME=${BLOB_STORAGE_NAME} \
           -e CLASSIC_BLOB=${CLASSIC_BLOB} \
@@ -192,16 +192,16 @@ steps:
           echo "##vso[group]${target}"
           echo "##vso[group]Output"
           echo "##vso[group]stdout"
-          cat results/$target/stdout
+          cat results/${target}/stdout
           echo "##vso[endgroup]"
           echo "##vso[group]stderr"
-          cat results/$target/stderr
+          cat results/${target}/stderr
           echo "##vso[endgroup]"
           echo "##vso[endgroup]"
           echo "##vso[group]Results"
           exit_status=$(awk -F'\t' -v target="$target" '$9 ~ target {print $7}' log.txt)
           if [ $exit_status -eq 0 ]; then
-            echo "$target succeeded with exit code $exit_status"
+            echo "${target} succeeded with exit code $exit_status"
           else
             echo "${target} failed with exit code $exit_status"
           fi
