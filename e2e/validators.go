@@ -265,7 +265,7 @@ func runcVersionValidator(version string) *LiveVMValidator {
 
 			// runc output
 			if !strings.Contains(stdout, "runc version "+version) {
-				return fmt.Errorf(fmt.Sprintf("expected to find containerd version %s, got: %s", version, stdout))
+				return fmt.Errorf(fmt.Sprintf("expected to find runc version %s, got: %s", version, stdout))
 			}
 			return nil
 		},
