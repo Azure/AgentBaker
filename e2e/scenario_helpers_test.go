@@ -110,9 +110,19 @@ func getExpectedPackageVersions(packageName, distro, release string) []string {
 	var expectedVersions []string
 	// since we control this json, we assume its going to be properly formatted here
 	jsonBytes, _ := os.ReadFile("../vhdbuilder/packer/components.json")
-	versions := gjson.GetBytes(jsonBytes, fmt.Sprintf("Packages.#(name=%s).downloadURIs", packageName)).Get(fmt.Sprintf("%s.%s.versions", distro, release)).Array()
-	for _, version := range versions {
-		expectedVersions = append(expectedVersions, version.String())
+	packages := gjson.GetBytes(jsonBytes, fmt.Sprintf("Packages.#(name=%s).downloadURIs", packageName))
+
+	for _, packageItem := range packages.Array() {
+		version := packageItem.Get(fmt.Sprintf("%s.%s.versions", distro, release))
+		if !version.Exists() {
+			version = packageItem.Get(fmt.Sprintf("%s.current.versions", distro))
+		}
+		if !version.Exists() {
+			version = packageItem.Get("default.current.versions")
+		}
+		if version.Exists() {
+			expectedVersions = append(expectedVersions, version.String())
+		}
 	}
 	return expectedVersions
 }
