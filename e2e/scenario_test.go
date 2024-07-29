@@ -949,7 +949,7 @@ func Scenario_ubuntu2204HasRightContainerdVersion(t *testing.T) {
 }
 
 func Scenario_ubuntu1804HasRightContainerdVersion(t *testing.T) {
-	Scenario_genericHasRightContainerdVersion(t, "ubuntu1804", "aks-ubuntu-containerd-18.04-gen2", "1.7.20-1")
+	Scenario_genericHasRightContainerdVersion(t, "ubuntu1804", "aks-ubuntu-containerd-18.04-gen2", "1.7.1-1")
 }
 
 func Scenario_marinerv2HasRightRuncVersion(t *testing.T) {
