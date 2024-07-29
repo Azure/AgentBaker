@@ -120,88 +120,92 @@ steps:
         SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         IMAGE_NAME="${SIG_IMAGE_NAME}-${captured_sig_version}" && \
         parallel --joblog log.txt --results results/ --retries 1 ::: \
-          'docker run --rm
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker
-          -w /go/src/github.com/Azure/AgentBaker
+          'docker run --rm \
+          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+          -w /go/src/github.com/Azure/AgentBaker \
           -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}"
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME}
-          -e BLOB_STORAGE_NAME=${BLOB_STORAGE_NAME}
-          -e CLASSIC_BLOB=${CLASSIC_BLOB}
-          -e BUILD_ID=$(Build.BuildId)
-          -e MANAGED_SIG_ID=${MANAGED_SIG_ID}
-          -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION}
-          -e OS_VERSION=${OS_VERSION}
-          -e OS_SKU=${OS_SKU}
-          -e OS_TYPE="Linux"
-          -e VHD_DEBUG=${VHD_DEBUG}
-          -e FEATURE_FLAGS=$(FEATURE_FLAGS)
-          -e ARCHITECTURE=${ARCHITECTURE}
-          -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH}
-          ${CONTAINER_IMAGE} make -f packer.mk scanning-vhd'
-          'docker run --rm
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker
-          -w /go/src/github.com/Azure/AgentBaker
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}"
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME}
-          -e OS_DISK_URI=${OS_DISK_URI}
-          -e MANAGED_SIG_ID=${MANAGED_SIG_ID}
-          -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION}
-          -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"docker"}
-          -e OS_VERSION=${OS_VERSION}
-          -e OS_SKU=${OS_SKU}
-          -e OS_TYPE="Linux"
-          -e IMG_SKU=${IMG_SKU}
-          -e MODE=$(MODE)
-          -e VHD_DEBUG=${VHD_DEBUG}
-          -e FEATURE_FLAGS=$(FEATURE_FLAGS)
-          -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME}
-          -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME}
-          -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION}
-          -e ENABLE_FIPS=${ENABLE_FIPS}
-          -e ARCHITECTURE=${ARCHITECTURE}
-          -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH}
-          -e SGX_INSTALL=${SGX_INSTALL}
-          -e ENABLE_CGROUPV2=${ENABLE_CGROUPV2}
-          -e GIT_BRANCH=$(Build.SourceBranch)
-          ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd'
-          'docker run --rm
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker
-          -w /go/src/github.com/Azure/AgentBaker
-          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}"
-          -e PKR_RG_NAME=${PKR_RG_NAME}
-          -e MODE=${MODE}
-          -e DRY_RUN=${DRY_RUN}
-          -e OS_TYPE="Linux"
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME}
-          -e IMAGE_NAME=${IMAGE_NAME}
-          -e CAPTURED_SIG_VERSION=${captured_sig_version}
-          -e IMPORTED_IMAGE_NAME=${IMPORTED_IMAGE_NAME}
-          -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME}
-          -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME}
-          -e ARCHITECTURE=${ARCHITECTURE}
+          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
+          -e BLOB_STORAGE_NAME=${BLOB_STORAGE_NAME} \
+          -e CLASSIC_BLOB=${CLASSIC_BLOB} \
+          -e BUILD_ID=$(Build.BuildId) \
+          -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
+          -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
+          -e OS_VERSION=${OS_VERSION} \
+          -e OS_SKU=${OS_SKU} \
+          -e OS_TYPE="Linux" \
+          -e VHD_DEBUG=${VHD_DEBUG} \
+          -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
+          -e ARCHITECTURE=${ARCHITECTURE} \
+          -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
+          ${CONTAINER_IMAGE} make -f packer.mk scanning-vhd' \
+          'docker run --rm \
+          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+          -w /go/src/github.com/Azure/AgentBaker \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
+          -e OS_DISK_URI=${OS_DISK_URI} \
+          -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
+          -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
+          -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"docker"} \
+          -e OS_VERSION=${OS_VERSION} \
+          -e OS_SKU=${OS_SKU} \
+          -e OS_TYPE="Linux" \
+          -e IMG_SKU=${IMG_SKU} \
+          -e MODE=$(MODE) \
+          -e VHD_DEBUG=${VHD_DEBUG} \
+          -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
+          -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
+          -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+          -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
+          -e ENABLE_FIPS=${ENABLE_FIPS} \
+          -e ARCHITECTURE=${ARCHITECTURE} \
+          -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
+          -e SGX_INSTALL=${SGX_INSTALL} \
+          -e ENABLE_CGROUPV2=${ENABLE_CGROUPV2} \
+          -e GIT_BRANCH=$(Build.SourceBranch) \
+          ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd' \
+          'docker run --rm \
+          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+          -w /go/src/github.com/Azure/AgentBaker \
+          -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+          -e PKR_RG_NAME=${PKR_RG_NAME} \
+          -e MODE=${MODE} \
+          -e DRY_RUN=${DRY_RUN} \
+          -e OS_TYPE="Linux" \
+          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
+          -e IMAGE_NAME=${IMAGE_NAME} \
+          -e CAPTURED_SIG_VERSION=${captured_sig_version} \
+          -e IMPORTED_IMAGE_NAME=${IMPORTED_IMAGE_NAME} \
+          -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
+          -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+          -e ARCHITECTURE=${ARCHITECTURE} \
           ${CONTAINER_IMAGE} make -f packer.mk cleanup'
 
-        for dir in results/*; do mv "$dir" "results/$(basename "$dir" | cut -d' ' -f11)"; done
+        for dir in results/*; do
+          job_number=$(basename "$dir")
+          new_name=$(awk -v job="$job_number" '$1 == job {print $11}' log.txt)
+          mv "$dir" "results/$new_name"
+        done
 
         for target in scanning-vhd test-building-vhd cleanup; do
-          echo "##vso[task.group $target]"
-          echo "##vso[task.group Output]"
-          echo "##vso[task.group stdout]"
+          echo "##vso[group]${target}"
+          echo "##vso[group]Output"
+          echo "##vso[group]stdout"
           cat results/$target/stdout
-          echo "##vso[task.groupend stdout]"
-          echo "##vso[task.group stderr]"
+          echo "##vso[endgroup]"
+          echo "##vso[group]stderr"
           cat results/$target/stderr
-          echo "##vso[task.groupend stderr]"
-          echo "##vso[task.groupend Output]"
-          echo "##vso[task.group Results]"
-          exit_status=$(awk -F'\t' -v target="$target" 'target == $(basename $9 | cut -d" " -f11) {print $7}' log.txt)
+          echo "##vso[endgroup]"
+          echo "##vso[endgroup]"
+          echo "##vso[group]Results"
+          exit_status=$(awk -F'\t' -v target="$target" '$9 ~ target {print $7}' log.txt)
           if [ $exit_status -eq 0 ]; then
             echo "$target succeeded with exit code $exit_status"
           else
-            echo "$target failed with exit code $exit_status"
+            echo "${target} failed with exit code $exit_status"
           fi
-          echo "##vso[task.groupend Results]"
-          echo "##vso[task.groupend $target]"
+          echo "##vso[endgroup]"
+          echo "##vso[endgroup]"
         done
 
         if [ $? -ne 0 ]; then
