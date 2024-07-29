@@ -941,7 +941,7 @@ func Scenario_azurelinuxv2HasRightComponentVersions(t *testing.T) {
 }
 
 func Scenario_ubuntu2204HasRightComponentVersions(t *testing.T) {
-	Scenario_genericHasRightComponentVersions(t, "ubuntu2204", "aks-ubuntu-containerd-22.04-gen2", "1.7.20-1", "1.1.12-ubuntu22.04u1")
+	Scenario_genericHasRightComponentVersions(t, "ubuntu2204", "aks-ubuntu-containerd-22.04-gen2", "1.7.20-1", "1.1.12-1")
 }
 
 func Scenario_ubuntu1804HasRightComponentVersions(t *testing.T) {
@@ -949,8 +949,9 @@ func Scenario_ubuntu1804HasRightComponentVersions(t *testing.T) {
 }
 
 func Scenario_genericHasRightComponentVersions(t *testing.T, name string, distro datamodel.Distro, containerdVersion string, runcVersion string) {
+	// setup two scenarios so we get individual failures rather than having to run multiple times.
 	RunScenario(t, &Scenario{
-		Description: "Tests that " + name + " has the right containerd and runc versions",
+		Description: "Tests that " + name + " has the right containerd version",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -960,6 +961,20 @@ func Scenario_genericHasRightComponentVersions(t *testing.T, name string, distro
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				containerdVersionValidator(containerdVersion),
+			},
+		},
+	})
+
+	RunScenario(t, &Scenario{
+		Description: "Tests that " + name + " has the right runc version",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = distro
+				nbc.AgentPoolProfile.Distro = distro
+			},
+			LiveVMValidators: []*LiveVMValidator{
 				runcVersionValidator(runcVersion),
 			},
 		},
