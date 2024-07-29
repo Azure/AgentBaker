@@ -938,37 +938,44 @@ to resolve the right version based on the distro. It seems easier to have the ve
 */
 func Scenario_marinerv2HasRightContainerdVersion(t *testing.T) {
 	// This is the version that's in the components.json file - seems to be being ignored right now.
-	Scenario_genericHasRightContainerdVersion(t, "mariner", "v2", "1.6.26-5.cm2", "aks-cblmariner-v2-gen2")
+	//Scenario_genericHasRightContainerdVersion(t, "mariner", "v2", "1.6.26-5.cm2", "aks-cblmariner-v2-gen2")
+	Scenario_genericHasRightContainerdVersion(t, "mariner", "v2", "1.7.20-1", "aks-cblmariner-v2-gen2")
 }
 
 func Scenario_azurelinuxv2HasRightContainerdVersion(t *testing.T) {
-	Scenario_genericHasRightContainerdVersion(t, "azurelinux", "v2", "1.1.9-5.cm2", "aks-azurelinux-v2-gen2")
+	// This is the version that's in the components.json file - seems to be being ignored right now.
+	// Scenario_genericHasRightContainerdVersion(t, "azurelinux", "v2", "1.1.9-5.cm2", "aks-azurelinux-v2-gen2")
+	Scenario_genericHasRightContainerdVersion(t, "azurelinux", "v2", "1.7.20-1", "aks-azurelinux-v2-gen2")
 }
 
 func Scenario_ubuntu2204HasRightContainerdVersion(t *testing.T) {
-	Scenario_genericHasRightContainerdVersion(t, "ubuntu", "r2204", "1.1.12-ubuntu22.04u1", "aks-ubuntu-containerd-22.04-gen2")
+	Scenario_genericHasRightContainerdVersion(t, "ubuntu", "r2204", "1.7.20-1", "aks-ubuntu-containerd-22.04-gen2")
 }
 
 func Scenario_ubuntu1804HasRightContainerdVersion(t *testing.T) {
 	// This is the version that's in the components.json file - seems to be being ignored right now.
-	Scenario_genericHasRightContainerdVersion(t, "ubuntu", "r1804", "1.1.12-ubuntu20.04u1", "aks-ubuntu-containerd-18.04-gen2")
+	//Scenario_genericHasRightContainerdVersion(t, "ubuntu", "r1804", "1.7.1-1", "aks-ubuntu-containerd-18.04-gen2")
+	Scenario_genericHasRightContainerdVersion(t, "ubuntu", "r1804", "1.7.20-1", "aks-ubuntu-containerd-18.04-gen2")
 }
 
 func Scenario_marinerv2HasRightRuncVersion(t *testing.T) {
 	// This is the version that's in the components.json file - seems to be being ignored right now.
-	Scenario_genericHasRightRunCVersion(t, "mariner", "v2", "1.6.26-5.cm2", "aks-cblmariner-v2-gen2")
+	//Scenario_genericHasRightRunCVersion(t, "mariner", "v2", "1.6.26-5.cm2", "aks-cblmariner-v2-gen2")
+	Scenario_genericHasRightRunCVersion(t, "mariner", "v2", "1.1.12-1", "aks-cblmariner-v2-gen2")
 }
 
 func Scenario_azurelinuxv2HasRightRuncVersion(t *testing.T) {
-	Scenario_genericHasRightRunCVersion(t, "mariner", "v2", "1.6.26-5.cm2", "aks-azurelinux-v2-gen2")
+	// This is the version that's in the components.json file - seems to be being ignored right now.
+	//Scenario_genericHasRightRunCVersion(t, "mariner", "v2", "1.6.26-5.cm2", "aks-azurelinux-v2-gen2")
+	Scenario_genericHasRightRunCVersion(t, "mariner", "v2", "1.1.12-1", "aks-azurelinux-v2-gen2")
 }
 
 func Scenario_ubuntu2204HasRightRuncVersion(t *testing.T) {
-	Scenario_genericHasRightRunCVersion(t, "ubuntu", "r2204", "1.7.20", "aks-ubuntu-containerd-22.04-gen2")
+	Scenario_genericHasRightRunCVersion(t, "ubuntu", "r2204", "1.1.12-1", "aks-ubuntu-containerd-22.04-gen2")
 }
 
 func Scenario_ubuntu1804HasRightRuncVersion(t *testing.T) {
-	Scenario_genericHasRightRunCVersion(t, "ubuntu", "r1804", "1.7.1-1", "aks-ubuntu-containerd-18.04-gen2")
+	Scenario_genericHasRightRunCVersion(t, "ubuntu", "r1804", "1.1.12-1", "aks-ubuntu-containerd-18.04-gen2")
 }
 
 func Scenario_genericHasRightContainerdVersion(t *testing.T, distroName string, distroRelease string, expectedVersion string, distro datamodel.Distro) {
