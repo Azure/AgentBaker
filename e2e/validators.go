@@ -191,6 +191,29 @@ func ServiceCanRestartValidator(serviceName string, restartTimeoutInSeconds int)
 	}
 }
 
+func CommandHasOutputValidator(commandToExecute string, expectedOutput string) *LiveVMValidator {
+	steps := []string{
+		// Verify the service is active - print the state then verify so we have logs
+		fmt.Sprintf("%s", commandToExecute),
+	}
+
+	command := makeExecutableCommand(steps)
+
+	return &LiveVMValidator{
+		Description: fmt.Sprintf("asserts that %s has output %s", commandToExecute, expectedOutput),
+		Command:     command,
+		Asserter: func(code, stdout, stderr string) error {
+			if !strings.Contains(stderr, expectedOutput) {
+				return fmt.Errorf("'%s' output did not contain expected string Stdout:\n%s\n\n Stderr:\n%s\n", command, stdout, stderr)
+			}
+			if code != "0" {
+				return fmt.Errorf("command failed with exit code %q (expected 0).\nCommand: %s\n\nStdout:\n%s\n\n Stderr:\n%s\n", code, command, stdout, stderr)
+			}
+			return nil
+		},
+	}
+}
+
 func UlimitValidator(ulimits map[string]string) *LiveVMValidator {
 	ulimitKeys := make([]string, 0, len(ulimits))
 	for k := range ulimits {
@@ -224,6 +247,24 @@ func containerdVersionValidator(version string) *LiveVMValidator {
 			}
 
 			if !strings.Contains(stdout, version) {
+				return fmt.Errorf(fmt.Sprintf("expected to find containerd version %s, got: %s", version, stdout))
+			}
+			return nil
+		},
+	}
+}
+
+func runcVersionValidator(version string) *LiveVMValidator {
+	return &LiveVMValidator{
+		Description: "assert runc version",
+		Command:     "runc --version",
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
+			}
+
+			// runc output
+			if !strings.Contains(stdout, "runc version "+version) {
 				return fmt.Errorf(fmt.Sprintf("expected to find containerd version %s, got: %s", version, stdout))
 			}
 			return nil
