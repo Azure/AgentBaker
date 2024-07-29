@@ -111,11 +111,9 @@ steps:
     retryCountOnTaskFailure: 3
     displayName: Building VHD
   - bash: |
-      echo "Generating VHD Build Performance data..." \ 
-      echo
-      jq '.' vhd-build-performance-data.json \
-      echo
-      echo "VHD Build Performance Data generated."
+      echo "##[group]${{ parameters.artifactName }} build performance data"
+      jq -C '.' vhd-build-performance-data.json \
+      echo "VHD Build Performance Data generated." \
     displayName: Build Performance Data
     condition: succeeded()
   - bash: |
