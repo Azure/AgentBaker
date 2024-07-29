@@ -300,6 +300,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/logrotate-d-rsyslog-CIS.conf",
+      "destination": "/home/packer/logrotate-d-rsyslog-CIS.conf"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/etc-issue",
       "destination": "/home/packer/etc-issue"
     },
