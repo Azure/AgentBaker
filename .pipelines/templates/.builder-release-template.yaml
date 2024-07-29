@@ -113,6 +113,7 @@ steps:
   - bash: |
       echo "##[group]${{ parameters.artifactName }} build performance data"
       jq -C '.' vhd-build-performance-data.json \
+      ##[endgroup]
       echo "VHD Build Performance Data generated." \
     displayName: Build Performance Data
     condition: succeeded()
