@@ -535,7 +535,7 @@
     },
     {
       "name": "oras",
-      "downloadLocation": "/usr/local/bin/",
+      "downloadLocation": "/usr/local/bin",
       "downloadURIs": {
         "default": {
           "current": {
