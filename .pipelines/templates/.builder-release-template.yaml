@@ -119,7 +119,8 @@ steps:
         IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         IMAGE_NAME="${SIG_IMAGE_NAME}-${captured_sig_version}" && \
-        scan="docker run --rm \
+        parallel --joblog log.txt --results results/ --retries 1 ::: \
+          "docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
           -e SUBSCRIPTION_ID=$(SUBSCRIPTION_ID) \
@@ -131,14 +132,14 @@ steps:
           -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
           -e OS_VERSION=${OS_VERSION} \
           -e OS_SKU=${OS_SKU} \
-          -e OS_TYPE=\"Linux\" \
+          -e OS_TYPE='Linux' \
           -e VHD_DEBUG=${VHD_DEBUG} \
           -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
           -e ARCHITECTURE=${ARCHITECTURE} \
           -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
           -e GIT_BRANCH=$(Build.SourceBranch) \
-          ${CONTAINER_IMAGE} make -f packer.mk scanning-vhd"
-        test="docker run --rm \
+          ${CONTAINER_IMAGE} make -f packer.mk scanning-vhd" \
+          "docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
           -e SUBSCRIPTION_ID=$(SUBSCRIPTION_ID) \
@@ -149,7 +150,7 @@ steps:
           -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"docker"} \
           -e OS_VERSION=${OS_VERSION} \
           -e OS_SKU=${OS_SKU} \
-          -e OS_TYPE=\"Linux\" \
+          -e OS_TYPE='Linux' \
           -e IMG_SKU=${IMG_SKU} \
           -e MODE=$(MODE) \
           -e VHD_DEBUG=${VHD_DEBUG} \
@@ -163,15 +164,15 @@ steps:
           -e SGX_INSTALL=${SGX_INSTALL} \
           -e ENABLE_CGROUPV2=${ENABLE_CGROUPV2} \
           -e GIT_BRANCH=$(Build.SourceBranch) \
-          ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd"
-        cleanup="docker run --rm \
+          ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd" \
+          "docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
           -w /go/src/github.com/Azure/AgentBaker \
           -e SUBSCRIPTION_ID=$(SUBSCRIPTION_ID) \
           -e PKR_RG_NAME=${PKR_RG_NAME} \
           -e MODE=${MODE} \
           -e DRY_RUN=${DRY_RUN} \
-          -e OS_TYPE=\'Linux\' \
+          -e OS_TYPE='Linux' \
           -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
           -e IMAGE_NAME=${IMAGE_NAME} \
           -e CAPTURED_SIG_VERSION=${captured_sig_version} \
@@ -180,9 +181,6 @@ steps:
           -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
           -e ARCHITECTURE=${ARCHITECTURE} \
           ${CONTAINER_IMAGE} make -f packer.mk cleanup"
-
-        parallel --joblog log.txt --results results/ --retries 1 ::: \
-        parallel -v --tag --joblog log.txt --results results/ --retries 1 ::: scan test cleanup
 
         gnu_exit_code=$?
 
@@ -194,22 +192,12 @@ steps:
 
         for target in scanning-vhd test-building-vhd cleanup; do
           echo "##[group]${target}"
-          echo "##[group]Output"
-          echo "##[group]stdout"
-          cat results/${target}/stdout
-          echo "##[endgroup]"
-          echo "##[group]stderr"
-          cat results/${target}/stderr
-          echo "##[endgroup]"
-          echo "##[endgroup]"
-          echo "##[group]Results"
           exit_status=$(awk -F'\t' -v target="$target" '$9 ~ target {print $7}' log.txt)
           if [ $exit_status -eq 0 ]; then
             echo "${target} succeeded with exit code $exit_status"
           else
             echo "${target} failed with exit code $exit_status"
           fi
-          echo "##[endgroup]"
           echo "##[endgroup]"
         done
 
