@@ -4,7 +4,6 @@ CC_SERVICE_IN_TMP=/opt/azure/containers/cc-proxy.service.in
 CC_SOCKET_IN_TMP=/opt/azure/containers/cc-proxy.socket.in
 CNI_CONFIG_DIR="/etc/cni/net.d"
 CNI_BIN_DIR="/opt/cni/bin"
-#TODO pull this out of componetns.json too?
 CNI_DOWNLOADS_DIR="/opt/cni/downloads"
 CRICTL_DOWNLOAD_DIR="/opt/crictl/downloads"
 CRICTL_BIN_DIR="/usr/local/bin"
@@ -67,7 +66,7 @@ installContainerdWithComponentsJson() {
     # containerd version is expected to be in the format major.minor.patch-hotfix
     # e.g., 1.4.3-1. Then containerdMajorMinorPatchVersion=1.4.3 and containerdHotFixVersion=1
     containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
-    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
+    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
     if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
         echo "invalid containerd version: $packageVersion"
         exit $ERR_CONTAINERD_VERSION_INVALID
@@ -75,6 +74,29 @@ installContainerdWithComponentsJson() {
     logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
     echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
 
+}
+
+# containerd versions definitions are only available in the manifest file before the centralized packages changes, before around early July 2024.
+# After the centralized packages changes, the containerd versions are only available in the components.json. 
+installContainerdWithManifestJson() {
+    local containerd_version
+    if [ -f "$MANIFEST_FILEPATH" ]; then
+        local containerd_version
+        containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+            containerd_version="$(jq -r '.containerd.pinned."1804"' "$MANIFEST_FILEPATH")"
+        fi
+    else
+        echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+    fi
+    containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
+    containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
+    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ] || [ "$containerd_revision" == "null" ]; then
+        echo "invalid container version: $containerd_version"
+        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    fi
+    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
+    echo "in installContainerRuntime - CONTAINERD_VERSION = ${containerd_patch_version}"
 }
 
 installContainerRuntime() {
@@ -88,19 +110,26 @@ installContainerRuntime() {
         installContainerdWithComponentsJson
 		return
     fi
-    echo "Unexpected. Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
-    exit $ERR_CONTAINERD_VERSION_INVALID
-    #return 1
+    echo "Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
+    # if the containerd package is not available in the components.json, use the manifest.json to install containerd
+    installContainerdWithManifestJson
 }
 
 installNetworkPlugin() {
     if [[ "${NETWORK_PLUGIN}" = "azure" ]]; then
         installAzureCNI
     fi
-    installCNI #reference plugins. Mostly for kubenet but loopback plugin is used by containerd until containerd 2
-    rm -rf $CNI_DOWNLOADS_DIR & 
+    installCNI
+    rm -rf $CNI_DOWNLOADS_DIR &
 }
 
+downloadCNI() {
+    downloadDir=${1:-${CNI_DOWNLOADS_DIR}}
+    mkdir -p $downloadDir
+    CNI_PLUGINS_URL=${2:-$CNI_PLUGINS_URL}
+    cniTgzTmp=${CNI_PLUGINS_URL##*/}
+    retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+}
 
 downloadCredentalProvider() {
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
@@ -121,6 +150,7 @@ installCredentalProvider() {
 # TODO (alburgess) have oras version managed by dependant or Renovate
 installOras() {
     ORAS_DOWNLOAD_DIR="/opt/oras/downloads"
+    ORAS_EXTRACTED_DIR=${1} # Use components.json var for /usr/local/bin for linux-vhd-content-test.sh binary file checks.
     ORAS_DOWNLOAD_URL=${2}
     ORAS_VERSION=${3}
 
@@ -129,7 +159,7 @@ installOras() {
     echo "Installing Oras version $ORAS_VERSION..."
     ORAS_TMP=${ORAS_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} || exit $ERR_ORAS_DOWNLOAD_TIMEOUT
-    tar -zxf oras_${ORAS_VERSION}_*.tar.gz -C /usr/local/bin/
+    tar -zxf oras_${ORAS_VERSION}_*.tar.gz -C $ORAS_EXTRACTED_DIR
     rm -r "$ORAS_DOWNLOAD_DIR"
     echo "Oras version $ORAS_VERSION installed successfully."
 }
@@ -282,45 +312,21 @@ setupCNIDirs() {
     chmod 755 $CNI_CONFIG_DIR
 }
 
-
-# Reference CNI plugins is used by kubenet and the loopback plugin used by containerd 1.0 (dependency gone in 2.0)
-# The version used to be deteremined by RP/toggle but are now just hadcoded in vhd as they rarely change and require a node image upgrade anyways
-# Latest VHD should have the untar, older should have the tgz. And who knows will have neither. 
+# For CNI/AzureCNI, we want to use the untar azurecni reference first. And if that doesn't exist on the vhd does the tgz?
+# And if tgz is already on the vhd then just untar into CNI_BIN_DIR
+# Latest VHD should have the untar, older should have the tgz. And who knows will have neither.
 installCNI() {
-   
-    #always just use what is listed in components.json so we don't have to sync.
-    cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
-    
-    #CNI doesn't really care about this but wanted to reuse returnPackageVersions which requires it.
-    os=${UBUNTU_OS_NAME} 
-    if [[ -z "$UBUNTU_RELEASE" ]]; then
-        os=${MARINER_OS_NAME}
-        os_version="current"
-    fi
-    os_version="${UBUNTU_RELEASE}"
-    PACKAGE_VERSIONS=()
-    returnPackageVersions "${cniPackage}" "${os}" "${os_version}"
-    
-    #should change to ne
-    if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
-        echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
-        exit $ERR_CONTAINERD_VERSION_INVALID
-    fi
-    packageVersion=${PACKAGE_VERSIONS[0]}
+    CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}    # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
 
-    # Is there a ${arch} variable I can use instead of the iff
-    if [[ $(isARM64) == 1 ]]; then 
-        CNI_DIR_TMP="cni-plugins-linux-arm64-v${packageVersion}"
-    else 
-        CNI_DIR_TMP="cni-plugins-linux-amd64-v${packageVersion}"
-    fi
-    
     if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
-        #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz. 
-        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR 
+        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
     else
-        echo "CNI tarball should already be unzipped by components.json"
-        exit $ERR_CNI_VERSION_INVALID
+        if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
+            logs_to_events "AKS.CSE.installCNI.downloadCNI" downloadCNI
+        fi
+
+        tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
     fi
 
     chown -R root:root $CNI_BIN_DIR

@@ -120,6 +120,9 @@ testPackagesInstalled() {
       if [ -d $extractedPackageDir ]; then
         echo $test "[INFO] Directory ${extractedPackageDir} exists"
         continue
+      else 
+        # check if the file exists in /usr/local/bin/ before verifying the directory 
+        tarFilePath="/usr/local/bin/your_tar_file.tar"
       fi
       
       # if there isn't a directory, we check if the file exists and the size is correct
