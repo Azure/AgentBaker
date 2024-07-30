@@ -159,7 +159,17 @@ installOras() {
     echo "Installing Oras version $ORAS_VERSION..."
     ORAS_TMP=${ORAS_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} || exit $ERR_ORAS_DOWNLOAD_TIMEOUT
-    tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP/}oras_${ORAS_VERSION}_*.tar.gz" -C $ORAS_EXTRACTED_DIR/
+
+    if [ -f "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ]; then
+        echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} exists."
+        # Proceed with extracting the tarball
+        tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/
+    else
+        echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} does not exist."
+        directory_contents=$(ls "$$ORAS_DOWNLOAD_DIR/" 2>&1)
+        echo "Directory contents: $directory_contents"
+    fi
+
     rm -r "$ORAS_DOWNLOAD_DIR"
     echo "Oras version $ORAS_VERSION installed successfully."
 }
