@@ -937,11 +937,11 @@ to resolve the right version based on the distro. It seems easier to have the ve
 * It's not much effort for a dev to change the hard coded values here and in components.json
 */
 func Scenario_marinerv2HasRightContainerdVersion(t *testing.T) {
-	Scenario_genericHasRightContainerdVersion(t, config.VHDCBLMarinerV2Gen2, "1.7.20-1")
+	Scenario_genericHasRightContainerdVersion(t, config.VHDCBLMarinerV2Gen2, "1.6.26")
 }
 
 func Scenario_azurelinuxv2HasRightContainerdVersion(t *testing.T) {
-	Scenario_genericHasRightContainerdVersion(t, config.VHDAzureLinuxV2Gen2, "1.7.20-1")
+	Scenario_genericHasRightContainerdVersion(t, config.VHDAzureLinuxV2Gen2, "1.6.26")
 }
 
 func Scenario_ubuntu2204HasRightContainerdVersion(t *testing.T) {
@@ -953,11 +953,11 @@ func Scenario_ubuntu1804HasRightContainerdVersion(t *testing.T) {
 }
 
 func Scenario_marinerv2HasRightRuncVersion(t *testing.T) {
-	Scenario_genericHasRightRunCVersion(t, config.VHDCBLMarinerV2Gen2, "1.1.12-1")
+	Scenario_genericHasRightRunCVersion(t, config.VHDCBLMarinerV2Gen2, "1.1.9")
 }
 
 func Scenario_azurelinuxv2HasRightRuncVersion(t *testing.T) {
-	Scenario_genericHasRightRunCVersion(t, config.VHDAzureLinuxV2Gen2, "1.1.12-1")
+	Scenario_genericHasRightRunCVersion(t, config.VHDAzureLinuxV2Gen2, "1.1.9")
 }
 
 func Scenario_ubuntu2204HasRightRuncVersion(t *testing.T) {
