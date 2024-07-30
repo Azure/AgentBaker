@@ -937,14 +937,10 @@ to resolve the right version based on the distro. It seems easier to have the ve
 * It's not much effort for a dev to change the hard coded values here and in components.json
 */
 func Scenario_marinerv2HasRightContainerdVersion(t *testing.T) {
-	// This is the version that's in the components.json file - seems to be being ignored right now.
-	//Scenario_genericHasRightContainerdVersion(t, "mariner", "v2", "1.6.26-5.cm2", "aks-cblmariner-v2-gen2")
 	Scenario_genericHasRightContainerdVersion(t, config.VHDCBLMarinerV2Gen2, "1.7.20-1")
 }
 
 func Scenario_azurelinuxv2HasRightContainerdVersion(t *testing.T) {
-	// This is the version that's in the components.json file - seems to be being ignored right now.
-	// Scenario_genericHasRightContainerdVersion(t, "azurelinux", "v2", "1.1.9-5.cm2", "aks-azurelinux-v2-gen2")
 	Scenario_genericHasRightContainerdVersion(t, config.VHDAzureLinuxV2Gen2, "1.7.20-1")
 }
 
@@ -953,19 +949,14 @@ func Scenario_ubuntu2204HasRightContainerdVersion(t *testing.T) {
 }
 
 func Scenario_ubuntu1804HasRightContainerdVersion(t *testing.T) {
-	// This is the version that's in the components.json file - seems to be being ignored right now.
 	Scenario_genericHasRightContainerdVersion(t, config.VHDUbuntu1804Gen2Containerd, "1.7.1+azure-1")
 }
 
 func Scenario_marinerv2HasRightRuncVersion(t *testing.T) {
-	// This is the version that's in the components.json file - seems to be being ignored right now.
-	//Scenario_genericHasRightRunCVersion(t, "mariner", "v2", "1.6.26-5.cm2", "aks-cblmariner-v2-gen2")
 	Scenario_genericHasRightRunCVersion(t, config.VHDCBLMarinerV2Gen2, "1.1.12-1")
 }
 
 func Scenario_azurelinuxv2HasRightRuncVersion(t *testing.T) {
-	// This is the version that's in the components.json file - seems to be being ignored right now.
-	//Scenario_genericHasRightRunCVersion(t, "mariner", "v2", "1.6.26-5.cm2", "aks-azurelinux-v2-gen2")
 	Scenario_genericHasRightRunCVersion(t, config.VHDAzureLinuxV2Gen2, "1.1.12-1")
 }
 
