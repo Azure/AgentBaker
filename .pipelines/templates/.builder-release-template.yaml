@@ -152,7 +152,6 @@ steps:
         -e PKR_RG_NAME=${PKR_RG_NAME} \
         -e DRY_RUN=${DRY_RUN} \
         ${CONTAINER_IMAGE} make -f packer.mk test-scan-and-cleanup
-    retryCountOnTaskFailure: 2
     condition: always()
     displayName: Test, Scan, and Cleanup
   - task: Bash@3
