@@ -128,7 +128,8 @@ testPackagesInstalled() {
         continue
       else
         if [ "$name" = "oras" ]; then
-          err "$test" "ORAS file ${extractedPackageDir} does not exist"
+          directory_contents=$(ls "$extractedPackageDir" 2>&1)
+          err "$test" "ORAS file ${extractedPackageDir} does not exist. ls output: ${directory_contents}"
           continue
         fi
       fi
