@@ -257,7 +257,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.27.16",
+        "v1.30.4",
         "v1.27.17",
         "v1.28.8",
         "v1.28.9",
