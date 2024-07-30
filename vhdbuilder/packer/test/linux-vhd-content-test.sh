@@ -123,12 +123,12 @@ testPackagesInstalled() {
       fi
       
       # if there isn't a directory, we check if the file is extracted at the download location
-      if [ -f $extractedPackageDir ]; then
+      if [ -f $downloadLocation ]; then
         echo $test "[INFO] Package ${extractedPackageDir} exists"
         continue
       else
         if [ "$name" = "oras" ]; then
-          directory_contents=$(ls "$extractedPackageDir" 2>&1)
+          directory_contents=$(ls "$downloadLocation/" 2>&1)
           err "$test" "ORAS file ${extractedPackageDir} does not exist. ls output: ${directory_contents}"
           continue
         fi
