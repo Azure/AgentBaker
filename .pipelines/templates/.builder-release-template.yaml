@@ -181,29 +181,22 @@ steps:
           -e ARCHITECTURE=${ARCHITECTURE} \
           ${CONTAINER_IMAGE} make -f packer.mk cleanup"
 
-        parallel --joblog log.txt --results results/ --retries 1 ::: \
-        parallel -v --tag --joblog log.txt --results results/ --retries 1 ::: scan test cleanup
+        parallel --tag --joblog test-scan-cleanup-log.txt --results test-scan-cleanup-results/ --resume-failed --retries 1 ::: scan test cleanup
 
         gnu_exit_code=$?
 
-        for dir in results/*; do
-          job_number=$(basename "$dir")
-          new_name=$(awk -v job="$job_number" '$1 == job {print $11}' log.txt)
-          mv "$dir" "results/$new_name"
-        done
-
-        for target in scanning-vhd test-building-vhd cleanup; do
+        for target in scan test cleanup; do
           echo "##[group]${target}"
           echo "##[group]Output"
           echo "##[group]stdout"
-          cat results/${target}/stdout
+          cat results/1/${target}/stdout
           echo "##[endgroup]"
           echo "##[group]stderr"
-          cat results/${target}/stderr
+          cat results/1/${target}/stderr
           echo "##[endgroup]"
           echo "##[endgroup]"
           echo "##[group]Results"
-          exit_status=$(awk -F'\t' -v target="$target" '$9 ~ target {print $7}' log.txt)
+          exit_status=$(awk -F'\t' -v target="$target" '$9 ~ target {print $7}' test-scan-cleanup-log.txt)
           if [ $exit_status -eq 0 ]; then
             echo "${target} succeeded with exit code $exit_status"
           else
@@ -215,7 +208,7 @@ steps:
 
         if [ ${gnu_exit_code} -ne 0 ]; then
           echo "The following targets failed:"
-          awk -F'\t' '$7 != 0 {print $9}' log.txt
+          awk -F'\t' '$7 != 0 {print $9}' test-scan-cleanup-log.txt
           exit 1
         else
           echo "All make targets succeeded"
