@@ -8,6 +8,7 @@ define retry
     done; \
     if [ $$success -ne 1 ]; then \
         echo "Target failed after $(2) attempts."; \
+				exit 1; \
     fi
 endef
 
