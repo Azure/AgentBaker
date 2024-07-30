@@ -30,11 +30,6 @@ the `go test` command for you.
 Check [config.go](config/config.go) for the default configuration parameters. You can override these parameters by
 setting ENV variables or by temporary changing the code.
 
-```bash
-
-
-<br>
-
 `TAGS_TO_RUN=` may also optionally be set to specify a subset of the E2E scenarios to run based on the tags assigned to
 each scenario. If `TAGS_TO_RUN` is not specified, all scenarios will be ran. Multiple tags can be specified as a
 comma-separated list. In the case where multiple tags are specified, only scenarios which have all of the specified tags
