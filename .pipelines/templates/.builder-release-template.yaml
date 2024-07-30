@@ -111,7 +111,6 @@ steps:
     retryCountOnTaskFailure: 3
     displayName: Building VHD
   - bash: |
-        echo MODE=$(MODE) && \
         OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
         MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
         PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
@@ -119,75 +118,41 @@ steps:
         IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         IMAGE_NAME="${SIG_IMAGE_NAME}-${captured_sig_version}" && \
-        CLEANUP="make -f packer.mk cleanup" \
-        SCAN="make -f packer.mk scanning-vhd" \
-        TEST="make -f packer.mk test-building-vhd"
         docker run --rm \
-          -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-          -w /go/src/github.com/Azure/AgentBaker \
-          -e SUBSCRIPTION_ID=$(SUBSCRIPTION_ID) \
-          -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-          -e BLOB_STORAGE_NAME=${BLOB_STORAGE_NAME} \
-          -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-          -e BUILD_ID=$(Build.BuildId) \
-          -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
-          -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
-          -e OS_SKU=${OS_SKU} \
-          -e OS_TYPE="Linux" \
-          -e VHD_DEBUG=${VHD_DEBUG} \
-          -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
-          -e ARCHITECTURE=${ARCHITECTURE} \
-          -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
-          -e OS_DISK_URI=${OS_DISK_URI} \
-          -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"docker"} \
-          -e OS_VERSION=${OS_VERSION} \
-          -e IMG_SKU=${IMG_SKU} \
-          -e MODE=$(MODE) \
-          -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-          -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-          -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-          -e ENABLE_FIPS=${ENABLE_FIPS} \
-          -e SGX_INSTALL=${SGX_INSTALL} \
-          -e ENABLE_CGROUPV2=${ENABLE_CGROUPV2} \
-          -e GIT_BRANCH=$(Build.SourceBranch) \
-          -e PKR_RG_NAME=${PKR_RG_NAME} \
-          -e MODE=${MODE} \
-          -e DRY_RUN=${DRY_RUN} \
-          -e IMAGE_NAME=${IMAGE_NAME} \
-          -e CAPTURED_SIG_VERSION=${captured_sig_version} \
-          -e IMPORTED_IMAGE_NAME=${IMPORTED_IMAGE_NAME} \
-          ${CONTAINER_IMAGE} parallel --tag --joblog test-scan-cleanup-log.txt --results test-scan-cleanup-results/ --resume-failed --retries 1 ::: TEST SCAN CLEANUP
-
-        gnu_exit_code=$?
-
-        for target in scan test cleanup; do
-          echo "##[group]${target}"
-          echo "##[group]Output"
-          echo "##[group]stdout"
-          cat results/1/${target}/stdout
-          echo "##[endgroup]"
-          echo "##[group]stderr"
-          cat results/1/${target}/stderr
-          echo "##[endgroup]"
-          echo "##[endgroup]"
-          echo "##[group]Results"
-          exit_status=$(awk -F'\t' -v target="$target" '$9 ~ target {print $7}' test-scan-cleanup-log.txt)
-          if [ $exit_status -eq 0 ]; then
-            echo "${target} succeeded with exit code $exit_status"
-          else
-            echo "${target} failed with exit code $exit_status"
-          fi
-          echo "##[endgroup]"
-          echo "##[endgroup]"
-        done
-
-        if [ ${gnu_exit_code} -ne 0 ]; then
-          echo "The following targets failed:"
-          awk -F'\t' '$7 != 0 {print $9}' test-scan-cleanup-log.txt
-          exit 1
-        else
-          echo "All make targets succeeded"
-        fi
+        -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+        -w /go/src/github.com/Azure/AgentBaker \
+        -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+        -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
+        -e BLOB_STORAGE_NAME=${BLOB_STORAGE_NAME} \
+        -e CLASSIC_BLOB=${CLASSIC_BLOB} \
+        -e BUILD_ID=$(Build.BuildId) \
+        -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
+        -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
+        -e OS_VERSION=${OS_VERSION} \
+        -e OS_SKU=${OS_SKU} \
+        -e OS_TYPE="Linux" \
+        -e OS_DISK_URI=${OS_DISK_URI} \
+        -e IMG_SKU=${IMG_SKU} \
+        -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
+        -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+        -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
+        -e VHD_DEBUG=${VHD_DEBUG} \
+        -e MODE=$(MODE) \
+        -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
+        -e ARCHITECTURE=${ARCHITECTURE} \
+        -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"docker"} \
+        -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
+        -e SGX_INSTALL=${SGX_INSTALL} \
+        -e ENABLE_FIPS=${ENABLE_FIPS} \
+        -e ENABLE_CGROUPV2=${ENABLE_CGROUPV2} \
+        -e GIT_BRANCH=$(Build.SourceBranch) \
+        -e IMPORTED_IMAGE_NAME=${IMPORTED_IMAGE_NAME} \
+        -e CAPTURED_SIG_VERSION=${captured_sig_version} \
+        -e IMAGE_NAME=${IMAGE_NAME} \
+        -e PKR_RG_NAME=${PKR_RG_NAME} \
+        -e DRY_RUN=${DRY_RUN} \
+        ${CONTAINER_IMAGE} make -f packer.mk test-scan-and-cleanup
+    retryCountOnTaskFailure: 2
     condition: always()
     displayName: Test, Scan, and Cleanup
   - task: Bash@3
