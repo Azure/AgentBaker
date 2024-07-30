@@ -1,5 +1,8 @@
 #!/bin/bash
 set -eux
+
+echo "RUNNING VHD TESTS"
+echo ""
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
 WIN_CONFIGURATION_SCRIPT_PATH="generate-windows-vhd-configuration.ps1"
 WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
@@ -207,5 +210,5 @@ else
     exit 1
   fi
 fi
-
-echo "Tests Run Successfully"
+echo ""
+echo "TESTS RUN SUCCESSFULLY"

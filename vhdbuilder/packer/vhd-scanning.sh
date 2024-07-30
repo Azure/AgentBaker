@@ -1,6 +1,8 @@
 #!/bin/bash
 set -eux
 
+echo "RUNNING TRIVY SCAN"
+echo ""
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
 EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
 SCAN_RESOURCE_PREFIX="vhd-scanning"
@@ -119,3 +121,5 @@ az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_
 
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_TABLE_NAME} --auth-mode login
+echo ""
+echo "TRIVY SCAN COMPLETE"

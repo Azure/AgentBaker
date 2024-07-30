@@ -189,20 +189,22 @@ steps:
           new_name=$(awk -v job="$job_number" '$1 == job {print $11}' log.txt)
           mv "$dir" "results/$new_name"
         done
-
+        echo ""
         for target in scanning-vhd test-building-vhd cleanup; do
           echo "##[group]${target}"
           exit_status=$(awk -F'\t' -v target="$target" '$9 ~ target {print $7}' log.txt)
+          retry_count=$(awk -F'\t' -v target="$target" '$9 ~ target {print $8}' log.txt)
           if [ $exit_status -eq 0 ]; then
-            echo "${target} succeeded with exit code $exit_status"
+            echo "${target} succeeded with exit code $exit_status and $retry_count retries"
           else
-            echo "${target} failed with exit code $exit_status"
+            echo "${target} failed with exit code $exit_status and $retry_count retries"
           fi
           echo "##[endgroup]"
         done
-
+        echo ""
         if [ ${gnu_exit_code} -ne 0 ]; then
           echo "The following targets failed:"
+          echo ""
           awk -F'\t' '$7 != 0 {print $9}' log.txt
           exit 1
         else

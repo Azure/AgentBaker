@@ -1,5 +1,7 @@
 #!/bin/bash -x
 
+echo "RUNNING CLEANUP SCRIPT"
+echo ""
 EXPIRATION_IN_HOURS=168
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
 (( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
@@ -209,3 +211,5 @@ if [ -n "$old_storage_accounts" ]; then
 else
   echo "did not find any old storage accounts eligible for deletion"
 fi
+echo ""
+echo "CLEANUP SCRIPT FINISHED"
