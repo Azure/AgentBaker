@@ -516,7 +516,7 @@ returnRelease() {
         return 0
     fi
     if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu.\"r${osVersionWithoutDot}\"") != "null" ]]; then
-        RELEASE="\"r${osVersionWithoutDot}\""
+        RELEASE="r${osVersionWithoutDot}"
     fi
 }
 
