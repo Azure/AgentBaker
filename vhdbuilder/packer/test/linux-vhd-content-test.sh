@@ -120,11 +120,14 @@ testPackagesInstalled() {
       if [ -d $extractedPackageDir ]; then
         echo $test "[INFO] Directory ${extractedPackageDir} exists"
         continue
-      else 
-        # check if the file exists in /usr/local/bin/ before verifying the directory 
-        tarFilePath="/usr/local/bin/your_tar_file.tar"
       fi
       
+      # if there isn't a directory, we check if the file is extracted at the download location
+      if [ -f $extractedPackageDir ]; then
+        echo $test "[INFO] package ${extractedPackageDir} exists"
+        continue
+      fi
+
       # if there isn't a directory, we check if the file exists and the size is correct
       # -L since some urls are redirects (i.e github)
       fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
