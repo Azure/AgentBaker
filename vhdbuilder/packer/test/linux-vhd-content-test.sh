@@ -124,7 +124,7 @@ testPackagesInstalled() {
       
       # if there isn't a directory, we check if the file is extracted at the download location
       if [ -f $extractedPackageDir ]; then
-        echo $test "[INFO] package ${extractedPackageDir} exists"
+        echo $test "[INFO] Package ${extractedPackageDir} exists"
         continue
       fi
 
