@@ -82,10 +82,8 @@ testPackagesInstalled() {
   for p in ${packages[*]}; do
     name=$(echo "${p}" | jq .name -r)
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
-    if [[ "$OS_SKU" == "CBLMariner" || ("$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "V2") ]]; then
+    if [[ "$OS_SKU" == "CBLMariner" || "$OS_SKU" == "AzureLinux" ]]; then
       OS=$MARINER_OS_NAME
-    elif [[ "$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "V3" ]]; then
-      OS=$AZURELINUX_OS_NAME
     else
       OS=$UBUNTU_OS_NAME
     fi
