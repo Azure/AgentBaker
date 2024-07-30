@@ -145,7 +145,6 @@ steps:
         -e SGX_INSTALL=${SGX_INSTALL} \
         -e ENABLE_FIPS=${ENABLE_FIPS} \
         -e ENABLE_CGROUPV2=${ENABLE_CGROUPV2} \
-        -e GIT_BRANCH=$(Build.SourceBranch) \
         -e IMPORTED_IMAGE_NAME=${IMPORTED_IMAGE_NAME} \
         -e CAPTURED_SIG_VERSION=${captured_sig_version} \
         -e IMAGE_NAME=${IMAGE_NAME} \
