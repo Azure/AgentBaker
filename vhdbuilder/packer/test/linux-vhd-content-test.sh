@@ -126,6 +126,11 @@ testPackagesInstalled() {
       if [ -f $extractedPackageDir ]; then
         echo $test "[INFO] Package ${extractedPackageDir} exists"
         continue
+      else
+        if [ "$name" = "oras" ]; then
+          err "$test" "ORAS file ${extractedPackageDir} does not exist"
+          continue
+        fi
       fi
 
       # if there isn't a directory, we check if the file exists and the size is correct
