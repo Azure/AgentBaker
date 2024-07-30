@@ -137,7 +137,6 @@ steps:
           -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
           -e ARCHITECTURE=${ARCHITECTURE} \
           -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
-          -e GIT_BRANCH=$(Build.SourceBranch) \
           ${CONTAINER_IMAGE} make -f packer.mk scanning-vhd" \
           "docker run --rm \
           -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
