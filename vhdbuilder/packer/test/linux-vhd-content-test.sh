@@ -962,6 +962,36 @@ testNBCParserBinary () {
 
 }
 
+testWasmRuntimesInstalled () {
+  local test="testWasmRuntimesInstalled"
+  local wasm_runtimes_path="/usr/local/bin"
+  local spin_runtime_versions="v0.3.0 v0.5.1"
+
+  echo "$test: checking existance of Spin Wasm Runtime in $wasm_runtimes_path"
+  for shim_version in $spin_runtime_versions; do
+    binary_version="$(echo "${shim_version}" | tr . -)"
+    binary_path_pattern="${wasm_runtimes_path}/containerd-shim-spin-${binary_version}-*"
+    if [ ! -f $binary_path_pattern ]; then
+      err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern"
+      return 1
+    else
+      echo "$test: Spin Wasm Runtime binary exists at $binary_path_pattern"
+    fi
+  done
+
+  # v0.15.1 does not have a version encoded in the binary name
+  binary_path_pattern="${wasm_runtimes_path}/containerd-shim-spin-v2"
+    if [ ! -f $binary_path_pattern ]; then
+      err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern"
+      return 1
+    else
+      echo "$test: Spin Wasm Runtime binary exists at $binary_path_pattern"
+    fi
+
+  echo "$test: Test finished successfully."
+  return 0
+}
+
 checkPerformanceData() {
   local test="checkPerformanceData"
   local performanceDataPath="/opt/azure/vhd-build-performance-data.json"
@@ -1016,3 +1046,4 @@ testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
 testNBCParserBinary
+testWasmRuntimesInstalled
