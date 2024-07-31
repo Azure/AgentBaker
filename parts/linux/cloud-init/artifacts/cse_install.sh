@@ -163,7 +163,7 @@ installOras() {
     if [ -f "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ]; then
         echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} exists."
         # Proceed with extracting the tarball
-        tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/
+        sudo tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/
     else
         echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} does not exist."
         directory_contents=$(ls "$$ORAS_DOWNLOAD_DIR/" 2>&1)
