@@ -77,88 +77,80 @@ testPackagesInstalled() {
   fi
   CPU_ARCH="amd64"
   echo "$test:Start"
-  echo "OS_SKU: $OS_SKU"
-  echo "OS_VERSION: $OS_VERSION"
   packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
   # echo "packages: $packages"
 
   for p in ${packages[*]}; do
     name=$(echo "${p}" | jq .name -r)
-    echo "name: $name"
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
     # echo "downloadLocation: $downloadLocation"
-    echo "OS_SKU: $OS_SKU"
-    echo "OS_VERSION: $OS_VERSION"
     if [[ "$OS_SKU" == "CBLMariner" || ( "$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "V2" ) ]]; then
-      echo "in if condition"
       OS=$MARINER_OS_NAME
     else
-      echo "in else condition"
       OS=$UBUNTU_OS_NAME
     fi
     PACKAGE_VERSIONS=()
     returnPackageVersions ${p} ${OS} ${OS_VERSION}
-    echo PACKAGE_VERSIONS: $PACKAGE_VERSIONS
-    # PACKAGE_DOWNLOAD_URL=""
-    # returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
-    # if [ ${name} == "kubernetes-binaries" ]; then
-    #   # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
-    #   testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
-    #   continue
-    # fi
+    PACKAGE_DOWNLOAD_URL=""
+    returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
+    if [ ${name} == "kubernetes-binaries" ]; then
+      # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
+      testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
+      continue
+    fi
 
-    # for version in ${PACKAGE_VERSIONS[@]}; do
-    #   if [[ -z $PACKAGE_DOWNLOAD_URL ]]; then
-    #     echo "$test: skipping package ${name} verification as PACKAGE_DOWNLOAD_URL is empty"
-    #     # we can further think of adding a check to see if the package is installed through apt-get
-    #     break
-    #   fi
-    #   # A downloadURL from a package in components.json will look like this: 
-    #   # "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
-    #   # After eval(resolved), downloadURL will look like "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz"
-    #   eval "downloadURL=${PACKAGE_DOWNLOAD_URL}"
-    #   local fileNameWithExt
-    #   fileNameWithExt=$(basename $downloadURL)
-    #   local fileNameWithoutExt
-    #   fileNameWithoutExt="${fileNameWithExt%.*}"
-    #   local downloadedPackage
-    #   downloadedPackage="$downloadLocation/${fileNameWithExt}"
-    #   local extractedPackageDir
-    #   extractedPackageDir="$downloadLocation/${fileNameWithoutExt}"
+    for version in ${PACKAGE_VERSIONS[@]}; do
+      if [[ -z $PACKAGE_DOWNLOAD_URL ]]; then
+        echo "$test: skipping package ${name} verification as PACKAGE_DOWNLOAD_URL is empty"
+        # we can further think of adding a check to see if the package is installed through apt-get
+        break
+      fi
+      # A downloadURL from a package in components.json will look like this: 
+      # "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
+      # After eval(resolved), downloadURL will look like "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz"
+      eval "downloadURL=${PACKAGE_DOWNLOAD_URL}"
+      local fileNameWithExt
+      fileNameWithExt=$(basename $downloadURL)
+      local fileNameWithoutExt
+      fileNameWithoutExt="${fileNameWithExt%.*}"
+      local downloadedPackage
+      downloadedPackage="$downloadLocation/${fileNameWithExt}"
+      local extractedPackageDir
+      extractedPackageDir="$downloadLocation/${fileNameWithoutExt}"
 
-    #   # if there is a directory with expected name, we assume it's been downloaded and extracted properly
-    #   # no wc (wordcount) -c on a dir. This is for downloads we've un tar'd and deleted from the vhd
-    #   if [ -d $extractedPackageDir ]; then
-    #     echo $test "[INFO] Directory ${extractedPackageDir} exists"
-    #     continue
-    #   fi
+      # if there is a directory with expected name, we assume it's been downloaded and extracted properly
+      # no wc (wordcount) -c on a dir. This is for downloads we've un tar'd and deleted from the vhd
+      if [ -d $extractedPackageDir ]; then
+        echo $test "[INFO] Directory ${extractedPackageDir} exists"
+        continue
+      fi
       
-    #   # if there isn't a directory, we check if the file exists and the size is correct
-    #   # -L since some urls are redirects (i.e github)
-    #   fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
-    #   fileSizeDownloaded=$(wc -c $downloadedPackage | awk '{print $1}' | tr -d '\r')
-    #   if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
-    #     err $test "File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
-    #     continue
-    #   fi
-    #   echo $test "[INFO] File ${downloadedPackage} exists and has the correct size ${fileSizeDownloaded} bytes"
-    #   # Validate whether package exists in Azure China cloud
-    #   if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
-    #     mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
-    #     echo "Validating: $mcURL"
-    #     isExist=$(curl -sLI $mcURL | grep -i "404 The specified blob does not exist." | awk '{print $2}')
-    #     if [[ "$isExist" == "404" ]]; then
-    #       err "$mcURL is invalid"
-    #       continue
-    #     fi
+      # if there isn't a directory, we check if the file exists and the size is correct
+      # -L since some urls are redirects (i.e github)
+      fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+      fileSizeDownloaded=$(wc -c $downloadedPackage | awk '{print $1}' | tr -d '\r')
+      if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
+        err $test "File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
+        continue
+      fi
+      echo $test "[INFO] File ${downloadedPackage} exists and has the correct size ${fileSizeDownloaded} bytes"
+      # Validate whether package exists in Azure China cloud
+      if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
+        mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
+        echo "Validating: $mcURL"
+        isExist=$(curl -sLI $mcURL | grep -i "404 The specified blob does not exist." | awk '{print $2}')
+        if [[ "$isExist" == "404" ]]; then
+          err "$mcURL is invalid"
+          continue
+        fi
 
-    #     fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
-    #     if [[ "$fileSizeInMC" != "$fileSizeDownloaded" ]]; then
-    #       err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downlaoded file size: ${fileSizeInMC}"
-    #       continue
-    #     fi
-    #   fi
-    # done
+        fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+        if [[ "$fileSizeInMC" != "$fileSizeDownloaded" ]]; then
+          err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downlaoded file size: ${fileSizeInMC}"
+          continue
+        fi
+      fi
+    done
 
     echo "---"
   done
