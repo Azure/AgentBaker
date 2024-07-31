@@ -525,6 +525,10 @@ returnPackageVersions() {
     local package="$1"
     local os="$2"
     local osVersion="$3"
+    echo "package: $package"
+    echo "os: $os"
+    echo "osVersion: $osVersion"
+
     RELEASE="current"
     returnRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
