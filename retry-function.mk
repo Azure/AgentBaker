@@ -4,8 +4,8 @@ define retrycmd
     retries=$(2); \
 		target=$$(basename $$(echo $$(cmd))); \
 		last_attempt=0; \
-    for i in $$(seq 1 $$(retries)); do \
-        $$(cmd) && { success=1; last_attempt=$$i; break; } || echo "$$target failed. Retrying..."; \
+    for i in $$(seq 1 $$retries); do \
+        $$cmd && { success=1; last_attempt=$$i; break; } || echo "$$target failed. Retrying..."; \
         sleep 3; \
     done; \
     if [ $$success -ne 1 ]; then \
