@@ -202,7 +202,7 @@
       "downloadURL": "mcr.microsoft.com/oss/calico/cni:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v3.24.6"
+        "v3.28.1"
       ],
       "prefetchOptimizations": [
         {
