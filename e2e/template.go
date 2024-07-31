@@ -456,6 +456,11 @@ spec:
   - name: nginx
     image: mcr.microsoft.com/oss/nginx/nginx:1.21.6
     imagePullPolicy: IfNotPresent
+    readinessProbe:
+      periodSeconds: 1
+      httpGet:
+        path: /
+        port: 80
   nodeSelector:
     kubernetes.io/hostname: %[1]s
 `, nodeName)
@@ -481,10 +486,10 @@ spec:
         cpu: 100m
         memory: 128Mi
     readinessProbe:
+      periodSeconds: 1
       httpGet:
         path: /hello
         port: 80
-      periodSeconds: 1
   nodeSelector:
     kubernetes.io/hostname: %[1]s
 `, nodeName)
