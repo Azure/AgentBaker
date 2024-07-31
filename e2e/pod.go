@@ -28,24 +28,6 @@ func getDebugPodName(ctx context.Context, kube *Kubeclient) (string, error) {
 	return podName, nil
 }
 
-func ensureTestNginxPod(ctx context.Context, t *testing.T, namespace string, kube *Kubeclient, nodeName string) (string, error) {
-	nginxPodName := fmt.Sprintf("%s-nginx", nodeName)
-	nginxPodManifest := getNginxPodTemplate(nodeName)
-	if err := ensurePod(ctx, t, namespace, kube, nginxPodName, nginxPodManifest); err != nil {
-		return "", fmt.Errorf("failed to ensure test nginx pod %q: %w", nginxPodName, err)
-	}
-	return nginxPodName, nil
-}
-
-func ensureWasmPod(ctx context.Context, t *testing.T, namespace string, kube *Kubeclient, nodeName string) (string, error) {
-	spinPodName := fmt.Sprintf("%s-wasm-spin", nodeName)
-	spinPodManifest := getWasmSpinPodTemplate(nodeName)
-	if err := ensurePod(ctx, t, namespace, kube, spinPodName, spinPodManifest); err != nil {
-		return "", fmt.Errorf("failed to ensure wasm spin pod %q: %w", spinPodName, err)
-	}
-	return spinPodName, nil
-}
-
 func applyPodManifest(ctx context.Context, namespace string, kube *Kubeclient, manifest string) error {
 	var podObj corev1.Pod
 	if err := yaml.Unmarshal([]byte(manifest), &podObj); err != nil {
