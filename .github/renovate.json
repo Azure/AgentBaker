@@ -15,7 +15,9 @@
       "automerge": false
     },
     {
-      "assignees": ["devinwon"],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["mcr.microsoft.com/oss/azure/secrets-store/provider-azure:*"],
+      "assignees": ["zachary-bailey"],
       "reviewers": ["zachary-bailey"]
     }
   ],
