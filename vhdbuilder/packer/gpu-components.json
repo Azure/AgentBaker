@@ -1,0 +1,10 @@
+{
+    "nvidia": {
+      "cuda": {
+        "550": "mcr.microsoft.com/aks/aks-gpu:cuda-550.90.07-sha-b40b85"
+      },
+      "grid": {
+        "535": "mcr.microsoft.com/aks/aks-gpu:grid-535.161.08-sha-b40b85"
+      }
+    }
+  }
