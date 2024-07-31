@@ -81,7 +81,7 @@ type Image struct {
 
 func (i *Image) String() string {
 	// a starter for a string for debugging.
-	return fmt.Sprintf("%s %s %s %s", vhd.OS, vhd.Name, vhd.Version, vhd.Arch)
+	return fmt.Sprintf("%s %s %s %s", i.OS, i.Name, i.Version, i.Arch)
 }
 
 func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID, error) {
