@@ -121,6 +121,16 @@ testPackagesInstalled() {
         echo $test "[INFO] Directory ${extractedPackageDir} exists"
         continue
       fi
+
+      # if the downloadLocation is /usr/local/bin verify that the package is installed
+      if [ "$downloadLocation" == "/usr/local/bin" ]; then
+          if command -v "$name" >/dev/null 2>&1; then
+              echo "$name is installed."
+              continue
+          else
+              err $test "$name is not installed. Expected to be installed in $downloadLocation"
+          fi
+      fi
       
       # if there isn't a directory, we check if the file exists and the size is correct
       # -L since some urls are redirects (i.e github)
