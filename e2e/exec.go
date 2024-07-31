@@ -182,7 +182,7 @@ func getWasmCurlCommand(url string) string {
 	// it takes some time for network to make pod available by IP
 	return fmt.Sprintf(`curl \
 --max-time 1 \
---retry 5 \
+--retry 1 \
 --retry-max-time 180 \
 --retry-delay 3 \
 --retry-connrefused \
