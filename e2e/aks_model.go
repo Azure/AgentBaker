@@ -39,7 +39,7 @@ func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster
 			AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
 				{
 					Name:         to.Ptr("nodepool1"),
-					Count:        to.Ptr[int32](2),
+					Count:        to.Ptr[int32](1),
 					VMSize:       to.Ptr("standard_d2ds_v5"),
 					MaxPods:      to.Ptr[int32](110),
 					OSType:       to.Ptr(armcontainerservice.OSTypeLinux),
