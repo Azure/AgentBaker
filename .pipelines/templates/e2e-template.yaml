@@ -33,7 +33,8 @@ jobs:
           fi
           
           cd e2e
-          go test -parallel 100 -timeout 90m -v ./...
+          go install github.com/jstemmer/go-junit-report/v2@latest
+          go test -v -parallel 100 -timeout 90m -v ./... 2>&1 | go-junit-report -iocopy -set-exit-code -out "$(Build.SourcesDirectory)/e2e/report.xml"
         displayName: Run AgentBaker E2E
         env:
           VHD_BUILD_ID: $(VHD_BUILD_ID)
@@ -43,6 +44,12 @@ jobs:
       - bash: mkdir -p $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
         condition: always()
         displayName: Create folder for scenario logs
+      - task: PublishTestResults@2
+        displayName: Upload test results
+        condition: succeededOrFailed()
+        inputs:
+          testRunner: JUnit
+          testResultsFiles: "$(Build.SourcesDirectory)/e2e/report.xml"
       - publish: $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
         artifact: $(LOGGING_DIR)
         condition: always()
