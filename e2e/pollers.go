@@ -168,6 +168,6 @@ func waitUntilPodRunning(ctx context.Context, kube *Kubeclient, podName string) 
 			return false, err
 		}
 
-		return pod.Status.Phase == corev1.PodPhase("Running"), nil
+		return pod.Status.Phase == "Running", nil
 	})
 }

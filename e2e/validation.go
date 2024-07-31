@@ -36,31 +36,10 @@ func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName 
 
 	execResult, err := pollExecOnPod(ctx, t, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
 	if err != nil {
-		return fmt.Errorf("on node %sunable to execute wasm validation command: %w", nodeName, err)
-	}
-
-	if execResult.exitCode != "0" {
-		// retry getting the pod IP + curling the hello endpoint if the original curl reports connection refused or a timeout
-		// since the wasm spin pod usually restarts at least once after initial creation, giving it a new IP
-		if execResult.exitCode == "7" || execResult.exitCode == "28" {
-			spinPodIP, err = getPodIP(ctx, kube, defaultNamespace, spinPodName)
-			if err != nil {
-				return fmt.Errorf(" on node %s unable to get IP of wasm spin pod %q: %w", nodeName, spinPodName, err)
-			}
-
-			execResult, err = pollExecOnPod(ctx, t, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
-			if err != nil {
-				return fmt.Errorf("unable to execute on node %s wasm validation command on wasm pod %q at %s: %w", nodeName, spinPodName, spinPodIP, err)
-			}
-
-			if execResult.exitCode != "0" {
-				execResult.dumpAll(t)
-				return fmt.Errorf("curl  on node %swasm endpoint on pod %q at %s terminated with exit code %s", nodeName, spinPodName, spinPodIP, execResult.exitCode)
-			}
-		} else {
+		if execResult != nil {
 			execResult.dumpAll(t)
-			return fmt.Errorf("curl  on node %swasm endpoint on pod %q at %s terminated with exit code %s", nodeName, spinPodName, spinPodIP, execResult.exitCode)
 		}
+		return fmt.Errorf("on node %sunable to execute wasm validation command: %w", nodeName, err)
 	}
 
 	return nil

@@ -451,7 +451,6 @@ func getNginxPodTemplate(nodeName string) string {
 kind: Pod
 metadata:
   name: %[1]s-nginx
-  namespace: default
 spec:
   containers:
   - name: nginx
@@ -467,7 +466,6 @@ func getWasmSpinPodTemplate(nodeName string) string {
 kind: Pod
 metadata:
   name: %[1]s-wasm-spin
-  namespace: default
 spec:
   runtimeClassName: wasmtime-spin
   containers:
@@ -482,6 +480,11 @@ spec:
       requests:
         cpu: 100m
         memory: 128Mi
+    readinessProbe:
+      httpGet:
+        path: /hello
+        port: 80
+      periodSeconds: 1
   nodeSelector:
     kubernetes.io/hostname: %[1]s
 `, nodeName)

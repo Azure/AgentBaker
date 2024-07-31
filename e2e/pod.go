@@ -54,11 +54,13 @@ func ensureWasmPod(ctx context.Context, t *testing.T, namespace string, kube *Ku
 	return spinPodName, nil
 }
 
-func applyPodManifest(ctx context.Context, kube *Kubeclient, manifest string) error {
+func applyPodManifest(ctx context.Context, namespace string, kube *Kubeclient, manifest string) error {
 	var podObj corev1.Pod
 	if err := yaml.Unmarshal([]byte(manifest), &podObj); err != nil {
 		return fmt.Errorf("failed to unmarshal Pod manifest: %w", err)
 	}
+
+	podObj.Namespace = namespace
 
 	desired := podObj.DeepCopy()
 	_, err := controllerutil.CreateOrUpdate(ctx, kube.Dynamic, &podObj, func() error {
@@ -74,7 +76,7 @@ func applyPodManifest(ctx context.Context, kube *Kubeclient, manifest string) er
 }
 
 func ensurePod(ctx context.Context, t *testing.T, namespace string, kube *Kubeclient, podName, manifest string) error {
-	if err := applyPodManifest(ctx, kube, manifest); err != nil {
+	if err := applyPodManifest(ctx, namespace, kube, manifest); err != nil {
 		return fmt.Errorf("failed to ensure pod: %w", err)
 	}
 	t.Cleanup(func() {
