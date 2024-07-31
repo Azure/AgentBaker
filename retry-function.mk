@@ -3,14 +3,15 @@ define retrycmd
     cmd=$(1); \
     retries=$(2); \
 		target=$$(basename $$(echo $(1))); \
-    for i in $$(seq 1 $$retries); do \
-        $$cmd && { success=1; break; } || echo "$$target failed. Retrying..."; \
+		last_attempt=0; \
+    for i in $$(seq 1 $$(retries)); do \
+        $$(cmd) && { success=1; last_attempt=$$i; break; } || echo "$$target failed. Retrying..."; \
         sleep 3; \
     done; \
     if [ $$success -ne 1 ]; then \
-        echo "$$target failed after $$retries attempts."; \
+        echo "$$target failed after $$last_attempt attempts."; \
 				exit 1; \
 		else \
-			echo "$$target succeeded after $$retries attempts."; \
+			echo "$$target succeeded after $$last_attempt attempts."; \
     fi
 endef
