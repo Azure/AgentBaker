@@ -9,6 +9,7 @@ define retrycmd
         $$cmd && { success=1; last_attempt=$$i; break; } || echo "$$target failed. Retrying..."; \
         sleep 3; \
     done; \
+    echo "success: $$success"; \
     if [ $$success -ne 1 ]; then \
         echo "$$target failed after $$last_attempt attempts."; \
 				exit 1; \
