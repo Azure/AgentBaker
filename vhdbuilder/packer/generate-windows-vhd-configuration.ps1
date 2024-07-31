@@ -118,7 +118,7 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.0", # for k8s 1.30.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.1", # for k8s 1.30.x
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.22",
+    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.23",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.52",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.26",
