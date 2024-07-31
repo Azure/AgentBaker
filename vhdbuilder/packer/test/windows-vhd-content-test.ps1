@@ -392,6 +392,8 @@ function Test-RegistryAdded {
         Validate-WindowsFixInFeatureManagement -Name 2540111500
         Validate-WindowsFixInFeatureManagement -Name 50261647
         Validate-WindowsFixInFeatureManagement -Name 1475968140
+
+        Validate-WindowsFixInFeatureManagement -Name 747051149
     }
     if ($env:WindowsSKU -Like '23H2*') {
         Validate-WindowsFixInHnsState -Name NamespaceExcludedUdpPorts -Value 65330

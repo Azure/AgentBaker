@@ -72,6 +72,7 @@ switch -Regex ($windowsSku) {
         )
     }
     "23H2*" {
+        # Don't need to update patchUrls and patchIDs for 23H2 since it's by design.
         $global:patchUrls = @()
         $global:patchIDs = @()
 
