@@ -165,18 +165,6 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     activateNfConntrack
 fi
 
-# installs oras for installing packages for network isolated clusters 
-installOras
-# TODO (alburgess) need to do 'oras login' with credentials before oras can be used
-
-# TODO (alburgess) orsa for WASM shims
-downloadContainerdWasmShims
-echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
-
-echo "VHD will be built with containerd as the container runtime"
-updateAptWithMicrosoftPkg
-capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
-
 # doing this at vhd allows CSE to be faster with just mv 
 unpackTgzToCNIDownloadsDIR() {
   local URL=$1
@@ -210,6 +198,14 @@ for p in ${packages[*]}; do
   downloadDir=$(echo ${p} | jq .downloadLocation -r)
   #download the package
   case $name in
+    "oras")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+        echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
+        # ORAS will be used to install other packages for network isolate clusters, it must go first.
+      done
+      ;;
     "cri-tools")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
@@ -276,6 +272,13 @@ for p in ${packages[*]}; do
   esac
   capture_benchmark "download_${name}"
 done
+
+downloadContainerdWasmShims
+echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
+
+echo "VHD will be built with containerd as the container runtime"
+updateAptWithMicrosoftPkg
+capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
 
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension

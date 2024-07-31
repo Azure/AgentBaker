@@ -122,6 +122,17 @@ testPackagesInstalled() {
         continue
       fi
       
+      if [ "$downloadLocation" == "/usr/local/bin" ]; then
+          if command -v "$name" >/dev/null 2>&1; then
+              echo "$name is installed."
+              continue
+          else
+              err $test "$name is not installed. Expected to be installed in $downloadLocation"
+          fi
+      fi
+
+      
+
       # if there isn't a directory, we check if the file exists and the size is correct
       # -L since some urls are redirects (i.e github)
       fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
