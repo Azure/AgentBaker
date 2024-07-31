@@ -87,7 +87,7 @@ func ensurePod(ctx context.Context, t *testing.T, namespace string, kube *Kubecl
 			t.Logf("couldn't not delete pod %s: %v", podName, err)
 		}
 	})
-	if err := waitUntilPodRunning(ctx, kube, podName); err != nil {
+	if err := waitUntilPodReady(ctx, kube, podName); err != nil {
 		return fmt.Errorf("failed to wait for pod to be in running state: %w", err)
 	}
 

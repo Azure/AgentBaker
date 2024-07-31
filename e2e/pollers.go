@@ -161,13 +161,22 @@ func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 	return nodeName
 }
 
-func waitUntilPodRunning(ctx context.Context, kube *Kubeclient, podName string) error {
+func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string) error {
 	return wait.PollUntilContextCancel(ctx, waitUntilPodRunningPollInterval, true, func(ctx context.Context) (bool, error) {
 		pod, err := kube.Typed.CoreV1().Pods(defaultNamespace).Get(ctx, podName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
 
-		return pod.Status.Phase == "Running", nil
+		if pod.Status.Phase != "Running" {
+			return false, nil
+		}
+
+		for _, cond := range pod.Status.ContainerStatuses {
+			if !cond.Ready {
+				return false, nil
+			}
+		}
+		return true, nil
 	})
 }
