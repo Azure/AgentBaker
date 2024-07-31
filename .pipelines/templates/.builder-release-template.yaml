@@ -150,6 +150,7 @@ steps:
         -e IMAGE_NAME=${IMAGE_NAME} \
         -e PKR_RG_NAME=${PKR_RG_NAME} \
         -e DRY_RUN=${DRY_RUN} \
+        -e GIT_BRANCH=$(Build.SourceBranch) \
         ${CONTAINER_IMAGE} make -f packer.mk test-scan-and-cleanup
     condition: always()
     displayName: Test, Scan, and Cleanup
