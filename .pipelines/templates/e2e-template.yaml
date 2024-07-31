@@ -22,7 +22,7 @@ jobs:
         displayName: Set logging directory
       - bash: |
           set -ex
-          export PATH="/usr/local/go/bin:$PATH"
+          export PATH="/usr/local/go/bin:$GOPATH/bin:$PATH"
           go version
           
           echo "VHD_BUILD_ID=$VHD_BUILD_ID"
