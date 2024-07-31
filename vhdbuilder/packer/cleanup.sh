@@ -19,6 +19,13 @@ if [[ -n "$PKR_RG_NAME" ]]; then
   fi
 fi
 
+#clean up the test vm resource group
+id=$(az group show --name ${TEST_VM_RESOURCE_GROUP_NAME} | jq .id)
+if [ -n "$id" ]; then
+  echo "Deleting test vm resource group ${TEST_VM_RESOURCE_GROUP_NAME}"
+  az group delete --name ${TEST_VM_RESOURCE_GROUP_NAME} --yes
+fi
+
 #clean up managed image
 if [[ -n "$AZURE_RESOURCE_GROUP_NAME" && -n "$IMAGE_NAME" ]]; then
   if [[ "$MODE" != "default" ]]; then

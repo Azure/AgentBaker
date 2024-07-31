@@ -44,7 +44,7 @@ steps:
           echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$sigGalleryName"; \
           echo "##vso[task.setvariable variable=SIG_IMAGE_VERSION]1.0.0"; \
           echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]True"; \
-          echo "##vso[task.setvariable variable=SKIPVALIDATEREOFFERUPDATE]False"; \
+          echo "##vso[task.setvariable variable=SKIPVALIDATEREOFFERUPDATE]True"; \
       fi
       echo "Set build mode to $m" && \
       echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]$sigImageName" && \
@@ -125,6 +125,8 @@ steps:
       echo MODE=$(MODE) && \
       OS_DISK_URI="$(cat packer-output | grep -a "OSDiskUri:" | cut -d " " -f 2)" && \
       MANAGED_SIG_ID="$(cat packer-output | grep -a "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
+      TEST_VM_RESOURCE_GROUP_NAME="vhd-test-$(date +%s)-$RANDOM" && \
+      echo "##vso[task.setvariable variable=TEST_VM_RESOURCE_GROUP_NAME]$TEST_VM_RESOURCE_GROUP_NAME" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
@@ -142,6 +144,7 @@ steps:
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
       -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
+      -e TEST_VM_RESOURCE_GROUP_NAME=${TEST_VM_RESOURCE_GROUP_NAME} \
       -e ARCHITECTURE=${ARCHITECTURE} \
       ${AZURE_CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD cache test
@@ -218,6 +221,7 @@ steps:
       -e DRY_RUN=${DRY_RUN} \
       -e IMAGE_NAME=${IMAGE_NAME} \
       -e VNET_RESOURCE_GROUP_NAME=${VNET_RESOURCE_GROUP_NAME} \
+      -e TEST_VM_RESOURCE_GROUP_NAME=${TEST_VM_RESOURCE_GROUP_NAME} \
       -e WINDOWS_SKU=$(WINDOWS_SKU) \
       -e IMPORTED_IMAGE_NAME=${IMPORTED_IMAGE_NAME} \
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \

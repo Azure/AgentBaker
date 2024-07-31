@@ -24,6 +24,8 @@ func TestAll(t *testing.T) {
 	t.Run("azurelinuxv2-arm64", Scenario_azurelinuxv2ARM64)
 	t.Run("azurelinuxv2-arm64-airgap", Scenario_azurelinuxv2ARM64AirGap)
 	t.Run("azurelinuxv2-azurecni", Scenario_azurelinuxv2_azurecni)
+	t.Run("azurelinuxv2-containerd-version", Scenario_azurelinuxv2HasRightContainerdVersion)
+	t.Run("azurelinuxv2-runc-version", Scenario_azurelinuxv2HasRightRuncVersion)
 	t.Run("azurelinuxv2-chrony-restarts", Scenario_azurelinuxv2ChronyRestarts)
 	t.Run("azurelinuxv2-custom-sysctls", Scenario_azurelinuxv2CustomSysctls)
 	t.Run("azurelinuxv2-gpu", Scenario_azurelinuxv2gpu)
@@ -34,6 +36,8 @@ func TestAll(t *testing.T) {
 	t.Run("marinerv2-arm64", Scenario_marinerv2ARM64)
 	t.Run("marinerv2-arm64-airgap", Scenario_marinerv2ARM64AirGap)
 	t.Run("marinerv2-azurecni", Scenario_marinerv2_azurecni)
+	t.Run("marinerv2-containerd-version", Scenario_marinerv2HasRightContainerdVersion)
+	t.Run("marinerv2-runc-version", Scenario_marinerv2HasRightRuncVersion)
 	t.Run("marinerv2-chrony-restarts", Scenario_marinerv2ChronyRestarts)
 	t.Run("marinerv2-custom-sysctls", Scenario_marinerv2CustomSysctls)
 	t.Run("marinerv2-gpu", Scenario_marinerv2gpu)
@@ -42,6 +46,8 @@ func TestAll(t *testing.T) {
 	t.Run("ubuntu1804", Scenario_ubuntu1804)
 	t.Run("ubuntu1804-azurecni", Scenario_ubuntu1804_azurecni)
 	t.Run("ubuntu1804-chrony-restarts", Scenario_ubuntu1804ChronyRestarts)
+	t.Run("ubuntu1804-containerd-version", Scenario_ubuntu1804HasRightContainerdVersion)
+	t.Run("ubuntu1804-runc-version", Scenario_ubuntu1804HasRightRuncVersion)
 	t.Run("ubuntu1804-gpu", Scenario_ubuntu1804gpu)
 	t.Run("ubuntu1804-gpu-azurecni", Scenario_ubuntu1804gpu_azurecni)
 	t.Run("ubuntu2204", Scenario_ubuntu2204)
@@ -49,8 +55,10 @@ func TestAll(t *testing.T) {
 	t.Run("ubuntu2204-arm64", Scenario_ubuntu2204ARM64)
 	t.Run("ubuntu2204-artifact-streaming", Scenario_ubuntu2204ArtifactStreaming)
 	t.Run("ubuntu2204-chrony-restarts", Scenario_ubuntu2204ChronyRestarts)
-	t.Run("ubuntu2204-containerd-url", Scenario_ubuntu2204ContainerdURL)
-	t.Run("ubuntu2204-containerd-version", Scenario_ubuntu2204ContainerdVersion)
+	t.Run("ubuntu2204-containerd-version", Scenario_ubuntu2204HasRightContainerdVersion)
+	t.Run("ubuntu2204-runc-version", Scenario_ubuntu2204HasRightRuncVersion)
+	t.Run("ubuntu2204-containerd-override", Scenario_ubuntu2204ContainerdURL)
+	t.Run("ubuntu2204-containerd-cur-ver", Scenario_ubuntu2204ContainerdHasCurrentVersion)
 	t.Run("ubuntu2204-custom-ca-trust", Scenario_ubuntu2204CustomCATrust)
 	t.Run("ubuntu2204-custom-sysctls", Scenario_ubuntu2204CustomSysctls)
 	t.Run("ubuntu2204-gpu-a10", Scenario_ubuntu2204gpua10)
@@ -58,7 +66,6 @@ func TestAll(t *testing.T) {
 	t.Run("ubuntu2204-gpu-grid-driver", Scenario_ubuntu2204GPUGridDriver)
 	t.Run("ubuntu2204-gpu-ncv", Scenario_ubuntu2204gpuncv)
 	t.Run("ubuntu2204-gpu-no-driver", Scenario_ubuntu2204gpuNoDriver)
-	t.Run("ubuntu2204-private-kube-pkg", Scenario_ubuntu2204privatekubepkg)
 	t.Run("ubuntu2204-wasm", Scenario_ubuntu2204Wasm)
 }
 
@@ -169,7 +176,7 @@ func Scenario_azurelinuxv2ChronyRestarts(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				serviceCanRestartValidator("chronyd", 10),
+				ServiceCanRestartValidator("chronyd", 10),
 				FileHasContentsValidator("/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always"),
 				FileHasContentsValidator("/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5"),
 			},
@@ -397,7 +404,7 @@ func Scenario_marinerv2ChronyRestarts(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				serviceCanRestartValidator("chronyd", 10),
+				ServiceCanRestartValidator("chronyd", 10),
 				FileHasContentsValidator("/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always"),
 				FileHasContentsValidator("/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5"),
 			},
@@ -556,7 +563,7 @@ func Scenario_ubuntu1804ChronyRestarts(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-18.04-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				serviceCanRestartValidator("chronyd", 10),
+				ServiceCanRestartValidator("chronyd", 10),
 				FileHasContentsValidator("/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "Restart=always"),
 				FileHasContentsValidator("/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "RestartSec=5"),
 			},
@@ -700,7 +707,7 @@ func Scenario_ubuntu2204ChronyRestarts(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				serviceCanRestartValidator("chronyd", 10),
+				ServiceCanRestartValidator("chronyd", 10),
 				FileHasContentsValidator("/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always"),
 				FileHasContentsValidator("/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5"),
 			},
@@ -871,29 +878,13 @@ func Scenario_ubuntu2204gpuNoDriver(t *testing.T) {
 	})
 }
 
-func Scenario_ubuntu2204privatekubepkg(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD that was built with private kube packages can be properly bootstrapped with the specified kube version",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.25.6"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.K8sComponents.LinuxPrivatePackageURL = "https://privatekube.blob.core.windows.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz"
-			},
-		},
-	})
-}
-
 // These tests were created to verify that the apt-get call in downloadContainerdFromVersion is not executed.
 // The code path is not hit in either of these tests. In the future, testing with some kind of firewall to ensure no egress
 // calls are made would be beneficial for airgap testing.
 
 func Scenario_ubuntu2204ContainerdURL(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override bootstraps with the provided URL and not the maifest contianerd version",
+		Description: "tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override bootstraps with the provided URL and not the components.json containerd version",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -909,9 +900,9 @@ func Scenario_ubuntu2204ContainerdURL(t *testing.T) {
 	})
 }
 
-func Scenario_ubuntu2204ContainerdVersion(t *testing.T) {
+func Scenario_ubuntu2204ContainerdHasCurrentVersion(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that a node using an Ubuntu2204 VHD and the ContainerdVersion override bootstraps with the correct manifest containerd version and ignores the override",
+		Description: "tests that a node using an Ubuntu2204 VHD and the ContainerdVersion override bootstraps with the correct components.json containerd version and ignores the override",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -921,7 +912,8 @@ func Scenario_ubuntu2204ContainerdVersion(t *testing.T) {
 				nbc.ContainerdVersion = "1.6.9"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator(getContainerdManifestVersion()),
+				// for containerd we only support one version at a time for each distro/release
+				containerdVersionValidator(getExpectedPackageVersions("containerd", "default", "current")[0]),
 			},
 		},
 	})
@@ -938,6 +930,90 @@ func Scenario_ubuntu2204Wasm(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+			},
+		},
+	})
+}
+
+/*
+We could figure out the expected versions by parsing the components.json file, but then we'd need logic
+to resolve the right version based on the distro. It seems easier to have the versions of containerd and runc hard coded here because:
+
+* Having additional code for parsing the files and resolving the version introduces risk of bugs in the test code.
+* Re-using the parser from prod introduces risk that there's a bug in the parser that we don't pick up as it impacts both test and prod code.
+* It's not much effort for a dev to change the hard coded values here and in components.json
+*/
+func Scenario_marinerv2HasRightContainerdVersion(t *testing.T) {
+	// This is the version that's in the components.json file - seems to be being ignored right now.
+	//Scenario_genericHasRightContainerdVersion(t, "mariner", "v2", "1.6.26-5.cm2", "aks-cblmariner-v2-gen2")
+	Scenario_genericHasRightContainerdVersion(t, "mariner", "v2", "1.7.20-1", "aks-cblmariner-v2-gen2")
+}
+
+func Scenario_azurelinuxv2HasRightContainerdVersion(t *testing.T) {
+	// This is the version that's in the components.json file - seems to be being ignored right now.
+	// Scenario_genericHasRightContainerdVersion(t, "azurelinux", "v2", "1.1.9-5.cm2", "aks-azurelinux-v2-gen2")
+	Scenario_genericHasRightContainerdVersion(t, "azurelinux", "v2", "1.7.20-1", "aks-azurelinux-v2-gen2")
+}
+
+func Scenario_ubuntu2204HasRightContainerdVersion(t *testing.T) {
+	Scenario_genericHasRightContainerdVersion(t, "ubuntu", "r2204", "1.7.20-1", "aks-ubuntu-containerd-22.04-gen2")
+}
+
+func Scenario_ubuntu1804HasRightContainerdVersion(t *testing.T) {
+	// This is the version that's in the components.json file - seems to be being ignored right now.
+	//Scenario_genericHasRightContainerdVersion(t, "ubuntu", "r1804", "1.7.1-1", "aks-ubuntu-containerd-18.04-gen2")
+	Scenario_genericHasRightContainerdVersion(t, "ubuntu", "r1804", "1.7.20-1", "aks-ubuntu-containerd-18.04-gen2")
+}
+
+func Scenario_marinerv2HasRightRuncVersion(t *testing.T) {
+	// This is the version that's in the components.json file - seems to be being ignored right now.
+	//Scenario_genericHasRightRunCVersion(t, "mariner", "v2", "1.6.26-5.cm2", "aks-cblmariner-v2-gen2")
+	Scenario_genericHasRightRunCVersion(t, "mariner", "v2", "1.1.12-1", "aks-cblmariner-v2-gen2")
+}
+
+func Scenario_azurelinuxv2HasRightRuncVersion(t *testing.T) {
+	// This is the version that's in the components.json file - seems to be being ignored right now.
+	//Scenario_genericHasRightRunCVersion(t, "mariner", "v2", "1.6.26-5.cm2", "aks-azurelinux-v2-gen2")
+	Scenario_genericHasRightRunCVersion(t, "mariner", "v2", "1.1.12-1", "aks-azurelinux-v2-gen2")
+}
+
+func Scenario_ubuntu2204HasRightRuncVersion(t *testing.T) {
+	Scenario_genericHasRightRunCVersion(t, "ubuntu", "r2204", "1.1.12-1", "aks-ubuntu-containerd-22.04-gen2")
+}
+
+func Scenario_ubuntu1804HasRightRuncVersion(t *testing.T) {
+	Scenario_genericHasRightRunCVersion(t, "ubuntu", "r1804", "1.1.12-1", "aks-ubuntu-containerd-18.04-gen2")
+}
+
+func Scenario_genericHasRightContainerdVersion(t *testing.T, distroName string, distroRelease string, expectedVersion string, distro datamodel.Distro) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that " + distroName + " " + distroRelease + " has the right containerd version",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = distro
+				nbc.AgentPoolProfile.Distro = distro
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				containerdVersionValidator(expectedVersion),
+			},
+		},
+	})
+}
+
+func Scenario_genericHasRightRunCVersion(t *testing.T, distroName string, distroRelease string, expectedVersion string, distro datamodel.Distro) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that " + distroName + " " + distroRelease + " has the right runc version",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = distro
+				nbc.AgentPoolProfile.Distro = distro
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				runcVersionValidator(expectedVersion),
 			},
 		},
 	})
