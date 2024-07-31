@@ -36,10 +36,12 @@ func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName 
 
 	execResult, err := pollExecOnPod(ctx, t, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
 	if err != nil {
-		if execResult != nil {
-			execResult.dumpAll(t)
-		}
-		return fmt.Errorf("on node %sunable to execute wasm validation command: %w", nodeName, err)
+		return fmt.Errorf("unable to execute wasm validation command, node %s, exit code %s, exec: %w", nodeName, err)
+	}
+
+	if execResult.exitCode != "0" {
+		execResult.dumpAll(t)
+		return fmt.Errorf("wasm validation failed, node %s, exit code %s", nodeName, execResult.exitCode)
 	}
 
 	return nil
