@@ -19,6 +19,11 @@
       "matchPackageNames": ["mcr.microsoft.com/oss/azure/secrets-store/provider-azure:*"],
       "assignees": ["zachary-bailey"],
       "reviewers": ["zachary-bailey"]
+    },
+    {
+      "matchUpdateTypes": ["minor", "patch"],
+      "assignees": ["devinwon"],
+      "reviewers": ["zachary-bailey"]
     }
   ],
   "customManagers": [
