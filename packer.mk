@@ -74,6 +74,7 @@ endif
 
 init-packer:
 	@./vhdbuilder/packer/init-variables.sh
+	$(call retrycmd_if_failure, 2, 3, ./vhdbuilder/packer/init-variables.sh)
 
 run-packer: az-login
 	@packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
