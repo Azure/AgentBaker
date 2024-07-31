@@ -122,17 +122,16 @@ testPackagesInstalled() {
         continue
       fi
       
-      # if there isn't a directory, we check if the file is extracted at the download location
-      if [ -f $downloadLocation ]; then
-        echo $test "[INFO] Package ${extractedPackageDir} exists"
-        continue
-      else
-        if [ "$name" = "oras" ]; then
-          directory_contents=$(ls "$downloadLocation/" 2>&1)
-          err "$test" "ORAS file ${extractedPackageDir} does not exist. ls output: ${directory_contents}"
-          continue
-        fi
+      if [ "$downloadLocation" == "/usr/local/bin" ]; then
+          if command -v "$name" >/dev/null 2>&1; then
+              echo "$name is installed."
+              continue
+          else
+              err $test "$name is not installed. Expected to be installed in $downloadLocation"
+          fi
       fi
+
+      
 
       # if there isn't a directory, we check if the file exists and the size is correct
       # -L since some urls are redirects (i.e github)
