@@ -1,5 +1,5 @@
 SHELL=/bin/bash -o pipefail
-include cse_helpers.sh
+include parts/linux/cloud-init/artifacts/cse_helpers.sh
 
 build-packer: build-nbcparser-all
 ifeq (${MODE},linuxVhdMode)
