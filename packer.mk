@@ -1,5 +1,5 @@
 SHELL=/bin/bash -o pipefail
-include make-function.sh
+include retry-function.mk
 
 build-packer: build-nbcparser-all
 ifeq (${MODE},linuxVhdMode)
