@@ -73,7 +73,6 @@ endif
 	@az account set -s ${SUBSCRIPTION_ID}
 
 init-packer:
-	@./vhdbuilder/packer/init-variables.sh
 	$(call retrycmd_if_failure, 2, 3, ./vhdbuilder/packer/init-variables.sh)
 
 run-packer: az-login
