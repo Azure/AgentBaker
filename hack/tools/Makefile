@@ -1,5 +1,5 @@
 GO              ?= go
-LOCALBIN		= $(shell pwd)/bin
+LOCALBIN		= $(CURDIR)/bin
 
 all: install
 

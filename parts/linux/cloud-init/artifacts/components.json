@@ -441,7 +441,7 @@
         "ubuntu": {
           "current": {
             "versions": [
-              "1.7.20"
+              "2.0.0~rc.3"
             ]
           },
           "r1804": {
@@ -460,7 +460,7 @@
         "default": {
           "current": {
             "versions": [
-              "1.7.20"
+              "2.0.0~rc.3"
             ]
           }
         }
