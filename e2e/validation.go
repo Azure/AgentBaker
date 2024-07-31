@@ -12,17 +12,14 @@ import (
 func validateNodeHealth(ctx context.Context, t *testing.T, kube *Kubeclient, vmssName string) string {
 	nodeName := waitUntilNodeReady(ctx, t, kube, vmssName)
 
-	nginxPodName, err := ensureTestNginxPod(ctx, kube, nodeName)
+	_, err := ensureTestNginxPod(ctx, t, defaultNamespace, kube, nodeName)
 	require.NoError(t, err, "failed to validate node health, unable to ensure nginx pod on node %q", nodeName)
-
-	err = waitUntilPodDeleted(ctx, kube, nginxPodName)
-	require.NoError(t, err, "error waiting for nginx pod deletion on %s", nodeName)
 
 	return nodeName
 }
 
-func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName, privateKey string) error {
-	spinPodName, err := ensureWasmPods(ctx, kube, nodeName)
+func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName string) error {
+	spinPodName, err := ensureWasmPod(ctx, t, defaultNamespace, kube, nodeName)
 	if err != nil {
 		return fmt.Errorf("failed to valiate wasm, unable to ensure wasm pods on node %q: %w", nodeName, err)
 	}
@@ -64,10 +61,6 @@ func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName,
 			execResult.dumpAll(t)
 			return fmt.Errorf("curl  on node %swasm endpoint on pod %q at %s terminated with exit code %s", nodeName, spinPodName, spinPodIP, execResult.exitCode)
 		}
-	}
-
-	if err := waitUntilPodDeleted(ctx, kube, spinPodName); err != nil {
-		return fmt.Errorf("error waiting for wasm pod deletion on %s: %w", nodeName, err)
 	}
 
 	return nil

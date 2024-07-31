@@ -486,28 +486,3 @@ spec:
     kubernetes.io/hostname: %[1]s
 `, nodeName)
 }
-
-func getWasmSlightPodTemplate(nodeName string) string {
-	return fmt.Sprintf(`apiVersion: v1
-kind: Pod
-metadata:
-  name: %[1]s-wasm-slight
-  namespace: default
-spec:
-  runtimeClassName: wasmtime-slight
-  containers:
-  - name: slight-hello
-    image: ghcr.io/deislabs/containerd-wasm-shims/examples/slight-rust-hello:v0.5.1
-    imagePullPolicy: IfNotPresent
-    command: ["/"]
-    resources: # limit the resources to 128Mi of memory and 100m of CPU
-      limits:
-        cpu: 100m
-        memory: 128Mi
-      requests:
-        cpu: 100m
-        memory: 128Mi
-  nodeSelector:
-    kubernetes.io/hostname: %[1]s
-`, nodeName)
-}

@@ -90,7 +90,7 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 		t.Logf("wasm scenario: running wasm validation on %s...", vmssName)
 		err = ensureWasmRuntimeClasses(ctx, opts.clusterConfig.Kube)
 		require.NoError(t, err)
-		err = validateWasm(ctx, t, opts.clusterConfig.Kube, nodeName, string(privateKeyBytes))
+		err = validateWasm(ctx, t, opts.clusterConfig.Kube, nodeName)
 		require.NoError(t, err)
 	}
 

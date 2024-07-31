@@ -171,10 +171,3 @@ func waitUntilPodRunning(ctx context.Context, kube *Kubeclient, podName string) 
 		return pod.Status.Phase == corev1.PodPhase("Running"), nil
 	})
 }
-
-func waitUntilPodDeleted(ctx context.Context, kube *Kubeclient, podName string) error {
-	return wait.PollUntilContextCancel(ctx, waitUntilPodRunningPollInterval, true, func(ctx context.Context) (bool, error) {
-		err := kube.Typed.CoreV1().Pods(defaultNamespace).Delete(ctx, podName, metav1.DeleteOptions{})
-		return err == nil, err
-	})
-}
