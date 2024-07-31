@@ -16,7 +16,7 @@
     },
     {
       "matchUpdateTypes": ["minor", "patch"],
-      "assignees": ["devinwon"]
+      "assignees": ["devinwong"]
     }
   ],
   "customManagers": [
