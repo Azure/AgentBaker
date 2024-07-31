@@ -10,7 +10,7 @@ define retrycmd
     if [ $$success -ne 1 ]; then \
         echo "$$target failed after $$retries attempts."; \
 				exit 1; \
-    fi
 		else
 			echo "$$target succeeded after $$retries attempts."; \
+    fi
 endef
