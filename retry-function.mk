@@ -1,19 +1,14 @@
-define retrycmd
-    @success=0; \
-    cmd=$(1); \
-    retries=$(2); \
-		target=$$(basename $$(echo $$cmd)); \
-		last_attempt=0; \
-    echo "Running $$cmd with $$retries retries, target is $$target, $$last_attempt, $$success"; \
-    for i in $$(seq 1 $$retries); do \
-        $$cmd && { success=1; last_attempt=$$i; break; } || echo "$$target failed. Retrying up to $$retries times..."; \
-        sleep 3; \
-    done; \
-    echo "success: $$success"; \
-    if [ $$success -ne 1 ]; then \
-        echo "$$target failed after $$retries attempts."; \
-				exit 1; \
-		else \
-			echo "$$target succeeded after $$last_attempt attempts."; \
-    fi
+define retrycmd_if_failure
+    retries=$(1); wait_sleep=$(2); timeout=$(3); cmd=$(4); target=$$(basename $$(echo $$cmd)); \
+    echo "Running $$cmd with $$retries retries, target is $$target"; \
+    for i in $(seq 1 $$retries); do
+        timeout $$timeout $$cmd && break || \
+        if [ $$i -eq $$retries ]; then
+            echo Executed $$target $$i times;
+            exit 1
+        else
+            sleep $$wait_sleep
+        fi
+    done
+    echo Executed $$target $$i times;
 endef
