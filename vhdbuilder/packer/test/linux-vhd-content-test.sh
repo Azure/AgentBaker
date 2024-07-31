@@ -13,6 +13,10 @@ OS_SKU="$4"
 GIT_BRANCH="$5"
 IMG_SKU="$6"
 
+echo "top of the file"
+echo "OS_VERSION: $OS_VERSION"
+echo "OS_SKU: $OS_SKU"
+
 # List of "ERROR/WARNING" message we want to ignore in the cloud-init.log
 # 1. "Command ['hostname', '-f']":
 #   Running hostname -f will fail on current AzureLinux AKS image. We don't not have active plan to resolve
@@ -65,10 +69,20 @@ if ! popd; then
   exit 1
 fi
 
+echo "before sourcing"
+echo "OS_VERSION: $OS_VERSION"
+echo "OS_SKU: $OS_SKU"
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 
+echo "after sourcing"
+echo "OS_VERSION: $OS_VERSION"
+echo "OS_SKU: $OS_SKU"
+
 testPackagesInstalled() {
+  echo "in testPackagesInstalled"
+  echo "OS_VERSION: $OS_VERSION"
+  echo "OS_SKU: $OS_SKU"
   test="testPackagesInstalled"
   containerRuntime=$1
   if [[ $(isARM64) == 1 ]]; then
