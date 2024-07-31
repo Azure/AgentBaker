@@ -1,16 +1,16 @@
 define retrycmd_if_failure
-	retries=$1; wait_sleep=$2; cmd=$3; \
-	echo Retries: $(retries); \
-	echo Wait Sleep: $(wait_sleep); \
-	echo Command: $(cmd); \
+	retries=$(1); wait_sleep=$(2); cmd=$(3); \
+	echo Retries: $$retries; \
+	echo Wait Sleep: $$wait_sleep; \
+	echo Command: $$cmd; \
   	for i in $$(seq 1 $$retries); do \
-    	$(cmd) && break || \
+    	$$cmd && break || \
       	if [ $$i -eq $$retries ]; then \
-        	echo Executed $$(basename $(cmd)) $$i times; \
+        	echo Executed $$(basename $$cmd) $$i times; \
         	exit 1; \
 				else \
-					sleep $(wait_sleep); \
+					sleep $$wait_sleep; \
 				fi; \
 		done; \
-	echo Executed $$(basename $(cmd)) $$i times;
+	echo Executed $$(basename $$cmd) $$i times;
 endef
