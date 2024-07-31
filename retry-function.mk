@@ -4,11 +4,11 @@ define retrycmd_if_failure
     for i in $(seq 1 $$retries); do \
         timeout $$timeout $$cmd && break || \
         if [ $$i -eq $$retries ]; then \
-            echo Executed $$target $$i times; \
+            echo "$$target failed $$i times"; \
             exit 1; \
         else \
             sleep $$wait_sleep; \
         fi \
     done; \
-    echo Executed $$target $$i times
+    echo "Executed $$target $$i times"
 endef
