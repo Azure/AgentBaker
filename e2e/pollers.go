@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -168,15 +170,20 @@ func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string) er
 			return false, err
 		}
 
-		if pod.Status.Phase != "Running" {
+		if pod.Status.Phase == "Pending" {
 			return false, nil
 		}
 
-		for _, cond := range pod.Status.ContainerStatuses {
-			if !cond.Ready {
-				return false, nil
+		if pod.Status.Phase != "Running" {
+			podStatus, _ := yaml.Marshal(pod.Status)
+			return false, fmt.Errorf("pod %s is in %s phase, status: %s", podName, pod.Status.Phase, string(podStatus))
+		}
+
+		for _, cond := range pod.Status.Conditions {
+			if cond.Type == "Ready" && cond.Status == "True" {
+				return true, nil
 			}
 		}
-		return true, nil
+		return false, nil
 	})
 }
