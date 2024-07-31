@@ -2,7 +2,7 @@ define retrycmd
     @success=0; \
     cmd=$(1); \
     retries=$(2); \
-		target=$$(basename $$(echo $(1))); \
+		target=$$(basename $$(echo $$(cmd))); \
 		last_attempt=0; \
     for i in $$(seq 1 $$(retries)); do \
         $$(cmd) && { success=1; last_attempt=$$i; break; } || echo "$$target failed. Retrying..."; \
