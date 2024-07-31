@@ -17,7 +17,6 @@ import (
 const (
 	// Polling intervals
 	execOnVMPollInterval                 = 5 * time.Second
-	execOnPodPollInterval                = 5 * time.Second
 	extractClusterParametersPollInterval = 5 * time.Second
 	extractVMLogsPollInterval            = 5 * time.Second
 	waitUntilPodRunningPollInterval      = 5 * time.Second
@@ -40,31 +39,6 @@ func pollExecOnVM(ctx context.Context, t *testing.T, kube *Kubeclient, vmPrivate
 
 		// this denotes a retriable SSH failure
 		if res.exitCode == "255" {
-			return false, nil
-		}
-
-		execResult = res
-		return true, nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return execResult, nil
-}
-
-func pollExecOnPod(ctx context.Context, t *testing.T, kube *Kubeclient, namespace, podName, command string) (*podExecResult, error) {
-	var execResult *podExecResult
-	err := wait.PollUntilContextCancel(ctx, execOnPodPollInterval, true, func(ctx context.Context) (bool, error) {
-		res, err := execOnPod(ctx, kube, namespace, podName, append(bashCommandArray(), command))
-		if err != nil {
-			t.Logf("unable to execute command on pod: %s", err)
-
-			// fail hard on non-retriable error
-			if strings.Contains(err.Error(), "error extracting exit code") {
-				return false, err
-			}
 			return false, nil
 		}
 

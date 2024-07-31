@@ -28,14 +28,6 @@ func getDebugPodName(ctx context.Context, kube *Kubeclient) (string, error) {
 	return podName, nil
 }
 
-func getPodIP(ctx context.Context, kube *Kubeclient, namespaceName, podName string) (string, error) {
-	pod, err := kube.Typed.CoreV1().Pods(namespaceName).Get(ctx, podName, metav1.GetOptions{})
-	if err != nil {
-		return "", fmt.Errorf("unable to get pod %s/%s: %w", namespaceName, podName, err)
-	}
-	return pod.Status.PodIP, nil
-}
-
 func ensureTestNginxPod(ctx context.Context, t *testing.T, namespace string, kube *Kubeclient, nodeName string) (string, error) {
 	nginxPodName := fmt.Sprintf("%s-nginx", nodeName)
 	nginxPodManifest := getNginxPodTemplate(nodeName)

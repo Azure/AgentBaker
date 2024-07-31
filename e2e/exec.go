@@ -177,25 +177,6 @@ func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string,
 	}, nil
 }
 
-func getWasmCurlCommand(url string) string {
-	// by default curl doesn't retry on connection errors and using exponential backoff
-	// it takes some time for network to make pod available by IP
-	return fmt.Sprintf(`curl \
---max-time 1 \
---retry 1 \
---retry-max-time 180 \
---retry-delay 3 \
---retry-connrefused \
-%s`, url)
-}
-
-func bashCommandArray() []string {
-	return []string{
-		"/bin/bash",
-		"-c",
-	}
-}
-
 func nsenterCommandArray() []string {
 	return []string{
 		"nsenter",

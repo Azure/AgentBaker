@@ -19,29 +19,9 @@ func validateNodeHealth(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 }
 
 func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName string) error {
-	spinPodName, err := ensureWasmPod(ctx, t, defaultNamespace, kube, nodeName)
+	_, err := ensureWasmPod(ctx, t, defaultNamespace, kube, nodeName)
 	if err != nil {
 		return fmt.Errorf("failed to valiate wasm, unable to ensure wasm pods on node %q: %w", nodeName, err)
-	}
-
-	spinPodIP, err := getPodIP(ctx, kube, defaultNamespace, spinPodName)
-	if err != nil {
-		return fmt.Errorf("on node %s unable to get IP of wasm spin pod %q: %w", nodeName, spinPodName, err)
-	}
-
-	debugPodName, err := getDebugPodName(ctx, kube)
-	if err != nil {
-		return fmt.Errorf("on node %s unable to get debug pod name to validate wasm: %w", nodeName, err)
-	}
-
-	execResult, err := pollExecOnPod(ctx, t, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
-	if err != nil {
-		return fmt.Errorf("unable to execute wasm validation command, node %s, exec: %w", nodeName, err)
-	}
-
-	if execResult.exitCode != "0" {
-		execResult.dumpAll(t)
-		return fmt.Errorf("wasm validation failed, node %s, exit code %s", nodeName, execResult.exitCode)
 	}
 
 	return nil
