@@ -6,12 +6,12 @@ define retrycmd
 		last_attempt=0; \
     echo "Running $$cmd with $$retries retries, target is $$target, $$last_attempt, $$success"; \
     for i in $$(seq 1 $$retries); do \
-        $$cmd && { success=1; last_attempt=$$i; break; } || echo "$$target failed. Retrying..."; \
+        $$cmd && { success=1; last_attempt=$$i; break; } || echo "$$target failed. Retrying up to $$retries times..."; \
         sleep 3; \
     done; \
     echo "success: $$success"; \
     if [ $$success -ne 1 ]; then \
-        echo "$$target failed after $$last_attempt attempts."; \
+        echo "$$target failed after $$retries attempts."; \
 				exit 1; \
 		else \
 			echo "$$target succeeded after $$last_attempt attempts."; \
