@@ -79,6 +79,11 @@ type Image struct {
 	vhdErr  error
 }
 
+func (i *Image) String() string {
+	// a starter for a string for debugging.
+	return fmt.Sprintf("%s %s %s %s", vhd.OS, vhd.Name, vhd.Version, vhd.Arch)
+}
+
 func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID, error) {
 	i.vhdOnce.Do(func() {
 		imageDefinitionResourceID := imageGallery + i.Name

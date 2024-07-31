@@ -970,7 +970,7 @@ func Scenario_ubuntu1804HasRightRuncVersion(t *testing.T) {
 
 func Scenario_genericHasRightContainerdVersion(t *testing.T, vhd *config.Image, expectedVersion string) {
 	RunScenario(t, &Scenario{
-		Description: fmt.Sprintf("Tests that %s %s %s %s has the right containerd version", vhd.OS, vhd.Name, vhd.Version, vhd.Arch),
+		Description: fmt.Sprintf("Tests that %s has the right containerd version", vhd.String()),
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     vhd,
@@ -985,7 +985,7 @@ func Scenario_genericHasRightContainerdVersion(t *testing.T, vhd *config.Image, 
 
 func Scenario_genericHasRightRunCVersion(t *testing.T, vhd *config.Image, expectedVersion string) {
 	RunScenario(t, &Scenario{
-		Description: fmt.Sprintf("Tests that %s %s %s %s has the right runc version", vhd.OS, vhd.Name, vhd.Version, vhd.Arch),
+		Description: fmt.Sprintf("Tests that %s has the right runc version", vhd.String()),
 		Config: Config{
 			Cluster:                ClusterKubenet,
 			VHD:                    vhd,
