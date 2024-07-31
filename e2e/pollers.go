@@ -14,12 +14,12 @@ import (
 
 const (
 	// Polling intervals
-	execOnVMPollInterval                 = 10 * time.Second
-	execOnPodPollInterval                = 10 * time.Second
-	extractClusterParametersPollInterval = 10 * time.Second
-	extractVMLogsPollInterval            = 10 * time.Second
-	waitUntilPodRunningPollInterval      = 10 * time.Second
-	waitUntilNodeReadyPollingInterval    = 20 * time.Second
+	execOnVMPollInterval                 = 5 * time.Second
+	execOnPodPollInterval                = 5 * time.Second
+	extractClusterParametersPollInterval = 5 * time.Second
+	extractVMLogsPollInterval            = 5 * time.Second
+	waitUntilPodRunningPollInterval      = 5 * time.Second
+	waitUntilNodeReadyPollingInterval    = 5 * time.Second
 )
 
 func pollExecOnVM(ctx context.Context, t *testing.T, kube *Kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {

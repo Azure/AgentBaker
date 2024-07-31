@@ -178,12 +178,7 @@ func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string,
 }
 
 func getWasmCurlCommand(url string) string {
-	return fmt.Sprintf(`curl \
---connect-timeout 5 \
---max-time 10 \
---retry 10 \
---retry-max-time 100 \
-%s`, url)
+	return fmt.Sprintf(`curl --connect-timeout 5 --max-time 10 %s`, url)
 }
 
 func bashCommandArray() []string {
