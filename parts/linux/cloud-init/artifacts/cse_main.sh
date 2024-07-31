@@ -229,7 +229,7 @@ fi
 
 # For systemd in Azure Linux, UseDomains= is by default disabled for security purposes. Enable this
 # configuration within Azure Linux AKS that operates on trusted networks to support hostname resolution
-if [[ $OS == $MARINER_OS_NAME ]]; then
+if [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
     logs_to_events "AKS.CSE.configureSystemdUseDomains" configureSystemdUseDomains
 fi
 
