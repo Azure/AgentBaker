@@ -94,7 +94,7 @@ Describe 'cse_install.sh'
         It 'returns downloadURIs.azurelinux.current.versions of package containerd for AZURELINUX'
             package=$(readPackage "containerd")
             When call returnPackageVersions "$package" "AZURELINUX" "some_azurelinux_version"
-            The variable PACKAGE_VERSIONS[@] should equal "1.7.13-2.azl3"
+            The variable PACKAGE_VERSIONS[@] should equal "1.7.13-3.azl3"
         End
 
         It 'returns downloadURIs.default.current.versions of package cni-plugins for AZURELINUX'
@@ -233,9 +233,9 @@ Describe 'cse_install.sh'
             containerdPackage=$(readPackage "containerd")
             When call installContainerRuntime
             The variable containerdMajorMinorPatchVersion should equal "1.7.13"
-            The variable containerdHotFixVersion should equal "2.azl3"
+            The variable containerdHotFixVersion should equal "3.azl3"
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
-            The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.7.13-2.azl3"
+            The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.7.13-3.azl3"
         End
         It 'skips validation if components.json file is not found'
             COMPONENTS_FILEPATH="non_existent_file.json"
