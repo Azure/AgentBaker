@@ -217,4 +217,4 @@ else
   fi
 fi
 
-echo "Tests Run Successfully"
+echo -e "Tests Run Successfully\n\n\n"

@@ -206,3 +206,5 @@ if [ -n "$old_storage_accounts" ]; then
 else
   echo "did not find any old storage accounts eligible for deletion"
 fi
+
+echo -e "Packer cleanup successfully completed\n\n\n"
