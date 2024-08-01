@@ -1,8 +1,5 @@
 #!/bin/bash
 
-echo "BUILD FAILED"
-exit 1
-
 script_start_timestamp=$(date +%H:%M:%S)
 section_start_timestamp=$(date +%H:%M:%S)
 
