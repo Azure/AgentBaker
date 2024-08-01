@@ -185,6 +185,7 @@ installOras() {
         sudo tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/
         rm -r "$ORAS_DOWNLOAD_DIR"
         echo "Oras version $ORAS_VERSION installed successfully."
+        continue
     fi
     exit $ERR_ORAS_DOWNLOAD_ERROR
 }
