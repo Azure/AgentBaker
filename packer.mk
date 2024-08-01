@@ -75,10 +75,6 @@ endif
 
 init-packer:
 	@./vhdbuilder/packer/init-variables.sh
-	@echo -e "\n\n"
-	@echo -e "init-variables finished"
-	@echo -e "\n\n\n\n\n\n"
-
 
 run-packer: az-login
 	@packer init ./vhdbuilder/packer/linux-packer-plugin.pkr.hcl
