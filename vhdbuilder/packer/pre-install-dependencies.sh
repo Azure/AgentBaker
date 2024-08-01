@@ -48,7 +48,7 @@ copyPackerFiles
 
 # Update rsyslog configuration
 RSYSLOG_CONFIG_FILEPATH="/etc/rsyslog.d/60-CIS.conf"
-if [[ $OS == $MARINER_OS_NAME ]]; then
+if [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
     echo -e "\nnews.none                          -/var/log/messages" >> ${RSYSLOG_CONFIG_FILEPATH}
 else
     echo -e "\n*.*;mail.none;news.none            -/var/log/messages" >> ${RSYSLOG_CONFIG_FILEPATH}
