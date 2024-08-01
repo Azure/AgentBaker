@@ -41,9 +41,9 @@ EOF
         AZURELINUX_NVIDIA_REPO_FILEPATH="/etc/yum.repos.d/azurelinux-nvidia.repo"
         touch "${AZURELINUX_NVIDIA_REPO_FILEPATH}"
         cat << EOF > "${AZURELINUX_NVIDIA_REPO_FILEPATH}"
-[mariner-official-nvidia]
-name=Azure Linux Official Preview Nvidia 3.0 x86_64
-baseurl=https://packages.microsoft.com/azurelinux/3.0/preview/NVIDIA/x86_64/
+[azurelinux-official-nvidia]
+name=Azure Linux Official Nvidia 3.0 x86_64
+baseurl=https://packages.microsoft.com/azurelinux/3.0/prod/nvidia/x86_64/
 gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY file:///etc/pki/rpm-gpg/MICROSOFT-METADATA-GPG-KEY
 gpgcheck=1
 repo_gpgcheck=1
