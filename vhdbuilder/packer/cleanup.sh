@@ -158,10 +158,7 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
   # we limit deletion to 15 SIG image versions per image definition
   for image_definition in $(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} | jq '.[] | select(.name | test("Ubuntu*|CBLMariner*|V1*|V2*|1804*|2004*|2204*")).name' | tr -d '\"' || ""); do
     for image_version in $(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${image_definition} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | head -n 15 | tr -d '\"' || ""); do
-      lock_name=$(az lock list --resource /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image_definition}/versions/${image_version} --query "[0].name" --output tsv)
-      if [[ -z "${lock_name}" ]]; then
         old_sig_version_ids="${old_sig_version_ids} /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image_definition}/versions/${image_version}"
-      fi
     done
   done
 
