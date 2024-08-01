@@ -294,7 +294,7 @@ write_files:
     #
     #
     #
-    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+    iptables -I FORWARD -d 168.63.129.16 -p tcp -m multiport --dports 80,32526 -j DROP
 
 - path: /etc/kubernetes/certs/ca.crt
   permissions: "0600"
