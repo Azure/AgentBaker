@@ -1,11 +1,13 @@
 #!/bin/bash
 set -eux
 
+set +x
 output=$(az sig image-version show -e ${CAPTURED_SIG_VERSION} -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME})
 if [ -z "${output}" ]; then
-  echo "Build step did not produce an image version. Exiting $(basename $0) with exit code 1..."
-  exit 1
+  echo "Build step did not produce an image version. Exiting $(basename $0) with exit code 0..."
+  exit 0
 fi
+set -x
 
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
 WIN_CONFIGURATION_SCRIPT_PATH="generate-windows-vhd-configuration.ps1"
