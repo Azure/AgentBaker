@@ -4,8 +4,8 @@ set -eux
 if [ "${OS_TYPE,,}" == "linux" ]; then
   output=$(az sig image-version show -e ${CAPTURED_SIG_VERSION} -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME})
   if [ -z "${output}" ]; then
-    echo -e "Build step did not produce an image version. Exiting $(basename $0) with exit code 0...\n\n\n"
-    return 0
+    echo "Build step did not produce an image version. Exiting $(basename $0) with exit code 0..."
+    exit 0
   fi
 fi
 
@@ -217,4 +217,4 @@ else
   fi
 fi
 
-echo -e "Tests Run Successfully\n\n\n"
+echo "Tests Run Successfully"
