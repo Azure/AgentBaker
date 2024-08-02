@@ -5,12 +5,10 @@ output=$(az sig image-version show -e ${CAPTURED_SIG_VERSION} -i ${SIG_IMAGE_NAM
 if [ -z "${output}" ]; then
     echo -e "Build step did not produce an image version. Exiting $(basename $0) with exit code 0...\n\n\n"
     exit 0
-else
-    # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
-    if [ "$OS_VERSION" == "18.04" ]; then
-        echo -e "Skipping scanning for 18.04\n\n\n"
-        exit 0
-    fi
+elif [ "$OS_VERSION" == "18.04" ]; then
+# 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
+    echo -e "Skipping scanning for 18.04\n\n\n"
+    exit 0
 fi
 set -x
 
