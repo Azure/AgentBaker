@@ -284,10 +284,10 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.28.8",
         "v1.28.9",
-        "v1.29.6",
+        "v1.28.10",
         "v1.29.7",
+        "v1.29.8",
         "v1.30.2"
       ]
     },
@@ -295,8 +295,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.28.10",
         "v1.28.11",
+        "v1.28.12",
         "v1.29.5",
         "v1.29.6",
         "v1.30.2",
@@ -307,8 +307,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.22.6",
         "v1.22.7",
+        "v1.22.8",
         "v1.23.4",
         "v1.23.5",
         "v1.24.2"
