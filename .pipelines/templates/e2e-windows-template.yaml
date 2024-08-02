@@ -24,6 +24,8 @@ jobs:
     - bash: |
         az login --identity
         az account set -s $(AZURE_E2E_SUBSCRIPTION_ID)
+        az extension add --name aks-preview
+        az --version
       displayName: az login
     - bash: bash .pipelines/scripts/setup_go.sh
       displayName: setup go
@@ -53,7 +55,8 @@ jobs:
           export WINDOWS_PACKAGE_VERSION=$KUBERNETES_VERSION
         fi
         export K8S_VERSION=${WINDOWS_PACKAGE_VERSION//./}
-        export WINDOWS_E2E_STORAGE_CONTAINER=${{ parameters.storageAccount }}-$K8S_VERSION
+        declare -l WINDOWS_E2E_STORAGE_CONTAINER=${{ parameters.storageAccount }}-$K8S_VERSION
+        export WINDOWS_E2E_STORAGE_CONTAINER
         mkdir -p $WINDOWS_E2E_IMAGE
         cp -r e2e/windows/* $WINDOWS_E2E_IMAGE
         go version

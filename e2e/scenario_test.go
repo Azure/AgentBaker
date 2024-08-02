@@ -954,56 +954,44 @@ to resolve the right version based on the distro. It seems easier to have the ve
 * It's not much effort for a dev to change the hard coded values here and in components.json
 */
 func Scenario_marinerv2HasRightContainerdVersion(t *testing.T) {
-	// This is the version that's in the components.json file - seems to be being ignored right now.
-	//Scenario_genericHasRightContainerdVersion(t, "mariner", "v2", "1.6.26-5.cm2", "aks-cblmariner-v2-gen2")
-	Scenario_genericHasRightContainerdVersion(t, "mariner", "v2", "1.7.20-1", "aks-cblmariner-v2-gen2")
+	Scenario_genericHasRightContainerdVersion(t, config.VHDCBLMarinerV2Gen2, "1.6.26")
 }
 
 func Scenario_azurelinuxv2HasRightContainerdVersion(t *testing.T) {
-	// This is the version that's in the components.json file - seems to be being ignored right now.
-	// Scenario_genericHasRightContainerdVersion(t, "azurelinux", "v2", "1.1.9-5.cm2", "aks-azurelinux-v2-gen2")
-	Scenario_genericHasRightContainerdVersion(t, "azurelinux", "v2", "1.7.20-1", "aks-azurelinux-v2-gen2")
+	Scenario_genericHasRightContainerdVersion(t, config.VHDAzureLinuxV2Gen2, "1.6.26")
 }
 
 func Scenario_ubuntu2204HasRightContainerdVersion(t *testing.T) {
-	Scenario_genericHasRightContainerdVersion(t, "ubuntu", "r2204", "1.7.20-1", "aks-ubuntu-containerd-22.04-gen2")
+	Scenario_genericHasRightContainerdVersion(t, config.VHDUbuntu2204Gen2Containerd, "1.7.20-1")
 }
 
 func Scenario_ubuntu1804HasRightContainerdVersion(t *testing.T) {
-	// This is the version that's in the components.json file - seems to be being ignored right now.
-	//Scenario_genericHasRightContainerdVersion(t, "ubuntu", "r1804", "1.7.1-1", "aks-ubuntu-containerd-18.04-gen2")
-	Scenario_genericHasRightContainerdVersion(t, "ubuntu", "r1804", "1.7.20-1", "aks-ubuntu-containerd-18.04-gen2")
+	Scenario_genericHasRightContainerdVersion(t, config.VHDUbuntu1804Gen2Containerd, "1.7.1+azure-1")
 }
 
 func Scenario_marinerv2HasRightRuncVersion(t *testing.T) {
-	// This is the version that's in the components.json file - seems to be being ignored right now.
-	//Scenario_genericHasRightRunCVersion(t, "mariner", "v2", "1.6.26-5.cm2", "aks-cblmariner-v2-gen2")
-	Scenario_genericHasRightRunCVersion(t, "mariner", "v2", "1.1.12-1", "aks-cblmariner-v2-gen2")
+	Scenario_genericHasRightRunCVersion(t, config.VHDCBLMarinerV2Gen2, "1.1.9")
 }
 
 func Scenario_azurelinuxv2HasRightRuncVersion(t *testing.T) {
-	// This is the version that's in the components.json file - seems to be being ignored right now.
-	//Scenario_genericHasRightRunCVersion(t, "mariner", "v2", "1.6.26-5.cm2", "aks-azurelinux-v2-gen2")
-	Scenario_genericHasRightRunCVersion(t, "mariner", "v2", "1.1.12-1", "aks-azurelinux-v2-gen2")
+	Scenario_genericHasRightRunCVersion(t, config.VHDAzureLinuxV2Gen2, "1.1.9")
 }
 
 func Scenario_ubuntu2204HasRightRuncVersion(t *testing.T) {
-	Scenario_genericHasRightRunCVersion(t, "ubuntu", "r2204", "1.1.12-1", "aks-ubuntu-containerd-22.04-gen2")
+	Scenario_genericHasRightRunCVersion(t, config.VHDUbuntu2204Gen2Containerd, "1.1.12-1")
 }
 
 func Scenario_ubuntu1804HasRightRuncVersion(t *testing.T) {
-	Scenario_genericHasRightRunCVersion(t, "ubuntu", "r1804", "1.1.12-1", "aks-ubuntu-containerd-18.04-gen2")
+	Scenario_genericHasRightRunCVersion(t, config.VHDUbuntu1804Gen2Containerd, "1.1.12-1")
 }
 
-func Scenario_genericHasRightContainerdVersion(t *testing.T, distroName string, distroRelease string, expectedVersion string, distro datamodel.Distro) {
+func Scenario_genericHasRightContainerdVersion(t *testing.T, vhd *config.Image, expectedVersion string) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that " + distroName + " " + distroRelease + " has the right containerd version",
+		Description: fmt.Sprintf("Tests that %s has the right containerd version", vhd.String()),
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			VHD:     vhd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = distro
-				nbc.AgentPoolProfile.Distro = distro
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				containerdVersionValidator(expectedVersion),
@@ -1012,16 +1000,13 @@ func Scenario_genericHasRightContainerdVersion(t *testing.T, distroName string, 
 	})
 }
 
-func Scenario_genericHasRightRunCVersion(t *testing.T, distroName string, distroRelease string, expectedVersion string, distro datamodel.Distro) {
+func Scenario_genericHasRightRunCVersion(t *testing.T, vhd *config.Image, expectedVersion string) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that " + distroName + " " + distroRelease + " has the right runc version",
+		Description: fmt.Sprintf("Tests that %s has the right runc version", vhd.String()),
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = distro
-				nbc.AgentPoolProfile.Distro = distro
-			},
+			Cluster:                ClusterKubenet,
+			VHD:                    vhd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
 			LiveVMValidators: []*LiveVMValidator{
 				runcVersionValidator(expectedVersion),
 			},

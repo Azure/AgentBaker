@@ -87,11 +87,7 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	nodeName := validateNodeHealth(ctx, t, opts.clusterConfig.Kube, vmssName)
 
 	if opts.nbc.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi {
-		t.Logf("wasm scenario: running wasm validation on %s...", vmssName)
-		err = ensureWasmRuntimeClasses(ctx, opts.clusterConfig.Kube)
-		require.NoError(t, err)
-		err = validateWasm(ctx, t, opts.clusterConfig.Kube, nodeName, string(privateKeyBytes))
-		require.NoError(t, err)
+		validateWasm(ctx, t, opts.clusterConfig.Kube, nodeName)
 	}
 
 	t.Logf("node %s is ready, proceeding with validation commands...", vmssName)
