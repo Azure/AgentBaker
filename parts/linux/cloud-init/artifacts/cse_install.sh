@@ -77,6 +77,29 @@ installContainerdWithComponentsJson() {
 
 }
 
+# containerd versions definitions are only available in the manifest file before the centralized packages changes, before around early July 2024.
+# After the centralized packages changes, the containerd versions are only available in the components.json. 
+installContainerdWithManifestJson() {
+    local containerd_version
+    if [ -f "$MANIFEST_FILEPATH" ]; then
+        local containerd_version
+        containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+            containerd_version="$(jq -r '.containerd.pinned."1804"' "$MANIFEST_FILEPATH")"
+        fi
+    else
+        echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+    fi
+    containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
+    containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
+    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ] || [ "$containerd_revision" == "null" ]; then
+        echo "invalid container version: $containerd_version"
+        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    fi
+    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
+    echo "in installContainerRuntime - CONTAINERD_VERSION = ${containerd_patch_version}"
+}
+
 installContainerRuntime() {
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
     if [[ "${NEEDS_CONTAINERD}" != "true" ]]; then
@@ -88,9 +111,9 @@ installContainerRuntime() {
         installContainerdWithComponentsJson
 		return
     fi
-    echo "Unexpected. Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
-    exit $ERR_CONTAINERD_VERSION_INVALID
-    #return 1
+    echo "Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
+    # if the containerd package is not available in the components.json, use the manifest.json to install containerd
+    installContainerdWithManifestJson
 }
 
 installNetworkPlugin() {
