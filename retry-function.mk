@@ -9,5 +9,5 @@ define retrycmd_if_failure
         else \
             sleep $$wait_sleep; \
         fi \
-    done;
+    done
 endef
