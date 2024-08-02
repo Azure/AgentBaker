@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eux
+set -eu
 
 if [ "${OS_TYPE,,}" == "linux" ]; then
   output=$(az sig image-version show -e ${CAPTURED_SIG_VERSION} -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --query id --output tsv || true)
@@ -8,6 +8,7 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
       exit 0
   fi
 fi
+set -x
 
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
 WIN_CONFIGURATION_SCRIPT_PATH="generate-windows-vhd-configuration.ps1"
