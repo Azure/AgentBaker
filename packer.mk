@@ -84,7 +84,7 @@ run-packer-windows: az-login
 	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer-windows | tee -a packer-output)
 
 cleanup: az-login
-	$(call retrycmd_if_failure,2,3,900,./vhdbuilder/packer/cleanup.sh)
+	$(call retrycmd_if_failure,2,3,./vhdbuilder/packer/cleanup.sh)
 
 backfill-cleanup: az-login
 	@chmod +x ./vhdbuilder/packer/backfill-cleanup.sh
@@ -97,10 +97,10 @@ convert-sig-to-classic-storage-account-blob: az-login
 	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
 
 test-building-vhd: az-login
-	$(call retrycmd_if_failure,2,3,1200,./vhdbuilder/packer/test/run-test.sh)
+	$(call retrycmd_if_failure,2,3,./vhdbuilder/packer/test/run-test.sh)
 
 scanning-vhd: az-login
-	$(call retrycmd_if_failure,2,3,1200,./vhdbuilder/packer/vhd-scanning.sh)
+	$(call retrycmd_if_failure,2,3,./vhdbuilder/packer/vhd-scanning.sh)
 
 test-scan-and-cleanup:
 	@$(MAKE) -f packer.mk cleanup test-building-vhd scanning-vhd -j3 --output-sync=target
