@@ -10,5 +10,4 @@ define retrycmd_if_failure
             sleep $$wait_sleep; \
         fi \
     done; \
-    return 0
 endef

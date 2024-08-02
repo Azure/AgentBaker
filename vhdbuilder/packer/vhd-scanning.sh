@@ -7,9 +7,9 @@ if [ "$OS_VERSION" == "18.04" ]; then
     exit 0
 fi
 
-output=$(az sig image-version show -e ${CAPTURED_SIG_VERSION} -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME})
+output=$(az sig image-version show -e ${CAPTURED_SIG_VERSION} -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --query id --output tsv)
 if [ -z "${output}" ]; then
-    echo "Build step did not produce an image version. Exiting $(basename $0) with exit code 0..."
+    echo "Build step did not produce an image version. Exiting with exit code 0..."
     exit 0
 fi
 
