@@ -272,6 +272,8 @@ setupCNIDirs() {
 # Latest VHD should have the untar, older should have the tgz. And who knows will have neither. 
 installCNI() {
 
+    echo "installing cni..."
+
     if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == \"cni-plugins\")' < $COMPONENTS_FILEPATH > /dev/null; then
         echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually" 
         # could we fail if not Ubuntu2204Gen2ContainerdPrivateKubePkg vhd? Are there others?

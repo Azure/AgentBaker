@@ -623,7 +623,7 @@ func Scenario_ubuntu2204(t *testing.T) {
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
