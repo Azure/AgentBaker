@@ -73,8 +73,6 @@ if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
-SCANNING_ID=$(az identity show --ids "${SCANNING_MSI_RESOURCE_ID}" --query id --output tsv)
-
 az vm create --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME \
     --image $VHD_IMAGE \
@@ -84,7 +82,7 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
-    --assign-identity "${SCANNING_ID}"
+    --assign-identity "${SCANNING_MSI_RESOURCE_ID}"
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
