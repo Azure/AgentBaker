@@ -682,9 +682,8 @@ function Update-Registry {
     }
 
     if ($env:WindowsSKU -Like '23H2*') {
-        Write-Log "Exclude port 65330 in 23H2"
-        Enable-WindowsFixInHnsState -Name NamespaceExcludedUdpPorts -Value 65330 -Type STRING
-        Enable-WindowsFixInHnsState -Name PortExclusionChange -Value 1
+        Write-Log "Disable port exclusion change in 23H2"
+        Enable-WindowsFixInHnsState -Name PortExclusionChange -Value 0
     }
 }
 
