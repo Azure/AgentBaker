@@ -1,10 +1,16 @@
 #!/bin/bash
 set -eux
 
+# 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
+if [ "$OS_VERSION" == "18.04" ]; then
+    echo "Skipping scanning for 18.04"
+    exit 0
+fi
+
 output=$(az sig image-version show -e ${CAPTURED_SIG_VERSION} -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME})
 if [ -z "${output}" ]; then
-  echo -e "Build step did not produce an image version. Exiting $(basename $0) with exit code 0..\n\n\n"
-  return 0
+    echo "Build step did not produce an image version. Exiting $(basename $0) with exit code 0.."
+    exit 0
 fi
 
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
@@ -46,15 +52,8 @@ set +x
 SCAN_VM_ADMIN_PASSWORD="ScanVM@$(date +%s)"
 set -x
 
-
 RESOURCE_GROUP_NAME="$SCAN_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
 az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags "source=AgentBaker" "branch=${GIT_BRANCH}"
-
-# 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
-if [ "$OS_VERSION" == "18.04" ]; then
-    echo "Skipping scanning for 18.04"
-    exit 0
-fi
 
 function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
@@ -126,4 +125,4 @@ az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_TABLE_NAME} --auth-mode login
 
-echo -e "Trivy Scan successfully completed\n\n\n"
+echo "Trivy Scan successfully completed"
