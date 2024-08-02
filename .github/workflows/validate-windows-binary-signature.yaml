@@ -8,7 +8,7 @@ on:
 
 jobs:
   check-files-for-ws2019:
-    name: Check Windows Files and Images
+    name: Check for Windows 2019
     runs-on: windows-2019
     steps:
       - name: Check out repository code
@@ -22,7 +22,7 @@ jobs:
         run: |
           ./vhdbuilder/packer/test/windows-files-check.ps1 2019-containerd
   check-files-for-ws2022:
-    name: Check Windows Files and Images
+    name: Check for Windows 2022
     runs-on: windows-2022
     steps:
       - name: Check out repository code

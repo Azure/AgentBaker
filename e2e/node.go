@@ -10,8 +10,7 @@ import (
 )
 
 const (
-	wasmHandlerSpin   = "spin"
-	wasmHandlerSlight = "slight"
+	wasmHandlerSpin = "spin"
 )
 
 func ensureWasmRuntimeClasses(ctx context.Context, kube *Kubeclient) error {
