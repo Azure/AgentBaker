@@ -179,15 +179,16 @@ installOras() {
     ORAS_TMP=${ORAS_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} || exit $ERR_ORAS_DOWNLOAD_ERROR
 
-    if [ -f "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ]; then
-        echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} exists."
-        # Proceed with extracting the tarball
-        sudo tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/
-        rm -r "$ORAS_DOWNLOAD_DIR"
-        echo "Oras version $ORAS_VERSION installed successfully."
-        continue
+    if [ ! -f "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ]; then
+        echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} does not exist."
+        exit $ERR_ORAS_DOWNLOAD_ERROR
     fi
-    exit $ERR_ORAS_DOWNLOAD_ERROR
+
+    echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} exists."
+    sudo tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/
+    rm -r "$ORAS_DOWNLOAD_DIR"
+    echo "Oras version $ORAS_VERSION installed successfully."
+
 }
 
 evalPackageDownloadURL() {
