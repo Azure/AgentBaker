@@ -113,7 +113,11 @@ if [ -z "${SUBNET_NAME}" ]; then
 	SUBNET_NAME="packer"
 fi
 
-SHALLOW_REPLICATION="true"
+SHALLOW_REPLICATION="false"
+if [[ "${OS_TYPE,,}" == "linux" ]] && [[ "${ENVIRONMENT,,}" == "test" ]]; then
+  # only use shallow replication in test for now
+  SHALLOW_REPLICATION="true"
+fi
 
 echo "SHALLOW_REPLICATION set to: ${SHALLOW_REPLICATION}"
 
