@@ -6,6 +6,9 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
   if [ -z "${output}" ]; then
       echo -e "Build step did not produce an image version. Exiting $(basename $0) with exit code 0...\n\n\n"
       exit 0
+  elif [ "$IMG_SKU" == "20_04-lts-cvm" ]; then
+      echo -e "Skipping tests for CVM 20.04\n\n\n"
+      exit 0
   fi
 fi
 set -x
@@ -19,11 +22,6 @@ TEST_VM_ADMIN_USERNAME="azureuser"
 set +x
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
-
-if [ "$OS_TYPE" == "Linux" ] && [ "$IMG_SKU" == "20_04-lts-cvm" ]; then
-    echo "Skipping tests for CVM 20.04"
-    exit 0
-fi
 
 # For linux VHDs, override AZURE_LOCATION with PACKER_BUILD_LOCATION to make sure
 # we're in the correct region to access the image version from the staging gallery (PackerSigGalleryEastUS)
