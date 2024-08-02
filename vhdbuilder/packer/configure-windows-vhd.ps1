@@ -695,12 +695,6 @@ function Update-Registry {
         Write-Log "Enable 1 fix in 2024-07B"
         Enable-WindowsFixInFeatureManagement -Name 747051149
     }
-
-    if ($env:WindowsSKU -Like '23H2*') {
-        Write-Log "Exclude port 65330 in 23H2"
-        Enable-WindowsFixInHnsState -Name NamespaceExcludedUdpPorts -Value 65330 -Type STRING
-        Enable-WindowsFixInHnsState -Name PortExclusionChange -Value 1
-    }
 }
 
 function Clear-TempFolder {
