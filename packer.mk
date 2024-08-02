@@ -102,7 +102,7 @@ scanning-vhd: az-login
 	@$(call retrycmd_if_failure,2,3,./vhdbuilder/packer/vhd-scanning.sh)
 
 test-scan-and-cleanup:
-	@$(MAKE) -f packer.mk cleanup test-building-vhd scanning-vhd -j3 --output-sync=target
+	@$(MAKE) -s -f packer.mk cleanup test-building-vhd scanning-vhd -j3 --output-sync=target
 
 build-nbcparser-all:
 	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=amd64
