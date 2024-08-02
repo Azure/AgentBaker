@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"testing"
 
@@ -42,17 +43,26 @@ func setupSignalHandler() context.Context {
 
 func newTestCtx(t *testing.T) context.Context {
 	if testCtx.Err() != nil {
-		t.Skip("test context is already cancelled")
+		t.Skip("test suite is shutting down")
 	}
 	ctx, cancel := context.WithTimeout(testCtx, config.TestTimeout)
 	t.Cleanup(cancel)
 	return ctx
 }
 
+var scenarioOnce sync.Once
+
 func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
 	ctx := newTestCtx(t)
+	scenarioOnce.Do(func() {
+		err := ensureResourceGroup(ctx)
+		if err != nil {
+			panic(err)
+		}
+	})
 	maybeSkipScenario(ctx, t, s)
+
 	model, err := s.Cluster(ctx, t)
 	require.NoError(t, err, "creating AKS cluster")
 
