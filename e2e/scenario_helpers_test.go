@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"syscall"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -15,15 +16,42 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+// it's important to share context between tests to allow graceful shutdown
+// cancellation signal can be sent before a test starts, without shared context such test will miss the signal
+var testCtx = setupSignalHandler()
+
+// setupSignalHandler handles OS signals to gracefully shutdown the test suite
+func setupSignalHandler() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	ch := make(chan os.Signal, 2)
+	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		// block until signal is received
+		<-ch
+		fmt.Println("Received cancellation signal, gracefully shutting down the test suite. Cancel again to force exit.")
+		cancel()
+
+		// block until second signal is received
+		<-ch
+		fmt.Println("Received second cancellation signal, forcing exit.")
+		os.Exit(1)
+	}()
+	return ctx
+}
+
+func newTestCtx(t *testing.T) context.Context {
+	if testCtx.Err() != nil {
+		t.Skip("test context is already cancelled")
+	}
+	ctx, cancel := context.WithTimeout(testCtx, config.TestTimeout)
+	t.Cleanup(cancel)
+	return ctx
+}
+
 func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
-	// without this, the test will not be able to catch the interrupt signal
-	// and will not be able to clean up the resources or flush the logs
-	// TODO: this isn't ideal, as the test can be started after the signal is sent so it will not be caught
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
-	t.Cleanup(cancel)
-	ctx, cancel = context.WithTimeout(ctx, config.TestTimeout)
-	t.Cleanup(cancel)
+	ctx := newTestCtx(t)
 	maybeSkipScenario(ctx, t, s)
 	model, err := s.Cluster(ctx, t)
 	require.NoError(t, err, "creating AKS cluster")
