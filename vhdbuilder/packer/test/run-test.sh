@@ -2,11 +2,13 @@
 set -eux
 
 if [ "${OS_TYPE,,}" == "linux" ]; then
+  set +e
   output=$(az sig image-version show -e ${CAPTURED_SIG_VERSION} -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --query id --output tsv)
-  if [ "${output}" == "" ]; then
+  if [ -z "${output}" ]; then
       echo -e "Build step did not produce an image version. Exiting with exit code 0...\n\n\n"
       exit 0
   fi
+  set -e
 fi
 
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
@@ -217,4 +219,4 @@ else
   fi
 fi
 
-echo "Tests Run Successfully"
+echo -e "Tests Run Successfully\n\n\n"

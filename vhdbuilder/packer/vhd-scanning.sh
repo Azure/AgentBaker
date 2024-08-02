@@ -1,19 +1,19 @@
 #!/bin/bash
 set -eux
 
-set +x
 # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
 if [ "$OS_VERSION" == "18.04" ]; then
     echo -e "Skipping scanning for 18.04\n\n\n"
     exit 0
 fi
 
+set +e
 output=$(az sig image-version show -e ${CAPTURED_SIG_VERSION} -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --query id --output tsv)
-if [ -n "${output}" ]; then
+set -e
+if [ -z "${output}" ]; then
     echo -e "Build step did not produce an image version. Exiting with exit code 0...\n\n\n"
     exit 0
 fi
-set -x
 
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
 EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
@@ -127,4 +127,4 @@ az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_TABLE_NAME} --auth-mode login
 
-echo "Trivy Scan successfully completed"
+echo -e "Trivy Scan successfully completed\n\n\n"
