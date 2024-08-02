@@ -1,4 +1,5 @@
-#!/bin/bash -x
+#!/bin/bash
+set -x
 
 EXPIRATION_IN_HOURS=168
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
