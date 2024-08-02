@@ -51,6 +51,7 @@ func TestAll(t *testing.T) {
 	t.Run("ubuntu1804-gpu", Scenario_ubuntu1804gpu)
 	t.Run("ubuntu1804-gpu-azurecni", Scenario_ubuntu1804gpu_azurecni)
 	t.Run("ubuntu2204", Scenario_ubuntu2204)
+	t.Run("ubuntu2204-wire-server", Scenario_ubuntu2204WireServerBlock)
 	t.Run("ubuntu2204-airgap", Scenario_ubuntu2204AirGap)
 	t.Run("ubuntu2204-arm64", Scenario_ubuntu2204ARM64)
 	t.Run("ubuntu2204-artifact-streaming", Scenario_ubuntu2204ArtifactStreaming)
@@ -628,6 +629,23 @@ func Scenario_ubuntu2204(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+			},
+		},
+	})
+}
+
+func Scenario_ubuntu2204WireServerBlock(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				FileHasContentsValidator("/opt/azure/containers/kubelet.sh", "iptables -I FORWARD -d 168.63.129.16 -p tcp -m multiport --dports 80,32526 -j DROP"),
 			},
 		},
 	})
