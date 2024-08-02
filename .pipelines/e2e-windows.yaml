@@ -34,7 +34,7 @@ parameters:
 - name: test2022containerdgen2
   displayName: Test 2022 containerd Gen 2
   type: boolean
-  default: True
+  default: False
 - name: test2022containerdgen2gpugrid
   displayName: Test 2022 containerd Gen 2 GPU Grid
   type: boolean
@@ -50,7 +50,7 @@ parameters:
 - name: test23H2gen2
   displayName: Test 23H2 Gen 2
   type: boolean
-  default: False
+  default: True
 - name: windowsGen2VMSize
   type: string
   default: Standard_D2s_v3
