@@ -5,7 +5,7 @@ define retrycmd_if_failure
         timeout $$timeout $$cmd && break || \
         if [ $$i -eq $$retries ]; then \
             echo "$$target failed $$i times"; \
-            return 1; \
+            exit 1; \
         else \
             sleep $$wait_sleep; \
         fi \
