@@ -11,66 +11,24 @@ import (
 
 func validateNodeHealth(ctx context.Context, t *testing.T, kube *Kubeclient, vmssName string) string {
 	nodeName := waitUntilNodeReady(ctx, t, kube, vmssName)
-
-	nginxPodName, err := ensureTestNginxPod(ctx, kube, nodeName)
+	nginxPodName := fmt.Sprintf("%s-nginx", nodeName)
+	nginxPodManifest := getNginxPodTemplate(nodeName)
+	err := ensurePod(ctx, t, defaultNamespace, kube, nginxPodName, nginxPodManifest)
 	require.NoError(t, err, "failed to validate node health, unable to ensure nginx pod on node %q", nodeName)
-
-	err = waitUntilPodDeleted(ctx, kube, nginxPodName)
-	require.NoError(t, err, "error waiting for nginx pod deletion on %s", nodeName)
-
 	return nodeName
 }
 
-func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName, privateKey string) error {
-	spinPodName, err := ensureWasmPods(ctx, kube, nodeName)
-	if err != nil {
-		return fmt.Errorf("failed to valiate wasm, unable to ensure wasm pods on node %q: %w", nodeName, err)
-	}
-
-	spinPodIP, err := getPodIP(ctx, kube, defaultNamespace, spinPodName)
-	if err != nil {
-		return fmt.Errorf("on node %s unable to get IP of wasm spin pod %q: %w", nodeName, spinPodName, err)
-	}
-
-	debugPodName, err := getDebugPodName(ctx, kube)
-	if err != nil {
-		return fmt.Errorf("on node %s unable to get debug pod name to validate wasm: %w", nodeName, err)
-	}
-
-	execResult, err := pollExecOnPod(ctx, t, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
-	if err != nil {
-		return fmt.Errorf("on node %sunable to execute wasm validation command: %w", nodeName, err)
-	}
-
-	if execResult.exitCode != "0" {
-		// retry getting the pod IP + curling the hello endpoint if the original curl reports connection refused or a timeout
-		// since the wasm spin pod usually restarts at least once after initial creation, giving it a new IP
-		if execResult.exitCode == "7" || execResult.exitCode == "28" {
-			spinPodIP, err = getPodIP(ctx, kube, defaultNamespace, spinPodName)
-			if err != nil {
-				return fmt.Errorf(" on node %s unable to get IP of wasm spin pod %q: %w", nodeName, spinPodName, err)
-			}
-
-			execResult, err = pollExecOnPod(ctx, t, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
-			if err != nil {
-				return fmt.Errorf("unable to execute on node %s wasm validation command on wasm pod %q at %s: %w", nodeName, spinPodName, spinPodIP, err)
-			}
-
-			if execResult.exitCode != "0" {
-				execResult.dumpAll(t)
-				return fmt.Errorf("curl  on node %swasm endpoint on pod %q at %s terminated with exit code %s", nodeName, spinPodName, spinPodIP, execResult.exitCode)
-			}
-		} else {
-			execResult.dumpAll(t)
-			return fmt.Errorf("curl  on node %swasm endpoint on pod %q at %s terminated with exit code %s", nodeName, spinPodName, spinPodIP, execResult.exitCode)
-		}
-	}
-
-	if err := waitUntilPodDeleted(ctx, kube, spinPodName); err != nil {
-		return fmt.Errorf("error waiting for wasm pod deletion on %s: %w", nodeName, err)
-	}
-
-	return nil
+func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName string) {
+	t.Logf("wasm scenario: running wasm validation on %s...", nodeName)
+	spinClassName := fmt.Sprintf("wasmtime-%s", wasmHandlerSpin)
+	err := createRuntimeClass(ctx, kube, spinClassName, wasmHandlerSpin)
+	require.NoError(t, err)
+	err = ensureWasmRuntimeClasses(ctx, kube)
+	require.NoError(t, err)
+	spinPodName := fmt.Sprintf("%s-wasm-spin", nodeName)
+	spinPodManifest := getWasmSpinPodTemplate(nodeName)
+	err = ensurePod(ctx, t, defaultNamespace, kube, spinPodName, spinPodManifest)
+	require.NoError(t, err, "unable to ensure wasm pod on node %q", nodeName)
 }
 
 func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
