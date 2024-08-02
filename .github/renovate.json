@@ -4,6 +4,7 @@
   "prConcurrentLimit": 50,
   "prHourlyLimit": 20,
   "branchConcurrentLimit": 50,
+  "labels": ["renovate"],
   "packageRules": [
     {
       "matchUpdateTypes": [
