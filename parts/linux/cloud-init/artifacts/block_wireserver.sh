@@ -10,4 +10,5 @@
 #
 # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
 # for DNS.
-iptables -I FORWARD -d 168.63.129.16 -p tcp -m multiport --dports 80,32526 -j DROP
+iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 32526 -j DROP
