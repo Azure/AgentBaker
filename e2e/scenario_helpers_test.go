@@ -45,7 +45,7 @@ func newTestCtx(t *testing.T) context.Context {
 	if testCtx.Err() != nil {
 		t.Skip("test suite is shutting down")
 	}
-	ctx, cancel := context.WithTimeout(testCtx, config.TestTimeout)
+	ctx, cancel := context.WithTimeout(testCtx, config.Cfg.TestTimeout)
 	t.Cleanup(cancel)
 	return ctx
 }
@@ -80,29 +80,29 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	s.Tags.OS = s.VHD.OS
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
-	if config.TagsToRun != "" {
-		matches, err := s.Tags.MatchesFilters(config.TagsToRun)
+	if config.Cfg.TagsToRun != "" {
+		matches, err := s.Tags.MatchesFilters(config.Cfg.TagsToRun)
 		if err != nil {
 			t.Fatalf("could not match tags for %q: %s", t.Name(), err)
 		}
 		if !matches {
-			t.Skipf("skipping scenario %q: scenario tags %+v does not match filter %q", t.Name(), s.Tags, config.TagsToRun)
+			t.Skipf("skipping scenario %q: scenario tags %+v does not match filter %q", t.Name(), s.Tags, config.Cfg.TagsToRun)
 		}
 	}
 
-	if config.TagsToSkip != "" {
-		matches, err := s.Tags.MatchesAnyFilter(config.TagsToSkip)
+	if config.Cfg.TagsToSkip != "" {
+		matches, err := s.Tags.MatchesAnyFilter(config.Cfg.TagsToSkip)
 		if err != nil {
 			t.Fatalf("could not match tags for %q: %s", t.Name(), err)
 		}
 		if matches {
-			t.Skipf("skipping scenario %q: scenario tags %+v matches filter %q", t.Name(), s.Tags, config.TagsToSkip)
+			t.Skipf("skipping scenario %q: scenario tags %+v matches filter %q", t.Name(), s.Tags, config.Cfg.TagsToSkip)
 		}
 	}
 
 	vhd, err := s.VHD.VHDResourceID(ctx, t)
 	if err != nil {
-		if config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
+		if config.Cfg.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
 			t.Skipf("skipping scenario %q: could not find image", t.Name())
 		} else {
 			t.Fatalf("could not find image for %q: %s", t.Name(), err)

@@ -33,7 +33,7 @@ func getAzureNetworkClusterModel(name string) *armcontainerservice.ManagedCluste
 func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster {
 	return &armcontainerservice.ManagedCluster{
 		Name:     to.Ptr(clusterName),
-		Location: to.Ptr(config.Location),
+		Location: to.Ptr(config.Cfg.Location),
 		Properties: &armcontainerservice.ManagedClusterProperties{
 			DNSPrefix: to.Ptr(clusterName),
 			AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
@@ -67,7 +67,7 @@ func addAirgapNetworkSettings(ctx context.Context, t *testing.T, cluster *Cluste
 	}
 	subnetId := vnet.subnetId
 
-	nsgParams, err := airGapSecurityGroup(config.Location, *cluster.Model.Properties.Fqdn)
+	nsgParams, err := airGapSecurityGroup(config.Cfg.Location, *cluster.Model.Properties.Fqdn)
 	if err != nil {
 		return err
 	}
@@ -132,7 +132,7 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 
 	return armnetwork.SecurityGroup{
 		Location:   &location,
-		Name:       &config.AirgapNSGName,
+		Name:       &config.Cfg.AirgapNSGName,
 		Properties: &armnetwork.SecurityGroupPropertiesFormat{SecurityRules: rules},
 	}, nil
 }
@@ -182,7 +182,7 @@ func getSecurityRule(name, destinationAddressPrefix string, priority int32) *arm
 }
 
 func createAirgapSecurityGroup(ctx context.Context, cluster *armcontainerservice.ManagedCluster, nsgParams armnetwork.SecurityGroup, options *armnetwork.SecurityGroupsClientBeginCreateOrUpdateOptions) (*armnetwork.SecurityGroupsClientCreateOrUpdateResponse, error) {
-	poller, err := config.Azure.SecurityGroup.BeginCreateOrUpdate(ctx, *cluster.Properties.NodeResourceGroup, config.AirgapNSGName, nsgParams, options)
+	poller, err := config.Azure.SecurityGroup.BeginCreateOrUpdate(ctx, *cluster.Properties.NodeResourceGroup, config.Cfg.AirgapNSGName, nsgParams, options)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +194,7 @@ func createAirgapSecurityGroup(ctx context.Context, cluster *armcontainerservice
 }
 
 func updateSubnet(ctx context.Context, cluster *armcontainerservice.ManagedCluster, subnetParameters armnetwork.Subnet, vnetName string) error {
-	poller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, *cluster.Properties.NodeResourceGroup, vnetName, config.DefaultSubnetName, subnetParameters, nil)
+	poller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, *cluster.Properties.NodeResourceGroup, vnetName, config.Cfg.DefaultSubnetName, subnetParameters, nil)
 	if err != nil {
 		return err
 	}

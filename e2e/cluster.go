@@ -246,7 +246,7 @@ func collectGarbageVMSS(ctx context.Context, t *testing.T, cluster *armcontainer
 
 			// don't delete VMSS created in the last hour. They might be currently used in tests
 			// extra 10 minutes is a buffer for test cleanup, clock drift and timeout adjustments
-			if config.TestTimeout == 0 || time.Since(*vmss.Properties.TimeCreated) < config.TestTimeout+10*time.Minute {
+			if config.Cfg.TestTimeout == 0 || time.Since(*vmss.Properties.TimeCreated) < config.Cfg.TestTimeout+10*time.Minute {
 				continue
 			}
 
@@ -284,7 +284,7 @@ func ensureResourceGroup(ctx context.Context) error {
 			ctx,
 			config.ResourceGroupName,
 			armresources.ResourceGroup{
-				Location: to.Ptr(config.Location),
+				Location: to.Ptr(config.Cfg.Location),
 				Name:     to.Ptr(config.ResourceGroupName),
 			},
 			nil)
