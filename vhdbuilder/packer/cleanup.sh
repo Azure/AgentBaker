@@ -17,6 +17,8 @@ if [[ -n "$PKR_RG_NAME" ]]; then
   if [ -n "$id" ]; then
     echo "Deleting packer resource group ${PKR_RG_NAME}"
     az group delete --name ${PKR_RG_NAME} --yes
+  else
+    echo "Packer resource group already successfully deleted"
   fi
 fi
 
@@ -32,7 +34,7 @@ if [[ -n "$AZURE_RESOURCE_GROUP_NAME" && -n "$IMAGE_NAME" ]]; then
   if [[ ${ARCHITECTURE,,} != "arm64" ]]; then
     id=$(az image show -n ${IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
     if [ -n "$id" ]; then
-      echo "deleting managed image ${IMAGE_NAME} under resource group ${AZURE_RESOURCE_GROUP_NAME}"
+      echo "Deleting managed image ${IMAGE_NAME} under resource group ${AZURE_RESOURCE_GROUP_NAME}"
       az image delete -n ${IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
     fi
   else
