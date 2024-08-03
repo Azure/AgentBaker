@@ -39,6 +39,14 @@ TAGS_TO_RUN="os=ubuntu,arch=amd64,wasm=false,gpu=false,imagename=1804gen2contain
 
 To exclude scenarios, use `TAGS_TO_SKIP=`. Scenarios with any specified tags will be skipped (this logic is different to TAGS_TO_RUN).
 
+To run a specific test, use the test name:
+```bash
+TAGS_TO_RUN="name=Test_azurelinuxv2" ./e2e-local.sh
+# or
+go test -run Test_azurelinuxv2 -v -timeout 20m
+```
+
+
 ### Debugging
 
 Set `KEEP_VMSS` to retain bootstrapped VMs for debugging. This will include the private SSH key in each scenario's log bundle. When using the flag, please ensure to run only test you need to debug, as the VMs will not be
