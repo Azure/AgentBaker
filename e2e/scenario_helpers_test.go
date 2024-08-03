@@ -77,6 +77,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 }
 
 func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
+	s.Tags.Name = t.Name()
 	s.Tags.OS = s.VHD.OS
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
