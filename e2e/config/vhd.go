@@ -22,53 +22,39 @@ const (
 
 var (
 	VHDUbuntu1804Gen2Containerd = &Image{
-		Name:                      "1804gen2containerd",
-		OS:                        "ubuntu",
-		Arch:                      "amd64",
-		ExpectedContainerdVersion: "1.7.1+azure-1",
-		ExpectedRunCVersion:       "1.1.12-1",
+		Name: "1804gen2containerd",
+		OS:   "ubuntu",
+		Arch: "amd64",
 	}
 	VHDUbuntu2204Gen2Arm64Containerd = &Image{
-		Name:                      "2204gen2arm64containerd",
-		OS:                        "ubuntu",
-		Arch:                      "arm64",
-		ExpectedContainerdVersion: "1.7.20-1",
-		ExpectedRunCVersion:       "1.1.12-1",
+		Name: "2204gen2arm64containerd",
+		OS:   "ubuntu",
+		Arch: "arm64",
 	}
 	VHDUbuntu2204Gen2Containerd = &Image{
-		Name:                      "2204gen2containerd",
-		OS:                        "ubuntu",
-		Arch:                      "amd64",
-		ExpectedContainerdVersion: "1.7.20-1",
-		ExpectedRunCVersion:       "1.1.12-1",
+		Name: "2204gen2containerd",
+		OS:   "ubuntu",
+		Arch: "amd64",
 	}
 	VHDAzureLinuxV2Gen2Arm64 = &Image{
-		Name:                      "AzureLinuxV2gen2arm64",
-		OS:                        "azurelinux",
-		Arch:                      "arm64",
-		ExpectedRunCVersion:       "1.1.9",
-		ExpectedContainerdVersion: "1.6.26",
+		Name: "AzureLinuxV2gen2arm64",
+		OS:   "azurelinux",
+		Arch: "arm64",
 	}
 	VHDAzureLinuxV2Gen2 = &Image{
-		Name:                      "AzureLinuxV2gen2",
-		OS:                        "azurelinux",
-		Arch:                      "amd64",
-		ExpectedRunCVersion:       "1.1.9",
-		ExpectedContainerdVersion: "1.6.26",
+		Name: "AzureLinuxV2gen2",
+		OS:   "azurelinux",
+		Arch: "amd64",
 	}
 	VHDCBLMarinerV2Gen2Arm64 = &Image{
-		Name:                      "CBLMarinerV2gen2arm64",
-		OS:                        "mariner",
-		Arch:                      "arm64",
-		ExpectedRunCVersion:       "1.1.9",
-		ExpectedContainerdVersion: "1.6.26",
+		Name: "CBLMarinerV2gen2arm64",
+		OS:   "mariner",
+		Arch: "arm64",
 	}
 	VHDCBLMarinerV2Gen2 = &Image{
-		Name:                      "CBLMarinerV2gen2",
-		OS:                        "mariner",
-		Arch:                      "amd64",
-		ExpectedRunCVersion:       "1.1.9",
-		ExpectedContainerdVersion: "1.6.26",
+		Name: "CBLMarinerV2gen2",
+		OS:   "mariner",
+		Arch: "amd64",
 	}
 	// this is a particular 2204gen2containerd image originally built with private packages,
 	// if we ever want to update this then we'd need to run a new VHD build using private package overrides
@@ -83,12 +69,10 @@ var (
 var ErrNotFound = fmt.Errorf("not found")
 
 type Image struct {
-	Arch                      string
-	ExpectedContainerdVersion string
-	ExpectedRunCVersion       string
-	Name                      string
-	OS                        string
-	Version                   string
+	Arch    string
+	Name    string
+	OS      string
+	Version string
 
 	vhd     VHDResourceID
 	vhdOnce sync.Once

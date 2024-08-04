@@ -22,6 +22,10 @@ func Test_azurelinuxv2(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 			},
+			LiveVMValidators: []*LiveVMValidator{
+				containerdVersionValidator("1.6.26"),
+				runcVersionValidator("1.1.9"),
+			},
 		},
 	})
 }
@@ -248,6 +252,10 @@ func Test_marinerv2(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 			},
+			LiveVMValidators: []*LiveVMValidator{
+				containerdVersionValidator("1.6.26"),
+				runcVersionValidator("1.1.9"),
+			},
 		},
 	})
 }
@@ -471,6 +479,10 @@ func Test_ubuntu1804(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu1804Gen2Containerd,
+			LiveVMValidators: []*LiveVMValidator{
+				containerdVersionValidator("1.7.1+azure-1"),
+				runcVersionValidator("1.1.12-1"),
+			},
 		},
 	})
 }
@@ -570,6 +582,10 @@ func Test_ubuntu2204(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				containerdVersionValidator("1.7.20-1"),
+				runcVersionValidator("1.1.12-1"),
 			},
 		},
 	})
