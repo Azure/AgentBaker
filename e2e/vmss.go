@@ -223,9 +223,10 @@ func getVmssName(t *testing.T) string {
 	name = strings.ReplaceAll(name, "_", "")
 	name = strings.ReplaceAll(name, "/", "")
 	name = strings.ReplaceAll(name, "Test", "")
-	// truncate to 58 characters
-	if len(name) > 58 { // a limit for VMSS name
-		name = name[:58]
+	// truncate to 57 characters, as AKS has a limit of 64 characters for VM names
+	// an additional prefix is generated for VM name
+	if len(name) > 57 { // a limit for VMSS name
+		name = name[:57]
 	}
 	// AKS converts VM names to lowercase at some stage, avoid potential matching issues
 	name = strings.ToLower(name)
