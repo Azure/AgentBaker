@@ -734,21 +734,20 @@ func Test_ubuntu2204CustomSysctls(t *testing.T) {
 }
 
 func Test_ubuntu2204gpuncv(t *testing.T) {
-	RunScenario(t, ubuntu2204gpu("ubuntu2204-gpu-ncv3", "Standard_NC6s_v3"))
+	runScenarioUbuntu2204GPU(t, "Standard_NC6s_v3")
 }
 
 func Test_ubuntu2204gpua100(t *testing.T) {
-	RunScenario(t, ubuntu2204gpu("ubuntu2204-gpu-a100", "Standard_NC24ads_A100_v4"))
+	runScenarioUbuntu2204GPU(t, "Standard_NC24ads_A100_v4")
 }
 
 func Test_ubuntu2204gpua10(t *testing.T) {
-	RunScenario(t, ubuntu2204gpu("ubuntu2204-gpu-a10", "Standard_NV6ads_A10_v5"))
-
+	runScenarioUbuntu2204GPU(t, "Standard_NV6ads_A10_v5")
 }
 
 // Returns config for the 'gpu' E2E scenario
-func ubuntu2204gpu(name string, vmSize string) *Scenario {
-	return &Scenario{
+func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
+	RunScenario(t, &Scenario{
 		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2204 VHD can be properly bootstrapped", vmSize),
 		Tags: Tags{
 			GPU: true,
@@ -769,7 +768,7 @@ func ubuntu2204gpu(name string, vmSize string) *Scenario {
 				vmss.SKU.Name = to.Ptr(vmSize)
 			},
 		},
-	}
+	})
 }
 
 func Test_ubuntu2204GPUGridDriver(t *testing.T) {
