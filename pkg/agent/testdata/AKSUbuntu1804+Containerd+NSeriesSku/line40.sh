@@ -73,6 +73,27 @@ installContainerdWithComponentsJson() {
 
 }
 
+installContainerdWithManifestJson() {
+    local containerd_version
+    if [ -f "$MANIFEST_FILEPATH" ]; then
+        local containerd_version
+        containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
+        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+            containerd_version="$(jq -r '.containerd.pinned."1804"' "$MANIFEST_FILEPATH")"
+        fi
+    else
+        echo "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+    fi
+    containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
+    containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
+    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ] || [ "$containerd_revision" == "null" ]; then
+        echo "invalid container version: $containerd_version"
+        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    fi
+    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
+    echo "in installContainerRuntime - CONTAINERD_VERSION = ${containerd_patch_version}"
+}
+
 installContainerRuntime() {
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
     if [[ "${NEEDS_CONTAINERD}" != "true" ]]; then
@@ -83,9 +104,8 @@ installContainerRuntime() {
         installContainerdWithComponentsJson
 		return
     fi
-    echo "Unexpected. Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
-    exit $ERR_CONTAINERD_VERSION_INVALID
-    #return 1
+    echo "Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
+    installContainerdWithManifestJson
 }
 
 installNetworkPlugin() {
@@ -258,6 +278,13 @@ setupCNIDirs() {
 
 
 installCNI() {
+
+    if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "cni-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
+        echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually" 
+        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://acs-mirror.azureedge.net/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || exit
+        tar -xzf "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" -C $CNI_BIN_DIR
+        return 
+    fi
    
     #always just use what is listed in components.json so we don't have to sync.
     cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID

@@ -82,17 +82,16 @@ func skipTestIfSKUNotAvailableErr(t *testing.T, err error) {
 
 func cleanupVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte) {
 	// original context can be cancelled, but we still want to collect the logs
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Minute)
 	defer cancel()
 	defer deleteVMSS(t, ctx, vmssName, opts, privateKeyBytes)
-	if t.Failed() {
-		vmPrivateIP, err := getVMPrivateIPAddress(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName)
-		require.NoError(t, err)
 
-		require.NoError(t, err, "get vm private IP %v", vmssName)
-		err = pollExtractVMLogs(ctx, t, vmssName, vmPrivateIP, privateKeyBytes, opts)
-		require.NoError(t, err, "extract vm logs %v", vmssName)
-	}
+	vmPrivateIP, err := getVMPrivateIPAddress(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName)
+	require.NoError(t, err)
+
+	require.NoError(t, err, "get vm private IP %v", vmssName)
+	err = pollExtractVMLogs(ctx, t, vmssName, vmPrivateIP, privateKeyBytes, opts)
+	require.NoError(t, err, "extract vm logs %v", vmssName)
 
 }
 
