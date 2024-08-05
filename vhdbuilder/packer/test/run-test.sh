@@ -32,7 +32,7 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
   fi
   AZURE_LOCATION=$PACKER_BUILD_LOCATION
 fi
-exit 1
+
 if [ "${OS_TYPE,,}" == "linux" ]; then
   TEST_VM_RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
 else
