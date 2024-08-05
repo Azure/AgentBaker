@@ -271,7 +271,7 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/scripts/linux/ubuntu/tool_installs_ubuntu.sh",
+      "source": "vhdbuilder/scripts/linux/ubuntu/tools_installs_distro.sh",
       "destination": "/home/packer/tool_installs_distro.sh"
     },
     {
