@@ -73,7 +73,7 @@ fi
 if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
-exit 1
+
 az vm create --resource-group $RESOURCE_GROUP_NAME \
     --name $SCAN_VM_NAME \
     --image $VHD_IMAGE \
