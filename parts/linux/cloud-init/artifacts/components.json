@@ -43,11 +43,18 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.5.28",
+        "v1.5.32",
         "v1.6.0"
       ],
       "prefetchOptimizations": [
         {
           "version": "v1.5.28",
+          "binaries": [
+            "dropgz"
+          ]
+        },
+        {
+          "version": "v1.5.32",
           "binaries": [
             "dropgz"
           ]
@@ -66,11 +73,18 @@
       "multiArchVersions": [
         "v1.4.52",
         "v1.5.26",
+        "v1.5.32",
         "v1.6.0"
       ],
       "prefetchOptimizations": [
         {
           "version": "v1.5.26",
+          "binaries": [
+            "usr/local/bin/azure-cns"
+          ]
+        },
+        {
+          "version": "v1.5.32",
           "binaries": [
             "usr/local/bin/azure-cns"
           ]
@@ -448,7 +462,8 @@
           "current": {
             "versions": [
               "1.4.54",
-              "1.5.28"
+              "1.5.28",
+              "1.5.32"
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
           }
