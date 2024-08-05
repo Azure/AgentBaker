@@ -3,12 +3,13 @@ define retrycmd_if_failure
     echo -e "\n===================================="; \
     echo -e "Running $$cmd with $$retries retries"; \
     for i in $$(seq 1 $$retries); do \
-        $$cmd && break || \
+        $$cmd | tee output-$${target%.*}.txt > /dev/null 2>&1 && break || \
         if [ $$i -eq $$retries ]; then \
             echo "$$target failed $$i times"; \
             exit 1; \
         else \
             sleep $$wait_sleep; \
         fi \
-    done
+    done; \
+    cat output-$${target%.*}.txt
 endef
