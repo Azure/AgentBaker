@@ -72,7 +72,7 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 func skipTestIfSKUNotAvailableErr(t *testing.T, err error) {
 	// sometimes the SKU is not available and we can't do anything. Skip the test in this case.
 	var respErr *azcore.ResponseError
-	if config.Cfg.SkipTestsWithSKUCapacityIssue &&
+	if config.Config.SkipTestsWithSKUCapacityIssue &&
 		errors.As(err, &respErr) &&
 		respErr.StatusCode == 409 &&
 		respErr.ErrorCode == "SkuNotAvailable" {
@@ -96,7 +96,7 @@ func cleanupVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scena
 }
 
 func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte) {
-	if config.Cfg.KeepVMSS {
+	if config.Config.KeepVMSS {
 		t.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
 		if err := writeToFile(t, "sshkey", string(privateKeyBytes)); err != nil {
 			t.Logf("failed to write retained vmss %s private ssh key to disk: %s", vmssName, err)
@@ -146,7 +146,7 @@ func addPodIPConfigsForAzureCNI(ctx context.Context, vmss *armcompute.VirtualMac
 func getVMPrivateIPAddress(ctx context.Context, mcResourceGroupName, vmssName string) (string, error) {
 	pl := config.Azure.Core.Pipeline()
 	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
-		config.Cfg.SubscriptionID,
+		config.Config.SubscriptionID,
 		mcResourceGroupName,
 		vmssName,
 		0,
@@ -235,7 +235,7 @@ func getVmssName(t *testing.T) string {
 
 func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
 	return armcompute.VirtualMachineScaleSet{
-		Location: to.Ptr(config.Cfg.Location),
+		Location: to.Ptr(config.Config.Location),
 		SKU: &armcompute.SKU{
 			Name:     to.Ptr("Standard_D2ds_v5"),
 			Capacity: to.Ptr[int64](1),
@@ -302,7 +302,7 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 													ID: to.Ptr(
 														fmt.Sprintf(
 															loadBalancerBackendAddressPoolIDTemplate,
-															config.Cfg.SubscriptionID,
+															config.Config.SubscriptionID,
 															*opts.clusterConfig.Model.Properties.NodeResourceGroup,
 														),
 													),

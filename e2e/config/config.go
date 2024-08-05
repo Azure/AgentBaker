@@ -8,12 +8,12 @@ import (
 )
 
 var (
-	Cfg               = mustLoadConfig()
-	Azure             = mustNewAzureClient(Cfg.SubscriptionID)
-	ResourceGroupName = "abe2e-" + Cfg.Location
+	Config            = mustLoadConfig()
+	Azure             = mustNewAzureClient(Config.SubscriptionID)
+	ResourceGroupName = "abe2e-" + Config.Location
 )
 
-type Config struct {
+type Configuration struct {
 	AirgapNSGName                 string        `env:"AIRGAP_NSG_NAME" envDefault:"abe2e-airgap-securityGroup"`
 	DefaultSubnetName             string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
 	BuildID                       string        `env:"BUILD_ID" envDefault:"local"`
@@ -30,9 +30,9 @@ type Config struct {
 	KeepVMSS                      bool          `env:"KEEP_VMSS"`
 }
 
-func mustLoadConfig() Config {
+func mustLoadConfig() Configuration {
 	_ = godotenv.Load(".env")
-	cfg := Config{}
+	cfg := Configuration{}
 	if err := env.Parse(&cfg); err != nil {
 		panic(err)
 	}

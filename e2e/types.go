@@ -189,17 +189,17 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 	}
 
 	// don't clean up VMSS in other tests
-	if config.Cfg.KeepVMSS {
+	if config.Config.KeepVMSS {
 		if vmss.Tags == nil {
 			vmss.Tags = map[string]*string{}
 		}
 		vmss.Tags["KEEP_VMSS"] = to.Ptr("true")
 	}
 
-	if config.Cfg.BuildID != "" {
+	if config.Config.BuildID != "" {
 		if vmss.Tags == nil {
 			vmss.Tags = map[string]*string{}
 		}
-		vmss.Tags[buildIDTagKey] = &config.Cfg.BuildID
+		vmss.Tags[buildIDTagKey] = &config.Config.BuildID
 	}
 }
