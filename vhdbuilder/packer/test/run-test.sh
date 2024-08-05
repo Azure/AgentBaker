@@ -216,4 +216,4 @@ else
   fi
 fi
 
-echo -e "Tests Run Successfully\n\n\n"
+sleep 1; echo -e "Tests Run Successfully\n\n\n"
