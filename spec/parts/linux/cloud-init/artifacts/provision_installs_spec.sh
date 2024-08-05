@@ -11,7 +11,7 @@ readPackage() {
 
 Describe 'provision_installs.sh'
     Include "./parts/linux/cloud-init/artifacts/provision_installs.sh"
-    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Include "./parts/linux/cloud-init/artifacts/provision_source.sh"
     Describe 'returnPackageVersions'
         It 'returns downloadURIs.ubuntu."r2004".versions of package runc for UBUNTU 20.04'
             package=$(readPackage "runc")

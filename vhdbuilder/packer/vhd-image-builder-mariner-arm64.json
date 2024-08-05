@@ -115,12 +115,12 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh",
+      "source": "parts/linux/cloud-init/artifacts/mariner/provision_installs_distro.sh.sh",
       "destination": "/home/packer/provision_installs_distro.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_helpers.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_source.sh",
       "destination": "/home/packer/provision_source.sh"
     },
     {
