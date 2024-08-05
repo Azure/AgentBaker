@@ -6,7 +6,7 @@ if [ -z "${output}" ]; then
     echo -e "Build step did not produce an image version. Exiting $(basename $0) with exit code 0...\n\n\n"
     exit 0
 elif [ "$OS_VERSION" == "18.04" ]; then
-# 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
+    # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
     echo -e "Skipping scanning for 18.04\n\n\n"
     exit 0
 fi
