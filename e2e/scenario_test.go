@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -11,13 +10,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
-	"github.com/stretchr/testify/require"
 )
 
 func TestAll(t *testing.T) {
 	t.Parallel()
-	err := ensureResourceGroup(context.TODO())
-	require.NoError(t, err)
 	// grouping all tests together helps with reporting on parallel tests
 	t.Run("azurelinuxv2", Scenario_azurelinuxv2)
 	t.Run("azurelinuxv2-airgap", Scenario_azurelinuxv2AirGap)
@@ -28,7 +24,8 @@ func TestAll(t *testing.T) {
 	t.Run("azurelinuxv2-runc-version", Scenario_azurelinuxv2HasRightRuncVersion)
 	t.Run("azurelinuxv2-chrony-restarts", Scenario_azurelinuxv2ChronyRestarts)
 	t.Run("azurelinuxv2-custom-sysctls", Scenario_azurelinuxv2CustomSysctls)
-	t.Run("azurelinuxv2-gpu", Scenario_azurelinuxv2gpu)
+	t.Run("azurelinuxv2-gpu-ncv", Scenario_azurelinuxv2gpuncv)
+	t.Run("azurelinuxv2-gpu-nd-a100", Scenario_azurelinuxv2gpuNDA100)
 	t.Run("azurelinuxv2-gpu-azurecni", Scenario_azurelinuxv2gpu_azurecni)
 	t.Run("azurelinuxv2-wasm", Scenario_azurelinuxv2Wasm)
 	t.Run("marinerv2", Scenario_marinerv2)
@@ -62,7 +59,8 @@ func TestAll(t *testing.T) {
 	t.Run("ubuntu2204-custom-ca-trust", Scenario_ubuntu2204CustomCATrust)
 	t.Run("ubuntu2204-custom-sysctls", Scenario_ubuntu2204CustomSysctls)
 	t.Run("ubuntu2204-gpu-a10", Scenario_ubuntu2204gpua10)
-	t.Run("ubuntu2204-gpu-a100", Scenario_ubuntu2204gpua100)
+	t.Run("ubuntu2204-gpu-nc-a100", Scenario_ubuntu2204gpuNCA100)
+	t.Run("ubuntu2204-gpu-nd-a100", Scenario_ubuntu2204gpuNDA100)
 	t.Run("ubuntu2204-gpu-grid-driver", Scenario_ubuntu2204GPUGridDriver)
 	t.Run("ubuntu2204-gpu-ncv", Scenario_ubuntu2204gpuncv)
 	t.Run("ubuntu2204-gpu-no-driver", Scenario_ubuntu2204gpuNoDriver)
@@ -223,10 +221,18 @@ func Scenario_azurelinuxv2CustomSysctls(t *testing.T) {
 	})
 }
 
+func Scenario_azurelinuxv2gpuncv(t *testing.T) {
+	RunScenario(t, azurelinuxv2gpu("azurelinuxv2-gpu-ncv3", "Standard_NC6s_v3", "", ""))
+}
+
+func Scenario_azurelinuxv2gpuNDA100(t *testing.T) {
+	RunScenario(t, azurelinuxv2gpu("azurelinuxv2-gpu-nda100", "Standard_ND96amsr_A100_v4", "4f3dc0e4-0c77-40ff-bf9a-6ade1e3048ef", "westeurope"))
+}
+
 // Returns config for the 'gpu' E2E scenario
-func Scenario_azurelinuxv2gpu(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a GPU-enabled node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
+func azurelinuxv2gpu(name string, vmSize string, subscriptionID string, location string) *Scenario {
+	return &Scenario{
+		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an AzureLinuxV2 VHD can be properly bootstrapped", vmSize),
 		Tags: Tags{
 			GPU: true,
 		},
@@ -234,19 +240,21 @@ func Scenario_azurelinuxv2gpu(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = vmSize
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.AgentPoolProfile.VMSize = vmSize
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+				vmss.SKU.Name = to.Ptr(vmSize)
 			},
+			Location:       location,
+			SubscriptionID: subscriptionID,
 		},
-	})
+	}
 }
 
 func Scenario_azurelinuxv2gpu_azurecni(t *testing.T) {
@@ -775,20 +783,24 @@ func Scenario_ubuntu2204CustomSysctls(t *testing.T) {
 }
 
 func Scenario_ubuntu2204gpuncv(t *testing.T) {
-	RunScenario(t, ubuntu2204gpu("ubuntu2204-gpu-ncv3", "Standard_NC6s_v3"))
+	RunScenario(t, ubuntu2204gpu("ubuntu2204-gpu-ncv3", "Standard_NC6s_v3", "", ""))
 }
 
-func Scenario_ubuntu2204gpua100(t *testing.T) {
-	RunScenario(t, ubuntu2204gpu("ubuntu2204-gpu-a100", "Standard_NC24ads_A100_v4"))
+func Scenario_ubuntu2204gpuNCA100(t *testing.T) {
+	RunScenario(t, ubuntu2204gpu("ubuntu2204-gpu-nca100", "Standard_NC24ads_A100_v4", "", ""))
+}
+
+func Scenario_ubuntu2204gpuNDA100(t *testing.T) {
+	RunScenario(t, ubuntu2204gpu("ubuntu2204-gpu-nda100", "Standard_ND96amsr_A100_v4", "4f3dc0e4-0c77-40ff-bf9a-6ade1e3048ef", "westeurope"))
 }
 
 func Scenario_ubuntu2204gpua10(t *testing.T) {
-	RunScenario(t, ubuntu2204gpu("ubuntu2204-gpu-a10", "Standard_NV6ads_A10_v5"))
+	RunScenario(t, ubuntu2204gpu("ubuntu2204-gpu-a10", "Standard_NV6ads_A10_v5", "", ""))
 
 }
 
 // Returns config for the 'gpu' E2E scenario
-func ubuntu2204gpu(name string, vmSize string) *Scenario {
+func ubuntu2204gpu(name string, vmSize string, subscriptionID string, location string) *Scenario {
 	return &Scenario{
 		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2204 VHD can be properly bootstrapped", vmSize),
 		Tags: Tags{
@@ -809,6 +821,8 @@ func ubuntu2204gpu(name string, vmSize string) *Scenario {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
 			},
+			SubscriptionID: subscriptionID,
+			Location:       location,
 		},
 	}
 }

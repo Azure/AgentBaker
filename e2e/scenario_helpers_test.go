@@ -24,7 +24,11 @@ func RunScenario(t *testing.T, s *Scenario) {
 	t.Cleanup(cancel)
 	ctx, cancel = context.WithTimeout(ctx, config.TestTimeout)
 	t.Cleanup(cancel)
+
+	config.CustomConfig = config.NewCustomConfig(s.Config.Location, s.Config.SubscriptionID)
 	maybeSkipScenario(ctx, t, s)
+	err := ensureResourceGroup(context.TODO())
+	require.NoError(t, err)
 	model, err := s.Cluster(ctx, t)
 	require.NoError(t, err, "creating AKS cluster")
 
