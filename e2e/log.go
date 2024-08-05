@@ -9,7 +9,7 @@ import (
 )
 
 func testDir(t *testing.T) string {
-	return filepath.Join(config.E2ELoggingDir, t.Name())
+	return filepath.Join(config.Config.E2ELoggingDir, t.Name())
 }
 
 func writeToFile(t *testing.T, fileName, content string) error {
