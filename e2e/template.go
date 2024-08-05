@@ -475,7 +475,7 @@ spec:
   runtimeClassName: wasmtime-spin
   containers:
   - name: spin-hello
-    image: ghcr.io/deislabs/containerd-wasm-shims/examples/spin-rust-hello:v0.5.1
+    image: ghcr.io/spinkube/containerd-shim-spin/examples/spin-rust-hello:v0.15.1
     imagePullPolicy: IfNotPresent
     command: ["/"]
     resources: # limit the resources to 128Mi of memory and 100m of CPU
