@@ -1,20 +1,6 @@
 {
   "ContainerImages": [
     {
-      "name": "oras",
-      "downloadLocation": "/usr/local/bin",
-      "downloadURIs": {
-        "default": {
-          "current": {
-            "versions": [
-              "1.2.0"
-            ],
-            "downloadURL": "https://github.com/oras-project/oras/releases/download/v${version}/oras_${version}_linux_${CPU_ARCH}.tar.gz"
-          }
-        }
-      }
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
@@ -391,6 +377,20 @@
     }
   ],
   "Packages": [
+    {
+      "name": "oras",
+      "downloadLocation": "/usr/local/bin",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versions": [
+              "1.2.0"
+            ],
+            "downloadURL": "https://github.com/oras-project/oras/releases/download/v${version}/oras_${version}_linux_${CPU_ARCH}.tar.gz"
+          }
+        }
+      }
+    },
     {
       "name": "runc",
       "downloadLocation": "/opt/runc/downloads",
