@@ -128,17 +128,23 @@ installStandaloneContainerd() {
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${desiredVersion}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${desiredVersion}. skipping installStandaloneContainerd."
     else
-        echo "installing containerd version ${desiredVersion}"
-        removeContainerd
-        containerdPackageName="containerd-${desiredVersion}"
-        if [[ $OS_VERSION == "2.0" ]]; then
-            containerdPackageName="moby-containerd-${desiredVersion}"
-        fi
-
-        # TODO: tie runc to r92 once that's possible on Mariner's pkg repo and if we're still using v1.linux shim
-        if ! dnf_install 30 1 600 $containerdPackageName; then
+        echo "installing containerd version from preview ***"
+        wget https://packages.microsoft.com/azurelinux/3.0/preview/base/x86_64/Packages/c/containerd-1.7.13-2.azl3.x86_64.rpm
+        if ! dnf_install 30 1 600 ./containerd-1.7.13-2.azl3.x86_64.rpm; then
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
+        
+        # echo "installing containerd version ${desiredVersion}"
+        # removeContainerd
+        # containerdPackageName="containerd-${desiredVersion}"
+        # if [[ $OS_VERSION == "2.0" ]]; then
+        #     containerdPackageName="moby-containerd-${desiredVersion}"
+        # fi
+
+        # # TODO: tie runc to r92 once that's possible on Mariner's pkg repo and if we're still using v1.linux shim
+        # if ! dnf_install 30 1 600 $containerdPackageName; then
+        #     exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        # fi
     fi
 
     # Workaround to restore the CSE configuration after containerd has been installed from the package server.
