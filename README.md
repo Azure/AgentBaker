@@ -81,7 +81,7 @@ By default, it should be installed in `~/.local/lib/shellspec`. Please append it
 
 You will need to write `xxx_spec.sh` file for the test.
 
-For example, `AgentBaker/spec/parts/linux/cloud-init/artifacts/cse_install_spec.sh` is a test file for `AgentBaker/parts/linux/cloud-init/artifacts/cse_install.sh`
+For example, `AgentBaker/spec/parts/linux/cloud-init/artifacts/provision_installs_spec.sh` is a test file for `AgentBaker/parts/linux/cloud-init/artifacts/provision_installs.sh`
 
 ### Running tests locally
 

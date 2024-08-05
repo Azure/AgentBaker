@@ -65,8 +65,8 @@ if ! popd; then
   exit 1
 fi
 
-source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
-source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
+source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/provision_installs_distro.sh 2>/dev/null
+source ./AgentBaker/parts/linux/cloud-init/artifacts/provision_source.sh 2>/dev/null
 
 testPackagesInstalled() {
   test="testPackagesInstalled"

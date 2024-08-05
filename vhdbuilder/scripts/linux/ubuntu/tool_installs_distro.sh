@@ -17,7 +17,7 @@ ERR_CHRONY_INSTALL_TIMEOUT=14 {{/*Unable to install CHRONY */}}
 ERR_CHRONY_START_TIMEOUT=15 {{/* Unable to start CHRONY */}}
 
 
-echo "Sourcing tool_installs_ubuntu.sh"
+echo "Sourcing tool_installs_distro.sh"
 
 installAscBaseline() {
    echo "Installing ASC Baseline tools..."

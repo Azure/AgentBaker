@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Sourcing tool_installs_mariner.sh"
+echo "Sourcing tool_installs_distro.sh"
 
 installAscBaseline() {
    echo "Mariner TODO: installAscBaseline"

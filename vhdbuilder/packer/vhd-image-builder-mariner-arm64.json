@@ -110,37 +110,37 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_install.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_installs.sh",
       "destination": "/home/packer/provision_installs.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh",
+      "source": "parts/linux/cloud-init/artifacts/mariner/provision_installs_distro.sh.sh",
       "destination": "/home/packer/provision_installs_distro.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_helpers.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_source.sh",
       "destination": "/home/packer/provision_source.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh",
+      "source": "parts/linux/cloud-init/artifacts/mariner/provision_source_distro.sh",
       "destination": "/home/packer/provision_source_distro.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_config.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_configs.sh",
       "destination": "/home/packer/provision_configs.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_main.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision.sh",
       "destination": "/home/packer/provision.sh"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_start.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_start.sh",
       "destination": "/home/packer/provision_start.sh"
     },
     {
@@ -255,7 +255,7 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/scripts/linux/mariner/tool_installs_mariner.sh",
+      "source": "vhdbuilder/scripts/linux/mariner/tool_installs_distro.sh",
       "destination": "/home/packer/tool_installs_distro.sh"
     },
     {
@@ -456,27 +456,27 @@
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-logrotate.sh",
-      "destination": "/home/packer/logrotate.sh"
+      "destination": "/home/packer/aks-logrotate.sh"
     },
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-logrotate.service",
-      "destination": "/home/packer/logrotate.service"
+      "destination": "/home/packer/aks-logrotate.service"
     },
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-logrotate.timer",
-      "destination": "/home/packer/logrotate.timer"
+      "destination": "/home/packer/aks-logrotate.timer"
     },
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-logrotate-override.conf",
-      "destination": "/home/packer/override.conf"
+      "destination": "/home/packer/aks-logrotate-override.conf"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/aks-rsyslog",
-      "destination": "/home/packer/rsyslog"
+      "source": "parts/linux/cloud-init/artifacts/aks-logrotate-rsyslog",
+      "destination": "/home/packer/aks-logrotate-rsyslog"
     },
     {
       "type": "file",
