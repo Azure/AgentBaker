@@ -46,7 +46,7 @@ const (
 	kubernetesCSEStartScript            = "linux/cloud-init/artifacts/provision_start.sh"
 	kubernetesCSEMainScript             = "linux/cloud-init/artifacts/provision.sh"
 	kubernetesCSEHelpersScript          = "linux/cloud-init/artifacts/provision_source.sh"
-	kubernetesCSEHelpersScriptUbuntu    = "linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
+	kubernetesCSEHelpersScriptUbuntu    = "linux/cloud-init/artifacts/ubuntu/provision_source_distro.sh"
 	kubernetesCSEHelpersScriptMariner   = "linux/cloud-init/artifacts/mariner/provision_source_distro.sh"
 	kubernetesCSEInstall                = "linux/cloud-init/artifacts/provision_installs.sh"
 	kubernetesCSEInstallUbuntu          = "linux/cloud-init/artifacts/ubuntu/provision_installs_distro.sh"
