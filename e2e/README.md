@@ -93,7 +93,7 @@ Add to `settings.json`:
 
 ## Package Structure
 
-The top-level package of the Golang E2E implementation is named `e2e_test` and is entirely separate from all AgentBaker packages.
+The top-level package of the Golang E2E implementation is named `e2e` and is entirely separate from all AgentBaker packages.
 
 The primary testing function is located in [suite_test.go](suite_test.go), which is run by `go test`.
 
