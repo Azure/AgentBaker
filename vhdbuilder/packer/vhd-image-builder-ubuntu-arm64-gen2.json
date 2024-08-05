@@ -136,7 +136,7 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_main.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision.sh",
       "destination": "/home/packer/provision.sh"
     },
     {

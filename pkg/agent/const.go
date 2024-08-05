@@ -44,7 +44,7 @@ const (
 	kubernetesNodeCustomDataYaml        = "linux/cloud-init/nodecustomdata.yml"
 	kubernetesCSECommandString          = "linux/cloud-init/artifacts/cse_cmd.sh"
 	kubernetesCSEStartScript            = "linux/cloud-init/artifacts/cse_start.sh"
-	kubernetesCSEMainScript             = "linux/cloud-init/artifacts/cse_main.sh"
+	kubernetesCSEMainScript             = "linux/cloud-init/artifacts/provision.sh"
 	kubernetesCSEHelpersScript          = "linux/cloud-init/artifacts/provision_source.sh"
 	kubernetesCSEHelpersScriptUbuntu    = "linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
 	kubernetesCSEHelpersScriptMariner   = "linux/cloud-init/artifacts/mariner/provision_source_distro.sh"
