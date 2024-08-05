@@ -49,7 +49,7 @@ go test -run Test_azurelinuxv2 -v -timeout 20m
 
 ### Debugging
 
-Set `KEEP_VMSS` to retain bootstrapped VMs for debugging. This will include the private SSH key in each scenario's log bundle. When using the flag, please ensure to run only test you need to debug, as the VMs will not be
+Set `KEEP_VMSS=true` to retain bootstrapped VMs for debugging. Setting this will also have the VM's private SSH key included in each scenario's log bundle. When using this flag, please ensure to run only test you need to debug, as the VMs will not be
 deleted after the test run.
 
 ### Running Tests Manually
