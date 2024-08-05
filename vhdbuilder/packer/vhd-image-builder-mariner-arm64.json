@@ -255,7 +255,7 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/scripts/linux/mariner/tool_installs_mariner.sh",
+      "source": "vhdbuilder/scripts/linux/mariner/tool_installs_distro.sh",
       "destination": "/home/packer/tool_installs_distro.sh"
     },
     {
