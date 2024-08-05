@@ -132,7 +132,7 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cse_config.sh",
+      "source": "parts/linux/cloud-init/artifacts/provision_configs.sh",
       "destination": "/home/packer/provision_configs.sh"
     },
     {

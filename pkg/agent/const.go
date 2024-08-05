@@ -51,7 +51,7 @@ const (
 	kubernetesCSEInstall                = "linux/cloud-init/artifacts/provision_installs.sh"
 	kubernetesCSEInstallUbuntu          = "linux/cloud-init/artifacts/ubuntu/provision_installs_distro.sh"
 	kubernetesCSEInstallMariner         = "linux/cloud-init/artifacts/mariner/provision_installs_distro.sh"
-	kubernetesCSEConfig                 = "linux/cloud-init/artifacts/cse_config.sh"
+	kubernetesCSEConfig                 = "linux/cloud-init/artifacts/provision_configs.sh"
 	kubernetesCSESendLogs               = "linux/cloud-init/artifacts/cse_send_logs.py"
 	kubernetesCSERedactCloudConfig      = "linux/cloud-init/artifacts/cse_redact_cloud_config.py"
 	kubernetesCISScript                 = "linux/cloud-init/artifacts/cis.sh"
