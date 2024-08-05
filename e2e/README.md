@@ -95,7 +95,7 @@ Add to `settings.json`:
 
 The top-level package of the Golang E2E implementation is named `e2e` and is entirely separate from all AgentBaker packages.
 
-The primary testing function is located in [suite_test.go](suite_test.go), which is run by `go test`.
+The definitions and entry points for each test scenario, ran by `go test`, are located in [scenario_test.go](scenario_test.go).
 
 ## E2E VHDs.
 
