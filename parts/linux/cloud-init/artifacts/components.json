@@ -199,51 +199,6 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/calico/cni:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "v3.24.6"
-      ],
-      "prefetchOptimizations": [
-        {
-          "version": "v3.24.6",
-          "binaries": [
-            "opt/cni/bin/bandwidth",
-            "opt/cni/bin/calico",
-            "opt/cni/bin/calico-ipam",
-            "opt/cni/bin/flannel",
-            "opt/cni/bin/host-local",
-            "opt/cni/bin/install",
-            "opt/cni/bin/loopback",
-            "opt/cni/bin/portmap",
-            "opt/cni/bin/tuning"
-          ]
-        }
-      ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/calico/node:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "v3.24.6"
-      ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "v3.24.6"
-      ],
-      "prefetchOptimizations": [
-        {
-          "version": "v3.24.6",
-          "binaries": [
-            "usr/local/bin/flexvol"
-          ]
-        }
-      ]
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
@@ -284,10 +239,10 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.28.8",
         "v1.28.9",
-        "v1.29.6",
+        "v1.28.10",
         "v1.29.7",
+        "v1.29.8",
         "v1.30.2"
       ]
     },
@@ -295,8 +250,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.28.10",
         "v1.28.11",
+        "v1.28.12",
         "v1.29.5",
         "v1.29.6",
         "v1.30.2",
@@ -307,8 +262,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.22.6",
         "v1.22.7",
+        "v1.22.8",
         "v1.23.4",
         "v1.23.5",
         "v1.24.2"
