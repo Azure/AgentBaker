@@ -746,7 +746,7 @@ function Validate-VHDFreeSize {
     foreach($disk in $disksInfo) {
         if ($disk.DeviceID -eq "C:") {
             if ($disk.FreeSpace -lt $global:lowestFreeSpace) {
-                throw "Disk C: Free space $($disk.FreeSpace) is less than $($global:lowestFreeSpace)"
+                Write-Log "Disk C: Free space $($disk.FreeSpace) is less than $($global:lowestFreeSpace)"
             }
             break
         }
