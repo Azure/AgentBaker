@@ -125,7 +125,7 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh",
+      "source": "parts/linux/cloud-init/artifacts/mariner/provision_source_distro.sh",
       "destination": "/home/packer/provision_source_distro.sh"
     },
     {
