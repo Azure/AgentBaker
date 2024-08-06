@@ -409,7 +409,7 @@
   ],
   "Packages": [
     {
-      "name": "curl",
+      "name": "debian_12/curl",
       "multiArchVersions": [
         "7.58.0"
       ]
