@@ -125,4 +125,4 @@ az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_TABLE_NAME} --auth-mode login
 
-echo -e "Trivy Scan successfully completed\n\n\n"
+echo -e "Trivy Scan Script Completed\n\n\n"
