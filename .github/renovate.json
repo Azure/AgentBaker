@@ -41,7 +41,7 @@
       "matchStrings": [
         ".*?\"name\":\\s*\"(?<depName>[^\"]+)\",\\s*\"multiArchVersions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\".*"
       ],
-      "datasourceTemplate": "debtest",
+      "datasource": "repology",
       "versioningTemplate": "semver"
     }
   ]
