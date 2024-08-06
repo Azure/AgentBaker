@@ -32,7 +32,11 @@ func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName 
 }
 
 func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
-	podName, err := getDebugPodName(ctx, opts.clusterConfig.Kube)
+	hostPodName, err := getDebugPodName(ctx, opts.clusterConfig.Kube, hostNetworkDebugPodNamePrefix)
+	if err != nil {
+		return fmt.Errorf("While running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
+	}
+	nonHostPodName, err := getDebugPodName(ctx, opts.clusterConfig.Kube, nonHostNetworkDebugPodNamePrefix)
 	if err != nil {
 		return fmt.Errorf("While running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
 	}
@@ -46,9 +50,18 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP,
 		desc := validator.Description
 		command := validator.Command
 		isShellBuiltIn := validator.IsShellBuiltIn
+		isHostValidator := validator.IsHostNetwork
+
 		t.Logf("running live VM validator on %s: %q", vmssName, desc)
 
-		execResult, err := pollExecOnVM(ctx, t, opts.clusterConfig.Kube, privateIP, podName, sshPrivateKey, command, isShellBuiltIn)
+		var execResult *podExecResult
+		var err error
+		// Host Validators - meaning we want to execute checks through a pod which is connected to node's network interface
+		if isHostValidator {
+			execResult, err = pollExecOnVM(ctx, t, opts.clusterConfig.Kube, privateIP, hostPodName, sshPrivateKey, command, isShellBuiltIn)
+		} else {
+			execResult, err = execOnPod(ctx, opts.clusterConfig.Kube, "default", nonHostPodName, []string{command})
+		}
 		if err != nil {
 			return fmt.Errorf("unable to execute validator on node %s command %q: %w", vmssName, command, err)
 		}
@@ -102,5 +115,16 @@ func commonLiveVMValidators() []*LiveVMValidator {
 				"cloud-config.txt",
 			},
 		),
+		{
+			Description: "check that curl to wireserver fails",
+			Command:     "curl \"http://168.63.129.16/machine/?comp=goalstate\" -H \"x-ms-version: 2015-04-05\" -s --connect-timeout 10",
+			Asserter: func(code, stdout, stderr string) error {
+				if code != "28" {
+					return fmt.Errorf("validator command terminated with exit code %q but expected code 28 (CURL timeout)", code)
+				}
+				return nil
+			},
+			IsHostNetwork: false,
+		},
 	}
 }

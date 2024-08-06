@@ -76,8 +76,61 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 }
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
-func ensureDebugDaemonset(ctx context.Context, kube *Kubeclient) error {
-	manifest := getDebugDaemonset()
+func ensureDebugDaemonsets(ctx context.Context, kube *Kubeclient) error {
+	manifests := getDebugDaemonsetManifests()
+	for _, manifest := range manifests {
+		if err := createDebugDeployment(ctx, kube, manifest); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func getDebugDaemonsetManifests() []string {
+	return []string{
+		getDebugDaemonsetTemplate(hostNetworkDebugPodNamePrefix, true),
+		getDebugDaemonsetTemplate(nonHostNetworkDebugPodNamePrefix, false),
+	}
+}
+
+func getDebugDaemonsetTemplate(name string, isHostNetwork bool) string {
+	return fmt.Sprintf(`apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: &name %s 
+  namespace: default
+  labels:
+    app: *name
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: *name
+  template:
+    metadata:
+      labels:
+        app: *name
+    spec:
+      hostNetwork: %t 
+      nodeSelector:
+        kubernetes.azure.com/agentpool: nodepool1
+      hostPID: true
+      containers:
+      - image: mcr.microsoft.com/oss/nginx/nginx:1.21.6
+        name: ubuntu
+        command: ["sleep", "infinity"]
+        resources:
+          requests: {}
+          limits: {}
+        securityContext:
+          privileged: true
+          capabilities:
+            add: ["SYS_PTRACE", "SYS_RAWIO"]
+`, name, isHostNetwork)
+}
+
+func createDebugDeployment(ctx context.Context, kube *Kubeclient, manifest string) error {
 	var ds v1.DaemonSet
 
 	if err := yaml.Unmarshal([]byte(manifest), &ds); err != nil {
@@ -93,44 +146,7 @@ func ensureDebugDaemonset(ctx context.Context, kube *Kubeclient) error {
 	if err != nil {
 		return fmt.Errorf("failed to apply debug daemonset: %w", err)
 	}
-
 	return nil
-}
-
-func getDebugDaemonset() string {
-	return `apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: &name debug
-  namespace: default
-  labels:
-    app: *name
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: *name
-  template:
-    metadata:
-      labels:
-        app: *name
-    spec:
-      hostNetwork: true
-      nodeSelector:
-        kubernetes.azure.com/agentpool: nodepool1
-      hostPID: true
-      containers:
-      - image: mcr.microsoft.com/oss/nginx/nginx:1.21.6
-        name: ubuntu
-        command: ["sleep", "infinity"]
-        resources:
-          requests: {}
-          limits: {}
-        securityContext:
-          privileged: true
-          capabilities:
-            add: ["SYS_PTRACE", "SYS_RAWIO"]
-`
 }
 
 func getClusterSubnetID(ctx context.Context, mcResourceGroupName string) (string, error) {

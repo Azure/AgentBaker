@@ -148,6 +148,10 @@ type LiveVMValidator struct {
 	// IsShellBuiltIn is a boolean flag which indicates whether or not the command is a shell built-in
 	// that will fail when executed with sudo - requires separate command to avoid command not found error on node
 	IsShellBuiltIn bool
+
+	// IsHostNetwork is a boolean flags which indicates whether or not the validator should run on a pod that is using
+	// host's network interface. For example when testing connectivity from user pods to certain endpoints, we will set it to false
+	IsHostNetwork bool
 }
 
 // PrepareNodeBootstrappingConfiguration mutates the input NodeBootstrappingConfiguration by calling the
