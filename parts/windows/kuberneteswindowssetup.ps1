@@ -339,6 +339,9 @@ try
     $envJSON = "{{ GetBase64EncodedEnvironmentJSON }}"
     [io.file]::WriteAllBytes($azureStackConfigFile, [System.Convert]::FromBase64String($envJSON))
 
+    $aksCustomConfigFile = [io.path]::Combine($global:KubeDir, "akscustom.json")
+    [io.file]::WriteAllBytes($aksCustomConfigFile, [System.Convert]::FromBase64String($envJSON))
+
     Get-CACertificates
     {{end}}
 
