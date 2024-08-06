@@ -19,7 +19,7 @@ WIN_CONFIGURATION_SCRIPT_PATH="generate-windows-vhd-configuration.ps1"
 WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
 TEST_RESOURCE_PREFIX="vhd-test"
 TEST_VM_ADMIN_USERNAME="azureuser"
-
+exit 1
 set +x
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
