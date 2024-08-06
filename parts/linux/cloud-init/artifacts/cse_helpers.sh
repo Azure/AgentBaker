@@ -395,6 +395,14 @@ should_skip_nvidia_drivers() {
     echo "$should_skip"
 }
 
+isAzureLinux() {
+    local os=$1
+    if [[ $os == $MARINER_OS_NAME ]] || [[ $os == $AZURELINUX_OS_NAME ]]; then
+        return 0
+    fi
+    return 1
+}
+
 installJq() {
   # jq is not available until downloaded in install-dependencies.sh with the installDeps function
   # but it is needed earlier to call the capture_benchmarks function in pre-install-dependencies.sh
@@ -402,7 +410,7 @@ installJq() {
   if [ -n "$output" ]; then
     echo "$output"
   else
-    if [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
+    if [[ $(isAzureLinux $OS) ]]; then
       sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
     else
       apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"

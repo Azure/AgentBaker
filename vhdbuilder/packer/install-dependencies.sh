@@ -122,7 +122,7 @@ fi
 
 # Since we do not build Ubuntu 16.04 images anymore, always override network config and disable NTP + Timesyncd and install Chrony
 # Mariner does this differently, so only do it for Ubuntu
-if [[ $OS != $MARINER_OS_NAME ]] && [[ $OS != $AZURELINUX_OS_NAME ]]; then
+if [[ ! $(isAzureLinux $OS) ]]; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
@@ -149,7 +149,7 @@ SUBSYSTEM=="bdi", ACTION=="add", PROGRAM="$AWK_PATH -v bdi=\$kernel 'BEGIN{ret=1
 EOF
 udevadm control --reload
 
-if [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
+if [[ $(isAzureLinux $OS) ]]; then
     disableSystemdResolvedCache
     disableSystemdIptables || exit 1
     setMarinerNetworkdConfig
@@ -235,7 +235,7 @@ for p in ${packages[*]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
-        elif [[ "${OS}" == "${MARINER_OS_NAME}" ]] || [[ "${OS}" == "${AZURELINUX_OS_NAME}" ]]; then
+        elif [[ $(isAzureLinux $OS) ]]; then
           installStandaloneContainerd "${version}"
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
@@ -410,7 +410,7 @@ capture_benchmark "pull_and_retag_container_images"
 
 # TODO: update comment
 # IPv6 nftables rules are only available on Ubuntu or Mariner v2
-if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) || ( $OS == $AZURELINUX_OS_NAME && $OS_VERSION == "3.0" ) ]]; then
+if [[ $OS == $UBUNTU_OS_NAME || $(isAzureLinux $OS) ]]; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
 capture_benchmark "configure_networking_and_interface"
