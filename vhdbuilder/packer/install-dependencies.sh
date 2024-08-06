@@ -24,7 +24,7 @@ source /home/packer/tool_installs_distro.sh
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
-COMPONENTS_FILEPATH=/opt/azure/gpu-components.json
+GPU_COMPONENTS_FILEPATH=/opt/azure/gpu-components.json
 VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
 
 echo ""
@@ -315,8 +315,8 @@ capture_benchmark "artifact_streaming_and_download_teleportd"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
-  LATEST_CUDA_VERSION=$(jq -r '.nvidia.cuda | keys | max' gpu-components.json)
-  NVIDIA_DRIVER_IMAGE=$(jq -r ".nvidia.cuda.\"$LATEST_CUDA_VERSION\"" gpu-components.json)
+  LATEST_CUDA_VERSION=$(jq -r '.nvidia.cuda | keys | max' "$GPU_COMPONENTS_FILEPATH")
+  NVIDIA_DRIVER_IMAGE=$(jq -r ".nvidia.cuda.\"$LATEST_CUDA_VERSION\"" "$GPU_COMPONENTS_FILEPATH")
 
   NVIDIA_DRIVER_IMAGE_TAG=$(echo $NVIDIA_DRIVER_IMAGE | cut -d':' -f2)
   # Split the tag into its components
