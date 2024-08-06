@@ -39,7 +39,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"name\":\\s*\"curl\",\\s*\"downloadLocation\":\\s*\"\",\\s*\"multiArchVersions\":\\s*\\[(?<currentValue>[\\s\\S]*?)\\]"
+        ".*?\"name\":\\s*\"(?<packageName>[^\"]+)\",\\s*\"multiArchVersions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\".*"
       ],
       "datasourceTemplate": "deb",
       "versioningTemplate": "semver"
