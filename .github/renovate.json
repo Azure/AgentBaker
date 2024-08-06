@@ -39,7 +39,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        ".*?\"name\":\\s*\"(?<packageName>[^\"]+)\",\\s*\"multiArchVersions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\".*"
+        ".*?\"name\":\\s*\"(?<depName>[^\"]+)\",\\s*\"multiArchVersions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\".*"
       ],
       "datasourceTemplate": "deb",
       "versioningTemplate": "semver"
