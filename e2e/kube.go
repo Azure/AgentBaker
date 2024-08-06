@@ -144,7 +144,7 @@ func createDebugDeployment(ctx context.Context, kube *Kubeclient, manifest strin
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to apply debug daemonset: %w", err)
+		return fmt.Errorf("failed to apply debug daemonset: %w for manifest %s", err, manifest)
 	}
 	return nil
 }
