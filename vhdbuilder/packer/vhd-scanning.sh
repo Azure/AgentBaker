@@ -1,8 +1,9 @@
 #!/bin/bash
 set -eu
 
-output=$(az sig image-version show -e ${CAPTURED_SIG_VERSION} -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --query id --output tsv || true)
-if [ -z "${output}" ]; then
+# Check to ensure the build step succeeded
+SIG_VERSION=$(az sig image-version show -e ${CAPTURED_SIG_VERSION} -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --query id --output tsv || true)
+if [ -z "${SIG_VERSION}" ]; then
     echo -e "Build step did not produce an image version. Exiting $(basename $0) with exit code 0...\n\n\n"
     exit 0
 elif [ "$OS_VERSION" == "18.04" ]; then

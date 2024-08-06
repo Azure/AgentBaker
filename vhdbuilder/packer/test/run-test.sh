@@ -1,9 +1,10 @@
 #!/bin/bash
 set -eu
 
+# Check to ensure the build step succeeded
 if [ "${OS_TYPE,,}" == "linux" ]; then
-  output=$(az sig image-version show -e ${CAPTURED_SIG_VERSION} -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --query id --output tsv || true)
-  if [ -z "${output}" ]; then
+  SIG_VERSION=$(az sig image-version show -e ${CAPTURED_SIG_VERSION} -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --query id --output tsv || true)
+  if [ -z "${SIG_VERSION}" ]; then
       echo -e "Build step did not produce an image version. Exiting $(basename $0) with exit code 0...\n\n\n"
       exit 0
   elif [ "$IMG_SKU" == "20_04-lts-cvm" ]; then
