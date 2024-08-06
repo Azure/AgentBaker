@@ -543,6 +543,25 @@ if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
   done
 fi
 
+ORAS_VERSIONS="1.2.0"
+
+unpackOras() {
+  local URL=$1
+  ORAS_TGZ_TMP=${URL##*/}
+  ORAS_DIR_TMP=${ORAS_TGZ_TMP%.tgz}
+  mkdir "$ORAS_DOWNLOADS_DIR/${ORAS_DIR_TMP}"
+  tar -xzf "$ORAS_DOWNLOADS_DIR/${ORAS_TGZ_TMP}" -C $ORAS_DOWNLOADS_DIR/$ORAS_DIR_TMP
+  rm -rf ${ORAS_DOWNLOADS_DIR:?}/${ORAS_TGZ_TMP}
+  echo "  - Ran tar -xzf on the ORAS downloaded then rm -rf to clean up"
+}
+
+for ORAS_VERSION in $ORAS_VERSIONS; do
+    ORAS_URL="https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz"
+    downloadOras
+    unpackOras $ORAS_URL
+    echo "  - ORAS version ${ORAS_VERSION}" >> ${VHD_LOGS_FILEPATH}
+done
+
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
 capture_benchmark "overall_script" true
