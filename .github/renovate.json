@@ -42,7 +42,7 @@
         ".*?\"name\":\\s*\"(?<depName>[^\"]+)\",\\s*\"multiArchVersions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\".*"
       ],
       "datasourceTemplate": "repology",
-      "versioning": "loose"
+      "versioningTemplate": "loose"
     }
   ]
 }
