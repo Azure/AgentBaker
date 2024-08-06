@@ -116,7 +116,7 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/cni-dropgz:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.0.20",
+        "v0.2.0",
         "v0.1.4",
         "v0.2.0"
       ],
