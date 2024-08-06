@@ -20,15 +20,7 @@
     },
     {
       "matchDatasources": ["repology"],
-      "matchPackageNames": ["curl"],
-      "managers": ["apt"],
-      "registryUrls": ["https://packages.microsoft.com/config/ubuntu/22.04/prod.list"],
-      "gpgKeys": [
-        {
-          "url": "https://packages.microsoft.com/keys/microsoft.asc",
-          "fingerprint": "your-gpg-key-fingerprint"
-        }
-      ]
+      "matchPackageNames": ["curl"]
     }
   ],
   "customManagers": [
