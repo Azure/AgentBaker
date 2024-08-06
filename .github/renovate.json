@@ -17,10 +17,6 @@
     {
       "matchUpdateTypes": ["minor", "patch"],
       "assignees": ["devinwong"]
-    },
-    {
-      "matchDatasources": ["repology"],
-      "matchPackageNames": ["curl"]
     }
   ],
   "customManagers": [
@@ -45,7 +41,7 @@
       "matchStrings": [
         "\"name\":\\s*\"curl\",\\s*\"downloadURIs\":\\s*\\{[^\\}]*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\"\\s*\\]"
       ],
-      "datasourceTemplate": "repology",
+      "datasourceTemplate": "deb",
       "depNameTemplate": "curl",
       "versioningTemplate": "semver"
     }
