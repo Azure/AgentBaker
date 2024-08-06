@@ -50,17 +50,17 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP,
 		desc := validator.Description
 		command := validator.Command
 		isShellBuiltIn := validator.IsShellBuiltIn
-		isHostValidator := validator.IsHostNetwork
+		isNonHostValidator := validator.IsNonHostNetwork
 
 		t.Logf("running live VM validator on %s: %q", vmssName, desc)
 
 		var execResult *podExecResult
 		var err error
-		// Host Validators - meaning we want to execute checks through a pod which is connected to node's network interface
-		if isHostValidator {
-			execResult, err = pollExecOnVM(ctx, t, opts.clusterConfig.Kube, privateIP, hostPodName, sshPrivateKey, command, isShellBuiltIn)
+		// Non Host Validators - meaning we want to execute checks through a pod which is NOT connected to host's network
+		if isNonHostValidator {
+			execResult, err = execOnPrivilegedPod(ctx, opts.clusterConfig.Kube, "default", nonHostPodName, command)
 		} else {
-			execResult, err = execOnPod(ctx, opts.clusterConfig.Kube, "default", nonHostPodName, []string{command})
+			execResult, err = pollExecOnVM(ctx, t, opts.clusterConfig.Kube, privateIP, hostPodName, sshPrivateKey, command, isShellBuiltIn)
 		}
 		if err != nil {
 			return fmt.Errorf("unable to execute validator on node %s command %q: %w", vmssName, command, err)
@@ -117,14 +117,14 @@ func commonLiveVMValidators() []*LiveVMValidator {
 		),
 		{
 			Description: "check that curl to wireserver fails",
-			Command:     "curl \"http://168.63.129.16/machine/?comp=goalstate\" -H \"x-ms-version: 2015-04-05\" -s --connect-timeout 10",
+			Command:     "curl 'http://168.63.129.16/machine/?comp=goalstate' -H 'x-ms-version: 2015-04-05' -s --connect-timeout 10",
 			Asserter: func(code, stdout, stderr string) error {
 				if code != "28" {
 					return fmt.Errorf("validator command terminated with exit code %q but expected code 28 (CURL timeout)", code)
 				}
 				return nil
 			},
-			IsHostNetwork: false,
+			IsNonHostNetwork: true,
 		},
 	}
 }
