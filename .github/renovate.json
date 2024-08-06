@@ -42,7 +42,10 @@
         ".*?\"name\":\\s*\"(?<depName>[^\"]+)\",\\s*\"multiArchVersions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\".*"
       ],
       "datasourceTemplate": "repology",
-      "versioningTemplate": "loose"
+      "versioningTemplate": "loose",
+      "gpg": {
+        "keyFile": "https://packages.microsoft.com/keys/microsoft.asc"
+      }
     }
   ]
 }
