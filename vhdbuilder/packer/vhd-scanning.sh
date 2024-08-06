@@ -1,6 +1,9 @@
 #!/bin/bash
 set -eu
 
+if [[ -z "$SIG_GALLERY_NAME" ]]; then
+    SIG_GALLERY_NAME="PackerSigGalleryEastUS"
+fi
 # Check to ensure the build step succeeded
 SIG_VERSION=$(az sig image-version show -e ${CAPTURED_SIG_VERSION} -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --query id --output tsv || true)
 if [ -z "${SIG_VERSION}" ]; then
