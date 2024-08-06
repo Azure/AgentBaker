@@ -40,7 +40,7 @@ Describe 'cse_install.sh'
         It 'returns downloadURIs.default.current.versions of package azure-cni for UBUNTU 20.04'
             package=$(readPackage "azure-cni")
             When call returnPackageVersions "$package" "UBUNTU" "20.04"
-            The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.28"
+            The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.28 1.5.32"
         End
 
         It 'returns downloadURIs.mariner.current.versions of package runc for MARINER'
@@ -64,7 +64,7 @@ Describe 'cse_install.sh'
         It 'returns downloadURIs.default.current.versions of package azure-cni for MARINER'
             package=$(readPackage "azure-cni")
             When call returnPackageVersions "$package" "MARINER" "some_mariner_version"
-            The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.28"
+            The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.28 1.5.32"
         End
     End
     Describe 'returnPackageDownloadURL'
@@ -158,11 +158,14 @@ Describe 'cse_install.sh'
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
             The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.6.26-5.cm2"
         End
-        It 'exits with error if components.json file is not found'
+        It 'skips validation if components.json file is not found'
             COMPONENTS_FILEPATH="non_existent_file.json"
-            When run installContainerRuntime 
-            The status should equal $ERR_CONTAINERD_VERSION_INVALID
-            The output line 2 should equal "Unexpected. Package \"containerd\" does not exist in non_existent_file.json."
+            installContainerdWithManifestJson() {
+                echo "mock installContainerdWithManifestJson calling"
+            }
+            When call installContainerRuntime 
+            The output line 2 should equal "Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
+            The output line 3 should equal "mock installContainerdWithManifestJson calling"
         End
     End
     Describe 'returnRelease'

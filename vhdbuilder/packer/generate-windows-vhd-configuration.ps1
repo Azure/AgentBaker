@@ -32,7 +32,7 @@ $global:excludeHashComparisionListInAzureChinaCloud = @(
 # Add cache for another containerd version which is not installed by default
 $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.6.21-azure.1/binaries/containerd-v1.6.21-azure.1-windows-amd64.tar.gz"
 if ($windowsSKU -Like "23H2*") {
-    $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+    $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
 }
 
 # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
@@ -72,6 +72,7 @@ switch -Regex ($windowsSku) {
         )
     }
     "23H2*" {
+        # Don't need to update patchUrls and patchIDs for 23H2 since it's by design.
         $global:patchUrls = @()
         $global:patchIDs = @()
 
@@ -94,13 +95,13 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.13.0", # for k8s 1.27+
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.1", # for k8s 1.27+
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.11.0", # for k8s 1.27+
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.8-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.9-windows-hp", # for k8s 1.27.x
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.6-windows-hp", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.10-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.7-windows-hp", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.8-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.2-windows-hp", # for k8s 1.30.x
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.10-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.11-windows-hp", # for k8s 1.27.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.12-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.5-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.6-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.2-windows-hp", # for k8s 1.29.x
@@ -117,10 +118,11 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.0", # for k8s 1.30.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.1", # for k8s 1.30.x
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.22",
+    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.23",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.52",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.26",
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.5.32",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.6.0",
     # CNI installer for azure-vnet. Owner: evanbaker
     "mcr.microsoft.com/containernetworking/cni-dropgz:v0.1.4"
@@ -142,8 +144,8 @@ $global:map = @{
     # versions synced.
     "c:\akse-cache\containerd\"   = @(
         $defaultContainerdPackageUrl,
-        "https://acs-mirror.azureedge.net/containerd/windows/v1.7.14-azure.1/binaries/containerd-v1.7.14-azure.1-windows-amd64.tar.gz",
-        "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+        "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz",
+        "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
     );
     "c:\akse-cache\csi-proxy\"    = @(
         "https://acs-mirror.azureedge.net/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz"
@@ -188,6 +190,7 @@ $global:map = @{
     "c:\akse-cache\win-vnet-cni\" = @(
         # Azure CNI v1 (legacy)
         "https://acs-mirror.azureedge.net/azure-cni/v1.5.28/binaries/azure-vnet-cni-windows-amd64-v1.5.28.zip",
+        "https://acs-mirror.azureedge.net/azure-cni/v1.5.32/binaries/azure-vnet-cni-windows-amd64-v1.5.32.zip",
         # Azure CNI v2 (pod subnet)
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.54/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.54.zip",
         # Azure CNI for Overlay

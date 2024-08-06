@@ -8,17 +8,20 @@ jobs:
       - group: ab-e2e
     steps:
       - bash: |
+          set -ex
           az login --identity
           az account set -s $(AZURE_SUBSCRIPTION_ID)
         displayName: Azure login
       - bash: bash .pipelines/scripts/setup_go.sh
         displayName: Setup go
       - bash: |
+          set -ex
           LOGGING_DIR="scenario-logs-$(date +%s)"
           echo "setting logging dir to $LOGGING_DIR"
           echo "##vso[task.setvariable variable=LOGGING_DIR]$LOGGING_DIR"
         displayName: Set logging directory
       - bash: |
+          set -ex
           export PATH="/usr/local/go/bin:$PATH"
           go version
           
@@ -33,7 +36,9 @@ jobs:
           fi
           
           cd e2e
-          go test -parallel 100 -timeout 90m -v ./...
+          mkdir -p bin
+          GOBIN=`pwd`/bin/ go install github.com/jstemmer/go-junit-report/v2@latest
+          go test -v -parallel 100 -timeout 90m 2>&1 | ./bin/go-junit-report -iocopy -set-exit-code -out "$(Build.SourcesDirectory)/e2e/report.xml"
         displayName: Run AgentBaker E2E
         env:
           VHD_BUILD_ID: $(VHD_BUILD_ID)
@@ -43,6 +48,12 @@ jobs:
       - bash: mkdir -p $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
         condition: always()
         displayName: Create folder for scenario logs
+      - task: PublishTestResults@2
+        displayName: Upload test results
+        condition: succeededOrFailed()
+        inputs:
+          testRunner: JUnit
+          testResultsFiles: "$(Build.SourcesDirectory)/e2e/report.xml"
       - publish: $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
         artifact: $(LOGGING_DIR)
         condition: always()

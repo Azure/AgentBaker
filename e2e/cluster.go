@@ -2,6 +2,9 @@ package e2e
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -16,12 +19,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 )
-
-// WARNING: if you modify cluster configuration, please change the version below
-// this will avoid potential conflicts with tests running on other branches
-// there is no strict rules or a hidden meaning for the version
-// testClusterNamePrefix is also used for versioning cluster configurations
-const testClusterNamePrefix = "abe2e-v20240725-"
 
 var (
 	clusterKubenet       *Cluster
@@ -64,14 +61,14 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 // sync.Once is used to ensure that only one cluster for the set of tests is created
 func ClusterKubenet(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetOnce.Do(func() {
-		clusterKubenet, clusterKubenetError = createCluster(ctx, t, getKubenetClusterModel(testClusterNamePrefix+"kubenet"))
+		clusterKubenet, clusterKubenetError = createCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet"))
 	})
 	return clusterKubenet, clusterKubenetError
 }
 
 func ClusterKubenetAirgap(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetAirgapOnce.Do(func() {
-		cluster, err := createCluster(ctx, t, getKubenetClusterModel(testClusterNamePrefix+"kubenet-airgap"))
+		cluster, err := createCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap"))
 		if err == nil {
 			err = addAirgapNetworkSettings(ctx, t, cluster)
 		}
@@ -82,7 +79,7 @@ func ClusterKubenetAirgap(ctx context.Context, t *testing.T) (*Cluster, error) {
 
 func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterAzureNetworkOnce.Do(func() {
-		clusterAzureNetwork, clusterAzureNetworkError = createCluster(ctx, t, getAzureNetworkClusterModel(testClusterNamePrefix+"azure-network"))
+		clusterAzureNetwork, clusterAzureNetworkError = createCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azure-network"))
 	})
 	return clusterAzureNetwork, clusterAzureNetworkError
 }
@@ -102,6 +99,7 @@ func nodeBootsrappingConfig(ctx context.Context, t *testing.T, kube *Kubeclient)
 }
 
 func createCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*Cluster, error) {
+	cluster.Name = to.Ptr(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))
 	createdCluster, err := createNewAKSClusterWithRetry(ctx, t, cluster)
 	if err != nil {
 		return nil, err
@@ -133,7 +131,20 @@ func createCluster(ctx context.Context, t *testing.T, cluster *armcontainerservi
 	}
 
 	return &Cluster{Model: createdCluster, Kube: kube, SubnetID: subnetID, NodeBootstrappingConfiguration: nbc}, nil
+}
 
+func hash(cluster *armcontainerservice.ManagedCluster) string {
+	jsonData, err := json.Marshal(cluster)
+	if err != nil {
+		panic(err)
+	}
+	hasher := sha256.New()
+	_, err = hasher.Write(jsonData)
+	if err != nil {
+		panic(err)
+	}
+	hexHash := hex.EncodeToString(hasher.Sum(nil))
+	return hexHash[:5]
 }
 
 func createNewAKSCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
@@ -235,7 +246,7 @@ func collectGarbageVMSS(ctx context.Context, t *testing.T, cluster *armcontainer
 
 			// don't delete VMSS created in the last hour. They might be currently used in tests
 			// extra 10 minutes is a buffer for test cleanup, clock drift and timeout adjustments
-			if config.TestTimeout == 0 || time.Since(*vmss.Properties.TimeCreated) < config.TestTimeout+10*time.Minute {
+			if config.Config.TestTimeout == 0 || time.Since(*vmss.Properties.TimeCreated) < config.Config.TestTimeout+10*time.Minute {
 				continue
 			}
 
@@ -273,7 +284,7 @@ func ensureResourceGroup(ctx context.Context) error {
 			ctx,
 			config.ResourceGroupName,
 			armresources.ResourceGroup{
-				Location: to.Ptr(config.Location),
+				Location: to.Ptr(config.Config.Location),
 				Name:     to.Ptr(config.ResourceGroupName),
 			},
 			nil)

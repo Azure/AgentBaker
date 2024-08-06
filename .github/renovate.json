@@ -1,6 +1,10 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "enabledManagers": ["regex"],
+  "enabledManagers": ["custom.regex"],
+  "prConcurrentLimit": 50,
+  "prHourlyLimit": 20,
+  "branchConcurrentLimit": 50,
+  "labels": ["renovate"],
   "packageRules": [
     {
       "matchUpdateTypes": [

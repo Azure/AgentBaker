@@ -131,7 +131,6 @@ $wuRegistryNames = @(
     "HnsPreallocatePortRange",
     "4154935436",
     "124082829",
-    "NamespaceExcludedUdpPorts",
     "PortExclusionChange",
     "2290715789",
     "3152880268",
@@ -149,7 +148,8 @@ $wuRegistryNames = @(
     "1605443213",
     "2540111500",
     "50261647",
-    "1475968140"
+    "1475968140",
+    "747051149"
 )
 
 foreach ($key in $wuRegistryKeys) {

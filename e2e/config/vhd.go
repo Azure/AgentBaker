@@ -69,14 +69,19 @@ var (
 var ErrNotFound = fmt.Errorf("not found")
 
 type Image struct {
+	Arch    string
 	Name    string
 	OS      string
-	Arch    string
 	Version string
 
 	vhd     VHDResourceID
 	vhdOnce sync.Once
 	vhdErr  error
+}
+
+func (i *Image) String() string {
+	// a starter for a string for debugging.
+	return fmt.Sprintf("%s %s %s %s", i.OS, i.Name, i.Version, i.Arch)
 }
 
 func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID, error) {
@@ -85,10 +90,10 @@ func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID,
 		if i.Version != "" {
 			i.vhd, i.vhdErr = ensureStaticSIGImageVersion(ctx, t, imageDefinitionResourceID+"/versions/"+i.Version)
 		} else {
-			i.vhd, i.vhdErr = findLatestSIGImageVersionWithTag(ctx, t, imageDefinitionResourceID, SIGVersionTagName, SIGVersionTagValue)
+			i.vhd, i.vhdErr = findLatestSIGImageVersionWithTag(ctx, t, imageDefinitionResourceID, Config.SIGVersionTagName, Config.SIGVersionTagValue)
 		}
 		if i.vhdErr != nil {
-			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", imageDefinitionResourceID, SIGVersionTagName, SIGVersionTagValue, i.vhdErr)
+			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", imageDefinitionResourceID, Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhdErr)
 			t.Logf("failed to find the latest image %s", i.vhdErr)
 		}
 	})
@@ -213,7 +218,7 @@ func findLatestSIGImageVersionWithTag(ctx context.Context, t *testing.T, imageDe
 
 func ensureReplication(ctx context.Context, t *testing.T, definition sigImageDefinition, version *armcompute.GalleryImageVersion) error {
 	if replicatedToCurrentRegion(version) {
-		t.Logf("image version %s is already replicated to region %s", *version.ID, Location)
+		t.Logf("image version %s is already replicated to region %s", *version.ID, Config.Location)
 		return nil
 	}
 	return replicateToCurrentRegion(ctx, t, definition, version)
@@ -221,7 +226,7 @@ func ensureReplication(ctx context.Context, t *testing.T, definition sigImageDef
 
 func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion) bool {
 	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
-		if strings.EqualFold(strings.ReplaceAll(*targetRegion.Name, " ", ""), Location) {
+		if strings.EqualFold(strings.ReplaceAll(*targetRegion.Name, " ", ""), Config.Location) {
 			return true
 		}
 	}
@@ -229,10 +234,10 @@ func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion) bool {
 }
 
 func replicateToCurrentRegion(ctx context.Context, t *testing.T, definition sigImageDefinition, version *armcompute.GalleryImageVersion) error {
-	t.Logf("will replicate image version %s to region %s...", *version.ID, Location)
+	t.Logf("will replicate image version %s to region %s...", *version.ID, Config.Location)
 
 	version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
-		Name:                 &Location,
+		Name:                 &Config.Location,
 		RegionalReplicaCount: to.Ptr[int32](1),
 		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
 	})
