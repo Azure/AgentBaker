@@ -409,6 +409,19 @@
   ],
   "Packages": [
     {
+      "name": "curl",
+      "downloadLocation": "",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versions": [
+              "7.73.0-1"
+            ]
+          }
+        }
+      }
+    },
+    {
       "name": "runc",
       "downloadLocation": "/opt/runc/downloads",
       "downloadURIs": {

@@ -17,6 +17,18 @@
     {
       "matchUpdateTypes": ["minor", "patch"],
       "assignees": ["devinwong"]
+    },
+    {
+      "matchDatasources": ["repology"],
+      "matchPackageNames": ["curl"],
+      "managers": ["apt"],
+      "registryUrls": ["https://packages.microsoft.com/config/ubuntu/22.04/prod.list"],
+      "gpgKeys": [
+        {
+          "url": "https://packages.microsoft.com/keys/microsoft.asc",
+          "fingerprint": "your-gpg-key-fingerprint"
+        }
+      ]
     }
   ],
   "customManagers": [
@@ -31,6 +43,19 @@
       ],
       "datasourceTemplate": "docker",
       "registryUrlTemplate": "https://mcr.microsoft.com"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "parts/linux/cloud-init/artifacts/components.json"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"name\":\\s*\"curl\",\\s*\"downloadURIs\":\\s*\\{[^\\}]*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\"\\s*\\]"
+      ],
+      "datasourceTemplate": "repology",
+      "depNameTemplate": "curl",
+      "versioningTemplate": "semver"
     }
   ]
 }
