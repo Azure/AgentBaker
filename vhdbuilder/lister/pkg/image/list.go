@@ -7,6 +7,7 @@ import (
 
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/namespaces"
+	"github.com/containerd/platforms"
 )
 
 const (
@@ -22,9 +23,10 @@ func ListImages(sku, version string) (*List, error) {
 	}
 
 	ctx := namespaces.WithNamespace(context.Background(), k8sNamespace)
-	imageService := client.ImageService()
+	imageStore := client.ImageService()
+	contentStore := client.ContentStore()
 
-	images, err := imageService.List(ctx)
+	images, err := imageStore.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing images with image service: %w", err)
 	}
@@ -45,7 +47,11 @@ func ListImages(sku, version string) (*List, error) {
 		} else {
 			img.AddTag(image.Name)
 		}
-		if err := img.SetByteSize(image.Target.Size); err != nil {
+		size, err := image.Size(ctx, contentStore, platforms.Default())
+		if err != nil {
+			return nil, fmt.Errorf("calculating size for image digest %s: %w", digest, err)
+		}
+		if err := img.SetByteSize(size); err != nil {
 			return nil, fmt.Errorf("setting size for image digest %s: %w", digest, err)
 		}
 	}
