@@ -50,7 +50,7 @@
     "kubernetesartifacts": {
       "defaultRegistryUrlTemplate": "https://kubernetesartifacts.azureedge.net/index/kubernetes/latest.json",
       "transformTemplates": [
-        "{\"releases\":[\r\n  {\"version\": $$.(Packages[?(@.name == 'kubernetes-binaries')].downloadURIs.default.current.versions)}]}"
+        "{\"releases\": [{{#each matches}}{\"version\": \"v{{this.major}}.{{this.minor}}.{{this.patch}}\"}{{#unless @last}}, {{/unless}}{{/each}}]}"
       ]
     }
   }
