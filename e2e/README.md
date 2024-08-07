@@ -16,6 +16,28 @@ sure the new VM's kubelet is posting NodeReady to the cluster's apiserver, and t
 run on it. Lastly, a set of validation commands are remotely executed on the VM to ensure its live state (file
 existsnce, sysctl settings, etc.) is as expected.
 
+```mermaid
+sequenceDiagram
+    E2E->>+ARM: Get or Create AKS Cluster
+    ARM-->>-E2E: Cluster details
+    E2E->>+AgentBakerCode: Fetch VM Configuration (include CSE)
+    AgentBakerCode-->>-E2E: VM Configuration
+    E2E->>+ARM: Create VM using fetched VM Config in cluster network
+    ARM-->>-E2E: VM instance
+    E2E->>+KubeAPI: Create test Pod
+    KubeAPI->>+TestPod: Perform healthcheck
+    TestPod-->>-KubeAPI: Healthcheck OK
+    KubeAPI-->>-E2E: Test Pod ready
+    E2E->>+KubeAPI: Execute test validators
+    KubeAPI->>+DebugPod: Execute test validator
+    DebugPod->>+VM: Execute test validator
+    VM-->>-DebugPod: Test results
+    DebugPod-->>-KubeAPI: Test results
+    KubeAPI-->>-E2E: Final results
+```
+
+
+
 ## Running Locally
 
 **Note: if you have changed code or artifacts used to generate custom data or custom script extension payloads, you
