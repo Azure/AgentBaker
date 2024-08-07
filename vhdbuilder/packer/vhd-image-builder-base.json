@@ -93,7 +93,7 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/image-lister/bin/lister",
+      "source": "vhdbuilder/lister/bin/lister",
       "destination": "/home/packer/lister"
     },
     {
