@@ -66,11 +66,15 @@ echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
 
 # check the size of the OS disk after installing all dependencies: warn at 75% space taken, error at 99% space taken
+MAX_BLOCK_COUNT=30298176
 os_device=$(readlink -f /dev/disk/azure/root)
 used_blocks=$(df -P / | sed 1d | awk '{print $3}')
 usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
 usage=${usage%.*}
 [ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
+[ ${usage} -ge 95 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 95% of the 30GB cap!"
+[ ${usage} -ge 90 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 90% of the 30GB cap!"
+[ ${usage} -ge 85 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 85% of the 30GB cap!"
 [ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
 capture_benchmark "determine_disk_usage"
 

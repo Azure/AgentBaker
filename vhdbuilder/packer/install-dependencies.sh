@@ -54,6 +54,17 @@ APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
 capture_benchmark "purge_and_reinstall_ubuntu"
+MAX_BLOCK_COUNT=30298176
+os_device=$(readlink -f /dev/disk/azure/root)
+used_blocks=$(df -P / | sed 1d | awk '{print $3}')
+usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
+usage=${usage%.*}
+[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
+[ ${usage} -ge 95 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 95% of the 30GB cap!"
+[ ${usage} -ge 90 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 90% of the 30GB cap!"
+[ ${usage} -ge 85 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 85% of the 30GB cap!"
+[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
+[ ${usage} -lt 75 ] && echo "ACCEPTABLE: root partition on OS device (${os_device}) less than 50% of the 30GB cap!"
 
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
@@ -126,6 +137,17 @@ if [[ $OS != $MARINER_OS_NAME ]]; then
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
 capture_benchmark "check_container_runtime_and_network_configurations"
+MAX_BLOCK_COUNT=30298176
+os_device=$(readlink -f /dev/disk/azure/root)
+used_blocks=$(df -P / | sed 1d | awk '{print $3}')
+usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
+usage=${usage%.*}
+[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
+[ ${usage} -ge 95 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 95% of the 30GB cap!"
+[ ${usage} -ge 90 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 90% of the 30GB cap!"
+[ ${usage} -ge 85 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 85% of the 30GB cap!"
+[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
+[ ${usage} -lt 75 ] && echo "ACCEPTABLE: root partition on OS device (${os_device}) less than 50% of the 30GB cap!"
 
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
@@ -192,6 +214,18 @@ downloadCNI() {
     cniTgzTmp=${CNI_PLUGINS_URL##*/}
     retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
+
+MAX_BLOCK_COUNT=30298176
+os_device=$(readlink -f /dev/disk/azure/root)
+used_blocks=$(df -P / | sed 1d | awk '{print $3}')
+usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
+usage=${usage%.*}
+[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
+[ ${usage} -ge 95 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 95% of the 30GB cap!"
+[ ${usage} -ge 90 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 90% of the 30GB cap!"
+[ ${usage} -ge 85 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 85% of the 30GB cap!"
+[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
+[ ${usage} -lt 75 ] && echo "ACCEPTABLE: root partition on OS device (${os_device}) less than 50% of the 30GB cap!"
 
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for p in ${packages[*]}; do
@@ -271,6 +305,17 @@ for p in ${packages[*]}; do
   esac
   capture_benchmark "download_${name}"
 done
+MAX_BLOCK_COUNT=30298176
+os_device=$(readlink -f /dev/disk/azure/root)
+used_blocks=$(df -P / | sed 1d | awk '{print $3}')
+usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
+usage=${usage%.*}
+[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
+[ ${usage} -ge 95 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 95% of the 30GB cap!"
+[ ${usage} -ge 90 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 90% of the 30GB cap!"
+[ ${usage} -ge 85 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 85% of the 30GB cap!"
+[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
+[ ${usage} -lt 75 ] && echo "ACCEPTABLE: root partition on OS device (${os_device}) less than 50% of the 30GB cap!"
 
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
@@ -416,6 +461,17 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 # can't use cliTool because crictl doesn't support retagging.
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
 capture_benchmark "pull_and_retag_container_images"
+MAX_BLOCK_COUNT=30298176
+os_device=$(readlink -f /dev/disk/azure/root)
+used_blocks=$(df -P / | sed 1d | awk '{print $3}')
+usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
+usage=${usage%.*}
+[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
+[ ${usage} -ge 95 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 95% of the 30GB cap!"
+[ ${usage} -ge 90 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 90% of the 30GB cap!"
+[ ${usage} -ge 85 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 85% of the 30GB cap!"
+[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
+[ ${usage} -lt 75 ] && echo "ACCEPTABLE: root partition on OS device (${os_device}) less than 50% of the 30GB cap!"
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner v2
 if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) ]]; then
@@ -547,3 +603,14 @@ rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
 capture_benchmark "overall_script" true
 process_benchmarks
+MAX_BLOCK_COUNT=30298176
+os_device=$(readlink -f /dev/disk/azure/root)
+used_blocks=$(df -P / | sed 1d | awk '{print $3}')
+usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
+usage=${usage%.*}
+[ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
+[ ${usage} -ge 95 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 95% of the 30GB cap!"
+[ ${usage} -ge 90 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 90% of the 30GB cap!"
+[ ${usage} -ge 85 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 85% of the 30GB cap!"
+[ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
+[ ${usage} -lt 75 ] && echo "ACCEPTABLE: root partition on OS device (${os_device}) less than 50% of the 30GB cap!"
