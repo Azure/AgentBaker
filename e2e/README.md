@@ -29,10 +29,10 @@ sequenceDiagram
     TestPod-->>-KubeAPI: Healthcheck OK
     KubeAPI-->>-E2E: Test Pod ready
     E2E->>+KubeAPI: Execute test validators
-    KubeAPI->>+TestPod: Execute test validator
-    TestPod->>+VM: Execute test validator
-    VM-->>-TestPod: Test results
-    TestPod-->>-KubeAPI: Test results
+    KubeAPI->>+DebugPod: Execute test validator
+    DebugPod->>+VM: Execute test validator
+    VM-->>-DebugPod: Test results
+    DebugPod-->>-KubeAPI: Test results
     KubeAPI-->>-E2E: Final results
 ```
 
