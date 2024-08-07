@@ -53,7 +53,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	raw, err := json.Marshal(imageList)
+	raw, err := json.MarshalIndent(imageList, "", "  ")
 	if err != nil {
 		log.Printf("unable to marshal generated image list: %s", err)
 		os.Exit(1)
@@ -61,5 +61,6 @@ func main() {
 
 	if err := os.WriteFile(opts.outputPath, raw, os.ModePerm); err != nil {
 		log.Printf("unable to write generated image list content to file %s: %s", opts.outputPath, err)
+		os.Exit(1)
 	}
 }

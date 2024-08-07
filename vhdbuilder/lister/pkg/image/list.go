@@ -34,32 +34,25 @@ func ListImages(sku, version string) (*List, error) {
 	for _, image := range images {
 		digest := image.Target.Digest.String()
 		if _, ok := digestToImage[digest]; !ok {
-			digestToImage[digest] = &Image{}
+			digestToImage[digest] = New()
 		}
 		img := digestToImage[digest]
+		img.AddDigest(digest)
 		if isID(image.Name) {
-			if img.ID != "" && img.ID != image.Name {
-				return nil, fmt.Errorf("found multiple IDs for digest %s: %s and %s", digest, img.ID, image.Name)
-			}
-			if img.ID == "" {
-				img.ID = image.Name
+			if err := img.SetID(image.Name); err != nil {
+				return nil, fmt.Errorf("setting ID for image digest %s: %w", digest, err)
 			}
 		} else {
-			img.RepoTags = append(img.RepoTags, image.Name)
+			img.AddTag(image.Name)
 		}
-		if img.Bytes == 0 {
-			img.Bytes = image.Target.Size
-		} else {
-			if img.Bytes != image.Target.Size {
-				return nil, fmt.Errorf("found different byte sizes (%d, %d) for digest %s", img.Bytes, image.Target.Size, digest)
-			}
+		if err := img.SetByteSize(image.Target.Size); err != nil {
+			return nil, fmt.Errorf("setting size for image digest %s: %w", digest, err)
 		}
 	}
 
-	var bom []Image
+	var bom []*Image
 	for digest := range digestToImage {
-		img := digestToImage[digest]
-		bom = append(bom, *img)
+		bom = append(bom, digestToImage[digest])
 	}
 
 	return &List{
