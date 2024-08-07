@@ -143,8 +143,22 @@ retrycmd_if_failure_no_stats() {
         fi
     done
 }
+
+capture_space_metrics() {
+    MAX_BLOCK_COUNT=30298176 # 30 GB
+    os_device=$(readlink -f /dev/disk/azure/root)
+    used_blocks=$(df -P / | sed 1d | awk '{print $3}')
+    usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
+    usage=${usage%.*}
+    [ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
+    [ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
+}
+
 retrycmd_get_tarball() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
+    echo "Alburgess Space Testing for before $tarball installed"
+    capture_space_metrics
+
     echo "${tar_retries} retries"
     for i in $(seq 1 $tar_retries); do
         tar -tzf $tarball && break || \
@@ -158,6 +172,8 @@ retrycmd_get_tarball() {
             sleep $wait_sleep
         fi
     done
+    echo "Alburgess Space Testing for before $tarball installed"
+    capture_space_metrics
 }
 retrycmd_curl_file() {
     curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
