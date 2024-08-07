@@ -34,10 +34,7 @@ func ListImages(sku, version string) (*List, error) {
 	for _, image := range images {
 		digest := image.Target.Digest.String()
 		if _, ok := digestToImage[digest]; !ok {
-			digestToImage[digest] = &Image{
-				RepoTags:    []string{},
-				RepoDigests: []string{},
-			}
+			digestToImage[digest] = &Image{}
 		}
 		img := digestToImage[digest]
 		if isID(image.Name) {
