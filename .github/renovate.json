@@ -50,7 +50,7 @@
     "kubernetesartifacts": {
       "defaultRegistryUrlTemplate": "https://kubernetesartifacts.azureedge.net/index/kubernetes/latest.json",
       "transformTemplates": [
-        "\"kube-proxy\":\\s*{\\s*\"url\":\\s*\"[^\"]+\",\\s*\"version\":\\s*{\\s*\"major\":\\s*(?<major>\\d+),\\s*\"minor\":\\s*(?<minor>\\d+),\\s*\"patch\":\\s*(?<patch>\\d+),\\s*\"hotfix\":\\s*(?<hotfix>\\d+)"
+        "{\"releases\":[\r\n  {\"version\": $$.(Packages[?(@.name == 'kubernetes-binaries')].downloadURIs.default.current.versions)}]}"
       ]
     }
   }
