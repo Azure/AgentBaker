@@ -460,8 +460,6 @@ capture_benchmark() {
   # reset timers for next section
   section_start_stopwatch=$(date +%s)
   section_start_timestamp=$(date +%H:%M:%S)
-
-  set -x
 }
 
 process_benchmarks() {
