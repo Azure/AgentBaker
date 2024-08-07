@@ -32,7 +32,7 @@ type AzureClient struct {
 	GalleryImageVersionClient *armcompute.GalleryImageVersionsClient
 }
 
-func MustNewAzureClient(subscription string) *AzureClient {
+func mustNewAzureClient(subscription string) *AzureClient {
 	client, err := NewAzureClient(subscription)
 	if err != nil {
 		panic(err)
