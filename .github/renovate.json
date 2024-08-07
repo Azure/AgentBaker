@@ -39,13 +39,19 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        ".*?\"name\":\\s*\"(?<depName>[^\"]+)\",\\s*\"multiArchVersions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\".*"
+        ".*?\"name\":\\s*\"kubernetes-binaries\",[\\s\\S]*?\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\".*"
       ],
-      "datasourceTemplate": "repology",
-      "versioningTemplate": "loose",
-      "gpg": {
-        "keyFile": "https://packages.microsoft.com/keys/microsoft.asc"
-      }
+      "depNameTemplate": "kubernetesartifacts",
+      "datasourceTemplate": "custom.kubernetesartifacts",
+      "versioningTemplate": "loose"
     }
-  ]
+  ],
+  "customDatasources": {
+    "kubernetesartifacts": {
+      "defaultRegistryUrlTemplate": "https://kubernetesartifacts.azureedge.net/index/kubernetes/latest.json",
+      "transformTemplates": [
+        "\"kube-proxy\":\\s*{\\s*\"url\":\\s*\"[^\"]+\",\\s*\"version\":\\s*{\\s*\"major\":\\s*(?<major>\\d+),\\s*\"minor\":\\s*(?<minor>\\d+),\\s*\"patch\":\\s*(?<patch>\\d+),\\s*\"hotfix\":\\s*(?<hotfix>\\d+)"
+      ]
+    }
+  }
 }
