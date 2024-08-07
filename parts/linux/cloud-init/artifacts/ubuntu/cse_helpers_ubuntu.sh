@@ -41,6 +41,14 @@ apt_get_update() {
     wait_for_apt_locks
 }
 apt_get_install() {
+    echo "Alburgess Space Testing for before ${@} installed"
+    os_device=$(readlink -f /dev/disk/azure/root)
+    used_blocks=$(df -P / | sed 1d | awk '{print $3}')
+    usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
+    usage=${usage%.*}
+    [ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
+    [ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
+
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
         wait_for_apt_locks
@@ -55,6 +63,15 @@ apt_get_install() {
         fi
     done
     echo Executed apt-get install --no-install-recommends -y \"$@\" $i times;
+    
+    echo "Alburgess Space Testing for after ${@} installed"
+    os_device=$(readlink -f /dev/disk/azure/root)
+    used_blocks=$(df -P / | sed 1d | awk '{print $3}')
+    usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
+    usage=${usage%.*}
+    [ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
+    [ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
+
     wait_for_apt_locks
 }
 apt_get_purge() {
