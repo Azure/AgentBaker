@@ -113,4 +113,4 @@ build-lister-binary:
 		ARCH=arm64
 	endif
 	@echo "Building lister binary for arch $(ARCH)"
-	@bash -c "pushd vhdbuilder/image-lister && CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -o bin/lister main.go && popd"
+	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -o bin/lister main.go && popd"

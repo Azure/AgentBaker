@@ -34,7 +34,7 @@ var (
 )
 
 func parseFlags() {
-	flag.StringVar(&opts.sku, "output-path", "", "the VHD's SKU")
+	flag.StringVar(&opts.sku, "sku", "", "the VHD's SKU")
 	flag.StringVar(&opts.nodeImageVersion, "node-image-version", "", "the VHD's node image version")
 	flag.StringVar(&opts.outputPath, "output-path", "", "where to store the generated image list")
 	flag.Parse()
