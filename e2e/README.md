@@ -65,7 +65,7 @@ To run a specific test, use the test name:
 ```bash
 TAGS_TO_RUN="name=Test_azurelinuxv2" ./e2e-local.sh
 # or
-go test -run Test_azurelinuxv2 -v -timeout 20m
+go test -run Test_azurelinuxv2 -v -timeout 90m
 ```
 
 
@@ -96,11 +96,11 @@ Azure resources are deleted periodically by an external garbage collector. Local
 
 ### Global Settings
 
-Set `GOFLAGS="-timeout=30m -parallel=100"` in your shell configuration file.
+Set `GOFLAGS="-timeout=90m -parallel=100"` in your shell configuration file.
 
 ### GoLand
 
-In **Run > Edit Configurations...**, set `-timeout=60m -parallel=100` in the Go tool arguments field.
+In **Run > Edit Configurations...**, set `-timeout=90m -parallel=100` in the Go tool arguments field.
 
 ### VSCode
 
@@ -109,7 +109,7 @@ Add to `settings.json`:
 ```json
 {
   "go.testFlags": ["-parallel=100", "-v"],
-  "go.testTimeout": "30m"
+  "go.testTimeout": "90m"
 }
 ```
 
