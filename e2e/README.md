@@ -108,7 +108,7 @@ Add to `settings.json`:
 
 ```json
 {
-  "go.testFlags": ["-parallel=100"],
+  "go.testFlags": ["-parallel=100", "-v"],
   "go.testTimeout": "30m"
 }
 ```
