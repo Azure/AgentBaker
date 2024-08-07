@@ -85,10 +85,6 @@ func TestE2EWindows(t *testing.T) {
 				GalleryName:   "AKSWindows",
 				ResourceGroup: "AKS-Windows",
 			},
-			"AKSUbuntuEdgeZone": datamodel.SIGGalleryConfig{
-				GalleryName:   "AKSUbuntuEdgeZone",
-				ResourceGroup: "AKS-Ubuntu-EdgeZone",
-			},
 		},
 	}
 
