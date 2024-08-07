@@ -6,7 +6,6 @@ require (
 	github.com/containerd/containerd v1.7.20
 	github.com/containerd/platforms v0.2.1
 	github.com/stretchr/testify v1.8.4
-	github.com/zeebo/assert v1.3.1
 )
 
 require (
