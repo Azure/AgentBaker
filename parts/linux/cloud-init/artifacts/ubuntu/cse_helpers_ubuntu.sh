@@ -41,6 +41,7 @@ apt_get_update() {
     wait_for_apt_locks
 }
 apt_get_install() {
+    MAX_BLOCK_COUNT=30298176 # 30 GB
     echo "Alburgess Space Testing for before ${@} installed"
     os_device=$(readlink -f /dev/disk/azure/root)
     used_blocks=$(df -P / | sed 1d | awk '{print $3}')
@@ -63,7 +64,7 @@ apt_get_install() {
         fi
     done
     echo Executed apt-get install --no-install-recommends -y \"$@\" $i times;
-    
+
     echo "Alburgess Space Testing for after ${@} installed"
     os_device=$(readlink -f /dev/disk/azure/root)
     used_blocks=$(df -P / | sed 1d | awk '{print $3}')
