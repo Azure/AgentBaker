@@ -41,7 +41,7 @@
       "matchStrings": [
         ".*?\"name\":\\s*\"kubernetes-binaries\",[\\s\\S]*?\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\".*"
       ],
-      "depNameTemplate": "kubernetesartifacts",
+      "depNameTemplate": "kubectl",
       "datasourceTemplate": "custom.kubernetesartifacts",
       "versioningTemplate": "loose"
     }
