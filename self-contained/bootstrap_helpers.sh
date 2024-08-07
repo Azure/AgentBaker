@@ -150,8 +150,7 @@ capture_space_metrics() {
     used_blocks=$(df -P / | sed 1d | awk '{print $3}')
     usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (used/capacity) * 100}')
     usage=${usage%.*}
-    [ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!"
-    [ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
+    echo "(2) Disk usage: ${usage}%"
 }
 
 retrycmd_get_tarball() {
@@ -172,7 +171,7 @@ retrycmd_get_tarball() {
             sleep $wait_sleep
         fi
     done
-    echo "Alburgess Space Testing for before $tarball installed"
+    echo "Alburgess Space Testing for After $tarball installed"
     capture_space_metrics
 }
 retrycmd_curl_file() {
