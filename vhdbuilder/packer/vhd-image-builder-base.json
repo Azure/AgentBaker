@@ -93,6 +93,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/image-lister/bin/lister",
+      "destination": "/home/packer/lister"
+    },
+    {
+      "type": "file",
       "source": "nbcparser/bin/nbcparser-amd64",
       "destination": "/home/packer/nbcparser"
     },

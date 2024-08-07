@@ -14,6 +14,14 @@ if [[ -z "${SKU_NAME}" ]]; then
 fi
 
 function generate_image_bom_for_containerd() {
+    if [ -f "/home/packer/lister" ]; then
+        pushd /home/packer
+            chmod +x lister
+            ./lister --sku "$SKU_NAME" --node-image-version "$IMAGE_VERSION" --output-path "$IMAGE_BOM_PATH" || exit $?
+        popd
+        exit 0
+    fi
+    
     IFS_backup=$IFS; IFS=$'\n'
     ctr_list=$(ctr -n k8s.io image list | sed 1d | awk '{print $1, $3}')
     digests=$(echo "$ctr_list" | awk '{print $2}' | xargs -n1 | sort -u)
