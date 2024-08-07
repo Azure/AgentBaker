@@ -14,7 +14,7 @@ fi
 
 function generate_image_bom_for_containerd() {
     if [ ! -f "/home/packer/lister" ]; then
-        echo "could not find lister binary at /home/packer/lister to generate image bom for containerd"
+        echo "could not find lister binary at /home/packer/lister needed to generate image bom for containerd"
         exit 1
     fi
 
