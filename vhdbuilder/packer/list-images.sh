@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euxo pipefail
 
-TEMP_IMAGE_BOM_PATH=/opt/azure/containers/temp-image-bom.json
 IMAGE_BOM_PATH=/opt/azure/containers/image-bom.json
 
 SKU_NAME="${SKU_NAME:=}"
@@ -14,30 +13,15 @@ if [[ -z "${SKU_NAME}" ]]; then
 fi
 
 function generate_image_bom_for_containerd() {
-    if [ -f "/home/packer/lister" ]; then
-        pushd /home/packer
-            chmod +x lister
-            ./lister --sku "$SKU_NAME" --node-image-version "$IMAGE_VERSION" --output-path "$IMAGE_BOM_PATH" || exit $?
-        popd
-        return 0
+    if [ ! -f "/home/packer/lister" ]; then
+        echo "could not find lister binary at /home/packer/lister to generate image bom for containerd"
+        exit 1
     fi
 
-    IFS_backup=$IFS; IFS=$'\n'
-    ctr_list=$(ctr -n k8s.io image list | sed 1d | awk '{print $1, $3}')
-    digests=$(echo "$ctr_list" | awk '{print $2}' | xargs -n1 | sort -u)
-
-    for digest in $digests; do
-        digest_entries=$(echo "$ctr_list" | grep -e "$digest")
-        tags=$(echo "$digest_entries" | awk '{print $1}' | grep -v "sha256")
-        id=$(echo "$digest_entries" | awk '{print $1}' | grep -e "sha256")
-
-        jq --arg tags "$tags" --arg digest "$digest" --arg id "$id" -n '{id:$id, repoTags:$tags | split("\n"), repoDigests:[$digest]}' >> $TEMP_IMAGE_BOM_PATH
-    done
-
-    IFS=$IFS_backup
-    bom=$(jq --slurpfile images $TEMP_IMAGE_BOM_PATH -n '$images | group_by(.id) | map({id:.[0].id, repoTags:[.[].repoTags] | add | unique, repoDigests:[.[].repoDigests] | add | unique})')
-    jq --argjson bom "$bom" --arg version "$IMAGE_VERSION" --arg sku "$SKU_NAME" -n '{sku:$sku, imageVersion:$version, imageBom:$bom}' > $IMAGE_BOM_PATH
-    rm -f $TEMP_IMAGE_BOM_PATH
+    pushd /home/packer
+        chmod +x lister
+        ./lister --sku "$SKU_NAME" --node-image-version "$IMAGE_VERSION" --output-path "$IMAGE_BOM_PATH" || exit $?
+    popd
 }
 
 function generate_image_bom_for_docker() {
