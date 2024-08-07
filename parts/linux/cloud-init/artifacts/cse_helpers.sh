@@ -423,7 +423,6 @@ check_array_size() {
 }
 
 capture_benchmark() {
-  set +x
   local title="$1"
   title="${title//[[:space:]]/_}"
   title="${title//-/_}"
@@ -463,7 +462,6 @@ capture_benchmark() {
 }
 
 process_benchmarks() {
-  set +x
   check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
   # use nameref variable to reference overall_script section
   declare -n script_stats="${benchmarks[last_index]}"
