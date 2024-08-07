@@ -186,6 +186,14 @@ downloadCNI() {
     retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
+
+downloadContainerdWasmShims
+echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
+
+echo "VHD will be built with containerd as the container runtime"
+updateAptWithMicrosoftPkg
+capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
+
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for p in ${packages[*]}; do
   #getting metadata for each package
@@ -272,13 +280,6 @@ for p in ${packages[*]}; do
   esac
   capture_benchmark "download_${name}"
 done
-
-downloadContainerdWasmShims
-echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
-
-echo "VHD will be built with containerd as the container runtime"
-updateAptWithMicrosoftPkg
-capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
 
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension

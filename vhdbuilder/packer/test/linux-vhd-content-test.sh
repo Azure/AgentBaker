@@ -129,6 +129,7 @@ testPackagesInstalled() {
               continue
           else
               err $test "$name is not installed. Expected to be installed in $downloadLocation"
+              continue
           fi
       fi
       
