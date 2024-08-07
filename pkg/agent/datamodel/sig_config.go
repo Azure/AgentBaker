@@ -534,7 +534,7 @@ var (
 	SIGUbuntuContainerd2204Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
-		Definition:    "2204gen2containerd",
+		Definition:    "2204gen2containerdamdv6test", // Where does this get set in AME build pipeline??  I set this in builder-release-template.yaml SetSKU for now
 		Version:       LinuxSIGImageVersion,
 	}
 
