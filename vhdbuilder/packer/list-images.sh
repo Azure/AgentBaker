@@ -19,9 +19,9 @@ function generate_image_bom_for_containerd() {
             chmod +x lister
             ./lister --sku "$SKU_NAME" --node-image-version "$IMAGE_VERSION" --output-path "$IMAGE_BOM_PATH" || exit $?
         popd
-        exit 0
+        return 0
     fi
-    
+
     IFS_backup=$IFS; IFS=$'\n'
     ctr_list=$(ctr -n k8s.io image list | sed 1d | awk '{print $1, $3}')
     digests=$(echo "$ctr_list" | awk '{print $2}' | xargs -n1 | sort -u)
