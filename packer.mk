@@ -108,9 +108,11 @@ build-nbcparser-binary:
 	@bash -c "pushd nbcparser && CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -o bin/nbcparser-$(ARCH) main.go && popd"
 
 build-lister-binary:
-	ARCH=amd64
-	ifeq (${ARCHITECTURE},ARM64)
-		ARCH=arm64
-	endif
-	@echo "Building lister binary for arch $(ARCH)"
-	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -o bin/lister main.go && popd"
+ifeq (${ARCHITECTURE},X86_64)
+	@echo "Building lister binary for amd64"
+	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/lister main.go && popd"
+endif
+ifeq (${ARCHITECTURE},ARM64)
+	@echo "Building lister binary for arm64"
+	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/lister main.go && popd"
+endif
