@@ -131,7 +131,6 @@ $wuRegistryNames = @(
     "HnsPreallocatePortRange",
     "4154935436",
     "124082829",
-    "NamespaceExcludedUdpPorts",
     "PortExclusionChange",
     "2290715789",
     "3152880268",

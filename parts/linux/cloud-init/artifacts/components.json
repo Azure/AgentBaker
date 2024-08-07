@@ -43,11 +43,18 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.5.28",
+        "v1.5.32",
         "v1.6.0"
       ],
       "prefetchOptimizations": [
         {
           "version": "v1.5.28",
+          "binaries": [
+            "dropgz"
+          ]
+        },
+        {
+          "version": "v1.5.32",
           "binaries": [
             "dropgz"
           ]
@@ -66,11 +73,18 @@
       "multiArchVersions": [
         "v1.4.52",
         "v1.5.26",
+        "v1.5.32",
         "v1.6.0"
       ],
       "prefetchOptimizations": [
         {
           "version": "v1.5.26",
+          "binaries": [
+            "usr/local/bin/azure-cns"
+          ]
+        },
+        {
+          "version": "v1.5.32",
           "binaries": [
             "usr/local/bin/azure-cns"
           ]
@@ -102,18 +116,11 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/cni-dropgz:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.0.13",
         "v0.0.20",
         "v0.1.4",
         "v0.2.0"
       ],
       "prefetchOptimizations": [
-        {
-          "version": "v0.0.13",
-          "binaries": [
-            "dropgz"
-          ]
-        },
         {
           "version": "v0.0.20",
           "binaries": [
@@ -138,7 +145,7 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.5.29"
+        "v1.5.34"
       ]
     },
     {
@@ -183,9 +190,6 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "6.8.13-main-05-29-2024-3e72c0e4",
-        "6.8.13-main-05-29-2024-3e72c0e4-targetallocator",
-        "6.8.13-main-05-29-2024-3e72c0e4-cfg",
         "6.9.0-main-07-22-2024-2e3dfb56",
         "6.9.0-main-07-22-2024-2e3dfb56-targetallocator",
         "6.9.0-main-07-22-2024-2e3dfb56-cfg"
@@ -196,51 +200,6 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v2.11.0"
-      ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/calico/cni:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "v3.24.6"
-      ],
-      "prefetchOptimizations": [
-        {
-          "version": "v3.24.6",
-          "binaries": [
-            "opt/cni/bin/bandwidth",
-            "opt/cni/bin/calico",
-            "opt/cni/bin/calico-ipam",
-            "opt/cni/bin/flannel",
-            "opt/cni/bin/host-local",
-            "opt/cni/bin/install",
-            "opt/cni/bin/loopback",
-            "opt/cni/bin/portmap",
-            "opt/cni/bin/tuning"
-          ]
-        }
-      ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/calico/node:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "v3.24.6"
-      ]
-    },
-    {
-      "downloadURL": "mcr.microsoft.com/oss/calico/pod2daemon-flexvol:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "v3.24.6"
-      ],
-      "prefetchOptimizations": [
-        {
-          "version": "v3.24.6",
-          "binaries": [
-            "usr/local/bin/flexvol"
-          ]
-        }
       ]
     },
     {
@@ -284,10 +243,10 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.28.8",
         "v1.28.9",
-        "v1.29.6",
+        "v1.28.10",
         "v1.29.7",
+        "v1.29.8",
         "v1.30.2"
       ]
     },
@@ -295,8 +254,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.28.10",
         "v1.28.11",
+        "v1.28.12",
         "v1.29.5",
         "v1.29.6",
         "v1.30.2",
@@ -307,8 +266,8 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.22.6",
         "v1.22.7",
+        "v1.22.8",
         "v1.23.4",
         "v1.23.5",
         "v1.24.2"
@@ -492,7 +451,8 @@
           "current": {
             "versions": [
               "1.4.54",
-              "1.5.28"
+              "1.5.28",
+              "1.5.32"
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
           }

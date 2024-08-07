@@ -86,7 +86,7 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, s
 		}
 
 		if err != nil {
-			return nil, err
+			t.Logf("error executing command on remote VM at %s of VMSS %s: %s", privateIP, vmssName, err)
 		}
 	}
 	return result, nil

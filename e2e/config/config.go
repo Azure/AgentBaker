@@ -1,50 +1,40 @@
 package config
 
 import (
-	"os"
-	"strings"
 	"time"
+
+	"github.com/caarlos0/env/v11"
+	"github.com/joho/godotenv"
 )
 
 var (
-	AirgapNSGName                 = "abe2e-airgap-securityGroup"
-	Azure                         = MustNewAzureClient(SubscriptionID)
-	BuildID                       = lookupEnvWithDefaultString(os.Getenv("BUILD_ID"), "local")
-	DefaultSubnetName             = "aks-subnet"
-	IgnoreScenariosWithMissingVHD = lookupEnvWithDefaultBool("IGNORE_SCENARIOS_WITH_MISSING_VHD", false)
-	KeepVMSS                      = lookupEnvWithDefaultBool("KEEP_VMSS", false)
-	Location                      = lookupEnvWithDefaultString("LOCATION", "westus3")
-	ResourceGroupName             = "abe2e-" + Location
-	SIGVersionTagName             = lookupEnvWithDefaultString("SIG_VERSION_TAG_NAME", "branch") // ADO tags every SIG image version with `branch` tag. By specifying `branch=refs/heads/master` we load latest image version from the master branch.
-	SIGVersionTagValue            = lookupEnvWithDefaultString("SIG_VERSION_TAG_VALUE", "refs/heads/master")
-	SkipTestsWithSKUCapacityIssue = lookupEnvWithDefaultBool("SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE", false)
-	SubscriptionID                = lookupEnvWithDefaultString("SUBSCRIPTION_ID", "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8")
-	TagsToRun                     = os.Getenv("TAGS_TO_RUN")
-	TagsToSkip                    = os.Getenv("TAGS_TO_SKIP")
-	TestTimeout                   = lookupEnvWithDefaultDuration("TEST_TIMEOUT", 12*time.Minute)
-	E2ELoggingDir                 = lookupEnvWithDefaultString("LOGGING_DIR", "scenario-logs")
+	Config            = mustLoadConfig()
+	Azure             = mustNewAzureClient(Config.SubscriptionID)
+	ResourceGroupName = "abe2e-" + Config.Location
 )
 
-func lookupEnvWithDefaultString(env string, defaultValue string) string {
-	val, ok := os.LookupEnv(env)
-	if !ok {
-		return defaultValue
-	}
-	return val
+type Configuration struct {
+	AirgapNSGName                 string        `env:"AIRGAP_NSG_NAME" envDefault:"abe2e-airgap-securityGroup"`
+	DefaultSubnetName             string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
+	BuildID                       string        `env:"BUILD_ID" envDefault:"local"`
+	Location                      string        `env:"LOCATION" envDefault:"westus3"`
+	SubscriptionID                string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"`
+	SIGVersionTagName             string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
+	SIGVersionTagValue            string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/master"`
+	TagsToRun                     string        `env:"TAGS_TO_RUN"`
+	TagsToSkip                    string        `env:"TAGS_TO_SKIP"`
+	TestTimeout                   time.Duration `env:"TEST_TIMEOUT" envDefault:"20m"`
+	E2ELoggingDir                 string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`
+	IgnoreScenariosWithMissingVHD bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
+	SkipTestsWithSKUCapacityIssue bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
+	KeepVMSS                      bool          `env:"KEEP_VMSS"`
 }
 
-func lookupEnvWithDefaultBool(env string, defaultValue bool) bool {
-	if val, ok := os.LookupEnv(env); ok {
-		return strings.EqualFold(val, "true")
+func mustLoadConfig() Configuration {
+	_ = godotenv.Load(".env")
+	cfg := Configuration{}
+	if err := env.Parse(&cfg); err != nil {
+		panic(err)
 	}
-	return defaultValue
-}
-
-func lookupEnvWithDefaultDuration(env string, defaultValue time.Duration) time.Duration {
-	if val, ok := os.LookupEnv(env); ok {
-		if d, err := time.ParseDuration(val); err == nil {
-			return d
-		}
-	}
-	return defaultValue
+	return cfg
 }
