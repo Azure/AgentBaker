@@ -96,7 +96,7 @@ steps:
       if [[ (${OS_VERSION} == "V2" || ${OS_VERSION} == "V3") && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
       if [[ (${OS_VERSION} == "22.04" || ${OS_VERSION} == "24.04") && ${ARCHITECTURE,,} == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
       if [[ (${OS_VERSION} == "18.04" || ${OS_VERSION} == "20.04" || ${OS_VERSION} == "22.04") && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
-      if [[ ${OS_VERSION} == "V2" && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
+      if [[ (${OS_VERSION} == "V2" || ${OS_VERSION} == "V3") && ${ENABLE_FIPS,,} == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
       if [[ "$(FEATURE_FLAGS)" == *"fullgpu"* ]]; then SKU_NAME="${SKU_NAME}gpu"; fi && \
       if [[ "${IMG_SKU}" == "20_04-lts-cvm" ]]; then SKU_NAME="${SKU_NAME}CVM"; fi && \
       if [[ "${IMG_SKU}" == *"minimal"* ]]; then SKU_NAME="${SKU_NAME}minimal"; fi && \
