@@ -1,5 +1,10 @@
 SHELL=/bin/bash -o pipefail
 
+GOARCH=amd64
+ifeq (${ARCHITECTURE},ARM64)
+	GOARCH=arm64
+endif
+
 build-packer: build-nbcparser-all build-lister-binary
 ifeq (${MODE},linuxVhdMode)
 	@echo "${MODE}: Generating prefetch scripts"
@@ -108,11 +113,5 @@ build-nbcparser-binary:
 	@bash -c "pushd nbcparser && CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -o bin/nbcparser-$(ARCH) main.go && popd"
 
 build-lister-binary:
-ifeq (${ARCHITECTURE},X86_64)
-	@echo "Building lister binary for amd64"
-	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/lister main.go && popd"
-endif
-ifeq (${ARCHITECTURE},ARM64)
-	@echo "Building lister binary for arm64"
-	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/lister main.go && popd"
-endif
+	@echo "Building lister binary for $(GOARCH)"
+	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"

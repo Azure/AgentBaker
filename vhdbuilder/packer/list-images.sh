@@ -7,12 +7,12 @@ SKU_NAME="${SKU_NAME:=}"
 IMAGE_VERSION="${IMAGE_VERSION:-$(date +%Y%m.%d.0)}"
 CONTAINER_RUNTIME="${CONTAINER_RUNTIME:-containerd}"
 
-if [[ -z "${SKU_NAME}" ]]; then
+if [ -z "${SKU_NAME}" ]; then
     echo "SKU_NAME must be set when generating image list"
     exit 1
 fi
 
-function generate_image_bom_for_containerd() {
+function generate_image_bom() {
     if [ ! -f "/home/packer/lister" ]; then
         echo "could not find lister binary at /home/packer/lister needed to generate image bom for containerd"
         exit 1
@@ -24,19 +24,12 @@ function generate_image_bom_for_containerd() {
     popd
 }
 
-function generate_image_bom_for_docker() {
-    docker inspect $(docker images -aq) -f '{"id":"{{.ID}}","repoTags":{{json .RepoTags}},"repoDigests":{{json .RepoDigests}}}' | jq --slurp . | jq  'map({id:.id, repoTags:.repoTags, repoDigests:.repoDigests | map(split("@")[1])})' > $IMAGE_BOM_PATH
-}
-
-echo "Generating image-bom with IMAGE_VERSION=${IMAGE_VERSION}"
-
-if [[ ${CONTAINER_RUNTIME} == "containerd" ]]; then
-    generate_image_bom_for_containerd
-elif [[ ${CONTAINER_RUNTIME} == "docker" ]]; then
-    generate_image_bom_for_docker
-else
-    echo "Unknown container runtime: ${CONTAINER_RUNTIME}"
+if [ "${CONTAINER_RUNTIME}" != "containerd" ]; then
+    echo "unknown container runtime: ${CONTAINER_RUNTIME}, expected containerd"
     exit 1
 fi
+
+echo "Generating image-bom with IMAGE_VERSION=${IMAGE_VERSION}"
+generate_image_bom
 
 chmod a+r $IMAGE_BOM_PATH
