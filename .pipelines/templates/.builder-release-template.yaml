@@ -111,6 +111,15 @@ steps:
     retryCountOnTaskFailure: 3
     displayName: Building VHD
   - bash: |
+        docker run --rm \
+        -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+        -w /go/src/github.com/Azure/AgentBaker \
+        -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+        -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+        -e BUILD_PERFORMANCE_DATA_FILE="vhd-build-performance-data.json" \
+        ${CONTAINER_IMAGE} make -f packer.mk evaluate-build-performance
+    displayName: Check Build Performance
+  - bash: |
         OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
         MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
         docker run --rm \
@@ -163,15 +172,6 @@ steps:
         -e GIT_BRANCH=$(Build.SourceBranch) \
         ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD Tests
-  - script: |
-        docker run --rm \
-        -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-        -w /go/src/github.com/Azure/AgentBaker \
-        -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-        -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-        -e BUILD_PERFORMANCE_DATA_FILE="vhd-build-performance-data.json" \
-        ${CONTAINER_IMAGE} make -f packer.mk evaluate-build-performance
-    displayName: Check Build Performance
   - task: Bash@3
     inputs:
       targetType: 'inline'
