@@ -1,6 +1,11 @@
 SHELL=/bin/bash -o pipefail
 
-build-packer: build-nbcparser-all
+GOARCH=amd64
+ifeq (${ARCHITECTURE},ARM64)
+	GOARCH=arm64
+endif
+
+build-packer: build-nbcparser-all build-lister-binary
 ifeq (${MODE},linuxVhdMode)
 	@echo "${MODE}: Generating prefetch scripts"
 	@bash -c "pushd vhdbuilder/prefetch; go run main.go --components=../packer/components.json --container-image-prefetch-script=../packer/prefetch.sh; popd"
@@ -106,3 +111,7 @@ build-nbcparser-all:
 build-nbcparser-binary:
 	@echo "Building nbcparser binary"
 	@bash -c "pushd nbcparser && CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -o bin/nbcparser-$(ARCH) main.go && popd"
+
+build-lister-binary:
+	@echo "Building lister binary for $(GOARCH)"
+	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"

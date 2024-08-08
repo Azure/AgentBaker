@@ -90,6 +90,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/lister/bin/lister",
+      "destination": "/home/packer/lister"
+    },
+    {
+      "type": "file",
       "source": "nbcparser/bin/nbcparser-arm64",
       "destination": "/home/packer/nbcparser"
     },
