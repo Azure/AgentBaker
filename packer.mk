@@ -106,6 +106,9 @@ ifeq (${MODE},linuxVhdMode)
 	@bash -c "pushd vhdbuilder/prefetch; go run main.go --components-path=../../parts/linux/cloud-init/artifacts/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
 endif
 
+evaluate-build-performance: az-login
+	@./vhdbuilder/packer/test/build-performance/evaluate-build-performance.sh
+
 build-nbcparser-all:
 	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=amd64
 	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=arm64
