@@ -89,8 +89,8 @@ func ensureDebugDaemonsets(ctx context.Context, kube *Kubeclient) error {
 
 func getDebugDaemonsetManifests() []string {
 	return []string{
-		getDebugDaemonsetTemplate(hostNetworkDebugPodNamePrefix, "nodepool1", true),
-		getDebugDaemonsetTemplate(nonHostNetworkDebugPodNamePrefix, "nodepool2", false),
+		getDebugDaemonsetTemplate(hostNetworkDebugAppLabel, "nodepool1", true),
+		getDebugDaemonsetTemplate(podNetworkDebugAppLabel, "nodepool2", false),
 	}
 }
 
