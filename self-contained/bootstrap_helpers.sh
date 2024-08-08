@@ -29,6 +29,7 @@ ERR_CNI_DOWNLOAD_TIMEOUT=41 # Timeout waiting for CNI downloads
 ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT=42 # Timeout waiting for https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb
 ERR_MS_PROD_DEB_PKG_ADD_FAIL=43 # Failed to add repo pkg file
 # ERR_FLEXVOLUME_DOWNLOAD_TIMEOUT=44 Failed to add repo pkg file -- DEPRECATED
+ERR_ORAS_DOWNLOAD_ERROR=45 # Unable to install oras
 ERR_SYSTEMD_INSTALL_FAIL=48 # Unable to install required systemd version
 ERR_MODPROBE_FAIL=49 # Unable to load a kernel module using modprobe
 ERR_OUTBOUND_CONN_FAIL=50 # Unable to establish outbound connection

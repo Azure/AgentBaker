@@ -145,7 +145,7 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.5.29"
+        "v1.5.34"
       ]
     },
     {
@@ -190,9 +190,6 @@
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "6.8.13-main-05-29-2024-3e72c0e4",
-        "6.8.13-main-05-29-2024-3e72c0e4-targetallocator",
-        "6.8.13-main-05-29-2024-3e72c0e4-cfg",
         "6.9.0-main-07-22-2024-2e3dfb56",
         "6.9.0-main-07-22-2024-2e3dfb56-targetallocator",
         "6.9.0-main-07-22-2024-2e3dfb56-cfg"
@@ -370,6 +367,20 @@
     }
   ],
   "Packages": [
+    {
+      "name": "oras",
+      "downloadLocation": "/usr/local/bin",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versions": [
+              "1.2.0"
+            ],
+            "downloadURL": "https://github.com/oras-project/oras/releases/download/v${version}/oras_${version}_linux_${CPU_ARCH}.tar.gz"
+          }
+        }
+      }
+    },
     {
       "name": "runc",
       "downloadLocation": "/opt/runc/downloads",
