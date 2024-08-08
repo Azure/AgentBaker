@@ -131,6 +131,7 @@ steps:
         -e ARCHITECTURE=${ARCHITECTURE} \
         -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
         ${CONTAINER_IMAGE} make -f packer.mk scanning-vhd
+    condition: not(eq(variables.IMG_OFFER, 'azure-linux-3'))
     retryCountOnTaskFailure: 2
     displayName: Scanning VHD
   - script: |
