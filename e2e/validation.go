@@ -116,6 +116,17 @@ func commonLiveVMValidators() []*LiveVMValidator {
 				"cloud-config.txt",
 			},
 		),
+		// this check will run from host's network - we expect it to succeed
+		{
+			Description: "check that curl to wireserver succeeds from host's network",
+			Command:     "curl http://168.63.129.16:32526/vmSettings",
+			Asserter: func(code, stdout, stderr string) error {
+				if code != "0" {
+					return fmt.Errorf("validator command terminated with exit code %q but expected code 0 (succeeded)", code)
+				}
+				return nil
+			},
+		},
 		// CURL goes to port 443 by default for HTTPS
 		{
 			Description: "check that curl to wireserver fails",
