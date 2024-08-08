@@ -12,24 +12,20 @@ if [ -z "${SKU_NAME}" ]; then
     exit 1
 fi
 
-function generate_image_bom() {
-    if [ ! -f "/home/packer/lister" ]; then
-        echo "could not find lister binary at /home/packer/lister needed to generate image bom for containerd"
-        exit 1
-    fi
-
-    pushd /home/packer
-        chmod +x lister
-        ./lister --sku "$SKU_NAME" --node-image-version "$IMAGE_VERSION" --output-path "$IMAGE_BOM_PATH" || exit $?
-    popd
-}
-
 if [ "${CONTAINER_RUNTIME}" != "containerd" ]; then
     echo "unknown container runtime: ${CONTAINER_RUNTIME}, expected containerd"
     exit 1
 fi
 
+if [ ! -f "/home/packer/lister" ]; then
+    echo "could not find lister binary at /home/packer/lister needed to generate image bom for containerd"
+    exit 1
+fi
+
 echo "Generating image-bom with IMAGE_VERSION=${IMAGE_VERSION}"
-generate_image_bom
+pushd /home/packer
+    chmod +x lister
+    ./lister --sku "$SKU_NAME" --node-image-version "$IMAGE_VERSION" --output-path "$IMAGE_BOM_PATH" || exit $?
+popd
 
 chmod a+r $IMAGE_BOM_PATH
