@@ -724,6 +724,20 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("token:"))
 			}),
 
+		Entry("AKSUbuntu2204 with kubelet serving certificate rotation explicitly disabled", "AKSUbuntu2204+DisableKubeletServingCertificateRotation", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.KubeletConfig["--rotate-server-certificates"] = "false"
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION"]).To(Equal("false"))
+			}),
+
+		Entry("AKSUbuntu2204 with kubelet serving certificate rotation enabled", "AKSUbuntu2204+KubeletServingCertificateRotation", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.KubeletConfig["--rotate-server-certificates"] = "true"
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION"]).To(Equal("true"))
+			}),
+
 		Entry("AKSUbuntu1804 with DisableCustomData = true", "AKSUbuntu1804+DisableCustomData", "1.19.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
