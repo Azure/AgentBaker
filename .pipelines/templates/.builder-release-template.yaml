@@ -168,15 +168,7 @@ steps:
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
         -w /go/src/github.com/Azure/AgentBaker \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-        -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-        -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
-        -e OS_VERSION=${OS_VERSION} \
-        -e OS_SKU=${OS_SKU} \
-        -e OS_TYPE="Linux" \
-        -e IMG_SKU=${IMG_SKU} \
-        -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-        -e GIT_BRANCH=$(Build.SourceBranch) \
         -e BUILD_PERFORMANCE_DATA_FILE="vhd-build-performance-data.json" \
         ${CONTAINER_IMAGE} make -f packer.mk evaluate-build-performance
     displayName: Check Build Performance
