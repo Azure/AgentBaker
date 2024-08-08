@@ -293,7 +293,10 @@ func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	}
 
 	if IsKubeletServingCertificateRotationEnabled(config) {
+		// ensure the required feature gate is set
 		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RotateKubeletServerCertificate", true)
+		// backfill deletion of --tls-cert-file and --tls-private-key-file, which are incompatible with --rotate-server-certificates
+		// these are set as defaults on the RP-side for Linux
 		delete(kubeletFlags, "--tls-cert-file")
 		delete(kubeletFlags, "--tls-private-key-file")
 	}
