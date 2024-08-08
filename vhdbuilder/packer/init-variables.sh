@@ -87,7 +87,7 @@ if [ -z "${VNET_RG_NAME}" ]; then
 		if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
 			VNET_RG_NAME="nodesigprod-agent-pool"
 		else
-			VNET_RG_NAME="nodesigtest-agent-pool"
+			VNET_RG_NAME="nodesigtest-eastus2-agent-pool"
 		fi
 	fi
 fi
@@ -97,7 +97,7 @@ if [ -z "${VNET_NAME}" ]; then
 		VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
 	fi
 	if [ "$MODE" == "windowsVhdMode" ]; then
-		VNET_NAME="nodesig-pool-vnet"
+		VNET_NAME="nodesig-eastus2-pool-vnet"
 	fi
 fi
 
