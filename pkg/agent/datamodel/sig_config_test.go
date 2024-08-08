@@ -63,7 +63,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(mariner.Definition).To(Equal("V1"))
 		Expect(mariner.Version).To(Equal(FrozenCBLMarinerV1SIGImageVersionForDeprecation))
 
-		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(10))
+		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(12))
 
 		azurelinuxV2 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2]
 		Expect(azurelinuxV2.ResourceGroup).To(Equal("resourcegroup"))
@@ -225,6 +225,12 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(azurelinuxV2FIPS.Definition).To(Equal("V2fips"))
 		Expect(azurelinuxV2FIPS.Version).To(Equal(LinuxSIGImageVersion))
 
+		azurelinuxV3FIPS := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3FIPS]
+		Expect(azurelinuxV3FIPS.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV3FIPS.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV3FIPS.Definition).To(Equal("V3fips"))
+		Expect(azurelinuxV3FIPS.Version).To(Equal(LinuxSIGImageVersion))
+
 		marinerV2Gen2FIPS := sigConfig.SigCBLMarinerImageConfig[AKSCBLMarinerV2Gen2FIPS]
 		Expect(marinerV2Gen2FIPS.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(marinerV2Gen2FIPS.Gallery).To(Equal("akscblmariner"))
@@ -236,6 +242,12 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(azurelinuxV2Gen2FIPS.Gallery).To(Equal("aksazurelinux"))
 		Expect(azurelinuxV2Gen2FIPS.Definition).To(Equal("V2gen2fips"))
 		Expect(azurelinuxV2Gen2FIPS.Version).To(Equal(LinuxSIGImageVersion))
+
+		azurelinuxV3Gen2FIPS := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3Gen2FIPS]
+		Expect(azurelinuxV3Gen2FIPS.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV3Gen2FIPS.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV3Gen2FIPS.Definition).To(Equal("V3gen2fips"))
+		Expect(azurelinuxV3Gen2FIPS.Version).To(Equal(LinuxSIGImageVersion))
 
 		aksUbuntuMinimalContainerd2204 := sigConfig.SigUbuntuImageConfig[AKSUbuntuMinimalContainerd2204]
 		Expect(aksUbuntuMinimalContainerd2204.ResourceGroup).To(Equal("resourcegroup"))
