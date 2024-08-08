@@ -33,7 +33,13 @@ MANIFEST_FILEPATH=/opt/azure/manifest.json
 cat components.json > ${COMPONENTS_FILEPATH}
 cat manifest.json > ${MANIFEST_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
-echo '[]' > ${VHD_BUILD_PERF_DATA}
+cat <<EOF >> ${VHD_BUILD_PERF_DATA}
+[
+  {"sig_image_name":"${SIG_IMAGE_NAME}"},
+  {"build_datetime":"$(date -u +"%Y-%m-%dT%H:%M:%SZ")"},
+  {"commit":"${GIT_VERSION}"},
+]
+EOF
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
   chmod 755 /opt
