@@ -320,7 +320,7 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
   CUDA_DRIVER_VERSION=$(jq -r ".nvidia.cuda[\"$LATEST_CUDA_VERSION\"]" $GPU_COMPONENTS_FILEPATH | awk -F'-sha-' '{print $1}' | awk -F'cuda-' '{print $2}')
   CUDA_DRIVER_SHA=$(jq -r ".nvidia.cuda[\"$LATEST_CUDA_VERSION\"]" $GPU_COMPONENTS_FILEPATH | awk -F'-sha-' '{print $2}')
   
-  NVIDIA_DRIVER_IMAGE_TAG="cuda-${CUDA_DRIVER_VERSION}-${CUDA_DRIVER_SHA}"
+  NVIDIA_DRIVER_IMAGE_TAG="cuda-${CUDA_DRIVER_VERSION}-sha-${CUDA_DRIVER_SHA}"
   mkdir -p /opt/{actions,gpu}
   ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
