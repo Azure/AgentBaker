@@ -52,11 +52,6 @@ fi
 function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
     az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
-
-    if [ -n "${VM_PRINCIPLE_ID}" ]; then
-        az role assignment delete --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}"
-        echo "Role assignment deleted."
-    fi
 }
 trap cleanup EXIT
 
@@ -70,8 +65,6 @@ if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
-UMSI_ID="/subscriptions/4be8920b-2978-43d7-ab14-04d8549c1d05/resourceGroups/vuln-to-kusto/providers/Microsoft.ManagedIdentity/userAssignedIdentities/vuln-to-kusto-pipeline-agentbaker"
-
 az vm create --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME \
     --image $VHD_IMAGE \
@@ -83,9 +76,6 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     ${VM_OPTIONS} \
     --assign-identity $UMSI_ID
 
-# JSON_QUERY=''
-# VM_PRINCIPLE_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query 'userAssignedIdentities."${UMSI_ID}".' --output tsv)
-# az role assignment create --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}"
 echo "KUSTO_ENDPOINT: ${KUSTO_ENDPOINT} KUSTO_DATABASE: ${KUSTO_DATABASE} KUSTO_TABLE: ${KUSTO_TABLE}"
 
 FULL_PATH=$(realpath $0)

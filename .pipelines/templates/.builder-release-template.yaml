@@ -135,6 +135,7 @@ steps:
         -e KUSTO_ENDPOINT=${KUSTO_ENDPOINT} \
         -e KUSTO_DATABASE=${KUSTO_DATABASE} \
         -e KUSTO_TABLE=${KUSTO_TABLE} \
+        -e UMSI_ID=${UMSI_ID} \
         ${CONTAINER_IMAGE} make -f packer.mk scanning-vhd
     retryCountOnTaskFailure: 2
     displayName: Scanning VHD
