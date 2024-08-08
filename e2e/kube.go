@@ -89,12 +89,12 @@ func ensureDebugDaemonsets(ctx context.Context, kube *Kubeclient) error {
 
 func getDebugDaemonsetManifests() []string {
 	return []string{
-		getDebugDaemonsetTemplate(hostNetworkDebugPodNamePrefix, true),
-		getDebugDaemonsetTemplate(nonHostNetworkDebugPodNamePrefix, false),
+		getDebugDaemonsetTemplate(hostNetworkDebugPodNamePrefix, "nodepool1", true),
+		getDebugDaemonsetTemplate(nonHostNetworkDebugPodNamePrefix, "nodepool2", false),
 	}
 }
 
-func getDebugDaemonsetTemplate(name string, isHostNetwork bool) string {
+func getDebugDaemonsetTemplate(deploymentName, targetNodeLabel string, isHostNetwork bool) string {
 	return fmt.Sprintf(`apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -114,7 +114,7 @@ spec:
     spec:
       hostNetwork: %t 
       nodeSelector:
-        kubernetes.azure.com/agentpool: nodepool1
+        kubernetes.azure.com/agentpool: %s 
       hostPID: true
       containers:
       - image: mcr.microsoft.com/oss/nginx/nginx:1.21.6
@@ -127,7 +127,7 @@ spec:
           privileged: true
           capabilities:
             add: ["SYS_PTRACE", "SYS_RAWIO"]
-`, name, isHostNetwork)
+`, deploymentName, isHostNetwork, targetNodeLabel)
 }
 
 func createDebugDeployment(ctx context.Context, kube *Kubeclient, manifest string) error {

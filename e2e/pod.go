@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,6 +32,25 @@ func getDebugPodName(ctx context.Context, kube *Kubeclient, labelName string) (s
 
 	podName := podList.Items[0].Name
 	return podName, nil
+}
+
+// Returns the name of a pod that's a member of the 'debug' deployment, running on an aks-nodepool node.
+func getNonHostDebugPodName(ctx context.Context, kube *Kubeclient, labelName, vmssName string) (string, error) {
+	podList := corev1.PodList{}
+	if err := kube.Dynamic.List(ctx, &podList, client.MatchingLabels{"app": labelName}); err != nil {
+		return "", fmt.Errorf("failed to list debug pod: %w", err)
+	}
+
+	if len(podList.Items) < 1 {
+		return "", fmt.Errorf("failed to find debug pod, list by selector returned no results")
+	}
+
+	for _, pod := range podList.Items {
+		if strings.Contains(pod.Spec.NodeName, vmssName) {
+			return pod.Name, nil
+		}
+	}
+	return "", fmt.Errorf("failed to find non host debug pod on node %s", vmssName)
 }
 
 func applyPodManifest(ctx context.Context, namespace string, kube *Kubeclient, manifest string) error {

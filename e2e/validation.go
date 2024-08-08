@@ -34,11 +34,12 @@ func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName 
 func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
 	hostPodName, err := getDebugPodName(ctx, opts.clusterConfig.Kube, hostNetworkDebugPodNamePrefix)
 	if err != nil {
-		return fmt.Errorf("While running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
+		return fmt.Errorf("while running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
 	}
-	nonHostPodName, err := getDebugPodName(ctx, opts.clusterConfig.Kube, nonHostNetworkDebugPodNamePrefix)
+
+	nonHostPodName, err := getNonHostDebugPodName(ctx, opts.clusterConfig.Kube, nonHostNetworkDebugPodNamePrefix, vmssName)
 	if err != nil {
-		return fmt.Errorf("While running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
+		return fmt.Errorf("while running live validator for node %s, unable to get non host debug pod name: %w", vmssName, err)
 	}
 
 	validators := commonLiveVMValidators()
@@ -117,7 +118,7 @@ func commonLiveVMValidators() []*LiveVMValidator {
 		),
 		{
 			Description: "check that curl to wireserver fails",
-			Command:     "curl 'http://168.63.129.16/machine/?comp=goalstate' -H 'x-ms-version: 2015-04-05' -s --connect-timeout 10",
+			Command:     "curl 'http://168.63.129.16:32526/vmSettings' --connect-timeout 4",
 			Asserter: func(code, stdout, stderr string) error {
 				if code != "28" {
 					return fmt.Errorf("validator command terminated with exit code %q but expected code 28 (CURL timeout)", code)
