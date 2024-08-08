@@ -184,10 +184,18 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		It("should return the correct bootstrapping data when linux node image version override is present", func() {
 			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
+				"vhd-types": func(entity *agenttoggles.Entity) map[string]string {
 					return map[string]string{
-						string(datamodel.AKSUbuntu1604): "202402.27.0",
+						"vhd-type": "override",
 					}
+				},
+				"linux-node-image-versions": func(entity *agenttoggles.Entity) map[string]string {
+					if entity.Fields["vhd-type"] == "override" {
+						return map[string]string{
+							string(datamodel.AKSUbuntu1604): "202402.27.0",
+						}
+					}
+					return nil
 				},
 			}
 
@@ -211,10 +219,18 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		It("should return the correct bootstrapping data when linux node image version is present but does not specify for distro", func() {
 			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
+				"vhd-types": func(entity *agenttoggles.Entity) map[string]string {
 					return map[string]string{
-						string(datamodel.AKSUbuntu1804): "202402.27.0",
+						"vhd-type": "override",
 					}
+				},
+				"linux-node-image-versions": func(entity *agenttoggles.Entity) map[string]string {
+					if entity.Fields["vhd-type"] == "override" {
+						return map[string]string{
+							string(datamodel.AKSUbuntu1804): "202402.27.0",
+						}
+					}
+					return nil
 				},
 			}
 			agentBaker, err := NewAgentBaker()
@@ -314,10 +330,18 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		It("should return correct value for existing distro when linux node image version override is provided", func() {
 			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
+				"vhd-types": func(entity *agenttoggles.Entity) map[string]string {
 					return map[string]string{
-						string(datamodel.AKSUbuntu1604): "202402.27.0",
+						"vhd-type": "override",
 					}
+				},
+				"linux-node-image-versions": func(entity *agenttoggles.Entity) map[string]string {
+					if entity.Fields["vhd-type"] == "override" {
+						return map[string]string{
+							string(datamodel.AKSUbuntu1604): "202402.27.0",
+						}
+					}
+					return nil
 				},
 			}
 			agentBaker, err := NewAgentBaker()
@@ -339,10 +363,18 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		It("should return correct value for existing distro when linux node image version override is provided but not for distro", func() {
 			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
+				"vhd-types": func(entity *agenttoggles.Entity) map[string]string {
 					return map[string]string{
-						string(datamodel.AKSUbuntu1804): "202402.27.0",
+						"vhd-type": "override",
 					}
+				},
+				"linux-node-image-versions": func(entity *agenttoggles.Entity) map[string]string {
+					if entity.Fields["vhd-type"] == "override" {
+						return map[string]string{
+							string(datamodel.AKSUbuntu1804): "202402.27.0",
+						}
+					}
+					return nil
 				},
 			}
 			agentBaker, err := NewAgentBaker()
@@ -480,8 +512,16 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				imageVersionOverrides[string(distro)] = azureLinuxOverrideVersion
 			}
 			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
-					return imageVersionOverrides
+				"vhd-types": func(entity *agenttoggles.Entity) map[string]string {
+					return map[string]string{
+						"vhd-type": "override",
+					}
+				},
+				"linux-node-image-versions": func(entity *agenttoggles.Entity) map[string]string {
+					if entity.Fields["vhd-type"] == "override" {
+						return imageVersionOverrides
+					}
+					return nil
 				},
 			}
 
