@@ -66,6 +66,13 @@ steps:
       SKU_NAME=$(echo ${SKU_NAME} | tr -d '.') && \
       echo "##vso[task.setvariable variable=SKU_NAME]$SKU_NAME"
       echo "Set SKU_NAME to $SKU_NAME"
+      echo -e "\n\n\n"
+      echo "##[group]${SKU_NAME} build performance data"
+      echo "##[group]     Inner Group"
+      jecho "Checking Nesting group logic"
+      echo "##[endgroup]"
+      echo "##[endgroup]"
+      echo "Testing Complete"
     displayName: Set SKU Name
   - bash: |
         echo MODE=$(MODE) && \
