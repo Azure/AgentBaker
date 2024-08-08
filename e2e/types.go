@@ -149,9 +149,9 @@ type LiveVMValidator struct {
 	// that will fail when executed with sudo - requires separate command to avoid command not found error on node
 	IsShellBuiltIn bool
 
-	// IsNonHostNetwork is a boolean flags which indicates whether or not the validator should run on a pod that is NOT using
+	// IsPodNetwork is a boolean flags which indicates whether or not the validator should run on a pod that is NOT using
 	// host's network interface. For example when testing connectivity from user pods to certain endpoints, we will set it to true
-	IsNonHostNetwork bool
+	IsPodNetwork bool
 }
 
 // PrepareNodeBootstrappingConfiguration mutates the input NodeBootstrappingConfiguration by calling the

@@ -51,7 +51,7 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP,
 		desc := validator.Description
 		command := validator.Command
 		isShellBuiltIn := validator.IsShellBuiltIn
-		isNonHostValidator := validator.IsNonHostNetwork
+		isNonHostValidator := validator.IsPodNetwork
 
 		t.Logf("running live VM validator on %s: %q", vmssName, desc)
 
@@ -59,7 +59,7 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP,
 		var err error
 		// Non Host Validators - meaning we want to execute checks through a pod which is NOT connected to host's network
 		if isNonHostValidator {
-			execResult, err = execOnPrivilegedPod(ctx, opts.clusterConfig.Kube, "default", nonHostPodName, command)
+			execResult, err = execOnUnprivilegedPod(ctx, opts.clusterConfig.Kube, "default", nonHostPodName, command)
 		} else {
 			execResult, err = pollExecOnVM(ctx, t, opts.clusterConfig.Kube, privateIP, hostPodName, sshPrivateKey, command, isShellBuiltIn)
 		}
@@ -116,16 +116,28 @@ func commonLiveVMValidators() []*LiveVMValidator {
 				"cloud-config.txt",
 			},
 		),
+		// CURL goes to port 443 by default for HTTPS
 		{
 			Description: "check that curl to wireserver fails",
-			Command:     "curl 'http://168.63.129.16:32526/vmSettings' --connect-timeout 4",
+			Command:     "curl https://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4",
 			Asserter: func(code, stdout, stderr string) error {
 				if code != "28" {
 					return fmt.Errorf("validator command terminated with exit code %q but expected code 28 (CURL timeout)", code)
 				}
 				return nil
 			},
-			IsNonHostNetwork: true,
+			IsPodNetwork: true,
+		},
+		{
+			Description: "check that curl to wireserver port 32526 fails",
+			Command:     "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4",
+			Asserter: func(code, stdout, stderr string) error {
+				if code != "28" {
+					return fmt.Errorf("validator command terminated with exit code %q but expected code 28 (CURL timeout)", code)
+				}
+				return nil
+			},
+			IsPodNetwork: true,
 		},
 	}
 }

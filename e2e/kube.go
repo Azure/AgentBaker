@@ -96,9 +96,9 @@ func getDebugDaemonsetManifests() []string {
 
 func getDebugDaemonsetTemplate(deploymentName, targetNodeLabel string, isHostNetwork bool) string {
 	return fmt.Sprintf(`apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
-  name: &name %s 
+  name: &name %[1]s 
   namespace: default
   labels:
     app: *name
@@ -112,9 +112,9 @@ spec:
       labels:
         app: *name
     spec:
-      hostNetwork: %t 
+      hostNetwork: %[2]t 
       nodeSelector:
-        kubernetes.azure.com/agentpool: %s 
+        kubernetes.azure.com/agentpool: %[3]s 
       hostPID: true
       containers:
       - image: mcr.microsoft.com/oss/nginx/nginx:1.21.6

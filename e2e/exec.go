@@ -142,6 +142,11 @@ func execOnPrivilegedPod(ctx context.Context, kube *Kubeclient, namespace, podNa
 	return execOnPod(ctx, kube, namespace, podName, privilegedCommand)
 }
 
+func execOnUnprivilegedPod(ctx context.Context, kube *Kubeclient, namespace, podName, command string) (*podExecResult, error) {
+	nonPrivilegedCommand := append(unprivilegedCommandArray(), command)
+	return execOnPod(ctx, kube, namespace, podName, nonPrivilegedCommand)
+}
+
 func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string, command []string) (*podExecResult, error) {
 	req := kube.Typed.CoreV1().RESTClient().Post().Resource("pods").Name(podName).Namespace(namespace).SubResource("exec")
 
@@ -195,6 +200,13 @@ func nsenterCommandArray() []string {
 		"-t",
 		"1",
 		"-m",
+		"bash",
+		"-c",
+	}
+}
+
+func unprivilegedCommandArray() []string {
+	return []string{
 		"bash",
 		"-c",
 	}
