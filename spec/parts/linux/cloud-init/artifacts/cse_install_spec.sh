@@ -43,6 +43,12 @@ Describe 'cse_install.sh'
             The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.28 1.5.32"
         End
 
+        It 'returns downloadURIs.default.current.versions of package oras for UBUNTU 20.04'
+            package=$(readPackage "oras")
+            When call returnPackageVersions "$package" "UBUNTU" "20.04"
+            The variable PACKAGE_VERSIONS[@] should equal "1.2.0"
+        End
+
         It 'returns downloadURIs.mariner.current.versions of package runc for MARINER'
             package=$(readPackage "runc")
             When call returnPackageVersions "$package" "MARINER" "some_mariner_version"

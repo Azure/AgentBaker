@@ -30,8 +30,6 @@ const (
 )
 
 func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte, publicKeyBytes []byte) *armcompute.VirtualMachineScaleSet {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-	defer cancel()
 	t.Logf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
 	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
 	require.NoError(t, err)

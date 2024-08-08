@@ -6,7 +6,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -16,8 +15,6 @@ import (
 const (
 	imageGallery       = "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/"
 	noSelectionTagName = "abe2e-ignore"
-
-	fetchResourceIDTimeout = 5 * time.Minute
 )
 
 var (
@@ -142,9 +139,6 @@ func (id VHDResourceID) Short() string {
 }
 
 func ensureStaticSIGImageVersion(ctx context.Context, t *testing.T, imageVersionResourceID string) (VHDResourceID, error) {
-	ctx, cancel := context.WithTimeout(ctx, fetchResourceIDTimeout)
-	defer cancel()
-
 	rid, err := arm.ParseResourceID(imageVersionResourceID)
 	if err != nil {
 		return "", fmt.Errorf("parsing image version resouce ID: %w", err)
@@ -169,9 +163,6 @@ func ensureStaticSIGImageVersion(ctx context.Context, t *testing.T, imageVersion
 }
 
 func findLatestSIGImageVersionWithTag(ctx context.Context, t *testing.T, imageDefinitionResourceID, tagName, tagValue string) (VHDResourceID, error) {
-	ctx, cancel := context.WithTimeout(ctx, fetchResourceIDTimeout)
-	defer cancel()
-
 	rid, err := arm.ParseResourceID(imageDefinitionResourceID)
 	if err != nil {
 		return "", fmt.Errorf("parsing image definition resource ID: %w", err)
