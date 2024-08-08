@@ -104,6 +104,9 @@ test-building-vhd: az-login
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
 
+evaluate-build-performance: az-login
+	@./vhdbuilder/packer/test/build-performance/evaluate-build-performance.sh
+
 build-nbcparser-all:
 	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=amd64
 	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=arm64
