@@ -44,13 +44,33 @@
       "depNameTemplate": "kubectl",
       "datasourceTemplate": "custom.kubernetesartifacts",
       "versioningTemplate": "loose"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "parts/linux/cloud-init/artifacts/components.json"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        ".*?\"name\":\\s*\"runc\",[\\s\\S]*?\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\".*"
+      ],
+      "depNameTemplate": "runc",
+      "datasourceTemplate": "custom.runc",
+      "versioningTemplate": "loose"
     }
   ],
   "customDatasources": {
     "kubernetesartifacts": {
       "defaultRegistryUrlTemplate": "https://kubernetesartifacts.azureedge.net/index/kubernetes/latest.json",
       "transformTemplates": [
-        "{\"releases\": [{{#each matches}}{\"version\": \"v{{this.major}}.{{this.minor}}.{{this.patch}}\"}{{#unless @last}}, {{/unless}}{{/each}}]}"
+        "{\"releases\":[{\"version\": $$.(data[id = 'stable'].latest)}]}"
+      ]
+    },
+    "runc": {
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/jammy/main/binary-amd64/Packages",
+      "format": "plain",
+      "transformTemplates": [
+        "{\"releases\":$map($match($, /Package:\\s*moby-runc\\s*Version:\\s*([^\\s]+)/g), function($v) {\"version\": $v.groups[0]})}"
       ]
     }
   }
