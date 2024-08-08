@@ -22,7 +22,7 @@ pr:
     - vhdbuilder/packer/windows-vhd-builder-sig.json
 
 pool:
-  name: $(AZURE_POOL_NAME)
+  name: "nodesigtest-eastus2-windows-pool"
 
 parameters:
 - name: build2019containerd
