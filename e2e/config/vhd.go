@@ -6,7 +6,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -16,8 +15,6 @@ import (
 const (
 	imageGallery       = "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/"
 	noSelectionTagName = "abe2e-ignore"
-
-	fetchResourceIDTimeout = 5 * time.Minute
 )
 
 var (
@@ -69,9 +66,9 @@ var (
 var ErrNotFound = fmt.Errorf("not found")
 
 type Image struct {
+	Arch    string
 	Name    string
 	OS      string
-	Arch    string
 	Version string
 
 	vhd     VHDResourceID
@@ -90,10 +87,10 @@ func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID,
 		if i.Version != "" {
 			i.vhd, i.vhdErr = ensureStaticSIGImageVersion(ctx, t, imageDefinitionResourceID+"/versions/"+i.Version)
 		} else {
-			i.vhd, i.vhdErr = findLatestSIGImageVersionWithTag(ctx, t, imageDefinitionResourceID, SIGVersionTagName, SIGVersionTagValue)
+			i.vhd, i.vhdErr = findLatestSIGImageVersionWithTag(ctx, t, imageDefinitionResourceID, Config.SIGVersionTagName, Config.SIGVersionTagValue)
 		}
 		if i.vhdErr != nil {
-			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", imageDefinitionResourceID, SIGVersionTagName, SIGVersionTagValue, i.vhdErr)
+			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", imageDefinitionResourceID, Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhdErr)
 			t.Logf("failed to find the latest image %s", i.vhdErr)
 		}
 	})
@@ -142,9 +139,6 @@ func (id VHDResourceID) Short() string {
 }
 
 func ensureStaticSIGImageVersion(ctx context.Context, t *testing.T, imageVersionResourceID string) (VHDResourceID, error) {
-	ctx, cancel := context.WithTimeout(ctx, fetchResourceIDTimeout)
-	defer cancel()
-
 	rid, err := arm.ParseResourceID(imageVersionResourceID)
 	if err != nil {
 		return "", fmt.Errorf("parsing image version resouce ID: %w", err)
@@ -169,9 +163,6 @@ func ensureStaticSIGImageVersion(ctx context.Context, t *testing.T, imageVersion
 }
 
 func findLatestSIGImageVersionWithTag(ctx context.Context, t *testing.T, imageDefinitionResourceID, tagName, tagValue string) (VHDResourceID, error) {
-	ctx, cancel := context.WithTimeout(ctx, fetchResourceIDTimeout)
-	defer cancel()
-
 	rid, err := arm.ParseResourceID(imageDefinitionResourceID)
 	if err != nil {
 		return "", fmt.Errorf("parsing image definition resource ID: %w", err)
@@ -218,7 +209,7 @@ func findLatestSIGImageVersionWithTag(ctx context.Context, t *testing.T, imageDe
 
 func ensureReplication(ctx context.Context, t *testing.T, definition sigImageDefinition, version *armcompute.GalleryImageVersion) error {
 	if replicatedToCurrentRegion(version) {
-		t.Logf("image version %s is already replicated to region %s", *version.ID, Location)
+		t.Logf("image version %s is already replicated to region %s", *version.ID, Config.Location)
 		return nil
 	}
 	return replicateToCurrentRegion(ctx, t, definition, version)
@@ -226,7 +217,7 @@ func ensureReplication(ctx context.Context, t *testing.T, definition sigImageDef
 
 func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion) bool {
 	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
-		if strings.EqualFold(strings.ReplaceAll(*targetRegion.Name, " ", ""), Location) {
+		if strings.EqualFold(strings.ReplaceAll(*targetRegion.Name, " ", ""), Config.Location) {
 			return true
 		}
 	}
@@ -234,10 +225,10 @@ func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion) bool {
 }
 
 func replicateToCurrentRegion(ctx context.Context, t *testing.T, definition sigImageDefinition, version *armcompute.GalleryImageVersion) error {
-	t.Logf("will replicate image version %s to region %s...", *version.ID, Location)
+	t.Logf("will replicate image version %s to region %s...", *version.ID, Config.Location)
 
 	version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
-		Name:                 &Location,
+		Name:                 &Config.Location,
 		RegionalReplicaCount: to.Ptr[int32](1),
 		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
 	})
