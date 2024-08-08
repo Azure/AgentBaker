@@ -163,6 +163,24 @@ steps:
         -e GIT_BRANCH=$(Build.SourceBranch) \
         ${CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD Tests
+  - script: |
+        docker run --rm \
+        -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+        -w /go/src/github.com/Azure/AgentBaker \
+        -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+        -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
+        -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
+        -e OS_VERSION=${OS_VERSION} \
+        -e OS_SKU=${OS_SKU} \
+        -e OS_TYPE="Linux" \
+        -e IMG_SKU=${IMG_SKU} \
+        -e MODE=$(MODE) \
+        -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
+        -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+        -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
+        -e GIT_BRANCH=$(Build.SourceBranch) \
+        ${CONTAINER_IMAGE} make -f packer.mk evaluate-build-performance
+    displayName: Check Build Performance
   - task: Bash@3
     inputs:
       targetType: 'inline'
