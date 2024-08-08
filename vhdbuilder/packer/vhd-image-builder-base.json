@@ -303,6 +303,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/gpu-components.json",
+      "destination": "/home/packer/gpu-components.json"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/manifest.json",
       "destination": "/home/packer/manifest.json"
     },

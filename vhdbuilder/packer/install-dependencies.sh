@@ -315,16 +315,12 @@ capture_benchmark "artifact_streaming_and_download_teleportd"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
-  LATEST_CUDA_VERSION=$(jq -r '.nvidia.cuda | keys | max' "$GPU_COMPONENTS_FILEPATH")
-  NVIDIA_DRIVER_IMAGE=$(jq -r ".nvidia.cuda.\"$LATEST_CUDA_VERSION\"" "$GPU_COMPONENTS_FILEPATH")
-
-  NVIDIA_DRIVER_IMAGE_TAG=$(echo $NVIDIA_DRIVER_IMAGE | cut -d':' -f2)
-  # Split the tag into its components
-  IFS='-' read -ra TAG_PARTS <<< "$NVIDIA_DRIVER_IMAGE_TAG"
-  CUDA_VERSION=${TAG_PARTS[1]}
-  NVIDIA_DRIVER_IMAGE_SHA=${TAG_PARTS[2]}
-  export NVIDIA_DRIVER_IMAGE_TAG="cuda-$CUDA_VERSION-${NVIDIA_DRIVER_IMAGE_SHA}"
-
+  # Get the latest CUDA driver version from the config file
+  LATEST_CUDA_VERSION=$(jq -r '.nvidia.cuda | keys | max' $GPU_COMPONENTS_FILEPATH)
+  CUDA_DRIVER_VERSION=$(jq -r ".nvidia.cuda[\"$LATEST_CUDA_VERSION\"]" $GPU_COMPONENTS_FILEPATH | awk -F'-sha-' '{print $1}' | awk -F'cuda-' '{print $2}')
+  CUDA_DRIVER_SHA=$(jq -r ".nvidia.cuda[\"$LATEST_CUDA_VERSION\"]" $GPU_COMPONENTS_FILEPATH | awk -F'-sha-' '{print $2}')
+  
+  NVIDIA_DRIVER_IMAGE_TAG="cuda-${CUDA_DRIVER_VERSION}-${CUDA_DRIVER_SHA}"
   mkdir -p /opt/{actions,gpu}
   ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
