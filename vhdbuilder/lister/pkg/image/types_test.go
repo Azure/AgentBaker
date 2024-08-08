@@ -143,7 +143,7 @@ func TestImageMarshal(t *testing.T) {
 			name: "should correctly marshal to JSON",
 			img: &Image{
 				ID:    "id",
-				Bytes: 10,
+				Bytes: 100000,
 				Tags: map[string]struct{}{
 					"t1": struct{}{},
 					"t2": struct{}{},
@@ -153,7 +153,7 @@ func TestImageMarshal(t *testing.T) {
 					"d1": struct{}{},
 				},
 			},
-			expected: []byte(`{"id":"id","bytes":10,"repoTags":["t1","t2","t3"],"repoDigests":["d1"]}`),
+			expected: []byte(`{"id":"id","bytes":100000,"size":"97.7 KiB","repoTags":["t1","t2","t3"],"repoDigests":["d1"]}`),
 		},
 	}
 

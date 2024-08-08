@@ -3,6 +3,8 @@ package image
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/containerd/containerd/pkg/progress"
 )
 
 type List struct {
@@ -61,11 +63,13 @@ func (i *Image) MarshalJSON() ([]byte, error) {
 	toMarshal := struct {
 		ID          string   `json:"id"`
 		Bytes       int64    `json:"bytes"`
+		Size        string   `json:"size"`
 		RepoTags    []string `json:"repoTags"`
 		RepoDigests []string `json:"repoDigests"`
 	}{
 		ID:          i.ID,
 		Bytes:       i.Bytes,
+		Size:        progress.Bytes(i.Bytes).String(),
 		RepoTags:    stringSetToSlice(i.Tags),
 		RepoDigests: stringSetToSlice(i.Digests),
 	}
