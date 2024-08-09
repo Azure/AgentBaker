@@ -422,10 +422,11 @@ testKubeBinariesPresent() {
 testCriticalTools() {
   test="testCriticalTools"
   echo "$test:Start"
-  if ! nc -h 2>/dev/null; then
-    err $test "nc is not installed"
+
+  if ! curl -h 2>/dev/null; then
+    err $test "curl is not installed"
   else
-    echo $test "nc is installed"
+    echo $test "curl is installed"
   fi
 
   if ! nslookup -version 2>/dev/null; then
