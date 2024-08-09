@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbakere2e/config"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,6 +23,7 @@ const (
 	extractVMLogsPollInterval            = 5 * time.Second
 	waitUntilPodRunningPollInterval      = 5 * time.Second
 	waitUntilNodeReadyPollingInterval    = 5 * time.Second
+	waitUntilClusterReadyPollingInterval = 5 * time.Second
 )
 
 func pollExecOnVM(ctx context.Context, t *testing.T, kube *Kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
@@ -160,4 +163,27 @@ func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string) er
 		}
 		return false, nil
 	})
+}
+
+func waitUntilClusterReady(ctx context.Context, rg, name string) (*armcontainerservice.ManagedCluster, error) {
+	var cluster armcontainerservice.ManagedClustersClientGetResponse
+	err := wait.PollUntilContextCancel(ctx, waitUntilClusterReadyPollingInterval, true, func(ctx context.Context) (bool, error) {
+		var err error
+		cluster, err = config.Azure.AKS.Get(ctx, rg, name, nil)
+		if err != nil {
+			return false, err
+		}
+		switch *cluster.ManagedCluster.Properties.ProvisioningState {
+		case "Succeeded":
+			return true, nil
+		case "Updating", "Assigned":
+			return false, nil
+		default:
+			return false, fmt.Errorf("cluster %s is in state %s", name, *cluster.ManagedCluster.Properties.ProvisioningState)
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &cluster.ManagedCluster, err
 }
