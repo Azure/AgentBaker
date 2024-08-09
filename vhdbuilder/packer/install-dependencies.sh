@@ -551,8 +551,6 @@ unpackOras() {
   ORAS_DIR_TMP=${ORAS_TGZ_TMP%.tgz}
   mkdir "$ORAS_DOWNLOADS_DIR/${ORAS_DIR_TMP}"
   tar -xzf "$ORAS_DOWNLOADS_DIR/${ORAS_TGZ_TMP}" -C $ORAS_DOWNLOADS_DIR/$ORAS_DIR_TMP
-  rm -rf ${ORAS_DOWNLOADS_DIR:?}/${ORAS_TGZ_TMP}
-  echo "  - Ran tar -xzf on the ORAS downloaded then rm -rf to clean up"
 }
 
 for ORAS_VERSION in $ORAS_VERSIONS; do
