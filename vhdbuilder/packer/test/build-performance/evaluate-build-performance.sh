@@ -1,5 +1,6 @@
 #!/bin/bash
-
+SIG_IMAGE_NAME=AzureLinux5
+BUILD_PERF_DATA_FILE=BUILD_PERFORMANCE_DATA_FILE.json
 echo -e "\nGenerating ${SIG_IMAGE_NAME} build performance data from ${BUILD_PERF_DATA_FILE}...\n"
 
 scripts=()
@@ -21,6 +22,11 @@ ${VHD_BUILD_PERFORMANCE_DATA_FILE} > ${SIG_IMAGE_NAME}-build-performance.json
 
 go build -o kustoProgram main.go
 
+export KUSTO_ENDPOINT="https://vhdbuildperfdata.eastus.kusto.windows.net"
+export KUSTO_DATABASE_NAME="https://vhdbuildperfdata.eastus.kusto.windows.net"
+export KUSTO_TABLE_NAME="BuildPerformanceTable"
+export SIG_IMAGE_NAME="AzureLinux5"
+export 
 ./kustoProgram
 
 echo -e "\nBuild performance evaluation successfully completed"
