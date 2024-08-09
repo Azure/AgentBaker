@@ -16,12 +16,12 @@ func main() {
 	kustoTable := os.Getenv("KUSTO_TABLE_NAME")
 	kustoEndpoint := os.Getenv("KUSTO_ENDPOINT")
 	kustoDatabase := os.Getenv("KUSTO_DATABASE_NAME")
-	sigImageName := os.Getenv("SIG_IMAGE_NAME")
 	//sourceBranchName := os.Getenv("SOURCE_BRANCH_NAME")
-	buildPerformanceDataFile := sigImageName + "build-performance.json"
+	sigImageName := os.Getenv("SIG_IMAGE_NAME")
+	buildPerformanceDataFile := sigImageName + "-build-performance"
 
 	// Create Connection String
-	kustoConnectionString := azkustodata.NewConnectionStringBuilder(kustoEndpoint).WithAzCli()
+	kustoConnectionString := azkustodata.NewConnectionStringBuilder(kustoEndpoint).WithSystemManagedIdentity()
 
 	ingestionClient, err := azkustoingest.New(
 		kustoConnectionString,
@@ -48,6 +48,4 @@ func main() {
 	}
 
 	fmt.Println("Successfully ingested build performance data.")
-
-	return
 }
