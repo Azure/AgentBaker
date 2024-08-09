@@ -39,7 +39,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"name\":\\s*\"runc\".*?\"r2004\".*?\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\"'"
+        "\"name\":\\s*\"runc\".*?\"r2004\".*?\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "depNameTemplate": "runc",
       "datasourceTemplate": "custom.runc",
