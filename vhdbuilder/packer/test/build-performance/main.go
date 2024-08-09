@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -28,7 +29,7 @@ func main() {
 		azkustoingest.WithDefaultDatabase(kustoDatabase))
 
 	if err != nil {
-		panic("Kusto ingestion client could not be created.")
+		log.Fatalf("Kusto ingestion client could not be created.")
 	}
 	defer ingestionClient.Close()
 
@@ -41,7 +42,7 @@ func main() {
 		azkustoingest.IngestionMappingRef("buildPerfMapping", azkustoingest.JSON))
 
 	if err != nil {
-		panic("Failed to ingest build performance data.")
+		log.Fatalf("Failed to ingest build performance data.")
 	}
 
 	fmt.Println("Successfully ingested build performance data.")
