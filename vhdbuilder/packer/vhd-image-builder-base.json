@@ -303,7 +303,7 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/components.json",
+      "source": "parts/linux/cloud-init/artifacts/components.json",
       "destination": "/home/packer/components.json"
     },
     {
