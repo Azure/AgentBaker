@@ -81,7 +81,7 @@
     "k3s": {
       "defaultRegistryUrlTemplate": "https://update.k3s.io/v1-release/channels",
       "transformTemplates": [
-        "{\"releases\": [{\"version\": \"1.30.3+k3s1\"},{\"version\": \"1.1.14\"},{\"version\": \"1.1.4+azure-ubuntu22.04u5\"}]}"
+        "{\"releases\": [{\"version\": \"1.30.3\"},{\"version\": \"1.1.14\"},{\"version\": \"1.1.4+azure-ubuntu22.04u5\"}]}"
       ]
     }
   }
