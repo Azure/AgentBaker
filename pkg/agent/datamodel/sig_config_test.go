@@ -77,6 +77,18 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(azurelinuxV3.Definition).To(Equal("V3"))
 		Expect(azurelinuxV3.Version).To(Equal(LinuxSIGImageVersion))
 
+		azurelinuxV2Gen2 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2Gen2]
+		Expect(azurelinuxV2Gen2.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV2Gen2.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV2Gen2.Definition).To(Equal("V2gen2"))
+		Expect(azurelinuxV2Gen2.Version).To(Equal(LinuxSIGImageVersion))
+
+		azurelinuxV3Gen2 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3Gen2]
+		Expect(azurelinuxV3Gen2.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV3Gen2.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV3Gen2.Definition).To(Equal("V3gen2"))
+		Expect(azurelinuxV3Gen2.Version).To(Equal(LinuxSIGImageVersion))
+
 		Expect(len(sigConfig.SigWindowsImageConfig)).To(Equal(6))
 
 		windows2019 := sigConfig.SigWindowsImageConfig[AKSWindows2019]
@@ -248,6 +260,12 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(azurelinuxV3Gen2FIPS.Gallery).To(Equal("aksazurelinux"))
 		Expect(azurelinuxV3Gen2FIPS.Definition).To(Equal("V3gen2fips"))
 		Expect(azurelinuxV3Gen2FIPS.Version).To(Equal(LinuxSIGImageVersion))
+
+		azurelinuxV2Gen2Kata := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2Gen2Kata]
+		Expect(azurelinuxV2Gen2Kata.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV2Gen2Kata.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV2Gen2Kata.Definition).To(Equal("V2katagen2"))
+		Expect(azurelinuxV2Gen2Kata.Version).To(Equal(LinuxSIGImageVersion))
 
 		aksUbuntuMinimalContainerd2204 := sigConfig.SigUbuntuImageConfig[AKSUbuntuMinimalContainerd2204]
 		Expect(aksUbuntuMinimalContainerd2204.ResourceGroup).To(Equal("resourcegroup"))
