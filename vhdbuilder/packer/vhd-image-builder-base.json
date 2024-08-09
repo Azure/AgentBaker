@@ -29,7 +29,8 @@
     "subnet_name": "{{env `SUBNET_NAME`}}",
     "private_packages_url": "{{env `PRIVATE_PACKAGES_URL`}}",
     "branch": "{{env `BRANCH`}}",
-    "vhd_build_timestamp": "{{user `VHD_BUILD_TIMESTAMP`}}"
+    "vhd_build_timestamp": "{{user `VHD_BUILD_TIMESTAMP`}}",
+    "shallow_replication": "{{env `SHALLOW_REPLICATION`}}"
   },
   "builders": [
     {
@@ -61,8 +62,8 @@
       "polling_duration_timeout": "1h",
       "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
-      "managed_image_storage_account_type": "Premium_LRS",
       "shared_image_gallery_destination": {
+        "use_shallow_replication": "{{user `shallow_replication`}}",
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
