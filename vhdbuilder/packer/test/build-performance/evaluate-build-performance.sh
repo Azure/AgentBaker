@@ -16,7 +16,7 @@ done
 jq --arg sig "${SIG_IMAGE_NAME}" \
 --arg date "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
 --arg commit "${GIT_VERSION}" \
-'. as $orig | [{"sig_image_name":$sig}, {"build_datetime":$date}, {"commit":$commit}] + $orig' \
+'. as $orig | [{"sig_image_name":$sig}, {"build_datetime":$date}, {"commit":$commit}, {"scripts": $orig}]' \
 ${VHD_BUILD_PERFORMANCE_DATA_FILE} > ${SIG_IMAGE_NAME}-build-performance.json
 
 echo -e "\nBuild performance evaluation successfully completed"
