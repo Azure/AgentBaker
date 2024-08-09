@@ -444,8 +444,7 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
 capture_benchmark "pull_and_retag_container_images"
 
-# TODO: update comment
-# IPv6 nftables rules are only available on Ubuntu or Mariner v2
+# IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
 if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) || ( $OS == $AZURELINUX_OS_NAME && $OS_VERSION == "3.0" ) ]]; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
