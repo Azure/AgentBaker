@@ -7,6 +7,7 @@ import (
 
 	"github.com/Azure/azure-kusto-go/azkustodata"
 	"github.com/Azure/azure-kusto-go/azkustoingest"
+	"golang.org/x/tools/go/analysis/passes/nilfunc"
 )
 
 func main() {
@@ -31,17 +32,38 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
 
-		if _, err := ingestionClient.FromFile(
+		_, err = ingestionClient.FromFile(
 			ctx,
 			buildPerformanceDataFile,
-			azkustoingest.IngestionMappingRef("buildPerfMapping", azkustoingest.JSON)); err != nil {
-			panic("Failed to ingest build performance data.")
+			azkustoingest.IngestionMappingRef("buildPerfMapping", azkustoingest.JSON))
+	
+		if err != nil {
+		  panic("Failed to ingest build performance data.")
 		}
+
+		fmt.PrintLn("Successfully ingested build performance data.")
 
 		return
 	} else {
+    // Branch is not main, so we will query the Kusto DB for main performance data and then compare this run against that
+    queryClient, err := azkustodata.New(kustoConnectionString)
 
+		if err != nil {
+			panic("Failed to create query client.")
+		}
+
+		defer func (queryClient *azkustodata.Client) {
+			err := queryClient.Close()
+			if err != nil {
+				panic("Failed to close query client.")
+			}
+		}(queryClient)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+
+		
 	}
+}
 	//dataPlaneClient, err := azkustodata.New(kcsb)
 	//if err != nil {
 	//panic("Could not create Kusto Connection String.")
