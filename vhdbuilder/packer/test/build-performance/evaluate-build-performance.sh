@@ -13,4 +13,4 @@ for script in "${scripts[@]}"; do
   echo "##[endgroup]"
 done
 
-echo -e "\nBuild performance evaluation successfully completed"
+echo -e "\nBuild performance data generated."
