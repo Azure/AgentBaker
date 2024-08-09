@@ -1,0 +1,83 @@
+[
+  {
+    "sig_image_name": "AzureLinux5"
+  },
+  {
+    "build_datetime": "2024-08-09T16:02:03Z"
+  },
+  {
+    "commit": "mainBranch"
+  },
+  {
+    "pre_install_dependencies.sh": {
+      "overall": {
+        "start_time": "00:00:00",
+        "end_time": "00:07:00",
+        "total_time_elapsed": "00:07:00"
+      },
+      "section1": {
+        "start_time": "00:00:00",
+        "end_time": "00:02:00",
+        "total_time_elapsed": "00:02:00"
+      },
+      "section2": {
+        "start_time": "00:02:00",
+        "end_time": "00:04:00",
+        "total_time_elapsed": "00:02:00"
+      },
+      "section3": {
+        "start_time": "00:04:00",
+        "end_time": "00:07:00",
+        "total_time_elapsed": "00:03:00"
+      }
+    }
+  },
+  {
+    "install_dependencies.sh": {
+      "overall": {
+        "start_time": "00:00:00",
+        "end_time": "00:07:00",
+        "total_time_elapsed": "00:07:00"
+      },
+      "section1": {
+        "start_time": "00:00:00",
+        "end_time": "00:02:00",
+        "total_time_elapsed": "00:02:00"
+      },
+      "section2": {
+        "start_time": "00:02:00",
+        "end_time": "00:04:00",
+        "total_time_elapsed": "00:02:00"
+      },
+      "section3": {
+        "start_time": "00:04:00",
+        "end_time": "00:07:00",
+        "total_time_elapsed": "00:03:00"
+      }
+    }
+  },
+  {
+    "post_install_dependencies.sh": {
+      "overall": {
+        "start_time": "00:00:00",
+        "end_time": "00:07:00",
+        "total_time_elapsed": "00:07:00"
+      },
+      "section1": {
+        "start_time": "00:00:00",
+        "end_time": "00:02:00",
+        "total_time_elapsed": "00:02:00"
+      },
+      "section2": {
+        "start_time": "00:02:00",
+        "end_time": "00:04:00",
+        "total_time_elapsed": "00:02:00"
+      },
+      "section3": {
+        "start_time": "00:04:00",
+        "end_time": "00:07:00",
+        "total_time_elapsed": "00:03:00"
+      }
+    }
+  }
+]
