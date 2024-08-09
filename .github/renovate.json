@@ -20,18 +20,7 @@
     }
   ],
   "customManagers": [
-    {
-      "customType": "regex",
-      "fileMatch": [
-        "parts/linux/cloud-init/artifacts/test_components.json"
-      ],
-      "matchStringsStrategy": "any",
-      "matchStrings": [
-        ".*?\"downloadURL\":\\s*\"(?<registryUrl>[^/]+)/(?<packageName>[^:]+)[\\s\\S]*?\"multiArchVersions\": \\[\\s*\"(?<currentValue>[^\\\"]+)\".*"
-      ],
-      "datasourceTemplate": "docker",
-      "registryUrlTemplate": "https://mcr.microsoft.com"
-    },
+    
     {
       "customType": "regex",
       "fileMatch": [
