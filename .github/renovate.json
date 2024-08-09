@@ -51,7 +51,7 @@
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/jammy/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": [{\"version\": \"1.1.13-ubuntu20.04u2\"},{\"version\": \"1.1.12-ubuntu20.04u2\"},{\"version\": \"1.1.4+azure-ubuntu22.04u5\"}]}"
+        "{\"releases\": [{\"version\": \"1.1.13\"},{\"version\": \"1.1.14\"},{\"version\": \"1.1.4+azure-ubuntu22.04u5\"}]}"
       ]
     }
   }
