@@ -51,7 +51,7 @@
         "\"name\":\\s*\"(?<packageName>[^\"]+)\"[^}]*\"r2004\"[^}]*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "datasourceTemplate": "custom.mobyrunc",
-      "versioningTemplate": "loose"
+      "versioningTemplate": "semver"
     }
   ],
   "customDatasources": {
