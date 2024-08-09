@@ -209,11 +209,21 @@ function Set-AzureCNIConfig
     }
     $aclRule2 = [PSCustomObject]@{
         Type = 'ACL'
+        Protocols = '6'
+        Action = 'Block'
+        Direction = 'Out'
+        RemoteAddresses = '168.63.129.16/32'
+        RemotePorts = '32526'
+        Priority = 200
+        RuleType = 'Switch'
+    }
+    $aclRule3 = [PSCustomObject]@{
+        Type = 'ACL'
         Action = 'Allow'
         Direction = 'In'
         Priority = 65500
     }
-    $aclRule3 = [PSCustomObject]@{
+    $aclRule4 = [PSCustomObject]@{
         Type = 'ACL'
         Action = 'Allow'
         Direction = 'Out'
@@ -232,6 +242,11 @@ function Set-AzureCNIConfig
     $jsonContent = [PSCustomObject]@{
         Name = 'EndpointPolicy'
         Value = $aclRule3
+    }
+    $configJson.plugins[0].AdditionalArgs += $jsonContent
+    $jsonContent = [PSCustomObject]@{
+        Name = 'EndpointPolicy'
+        Value = $aclRule4
     }
     $configJson.plugins[0].AdditionalArgs += $jsonContent
 
