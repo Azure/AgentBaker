@@ -45,7 +45,7 @@
       "customType": "regex",
       "fileMatch": ["parts/linux/cloud-init/artifacts/test_components.json"],
       "matchStrings": [
-        "\"name\":\\s*\"(?<packageName>[^\"]+)\"[^}]*\"current\"[^}]*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
+        "\"name\":\\s*\"(?<packageName>containerd)\"[^}]*\"current\"[^}]*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "versioningTemplate": "semver",
       "datasourceTemplate": "custom.containerd"
@@ -57,7 +57,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"name\":\\s*\"(?<packageName>containerd)\"[^}]*\"r2004\"[^}]*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
+        "\"name\":\\s*\"(?<packageName>moby-runc)\"[^}]*\"r2004\"[^}]*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "datasourceTemplate": "custom.moby-runc",
       "versioningTemplate": "semver"
