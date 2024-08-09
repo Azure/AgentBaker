@@ -75,7 +75,7 @@
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/jammy/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": [{\"version\": \"1.7.21\"},{\"version\": \"1.1.14\"},{\"version\": \"1.1.4+azure-ubuntu22.04u5\"}]}"
+        "{\"releases\":$map($match($, /Package:\\s*moby-containerd\\s*Version:\\s*([^\\s]+)/g), function($v) {\"version\": $v.groups[0]})}"
       ]
     },
     "k3s": {
