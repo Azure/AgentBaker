@@ -43,6 +43,15 @@
     },
     {
       "customType": "regex",
+      "fileMatch": ["parts/linux/cloud-init/artifacts/test_components.json"],
+      "matchStrings": [
+        "\"name\":\\s*\"(?<packageName>[^\"]+)\"[^}]*\"current\"[^}]*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "versioningTemplate": "semver",
+      "datasourceTemplate": "custom.containerd"
+    },
+    {
+      "customType": "regex",
       "fileMatch": [
         "parts/linux/cloud-init/artifacts/test_components.json"
       ],
@@ -50,16 +59,23 @@
       "matchStrings": [
         "\"name\":\\s*\"(?<packageName>[^\"]+)\"[^}]*\"r2004\"[^}]*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
-      "datasourceTemplate": "custom.mobyrunc",
+      "datasourceTemplate": "custom.moby-runc",
       "versioningTemplate": "semver"
     }
   ],
   "customDatasources": {
-    "mobyrunc": {
+    "moby-runc": {
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/jammy/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
         "{\"releases\": [{\"version\": \"1.1.13\"},{\"version\": \"1.1.14\"},{\"version\": \"1.1.4+azure-ubuntu22.04u5\"}]}"
+      ]
+    },
+    "containerd": {
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/jammy/main/binary-amd64/Packages",
+      "format": "plain",
+      "transformTemplates": [
+        "{\"releases\": [{\"version\": \"1.7.21\"},{\"version\": \"1.1.14\"},{\"version\": \"1.1.4+azure-ubuntu22.04u5\"}]}"
       ]
     },
     "k3s": {

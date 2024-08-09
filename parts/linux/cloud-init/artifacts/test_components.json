@@ -40,7 +40,7 @@
       }
     },
     {
-      "name": "mobyrunc",
+      "name": "moby-runc",
       "downloadLocation": "/opt/runc/downloads",
       "downloadURIs": {
         "ubuntu": {
