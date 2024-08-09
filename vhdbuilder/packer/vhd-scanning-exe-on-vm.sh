@@ -5,8 +5,8 @@ OS_SKU=$1
 OS_VERSION=$2
 TEST_VM_ADMIN_USERNAME=$3
 ARCHITECTURE=$4
-TRIVY_REPORT_NAME=$5
-TRIVY_TABLE_NAME=$6
+BUILD_ID=$5
+TIMESTAMP=$6
 SIG_CONTAINER_NAME=$7
 STORAGE_ACCOUNT_NAME=$8
 ENABLE_TRUSTED_LAUNCH=$9
@@ -45,14 +45,19 @@ else
 fi
 
 # trivy scan must have run before this
-az storage blob upload --file /opt/azure/containers/trivy-report.json \
+az storage blob upload --file /opt/azure/containers/trivy-report-rootfs.json \
     --container-name ${SIG_CONTAINER_NAME} \
-    --name ${TRIVY_REPORT_NAME} \
+    --name trivy-report-rootfs-${BUILD_ID}-${TIMESTAMP}.json \
     --account-name ${STORAGE_ACCOUNT_NAME} \
     --auth-mode login
 
-az storage blob upload --file /opt/azure/containers/trivy-images-table.txt \
-    --container-name ${SIG_CONTAINER_NAME} \
-    --name ${TRIVY_TABLE_NAME} \
-    --account-name ${STORAGE_ACCOUNT_NAME} \
-    --auth-mode login
+IMAGE_REPORT_LIST=$(find -- /opt/azure/containers -name '*trivy-report-image*.json' -type f)
+
+for IMAGE_REPORT in ${IMAGE_REPORT_LIST}; do
+    IMAGE_REPORT_PREFIX=$(basename ${IMAGE_REPORT} .json)
+    az storage blob upload --file ${IMAGE_REPORT} \
+        --container-name ${SIG_CONTAINER_NAME} \
+        --name ${IMAGE_REPORT_PREFIX}-${BUILD_ID}-${TIMESTAMP}.json \
+        --account-name ${STORAGE_ACCOUNT_NAME} \
+        --auth-mode login
+done
