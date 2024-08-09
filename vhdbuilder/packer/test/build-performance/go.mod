@@ -5,7 +5,6 @@ go 1.22.2
 require (
 	github.com/Azure/azure-kusto-go/azkustodata v1.0.0-preview-3
 	github.com/Azure/azure-kusto-go/azkustoingest v1.0.0-preview-3
-	golang.org/x/tools v0.24.0
 )
 
 require (
