@@ -39,9 +39,8 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"name\":\\s*\"runc\".*?\"r2004\".*?\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\\\"]+)\""
+        "\"name\":\\s*\"(?<packageName>[^\"]+)\".*?\"r2004\".*?\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
-      "depNameTemplate": "runc",
       "datasourceTemplate": "custom.runc",
       "versioningTemplate": "loose"
     }
