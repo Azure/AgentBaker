@@ -441,7 +441,8 @@
             ]
           }
         }
-      }
+      },
+      "excludeFeatureFlags": "kata"
     },
     {
       "name": "cni-plugins",
