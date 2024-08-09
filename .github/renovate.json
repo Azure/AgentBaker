@@ -57,7 +57,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"name\":\\s*\"(?<packageName>[^\"]+)\"[^}]*\"r2004\"[^}]*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
+        "\"name\":\\s*\"(?<packageName>containerd)\"[^}]*\"r2004\"[^}]*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "datasourceTemplate": "custom.moby-runc",
       "versioningTemplate": "semver"
