@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-components=$(jq .ContainerImages[] --monochrome-output --compact-output < vhdbuilder/packer/components.json)
+components=$(jq .ContainerImages[] --monochrome-output --compact-output < parts/linux/cloud-init/artifacts/components.json)
 for component in ${components[*]}; do
 	downloadURL=$(echo ${component} | jq .downloadURL)
 	downloadURL=$(echo ${downloadURL//\*/} | jq 'sub(".com/" ; ".com/v2/") | sub(":" ; "/tags/list")' -r)

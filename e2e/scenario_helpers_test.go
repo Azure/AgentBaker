@@ -144,7 +144,7 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 func getExpectedPackageVersions(packageName, distro, release string) []string {
 	var expectedVersions []string
 	// since we control this json, we assume its going to be properly formatted here
-	jsonBytes, _ := os.ReadFile("../vhdbuilder/packer/components.json")
+	jsonBytes, _ := os.ReadFile("../parts/linux/cloud-init/artifacts/components.json")
 	packages := gjson.GetBytes(jsonBytes, fmt.Sprintf("Packages.#(name=%s).downloadURIs", packageName))
 
 	for _, packageItem := range packages.Array() {
