@@ -461,8 +461,6 @@ capture_benchmark() {
   # reset timers for next section
   section_start_stopwatch=$(date +%s)
   section_start_timestamp=$(date +%H:%M:%S)
-
-  set -x
 }
 
 process_benchmarks() {
@@ -490,15 +488,10 @@ process_benchmarks() {
     
     unset section_name[@]
     unset -n section_name
-
   done
-
-  echo "Benchmarks:"
-  echo "$script_object" | jq -C .
  
   jq ". += [$script_object]" ${VHD_BUILD_PERF_DATA} > tmp.json && mv tmp.json ${VHD_BUILD_PERF_DATA}
   chmod 755 ${VHD_BUILD_PERF_DATA}
-  set -x
 }
 
 #return proper release metadata for the package based on the os and osVersion
