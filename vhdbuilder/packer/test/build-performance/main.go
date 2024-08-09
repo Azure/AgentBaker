@@ -42,6 +42,8 @@ func main() {
 		azkustoingest.IngestionMappingRef("buildPerfMapping", azkustoingest.JSON))
 
 	if err != nil {
+		cancel()
+		ingestionClient.Close()
 		log.Fatalf("Failed to ingest build performance data.")
 	}
 
