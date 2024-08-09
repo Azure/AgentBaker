@@ -35,8 +35,7 @@
     {
       "customType": "regex",
       "fileMatch": ["parts/linux/cloud-init/artifacts/test_components.json"],
-      "matchStrings": ["(?<currentValue>\\S+)"],
-      "depNameTemplate": "k3s",
+      "matchStrings": ["\"name\":\\s*\"(?<packageName>[^\"]+)\".*?\"current\".*?\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""],
       "versioningTemplate": "semver-coerced",
       "datasourceTemplate": "custom.k3s"
     },
