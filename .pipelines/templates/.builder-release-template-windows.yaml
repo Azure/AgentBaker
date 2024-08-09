@@ -146,6 +146,7 @@ steps:
       -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
       -e TEST_VM_RESOURCE_GROUP_NAME=${TEST_VM_RESOURCE_GROUP_NAME} \
       -e ARCHITECTURE=${ARCHITECTURE} \
+      -e GIT_BRANCH=$(Build.SourceBranch) \
       ${AZURE_CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD cache test
 

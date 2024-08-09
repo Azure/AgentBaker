@@ -1,14 +1,29 @@
 #!/bin/bash
-set -eux
+set -eu
+
+if [[ -z "$SIG_GALLERY_NAME" ]]; then
+    SIG_GALLERY_NAME="PackerSigGalleryEastUS"
+fi
+# Check to ensure the build step succeeded
+SIG_VERSION=$(az sig image-version show -e ${CAPTURED_SIG_VERSION} -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --query id --output tsv || true)
+if [ -z "${SIG_VERSION}" ]; then
+    echo -e "Build step did not produce an image version. Exiting $(basename $0) with exit code 0...\n\n\n"
+    exit 0
+elif [ "$OS_VERSION" == "18.04" ]; then
+    # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
+    echo -e "Skipping scanning for 18.04\n\n\n"
+    exit 0
+fi
+set -x
 
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
 EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
-TEST_RESOURCE_PREFIX="vhd-scanning"
-VM_NAME="$TEST_RESOURCE_PREFIX-vm-$(date +%s)-$RANDOM"
+SCAN_RESOURCE_PREFIX="vhd-scanning"
+SCAN_VM_NAME="$SCAN_RESOURCE_PREFIX-vm-$(date +%s)-$RANDOM"
 VHD_IMAGE="$MANAGED_SIG_ID"
 
 SIG_CONTAINER_NAME="vhd-scans"
-TEST_VM_ADMIN_USERNAME="azureuser"
+SCAN_VM_ADMIN_USERNAME="azureuser"
 
 # we must create VMs in a vnet which has access to the storage account, otherwise they will not be able to access the VHD blobs
 VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
@@ -37,18 +52,11 @@ else
 fi
 
 set +x
-TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
+SCAN_VM_ADMIN_PASSWORD="ScanVM@$(date +%s)"
 set -x
 
-
-RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
-az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags 'source=AgentBaker'
-
-# 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
-if [ "$OS_VERSION" == "18.04" ]; then
-    echo "Skipping scanning for 18.04"
-    exit 0
-fi
+RESOURCE_GROUP_NAME="$SCAN_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
+az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags "source=AgentBaker" "branch=${GIT_BRANCH}"
 
 function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
@@ -61,10 +69,9 @@ function cleanup() {
 }
 trap cleanup EXIT
 
+VM_OPTIONS="--size Standard_D8ds_v5"
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-    VM_OPTIONS="--size Standard_D2pds_V5"
-else
-    VM_OPTIONS="--size Standard_D2ds_v5"
+    VM_OPTIONS="--size Standard_D8pds_v5"
 fi
 
 if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
@@ -72,17 +79,17 @@ if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
 fi
 
 az vm create --resource-group $RESOURCE_GROUP_NAME \
-    --name $VM_NAME \
+    --name $SCAN_VM_NAME \
     --image $VHD_IMAGE \
     --vnet-name $VNET_NAME \
     --subnet $SUBNET_NAME \
-    --admin-username $TEST_VM_ADMIN_USERNAME \
-    --admin-password $TEST_VM_ADMIN_PASSWORD \
+    --admin-username $SCAN_VM_ADMIN_USERNAME \
+    --admin-password $SCAN_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
     --assign-identity "[system]"
 
-VM_PRINCIPLE_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
+VM_PRINCIPLE_ID=$(az vm identity show --name $SCAN_VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
 az role assignment create --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}"
 
 FULL_PATH=$(realpath $0)
@@ -90,7 +97,7 @@ CDIR=$(dirname $FULL_PATH)
 TRIVY_SCRIPT_PATH="$CDIR/$TRIVY_SCRIPT_PATH"
 az vm run-command invoke \
     --command-id RunShellScript \
-    --name $VM_NAME \
+    --name $SCAN_VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts @$TRIVY_SCRIPT_PATH
 
@@ -101,12 +108,12 @@ TRIVY_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
 EXE_SCRIPT_PATH="$CDIR/$EXE_SCRIPT_PATH"
 az vm run-command invoke \
     --command-id RunShellScript \
-    --name $VM_NAME \
+    --name $SCAN_VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
     --scripts @$EXE_SCRIPT_PATH \
     --parameters "OS_SKU=${OS_SKU}" \
         "OS_VERSION=${OS_VERSION}" \
-        "TEST_VM_ADMIN_USERNAME=${TEST_VM_ADMIN_USERNAME}" \
+        "SCAN_VM_ADMIN_USERNAME=${SCAN_VM_ADMIN_USERNAME}" \
         "ARCHITECTURE=${ARCHITECTURE}" \
         "TRIVY_REPORT_NAME=${TRIVY_REPORT_NAME}" \
         "TRIVY_TABLE_NAME=${TRIVY_TABLE_NAME}" \
@@ -120,3 +127,5 @@ az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_
 
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_TABLE_NAME} --auth-mode login
+
+echo -e "Trivy Scan Script Completed\n\n\n"
