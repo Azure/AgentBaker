@@ -159,7 +159,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.2-1",
+        "v1.4.4-1",
         "v1.4.3",
         "v1.4.3-2"
       ]
