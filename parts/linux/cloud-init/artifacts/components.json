@@ -23,5 +23,39 @@
         "cuda-550.90.07-sha-b40b85"
       ]
     }
-    ]
+    ],
+  "Packages": [
+    {
+      "name": "containerd",
+      "type": "OCI |Tar|tgz|custom",
+      "downloadLocation": "/opt/containerd/downloads",
+      "downloadURIs": {
+        "ubuntu": {
+          "current": {
+            "versions": [
+              "1.7.20"
+            ]
+          },
+          "r1804": {
+            "versions": [
+              "1.7.1-1"
+            ]
+          }
+        },
+        "mariner": {
+          "current": {
+            "versions": [
+              "1.6.26-5.cm2"
+            ]
+          }
+        },
+        "default": {
+          "current": {
+            "versions": [
+              "1.7.20"
+            ]
+          }
+        }
+      }
+    },
 }
